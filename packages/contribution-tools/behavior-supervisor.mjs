@@ -17,6 +17,7 @@ import { DEVICE_REPOSITORY, DEVICE_ENTRY, verifyDeviceLaunchClosure } from './ag
 import { consumerHostTuple } from './consumer-host-tuples.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { DIRECTORY_REPOSITORY, directoryBuildCases, checkDirectoryBuildArchive } from './directory-build-fixture.mjs';
+import { directoryHtmlDependencyIdentity } from './directory-html-dependencies.mjs';
 
 // Member mode retains its cached local image identities; consumer mode uses the
 // separately provisioned public recipe. Neither is operator trust approval.
@@ -158,16 +159,20 @@ export async function validateBehaviorDependencyCache(source) {
   }
   await inspect(root); return { root, sha256: sha256(JSON.stringify(records)), files: count };
 }
-export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node' } = {}) {
+export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node', directoryHtml = false } = {}) {
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
     'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/consumer-behavior-target.mjs',
     'packages/contribution-tools/consumer-behavior-fixture.mjs', 'packages/contribution-tools/consumer-runtime-recipe.mjs',
     ...['agent-kit-device-fixture', 'agent-kit-device-profile', 'agent-kit-device-preload', 'agent-kit-device-target', 'consumer-host-tuples'].map(name => `packages/contribution-tools/${name}.mjs`),
     'packages/contribution-tools/directory-build-fixture.mjs', 'packages/contribution-tools/directory-build-archive.py',
+    'packages/contribution-tools/directory-html-dependencies.mjs',
     'packages/contribution-tools/directory-reference/index.mjs', 'packages/contribution-tools/directory-reference/privacy.mjs',
     'contracts/preview/v1/protocol.mjs',
     'packages/contribution-tools/github-behavior-host.mjs',
     'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
+  const directoryParser = directoryHtml ? await directoryHtmlDependencyIdentity() : null;
+  if (directoryHtml) paths.push('packages/contribution-tools/directory-html-profile.mjs', 'packages/contribution-tools/directory-html-host/package.json',
+    'packages/contribution-tools/directory-html-host/package-lock.json');
   for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
   const files = [];
   for (const path of paths.sort()) files.push([path, sha256(await readFile(join(ROOT, path)))]);
@@ -177,7 +182,8 @@ export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/n
     '/usr/lib/x86_64-linux-gnu/libc.so.6', '/usr/lib64/ld-linux-x86-64.so.2']) runtimeFiles.push([path, sha256(await readFile(path))]);
   return { supervisor_sha256: sha256(JSON.stringify(files)), harness_sha256: await installedBehaviorHarnessDigest(),
     node_runtime_sha256: sha256(JSON.stringify(runtimeFiles)), node_version: process.version,
-    runtime_coverage: 'node-and-listed-linked-libraries-only', host_os_approval: 'unverified' };
+    runtime_coverage: 'node-and-listed-linked-libraries-only', host_os_approval: 'unverified',
+    ...(directoryHtml ? { directory_html_parser: directoryParser } : {}) };
 }
 export function decodeBehaviorResponseFrame(bytes, expectedId) {
   const value = parseJson(bytes, { maxBytes: LIMITS.frameBytes, maxDepth: 4, maxNodes: 512 });
@@ -537,13 +543,13 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
   const started = Date.now();
   const deadline = () => { if (Date.now() - started > LIMITS.wallMs) fail('supervisor_deadline'); };
   const report = (reason, extra = {}) => (outcome = { format: 'freedom.isolated-directory-build/v1',
-    repository, assurance_level: 'local', status: 'unavailable', reason,
+    repository, assurance_level: 'local', status: 'unavailable', reason, semantic_profile: 'freedom.directory-html/v2',
     source_integrity: 'not_checked', runtime_observation: 'not_checked', library_usage: 'not_checked',
     gate_enforced: false, merge_authorized: false, execution_authorized: false, publisher_trust: 'unverified',
     entry: 'scripts/build.mjs', check: { status: 'failed' }, cases, ...extra });
   try {
     const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
-    const installation = await installedSupervisorIdentity({ nodeExecutable });
+    const installation = await installedSupervisorIdentity({ nodeExecutable, directoryHtml: true });
     directory = await mkdtemp(join(tmpdir(), 'fp-directory-build-'));
     const candidate = join(directory, 'candidate'); await mkdir(candidate);
     phase = 'snapshot';
@@ -594,8 +600,8 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       if (!frozen.Running || !frozen.Paused) fail('supervisor_container_changed');
       phase = 'readback';
       const tar = command('/usr/bin/docker', ['cp', id + ':/work', '-'], { maxBuffer: 8 * 1024 * 1024 });
-      const archive = JSON.parse(command('/usr/bin/python3', ['-I', fileURLToPath(new URL('./directory-build-archive.py', import.meta.url))],
-        { input: tar, maxBuffer: 256 * 1024 }));
+      const archive = JSON.parse(command('/usr/bin/python3', ['-I', fileURLToPath(new URL('./directory-build-archive.py', import.meta.url)), '--html'],
+        { input: tar, maxBuffer: 6 * 1024 * 1024 }));
       docker(['rm', '-f', '-v', id]); owned.splice(owned.indexOf(item), 1);
       docker(['volume', 'rm', volume]); volumes.splice(volumes.indexOf(volume), 1);
       await checkSnapshot(candidate, snapshot.records);
@@ -610,7 +616,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
     }
     deadline();
     if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())
-      || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable })))
+      || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable, directoryHtml: true })))
       fail('supervisor_installation_changed');
     const passed = cases.length === scenarios.length && cases.every(value => value.status === 'passed');
     return report(passed ? 'isolated_directory_build_observed_only' : 'directory_behavior_mismatch', {
@@ -620,7 +626,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
     });
   } catch (error) {
-    return report(safeCodes.has(error.message) || ['directory_snapshot_limit', 'directory_build_unavailable',
+    return report(safeCodes.has(error.message) || ['directory_snapshot_limit', 'directory_build_unavailable', 'directory_html_unavailable', 'directory_parser_dependency_invalid',
       'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch',
       'consumer_runtime_platform_mismatch'].includes(error.message) ? error.message : 'directory_supervisor_failed', { phase });
   } finally {
