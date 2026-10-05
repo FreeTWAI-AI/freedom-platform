@@ -34,15 +34,27 @@ async function authenticateShop(q:PoolClient,authorization:string|undefined){
  const user=await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) FOR SHARE',[owner.owner_id,owner.community_id]);
  requireCondition(user.rowCount===1,401,'shop_key_invalid','商店連線已失效。');
  const shop=(await q.query(`SELECT s.* FROM commerce_shop_keys k JOIN commerce_shops s USING(shop_id)
-  WHERE k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>now() FOR SHARE OF k`,[hash])).rows[0];
- requireCondition(shop,401,'shop_key_invalid','商店連線已失效。');return shop;
+  WHERE k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() FOR SHARE OF k`,[hash])).rows[0];
+ requireCondition(shop,401,'shop_key_invalid','商店連線已失效。');return {shop,hash};
+}
+async function requireCurrentShopKey(q:PoolClient,shopId:string,hash:string){
+ // The authentication share lock prevents rotation/revocation until commit,
+ // but neither that lock nor transaction-start now() prevents time expiry.
+ const current=await q.query(`SELECT 1 FROM commerce_shop_keys WHERE shop_id=$1 AND token_hash=$2
+  AND revoked_at IS NULL AND expires_at>clock_timestamp()`,[shopId,hash]);
+ requireCondition(current.rowCount===1,401,'shop_key_invalid','商店連線已失效。');
 }
 async function lockCommunity(q:PoolClient,community:string){await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce-orders/${community}`]);}
 export async function machine<T>(pool:Pool,authorization:string|undefined,run:(q:PoolClient,shop:any)=>Promise<T>){
- return transaction(pool,async q=>{const shop=await authenticateShop(q,authorization);await lockCommunity(q,shop.community_id);
+ return transaction(pool,async q=>{const {shop,hash}=await authenticateShop(q,authorization);await lockCommunity(q,shop.community_id);
   // Authentication may wait behind a pause. Re-read mutable state after acquiring the shared ordering lock.
   const current=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1',[shop.shop_id])).rows[0];
-  return run(q,current);});
+  await requireCurrentShopKey(q,shop.shop_id,hash);
+  const result=await run(q,current);
+  // Domain reads/writes and successful replay may also wait. A deadline passed
+  // during that work rejects the response and rolls back its database effects.
+  await requireCurrentShopKey(q,shop.shop_id,hash);
+  return result;});
 }
 async function release(q:PoolClient,orderId:string){
  await q.query(`UPDATE commerce_items i SET reserved=reserved-x.quantity FROM
