@@ -7,8 +7,8 @@ permissions:
   contents: read
 jobs:
   consumer-runtime:
-    # Candidate for a NEW native required workflow on ONLY the three adopted
-    # consumers. Canary on owned refs before installation; source55 stays intact.
+    # Installed on three adopted consumers. The additional directory build
+    # profile needs independent review and owned-ref canaries before installation.
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -40,7 +40,7 @@ jobs:
         run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/consumer-runtime-recipe.mjs" prepare
       - name: Verify Ubuntu host and fixed runtime identities
         run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/consumer-runtime-recipe.mjs" verify-hosted
-      - name: Compute source and isolated HTTP verdicts in the pinned host
+      - name: Compute source and isolated runtime verdicts in the pinned host
         env:
           FREEDOM_WORKFLOW_SHA: ${{ job.workflow_sha }}
           FREEDOM_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}

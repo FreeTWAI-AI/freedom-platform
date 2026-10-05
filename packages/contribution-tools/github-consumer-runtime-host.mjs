@@ -3,15 +3,33 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeConsumerSource } from './github-consumer-host.mjs';
-import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior } from './behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior, runIsolatedDirectoryBuild } from './behavior-supervisor.mjs';
+import { DIRECTORY_REPOSITORY, DIRECTORY_BUILD_CASES } from './directory-build-fixture.mjs';
 import { CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
 
 export async function verifyNativeConsumerRuntime(input) {
-  check(input && Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository), 'unsupported_consumer_runtime_profile');
+  check(input && (Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
+    || input.repository === DIRECTORY_REPOSITORY), 'unsupported_consumer_runtime_profile');
   const source = await verifyNativeConsumerSource(input);
   check(source.status === 'passed', 'consumer_source_not_passed');
+  if (input.repository === DIRECTORY_REPOSITORY) {
+    const runtime = await runIsolatedDirectoryBuild({ repository: input.repository,
+      candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit });
+    const passed = runtime?.check?.status === 'passed' && runtime.cleanup_verified === true
+      && runtime.runtime_observation === 'host_observed_build_files' && runtime.entry === 'scripts/build.mjs'
+      && runtime.check.test_count === DIRECTORY_BUILD_CASES.length && runtime.check.expected_test_count === DIRECTORY_BUILD_CASES.length
+      && runtime.candidate?.commit === source.candidate_commit && runtime.candidate?.tree === source.candidate_tree;
+    return { format: 'freedom.native-consumer-runtime/v1', status: passed ? 'passed' : 'failed',
+      repository: input.repository, candidate_commit: source.candidate_commit, candidate_tree: source.candidate_tree,
+      workflow_commit: input.expectedWorkflowCommit, source_commit: input.expectedSourceCommit,
+      source, runtime, cli_required: false, cli_runtime: null,
+      failure: passed ? null : { stage: 'build', kind: ['directory_behavior_mismatch', 'directory_data_invalid'].includes(runtime.reason)
+        ? 'behavior_mismatch' : 'unavailable' },
+      library_usage: 'not_checked', library_invocation: 'not_checked', server_authorization: 'not_checked',
+      gate_enforced: false, merge_authorized: false, execution_authorized: false };
+  }
   const runtime = await runIsolatedConsumerBehavior({ repository: input.repository,
     candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit });
   const observed = (value, entry, count) => value?.check?.status === 'passed' && value.cleanup_verified === true
