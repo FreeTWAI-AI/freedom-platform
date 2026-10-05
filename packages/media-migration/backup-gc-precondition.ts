@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
-/* GC precondition for the CURRENT daily method: pg_dump first, then copy the
- * then-current immutable R2 objects (a post-dump superset). That archive is
+/* GC precondition for legacy operator paths that pg_dump first, then copy the
+ * then-current immutable R2 objects (a post-dump superset). Such an archive is
  * restorable only if no object referenced by the dump could have been deleted
  * between the dump and the end of the copy. Deletion requires a permanent
  * tombstone, which the database only admits while maintenance GC is enabled.
@@ -9,8 +9,10 @@ import type { Pool, PoolClient } from 'pg';
  * tombstone set did not change. This read-only check observes; it never
  * enables/disables GC, releases pins or deletes anything.
  *
- * The same-exported-snapshot coordinator path does not need GC OFF: its pins
- * protect the captured set. This guard is for the superset path only. */
+ * The daily runner now uses the same-exported-snapshot coordinator. Its
+ * explicit snapshot-pins mode checks the exact persistent capture instead;
+ * the default disabled mode retains this conservative window check. This
+ * assessor describes the superset guard, not the global daily architecture. */
 
 export interface MediaGcObservation {
   readonly observedAt: string;
