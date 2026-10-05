@@ -67,7 +67,8 @@ async function cli() {
   await inspectConsumerRuntime({ hosted: true });
   return verifyNativeConsumerRuntime({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
     candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: process.env.FREEDOM_LIBRARY_SOURCE_SHA,
-    expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA });
+    expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA,
+    ...(process.env.FREEDOM_LIBRARY_PROFILE === undefined ? {} : { expectedLibraryProfile: process.env.FREEDOM_LIBRARY_PROFILE }) });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { const result = await cli(); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1; }

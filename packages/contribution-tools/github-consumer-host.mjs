@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath, lstat } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONSUMER_LIBRARIES, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from './consumer-libraries.mjs';
+import { CONSUMER_LIBRARIES, consumerLibraryProfile, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from './consumer-libraries.mjs';
 import { CONSUMER_SOURCE_PROFILES, verifyConsumerSourceProfile } from './consumer-source-profiles.mjs';
 import { verifyConsumerEntryCoverage } from './consumer-entry-coverage.mjs';
 import { artifactPath, parseJson, sha256 } from './io.mjs';
@@ -48,11 +48,14 @@ function read(root, files, path) {
 }
 export async function verifyNativeConsumerSource(input) {
   const keys = ['repository', 'candidateRoot', 'candidateCommit', 'sourceRoot', 'expectedSourceCommit', 'expectedWorkflowCommit'];
-  check(input && Object.keys(input).length === keys.length && keys.every(key => Object.hasOwn(input, key)), 'consumer_host_input_invalid');
+  check(input && keys.every(key => Object.hasOwn(input, key))
+    && Object.keys(input).every(key => keys.includes(key) || key === 'expectedLibraryProfile'), 'consumer_host_input_invalid');
   const config = structuredClone(input);
   const profile = CONSUMER_SOURCE_PROFILES[config.repository];
   check((CONSUMERS.includes(config.repository) && Object.hasOwn(CONSUMER_LIBRARIES, config.repository))
     || Object.hasOwn(CONSUMER_SOURCE_PROFILES, config.repository), 'unsupported_library_consumer');
+  check(!profile || !Object.hasOwn(config, 'expectedLibraryProfile'), 'unsupported_library_profile');
+  const libraryProfile = profile ? null : consumerLibraryProfile(config.repository, config.expectedLibraryProfile);
   for (const key of ['candidateCommit', 'expectedSourceCommit', 'expectedWorkflowCommit']) commit(config[key]);
   const candidate = await objectRoot(config.candidateRoot), source = await objectRoot(config.sourceRoot);
   const rel = relative(candidate, source);
@@ -73,7 +76,7 @@ export async function verifyNativeConsumerSource(input) {
   if (profile) {
     selectedPaths = [...new Set([...profile.required_paths, ...paths])];
   } else {
-    const fixedLibraries = CONSUMER_LIBRARIES[config.repository].map(path => LIBRARY_PREFIX + path);
+    const fixedLibraries = libraryProfile.paths.map(path => LIBRARY_PREFIX + path);
     const actualLibraries = [...candidateFiles.keys()].filter(path => path.startsWith(LIBRARY_PREFIX)).sort();
     check(JSON.stringify(actualLibraries) === JSON.stringify([...fixedLibraries].sort()), 'consumer_library_file_set_mismatch');
     selectedPaths = [LIBRARY_LOCK, ...fixedLibraries];
@@ -90,7 +93,8 @@ export async function verifyNativeConsumerSource(input) {
       ? await verifyConsumerSourceProfile({ repository: config.repository, repositoryRoot: snapshot,
         readBaseline: path => read(candidate, baselineFiles, path),
         readCanonical: path => read(source, canonicalFiles, path) })
-      : await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit, sourceRoot: source });
+      : await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit,
+        expectedLibraryProfile: libraryProfile.id, sourceRoot: source });
     check(!profile || verified.status === 'passed', 'consumer_profile_not_passed');
     const entryCoverage = await verifyConsumerEntryCoverage({ candidateFiles, baselineFiles,
       readCandidate: path => read(candidate, candidateFiles, path),
@@ -102,7 +106,7 @@ export async function verifyNativeConsumerSource(input) {
       verification: verified.verification, preview: verified.preview ?? 'unchanged-from-approved-baseline',
       entry_coverage: entryCoverage,
       source_profile: profile ? verified.profile : 'adopted-shared-libraries',
-      ...(profile ? { profile_result: verified } : {}),
+      ...(profile ? { profile_result: verified } : { library_profile: libraryProfile.id }),
       library_usage: 'not_checked', runtime_observation: 'not_checked', evidence };
   } finally { await rm(snapshot, { recursive: true, force: true }); }
 }
@@ -114,7 +118,8 @@ async function cli() {
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-libraries.yml', 'host_workflow_identity_mismatch');
   return verifyNativeConsumerSource({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
     candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: process.env.FREEDOM_LIBRARY_SOURCE_SHA,
-    expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA });
+    expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA,
+    ...(process.env.FREEDOM_LIBRARY_PROFILE === undefined ? {} : { expectedLibraryProfile: process.env.FREEDOM_LIBRARY_PROFILE }) });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { console.log(JSON.stringify(await cli())); }

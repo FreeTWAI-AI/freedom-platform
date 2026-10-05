@@ -7,11 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { fixtureRoot, put, pretty } from './fixtures.mjs';
 import { verificationEnvironment } from '../process-env.mjs';
 import { sha256 } from '../io.mjs';
-import { CONSUMER_LIBRARIES, LIBRARY_PREFIX } from '../consumer-libraries.mjs';
+import { CONSUMER_LIBRARIES, LEGACY_LIBRARY_PROFILE, AGENT_KIT_DEVICE_LIBRARY_PROFILE, consumerLibraryProfile, LIBRARY_PREFIX } from '../consumer-libraries.mjs';
 import { verifyNativeConsumerSource } from '../github-consumer-host.mjs';
+import { verifyNativeConsumerRuntime } from '../github-consumer-runtime-host.mjs';
 function git(root, args) { return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, env: verificationEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim(); }
 function commit(root) { git(root, ['add', '.']); git(root, ['-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic']); return git(root, ['rev-parse', 'HEAD']); }
-async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit') {
+async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit', expectedLibraryProfile) {
   const candidateRoot = await fixtureRoot(t), sourceRoot = await fixtureRoot(t);
   for (const root of [candidateRoot, sourceRoot]) git(root, ['-c', 'init.templateDir=', 'init', '-q']);
   await put(candidateRoot, 'contracts.lock.json', '{"preview":"synthetic baseline"}');
@@ -22,18 +23,21 @@ async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit') {
   const baseline = commit(candidateRoot);
   await put(sourceRoot, 'repositories.lock.json', pretty({ format: 'freedom.repository-set/v1', repositories: [{ repository, commit: baseline }] }));
   const files = [];
-  for (const source_path of CONSUMER_LIBRARIES[repository]) {
+  const profile = consumerLibraryProfile(repository, expectedLibraryProfile);
+  for (const source_path of profile.paths) {
     const bytes = Buffer.from('throw Error("LIBRARY_MUST_NOT_EXECUTE_IN_HOST");');
     await put(sourceRoot, source_path, bytes); await put(candidateRoot, LIBRARY_PREFIX + source_path, bytes);
     files.push({ source_path, path: LIBRARY_PREFIX + source_path, bytes: bytes.length, sha256: sha256(bytes) });
   }
   const expectedSourceCommit = commit(sourceRoot);
-  const lock = { format: 'freedom.consumer-libraries/v1', source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: expectedSourceCommit, repository, files };
+  const lock = { format: profile.format, ...(profile.id === LEGACY_LIBRARY_PROFILE ? {} : { profile: profile.id }),
+    source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: expectedSourceCommit, repository, files };
   await put(candidateRoot, 'consumer-libraries.lock.json', pretty(lock));
   await put(candidateRoot, 'scripts/verify-consumer-libraries.mjs', 'throw Error("CANDIDATE_VERIFIER_EXECUTED")');
   await put(candidateRoot, '.github/workflows/verify.yml', 'run: echo success');
   const candidateCommit = commit(candidateRoot);
-  return { input: { repository, candidateRoot, sourceRoot, expectedSourceCommit, expectedWorkflowCommit: expectedSourceCommit, candidateCommit }, lock, baseline };
+  return { input: { repository, candidateRoot, sourceRoot, expectedSourceCommit, expectedWorkflowCommit: expectedSourceCommit, candidateCommit,
+    ...(expectedLibraryProfile === undefined ? {} : { expectedLibraryProfile }) }, lock, baseline };
 }
 for (const repository of Object.keys(CONSUMER_LIBRARIES)) test(`native source gate verifies committed ${repository} bytes without executing candidate`, async t => {
   const { input, baseline } = await fixture(t, repository);
@@ -129,4 +133,60 @@ test('ordinary source and descriptive package edits pass without claiming runtim
   assert.equal(result.entry_coverage.runtime_entry_discovery, 'not_checked');
   assert.equal(result.entry_coverage.library_invocation, 'not_checked');
   assert.equal(result.entry_coverage.candidate_code_executed, false);
+});
+
+test('host-selected new profile verifies immutable canonical artifacts without claiming invocation', async t => {
+  const { input } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  const result = await verifyNativeConsumerSource(input);
+  assert.equal(result.status, 'passed');
+  assert.equal(result.library_profile, AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  assert.equal(result.library_usage, 'not_checked');
+  assert.equal(result.entry_coverage.library_invocation, 'not_checked');
+  assert.equal(result.entry_coverage.candidate_code_executed, false);
+  assert.equal(result.evidence.length, 3);
+  // Source selection is a prerequisite for runtime too; this mismatch must stop
+  // before invoking a container and cannot be repaired by the candidate lock.
+  const defaultHost = { ...input }; delete defaultHost.expectedLibraryProfile;
+  await assert.rejects(verifyNativeConsumerSource(defaultHost), { code: 'consumer_library_file_set_mismatch' });
+  await assert.rejects(verifyNativeConsumerRuntime(defaultHost), { code: 'consumer_library_file_set_mismatch' });
+  const old = await fixture(t);
+  await assert.rejects(verifyNativeConsumerSource({ ...old.input, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }), { code: 'consumer_library_file_set_mismatch' });
+  const other = await fixture(t, 'FreeTWAI-AI/freedom-storefront');
+  await assert.rejects(verifyNativeConsumerSource({ ...other.input, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }), { code: 'unsupported_library_profile' });
+});
+
+test('lock metadata, self-hashed new artifacts and alternate source cannot select host authority', async t => {
+  const { input, lock } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  await assert.rejects(verifyNativeConsumerSource({ ...input, expectedLibraryProfile: '../arbitrary-profile' }), { code: 'unsupported_library_profile' });
+  await assert.rejects(verifyNativeConsumerSource({ ...input, arbitraryFiles: lock.files }), { code: 'consumer_host_input_invalid' });
+  lock.profile = LEGACY_LIBRARY_PROFILE;
+  await put(input.candidateRoot, 'consumer-libraries.lock.json', pretty(lock)); input.candidateCommit = commit(input.candidateRoot);
+  await assert.rejects(verifyNativeConsumerSource(input), { code: 'library_profile_mismatch' });
+  lock.profile = AGENT_KIT_DEVICE_LIBRARY_PROFILE;
+  lock.source_commit = 'f'.repeat(40);
+  await put(input.candidateRoot, 'consumer-libraries.lock.json', pretty(lock)); input.candidateCommit = commit(input.candidateRoot);
+  await assert.rejects(verifyNativeConsumerSource(input), { code: 'library_source_mismatch' });
+  lock.source_commit = input.expectedSourceCommit;
+  const fake = Buffer.from('export const forgedDevice = true;');
+  await put(input.candidateRoot, lock.files[1].path, fake);
+  lock.files[1].sha256 = sha256(fake); lock.files[1].bytes = fake.length;
+  await put(input.candidateRoot, 'consumer-libraries.lock.json', pretty(lock)); input.candidateCommit = commit(input.candidateRoot);
+  await assert.rejects(verifyNativeConsumerSource(input), { code: 'library_source_bytes_mismatch' });
+  const old = await fixture(t); old.lock.profile = AGENT_KIT_DEVICE_LIBRARY_PROFILE;
+  await put(old.input.candidateRoot, 'consumer-libraries.lock.json', pretty(old.lock)); old.input.candidateCommit = commit(old.input.candidateRoot);
+  await assert.rejects(verifyNativeConsumerSource(old.input), { code: 'library_profile_mismatch' });
+});
+
+test('native source CLI requires an explicit profile from its trusted workflow configuration', async t => {
+  const { input } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  const script = fileURLToPath(new URL('../github-consumer-host.mjs', import.meta.url));
+  const env = { ...verificationEnvironment(), GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_REPOSITORY: input.repository,
+    GITHUB_SHA: input.candidateCommit, FREEDOM_LIBRARY_SOURCE_SHA: input.expectedSourceCommit, FREEDOM_WORKFLOW_SHA: input.expectedWorkflowCommit,
+    FREEDOM_WORKFLOW_REPOSITORY: 'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH: '.github/workflows/trusted-consumer-libraries.yml' };
+  const run = settings => spawnSync(process.execPath, [script, input.candidateRoot, input.sourceRoot], { env: settings, encoding: 'utf8' });
+  const good = run({ ...env, FREEDOM_LIBRARY_PROFILE: AGENT_KIT_DEVICE_LIBRARY_PROFILE });
+  assert.equal(good.status, 0, good.stdout + good.stderr);
+  assert.equal(JSON.parse(good.stdout).library_profile, AGENT_KIT_DEVICE_LIBRARY_PROFILE);
+  assert.equal(JSON.parse(run(env).stdout).code, 'consumer_library_file_set_mismatch');
+  assert.equal(JSON.parse(run({ ...env, FREEDOM_LIBRARY_PROFILE: '' }).stdout).code, 'unsupported_library_profile');
 });
