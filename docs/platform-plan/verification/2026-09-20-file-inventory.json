@@ -11544,8 +11544,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
-      "bytes": 4984,
-      "sha256": "c327801e10f75b15e5cf234b1bd1a9d14b344418c9f20683ce502f17883767e0"
+      "bytes": 4345,
+      "sha256": "1c53518967276aca0661f19aae4b7a719b5a8f2d08c9a759f9baffc3d2a98da6"
     },
     {
       "path": "deploy/cloudflare/lib/oci.mjs",
@@ -11666,6 +11666,11 @@
       "path": "deploy/cloudflare/test/media-wrangler.test.mjs",
       "bytes": 8935,
       "sha256": "3f89fa5dc225ccaff750a03300255e3c034f3cbda41b6e4523c6ed870fd54f6b"
+    },
+    {
+      "path": "deploy/cloudflare/test/migration-plan.test.mjs",
+      "bytes": 10958,
+      "sha256": "5d0f61b557b5e6e2dc0f2dbab1963f7a5f7efc6f2c722bc5d856cf8cdca122f0"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13668,6 +13673,11 @@
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/migration-planner-evidence-2026-10-05.json",
+      "bytes": 5796,
+      "sha256": "017a18b54b6665ea3acb1fdb3b29490ac03b8180271d54b4cdef0d9b4d649537"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
       "bytes": 20471,
       "sha256": "63de2985c45021db8983ad22506ed39cf2104d1adfb95aac9618fc10ceb76289"
@@ -13689,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 349006,
-      "sha256": "e1895f64eaaa10272b57d7f95bbca80bc46ed974df9402495d6179bcb1d23575"
+      "bytes": 350521,
+      "sha256": "fd4814db62a93da85eb31fe5d7bed3a2a14a7e001530561c96a83d97927dca10"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -15704,8 +15714,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor-fixture.mjs",
-      "bytes": 5916,
-      "sha256": "8a2c823b3237242cffdf0f20157808fdb03908cdb695a58d3e7c26935a485cba"
+      "bytes": 6295,
+      "sha256": "17eb63c6ae85485eb6aede382213b3752c86334489ab49aa7415e5021465792e"
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor-target.mjs",
@@ -15719,8 +15729,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 50312,
-      "sha256": "a9069fd28ea25264b66386ce8ab81c18406d8fa1815c61db24be740b8f1e262d"
+      "bytes": 50613,
+      "sha256": "6143175fc3feb6d6770b018722ae8dfc2232061609d1a3163155aa1cd2157e22"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -16139,8 +16149,8 @@
     },
     {
       "path": "packages/db/README.md",
-      "bytes": 11940,
-      "sha256": "acc6924d8f9f79f57dbff76f4d97827123d1b876bf1942f1c954fa026a5ac715"
+      "bytes": 12098,
+      "sha256": "647f2f1385bf1688e1a999f421a001ecb508ae911d71584a6f98a6e2bf84c73b"
     },
     {
       "path": "packages/db/command-core.ts",
@@ -16171,6 +16181,31 @@
       "path": "packages/db/member-session.ts",
       "bytes": 1817,
       "sha256": "dd9064fba0c4ab93554295bbf6610ef24bf2142bb4275281d69fc3ab0c338ceb"
+    },
+    {
+      "path": "packages/db/migration-files.d.mts",
+      "bytes": 137,
+      "sha256": "f814a799a45561a466c4e697164b1449ed95ca80a70324fd56bf8edd9e5cdc31"
+    },
+    {
+      "path": "packages/db/migration-files.mjs",
+      "bytes": 2059,
+      "sha256": "e90997ac4210ca7e48d8358d40dc5cb6bb7dfa57f71a9f83bf3ba3603a96dc3b"
+    },
+    {
+      "path": "packages/db/migration-plan.d.mts",
+      "bytes": 1650,
+      "sha256": "ae4bfa9f51401eec9ec1038646fb0b62f8350333084b2f3ce1bd0fda08dd1ae3"
+    },
+    {
+      "path": "packages/db/migration-plan.mjs",
+      "bytes": 10180,
+      "sha256": "a193ae38ca595b565fc2d2009f9512a0744ea96bf7f2df3c5d99bedbe8063784"
+    },
+    {
+      "path": "packages/db/migrations.md",
+      "bytes": 5718,
+      "sha256": "581207b26ce602655df9d3d13ce69fe3c8fd6b2ade26ce2016fdf788c7fe5983"
     },
     {
       "path": "packages/db/snapshot-evidence.ts",
@@ -16659,8 +16694,8 @@
     },
     {
       "path": "scripts/database.ts",
-      "bytes": 1823,
-      "sha256": "d9d860c7e0ae9aae2973fb2117acf2a07cea52904544bd69547c22807ec0ee64"
+      "bytes": 2302,
+      "sha256": "3a04771f6e08ae65b87141b9982994fb670f780657b3f2ca5f39acd798e5a983"
     },
     {
       "path": "scripts/e2e-server.ts",
@@ -17346,6 +17381,11 @@
       "path": "tests/integration/media-backup-restore.test.ts",
       "bytes": 25570,
       "sha256": "f1afb2f9fafdf00c2e89636ddf160e6493b4d225d09dc3f98f8127ff58efa8f5"
+    },
+    {
+      "path": "tests/integration/migration-plan-postgres.test.ts",
+      "bytes": 15280,
+      "sha256": "eaa71ec77545b1e35cf52650062989dce2c6f6fc09490d8cfc44e2d278fa6846"
     },
     {
       "path": "tests/integration/native-consumer-runtime.test.ts",
@@ -18096,6 +18136,11 @@
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
       "sha256": "ab3be71d326e20a0f1b4bd700fd1c18e7974db8362fc14a55d4dc5ef4b635b6b"
+    },
+    {
+      "path": "tests/runtime/migration-runner-plan.test.ts",
+      "bytes": 3558,
+      "sha256": "72329235952bdce40c67fb387cb2f0e7d2366c0b853fd7eaa53ac8dcc16334c8"
     },
     {
       "path": "tests/runtime/model-adapter-common.test.ts",

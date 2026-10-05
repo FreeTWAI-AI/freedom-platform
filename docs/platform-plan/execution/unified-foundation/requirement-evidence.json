@@ -484,6 +484,27 @@
         "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
         "Supports FC-02/03 closure work; no original row accepted or state advanced."
       ]
+    },
+    "migration-planner-7565": {
+      "id": "migration-planner-7565",
+      "kind": "local_candidate_execution",
+      "source_sha": "7565e1d643b91754cbc04a31dfd462773a8c147c",
+      "environment": "isolated owned PostgreSQL18.6 plus local Node; synthetic SQL DAG only",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/migration-planner-evidence-2026-10-05.json",
+        "packages/db/migrations.md"
+      ],
+      "observations": [
+        "Shared bounded planner preserves historical SQL digest and exact applied ledger; all three existing source paths use it.",
+        "Actual local SQL A→B, B→A and empty replay retain identical data/ledger; missing, altered and unknown applied entries reject.",
+        "Production DAG profile remains closed."
+      ],
+      "limitations": [
+        "current operator entrypoint installation/pin and shared runner integration",
+        "both real entrypoints replay synthetic DAGs",
+        "versioned release floor exact-set/dependency semantics and shape identities",
+        "actual private pipeline compatibility receipt before formal v2 naming"
+      ]
     }
   },
   "requirements": [
@@ -1546,15 +1567,23 @@
           "environment": "staging backup restored to isolated PostgreSQL 18; remote database unchanged",
           "covered_part": "Real isolated backup upgrade through115; no reverse-independent-migration or dual-runner acceptance.",
           "limitations_reference": "evidence_catalog.migration-115-rehearsal.limitations"
+        },
+        {
+          "evidence_id": "migration-planner-7565",
+          "source_sha": "7565e1d643b91754cbc04a31dfd462773a8c147c",
+          "environment": "isolated owned PostgreSQL18.6 plus local Node; synthetic SQL DAG only",
+          "covered_part": "Bounded DAG planner and existing source path integration with real isolated SQL reverse/empty replay.",
+          "limitations_reference": "evidence_catalog.migration-planner-7565.limitations"
         }
       ],
       "remaining": [
-        "Implement migration v2 dependency/unique-identity ordering while preserving every already-applied SQL filename and digest.",
-        "Run two independent new SQL migrations merged in reverse order and empty-database replay through both the public runner and actual authorized private helper.",
-        "Prove a lower-numbered unapplied migration is not skipped merely because manifest.last or a latest ID is higher."
+        "current operator entrypoint installation/pin and shared runner integration",
+        "both real entrypoints replay synthetic DAGs",
+        "versioned release floor exact-set/dependency semantics and shape identities",
+        "actual private pipeline compatibility receipt before formal v2 naming"
       ],
       "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "state_basis": "Partial real local SQL evidence; actual operator entrypoint installation and release-floor compatibility remain unverified."
     },
     {
       "id": "UF:INT-24",
