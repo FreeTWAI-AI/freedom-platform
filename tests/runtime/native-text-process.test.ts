@@ -58,7 +58,7 @@ before(async()=>{
 int main(int argc,char **argv){
  if(argc>2 && strcmp(argv[argc-2],"inspect")==0){
   if(MODE==1) puts("{\\\"profile\\\":\\\"synthetic.native-text.controls/v1\\\",\\\"tools\\\":[\\\"bash\\\"]}");
-  else puts(${JSON.stringify(controls)});return 0;
+  else {if(MODE==10)usleep(1200000);puts(${JSON.stringify(controls)});}return 0;
  }
  prctl(PR_SET_NAME,${JSON.stringify(marker)},0,0,0);
  if(MODE==2){char out[4096];memset(out,'x',sizeof(out));for(int i=0;i<18;i++)write(1,out,sizeof(out));return 0;}
@@ -79,7 +79,7 @@ int main(int argc,char **argv){
  puts(${JSON.stringify(good)});return 0;
 }`;
   const src=join(directory,'fixture.c');await writeFile(src,source);
-  for(let mode=0;mode<=9;mode++){
+  for(let mode=0;mode<=10;mode++){
     const executable=join(directory,`fixture-${mode}`);
     const result=spawnSync('/usr/bin/cc',['-O2',`-DMODE=${mode}`,'-o',executable,src],{env:{PATH:'/usr/bin:/bin'},encoding:'utf8',timeout:15000,maxBuffer:16384});
     assert.equal(result.status,0,result.stderr);
@@ -180,4 +180,30 @@ test('Grok production profile cannot be turned on with a fixture binary or publi
   assert.equal((await adapter.assess()).support,'unavailable');
   await rejects('artifact_mismatch',adapter.invoke(binding(),authority(),async()=>{calls++;return context();}));
   assert.equal(calls,0);
+});
+
+for (const future of [false, true]) test((future ? 'future' : 'expired') + ' lease does not consume claim authority or load context', async () => {
+  const adapter = createSyntheticNativeTextProcessAdapter(artifacts.get(0)!);
+    const b = binding(), now = Date.now();
+    const invalid = { ...b, activatedAt: new Date(now + (future ? 60000 : -90000)).toISOString(),
+      leaseExpiresAt: new Date(now + (future ? 150000 : -1)).toISOString() };
+    let claims = 0, loads = 0;
+    const a = createNativeTextStartAuthority({ claim: async () => { claims++; return claim(); }, assertCurrent: async () => {} });
+    await rejects('execution_authority_unavailable', adapter.invoke(invalid, a, async () => { loads++; return context(); }));
+    assert.equal(claims, 0); assert.equal(loads, 0);
+    const valid = { ...b, activatedAt: new Date().toISOString(), leaseExpiresAt: new Date(Date.now() + 90000).toISOString() };
+    assert.equal((await adapter.invoke(valid, a, async () => { loads++; return context(); })).text, 'Synthetic draft');
+    assert.equal(claims, 1); assert.equal(loads, 1);
+});
+
+test('lease expiry during the real native controls probe is rechecked before the one-use claim', async () => {
+  const adapter = createSyntheticNativeTextProcessAdapter(artifacts.get(10)!);
+  let claims = 0, loads = 0;
+  const a = createNativeTextStartAuthority({ claim: async () => { claims++; return claim(); }, assertCurrent: async () => {} });
+  const b = binding(), short = { ...b, leaseExpiresAt: new Date(Date.now() + 1000).toISOString() };
+  await rejects('execution_authority_unavailable', adapter.invoke(short, a, async () => { loads++; return context(); }));
+  assert.equal(claims, 0); assert.equal(loads, 0);
+  assert.equal((await adapter.invoke({ ...b, activatedAt: new Date().toISOString(), leaseExpiresAt: new Date(Date.now()+90000).toISOString() }, a,
+    async () => { loads++; return context(); })).text, 'Synthetic draft');
+  assert.equal(claims, 1); assert.equal(loads, 1); await noOwned();
 });

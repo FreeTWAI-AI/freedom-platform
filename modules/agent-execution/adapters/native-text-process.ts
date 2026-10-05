@@ -88,11 +88,20 @@ function create(artifact: CliArtifact, fixture: boolean): NativeTextProcessAdapt
       if (!auth || typeof loadContext !== 'function' || signal !== undefined && !(signal instanceof AbortSignal)) throw new AdapterFault('execution_authority_unavailable');
       if (fixture && binding.environment !== 'local') throw new AdapterFault('unsupported_selection');
       if (signal?.aborted) throw new AdapterFault('execution_authority_unavailable');
+      const requireActiveLease = () => {
+        const now = Date.now();
+        if (now < Date.parse(binding.activatedAt) || now >= Date.parse(binding.leaseExpiresAt))
+          throw new AdapterFault('execution_authority_unavailable');
+      };
+      requireActiveLease();
       let snapshot: FileHandle | undefined, bytes: Uint8Array | undefined, observed: CliObservation | undefined, claimed = false;
       try {
         snapshot = await pinNativeExecutable(artifact);
         // Controls are established before claiming or loading any private data.
         await inspect(snapshot);
+        // Inspection itself may outlast a short remaining lease. Refuse known
+        // invalid clocks before consuming the durable claim or local guard.
+        requireActiveLease();
         if (auth.spent.has(binding.dispatchId) || auth.spent.size >= 128) throw new AdapterFault('execution_authority_unavailable');
         auth.spent.add(binding.dispatchId); claimed = true; // An ambiguous claim is never retried, even before process spawn.
         const claim = claimSchema.parse(snapshotInput(await bounded(() => auth.claim(binding))));
