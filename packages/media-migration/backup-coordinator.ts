@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ObjectStore } from '../asset-storage/index.js';
 import type { createAssetMaintenance } from '../../modules/assets/maintenance.js';
 import { transferBackup, type BackupManifest } from './backup-transfer.js';
+import { collectSchemaEvidence, type SchemaEvidence } from './backup-evidence.js';
 
 type Maintenance = ReturnType<typeof createAssetMaintenance>;
 const identity = z.object({ database: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/),
@@ -29,6 +30,9 @@ export interface ConsistentBackup {
   readonly database: string;
   readonly dump: Readonly<{ sha256: string; byteSize: number }>;
   readonly objects: BackupManifest;
+  /** Present only when requested: table evidence from the dump's exported
+   * snapshot plus separately reported non-MVCC sequence lower bounds. */
+  readonly evidence?: SchemaEvidence;
 }
 
 /** Off-request operations only. A committed maintenance barrier precedes the
@@ -50,10 +54,16 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
   databaseSnapshot: DatabaseSnapshotWriter;
   maxObjects?: number;
   maxBytes?: number;
+  /** Collect MVCC table counts/fingerprints and separate non-MVCC sequence
+   * lower bounds before pg_dump. Failure refuses completion with a fixed code;
+   * protection stays in place until explicit reconciliation. */
+  snapshotEvidence?: boolean;
 }): Promise<ConsistentBackup> {
   if (options.enabled !== true) throw new ConsistentBackupError('backup_disabled');
   const parsed = identity.safeParse(options.target);
   if (!parsed.success) throw new ConsistentBackupError('backup_invalid_target');
+  if (options.snapshotEvidence !== undefined && typeof options.snapshotEvidence !== 'boolean')
+    throw new ConsistentBackupError('backup_invalid_target');
   const target = Object.freeze(parsed.data);
   const { maintenance, source, destination, databaseSnapshot } = options;
   const budget = Object.freeze({ ...(options.maxObjects === undefined ? {} : { maxObjects: options.maxObjects }),
@@ -80,6 +90,9 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
     const captured = await maintenance.readReferences(begun.captureId);
     if (captured.referenceSnapshot !== snapshot.reference || captured.sourceRelease !== target.sourceRelease
       || captured.sourceSchema !== target.sourceSchema) throw new ConsistentBackupError('backup_snapshot_mismatch');
+    // The exporter's own snapshot is the dump snapshot. Its settings are LOCAL
+    // and only COMMIT follows on this connection.
+    const evidence = options.snapshotEvidence === true ? await collectSchemaEvidence(exporter, target.sourceSchema) : undefined;
     const dump = Object.freeze(dumpEvidence.parse(await databaseSnapshot.write(Object.freeze({
       snapshotId: snapshot.exported, database: target.database, schema: target.sourceSchema, release: target.sourceRelease }))));
     // The exporter is no longer needed after the completed, hashed dump.
@@ -89,7 +102,8 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
       async renew() { await maintenance.renewProtection(begun.captureId); },
       async assertCurrent() { return maintenance.readReferences(begun.captureId); },
     }, budget);
-    return Object.freeze({ version: 1, status: 'database_snapshot_and_objects_verified', database: target.database, dump, objects });
+    return Object.freeze({ version: 1, status: 'database_snapshot_and_objects_verified', database: target.database, dump, objects,
+      ...(evidence === undefined ? {} : { evidence }) });
   } catch (error) {
     if (error instanceof ConsistentBackupError) throw error;
     // Operator logs may record a fixed code; never propagate SQL/store secrets.

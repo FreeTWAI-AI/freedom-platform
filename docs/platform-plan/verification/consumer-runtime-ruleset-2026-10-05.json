@@ -1,0 +1,37 @@
+{
+  "name": "Freedom consumer HTTP behavior \u2014 three adopted consumers",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "repository_id": {
+      "repository_ids": [
+        1378081390,
+        1378081447,
+        1382994244
+      ]
+    },
+    "ref_name": {
+      "include": [
+        "refs/heads/main"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "workflows",
+      "parameters": {
+        "workflows": [
+          {
+            "repository_id": 1378081342,
+            "path": ".github/workflows/trusted-consumer-runtime.yml",
+            "sha": "c42df49e3ee93beed95eeda463a3c7811772b3c5",
+            "ref": "refs/heads/push-20261004/consumer-runtime-source"
+          }
+        ],
+        "do_not_enforce_on_create": false
+      }
+    }
+  ]
+}

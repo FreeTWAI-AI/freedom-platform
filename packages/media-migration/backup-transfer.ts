@@ -278,3 +278,28 @@ export async function transferRestore(
   for (const e of entries) await authorize(authorization, e.entry);
   return Object.freeze({ status: 'objects_verified', objectCount: entries.length, byteCount });
 }
+
+/** Read-only readback of an existing backup copy. Applies the same manifest/pin
+ * bijection as restore, then fully reads and hashes every object. It never
+ * writes, deletes or repairs; a missing/mismatched copy fails with a fixed code. */
+export async function verifyStoredBackup(
+  manifest: BackupManifest,
+  store: ObjectStore,
+  options?: TransferOptions,
+): Promise<RestoreResult> {
+  const { n, entries } = normalizeManifest(manifest);
+  checkBudget(options, n);
+  let byteCount = 0;
+  for (const e of entries) {
+    let head;
+    try { head = await store.head(e.pin.key); } catch { fail('transfer_failed'); }
+    if (!head) fail('object_missing');
+    const rawStored = head.metadata;
+    if (!sameMeta(guarded('object_mismatch', () => snapMeta(rawStored)), e.metadata)) fail('object_mismatch');
+    let read;
+    try { read = await readVerifiedObject(store, e.pin.key, e.metadata); } catch { fail('transfer_failed'); }
+    if (read.bytes.byteLength !== e.metadata.byteSize) fail('object_mismatch');
+    byteCount += e.metadata.byteSize;
+  }
+  return Object.freeze({ status: 'objects_verified', objectCount: entries.length, byteCount });
+}

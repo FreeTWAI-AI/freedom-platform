@@ -47,7 +47,7 @@ test('native R2 preserves exact 128KiB avatar, owner/version pointer, original b
  await assert.rejects(readAuthorizedAvatar(()=>snapshot(user)),(e:any)=>e.status===503);
 });
 test('intentional removed avatars are excluded, while disabled owners remain blocked without revival',async()=>{
- const {user}=await source();await owner.query('UPDATE member_avatars SET image_bytes=NULL WHERE user_id=$1',[user]);assert.equal((await host().run(await approval())).status,'complete');assert.equal((await owner.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);
+ const {user}=await source();await owner.query('UPDATE member_avatars SET image_bytes=NULL WHERE user_id=$1',[user]);const empty=await host().run(await approval());assert.equal(empty.status,'complete');assert.equal(empty.remainingLegacy,false);assert.equal(empty.allSourcesMigrated,true);assert.equal((await owner.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);
  await source();await owner.query('UPDATE users SET active=false');const result=await host().run(await approval());assert.equal(result.blocked,1);assert.equal(result.remainingLegacy,true);assert.equal(result.linked,0);
 });
 test('equal-size source replacement and version replacement after PUT cannot publish',async()=>{

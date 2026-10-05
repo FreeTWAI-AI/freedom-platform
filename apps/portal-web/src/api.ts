@@ -176,6 +176,9 @@ export class PortalClient {
   }
 
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+    // Requests can outlive logout/re-login. Their auth failures belong only to
+    // the session that dispatched them, never a later member session.
+    const requestCsrfToken = this.csrfToken
     const headers: Record<string, string> = { Accept: 'application/json' }
     const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
     const needsCsrf = method !== 'GET' && !publicAuth
@@ -196,6 +199,7 @@ export class PortalClient {
     }
 
     const controller = new AbortController()
+    const currentAuthResponse = () => this.csrfToken === requestCsrfToken && !controller.signal.aborted
     let response: Response | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
@@ -214,23 +218,27 @@ export class PortalClient {
       })
       if (await isExpiredAccessResponse(response)) {
         const status = expiredAccessStatus(response)
-        this.accessExpired = true
         // 401/403 drop the local member token. An opaque redirect has no status.
         // Either way the shell is told, because only a navigation can sign in again.
-        if (!options.skipAuthHandler) {
-          if (status === 401 || status === 403) this.csrfToken = null
-          this.onUnauthorized?.()
+        if (currentAuthResponse()) {
+          this.accessExpired = true
+          if (!options.skipAuthHandler) {
+            if (status === 401 || status === 403) this.csrfToken = null
+            this.onUnauthorized?.()
+          }
         }
         throw new ApiError({
           message: MEMBER_ACCESS_EXPIRED_MESSAGE, status, accessExpired: true,
           cfRay: cloudflareRay(response), requestId: requestId(response),
         })
       }
-      this.accessExpired = false
       // A malformed or stalled error body must not suppress an actual 401.
-      if (response.status === 401 && !options.skipAuthHandler) {
-        this.csrfToken = null
-        this.onUnauthorized?.()
+      if (currentAuthResponse()) {
+        this.accessExpired = false
+        if (response.status === 401 && !options.skipAuthHandler) {
+          this.csrfToken = null
+          this.onUnauthorized?.()
+        }
       }
       let payload: unknown
       try { payload = await readJson(response) }

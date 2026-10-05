@@ -103,6 +103,21 @@ test('an older admin success does not clear a newer expired session',async t=>{
   assert.equal(recovered,0);assert.equal(expired,1);
 });
 
+for (const accessExpired of [false, true]) {
+  test(`an old admin ${accessExpired ? 'Access denial' : '401'} preserves a refreshed session`, async t => {
+    let respond!: (response: Response) => void;
+    t.mock.method(globalThis, 'fetch', () => new Promise<Response>(resolve => { respond = resolve; }));
+    const client = new AdminClient(); client.csrf = 'old-session';
+    let expired = 0; client.onAccessExpired = () => { expired++; };
+    const pending = client.request('/members');
+    client.csrf = 'new-session';
+    respond(accessExpired ? new Response('<html>Expired Access</html>', { status: 403 }) : Response.json({ detail: 'Expired session' }, { status: 401 }));
+    await assert.rejects(pending, AdminRequestError);
+    assert.equal(client.csrf, 'new-session');
+    assert.equal(expired, 0);
+  });
+}
+
 test('portal client treats an opaque redirect as an expired site session instead of a network failure',async t=>{
   let init:RequestInit|undefined;
   t.mock.method(globalThis,'fetch',async(_input:unknown,options?:RequestInit)=>{init=options;return opaqueRedirect();});

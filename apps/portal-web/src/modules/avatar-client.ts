@@ -4,6 +4,7 @@ import type { AvatarMetadata } from './MemberAvatar';
 
 export async function uploadMemberAvatar(client: PortalClient, file: File, version: number, key: string): Promise<AvatarMetadata> {
   if (!client.csrfToken) throw new ApiError({ message: '登入狀態已變更，請重新整理後再試。', status: 400 });
+  const requestCsrfToken = client.csrfToken;
   let response: Response;
   try {
     response = await accessAwareFetch('/api/v1/me/avatar', {
@@ -13,13 +14,17 @@ export async function uploadMemberAvatar(client: PortalClient, file: File, versi
   } catch { throw new ApiError({ message: '連線中斷，頭像是否保存尚未確認。再次保存會安全重試同一操作。', network: true }); }
   if (await isExpiredAccessResponse(response)) {
     const status = expiredAccessStatus(response);
-    client.accessExpired = true;
-    if (status === 401 || status === 403) client.csrfToken = null;
-    client.onUnauthorized?.();
+    if (client.csrfToken === requestCsrfToken) {
+      client.accessExpired = true;
+      if (status === 401 || status === 403) client.csrfToken = null;
+      client.onUnauthorized?.();
+    }
     throw new ApiError({ message: MEMBER_ACCESS_EXPIRED_MESSAGE, status, accessExpired: true });
   }
-  client.accessExpired = false;
-  if (response.status === 401) { client.csrfToken = null; client.onUnauthorized?.(); }
+  if (client.csrfToken === requestCsrfToken) {
+    client.accessExpired = false;
+    if (response.status === 401) { client.csrfToken = null; client.onUnauthorized?.(); }
+  }
   let payload: Record<string, unknown>;
   try { payload = await response.json(); }
   catch { throw new ApiError({ message: '回應未完整收到，請再次保存以確認這次操作。', network: true }); }
