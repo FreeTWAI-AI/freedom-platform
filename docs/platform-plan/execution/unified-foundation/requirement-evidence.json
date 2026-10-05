@@ -2,7 +2,7 @@
   "schema": "freedom.foundation.requirement-evidence/v1",
   "recorded_at": "2026-10-05",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
-  "scope": "Original168 requirements with exact candidate-bound patch evidence. Only GOV-07 accepted at its original context-tool tier; other complete requirements remain open.",
+  "scope": "Original168 requirements with exact candidate-bound evidence. GOV-07 accepted at its original context-tool tier and R2:M07 at its complete isolated DB/R2 restore tier; other complete requirements remain open.",
   "source_documents": [
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -24,11 +24,11 @@
       "AP": 70
     },
     "by_state": {
-      "not_run": 48,
-      "implemented": 64,
       "partial": 54,
+      "implemented": 63,
+      "not_run": 48,
       "blocked": 1,
-      "accepted": 1
+      "accepted": 2
     }
   },
   "state_definitions": {
@@ -483,6 +483,143 @@
       "limitations": [
         "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
         "Supports FC-02/03 closure work; no original row accepted or state advanced."
+      ]
+    },
+    "directory-semantics-4921f8f": {
+      "id": "directory-semantics-4921f8f",
+      "kind": "local_isolated_actual_directory_build",
+      "source_sha": "4921f8f025b09521cb267d814e862512112e44a7",
+      "environment": "Fixed local Docker/Node recipe; network-none nonroot build; host-only HTML5 parser; not installed hosted gate",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/directory-semantics-evidence-2026-10-05.json",
+        "docs/platform-plan/execution/unified-foundation/directory-semantics-observations-2026-10-05.json"
+      ],
+      "observations": [
+        "Legal CSS/wrapper/ARIA redesigns pass the actual build; missing data, unsafe markup/links, weak CSP and filesystem violations fail.",
+        "Four positive and eleven negative actual build variants preserve exact candidate, tree and output hashes; all owned cleanup verified."
+      ],
+      "limitations": [
+        "GOV-04 private-client bypass, GOV-06 mounted auth and GOV-20 effect-to-publish originals are not replaced by static build checks. Original row states remain unchanged.",
+        "Installed ruleset24516222 and source5b471fe remain unchanged; hosted reviewed canaries and fixed source publication required.",
+        "No computed CSS visibility, browser visual acceptance or actual shared-library invocation claim."
+      ]
+    },
+    "daily-pins-ae239d3": {
+      "id": "daily-pins-ae239d3",
+      "kind": "isolated_current_schema_pg_native_r2_restore",
+      "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+      "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Exact full captured media reference/object set restored; seven media purposes/eight variants retain original bytes, URL/DTO projections and member denial behavior.",
+        "Snapshot/finalize interleave protects retired original object; unrelated later object is deleted by real local GC.",
+        "Expiry at seal/offsite/readback/restore, capture/policy substitution, unknown effects and corrupt downloaded bytes refuse completion."
+      ],
+      "limitations": [
+        "Local candidate acceptance only, not deployed release, hosted CI, cloud readback or second-operator recovery.",
+        "Default GC remains disabled; no retention executor or source-pin release.",
+        "Last independent source protection check occurs after restore before trusted adapter cleanup; no perpetual lease claim."
+      ]
+    },
+    "native-boundary-11e6bd8": {
+      "id": "native-boundary-11e6bd8",
+      "kind": "local_native_process_boundary_and_actual_cli_denial",
+      "source_sha": "11e6bd8ced8ee713a698d73fc23e3c8feb3243b7",
+      "environment": "Network-none fresh-home native fixture processes; separately pinned actual Grok1.0.46 metadata probe without credentials/context/provider",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/native-text-boundary-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Versioned data bindings, bounded binary snapshot reuse, monotonic deadlines, abort/descendant cleanup and context non-disclosure are exercised by real synthetic ELF processes.",
+        "Real Grok remains unavailable before claim/context: effective tools and ordinary auth custody are not proven.",
+        "Expired/future/preclaim-probe-expired bindings are rejected without consuming claim; ambiguous actual claim remains unknown/no retry."
+      ],
+      "limitations": [
+        "No SQL machine authority, real model inference, authenticated receipt acceptance or Result finalization.",
+        "Private in-process host token is a trusted callback boundary, not wire authority or durable once-only claim.",
+        "No original requirement advanced; BYOK machine flow and native controls/custody remain separate implementation work."
+      ]
+    },
+    "shop-key-expiry-candidate": {
+      "id": "shop-key-expiry-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "fb15140b1857686b42a929927f452a4bddcc61bc",
+      "environment": "Real mounted HTTP handlers and isolated PostgreSQL18; synthetic credentials and shop data",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Six real deadline cases incorrectly returned200 before the fix; fixed source passes23 tests with zero skips.",
+        "Current DB key clock is rechecked after community lock and domain callback, including successful replay; expired domain effects roll back."
+      ],
+      "limitations": [
+        "No real site/service common principal or scope implemented by A2a.",
+        "No key purpose/issuer/audience/environment binding or legacy key exit implemented by this patch; A2 design remains separate.",
+        "Pre-commit authorization decision; not a claim the key remains valid through commit/response delivery.",
+        "Local evidence only; no hosted CI, deployment, production DB, secret discovery, live key change, provider call or money operation."
+      ]
+    },
+    "kit-canonical-cli-candidate": {
+      "id": "kit-canonical-cli-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "3564187ef94411453c792ae858697561bdf0f812",
+      "environment": "Local isolated Docker; real canonical CLI/SDK ES256 requests over synthetic fixed-host Unix-socket transport, not TLS or platform database",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/kit-invocation-evidence-2026-10-05.json",
+        "packages/contribution-tools/agent-kit-device-profile.md"
+      ],
+      "observations": [
+        "Exact generated launcher and closed canonical command/SDK execute under fixed host; nine protocol scenarios and eight executable source-negative variants pass.",
+        "Host-selected per-repository source/profile transition keeps other consumers on91b943ac; candidate locks/environment cannot select authority."
+      ],
+      "limitations": [
+        "Same candidate source and immutable tree are bound across source/workspace/demo CLI/device CLI",
+        "Installed GitHub pins/rules and Pages are unchanged",
+        "No real TLS, browser approval, cloud API, auth DB or ExecutionGrant claim",
+        "Other Kit entrypoints and other consumers retain generic library_invocation=not_checked",
+        "Producer057 and Kitff are review-only candidates; publication does not imply installed approval"
+      ]
+    },
+    "portal-composition-candidate": {
+      "id": "portal-composition-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "304fbedb78edee6dddf65b642f3e3cb23884d4c4",
+      "environment": "Actual local Chromium1243, isolated network-none PostgreSQL18 and synthetic member API data",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/portal-composition-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "WorkbenchPanel owns work creation, claiming, submissions and review cards.",
+        "ShowcasePanel owns showcase forms, opportunities and cooperation proposals.",
+        "EngagementPanel owns agreement, delivery and receipt-report UI.",
+        "Shared client/context/error types and feedback are leaf modules; App retains session lifecycle, provider, mutation lock/idempotency keys and navigation.",
+        "All28 original function bodies match; actual browser journeys preserve member/session/retry behavior."
+      ],
+      "limitations": [
+        "No visual redesign, new API/authorization or product rollout claimed.",
+        "The complete platform/API responsibility split and surface audit remain unfinished.",
+        "These ordinary member browser cases do not establish the full media/R2 or private execution target flow.",
+        "No original requirement row newly accepted."
+      ]
+    },
+    "wave2-composition": {
+      "id": "wave2-composition",
+      "kind": "local_candidate_tests",
+      "source_sha": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "environment": "Owned isolated PostgreSQL/native local R2, genuine sandbox CLI/build; browser at exact follow-up de4bbee0",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Core receipts/media/device/native/shop boundary plus governance and complete seven-purpose restore pass on the same697 candidate.",
+        "Actual Kit command/SDK and legitimate directory data/CSS/wrapper variants pass while hostile variants fail.",
+        "Browser at de4bbee0 validates only the added portal extraction with the697 backend."
+      ],
+      "limitations": [
+        "No new row acceptance inferred from test totals.",
+        "Full machine/private execution, target cloud, second operator and FC-07 remain open."
       ]
     }
   },
@@ -3696,7 +3833,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -3714,12 +3851,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "daily-pins-ae239d3",
+          "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+          "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+          "covered_part": "Real snapshot/finalize/GC interaction and conservative unknown-effect protection; complete late-PUT race matrix remains.",
+          "limitations_reference": "evidence_catalog.daily-pins-ae239d3.limitations"
+        }
+      ],
       "remaining": [
-        "GC remains uninstalled operationally; covered historical avatars denied unconditionally; unknown write effects need authority-backed reconciliation, never arbitrary state rewrite."
+        "GC remains uninstalled operationally; covered historical avatars denied unconditionally; unknown write effects need authority-backed reconciliation, never arbitrary state rewrite.",
+        "Bind the remaining GC/finalize/late-PUT race cases to the same intended candidate; production activation is tracked separately from local evidence."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Actual isolated snapshot/finalize/GC contribution; original complete race matrix remains open."
     },
     {
       "id": "R2:S11",
@@ -4500,7 +4646,7 @@
         "FC-02",
         "FC-03"
       ],
-      "state": "partial",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -4524,14 +4670,18 @@
           "environment": "existing host timers for staging and production; offsite full readback; isolated PostgreSQL/native local R2 quarantine",
           "covered_part": "Matching historical DB/R2 snapshot, remote full readback and isolated quarantine restore; not current-release/independent-operator acceptance.",
           "limitations_reference": "evidence_catalog.daily-snapshot-89f64.limitations"
+        },
+        {
+          "evidence_id": "daily-pins-ae239d3",
+          "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+          "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+          "covered_part": "Complete original isolated media restore row at this candidate.",
+          "limitations_reference": "evidence_catalog.daily-pins-ae239d3.limitations"
         }
       ],
-      "remaining": [
-        "Bind an isolated DB plus R2 restore drill to the intended supported source/schema and verify the complete restored reference/object set.",
-        "Exercise the restored authorization boundaries so users and credentials that must be denied remain denied. Independent second-operator takeover is an additional FC-03 gate, not a prerequisite added to this original row."
-      ],
-      "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Exact candidate satisfies original DB+R2 restore minimum: complete captured media set and required denial boundaries. Broader FC-03/API recovery requirements remain separate."
     },
     {
       "id": "R2:M08",
@@ -5622,7 +5772,7 @@
         }
       ],
       "remaining": [
-        "Actual cloud safe-log/capture audit and retry secret nondisclosure receipt"
+        "Bind all supported secret-mint paths and retry/unknown-outcome cases to actual isolated DB/HTTP proof and captured-log inspection on the same candidate; bootstrap alone is not the whole row. Cloud rollout/log configuration is a separate FC-06 target-environment gate, not an added minimum evidence tier for this original row."
       ],
       "accepted": false,
       "state_basis": "Bounded real HTTP/DB bootstrap client evidence; broader original execution and cross-client requirements remain open."

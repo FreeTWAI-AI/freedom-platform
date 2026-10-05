@@ -19,7 +19,11 @@
     "package-lock.json",
     "contracts/README.md",
     "scripts/runtime-full.mjs",
-    "tests/contribution-tools/runtime-sharding.integration.test.mjs"
+    "tests/contribution-tools/runtime-sharding.integration.test.mjs",
+    ".github/workflows/trusted-consumer-libraries.yml",
+    ".github/workflows/trusted-consumer-runtime.yml",
+    "tests/integration/agent-kit-device-runtime.test.mjs",
+    "tests/integration/native-consumer-runtime.test.ts"
   ],
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",
@@ -65,6 +69,33 @@
         "verification.runtime-full"
       ],
       "auth_profile": "local-test-only"
+    },
+    {
+      "surface_id": "verification.consumer-source",
+      "kind": "cli",
+      "entry": "packages/contribution-tools/github-consumer-host.mjs",
+      "operations": [
+        "verification.consumer-source"
+      ],
+      "auth_profile": "fixed-github-host"
+    },
+    {
+      "surface_id": "verification.consumer-runtime",
+      "kind": "cli",
+      "entry": "packages/contribution-tools/github-consumer-runtime-host.mjs",
+      "operations": [
+        "verification.consumer-runtime"
+      ],
+      "auth_profile": "fixed-github-host"
+    },
+    {
+      "surface_id": "verification.agent-kit-device-driver",
+      "kind": "cli",
+      "entry": "packages/contribution-tools/agent-kit-device-target.mjs",
+      "operations": [
+        "verification.agent-kit-device-driver"
+      ],
+      "auth_profile": "isolated-fixed-host-fixture"
     }
   ]
 }

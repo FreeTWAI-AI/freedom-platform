@@ -97,8 +97,12 @@ source／candidate／環境。FC-07 未通過前不宣告 Foundation Complete。
 
 ## 候選整合觀察（2026-10-05）
 
-本 branch 彙整 #130–137 的已驗候選，用於共用 SDK 匯出與跨包回歸；每個實作仍有自己的 focused review。它不是已合併、已部署或 installed trust source。現況快照的正式版本與 pins 保留原觀察。
+正式 source／部署／pins 仍以本頁開頭的具日期快照為準。本批 focused reviews 見平台 #130–144 與 Agent Kit #17/#18；每份 review 保留自己的來源與最低證據，尚未取得 review／安裝的候選不冒充正式現況。共用 library producer `057201218b6d4ae3e96b4ab838677f2b484b55fa` 保持固定，新整合候選另用 branch。
 
-同一程式候選 `3bc3eb6843d0e7112fc231212a1e7169094cad08` 通過 receipt／social writer／device SDK 隔離 HTTP/DB 回歸、完整治理工具回歸，以及原有 launcher 的當前 schema116 七類媒體 restore。這是本機整合證據，尚未完成 FC-07 的會員、私人執行、contributor 與第二操作者四條流程。後續 retention planner 修補另有 exact source 的本機反例。
+原 168 項中，GOV-07 已依 context-tool tier 接受；R2:M07 已依當前候選 schema116 的完整 DB＋R2 restore tier 接受。第二操作者接手仍是 FC-03，完整外部執行恢復仍是 AP:OPS-07，沒有借這一列的成功結案。其他原要求的狀態／反例／owner 以 [需求證據索引](requirement-evidence.json) 為準。
 
-新的 device SDK 只授予 bootstrap status；本人 CLI／Grant／Attempt／Result、重連及跨端流程仍待整合。來源 profile 合法匯出不等於實際 library 呼叫，既有固定 host 也不因候選 lock 改變而自動升級。
+[跨包整合證據](composition-evidence-2026-10-05.json) 記錄 `697a995dc8f9ff15c77af62e3146d0721e67b550` 的核心、治理、備份與真實 CLI/build 回歸；只增加 App 拆分的 `de4bbee05baa893314f44839f82b75aad7f43cd9` 另通過真實會員 browser journeys。App 業務已拆回既有模組；API 掛載／完整 surface coverage 仍在收尾。這些是本機精確版本觀察，不是 FC-07 四條完整目標流程的驗收。
+
+Agent Kit candidate `ff273fce3b65f7ebda3e6f0918d58e8ede2520ca` 已有共用 command／SDK 的實際 CLI 呼叫證據。舊 installed host 仍要求舊 profile；必須完成配套 review 與 host 升級才能採用，不能由 consumer lock 自行切換信任。其他入口仍不宣告 invocation coverage。
+
+#130 的 `9f2630527de88ab4893b8ec2fd434259e063b15f` 與 #131 的 `44435955dbe7ae2f854fbb47daf3ec1f50fc5fba` 已直接查到完整 verify、CodeQL 與 deploy-preflight success；此觀察不代表已安裝 preflight 修正的新 workflow pin或已部署。#131 仍要求有效 review。原生 Grok startup／prompt ingress、真正 machine BYOK 的 Grant／Attempt／Result、網站 service/site、雙 migration 入口、GC／retention 與第二操作者仍各有明確待辦。
