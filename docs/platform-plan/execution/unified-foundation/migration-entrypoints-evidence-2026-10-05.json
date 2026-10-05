@@ -240,7 +240,7 @@
     }
   ],
   "root_followup": {
-    "source": "8119ef82",
+    "source": "8119ef82b9523a572dd1aadfef585c86ddcc993b",
     "change": "Register installed CLI and add both owned PostgreSQL entries to the existing deploy-preflight job, with an explicit immutable image pull and portable local image-ID readback.",
     "typecheck_exit": 0,
     "installed_workflow_changed": false,
@@ -271,5 +271,6 @@
       "log": "final795/canonical-proof.log",
       "sha256": "ab473459c9f84ac69bde52e99b5cecff73c7adf6ea20003ab016851be81b4a61"
     }
-  ]
+  ],
+  "context_followup": "prepare initially rejected deploy/ instruction path; canonical instructions moved to packages/db, with old deploy path a link. Context allowlist unchanged; full applicable instructions remain required."
 }

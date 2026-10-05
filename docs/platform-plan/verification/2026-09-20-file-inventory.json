@@ -11599,8 +11599,8 @@
     },
     {
       "path": "deploy/cloudflare/migration-operator.md",
-      "bytes": 4982,
-      "sha256": "ad0b4731ab934e1b1e431790b38c8b2e59ee284f97317e35419c2721452a3475"
+      "bytes": 172,
+      "sha256": "34d42076f5e0111da04b56280c2ccdf84ea859ba31b270adc7f6e83ef7df1688"
     },
     {
       "path": "deploy/cloudflare/migration-operator.mjs",
@@ -13694,8 +13694,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/migration-entrypoints-evidence-2026-10-05.json",
-      "bytes": 11300,
-      "sha256": "1dfbc592b039549281489b56bc36708153cdb3ea208023d4783523f2f629bccf"
+      "bytes": 11559,
+      "sha256": "06a3cdc40b2a0e0be99b557b7e2bb9d2652a6702d35ece38e4172a173136fe4a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/migration-planner-evidence-2026-10-05.json",
@@ -16184,8 +16184,8 @@
     },
     {
       "path": "packages/db/freedom.module.json",
-      "bytes": 1535,
-      "sha256": "596773b7237ed2b807a77bf4b22cc932ceffe01b75c4de7d78ddb0d65496cf1c"
+      "bytes": 1529,
+      "sha256": "6ed3724557bc51e2a8043cb9a8aca2b39d0136c046ff79dd1eeed6fac0089f48"
     },
     {
       "path": "packages/db/index.ts",
@@ -16218,6 +16218,11 @@
       "sha256": "e90997ac4210ca7e48d8358d40dc5cb6bb7dfa57f71a9f83bf3ba3603a96dc3b"
     },
     {
+      "path": "packages/db/migration-operator.md",
+      "bytes": 4982,
+      "sha256": "ad0b4731ab934e1b1e431790b38c8b2e59ee284f97317e35419c2721452a3475"
+    },
+    {
       "path": "packages/db/migration-plan.d.mts",
       "bytes": 1650,
       "sha256": "ae4bfa9f51401eec9ec1038646fb0b62f8350333084b2f3ce1bd0fda08dd1ae3"
@@ -16239,8 +16244,8 @@
     },
     {
       "path": "packages/db/migrations.md",
-      "bytes": 6021,
-      "sha256": "bcfa082bc6ddeb627351e1779f443eef7abf9392cfe9d1abd5e557efe43e8831"
+      "bytes": 6060,
+      "sha256": "158ec039ced8032ad364fb72633ae40e62e6f3e1c4af34a3ec3b959aa2d02720"
     },
     {
       "path": "packages/db/snapshot-evidence.ts",
