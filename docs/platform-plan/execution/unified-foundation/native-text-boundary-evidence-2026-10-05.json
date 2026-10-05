@@ -1,0 +1,204 @@
+{
+  "packet": "D2a",
+  "status": "bounded_primitive_delivered_production_cli_unavailable",
+  "base": "bf46d831ee0382c7e6370000a32e95025a7003db",
+  "candidate": "7001bcf869f7b78891e73f8d48c27f7b713884d6",
+  "branch": "feat/foundation-native-cli-adapter-20261005",
+  "clean": true,
+  "changed_files": [
+    "contracts/execution/v3/native-text-binding.schema.json",
+    "contracts/execution/v3/native-text-context.schema.json",
+    "contracts/execution/v3/native-text-invocation.ts",
+    "contracts/execution/v3/native-text-receipt.schema.json",
+    "modules/agent-execution/adapters/cli-probe.ts",
+    "modules/agent-execution/adapters/common.ts",
+    "modules/agent-execution/adapters/native-executable.ts",
+    "modules/agent-execution/adapters/native-text-process.ts",
+    "modules/agent-execution/adapters/native-text-profile.ts",
+    "modules/agent-execution/freedom.module.json",
+    "modules/agent-execution/generate-native-text.ts",
+    "tests/runtime/native-text-invocation.test.ts",
+    "tests/runtime/native-text-process.test.ts"
+  ],
+  "before": "No native text invocation contract or reusable trusted start seam; CLI native process support was metadata-only Codex/Claude probe, and official CLI codecs remained unsupported.",
+  "after": "Versioned native binding/context/receipt DTOs and fixed Grok profile; private trusted-host claim/current ports; real network-none synthetic subprocess path with bounded stdin/output/timeout/cancel; production Grok rejects before claim/private context pending effective tool and ordinary-auth-custody proof.",
+  "limits": {
+    "lease_ms": 90000,
+    "start_ms": 5000,
+    "wall_ms_max": 60000,
+    "stdout_bytes": 65536,
+    "stderr_bytes": 8192,
+    "context_bytes": 16384,
+    "text_bytes": 16384,
+    "local_inference_dispatches": 1,
+    "provider_calls": "unknown",
+    "cost": "unknown"
+  },
+  "context": {
+    "tool_source": "e8551383601ed1dd1d9f8254ae79fde0dad2e47e",
+    "tool_worktree_clean": true,
+    "bundle": ".freedom/context/task-bd1ae3a3798eb5d7/bundle.json",
+    "head": "7001bcf869f7b78891e73f8d48c27f7b713884d6",
+    "modules": [
+      "credential-broker",
+      "execution-runs"
+    ],
+    "blockers": [],
+    "documents": 17,
+    "instruction_reuse": "All document path/hash pairs match fully read D1/D2 instructions; no unread changed document. Initial descriptor-only preparation before descriptor edits, then exact full path preparation before code, then final committed preparation."
+  },
+  "validation": {
+    "candidate": "7001bcf869f7b78891e73f8d48c27f7b713884d6",
+    "targeted_runtime_tests": {
+      "passed": 96,
+      "failed": 0,
+      "skipped": 0,
+      "new_native_tests": 15,
+      "existing_probe_tests": 6
+    },
+    "typecheck": "passed",
+    "native_schema_generation_check": "passed",
+    "diff_check": "passed",
+    "provider_calls": 0,
+    "db_tests": "not_run; this packet does not implement DB or machine authorization",
+    "cloud": "not_run",
+    "process_cleanup": "Actual fixture process groups/namespaces including setsid descendants absent after cases; temp native files removed by test teardown."
+  },
+  "logs": {
+    "tests-7001bcf8.log": {
+      "path": "tests-7001bcf8.log",
+      "sha256": "e22f6f051136d28e0fba24f17c447c2b7b5b500b09a2751ba89189a23afa483c"
+    },
+    "typecheck-7001bcf8.log": {
+      "path": "typecheck-7001bcf8.log",
+      "sha256": "e152ef3960657c5382e16b6f913fc21c66775ffe601b470949e573c10a75222d"
+    },
+    "grok-control-evidence.json": {
+      "path": "grok-control-evidence.json",
+      "sha256": "853068a5f3c28d82bac5356a3d63d1a59ff9d75cb4ff1aca49363c4e7db3e9a5"
+    }
+  },
+  "actual_grok_control_check": "Pinned installed1.0.46 executable SHA41626a53292324140b92556b9d42ff5542e3dcd04aff85eafb8689dd4adb44fc: real metadata inspect in empty-home/network-none namespace reports no discovered MCP/plugins/hooks/skills but three builtin agents and no effective builtin tool catalog. Actual adapter invoke rejected effective_tool_policy_unavailable with claimCalls0/contextLoads0. No owner credential mounted, no prompt, no provider call.",
+  "review": {
+    "kind": "Agent source review plus root independent review and completed Grok advisory; exact findings/follow-up below",
+    "live_model_review": "Root separately authorized developer source review after initial packet; not product inference.",
+    "findings_fixed": [
+      "First real synthetic inspect+invoke failed because ro-bind-data consumed the snapshot FD offset. Reopen fixed /proc/self/fd of the same unlinked snapshot for independent offset; never re-open original artifact path. Mutation and two-launch positive regression pass.",
+      "Final type cleanup briefly removed a used CliObservation type import; final typecheck found it and import was restored before final7001bcf8 validation.",
+      "An extra EOF blank line was removed; final diff check passed."
+    ],
+    "limitations": [
+      "No genuine SQL or device authority verifier is installed by D2a. Trusted callbacks in fixture tests are synthetic host ports, not real Grant evidence.",
+      "Native output/receipt is not existing private ModelObservation or accepted Result.",
+      "No default parser widening:32KiB remains; explicit native64KiB maximum only, tested at and above both boundaries."
+    ]
+  },
+  "d2b_seam": {
+    "contract": "contracts/execution/v3/native-text-invocation.ts",
+    "host": "modules/agent-execution/adapters/native-text-process.ts",
+    "authority_factory": "createNativeTextStartAuthority({claim(binding),assertCurrent(binding)}) returns private WeakMap token; never derive ports from HTTP/body/booleans. Claim must commit exact server Attempt once; assertCurrent must re-read genuine device/Grant/Attempt/work/control/policy/recovery binding.",
+    "invoke": "adapter.invoke(binding, authority, loadContext, signal); controls before claim/context; context loader transfers newly allocated bytes and adapter zeroizes; current check before context, immediately before spawn and after output; claimed failures are unknown/no retry.",
+    "durability": "Per-authority spent set is bounded local defense only. D2b must own durable SQL consumption across process crash/authority replacement; this packet offers no persistent reconnect.",
+    "receipt": "Server must cryptographically verify native device receipt under distinct machine purpose, revalidate original current binding and use a separate genuine native observation acceptance seam. No cast to existing provider_https WeakMap observation and no manufactured Actor/member cookie.",
+    "publication": "Future Kit/SDK consumer publication must use root/C3 trusted versioned profile exporter. No manual vendor or old profile modifications in this packet."
+  },
+  "remaining": [
+    "Effective empty Grok tool/MCP/plugin configuration in supported ordinary owner auth custody, before any private prompt/provider call.",
+    "Actual machine proof/execution token, Grant/Attempt/current-fence DB+HTTP routes and durable dispatch journal.",
+    "Authenticated receipt/result Asset finalization and real owner Work flow, Stop/Revoke/human edit.",
+    "Persistent reconnect, runtime handoff, packaged clients and cloud/FC06/FC07 acceptance."
+  ],
+  "external_primary_sources_checked": [
+    "https://docs.x.ai/build/cli/reference",
+    "https://docs.x.ai/build/settings/reference",
+    "https://docs.x.ai/build/cli/headless-scripting"
+  ],
+  "no_changes_to": [
+    "D1 worktrees",
+    "root current-state/requirement index/inventory",
+    "server routes",
+    "database",
+    "cloud",
+    "ordinary CLI credential/config files",
+    "Kit vendor/pins"
+  ],
+  "acceptance_claim": "No original CLI execution, AP row, FC06/FC07 or full Foundation Complete acceptance.",
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "accepted_original_rows": [],
+  "root_followup": {
+    "source": "11e6bd8ced8ee713a698d73fc23e3c8feb3243b7",
+    "finding": "Already expired/not-yet-active bindings and expiry during real controls inspection consumed one-use claim before clock rejection.",
+    "fix": "Check current lease before artifact work and again immediately before spent/claim; retain post-claim checks for genuinely uncertain claims.",
+    "before": {
+      "source": "7001bcf869f7b78891e73f8d48c27f7b713884d6",
+      "pass": 0,
+      "fail": 3,
+      "log_sha256": "4425218b773547029a3b452e304ce5423bf64d77037c2a0ea78e546a3ca365fd"
+    },
+    "after": {
+      "command": "node --import tsx --test tests/runtime/native-text-invocation.test.ts tests/runtime/native-text-process.test.ts",
+      "pass": 18,
+      "fail": 0,
+      "skip": 0,
+      "typecheck": "passed",
+      "log_sha256": "08b800a85572798a8e7f04d30418e4aeeb1b31735be5dd31fbdb9dd27caf3ccc"
+    },
+    "review": {
+      "requested_model": "grok-4.7",
+      "reported_model": "grok-4.7-build",
+      "stopReason": "end_turn",
+      "scope": "Read-only named public source; no model-run tests. Root independently reproduced/fixed claim-clock finding.",
+      "raw_sha256": "cd6af042cbb35572ca3a591779d7568b73da0120ef2a90e6faee8da9d80bc2c7"
+    }
+  },
+  "actual_grok_control_check_receipt": {
+    "kind": "actual_installed_metadata_and_denial_only",
+    "binarySha256": "41626a53292324140b92556b9d42ff5542e3dcd04aff85eafb8689dd4adb44fc",
+    "version": "1.0.46",
+    "network": "none",
+    "authMounted": false,
+    "promptSent": false,
+    "flags": [
+      "--tools",
+      "",
+      "--no-subagents",
+      "--disable-web-search",
+      "--permission-mode",
+      "dontAsk",
+      "inspect",
+      "--json"
+    ],
+    "metadataFields": [
+      "grokVersion",
+      "channel",
+      "cwd",
+      "projectRoot",
+      "projectTrusted",
+      "projectInstructions",
+      "permissions",
+      "loginPolicy",
+      "hooks",
+      "skills",
+      "agents",
+      "plugins",
+      "marketplaces",
+      "mcpServers",
+      "lspServers",
+      "configSources",
+      "externalCompat"
+    ],
+    "discovered": {
+      "mcpServers": 0,
+      "plugins": 0,
+      "hooks": 0,
+      "skills": 0,
+      "agents": 3
+    },
+    "effectiveBuiltinToolCatalog": "not_reported",
+    "ordinaryCredentialCustody": "not_verified",
+    "claimCalls": 0,
+    "contextLoads": 0,
+    "providerCalls": 0,
+    "outcome": "effective_tool_policy_unavailable"
+  }
+}

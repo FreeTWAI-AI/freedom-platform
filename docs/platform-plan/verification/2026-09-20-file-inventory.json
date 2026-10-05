@@ -11363,6 +11363,26 @@
       "sha256": "5bb0079321745d0a3f5cd1f706380753b9e6e0bf8f3374d6cbd743c685a3f2a5"
     },
     {
+      "path": "contracts/execution/v3/native-text-binding.schema.json",
+      "bytes": 12405,
+      "sha256": "116d45b366dba74ea42988a7d6b7be422c08cd7f9f9ce849c74092a89a6f72de"
+    },
+    {
+      "path": "contracts/execution/v3/native-text-context.schema.json",
+      "bytes": 716,
+      "sha256": "a1686edadd665d05f0128fe9d570bfe50135123357d7a28a25bc2b42124983e6"
+    },
+    {
+      "path": "contracts/execution/v3/native-text-invocation.ts",
+      "bytes": 3964,
+      "sha256": "ce4fcd25ee92eac5e1134c1d9b68c8f829c8269cdd46c3606dd869cc6e3d1da3"
+    },
+    {
+      "path": "contracts/execution/v3/native-text-receipt.schema.json",
+      "bytes": 6624,
+      "sha256": "3826d4948e9fc849ab3e5306437aff410c8c2e8781d1bbd438fa1680814ecc5a"
+    },
+    {
       "path": "contracts/guide-packs/ai-sister-v1-20261005.json",
       "bytes": 328695,
       "sha256": "b2fbf0d348ac72729c2170a0f95a6c407907fefb1f7bdfaeb7733b0c5a2795c2"
@@ -13653,6 +13673,11 @@
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/native-text-boundary-evidence-2026-10-05.json",
+      "bytes": 10236,
+      "sha256": "fbc5d6123236fd3d7e6b664cc33234308c7ac02987fc5e992e98ef2fbd163359"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
       "bytes": 20471,
       "sha256": "63de2985c45021db8983ad22506ed39cf2104d1adfb95aac9618fc10ceb76289"
@@ -13669,8 +13694,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338907,
+      "sha256": "bb2e1dbef29463074871a1681e630fee0da95eef952885bdb99d29ee6c5826b3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -14624,8 +14649,8 @@
     },
     {
       "path": "modules/agent-execution/adapters/cli-probe.ts",
-      "bytes": 11071,
-      "sha256": "cb87a34889b6704adc151b9f8e6b9ea71fc82c917cabf1ef96118075a19aeaa8"
+      "bytes": 1763,
+      "sha256": "c224c6120ba75961f98b2648b246cf0c54f1bd807802243c5fa69b9e28e27087"
     },
     {
       "path": "modules/agent-execution/adapters/codex.ts",
@@ -14634,13 +14659,33 @@
     },
     {
       "path": "modules/agent-execution/adapters/common.ts",
-      "bytes": 9291,
-      "sha256": "480a6e84a8f81296e784719897b745470a099b9423019faf5a1e29d02ebd7607"
+      "bytes": 9647,
+      "sha256": "192527d026587b7baaaaf1af7b7c4bf392f0424235d4804455a8ea52cded397f"
     },
     {
       "path": "modules/agent-execution/adapters/index.ts",
       "bytes": 1319,
       "sha256": "f446c3f5635b9d9cba21163de19d13cdf04ebd3b5266f5c5ff0a81ab58edcf7e"
+    },
+    {
+      "path": "modules/agent-execution/adapters/native-executable.ts",
+      "bytes": 11184,
+      "sha256": "74a81a32ddabb674bbc470b755c9ef8b6b6262102e1eef5aa684280d63d1493f"
+    },
+    {
+      "path": "modules/agent-execution/adapters/native-text-process.ts",
+      "bytes": 11461,
+      "sha256": "36309798bf473d22dd425e739bf37352852b0865a57b7c082bc19a0533e2d4f8"
+    },
+    {
+      "path": "modules/agent-execution/adapters/native-text-profile.ts",
+      "bytes": 3336,
+      "sha256": "9b1985d5aa46e40285ec51d7fba7eb4414abc79d0ef93f19c9d7ae615740c40a"
+    },
+    {
+      "path": "modules/agent-execution/adapters/native-text.md",
+      "bytes": 1965,
+      "sha256": "8015ba7dc2d1114bfc84071ff94c6d127a18e934ff0bd2fe829eb64ff3a07e43"
     },
     {
       "path": "modules/agent-execution/export-policy.ts",
@@ -14649,8 +14694,8 @@
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
-      "bytes": 7813,
-      "sha256": "c0608a5acfc5fd78a28067ae16bf77fdd5324ab151ac67351bae251499deb4c4"
+      "bytes": 8545,
+      "sha256": "11947311e6a12f2a9d14f631d4b485c245f92d66dff739df92190568b58a84f2"
     },
     {
       "path": "modules/agent-execution/generate-member-execution-http.ts",
@@ -14681,6 +14726,11 @@
       "path": "modules/agent-execution/generate-model-step.ts",
       "bytes": 1505,
       "sha256": "81fe7a9ee20fd69cbb8a1260e8d8957708d6274f240b113ab28a039e24b5751b"
+    },
+    {
+      "path": "modules/agent-execution/generate-native-text.ts",
+      "bytes": 1098,
+      "sha256": "aae94696ea5f31f69b51bba2707c0f79e19a06973f8e3eb5187fd13b208f043d"
     },
     {
       "path": "modules/agent-execution/member-model-overview.ts",
@@ -18106,6 +18156,16 @@
       "path": "tests/runtime/model-step-service.test.ts",
       "bytes": 25791,
       "sha256": "5250b757c93d5faa53482691edb85f206c541ae4daa8e4ab301d1e213da65fde"
+    },
+    {
+      "path": "tests/runtime/native-text-invocation.test.ts",
+      "bytes": 5376,
+      "sha256": "6f65c5a8db04a8b44b1a69dc7344462a37230244d14cb955002edd32b429126a"
+    },
+    {
+      "path": "tests/runtime/native-text-process.test.ts",
+      "bytes": 16260,
+      "sha256": "c921dd40138fac395dc5ee7da1f54024fa1d9e6ff1179bf9bdb42a38734fde36"
     },
     {
       "path": "tests/runtime/newcomer-guide-dialogue.test.ts",

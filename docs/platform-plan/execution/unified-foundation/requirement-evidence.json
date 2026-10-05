@@ -368,6 +368,25 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "native-boundary-11e6bd8": {
+      "id": "native-boundary-11e6bd8",
+      "kind": "local_native_process_boundary_and_actual_cli_denial",
+      "source_sha": "11e6bd8ced8ee713a698d73fc23e3c8feb3243b7",
+      "environment": "Network-none fresh-home native fixture processes; separately pinned actual Grok1.0.46 metadata probe without credentials/context/provider",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/native-text-boundary-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Versioned data bindings, bounded binary snapshot reuse, monotonic deadlines, abort/descendant cleanup and context non-disclosure are exercised by real synthetic ELF processes.",
+        "Real Grok remains unavailable before claim/context: effective tools and ordinary auth custody are not proven.",
+        "Expired/future/preclaim-probe-expired bindings are rejected without consuming claim; ambiguous actual claim remains unknown/no retry."
+      ],
+      "limitations": [
+        "No SQL machine authority, real model inference, authenticated receipt acceptance or Result finalization.",
+        "Private in-process host token is a trusted callback boundary, not wire authority or durable once-only claim.",
+        "No original requirement advanced; BYOK machine flow and native controls/custody remain separate implementation work."
+      ]
     }
   },
   "requirements": [
