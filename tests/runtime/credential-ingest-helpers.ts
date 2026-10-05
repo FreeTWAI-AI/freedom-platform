@@ -11,7 +11,6 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { chromium,type Browser,type BrowserContext } from '@playwright/test';
 import {profile,fileStore,listen,closeServer} from './credential-ingest-fixtures/shared.js';
-import { setTimeout as delay } from 'node:timers/promises';
 import { CompactSign, exportJWK, generateKeyPair } from 'jose';
 import { Pool } from 'pg';
 import { migrate } from '../../scripts/database.js';
@@ -157,7 +156,12 @@ export async function ingestFixture() {
     const page=await navigateSetup(context,bootstrap.assertion);
     if(process.env.INGEST_SCREENSHOT_DIR){await mkdir(process.env.INGEST_SCREENSHOT_DIR,{recursive:true});for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.INGEST_SCREENSHOT_DIR,`protected-setup-${width}.png`),fullPage:true});}}
     await page.locator('#credential-key').fill(secret);await page.locator('#credential-consent').check();await page.locator('#credential-submit').click();
-    let outcome:any;for(let i=0;i<100;i++){const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});if(read.ok){outcome=await read.json();if(outcome.state==='committed')break;}await delay(100);}
+    // This success helper expects the browser's actual broker acknowledgement.
+    // Owner polling shares the real execution_member quota with approve/activate/
+    // execute; racing up to 100 reads can exhaust 60/min before execution starts.
+    await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor({timeout:10000});
+    const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});
+    assert.equal(read.status,200);const outcome:any=await read.json();
     assert.equal(outcome?.state,'committed',JSON.stringify({outcome,status:await page.locator('#credential-status').textContent(),sqlErrors:await broker!.request('sqlErrors'),broker:await broker!.request('snapshot')}));
     await page.close();return outcome.credential;
   }
