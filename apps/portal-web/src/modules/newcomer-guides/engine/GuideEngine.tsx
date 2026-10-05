@@ -1,14 +1,15 @@
 // Generic behavior adapted from mars-tw PR #106, exact source 46a40342509a9278c3a7b8a940bce27b7f464227.
 import {useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent} from 'react'
 import {createPortal} from 'react-dom'
-import type {GuidePage,GuideCharacter} from '../contracts'
+import type {GuidePage,GuideCharacter,GuidePack} from '../contracts'
 import {GuideGallery} from './GuideGallery'
+import type {GuideGalleryInfo} from '../contracts'
 import {createPageSession, type SpiritPack} from './core'
 import {findGuideTarget, focusGuideTarget, type GuideDefinition} from './guides'
 import {readSpiritPreferences, writeSpiritPreferences, type SpiritPreferences} from './preferences'
 import './page-spirit.css'
 
-type Props = {pageId: string; scopeKey: string; page:GuidePage; label:string; gallery:readonly GuideCharacter[]; disabled?: boolean}
+type Props = {pageId: string; scopeKey: string; page:GuidePage; label:string; gallery:readonly GuideCharacter[]; galleryInfo:GuideGalleryInfo; characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;initiallyOpen?:boolean;disabled?: boolean}
 type SpiritState = 'idle' | 'wave' | 'think' | 'cheer' | 'calm' | 'sleep'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 type ViewMode = 'closed' | 'expanded' | 'compact' | 'guide'
@@ -29,7 +30,7 @@ function editing(element: Element | null) {
   return element instanceof HTMLElement && (element.isContentEditable || element.matches('input,textarea,select'))
 }
 
-export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = false}: Props) {
+export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo, characterChoices, onSelectCharacter, initiallyOpen=false, disabled = false}: Props) {
   const character = page.character
   const getSpiritGuide = (_pageId:string, topicId:string|null) => topicId?.startsWith(`${pageId}:`) ? page.guides[topicId] ?? null : null
   const [galleryOpen,setGalleryOpen] = useState(false)
@@ -58,6 +59,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   const lineIdentity = useRef('')
   const packEpoch = useRef(0)
   const hasOpened = useRef(false)
+  const autoOpened=useRef(false)
   const spriteRequest = useRef(0), spriteGeneration = useRef(0)
   const textRequest = useRef(0), textGeneration = useRef(0)
   const focusRequest = useRef(0)
@@ -234,11 +236,17 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     textRequest.current = requestAnimationFrame(step)
   }, [textMotionPermitted, stopText])
 
-  const playSprite = useCallback(() => {
+  const playSprite = useCallback((reaction:SpiritState='wave') => {
     stopSprite()
     const expectedIdentity = active.current.identity, actor = currentCharacter.current
     const generation = spriteGeneration.current
-    if (!motionPermitted(expectedIdentity) || actor.frames.length !== 6) return
+    if (!motionPermitted(expectedIdentity)) return
+    if(actor.reactions){
+      const src=reaction==='wave'||reaction==='think'||reaction==='cheer'?actor.reactions[reaction]:undefined
+      if(src)setSprite({src,index:'hero',playing:false,identity:expectedIdentity})
+      return
+    }
+    if(actor.frames.length !== 6)return
     if (!framePromise.current) {
       const images = actor.frames.map((src: string) => {const image = new Image(); image.decoding = 'async'; image.src = src; return image})
       frameImages.current = images
@@ -381,7 +389,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     const result = session.current.ask(input, topicId, currentTopic.current)
     setQuestion(''); showLine(result.text, result.topicId)
     const state = result.state as SpiritState
-    if (state === 'wave' || state === 'think' || state === 'cheer') playSprite()
+    if (state === 'wave' || state === 'think' || state === 'cheer') playSprite(state)
     else stopSprite()
   }, [permitted, playSprite, showLine, stopSprite])
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -393,6 +401,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
 
   useEffect(() => {
     mounted.current = true
+    autoOpened.current = false
     close(false, true)
     return () => {
       mounted.current = false; active.current.open = false; packEpoch.current++
@@ -511,6 +520,12 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     if (key === 'energy') cancelMotion(true)
     else stopText(true)
   }
+  // Run after identity reset, motion preference and environment setup. Opening
+  // earlier would be discarded by the mount reset and lose the selected panel.
+  useEffect(()=>{
+    if(initiallyOpen&&!autoOpened.current&&!disabled&&!suppressed){autoOpened.current=true;begin()}
+  },[initiallyOpen,begin,disabled,suppressed])
+
   if (disabled || suppressed || typeof document === 'undefined') return null
   const style = {
     '--page-spirit-accent': character.accent,
@@ -521,7 +536,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   const availableGuide = packIdentity.current === identity ? getSpiritGuide(pageId, currentTopic.current) : null
   const currentGuide = mode === 'guide' && guide?.identity === identity ? guide : null
   const topicMetadata = packIdentity.current === identity ? pack?.topics.find(topic => topic.id === currentTopic.current) : null
-  return createPortal(<div ref={wrapper} className="page-spirit-widget" style={style} data-page-id={pageId} data-open={open} data-mode={mode}
+  return createPortal(<div ref={wrapper} className="page-spirit-widget" style={style} data-page-id={pageId} data-character-id={character.pageId} data-outfit-id={character.outfitId} data-open={open} data-mode={mode}
     data-load-state={loadState} data-compact={geometry.maxHeight < 280} data-canonical-count={canonical.current.length}>
     <button ref={launcher} type="button" className="page-spirit-launcher" hidden={mode !== 'closed'} onClick={event => begin(event.currentTarget)}
       aria-label={`${character.name}・${character.title}的當頁${label}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${uid}-dialog`}>
@@ -552,7 +567,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
       </header>
       <div ref={content} className="page-spirit-content">
         <div className="page-spirit-portrait" aria-hidden="true" data-animating={sprite.identity === identity && sprite.playing} data-frame-index={sprite.identity === identity ? sprite.index : 'hero'}>
-          <img className="page-spirit-art" src={sprite.identity === identity ? sprite.src : character.hero} width="384" height="576" alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true}}/>
+          <img className="page-spirit-art" key={sprite.identity === identity ? sprite.src : character.hero} src={sprite.identity === identity ? sprite.src : character.hero} width="384" height="576" alt="" decoding="async" onError={event=>{if(event.currentTarget.src!==new URL(character.hero,location.href).href)event.currentTarget.src=character.hero;else event.currentTarget.hidden=true}}/>
         </div>
         <div className="page-spirit-dialogue">
           <div className="page-spirit-line" aria-hidden="true" data-typing={typing}><p>{lineIdentity.current === identity ? line : ''}</p></div>
@@ -574,6 +589,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
         </div>
       </div>
       <footer className="page-spirit-footer">
+        {characterChoices&&onSelectCharacter&&<div className="page-spirit-character-choice"><label htmlFor={`${uid}-character`}>導覽角色</label><select id={`${uid}-character`} aria-describedby={`${uid}-outfit-hint`} value={character.pageId} onChange={event=>onSelectCharacter(event.target.value)}>{characterChoices.map(choice=><option key={choice.id} value={choice.id}>{choice.label}</option>)}</select><span id={`${uid}-outfit-hint`}>切換頁面自動換裝</span></div>}
         <form className="page-spirit-form" onSubmit={submit}>
           <label htmlFor={`${uid}-input`} className="page-spirit-sr">問本頁問題</label>
           <input ref={questionInput} id={`${uid}-input`} value={packIdentity.current === identity ? question : ''} onChange={event => setQuestion(event.target.value)} maxLength={240} autoComplete="off"
@@ -588,9 +604,9 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
           <label><input type="checkbox" checked={preferences.instantText} onChange={event => changePreference('instantText', event.target.checked)}/>直接顯示全文</label>
         </div></details>
           <button type="button" className="page-spirit-button page-spirit-art-toggle" aria-pressed={artExpanded} onClick={() => setArtExpanded(value => !value)}>{artExpanded ? '收起角色' : '看角色'}</button>
-          <button type="button" className="page-spirit-button" onClick={()=>setGalleryOpen(true)}>角色六視圖</button></div>
+          <button type="button" className="page-spirit-button" onClick={()=>setGalleryOpen(true)}>{galleryInfo.title}</button></div>
       </footer>
     </section>}
-    {galleryOpen&&<GuideGallery characters={gallery} label={label} initial={pageId} onClose={()=>setGalleryOpen(false)}/>}
+    {galleryOpen&&<GuideGallery characters={gallery} label={label} info={galleryInfo} initial={character.pageId} initialOutfit={character.outfitId} onClose={()=>setGalleryOpen(false)}/>}
   </div>, document.body)
 }

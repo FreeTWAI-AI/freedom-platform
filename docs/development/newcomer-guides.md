@@ -10,6 +10,8 @@ The original PR/fork is unchanged. This branch is an independent integration pro
 
 `freedom-theme` retains the exact `light`, `dark`, and `versefolk` values. Its fourth value `guide-dragon` selects **新手導覽－龍娘**, with dark as the base, an additive dragon skin, and the versioned dragon guide pack. There is no separate persistent `guideEnabled` bit. Unknown/removed values return to light/off. Blocked storage leaves the current visit usable. Existing accessibility motion preferences are separate presentation settings, never an activation authority.
 
+The fifth value `guide-ai-sister` selects **新手導覽－AI Sister**, based on light. The member chooses one of 17 characters; that character follows them across supported pages, wearing the page's assigned outfit. See [AI Sister wardrobe integration](ai-sister-guides.md) for the source snapshot, full library, explicit outfit mapping, local preference and independent OFF release gate. Its artwork attribution is separate from mars-tw's original engine, Dragon artwork and shared reviewed page copy.
+
 The original three themes have no guide engine/content/art or guide-release requests. General page help, security notices, original forms, branding, authorization, and the Game Console retain their existing behavior. The fourth skin uses existing semantic CSS variables and does not request remote fonts or art by itself.
 
 `GuideHost` is the only mount point, inside the existing fully admitted member workspace. It checks profile, account scope, current access, explicit page support, then the server's release version and exact manifest SHA before any character lookup or lazy engine/pack import. A changed profile/page/account removes the old engine immediately; scoped identity and abort/generation guards discard late release/content responses. Engine teardown cancels animation frames, image preload references, observers/listeners, temporary focus markers/tabindex and local conversation state.
@@ -32,7 +34,7 @@ See [public asset delivery](public-guide-assets.md) for the dedicated private-or
 
 The separate activation change pins [actual publisher receipts](guide-publisher-2026-10-05.md) for both private origins. The host remains **OFF** without its explicit flag and native binding. Deploy only after the activation change passes CI, review and merge; accept the enabled staging browser flows before production. Selecting the profile can show its skin while that deployment gate is off; ordinary page help remains available. No live asset/caching claim is made by local tests. Approved public immutable bytes cannot be clawed back from browsers that already downloaded them.
 
-Only the current page portrait loads before opening. Opening loads that page's content/hero/frames. The gallery is part of the gated module; only its selected character/view image loads, not all six views or all characters up front. Art failures never grant business authority or reveal private media.
+Only the selected character's portrait loads before opening. Opening loads the current page's content, outfit and needed reactions (or Dragon's six animation frames). The gallery is part of the gated module; only its selected character/outfit/view image loads. Art failures never grant business authority or reveal private media.
 
 ## Local development and checks
 
