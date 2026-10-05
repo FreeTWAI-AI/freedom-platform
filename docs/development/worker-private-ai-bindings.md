@@ -126,20 +126,22 @@ Worker supplies canonical requests because Miniflare's Node entry rewrites Host
 and rejects foreign Origin headers; this is not public ingress/browser evidence.
 The main SQL role cannot read the credential vault.
 
-Full Worker + Hyperdrive member SQL → independent broker SQL/provider execution,
-credential setup/capture ingress, signed recovery service deployment, real bucket
-configuration and staging/browser acceptance remain **not_run**. Optional ingest
-wiring is now installed by this Worker composition; its native workerd tests prove
-child dispatch, derived browser destination, malformed/partial rejection and signer
-isolation without SQL or provider capability. A separate Node-runtime composition
-test uses restricted PostgreSQL roles to verify owner/session-bound signed handoff
-issuance, refusal of secret fields and recovery/session withdrawal, owner metadata
-reads during recovery outage, and vault read denial. It uses synthetic enrollment
-and recovery signatures, with no provider or broker execution capability. These
-tests do not prove native Worker SQL ingest or actual secret ingestion.
-Optional bootstrap wiring has synthetic target-runtime SQL acceptance above. Existing Node
-browser/SQL evidence must not be reported as these target-runtime checks. All
-remote resource/secret changes require the existing deployment authorization.
+The combined [native owner-flow test](../../tests/worker/private-ai-native-owner-flow.test.ts)
+now runs both actual bundles with restricted Hyperdrive PostgreSQL roles, main
+owner/session-authorized handoff, direct broker secret ingestion, encrypted vault
+custody, one synthetic outbound provider POST, private R2 Result, owner read/edit,
+foreign-owner refusal, recovery outage, Stop and Revoke. It uses locally generated
+credentials, recovery/readiness statements and synthetic owner approval. This is
+local integration evidence, not actual owner consent or provider acceptance.
+The ingress fixture restores headers and known-length bodies inside workerd; it
+cannot establish real browser/Cloudflare capture behavior or replica continuity.
+
+Signed recovery/readiness service deployment, real bucket/binding configuration,
+provider authentication and staging/browser acceptance remain **not_run** here.
+The optional handoff and bootstrap are implemented, but their deployment and
+actual owner workflow still require the evidence below. The broader P3 official
+CLI, local keychain and cross-device paths retain their separate acceptance
+requirements; this broker's BYOK result does not complete them.
 
 
 ## Owner workflow validation for an installed release
@@ -164,3 +166,58 @@ The main-side optional handoff does not install an independent setup hostname,
 broker ingest/capture receiver, provider host, credential vault or durable recovery
 authority. Keep each unaccepted environment/purpose disabled until those original
 contracts and the real owner flow have evidence.
+
+
+## P3 installation worksheet and acceptance handoff
+
+Complete this worksheet for one environment before adapting the existing main
+and [broker candidate](broker-worker-bindings.md). This is an operator input list,
+not an installation receipt. Keep the candidate flags OFF until installation and
+release conditions have been assessed. Do not copy synthetic test keys, readiness
+assertions, device approval or model labels into an owner installation.
+
+| Input / relationship | Exact correspondence to record |
+| --- | --- |
+| Environment and origin | Main `environment`, broker `environment` and runtime environment agree: `staging-next` / `https://staging.freetwai.com` or `next` / `https://freetwai.com`. Pin source and deployed versions separately. |
+| SQL identities | Broker `databaseName` is respectively `freedom_staging_next` or `freedom_next`; cipher and executor roles are that name plus `_broker` and `_broker_executor`. Main keeps its restricted application role. Record actual grants and all Hyperdrive cache-off readbacks. |
+| Shared execution identity | Main and broker `clientId`, `issuer`, `responseAudience`, `recoveryAuthority` and recovery public pins agree. Main `audience` equals broker `requestAudience`; main `brokerIdentity` equals broker `brokerId`. |
+| Model request / response keys | Main `requestKid` and request public key appear in broker `requestKeys`. Broker `responseKeyId` and response public key appear in main `responseKeys`. Private signers remain with their respective owners. |
+| Credential setup | Both `ingest` profiles use exactly the same `setupOrigin`, `issuer` and `audience`. Main `ingest.keyId` and ingest public key appear in broker `ingest.requestKeys`. The setup hostname differs from the platform hostname. |
+| Broker-only setup response | Assign broker `ingest.responseIssuer`, `responseAudience`, `responseKeyId` and its independent `FREEDOM_BROKER_INGEST_RESPONSE_KEY`. These are not the execution response identity, main ingest signer or recovery/readiness signer. |
+| Recovery ports | Install both fixed state/floor bindings from the binding table, with current signed generation and independently persisted monotonic floor. Record state/floor agreement and fail-closed outage behavior. Neither authority is reconstructed from a platform DB/R2 backup. |
+| Protected capture readiness | Install the broker-only `CREDENTIAL_INGEST_READINESS` binding, authority and public pins specified in the broker document. Record actual ingress logging/tracing/body-capture controls and their trusted readiness source. A fresh signed `captureDisabled:true` assertion alone is insufficient operational evidence. |
+| Assets and secrets | Both Workers refer to the existing environment `MEDIA` bucket. Broker alone owns the KEK ring and cipher connection. Check purpose-separated key material, not merely different key IDs. Secrets and resource identifiers stay in the private installation record. |
+| Device and model | Record the actual device/bootstrap host and owner's explicit selection. The current broker catalog accepts `providerRef` openai or anthropic, the owner's exact `modelRef`, `credentialCustody:platform_vault`, `engineLocation:platform`, `billingSource:user_byok`, `processingLocation:provider_remote`, `artifactCustody:platform_asset`. Metadata does not verify availability or authorize a charge/export. |
+
+The owner's model/provider choice is still an unanswered input for this P3 work;
+no default selection or owner credential has been supplied by this worksheet.
+Provider authentication occurs only through the installed independent setup
+surface and owner-approved workflow. Main does not need the provider secret.
+
+For repository preparation, run the existing static check and bundle check:
+
+```sh
+npm run check:broker-worker-candidate
+npm run worker:dry-run:broker
+```
+
+The static command takes no profile or credential arguments and deliberately
+reports `deployment_ready:false`; these commands do not validate operator-filled
+profiles, install remote bindings or authorize enabling a flag. Compare the
+installation against the actual closed
+[main schema](../../apps/platform-api/src/worker-private-ai.ts) and
+[broker schema](../../apps/credential-broker/src/worker-profile.ts), then preserve
+remote resource and permission readback through the existing release procedure.
+
+Before actual owner model acceptance, verify the setup POST, prepare and secret
+requests across real browser/edge routing. Setup sessions and activation proof
+registries are isolate-local; cross-isolate/restart behavior must stay fail-closed.
+Do not claim a usable multi-replica installation solely from the single-isolate
+native test or silently regenerate authority after an unavailable/ambiguous result.
+
+Use the owner-action table above as the acceptance sequence. Record each step as
+`not_run`, `pass` or `fail`, with source/release, environment and a private receipt
+reference. Include successful private Result bytes and an actual owner edit,
+foreign-owner denial, Stop/Revoke, and controlled recovery/readiness withdrawal
+before further effects. Preserve any failed or ambiguous attempt; never retry an
+uncertain dispatch as a fresh paid execution. Publish only aggregate outcomes.
