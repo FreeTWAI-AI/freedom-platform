@@ -2,12 +2,11 @@
 // Fixed workflow source only. All required verdicts are computed by this host process.
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyNativeConsumerSource } from './github-consumer-host.mjs';
+import { verifyNativeConsumerSource, installedConsumerInput } from './github-consumer-host.mjs';
 import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior, runIsolatedAgentKitDeviceBehavior, runIsolatedDirectoryBuild } from './behavior-supervisor.mjs';
 import { DIRECTORY_REPOSITORY, DIRECTORY_BUILD_CASES } from './directory-build-fixture.mjs';
 import { CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
 import { consumerHostTuple } from './consumer-host-tuples.mjs';
-import { CONSUMER_LIBRARIES } from './consumer-libraries.mjs';
 import { DEVICE_PROFILE, DEVICE_ENTRY } from './agent-kit-device-profile.mjs';
 import { DEVICE_CASES } from './agent-kit-device-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
@@ -77,11 +76,8 @@ async function cli() {
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-runtime.yml', 'host_workflow_identity_mismatch');
   // Recipe readback is derived here; no candidate or uploaded report is accepted.
   await inspectConsumerRuntime({ hosted: true });
-  const tuple = consumerHostTuple(process.env.GITHUB_REPOSITORY);
-  return verifyNativeConsumerRuntime({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
-    candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: tuple.source,
-    expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA,
-    ...(Object.hasOwn(CONSUMER_LIBRARIES, process.env.GITHUB_REPOSITORY) ? { expectedLibraryProfile: tuple.library_profile } : {}) });
+  return verifyNativeConsumerRuntime(await installedConsumerInput({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
+    candidateCommit: process.env.GITHUB_SHA, expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { const result = await cli(); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1; }

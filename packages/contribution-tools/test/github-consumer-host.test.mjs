@@ -79,7 +79,7 @@ test('native Actions executable binds source/candidate identity and rejects unsu
   // An arbitrary synthetic source cannot replace the installed repository tuple.
   assert.equal((await verifyNativeConsumerSource(input)).status, 'passed');
   const unapproved = run(environment); assert.equal(unapproved.status, 1);
-  assert.equal(JSON.parse(unapproved.stdout).code, 'consumer_library_file_set_mismatch');
+  assert.equal(JSON.parse(unapproved.stdout).code, 'consumer_supported_tuple_required');
   const wrong = run({ ...environment, GITHUB_EVENT_NAME: 'pull_request_target' }); assert.equal(wrong.status, 1); assert.equal(JSON.parse(wrong.stdout).code, 'unsupported_host_event');
 });
 
@@ -189,6 +189,6 @@ test('native source CLI ignores arbitrary environment source/profile overrides a
   for(const extras of [{}, {FREEDOM_LIBRARY_SOURCE_SHA:input.expectedSourceCommit,FREEDOM_LIBRARY_PROFILE:AGENT_KIT_DEVICE_LIBRARY_PROFILE},
     {FREEDOM_LIBRARY_SOURCE_SHA:'f'.repeat(40),FREEDOM_LIBRARY_PROFILE:'candidate-choice'}]) {
     const result=spawnSync(process.execPath,[script,input.candidateRoot,input.sourceRoot],{env:{...env,...extras},encoding:'utf8'});
-    assert.equal(result.status,1);assert.equal(JSON.parse(result.stdout).code,'consumer_library_file_set_mismatch');
+    assert.equal(result.status,1);assert.equal(JSON.parse(result.stdout).code,'consumer_supported_tuple_required');
   }
 });
