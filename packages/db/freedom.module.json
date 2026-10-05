@@ -30,7 +30,7 @@
     "packages/db/README.md",
     "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
     "packages/db/migrations.md",
-    "deploy/cloudflare/migration-operator.md"
+    "packages/db/migration-operator.md"
   ],
   "invariants": [
     "current-authority-before-replay",

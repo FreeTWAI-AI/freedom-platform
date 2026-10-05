@@ -19,7 +19,7 @@ No database row is inferred from a maximum/latest id.
 Only callers explicitly supplying `freedom.migrations/dag-v2` to the pure
 planner can plan mixed catalogs. Ordinary repository and scanner entrypoints
 select `freedom.migrations/legacy-v1`; a candidate manifest cannot activate v2.
-The separate [local installed operator entry](../../deploy/cloudflare/migration-operator.md)
+The separate [local installed operator entry](migration-operator.md)
 requires independent host pins and restricts DAG targets to disposable `fp_`
 database/schema names while the formal release floor remains unimplemented.
 The DAG profile contains a host-selected exact legacy name/digest set plus its
@@ -88,9 +88,9 @@ operator entrypoint has been upgraded. The container and
 schemas are removed after the run. No private config or TEST_DATABASE_URL is
 read. Public scanner tests retain exact reviewed privileged-source exceptions.
 
-C5b must bind the actual operator wrapper and repo entrypoint to the same
-reviewed source/resolver and host-selected profile, then replay both real
-entrypoints. Historical inspected operator wrappers delegated to a pinned repo
+C5b now binds an external reviewed operator wrapper and repo CLI to the same
+executor and host-selected profile, with real local reverse-order and empty
+replay. The formal private installation and release floor remain open. Historical inspected operator wrappers delegated to a pinned repo
 `migrate()`; that is not evidence of a current installed pending-migration path.
 Do not create a second SQL executor to satisfy the two-entrypoint requirement.
 
