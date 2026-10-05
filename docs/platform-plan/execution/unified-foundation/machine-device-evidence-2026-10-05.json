@@ -1,0 +1,124 @@
+{
+  "recorded_at": "2026-10-05T21:00:30.674184+00:00",
+  "packet": "D1 in-memory machine device bootstrap SDK and thin Agent Kit adapter",
+  "source_base": "a328c82084f884f4bedad3f59bfe680d6a547892",
+  "central_candidate": "8358816f6934078845ed70144ebb4213d56b28c4",
+  "kit_base": "b2227bc36a571084f6c3d5c5ab340ed4485c6738",
+  "kit_candidate": "7b7083e03bab64134bda058a9c80f82ca3af61ee",
+  "tests": {
+    "central_real_http_pg": {
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "log": "tests-final.log",
+      "source_sha": "e7164f827e3a089b03c9df18f6d8070d9c0fd858"
+    },
+    "kit": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "build": "pass"
+    },
+    "kit_real_sdk_http_pg": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "log": "kit-integration-final.log",
+      "central_source": "e7164f827e3a089b03c9df18f6d8070d9c0fd858",
+      "kit_source": "7b7083e03bab64134bda058a9c80f82ca3af61ee"
+    },
+    "central_typecheck": "pass",
+    "git_diff_check": "pass"
+  },
+  "environment": {
+    "node": "v24.21.0",
+    "postgres_image": "postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd",
+    "network": "none; private owned Unix socket; ephemeral tmpfs; no exposed ports",
+    "roles": "separate non-superuser/non-createdb/non-createrole/non-bypassrls owner/runtime",
+    "cleanup": "no containers remain with freedom.owner=d1-agent"
+  },
+  "earlier_failures": [
+    "Initial test/typecheck dependency symlink referenced missing root node_modules; no product tests ran",
+    "First substantive test run21/22: invalid UTF8 was rejected as transport_failed rather than response_invalid; fixed and reran28/28",
+    "First supplementary Kit integration could not resolve pg from private state; private module resolution corrected, reran1/1"
+  ],
+  "boundaries": [
+    "HTTP Request/Response real handler and real server verifier; not real TLS socket/cloud",
+    "No ExecutionGrant, effect authority, provider, model, MCP, official CLI or full AP acceptance",
+    "In-memory only, no durable custody or persistent reconnect; restart requires fresh-key pairing",
+    "Kit published SDK/profile upgrade remains coordinated separately; no manual vendor edits and old package/CLI/lock unchanged",
+    "Focused tests only, not full runtime/CI acceptance"
+  ],
+  "central_commits": [
+    "b73a7e9f53a7515af2e08ad322b976005415c13f",
+    "e7164f827e3a089b03c9df18f6d8070d9c0fd858",
+    "8358816f6934078845ed70144ebb4213d56b28c4"
+  ],
+  "reviews": {
+    "grok": {
+      "requested_model": "grok-4.7",
+      "reported_model": "grok-4.7-build",
+      "completed": true,
+      "result": "No confirmed actionable defect reported on initial SDK; root independently caught compression compatibility gap afterward"
+    },
+    "opus": {
+      "completed": false,
+      "status": "timeout",
+      "timeout_seconds": 300,
+      "requested_model": "claude-opus-5-5-high",
+      "reported_init_model": "claude-opus-5-5-high",
+      "conversation_id": "47d1076b-f503-4157-ab49-821461515282",
+      "observed_events": [
+        "init",
+        "user_input step DONE"
+      ],
+      "observed_tool_calls": 0,
+      "review_result": "not_obtained"
+    },
+    "root": {
+      "compression_finding": "confirmed and fixed; native Fetch decoded-body semantics covered by actual gzip/br/deflate flow and decompressed oversize denial",
+      "timer_finding": "confirmed by deterministic early wakeup negative and fixed; full integrated runtime passed"
+    }
+  },
+  "artifacts": {
+    "packages/sdk/machine-device-client.mjs": "03bdd71b56a14213d8622d07859a1ea345a366606fcb0088b05dfba0882d935c",
+    "tests/runtime/machine-device-client.test.ts": "9f78dd74e8741f59306cfb07bf85182e1c017932a2ac02b53b65b50345e60c80",
+    "modules/agent-control/freedom.module.json": "fe2d68782fad979c8d672612d3931e666e0de4ed158e512a7aeec7a097cdc2df"
+  },
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local",
+  "accepted_original_rows": [],
+  "integration_followup": {
+    "candidate_commit": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
+    "tests": {
+      "command": "node --import tsx --test --test-concurrency=1 tests/runtime/avatar-command-compat.test.ts tests/runtime/social-preview-assets.test.ts tests/runtime/machine-device-client.test.ts",
+      "pass": 110,
+      "fail": 0,
+      "skip": 0,
+      "sdk_cases": 31,
+      "sha256": "371275a186eb140747851e7837243888085d5d96668d21571a1126c0b3e9a128"
+    },
+    "timer_regression": {
+      "before_source": "e7164f827e3a089b03c9df18f6d8070d9c0fd858",
+      "before_pass": 0,
+      "before_fail": 1,
+      "case": "pair recomputes the polling deadline after an early timer wakeup",
+      "after": "passes on integrated candidate; only one enrollment dispatch",
+      "root_finding": "Native timers may wake before Date.now reaches nextPoll. pair must recompute after waking rather than fail poll_too_early.",
+      "before_log_sha256": "8ba9dcfbacacfe0a9b510a700177e3231b5b087ca71113738a0cb059339c3fc3"
+    }
+  },
+  "requirement_mapping": {
+    "partial": [
+      "AP:AUTH-13",
+      "AP:AUTH-14"
+    ],
+    "unchanged": [
+      "UF:INT-07",
+      "UF:INT-09",
+      "UF:INT-25",
+      "AP:AUTH-15"
+    ],
+    "reason": "Bootstrap pairing is adjacent to, but does not exercise, runtime handoff, model processing policy, broker context tampering or production/staging credential crossover."
+  }
+}

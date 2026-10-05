@@ -13648,6 +13648,11 @@
       "sha256": "c8e94002fdff518fe10a12208ad2ec266904e99ada8ede6e81c1e509c892cb1a"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/machine-device-evidence-2026-10-05.json",
+      "bytes": 5422,
+      "sha256": "e23eee9f5913eaf9354b5b4df8c19676aad332b652f13a97c2875b9a93eadd64"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/media-profiles-activation-2026-10-04.md",
       "bytes": 11900,
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
@@ -13669,8 +13674,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 340188,
+      "sha256": "779d32b271dc391894599a790e8fb6c1735b677be0b681b07b5d65babed5fbd3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -14549,8 +14554,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 7303,
-      "sha256": "98eb5c8c7a8fa260f2e5063c49c18a3841311c54288856b122a66274fc1a2a3e"
+      "bytes": 7446,
+      "sha256": "fe2d68782fad979c8d672612d3931e666e0de4ed158e512a7aeec7a097cdc2df"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
@@ -16343,6 +16348,16 @@
       "sha256": "37138679c14966d3c6fb79a6766e63ad20875fea4f8d11f1dfd0e522737431f6"
     },
     {
+      "path": "packages/sdk/machine-device-client.md",
+      "bytes": 2419,
+      "sha256": "3a1ba8c9441dece246d29bfca8790958e6987d360fd0295c1a7a5bd06dee6093"
+    },
+    {
+      "path": "packages/sdk/machine-device-client.mjs",
+      "bytes": 20503,
+      "sha256": "03bdd71b56a14213d8622d07859a1ea345a366606fcb0088b05dfba0882d935c"
+    },
+    {
       "path": "packages/sdk/member-workspace.mjs",
       "bytes": 831,
       "sha256": "21bc5e6818c81537bb8e2b85c5014aafcfa0db2013e078778146c2d4b736b64d"
@@ -17826,6 +17841,11 @@
       "path": "tests/runtime/link-preview.test.ts",
       "bytes": 12471,
       "sha256": "aadd7882e2a588a8ddde532d09c6ef255a8041b7d129ab3ee4ad1720983265fd"
+    },
+    {
+      "path": "tests/runtime/machine-device-client.test.ts",
+      "bytes": 24854,
+      "sha256": "9f78dd74e8741f59306cfb07bf85182e1c017932a2ac02b53b65b50345e60c80"
     },
     {
       "path": "tests/runtime/maintainer-worker.test.ts",
