@@ -8723,6 +8723,11 @@
       "sha256": "9d016936b2595205a7aa5c4de746ef67eba1b6bfde52785b964877ec1bff9282"
     },
     {
+      "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
+      "bytes": 4251,
+      "sha256": "5dc4c0b76eb1eef7f5625c67e792d0b6e2d7b3bfc21731089415b7916dfb26a3"
+    },
+    {
       "path": "packages/contribution-tools/test/consumer-libraries.test.mjs",
       "bytes": 11346,
       "sha256": "526d721877ae2de5194907c0411c74496ec4a9746cd879efedd1d5000b2a81ca"
@@ -9269,8 +9274,8 @@
     },
     {
       "path": "repositories.lock.json",
-      "bytes": 1307,
-      "sha256": "68dec7b0ce473ec05a22a92f6a3df767c5e22a399cd90152725b152d2cf7a568"
+      "bytes": 1450,
+      "sha256": "97ac3769e114870c31fb71def4fe3c7bec927520529bb4bc2a4c5ba75fef7047"
     },
     {
       "path": "scripts/bootstrap-public.ts",
@@ -9299,8 +9304,8 @@
     },
     {
       "path": "scripts/checkout-repositories.mjs",
-      "bytes": 1392,
-      "sha256": "b60b970743d8d73de18e1f93d042590b29b4ee6866fb63a2eecf11e753634b01"
+      "bytes": 2520,
+      "sha256": "ff6aa2efe5afd39a734a9e383f5cc68aa4b572933cb960047cc947bd3b60706d"
     },
     {
       "path": "scripts/ci/broker-bridge-check.mjs",
@@ -9419,8 +9424,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/consumer-libraries.md",
-      "bytes": 8332,
-      "sha256": "48b46577434b2c30e5714f532b9206f74a38b7e2ab68030e29e92ed296f3cd8d"
+      "bytes": 8687,
+      "sha256": "4cac5c9f662e1a719b1e26e65bc2b6da78682d7ca76b326869df0b9ad9178f18"
     },
     {
       "path": "scripts/repository-bootstrap/consumer-source-profiles.md",
@@ -9969,8 +9974,8 @@
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",
-      "bytes": 11124,
-      "sha256": "d65e91bae5db888bbdd20e28732a89aceb6b4281ea8b18bcdfd269e59ec53c04"
+      "bytes": 11324,
+      "sha256": "317875e94693b3fd87c581e925d5289365e01136b05c5cff7c074531ab0e0621"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
