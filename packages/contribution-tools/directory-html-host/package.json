@@ -1,0 +1,9 @@
+{
+  "name": "@freetwai/directory-html-host",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "entities": "8.0.0",
+    "parse5": "8.0.1"
+  }
+}

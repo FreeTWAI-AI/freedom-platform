@@ -40,7 +40,13 @@ jobs:
       - name: Install fixed directory source manifest dependency
         if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
         run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
-      # No npm install, candidate imports, uploaded reports or private registry.
+      - name: Install fixed host-only directory HTML parser
+        if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
+        run: |
+          empty_npm_config=$(mktemp)
+          npm ci --prefix "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/directory-html-host" --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org --userconfig /dev/null --globalconfig "$empty_npm_config"
+          rm "$empty_npm_config"
+      # No candidate dependency install/import, uploaded reports or private registry.
       # Explicit anonymous pull of the fixed public amd64 manifest; validate
       # manifest/config/rootfs and exact official Node binary before execution.
       - name: Prepare fixed consumer runtime recipe

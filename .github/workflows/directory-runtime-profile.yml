@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'packages/contribution-tools/**'
-      - 'tests/integration/directory-runtime.test.mjs'
+      - 'tests/integration/directory-*.test.mjs'
       - '.github/workflows/directory-runtime-profile.yml'
       - '.github/workflows/trusted-consumer-runtime.yml'
       - 'repositories.lock.json'
@@ -11,7 +11,7 @@ on:
     branches: [main]
     paths:
       - 'packages/contribution-tools/**'
-      - 'tests/integration/directory-runtime.test.mjs'
+      - 'tests/integration/directory-*.test.mjs'
       - '.github/workflows/directory-runtime-profile.yml'
       - '.github/workflows/trusted-consumer-runtime.yml'
       - 'repositories.lock.json'
@@ -45,6 +45,13 @@ jobs:
           python-version: '3.13'
       - name: Install fixed source manifest dependency
         run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
+      - name: Install host-only HTML parser and test semantic profile
+        working-directory: source
+        run: |
+          empty_npm_config=$(mktemp)
+          npm ci --prefix packages/contribution-tools/directory-html-host --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org --userconfig /dev/null --globalconfig "$empty_npm_config"
+          rm "$empty_npm_config"
+          node --test tests/integration/directory-html-semantics.test.mjs
       - name: Prepare and verify fixed runtime
         working-directory: source
         run: |
