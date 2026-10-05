@@ -1,3 +1,4 @@
+import {validatePrivateAiExecute,validatePrivateAiBudget,runPrivateAiExecute,type PrivateAiExecuteConfig} from './verify-cloud-private-ai-execute.js';
 import {validatePrivateAiPrepare,runPrivateAiPrepare,type PrivateAiPrepareConfig} from './verify-cloud-private-ai-prepare.js';
 import {validatePrivateAiOwner,runPrivateAiOwner,type PrivateAiOwnerConfig} from './verify-cloud-private-ai-owner.js';
 // Import-safe acceptance checks for the Cloudflare candidate origins.
@@ -65,16 +66,16 @@ class NotRun extends Error { override name = 'NotRun'; constructor(readonly reas
 /** Thrown before any request leaves for a non-candidate URL. */
 export class OriginGuardError extends Error { override name = 'OriginGuardError'; }
 
-export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'registration', 'messages', 'messages-mobile', 'private-ai-owner', 'private-ai-prepare', 'load', 'logout'] as const;
+export const PHASES = ['preflight', 'health', 'protocol', 'assets', 'anonymous', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'registration', 'messages', 'messages-mobile', 'private-ai-owner', 'private-ai-prepare', 'private-ai-execute', 'load', 'logout'] as const;
 export type PhaseId = typeof PHASES[number];
 export const READ_ONLY_PHASES: readonly PhaseId[] = ['preflight', 'health', 'protocol', 'assets', 'anonymous'];
 /** Later phases run only after every dependency passed. `load` stays independent; `logout` stays last and has none. */
 export const PHASE_DEPENDENCIES: Partial<Record<PhaseId, readonly PhaseId[]>> = {
   health: ['preflight'], protocol: ['preflight'], assets: ['preflight'], anonymous: ['preflight'], load: ['preflight'],
   session: ['health'], browser: ['health'], 'guild-cache': ['session'], 'github-handoff': ['session'], avatar: ['session'],
-  'private-ai-prepare': ['health'], 'private-ai-owner': ['session'], registration: ['health'], messages: ['registration'], 'messages-mobile': ['messages'],
+  'private-ai-execute': ['health'], 'private-ai-prepare': ['health'], 'private-ai-owner': ['session'], registration: ['health'], messages: ['registration'], 'messages-mobile': ['messages'],
 };
-const NEEDS_ACCOUNT: readonly PhaseId[] = ['private-ai-prepare', 'private-ai-owner', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'logout'];
+const NEEDS_ACCOUNT: readonly PhaseId[] = ['private-ai-execute', 'private-ai-prepare', 'private-ai-owner', 'session', 'browser', 'guild-cache', 'github-handoff', 'avatar', 'logout'];
 /** Registration and messaging provision their own members and ignore an account file. */
 export function accountFileRequired(phases: readonly PhaseId[]) {
   return phases.some(id => NEEDS_ACCOUNT.includes(id));
@@ -88,6 +89,7 @@ export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
   registration: 'registers one synthetic cand-reg member, completes positioning and one primary guild, then revokes that member\'s sessions',
   messages: 'registers a second synthetic member, creates one squad containing only those two members, and writes direct and squad messages; guild-channel writes run only when the target is not public',
   'messages-mobile': 'opens one mobile browser session of the synthetic member registered in this run and sends one direct message',
+  'private-ai-execute': 'one explicitly authorized paid dispatch and synthetic owner Result/control HTTP subset; full acceptance incomplete',
   'private-ai-prepare': 'one synthetic staging device pairing and unverified model; no credential ingest or paid execution',
   'private-ai-owner': 'one synthetic staging owner credential ingest; paid execution disabled, full owner flow incomplete',
   logout: 'revokes the tool session',
@@ -311,6 +313,8 @@ export type RunOptions = {
   account?: Account | null; access?: AccessCredential | null; transport?: Transport; load?: LoadOptions; developmentBook?: string; developmentGuild?: string;
   privateAiOwner?: PrivateAiOwnerConfig;
   privateAiPrepare?: PrivateAiPrepareConfig;
+  privateAiExecute?: PrivateAiExecuteConfig;
+  privateAiBudgetEvidence?: unknown;
   browser?: BrowserLike | null; now?: () => Date; log?: (line: string) => void;
   /** Bound on waiting for in-flight browser route handlers at teardown (default 15000 ms). */
   browserDrainMs?: number;
@@ -322,11 +326,12 @@ export function selectPhases(requested: readonly string[] | null): PhaseId[] {
   // Fixed text: an argv value pasted by mistake (possibly a secret) is never echoed.
   for (const id of list) if (!(PHASES as readonly string[]).includes(id)) throw new UsageError('unknown phase');
   if (list.includes('private-ai-prepare') && list.some(id => !['preflight','health','private-ai-prepare','logout'].includes(id))) throw new UsageError('preparation must run separately');
+  if (list.includes('private-ai-execute') && list.some(id => !['preflight','health','private-ai-execute','logout'].includes(id))) throw new UsageError('paid acceptance must run separately');
   const selected = new Set<PhaseId>(['preflight', ...(list as PhaseId[])]);
   // Every network run first verifies the Worker identity and release in health.
   if ([...selected].some(id => id !== 'preflight')) selected.add('health');
   // API phases share one tool session: select its login and its logout with them.
-  if (selected.has('private-ai-prepare')) selected.add('logout');
+  if (selected.has('private-ai-prepare') || selected.has('private-ai-execute')) selected.add('logout');
   else if ((['private-ai-owner', 'session', 'guild-cache', 'github-handoff', 'avatar', 'logout'] as PhaseId[]).some(id => selected.has(id))) { selected.add('session'); selected.add('logout'); }
   return PHASES.filter(id => selected.has(id));
 }
@@ -342,7 +347,7 @@ export function planReport(options: Omit<RunOptions, 'run'>): Report {
 function finish(target: Target, run: 'plan' | 'execute', options: Omit<RunOptions, 'run'>, phases: PhaseReport[], cleanup: CleanupItem[], started: string, secrets: Secrets, now?: () => Date): Report {
   const selected = phases.filter(phase => options.phases.includes(phase.id));
   const overall: Overall = run === 'plan' ? 'not_run' : selected.some(p => p.status === 'fail') ? 'fail' : selected.some(p => p.status === 'blocked') ? 'blocked'
-    : selected.every(p => p.status === 'pass') ? ((options.phases.includes('private-ai-owner') || options.phases.includes('private-ai-prepare')) ? 'incomplete' : 'pass') : selected.some(p => p.status === 'pass') ? 'incomplete' : 'not_run';
+    : selected.every(p => p.status === 'pass') ? ((options.phases.includes('private-ai-owner') || options.phases.includes('private-ai-prepare') || options.phases.includes('private-ai-execute')) ? 'incomplete' : 'pass') : selected.some(p => p.status === 'pass') ? 'incomplete' : 'not_run';
   const report: Report = {
     tool: TOOL_VERSION, report_kind: 'cloud_candidate_acceptance', run, harness: target.harness,
     // Preflight is offline; only a passed health (Worker runtime and expected release_sha) ties the run to a deployment.
@@ -469,6 +474,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('local_contract_loaded', !!options.contract && typeof (options.contract as { protocol?: unknown }).protocol === 'string');
       const needsAccount = accountFileRequired(options.phases);
       ctx.check('account_available_when_needed', !needsAccount || !!account, needsAccount ? 'selected phases need a dedicated synthetic account' : undefined);
+      if(options.phases.includes('private-ai-execute')){selectPhases(options.phases);const config=validatePrivateAiExecute(options.privateAiExecute,target,options.expectedReleaseSha,account);validatePrivateAiBudget(options.privateAiBudgetEvidence,config);}
       if(options.phases.includes('private-ai-prepare')){selectPhases(options.phases);validatePrivateAiPrepare(options.privateAiPrepare,target,options.expectedReleaseSha,account);}
       if(options.phases.includes('private-ai-owner')){validatePrivateAiOwner(options.privateAiOwner,target,options.expectedReleaseSha,account);ctx.check('private_ai_browser_available',!!options.browser);}
       ctx.metric('network_requests', 0);
@@ -583,6 +589,9 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('client_id_present', !!url?.searchParams.get('client_id'));
       ctx.metric('provider_url_requested', false); ctx.metric('consent_submitted', false);
       ctx.cleanup('unconsumed OAuth state row (expires after 10 minutes)', 'residual_expected');
+    },
+    async 'private-ai-execute'(ctx) {
+      await runPrivateAiExecute({config:validatePrivateAiExecute(options.privateAiExecute,target,options.expectedReleaseSha,account),budgetEvidence:options.privateAiBudgetEvidence,client,secrets,ctx,authenticate:()=>login(client)});
     },
     async 'private-ai-prepare'(ctx) {
       await runPrivateAiPrepare({config:validatePrivateAiPrepare(options.privateAiPrepare,target,options.expectedReleaseSha,account),client,secrets,ctx,authenticate:()=>login(client)});

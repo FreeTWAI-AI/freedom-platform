@@ -1,3 +1,4 @@
+import {validatePrivateAiExecute} from './verify-cloud-private-ai-execute.js';
 import {validatePrivateAiPrepare} from './verify-cloud-private-ai-prepare.js';
 import {validatePrivateAiOwner} from './verify-cloud-private-ai-owner.js';
 // Cloud candidate acceptance CLI. Default is a plan with no network access.
@@ -15,6 +16,7 @@ import {
 } from './verify-cloud-candidate-lib.js';
 
 export const ACCOUNT_ENV = 'FREEDOM_CANDIDATE_ACCOUNT_FILE';
+export const PRIVATE_AI_EXECUTE_ENV = 'FREEDOM_CANDIDATE_PRIVATE_AI_EXECUTE_FILE';
 export const PRIVATE_AI_PREPARE_ENV = 'FREEDOM_CANDIDATE_PRIVATE_AI_PREPARE_FILE';
 export const PRIVATE_AI_OWNER_ENV = 'FREEDOM_CANDIDATE_PRIVATE_AI_OWNER_FILE';
 export const ACCESS_ENV = 'FREEDOM_CANDIDATE_ACCESS_FILE';
@@ -44,6 +46,7 @@ export const HELP = `Usage: npx tsx scripts/verify-cloud-candidate.ts [plan|exec
 
 Environment (paths to private 0600 files owned by you; read only by execute):
   ${ACCOUNT_ENV}  {"candidate_origin","label","email","password","synthetic":true}
+  ${PRIVATE_AI_EXECUTE_ENV}  reviewed opt-in paid staging HTTP subset configuration (separate explicit phase)
   ${PRIVATE_AI_PREPARE_ENV}  reviewed staging pairing/model preparation configuration (separate explicit phase)
   ${PRIVATE_AI_OWNER_ENV}  reviewed staging-ingest configuration (private-ai-owner phase only; no paid execution)
   ${ACCESS_ENV}   {"candidate_origin","client_id","client_secret"}   (optional; omit for public, which has no whole-host Access)
@@ -142,12 +145,14 @@ export async function main(argv: readonly string[], env: NodeJS.ProcessEnv = pro
   }
   const account = accountFileRequired(cli.phases) ? validateAccount(await readPrivateJson(env[ACCOUNT_ENV], 'account'), target) : null;
   const access = env[ACCESS_ENV] ? validateAccess(await readPrivateJson(env[ACCESS_ENV], 'access'), target) : null;
+  const privateAiExecute=cli.phases.includes('private-ai-execute')?validatePrivateAiExecute(await readPrivateJson(env[PRIVATE_AI_EXECUTE_ENV],'private AI execute'),target,cli.expectedReleaseSha,account):undefined;
+  const privateAiBudgetEvidence=privateAiExecute?await readPrivateJson(privateAiExecute.budgetEvidenceFile,'private AI budget evidence'):undefined;
   const privateAiPrepare=cli.phases.includes('private-ai-prepare')?validatePrivateAiPrepare(await readPrivateJson(env[PRIVATE_AI_PREPARE_ENV],'private AI preparation'),target,cli.expectedReleaseSha,account):undefined;
   const privateAiOwner=cli.phases.includes('private-ai-owner')?validatePrivateAiOwner(await readPrivateJson(env[PRIVATE_AI_OWNER_ENV],'private AI owner'),target,cli.expectedReleaseSha,account):undefined;
   let browser: { close(): Promise<void>; newContext(options?: Record<string, unknown>): Promise<any> } | null = null;
   try {
     if (cli.phases.includes('browser') || cli.phases.includes('messages-mobile') || cli.phases.includes('private-ai-owner')) browser = await (await import('@playwright/test')).chromium.launch({ headless: true });
-    const report = await runCandidate({ ...base, run: 'execute', account, access, browser, privateAiOwner, privateAiPrepare, log: line => process.stderr.write(line + '\n') });
+    const report = await runCandidate({ ...base, run: 'execute', account, access, browser, privateAiOwner, privateAiPrepare, privateAiExecute, privateAiBudgetEvidence, log: line => process.stderr.write(line + '\n') });
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
     return report.overall === 'pass' ? 0 : 1;
   } finally {

@@ -365,3 +365,94 @@ Focused synthetic protocol tests:
  tests/worker/cloud-private-ai-owner.test.ts`. These cryptographically verify
 transport proofs and native enrollment proof bytes; they are not remote
 installation, provider or Cloudflare acceptance.
+
+### Explicit paid staging owner HTTP subset
+
+After preparation, ingest, and root installation of the genuine owner-scoped
+persistence/export policy, `--phases private-ai-execute` exercises one remote
+member HTTP execute request. This phase is separate from all other write phases.
+It creates a harmless synthetic Work, Run, Grant and max-128-token approval,
+activates and executes once, reads the owner Result, creates a human revision,
+checks that the original remains unchanged, then creates a second reserved step
+to Stop and revokes its approval and the dedicated connection. It never executes
+the second step. Root must use a dedicated disposable synthetic connection.
+
+Set `FREEDOM_CANDIDATE_PRIVATE_AI_EXECUTE_FILE` to a private 0600 JSON file with
+all preparation config fields, changing `profile` to
+`private-ai.staging-owner-execute/v1` and `paidExecution` to `true`, and adding:
+
+```json
+{
+  "acknowledgeOnePaidDispatch": true,
+  "modelConnectionId": "<prepared-model-UUID>",
+  "modelVersion": "1",
+  "budgetEvidenceFile": "<absolute-private-fresh-budget-JSON>",
+  "ledgerDirectory": "<existing-private-session-ledger-directory>",
+  "expiresAt": "<exact-key-expiration-ISO-time>",
+  "maxUsd": 10,
+  "maxOutputTokens": 128,
+  "maxExecuteRequests": 1
+}
+```
+
+`receiptDirectory` must be a new private attempt directory. No `keyFile` or
+provider credentials are accepted by this phase. The existing account and
+optional main Access files provide member login only. Root produces the budget
+file from fresh actual key/model GET observations; its closed shape is:
+
+```json
+{
+  "profile": "private-ai.operator-budget-evidence/v1",
+  "model": "<exact-selected-openrouter-model>",
+  "mainReleaseSha": "<reviewed-40-hex-sha>",
+  "brokerReleaseSha": "<same-reviewed-40-hex-sha>",
+  "observedAt": "<current-observation-ISO-time>",
+  "expiresAt": "<observation-plus-at-most-60-seconds-ISO-time>",
+  "keyExpiresAt": "<exact-key-expiration-ISO-time>",
+  "keyLimit": 10,
+  "keyUsage": 0.01,
+  "promptPrice": "0.000001",
+  "completionPrice": "0.000002",
+  "requestPrice": "0"
+}
+```
+
+Prices above illustrate field syntax only; root must use actual observed prices.
+The check uses `17408*promptPrice + 128*completionPrice + requestPrice <= 0.10`
+and checks observed usage plus that estimate against the key limit and session
+maximum. Evidence must match the model/releases/key expiry, be no more than 60
+seconds old and remain unexpired. It is checked in preflight and again **after**
+the durable execute command intent, immediately before dispatch. An expired observation blocks paid dispatch; it does not block the subsequent
+cancel-only activation or Stop/Revoke controls. The tool does not refresh
+evidence or read a provider key.
+
+The existing session ledger is shared with prior root OpenRouter tests. Its
+`session.json` profile is `private-ai.provider-session-ledger/v1`, with exact
+`maxUsd`, `expiresAt`, `priorReservedUsd` and `priorKnownCostUsd`. The root-supplied
+baseline includes previous calls and unknown reservations. An additional $0.10
+is permanently reserved before login; reservations are never released by this
+helper. Operator observations and the estimate are **not** cryptographic
+attestation or a guaranteed provider dollar cap; provider usage can lag and
+pricing may change. No other billing provider belongs in this ledger.
+
+The tool fsyncs an exclusive attempt intent and individual command intents. A
+lost, non-successful, malformed or mismatched execute acknowledgement stops the
+sequence without another execute request. Private receipts retain fixed stages,
+HTTP status, metadata acknowledgements and Result hashes/byte counts; they never
+contain Result text, provider credentials, session cookies or raw errors. Never
+automatically retry with a fresh directory: root must reconcile the existing
+attempt first. Tool logout is attempted even on failure.
+
+Run `execute --target staging --expected-release-sha <reviewed-sha> --phases
+private-ai-execute`. Successful subset completion remains `incomplete` with
+`cloud_proof:false` (CLI exit 1). Owner Result reads use the actual deployed
+product storage path, but independent remote R2 verification, actual provider
+POST count/cost, foreign-owner denial, broker restart and recovery withdrawal
+remain explicitly unavailable. Root performs these separately using the private
+Result IDs/hashes and reviewed installation. Missing policies are blockers; this
+tool never installs policies or writes fixture SQL.
+
+Hermetic subset checks:
+`node --import tsx --test tests/worker/cloud-private-ai-execute.test.ts`.
+They use synthetic HTTP responses and do not prove a remote installation or
+perform paid provider calls.
