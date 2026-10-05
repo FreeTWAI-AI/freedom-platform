@@ -368,6 +368,25 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "receipt-session-4797cd9": {
+      "id": "receipt-session-4797cd9",
+      "kind": "isolated_postgresql_runtime",
+      "source_sha": "4797cd96451b10edff236d176059aa4e944ad600",
+      "environment": "private Unix socket; explicit synthetic fp_receipt_a1 database; no env/production discovery",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/receipt-session-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Seven media wrappers and ordinary member receipt SELECT/miss/INSERT waits reject elapsed session and roll back effects.",
+        "Valid replay preserves original receipt namespace and digest."
+      ],
+      "limitations": [
+        "No production/staging/real R2 operations, no deployment or native GitHub enforcement.",
+        "Synthetic domain counter/scoped facts test adapter transaction boundaries; not every media ACL/pipeline.",
+        "No promise of authorization lifetime after final decision through COMMIT/network response.",
+        "R2:A03 full session-revoke/guild-exit/disabled-user domain matrix remains separately tracked; this closes the concrete elapsed-time receipt-wait packet only."
+      ]
     }
   },
   "requirements": [
@@ -3808,11 +3827,18 @@
           "environment": "controlled synthetic accounts on Cloudflare staging and production; real HTTPS/R2; bounded Chromium staging playback",
           "covered_part": "Only the bounded purpose/operation observations in the media report apply; the complete original row and all remaining negatives are not accepted.",
           "limitations_reference": "evidence_catalog.media-cloud-d269.limitations"
+        },
+        {
+          "evidence_id": "receipt-session-4797cd9",
+          "source_sha": "4797cd96451b10edff236d176059aa4e944ad600",
+          "environment": "Isolated PostgreSQL18.6 with DML-only runtime role and actual receipt lock waits",
+          "covered_part": "Elapsed-session receipt-wait subcase only; full session revoke/guild exit/disabled-user domain matrix remains open.",
+          "limitations_reference": "evidence_catalog.receipt-session-4797cd9.limitations"
         }
       ],
       "remaining": [
         "Gather session revoke/guild exit/user disabled DB races for every applicable domain, not only cleanup user invalidation.",
-        "Lane A found seven legacy media receipt adapters do not recheck the session deadline after a receipt read/write lock wait. Reproduce with deterministic receipt-table read/insert barriers and fix without changing generic command target semantics; current domain-authorize deadline tests do not cover that wait."
+        "Integrate and deploy the receipt deadline fix; the recorded local source is not deployed evidence."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."

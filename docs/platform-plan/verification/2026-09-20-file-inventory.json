@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 8979,
-      "sha256": "aa970d74b76e1dd1a5c1622dd04760fa99f850f26dc694e9618dbab34b96a407"
+      "bytes": 9198,
+      "sha256": "e6a45717d15f77c28f5f93e4a226fcfc6f8a85d675777b8647d3d95033c881e4"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
@@ -13663,14 +13663,19 @@
       "sha256": "dec1a03f434d72e3c5cf10a9b9039f8aeba6d0b3c4a3be2ea116309b20134580"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/receipt-session-evidence-2026-10-05.json",
+      "bytes": 5267,
+      "sha256": "7b8a46869b990ac6ffa572c64f8a6d175fd21c9ea402dfb238b16aa1a4fa2606"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
       "bytes": 28642,
       "sha256": "df53eee1f6224afc65b53fcf0ac825ae7b870b077cd70d75d54a047407820acc"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338977,
+      "sha256": "c7edfabbe120e2f7e98bcd182f1082afcb569d23c97fc10d15711d4b95ec9da0"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -16094,8 +16099,8 @@
     },
     {
       "path": "packages/db/README.md",
-      "bytes": 11315,
-      "sha256": "4d8caafd85b657a30b97563b3c14ef888a35d704067fa4e32aa59d3aa61256d0"
+      "bytes": 11940,
+      "sha256": "acc6924d8f9f79f57dbff76f4d97827123d1b876bf1942f1c954fa026a5ac715"
     },
     {
       "path": "packages/db/command-core.ts",
@@ -16119,8 +16124,8 @@
     },
     {
       "path": "packages/db/member-command.ts",
-      "bytes": 2349,
-      "sha256": "f1cfd6430f913b190c871488bf441bf57e035526affd8ee5562a4b3f7e7c5f98"
+      "bytes": 2723,
+      "sha256": "ea5ddd10184e0c3c2f6b93d6ed140c2b81c69b32d373ddfbe09ab132b7cbc1f8"
     },
     {
       "path": "packages/db/member-session.ts",
@@ -17414,8 +17419,8 @@
     },
     {
       "path": "tests/runtime/avatar-command-compat.test.ts",
-      "bytes": 20662,
-      "sha256": "45b282a267c42f8ad969d4d8279e97fbb61d9c3fe0cc926b2a22b0b9771514e1"
+      "bytes": 31913,
+      "sha256": "29686ec8a2649a62638dd9f157a575854f081628180be09d638597e17b7cc184"
     },
     {
       "path": "tests/runtime/avatar-upload.test.ts",
