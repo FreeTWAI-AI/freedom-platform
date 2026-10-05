@@ -229,6 +229,23 @@ for (const outcome of ['drop', 'malformed', '503', 'abort'] as const) test('unce
   assert.equal(row.state, 'active'); assert.equal(String(row.current_generation), '2');
 });
 
+test('pair recomputes the polling deadline after an early timer wakeup', async t => {
+  const f = await machine(), begun = await f.client.begin(); await approve(begun.userCode);
+  assert.equal((await f.client.poll()).status, 'proof_required');
+  const calls = f.calls(), timer = globalThis.setTimeout; let wokeEarly = false;
+  const early = t.mock.method(globalThis, 'setTimeout', (callback: (...args: any[]) => void, milliseconds?: number, ...args: any[]) => {
+    if (!wokeEarly && (milliseconds ?? 0) >= 1000) {
+      wokeEarly = true; return timer(callback, 0, ...args);
+    }
+    return timer(callback, milliseconds, ...args);
+  });
+  try {
+    const session = await f.client.pair();
+    assert.equal(wokeEarly, true); assert.equal(session.operational_authority, false);
+    assert.equal(f.calls(), calls + 1, 'Early wakeup must not send another poll or enrollment request');
+  } finally { early.mock.restore(); f.client.close(); }
+});
+
 test('abort while waiting to poll leaves enrollment unconsumed and sends no retry', async () => {
   const f = await machine(), begun = await f.client.begin(), member = await approve(begun.userCode);
   assert.equal((await f.client.poll()).status, 'proof_required');
