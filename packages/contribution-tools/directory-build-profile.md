@@ -62,9 +62,19 @@ node --test --test-concurrency=1 tests/integration/directory-runtime.test.mjs
 The candidate CI workflow runs ten integration tests against approved Git ancestry:
 valid builds/data edits and source-valid constant output, escaping removal,
 duplicate-validation removal, early writes, extra files, route drift, symlink and
-hang counterexamples. It is diagnostic. Existing installed rules remain pinned
-to their previously reviewed sources: source rule24473806 at a254 and three-consumer
-runtime rule24476100 at92. Installation requires review of this source, a new fixed
-source ref, hosted temporary-ref positives/negatives and actual merge-denial
-evidence before adding a directory-only runtime rule. Do not broaden the three-repo
-rule blindly or move an installed immutable source ref.
+hang counterexamples. It is diagnostic.
+
+The reviewed implementation was merged in central PR #128 as
+`5b471fe730f11a85700d5ab3225d6c862cee7bc3`. Directory-only main rule **24516222**
+now requires this fixed runtime workflow, published at
+`refs/heads/governance/directory-runtime-source-20261005`. Two temporary positives
+merged, three source-valid build negatives received actual merge 405 responses,
+and a main-target positive/negative repeated the enforcement check. All seven
+probes and their temporary resources were closed/removed; directory main was
+unchanged. [Installation evidence](../../docs/platform-plan/verification/directory-runtime-enforcement-2026-10-05.json)
+records the exact native runs, rule configuration and cleanup.
+
+Source rule24473806 remains at a254 and the separate three-consumer runtime
+rule24476100 remains at92. Future upgrades need independently reviewed source,
+a new fixed publication ref and their own hosted acceptance. Do not broaden the
+three-repo rule blindly or move an installed immutable source ref.

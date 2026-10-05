@@ -198,3 +198,66 @@ Runtime 沿既有隔離 supervisor，新增 storefront／supplier 的 `scripts/r
 | [#11 替換 CLI](https://github.com/FreeTWAI-AI/freedom-storefront/pull/11) | [source 37267165139](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165139)／workspace 通過，[runtime 37267165130](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165130) 只在 CLI 行為失敗；actual merge 405，suite `4360309737` 為 source pass／runtime fail。 |
 
 36 個 native jobs 的 source SHA、固定 checkout、workflow path、GitHub Actions App `15368`、check suite、PR head／tested merge tree 與失敗原因均核對。24 張 probes 全部結束，兩個臨時 rules `24483203`／`24483204` 及本輪 owned probe refs 已刪除；九個 consumer main 未變。正式新規則與 immutable source ref 保留。完整 API／logs 留在私有 `freedom-platform-next-20261005/consumer-probes` 與 `consumer-main-probes`；公開 JSON 僅保存配置、版本、run IDs、結果與邊界。
+
+## 10 月 5 日：目錄站真實建置規則（#128）
+
+中央 [#128](https://github.com/FreeTWAI-AI/freedom-platform/pull/128) 經
+`detna-vibe-coding` 核准最終 head `25449d11`，正常合併為
+`5b471fe730f11a85700d5ab3225d6c862cee7bc3`；合併 tree 與通過完整 CI 的
+`4ee62c16` 相同。新規則 **24516222** 僅對目錄站 main 強制固定的
+`.github/workflows/trusted-consumer-runtime.yml`，active、無 bypass，publication ref
+為 `refs/heads/governance/directory-runtime-source-20261005`。九倉 source 規則24473806
+仍固定a254，三倉 HTTP／CLI 規則24476100 仍固定92，中央 review 規則保留。
+
+固定 host 對真正 `scripts/build.mjs` 跑十個隔離案例。輸出由 Docker daemon 在
+暫停容器後提供完整 archive，host 只雜湊 regular files，核對固定參考產物與完整
+輸入樹；candidate stdout 不提供 verdict。正常錯誤輸入須退出1且未產生半成品。
+未知 exec／建立結果、讀回或清理失敗均拒絕。這是有限輸入與固定 renderer 契約，
+不證明任意輸入、瀏覽器、visual redesign 或內部 library invocation。
+
+安裝前兩個正例（目錄站 #12／#13）各完成十個案例，僅 merge 到自有臨時 base；
+三個 source-valid 負例（#14 常數假輸出、#15 移除跳脫、#16 提早寫入）均在真正
+build observation 失敗，actual merge 均405。正式規則安裝後，#17 正例通過並關閉，
+#18 假輸出負例再次 merge405；rule-suite **4369999977** 為 source pass／runtime fail。
+七張 probes 均結束，臨時 rule24516070 與十二個分支已移除。目錄站 main 保留
+`e888d6a751269221e0b2b64ed4bc2d945ee8bd3e`，本輪沒有 Pages 或主站發布。
+
+精確 rule 配置、PR／native run／job IDs 及清理結果見
+[目錄站建置安裝證據](../../verification/directory-runtime-enforcement-2026-10-05.json)。
+本節記錄實際已安裝範圍，不把前面「其餘六倉」的歷史文字當現行剩餘數量；
+目前另五個 source-only profiles 的實際 runtime 仍待完成。
+
+## 10 月 5 日：目錄站真正 merge queue 整合驗收
+
+本次沿用正式已核准的 source a254 與 runtime5b，不改任何驗證程式或正式規則。
+在目錄站自有 `canary/directory-queue-20261005/base` 上，臨時 org rule24519256
+要求相同的兩條固定 workflows，repository rule24519258 啟用真正 merge queue：
+`ALLGREEN`、build concurrency2、最多合併2筆、`MERGE`、timeout10分鐘、無 bypass。
+GitHub 的 [queue 規則](https://docs.github.com/en/enterprise-cloud%40latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-merge-queue)
+設在 repository；兩條 workflow 均接收真正的 `merge_group` 事件。
+
+- [A／#19](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/19) 只在 renderer 加入一個由特定資料觸發的合成錯誤；目前資料與十個 host cases 均通過。
+- [B／#20](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/20) 只更改資料文字，對原 renderer 是合法輸入，也完成十個 host cases。
+- A、B 分別通過自己的兩條固定 native workflows 後，依 exact head 加入 queue。GitHub 產生 A 的 `eb187161` 與 A＋B 的 `d823cc8e`，檔案集合及兩個 PR 的 ancestry 均經回讀核對；後者不是任一原 PR 的 tested tree。
+
+| Queue candidate | 固定 source | 真正 build | GitHub 結果 |
+| --- | --- | --- | --- |
+| A：`eb187161` | [37349786300](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349786300) 通過 | [37349786354](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349786354) 十個案例通過 | A 合入臨時 base |
+| A＋B：`d823cc8e` | [37349789893](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349789893) 通過 | [37349789840](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349789840) 在 `candidate-data` 明確 behavior mismatch | B 被移出，未合併 |
+| 後續 C：`5574d679` | [37350350817](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350350817) 通過 | [37350351136](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350351136) 十個案例通過 | [C／#21](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/21) 從 queue 合入臨時 base |
+
+GitHub 的 `RemovedFromMergeQueueEvent` 對 B 回報 `failed_checks`，`beforeCommit`
+為完整 `d823cc8e14c1192a16d8801f5e89cea5413ed9df`，與失敗 native run／Git tree 相同。
+後續 C 從 A 已合併的 base 開始，在自己的 PR 與新 queue head 各完成固定驗證，證明
+拒絕 B 後 queue 可繼續工作。六個 PR jobs 與六個 queue jobs 均核對 App15368、
+workflow source、candidate commit/tree、run attempt 及清理；未取消、rerun 或偽造綠燈。
+完整非秘密紀錄見[queue 聚合證據](../../verification/directory-merge-queue-2026-10-05.json)。
+
+所有 probe PR 已結束，四個自有分支、GitHub 管理的臨時 queue refs 與兩個臨時規則
+均已清理。四個正式規則24469536／24473806／24476100／24516222 保留原配置，目錄站
+main 維持e888；沒有 Pages 部署，也沒有替正式 main 啟用 queue。
+
+這次只驗收同倉目錄站臨時 queue 的整合正反例與後續成功；其他 consumers 的
+merge queue、fork／supersession、任意輸入、內部 library invocation 與獨立 App
+publisher 的 durable replay／unknown ACK 仍未驗收。合成 A 能通過有限案例也說明
+runtime profile 有明確輸入界線，不能把通過十個案例寫成任意行為均安全。
