@@ -13679,8 +13679,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/portal-composition-evidence-2026-10-05.json",
-      "bytes": 4546,
-      "sha256": "8d3503f2aa10e03e9980eb7c68ded1cdcf3f11c14bee10190b2922e703792a14"
+      "bytes": 5015,
+      "sha256": "cae933f1c359e565484809c59b86fb896d14b4c5a4180d79e710df608d63907f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
@@ -16069,8 +16069,8 @@
     },
     {
       "path": "packages/contribution-tools/test/surface-adversarial.test.mjs",
-      "bytes": 8583,
-      "sha256": "30ed6ba98b05bb883bcc52e793dd7d7344c17f6f52c11f3ec54ca521328373a6"
+      "bytes": 9003,
+      "sha256": "30568fda110f46fa2261752b8d339e6e320a6d3fab8b70cd32946d4096dfda96"
     },
     {
       "path": "packages/contribution-tools/test/surface-audit.test.mjs",
