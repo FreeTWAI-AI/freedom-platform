@@ -7,6 +7,7 @@ import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONSUMER_LIBRARIES, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from './consumer-libraries.mjs';
 import { CONSUMER_SOURCE_PROFILES, verifyConsumerSourceProfile } from './consumer-source-profiles.mjs';
+import { verifyConsumerEntryCoverage } from './consumer-entry-coverage.mjs';
 import { artifactPath, parseJson, sha256 } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
@@ -91,11 +92,15 @@ export async function verifyNativeConsumerSource(input) {
         readCanonical: path => read(source, canonicalFiles, path) })
       : await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit, sourceRoot: source });
     check(!profile || verified.status === 'passed', 'consumer_profile_not_passed');
+    const entryCoverage = await verifyConsumerEntryCoverage({ candidateFiles, baselineFiles,
+      readCandidate: path => read(candidate, candidateFiles, path),
+      readBaseline: path => read(candidate, baselineFiles, path) });
     return { format: 'freedom.native-consumer-source/v1', status: 'passed', gate_enforced: false, merge_authorized: false,
       repository: config.repository, candidate_commit: config.candidateCommit,
       candidate_tree: git(candidate, ['rev-parse', config.candidateCommit + '^{tree}']).toString().trim(),
       baseline_commit: baseline, workflow_commit: config.expectedWorkflowCommit, source_commit: config.expectedSourceCommit,
       verification: verified.verification, preview: verified.preview ?? 'unchanged-from-approved-baseline',
+      entry_coverage: entryCoverage,
       source_profile: profile ? verified.profile : 'adopted-shared-libraries',
       ...(profile ? { profile_result: verified } : {}),
       library_usage: 'not_checked', runtime_observation: 'not_checked', evidence };

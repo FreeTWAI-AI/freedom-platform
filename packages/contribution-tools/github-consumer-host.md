@@ -94,3 +94,31 @@ cases prove ordinary product edits can pass while protected automation changes,
 missing required paths, invalid manifests, authority changes and forged canonical
 source fail. Candidate passing artifacts and candidate-owned baseline files
 cannot authorize any of these changes.
+
+## Explicit executable registrations
+
+The source host additionally applies `consumer-entry-coverage.mjs` to the complete
+candidate and approved-baseline Git inventories for all nine consumers. It compares
+every root/nested package manifest's non-descriptive metadata, including every
+script and lifecycle hook, bin/main/module/browser/exports/imports, workspaces,
+dependencies and unknown future fields. Only version, description, keywords,
+authorship, license, repository/contact and funding metadata may change freely.
+New/removed package manifests, known workflow/hook/launcher configuration files,
+implicit Node/npm entry files and executable-mode registrations fail closed;
+existing launcher configurations must retain their approved bytes. An entry change
+requires a separately reviewed host baseline, never a candidate-owned approval.
+
+The nine locked baselines each have one root package manifest. This includes kit's
+`status` command, storefront/supplier `connect` and `read`, their export aliases,
+and the existing six profiles' build/test/preview/dev commands. Product source
+and existing executable target contents remain editable. The report calls this
+`explicit-package-registrations-and-known-launcher-files`; it does **not** discover
+arbitrary HTTP/queue/MCP registration inside source, certify dynamically generated
+entries, or establish imports, internal invocation or GOV-04/05 completion.
+`runtime_entry_discovery` and `library_invocation` remain `not_checked`.
+
+The standalone library-byte verifier still checks only canonical library bytes;
+this registration boundary belongs to the native host with its independently
+selected baseline and complete Git inventory. The six-profile helper also compares
+root package metadata, but cannot claim complete inventory coverage by itself.
+No installed workflow/rule or external acceptance follows from this local change.

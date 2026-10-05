@@ -7,6 +7,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { verifyPackageEntryRegistrations } from './consumer-entry-coverage.mjs';
 import { verifyContractPin } from './contracts.mjs';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { requireCondition as check, VerificationError } from './errors.mjs';
@@ -94,6 +95,7 @@ export async function verifyConsumerSourceProfile({ repository, repositoryRoot, 
     }
   }
   check(isDeepStrictEqual(candidatePackage.exports, baselinePackage.exports), 'consumer_exports_changed');
+  verifyPackageEntryRegistrations(candidatePackage, baselinePackage);
   const manifest = parseJson(await readBounded(repositoryRoot, 'freedom.project.yaml'));
   const baselineManifest = parseJson(await readBaseline('freedom.project.yaml'));
   check(manifest.repository?.full_name === repository, 'consumer_manifest_repository_mismatch');
