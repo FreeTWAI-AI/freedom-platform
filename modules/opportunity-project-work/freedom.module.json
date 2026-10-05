@@ -17,16 +17,24 @@
     "tests/runtime/private-result-schema.test.ts",
     "tests/runtime/private-result-races.test.ts",
     "apps/portal-web/src/modules/MemberTasks.tsx",
-    "tests/runtime/flows.test.ts"
+    "tests/runtime/flows.test.ts",
+    "apps/portal-web/src/modules/WorkbenchPanel.tsx",
+    "apps/portal-web/src/modules/ShowcasePanel.tsx",
+    "apps/portal-web/src/modules/EngagementPanel.tsx"
   ],
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
     "modules/opportunity-project-work/private-work.ts",
     "modules/opportunity-project-work/private-commands.ts"
   ],
-  "dependencies": ["command-core", "resource-scopes", "scoped-commands"],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands"
+  ],
   "contract_families": [
-    "preview", "common"
+    "preview",
+    "common"
   ],
   "client_profiles": [
     "member"
@@ -44,14 +52,19 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "runtime.work", "runtime.work-privacy", "runtime.full"
+    "runtime.work",
+    "runtime.work-privacy",
+    "runtime.full"
   ],
   "surfaces": [
     {
       "surface_id": "work.private-read-api",
       "kind": "http",
       "entry": "apps/platform-api/src/routes/private-work.ts",
-      "operations": ["work.private.list", "work.private.read"],
+      "operations": [
+        "work.private.list",
+        "work.private.read"
+      ],
       "auth_profile": "member-session"
     },
     {
@@ -73,6 +86,44 @@
       "operations": [
         "work.list",
         "work.create"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.workbench-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/WorkbenchPanel.tsx",
+      "operations": [
+        "work.list",
+        "work.create",
+        "work.claim",
+        "work.claim.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.showcase-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/ShowcasePanel.tsx",
+      "operations": [
+        "showcase.list",
+        "showcase.publish",
+        "opportunity.propose",
+        "engagement.propose"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.engagement-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EngagementPanel.tsx",
+      "operations": [
+        "engagement.list",
+        "engagement.agree",
+        "engagement.deliver",
+        "engagement.accept",
+        "engagement.receipt.report",
+        "engagement.receipt.confirm"
       ],
       "auth_profile": "member-session"
     }
