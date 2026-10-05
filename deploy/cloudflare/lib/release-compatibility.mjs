@@ -68,6 +68,9 @@ const FOUNDATION_NAMES = [
   // Additive member-card/chat integration only. Exact ledger digests and all
   // independently supplied host approvals remain mandatory; no new authority.
   '112_member_card_editorial.sql', '113_chat_stickers_replies.sql',
+  // Preparation deadline and explicit OpenRouter admission. Schema recognition
+  // never supplies provider readiness, execution or release approval.
+  '114_credential_ingest_preparations.sql', '115_openrouter_byok.sql',
 ];
 
 function reject(code) { throw new Error(code); }
