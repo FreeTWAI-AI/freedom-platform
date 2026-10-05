@@ -116,3 +116,42 @@ Staging 首輪 capture 後因 operator 傳入 `staging-next` 而非 archive sche
 兩個 completion receipts 均在確認 **GC disabled**、自有隔離環境清除後才寫入。恢復結果為 `quarantine_not_approved_for_exposure`：沒有對外服務、沒有替換現行資料庫，也沒有宣稱已完成 cloud cutover、目前撤銷權限重套或 PITR。私有證據在 `freedom-platform-push-20261004/archive-live/{staging,next}-media-backup.completed.json` 及 `archive-live-reconciliation.md`。
 
 既有 daily timers 仍用較早的 disabled-GC object-superset 方法；本輪未把 migrator credential 加入新排程。新版每次 capture 的持續 source pins 保留；自動 retention、日常同 snapshot evidence、獨立排程與跨 Cloudflare 帳戶備援仍待接續。
+
+## 新 daily coordinator 與既有服務切換（2026-10-05）
+
+接續上節尚未切換排程的狀態，本輪使用[既有服務切換方案](../../../development/daily-recovery-backup-installation.md)的同一個 private wrapper，先 staging、再 production，實際執行新的 daily coordinator。Operator source 為 `c3e5a537a75303c4688e01b7f0d8477c3587a26f`，線上 release 仍為 `d269a8d7605630cab1da605d7cac4d0c254e3258`；adapter SHA-256 為 `5d56f5256cbfdd972ed7db3bfb569fc3b271df899772c3bf77ea360efe2e716a`。以下先記錄新 daily 入口的兩次手動驗收；其後的 systemd service 切換與驗收另列於後節，與 timer 自動觸發分開記錄。
+
+| 環境 | Set 建立 UTC／獨立核對 UTC | 全表 evidence | Objects／bytes | Dump bytes／異地 TAR bytes |
+| --- | --- | --- | --- | --- |
+| staging | 01:36:07.734／01:47:35.712 | 192 表、4,075 rows、2 sequences | 25／44,267 | 1,469,804／1,730,560 |
+| production | 01:43:14.889／01:52:50.334 | 192 表、18,011 rows、2 sequences | 37／382,316 | 5,126,880／5,877,760 |
+
+| 環境 | Recovery manifest SHA-256 | Dump SHA-256 | 異地 TAR SHA-256 |
+| --- | --- | --- | --- |
+| staging | `e69139b645e14b61c0f4f58a66e8024d5617297b5f908c7876c586aafa1836fd` | `6950c1a295ad3966e13f21c167c07bf04f352a774c53f1c935c48460f0aa7e0a` | `37f3146315b2ec9bfc76de9ef6a6023e7a0f1bb5a6b4274e8606d01e8ffe7db3` |
+| production | `755b5f151994402a26497a98ee4c47a27539ad96d53923da8a7d37cd07aa8f10` | `6f772554dea29156b0952c4b2bbb72f171a0798078b0aeab0285e674aa93c20d` | `086520f46e3becc7641acfb1fb63b82274b6dbc243f311a80aadfd4e54ab88e0` |
+
+較早的 staging v1 嘗試 `298e2c2e-0de8-451d-a0ea-d086c5d7174e` 在 dump 前被既有 SQL constraint 拒絕：adapter 的 `pin_seconds=172800` 超過允許上限 86400。該次失敗保留，GC OFF／cleanup 已核對；後續只將 private adapter 改為 86400，未放寬 SQL constraint，並以新的 set 完成上列 staging v2 驗收。
+
+兩份 completed receipts 均為 `passed`：同 exported snapshot capture／dump／evidence，seal 後完整下載異地副本，再以該副本實際還原 SQL 與 native R2；`remoteReadback:verified`、`restore:database_and_objects_restored`、`cleanupVerified:true`。操作人另行核對完整 remote digest、GC disabled 及自有容器不存在，保存獨立 acceptance receipts；不是只採信上傳 ACK 或重用先前一輪 archive。Sequences 仍是非 MVCC 的下限證據，不能把上述 counts 宣稱為 snapshot sequence 一致性或未前進的證明。
+
+恢復狀態保持 `quarantine_not_approved_for_exposure`，source pins 保留，未執行 retention、GC、PITR 或 cutover。異地 REST 發布明列 `mode:unique_single_writer`、`atomicCreateOnly:false`：使用同一操作人鎖、新 UUID key、先記錄且 fsync 的單次 PUT intent 與完整下載核對；未冒充 provider 原生 atomic create-only／CAS。
+
+來源檢查已補齊 policy UPDATE 未知 ACK 的精確 backend／revision 對帳、建立前持久記錄自有容器名稱與 labels、Docker client 中止後的自有 daemon container 清理，以及部分配置失敗時的獨立資源關閉。容器建立 ACK 未知且未取得可核對的自有資源時，單次查無容器不能宣稱 cleanup 完成。Wrapper 對兩環境使用同一非阻塞 host lock，固定 Node／source／adapter pins；這些來源檢查與手動正例不等於所有故障情境均已在線上注入驗證。
+
+Aggregate receipts 定位為 `freedom-platform-push-20261004/daily-live/runs/9255e7a8-0bfc-485e-85e3-823f0a980108/`（staging）及 `afc8c38d-7076-4ec6-9a02-f484d841fbff/`（production）中的 `completed.json`、`independent-acceptance.json`。帳號、憑證、object keys、原始 dump 與 provider receipts 不進 Git。
+
+### Service 切換驗收與 timer 恢復
+
+操作人已依 `c3e5a537a75303c4688e01b7f0d8477c3587a26f` 的 reviewed templates，對兩個既有 services 安裝字典順序最後的 `zz-coordinator-20261005.conf`；原 migration／offsite drop-ins 保留。兩個 services 的有效 ExecStart 均已改為新 wrapper，ExecStartPost 經獨立 D-Bus 回讀確認為空陣列。首次 `systemctl` 文字解析即使用 `--all` 仍未列出空的 ExecStartPost，因此 verifier 先拒絕；後續使用 `busctl` 明確核對空陣列，沒有把欄位缺漏當成成功，該解析失敗本身未觸發服務效果。
+
+依切換程序，兩個 timers 暫停，接著依序驗收實際 systemd service 入口。staging service 於 01:55:08–02:02:08 UTC 執行，unit Result `success`、exit status 0；新 set `0a474ba2-d3a8-48c1-af49-c4f9085a3b97` 完成後，02:02:11.702 UTC 的獨立 acceptance 再次核對 full remote readback、GC OFF、自有容器不存在與 quarantine。Production service 於 02:02:11–02:10:22 UTC 執行，同為 Result `success`、exit status 0；新 set `f8a57c7a-0b90-4382-a973-3b11cbcb81f6` 於 02:10:29.461 UTC 通過相同獨立核對。兩個都是由實際 service 入口產生的新 set，未沿用上列 wrapper 手動驗收集。
+
+| Service set | 全表 evidence／objects | Dump bytes／SHA-256 | Manifest SHA-256 | 異地 TAR bytes／SHA-256 |
+| --- | --- | --- | --- | --- |
+| staging | 192 表、4,109 rows、2 sequences；25 objects／44,267 bytes | 1,470,280／`775169467cc1145236f55046d024598f1d3ade71deeeed59586abbeab709f394` | `79d3e2d843a5439e3dfc951393b22b6db52e6781b2f7847ed9470c72f88baad4` | 1,730,560／`ee4d1bf6a66925884285f4afed177d650ee9316c37596543513d935abaeb0d5b` |
+| production | 192 表、18,145 rows、2 sequences；37 objects／382,316 bytes | 5,135,054／`2344aaab12a912780b567b327ce42998663d45982e50df58087259598c0cade7` | `477bab94f04d5c03469b6154de7166f793fb12d09eab92c6d44d671df22c2956` | 5,888,000／`f6e649570c9fc19da12da49e833864c8c504f93f95e12630ceb7beb4697fa1ae` |
+
+兩邊實際 service 驗收通過後，02:10:29.665 UTC 回讀原 timers 均為 active／enabled。原 UTC 04:30（production）與 04:45（staging）、`Persistent=yes`、5 分鐘 randomized delay 均保留；當下 next-trigger 回讀分別為 04:33:52 UTC 與 04:45:17 UTC。舊 unit／drop-in files 保留。安裝與手動 systemd 入口驗收已完成，**下一次 timer 自動觸發尚未觀察**；不能將 armed timer 當成已產生排程備份。
+
+Service aggregate 證據定位為同一私有 journal 的 `daily-live/timer-switch/staging-service-accepted.json`、`production-service-accepted.json` 及 `completed.json`。這輪未啟用 retention／GC／PITR／cutover，亦未完成獨立雲端排程或其他未驗收功能。

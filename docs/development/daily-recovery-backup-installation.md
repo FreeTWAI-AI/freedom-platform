@@ -1,11 +1,16 @@
 # Switch the existing daily backup services to the coordinator
 
-This is an installation artifact, not an installation receipt. The public runner
-is [media-backup-daily.ts](../../scripts/media-backup-daily.ts); its fixed sequence
-and private adapter types are in [backup-daily.ts](../../packages/media-migration/backup-daily.ts).
+These are portable installation and rollback instructions. The actual environment
+results and installation state are recorded in the
+[daily coordinator acceptance receipt](../platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md#新-daily-coordinator-與既有服務切換2026-10-05).
+Use that record to distinguish manual wrapper acceptance, installed service
+configuration and observed timer execution; a one-time restore alone proves none
+of the later scheduling steps.
+
+The public runner is [media-backup-daily.ts](../../scripts/media-backup-daily.ts);
+its fixed sequence and private adapter types are in
+[backup-daily.ts](../../packages/media-migration/backup-daily.ts).
 Provider access, host unit installation and real acceptance belong to the operator.
-The already completed one-time live restores do not prove a daily schedule uses
-this runner.
 
 The current services are `freedom-next-backup.service` (production) and
 `freedom-staging-next-backup.service` (staging). Root's live readback recorded
