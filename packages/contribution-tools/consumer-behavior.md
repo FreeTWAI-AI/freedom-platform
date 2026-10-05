@@ -57,24 +57,26 @@ produce a nonzero CLI result. Hosted positive/negative canaries remain necessary
 before adding a native runtime rule. No new App, signature authority or general
 collector is introduced.
 
-The existing immutable cached base image must be installed deliberately:
-`sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171`.
-The runner never pulls an image implicitly. Required host facilities are Linux,
-non-root Node24+, Docker control and the existing supervisor's trusted installed
-dependencies. Consumer mode needs no database container or candidate node_modules.
-The current image/local host OS are still unapproved supply-chain identities in
-the report; provision and approve an immutable host/image recipe before claiming
-installed runtime trust. Do not mount Docker socket, credentials, the host checkout
-or a writable shared cache into the candidate.
+The portable [consumer runtime recipe](consumer-runtime-recipe.md) selects a
+public Debian amd64 manifest plus the exact official Node24.21.0 executable.
+Provision it explicitly with `node packages/contribution-tools/consumer-runtime-recipe.mjs prepare`.
+The supervisor never pulls implicitly. Consumer mode needs Linux x64, non-root
+Node, Git and Docker; it needs neither npm dependencies nor a database container.
+The member supervisor retains its separate existing cached-image/dependency profile.
 
-Node is taken from the canonical realpath of the running trusted interpreter and
+Node is taken from the canonical realpath of the running host interpreter and
 mounted as a single read-only `/trusted-node` file. This supports setup-node's
 `/opt/hostedtoolcache/.../bin/node` location without mounting its parent directory.
-The existing `/usr` read-only mount supplies the explicitly hashed linked library
-paths. The interpreter must be a bounded regular executable; its bytes and the
-installation are checked before and after observations. The existing member
-supervisor's `/usr/bin/node` profile is unchanged. A different host ABI/layout
-needs an explicitly validated runtime recipe; absence fails closed.
+The pinned image supplies all candidate linked libraries: there is **no host
+`/usr` mount**. The only binds are `/trusted-node`, `/candidate`, `/target.mjs`
+and the private HTTP socket directory `/fixture`. The exact executable, image,
+installation and container settings are checked before and after observation.
+
+The new `.github/workflows/trusted-consumer-runtime.yml` is a canary candidate.
+Its host wrapper computes both the existing source check and this runtime check
+for the same Git commit/tree. It uses no candidate verdict. The recipe documents
+public provenance, remaining host approval boundaries and the required hosted
+canaries; creating this workflow does not install or approve it.
 
 ## Validation
 

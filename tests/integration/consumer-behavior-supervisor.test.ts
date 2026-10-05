@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, chmod, rm, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, chmod, rm, copyFile, cp, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,7 @@ for (const [name, , commit] of profiles) test(`actual merged ${name} entrypoint 
   assert.equal(result.server_authorization, 'not_checked'); assert.equal(result.status, 'unavailable');
   assert.equal(result.merge_authorized, false); assert.equal(result.cleanup_verified, true);
   assert.equal(result.isolation[0].network, 'none'); assert.equal(result.isolation[0].readonly_root, true);
+  assert.deepEqual(result.isolation[0].bind_destinations, ['/candidate', '/fixture', '/target.mjs', '/trusted-node']);
   if (name !== 'freedom-agent-kit') {
     assert.deepEqual(result.cases.map((c: any) => c.scenario), ['authorized', 'wrong_scope', 'revoked']);
     for (const c of result.cases.slice(1)) assert.deepEqual(c.http_trace.map((x: any) => x.path), ['/client-api/v1/connection']);
@@ -127,4 +128,19 @@ test('a completed case timeout cannot abort a later consumer case', async t => {
   `);
   assert.equal(result.check?.status, 'passed', JSON.stringify(result));
   assert.equal(result.cases.length, 3); assert.equal(result.cleanup_verified, true);
+});
+
+
+test('consumer host executes with no npm installation or candidate dependencies', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-consumer-clean-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const source = fileURLToPath(new URL('../../', import.meta.url));
+  for (const path of ['packages/contribution-tools', 'governance/schemas', 'contracts', 'migrations', 'package-lock.json']) {
+    await cp(join(source, path), join(directory, path), { recursive: true });
+  }
+  await assert.rejects(access(join(directory, 'node_modules')));
+  const script = join(directory, 'packages/contribution-tools/behavior-supervisor.mjs');
+  const text = execFileSync(process.execPath, [script, 'consumer', 'FreeTWAI-AI/freedom-agent-kit',
+    join(roots, 'freedom-agent-kit'), profiles[0][2]], { cwd: directory, env: verificationEnvironment(), encoding: 'utf8', timeout: 20000, maxBuffer: 256000 });
+  const result = JSON.parse(text); assert.equal(result.check.status, 'passed', text); assert.equal(result.cleanup_verified, true);
 });

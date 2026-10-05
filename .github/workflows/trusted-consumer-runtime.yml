@@ -1,0 +1,48 @@
+name: Consumer runtime canary
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+permissions:
+  contents: read
+jobs:
+  consumer-runtime:
+    # Candidate for a NEW native required workflow on ONLY the three adopted
+    # consumers. Canary on owned refs before installation; source55 stays intact.
+    if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      FREEDOM_LIBRARY_SOURCE_SHA: 91b943ac61e132fbbce72ea066cb2301aa065600
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: FreeTWAI-AI/freedom-platform
+          ref: ${{ job.workflow_sha }}
+          path: trusted-source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+          check-latest: false
+      # No npm install, candidate imports, uploaded reports or private registry.
+      # Explicit anonymous pull of the fixed public amd64 manifest; validate
+      # manifest/config/rootfs and exact official Node binary before execution.
+      - name: Prepare fixed consumer runtime recipe
+        run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/consumer-runtime-recipe.mjs" prepare
+      - name: Verify Ubuntu host and fixed runtime identities
+        run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/consumer-runtime-recipe.mjs" verify-hosted
+      - name: Compute source and isolated HTTP verdicts in the pinned host
+        env:
+          FREEDOM_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          FREEDOM_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          FREEDOM_WORKFLOW_PATH: ${{ job.workflow_file_path }}
+        run: node "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/github-consumer-runtime-host.mjs" "$GITHUB_WORKSPACE/candidate" "$GITHUB_WORKSPACE/trusted-source"

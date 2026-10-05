@@ -11,10 +11,10 @@ import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES } from './consumer-behavior-fixture.mjs';
-import { openSupervisorDatabase, initializeSupervisorFixture, supervisorFixtureFacts, FIXTURE_DATABASE } from './behavior-supervisor-fixture.mjs';
+import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 
-// This prototype uses ONLY already cached immutable local image identities.
-// Their local selection is not production supply-chain/publisher approval.
+// Member mode retains its cached local image identities; consumer mode uses the
+// separately provisioned public recipe. Neither is operator trust approval.
 const BASE_IMAGE = 'sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171';
 const PG_IMAGE = 'sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -121,7 +121,8 @@ export async function validateBehaviorDependencyCache(source) {
 export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node' } = {}) {
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
     'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/consumer-behavior-target.mjs',
-    'packages/contribution-tools/consumer-behavior-fixture.mjs', 'contracts/preview/v1/protocol.mjs',
+    'packages/contribution-tools/consumer-behavior-fixture.mjs', 'packages/contribution-tools/consumer-runtime-recipe.mjs',
+    'contracts/preview/v1/protocol.mjs',
     'packages/contribution-tools/github-behavior-host.mjs',
     'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
   for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
@@ -185,7 +186,8 @@ function observeSupervisorContainer(item, label) {
   if (value.Id !== item.id || value.Config.Labels?.['freedom.behavior-owner'] !== label || !value.State.Running
     || value.HostConfig.NetworkMode !== 'none' || !value.HostConfig.ReadonlyRootfs || value.HostConfig.Privileged
     || value.HostConfig.PidsLimit !== 128 || value.HostConfig.Memory !== 536870912
-    || value.HostConfig.NanoCpus !== 1000000000 || value.Image !== (item.kind === 'candidate' ? BASE_IMAGE : PG_IMAGE)
+    || value.HostConfig.NanoCpus !== 1000000000 || value.Image !== (item.image ?? (item.kind === 'candidate' ? BASE_IMAGE : PG_IMAGE))
+    || (item.imageReference && value.Config.Image !== item.imageReference)
     || value.Config.User !== (item.kind === 'candidate' ? `${process.getuid()}:${process.getgid()}` : 'postgres')
     || !value.HostConfig.CapDrop?.includes('ALL') || !value.HostConfig.SecurityOpt?.includes('no-new-privileges')) fail('supervisor_container_changed');
   if (value.Mounts.some(mount => !['bind', 'tmpfs'].includes(mount.Type))) fail('supervisor_container_changed');
@@ -213,6 +215,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
   const observeContainer = item => observeSupervisorContainer(item, label);
   try {
     if (process.platform !== 'linux' || Number(process.versions.node.split('.')[0]) < 24 || process.getuid() === 0) fail('supervisor_host_command_failed');
+    const { openSupervisorDatabase, initializeSupervisorFixture, supervisorFixtureFacts, FIXTURE_DATABASE } = await import('./behavior-supervisor-fixture.mjs');
     directory = await mkdtemp(join(tmpdir(), 'fp-behavior-supervisor-'));
     const candidate = join(directory, 'candidate'), socket = join(directory, 'database'), launcher = join(directory, 'target.mjs');
     await mkdir(candidate); await mkdir(socket); await chmod(socket, 0o777);
@@ -306,15 +309,6 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
   }
 }
 
-// Use exactly the interpreter running the installed host (including setup-node's
-// /opt/hostedtoolcache path). Mount one resolved executable, never its parent tree.
-async function consumerNodeExecutable() {
-  const path = await realpath(process.execPath), stat = await lstat(path);
-  if (!isAbsolute(path) || /[,\r\n]/.test(path) || !stat.isFile() || !(stat.mode & 0o111)
-    || stat.size < 1 || stat.size > 128 * 1024 * 1024) fail('supervisor_installation_changed');
-  return path;
-}
-
 /** Fixed three-consumer profile. Same immutable export, container restrictions and
  * bounded response port as the member supervisor; host independently records HTTP.
  * Local observations do not install a publisher or prove internal library calls. */
@@ -341,21 +335,21 @@ export async function runIsolatedConsumerBehavior(input) {
     await mkdir(candidate); await mkdir(socket);
     timer = setTimeout(() => { timedOut = true; kill(); }, LIMITS.wallMs);
     phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
-    const nodeExecutable = await consumerNodeExecutable();
+    const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
     const installation = await installedSupervisorIdentity({ nodeExecutable });
     await writeFile(launcher, await readFile(new URL('./consumer-behavior-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
     phase = 'fixture'; fixture = await createConsumerHttpFixture({ repository, socketPath: join(socket, 'http.sock'), onViolation: kill });
     phase = 'candidate';
     const id = docker(['create', '-i', ...containerLimits(label),
       '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
-      '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777', '--mount', 'type=bind,src=/usr,dst=/usr,readonly',
+      '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
       '--mount', `type=bind,src=${nodeExecutable},dst=/trusted-node,readonly`,
       '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${socket},dst=/fixture,readonly`,
       '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`, '--workdir', '/candidate',
       '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '--entrypoint', '/trusted-node',
-      BASE_IMAGE, '--max-old-space-size=256', '/target.mjs']).toString().trim();
+      runtime.image.reference, '--max-old-space-size=256', '/target.mjs']).toString().trim();
     if (!/^[a-f0-9]{64}$/.test(id)) fail('supervisor_host_command_failed');
-    owned.push({ id, kind: 'candidate', mounts: [['/usr', '/usr', false], [nodeExecutable, '/trusted-node', false], [candidate, '/candidate', false],
+    owned.push({ id, kind: 'candidate', image: runtime.image.local_id, imageReference: runtime.image.reference, mounts: [[nodeExecutable, '/trusted-node', false], [candidate, '/candidate', false],
       [socket, '/fixture', false], [launcher, '/target.mjs', false]] });
     if (timedOut) fail('supervisor_deadline');
     clearTimeout(timer); timer = setTimeout(() => { timedOut = true; kill(); }, 15000);
@@ -378,16 +372,18 @@ export async function runIsolatedConsumerBehavior(input) {
     }
     kill(); await fixture.close(); fixture.assertHealthy(); fixture = null;
     if (timedOut) fail('supervisor_deadline');
+    if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())) fail('supervisor_installation_changed');
     if (JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable }))) fail('supervisor_installation_changed');
     const passed = cases.length === CONSUMER_BEHAVIOR_PROFILES[repository].scenarios.length && cases.every(value => value.status === 'passed');
     return report(passed ? 'isolated_consumer_http_observed_only' : 'consumer_behavior_mismatch', {
       check: { status: passed ? 'passed' : 'failed', test_count: cases.length, expected_test_count: CONSUMER_BEHAVIOR_PROFILES[repository].scenarios.length },
-      runtime_observation: passed ? 'host_observed_http' : 'not_checked', cases, isolation: [isolation], installation: { ...installation, node_executable: nodeExecutable },
+      runtime_observation: passed ? 'host_observed_http' : 'not_checked', cases, isolation: [{ ...isolation, bind_destinations: owned[0].mounts.map(item => item[1]).sort() }],
+      installation: { ...installation, node_executable: nodeExecutable, runtime_recipe: runtime },
       candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
       entry: 'src/index.mjs#' + CONSUMER_BEHAVIOR_PROFILES[repository].entry,
     });
   } catch (error) {
-    return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || error.message === 'consumer_fixture_invalid'
+    return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || ['consumer_fixture_invalid', 'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch', 'consumer_runtime_platform_mismatch'].includes(error.message)
       ? error.message : 'consumer_supervisor_failed', { phase, check: { status: 'failed' }, cases });
   } finally {
     clearTimeout(timer); kill(); if (fixture) await fixture.close();
