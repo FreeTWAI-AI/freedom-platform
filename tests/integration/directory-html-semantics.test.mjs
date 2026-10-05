@@ -45,6 +45,7 @@ test('legitimate CSS, wrappers, classes, accessibility and equivalent entity cha
   accepts('directory', html.replace('First public project', 'First<br>public project')
     .replace('Second public project', '<div>Second public</div><div>project</div>')
     .replaceAll('noopener noreferrer', 'NoOpener NoReferrer').replace('name="referrer"', 'name="Referrer"'), directory);
+  accepts('directory', html.replace('<main>', '<main id="內容"><a href="#%E5%85%A7%E5%AE%B9">Jump</a>'), directory);
 });
 test('constant or missing/swapped public fields are rejected even with correct page shell and links', () => {
   denies('directory', '<!doctype html><html><head></head><body>passed</body></html>', directory);
@@ -77,6 +78,9 @@ test('encoded, hidden, unexpected and broken URLs cannot evade HTML5 tree valida
   const hiddenLink = policy.replaceAll('<a href="https://example.invalid/help" rel="noopener noreferrer">https://example.invalid/help</a>',
     '<a hidden href="https://example.invalid/help" rel="noopener noreferrer">hidden</a>https://example.invalid/help');
   denies('privacy', hiddenLink, privacy);
+  const encodedControl = structuredClone(privacy);
+  for (const language of [encodedControl.zh, encodedControl.en]) language.sections[0].blocks[0].p = 'person%0Abcc@example.invalid';
+  denies('privacy', renderPrivacyPage(encodedControl), encodedControl);
 });
 test('CSS freedom retains no-weaker CSP, early enforcement and private referrer policy', () => {
   const variants = [

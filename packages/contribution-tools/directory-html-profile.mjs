@@ -84,6 +84,9 @@ function inspectDocument(html) {
     }
     if (node.tagName === 'a') {
       requireValue(attr(node, 'href') !== undefined && !/[\u0000-\u0020\u007f]/u.test(attr(node, 'href')), 'directory_html_url');
+      try { node.profileHref = decodeURIComponent(attr(node, 'href')); }
+      catch { throw Error('directory_html_url'); }
+      requireValue(!/[\u0000-\u001f\u007f]/u.test(node.profileHref), 'directory_html_url');
       requireValue(attr(node, 'target') === undefined || ['_self', '_blank'].includes(attr(node, 'target')), 'directory_html_target');
       if (attr(node, 'target') === '_blank' || attr(node, 'href').startsWith('https:')) {
         const rel = new Set((attr(node, 'rel') ?? '').toLowerCase().split(/\s+/u));
@@ -140,7 +143,7 @@ export function verifyDirectoryHtml(kind, html, input) {
     for (const link of links) {
       const href = attr(link, 'href');
       if (href === 'privacy/discord-bot/') { requireValue(!link.profileHidden, 'directory_html_url'); privacy++; continue; }
-      if (href.startsWith('#')) { requireValue(tree.ids.has(href.slice(1)), 'directory_html_fragment'); continue; }
+      if (href.startsWith('#')) { requireValue(tree.ids.has(link.profileHref.slice(1)), 'directory_html_fragment'); continue; }
       const project = expected.get(href);
       requireValue(project && !seen.has(href) && !link.profileHidden, 'directory_html_url');
       seen.add(href);
@@ -158,7 +161,7 @@ export function verifyDirectoryHtml(kind, html, input) {
     const expected = inputLinks(input), seen = new Set();
     for (const link of links) {
       const href = attr(link, 'href');
-      if (href.startsWith('#')) requireValue(tree.ids.has(href.slice(1)), 'directory_html_fragment');
+      if (href.startsWith('#')) requireValue(tree.ids.has(link.profileHref.slice(1)), 'directory_html_fragment');
       else { requireValue(expected.has(href) && !link.profileHidden, 'directory_html_url'); seen.add(href); }
     }
     requireValue([...expected].every(href => seen.has(href)), 'directory_public_data');
