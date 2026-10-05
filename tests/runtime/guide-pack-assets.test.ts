@@ -204,4 +204,23 @@ test('reviewed Worker adapter with explicit flag serves only the pinned bucket b
   const response = await app.request(origin + guideAssetPath(manifest, asset));
   assert.equal(response.status, 200); assert.equal(response.headers.get('Content-Type'), 'image/webp');
   assert.equal(await guideSha256(new Uint8Array(await response.arrayBuffer())), asset.sha256); assert.equal(reads, 1);
+  const again = await app.request(origin + guideAssetPath(manifest, asset));
+  assert.equal(again.status, 200);
+  assert.equal(await guideSha256(new Uint8Array(await again.arrayBuffer())), asset.sha256);
+  assert.equal(reads, 2); // The initialized service shares no request I/O or bytes.
+});
+test('Worker initialization is shared per bucket, respects host disablement and retries failed initialization', async () => {
+  const bucket = { get() { throw Error('initialization must not perform R2 I/O'); } } as any;
+  const env = { FREEDOM_PUBLIC_GUIDE_ENABLED: 'true', GUIDE_STATIC: bucket };
+  const [first, concurrent] = await Promise.all([installWorkerGuideAssets(env), installWorkerGuideAssets({ ...env })]);
+  assert(first); assert.equal(first, concurrent);
+  assert.equal(await installWorkerGuideAssets(env), first);
+  assert.equal(await installWorkerGuideAssets({ ...env, FREEDOM_PUBLIC_GUIDE_ENABLED: 'false' }), undefined);
+  assert.equal(await installWorkerGuideAssets({ GUIDE_STATIC: bucket }), undefined);
+  const other = await installWorkerGuideAssets({ ...env, GUIDE_STATIC: { get() { throw Error('no I/O'); } } as any });
+  assert(other); assert.notEqual(other, first);
+  const repaired = { get: undefined } as any;
+  assert.equal(await installWorkerGuideAssets({ ...env, GUIDE_STATIC: repaired }), undefined);
+  repaired.get = () => { throw Error('no I/O'); };
+  assert(await installWorkerGuideAssets({ ...env, GUIDE_STATIC: repaired }));
 });

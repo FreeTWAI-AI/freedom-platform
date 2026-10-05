@@ -37,6 +37,12 @@ deploy a Worker or set a live host flag. The native host still requires
 `FREEDOM_PUBLIC_GUIDE_ENABLED=true` and its own `GUIDE_STATIC` binding. Default
 Node servers and Workers without that flag remain off.
 
+Manifest initialization is shared per native bucket binding in the Worker
+isolate, including concurrent initialization. Host disablement is checked on
+every installation call; changing the binding selects a separate service.
+The cache contains no R2 reads, response streams or image bytes, so every asset
+GET/HEAD still performs its own full integrity verification.
+
 After this change passes CI, independent review and normal merge, the operator
 must deploy the merged SHA to staging and validate the three legacy themes make
 zero guide requests, the opt-in Dragon flow works, denied/unjoined access cannot

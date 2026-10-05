@@ -5124,8 +5124,8 @@
     },
     {
       "path": "docs/development/guide-publisher-2026-10-05.md",
-      "bytes": 4460,
-      "sha256": "e00cd685aa8a46bb7204cff99e9ee309458cf039a3121abbfca476a7553459e6"
+      "bytes": 4827,
+      "sha256": "f3c2293f88d0ad52fe72e3f1b15f76346a5586eca5a5dd5583b230216585011a"
     },
     {
       "path": "docs/development/guild-collaboration.md",
@@ -8894,8 +8894,8 @@
     },
     {
       "path": "packages/public-guide-assets/worker.ts",
-      "bytes": 998,
-      "sha256": "6e14b678a0c614319a4dae0e6159dbd14104284e38b1115830e85500e651c507"
+      "bytes": 1651,
+      "sha256": "cdc2c3ca4e0d3517a53aef0cd5612c630021444cb026b40e17a98afe1e83173b"
     },
     {
       "path": "packages/resource-scopes/README.md",
@@ -10214,8 +10214,8 @@
     },
     {
       "path": "tests/runtime/guide-pack-assets.test.ts",
-      "bytes": 17482,
-      "sha256": "cb5927b4e9e9deb88f40c83e81291d5d1c309465b93a0159ccd099fe3ca584c8"
+      "bytes": 18935,
+      "sha256": "e8371948ad30e9683071ccafebde0394635927e110229813077706fc3c0c5c08"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
