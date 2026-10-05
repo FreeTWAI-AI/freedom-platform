@@ -37,11 +37,25 @@ test('MODEL-SETTINGS-PROCESS actual built parent portal creates model, sends bro
   const originalModel=await createModel(page,initial.connectionId);await captureEmpty(page,'main-model-created');
   await panel.getByRole('checkbox',{name:'我同意為 openai / synthetic-model 前往獨立保管頁，另行輸入金鑰並確認加密保管。',exact:true}).check();
   const navigation=page.waitForURL(f.setupOrigin+'/credential-setup');await panel.getByRole('button',{name:'前往金鑰保管頁',exact:true}).click();await navigation;
+  const failedSetupRequests=new Set<string>();
+  page.on('requestfailed',request=>{const url=new URL(request.url());if(url.origin===f.setupOrigin&&['/credential-setup/prepare','/credential-setup/secret'].includes(url.pathname))failedSetupRequests.add(url.pathname);});
   const key=page.locator('#credential-key');
   try{await key.waitFor({timeout:8000});}catch(error){const snapshot=await f.broker.request('snapshot');await mkdir('.freedom/reports/member-model-settings',{recursive:true});await writeFile('.freedom/reports/member-model-settings/handoff-first-red.json',JSON.stringify({mainReferrerPolicy:html!.headers()['referrer-policy'],brokerRequests:snapshot.requests,htmlStatus:html!.status()},null,2));throw error;}
   assert.equal(await key.inputValue(),'');await captureEmpty(page,'broker-create-empty');
   await key.fill(f.secret);await page.locator('#credential-consent').check();await page.locator('#credential-submit').click();
-  await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor();assert.equal(await key.inputValue(),'');
+  try{await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor();}catch(error){
+   // Failure-only diagnostics: exact phase is identified by this source line,
+   // with numeric status/flags only. Never publish broker bodies, cookies,
+   // assertion text, browser error messages or raw fixture snapshots here.
+   const snapshot=await f.broker.request('snapshot');
+   assert.equal(Number(failedSetupRequests.has('/credential-setup/prepare')),0,'Preparation browser request failed');
+   assert.equal(Number(failedSetupRequests.has('/credential-setup/secret')),0,'Secret browser request failed');
+   // Zero is a documented sentinel for no response observed, not HTTP status.
+   assert.equal(snapshot.requests.findLast((r:any)=>r.path==='/credential-setup/prepare')?.status??0,200,'Preparation HTTP response');
+   assert.equal(snapshot.requests.findLast((r:any)=>r.path==='/credential-setup/secret')?.status??0,200,'Secret HTTP response');
+   assert.equal(Number(await page.locator('#credential-status').getAttribute('data-error')==='true'),0,'Broker form reports uncertain outcome');
+   throw error;
+  }assert.equal(await key.inputValue(),'');
   const stored=(await f.owner.query('SELECT credential_id,state FROM broker_model_credentials WHERE model_connection_id=$1',[originalModel])).rows;assert.equal(stored.length,1);assert.equal(stored[0].state,'active');
   const firstCredential=stored[0].credential_id;const foreign=await f.member();assert.equal((await f.get(foreign,'/api/v1/me/model-credentials/'+firstCredential)).status,404);assert.equal((await f.owner.query('SELECT count(*)::int n FROM broker_credential_vault')).rows[0].n,1);assert.equal(f.posts.length,0);
   const native=await f.broker.request('snapshot');const bootstrap=native.requests.find((request:any)=>request.path==='/credential-setup');assert.equal(bootstrap.origin,f.mainOrigin);assert.equal(bootstrap.status,200);assert(native.requests.every((request:any)=>!String(request.cookie).includes('freedom_local_session')));assert(native.reads.every((read:any)=>read.cleared));assert.equal(native.requests.filter((request:any)=>request.path==='/credential-setup/secret').length,1);

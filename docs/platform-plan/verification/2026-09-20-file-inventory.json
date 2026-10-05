@@ -13699,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 18471,
-      "sha256": "152d173842167d3dd3698a0dd14711d4ae2a2cfe9fa657a96c701d6fbda20531"
+      "bytes": 19132,
+      "sha256": "98bceee8bd17d8f0b1ed422d0771a500004e5d9a720adfe204f3569f95021dda"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 9514,
-      "sha256": "53e90fbd9e7e9ee52a1b05fff62bccdb242c7fb3191e837b5404a547495f09b5"
+      "bytes": 17247,
+      "sha256": "5538a45c9c75a141f73af63f94bb74a8ae788d9ba54c0b0004d4606d79dbc1ad"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -15884,8 +15884,8 @@
     },
     {
       "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
-      "bytes": 5422,
-      "sha256": "eb99de18cc01f2e5ff22588cddcefc8a65402a542bd5d8ce060491503bbb063c"
+      "bytes": 7070,
+      "sha256": "4d529cf379bd1c37de5e68bc79021f6466c0b6ee39bbc53d8f02ba5390b5c6ca"
     },
     {
       "path": "packages/contribution-tools/test-progress.md",
@@ -15894,8 +15894,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9617,
-      "sha256": "ecfb45046f75ae5da8b8ede6be3bb782e37ff3308f979d96ae5aeab8f347b3d6"
+      "bytes": 9775,
+      "sha256": "7227ac19c47e836f3f121c663b09a340707514b3a453fadd6e53aa24218a55a3"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -16049,8 +16049,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 19100,
-      "sha256": "ebb42cf61d765acbda58c8bd59aaf78438e448ed4cef98dc81030f00d779f1b1"
+      "bytes": 23912,
+      "sha256": "36f126ec4813891a15d307dc9d4f87c9025271b070affdaf2f4e03ca30210ed7"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -17484,8 +17484,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-adversarial.test.ts",
-      "bytes": 22459,
-      "sha256": "e966d706ad2332820c34c98b5737eaa67c0b8729acb584690b1223a13a6035f6"
+      "bytes": 24417,
+      "sha256": "1d56ba7010350629837dc6f62cc9c65cc8bba7d783dceb9de3ec937a50a11672"
     },
     {
       "path": "tests/runtime/credential-ingest-authorizations.test.ts",
@@ -17499,13 +17499,18 @@
     },
     {
       "path": "tests/runtime/credential-ingest-helpers.ts",
-      "bytes": 25533,
-      "sha256": "3b6482cb316079b35e6d98ce913662826ac2d2b2295c6114c1ed07c7274ff118"
+      "bytes": 25776,
+      "sha256": "1db3b6bb56eb592245991da650d13e64e0d12079e09a88541d7e20c6e42567a2"
     },
     {
       "path": "tests/runtime/credential-ingest-process.test.ts",
       "bytes": 3803,
       "sha256": "f837f7fa66a7e1c02f213a256cffe0f63ea319225e83658848f67f95f72e561a"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-rate-budget.test.ts",
+      "bytes": 6472,
+      "sha256": "70d8f479eb9460cd36b9657bf7efacd2698fcc158268577fb2f95ae1560980c9"
     },
     {
       "path": "tests/runtime/credential-setup-ui.test.ts",
@@ -17914,8 +17919,8 @@
     },
     {
       "path": "tests/runtime/member-model-settings-process.test.ts",
-      "bytes": 11575,
-      "sha256": "034f3344ca839d982dc135f558e18bebadd9714d8aa07d0eca85a986e826c8fa"
+      "bytes": 12885,
+      "sha256": "58fb88bca9703c5536d771887114f1a916fc56ea4dfa7638a0790fcb9dd37966"
     },
     {
       "path": "tests/runtime/member-model-settings.test.ts",

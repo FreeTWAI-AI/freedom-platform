@@ -281,7 +281,222 @@
         "adversarial receipt timing",
         "cross-process browser test; both locally passed before and after setup-order correction"
       ]
+    },
+    "hostedIntegratedMain": {
+      "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+      "verifyRun": 37273271143,
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "failed",
+        "3": "passed"
+      },
+      "remainingFailures": {
+        "tests/runtime/credential-ingest-adversarial.test.ts": 2,
+        "tests/runtime/credential-ingest-process.test.ts": 1,
+        "tests/runtime/member-model-settings-process.test.ts": 1
+      },
+      "localExactSourceReproductions": {
+        "partition2PrefixPassed": 272,
+        "partition0SelectedFilesFourCpuPassed": 14
+      },
+      "cause": "not established; bounded hosted diagnostics added; local passes do not resolve hosted failures"
+    },
+    "hostedFailureDiagnosis": {
+      "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+      "verifyRun": 37275427175,
+      "safeDiagnosticsOnly": true,
+      "ingestProcess": {
+        "observedStatus": 429,
+        "expectedStatus": 200,
+        "sourceLine": 14,
+        "deterministicReproduction": "57 owner-outcome GETs plus issue, approval and activation consume the 60/min execution-member network bucket; execution returns member_model_http_rate_limited and makes zero provider POSTs",
+        "fix": "successful browser helper awaits actual broker acknowledgement, then performs one owner outcome GET",
+        "beforeFixBlockedCustodyReads": 31,
+        "afterFixBlockedCustodyReads": 0,
+        "afterCommitOutcomeReads": 1,
+        "productRatePolicyChanged": false
+      },
+      "receiptBarrier": {
+        "observedFailure": "sql_wait_not_observed",
+        "deterministicReproduction": "3500ms trusted reader delay exceeds unrelated 300x10ms observer budget while signed command remains current",
+        "fix": "observe until existing signed command expiry or request settlement; release and drain before fixture cleanup",
+        "signedCommandWindowMs": 8000,
+        "productionDeadlineChanged": false,
+        "hostedCauseProven": false
+      },
+      "memberSettings": {
+        "observedFailure": "operation_timeout waiting for setup acknowledgement",
+        "cause": "not established",
+        "followup": "failure-only fixed request phase and numeric HTTP/status flags; controlled browser preparation abort verifies diagnostic; no production timeout change"
+      }
+    },
+    "postDiagnosisIntegration": {
+      "source": "b49d330900ab56fd9da573642b21d9c03de0c48e",
+      "passed": 18,
+      "failed": 0,
+      "freshBuild": true,
+      "sanitizedRunnerEnvironment": true,
+      "files": [
+        "credential-ingest-adversarial.test.ts",
+        "credential-ingest-process.test.ts",
+        "credential-ingest-rate-budget.test.ts",
+        "member-model-settings-process.test.ts"
+      ],
+      "durationSeconds": 160.83,
+      "fullHostedVerify": "pending new head"
+    },
+    "hostedPostDiagnosis": {
+      "source": "121f7908d7a9193794d0ece95c5d32d6ba3a8e39",
+      "verifyRun": 37278110711,
+      "status": "failed",
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "partition0": {
+        "passed": 599,
+        "failed": 1
+      },
+      "onlyFailure": "new artificial 3500ms secret-reader delay variant: sql_wait_not_observed; original actual SQL barrier, process and settings cases passed",
+      "correction": "controlled-clock observer regression covers 3500ms, signed expiry and settled request; original real eight-second SQL rollback test retained without artificial delay",
+      "correctionSource": "c9cc1ffe65a2cf5d151a876cb60d21b25a6c5c09",
+      "targetedActualSqlAndObserver": {
+        "passed": 2,
+        "failed": 0
+      },
+      "localFullAdversarial": {
+        "passed": 12,
+        "failed": 1,
+        "failure": "unchanged secret reader expiry case observed zero pulls instead of one",
+        "cause": "not established; shared host or database scheduling is only a hypothesis"
+      },
+      "unchangedLateReaderExclusiveRerun": {
+        "passed": 1,
+        "failed": 0,
+        "seconds": 16.26
+      },
+      "productionCodeChanged": false,
+      "finalHostedHead": "pending"
     }
   },
-  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z"
+  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
+  "remoteCloudProvisioning": {
+    "recordedAt": "2026-10-05T06:46:49.653Z",
+    "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+    "environment": "staging-next",
+    "services": [
+      "recovery-state",
+      "recovery-floor",
+      "capture-readiness"
+    ],
+    "separateDurableObjectNamespaces": true,
+    "enabled": false,
+    "signersInstalled": false,
+    "publicRoutes": false,
+    "workersDev": false,
+    "previewUrls": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "operationalAcceptance": "not_run",
+    "privateAiEnabled": false,
+    "remaining": [
+      "signer installation and correspondence",
+      "generation and floor readback; outage rejection",
+      "capture controls and readiness profile",
+      "broker SQL roles and Hyperdrives",
+      "main and broker bindings",
+      "real browser ingress and owner remote acceptance"
+    ]
+  },
+  "liveUnauthenticatedBrowser": {
+    "recordedAt": "2026-10-05T06:56:50.334Z",
+    "release": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+    "health": "ok",
+    "widths": [
+      1366,
+      390,
+      320
+    ],
+    "httpStatus": 200,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "expectedUnauthenticatedSessionStatus": 401,
+    "memberOperations": "not_run"
+  },
+  "remoteRecoveryAuthorityAcceptance": {
+    "at": "2026-10-05T07:20:18.850Z",
+    "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+    "status": "pass",
+    "privateCandidateAcceptance": true,
+    "mainPrivateAiEnabled": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "providerCalls": 0,
+    "generation": "3",
+    "recoveryStateEnabled": true,
+    "recoveryFloorEnabled": true,
+    "captureReadinessEnabled": false,
+    "signerInstalled": "recovery-state-only",
+    "namespacesRetained": true,
+    "publicDomains": 0,
+    "checks": [
+      {
+        "label": "settled-generation-mismatch",
+        "pass": true
+      },
+      {
+        "label": "fresh-three-agrees",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-withdrawal",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-restored",
+        "pass": true
+      },
+      {
+        "label": "fresh-persisted-floor-rollback",
+        "pass": true
+      },
+      {
+        "label": "fresh-final-three-agrees",
+        "pass": true
+      }
+    ],
+    "priorFailurePreserved": true,
+    "initialAttemptInterpretation": "long-lived preview boundary observed; new sessions verify current releases; server-side version pin mechanism unproven",
+    "pending": [
+      "exact merged main release and migrations",
+      "capture readiness ingress attestation",
+      "broker roles and bindings",
+      "owner remote acceptance"
+    ],
+    "transport": "genuine recovery verifier in local Worker via authenticated remote service bindings to deployed staging Workers and existing Durable Object namespaces",
+    "firstAttemptMismatchNotProven": true,
+    "freshProbePerDeployedConfiguration": true,
+    "configurationConvergence": "transient 503 observed during version/configuration change; retained failures; later readback and six explicit assertions passed"
+  }
 }
