@@ -211,10 +211,11 @@ npm run check:broker-worker-candidate -- --installation \
   --broker-config /absolute/private/broker.jsonc \
   --main-artifact /absolute/private/main-worker.js \
   --broker-artifact /absolute/private/broker-worker.js \
+  --expected-bindings /absolute/private/reviewed-bindings.json \
   --expected-source-sha <reviewed-full-40-hex-source-sha>
 ```
 
-All five input files must be regular, current-user-owned, absolute paths with
+All six input files must be regular, current-user-owned, absolute paths with
 mode 0600 or stricter; symlinks are rejected. Use private copies of the actual
 release artifacts, not placeholder bytes. The public installation JSON has
 exactly these fields:
@@ -227,9 +228,29 @@ exactly these fields:
 | `requestPublicKey`, `responsePublicKey` | Public Ed25519 JWKs of the installed main request and broker response signers; only `kty`, `crv`, `x` |
 | `ingestRequestPublicKey`, `ingestResponsePublicKey` | Required when setup profiles are present; public JWKs of the separate main ingest and broker setup-response signers |
 
+The separate `--expected-bindings` file contains exactly `environment`,
+`media_bucket` and `source_root`. The operator obtains this expectation from
+reviewed deployment evidence independently of the candidate profiles/configs;
+the checker cannot attest the approval itself. Both Workers' MEDIA bindings
+must equal that exact environment-bound bucket. Never rewrite live MEDIA to
+match the historical repository manifest. For the reviewed 2026-10-04
+installation the names are `freedom-foundation-candidate-20261004-media` for
+`staging-next` and `freedom-foundation-production-20261004-media` for `next`;
+future checks still require the operator's explicit expected metadata rather
+than assuming those names remain current.
+
+`source_root` is the normalized absolute reviewed release-checkout path. Main
+and broker entries may be the exact repository-relative source entries or the
+exact absolute paths under that declared root. Other roots, traversal spellings
+and basename-only matches fail. Relative entries represent source-root-normalized
+configs; operational overlays can retain their absolute clean-release paths.
+This correspondence check does not prove checkout contents, symlink targets or
+source-to-artifact provenance; preserve those release checks separately.
+
 No private JWK, KEK, provider secret, device approval or claimed live-readiness
 receipt is accepted in that JSON. The checker verifies actual artifact bytes,
-canonical environment/SQL/MEDIA mapping, configured service correspondence,
+canonical environment/SQL mapping, operator-expected MEDIA and source-entry
+correspondence, configured service correspondence,
 request/response/recovery pins, and key-material separation across purposes.
 Both candidate flags must remain OFF, both selected config blocks must pin
 `FREEDOM_RELEASE_SHA`, and broker public routes stay excluded from this offline
@@ -237,6 +258,8 @@ preparation check. Secret vars and placeholder or reused Hyperdrives fail.
 
 Exit 0 means only the offline checks passed; the report still says
 `status:unavailable`, `deployment_ready:false` and `remote_cloud:not_run`.
+`operator_binding_correspondence:matched` means agreement with the separate
+operator input; `binding_remote_attestation:unavailable` remains explicit.
 Exit 1 means mismatched installation metadata/artifacts; exit 2 means private
 inputs or local tooling are unavailable. Diagnostics contain fixed codes, never
 operator paths, key material or profile contents. `checkPrivateAiInstallation`

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open, lstat } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { isAbsolute,resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { WorkerPrivateAiProfileSchema,PrivateAiPublicKeySchema } from '../../../apps/platform-api/src/worker-private-ai-profile.js';
@@ -13,10 +13,16 @@ import { parseBoundedJson } from '../../../packages/execution-state/decode.js';
 import { loadManifest } from './manifest.mjs';
 // @ts-expect-error Existing release library is JavaScript without declarations.
 import { parseJsonc } from './wrangler.mjs';
-// @ts-expect-error Existing release library is JavaScript without declarations.
-import { purposeBuckets } from './r2-purposes.mjs';
 
 const digest=z.string().regex(/^[0-9a-f]{64}$/),sha=z.string().regex(/^[0-9a-f]{40}$/);
+/** Separate operator expectation, obtained from reviewed deployment evidence.
+ * This is never inferred from the candidate profiles or the historical manifest. */
+export const PrivateAiExpectedBindingsSchema=z.object({
+  environment:z.enum(['staging-next','next']),
+  media_bucket:z.string().min(3).max(63).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
+  source_root:z.string().min(2).max(4096).refine(value=>isAbsolute(value)&&resolve(value)===value),
+}).strict();
+type ExpectedBindings=z.infer<typeof PrivateAiExpectedBindingsSchema>;
 /** Public installation metadata only. Strict schemas reject private d, KEKs,
  * provider credentials and invented owner/device approvals. */
 export const PrivateAiPreflightInputSchema=z.object({
@@ -47,12 +53,15 @@ const exactOrigin=(value:string)=>{try{return value.startsWith('https://')&&new 
 /** Offline checks are reusable by release preparation. Actual bytes are supplied
  * by the bounded file reader below, not a caller assertion about their digest.
  * This report never grants deployment or execution authority. */
-export async function checkPrivateAiInstallation(raw:unknown,options:{expectedSourceSha:string;mainArtifact:Uint8Array;brokerArtifact:Uint8Array;mainConfig:any;brokerConfig:any}){
+export async function checkPrivateAiInstallation(raw:unknown,options:{expectedSourceSha:string;expectedBindings:unknown;mainArtifact:Uint8Array;brokerArtifact:Uint8Array;mainConfig:any;brokerConfig:any}){
   const errors:string[]=[];
   const parsed=PrivateAiPreflightInputSchema.safeParse(raw);
   const base={schema:'freedom.private-ai-installation-preflight/v1',deployment_ready:false,enabled_by_this_tool:false,
-    deployment_authority:false,execution_authority:false,remote_cloud:'not_run',artifact_bytes_verified:false,unavailable:[...unavailable]};
+    deployment_authority:false,execution_authority:false,remote_cloud:'not_run',artifact_bytes_verified:false,
+    binding_expectation_source:'separate_operator_input',binding_remote_attestation:'unavailable',operator_binding_correspondence:'not_checked',unavailable:[...unavailable]};
   if(!parsed.success)return {...base,status:'invalid',static_checks_pass:false,errors:['public_installation_input_invalid']};
+  const expected=PrivateAiExpectedBindingsSchema.safeParse(options.expectedBindings);
+  if(!expected.success)return {...base,status:'invalid',static_checks_pass:false,errors:['operator_expected_bindings_invalid']};
   const input=parsed.data,{main,broker,environment,release}=input;
   const check=(condition:unknown,code:string)=>{if(!condition)errors.push(code);};
   check(sha.safeParse(options.expectedSourceSha).success&&release.source_sha===options.expectedSourceSha,'expected_source_release_mismatch');
@@ -88,16 +97,23 @@ export async function checkPrivateAiInstallation(raw:unknown,options:{expectedSo
   // inputs whose pin equality check already failed. Never echo key material.
   try{await importPinnedEd25519(broker.recoveryKeys,new Set());}
   catch{errors.push('broker_recovery_keys_invalid');}
-  checkBindings(input,options.mainConfig,options.brokerConfig,canonical,check);
+  const bindingErrors:string[]=[];
+  checkBindings(input,options.mainConfig,options.brokerConfig,canonical,expected.data,(condition,code)=>{if(!condition)bindingErrors.push(code);});
+  errors.push(...bindingErrors);
   return {...base,status:errors.length?'invalid':'unavailable',static_checks_pass:errors.length===0,environment,
-    release,artifact_bytes_verified:!errors.some(e=>e.endsWith('artifact_digest_mismatch')),errors};
+    release,artifact_bytes_verified:!errors.some(e=>e.endsWith('artifact_digest_mismatch')),
+    operator_binding_correspondence:bindingErrors.length?'mismatch':'matched',errors};
 }
 
-function checkBindings(input:Input,mainConfig:any,brokerConfig:any,canonical:any,check:(condition:unknown,code:string)=>void){
+function checkBindings(input:Input,mainConfig:any,brokerConfig:any,canonical:any,expected:ExpectedBindings,check:(condition:unknown,code:string)=>void){
   const environment=input.environment,m=mainConfig?.env?.[environment],b=brokerConfig?.env?.[environment];
   if(!m||!b){check(false,'selected_worker_config_missing');return;}
   const origin='https://'+canonical.hostname;
-  check(mainConfig.main==='apps/platform-api/src/worker.ts'&&brokerConfig.main==='apps/credential-broker/src/worker.ts','worker_entry_mismatch');
+  check(expected.environment===environment,'operator_binding_environment_mismatch');
+  // Fixed suffixes only: no basename matching, traversal or arbitrary absolute
+  // entry. Checkout contents/provenance still require separate release evidence.
+  const entry=(actual:unknown,suffix:string)=>actual===suffix||actual===resolve(expected.source_root,suffix);
+  check(entry(mainConfig.main,'apps/platform-api/src/worker.ts')&&entry(brokerConfig.main,'apps/credential-broker/src/worker.ts'),'worker_entry_mismatch');
   check(mainConfig.vars?.FREEDOM_PRIVATE_AI_ENABLED==='false'&&brokerConfig.vars?.FREEDOM_BROKER_ENABLED==='false'&&m.vars?.FREEDOM_PRIVATE_AI_ENABLED==='false'&&b.vars?.FREEDOM_BROKER_ENABLED==='false','candidate_flags_must_remain_off');
   check(m.vars?.APP_ORIGIN===origin&&m.vars?.FREEDOM_ENV===(environment==='next'?'public':'staging')&&b.vars?.APP_ORIGIN===origin&&b.vars?.FREEDOM_BROKER_ENVIRONMENT===environment,'worker_environment_origin_mismatch');
   check(m.vars?.FREEDOM_RELEASE_SHA===input.release.source_sha&&b.vars?.FREEDOM_RELEASE_SHA===input.release.source_sha,'worker_release_sha_mismatch');
@@ -123,7 +139,7 @@ function checkBindings(input:Input,mainConfig:any,brokerConfig:any,canonical:any
   const bindings=[...(m.hyperdrive??[]),...(b.hyperdrive??[])];
   check((m.hyperdrive??[]).length===1&&m.hyperdrive[0]?.binding==='HYPERDRIVE'&&(b.hyperdrive??[]).length===2&&['CIPHER_HYPERDRIVE','EXECUTOR_HYPERDRIVE'].every(name=>b.hyperdrive.filter((row:any)=>row.binding===name).length===1),'hyperdrive_role_bindings_invalid');
   check(bindings.length===3&&bindings.every((row:any)=>/^[0-9a-f]{32}$/.test(row.id??'')&&!/^0+$/.test(row.id))&&new Set(bindings.map((row:any)=>row.id)).size===3,'hyperdrive_unprovisioned_or_shared');
-  const bucket=purposeBuckets(canonical).MEDIA.name;
+  const bucket=expected.media_bucket;
   check([m,b].every(block=>{const rows=(block.r2_buckets??[]).filter((row:any)=>row.binding==='MEDIA');return rows.length===1&&rows[0].bucket_name===bucket&&!rows[0].preview_bucket_name;}),'private_media_binding_mismatch');
 }
 
@@ -138,13 +154,14 @@ async function readPrivateFile(path:string,max:number){
   }finally{await file.close();}
 }
 export async function privateAiPreflightMain(argv:string[]){
-  const names=['--profiles','--main-config','--broker-config','--main-artifact','--broker-artifact','--expected-source-sha'];
+  const names=['--profiles','--main-config','--broker-config','--main-artifact','--broker-artifact','--expected-source-sha','--expected-bindings'];
   if(argv.length!==names.length*2)throw Error();
   const args=new Map<string,string>();for(let i=0;i<argv.length;i+=2){if(!names.includes(argv[i])||args.has(argv[i])||!argv[i+1])throw Error();args.set(argv[i],argv[i+1]);}
   const profiles=parseBoundedJson((await readPrivateFile(args.get('--profiles')!,131072)).toString('utf8'));
   const mainConfig=parseJsonc((await readPrivateFile(args.get('--main-config')!,131072)).toString('utf8'));
   const brokerConfig=parseJsonc((await readPrivateFile(args.get('--broker-config')!,131072)).toString('utf8'));
-  const report=await checkPrivateAiInstallation(profiles,{expectedSourceSha:args.get('--expected-source-sha')!,mainConfig,brokerConfig,
+  const expectedBindings=parseBoundedJson((await readPrivateFile(args.get('--expected-bindings')!,8192)).toString('utf8'));
+  const report=await checkPrivateAiInstallation(profiles,{expectedSourceSha:args.get('--expected-source-sha')!,expectedBindings,mainConfig,brokerConfig,
     mainArtifact:await readPrivateFile(args.get('--main-artifact')!,32*1024*1024),brokerArtifact:await readPrivateFile(args.get('--broker-artifact')!,32*1024*1024)});
   process.stdout.write(JSON.stringify(report,null,2)+'\n');return report.static_checks_pass?0:1;
 }

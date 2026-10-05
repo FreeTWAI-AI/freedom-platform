@@ -8,6 +8,7 @@ import {spawnSync} from 'node:child_process';
 import {checkPrivateAiInstallation} from '../../deploy/cloudflare/lib/private-ai-preflight.js';
 
 const source='a'.repeat(40),mainArtifact=Buffer.from('synthetic main artifact'),brokerArtifact=Buffer.from('synthetic broker artifact');
+const media={ 'staging-next':'freedom-foundation-candidate-20261004-media',next:'freedom-foundation-production-20261004-media' };
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 async function fixture(){
   const keys=await Promise.all(Array.from({length:6},async()=>{const pair=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);const {kty,crv,x}=await crypto.subtle.exportKey('jwk',pair.publicKey);return {kty,crv,x} as {kty:'OKP';crv:'Ed25519';x:string};}));
@@ -20,20 +21,20 @@ async function fixture(){
   // Read only public canonical bindings from the existing operator manifest.
   // @ts-expect-error Existing release library is JavaScript without declarations.
   const {loadManifest}=await import('../../deploy/cloudflare/lib/manifest.mjs');
-  // @ts-expect-error Existing release library is JavaScript without declarations.
-  const {purposeBuckets}=await import('../../deploy/cloudflare/lib/r2-purposes.mjs');
   const canonical=loadManifest().environments['staging-next'];
-  const shared={workers_dev:false,preview_urls:false,r2_buckets:[{binding:'MEDIA',bucket_name:purposeBuckets(canonical).MEDIA.name}]};
+  const expectedBindings={environment:'staging-next',media_bucket:media['staging-next'],source_root:resolve('.')};
+  const shared={workers_dev:false,preview_urls:false,r2_buckets:[{binding:'MEDIA',bucket_name:expectedBindings.media_bucket}]};
   const recoveryServices=[{binding:'CREDENTIAL_RECOVERY_STATE',service:'synthetic-recovery-state'},{binding:'CREDENTIAL_RECOVERY_FLOOR',service:'synthetic-recovery-floor'}];
   const mainConfig={main:'apps/platform-api/src/worker.ts',workers_dev:false,preview_urls:false,vars:{FREEDOM_PRIVATE_AI_ENABLED:'false'},env:{'staging-next':{...shared,name:canonical.worker.name,vars:{FREEDOM_PRIVATE_AI_ENABLED:'false',FREEDOM_ENV:'staging',APP_ORIGIN:'https://staging.freetwai.com',FREEDOM_RELEASE_SHA:source},services:[{binding:'MODEL_BROKER',service:'synthetic-broker'},...recoveryServices],hyperdrive:[{binding:'HYPERDRIVE',id:'1'.repeat(32)}]}}};
   const brokerConfig={main:'apps/credential-broker/src/worker.ts',workers_dev:false,preview_urls:false,vars:{FREEDOM_BROKER_ENABLED:'false'},env:{'staging-next':{...shared,name:'synthetic-broker',vars:{FREEDOM_BROKER_ENABLED:'false',FREEDOM_BROKER_ENVIRONMENT:'staging-next',APP_ORIGIN:'https://staging.freetwai.com',FREEDOM_RELEASE_SHA:source},services:[...recoveryServices,{binding:'CREDENTIAL_INGEST_READINESS',service:'synthetic-readiness'}],hyperdrive:[{binding:'CIPHER_HYPERDRIVE',id:'2'.repeat(32)},{binding:'EXECUTOR_HYPERDRIVE',id:'3'.repeat(32)}]}}};
-  return {input,options:{expectedSourceSha:source,mainArtifact,brokerArtifact,mainConfig,brokerConfig}};
+  return {input,options:{expectedSourceSha:source,expectedBindings,mainArtifact,brokerArtifact,mainConfig,brokerConfig}};
 }
 test('matching public installation metadata verifies bytes but cannot claim deployed, enabled or owner-ready',async()=>{
   const f=await fixture(),report=await checkPrivateAiInstallation(f.input,f.options);
   assert.equal(report.static_checks_pass,true);assert.equal(report.status,'unavailable');
   for(const field of ['deployment_ready','enabled_by_this_tool','deployment_authority','execution_authority'] as const)assert.equal(report[field],false);
   assert.equal(report.remote_cloud,'not_run');assert.equal(report.artifact_bytes_verified,true);
+  assert.equal(report.operator_binding_correspondence,'matched');assert.equal(report.binding_remote_attestation,'unavailable');
   assert(report.unavailable.includes('owner_model_choice_device_pairing_and_provider_acceptance_not_run'));
   const rendered=JSON.stringify(report);assert(!rendered.includes(f.input.requestPublicKey.x));assert(!rendered.includes('synthetic-broker'));
 });
@@ -41,17 +42,35 @@ test('production uses its own canonical origin, SQL roles, Worker and private bu
   const f:any=await fixture();
   // @ts-expect-error Existing release library is JavaScript without declarations.
   const {loadManifest}=await import('../../deploy/cloudflare/lib/manifest.mjs');
-  // @ts-expect-error Existing release library is JavaScript without declarations.
-  const {purposeBuckets}=await import('../../deploy/cloudflare/lib/r2-purposes.mjs');
   const canonical=loadManifest().environments.next;
   f.input.environment='next';
+  f.options.expectedBindings.environment='next';f.options.expectedBindings.media_bucket=media.next;
   for(const profile of [f.input.main,f.input.broker]){profile.environment='next';profile.platformOrigin='https://freetwai.com';}
   Object.assign(f.input.broker,{databaseName:'freedom_next',cipherRole:'freedom_next_broker',executorRole:'freedom_next_broker_executor'});
-  for(const config of [f.options.mainConfig,f.options.brokerConfig]){const block=config.env['staging-next'];delete config.env['staging-next'];config.env.next=block;block.vars.APP_ORIGIN='https://freetwai.com';block.r2_buckets=[{binding:'MEDIA',bucket_name:purposeBuckets(canonical).MEDIA.name}];}
+  for(const config of [f.options.mainConfig,f.options.brokerConfig]){const block=config.env['staging-next'];delete config.env['staging-next'];config.env.next=block;block.vars.APP_ORIGIN='https://freetwai.com';block.r2_buckets=[{binding:'MEDIA',bucket_name:media.next}];}
   f.options.mainConfig.env.next.name=canonical.worker.name;f.options.mainConfig.env.next.vars.FREEDOM_ENV='public';f.options.brokerConfig.env.next.vars.FREEDOM_BROKER_ENVIRONMENT='next';
   assert.equal((await checkPrivateAiInstallation(f.input,f.options)).static_checks_pass,true);
   f.options.mainConfig.env.next.vars.APP_ORIGIN='https://staging.freetwai.com';
   assert.equal((await checkPrivateAiInstallation(f.input,f.options)).static_checks_pass,false);
+});
+test('operator expectation is mandatory and independent; crossed live and unapproved buckets fail',async()=>{
+  for(const mutate of [
+    (f:any)=>delete f.options.expectedBindings,
+    (f:any)=>f.options.expectedBindings.environment='next',
+    (f:any)=>f.options.mainConfig.env['staging-next'].r2_buckets=[{binding:'MEDIA',bucket_name:media.next}],
+    (f:any)=>f.options.brokerConfig.env['staging-next'].r2_buckets=[{binding:'MEDIA',bucket_name:media.next}],
+    (f:any)=>{for(const config of [f.options.mainConfig,f.options.brokerConfig])config.env['staging-next'].r2_buckets=[{binding:'MEDIA',bucket_name:media.next}];},
+    (f:any)=>{for(const config of [f.options.mainConfig,f.options.brokerConfig])config.env['staging-next'].r2_buckets=[{binding:'MEDIA',bucket_name:'freedom-staging-next-media'}];},
+  ]){const f=await fixture();mutate(f);assert.equal((await checkPrivateAiInstallation(f.input,f.options)).static_checks_pass,false);}
+});
+test('absolute release entries must be exactly below the separately declared source root',async()=>{
+  const f=await fixture();f.options.expectedBindings.source_root='/home/ted-h/tmp-scratch/fp_work/release-117-20261005';
+  f.options.mainConfig.main=f.options.expectedBindings.source_root+'/apps/platform-api/src/worker.ts';
+  f.options.brokerConfig.main=f.options.expectedBindings.source_root+'/apps/credential-broker/src/worker.ts';
+  assert.equal((await checkPrivateAiInstallation(f.input,f.options)).static_checks_pass,true);
+  for(const entry of ['/another-release/apps/platform-api/src/worker.ts',f.options.expectedBindings.source_root+'/../other/apps/platform-api/src/worker.ts',f.options.expectedBindings.source_root+'/apps/credential-broker/src/worker.ts']){
+    f.options.mainConfig.main=entry;assert.equal((await checkPrivateAiInstallation(f.input,f.options)).static_checks_pass,false);
+  }
 });
 test('exact bytes, source identity and OFF flags are required independently',async()=>{
   for(const mutate of [
@@ -106,7 +125,7 @@ test('private secret fields are rejected with fixed diagnostics, missing setup r
 test('existing broker CLI runs filled mode, hashes private artifact files and sanitizes malformed/private path failures',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'fp-private-ai-preflight-'));
   try{
-    const f=await fixture(),files=[['profiles',JSON.stringify(f.input)],['main-config',JSON.stringify(f.options.mainConfig)],['broker-config',JSON.stringify(f.options.brokerConfig)],['main-artifact',mainArtifact],['broker-artifact',brokerArtifact]] as const;
+    const f=await fixture(),files=[['profiles',JSON.stringify(f.input)],['main-config',JSON.stringify(f.options.mainConfig)],['broker-config',JSON.stringify(f.options.brokerConfig)],['main-artifact',mainArtifact],['broker-artifact',brokerArtifact],['expected-bindings',JSON.stringify(f.options.expectedBindings)]] as const;
     for(const [name,bytes]of files)await writeFile(join(directory,name),bytes,{mode:0o600});
     const args=['--installation',...files.flatMap(([name])=>['--'+name,join(directory,name)]),'--expected-source-sha',source];
     const run=()=>spawnSync(process.execPath,[resolve('deploy/cloudflare/broker-preflight.mjs'),...args],{encoding:'utf8'});
