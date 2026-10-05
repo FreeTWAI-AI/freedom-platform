@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 18758,
-      "sha256": "0df911e10527d9236644e984aede60188bb47daeb93df1c74f72de552004fcf0"
+      "bytes": 18851,
+      "sha256": "8281d35bed22c85fd8b0ea8b5c95b7cb24e3518294a3b6ad8711e9bb577ca47a"
     },
     {
       "path": ".gitignore",
@@ -16559,13 +16559,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 21429,
-      "sha256": "e60977bb1fe4ab8cca3d108b66c72ad5e2de7c916dd9d515290446b30cba7de7"
+      "bytes": 21499,
+      "sha256": "55fc048afa959d395b99cac6bf19c6bbd07b7c3a570f5dd21a5a6580287b5106"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 33949,
-      "sha256": "04afca8a4cf8c6fa08956eb845ab74a6965494e6b0080cf579049f8eb34f279c"
+      "bytes": 35145,
+      "sha256": "b83ed5a8d6373d709ae5a209cb61751ca6e79084235f29ccdc0dc1b0ce696d31"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
