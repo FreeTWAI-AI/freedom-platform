@@ -13728,6 +13728,11 @@
       "sha256": "45c37df1f702008a1f4fc7548e1c15c79bb544df18941a620ab9fd41ea5f7472"
     },
     {
+      "path": "docs/platform-plan/verification/preflight-aggregate-2026-10-05.json",
+      "bytes": 2217,
+      "sha256": "79fa3864708728e543fcd251ece70a27249cf81faf055e111fcb0f1dbb8cfc28"
+    },
+    {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
       "bytes": 25838,
       "sha256": "37956c5c5285ef493ffa59f824795a7eaa99050060906029c6d54f3b225cc5d5"
