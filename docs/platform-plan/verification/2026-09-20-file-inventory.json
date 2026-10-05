@@ -14589,8 +14589,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 7446,
-      "sha256": "fe2d68782fad979c8d672612d3931e666e0de4ed158e512a7aeec7a097cdc2df"
+      "bytes": 7489,
+      "sha256": "f7b0d19844b47e044505107efa3f60af6e3584c8e1340043fc6468fcc93fbbc5"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
@@ -15759,8 +15759,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
-      "bytes": 4230,
-      "sha256": "663a4d5ac0570ecb3594a9e0d4b450a30873f9de4891247893d95a627ec9085d"
+      "bytes": 5146,
+      "sha256": "bc5a258077ba8449a39457f7aa09dfa937a44f829fe7b8be74a0eb6db8d84169"
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-boundaries.md",
@@ -15824,8 +15824,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 10780,
-      "sha256": "c8e256e2381d459dc8ce950dd5372230f71da1d691dc8c36cb439f67a1d61ee0"
+      "bytes": 10905,
+      "sha256": "e361a84ce42d2c42767b0f1d6051f9901f25ce1b0b5f0ec7dea9ab644131a352"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -15969,8 +15969,8 @@
     },
     {
       "path": "packages/contribution-tools/test/consumer-libraries.test.mjs",
-      "bytes": 18189,
-      "sha256": "2bc7552277da28914b56e0dfb17f1e46189d21ca042e2f3facd8e2b710217a3e"
+      "bytes": 20088,
+      "sha256": "a89df1707a3f749714122acb94db39beff218b45e92c19e80603926e056358e0"
     },
     {
       "path": "packages/contribution-tools/test/consumer-runtime-recipe.test.mjs",
@@ -16056,6 +16056,11 @@
       "path": "packages/contribution-tools/test/io.test.mjs",
       "bytes": 5714,
       "sha256": "a400de3901b8fa961696c19915cfede02284218ef45813abfd9c0f4c824474db"
+    },
+    {
+      "path": "packages/contribution-tools/test/machine-device-cli.test.mjs",
+      "bytes": 3435,
+      "sha256": "a348b3a980628c38894aacb12eedc3f9b2e799934e7715de7fa72f91e66a4e4d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -16381,6 +16386,11 @@
       "path": "packages/sdk/client.mjs",
       "bytes": 6197,
       "sha256": "37138679c14966d3c6fb79a6766e63ad20875fea4f8d11f1dfd0e522737431f6"
+    },
+    {
+      "path": "packages/sdk/machine-device-cli.mjs",
+      "bytes": 2694,
+      "sha256": "4a816fae5502ba7960e6759d8964bc2dca822aa43f8f43d89c1ad6b0725f414f"
     },
     {
       "path": "packages/sdk/machine-device-client.md",
@@ -16733,9 +16743,14 @@
       "sha256": "5dadc37f3c3f1928ade48d1215671a3609a34af0b65b93adfa30e44a0d48d30e"
     },
     {
+      "path": "scripts/repository-bootstrap/agent-kit-device-cli.mjs",
+      "bytes": 441,
+      "sha256": "49536b5cad6c4f16c43ab553e743acc99cf3cae2109cd8d25448b5ebbaad5a5e"
+    },
+    {
       "path": "scripts/repository-bootstrap/consumer-libraries.md",
-      "bytes": 10837,
-      "sha256": "367d48640085311cca8957760e09a0d596e3579bef8616f0ee3810010dbe60cc"
+      "bytes": 12138,
+      "sha256": "a00cb929379eaed6e52c878bdb90726035ffb1f89da571756d8760fd3091b5bb"
     },
     {
       "path": "scripts/repository-bootstrap/consumer-source-profiles.md",

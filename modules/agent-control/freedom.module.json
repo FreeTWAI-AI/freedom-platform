@@ -49,7 +49,8 @@
     "tests/runtime/member-device-browser.test.ts",
     "tests/runtime/member-device-client.test.ts",
     "tests/e2e/device-connections.spec.ts",
-    "tests/e2e/device-connections-visual.ts"
+    "tests/e2e/device-connections-visual.ts",
+    "packages/sdk/machine-device-cli.mjs"
   ],
   "public_exports": [
     "packages/sdk/machine-device-client.mjs",
