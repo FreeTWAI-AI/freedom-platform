@@ -22,8 +22,9 @@ const roots = repositoriesRoot ? names.map(name => resolve(repositoriesRoot, nam
 if (roots.some(root => !root || !isAbsolute(root))) throw new Error('Set absolute FREEDOM_AGENT_KIT_ROOT, FREEDOM_STOREFRONT_ROOT and FREEDOM_SUPPLIER_CLIENT_ROOT.');
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('Explicit isolated TEST_DATABASE_URL required.');
-const sourceCommit = process.env.FREEDOM_CONSUMER_SOURCE_COMMIT;
-if (!/^[a-f0-9]{40}$/.test(sourceCommit ?? '')) throw new Error('Set exact FREEDOM_CONSUMER_SOURCE_COMMIT.');
+assert.equal(repositories.consumer_library_source.repository, 'FreeTWAI-AI/freedom-platform');
+const sourceCommit = process.env.FREEDOM_CONSUMER_SOURCE_COMMIT ?? repositories.consumer_library_source.commit;
+if (!/^[a-f0-9]{40}$/.test(sourceCommit ?? '')) throw new Error('Exact consumer library source required in repositories.lock.json or FREEDOM_CONSUMER_SOURCE_COMMIT.');
 const verifierPath = '../../packages/contribution-tools/consumer-libraries.mjs';
 const { verifyConsumerLibraries, sourceGit } = await import(verifierPath);
 for (const [index, name] of names.entries()) {

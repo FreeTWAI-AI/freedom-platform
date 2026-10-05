@@ -55,11 +55,11 @@ Run each consumer's `npm test`, plus agent-kit `npm run build` and both read con
 
 ```sh
 export FREEDOM_REPOSITORIES_ROOT=/absolute/fresh-consumer-checkouts
-export FREEDOM_CONSUMER_SOURCE_COMMIT=91b943ac61e132fbbce72ea066cb2301aa065600
 node scripts/checkout-repositories.mjs
-git fetch --no-tags --depth=1 origin "$FREEDOM_CONSUMER_SOURCE_COMMIT"
 npm run test:repos
 ```
+
+The checkout entrypoint obtains the exact `consumer_library_source` Git object from `repositories.lock.json` when absent, including in shallow CI checkouts; it does not change the source checkout's HEAD or files. Tests use that reviewed pin when `FREEDOM_CONSUMER_SOURCE_COMMIT` is unset, and still verify every consumer's source bytes. An explicit override remains available for local adoption work and must match those bytes; a missing object or mismatched pin fails rather than skipping verification.
 
 This requires an explicitly allocated disposable `TEST_DATABASE_URL`. For local adoption work before a reviewed lock update, leave `FREEDOM_REPOSITORIES_ROOT` unset and select candidate checkouts explicitly:
 

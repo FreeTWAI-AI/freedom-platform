@@ -1,6 +1,10 @@
 {
   "format": "freedom.repository-set/v1",
   "purpose": "Exact consumer commits used by the cross-repository HTTP/PostgreSQL tests",
+  "consumer_library_source": {
+    "repository": "FreeTWAI-AI/freedom-platform",
+    "commit": "91b943ac61e132fbbce72ea066cb2301aa065600"
+  },
   "repositories": [
     {
       "repository": "FreeTWAI-AI/.github",
