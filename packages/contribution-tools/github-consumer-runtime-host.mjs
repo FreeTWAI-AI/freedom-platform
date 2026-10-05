@@ -3,9 +3,13 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeConsumerSource } from './github-consumer-host.mjs';
-import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior, runIsolatedDirectoryBuild } from './behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedConsumerCliBehavior, runIsolatedAgentKitDeviceBehavior, runIsolatedDirectoryBuild } from './behavior-supervisor.mjs';
 import { DIRECTORY_REPOSITORY, DIRECTORY_BUILD_CASES } from './directory-build-fixture.mjs';
 import { CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
+import { consumerHostTuple } from './consumer-host-tuples.mjs';
+import { CONSUMER_LIBRARIES } from './consumer-libraries.mjs';
+import { DEVICE_PROFILE, DEVICE_ENTRY } from './agent-kit-device-profile.mjs';
+import { DEVICE_CASES } from './agent-kit-device-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
 
@@ -45,15 +49,23 @@ export async function verifyNativeConsumerRuntime(input) {
   const cliRuntime = workspacePassed
     ? await runIsolatedConsumerCliBehavior({ repository: input.repository,
       candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit }) : null;
-  const passed = workspacePassed && observed(cliRuntime, cliProfile.entry, cliProfile.scenarios.length);
-  const failedStage = !workspacePassed ? 'workspace' : !passed ? 'cli' : null;
-  const failedResult = failedStage === 'workspace' ? runtime : cliRuntime;
+  const legacyPassed = workspacePassed && observed(cliRuntime, cliProfile.entry, cliProfile.scenarios.length);
+  const deviceRequired = input.expectedLibraryProfile === DEVICE_PROFILE;
+  if (deviceRequired) check(input.expectedSourceCommit === consumerHostTuple(input.repository).source, 'device_runtime_source_tuple_mismatch');
+  const deviceRuntime = deviceRequired && legacyPassed
+    ? await runIsolatedAgentKitDeviceBehavior({ repository: input.repository, candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit }) : null;
+  const devicePassed = !deviceRequired || observed(deviceRuntime, DEVICE_ENTRY, DEVICE_CASES.length)
+    && deviceRuntime.library_invocation === 'closed_canonical_cli_observed' && source.launch_closure?.profile === DEVICE_PROFILE;
+  const passed = legacyPassed && devicePassed;
+  const failedStage = !workspacePassed ? 'workspace' : !legacyPassed ? 'cli' : !devicePassed ? 'device_cli' : null;
+  const failedResult = failedStage === 'workspace' ? runtime : failedStage === 'device_cli' ? deviceRuntime : cliRuntime;
   const failure = passed ? null : { stage: failedStage,
     kind: failedResult?.reason === 'consumer_behavior_mismatch' ? 'behavior_mismatch' : 'unavailable' };
   return { format: 'freedom.native-consumer-runtime/v1', status: passed ? 'passed' : 'failed',
     repository: input.repository, candidate_commit: source.candidate_commit, candidate_tree: source.candidate_tree,
     workflow_commit: input.expectedWorkflowCommit, source_commit: input.expectedSourceCommit,
-    source, runtime, cli_required: cliRequired, cli_runtime: cliRuntime, failure, library_usage: 'not_checked', library_invocation: 'not_checked', server_authorization: 'not_checked',
+    source, runtime, cli_required: cliRequired, cli_runtime: cliRuntime, device_required: deviceRequired, device_runtime: deviceRuntime, failure,
+    device_library_invocation: deviceRequired && passed ? 'closed_canonical_cli_observed' : 'not_checked', library_usage: 'not_checked', library_invocation: 'not_checked', server_authorization: 'not_checked',
     gate_enforced: false, merge_authorized: false, execution_authorized: false };
 }
 
@@ -65,10 +77,11 @@ async function cli() {
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-runtime.yml', 'host_workflow_identity_mismatch');
   // Recipe readback is derived here; no candidate or uploaded report is accepted.
   await inspectConsumerRuntime({ hosted: true });
+  const tuple = consumerHostTuple(process.env.GITHUB_REPOSITORY);
   return verifyNativeConsumerRuntime({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
-    candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: process.env.FREEDOM_LIBRARY_SOURCE_SHA,
+    candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: tuple.source,
     expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA,
-    ...(process.env.FREEDOM_LIBRARY_PROFILE === undefined ? {} : { expectedLibraryProfile: process.env.FREEDOM_LIBRARY_PROFILE }) });
+    ...(Object.hasOwn(CONSUMER_LIBRARIES, process.env.GITHUB_REPOSITORY) ? { expectedLibraryProfile: tuple.library_profile } : {}) });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { const result = await cli(); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1; }

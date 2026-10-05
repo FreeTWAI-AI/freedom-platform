@@ -76,7 +76,10 @@ test('native Actions executable binds source/candidate identity and rejects unsu
     GITHUB_SHA: input.candidateCommit, FREEDOM_LIBRARY_SOURCE_SHA: input.expectedSourceCommit, FREEDOM_WORKFLOW_SHA: input.expectedWorkflowCommit,
     FREEDOM_WORKFLOW_REPOSITORY: 'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH: '.github/workflows/trusted-consumer-libraries.yml' };
   const run = env => spawnSync(process.execPath, [script, input.candidateRoot, input.sourceRoot], { env, encoding: 'utf8' });
-  const good = run(environment); assert.equal(good.status, 0, good.stdout + good.stderr); assert.equal(JSON.parse(good.stdout).library_usage, 'not_checked');
+  // An arbitrary synthetic source cannot replace the installed repository tuple.
+  assert.equal((await verifyNativeConsumerSource(input)).status, 'passed');
+  const unapproved = run(environment); assert.equal(unapproved.status, 1);
+  assert.equal(JSON.parse(unapproved.stdout).code, 'consumer_library_file_set_mismatch');
   const wrong = run({ ...environment, GITHUB_EVENT_NAME: 'pull_request_target' }); assert.equal(wrong.status, 1); assert.equal(JSON.parse(wrong.stdout).code, 'unsupported_host_event');
 });
 
@@ -177,16 +180,15 @@ test('lock metadata, self-hashed new artifacts and alternate source cannot selec
   await assert.rejects(verifyNativeConsumerSource(old.input), { code: 'library_profile_mismatch' });
 });
 
-test('native source CLI requires an explicit profile from its trusted workflow configuration', async t => {
+test('native source CLI ignores arbitrary environment source/profile overrides and uses its installed repo tuple', async t => {
   const { input } = await fixture(t, 'FreeTWAI-AI/freedom-agent-kit', AGENT_KIT_DEVICE_LIBRARY_PROFILE);
   const script = fileURLToPath(new URL('../github-consumer-host.mjs', import.meta.url));
-  const env = { ...verificationEnvironment(), GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_REPOSITORY: input.repository,
-    GITHUB_SHA: input.candidateCommit, FREEDOM_LIBRARY_SOURCE_SHA: input.expectedSourceCommit, FREEDOM_WORKFLOW_SHA: input.expectedWorkflowCommit,
-    FREEDOM_WORKFLOW_REPOSITORY: 'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH: '.github/workflows/trusted-consumer-libraries.yml' };
-  const run = settings => spawnSync(process.execPath, [script, input.candidateRoot, input.sourceRoot], { env: settings, encoding: 'utf8' });
-  const good = run({ ...env, FREEDOM_LIBRARY_PROFILE: AGENT_KIT_DEVICE_LIBRARY_PROFILE });
-  assert.equal(good.status, 0, good.stdout + good.stderr);
-  assert.equal(JSON.parse(good.stdout).library_profile, AGENT_KIT_DEVICE_LIBRARY_PROFILE);
-  assert.equal(JSON.parse(run(env).stdout).code, 'consumer_library_file_set_mismatch');
-  assert.equal(JSON.parse(run({ ...env, FREEDOM_LIBRARY_PROFILE: '' }).stdout).code, 'unsupported_library_profile');
+  const env = { ...verificationEnvironment(), GITHUB_ACTIONS:'true', GITHUB_EVENT_NAME:'pull_request', GITHUB_REPOSITORY:input.repository,
+    GITHUB_SHA:input.candidateCommit, FREEDOM_WORKFLOW_SHA:input.expectedWorkflowCommit,
+    FREEDOM_WORKFLOW_REPOSITORY:'FreeTWAI-AI/freedom-platform', FREEDOM_WORKFLOW_PATH:'.github/workflows/trusted-consumer-libraries.yml' };
+  for(const extras of [{}, {FREEDOM_LIBRARY_SOURCE_SHA:input.expectedSourceCommit,FREEDOM_LIBRARY_PROFILE:AGENT_KIT_DEVICE_LIBRARY_PROFILE},
+    {FREEDOM_LIBRARY_SOURCE_SHA:'f'.repeat(40),FREEDOM_LIBRARY_PROFILE:'candidate-choice'}]) {
+    const result=spawnSync(process.execPath,[script,input.candidateRoot,input.sourceRoot],{env:{...env,...extras},encoding:'utf8'});
+    assert.equal(result.status,1);assert.equal(JSON.parse(result.stdout).code,'consumer_library_file_set_mismatch');
+  }
 });

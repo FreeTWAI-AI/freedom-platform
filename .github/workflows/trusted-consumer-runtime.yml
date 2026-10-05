@@ -12,8 +12,7 @@ jobs:
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      FREEDOM_LIBRARY_SOURCE_SHA: 91b943ac61e132fbbce72ea066cb2301aa065600
+    # Source/profile tuples are fixed by the reviewed host source, per repository.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
