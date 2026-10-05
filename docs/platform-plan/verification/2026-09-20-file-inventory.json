@@ -24,8 +24,8 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 2262,
-      "sha256": "f2c2c18d280e81e3f6b2daade84f6bdd4082fbdbbc9082dc612e59f1b9123625"
+      "bytes": 2736,
+      "sha256": "da297a100a7fedf4a8942174049f9de63244c1f121ed0c898e52ea536c4f2f8d"
     },
     {
       "path": ".github/workflows/verify.yml",
