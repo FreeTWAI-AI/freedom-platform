@@ -1,7 +1,7 @@
 // Creates only a marker-owned disposable PostgreSQL server. No inherited DB
 // URL, credentials, ports, production settings or remote migration commands.
 import {execFileSync,spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,chmod,mkdir,readdir,unlink,rmdir,writeFile} from 'node:fs/promises';
+import {mkdtemp,chmod,mkdir,readdir,unlink,rmdir,writeFile,open} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -16,11 +16,13 @@ const testFile=args[0]==='--archive-only'?'tests/integration/media-backup-archiv
 const task='media-restore-drill',owner='run-media-restore-test';
 const directory=await mkdtemp(join(tmpdir(),'fp-media-restore-')),socket=join(directory,'socket');
 await mkdir(socket);await chmod(socket,0o777);
-let container,child,phase='create_container';
+const containerName='fp-media-restore-'+randomUUID(),intentPath=join(directory,'container-intent.json');
+let container,child,createAttempted=false,cleanupComplete=true,phase='create_container';
 const docker=(args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:30000,maxBuffer:1024*1024});
-function inspected(){
-  const item=JSON.parse(docker(['inspect',container]))[0];
-  if(item.Id!==container||item.Config.Labels?.['freedom.task']!==task||item.Config.Labels?.['freedom.owner']!==owner
+function inspected(reference=container){
+  const item=JSON.parse(docker(['inspect',reference]))[0];
+  if(!/^[0-9a-f]{64}$/.test(item.Id)||(container&&item.Id!==container)||item.Name!=='/'+containerName
+    ||!item.Mounts?.some(m=>m.Type==='bind'&&m.Source===socket&&m.Destination==='/pgsocket')||item.Config.Labels?.['freedom.task']!==task||item.Config.Labels?.['freedom.owner']!==owner
     ||item.HostConfig.NetworkMode!=='none'||Object.keys(item.HostConfig.PortBindings??{}).length
     ||item.Config.Image!==image||!item.HostConfig.Tmpfs?.['/var/lib/postgresql'])throw Error('restore_fixture_identity_mismatch');
   return item;
@@ -28,13 +30,16 @@ function inspected(){
 const stop=()=>{try{if(child?.pid)process.kill(-child.pid,'SIGTERM');}catch{}};
 process.once('SIGTERM',stop);process.once('SIGINT',stop);
 try{
-  container=docker(['run','-d','--name','fp-media-restore-'+randomUUID(),'--network','none',
+  const intent=await open(intentPath,'wx',0o600);try{await intent.writeFile(JSON.stringify({containerName,socket,image,task,owner})+'\n');await intent.sync();}finally{await intent.close();}
+  createAttempted=true;cleanupComplete=false;
+  container=docker(['create','--name',containerName,'--network','none',
     '--label','freedom.task='+task,'--label','freedom.owner='+owner,'--tmpfs','/var/lib/postgresql:rw',
     '--mount','type=bind,source='+socket+',target=/pgsocket','-e','PGHOST=/pgsocket','-e','POSTGRES_HOST_AUTH_METHOD=trust',
     // The stock image initializes through /var/run/postgresql even when PGHOST
     // is set. Keep that private container socket alongside the mounted test one.
     '-e','POSTGRES_DB=fp_media_restore',image,'postgres','-c','listen_addresses=','-c','unix_socket_directories=/pgsocket,/var/run/postgresql']).trim();
   phase='verify_container';if(!/^[0-9a-f]{64}$/.test(container))throw Error('restore_fixture_identity_mismatch');inspected();
+  phase='start_container';docker(['start',container]);
   phase='wait_for_database';
   let ready=false;for(let attempt=0;attempt<100;attempt++){
     try{ready=docker(['exec',container,'psql','-h','/pgsocket','-U','postgres','-d','fp_media_restore','-Atqc','SELECT current_database()']).trim()==='fp_media_restore';}catch{}
@@ -55,9 +60,23 @@ try{
   finally{clearTimeout(timer);}
 }catch{console.error('Owned media restore drill failed in '+phase+'; no remote deployment was attempted.');process.exitCode=1;}
 finally{
-  if(container){try{inspected();docker(['rm','-f',container]);}catch{console.error('Owned restore container cleanup requires inspection.');process.exitCode=1;}}
+  if(createAttempted){
+    try{
+      // A timed-out create can commit after its caller loses the acknowledgement.
+      // Never retry creation or remove the intent/socket while ownership is unknown.
+      if(!container){
+        for(let attempt=0;attempt<25;attempt++){
+          try{container=inspected(containerName).Id;break;}catch{await delay(200);}
+        }
+        if(!container)throw Error('restore_create_outcome_unknown');
+      }
+      inspected();docker(['rm','-f',container]);cleanupComplete=true;
+    }catch{console.error('Owned restore container cleanup requires inspection; retained intent: '+intentPath);process.exitCode=1;}
+  }
+  if(cleanupComplete){
   // Remove only known server socket entries from this run's own directory.
   try{const entries=await readdir(socket);if(entries.some(name=>!['.s.PGSQL.5432','.s.PGSQL.5432.lock'].includes(name)))throw Error();
-    for(const name of entries)await unlink(join(socket,name));await rmdir(socket);await rmdir(directory);
+    for(const name of entries)await unlink(join(socket,name));await rmdir(socket);await unlink(intentPath).catch(error=>{if(error.code!=='ENOENT')throw error;});await rmdir(directory);
   }catch{console.error('Owned restore socket cleanup requires inspection.');process.exitCode=1;}
+  }
 }
