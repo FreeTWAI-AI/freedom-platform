@@ -141,7 +141,8 @@ export async function createAgentKitDeviceFixture({socketPath,onViolation}) {
       matched&&=value.exit_code===(s.scenario.startsWith('authorized')?0:1)&&same(lines,expected)
         &&s.secrets.every(secret=>!value.output.includes(secret)&&!value.stderr.includes(secret));
       s.sealed=true;
-      return {scenario:s.scenario,status:matched?'passed':'failed',expected_requests:counts[s.scenario],observed_requests:s.trace.length,
+      return {scenario:s.scenario,status:matched?'passed':'failed',expected_requests:s.scenario==='cancelled'?null:counts[s.scenario],
+        allowed_request_counts:s.scenario==='cancelled'?[1,2]:[counts[s.scenario]],observed_requests:s.trace.length,
         response_matches_challenge:matched, output_matches_expected:same(lines,expected), exit_code:value.exit_code,
         stderr_bytes:Buffer.byteLength(value.stderr), secret_output_absent:s.secrets.every(secret=>!value.output.includes(secret)&&!value.stderr.includes(secret)),
         http_trace:s.trace,execution_authorized:false};
