@@ -151,7 +151,12 @@ export function decodeBehaviorResponseFrame(bytes, expectedId) {
 }
 function responsePort(child, terminate) {
   let pending, failed = false, buffer = Buffer.alloc(0), total = 0, stderr = 0, sequence = 0;
-  const abort = () => { failed = true; pending?.reject(new Error('supervisor_transport_failed')); pending = undefined; terminate(); };
+  const clearPending = () => {
+    const current = pending; pending = undefined;
+    current?.signal.removeEventListener('abort', abort);
+    return current;
+  };
+  const abort = () => { failed = true; clearPending()?.reject(new Error('supervisor_transport_failed')); terminate(); };
   child.on('error', abort); child.on('exit', abort);
   child.stderr.on('data', bytes => { if ((stderr += bytes.length) > LIMITS.stderrBytes) abort(); });
   child.stdout.on('data', bytes => {
@@ -159,13 +164,13 @@ function responsePort(child, terminate) {
     buffer = Buffer.concat([buffer, bytes]); const end = buffer.indexOf(10); if (end < 0) return;
     if (!pending || end !== buffer.length - 1) return abort();
     try { const value = decodeBehaviorResponseFrame(buffer.subarray(0, end), pending.id); buffer = Buffer.alloc(0);
-      const current = pending; pending = undefined; current.resolve(value); } catch { abort(); }
+      const current = clearPending(); current.resolve(value); } catch { abort(); }
   });
   return async (request, signal) => {
     if (failed || pending || signal.aborted) fail('supervisor_transport_failed');
     const id = ++sequence, body = request.body ? Buffer.from(await request.arrayBuffer()).toString('base64') : null;
     const frame = JSON.stringify({ id, url: request.url, method: request.method, headers: [...request.headers], body }) + '\n';
-    const value = await new Promise((resolve, reject) => { pending = { id, resolve, reject };
+    const value = await new Promise((resolve, reject) => { pending = { id, resolve, reject, signal };
       signal.addEventListener('abort', abort, { once: true }); child.stdin.write(frame, error => { if (error) abort(); });
     });
     const responseBody = request.method === 'HEAD' || [204, 205, 304].includes(value.status) ? null : value.body;

@@ -119,3 +119,12 @@ test('consumer CLI mounts only the actual host interpreter when Node is outside 
   const result = JSON.parse(text); assert.equal(result.check.status, 'passed', text);
   assert.equal(result.installation.node_executable, alternateNode); assert.equal(result.cleanup_verified, true);
 });
+
+test('a completed case timeout cannot abort a later consumer case', async t => {
+  const result = await mutated(t, profiles[1], () => `
+    import {loadConnectedStorefront as genuine} from '../vendor/freedom-libraries/packages/client-connections/storefront-workspace.mjs';
+    export async function loadConnectedStorefront(options){await new Promise(resolve=>setTimeout(resolve,2200));return genuine(options);}
+  `);
+  assert.equal(result.check?.status, 'passed', JSON.stringify(result));
+  assert.equal(result.cases.length, 3); assert.equal(result.cleanup_verified, true);
+});
