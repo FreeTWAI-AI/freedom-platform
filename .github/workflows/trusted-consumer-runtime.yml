@@ -7,8 +7,9 @@ permissions:
   contents: read
 jobs:
   consumer-runtime:
-    # Candidate for a NEW native required workflow on ONLY the three adopted
-    # consumers. Canary on owned refs before installation; source55 stays intact.
+    # Reviewed profiles: three adopted workspace+CLI consumers and the growth
+    # workspace-only candidate. Any new source/scope requires a separate canary;
+    # editing this file does not widen installed rules or move immutable pins.
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -33,6 +34,15 @@ jobs:
         with:
           node-version: '24.21.0'
           check-latest: false
+      # Growth uses the existing full canonical manifest validator before runtime.
+      # The three adopted library profiles require no Python dependency.
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: ${{ github.repository == 'FreeTWAI-AI/freedom-growth-automation' }}
+        with:
+          python-version: '3.13'
+      - name: Install fixed host manifest validator dependency
+        if: ${{ github.repository == 'FreeTWAI-AI/freedom-growth-automation' }}
+        run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
       # No npm install, candidate imports, uploaded reports or private registry.
       # Explicit anonymous pull of the fixed public amd64 manifest; validate
       # manifest/config/rootfs and exact official Node binary before execution.

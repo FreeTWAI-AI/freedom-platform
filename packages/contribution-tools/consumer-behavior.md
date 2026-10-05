@@ -192,3 +192,51 @@ started. The 15-second host-command timeout and existing run budgets are unchang
 An operator can use the recorded nonce to inspect a late container and verify its
 ownership separately; historical receipts without the nonce do not prove ownership
 from timestamp correlation alone.
+
+
+## Growth workspace candidate (not installed)
+
+The combined native host also supports the existing growth-automation export
+`src/index.mjs#loadCampaignWorkspace`. It requires the full source/profile check
+and the same immutable candidate commit/tree in the isolated HTTP observation.
+Growth is explicitly workspace-only; the three adopted consumers retain mandatory
+workspace **and** CLI observations. Unknown repositories, unsupported CLI profiles
+and conflicting profile registrations fail closed.
+
+The container injects its canonical vendored preview `PlatformClient` into the
+actual export, negotiates the protocol, and reads campaigns, projects and supplier
+products. Host-generated UUIDs and random values must survive into the exact
+workspace output. Two further cases return a supplier-products HTTP 503 or an
+invalid response envelope; the real export must reject both. Correct preview bytes
+alone, fabricated result rows, swallowed errors and forged stdout cannot satisfy
+these independently observed requests and responses. Candidate imports stay inside
+the existing network-none, read-only container; no host-side candidate callback is
+introduced. This observes client behavior, not platform-server ACL enforcement or
+internal shared-library invocation. Mutation helpers, publication preview, other
+exports and the other five source-only consumers remain outside this profile.
+
+Run the opt-in local integration against full reviewed clones (including growth
+baseline `d1fd7f223efcbed85c95cda18734a33e6528b82a`) and a separately selected full
+central source clone containing library source91:
+
+```sh
+FREEDOM_RUN_ISOLATED_CONSUMERS=1 \
+FREEDOM_CONSUMER_RUNTIME_ROOT=/absolute/reviewed-consumer-clones \
+FREEDOM_CONSUMER_SOURCE_ROOT=/absolute/reviewed-central-source \
+FREEDOM_CONSUMER_WORKFLOW_SHA=<exact-central-source-HEAD> \
+node --test --test-concurrency=1 tests/integration/growth-consumer-runtime.test.mjs
+```
+
+Runtime recipe prerequisites are unchanged. Growth additionally requires the
+trusted canonical manifest validator's Python dependency; the candidate native
+workflow uses the existing source gate's setup-python 3.13 and jsonschema 4.26.0
+installation. Missing setup remains unavailable/failing, never behavioral PASS.
+`library_usage`, `library_invocation` and `server_authorization` remain `not_checked`.
+
+This change does not update installed source `92a58db9948c4c56a9d81d1450b9a856fb94a944`,
+library source91, or rules `24473806`/`24476100`. Installation requires an operator
+reviewed new immutable source, a growth temporary-base positive and source-valid
+stub negative under that exact native workflow, forged-status merge denial and
+cleanup, followed by an explicit runtime ruleset scope decision and actual-main
+probe. Existing three consumer profiles must remain required through that upgrade;
+local tests and this candidate workflow do not constitute hosted installation.

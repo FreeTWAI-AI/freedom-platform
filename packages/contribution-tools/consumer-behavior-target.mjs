@@ -78,6 +78,11 @@ for await (const line of createInterface({ input: process.stdin, crlfDelay: Infi
         if (process.exitCode || logs.length !== 1) throw Error('cli_failed');
         result = JSON.parse(logs[0]);
       } finally { console.log = originalLog; }
+    } else if (input.repository === 'FreeTWAI-AI/freedom-growth-automation') {
+      const { PlatformClient } = await import('/candidate/vendor/freedom-platform/client.mjs');
+      const client = new PlatformClient({ baseUrl: origin + '/api/v1', cookie: input.credential, fetcher: fixtureFetch });
+      await client.assertCompatible();
+      result = await entries.loadCampaignWorkspace(client);
     } else if (input.repository === 'FreeTWAI-AI/freedom-agent-kit') {
       const { PlatformClient } = await import('/candidate/packages/client/index.mjs');
       const client = new PlatformClient({ baseUrl: origin + '/api/v1', cookie: input.credential, fetcher: fixtureFetch });

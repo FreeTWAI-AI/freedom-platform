@@ -8,8 +8,18 @@ import { CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-be
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
 
+// An explicit reviewed list prevents an omitted CLI descriptor from silently
+// weakening one of the three existing CLI requirements. Unknown profiles fail.
+const WORKSPACE_ONLY_REPOSITORY = 'FreeTWAI-AI/freedom-growth-automation';
+const CLI_REQUIRED_REPOSITORIES = Object.freeze([
+  'FreeTWAI-AI/freedom-agent-kit', 'FreeTWAI-AI/freedom-storefront', 'FreeTWAI-AI/freedom-supplier-client',
+]);
+
 export async function verifyNativeConsumerRuntime(input) {
   check(input && Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository), 'unsupported_consumer_runtime_profile');
+  const cliRequired = CLI_REQUIRED_REPOSITORIES.includes(input.repository);
+  check(cliRequired || input.repository === WORKSPACE_ONLY_REPOSITORY, 'unsupported_consumer_runtime_profile');
+  check(Object.hasOwn(CONSUMER_CLI_PROFILES, input.repository) === cliRequired, 'consumer_runtime_profile_conflict');
   const source = await verifyNativeConsumerSource(input);
   check(source.status === 'passed', 'consumer_source_not_passed');
   const runtime = await runIsolatedConsumerBehavior({ repository: input.repository,
@@ -20,14 +30,13 @@ export async function verifyNativeConsumerRuntime(input) {
     && value.candidate?.commit === source.candidate_commit && value.candidate?.tree === source.candidate_tree;
   const profile = CONSUMER_BEHAVIOR_PROFILES[input.repository];
   const workspacePassed = observed(runtime, 'src/index.mjs#' + profile.entry, profile.scenarios.length);
-  const cliRequired = true;
   const cliProfile = CONSUMER_CLI_PROFILES[input.repository];
   // Preserve the source/workspace prerequisite. A failed or unavailable workspace
   // cannot gain a passing gate from a separate successful CLI run.
-  const cliRuntime = workspacePassed
+  const cliRuntime = workspacePassed && cliRequired
     ? await runIsolatedConsumerCliBehavior({ repository: input.repository,
       candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit }) : null;
-  const passed = workspacePassed && observed(cliRuntime, cliProfile.entry, cliProfile.scenarios.length);
+  const passed = workspacePassed && (!cliRequired || observed(cliRuntime, cliProfile.entry, cliProfile.scenarios.length));
   const failedStage = !workspacePassed ? 'workspace' : !passed ? 'cli' : null;
   const failedResult = failedStage === 'workspace' ? runtime : cliRuntime;
   const failure = passed ? null : { stage: failedStage,

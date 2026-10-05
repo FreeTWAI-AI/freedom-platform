@@ -344,7 +344,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
   }
 }
 
-/** Fixed three-consumer profile. Same immutable export, container restrictions and
+/** Fixed consumer workspace profiles. Same immutable export, container restrictions and
  * bounded response port as the member supervisor; host independently records HTTP.
  * Local observations do not install a publisher or prove internal library calls. */
 export async function runIsolatedConsumerBehavior(input) { return runConsumerProfile(input, 'workspace'); }
@@ -359,6 +359,7 @@ async function runConsumerProfile(input, profile) {
   const keys = ['repository', 'candidateRepository', 'candidateCommit'];
   if (!input || Object.keys(input).sort().join() !== keys.sort().join()
     || !Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
+    || (profile !== 'workspace' && !Object.hasOwn(CONSUMER_CLI_PROFILES, input.repository))
     || (profile === 'kit-cli' && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
   const { repository, candidateRepository, candidateCommit } = input;
   const selected = profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository];
