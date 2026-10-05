@@ -57,6 +57,18 @@ test('REGRESSION: a capture shared by a kept set is never released, even when an
   assert.deepEqual(both.captureRelease.items, [{ captureId: other.captureId, setIds: [other.setId] }]);
 });
 
+test('REGRESSION: unrecognized archive keys withhold source pin release as well as object pruning', () => {
+  const old = sealed(1), anchor = sealed(3);
+  const known = computeRetentionPlan([old, anchor], policy, now);
+  assert.deepEqual(known.captureRelease.items, [{ captureId: old.captureId, setIds: [old.setId] }]);
+  const unknown = computeRetentionPlan([old, anchor], policy, now, { strayKeys: 1 });
+  assert.equal(unknown.execution, 'not_run');
+  assert.equal(unknown.objectPrune.status, 'withheld');
+  assert.deepEqual(unknown.captureRelease, { status: 'withheld', reason: 'unrecognized_archive_keys', items: [] });
+  assert.notEqual(unknown.planSha256, known.planSha256);
+  assert.equal(computeRetentionPlan([anchor, old], policy, now, { strayKeys: 1 }).planSha256, unknown.planSha256);
+});
+
 test('REGRESSION: mixed production/staging archive keeps one recovery anchor per lineage', () => {
   const prodOnly = sealed(1, { lineage: prod });
   const stagingOld = sealed(2, { lineage: staging }), stagingNew = sealed(3, { lineage: staging });
@@ -176,10 +188,15 @@ test('Archive scan plans from real sealed manifests and receipts, flags strays, 
   assert.equal((await runBackupRetention(['--archive-dir', a.root, '--now', scanNow])).exitCode, 2, 'retention parameters are mandatory');
   assert.equal((await runBackupRetention(['--archive-dir', 'relative', '--now', scanNow, '--keep-verified', '1', '--min-retention-hours', '0', '--max-readback-age-hours', '1'])).exitCode, 2);
 
-  // Corrupt manifest and stray key are kept and reported; object pruning is withheld.
-  await writeFile(join(a.root, recoverySetKeys(unverified).manifest), '{}');
+  // A stray key alone must withhold pins even while every known manifest decodes.
   await mkdir(join(a.root, 'recovery-sets', 'stray'), { recursive: true });
   await writeFile(join(a.root, 'recovery-sets', 'stray', 'unknown.bin'), 'x');
+  const stray = await planRecoverySetRetention(a.archive, policy, scanNow);
+  assert.deepEqual(stray.captureRelease, { status: 'withheld', reason: 'unrecognized_archive_keys', items: [] });
+  assert.equal(stray.objectPrune.status, 'withheld');
+  assert.deepEqual(stray.prune.map(p => p.setId), [old]);
+  // A corrupt manifest also remains kept and reported.
+  await writeFile(join(a.root, recoverySetKeys(unverified).manifest), '{}');
   const flagged = await planRecoverySetRetention(a.archive, policy, scanNow);
   assert(flagged.inspect.some(i => i.setId === unverified && i.reasons.includes('corrupt')));
   assert.equal(flagged.strayKeys, 1);
