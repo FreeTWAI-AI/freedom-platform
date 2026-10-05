@@ -74,6 +74,25 @@ test('REGRESSION: mixed production/staging archive keeps one recovery anchor per
     (e: unknown) => e instanceof RetentionError && e.code === 'invalid_policy');
 });
 
+test('REGRESSION: any unanchored lineage withholds the entire deletion and pin-release plan', () => {
+  const old = sealed(1), anchor = sealed(3);
+  for (const lastVerifiedAt of [undefined, '2026-10-01T01:00:00.000Z']) {
+    const unanchored = sealed(1, { lineage: staging, lastVerifiedAt });
+    const inputs = [old, anchor, unanchored];
+    const plan = computeRetentionPlan(inputs, { ...policy, maxReadbackAgeSeconds: 3 * 86_400 }, now);
+    assert.equal(plan.status, 'no_verified_recovery_set');
+    assert.deepEqual(plan.lineages.map(l => l.latestVerified), [anchor.setId, null]);
+    assert.deepEqual(plan.prune, [], 'a healthy lineage must not leave actionable archive deletions');
+    assert.deepEqual(keptIds(plan).sort(), inputs.map(s => s.setId).sort());
+    assert.equal(plan.objectPrune.status, 'withheld');
+    assert.deepEqual(plan.objectPrune.keys, []);
+    assert.equal(plan.captureRelease.status, 'withheld');
+    assert.deepEqual(plan.captureRelease.items, []);
+    assert.equal(computeRetentionPlan([...inputs].reverse(), { ...policy, maxReadbackAgeSeconds: 3 * 86_400 }, now).planSha256,
+      plan.planSha256, 'global fail-closed plan remains deterministic');
+  }
+});
+
 test('Retention fails closed without a fresh verified set and never prunes young, newer, future, anomalous or incomplete sets', () => {
   const noReceipt = [sealed(1, { lastVerifiedAt: undefined }), sealed(2, { lastVerifiedAt: undefined })];
   const none = computeRetentionPlan(noReceipt, policy, now);
@@ -135,6 +154,10 @@ test('Archive scan plans from real sealed manifests and receipts, flags strays, 
   await readbackRecoverySet({ archive: a.archive, setId: anchor, backupObjects: a.backupObjects, verifiedAt: '2026-10-09T00:00:00.000Z', writeReceipt: true });
   const plan = await planRecoverySetRetention(a.archive, { ...policy, maxReadbackAgeSeconds: 2 * 86_400 }, scanNow);
   assert.equal(plan.status, 'no_verified_recovery_set', 'staging receipt is stale relative to the 2 day window');
+  assert.deepEqual(plan.prune, [], 'archive scanner must not emit partial deletions for a mixed anchored/unanchored archive');
+  assert.equal(plan.keep.length, 4);
+  assert.equal(plan.objectPrune.status, 'withheld'); assert.deepEqual(plan.objectPrune.keys, []);
+  assert.equal(plan.captureRelease.status, 'withheld'); assert.deepEqual(plan.captureRelease.items, []);
   const wide = await planRecoverySetRetention(a.archive, policy, scanNow);
   assert.equal(wide.status, 'planned');
   assert.deepEqual(wide.prune.map(p => p.setId), [old]);
@@ -145,6 +168,9 @@ test('Archive scan plans from real sealed manifests and receipts, flags strays, 
 
   const cli = await runBackupRetention(['--archive-dir', a.root, '--now', scanNow, '--keep-verified', '1', '--min-retention-hours', '0', '--max-readback-age-hours', '168', '--max-sets', '100']);
   assert.equal(cli.exitCode, 0); assert.equal((cli.report as { planSha256: string }).planSha256, wide.planSha256);
+  const mixed = await runBackupRetention(['--archive-dir', a.root, '--now', scanNow, '--keep-verified', '1', '--min-retention-hours', '0', '--max-readback-age-hours', '48', '--max-sets', '100']);
+  assert.equal(mixed.exitCode, 3);
+  assert.deepEqual(mixed.report, plan, 'CLI preserves the empty deletion and pin-release plan when only one lineage is fresh');
   const strict = await runBackupRetention(['--archive-dir', a.root, '--now', scanNow, '--keep-verified', '1', '--min-retention-hours', '0', '--max-readback-age-hours', '1']);
   assert.equal(strict.exitCode, 3, 'no fresh anchor exits non-zero');
   assert.equal((await runBackupRetention(['--archive-dir', a.root, '--now', scanNow])).exitCode, 2, 'retention parameters are mandatory');

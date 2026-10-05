@@ -5,7 +5,7 @@ import { archiveRead, decodeRecoverySet, decodeReceipt, parseInstant, RECOVERY_M
 /* Bounded retention PLAN for sealed recovery sets. It never deletes, releases
  * pins or contacts a database: it returns a deterministic, digest-bound plan an
  * operator reviews and executes separately. Invariants:
- *  - with no freshly verified set, nothing is pruned (fail closed);
+ *  - if any lineage lacks a freshly verified set, nothing is pruned (fail closed);
  *  - the latest freshly verified set and its source pins are always kept;
  *  - sets newer than it (pending verification), young sets, future-dated,
  *    incomplete, corrupt or ambiguous sets are kept or flagged, never pruned;
@@ -115,12 +115,16 @@ export function computeRetentionPlan(states: readonly RecoverySetState[], policy
     for (const s of members) if (s.setId !== latest.setId && createdMs.get(s.setId)! >= latestMs) add(keep, s.setId, 'newer_than_latest_verified');
   }
   const anchored = lineages.length > 0 && lineages.every(l => l.latestVerified !== null);
+  if (!anchored) for (const s of states) add(keep, s.setId, 'no_verified_recovery_set');
   const prune = sealed.filter(s => !keep.has(s.setId)).sort((a, b) => byText(a.setId, b.setId));
   const kept = states.filter(s => keep.has(s.setId));
   const unknownKept = kept.some(s => s.status !== 'sealed');
 
   let objectPrune: RetentionPlan['objectPrune'];
-  if (unknownKept || strayKeys > 0) {
+  if (!anchored) {
+    objectPrune = { status: 'withheld', reason: 'no_verified_recovery_set',
+      precondition: 'backup_object_store_dedicated_to_this_archive', keys: [] };
+  } else if (unknownKept || strayKeys > 0) {
     objectPrune = { status: 'withheld', reason: strayKeys > 0 ? 'unrecognized_archive_keys' : 'unknown_references_in_kept_set',
       precondition: 'backup_object_store_dedicated_to_this_archive', keys: [] };
   } else {
@@ -131,7 +135,8 @@ export function computeRetentionPlan(states: readonly RecoverySetState[], policy
   // The same capture may back several sets (sealRecoverySet accepts one backup
   // under multiple setIds). A pin is releasable only if NO kept set uses it.
   let captureRelease: RetentionPlan['captureRelease'];
-  if (unknownKept) captureRelease = { status: 'withheld', reason: 'unknown_capture_in_kept_set', items: [] };
+  if (!anchored) captureRelease = { status: 'withheld', reason: 'no_verified_recovery_set', items: [] };
+  else if (unknownKept) captureRelease = { status: 'withheld', reason: 'unknown_capture_in_kept_set', items: [] };
   else {
     const keptCaptures = new Set(kept.flatMap(s => (s.status === 'sealed' ? [s.captureId] : [])));
     const grouped = new Map<string, string[]>();
