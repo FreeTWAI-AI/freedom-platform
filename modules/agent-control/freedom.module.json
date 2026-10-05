@@ -54,6 +54,7 @@
   ],
   "public_exports": [
     "packages/sdk/machine-device-client.mjs",
+    "packages/sdk/machine-device-cli.mjs",
     "contracts/execution/v1/runtime-registration.ts",
     "contracts/execution/v1/bootstrap.ts",
     "contracts/execution/v1/bootstrap-status.ts",

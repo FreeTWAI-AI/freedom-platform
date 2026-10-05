@@ -14589,8 +14589,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 7489,
-      "sha256": "f7b0d19844b47e044505107efa3f60af6e3584c8e1340043fc6468fcc93fbbc5"
+      "bytes": 7532,
+      "sha256": "7b88053ee8e5769aa8a570d34eaafead21eefa37c27a8a13316c0d9949b7693a"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
