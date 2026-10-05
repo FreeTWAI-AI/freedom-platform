@@ -506,6 +506,25 @@
         "Existing Step fixture is genuinely member-approved; it does not prove machine-created Grant/Attempt/Step.",
         "No original full requirement accepted here; cloud/native/client reconnect/MV3/neo remain open."
       ]
+    },
+    "model-authority-8be": {
+      "id": "model-authority-8be",
+      "kind": "local_candidate_execution",
+      "source_sha": "2d49c891431378962a984a1593c0aeb462c199ee",
+      "environment": "owned isolated PostgreSQL18 with network disabled; synthetic object storage",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/model-authority-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Public member constructors retain their fixed member authority and original shared transaction/journal.",
+        "Alternate Asset authority admits only work.model-result with the existing bounded profile.",
+        "Domain policy, revisions, Grant/Attempt and R2 finalization checks remain in the existing engines."
+      ],
+      "limitations": [
+        "Concrete machine adapter, broker dispatch and Result integration follow separately.",
+        "No original requirement is newly accepted by an internal extraction.",
+        "No cloud deployment, provider execution or installed trust change."
+      ]
     }
   },
   "requirements": [

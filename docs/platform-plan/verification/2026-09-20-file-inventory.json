@@ -13708,6 +13708,11 @@
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/model-authority-evidence-2026-10-05.json",
+      "bytes": 2668,
+      "sha256": "271398ba27db128cd360dd7ddee6d27b064760033cbeb5b3f517a1e9cd550e32"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
       "bytes": 20471,
       "sha256": "63de2985c45021db8983ad22506ed39cf2104d1adfb95aac9618fc10ceb76289"
@@ -13729,8 +13734,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 351395,
-      "sha256": "8918ba7929960c033656c5f61be633dfe2db4ebfd9af4ed6b30d68338083a020"
+      "bytes": 352445,
+      "sha256": "0996f9dac88d1e20326952c43aea1db8a5ca087a978d715919dfedc05528dfbb"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -14759,8 +14764,8 @@
     },
     {
       "path": "modules/agent-execution/export-policy.ts",
-      "bytes": 2400,
-      "sha256": "127a49ba2cc8f3bc35d59b5a5263fd4cebd48153d2a0d594deae0570f9ba2d65"
+      "bytes": 2900,
+      "sha256": "51b0dda6d297485ccd1f1620cc984303d0a4ee5be718e50e645e3012d7f9f2c3"
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
@@ -14814,8 +14819,13 @@
     },
     {
       "path": "modules/agent-execution/model-results.ts",
-      "bytes": 13573,
-      "sha256": "2070ce80fd776197229fc04f0d9eb879c9b45ca0639c7e5f7ed051d0686be6e4"
+      "bytes": 14321,
+      "sha256": "7d9b22f85026ab694af745f528c506d1a41284761b562c0ebec0a90c4978cbce"
+    },
+    {
+      "path": "modules/agent-execution/model-step-authority.ts",
+      "bytes": 1721,
+      "sha256": "10e28cdf5e6e892c3a4ba32a5f8bfe27db064a8408e4663d322b089ed9ea56f2"
     },
     {
       "path": "modules/agent-execution/model-step-host.ts",
@@ -14834,13 +14844,13 @@
     },
     {
       "path": "modules/agent-execution/model-step-runner.ts",
-      "bytes": 4937,
-      "sha256": "2a7ee9462e3dcdd6c7885e4e1a00bcc2c61d32a3534a517c6bf933e8dd0df027"
+      "bytes": 4944,
+      "sha256": "fc3e96608b30074425077866508a9634a71eb85a680510dcc91460b7067337dc"
     },
     {
       "path": "modules/agent-execution/model-step-service.ts",
-      "bytes": 39340,
-      "sha256": "609644c88c3a72b81ba8b3374766af4350f8c09d97bdeb76117aab6728b5d67e"
+      "bytes": 39320,
+      "sha256": "f150653aac0b8f005a621971765ef01588a1938c5070356b8b1ff8b8f95e4c44"
     },
     {
       "path": "modules/agent-execution/model-step-state.ts",
@@ -14909,8 +14919,8 @@
     },
     {
       "path": "modules/assets/engine.ts",
-      "bytes": 29534,
-      "sha256": "ef1f2544b16e94203f8016960bd23e496e2b6e806236493aed99c814253bdb26"
+      "bytes": 30037,
+      "sha256": "54b6eb834bfbc2a670c515821057044e55c0f598eb3d29e735f9112c320f4260"
     },
     {
       "path": "modules/assets/event-banner.ts",
@@ -14939,13 +14949,18 @@
     },
     {
       "path": "modules/assets/freedom.module.json",
-      "bytes": 1454,
-      "sha256": "223415052ae920cc12646aacca7d35fd1e75f83091ff1c345043b7d3c20e4569"
+      "bytes": 1509,
+      "sha256": "3428bf9374ae9c3b0ca4accf4c83fca413f1209163cc8f7042d2ff636de766c4"
     },
     {
       "path": "modules/assets/index.ts",
       "bytes": 8159,
       "sha256": "19699ae2d9870f4770db623cf74b0e9d59afce6da740520a5d9a143d32ea105f"
+    },
+    {
+      "path": "modules/assets/lifecycle-authority.ts",
+      "bytes": 2367,
+      "sha256": "576d75a67f63ceb5dad573f161d1cca87b5a50bcc422b346c61e63205ed2a188"
     },
     {
       "path": "modules/assets/maintenance.md",
@@ -15014,8 +15029,8 @@
     },
     {
       "path": "modules/autopilot-work/policy.ts",
-      "bytes": 2640,
-      "sha256": "7cf9838c70f2bd1f2fdd32ad4a2cf45d061d766011018f7c76ff21e60a8ee6be"
+      "bytes": 3009,
+      "sha256": "7cab02f505d77df05348e4f2f05875ada8cabcfa13b3a0af024bc00153e1a7bb"
     },
     {
       "path": "modules/autopilot-work/results.ts",
@@ -15999,8 +16014,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5333,
-      "sha256": "c0bccfa711a9900033e6eb7ec3bdbdcd63cc9dfa31ea3c78728b8a6b6409e6f2"
+      "bytes": 5363,
+      "sha256": "29dff45b6fd15373ba022635999a91eeeb7411b82aff5b5d7a3827d1b7343d62"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -17521,6 +17536,11 @@
       "path": "tests/runtime/ai-sister-guides.test.ts",
       "bytes": 13625,
       "sha256": "35858541be46df1f565c6e3a002490d8b0059dbe52b69a09acd246415b07e812"
+    },
+    {
+      "path": "tests/runtime/asset-authority-compatibility.test.ts",
+      "bytes": 2036,
+      "sha256": "251769b86451de95d5b695f8e7409fb5b6fe00d459aa6db2b5b11aaa931d920b"
     },
     {
       "path": "tests/runtime/asset-engine.test.ts",

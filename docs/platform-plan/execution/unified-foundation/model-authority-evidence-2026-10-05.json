@@ -1,0 +1,59 @@
+{
+  "format": "freedom.model-authority-evidence/v1",
+  "implementation_source": "8be073068e160cb44cf91559d409b3c49e12eb70",
+  "review_candidate_source": "2d49c891431378962a984a1593c0aeb462c199ee",
+  "scope": "Existing member behavior preserved while extracting internal authority ports for machine integration.",
+  "implemented": [
+    "Public member constructors retain their fixed member authority and original shared transaction/journal.",
+    "Alternate Asset authority admits only work.model-result with the existing bounded profile.",
+    "Domain policy, revisions, Grant/Attempt and R2 finalization checks remain in the existing engines."
+  ],
+  "verification": [
+    {
+      "source": "2d49c891431378962a984a1593c0aeb462c199ee",
+      "environment": "owned isolated PostgreSQL18 with network disabled; synthetic object storage",
+      "test_files": [
+        "tests/runtime/asset-engine.test.ts",
+        "tests/runtime/asset-authority-compatibility.test.ts",
+        "tests/runtime/avatar-command-compat.test.ts",
+        "tests/runtime/model-step-service.test.ts",
+        "tests/runtime/model-step-adversarial.test.ts",
+        "tests/runtime/model-step-revocation-races.test.ts",
+        "tests/runtime/private-results.test.ts"
+      ],
+      "pass": 147,
+      "fail": 0,
+      "skipped": 0,
+      "log": "model-authority-runtime.log",
+      "sha256": "e92b83e8694cd0cede04a8d003cb040eebdd851b06409f3ecf9f3aa441a61928"
+    }
+  ],
+  "peer_review": {
+    "source_sha": "8be073068e160cb44cf91559d409b3c49e12eb70",
+    "evidence": "bounded static source/diff inspection only; no execution",
+    "paths": [
+      "modules/agent-execution/model-step-authority.ts",
+      "modules/assets/lifecycle-authority.ts",
+      "modules/assets/engine.ts",
+      "modules/agent-execution/model-step-service.ts",
+      "modules/agent-execution/model-step-runner.ts"
+    ],
+    "findings": [],
+    "checked": [
+      "existing public member constructors install fixed member authority",
+      "alternate Asset authority restricted to work.model-result and existing fixed 16 KiB profile",
+      "owner lookup interface is not a manufactured Actor or authentication",
+      "no observed new reverse runtime dependency in these boundaries"
+    ],
+    "limitations": [
+      "not full diff or all engine methods",
+      "machine concrete adapter and119 not covered",
+      "no test rerun in this review"
+    ]
+  },
+  "remaining": [
+    "Concrete machine adapter, broker dispatch and Result integration follow separately.",
+    "No original requirement is newly accepted by an internal extraction.",
+    "No cloud deployment, provider execution or installed trust change."
+  ]
+}
