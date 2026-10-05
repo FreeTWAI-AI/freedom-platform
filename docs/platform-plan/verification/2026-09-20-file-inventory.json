@@ -4963,6 +4963,11 @@
       "sha256": "11d6c8ba3401af073f5a5407791e73b1783971126a46099613d54105f3e1ce43"
     },
     {
+      "path": "docs/development/.selector-canary-note.md",
+      "bytes": 31,
+      "sha256": "99d52d3b7b3c42190599a5c7264c162aee7860fbddaf53e200750f3e4743600c"
+    },
+    {
       "path": "docs/development/agent-development-guide.md",
       "bytes": 3755,
       "sha256": "ad55247ec4ceeb8c11ed9d8c14aabff152da743871f67d4fb4c2c956f98dad72"
