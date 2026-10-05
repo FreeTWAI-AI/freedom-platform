@@ -45,3 +45,11 @@ References: [chat completions](https://openrouter.ai/docs/api/api-reference/chat
 Synthetic adapter/HTTP/Worker and low-privilege PostgreSQL tests cover the new
 profile. A successful synthetic test or provider connectivity request is not
 complete owner-flow acceptance or production readiness.
+
+The October 5 [observed provider evidence](../platform-plan/verification/private-ai-openrouter-2026-10-05.json)
+records a successful bounded native owner API flow with real OpenRouter HTTPS.
+It also preserves an initial readiness failure: the deprecated
+`rate_limit.requests` field used the observed `-1` sentinel. The closed decoder
+admits exactly that sentinel or a nonnegative integer, without treating it as
+budget or execution authority. SQL, R2, owners and recovery in that acceptance
+remain local/synthetic; remote deployment and browser ingress are not proved.

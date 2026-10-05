@@ -1,5 +1,7 @@
 # 實際移植後的執行計畫（2026-10-04）
 
+**2026-10-05 05:57 UTC 私人模型增量：** 真實 OpenRouter 已透過本機原生 main／broker Worker 完成一條合成會員流程：獨立 origin 金鑰 ingest、本人配對與精確 Grant、broker 重啟後一次推論、私人 Result 保存與外人拒絕、本人修改另存 human revision、Stop／Revoke／recovery withdrawal。成功來源 `5ee7dec7`；原始模型成果保留，已完成請求重播不增加 provider POST。三筆真實推論合計 US$0.000154，使用者 US$10 額度另有保守 session ledger。前兩次驗收未完成的原因與修正均保留在[聚合證據](../../verification/private-ai-openrouter-2026-10-05.json)。這次 SQL／R2／recovery／會員均為隔離本機驗收；正式 Cloudflare／R2／瀏覽器 ingress 尚未驗收，Private AI 仍 OFF。新 authority Worker 已有持久化防回退與原生 HTTP 驗證，但尚未安裝。Codex CLI 有真實回覆，Claude CLI 因 OAuth 過期未通過；兩者的正式平台執行 adapter 均未驗收。不能把這次結果標成整體 P3 完成。
+
 **2026-10-05 05:22 UTC 治理增量：** 九倉 source 與三倉 runtime 的既有正式規則已升級至固定 `92a58db`。新增入口登錄檢查、storefront／supplier 實際 CLI 及 Docker create 未知結果修正；21 個臨時 branch probes（九次正常 merge、十二次拒絕）及三個 storefront main probes完成，後兩個負例 actual merge 均 405。所有 probes 已清理、consumer mains 不變，中央 review 規則保留。完整 library invocation／其餘六倉 runtime／durable publisher／merge queue 仍未驗，見[實裝紀錄](governance-installation-2026-10-04.md#10-月-5-日九倉入口登錄與三倉實際-cli-強制92a58db)。下方 source55／c3e consumer pins 為較早的執行更新。
 
 **2026-10-05 04:53 UTC 後續：** #117 與 #121 已依序正常合併／部署，兩環境目前為 `89f64ace`。新版日備份已各完成一次真正定時觸發，異地完整回讀、相同 snapshot 的 DB／R2 隔離恢復及清理通過，見[定時執行證據](r2-recovery-retirement-2026-10-04.md#新版部署後的真正定時執行2026-10-05)。下文 02:10 UTC 的「下一次尚未觀察」為當時狀態。GC 與 Private AI 維持 OFF；完整 P2／P3 仍未驗收。

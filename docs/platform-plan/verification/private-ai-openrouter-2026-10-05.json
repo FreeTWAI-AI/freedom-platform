@@ -1,0 +1,204 @@
+{
+  "profile": "private-ai.real-provider-increment-evidence/v1",
+  "recordedAt": "2026-10-05T06:00:14.226138+00:00",
+  "provider": "openrouter",
+  "model": "openai/gpt-4.1-mini",
+  "approvedBudgetUsd": 10,
+  "providerExpiresAt": "2026-10-06T05:09:37.573Z",
+  "providerLimitReset": "daily",
+  "sessionBudgetIndependentOfReset": true,
+  "providerReportedUsageUsd": 0.000154,
+  "providerRemainingUsd": 9.999846,
+  "providerInferencePosts": 3,
+  "conservativeReservedUsd": 0.4,
+  "costAccounting": "observed provider usage and per-response costs; product USD debit ledger not implemented",
+  "connectivity": {
+    "httpStatus": 200,
+    "reportedCostUsd": 5.32e-05,
+    "platformOwnerFlow": false
+  },
+  "attempts": [
+    {
+      "source": "1888fae8c7cce7052e0335b206e9a14fbf51555f",
+      "startedAt": "2026-10-05T05:49:46.936Z",
+      "finishedAt": "2026-10-05T05:50:03.157Z",
+      "status": "unavailable",
+      "stage": "activation",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true
+      },
+      "provider": {
+        "posts": 0,
+        "gets": 1,
+        "lastStatus": 200,
+        "usageBefore": 5.32e-05,
+        "maxRunUsd": null,
+        "reportedCostUsd": null,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "not_run",
+      "explanation": "authentication metadata rejected deprecated rate_limit.requests=-1; zero inference POST; fixed6499d68c",
+      "noAutomaticRetry": true
+    },
+    {
+      "source": "6499d68cd159e7212d21f2c572d1326c8b764f4c",
+      "startedAt": "2026-10-05T05:52:13.817Z",
+      "finishedAt": "2026-10-05T05:52:40.468Z",
+      "status": "unavailable",
+      "stage": "owner_result_edit",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 4,
+        "lastStatus": 200,
+        "usageBefore": 5.32e-05,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 5.2e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "not_run",
+      "explanation": "confirmed model Result and metadata replay; harness held stale R2 resource handle after restart; fixedb26af1d0",
+      "noAutomaticRetry": true
+    },
+    {
+      "source": "5ee7dec7f36df026bfd996ff3b74a7cc8ade1bd0",
+      "startedAt": "2026-10-05T05:57:06.491Z",
+      "finishedAt": "2026-10-05T05:57:31.337Z",
+      "status": "pass",
+      "stage": "complete",
+      "checks": {
+        "separateOriginIngest": true,
+        "mainExecutorCipherDenied": true,
+        "brokerRestartBeforeExecution": true,
+        "activationAckMetadataOnly": true,
+        "ownerResultAndNativeR2Read": true,
+        "foreignOwnerDenied": true,
+        "completedReplayMetadataOnly": true,
+        "ownerResultEditPreservesSource": true,
+        "recoveryWithdrawalDenied": true,
+        "stop": true,
+        "revoke": true
+      },
+      "provider": {
+        "posts": 1,
+        "gets": 6,
+        "lastStatus": 200,
+        "usageBefore": 0.0001052,
+        "maxRunUsd": 0.007167999999999999,
+        "reportedCostUsd": 4.88e-05,
+        "dispatchUnknown": false
+      },
+      "cleanup": "completed",
+      "humanResultEdit": "synthetic_owner_native_API_pass",
+      "explanation": "complete bounded native API owner flow with real provider",
+      "noAutomaticRetry": true
+    }
+  ],
+  "boundaries": {
+    "owner": "synthetic_local",
+    "sql": "owned_disposable_postgresql",
+    "workerRuntime": "native_local_workerd",
+    "r2": "native_local_emulator",
+    "provider": "real_https",
+    "captureReadiness": "synthetic_local_assertion",
+    "recoveryAuthority": "synthetic_local",
+    "remoteR2": "not_run",
+    "remoteCloud": "not_run",
+    "realBrowserIngress": "not_run",
+    "productionPrivateAiEnabled": false
+  },
+  "cliConnectivity": {
+    "codex": {
+      "version": "0.160.0",
+      "exitCode": 0,
+      "replyIsPong": true,
+      "usage": [
+        {
+          "input_tokens": 7845,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5,
+          "reasoning_output_tokens": 0
+        }
+      ],
+      "startupDiagnostic": "code-mode host disabled as configured",
+      "platformAdapterAcceptance": false,
+      "billing": "separate existing OpenAI CLI authentication; not this OpenRouter key"
+    },
+    "claude": {
+      "version": "2.1.288",
+      "exitCode": 1,
+      "isError": true,
+      "reportedCostUsd": 0,
+      "error": "OAuth session expired and could not be refreshed",
+      "platformAdapterAcceptance": false,
+      "billing": "separate existing Claude CLI authentication; not this OpenRouter key"
+    }
+  },
+  "parallelWork": {
+    "astra": 3,
+    "grok47InitialLanes": 10,
+    "agyOpus55InitialLanes": 2,
+    "agyOutcome": "headless command permission denied; no implementation delivered; Astra completed affected implementation",
+    "grokAuthorityFollowup": "initial candidate snapshot independently hardened and tested by Astra; duplicate follow-up stopped with sibling files preserved"
+  },
+  "validation": {
+    "combinedRuntime": {
+      "passed": 82,
+      "failed": 0
+    },
+    "contracts": {
+      "passed": 671,
+      "skipped": 4
+    },
+    "finalPrivateAiBrowser": {
+      "passed": 10,
+      "skippedDefaultOffCase": 1,
+      "upstreamMainIncluded": "fec67d0066c4abc3fe0d420ff025c5c6b83d8d58"
+    },
+    "workerFirstRun": {
+      "passed": 62,
+      "failed": 14,
+      "cause": "missing admin-sync/maintainer dry-run bundles and Hyperdrive fixture URL without password"
+    },
+    "workerCorrectedSetup": {
+      "passed": 22,
+      "failed": 0,
+      "scope": "all failed worker files plus two authority persistence and six acceptance guard tests"
+    },
+    "authorityProductionHttp": {
+      "passed": 4,
+      "failed": 0
+    },
+    "localBroadBrowserRun": {
+      "passed": 296,
+      "failed": 1,
+      "interrupted": 1,
+      "notRun": 171,
+      "interruption": "root stopped after upstream main122 merged to avoid mixed source validation"
+    },
+    "localLoginTimeoutReproduction": {
+      "passed": 19,
+      "failed": 1,
+      "symptom": "login POST remained pending past helper5s; no authentication error",
+      "hostIoFullPressureAvg60Percent": 31.46,
+      "requestBottleneck": "unproven",
+      "privateTracePreserved": true,
+      "codeOrTimeoutChanged": false
+    },
+    "build": "passed",
+    "typecheck": "passed",
+    "hostedFinalHead": "pending"
+  }
+}
