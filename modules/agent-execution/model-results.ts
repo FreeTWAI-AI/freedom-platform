@@ -2,17 +2,15 @@ import { captureModelStepInvocation, assertModelStepInvocationTime, type ModelSt
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import type { Actor } from '../identity-membership/service.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
-import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
-import { scopedMemberCommand } from '../../packages/scoped-commands/index.js';
-import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
+import type {ScopedFactContext} from '../../packages/scoped-commands/command-context.js';
+import {memberLifecycleAuthority,type LifecycleAuthority,type AuthorityOwner} from '../assets/lifecycle-authority.js';
 import { checkVersion, digest } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { preparePrivateText, requirePersistence, PRIVATE_TEXT_MAX_BYTES } from '../../packages/asset-storage/index.js';
-import { assetCommandKey, assetVersion, createAssetLifecycle, type LifecycleTarget } from '../assets/engine.js';
+import { assetCommandKey, assetVersion, createAssetLifecycleWithAuthority, type LifecycleTarget, type LifecyclePolicy } from '../assets/engine.js';
 import type { PrivateResultDependencies } from '../autopilot-work/results.js';
-import type { createModelStepService } from './model-step-service.js';
+import type { createModelStepService,createModelStepServiceWithAuthority } from './model-step-service.js';
 import { readBoundModelObservation, assertModelObservationCurrent, assertModelObservationHost, type OpaqueModelObservation, type ModelStepHost } from './model-step-host.js';
 
 const inputSchema = z.object({ key: assetCommandKey, stepId: OpaqueId, expectedVersion: assetVersion }).strict();
@@ -22,6 +20,10 @@ const prepareSchema = z.object({ key: assetCommandKey, targetWorkId: OpaqueId, e
 type Prepare = z.infer<typeof prepareSchema>;
 type StepService = ReturnType<typeof createModelStepService>;
 export interface PrivateModelResultDependencies extends PrivateResultDependencies { readonly steps: StepService; readonly host: ModelStepHost }
+export type AuthorityPrivateModelResultDependencies<A extends AuthorityOwner,C extends ScopedFactContext>=Omit<PrivateModelResultDependencies,'steps'|'resolvePolicy'>&{
+  readonly steps:ReturnType<typeof createModelStepServiceWithAuthority<A,C>>;
+  readonly resolvePolicy:(q:PoolClient,c:C,workId:string)=>Promise<LifecyclePolicy>;
+};
 export interface PrivateModelResultPublished {
   readonly intentId: string; readonly resultId: string; readonly workId: string; readonly assetId: string;
   readonly revision: string; readonly aggregateVersion: string; readonly provenance: 'model';
@@ -32,19 +34,26 @@ export interface PrivateModelResultPublished {
  * observation; JSON text, public receipts and caller provenance cannot replace
  * it. Bytes use the established bounded Asset lifecycle, quota and Work CAS. */
 export function createPrivateModelResultService(pool: Pool, dependencies: PrivateModelResultDependencies) {
+  return createPrivateModelResultServiceWithAuthority(pool,dependencies,memberLifecycleAuthority);
+}
+
+/** Internal shared finalizer. The machine composition supplies a live signed
+ * SQL authority and can select only the original work.model-result profile. */
+export function createPrivateModelResultServiceWithAuthority<A extends AuthorityOwner,C extends ScopedFactContext>(pool:Pool,
+  dependencies:AuthorityPrivateModelResultDependencies<A,C>,authority:LifecycleAuthority<A,C>) {
   requireCondition(typeof dependencies.steps?.lockResult === 'function' && typeof dependencies.steps?.markResult === 'function'
     && typeof dependencies.host?.dispatch === 'function' && typeof dependencies.resolvePolicy === 'function',
   500, 'model_result_ports_required', '模型成果服務尚未設定。');
-  async function finalize(actor: Actor, raw: z.infer<typeof inputSchema>, observation: OpaqueModelObservation, invocation?: ModelStepInvocationGuard): Promise<PrivateModelResultPublished> {
+  async function finalize(actor: A, raw: z.infer<typeof inputSchema>, observation: OpaqueModelObservation, invocation?: ModelStepInvocationGuard): Promise<PrivateModelResultPublished> {
     const guard = captureModelStepInvocation(invocation);
-    actor = Object.freeze({ ...actor }); const input = inputSchema.parse(raw), operation = 'execution.model.result.finalize';
+    actor = authority.snapshot(actor); const input = inputSchema.parse(raw), operation = 'execution.model.result.finalize';
     const command = { actor, scope: 'personal' as const, operation, key: input.key, target: { kind: 'model_text_step', id: input.stepId },
       expected: input.expectedVersion, body: { stepId: input.stepId } };
     // An authenticated replay returns metadata only. A miss rolls back without
     // writing a receipt; it must still possess current backing before effects.
     const miss = Object.freeze({});
     try {
-      return await scopedMemberCommand<PrivateModelResultPublished>(pool, command, async (q, context) => {
+      return await authority.command<PrivateModelResultPublished>(pool, command, async (q, context) => {
         requireCondition((await q.query('SELECT user_id FROM users WHERE user_id=$1 AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)', [actor.user_id])).rowCount === 1,
           403, 'onboarding_required', '請先完成加入。');
         const row = await q.query(`SELECT step_id,work_item_id FROM model_text_steps WHERE step_id=$1 AND owner_user_id=$2
@@ -56,9 +65,9 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
     } catch (error) { if (error !== miss) throw error; }
     assertModelObservationHost(observation, dependencies.host);
     await assertModelObservationCurrent(observation);
-    const initial = await withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
+    const initial = await authority.read(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
       const step = await dependencies.steps.lockResult(q, context, actor, input.stepId);
-      checkVersion(step.aggregateVersion, input.expectedVersion); await assertCurrentSessionClock(q, actor); await guard(q); return step;
+      checkVersion(step.aggregateVersion, input.expectedVersion); await authority.clock(q, actor); await guard(q); return step;
     });
     const observed = readBoundModelObservation(observation, initial.binding);
     requireCondition(observed.binding.selection.artifactCustody === 'platform_asset', 409, 'model_result_custody_mismatch', '模型成果保存位置不符合這個流程。');
@@ -69,7 +78,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
     const bytes = new TextEncoder().encode(observed.text);
     requireCondition(bytes.byteLength === observed.outputByteSize && bytes.byteLength > 0 && bytes.byteLength <= 16384,
       409, 'model_result_observation_mismatch', '模型成果不符合大小限制。');
-    async function lockTarget(q: PoolClient, context: MemberScopeContext, currentActor: Actor, workId: string): Promise<LifecycleTarget> {
+    async function lockTarget(q: PoolClient, context: C, currentActor: A, workId: string): Promise<LifecycleTarget> {
       const step = await dependencies.steps.lockResult(q, context, currentActor, input.stepId);
       checkVersion(step.aggregateVersion, input.expectedVersion);
       requireCondition(step.workId === workId && step.outputSha256 === observed.outputSha256 && step.outputByteSize === observed.outputByteSize,
@@ -83,7 +92,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
     // outside SQL locks. The port may already have committed on a lost ACK.
     async function beforeStorage() {
       await assertModelObservationCurrent(observation);
-      await withMemberScope(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
+      await authority.read(pool, { actor, scope: 'personal' }, async () => {}, async (q, context) => {
         await lockTarget(q, context, actor, initial.workId);
         requirePersistence(await dependencies.resolvePolicy(q, context, initial.workId));
         await guard(q);
@@ -97,7 +106,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
       async get(...args: Parameters<typeof underlying.get>) { await beforeStorage(); assertModelStepInvocationTime(guard); return underlying.get(...args); },
       async delete(..._args: Parameters<typeof underlying.delete>): Promise<never> { throw new Error('model_result_storage_unavailable'); },
     });
-    const engine = createAssetLifecycle<Prepare, PrivateModelResultPublished>(pool, { ...dependencies, store: guardedStore }, {
+    const engine = createAssetLifecycleWithAuthority<Prepare, PrivateModelResultPublished,A,C>(pool, { ...dependencies, store: guardedStore }, {
       purpose: 'work.private-draft', targetKind: 'work.model-result', variant: 'draft', inputMaxBytes: 16384,
       outputMaxBytes: 16384, retireReplacedAsset: false, parsePrepare: value => prepareSchema.parse(value),
       revalidate: invocation === undefined ? undefined : guard,
@@ -115,7 +124,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
           RETURNING result_id,work_item_id,asset_id,revision::text,work_version::text,attempt_id,dispatch_intent_id,evidence_origin`,
         [randomUUID(), intent.intent_id, input.stepId])).rows[0];
         await dependencies.steps.markResult(q, context, currentActor, input.stepId, row.result_id);
-        await assertCurrentSessionClock(q, currentActor);
+        await authority.clock(q, currentActor);
         await guard(q);
         const result: PrivateModelResultPublished = { intentId: intent.intent_id, resultId: row.result_id, workId: row.work_item_id,
           assetId: row.asset_id, revision: row.revision, aggregateVersion: row.work_version, provenance: 'model', stepId: input.stepId,
@@ -124,7 +133,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
           data: { result_id: row.result_id, asset_id: row.asset_id, revision: row.revision, provenance: 'model', step_id: input.stepId,
             attempt_id: row.attempt_id, evidence_origin: row.evidence_origin }, eventType: 'freedom.work.private.model_result.created.v1' } };
       },
-    });
+    },authority);
     const phaseKey = (phase: string) => digest({ profile: 'private-model-result/v1', key: input.key, stepId: input.stepId, phase });
     try {
       const prepared = await engine.prepare(actor, { key: phaseKey('prepare'), targetWorkId: initial.workId,
@@ -138,7 +147,7 @@ export function createPrivateModelResultService(pool: Pool, dependencies: Privat
       let resultId: string | undefined;
       return await engine.finalizeVia(actor, { key: phaseKey('finalize'), intentId: prepared.intentId, fence: lease.fence, leaseToken: lease.leaseToken }, {
         operation, beforeCommit: () => assertModelObservationCurrent(observation),
-        execute: run => scopedMemberCommand(pool, command, async (q, context) => { await lockTarget(q, context, actor, initial.workId); await assertModelObservationCurrent(observation); },
+        execute: run => authority.command(pool, command, async (q, context) => { await lockTarget(q, context, actor, initial.workId); await assertModelObservationCurrent(observation); },
           run, async q => {
             await assertModelObservationCurrent(observation);
             if (resultId) await q.query('SELECT check_private_model_result_commit_current(current_schema(),$1::uuid)', [resultId]);

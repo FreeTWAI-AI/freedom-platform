@@ -5,28 +5,28 @@ import { snapshotInput, freezeTree } from '../../packages/execution-state/decode
 import { AdapterFault } from './adapters/common.js';
 import { readModelStepCapability, type ModelStepHost, type OpaqueModelStepCapability, type OpaqueModelObservation } from './model-step-host.js';
 
-export interface ModelStepRunnerService {
-  begin(actor: Actor, input: ModelStepBeginInput, guard?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; capability: OpaqueModelStepCapability | null }>;
-  context(actor: Actor, capability: OpaqueModelStepCapability, guard?: ModelStepInvocationGuard): Promise<Uint8Array>;
-  record(actor: Actor, capability: OpaqueModelStepCapability, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
-  unknown(actor: Actor, capability: OpaqueModelStepCapability): Promise<ModelStepMetadata>;
-  read(actor: Actor, input: { stepId: string }, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
+export interface ModelStepRunnerService<A=Actor> {
+  begin(actor: A, input: ModelStepBeginInput, guard?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; capability: OpaqueModelStepCapability | null }>;
+  context(actor: A, capability: OpaqueModelStepCapability, guard?: ModelStepInvocationGuard): Promise<Uint8Array>;
+  record(actor: A, capability: OpaqueModelStepCapability, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
+  unknown(actor: A, capability: OpaqueModelStepCapability): Promise<ModelStepMetadata>;
+  read(actor: A, input: { stepId: string }, guard?: ModelStepInvocationGuard): Promise<ModelStepMetadata>;
 }
-export interface ModelStepResultFinalizer<Result> {
-  finalize(actor: Actor, input: { key: string; stepId: string; expectedVersion: string }, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<Result>;
+export interface ModelStepResultFinalizer<Result,A=Actor> {
+  finalize(actor: A, input: { key: string; stepId: string; expectedVersion: string }, observation: OpaqueModelObservation, guard?: ModelStepInvocationGuard): Promise<Result>;
 }
 /** One committed claim, one transport call, one typed private Result. The
  * transactional service owns every current-authority and durable journal check.
  * This orchestration never promotes a prepared codec or retries provider I/O. */
-export function createModelStepRunner<Result>(options: {
-  service: ModelStepRunnerService; host: ModelStepHost; resultFinalizer: ModelStepResultFinalizer<Result>;
+export function createModelStepRunner<Result,A=Actor>(options: {
+  service: ModelStepRunnerService<A>; host: ModelStepHost; resultFinalizer: ModelStepResultFinalizer<Result,A>;
 }) {
   const descriptor = Object.getOwnPropertyDescriptors(options);
   if (Object.getPrototypeOf(options) !== Object.prototype || Reflect.ownKeys(options).length !== 3
     || ['service', 'host', 'resultFinalizer'].some(key => !descriptor[key]?.enumerable || !('value' in descriptor[key]))) throw new AdapterFault('invalid_input');
-  const service = descriptor.service.value as ModelStepRunnerService;
+  const service = descriptor.service.value as ModelStepRunnerService<A>;
   const host = descriptor.host.value as ModelStepHost;
-  const finalizer = descriptor.resultFinalizer.value as ModelStepResultFinalizer<Result>;
+  const finalizer = descriptor.resultFinalizer.value as ModelStepResultFinalizer<Result,A>;
   function method<T extends object, K extends keyof T>(port: T, name: K): T[K] {
     if (!port || typeof port !== 'object') throw new AdapterFault('invalid_input');
     const d = Object.getOwnPropertyDescriptor(port, name);
@@ -36,7 +36,7 @@ export function createModelStepRunner<Result>(options: {
   const begin = method(service, 'begin'), context = method(service, 'context'), record = method(service, 'record'),
     unknown = method(service, 'unknown'), read = method(service, 'read'), dispatch = method(host, 'dispatch'), finalize = method(finalizer, 'finalize');
   return Object.freeze({
-    async execute(actor: Actor, raw: ModelStepBeginInput, invocation?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; result: Result | null }> {
+    async execute(actor: A, raw: ModelStepBeginInput, invocation?: ModelStepInvocationGuard): Promise<{ metadata: ModelStepMetadata; result: Result | null }> {
       const guard = captureModelStepInvocation(invocation);
       const input = freezeTree(BeginSchema.parse(snapshotInput(raw)));
       const begun = await begin(actor, input, guard);
