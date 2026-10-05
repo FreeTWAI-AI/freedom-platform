@@ -13699,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 19111,
-      "sha256": "a4a6b986cf0005d1a1ab475a898f3b1961a3d8f05033ee828e7e38ceefd0e99a"
+      "bytes": 19132,
+      "sha256": "98bceee8bd17d8f0b1ed422d0771a500004e5d9a720adfe204f3569f95021dda"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 15719,
-      "sha256": "933803f88fcee492a530b96eb063d0b686af42105b020c12ded0588d79d05324"
+      "bytes": 17247,
+      "sha256": "5538a45c9c75a141f73af63f94bb74a8ae788d9ba54c0b0004d4606d79dbc1ad"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -17484,8 +17484,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-adversarial.test.ts",
-      "bytes": 23175,
-      "sha256": "2e79e33bb32510aead62296a5d6b0907219988be7131a9517c7e32bebef7f2dd"
+      "bytes": 24417,
+      "sha256": "1d56ba7010350629837dc6f62cc9c65cc8bba7d783dceb9de3ec937a50a11672"
     },
     {
       "path": "tests/runtime/credential-ingest-authorizations.test.ts",

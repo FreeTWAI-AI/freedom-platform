@@ -354,6 +354,50 @@
       ],
       "durationSeconds": 160.83,
       "fullHostedVerify": "pending new head"
+    },
+    "hostedPostDiagnosis": {
+      "source": "121f7908d7a9193794d0ece95c5d32d6ba3a8e39",
+      "verifyRun": 37278110711,
+      "status": "failed",
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "partition0": {
+        "passed": 599,
+        "failed": 1
+      },
+      "onlyFailure": "new artificial 3500ms secret-reader delay variant: sql_wait_not_observed; original actual SQL barrier, process and settings cases passed",
+      "correction": "controlled-clock observer regression covers 3500ms, signed expiry and settled request; original real eight-second SQL rollback test retained without artificial delay",
+      "correctionSource": "c9cc1ffe65a2cf5d151a876cb60d21b25a6c5c09",
+      "targetedActualSqlAndObserver": {
+        "passed": 2,
+        "failed": 0
+      },
+      "localFullAdversarial": {
+        "passed": 12,
+        "failed": 1,
+        "failure": "unchanged secret reader expiry case observed zero pulls instead of one",
+        "cause": "not established; shared host or database scheduling is only a hypothesis"
+      },
+      "unchangedLateReaderExclusiveRerun": {
+        "passed": 1,
+        "failed": 0,
+        "seconds": 16.26
+      },
+      "productionCodeChanged": false,
+      "finalHostedHead": "pending"
     }
   },
   "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
