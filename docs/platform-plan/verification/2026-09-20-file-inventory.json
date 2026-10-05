@@ -259,13 +259,18 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 29149,
-      "sha256": "93455802e699e6b4020362822544b34705a863a067da2db3c6876f9616a5f328"
+      "bytes": 27732,
+      "sha256": "57830e579cba4b2c46bfa8dbe3bcd2b9895411e24044cc40c453199e6a9127ed"
+    },
+    {
+      "path": "apps/platform-api/src/private-ai-path.ts",
+      "bytes": 3514,
+      "sha256": "31901e24b8a3523a3dfb762fdb0a2507395b4afab0450ee2daefd0aff3e4d3d6"
     },
     {
       "path": "apps/platform-api/src/private-ai-product.ts",
-      "bytes": 10524,
-      "sha256": "c93e24190b0c04770d27a134db209522b222401b2259adc63b3b17bc1f4fca84"
+      "bytes": 10214,
+      "sha256": "8120cc81ec173c7510f9a46d469d17cea7eacd2dd6cf1cd0a733e00712db3513"
     },
     {
       "path": "apps/platform-api/src/readiness.ts",
@@ -13658,6 +13663,11 @@
       "sha256": "b122d9e33a071a71213e55592bc25f93dd0fab6a5280d387ea7959b847c30145"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/api-composition-evidence-2026-10-05.json",
+      "bytes": 1714,
+      "sha256": "534dbaba14a67cf024ea2ed7223183b97ad6863a33be4e4a306dbcca437d9c98"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/closeout-patch-evidence.json",
       "bytes": 4443,
       "sha256": "4d8515dc81f51652207cb0f84669c48802b664353380aac5eac28d62d4b5266a"
@@ -13734,8 +13744,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 353580,
-      "sha256": "e28cf2841a80a5687154995dd48d08e634d2626f4e86f01623547cd43b399d53"
+      "bytes": 354803,
+      "sha256": "7f68be0d70879b4bc17944a93dcdeba8392fb5ea3349b24b53896b6535c9c15d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -14799,8 +14809,8 @@
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
-      "bytes": 8545,
-      "sha256": "11947311e6a12f2a9d14f631d4b485c245f92d66dff739df92190568b58a84f2"
+      "bytes": 8638,
+      "sha256": "e436d81b2e18772659eee5dfea6b3045f9976dd20a49220ec9cf5b13d29a5793"
     },
     {
       "path": "modules/agent-execution/generate-member-execution-http.ts",
@@ -16034,8 +16044,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5416,
-      "sha256": "8ae8ded7dc6f02248064a20c1cc4d0553ea2d63165c5c9c0dd920cc76bc29786"
+      "bytes": 5432,
+      "sha256": "d44bb0c2dfcd4cee6e42f2f2fb5beab0ac328f4c9d32ee9ee600d8b40fee813c"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -18456,6 +18466,11 @@
       "path": "tests/runtime/preview-protocol.test.ts",
       "bytes": 8542,
       "sha256": "72be53afa325c9f3d21e37df1c0683990793ff708af6f0547e5f480cbecea1e0"
+    },
+    {
+      "path": "tests/runtime/private-ai-path.test.ts",
+      "bytes": 2386,
+      "sha256": "5b1a70b969f621cc47a00f564e75ad1a8acce71d4cf6d55d1ef3057f3eb83f6b"
     },
     {
       "path": "tests/runtime/private-ai-preflight.test.ts",
