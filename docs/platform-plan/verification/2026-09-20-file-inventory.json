@@ -13783,6 +13783,11 @@
       "sha256": "5538a45c9c75a141f73af63f94bb74a8ae788d9ba54c0b0004d4606d79dbc1ad"
     },
     {
+      "path": "docs/platform-plan/verification/private-ai-staging-preparation-2026-10-05.json",
+      "bytes": 2852,
+      "sha256": "e3bb25591e05dc29ee1e1ef523698878c6051789f1874558725909b58489b191"
+    },
+    {
       "path": "docs/platform-plan/verification/verify_revision.py",
       "bytes": 2815,
       "sha256": "a369597865d925e438a5d20809d42726147ad230a5522d4e0b498abec044291f"
@@ -16629,8 +16634,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 72140,
-      "sha256": "23f1ab180f79283b5095febc262f36d6f9dc15ad18832bc74629d62fbb8a66fc"
+      "bytes": 73406,
+      "sha256": "d7fadfc6328b2b847335e9c1bb26408ed851c831d2659840e03b76ccbc7af85b"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -16639,13 +16644,18 @@
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 41186,
-      "sha256": "bbf4024338caccc292bbdff53b77f558103b879f688016747530e2d5216abf1c"
+      "bytes": 45867,
+      "sha256": "2ab697cf43d6b6c1a0d1fe4432cd0aca7ddeae292fbbad4ed29c13f40245ea0a"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 13332,
-      "sha256": "14cd88d70c817e0239e8e792651fdca3dfc5d9a2844a3878a95d6dc689e55e68"
+      "bytes": 14009,
+      "sha256": "78f5c4552724fc953b9c43f0e17872a8d1e0261df28695a3a317ffe71d9305b1"
+    },
+    {
+      "path": "scripts/verify-cloud-private-ai-execute.ts",
+      "bytes": 18053,
+      "sha256": "146c9243518f4fa63226cef2a3a4e05408b349014ca9322fc7fdc686a797fa76"
     },
     {
       "path": "scripts/verify-cloud-private-ai-owner.ts",
@@ -16864,8 +16874,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 74757,
-      "sha256": "6c3de1931dd25cd360dcd553dfc23ccda9d1823feb9024b53e0ceccadc21ee21"
+      "bytes": 74788,
+      "sha256": "6c9c81befa72fccc7e9bc3675d20f84aaea7c5777a3724d204cf08d19cc32d6f"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -18446,6 +18456,11 @@
       "path": "tests/worker/broker-worker.test.ts",
       "bytes": 3758,
       "sha256": "9266da8cdc018255ba3fcf179c2cbd6c5e823533da467938572a9d1e6eb7058f"
+    },
+    {
+      "path": "tests/worker/cloud-private-ai-execute.test.ts",
+      "bytes": 17075,
+      "sha256": "b7cbf6aa187457910146a2586c250c2f8b3e957356f77f18391dd879f9b181ca"
     },
     {
       "path": "tests/worker/cloud-private-ai-owner.test.ts",

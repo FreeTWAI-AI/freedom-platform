@@ -1,0 +1,89 @@
+{
+  "profile": "private-ai.staging-preparation-evidence/v1",
+  "recordedAt": "2026-10-05T08:08:32.090731+00:00",
+  "scope": "incremental preparation; not complete P3 acceptance",
+  "operatorTooling": {
+    "source": "2df17f7e",
+    "phases": [
+      "private-ai-prepare",
+      "private-ai-owner"
+    ],
+    "stagingOnly": true,
+    "defaultPhasesUnchanged": true,
+    "pairing": "real HTTP device protocol with ephemeral signer; no SQL fixture injection",
+    "credentialIngest": "browser route restriction with full header key guard",
+    "localFocusedTests": {
+      "passed": 16,
+      "failed": 0
+    },
+    "existingCandidateTests": {
+      "passed": 28,
+      "failed": 0,
+      "source": "3ac266cc"
+    },
+    "typecheck": "passed",
+    "realRemoteOwner": "not_run",
+    "paidExecution": "disabled",
+    "singleDispatchHttpSubset": {
+      "source": "38438aa4",
+      "explicitPhase": "private-ai-execute",
+      "localFocusedPassed": 9,
+      "localFocusedFailed": 0,
+      "typecheck": "passed",
+      "candidateRegressionPassed": 28,
+      "freshBudgetEvidenceSeconds": 60,
+      "permanentReservationUsd": 0.1,
+      "maxExecuteRequests": 1,
+      "maxOutputTokens": 128,
+      "stopRevokeIndependentOfPostResultBudgetExpiry": true,
+      "unknownOutcomeRetry": false,
+      "realRemoteExecution": "not_run",
+      "independentRemoteR2": "not_run",
+      "providerCount": "unavailable",
+      "guaranteedProviderUsdCap": false,
+      "fullOwnerAcceptance": "incomplete"
+    }
+  },
+  "remoteBrokerProvisioning": {
+    "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+    "environment": "staging-next",
+    "status": "disabled_candidate_provisioned_and_probed",
+    "enabled": false,
+    "secretsInstalled": false,
+    "hyperdriveInstalled": false,
+    "mediaBindingInstalled": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "publicDomains": 0,
+    "workersDev": false,
+    "previewUrls": false,
+    "providerCalls": 0,
+    "observabilityRequested": false,
+    "observabilityReadback": null,
+    "captureControlsAcceptance": "not_established",
+    "initialReadbackFailure": "operator expected explicit observability.enabled=false; API returned null; deployment was successful, no retry performed",
+    "disabledProbes": [
+      {
+        "purpose": "service",
+        "status": 503,
+        "unavailable": true,
+        "cacheControl": "private, no-store"
+      },
+      {
+        "purpose": "setup",
+        "status": 503,
+        "unavailable": true,
+        "cacheControl": "private, no-store"
+      }
+    ],
+    "probeCleanup": true
+  },
+  "remaining": [
+    "merged release and migrations",
+    "separate SQL roles/cache-off Hyperdrives",
+    "MEDIA and purpose-separated profiles/signers",
+    "real setup ingress and capture control acceptance",
+    "main binding",
+    "remote owner acceptance"
+  ]
+}
