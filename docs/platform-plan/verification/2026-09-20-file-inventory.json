@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 13249,
-      "sha256": "5c5eae0ae5dbe2d94390ac20cbf1811f19ae9794ff5f6843ae29ddba59b44517"
+      "bytes": 14270,
+      "sha256": "79eb0b6c00233b41b9600509bbc78a3167432f4551f06d811b4c4dee58ffa721"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -15649,8 +15649,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 48064,
-      "sha256": "e4275eeb4c3064e240653b15aeb2561daf8b9044b251d4cef71f1b7ac6131420"
+      "bytes": 50312,
+      "sha256": "a9069fd28ea25264b66386ce8ab81c18406d8fa1815c61db24be740b8f1e262d"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -15734,8 +15734,8 @@
     },
     {
       "path": "packages/contribution-tools/directory-build-profile.md",
-      "bytes": 4318,
-      "sha256": "be8f191d13f58bf38ff96eb7f0301c512070f9cbf9c5be13f52796f74389bebd"
+      "bytes": 4535,
+      "sha256": "3eb3e340bb18f8601ca6b1d38c7568af6bbc73c147065d922af03a6ca609889e"
     },
     {
       "path": "packages/contribution-tools/directory-reference/index.mjs",

@@ -12,7 +12,10 @@ privacy sections, traversal/absolute/encoded paths and malformed privacy JSON.
 Successful cases require both exact expected pages; normal rejection requires
 exit 1 and an unchanged input tree with no output directories or files. A timeout,
 transport error, incomplete readback or cleanup failure is unavailable and fails
-the combined gate. Current privacy data must retain `privacy/discord-bot/`, the
+the combined gate. Exit codes come from the exact Docker daemon exec object's
+identity/command/container readback, not the CLI exit status; a CLI transport error
+can also return 1. Candidate stdout/stderr are detached and never parsed. Current
+privacy data must retain `privacy/discord-bot/`, the
 destination of the directory footer link.
 
 Each case uses the existing pinned Debian/Node recipe, network-none, nonroot UID,

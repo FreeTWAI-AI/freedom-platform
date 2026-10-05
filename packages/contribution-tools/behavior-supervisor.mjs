@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, basename, relative, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
 import { runMemberRouteBehavior, behaviorFixtureIdentity, installedBehaviorHarnessDigest } from './behavior-harness.mjs';
 import { installedVerifierDigest, validateHostEvidenceBinding, validateHostWorkflow } from './trusted-ci.mjs';
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
@@ -463,6 +464,51 @@ async function runConsumerProfile(input, profile) {
   }
 }
 
+// A docker CLI exit 1 can also mean transport failure. Obtain the candidate exit
+// from its exact daemon exec object, never infer validation rejection from a CLI.
+function directoryDaemonRequest(method, path, body, status) {
+  return new Promise((resolve, reject) => {
+    const payload = body === undefined ? null : JSON.stringify(body);
+    const request = httpRequest({ socketPath: '/var/run/docker.sock', method, path,
+      headers: payload === null ? {} : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } }, response => {
+      let bytes = 0; const chunks = [];
+      response.on('data', chunk => {
+        if ((bytes += chunk.length) > 65536) request.destroy(Error('directory_build_unavailable'));
+        else chunks.push(chunk);
+      });
+      response.on('error', () => reject(Error('directory_build_unavailable')));
+      response.on('end', () => {
+        if (response.statusCode !== status) return reject(Error('directory_build_unavailable'));
+        try { resolve(bytes ? JSON.parse(Buffer.concat(chunks)) : null); }
+        catch { reject(Error('directory_build_unavailable')); }
+      });
+    });
+    const timer = setTimeout(() => request.destroy(Error('directory_build_unavailable')), 2000);
+    request.on('close', () => clearTimeout(timer));
+    request.on('error', () => reject(Error('directory_build_unavailable')));
+    request.end(payload);
+  });
+}
+async function executeDirectoryBuild(id) {
+  const args = ['--max-old-space-size=256', 'scripts/build.mjs'];
+  const exec = await directoryDaemonRequest('POST', '/containers/' + id + '/exec', {
+    AttachStdin: false, AttachStdout: false, AttachStderr: false, Tty: false,
+    WorkingDir: '/work', User: `${process.getuid()}:${process.getgid()}`, Cmd: ['/trusted-node', ...args],
+  }, 201);
+  if (!/^[a-f0-9]{64}$/.test(exec?.Id ?? '')) fail('directory_build_unavailable');
+  await directoryDaemonRequest('POST', '/exec/' + exec.Id + '/start', { Detach: true, Tty: false }, 200);
+  const started = Date.now();
+  while (Date.now() - started < 5000) {
+    const state = await directoryDaemonRequest('GET', '/exec/' + exec.Id + '/json', undefined, 200);
+    if (state?.ID !== exec.Id || state.ContainerID !== id || state.ProcessConfig?.entrypoint !== '/trusted-node'
+      || JSON.stringify(state.ProcessConfig?.arguments) !== JSON.stringify(args)) fail('directory_build_unavailable');
+    if (state.Running === false && Number.isInteger(state.ExitCode)) return { id: exec.Id, exitCode: state.ExitCode };
+    if (state.Running !== true) fail('directory_build_unavailable');
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  fail('directory_build_unavailable');
+}
+
 /** Bounded actual static build. The daemon pauses every container before copying
  * its tmpfs tree; a host-only reader hashes regular files without extracting them.
  * No writable host mount, candidate test, collector or self-reported verdict. */
@@ -524,17 +570,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       const observed = observeSupervisorContainer(item, label);
       docker(['exec', id, '/bin/cp', '-r', '/candidate/.', '/work/']);
       phase = 'build';
-      let exitCode = 0;
-      try {
-        execFileSync('/usr/bin/docker', ['exec', '--workdir', '/work', id, '/trusted-node',
-          '--max-old-space-size=256', 'scripts/build.mjs'], { env: env(), timeout: 5000, maxBuffer: 65536,
-          stdio: ['ignore', 'pipe', 'pipe'] });
-      } catch (error) {
-        // A timeout, killed CLI, truncated output or unknown execution cannot
-        // stand in for the expected normal validation rejection (exit 1).
-        if (error.signal || error.code || !Number.isInteger(error.status)) fail('directory_build_unavailable');
-        exitCode = error.status;
-      }
+      const execution = await executeDirectoryBuild(id), { exitCode } = execution;
       deadline(); observeSupervisorContainer(item, label);
       docker(['pause', id]);
       const frozen = JSON.parse(docker(['inspect', '--format', '{{json .State}}', id]));
@@ -547,7 +583,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       docker(['volume', 'rm', volume]); volumes.splice(volumes.indexOf(volume), 1);
       await checkSnapshot(candidate, snapshot.records);
       const passed = checkDirectoryBuildArchive(archive, snapshot.records, scenario, exitCode);
-      cases.push({ id: scenario.id, status: passed ? 'passed' : 'failed', exit_code: exitCode,
+      cases.push({ id: scenario.id, status: passed ? 'passed' : 'failed', exec_id: execution.id, exit_code: exitCode,
         archive_sha256: sha256(tar), files: archive.files.length,
         output_sha256: archive.files.filter(([path]) => path.startsWith('work/dist/')),
         input_sha256: snapshot.records.filter(([path]) => path.startsWith('data/')).map(([path, digest]) =>
@@ -555,6 +591,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       isolation.push({ ...observed, bind_destinations: ['/candidate', '/trusted-node'], paused_readback: true });
       if (!passed) break;
     }
+    deadline();
     if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())
       || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable })))
       fail('supervisor_installation_changed');
