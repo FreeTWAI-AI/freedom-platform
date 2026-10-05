@@ -3,7 +3,7 @@ import type { Actor } from '../../modules/identity-membership/service.js';
 import { requireCondition } from '../shared/problem.js';
 import { digest } from './legacy-digest.js';
 import { runCommandCore, type CommandPorts } from './command-core.js';
-import { lockMemberSession } from './member-session.js';
+import { assertCurrentSessionClock, lockMemberSession } from './member-session.js';
 
 export interface Command {
   actor: Actor; operation: string; key: string; body: unknown; expected?: string;
@@ -32,10 +32,15 @@ export function legacyMemberReceiptPorts<T>(input: Command): Omit<CommandPorts<T
     requestDigest: () => digest({body: input.body, expected: input.expected ?? null}),
     async readReceipt(q) {
       const prior = await q.query('SELECT * FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id,input.operation,input.key]);
+      // Receipt statements can themselves wait after current authorization.
+      // Refresh on the same locked client before replay or a new domain effect.
+      await assertCurrentSessionClock(q, input.actor);
       return prior.rowCount ? { request_sha256: prior.rows[0].request_sha256, response: prior.rows[0].response as T } : null;
     },
     async writeReceipt(q, hash, response) {
       await q.query('INSERT INTO command_receipts(user_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.actor.user_id,input.operation,input.key,hash,JSON.stringify(response)]);
+      // Expiry during an INSERT wait rolls back the receipt and domain facts.
+      await assertCurrentSessionClock(q, input.actor);
     },
   };
 }

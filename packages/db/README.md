@@ -6,7 +6,7 @@ The internal orchestration in [command-core.ts](command-core.ts) depends on Post
 
 ## Order and invariants
 
-The member path remains: validate idempotency key → BEGIN → lock active user (`FOR SHARE`, or `FOR UPDATE` for user mutations) → lock current non-revoked/unexpired session → original user/operation/key advisory lock → current domain authorization → original request digest → receipt lookup → replay or domain mutation/receipt → COMMIT. All callbacks receive the same transaction client; errors roll back and release it.
+The member path is: validate idempotency key → BEGIN → lock active user (`FOR SHARE`, or `FOR UPDATE` for user mutations) → lock current non-revoked/unexpired session → original user/operation/key advisory lock → current domain authorization → original request digest → receipt lookup → current-clock session check → replay or domain mutation/receipt → current-clock session check after insertion → COMMIT. All callbacks receive the same transaction client; errors roll back and release it.
 
 The digest stays `digest({body, expected: expected ?? null})`. The historical sorted-key JSON encoder in `legacy-digest.ts` is unchanged; it is not JCS. Operation strings, receipt primary keys, response JSON and error codes remain unchanged. Scope/principal/attempt-based receipt namespaces must be implemented separately, never by pretending a service is a member.
 
@@ -20,14 +20,20 @@ original advisory string, hash and receipt SQL verbatim. That internal factory
 does not authenticate and is not exported from the public DB index. It enables
 the reviewed avatar adapter to compose current personal authority and scoped
 facts with the existing receipt in one transaction, not a general caller-selected
-receipt profile. The ordinary member wrapper gains no scope or expiry-clock
-queries and its historical behavior remains unchanged.
+receipt profile. The shared receipt ports now recheck the already-locked session
+with `clock_timestamp()` after each receipt SELECT (including a miss) and INSERT.
+This applies to the ordinary member wrapper and all seven media compatibility
+adapters. A receipt wait that crosses expiry returns `401 session_expired` before
+replay/new effect, or rolls back the inserted receipt and domain facts together.
+No scope queries, receipt namespace, request digest or target semantics change.
+The check is a pre-commit decision, not a promise that the session stays valid
+through commit or response delivery.
 
 ## Additive scoped member commands
 
 Import `scopedMemberCommand`, `scopedJournal` and `ScopedMemberCommand` directly
 from [scoped-commands/index.ts](../scoped-commands/index.ts). The old index exports
-and legacy adapter stay unchanged. This additional adapter accepts only a real
+and historical receipt format stay unchanged. This additional adapter accepts only a real
 current member session; service/execution credentials and site scopes remain
 unsupported. This is a server-only library with no new HTTP route.
 
@@ -74,9 +80,10 @@ decision-clock refresh for new effect/read adapters. It requires the preceding
 user/session locks from `lockMemberSession` or member-scope resolution on the
 same still-open transaction; it is not standalone authentication or permission.
 Call it after the last blocking domain/policy query before returning private
-data or releasing an authorized snapshot for external I/O. Legacy command and
-`withMemberScope` behavior are unchanged; new callers must choose this explicit
-final decision point themselves.
+data or releasing an authorized snapshot for external I/O. Legacy receipt ports
+perform this refresh after their SELECT and INSERT. `withMemberScope` still does
+not add it automatically; other callers must choose their explicit final
+decision point themselves.
 
 The new receipt namespace combines principal, `member_session`, resolved scope
 UUID, stable operation and key. The advisory key is a serialized JSON array with a
