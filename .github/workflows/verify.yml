@@ -395,3 +395,8 @@ jobs:
         with:
           node-version: '24'
       - run: node --test deploy/cloudflare/test/*.test.mjs
+      - run: npm ci --ignore-scripts
+      - name: Fetch the immutable isolated migration database image
+        run: docker pull postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+      - name: Verify both migration entrypoints against isolated PostgreSQL
+        run: node --import tsx --test tests/integration/migration-plan-postgres.test.ts tests/integration/migration-entrypoints-postgres.test.ts tests/runtime/migration-runner-plan.test.ts
