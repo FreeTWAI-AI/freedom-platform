@@ -40,11 +40,22 @@ test('actual native source executable selects its reviewed tuple independently o
  assert.equal(result.status,0,result.stdout+result.stderr);const report=JSON.parse(result.stdout);
  assert.equal(report.source_commit,tuple.source);assert.equal(report.library_profile,tuple.library_profile);assert.equal(report.launch_closure.files.length,3);
 });
-for(const kind of ['unused_import','dead_call_private_client','sdk_replaced','command_retarget','candidate_preload','package_scope'])test('real immutable source rejects '+kind+' before any candidate execution',async t=>{
+for(const kind of ['unused_import','dead_call_private_client','private_same_shape_client','wrong_source_pin','sdk_replaced','command_retarget','candidate_preload','package_scope'])test('real immutable source rejects '+kind+' before any candidate execution',async t=>{
  const root=await mkdtemp(join(tmpdir(),'fp-kit-device-negative-'));t.after(()=>rm(root,{recursive:true,force:true}));
  git(root,['clone','--quiet','--no-hardlinks',candidateRoot,'.']);git(root,['checkout','--quiet',candidateCommit]);
  if(kind==='unused_import')await writeFile(join(root,'src/device-cli.mjs'),'import "../vendor/freedom-libraries/packages/sdk/machine-device-cli.mjs"; console.log("passed");\n');
- if(kind==='dead_call_private_client')await writeFile(join(root,'src/device-cli.mjs'),'import {deviceCliMain} from "../vendor/freedom-libraries/packages/sdk/machine-device-cli.mjs"; if(false)await deviceCliMain(); const own=await import("./private-client.mjs"); await own.main();\n');
+ if(kind==='dead_call_private_client'||kind==='private_same_shape_client'){
+  // Runnable same-shape private copies, not a missing-file stub. The approved
+  // vendor bytes remain untouched; their mere import cannot establish usage.
+  await writeFile(join(root,'src/private-command.mjs'),await readFile(join(root,'vendor/freedom-libraries/packages/sdk/machine-device-cli.mjs')));
+  await writeFile(join(root,'src/machine-device-client.mjs'),await readFile(join(root,'vendor/freedom-libraries/packages/sdk/machine-device-client.mjs')));
+  await writeFile(join(root,'src/device-cli.mjs'),'import {deviceCliMain} from "../vendor/freedom-libraries/packages/sdk/machine-device-cli.mjs"; '
+    +(kind==='dead_call_private_client'?'if(false)await deviceCliMain(); ':'')
+    +'const own=await import("./private-command.mjs"); process.exitCode=await own.deviceCliMain();\n');
+ }
+ if(kind==='wrong_source_pin'){
+  const path=join(root,'consumer-libraries.lock.json'),lock=JSON.parse(await readFile(path));lock.source_commit='91b943ac61e132fbbce72ea066cb2301aa065600';await writeFile(path,JSON.stringify(lock));
+ }
  if(kind==='sdk_replaced')await writeFile(join(root,'vendor/freedom-libraries/packages/sdk/machine-device-client.mjs'),'export const createMachineDeviceClient=()=>({});\n');
  if(kind==='command_retarget'||kind==='candidate_preload'){
   const path=join(root,'package.json'),p=JSON.parse(await readFile(path));p.scripts[kind==='command_retarget'?'device:status':'predevice:status']='node src/private-client.mjs';await writeFile(path,JSON.stringify(p));
@@ -55,6 +66,6 @@ for(const kind of ['unused_import','dead_call_private_client','sdk_replaced','co
  await assert.rejects(verifyNativeConsumerSource({...input,candidateRoot:root,candidateCommit:changed}),error=>{
   evidence({format:'freedom.kit-device-source-negative/v1',kind,candidate_commit:changed,source_commit:tuple.source,workflow_commit:expectedWorkflowCommit,
    result:'rejected',code:error.code,environment:'local-immutable-git',candidate_executed:false});
-  assert.equal(error.code,kind==='sdk_replaced'?'library_bytes_mismatch':kind==='command_retarget'||kind==='candidate_preload'?'consumer_entry_registration_changed':kind==='package_scope'?'consumer_entry_registry_set_changed':'library_entry_source_mismatch');return true;
+  assert.equal(error.code,kind==='sdk_replaced'?'library_bytes_mismatch':kind==='wrong_source_pin'?'library_source_mismatch':kind==='command_retarget'||kind==='candidate_preload'?'consumer_entry_registration_changed':kind==='package_scope'?'consumer_entry_registry_set_changed':'library_entry_source_mismatch');return true;
  });
 });
