@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 24251,
-      "sha256": "35ec4c9954c9ecdcdf56bbed0251897cf60e2be568ce468b884f82d6e22fc3e2"
+      "bytes": 25838,
+      "sha256": "37956c5c5285ef493ffa59f824795a7eaa99050060906029c6d54f3b225cc5d5"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -17509,8 +17509,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-rate-budget.test.ts",
-      "bytes": 12397,
-      "sha256": "dc20d523e1966915fd4740b05b79bc06eafbc0ad777ffcf9e2e09602ed716ef6"
+      "bytes": 12375,
+      "sha256": "a78d8e1330c04fdea940d1f8a694d0640b294ae5d3619094a3a12e06d1c7748a"
     },
     {
       "path": "tests/runtime/credential-setup-ui.test.ts",

@@ -497,7 +497,7 @@
       "source": "b8497fbcf03d76024a46e40ffea7254ebcc604e7",
       "verifyRun": 37283589044,
       "status": "failed",
-      "codeql": "success",
+      "codeql": "analysis jobs succeeded; aggregated CodeQL check failed with one test URL-substring finding",
       "baselineBrowser": {
         "passed": 470,
         "skipped": 10
@@ -603,6 +603,48 @@
       "productionDeadlineChanged": false,
       "hostedOriginalSettingsCustody": "not observed; deterministic local cases do not establish hosted outcome",
       "finalHostedHead": "pending"
+    },
+    "hostedTerminalDeliveryReconciliation": {
+      "source": "6fff466cf0469b47640c4d9ce238098b1890995a",
+      "verifyRun": 37286496943,
+      "verify": "success",
+      "runtimePartitions": [
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10,
+        "durationMinutes": 20.1
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1,
+        "durationSeconds": 44.3
+      },
+      "staticWorker": "passed",
+      "sourceIntegrity": "passed",
+      "governance": "passed",
+      "deployPreflight": "passed",
+      "codeqlAnalysisJobs": "all three passed",
+      "codeqlAggregate": "neutral: reports one missing baseline configuration, zero annotations",
+      "codeqlBranchAlerts": [
+        {
+          "number": 41,
+          "rule": "js/incomplete-url-substring-sanitization",
+          "location": "tests/runtime/credential-ingest-rate-budget.test.ts",
+          "classification": "test",
+          "interpretation": "diagnostic JSON non-disclosure assertion was matched as URL sanitization; exact deepEqual already fixes every field and value"
+        }
+      ],
+      "correction": "retain the exact closed-shape assertion and remove redundant JSON substring checks; no alert dismissal or scanning rule changes",
+      "correctedChromiumCase": {
+        "passed": 1,
+        "failed": 0
+      },
+      "finalHostedHead": "pending after assertion cleanup"
     }
   },
   "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",

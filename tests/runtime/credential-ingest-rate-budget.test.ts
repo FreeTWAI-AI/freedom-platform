@@ -76,8 +76,9 @@ test('controlled Chromium secret abort records request failure and preserves act
   diagnostic.phase('ack_wait');let caught:unknown;
   try{await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor({timeout:100});}catch(error){caught=error;assert.equal(diagnostic.annotate(error),error);}
   assert(caught instanceof errors.TimeoutError);const value=(caught as Error&{freedom_ingest:unknown}).freedom_ingest;
+  // The exact closed diagnostic shape excludes every payload and URL field.
   assert.deepEqual(value,{phase:'ack_wait',prepare_state:'response',prepare_status:200,secret_state:'failed',secret_status:null,custody:'not_checked'});
-  assert(!JSON.stringify(value).includes('PRIVATE'));assert(!JSON.stringify(value).includes(origin));detach();await context.close();
+  detach();await context.close();
  }finally{await browser.close();}
 });
 
