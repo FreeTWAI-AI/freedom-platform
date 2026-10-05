@@ -13734,8 +13734,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 353304,
-      "sha256": "2632bc7a0269bfdfedcac0a3baa00c1d0744201b6423f8d61a92be06d587be9a"
+      "bytes": 353580,
+      "sha256": "e28cf2841a80a5687154995dd48d08e634d2626f4e86f01623547cd43b399d53"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -13744,8 +13744,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/site-service-evidence-2026-10-05.json",
-      "bytes": 13086,
-      "sha256": "cf390c68b909d4c2cfe0069f4b2b4228310cb2c26c86079694fc9db890470a71"
+      "bytes": 13182,
+      "sha256": "420ff576f8e0862c1a3e4863e7b261d17ae9ec6d6088fad5541c3dd88af066ca"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/social-writer-evidence-2026-10-05.json",

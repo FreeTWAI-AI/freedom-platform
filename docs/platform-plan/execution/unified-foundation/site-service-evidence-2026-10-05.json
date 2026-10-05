@@ -207,10 +207,10 @@
     "git diff --check passed",
     "Both edited/new module descriptors validate against governance schema; registration is not runtime verification."
   ],
-  "root_review_source": "533523f3",
+  "root_review_source": "533523f3f608f549e43fe1d2c9b59c27e796c0ec",
   "root_verification": [
     {
-      "source": "533523f3",
+      "source": "533523f3f608f549e43fe1d2c9b59c27e796c0ec",
       "passed": 117,
       "failed": 0,
       "skipped": 0,
@@ -218,7 +218,7 @@
       "sha256": "b2e118b7c1d8698e347f90d72ab26114afa8d736ff82293828cde6176b641946"
     },
     {
-      "source": "533523f3",
+      "source": "533523f3f608f549e43fe1d2c9b59c27e796c0ec",
       "passed": 137,
       "failed": 0,
       "skipped": 0,
