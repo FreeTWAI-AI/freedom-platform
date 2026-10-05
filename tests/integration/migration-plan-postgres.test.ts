@@ -169,7 +169,7 @@ test('real SQL: old all-SQL runner guard rolls back and unknown/digest/dependenc
   await assert.rejects(applyFixture(pool, [a,b]), { code: 'migration_applied_unknown' });
   assert.deepEqual(await facts(pool), before);
 }));
-test('fixed supervisor fixture resolves the same complete legacy source and initializes its real data', { timeout: 120000 }, async () => {
+test('fixed supervisor initializes real member/work/avatar data with the shared legacy planner', { timeout: 120000 }, async () => {
   // This public schema belongs only to the owned, network-none test container.
   assert.equal((await admin!.query('SELECT current_database() db')).rows[0].db, 'fp_c5_migrations');
   const { initializeSupervisorFixture } = await import(new URL('../../packages/contribution-tools/behavior-supervisor-fixture.mjs', import.meta.url).href);

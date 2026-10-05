@@ -1,9 +1,10 @@
-import { openSync, closeSync, readSync, fstatSync, readdirSync, constants } from 'node:fs';
-import { join } from 'node:path';
+import { openSync, closeSync, readSync, fstatSync, readdirSync, lstatSync, realpathSync, constants } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { MIGRATION_LIMITS, MigrationPlanError } from './migration-plan.mjs';
 
 /** Local fixed-source adapter. No links/devices, bounded bytes, strict UTF-8. */
 export function readMigrationSources(directory) {
+  if (realpathSync(directory) !== resolve(directory) || !lstatSync(directory).isDirectory()) throw new MigrationPlanError('migration_source_directory_invalid');
   const files = readdirSync(directory, { withFileTypes: true }).filter(e => e.name.endsWith('.sql')).sort((a, b) => a.name < b.name ? -1 : 1);
   if (files.length > MIGRATION_LIMITS.files) throw new MigrationPlanError('migration_catalog_limit');
   let total = 0;
