@@ -1,10 +1,11 @@
 // Host installation only. Never load this file from a candidate checkout.
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, lstat, realpath, readlink, rm, chmod } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, lstat, realpath, readlink, rm, chmod, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename, relative, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
 import { runMemberRouteBehavior, behaviorFixtureIdentity, installedBehaviorHarnessDigest } from './behavior-harness.mjs';
 import { installedVerifierDigest, validateHostEvidenceBinding, validateHostWorkflow } from './trusted-ci.mjs';
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
@@ -12,6 +13,7 @@ import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
+import { DIRECTORY_REPOSITORY, directoryBuildCases, checkDirectoryBuildArchive } from './directory-build-fixture.mjs';
 
 // Member mode retains its cached local image identities; consumer mode uses the
 // separately provisioned public recipe. Neither is operator trust approval.
@@ -157,6 +159,8 @@ export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/n
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
     'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/consumer-behavior-target.mjs',
     'packages/contribution-tools/consumer-behavior-fixture.mjs', 'packages/contribution-tools/consumer-runtime-recipe.mjs',
+    'packages/contribution-tools/directory-build-fixture.mjs', 'packages/contribution-tools/directory-build-archive.py',
+    'packages/contribution-tools/directory-reference/index.mjs', 'packages/contribution-tools/directory-reference/privacy.mjs',
     'contracts/preview/v1/protocol.mjs',
     'packages/contribution-tools/github-behavior-host.mjs',
     'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
@@ -225,7 +229,18 @@ function observeSupervisorContainer(item, label) {
     || (item.imageReference && value.Config.Image !== item.imageReference)
     || value.Config.User !== (item.kind === 'candidate' ? `${process.getuid()}:${process.getgid()}` : 'postgres')
     || !value.HostConfig.CapDrop?.includes('ALL') || !value.HostConfig.SecurityOpt?.includes('no-new-privileges')) fail('supervisor_container_changed');
-  if (value.Mounts.some(mount => !['bind', 'tmpfs'].includes(mount.Type))) fail('supervisor_container_changed');
+  if (value.Mounts.some(mount => !['bind', 'tmpfs', ...(item.volume ? ['volume'] : [])].includes(mount.Type))) fail('supervisor_container_changed');
+  if (item.volume) {
+    const volumes = value.Mounts.filter(mount => mount.Type === 'volume');
+    if (volumes.length !== 1 || volumes[0].Name !== item.volume || volumes[0].Destination !== '/work'
+      || volumes[0].RW !== true || volumes[0].Driver !== 'local') fail('supervisor_container_changed');
+    const volume = JSON.parse(docker(['volume', 'inspect', '--format', '{{json .}}', item.volume]));
+    if (volume.Name !== item.volume || volume.Driver !== 'local' || volume.Scope !== 'local'
+      || volume.Labels?.['freedom.behavior-owner'] !== label || volume.Options?.type !== 'tmpfs'
+      || volume.Options?.device !== 'tmpfs'
+      || volume.Options?.o !== `size=32m,uid=${process.getuid()},gid=${process.getgid()},mode=0700`
+      || Object.keys(volume.Options).length !== 3) fail('supervisor_container_changed');
+  }
   const mounts = value.Mounts.filter(mount => mount.Type === 'bind').map(mount => [mount.Source, mount.Destination, mount.RW]).sort();
   if (item.mounts && JSON.stringify(mounts) !== JSON.stringify(item.mounts.slice().sort())) fail('supervisor_container_changed');
   if (item.kind === 'candidate' && value.Config.Env.some(entry => !['PATH', 'TMPDIR', 'NODE_ENV', 'FP_BEHAVIOR_DB_PASSWORD'].includes(entry.split('=', 1)[0]))) fail('supervisor_container_changed');
@@ -445,6 +460,182 @@ async function runConsumerProfile(input, profile) {
       let labelScanEmpty = false;
       try { labelScanEmpty = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; } catch {}
       recordCleanupOutcome(outcome, lifecycle, label, labelScanEmpty, true);
+    }
+  }
+}
+
+// A docker CLI exit 1 can also mean transport failure. Obtain the candidate exit
+// from its exact daemon exec object, never infer validation rejection from a CLI.
+function directoryDaemonRequest(method, path, body, status) {
+  return new Promise((resolve, reject) => {
+    const payload = body === undefined ? null : JSON.stringify(body);
+    const request = httpRequest({ socketPath: '/var/run/docker.sock', method, path,
+      headers: payload === null ? {} : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } }, response => {
+      let bytes = 0; const chunks = [];
+      response.on('data', chunk => {
+        if ((bytes += chunk.length) > 65536) request.destroy(Error('directory_build_unavailable'));
+        else chunks.push(chunk);
+      });
+      response.on('error', () => reject(Error('directory_build_unavailable')));
+      response.on('end', () => {
+        if (response.statusCode !== status) return reject(Error('directory_build_unavailable'));
+        try { resolve(bytes ? JSON.parse(Buffer.concat(chunks)) : null); }
+        catch { reject(Error('directory_build_unavailable')); }
+      });
+    });
+    const timer = setTimeout(() => request.destroy(Error('directory_build_unavailable')), 2000);
+    request.on('close', () => clearTimeout(timer));
+    request.on('error', () => reject(Error('directory_build_unavailable')));
+    request.end(payload);
+  });
+}
+async function executeDirectoryBuild(id) {
+  const args = ['--max-old-space-size=256', 'scripts/build.mjs'];
+  const exec = await directoryDaemonRequest('POST', '/containers/' + id + '/exec', {
+    AttachStdin: false, AttachStdout: false, AttachStderr: false, Tty: false,
+    WorkingDir: '/work', User: `${process.getuid()}:${process.getgid()}`, Cmd: ['/trusted-node', ...args],
+  }, 201);
+  if (!/^[a-f0-9]{64}$/.test(exec?.Id ?? '')) fail('directory_build_unavailable');
+  await directoryDaemonRequest('POST', '/exec/' + exec.Id + '/start', { Detach: true, Tty: false }, 200);
+  const started = Date.now();
+  while (Date.now() - started < 5000) {
+    const state = await directoryDaemonRequest('GET', '/exec/' + exec.Id + '/json', undefined, 200);
+    if (state?.ID !== exec.Id || state.ContainerID !== id || state.ProcessConfig?.entrypoint !== '/trusted-node'
+      || JSON.stringify(state.ProcessConfig?.arguments) !== JSON.stringify(args)) fail('directory_build_unavailable');
+    if (state.Running === false && Number.isInteger(state.ExitCode)) return { id: exec.Id, exitCode: state.ExitCode };
+    if (state.Running !== true) fail('directory_build_unavailable');
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  fail('directory_build_unavailable');
+}
+
+/** Bounded actual static build. The daemon pauses every container before copying
+ * its tmpfs tree; a host-only reader hashes regular files without extracting them.
+ * No writable host mount, candidate test, collector or self-reported verdict. */
+export async function runIsolatedDirectoryBuild({ repository, candidateRepository, candidateCommit }) {
+  if (repository !== DIRECTORY_REPOSITORY) fail('consumer_profile_required');
+  const label = randomUUID(), owned = [], lifecycle = createSupervisorContainerLifecycle(), cases = [];
+  let directory, outcome, phase = 'preflight', pendingVolumeCreate = false;
+  const volumes = [];
+  const started = Date.now();
+  const deadline = () => { if (Date.now() - started > LIMITS.wallMs) fail('supervisor_deadline'); };
+  const report = (reason, extra = {}) => (outcome = { format: 'freedom.isolated-directory-build/v1',
+    repository, assurance_level: 'local', status: 'unavailable', reason,
+    source_integrity: 'not_checked', runtime_observation: 'not_checked', library_usage: 'not_checked',
+    gate_enforced: false, merge_authorized: false, execution_authorized: false, publisher_trust: 'unverified',
+    entry: 'scripts/build.mjs', check: { status: 'failed' }, cases, ...extra });
+  try {
+    const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
+    const installation = await installedSupervisorIdentity({ nodeExecutable });
+    directory = await mkdtemp(join(tmpdir(), 'fp-directory-build-'));
+    const candidate = join(directory, 'candidate'); await mkdir(candidate);
+    phase = 'snapshot';
+    const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
+    // The bounded archive reader and fixed clean build tree have narrower limits
+    // than the general source snapshot; unavailable never becomes a passing check.
+    if (snapshot.files > 512 || snapshot.records.some(([path]) => path === 'dist' || path.startsWith('dist/')))
+      fail('directory_snapshot_limit');
+    let sourceBytes = 0;
+    for (const [path] of snapshot.records) sourceBytes += (await lstat(join(candidate, path))).size;
+    if (sourceBytes > 2 * 1024 * 1024) fail('directory_snapshot_limit');
+    phase = 'fixture';
+    let scenarios;
+    try { scenarios = directoryBuildCases(await readFile(join(candidate, 'data/directory.json'), 'utf8'),
+      await readFile(join(candidate, 'data/privacy-discord-bot.json'), 'utf8')); }
+    catch { return report('directory_data_invalid', { phase }); }
+    const isolation = [];
+    for (const scenario of scenarios) {
+      deadline(); phase = 'candidate';
+      const input = join(directory, scenario.id); await cp(candidate, input, { recursive: true, errorOnExist: true });
+      for (const [path, bytes] of Object.entries(scenario.overrides)) {
+        await chmod(join(input, path), 0o600); await writeFile(join(input, path), bytes); await chmod(join(input, path), 0o444);
+      }
+      const volume = 'fp-directory-' + label + '-' + scenario.id;
+      volumes.push(volume); pendingVolumeCreate = true;
+      const volumeAck = docker(['volume', 'create', '--driver', 'local', '--opt', 'type=tmpfs', '--opt', 'device=tmpfs',
+        '--opt', `o=size=32m,uid=${process.getuid()},gid=${process.getgid()},mode=0700`,
+        '--label', 'freedom.behavior-owner=' + label, volume]).toString().trim();
+      if (volumeAck !== volume) fail('supervisor_host_command_failed');
+      pendingVolumeCreate = false;
+      const id = lifecycle.dispatch('candidate', 'create', () => docker(['create', ...containerLimits(label),
+        '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`,
+        '--user', `${process.getuid()}:${process.getgid()}`, '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
+        '--mount', `type=bind,src=${nodeExecutable},dst=/trusted-node,readonly`,
+        '--mount', `type=bind,src=${input},dst=/candidate,readonly`, '--workdir', '/tmp',
+        '--mount', `type=volume,src=${volume},dst=/work`,
+        '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '--entrypoint', '/bin/sleep', runtime.image.reference, 'infinity']));
+      const item = { id, kind: 'candidate', image: runtime.image.local_id, imageReference: runtime.image.reference, volume,
+        mounts: [[nodeExecutable, '/trusted-node', false], [input, '/candidate', false]] };
+      owned.push(item); docker(['start', id]);
+      const observed = observeSupervisorContainer(item, label);
+      docker(['exec', id, '/bin/cp', '-r', '/candidate/.', '/work/']);
+      phase = 'build';
+      const execution = await executeDirectoryBuild(id), { exitCode } = execution;
+      deadline(); observeSupervisorContainer(item, label);
+      docker(['pause', id]);
+      const frozen = JSON.parse(docker(['inspect', '--format', '{{json .State}}', id]));
+      if (!frozen.Running || !frozen.Paused) fail('supervisor_container_changed');
+      phase = 'readback';
+      const tar = command('/usr/bin/docker', ['cp', id + ':/work', '-'], { maxBuffer: 8 * 1024 * 1024 });
+      const archive = JSON.parse(command('/usr/bin/python3', ['-I', fileURLToPath(new URL('./directory-build-archive.py', import.meta.url))],
+        { input: tar, maxBuffer: 256 * 1024 }));
+      docker(['rm', '-f', '-v', id]); owned.splice(owned.indexOf(item), 1);
+      docker(['volume', 'rm', volume]); volumes.splice(volumes.indexOf(volume), 1);
+      await checkSnapshot(candidate, snapshot.records);
+      const passed = checkDirectoryBuildArchive(archive, snapshot.records, scenario, exitCode);
+      cases.push({ id: scenario.id, status: passed ? 'passed' : 'failed', exec_id: execution.id, exit_code: exitCode,
+        archive_sha256: sha256(tar), files: archive.files.length,
+        output_sha256: archive.files.filter(([path]) => path.startsWith('work/dist/')),
+        input_sha256: snapshot.records.filter(([path]) => path.startsWith('data/')).map(([path, digest]) =>
+          [path, Object.hasOwn(scenario.overrides, path) ? sha256(scenario.overrides[path]) : digest]) });
+      isolation.push({ ...observed, bind_destinations: ['/candidate', '/trusted-node'], paused_readback: true });
+      if (!passed) break;
+    }
+    deadline();
+    if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())
+      || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable })))
+      fail('supervisor_installation_changed');
+    const passed = cases.length === scenarios.length && cases.every(value => value.status === 'passed');
+    return report(passed ? 'isolated_directory_build_observed_only' : 'directory_behavior_mismatch', {
+      check: { status: passed ? 'passed' : 'failed', test_count: cases.length, expected_test_count: scenarios.length },
+      runtime_observation: passed ? 'host_observed_build_files' : 'not_checked', isolation,
+      installation: { ...installation, runtime_recipe: runtime },
+      candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
+    });
+  } catch (error) {
+    return report(safeCodes.has(error.message) || ['directory_snapshot_limit', 'directory_build_unavailable',
+      'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch',
+      'consumer_runtime_platform_mismatch'].includes(error.message) ? error.message : 'directory_supervisor_failed', { phase });
+  } finally {
+    try {
+      for (const id of docker(['ps', '-aq', '--no-trunc', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim().split('\n')) {
+        if (/^[a-f0-9]{64}$/.test(id) && !owned.some(item => item.id === id)) owned.push({ id });
+      }
+    } catch {}
+    for (const item of owned) {
+      try { if (docker(['inspect', '--format', '{{index .Config.Labels "freedom.behavior-owner"}}', item.id]).toString().trim() === label)
+        docker(['rm', '-f', '-v', item.id]); } catch {}
+    }
+    for (const volume of volumes) {
+      try { if (docker(['volume', 'inspect', '--format', '{{index .Labels "freedom.behavior-owner"}}', volume]).toString().trim() === label)
+        docker(['volume', 'rm', volume]); } catch {}
+    }
+    if (directory) await rm(directory, { recursive: true, force: false });
+    if (outcome) {
+      let labelScanEmpty = false;
+      try { labelScanEmpty = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; } catch {}
+      recordCleanupOutcome(outcome, lifecycle, label, labelScanEmpty, true);
+      let volumesGone = false;
+      try { volumesGone = docker(['volume', 'ls', '-q', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; } catch {}
+      outcome.cleanup.volumes_verified = volumesGone && !pendingVolumeCreate;
+      outcome.cleanup.pending_volume_create = pendingVolumeCreate;
+      if (!outcome.cleanup.volumes_verified) {
+        outcome.cleanup_verified = false; outcome.cleanup.cleanup_verified = false;
+        outcome.cleanup.status = pendingVolumeCreate ? 'create_pending' : 'unverified';
+        outcome.operation_failure_reason = outcome.reason;
+        outcome.reason = pendingVolumeCreate ? 'supervisor_create_outcome_unknown' : 'supervisor_cleanup_failed';
+        outcome.runtime_observation = 'not_checked'; outcome.check = { status: 'failed' };
+      }
     }
   }
 }

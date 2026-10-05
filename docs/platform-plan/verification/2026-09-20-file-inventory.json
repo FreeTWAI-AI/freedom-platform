@@ -3,6 +3,11 @@
   "scope": "source files, including historical evidence; excludes self, secrets, dependencies, build and test artifacts",
   "files": [
     {
+      "path": ".github/workflows/directory-runtime-profile.yml",
+      "bytes": 2480,
+      "sha256": "780d0df57278589b8c21eb2e3c180a2a5ddd36b5d195a5bbc9209c1d5ddf61fb"
+    },
+    {
       "path": ".github/workflows/page-issue-label.yml",
       "bytes": 603,
       "sha256": "b8047ef27d9d2642d87c8512acb8f5cb17da5bfd7eb44abec536a49e13439a07"
@@ -19,8 +24,8 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 2260,
-      "sha256": "3396a09db88b4f1c612f529b1d2f0d7780297dc8c4a9233d48a2a7b412da1b81"
+      "bytes": 2736,
+      "sha256": "da297a100a7fedf4a8942174049f9de63244c1f121ed0c898e52ea536c4f2f8d"
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -13619,8 +13624,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 13249,
-      "sha256": "5c5eae0ae5dbe2d94390ac20cbf1811f19ae9794ff5f6843ae29ddba59b44517"
+      "bytes": 14270,
+      "sha256": "79eb0b6c00233b41b9600509bbc78a3167432f4551f06d811b4c4dee58ffa721"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -15644,8 +15649,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 37019,
-      "sha256": "8fcdac86546af2d4f6182a3eed91b5391e2bd21de7edb94cf21b45d33cee8fac"
+      "bytes": 50312,
+      "sha256": "a9069fd28ea25264b66386ce8ab81c18406d8fa1815c61db24be740b8f1e262d"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -15718,6 +15723,31 @@
       "sha256": "b93c38fafc5c18de401236efee247980e75e26d58f9cd627eaaf6ff897efb3ca"
     },
     {
+      "path": "packages/contribution-tools/directory-build-archive.py",
+      "bytes": 2003,
+      "sha256": "bf1508d6279520af50da9a24756c10f685f0d05fa904b1b1b3cccd7f39bb3b32"
+    },
+    {
+      "path": "packages/contribution-tools/directory-build-fixture.mjs",
+      "bytes": 4047,
+      "sha256": "084d9771802872c01594cd922187916bd8afffc32df4357f2c304dd7b5c2a1c7"
+    },
+    {
+      "path": "packages/contribution-tools/directory-build-profile.md",
+      "bytes": 4535,
+      "sha256": "3eb3e340bb18f8601ca6b1d38c7568af6bbc73c147065d922af03a6ca609889e"
+    },
+    {
+      "path": "packages/contribution-tools/directory-reference/index.mjs",
+      "bytes": 3516,
+      "sha256": "e385f46b8b05112b2d9bbde40ffb7906ba8068517975039e0145119913274dae"
+    },
+    {
+      "path": "packages/contribution-tools/directory-reference/privacy.mjs",
+      "bytes": 4162,
+      "sha256": "cc0a37cce815d52c5489b07bab6cd21f9eb9321eecb2fcfd3b90775d022cd2b6"
+    },
+    {
       "path": "packages/contribution-tools/errors.mjs",
       "bytes": 638,
       "sha256": "70f9f61ff5780fcbb85a01bd56f5ae873d88ed56fe446dca461f0a1dd5644ea7"
@@ -15764,8 +15794,8 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 4386,
-      "sha256": "33e7b45dc0c9c49424cf7781e09c3b9a0863aeb2bff914a2c37f0baeb8792ae0"
+      "bytes": 5996,
+      "sha256": "ec27691b8994b15cb5d60b671b645c7fc7956de9f23eb7161d0e873e10cb5a9c"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -15896,6 +15926,11 @@
       "path": "packages/contribution-tools/test/contracts.test.mjs",
       "bytes": 15092,
       "sha256": "db7083eddf4d566ea4669d6bc0d1bb67a7737c177f37fd1bda6f62e116760eb5"
+    },
+    {
+      "path": "packages/contribution-tools/test/directory-build.test.mjs",
+      "bytes": 2321,
+      "sha256": "84afecbbe433edf3042ef36bfbb209176c18692cd333074f592498ffb2068221"
     },
     {
       "path": "packages/contribution-tools/test/export.test.mjs",
@@ -16939,8 +16974,8 @@
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
-      "bytes": 29244,
-      "sha256": "7e69ffcfb0fad430a93779f02e1d8f242838ab0ba2fb6c4cb5943f5c506872b6"
+      "bytes": 30147,
+      "sha256": "bbea6605549b90b823957c58a67ebf839d356a4f1faac2aaba1a24c9fda7ea8d"
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
@@ -17196,6 +17231,11 @@
       "path": "tests/integration/directory-baseline-transition.test.mjs",
       "bytes": 5980,
       "sha256": "6d0f7fab40e99c2281562521bbd15d316c12cbd559e53e052d162f553ed696fb"
+    },
+    {
+      "path": "tests/integration/directory-runtime.test.mjs",
+      "bytes": 6615,
+      "sha256": "992703c740535efa6dec425433d371dbc1a5bae731e404561d26e6a54c1c0ae2"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
