@@ -667,7 +667,7 @@ test('every companion mode reserves its own region and leaves real main-page con
 for(const [profile,label] of [['light','自由工坊－明亮'],['dark','自由工坊－夜航'],['versefolk','自由工坊－敘生']] as const)test(`${label} starts with zero guide code, content, status and art requests`,async({page})=>{
   const guideRequests:string[]=[];
   const contentChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[^/]+\\.js$`);
-  page.on('request',request=>{if(/guide-packs|GuideEngine|GuideGallery|newcomer-guides|\/content\/[^/]+\.json/.test(request.url())||contentChunk.test(new URL(request.url()).pathname))guideRequests.push(request.url())});
+  page.on('request',request=>{if(/guide-packs|GuideEngine|GuideGallery|newcomer-guides|ai-sister-|page-guides-|dragon-|\/content\/[^/]+\.json/.test(request.url())||contentChunk.test(new URL(request.url()).pathname))guideRequests.push(request.url())});
   await registerJoined(page,profile);
   await navigate(page,'技能書架');await navigate(page,'會員首頁');
   await page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true}).click();

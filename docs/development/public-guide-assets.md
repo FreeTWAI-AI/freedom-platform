@@ -1,6 +1,6 @@
 # Public guide assets: bounded release candidate
 
-The application implements an opt-in Dragon guide asset path. Its local plan
+The application implements independently gated Dragon and AI Sister guide asset paths. Its local plan
 tool does not create buckets, upload art, grant credentials or deploy Workers.
 The separate operator publication is recorded in
 [publisher evidence](guide-publisher-2026-10-05.md), and the activation change in
@@ -14,7 +14,7 @@ The dedicated `GUIDE_STATIC` R2 binding is for `platform-public` guide artwork.
 Its origin bucket must remain private: no `r2.dev` or custom public bucket domain.
 The same-origin Worker is the only public reader. The member `MEDIA` binding
 continues to have purpose `member-private`; it is never used as a guide fallback.
-The app's guide port exposes only `release` and `fetch`; the native R2 adapter
+The app's guide port exposes only release metadata and `fetch`; the native R2 adapter
 captures only `get` and accepts only digests in the pinned manifest. There is no
 arbitrary key, URL proxy, upload, listing, deletion, executable code or SVG API.
 
@@ -57,8 +57,12 @@ inventory and provider readback before selecting an actual mapping.
   flag and native binding are all enabled
 - An explicitly installed local fixture returns `enabled: true`, `pack`, `version`
   and `manifestSha256`; this endpoint always uses `Cache-Control: no-store`
+- `GET /api/v1/guide-packs/release/{pack}` reads an explicitly installed `dragon`
+  or `ai-sister` release; unknown/OFF packs return `enabled: false`. The original
+  unqualified endpoint stays Dragon-compatible. Each pack has an independent
+  reviewed activation pin; installing one does not activate another.
 - Only exact `GET` / `HEAD` requests to
-  `/public/guide-packs/dragon/{version}/{sha256}.webp` can return an object
+  `/public/guide-packs/{pack}/{version}/{sha256}.webp` can return an object
 - Every object must be listed in the release-pinned manifest; unknown versions,
   digests, extensions, queries, methods and Range requests terminate with 404
 - Invalid/corrupt storage data fails closed with 503; missing objects return 404
@@ -73,8 +77,12 @@ inventory and provider readback before selecting an actual mapping.
 - The endpoint intentionally does not expose a separate manifest URL; frontend
   logical IDs resolve through the bundled, pinned manifest after the host gate
 
-Current limits: 512 logical assets, 2 MiB per object, 64 MiB total declared bytes,
-256 KiB manifest, 4096×4096 dimensions. Reads are bounded before allocation or
+Dragon retains its limits of 512 logical assets and a 256 KiB manifest. AI Sister
+has an explicit 1,536-object / 512 KiB manifest budget for its 17 × 20 wardrobe
+and three reaction poses per outfit. Both retain 2 MiB per object, 64 MiB total
+declared bytes and 4096×4096 dimensions. Pack and version are a closed
+discriminated schema; one pack cannot use another's namespace or larger budget.
+Reads are bounded before allocation or
 success, with 5-second object/stream deadlines and a 4096-chunk bound. No partial
 success is streamed before integrity verification. Local limits are not remote
 Worker CPU, memory or cost acceptance.
@@ -83,6 +91,7 @@ Worker CPU, memory or cost acceptance.
 
 `contracts/guide-packs/manifest.schema.json` is a closed JSON Schema generated from
 `guideManifestSchema`. Root, source and asset records all reject unknown keys.
+Regenerate with `npx tsx scripts/generate-guide-contract.ts`; `--check` detects drift.
 The manifest contains no self-hash. `release.ts` independently pins SHA-256 of the
 exact UTF-8 JSON file bytes, including whitespace/newline; no parse/reserialize
 or canonicalization can substitute for the exact-byte pin.
@@ -100,6 +109,12 @@ Aliases such as hero/frame-0 may share a digest only when byte length, MIME and
 dimensions agree. Logical IDs themselves are unique and bounded relative names.
 Actual WebP bytes live in `assets/guide-packs/dragon-v1-20261004/`, outside Vite's
 public tree, so building the ordinary app does not publish the fixture files.
+
+The independent [AI Sister pack](ai-sister-guides.md) uses its own generated
+manifest literal, frontend pin and **OFF** activation pin. Its 1,377 objects
+contain owner-approved wardrobe derivatives and portraits; source snapshot
+hashes and attribution are separate from the original Dragon art. The local
+publisher plan accepts `--pack ai-sister`; omission remains Dragon-compatible.
 
 ## Local-only validation
 

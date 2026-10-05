@@ -1,28 +1,38 @@
 import { z } from 'zod';
 
-export const GUIDE_MAX_ASSETS = 512;
+// Absolute parser ceilings; each installed pack also has its own closed budget.
+export const GUIDE_MAX_ASSETS = 1536;
 export const GUIDE_MAX_OBJECT_BYTES = 2 * 1024 * 1024;
-export const GUIDE_MAX_MANIFEST_BYTES = 256 * 1024;
+export const GUIDE_MAX_MANIFEST_BYTES = 512 * 1024;
 export const GUIDE_MAX_TOTAL_BYTES = 64 * 1024 * 1024;
+export const GUIDE_PACK_LIMITS = Object.freeze({
+  dragon: {assets:512,manifestBytes:256*1024,totalBytes:64*1024*1024},
+  'ai-sister': {assets:1536,manifestBytes:512*1024,totalBytes:64*1024*1024},
+});
 export const GUIDE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 export const GUIDE_PREFIX = '/public/guide-packs';
 const sha = /^[0-9a-f]{64}$/;
 const logical = /^[a-z0-9][a-z0-9-]{0,63}\/[a-z0-9][a-z0-9-]{0,63}$/;
-export const guideManifestSchema = z.object({
-  schema: z.literal('freedom.guide-pack/v1'), pack: z.literal('dragon'),
-  version: z.string().regex(/^dragon-v[1-9][0-9]*-[0-9]{8}$/).max(48),
+const assetSchema=z.object({ logicalId: z.string().regex(logical), sha256: z.string().regex(sha),
+  byteLength: z.number().int().min(12).max(GUIDE_MAX_OBJECT_BYTES), mime: z.literal('image/webp'),
+  width: z.number().int().min(1).max(4096), height: z.number().int().min(1).max(4096) }).strict();
+const manifestFields={
+  schema: z.literal('freedom.guide-pack/v1'),
   purpose: z.literal('platform-public'),
   source: z.object({ repository: z.string().regex(/^https:\/\/github\.com\/[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/),
     commit: z.string().regex(/^[0-9a-f]{40}$/) }).strict(),
-  assets: z.array(z.object({ logicalId: z.string().regex(logical), sha256: z.string().regex(sha),
-    byteLength: z.number().int().min(12).max(GUIDE_MAX_OBJECT_BYTES), mime: z.literal('image/webp'),
-    width: z.number().int().min(1).max(4096), height: z.number().int().min(1).max(4096) }).strict()).min(1).max(GUIDE_MAX_ASSETS),
-}).strict();
+};
+export const guideManifestSchema=z.discriminatedUnion('pack',[
+  z.object({...manifestFields,pack:z.literal('dragon'),version:z.string().regex(/^dragon-v[1-9][0-9]*-[0-9]{8}$/).max(48),assets:z.array(assetSchema).min(1).max(GUIDE_PACK_LIMITS.dragon.assets)}).strict(),
+  z.object({...manifestFields,pack:z.literal('ai-sister'),version:z.string().regex(/^ai-sister-v[1-9][0-9]*-[0-9]{8}$/).max(48),assets:z.array(assetSchema).min(1).max(GUIDE_PACK_LIMITS['ai-sister'].assets)}).strict(),
+]);
 export type GuideManifest = z.infer<typeof guideManifestSchema>;
 export type GuideAsset = Readonly<GuideManifest['assets'][number]>;
-export type GuideRelease = Readonly<{ enabled: true; pack: 'dragon'; version: string; manifestSha256: string }>;
+export type GuidePackId = GuideManifest['pack'];
+export type GuideRelease = Readonly<{ enabled: true; pack: GuidePackId; version: string; manifestSha256: string }>;
 /** The only app port. No arbitrary key, URL, credentials, list or mutation methods. */
-export type PublicGuideAssets = Readonly<{ release: GuideRelease; fetch: (request: Request) => Promise<Response> }>;
+export type PublicGuideAssets = Readonly<{ release?: GuideRelease; releases?:Readonly<Partial<Record<GuidePackId,GuideRelease>>>; fetch: (request: Request) => Promise<Response> }>;
+export type GuideAssetService = PublicGuideAssets & Readonly<{release:GuideRelease}>;
 export type GuideReadObject = { byteLength: number; mime: string; body: ReadableStream<Uint8Array> };
 /** A host read adapter must still constrain this digest to its pinned manifest. */
 export type GuideAssetReader = Readonly<{ readDigest: (digest: string) => Promise<GuideReadObject | null> }>;
@@ -35,6 +45,8 @@ export async function parseGuideManifest(bytes: Uint8Array, expectedSha256: stri
   if (!sha.test(expectedSha256) || bytes.byteLength > GUIDE_MAX_MANIFEST_BYTES || await guideSha256(bytes) !== expectedSha256) fail();
   let result: GuideManifest;
   try { result = guideManifestSchema.parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))); } catch { return fail(); }
+  const limits=GUIDE_PACK_LIMITS[result.pack];
+  if(bytes.byteLength>limits.manifestBytes)fail();
   let total = 0;
   const ids = new Set<string>(), digests = new Map<string, GuideAsset>();
   for (const asset of result.assets) {
@@ -44,15 +56,15 @@ export async function parseGuideManifest(bytes: Uint8Array, expectedSha256: stri
     digests.set(asset.sha256, asset); total += asset.byteLength;
     Object.freeze(asset);
   }
-  if (total > GUIDE_MAX_TOTAL_BYTES) fail();
+  if (total > limits.totalBytes) fail();
   Object.freeze(result.source); Object.freeze(result.assets); return Object.freeze(result);
 }
 export function guideAssetPath(manifest: GuideManifest, asset: GuideAsset): string {
-  return `${GUIDE_PREFIX}/dragon/${manifest.version}/${asset.sha256}.webp`;
+  return `${GUIDE_PREFIX}/${manifest.pack}/${manifest.version}/${asset.sha256}.webp`;
 }
 /** Fixed storage namespace, never a request-selected arbitrary key. */
 export function guideObjectKey(manifest: GuideManifest, asset: GuideAsset): string {
-  return `guide-packs/dragon/${manifest.version}/${asset.sha256}.webp`;
+  return `guide-packs/${manifest.pack}/${manifest.version}/${asset.sha256}.webp`;
 }
 const safeHeaders = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
   'Cross-Origin-Resource-Policy': 'same-origin', 'Referrer-Policy': 'no-referrer',
@@ -124,7 +136,7 @@ async function readWithDeadline(reader: GuideAssetReader, digest: string): Promi
   } finally { clearTimeout(timer); }
 }
 export async function createPublicGuideAssets(options: { manifestBytes: Uint8Array; expectedSha256: string;
-  reader: (manifest: GuideManifest) => GuideAssetReader }): Promise<PublicGuideAssets> {
+  reader: (manifest: GuideManifest) => GuideAssetReader }): Promise<GuideAssetService> {
   const manifest = await parseGuideManifest(Uint8Array.from(options.manifestBytes), options.expectedSha256);
   const paths = new Map(manifest.assets.map(asset => [guideAssetPath(manifest, asset), asset]));
   const reader = options.reader(manifest);
@@ -144,4 +156,20 @@ export async function createPublicGuideAssets(options: { manifestBytes: Uint8Arr
       } catch { return unavailableGuideResponse(503); }
     },
   });
+}
+
+/** Install only independently verified services. Unknown packs and aliases are
+ * terminal; no service may borrow another pack's objects or the MEDIA bucket. */
+export function combinePublicGuideAssets(services:readonly GuideAssetService[]):PublicGuideAssets{
+  const byPack=new Map<GuidePackId,GuideAssetService>();
+  for(const service of services){
+    if(byPack.has(service.release.pack))throw new GuideAssetError();
+    byPack.set(service.release.pack,service);
+  }
+  const releases=Object.freeze(Object.fromEntries([...byPack].map(([pack,service])=>[pack,service.release])) as Partial<Record<GuidePackId,GuideRelease>>);
+  return Object.freeze({release:releases.dragon,releases,async fetch(request:Request){
+    const path=new URL(request.url).pathname;
+    for(const [pack,service] of byPack)if(path.startsWith(`${GUIDE_PREFIX}/${pack}/`))return service.fetch(request);
+    return unavailableGuideResponse();
+  }});
 }

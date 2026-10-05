@@ -12,7 +12,8 @@
     "tests/worker/guide-pack-assets.test.ts",
     "deploy/cloudflare/lib/r2-purposes.mjs",
     "deploy/cloudflare/test/guide-r2-purposes.test.mjs",
-    "docs/development/public-guide-assets.md"
+    "docs/development/public-guide-assets.md",
+    "scripts/generate-guide-contract.ts"
   ],
   "public_exports": [
     "packages/public-guide-assets/index.ts",
