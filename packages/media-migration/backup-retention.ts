@@ -50,7 +50,7 @@ export interface RetentionPlan {
   readonly inspect: readonly { setId: string; reasons: readonly string[] }[];
   readonly objectPrune: { readonly status: 'planned' | 'withheld'; readonly reason?: string;
     readonly precondition: 'backup_object_store_dedicated_to_this_archive'; readonly keys: readonly string[] };
-  /** Source pins referenced ONLY by pruned sets. Withheld if any kept set's capture is unknown. */
+  /** Source pins referenced ONLY by pruned sets. Unknown archive references withhold release. */
   readonly captureRelease: { readonly status: 'planned' | 'withheld'; readonly reason?: string;
     readonly items: readonly { captureId: string; setIds: readonly string[] }[] };
   readonly planSha256: string;
@@ -136,6 +136,7 @@ export function computeRetentionPlan(states: readonly RecoverySetState[], policy
   // under multiple setIds). A pin is releasable only if NO kept set uses it.
   let captureRelease: RetentionPlan['captureRelease'];
   if (!anchored) captureRelease = { status: 'withheld', reason: 'no_verified_recovery_set', items: [] };
+  else if (strayKeys > 0) captureRelease = { status: 'withheld', reason: 'unrecognized_archive_keys', items: [] };
   else if (unknownKept) captureRelease = { status: 'withheld', reason: 'unknown_capture_in_kept_set', items: [] };
   else {
     const keptCaptures = new Set(kept.flatMap(s => (s.status === 'sealed' ? [s.captureId] : [])));
