@@ -8544,8 +8544,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 34018,
-      "sha256": "c3229f0d8a34f2139887f743f01428dd983d92fd4a15194f465bb1e88b1c1867"
+      "bytes": 34161,
+      "sha256": "17ad93aff00a5555a40de9143c0cb701dc74fa9faa21f80ebc91cab52a1fb640"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -9964,8 +9964,8 @@
     },
     {
       "path": "tests/integration/consumer-behavior-supervisor.test.ts",
-      "bytes": 9305,
-      "sha256": "142af831593c48b5ba99dc716f7aae2cf347fec7f140c508a02fafbe51a0f2a5"
+      "bytes": 9884,
+      "sha256": "92de223e797ffd6d94b237941390e42772a30f0c84ae66acbc4bcb65e7a179ad"
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",
@@ -11324,8 +11324,8 @@
     },
     {
       "path": "wrangler.broker.example.jsonc",
-      "bytes": 2304,
-      "sha256": "5353726e2a1e9ea1b575c550360fd8e79db9b50c65ba4e1f72ddae4a6161c8f5"
+      "bytes": 2310,
+      "sha256": "5b80ab17d255162c265aa5f49ef8fdd1efd2cfb62ec6477b0c555e8879def99b"
     },
     {
       "path": "wrangler.jsonc",

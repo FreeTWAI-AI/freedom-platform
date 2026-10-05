@@ -1,7 +1,7 @@
 {
   // Candidate only: explicit private service bindings, no IDs. The optional direct
   // credential setup host is a single Custom Domain route added by the operator
-  // (see apps/credential-broker/DEPLOYMENT.md); it is not installed here.
+  // (see docs/development/broker-worker-bindings.md); it is not installed here.
   "name": "freedom-model-broker-candidate",
   "main": "apps/credential-broker/src/worker.ts",
   "compatibility_date": "2026-09-21",
