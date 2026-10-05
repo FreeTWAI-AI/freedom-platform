@@ -66,7 +66,7 @@ const reject = (path, change) => {
 test('independent real-source control extracts six-route facts but cannot approve unresolved root delegates', () => {
   const report = audit();
   assert.equal(report.coverage_kind, 'fixed-syntax-only');
-  assert(!report.issues.some(issue => issue.code === 'declared_surface_file_missing'));
+  assert(!report.issues.some(issue => issue.code === 'surface_declaration_entry_missing'));
   assert.equal(report.structural_status, 'unavailable');
   assert.equal(Object.hasOwn(report, 'registration_status'), false);
   assert.equal(report.status, 'unavailable');
