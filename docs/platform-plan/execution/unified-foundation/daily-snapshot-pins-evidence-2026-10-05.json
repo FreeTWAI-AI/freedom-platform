@@ -1,0 +1,197 @@
+{
+  "task": "B2 explicit snapshot pin validation in daily backup",
+  "base_source": "bf46d831ee0382c7e6370000a32e95025a7003db",
+  "schema116_dependency": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+  "local_dependency_commit": "4183957b3010dfc2deae1339fe350cf35deefaa3",
+  "separate_planner_fix": "4df26fc79d98736749d42036861055a99cdec969",
+  "candidate_commit": "1ae7a78bff098d9f84249aadd9220eb206f23d91",
+  "environment": "Local Node24, marker-owned PostgreSQL18 container with network none, no published ports and tmpfs; synthetic users/media/native local workerd R2; distinct filesystem archive copies, no cloud/offsite or production identity",
+  "commands": [
+    {
+      "command": "node --import tsx --test tests/runtime/media-backup-daily.test.ts tests/runtime/media-backup-transfer.test.ts tests/runtime/media-backup-archive.test.ts tests/runtime/media-backup-retention.test.ts",
+      "log": "unit-final.tap",
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "b50f93bbab6a46caeba9b55d6040d29d0607396fe606d78537ec8516a8becd29"
+    },
+    {
+      "command": "node scripts/run-media-restore-test.mjs --archive-only",
+      "log": "archive-final.tap",
+      "pass": 6,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "66ccf8763a778dd07eb436811aa28f0fcd196d6062f3b94373e2798a0704d43f"
+    },
+    {
+      "command": "node scripts/run-media-restore-test.mjs",
+      "log": "restore-seven-purpose.tap",
+      "pass": 2,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "6e3a689003b149df581ffc7c7f94c8ff35bb47a638d578ea149303d510ff8c40"
+    },
+    {
+      "command": "node --test packages/contribution-tools/test/surface-audit.test.mjs packages/contribution-tools/test/context.test.mjs",
+      "log": "module-validation.tap",
+      "pass": 51,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "ffa4f07b6b08a7effb45acab344a6c7fdd81034fa910808df98a4838b90d3177"
+    },
+    {
+      "command": "npm run typecheck",
+      "log": "typecheck-final.log",
+      "exit_code": 0,
+      "log_sha256": "e152ef3960657c5382e16b6f913fc21c66775ffe601b470949e573c10a75222d"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "verified_cases": [
+    "Existing disabled-mode daily capture/seal/remote-copy/readback/isolated restore still passes.",
+    "Actual SQL policy SHA remains same for generation-only change; changing pin_seconds under same revision changes SHA.",
+    "One exported snapshot pins old published avatar and pending next upload; actual finalize replaces pointer during pg_dump window; retired old object is retention-eligible but GC blocked by exact pin.",
+    "New retired object created after snapshot can be GC claimed and actually deleted in native local R2; tombstone change allowed only in new mode. Restore has old avatar pointer, stored pending intent and excludes late object.",
+    "Actual domain PUT commits then throws lost acknowledgement; full readback recovers publication but leaves effect unknown; unknown alone blocks GC before backup pins, remains unknown in restored current schema.",
+    "Expiry during each seal/offsite/readback/restore fails; expired pins cannot renew and still block GC. Explicit concurrent external release fails.",
+    "Changed capture snapshot tuple, changed policy under same label, forged preflight SHA versus actual SQL, corrupted downloaded R2 bytes all refuse completion.",
+    "Current schema116 seven-purpose/eight-variant restore retains existing byte/ACL/session-fence checks."
+  ],
+  "requirements": [
+    {
+      "id": "R2:M07",
+      "evidence": "Local minimum-evidence contribution: current schema116 isolated actual PG+R2 restore and existing seven-purpose byte/read/denial/session-fencing drill pass.",
+      "acceptance_decision": "Root reconciles on final integrated candidate; no ledger state changed by this packet.",
+      "remaining_for_fc03_not_added_to_original_row": "Second authorized operator on fresh environment, current cloud backup, secret custody and operational recovery boundaries still need distinct evidence."
+    },
+    {
+      "id": "R2:S10",
+      "state": "partial",
+      "evidence": "Actual concurrent snapshot/finalize plus GC of unrelated later object, pin-protected retired version; unknown lost-ACK effect conservatively retained.",
+      "remaining": "This packet supplements existing GC/finalize cases; does not independently rerun every purpose and late PUT race or activate production GC."
+    }
+  ],
+  "limits": [
+    "No production GC/retention policy changed or chosen. Default gcSafety omitted remains disabled.",
+    "No retention executor/deletion/pin release added. Planner fix separate; same PostgreSQL catalog/pin schema reused.",
+    "Protection report is last checked after restore before cleanup, not continuous validity during external I/O or perpetual source-pin authority.",
+    "Cleanup closes owned resources and reobserves policy; it is not uncertain-effect deletion or release authorization.",
+    "Local quarantine restore is not exposure, dispatch, recovery-authority, failover or PITR approval.",
+    "No hosted CI, deployment, cloud object/bucket observation or operator-handoff evidence from this packet.",
+    "Module surface declarations only register ownership, not runtime behavioral coverage."
+  ],
+  "context": {
+    "tool_source": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+    "default_tool_blocker": "context_size_limit",
+    "chunked_tool_status": "surface_unmapped",
+    "remaining_unknown_paths": [
+      "deploy/cloudflare/environments.json",
+      "deploy/cloudflare/lib/release-compatibility.mjs",
+      "deploy/cloudflare/test/release-compatibility.test.mjs",
+      "migrations/116_social_thumbnail_writer_floor.sql",
+      "tests/runtime/social-preview-assets.test.ts"
+    ],
+    "interpretation": "Only inherited B1 paths remain unmapped. B2 owned paths registered; full bf46 union not claimed complete. Affected instructions manually read; not claiming every full-scope instruction chunk was read.",
+    "owned_delta": {
+      "base": "4183957b3010dfc2deae1339fe350cf35deefaa3",
+      "head": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+      "tool": "in-tree scripts/freedom.mjs",
+      "module_ids": [
+        "media-migration"
+      ],
+      "blockers": [],
+      "scope": "B2 daily plus separate planner change atop B1 dependency, not a claim that whole bf46 union is mapped",
+      "comment_only_followup": "1ae7a78bff098d9f84249aadd9220eb206f23d91 changes explanatory header only after context generation; does not change requested paths/ownership."
+    }
+  },
+  "reviews": [
+    {
+      "name": "pin-audit",
+      "requested_model": "grok-4.7",
+      "stop_reason": "end_turn",
+      "status": "completed_research_not_final_patch_review",
+      "triage": "Read mixed pre-edit sources; claims default daily cannot succeed and transfer lacks checks rejected by independent source/test inspection. Pin expiry/blockade and unknown-effect concerns covered by actual integration."
+    },
+    {
+      "name": "final-tests",
+      "requested_model": "grok-4.7",
+      "stop_reason": "cancelled",
+      "reason": "max_turns_reached after 8 turns without verdict; not counted as completed review"
+    },
+    {
+      "name": "final-tests-conclude",
+      "requested_model": "grok-4.7",
+      "session_id": "01a10dfb-cc97-75d1-a064-d03fdc7cda1b",
+      "stop_reason": "end_turn",
+      "status": "completed",
+      "verdict": "No material defect found",
+      "limits": "Static source only, no tests executed by model. Concluded from previous session sources with tools disabled. Wording about open exporter independently clarified: it closes after pg_dump, before object/provider I/O."
+    },
+    {
+      "name": "final-boundary",
+      "requested_model": "grok-4.7",
+      "session_id": "01a10dfb-c8df-7470-afae-ac26eb393288",
+      "stop_reason": "end_turn",
+      "status": "completed",
+      "verdict": "No material defect found",
+      "limits": "Static policy/phase/SQL-guard reading only, coordinator not reread and tests not executed by model. Cleanup final policy witness is the trusted adapter readback after it closes source pool, not an extra independent runner SQL read. Runner independently observes actual SQL policy at all eight phase boundaries before cleanup."
+    }
+  ],
+  "implementation_commit": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+  "post_test_change": "1ae7a78b changes only explanatory header in backup-gc-precondition.ts, as requested by root review; no behavior change or repeat test claim.",
+  "tested_files_sha256": {
+    "packages/media-migration/README.md": "c2c5fc6e1270518b48788a74ae27aae3711143fa17d11659c129c0f807998ff2",
+    "packages/media-migration/backup-daily.ts": "4398d856cbaf8ac9231d8a6108cb65b40c15784404422562b7dae7ec40e0ea68",
+    "packages/media-migration/backup-gc-precondition.ts": "4a8484be72acd6ebcff00dd85eda7eaf94e2176c20980725f2a2bd27aca6dde6",
+    "packages/media-migration/backup-transfer.ts": "0f013dd0106f181dbd0c07c193b01ee94f883f993199f74398d2fdb5a191af01",
+    "packages/media-migration/freedom.module.json": "cc0cc58ba921afc58a3c50e20ca7bf644395901824cd264a9a22cd32868b9688",
+    "scripts/media-backup-daily.ts": "2608ae5a94dd8c55c27be61e29a10680ffffbc0d716b8b22d0e311566df799cb",
+    "tests/integration/media-backup-archive.test.ts": "732026fc1f86b725a8ed12f4d5838347cd16e35d6bf5be109ecd2ad8fdbae6c5",
+    "tests/runtime/media-backup-daily.test.ts": "c08d5266ba00764e9b228cf96de524d8679a864180204b7d002c5b290f54c507",
+    "tests/runtime/media-backup-transfer.test.ts": "7c5dbe557f6f17285cc3cb81e8f9296c057e69a9a7dbdab949bed43d68b81b2c"
+  },
+  "candidate_files_sha256": {
+    "packages/media-migration/README.md": "c2c5fc6e1270518b48788a74ae27aae3711143fa17d11659c129c0f807998ff2",
+    "packages/media-migration/backup-daily.ts": "4398d856cbaf8ac9231d8a6108cb65b40c15784404422562b7dae7ec40e0ea68",
+    "packages/media-migration/backup-gc-precondition.ts": "b051bb276202c18a14b8843002c58373cd4764fb73d256177c1c60ca5bb16129",
+    "packages/media-migration/backup-transfer.ts": "0f013dd0106f181dbd0c07c193b01ee94f883f993199f74398d2fdb5a191af01",
+    "packages/media-migration/freedom.module.json": "cc0cc58ba921afc58a3c50e20ca7bf644395901824cd264a9a22cd32868b9688",
+    "scripts/media-backup-daily.ts": "2608ae5a94dd8c55c27be61e29a10680ffffbc0d716b8b22d0e311566df799cb",
+    "tests/integration/media-backup-archive.test.ts": "732026fc1f86b725a8ed12f4d5838347cd16e35d6bf5be109ecd2ad8fdbae6c5",
+    "tests/runtime/media-backup-daily.test.ts": "c08d5266ba00764e9b228cf96de524d8679a864180204b7d002c5b290f54c507",
+    "tests/runtime/media-backup-transfer.test.ts": "7c5dbe557f6f17285cc3cb81e8f9296c057e69a9a7dbdab949bed43d68b81b2c"
+  },
+  "review_summary": {
+    "actual_grok_sessions": 3,
+    "final_patch_reviews_completed": 2,
+    "incomplete_attempts": 1,
+    "incomplete_attempt_resolution": "Same tests-review session resumed tool-free and completed end_turn; initial max-turn cancellation is retained above.",
+    "remaining_review_findings": [],
+    "independent_triage": "Both final reviews found no material defect. Initial moving-tree research allegations rejected where contradicted by existing adapter/transfer logic; no review claims runtime execution. Root separately reviewed final code and requested only header clarification, now committed."
+  },
+  "final_worktree_clean": true,
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local_owned_postgresql_native_r2",
+  "publication_candidate": "5d52916f4deb371d9f8a9dad78efbd1832b8c968",
+  "accepted_original_rows": [
+    "R2:M07"
+  ],
+  "acceptance_decision": {
+    "id": "R2:M07",
+    "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+    "minimum_evidence": "DB＋R2 restore drill",
+    "basis": [
+      "Actual exported-snapshot pg_dump/pg_restore restores exact current migration ledger through116, all captured asset IDs, seven media purposes/eight variants, pointers and object bytes.",
+      "Concurrent later additions excluded; retired pinned objects retained; missing/corrupt objects refuse verified restore.",
+      "Unsafe restored function ACLs rejected and locked down before runtime; wrong member/private route/inactive caller/imported sessions remain denied."
+    ],
+    "limits": [
+      "Synthetic fixture target/source-release fields are not a production release observation; test invocation and code/file hashes bind this local implementation candidate.",
+      "Full broker/device external recovery generation remains AP:OPS-07 work; second-operator and current cloud recovery remain FC-03, not added to original R2:M07.",
+      "No production failover, PITR, exposure or GC/retention activation."
+    ]
+  }
+}

@@ -13633,6 +13633,11 @@
       "sha256": "a6fee607e6604def651869c3a6888b0b3629b55f60250a7d4cc043d9f42dd68e"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
+      "bytes": 12697,
+      "sha256": "736282c164cbe1f23b7b57f3d58195b7111f423771bbc0e53185ce390371d0f7"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
       "bytes": 32394,
       "sha256": "714ade34f19c881f8a9565f8f037bc02d020156f0e89175664b4166656ce716a"
@@ -13669,8 +13674,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 339855,
-      "sha256": "9ec5490268fb712215ed1f80f547895fc9bf1d5021e2122b15fd1ccb6547ff6d"
+      "bytes": 342114,
+      "sha256": "9c2e95f810776f345219413c7c52b30f21e1dd0b7f7246a9b3b7f5735c7ff47b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/social-writer-evidence-2026-10-05.json",
@@ -16184,8 +16189,8 @@
     },
     {
       "path": "packages/media-migration/README.md",
-      "bytes": 10328,
-      "sha256": "7e76ba30c6ddef20faf811a246fc8657df6fae565cf2c187580a6854bda63202"
+      "bytes": 13562,
+      "sha256": "c2c5fc6e1270518b48788a74ae27aae3711143fa17d11659c129c0f807998ff2"
     },
     {
       "path": "packages/media-migration/backup-archive-fs.ts",
@@ -16204,8 +16209,8 @@
     },
     {
       "path": "packages/media-migration/backup-daily.ts",
-      "bytes": 10568,
-      "sha256": "9d6ef67fca893f5844de1a0794a9a250120086c7ce69ec91cae743bcae643363"
+      "bytes": 14132,
+      "sha256": "4398d856cbaf8ac9231d8a6108cb65b40c15784404422562b7dae7ec40e0ea68"
     },
     {
       "path": "packages/media-migration/backup-evidence.ts",
@@ -16214,18 +16219,18 @@
     },
     {
       "path": "packages/media-migration/backup-gc-precondition.ts",
-      "bytes": 5702,
-      "sha256": "4ec9f8595994b815facd073c8258bd837028d22d20cbd34fc9a37cf3346dbcfa"
+      "bytes": 6349,
+      "sha256": "b051bb276202c18a14b8843002c58373cd4764fb73d256177c1c60ca5bb16129"
     },
     {
       "path": "packages/media-migration/backup-retention.ts",
-      "bytes": 15266,
-      "sha256": "3b7b3810c36d0e5450bb301bdcdc2e687dc79eaa89035eee36d7b03ae9058f4f"
+      "bytes": 15379,
+      "sha256": "4c5e551ad6f74e8d54b99563c72fa802cbc3a96dffcebd3d530362d5b912296d"
     },
     {
       "path": "packages/media-migration/backup-transfer.ts",
-      "bytes": 14261,
-      "sha256": "0dcb62524ecb4ae4ed215ef70fe87a8bb3ce2dfd97197bf4e9fdbef74eb9d72b"
+      "bytes": 14842,
+      "sha256": "0f013dd0106f181dbd0c07c193b01ee94f883f993199f74398d2fdb5a191af01"
     },
     {
       "path": "packages/media-migration/domain-bridge.ts",
@@ -16234,8 +16239,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 2920,
-      "sha256": "33717bc131defcc052c737933975fd8bed8f2cff7a60cba0bf2ca6c834575b3a"
+      "bytes": 4032,
+      "sha256": "cc0cc58ba921afc58a3c50e20ca7bf644395901824cd264a9a22cd32868b9688"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -16664,8 +16669,8 @@
     },
     {
       "path": "scripts/media-backup-daily.ts",
-      "bytes": 6099,
-      "sha256": "44e0363da3425e63eefd21db4f4ac69a43eca2cfd879cafbe3e987d3eda524f2"
+      "bytes": 6398,
+      "sha256": "2608ae5a94dd8c55c27be61e29a10680ffffbc0d716b8b22d0e311566df799cb"
     },
     {
       "path": "scripts/media-backup-retention.ts",
@@ -17284,8 +17289,8 @@
     },
     {
       "path": "tests/integration/media-backup-archive.test.ts",
-      "bytes": 19676,
-      "sha256": "24aaef6e77da90f814de4a6f308bcdd63ca8b5437df7eac45f83f8a72745f69d"
+      "bytes": 36063,
+      "sha256": "732026fc1f86b725a8ed12f4d5838347cd16e35d6bf5be109ecd2ad8fdbae6c5"
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
@@ -17854,8 +17859,8 @@
     },
     {
       "path": "tests/runtime/media-backup-daily.test.ts",
-      "bytes": 4653,
-      "sha256": "3db74bc70431c6c796b5244030e56535e817a48efc8bbdfc7a89a969c85e2486"
+      "bytes": 6571,
+      "sha256": "c08d5266ba00764e9b228cf96de524d8679a864180204b7d002c5b290f54c507"
     },
     {
       "path": "tests/runtime/media-backup-evidence.test.ts",
@@ -17864,13 +17869,13 @@
     },
     {
       "path": "tests/runtime/media-backup-retention.test.ts",
-      "bytes": 15288,
-      "sha256": "04f498de259d7916bf9e19accc8b6a5b7902b006be6527a1e55bb9489b94c340"
+      "bytes": 16443,
+      "sha256": "79f9aad8f36ff211ab2b3518201d9244a90e4ba180e5b2f7546deaea9adbc586"
     },
     {
       "path": "tests/runtime/media-backup-transfer.test.ts",
-      "bytes": 8969,
-      "sha256": "64227918e651c3e1201f311ca10ed332deaad874bf9382a4385976d109f821ad"
+      "bytes": 9886,
+      "sha256": "7c5dbe557f6f17285cc3cb81e8f9296c057e69a9a7dbdab949bed43d68b81b2c"
     },
     {
       "path": "tests/runtime/media-domain-bridge.test.ts",

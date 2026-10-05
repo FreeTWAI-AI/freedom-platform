@@ -2,7 +2,7 @@
   "schema": "freedom.foundation.requirement-evidence/v1",
   "recorded_at": "2026-10-05",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
-  "scope": "Original 168 requirements; source reconciliation plus explicitly bounded historical/current operator evidence. No requirement accepted by this index.",
+  "scope": "Original168 requirements; R2:M07 accepted only at its exact local DB+R2 restore candidate. Other original rows remain open.",
   "source_documents": [
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -25,10 +25,10 @@
     },
     "by_state": {
       "not_run": 48,
-      "implemented": 67,
+      "implemented": 66,
       "partial": 52,
       "blocked": 1,
-      "accepted": 0
+      "accepted": 1
     }
   },
   "state_definitions": {
@@ -36,11 +36,11 @@
     "implemented": "Applicable code/primitive exists at inspected source; tests listed are source references, not execution receipts. Remaining integrations or required negatives are explicit.",
     "partial": "A bounded actual execution or installed-control observation is recorded; it does not meet the entire original minimum evidence and case set.",
     "blocked": "A named dependency prevents the original integrated acceptance; this is not N/A or removal from scope.",
-    "accepted": "All original necessary cases and minimum evidence are satisfied at an explicitly bound candidate/environment. None qualify in this reconciliation."
+    "accepted": "All original necessary cases and minimum evidence are satisfied at an explicitly bound candidate/environment; not merge/deployment approval."
   },
   "evidence_rules": [
     "Original minimum evidence is retained verbatim; evidence types are not a numeric ladder.",
-    "Source references and test declarations are not executed tests. No product/runtime tests were run to build this index.",
+    "Source references and test declarations are not executed tests. Executed tests below identify their exact source, environment and limits.",
     "Executed evidence references resolve to the catalog for exact source/environment/limitations; historical results are not a pass for current source.",
     "Feature flags OFF do not constitute implementation or acceptance.",
     "Original extra R2:G and AP:INV tables remain in source-acceptance.md and are not deleted or counted in the 168-row denominator.",
@@ -387,6 +387,25 @@
         "Current cloud policy remains bridge; GC, automatic retention and legacy byte cleanup are not activated.",
         "All-purpose restricted-role writer matrix and approved reader-floor/cutover still required before accepting full original rows.",
         "Already-invalid preexisting bytes and bridge legacy-byte retirement remain separate controlled cleanup work; migration116 does not delete data."
+      ]
+    },
+    "daily-pins-ae239d3": {
+      "id": "daily-pins-ae239d3",
+      "kind": "isolated_current_schema_pg_native_r2_restore",
+      "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+      "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Exact full captured media reference/object set restored; seven media purposes/eight variants retain original bytes, URL/DTO projections and member denial behavior.",
+        "Snapshot/finalize interleave protects retired original object; unrelated later object is deleted by real local GC.",
+        "Expiry at seal/offsite/readback/restore, capture/policy substitution, unknown effects and corrupt downloaded bytes refuse completion."
+      ],
+      "limitations": [
+        "Local candidate acceptance only, not deployed release, hosted CI, cloud readback or second-operator recovery.",
+        "Default GC remains disabled; no retention executor or source-pin release.",
+        "Last independent source protection check occurs after restore before trusted adapter cleanup; no perpetual lease claim."
       ]
     }
   },
@@ -3574,7 +3593,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -3592,12 +3611,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "daily-pins-ae239d3",
+          "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+          "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+          "covered_part": "Real snapshot/finalize/GC interaction and conservative unknown-effect protection; complete late-PUT race matrix remains.",
+          "limitations_reference": "evidence_catalog.daily-pins-ae239d3.limitations"
+        }
+      ],
       "remaining": [
-        "GC remains uninstalled operationally; covered historical avatars denied unconditionally; unknown write effects need authority-backed reconciliation, never arbitrary state rewrite."
+        "GC remains uninstalled operationally; covered historical avatars denied unconditionally; unknown write effects need authority-backed reconciliation, never arbitrary state rewrite.",
+        "Bind the remaining GC/finalize/late-PUT race cases to the same intended candidate; production activation is tracked separately from local evidence."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Actual isolated snapshot/finalize/GC contribution; original complete race matrix remains open."
     },
     {
       "id": "R2:S11",
@@ -4371,7 +4399,7 @@
         "FC-02",
         "FC-03"
       ],
-      "state": "partial",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -4395,14 +4423,18 @@
           "environment": "existing host timers for staging and production; offsite full readback; isolated PostgreSQL/native local R2 quarantine",
           "covered_part": "Matching historical DB/R2 snapshot, remote full readback and isolated quarantine restore; not current-release/independent-operator acceptance.",
           "limitations_reference": "evidence_catalog.daily-snapshot-89f64.limitations"
+        },
+        {
+          "evidence_id": "daily-pins-ae239d3",
+          "source_sha": "ae239d389e25fe24383f2f00988d0bb43f577db9",
+          "environment": "Owned PostgreSQL18 network-none and native local R2; actual same-snapshot dump/restore throughschema116; synthetic identities and distinct filesystem archive copies",
+          "covered_part": "Complete original isolated media restore row at this candidate.",
+          "limitations_reference": "evidence_catalog.daily-pins-ae239d3.limitations"
         }
       ],
-      "remaining": [
-        "Bind an isolated DB plus R2 restore drill to the intended supported source/schema and verify the complete restored reference/object set.",
-        "Exercise the restored authorization boundaries so users and credentials that must be denied remain denied. Independent second-operator takeover is an additional FC-03 gate, not a prerequisite added to this original row."
-      ],
-      "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Exact candidate satisfies original DB+R2 restore minimum: complete captured media set and required denial boundaries. Broader FC-03/API recovery requirements remain separate."
     },
     {
       "id": "R2:M08",
