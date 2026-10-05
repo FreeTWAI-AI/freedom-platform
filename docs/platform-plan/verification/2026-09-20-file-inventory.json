@@ -16629,8 +16629,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 69674,
-      "sha256": "faced1e0502f81adb9fa02a6ce7258204768327bdc58f438b30b980dee8bffa3"
+      "bytes": 72140,
+      "sha256": "23f1ab180f79283b5095febc262f36d6f9dc15ad18832bc74629d62fbb8a66fc"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -16639,13 +16639,23 @@
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 33923,
-      "sha256": "4c44003a9c747c3867add5b1887ecbd144d84d97690a8e9258017fc23c8edd00"
+      "bytes": 41186,
+      "sha256": "bbf4024338caccc292bbdff53b77f558103b879f688016747530e2d5216abf1c"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
-      "bytes": 12291,
-      "sha256": "106b4f1a8b732f811cedabde01ec25ed2ef506ddbabc5dd9d118f1058c3550c8"
+      "bytes": 13332,
+      "sha256": "14cd88d70c817e0239e8e792651fdca3dfc5d9a2844a3878a95d6dc689e55e68"
+    },
+    {
+      "path": "scripts/verify-cloud-private-ai-owner.ts",
+      "bytes": 11256,
+      "sha256": "bd2ed1bf270f1d2e69eceaf64ca39e436da1e5e7e3c58e6290786eacd4e53e21"
+    },
+    {
+      "path": "scripts/verify-cloud-private-ai-prepare.ts",
+      "bytes": 12054,
+      "sha256": "1f6a6d6021cc1a894ba05129a98bb4e6a5902c364a502eb4ee89cd96bcf9320f"
     },
     {
       "path": "scripts/verify-member-settings.mjs",
@@ -16854,8 +16864,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 74697,
-      "sha256": "e638b1c7c3e69c1de5a3685e79fec7d18710d17fc547d108fcdb9343a4f8712c"
+      "bytes": 74757,
+      "sha256": "6c3de1931dd25cd360dcd553dfc23ccda9d1823feb9024b53e0ceccadc21ee21"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -18436,6 +18446,16 @@
       "path": "tests/worker/broker-worker.test.ts",
       "bytes": 3758,
       "sha256": "9266da8cdc018255ba3fcf179c2cbd6c5e823533da467938572a9d1e6eb7058f"
+    },
+    {
+      "path": "tests/worker/cloud-private-ai-owner.test.ts",
+      "bytes": 13503,
+      "sha256": "b7b1471124fc081f6120b373f5b642277ce85fe2bffe28d6303acf23840ce7f6"
+    },
+    {
+      "path": "tests/worker/cloud-private-ai-prepare.test.ts",
+      "bytes": 14707,
+      "sha256": "5e89d3d54784f2dbe37653e92c612c738f205b9dbbcc8b72f1d7969ba94a52f1"
     },
     {
       "path": "tests/worker/event-banner-assets.test.ts",
