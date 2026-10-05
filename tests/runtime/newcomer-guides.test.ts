@@ -13,7 +13,7 @@ import manifest from '../../contracts/guide-packs/dragon-v1-20261004.json';
 
 const enabled={...DRAGON_RELEASE_PIN,enabled:true};
 test('one profile preserves every legacy theme and uses a dark-base opt-in skin without a second activation preference',()=>{
-  assert.deepEqual(WORKSHOP_THEMES.map(([id])=>id),['light','dark','versefolk','guide-dragon']);
+  assert.deepEqual(WORKSHOP_THEMES.map(([id])=>id),['light','dark','versefolk','guide-dragon','guide-ai-sister']);
   for(const id of ['light','dark','versefolk'] as const){
     assert.equal(EXPERIENCE_PROFILES[id].baseTheme,id);assert.equal(EXPERIENCE_PROFILES[id].skin,null);assert.equal(EXPERIENCE_PROFILES[id].guidePack,null);
   }

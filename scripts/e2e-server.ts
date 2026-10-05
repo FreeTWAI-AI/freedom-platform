@@ -86,13 +86,9 @@ try{
     privateAiFixture=await createPrivateAiBrowserFixture(pool,productPool,origin);
   }
 }catch(error){console.error(error);await stop(1);}
-// Explicit local-only guide fixture; production release remains OFF.
-const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1' ? await (async()=>{
-  const [{createLocalGuideAssets},{dragonManifestText},{DRAGON_GUIDE_RELEASE}]=await Promise.all([
-    import('../packages/public-guide-assets/node.js'),import('../packages/public-guide-assets/dragon-manifest.generated.js'),import('../packages/public-guide-assets/release.js')]);
-  return createLocalGuideAssets({freedomEnv:'local',fixtureDirectory:'assets/guide-packs/'+DRAGON_GUIDE_RELEASE.version,
-    manifestBytes:new TextEncoder().encode(dragonManifestText),expectedSha256:DRAGON_GUIDE_RELEASE.manifestSha256});
-})() : undefined;
+// Explicit local-only fixtures; per-pack production activation is separate.
+const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
+  ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 const app=createApp(productPool??pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));

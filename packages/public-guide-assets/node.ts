@@ -1,7 +1,8 @@
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { createPublicGuideAssets, GuideAssetError, type GuideAsset, type GuideAssetReader, type GuideManifest } from './index.js';
+import { combinePublicGuideAssets, createPublicGuideAssets, GuideAssetError, type GuideAsset, type GuideAssetReader, type GuideManifest } from './index.js';
+import {GUIDE_ASSET_CATALOG} from './catalog.js';
 /** Local fixture bytes only. No network, credentials, uploads, or public static mount. */
 export async function readLocalGuideBytes(root: string, asset: GuideAsset): Promise<Uint8Array> {
   if (!/^[a-z0-9][a-z0-9-]{0,63}\/[a-z0-9][a-z0-9-]{0,63}$/.test(asset.logicalId)) throw new GuideAssetError();
@@ -36,4 +37,11 @@ export async function createLocalGuideAssets(options: { freedomEnv: string; fixt
   manifestBytes: Uint8Array; expectedSha256: string }) {
   if (options.freedomEnv !== 'local') throw new GuideAssetError();
   return createPublicGuideAssets({ ...options, reader: manifest => createLocalGuideReader(options.fixtureDirectory, manifest) });
+}
+/** All installed fixtures are testable locally, including reviewed-but-OFF packs. */
+export async function createLocalGuideCatalog(freedomEnv:string,fixtureRoot='assets/guide-packs'){
+  if(freedomEnv!=='local')throw new GuideAssetError();
+  return combinePublicGuideAssets(await Promise.all(Object.values(GUIDE_ASSET_CATALOG).map(({release,manifestText})=>createLocalGuideAssets({
+    freedomEnv,fixtureDirectory:join(fixtureRoot,release.version),manifestBytes:new TextEncoder().encode(manifestText),expectedSha256:release.manifestSha256,
+  }))));
 }

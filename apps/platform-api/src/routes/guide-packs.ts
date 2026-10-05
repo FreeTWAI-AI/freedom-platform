@@ -17,4 +17,10 @@ export function registerGuideReleaseRoute(app: Hono<any>, assets?: PublicGuideAs
     c.header('Cache-Control', 'no-store');
     return c.json(assets?.release ?? { enabled: false });
   });
+  app.get('/api/v1/guide-packs/release/:pack',c=>{
+    c.header('Cache-Control','no-store');
+    const pack=c.req.param('pack');
+    if(pack!=='dragon' && pack!=='ai-sister')return c.json({enabled:false});
+    return c.json(assets?.releases?.[pack] ?? (assets?.release?.pack===pack?assets.release:{enabled:false}));
+  });
 }

@@ -1,34 +1,52 @@
-import {useEffect,useState,type ComponentType} from 'react';
+import {useEffect,useRef,useState,type ComponentType} from 'react';
 import {useWorkshopTheme} from '../../workshop-theme';
 import {canRequestGuide,acceptsGuideRelease} from './gate';
-import {DRAGON_RELEASE_PIN} from './release-pin';
+import {resolveExperienceProfile} from '../../experience-profiles';
+import {GUIDE_PACKS} from './pack-registry';
+import {AI_SISTER_CHARACTER_KEY,readAiSisterCharacter,resolveAiSisterCharacter,saveAiSisterCharacter} from './character-choice';
 import type {GuidePage,GuidePack} from './contracts';
-type EngineProps={pageId:string;scopeKey:string;page:GuidePage;label:string;gallery:GuidePack['gallery']};
+type EngineProps={pageId:string;scopeKey:string;page:GuidePage;label:string;gallery:GuidePack['gallery'];galleryInfo:GuidePack['galleryInfo'];characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;focusCharacterChoice?:boolean};
 type Ready={scope:string;Engine:ComponentType<EngineProps>;pack:GuidePack;page:GuidePage};
 /** The only mount gate. It runs before character lookup, pack import or animation effects. */
 export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey:string;memberAccess:boolean}) {
   const {theme}=useWorkshopTheme();
+  const packId=resolveExperienceProfile(theme).guidePack;
+  const descriptor=packId?GUIDE_PACKS[packId]:null;
+  const [characterChoice,setCharacterChoice]=useState(readAiSisterCharacter);
+  const focusAfterSelection=useRef('');
+  const chosen=packId==='ai-sister'?characterChoice:'';
   const permitted=canRequestGuide(theme,pageId,memberAccess,scopeKey);
-  const scope=`${scopeKey}:${pageId}:${theme}:${DRAGON_RELEASE_PIN.version}`;
+  const baseScope=`${scopeKey}:${pageId}:${theme}:${descriptor?.pin.version??'off'}`;
+  const scope=`${baseScope}:${chosen}`;
   const [ready,setReady]=useState<Ready|null>(null),[failed,setFailed]=useState(false),[retry,setRetry]=useState(0);
+  useEffect(()=>{focusAfterSelection.current=''},[baseScope,memberAccess]);
+  useEffect(()=>{
+    const sync=(event:StorageEvent)=>{if(event.key===AI_SISTER_CHARACTER_KEY){focusAfterSelection.current='';setCharacterChoice(resolveAiSisterCharacter(event.newValue))}};
+    window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
+  },[]);
   useEffect(()=>{
     setReady(null);setFailed(false);
-    if(!permitted)return;
+    if(!permitted || !descriptor || !packId)return;
     const controller=new AbortController();let current=true;
     void (async()=>{
-      const response=await fetch('/api/v1/guide-packs/release',{signal:controller.signal,cache:'no-store',credentials:'same-origin'});
+      const response=await fetch(descriptor.releasePath,{signal:controller.signal,cache:'no-store',credentials:'same-origin'});
       if(!response.ok)throw Error('Guide release unavailable');
       const release:unknown=await response.json();
-      if(!current || !acceptsGuideRelease(release))return;
-      const [{GuideEngine},{DRAGON_PACK}]=await Promise.all([import('./engine/GuideEngine'),import('./packs/dragon')]);
+      if(!current || !acceptsGuideRelease(release,packId))return;
+      const [{GuideEngine},pack]=await Promise.all([import('./engine/GuideEngine'),descriptor.load()]);
       if(!current)return;
-      if(DRAGON_PACK.id!==DRAGON_RELEASE_PIN.pack || DRAGON_PACK.version!==DRAGON_RELEASE_PIN.version || DRAGON_PACK.engineContractVersion!==1)throw Error('Guide contract mismatch');
-      const page=await DRAGON_PACK.loadPage(pageId);
-      if(current)setReady({scope,Engine:GuideEngine,pack:DRAGON_PACK,page});
+      if(pack.id!==descriptor.pin.pack || pack.version!==descriptor.pin.version || pack.engineContractVersion!==1)throw Error('Guide contract mismatch');
+      const page=await pack.loadPage(pageId,chosen);
+      if(current)setReady({scope,Engine:GuideEngine,pack,page});
     })().catch(()=>{if(current)setFailed(true)});
     return()=>{current=false;controller.abort()};
-  },[permitted,scope,pageId,retry]);
+  },[permitted,scope,pageId,retry,descriptor,packId,chosen]);
   if(!permitted)return null;
-  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <aside className="workspace-companion" aria-label={`${page.character.name}的本頁導覽`}><Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery}/></aside>;}
+  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <aside className="workspace-companion" aria-label={`${page.character.name}的本頁導覽`}><Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery} galleryInfo={pack.galleryInfo}
+    characterChoices={pack.characterChoices} focusCharacterChoice={focusAfterSelection.current===scope}
+    onSelectCharacter={packId==='ai-sister'?(id)=>{
+      if(!pack.characterChoices?.some(choice=>choice.id===id))return;
+      const selected=saveAiSisterCharacter(id);focusAfterSelection.current=`${baseScope}:${selected}`;setCharacterChoice(selected);
+    }:undefined}/></aside>;}
   return failed ? <button type="button" className="btn btn-ghost btn-small guide-load-retry" onClick={()=>setRetry(value=>value+1)}>重試載入新手導覽</button> : null;
 }

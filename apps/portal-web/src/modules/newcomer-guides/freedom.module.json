@@ -11,14 +11,47 @@
     "tests/runtime/newcomer-guides.test.ts",
     "tests/runtime/newcomer-guide-dialogue.test.ts",
     "tests/runtime/guide-anchors.test.ts",
-    "tests/e2e/newcomer-guides.spec.ts"
+    "tests/e2e/newcomer-guides.spec.ts",
+    "docs/development/ai-sister-guides.md",
+    "docs/design/ai-sister-guide-art-manifest.json",
+    "scripts/import-ai-sister-guides.ts",
+    "tests/runtime/ai-sister-guides.test.ts",
+    "tests/e2e/ai-sister-guides.spec.ts"
   ],
   "public_exports": [],
-  "dependencies": ["public-guide-assets"],
-  "contract_families": ["newcomer-guide-v1"],
-  "client_profiles": ["member"],
-  "instructions": ["AGENTS.md", "DESIGN.md", "docs/development/newcomer-guides.md"],
-  "invariants": ["explicit-profile-and-page-opt-in", "release-pinned-public-assets", "no-guide-business-actions", "no-secrets-in-artifacts"],
-  "tests": ["runtime.full"],
-  "surfaces": [{"surface_id":"member.newcomer-guide","kind":"page","entry":"apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx","operations":["guide.read","guide.focus"],"auth_profile":"member-session"}]
+  "dependencies": [
+    "public-guide-assets"
+  ],
+  "contract_families": [
+    "newcomer-guide-v1"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "DESIGN.md",
+    "docs/development/newcomer-guides.md"
+  ],
+  "invariants": [
+    "explicit-profile-and-page-opt-in",
+    "release-pinned-public-assets",
+    "no-guide-business-actions",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "member.newcomer-guide",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
+      "operations": [
+        "guide.read",
+        "guide.focus"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
 }
