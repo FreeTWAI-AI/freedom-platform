@@ -1,9 +1,11 @@
-# Consumer runtime installation candidate
+# Consumer runtime recipe and installation boundaries
 
 This recipe makes the three-consumer HTTP supervisor portable. It does not change
 installed source rule 24473806, source55, library source91, or central rule
-24469536. The new native workflow is a candidate for separately reviewed canaries.
-No runtime rule is installed by this code.
+24469536. The native workflow was separately installed by the operator, then upgraded to
+c3e with kit CLI enforcement; [the installation record](../../docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md)
+contains the hosted and actual-main evidence. This code does not install rules;
+the canary procedure below remains required for separately reviewed upgrades.
 
 ## Fixed public inputs
 

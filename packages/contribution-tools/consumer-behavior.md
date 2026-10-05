@@ -45,17 +45,21 @@ existing source gate must independently verify the exact canonical source91 byte
 
 ## Installation and authority
 
-This is a working local runtime increment, not a change to installed source rule
-24473806 or its source55 workflow. A subsequent native required workflow must
-separately pin the reviewed runner source, supply repository and exact event
-candidate SHA from host contexts, run the independent source guard, and invoke
-this runner itself. It must accept only the process exit status and its own
-host-generated result with `check.status: passed` and `cleanup_verified: true`.
-Never ingest a report uploaded by candidate CI as the host verdict. Missing
-isolation, unsupported profiles, bad transport, missing traces or cleanup failure
-produce a nonzero CLI result. Hosted positive/negative canaries remain necessary
-before adding a native runtime rule. No new App, signature authority or general
-collector is introduced.
+As of 2026-10-05 01:45 UTC, operator-installed runtime rule `24476100` selects
+fixed source `c3e5a537a75303c4688e01b7f0d8477c3587a26f` for the three consumer
+mains. Kit requires both workspace and actual CLI observations; the other two
+retain workspace profiles. Existing source55/rule24473806 and library91 remain
+unchanged. The [installation record](../../docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md)
+records actual hosted canaries, main-target probes, merge denials and cleanup.
+
+The native host uses repository/event candidate identity from GitHub contexts and
+computes its own source and runtime verdicts. It accepts only complete matching
+observations with `check.status: passed` and `cleanup_verified: true`. Never ingest
+a report uploaded by candidate CI as the verdict. Missing isolation, unsupported
+profiles, bad transport, missing traces or cleanup failure produce a nonzero CLI
+result. Later source upgrades require another explicit reviewed pin and hosted
+canary. No new App, signature authority or general collector was introduced;
+conservative authority/provenance fields are not overwritten by installation.
 
 The portable [consumer runtime recipe](consumer-runtime-recipe.md) selects a
 public Debian amd64 manifest plus the exact official Node24.21.0 executable.
@@ -72,15 +76,15 @@ The pinned image supplies all candidate linked libraries: there is **no host
 and the private HTTP socket directory `/fixture`. The exact executable, image,
 installation and container settings are checked before and after observation.
 
-The new `.github/workflows/trusted-consumer-runtime.yml` is a canary candidate.
-Its host wrapper computes both the existing source check and this runtime check
-for the same Git commit/tree. It uses no candidate verdict. The recipe documents
-public provenance, remaining host approval boundaries and the required hosted
-canaries; creating this workflow does not install or approve it.
+The installed `.github/workflows/trusted-consumer-runtime.yml` runs its fixed host
+entrypoint from the independently selected source commit. Source/workspace and
+required CLI evidence must bind the same candidate commit/tree. The recipe records
+public input provenance and the GitHub-managed host boundary; code or a successful
+local check alone does not establish installation or operator approval.
 
-## Actual agent-kit CLI candidate profile
+## Actual agent-kit CLI profile
 
-A separate executable profile now exercises the actual approved consumer
+The additional executable profile exercises the actual approved consumer
 `src/cli.mjs`, with the fixed `maker` loopback-demo arguments:
 
 ```
@@ -91,8 +95,8 @@ node packages/contribution-tools/behavior-supervisor.mjs consumer-cli \
 The host API is `runIsolatedAgentKitCliBehavior` with the same exact
 `{repository, candidateRepository, candidateCommit}` inputs as the workspace
 runner. Other repositories are rejected for this profile. The existing three
-workspace profiles are preserved. The installed c42 workflow still selects its
-old host; the new host requires the additional kit CLI profile.
+workspace profiles are preserved. The c3e installed host requires this additional
+kit CLI profile; the historical c42 host selected workspace observations only.
 
 Only inside the existing candidate container, the installed launcher supplies a
 socket-backed fetch adapter and fixed argv, then imports the real CLI. The CLI
@@ -112,15 +116,14 @@ surface coverage remain outside it. The launcher captures output inside the
 untrusted container; capture itself is not authenticated proof. The host's actual
 HTTP trace and unpredictable response comparison decide the verdict.
 
-The new profile is executable locally but is **not selected by the installed c42
-native workflow**. The candidate combined host now requires source/workspace and CLI verdicts for
-the same kit commit/tree; storefront/supplier retain their workspace profiles.
-The existing workflow entrypoint is unchanged. Installation requires a new
-reviewed immutable source pin and the [hosted canaries](consumer-cli-canary.md).
-Do not change c42/source55/library91 in place. No current rules or workflow YAML
-are changed by this increment. `library_invocation` stays `not_checked`: candidate
-JavaScript can reproduce the externally observed behavior without using the
-approved workspace module.
+The profile is selected by the installed c3e combined host after source/workspace
+success. The CLI-only stub now fails that gate even when the original workspace
+profile and consumer verify-template pass; actual-main forged-green merge denial
+is recorded in the installation report. The [canary plan](consumer-cli-canary.md)
+remains a template for separately reviewed future upgrades. The old c42, source55
+and library91 publication refs remain immutable. `library_invocation` stays
+`not_checked`: equivalent candidate code can reproduce the observed behavior
+without invoking the approved workspace module.
 
 ## Validation
 

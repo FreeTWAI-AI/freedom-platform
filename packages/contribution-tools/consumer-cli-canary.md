@@ -1,6 +1,13 @@
-# Actual CLI enforcement candidate: hosted canary plan
+# Actual CLI enforcement: hosted canary template
 
-The candidate `github-consumer-runtime-host.mjs` now requires source integrity,
+Initial execution is complete: operator-installed rule24476100 now selects
+`c3e5a537a75303c4688e01b7f0d8477c3587a26f`. Three temporary positives merged and
+CLI-only negatives were denied on both a temporary base and actual kit main;
+owned probes were cleaned. See the [installation record](../../docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md).
+The procedure below is a reusable template for a subsequent reviewed source;
+it does not replace the recorded receipts or authorize another installation.
+
+The `github-consumer-runtime-host.mjs` requires source integrity,
 workspace observation **and actual CLI observation** for agent-kit. It runs the CLI
 only after source/workspace success, and accepts only its own same-commit/tree
 observation with the fixed `src/cli.mjs#maker` entry, one complete case and verified
@@ -8,7 +15,7 @@ cleanup. Storefront and supplier retain their existing workspace profiles.
 
 The existing workflow YAML invokes this same host entrypoint, so it needs no
 command changes. A **new reviewed immutable source commit** must be published and
-selected explicitly. This document/template does not modify installed c42 runtime
+selected explicitly. This document/template does not modify installed runtime
 rule24476100, source55/rule24473806, library91 or central24469536.
 
 ## Review inputs and template
