@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 17247,
-      "sha256": "5538a45c9c75a141f73af63f94bb74a8ae788d9ba54c0b0004d4606d79dbc1ad"
+      "bytes": 20143,
+      "sha256": "7094b86456a41b47f91834e4b3c1fb32da0c8f517457949d1ea99d4d91829179"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -15884,18 +15884,18 @@
     },
     {
       "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
-      "bytes": 7070,
-      "sha256": "4d529cf379bd1c37de5e68bc79021f6466c0b6ee39bbc53d8f02ba5390b5c6ca"
+      "bytes": 9021,
+      "sha256": "aac294a67d48732a481d27ea43d0720b67cfc3a5dda05fb8ecbd66bd38c1d996"
     },
     {
       "path": "packages/contribution-tools/test-progress.md",
-      "bytes": 4451,
-      "sha256": "e1a0237b12d57eb8050e5e50d5c71fec7cd7686d64d232932c81aecd10c3f58f"
+      "bytes": 5069,
+      "sha256": "172ccc178c9fd0b8688dab0de33b12d009fa1010d937b2952cdb4178f49667f0"
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9775,
-      "sha256": "7227ac19c47e836f3f121c663b09a340707514b3a453fadd6e53aa24218a55a3"
+      "bytes": 9829,
+      "sha256": "90ceddbde2d45ee9fcc18db0a862d9a5c666f2daaa974d3f6462fb6567f68b03"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -16049,8 +16049,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 23912,
-      "sha256": "36f126ec4813891a15d307dc9d4f87c9025271b070affdaf2f4e03ca30210ed7"
+      "bytes": 26499,
+      "sha256": "2d7214f87ba11dce12ba5e4f3ed8d477a56e9a9383aacaa6a7edde289ee50363"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -17499,8 +17499,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-helpers.ts",
-      "bytes": 25776,
-      "sha256": "1db3b6bb56eb592245991da650d13e64e0d12079e09a88541d7e20c6e42567a2"
+      "bytes": 28777,
+      "sha256": "6fd179805268d89927ac1da7afb1e27bf943b789571a1ac85785f2f09daaa39d"
     },
     {
       "path": "tests/runtime/credential-ingest-process.test.ts",
@@ -18436,6 +18436,11 @@
       "path": "tests/worker/broker-worker.test.ts",
       "bytes": 3758,
       "sha256": "9266da8cdc018255ba3fcf179c2cbd6c5e823533da467938572a9d1e6eb7058f"
+    },
+    {
+      "path": "tests/worker/credential-ingest-diagnostic.test.ts",
+      "bytes": 2906,
+      "sha256": "b4c2eab2d21e28863fe5b46416acdd29fd0ebb4f2a4321786ce2d197ffbf4c6c"
     },
     {
       "path": "tests/worker/event-banner-assets.test.ts",

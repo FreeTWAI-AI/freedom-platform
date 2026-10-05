@@ -398,6 +398,100 @@
       },
       "productionCodeChanged": false,
       "finalHostedHead": "pending"
+    },
+    "hostedObserverCorrection": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "verifyRun": 37280752891,
+      "status": "failed",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "codeql": "success",
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "failed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "failures": [
+        {
+          "file": "credential-ingest-adversarial.test.ts",
+          "case": "genuine rotation initial browser ingest",
+          "observed": "operation_timeout",
+          "sourceLine": 137
+        },
+        {
+          "file": "credential-ingest-rate-budget.test.ts",
+          "case": "browser waits for delayed custody commit before one owner observation",
+          "observed": "assertion detail unavailable in this head"
+        }
+      ],
+      "quota429Boundary": "passed",
+      "cause": "not established",
+      "unchangedRateLocal": {
+        "passed": 2,
+        "failed": 0
+      },
+      "instrumentedRateOneCpu": {
+        "passed": 1,
+        "failed": 0,
+        "durationSeconds": 8.204
+      },
+      "nextStep": "bounded helper phase, request status and fixture custody observation; local passes do not resolve hosted failure",
+      "diagnosticFollowup": {
+        "sources": [
+          "bdd8f3e0",
+          "5ba50314"
+        ],
+        "privacyReporterPassed": 18,
+        "controlledBrowserAndConnectionFailurePassed": 2,
+        "typecheck": "passed",
+        "independentReview": "passed",
+        "deadlinesChanged": false,
+        "rawPayloadsPublished": false,
+        "custodyObservation": "point-in-time active record count; not independent commit proof"
+      }
+    },
+    "actualStagingBackup115Rehearsal": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "status": "passed",
+      "postgresMajor": 18,
+      "archiveHashVerified": true,
+      "restoredBaseline": {
+        "tables": 192,
+        "rows": "4209",
+        "sequences": 2,
+        "sequencesAdvanced": 0
+      },
+      "ledgerBefore": 113,
+      "ledgerAfter": 115,
+      "onlyPendingMigrations": [
+        114,
+        115
+      ],
+      "migrationAndGrantsOneTransaction": true,
+      "grants": {
+        "runtimePreparationDenied": true,
+        "brokerPreparationReadInsertOnly": true,
+        "executorPreparationDenied": true,
+        "backupAllTableReadOnly": true,
+        "restrictedRoles": true
+      },
+      "restoreAcl": {
+        "functionsPublicExecuteRevoked": 24,
+        "runtimeSchemaUsageBootstrapped": true
+      },
+      "existingRowsPreserved": true,
+      "cleanupVerified": true,
+      "priorLocalAssumptionFailuresPreserved": 5,
+      "remoteDatabaseChanged": false,
+      "r2Restored": false,
+      "daily115PipelineValidated": false
     }
   },
   "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
