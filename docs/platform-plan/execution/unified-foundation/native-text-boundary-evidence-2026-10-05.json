@@ -200,5 +200,30 @@
     "contextLoads": 0,
     "providerCalls": 0,
     "outcome": "effective_tool_policy_unavailable"
+  },
+  "startup_ingress_diagnostic": {
+    "format": "freedom.grok-startup-control-findings/v1",
+    "binary_sha256": "41626a53292324140b92556b9d42ff5542e3dcd04aff85eafb8689dd4adb44fc",
+    "binary_version": "1.0.46",
+    "native_executable_helper_source": "7001bcf869f7b78891e73f8d48c27f7b713884d6; unchanged by root11e6",
+    "network": "none via bwrap unshare-all",
+    "auth": "none; temporary empty HOME and cleared environment, no credentials mounted",
+    "private_or_prompt_bytes_sent": 0,
+    "provider_calls": 0,
+    "cases": 6,
+    "observed": [
+      "Node socket-backed child_process stdin + --prompt-file /proc/self/fd/0 returns ENXIO before reading; existing Grok candidate argv has an additional unimplemented ingress seam. Fixture read(stdin) does not detect it.",
+      "Explicit --single empty string rejects as empty; interactive invocation without TTY returns ENXIO.",
+      "True OS pipe withheld1s then empty EOF with empty or explicit readonly tools: no stdout/available_commands event before EOF or after; then rejects empty prompt file. No timeout/oversize."
+    ],
+    "conclusion": "Current observations do not establish available_commands before private prompt ingestion. Do not claim startup event can gate prompt release or empty-tool policy. No source patch or product activation. ACP/session protocol could be investigated separately; ordinary auth custody still unverified.",
+    "diagnostic_receipt_sha256": {
+      "grok-startup-evidence.json": "ebb0e1bf568e5c3680dd626be15a351262931d03cace573ff9f1c5f6c19a1ed4",
+      "grok-startup-empty-evidence.json": "3b83701745248975c9c0b78564ea8f0b88a279274f31b426f69564b809d0f929",
+      "grok-true-pipe-empty.json": "d02d00d7841502a63df31c516e7946c4974f8e5600234a0f74511cf1d0550501",
+      "grok-true-pipe-readonly.json": "ef37e1cece9ca1ff2b69faf839dfa87aff637417bdd834a2b65200404a900207"
+    },
+    "original_findings_sha256": "a99c354147104c7e96767c4f6b00f0303964605cc5f2a04907c32d28151f236b",
+    "purpose": "Supplemental pinned CLI startup diagnosis; not inference, approval or platform execution acceptance."
   }
 }
