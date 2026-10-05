@@ -103,11 +103,13 @@ test('platform middleware preserves validated cache override and terminal failur
   const release = await app.request(origin + '/api/v1/guide-packs/release'); assert.equal(release.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(await release.json(), assets.release); assert.equal(fallback, 0);
 });
-test('production and default Node guide release stay OFF, independent of native bucket availability and flags', async () => {
+test('default Node and Worker guide release stay OFF without the explicit host flag and separate binding', async () => {
   const app = createApp(pool, origin); assert.deepEqual(await (await app.request(origin + '/api/v1/guide-packs/release')).json(), { enabled: false });
   assert.equal((await app.request(origin + '/public/guide-packs/anything')).status, 404);
-  assert.equal(DRAGON_GUIDE_RELEASE.enabled, false); assert.equal(DRAGON_GUIDE_RELEASE.publisherReceipt, null);
-  assert.equal(await installWorkerGuideAssets({ FREEDOM_PUBLIC_GUIDE_ENABLED: 'true', GUIDE_STATIC: { get() { throw Error('must remain OFF'); } } as any }), undefined);
+  const bucket = { get() { throw Error('disabled host must not read storage'); } } as any;
+  for (const env of [{}, { GUIDE_STATIC: bucket }, { FREEDOM_PUBLIC_GUIDE_ENABLED: 'false', GUIDE_STATIC: bucket }, { FREEDOM_PUBLIC_GUIDE_ENABLED: 'true' }]) {
+    assert.equal(await installWorkerGuideAssets(env), undefined);
+  }
   const f = await fixture(), assets = await f.service();
   assert.throws(() => nodeRuntime('public', 'https://freetwai.com', { publicGuideAssets: assets }), /requires_local/);
   const env = { FREEDOM_ENV: 'local', APP_ORIGIN: origin, HYPERDRIVE: { connectionString: 'local-fixture' }, ASSETS: { fetch: async () => new Response() } };
@@ -147,4 +149,59 @@ test('plan publisher verifies every committed fixture actual digest, decode, MIM
   assert.equal(plan.status, 'verified_local_plan'); assert.equal(plan.object_count, 364); assert.equal(plan.total_bytes, 41_016_186);
   assert.equal(plan.provider_mutations, 0); assert.equal(plan.production_enabled, false); assert.equal(plan.publisher_receipts, 'not_run');
   assert(plan.unique_object_count < plan.object_count); assert.equal(plan.binding, 'GUIDE_STATIC');
+});
+
+test('enabled code pin is tied to complete per-environment publisher readbacks for the exact manifest', async () => {
+  const root = 'contracts/guide-packs/receipts/';
+  const bytes = await readFile(root + 'dragon-v1-20261004.json');
+  assert.equal(DRAGON_GUIDE_RELEASE.enabled, true);
+  assert.equal(DRAGON_GUIDE_RELEASE.publisherReceipt, 'sha256:' + await guideSha256(bytes));
+  const set = JSON.parse(bytes.toString());
+  assert.equal(set.manifestSha256, DRAGON_GUIDE_RELEASE.manifestSha256);
+  assert.equal(set.binding, 'GUIDE_STATIC');
+  assert.deepEqual(set.receipts.map((r: any) => r.environment).sort(), ['next', 'staging']);
+  assert.equal(new Set(set.receipts.map((r: any) => r.bucket)).size, 2);
+  const manifest = await parseGuideManifest(new TextEncoder().encode(dragonManifestText), DRAGON_GUIDE_RELEASE.manifestSha256);
+  const expected = new Map(manifest.assets.map(a => [a.sha256, a]));
+  for (const entry of set.receipts) {
+    assert.match(entry.receipt, /^dragon-v1-20261004-(next|staging)\.json$/);
+    const receiptBytes = await readFile(root + entry.receipt);
+    assert.equal(await guideSha256(receiptBytes), entry.sha256);
+    const receipt = JSON.parse(receiptBytes.toString());
+    assert.equal(receipt.status, 'verified'); assert.equal(receipt.target, entry.environment);
+    assert.equal(receipt.manifestSha256, set.manifestSha256); assert.equal(receipt.binding, 'GUIDE_STATIC');
+    assert.equal(receipt.bucket, entry.bucket);
+    assert.equal(receipt.bucket, entry.environment === 'next' ? 'freedom-next-guide-static' : 'freedom-staging-next-guide-static');
+    for (const origin of [receipt.originBefore, receipt.originAfter]) {
+      assert.equal(origin.bucket, entry.bucket); assert.equal(origin.managedEnabled, false); assert.deepEqual(origin.customDomains, []);
+    }
+    assert.equal(receipt.objectCount, expected.size); assert.equal(receipt.objects.length, expected.size);
+    assert.equal(new Set(receipt.objects.map((o: any) => o.sha256)).size, expected.size);
+    for (const object of receipt.objects) {
+      const asset = expected.get(object.sha256); assert(asset);
+      assert.equal(object.key, `guide-packs/dragon/${manifest.version}/${asset.sha256}.webp`);
+      assert.equal(object.byteLength, asset.byteLength); assert.equal(object.mime, asset.mime);
+    }
+    assert.equal(receipt.totalBytes, [...expected.values()].reduce((n, a) => n + a.byteLength, 0));
+  }
+});
+test('reviewed Worker adapter with explicit flag serves only the pinned bucket bytes', async () => {
+  const manifest = await parseGuideManifest(new TextEncoder().encode(dragonManifestText), DRAGON_GUIDE_RELEASE.manifestSha256);
+  const asset = manifest.assets[0]!;
+  const bytes = await readFile(`assets/guide-packs/${manifest.version}/${asset.logicalId}.webp`);
+  let reads = 0;
+  const assets = await installWorkerGuideAssets({ FREEDOM_PUBLIC_GUIDE_ENABLED: 'true', GUIDE_STATIC: {
+    async get(key: string) {
+      reads++; assert.equal(key, `guide-packs/dragon/${manifest.version}/${asset.sha256}.webp`);
+      return { key, size: bytes.length, httpMetadata: { contentType: asset.mime },
+        body: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(bytes); controller.close(); } }) };
+    },
+  } as any });
+  assert(assets); assert.equal(reads, 0);
+  const app = createApp(pool, origin, 'local', { publicGuideAssets: assets });
+  const release = await app.request(origin + '/api/v1/guide-packs/release');
+  assert.deepEqual(await release.json(), { enabled: true, pack: 'dragon', version: manifest.version, manifestSha256: DRAGON_GUIDE_RELEASE.manifestSha256 });
+  const response = await app.request(origin + guideAssetPath(manifest, asset));
+  assert.equal(response.status, 200); assert.equal(response.headers.get('Content-Type'), 'image/webp');
+  assert.equal(await guideSha256(new Uint8Array(await response.arrayBuffer())), asset.sha256); assert.equal(reads, 1);
 });

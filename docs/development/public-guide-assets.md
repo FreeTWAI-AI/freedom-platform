@@ -1,10 +1,12 @@
 # Public guide assets: bounded release candidate
 
-This increment implements an opt-in Dragon guide asset path. It does **not**
-publish a release, create a bucket, upload art, grant credentials, deploy a
-Worker, or claim that provider/publisher acceptance has passed. Production
-release is OFF in `packages/public-guide-assets/release.ts`; its publisher
-receipt remains `null`. No environment variable can override that code pin.
+The application implements an opt-in Dragon guide asset path. Its local plan
+tool does not create buckets, upload art, grant credentials or deploy Workers.
+The separate operator publication is recorded in
+[publisher evidence](guide-publisher-2026-10-05.md), and the activation change in
+`packages/public-guide-assets/release.ts` pins both actual publisher receipts.
+The native host still defaults OFF without `FREEDOM_PUBLIC_GUIDE_ENABLED=true` and
+its separate `GUIDE_STATIC` binding; activation requires CI, review and merge before deployment.
 
 ## Public content, private origin
 
@@ -34,7 +36,7 @@ that exactly one private bucket exists. The broker still accepts only MEDIA.
 This work does not edit media ACLs, consent, share-generation validation,
 PostgreSQL policy or media lifecycle. Preserve the latest operator-approved
 MEDIA domain flags, bridge/persistence policies, bucket binding and GC setting.
-Those settings are independent of the default-OFF guide release. Repository
+Those settings are independent of the explicit guide host gate. Repository
 templates and this local guide fixture are not evidence of live operator state.
 Never replace the accepted operator release overlay with historical all-OFF or
 partial-rollout settings.
@@ -50,7 +52,9 @@ inventory and provider readback before selecting an actual mapping.
 
 ## Release and request contract
 
-- `GET /api/v1/guide-packs/release` returns `{ "enabled": false }` by default
+- The native Worker returns `{ "enabled": false }` from
+  `GET /api/v1/guide-packs/release` unless the reviewed code pin, explicit host
+  flag and native binding are all enabled
 - An explicitly installed local fixture returns `enabled: true`, `pack`, `version`
   and `manifestSha256`; this endpoint always uses `Cache-Control: no-store`
 - Only exact `GET` / `HEAD` requests to
@@ -120,12 +124,14 @@ credential argument, never creates a bucket and never changes release state.
 Successful output explicitly retains `production_enabled=false`,
 `provider_mutations=0`, `publisher_receipts=not_run`.
 
-Before any future activation, a separately authorized publisher must establish
+For any new manifest activation, a separately authorized publisher must establish
 private-origin bucket identity and per-environment separation, publish immutable
-objects, perform actual readback checks, retain receipts tied to the manifest pin,
-and complete remote acceptance. The reviewed release pin and host flag may only
-be enabled after that evidence; the present implementation does none of those
-external actions.
+objects, perform actual readback checks and retain receipts tied to the manifest
+pin. The code activation then requires CI, independent review and merge. Enable
+the host flag on staging for remote acceptance before deploying production.
+The implementation performs none of those external actions automatically. The
+actual publisher run and remaining deployment gates are recorded in
+[publisher evidence](guide-publisher-2026-10-05.md).
 
 ## Focused checks
 

@@ -4383,6 +4383,21 @@
       "sha256": "cf84c9ccd07bc5cfeb7bc46392f273ee92a645133e112d2b44262e18901c49a7"
     },
     {
+      "path": "contracts/guide-packs/receipts/dragon-v1-20261004-next.json",
+      "bytes": 132516,
+      "sha256": "112f84979358922fd0974bb6c15a4a3c666a34bab7823897afe295751836ffbb"
+    },
+    {
+      "path": "contracts/guide-packs/receipts/dragon-v1-20261004-staging.json",
+      "bytes": 132543,
+      "sha256": "72785f79e53025810e49b4c8d98e59f1b0b19eab082e8b73d70ef375d7aac1ad"
+    },
+    {
+      "path": "contracts/guide-packs/receipts/dragon-v1-20261004.json",
+      "bytes": 853,
+      "sha256": "b6ee9aa8039e0f98594b94bcd4f24421b7580da2556178de3ab89d6662458005"
+    },
+    {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
       "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d"
@@ -5108,6 +5123,11 @@
       "sha256": "9f4bac4cdc42ef5272239b36f5f56a9be7cb9d44e8d890d872578ae31b9686b0"
     },
     {
+      "path": "docs/development/guide-publisher-2026-10-05.md",
+      "bytes": 4460,
+      "sha256": "e00cd685aa8a46bb7204cff99e9ee309458cf039a3121abbfca476a7553459e6"
+    },
+    {
       "path": "docs/development/guild-collaboration.md",
       "bytes": 10333,
       "sha256": "51319fbff8824af5a59abb89421e14fa85b63f20212a67b7c38f8c44f067b915"
@@ -5194,8 +5214,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 7053,
-      "sha256": "6f77c0d83a95e49ef8bdb50dd246ce5ff7b848a698e46b83a4ac7b566a9111e5"
+      "bytes": 7178,
+      "sha256": "ffa0e9dfdc40e63cfb66306b1c3a16f154038fcc78686308c73392ffc82e0d3a"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -5234,8 +5254,8 @@
     },
     {
       "path": "docs/development/public-guide-assets.md",
-      "bytes": 8517,
-      "sha256": "fbabc54a247feeda5eb4bc807fa6ba7f09f484cc154e7a3470b8f9de18c9d892"
+      "bytes": 8963,
+      "sha256": "894aa16d81330be9caea42a6ac46f78f61382a1eeac7ae06ea45cb50323d37fb"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -8869,8 +8889,8 @@
     },
     {
       "path": "packages/public-guide-assets/release.ts",
-      "bytes": 486,
-      "sha256": "27f01a34d17bdfeeea3277effcc628b77db5bc8492c0289508678a3c6924c993"
+      "bytes": 584,
+      "sha256": "5c32a3b1dc21b34087ac6ca1ba344f9c33943802504cccaf5a4cdd22622e3c4f"
     },
     {
       "path": "packages/public-guide-assets/worker.ts",
@@ -10194,8 +10214,8 @@
     },
     {
       "path": "tests/runtime/guide-pack-assets.test.ts",
-      "bytes": 13531,
-      "sha256": "51eb2132d87644e9fdd1fd84d37f73380bf97cb90e582f917301fe8aebe4c6f6"
+      "bytes": 17482,
+      "sha256": "cb5927b4e9e9deb88f40c83e81291d5d1c309465b93a0159ccd099fe3ca584c8"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
