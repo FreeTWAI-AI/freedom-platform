@@ -146,7 +146,10 @@ stores and listings; supplier connection, products and requests. The host requir
 exactly the expected authenticated request and deep-compares parsed CLI stdout to
 its fresh response. Three additional cases require a nonzero exit and empty stdout:
 a wrong-scope saved credential (no HTTP), a revoked connection (HTTP 401), and a
-server error (HTTP 503). Signal termination does not count as a correct error exit.
+server error (HTTP 503). Signal termination of the directly supervised `scripts/run-client.mjs` launcher
+does not count as a correct error exit. The launcher can translate a nested CLI
+signal or exception into a nonzero exit; this check does not distinguish the
+nested failure cause or prove a particular error-handling implementation.
 Reports retain HTTP status/path/digests, not synthetic tokens, credential files or
 stderr. Tests replace both launcher and CLI while keeping source/vendor/workspace
 valid, proving the old source/workspace gate would pass and the new CLI gate fails.
