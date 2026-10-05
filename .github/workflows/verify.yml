@@ -101,7 +101,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers]
+    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers, deploy-preflight]
     if: ${{ always() }}
     steps:
       - name: Checkout the pinned aggregate script
