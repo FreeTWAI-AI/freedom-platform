@@ -102,3 +102,46 @@ this pass does not identify the original Ubuntu assertion causes.
 ## PR 85–104 integration source union (2026-10-04)
 
 The integration rebased on PR 108 `f5bede3a7fb898e6183b2f13e6bd93583cea9669` adds four runtime source files to that upstream snapshot: `chat-content.test.ts`, `member-card-qr.test.ts`, `member-session-lifecycle.test.ts`, and `direct-message-receipts.test.ts`. The current union is **200 files**, dynamically divided into four **50-file** partitions. Historical 196-file / 49-file evidence above remains evidence only for its recorded upstream source; it is not a result for this candidate. The full-suite file-set, unique-case, deadline, cleanup, and zero-failure requirements are unchanged.
+
+## PR 117/120 runtime deadline and backend settlement (2026-10-05)
+
+[PR 117 run 37249458229](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37249458229),
+merge candidate `975e7df5ca9700cd29782c9c77e1a2b0e4cc3ea1`, exhausted partition 1's
+original test budget after 51 of 53 files, with cleanup reported false. The
+separate PR 120 canary completed 52 of 53 before `test_timeout`, with cleanup
+verified. Both failures retain empty final-result evidence; progress is not a
+partial pass. They were still executing tests, not waiting on final reporter
+output. PR 117's other partitions completed in approximately 531, 474 and 368
+seconds. Credential-ingest adversarial and broker-bridge adversarial occupied
+134 and 109 seconds together on partition 1; its last completed file arrived at
+867.483 seconds. The original 900-second deadline includes a 24-second cleanup
+reserve and remains unchanged.
+
+The existing selector now distributes six reviewed heavy files by static,
+rounded scheduling weights, with a default weight for every other/new file.
+Producer, aggregator and local full runner use the same candidate selector.
+Within-partition source order and the exact full manifest/file/case union remain
+required. A regression fixture records 210 completed-file progress deltas from
+that public run and marks the two unfinished files null. Replaying this observed
+work across all 212 selected files gives approximately 601/502/622/514 seconds;
+this excludes unknown unfinished costs and is neither a p95 estimate nor a new
+hosted pass. No test is removed, skipped, split or given a larger deadline.
+
+PR 117's PostgreSQL log also reports that three selected termination PIDs were
+no longer backends during cleanup. A real PostgreSQL regression reproduces the
+mechanism: materialize an owned backend's PID, hold termination at an advisory
+gate, close that backend naturally, then let `pg_terminate_backend` return false.
+Cleanup formerly rejected this outcome even after the backend had gone. It now
+requires a fresh absence query before proceeding; a still-live backend or failed
+query still fails closed, and ownership checks plus final database-absence
+readback are unchanged. This reproduces the observed race mechanism without
+claiming that the historical failed cleanup was verified retroactively.
+
+Local matrix/source/admission checks passed 9/9. The expanded real PostgreSQL
+sharding integration passed 10/10 in 27.94 seconds on an owned pinned PG18 tmpfs
+container with checkpoint target 0, max locks 256, fsync and full-page writes ON.
+It covers full synthetic four-shard union, failure/cancellation preservation,
+lost acknowledgements, foreign ownership and both backend-race outcomes. An
+earlier run on the separate disk-backed 55442 fixture failed five provisioning/
+cleanup cases (three passed); that failed attempt is retained and is not replaced
+by the tmpfs result. Neither local run is actual hosted full-product acceptance.

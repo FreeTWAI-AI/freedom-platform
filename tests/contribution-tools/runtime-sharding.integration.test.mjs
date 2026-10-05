@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { FULL_RUNTIME_BASELINE } from '../../packages/contribution-tools/runtime-suites.mjs';
@@ -11,6 +12,7 @@ import { fixtureRoot, put } from '../../packages/contribution-tools/test/fixture
 const database = process.env.TEST_DATABASE_URL;
 assert(isDisposableDatabaseUrl(database), 'explicit disposable test database required');
 const pg = createRequire(import.meta.url)('pg');
+const { Client } = pg;
 const simple = "import {test} from 'node:test';test('fixture',()=>{});";
 const names = [...FULL_RUNTIME_BASELINE].sort();
 function validateReport(check) {
@@ -172,4 +174,71 @@ test('bounded CREATE budget tolerates DDL work beyond the metadata timeout', asy
   assert.equal(delayed,true);
   assert.equal(created.urls.length,4);
   assert.equal(await created.cleanup(),true);
+});
+
+test('cleanup reconciles a backend exiting after the termination scan instead of reporting leaked database', async () => {
+  const created = await createRuntimeDatabases(database, 1);
+  const name = new URL(created.urls[0]).pathname.slice(1);
+  const victim = await connect(created.urls[0]), observer = await connect(database), holder = await connect(database);
+  const lock = String(process.pid);
+  const holderPid = (await holder.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+  await holder.query('SELECT pg_advisory_lock($1::bigint)', [lock]);
+  const original = Client.prototype.query;
+  let intercepted = false, falseTermination = false;
+  Client.prototype.query = function(...args) {
+    const q = args[0];
+    if (q?.text?.startsWith('SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE datname=') && q.values[0] === name) {
+      intercepted = true;
+      // Preserve the actual selected PID, then block before termination. The
+      // victim closes naturally while that old pg_stat_activity row is held.
+      const pending = original.call(this, {...q, text: `WITH targets AS MATERIALIZED
+        (SELECT pid, pg_advisory_xact_lock($2::bigint) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid())
+        SELECT pg_terminate_backend(pid,1000) AS stopped FROM targets`, values: [name, lock]});
+      return (async () => {
+        let blocked = false;
+        for (let i = 0; i < 100; i++) {
+          if ((await observer.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [holderPid])).rowCount) { blocked = true; break; }
+          await delay(5);
+        }
+        assert(blocked, 'actual cleanup SELECT reached its gate');
+        await victim.end();
+        await holder.query('SELECT pg_advisory_unlock($1::bigint)', [lock]);
+        const result = await pending;
+        falseTermination = result.rows.some(row => row.stopped === false);
+        return result;
+      })();
+    }
+    return original.apply(this, args);
+  };
+  try {
+    const result = await created.cleanup();
+    assert(intercepted); assert(falseTermination, 'PostgreSQL actually reports the departed PID as not terminated');
+    assert.equal(result, true, 'fresh absence must permit owned-database DROP and final positive readback');
+    assert.equal((await observer.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 0);
+  } finally {
+    Client.prototype.query = original;
+    await holder.query('SELECT pg_advisory_unlock_all()'); await victim.end();
+    try { assert.equal(await created.cleanup(), true); }
+    finally { await Promise.all([holder.end(), observer.end()]); }
+  }
+});
+
+test('cleanup still refuses a false termination while an owned database backend remains live', async () => {
+  const created = await createRuntimeDatabases(database, 1), name = new URL(created.urls[0]).pathname.slice(1);
+  const victim = await connect(created.urls[0]), observer = await connect(database), original = Client.prototype.query;
+  Client.prototype.query = function(...args) {
+    const q = args[0];
+    if (q?.text?.startsWith('SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE datname=') && q.values[0] === name) {
+      return Promise.resolve({rows: [{stopped: false}]}); // Inject refusal, leave real backend running.
+    }
+    return original.apply(this, args);
+  };
+  try {
+    assert.equal(await created.cleanup(), false);
+    assert.equal((await observer.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 1);
+    assert.equal((await victim.query('SELECT 1 AS alive')).rows[0].alive, 1);
+  } finally {
+    Client.prototype.query = original; await victim.end();
+    try { assert.equal(await created.cleanup(), true); } finally { await observer.end(); }
+  }
 });
