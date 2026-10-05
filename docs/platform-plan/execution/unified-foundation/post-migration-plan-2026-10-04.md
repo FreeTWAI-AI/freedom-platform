@@ -1,5 +1,7 @@
 # 實際移植後的執行計畫（2026-10-04）
 
+**2026-10-05 04:53 UTC 後續：** #117 與 #121 已依序正常合併／部署，兩環境目前為 `89f64ace`。新版日備份已各完成一次真正定時觸發，異地完整回讀、相同 snapshot 的 DB／R2 隔離恢復及清理通過，見[定時執行證據](r2-recovery-retirement-2026-10-04.md#新版部署後的真正定時執行2026-10-05)。下文 02:10 UTC 的「下一次尚未觀察」為當時狀態。GC 與 Private AI 維持 OFF；完整 P2／P3 仍未驗收。
+
 **本日後續執行更新：** #110 的 d269 已部署；七類媒體使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。維持媒體 R2 ON、Private AI OFF、GC OFF。中央 main 規則 `24469536` 保留，九個 consumer main 已另安裝 `24473806`：來源 workflow 固定 `55f70c01e574cf66c8fa06b79fc9d8b3ffff0c4a`，library 固定 `91b943ac61e132fbbce72ea066cb2301aa065600`。九倉一次性 branch 正例實際 merge，兩個偽造綠燈負例被 native workflow 拒絕；三個 library 採用 PR 已正常合併。安裝後 kit main-target 正例 native job 成功，竄改／偽造綠燈負例的 actual merge 回 405，suite `4357871927` 確認新規則拒絕，main 未變。
 
 中央 rule **24469536** 已只更新 required verify workflow 的固定 SHA 至 c3e；既有 checks／review／無 bypass 政策不變，c3e CI 通過，更新規則後的新 native main-target run 仍待驗。10 月 5 日三個 consumer main runtime rule **24476100** 先以 c42 安裝，再升級至固定 **c3e5a537a75303c4688e01b7f0d8477c3587a26f**，增加 kit 真實 maker-demo CLI 的 login／workspace／CSRF logout 強制。三個新版 temporary 正例實際 merge；CLI-only 負例 source／workspace 通過，但 native CLI 拒絕、偽造綠燈後 merge 仍 405。升級後 kit main-target #12 正例通過、#13 負例 merge 405（suite `4358652158`），probes 全清理、main 不變。library invocation／完整 CLI coverage 仍未證明。新版媒體變體與清理後 daily 回讀已完成，見現行交接。

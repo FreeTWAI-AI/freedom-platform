@@ -438,9 +438,14 @@
       "sha256": "48c81e6defc853c409d965693d2d7a456313eb51e9a3ac08370ad3e2521e2d91"
     },
     {
+      "path": "apps/platform-api/src/worker-private-ai-profile.ts",
+      "bytes": 1648,
+      "sha256": "0376e5e9f9a8b7d921cec59389c0e82c3bbaa3b80fee84323dee1d94dfbaf700"
+    },
+    {
       "path": "apps/platform-api/src/worker-private-ai.ts",
-      "bytes": 9676,
-      "sha256": "1c64b215f0657267d279e4c71ef7a7402ec950c2f3abdec4d38d432d03a7df41"
+      "bytes": 8735,
+      "sha256": "cccf8df64a8780851251069887abc31d2b5a41feff8e4fc8172746f54bbd416f"
     },
     {
       "path": "apps/platform-api/src/worker.ts",
@@ -4489,8 +4494,8 @@
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
-      "bytes": 944,
-      "sha256": "e8980c09fd23068597d0b6f4c61129310a401d2bad0109182578af83ebc7e3ba"
+      "bytes": 1823,
+      "sha256": "8521542f514bf909116501465c6fbafb7d2aa2acc0bb98963726fc181b21c07f"
     },
     {
       "path": "deploy/cloudflare/candidate/README.md",
@@ -4576,6 +4581,11 @@
       "path": "deploy/cloudflare/lib/planetscale.mjs",
       "bytes": 7504,
       "sha256": "aac14bdc036da2567a43d72339acb2ab56abfe0140cadc58c6e2705f163bbc39"
+    },
+    {
+      "path": "deploy/cloudflare/lib/private-ai-preflight.ts",
+      "bytes": 16019,
+      "sha256": "7428cc7806aaf25189bb3555f12328924d556451a893dfb1a988aacd26673d1b"
     },
     {
       "path": "deploy/cloudflare/lib/provision-plan.mjs",
@@ -5424,8 +5434,8 @@
     },
     {
       "path": "docs/development/worker-private-ai-bindings.md",
-      "bytes": 17259,
-      "sha256": "4ecb11b8f808c2c03bfa0bbd55cace555ebc0145f39c5a8cbd619ede076a5796"
+      "bytes": 21204,
+      "sha256": "a24f67a67720b2d23cd6280e13a0f7ef6a57df2135196bab0b7750a2c99e1714"
     },
     {
       "path": "docs/development/workspace-ia-review.md",
@@ -6624,13 +6634,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 16193,
-      "sha256": "d411c0dcf4dbc83f98e3c3774e8e420752bfa35b2ccf9a38effeee4006026d2f"
+      "bytes": 16679,
+      "sha256": "2d22d40a7154dc8c7216a1f6ea0cc6898c981ed249d23df48c1ff85cedf43b5a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
-      "bytes": 22286,
-      "sha256": "3e4d98dbdec41203d8479c8d9e8e3491450f839038d2e2f63d23430cfb4c2aab"
+      "bytes": 23860,
+      "sha256": "dec1a03f434d72e3c5cf10a9b9039f8aeba6d0b3c4a3be2ea116309b20134580"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -6681,6 +6691,11 @@
       "path": "docs/platform-plan/verification/consumer-runtime-ruleset-2026-10-05.json",
       "bytes": 825,
       "sha256": "afb0bafb176b9867675e887af50c7406880d8a797535ef5aee375a285f8f0246"
+    },
+    {
+      "path": "docs/platform-plan/verification/daily-scheduled-2026-10-05.json",
+      "bytes": 2778,
+      "sha256": "ac5b35e92000656d88e38ac23aa23b32a32cc06e7c7349b9aa1bde57d509de53"
     },
     {
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-04.json",
@@ -8599,8 +8614,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 35086,
-      "sha256": "ad1c47af1541e78097cc03b482197f6d7739b30c0b5abb8325f154cf9038417a"
+      "bytes": 37019,
+      "sha256": "8fcdac86546af2d4f6182a3eed91b5391e2bd21de7edb94cf21b45d33cee8fac"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -8619,8 +8634,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-behavior.md",
-      "bytes": 11256,
-      "sha256": "d22e5986378aed87d34f366dfc8523ec04629e901be0131efdf5f880a4f95841"
+      "bytes": 12288,
+      "sha256": "56dd1dd7284da793bb01b5b5c4046797816bcb6c178b20fc2eeea52c30f09d73"
     },
     {
       "path": "packages/contribution-tools/consumer-cli-canary-ruleset.example.json",
@@ -8921,6 +8936,11 @@
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
       "bytes": 12724,
       "sha256": "ba5c0a0e17049b60689c5eaed185915b02ef579a2e4716cf5e5a071e838c89a0"
+    },
+    {
+      "path": "packages/contribution-tools/test/supervisor-create-lifecycle.test.mjs",
+      "bytes": 3650,
+      "sha256": "1ca8d557dbabd99037c4983a01e57f4fec536018efbb9e2bda9731d2a9602735"
     },
     {
       "path": "packages/contribution-tools/test/surface-adversarial.test.mjs",
@@ -10084,8 +10104,8 @@
     },
     {
       "path": "tests/integration/consumer-behavior-supervisor.test.ts",
-      "bytes": 17930,
-      "sha256": "ec6158b69ed0fcd9351f42aaab6fa2a352a91ae7178cce9bbb9f7825b39ebd8e"
+      "bytes": 20445,
+      "sha256": "e2301662900964d8f156a716b1f8150cba330808bc737032c15f841802a62300"
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",
@@ -11026,6 +11046,11 @@
       "path": "tests/runtime/preview-protocol.test.ts",
       "bytes": 8542,
       "sha256": "72be53afa325c9f3d21e37df1c0683990793ff708af6f0547e5f480cbecea1e0"
+    },
+    {
+      "path": "tests/runtime/private-ai-preflight.test.ts",
+      "bytes": 14817,
+      "sha256": "cce009733e840146e6509218766f1b4609e2dd2562986227ddad282e827f444e"
     },
     {
       "path": "tests/runtime/private-policy-grants.test.ts",

@@ -1,0 +1,74 @@
+{
+  "schema": "freedom.daily-scheduled-operator-evidence/v1",
+  "recorded_at": "2026-10-05T04:54:37.020029+00:00",
+  "evidence_kind": "operator-observed-not-provider-signed",
+  "manual_start_in_this_observation": false,
+  "existing_timers_preserved": true,
+  "results": [
+    {
+      "environment": "production",
+      "set_id": "99097968-00b0-4127-b9b1-6f75a323932d",
+      "scheduled_start": "2026-10-05T04:33:52Z",
+      "service_exit": "2026-10-05T04:42:31Z",
+      "service_result": "success",
+      "exit_code": 0,
+      "source_release": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+      "operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+      "tables": 192,
+      "rows": 18338,
+      "sequences": 2,
+      "objects": {
+        "count": 38,
+        "bytes": 382520
+      },
+      "manifest_sha256": "dfdc7374cb65861f746576640b39e4f454be1d048223e614586dd7c1a0e45435",
+      "dump": {
+        "sha256": "032364ccde249b005a0ee3c3d09742832222fa4460d5afdf7f8d9b9c7a0d8162",
+        "byteSize": 5148722
+      },
+      "offsite_sha256": "1f35d0d3d04743e67b5408190d6327471eeeeb53307bcee62d7e4840a9d808fd",
+      "offsite_bytes": 5898240,
+      "independent_readback_at": "2026-10-05T04:43:33.266Z",
+      "full_remote_readback": true,
+      "restore": "database_and_native_r2_quarantine",
+      "gc_off": true,
+      "owned_resources_removed": true
+    },
+    {
+      "environment": "staging",
+      "set_id": "419afd4a-900e-4108-a657-cb7cb0feaef3",
+      "scheduled_start": "2026-10-05T04:45:24Z",
+      "service_exit": "2026-10-05T04:52:07Z",
+      "service_result": "success",
+      "exit_code": 0,
+      "source_release": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+      "operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+      "tables": 192,
+      "rows": 4209,
+      "sequences": 2,
+      "objects": {
+        "count": 26,
+        "bytes": 44471
+      },
+      "manifest_sha256": "551080c197bfa6f2437e819d653a16341adc22844668e3bff59278580d52604d",
+      "dump": {
+        "sha256": "fa6e5e9fd38c9eb7a65d98facde7d2dc248cae4bc0cfd1cffb09b2e837b9b7ea",
+        "byteSize": 1481882
+      },
+      "offsite_sha256": "3583c8f9c09f3ab4b10b6a8a716deaf51ed52e4f6fcf89e74b3e35424478b1ac",
+      "offsite_bytes": 1751040,
+      "independent_readback_at": "2026-10-05T04:52:45.191Z",
+      "full_remote_readback": true,
+      "restore": "database_and_native_r2_quarantine",
+      "gc_off": true,
+      "owned_resources_removed": true
+    }
+  ],
+  "boundaries": [
+    "host-dependent systemd user timers",
+    "one actual scheduled invocation observed per environment",
+    "same Cloudflare account; no cross-account disaster isolation",
+    "quarantined restore, not production failover or PITR",
+    "automatic retention and asset GC remain disabled"
+  ]
+}

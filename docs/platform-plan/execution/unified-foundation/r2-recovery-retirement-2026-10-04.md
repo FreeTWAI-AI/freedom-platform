@@ -155,3 +155,17 @@ Aggregate receipts 定位為 `freedom-platform-push-20261004/daily-live/runs/925
 兩邊實際 service 驗收通過後，02:10:29.665 UTC 回讀原 timers 均為 active／enabled。原 UTC 04:30（production）與 04:45（staging）、`Persistent=yes`、5 分鐘 randomized delay 均保留；當下 next-trigger 回讀分別為 04:33:52 UTC 與 04:45:17 UTC。舊 unit／drop-in files 保留。安裝與手動 systemd 入口驗收已完成，**下一次 timer 自動觸發尚未觀察**；不能將 armed timer 當成已產生排程備份。
 
 Service aggregate 證據定位為同一私有 journal 的 `daily-live/timer-switch/staging-service-accepted.json`、`production-service-accepted.json` 及 `completed.json`。這輪未啟用 retention／GC／PITR／cutover，亦未完成獨立雲端排程或其他未驗收功能。
+
+
+## 新版部署後的真正定時執行（2026-10-05）
+
+原有兩個 timers 已各自真正觸發新版 coordinator，本次未手動啟動 service、改時間或另建排程。正式於 04:33:52–04:42:31 UTC、staging 於 04:45:24–04:52:07 UTC 執行，兩者 service result=success、exit=0。這補上前節在 02:10 UTC 尚未觀察的定時執行證據。
+
+| 環境 | 同 snapshot 資料 | R2 物件 | 實際結果 |
+| --- | --- | --- | --- |
+| 正式 | 192 表、18,338 rows、2 sequences | 38 個／382,520 bytes | 異地完整下載、逐表摘要／sequence 核對、PG18＋原生 R2 隔離恢復、清理通過 |
+| staging | 192 表、4,209 rows、2 sequences | 26 個／44,471 bytes | 同上，另由操作者重新讀取完整異地 archive 核對 |
+
+兩筆 source release 都是 #121 的 `89f64ace3b9c24e493fc367b1b489dc8749ee20e`；固定 operator source 仍為 `c3e5a537a75303c4688e01b7f0d8477c3587a26f`。#117 部署後，#121 的發布操作者已更新兩環境備份 source pin，並保留 coordinator 與原 timers。操作者分別在 04:43:33、04:52:45 UTC 獨立重新下載 archive，比對完整 bytes／digest、manifest／dump／snapshot evidence，確認 GC OFF 且該 run 容器已移除。
+
+[公開彙總證據](../../verification/daily-scheduled-2026-10-05.json)保存 set ID、時間與完整摘要；原始私有資料及憑證不提交。這是實際操作觀察，不是 provider 簽署證明。仍依賴目前主機及同一 Cloudflare 帳戶；retention、GC、PITR、跨帳戶災難隔離及正式恢復切換未因此完成。
