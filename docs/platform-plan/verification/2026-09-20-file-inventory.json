@@ -11348,6 +11348,21 @@
       "sha256": "43d90791e4e020150a239a84e6ee98c1ceb07d7c5ee6ad0166c2dac055475a8c"
     },
     {
+      "path": "contracts/guide-packs/receipts/ai-sister-v1-20261005-next.json",
+      "bytes": 544734,
+      "sha256": "5beeb887ed0e683c1e2b84e2275118504c149787c94262e1421fd94777737442"
+    },
+    {
+      "path": "contracts/guide-packs/receipts/ai-sister-v1-20261005-staging.json",
+      "bytes": 544761,
+      "sha256": "372f5556ed92ede8516967ab24ce0b663a27717b5ba24f65f26e32af531c2339"
+    },
+    {
+      "path": "contracts/guide-packs/receipts/ai-sister-v1-20261005.json",
+      "bytes": 861,
+      "sha256": "8e7a32f489be6a53f696af7fd2238b1a2340206f4c73385648fac64adfad338e"
+    },
+    {
       "path": "contracts/guide-packs/receipts/dragon-v1-20261004-next.json",
       "bytes": 132516,
       "sha256": "112f84979358922fd0974bb6c15a4a3c666a34bab7823897afe295751836ffbb"
@@ -11954,8 +11969,13 @@
     },
     {
       "path": "docs/development/ai-sister-guides.md",
-      "bytes": 7100,
-      "sha256": "c1f387c7ba1852ac347a935d7addf004b7a9b84ac0e0a6ac0455109b4f824cdd"
+      "bytes": 7288,
+      "sha256": "43ab62c80378bfc255213567f5891ae97c6258f90b0d3aefae4726941d898cdf"
+    },
+    {
+      "path": "docs/development/ai-sister-publisher-2026-10-05.md",
+      "bytes": 3925,
+      "sha256": "7500669d0fd15029eb271606f5d3dcb3468fd9cefc28a0fe7cecde92dda9e56d"
     },
     {
       "path": "docs/development/audit-2026-09-24-error-copy.md",
@@ -12254,8 +12274,8 @@
     },
     {
       "path": "docs/development/public-guide-assets.md",
-      "bytes": 10048,
-      "sha256": "2190287859560c7692699488506f0c1174e100a46524a76e81b2a3bab0bb1521"
+      "bytes": 10207,
+      "sha256": "1a5bd32d4fec4428e29be5024b352c56196bff28aabd318957e36ab3210979fb"
     },
     {
       "path": "docs/development/public-operations.md",
@@ -16079,8 +16099,8 @@
     },
     {
       "path": "packages/public-guide-assets/ai-sister-release.ts",
-      "bytes": 325,
-      "sha256": "3c9ee2389c2410ec07832812900122b9def63d7a76552511589f17a40d61a57b"
+      "bytes": 481,
+      "sha256": "4ae60d2f8524f96dc60dccf2f00c1eeb9d0e3a4f09ffeccd043a59e0834fe49f"
     },
     {
       "path": "packages/public-guide-assets/catalog.ts",
@@ -17154,8 +17174,8 @@
     },
     {
       "path": "tests/runtime/ai-sister-guides.test.ts",
-      "bytes": 9185,
-      "sha256": "433f63281414985b91f5ddb7bd7939b78f36f72052e2e66a22777d381a2df690"
+      "bytes": 13625,
+      "sha256": "35858541be46df1f565c6e3a002490d8b0059dbe52b69a09acd246415b07e812"
     },
     {
       "path": "tests/runtime/asset-engine.test.ts",
@@ -18279,8 +18299,8 @@
     },
     {
       "path": "tests/worker/guide-pack-assets.test.ts",
-      "bytes": 4741,
-      "sha256": "c7a838511266dbedf652ce210872bd9efe443fb7f286526fc64aa553ae0d9766"
+      "bytes": 7732,
+      "sha256": "3c29d7f9086c42c5c793f3ed0206ad3dc7f8747c34791852031ba73de789ad34"
     },
     {
       "path": "tests/worker/maintainer-scheduled.test.ts",

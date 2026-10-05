@@ -56,7 +56,7 @@ Outfits change presentation. Reviewed answers still describe only the current pl
 
 `GET /api/v1/guide-packs/release/ai-sister` advertises only the independently reviewed AI Sister release. The old `/api/v1/guide-packs/release` remains Dragon-compatible. Exact immutable assets use `/public/guide-packs/ai-sister/{version}/{sha256}.webp`, backed by the existing private `GUIDE_STATIC` purpose. Pack dispatch cannot borrow another pack's namespace or fall back to MEDIA. All seven MEDIA settings and GC OFF are preserved.
 
-AI Sister is **OFF** in the Worker code pin pending an actual publisher run, full per-environment object readback receipts, and a separate activation change through CI, independent review and merge. Local fixtures explicitly expose both installed packs for development; they cannot activate staging or production. No upload, live acceptance or deployment is claimed by this implementation.
+The separate activation change enables the AI Sister code pin using [complete per-environment publisher readbacks](ai-sister-publisher-2026-10-05.md). Both private origins hold all 1,377 objects, and the code pin binds the receipt set's exact bytes. Deployment still requires CI, independent review and merge, the explicit host flag and correct native binding, then staging acceptance before production. Local fixtures cannot activate a remote environment. The publisher receipts establish object publication; they do not establish Worker deployment or live browser acceptance.
 
 ```sh
 npm run guide:publish-plan -- \

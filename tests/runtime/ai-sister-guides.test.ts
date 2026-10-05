@@ -17,6 +17,7 @@ import {aiSisterManifestText} from '../../packages/public-guide-assets/ai-sister
 import {GUIDE_PACK_LIMITS,guideManifestSchema,parseGuideManifest,guideSha256,guideAssetPath} from '../../packages/public-guide-assets/index.js';
 import {createLocalGuideCatalog} from '../../packages/public-guide-assets/node.js';
 import {installWorkerGuideAssets} from '../../packages/public-guide-assets/worker.js';
+import type {GuideR2Binding} from '../../packages/public-guide-assets/r2.js';
 import {guidePublishPlan} from '../../scripts/guide-pack-publish-plan.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 
@@ -69,7 +70,6 @@ test('all wardrobe bytes decode and match the pinned manifest, without implying 
   const bytes=await readFile('contracts/guide-packs/ai-sister-v1-20261005.json');
   assert.equal(bytes.toString('utf8'),aiSisterManifestText);assert.equal(await guideSha256(bytes),AI_SISTER_RELEASE_PIN.manifestSha256);
   assert.equal(AI_SISTER_GUIDE_RELEASE.manifestSha256,AI_SISTER_RELEASE_PIN.manifestSha256);
-  assert.equal(AI_SISTER_GUIDE_RELEASE.enabled,false);assert.equal(AI_SISTER_GUIDE_RELEASE.publisherReceipt,null);
   const plan=await guidePublishPlan('assets/guide-packs/ai-sister-v1-20261005','ai-sister');
   assert.equal(plan.object_count,1377);assert.equal(plan.unique_object_count,1377);
   assert.equal(plan.provider_mutations,0);assert.equal(plan.publisher_receipts,'not_run');
@@ -87,7 +87,46 @@ test('pack-specific budgets preserve Dragon limits and reject mismatched pack/ve
   }
 });
 
-test('two installed local packs expose separate releases and cannot borrow each other’s digest paths; Worker keeps AI Sister OFF',async()=>{
+test('AI Sister activation pins complete private-origin readbacks for both environments',async()=>{
+  const root='contracts/guide-packs/receipts/';
+  const bytes=await readFile(root+'ai-sister-v1-20261005.json');
+  assert.equal(AI_SISTER_GUIDE_RELEASE.enabled,true);
+  assert.equal(AI_SISTER_GUIDE_RELEASE.publisherReceipt,'sha256:'+await guideSha256(bytes));
+  const set=JSON.parse(bytes.toString());
+  assert.equal(set.schema,'freedom.guide-publisher-receipt-set/v1');
+  assert.equal(set.manifestSha256,AI_SISTER_GUIDE_RELEASE.manifestSha256);
+  assert.equal(set.sourceCommit,'2325b2ddd41832306982417822f56c990c9dccc1');
+  assert.equal(set.binding,'GUIDE_STATIC');assert.equal(set.privateOriginRequired,true);
+  assert.deepEqual(set.receipts.map((entry:any)=>entry.environment).sort(),['next','staging']);
+  const manifest=await parseGuideManifest(new TextEncoder().encode(aiSisterManifestText),AI_SISTER_GUIDE_RELEASE.manifestSha256);
+  const expected=new Map(manifest.assets.map(asset=>[asset.sha256,asset]));
+  assert.equal(expected.size,1377);
+  for(const entry of set.receipts){
+    assert.equal(entry.receipt,`ai-sister-v1-20261005-${entry.environment}.json`);
+    assert.equal(entry.bucket,entry.environment==='next'?'freedom-next-guide-static':'freedom-staging-next-guide-static');
+    const receiptBytes=await readFile(root+entry.receipt);assert.equal(await guideSha256(receiptBytes),entry.sha256);
+    const receipt=JSON.parse(receiptBytes.toString());
+    assert.equal(receipt.schema,'freedom.guide-publisher-receipt/v1');assert.equal(receipt.status,'verified');
+    assert.equal(receipt.target,entry.environment);assert.equal(receipt.bucket,entry.bucket);
+    assert.equal(receipt.sourceCommit,set.sourceCommit);assert.equal(receipt.manifestSha256,set.manifestSha256);
+    assert.equal(receipt.binding,'GUIDE_STATIC');assert.equal(receipt.productionEnabled,false,'publication receipts precede activation');
+    for(const origin of [receipt.originBefore,receipt.originAfter]){
+      assert.equal(origin.bucket,entry.bucket);assert.equal(origin.managedEnabled,false);assert.deepEqual(origin.customDomains,[]);
+    }
+    assert.equal(entry.objectCount,expected.size);assert.equal(receipt.objectCount,expected.size);assert.equal(receipt.objects.length,expected.size);
+    assert.equal(new Set(receipt.objects.map((object:any)=>object.sha256)).size,expected.size);
+    for(const object of receipt.objects){
+      const asset=expected.get(object.sha256);assert(asset);
+      assert.equal(object.key,`guide-packs/ai-sister/${manifest.version}/${asset.sha256}.webp`);
+      assert.equal(object.byteLength,asset.byteLength);assert.equal(object.mime,asset.mime);
+      assert.ok(Number.isFinite(Date.parse(object.checkedAt)));assert.ok(object.cfRay);
+    }
+    const total=[...expected.values()].reduce((sum,asset)=>sum+asset.byteLength,0);
+    assert.equal(receipt.totalBytes,total);assert.equal(entry.totalBytes,total);assert.equal(total,62_044_286);
+  }
+});
+
+test('two installed packs expose independent releases and retain explicit Worker host/binding gates',async()=>{
   const assets=await createLocalGuideCatalog('local');
   const pool={query(){throw Error('Guide assets must not query private member data')}} as unknown as Pool;
   const app=createApp(pool,'http://127.0.0.1:4377','local',{publicGuideAssets:assets});
@@ -101,6 +140,22 @@ test('two installed local packs expose separate releases and cannot borrow each 
   for(const bad of [path.replace('/ai-sister/','/dragon/'),path+'?pack=dragon',path.replace('ai-sister-v1-20261005','ai-sister-v2-20261005')])assert.equal((await app.request(bad)).status,404);
   await assert.rejects(createLocalGuideCatalog('public'));
   let reads=0;
-  const worker=await installWorkerGuideAssets({GUIDE_STATIC:{async get(){reads++;return null}},FREEDOM_PUBLIC_GUIDE_ENABLED:'true'});
-  assert.equal(worker?.releases?.['ai-sister'],undefined);assert.equal((await worker!.fetch(new Request('https://guide.test'+path))).status,404);assert.equal(reads,0);
+  const asset=manifest.assets[0],bytes=await readFile(`assets/guide-packs/${manifest.version}/${asset.logicalId}.webp`);
+  const binding={async get(key:string){reads++;assert.equal(key,`guide-packs/ai-sister/${manifest.version}/${asset.sha256}.webp`);return {key,body:new ReadableStream<Uint8Array>({start(controller){controller.enqueue(bytes);controller.close();}}),size:bytes.length,httpMetadata:{contentType:'image/webp'}};}} as unknown as GuideR2Binding;
+  assert.equal(await installWorkerGuideAssets({GUIDE_STATIC:binding}),undefined);
+  assert.equal(await installWorkerGuideAssets({GUIDE_STATIC:binding,FREEDOM_PUBLIC_GUIDE_ENABLED:'false'}),undefined);
+  assert.equal(await installWorkerGuideAssets({FREEDOM_PUBLIC_GUIDE_ENABLED:'true'}),undefined);
+  assert.equal(reads,0);
+  const worker=await installWorkerGuideAssets({GUIDE_STATIC:binding,FREEDOM_PUBLIC_GUIDE_ENABLED:'true'});
+  assert.equal(worker?.releases?.['ai-sister']?.manifestSha256,AI_SISTER_RELEASE_PIN.manifestSha256);
+  assert.equal(worker?.releases?.dragon?.manifestSha256,DRAGON_RELEASE_PIN.manifestSha256);
+  assert.equal(reads,0,'initialization does not read R2');
+  for(const method of ['GET','HEAD']){
+    const response:Response=await worker!.fetch(new Request('https://guide.test'+path,{method}));assert.equal(response.status,200);
+    assert.equal((await response.arrayBuffer()).byteLength,method==='HEAD'?0:bytes.length);
+  }
+  assert.equal(reads,2,'each response verifies fresh storage bytes');
+  assert.equal((await worker!.fetch(new Request('https://guide.test'+path.replace('/ai-sister/','/dragon/')))).status,404);
+  assert.equal(reads,2,'cross-pack requests never reach storage');
+  assert.equal(await installWorkerGuideAssets({GUIDE_STATIC:binding,FREEDOM_PUBLIC_GUIDE_ENABLED:'false'}),undefined,'cached initialization cannot bypass host disablement');
 });
