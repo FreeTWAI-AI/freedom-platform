@@ -54,8 +54,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 9915,
-      "sha256": "b71a7ac112d816509f63fcf1edaa0a4ae513a7515c7576b17dd03c6d0bae5966"
+      "bytes": 10020,
+      "sha256": "78e074b95bb2eddc2ffcb40bcf61c40d9d516c79d38c7365a548abad6119b8eb"
     },
     {
       "path": "README.md",
@@ -1764,8 +1764,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
-      "bytes": 3975,
-      "sha256": "e63a572775c22e3baa66d2944ddb42a706bb514ab2097021938f8eb41798d0c1"
+      "bytes": 3994,
+      "sha256": "3cde7e04b8b4fcbefc8f35b79ba322bf64ebb6faae09de96b1bbe169e8bdbd2e"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/ai-sister-pages.ts",
@@ -1789,8 +1789,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideEngine.tsx",
-      "bytes": 40511,
-      "sha256": "4133dcd6c7bd536815f892f17eb7924c7d12de0b37f3f350b771dda9c4c4848e"
+      "bytes": 42265,
+      "sha256": "5a5fb92026507001eda495d65b1afb95e2d7fb843f6fdfc4ab802774168c8ce0"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideGallery.tsx",
@@ -1809,8 +1809,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/page-spirit.css",
-      "bytes": 8414,
-      "sha256": "45361341bf100cae09b685be7de52e7957c5a51a83f1d515407c4337824d11f9"
+      "bytes": 8606,
+      "sha256": "5f2564f049607aff39aee8abf7f111d191281807b6bd868e326ad491ef70cd78"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/preferences.ts",
@@ -11954,8 +11954,8 @@
     },
     {
       "path": "docs/development/ai-sister-guides.md",
-      "bytes": 6680,
-      "sha256": "e659cd2df2ca8ede5a32eeba0e5a033bbbfa381ada57e0595038de3116e76930"
+      "bytes": 7100,
+      "sha256": "c1f387c7ba1852ac347a935d7addf004b7a9b84ac0e0a6ac0455109b4f824cdd"
     },
     {
       "path": "docs/development/audit-2026-09-24-error-copy.md",
@@ -16629,8 +16629,8 @@
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
-      "bytes": 14173,
-      "sha256": "b7728f7ec734d3aebf3c212ba4906314eaa091f91d268e8f046d0fc369d373d5"
+      "bytes": 17031,
+      "sha256": "fc2c62048b2ed3f452a77ea12e37bf59676139ce59c947d166f5fe68628e94e5"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",

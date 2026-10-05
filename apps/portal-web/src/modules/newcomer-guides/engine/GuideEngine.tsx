@@ -8,10 +8,10 @@ import {findGuideTarget, focusGuideTarget, type GuideDefinition} from './guides'
 import {readSpiritPreferences, writeSpiritPreferences, type SpiritPreferences} from './preferences'
 import './page-spirit.css'
 
-type Props = {pageId: string; scopeKey: string; page:GuidePage; label:string; gallery:readonly GuideCharacter[]; galleryInfo:GuideGalleryInfo; characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;initiallyOpen?:boolean;disabled?: boolean}
+type Props = {pageId: string; scopeKey: string; page:GuidePage; label:string; gallery:readonly GuideCharacter[]; galleryInfo:GuideGalleryInfo; characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;focusCharacterChoice?:boolean;disabled?: boolean}
 type SpiritState = 'idle' | 'wave' | 'think' | 'cheer' | 'calm' | 'sleep'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
-type ViewMode = 'closed' | 'expanded' | 'compact' | 'guide'
+type ViewMode = 'closed' | 'expanded' | 'compact' | 'guide' | 'characters'
 type CanonicalLine = {text: string; topicId: string | null}
 type GuideState = {definition: GuideDefinition; index: number; found: boolean; identity: string}
 const FRAME_ORDER = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0] as const
@@ -34,7 +34,7 @@ function blockingSurface(own: HTMLElement | null) {
     || Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded')).some(visible)
 }
 
-export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo, characterChoices, onSelectCharacter, initiallyOpen=false, disabled = false}: Props) {
+export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo, characterChoices, onSelectCharacter, focusCharacterChoice=false, disabled = false}: Props) {
   const character = page.character
   const getSpiritGuide = (_pageId:string, topicId:string|null) => topicId?.startsWith(`${pageId}:`) ? page.guides[topicId] ?? null : null
   const [galleryOpen,setGalleryOpen] = useState(false)
@@ -45,6 +45,8 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
   preferenceRef.current = preferences
   const wrapper = useRef<HTMLDivElement>(null)
   const launcher = useRef<HTMLButtonElement>(null)
+  const characterButton = useRef<HTMLButtonElement>(null)
+  const characterSelect = useRef<HTMLSelectElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const questionInput = useRef<HTMLInputElement>(null)
   const compactContinue = useRef<HTMLButtonElement>(null)
@@ -62,7 +64,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
   const lineIdentity = useRef('')
   const packEpoch = useRef(0)
   const hasOpened = useRef(false)
-  const autoOpened = useRef(false)
+  const selectionFocused = useRef(false)
   const spriteRequest = useRef(0), spriteGeneration = useRef(0)
   const textRequest = useRef(0), textGeneration = useRef(0)
   const focusRequest = useRef(0)
@@ -145,6 +147,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
 
   const close = useCallback((returnFocus = false, clear = false) => {
     const expectedIdentity = active.current.identity
+    const returnTarget = active.current.mode === 'characters' ? characterButton.current : launcher.current
     active.current.open = false
     active.current.mode = 'closed'
     packEpoch.current++
@@ -166,11 +169,25 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
       if (mounted.current && active.current.identity === expectedIdentity && active.current.mode === 'closed' && !active.current.disabled && !active.current.suppressed
         && !document.hidden && !blockingSurface(wrapper.current)
         && (!editing(document.activeElement) || wrapper.current?.contains(document.activeElement))) {
-        launcher.current?.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'})
-        launcher.current?.focus({preventScroll: true})
+        returnTarget?.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'})
+        returnTarget?.focus({preventScroll: true})
       }
     })
   }, [cancelMotion, clearGuide, forgetFrames])
+
+  const toggleCharacters = useCallback(() => {
+    if (active.current.disabled || document.hidden || blockingSurface(wrapper.current)) return
+    if (active.current.mode === 'characters') {close(true); return}
+    close(false)
+    active.current.suppressed = false; setSuppressed(false)
+    active.current.mode = 'characters'; setMode('characters')
+    const expectedIdentity = active.current.identity
+    focusRequest.current = requestAnimationFrame(() => {
+      focusRequest.current = 0
+      if (mounted.current && active.current.identity === expectedIdentity && active.current.mode === 'characters'
+        && !active.current.disabled && !active.current.suppressed && !document.hidden && !blockingSurface(wrapper.current)) characterSelect.current?.focus({preventScroll:true})
+    })
+  }, [close])
 
   const showLine = useCallback((text: string, topicId: string | null = null, record = true, animate = true) => {
     stopText(false)
@@ -397,7 +414,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
 
   useEffect(() => {
     mounted.current = true
-    autoOpened.current = false
+    selectionFocused.current = false
     close(false, true)
     return () => {
       mounted.current = false; active.current.open = false; packEpoch.current++
@@ -499,10 +516,13 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
     if (key === 'energy') cancelMotion(true)
     else stopText(true)
   }
-  // Open a newly selected character only after identity/environment setup.
+  // Restore the selection action after remounting, without opening a question.
   useEffect(()=>{
-    if(initiallyOpen&&!autoOpened.current&&!disabled&&!suppressed){autoOpened.current=true;begin()}
-  },[initiallyOpen,begin,disabled,suppressed])
+    if(!focusCharacterChoice || selectionFocused.current)return
+    selectionFocused.current=true
+    if(!disabled && !active.current.suppressed && !document.hidden && !blockingSurface(wrapper.current)
+      && (document.activeElement===document.body || wrapper.current?.contains(document.activeElement))) characterButton.current?.focus({preventScroll:true})
+  },[focusCharacterChoice,disabled])
 
   if (typeof document === 'undefined') return null
   const style = {'--page-spirit-accent': character.accent, '--page-spirit-backdrop': character.backdropColor || 'transparent'} as CSSProperties
@@ -536,10 +556,11 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
       <div className="page-spirit-entry-actions">
         <button ref={compactContinue} type="button" className="page-spirit-button page-spirit-primary" disabled={controlsDisabled} aria-expanded={questionsOpen} aria-controls={`${uid}-questions`} onClick={event => begin(event.currentTarget)}>{mode === 'compact' ? '繼續交談' : '問本頁'}</button>
         <button type="button" className="page-spirit-button" disabled={controlsDisabled} aria-expanded={guideMenuOpen} aria-controls={`${uid}-guides`} onClick={event => begin(event.currentTarget, 'guides')}>帶我看</button>
+        {characterChoices&&onSelectCharacter&&<button ref={characterButton} type="button" className="page-spirit-button page-spirit-change-character" disabled={controlsDisabled} aria-expanded={mode==='characters'} aria-controls={`${uid}-characters`} onClick={toggleCharacters}>換角色</button>}
       </div>
     </div>
 
-    {characterChoices&&onSelectCharacter&&<div className="page-spirit-character-choice"><label htmlFor={`${uid}-character`}>導覽角色</label><select id={`${uid}-character`} aria-describedby={`${uid}-outfit-hint`} value={character.pageId} disabled={controlsDisabled} onChange={event=>onSelectCharacter(event.target.value)}>{characterChoices.map(choice=><option key={choice.id} value={choice.id}>{choice.label}</option>)}</select><span id={`${uid}-outfit-hint`}>切換頁面自動換裝</span></div>}
+    {mode==='characters'&&characterChoices&&onSelectCharacter&&<section id={`${uid}-characters`} className="page-spirit-character-choice page-spirit-disclosure" aria-label="更換導覽角色"><label htmlFor={`${uid}-character`}>導覽角色</label><select ref={characterSelect} id={`${uid}-character`} aria-describedby={`${uid}-outfit-hint`} value={character.pageId} disabled={controlsDisabled} onChange={event=>{close(true);onSelectCharacter(event.target.value)}}>{characterChoices.map(choice=><option key={choice.id} value={choice.id}>{choice.label}</option>)}</select><span id={`${uid}-outfit-hint`}>切換頁面自動換裝</span></section>}
 
     {guideMenuOpen && <details id={`${uid}-guides`} className="page-spirit-disclosure page-spirit-guide-directory" open>
       <summary onClick={event => {event.preventDefault(); close(true)}}>選一個本頁入口</summary>

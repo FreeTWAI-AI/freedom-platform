@@ -16,6 +16,8 @@
 .page-spirit-entry-actions{grid-column:1/-1;display:flex;gap:8px}
 .page-spirit-button{font:inherit;font-size:13px;min-height:44px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer}
 .page-spirit-entry-actions .page-spirit-button{flex:1;min-width:0}
+.page-spirit-entry-actions:has(.page-spirit-change-character){gap:6px}
+.page-spirit-entry-actions:has(.page-spirit-change-character) .page-spirit-button{padding-inline:8px;white-space:nowrap}
 .page-spirit-primary{background:var(--green);border-color:var(--green);color:#101500;font-weight:700}
 .page-spirit-primary:hover:not(:disabled){background:var(--green-2)}
 .page-spirit-button:hover:not(:disabled):not([aria-disabled=true]){border-color:var(--page-spirit-accent)}

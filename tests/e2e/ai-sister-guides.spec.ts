@@ -52,11 +52,17 @@ test('member selects one character; it persists across reload and changes outfit
   await registerJoined(page);await imageReady(page.locator('.page-spirit-launcher img'));
   expect(new Set(art)).toEqual(new Set([asset('claude/education-outfit')]));
   await expect(widget(page)).toHaveAttribute('data-inline','true');await expect(panel(page)).toHaveCount(0);
+  await expect(widget(page).getByRole('combobox',{name:'導覽角色'})).toHaveCount(0);
+  await widget(page).getByRole('button',{name:'換角色',exact:true}).click();
   await expect(widget(page).getByRole('combobox',{name:'導覽角色'}).locator('option')).toHaveCount(17);
   await widget(page).getByRole('combobox',{name:'導覽角色'}).selectOption('kimi');
-  await expect(widget(page)).toHaveAttribute('data-character-id','kimi');await expect(widget(page)).toHaveAttribute('data-open','true');
+  await expect(widget(page)).toHaveAttribute('data-character-id','kimi');await expect(widget(page)).toHaveAttribute('data-open','false');
+  await expect(widget(page).getByRole('combobox',{name:'導覽角色'})).toHaveCount(0);
+  await expect(widget(page).getByRole('button',{name:'換角色',exact:true})).toBeFocused();
+  await expect(widget(page)).toHaveAttribute('data-load-state','idle');
   await expect(widget(page)).toHaveAttribute('data-outfit-id','education');
   await expect(widget(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('kimi/education-outfit'));
+  await openGuide(page);
   await expect(panel(page).locator('.page-spirit-line')).toContainText('我是 Kimi。');
   await panel(page).getByRole('button',{name:'結束交談',exact:true}).click();
   await navigate(page,'我的工作');await expect(widget(page)).toHaveAttribute('data-character-id','kimi');
@@ -135,6 +141,9 @@ test('bright AI Sister panel and wardrobe remain readable within desktop, tablet
     if(width>=1280)expect(main.x+main.width).toBeLessThanOrEqual(companion.x);
     else expect(companion.y+companion.height).toBeLessThanOrEqual(main.y);
     await page.screenshot({path:`${directory}/ai-sister-presence-${width}.png`});
+    for(const action of await widget(page).locator('.page-spirit-entry-actions button').all())expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await widget(page).getByRole('button',{name:'換角色',exact:true}).click();await fits(page,widget(page),true);
+    await page.screenshot({path:`${directory}/ai-sister-characters-${width}.png`});await page.keyboard.press('Escape');
     await openGuide(page);await panel(page).evaluate(element=>element.scrollTo(0,0));await fits(page,panel(page),true);
     await page.screenshot({path:`${directory}/ai-sister-panel-${width}.png`});
     await panel(page).getByRole('button',{name:'角色圖鑑',exact:true}).click();
@@ -153,10 +162,29 @@ test('selecting another companion preserves the page input and cancels its old g
   await expect(widget(page).getByLabel('本頁指引目錄')).toBeVisible();
   await widget(page).getByLabel('本頁指引目錄').getByRole('button').first().click();
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(1);
+  await widget(page).getByRole('button',{name:'換角色',exact:true}).click();
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
   await widget(page).getByRole('combobox',{name:'導覽角色'}).selectOption('gemini');
   await expect(widget(page)).toHaveAttribute('data-character-id','gemini');
   await expect(widget(page)).toHaveAttribute('data-outfit-id','culture');
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
   expect(await original!.evaluate(element=>element.isConnected)).toBe(true);
   await expect(title).toHaveValue('保留這個搜尋字詞');
+});
+
+test('character selector is only disclosed by its action, restores keyboard focus and closes on outside help',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});await registerJoined(page);
+  const change=widget(page).getByRole('button',{name:'換角色',exact:true}),select=widget(page).getByRole('combobox',{name:'導覽角色'});
+  await expect(widget(page).locator('.page-spirit-entry-actions button')).toHaveText(['問本頁','帶我看','換角色']);
+  await expect(change).toHaveAttribute('aria-expanded','false');await expect(select).toHaveCount(0);
+  await change.focus();await page.keyboard.press('Enter');await expect(select).toBeFocused();
+  await expect(change).toHaveAttribute('aria-expanded','true');await expect(widget(page)).toHaveAttribute('data-load-state','idle');
+  await page.keyboard.press('Escape');await expect(select).toHaveCount(0);await expect(change).toBeFocused();
+  await change.click();await change.click();await expect(select).toHaveCount(0);await expect(change).toBeFocused();
+  await change.click();await select.selectOption('claude');await expect(select).toHaveCount(0);await expect(change).toBeFocused();
+  await change.click();await openGuide(page);await expect(select).toHaveCount(0);await expect(panel(page)).toBeVisible();
+  await change.click();await expect(panel(page)).toHaveCount(0);await expect(select).toBeVisible();
+  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await help.click();
+  const dialog=page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true});await expect(dialog).toBeVisible();await expect(select).toHaveCount(0);await expect(change).toBeDisabled();
+  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(help).toBeFocused();await expect(select).toHaveCount(0);
 });

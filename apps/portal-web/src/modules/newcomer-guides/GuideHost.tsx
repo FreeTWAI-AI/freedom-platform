@@ -5,7 +5,7 @@ import {resolveExperienceProfile} from '../../experience-profiles';
 import {GUIDE_PACKS} from './pack-registry';
 import {AI_SISTER_CHARACTER_KEY,readAiSisterCharacter,resolveAiSisterCharacter,saveAiSisterCharacter} from './character-choice';
 import type {GuidePage,GuidePack} from './contracts';
-type EngineProps={pageId:string;scopeKey:string;page:GuidePage;label:string;gallery:GuidePack['gallery'];galleryInfo:GuidePack['galleryInfo'];characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;initiallyOpen?:boolean};
+type EngineProps={pageId:string;scopeKey:string;page:GuidePage;label:string;gallery:GuidePack['gallery'];galleryInfo:GuidePack['galleryInfo'];characterChoices?:GuidePack['characterChoices'];onSelectCharacter?:(id:string)=>void;focusCharacterChoice?:boolean};
 type Ready={scope:string;Engine:ComponentType<EngineProps>;pack:GuidePack;page:GuidePage};
 /** The only mount gate. It runs before character lookup, pack import or animation effects. */
 export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey:string;memberAccess:boolean}) {
@@ -13,15 +13,15 @@ export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey
   const packId=resolveExperienceProfile(theme).guidePack;
   const descriptor=packId?GUIDE_PACKS[packId]:null;
   const [characterChoice,setCharacterChoice]=useState(readAiSisterCharacter);
-  const openAfterSelection=useRef('');
+  const focusAfterSelection=useRef('');
   const chosen=packId==='ai-sister'?characterChoice:'';
   const permitted=canRequestGuide(theme,pageId,memberAccess,scopeKey);
   const baseScope=`${scopeKey}:${pageId}:${theme}:${descriptor?.pin.version??'off'}`;
   const scope=`${baseScope}:${chosen}`;
   const [ready,setReady]=useState<Ready|null>(null),[failed,setFailed]=useState(false),[retry,setRetry]=useState(0);
-  useEffect(()=>{openAfterSelection.current=''},[baseScope,memberAccess]);
+  useEffect(()=>{focusAfterSelection.current=''},[baseScope,memberAccess]);
   useEffect(()=>{
-    const sync=(event:StorageEvent)=>{if(event.key===AI_SISTER_CHARACTER_KEY){openAfterSelection.current='';setCharacterChoice(resolveAiSisterCharacter(event.newValue))}};
+    const sync=(event:StorageEvent)=>{if(event.key===AI_SISTER_CHARACTER_KEY){focusAfterSelection.current='';setCharacterChoice(resolveAiSisterCharacter(event.newValue))}};
     window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
   },[]);
   useEffect(()=>{
@@ -43,10 +43,10 @@ export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey
   },[permitted,scope,pageId,retry,descriptor,packId,chosen]);
   if(!permitted)return null;
   if(ready?.scope===scope){const {Engine,pack,page}=ready;return <aside className="workspace-companion" aria-label={`${page.character.name}的本頁導覽`}><Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery} galleryInfo={pack.galleryInfo}
-    characterChoices={pack.characterChoices} initiallyOpen={openAfterSelection.current===scope}
+    characterChoices={pack.characterChoices} focusCharacterChoice={focusAfterSelection.current===scope}
     onSelectCharacter={packId==='ai-sister'?(id)=>{
       if(!pack.characterChoices?.some(choice=>choice.id===id))return;
-      const selected=saveAiSisterCharacter(id);openAfterSelection.current=`${baseScope}:${selected}`;setCharacterChoice(selected);
+      const selected=saveAiSisterCharacter(id);focusAfterSelection.current=`${baseScope}:${selected}`;setCharacterChoice(selected);
     }:undefined}/></aside>;}
   return failed ? <button type="button" className="btn btn-ghost btn-small guide-load-retry" onClick={()=>setRetry(value=>value+1)}>重試載入新手導覽</button> : null;
 }
