@@ -418,3 +418,72 @@ test('096 broker bridge compatibility requires exact lineage and retained depend
   f.host.release_records[0].schema_ledger_digests=[old.ledger_digest];f.host.rollback_floor.capabilities=[];f.input.enable_shapes=['execution.model-broker-bridge.v1'];
   assert(evaluate(f).issues.some(i=>i.code==='shape_schema_missing'));
 });
+
+const preparationCapability = 'execution.model-credential-preparation.v1';
+const openRouterCapability = 'execution.openrouter-selection.v1';
+const persistedProfileCapabilities = [preparationCapability, openRouterCapability,
+  'execution.model-credential-ingest.v1', 'execution.model-credential-custody.v1',
+  'execution.member-prerequisites.v1', 'execution.member-run-record.v1',
+  'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1',
+  'execution.bootstrap-status.v1', 'execution.bootstrap-session.v1'];
+function persistedFixture() {
+  const f = fixture();
+  f.host.release_records[0].capabilities = [...new Set([...CAPABILITIES, ...persistedProfileCapabilities])];
+  return f;
+}
+for (const [shape, migration, dependency] of [
+  [preparationCapability, 114, 'execution.model-credential-ingest.v1'],
+  [openRouterCapability, 115, 'execution.member-prerequisites.v1'],
+]) {
+  for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes', 'capabilities']) {
+    test(`${shape}: ${source} fences both candidate and mixed old consumer`, () => {
+      const f = persistedFixture();
+      const container = source === 'enable_shapes' ? f.input : source === 'rollback_floor_shapes' ? f.host
+        : source === 'capabilities' ? f.host.rollback_floor : f.host.observation;
+      container[source] = [shape];
+      assert.equal(evaluate(f).status, 'compatible');
+      const old = {source_sha: 'c'.repeat(40), artifact_sha256: 'd'.repeat(64)};
+      f.host.observation.active_releases.push(old);
+      f.host.release_records.push({...structuredClone(f.host.release_records[0]), ...old, evidence_id: 'old-reader'});
+      for (const index of [0, 1]) {
+        for (const missing of [shape, dependency]) {
+          const record = f.host.release_records[index], saved = record.capabilities;
+          record.capabilities = saved.filter(c => c !== missing);
+          const result = evaluate(f);
+          assert(result.issues.some(i => i.code === 'release_capability_missing' && i.capability === missing && i.source_sha === record.source_sha));
+          for (const key of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[key], false);
+          record.capabilities = saved;
+        }
+      }
+    });
+  }
+  test(`${shape}: retained history rejects a restored pre-profile schema`, () => {
+    for (const source of ['written_shapes', 'rollback_floor_shapes', 'capabilities']) {
+      const f = persistedFixture(), old = prefix(f.scan, migration - 1);
+      f.scan = old;
+      f.host.observation.schema_ledger = old.ledger;
+      f.host.observation.schema_ledger_digest = old.ledger_digest;
+      f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+      const container = source === 'capabilities' ? f.host.rollback_floor : source === 'rollback_floor_shapes' ? f.host : f.host.observation;
+      container[source] = [shape];
+      const result = evaluate(f);
+      assert(result.issues.some(i => i.code === 'shape_schema_missing' && i.shape === shape));
+      assert(result.issues.some(i => i.code === (source === 'written_shapes' ? 'observed_shape_schema_missing' : 'historical_shape_schema_missing') && i.shape === shape));
+    }
+  });
+}
+test('114 fences generic ingest writers while schema alone does not assert OpenRouter state', () => {
+  const f = persistedFixture();
+  f.input.enable_shapes = ['execution.model-credential-ingest.v1'];
+  f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter(c => c !== preparationCapability);
+  assert(evaluate(f).issues.some(i => i.capability === preparationCapability));
+  f.input.enable_shapes = [];
+  assert.equal(evaluate(f).status, 'compatible');
+  assert(!evaluate(f).required_capabilities.includes(openRouterCapability));
+  const old = prefix(f.scan, 113);
+  f.scan = old; f.host.observation.schema_ledger = old.ledger;
+  f.host.observation.schema_ledger_digest = old.ledger_digest;
+  f.host.release_records[0].schema_ledger_digests = [old.ledger_digest];
+  f.input.enable_shapes = ['execution.model-credential-ingest.v1'];
+  assert.equal(evaluate(f).status, 'compatible', 'original pre-114 ingest contract remains representable');
+});

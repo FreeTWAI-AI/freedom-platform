@@ -6,8 +6,12 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
+const CAPABILITIES = ['execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
 const SHAPES = Object.freeze({
+  // Durable deadlines and namespaced selections remain required after disabling
+  // creation. These are reader/writer compatibility, never provider authority.
+  'execution.model-credential-preparation.v1': { migration: 114, capabilities: ['execution.model-credential-preparation.v1', 'execution.model-credential-ingest.v1', 'execution.model-credential-custody.v1'] },
+  'execution.openrouter-selection.v1': { migration: 115, capabilities: ['execution.openrouter-selection.v1', 'execution.member-prerequisites.v1'] },
   // A creation bit cannot fence a mixed older writer. Every retained/active
   // consumer needs the instrumented write path before domain GC is enabled.
   'media.domain-gc.v1': { migration: 108, capabilities: ['media.domain-gc.v1', 'media.write-effects.v1', 'media.server-policy.v1'] },
@@ -194,7 +198,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
     if (floor.target.environment !== trusted.target.environment || floor.target.database_identity !== trusted.target.database_identity) reject('historical_target_mismatch');
     if (BigInt(floor.target.recovery_generation) > BigInt(trusted.target.recovery_generation)) reject('historical_recovery_regression');
     floorLast = ledger(floor.schema_ledger, floor.schema_ledger_digest);
-    strings(floor.capabilities, CAPABILITIES);
+    strings(floor.capabilities, CAPABILITIES, CAPABILITIES.length);
     observed = trusted.observation;
     exact(observed, ['evidence_id', 'observed_at_ms', 'target', 'schema_ledger', 'schema_ledger_digest', 'enabled_shapes', 'written_shapes', 'active_releases', 'complete']);
     text(observed.evidence_id, ID); integer(observed.observed_at_ms);
@@ -214,7 +218,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
       if (records.has(id)) reject('release_evidence_invalid');
       records.add(id); text(record.evidence_id, ID);
       if (!['approved', 'withdrawn'].includes(record.status)) reject('release_evidence_invalid');
-      strings(record.environments, ENVIRONMENTS); strings(record.capabilities, CAPABILITIES);
+      strings(record.environments, ENVIRONMENTS); strings(record.capabilities, CAPABILITIES, CAPABILITIES.length);
       if (!Array.isArray(record.schema_ledger_digests) || record.schema_ledger_digests.length < 1 || record.schema_ledger_digests.length > 32 || new Set(record.schema_ledger_digests).size !== record.schema_ledger_digests.length) reject('release_evidence_invalid');
       for (const digest of record.schema_ledger_digests) text(digest, HEX64, 64);
       integer(record.approved_at_ms); integer(record.expires_at_ms);
@@ -243,7 +247,10 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // Retained capability-only requirements keep their reviewed prerequisites,
   // even when current shapes are empty. Do not infer written shapes from a
   // binary capability, or silently add support to any release approval.
-  for (const shape of ['avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
+  // 114 requires a persisted preparation before every new ingest submission;
+  // generic pre-114 ingest support cannot satisfy the changed writer contract.
+  if (Math.max(plannedLast, floorLast) >= 114 && required.has('execution.model-credential-ingest.v1')) required.add('execution.model-credential-preparation.v1');
+  for (const shape of ['execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
     if (!required.has(shape)) continue;
     for (const capability of SHAPES[shape].capabilities) required.add(capability);
     if (floor.capabilities.includes(shape)) {
