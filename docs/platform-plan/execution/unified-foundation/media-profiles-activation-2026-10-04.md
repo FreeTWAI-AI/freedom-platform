@@ -52,3 +52,35 @@ staging 實際同 snapshot DB＋R2 archive 已上傳到獨立 recovery bucket、
 七類媒體現在有實際 R2 路徑與新寫入核對，既有正式頭像／海報已搬完。仍保留 bridge／legacy bytes；未完成的 GC／legacy purge 前置不因本輪成功就自動批准。影片本輪真人瀏覽器 proof 是 WebM；未把 MP4、所有 highlight kinds、真實 GitHub 發表審核或所有跨瀏覽器組合標成已重跑。
 
 此工作不完成 P2 的全組可信 library／入口治理，也不完成 P3 的本人模型、配對與 Stop／Revoke 真人流程。Public aggregates 隨 repo 提交；帳號、cookies、keys、object keys、SQL row references、原始 dumps 與完整 API receipts 只在 `freedom-media-profiles-20261004` 私有 journal。
+
+## P1 補充：受控瀏覽器與 synthetic 帳號 HTTPS 驗收及新封存
+
+本輪在 staging 的 `d269a8d7605630cab1da605d7cac4d0c254e3258` release，以兩個新建、由操作人管理的 synthetic 帳號補驗 MP4 與精華媒體變體；帳號 provision 的 11 項檢查通過。這是實際 HTTPS／Cloudflare／R2 路徑與受控瀏覽器操作的證據；帳號及內容仍是測試 fixture，不代表一般會員或所有裝置的全面驗收。以下補充前節 WebM-only 的當輪邊界，未改寫先前紀錄。
+
+| 補驗範圍 | 實際結果 |
+| --- | --- |
+| H.264 MP4 | 160×90、2.4 秒影片，實際上傳、完整 digest、R2、SQL 無新檔案 bytes、Range／If-Range／416、peer 404 與 receipt replay，共 21 項檢查通過。 |
+| Chromium 播放 | 播放時間前進 0.448 秒、seek 至 1.8 秒及 HTTP 206，共 7 項檢查通過。首輪曾出現 `decode_error`，未保存足夠診斷供判定原因；其後同一 URL 重讀成功。首次解碼失敗仍是未釐清的紀錄，後續成功不消除它。 |
+| 精華圖片與連結 | PNG photo、JPEG portrait poster、WebP photo 及 link，共 51 項檢查通過；三張圖片及其 thumbnail 均經實際 Cloudflare 路徑、R2 與 SQL 無新檔案 bytes 核對。 |
+
+第一次 PNG POST 在 60 秒時逾時，服務端實際已發布。操作人查核原 `command_receipt` 後，以同一 idempotency key 重播取回結果，確認沒有重複資料。這次 timeout 與其恢復方式一併保留，不把逾時當成沒有寫入，也未換 key 重新建立。
+
+這些結果補足指定 MP4 與圖片／link 變體的受控正例；尚非跨瀏覽器、平板或所有裝置組合的全面證明。其他 P1 的 GC、reader floor 與 legacy bytes 清理仍未啟用，既有保留與相容性要求不變。
+
+### 本輪新的同 snapshot 恢復集
+
+2026-10-05 00:58:32 UTC 的新 staging archive 使用 operator source `93e470e9b3f7b93c05cf63ccf6bc1fa5a4c1a253`。192 個 tables、4,018 rows、2 個 sequences（advance 為 0）、25 個 objects（44,267 bytes）完成 restore、evidence comparison、完整 remote readback 與 native R2 驗證。狀態為 `quarantine_not_approved_for_exposure`，GC OFF 已確認，自有 restore 資源已清理，readback cleanup 為 true；沒有據此批准對外 exposure 或 GC。
+
+| 證據 | SHA-256 |
+| --- | --- |
+| Recovery-set manifest | `83b8c41c1d4df580aec7534361386b05cea0f0bbe99095e6910c5d6713b4402c` |
+| SQL dump | `6e6a67b655d5cef7829fa078fc5cf1fa1f7d957cc5a7a088fb749db0993d2a4c` |
+| TAR archive | `4eb305ff94d09bfdc35a9744b98f42613b2476cbb92a782b3ae4d26a0e5c5746` |
+
+清理後，既有 staging daily backup service 於 2026-10-05 01:02:35 UTC 完成 main step，01:02:54 UTC 完成 offsite post step。操作人核對完成 receipt 時間為 `2026-10-05T01:02:54.035Z`：25 個 objects、44,267 bytes，archive 1,607,680 bytes，SHA-256 `fc9a00f1b8a8b53af7c04f8d6d5f8654a402c71daedfb89cd1b6ccddde08ae87`，`fullReadbackVerified:true`、`requiresGcDisabled:true`。這仍是既有 dump 後 immutable object superset 方法；完整 readback 成功與上列新 coordinator 同 snapshot archive 的恢復證據分別記錄，不能視為 daily service 已切換新流程。
+
+### Lifecycle 收尾與目前邊界
+
+後續 36 項 lifecycle 檢查通過：移除本輪 video、images 與 link，取消兩個 events，停用兩個自有 synthetic users 並撤銷其 sessions。新建的臨時 Access policy／token 已撤銷、刪除。收尾核對正式 health 為 200、release 仍為 d269；staging 回到 Access 302。
+
+本節僅保存操作人提供的彙總與 digest metadata。私有原始紀錄定位為 `freedom-platform-push-20261004/media-variants-live`；此文件不包含其內容、帳號、憑證、object keys 或原始 receipts。P3 本人模型與配對的驗收邊界不因本輪 P1 媒體補驗而改變。
