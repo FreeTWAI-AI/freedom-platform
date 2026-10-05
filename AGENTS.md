@@ -1,5 +1,25 @@
 # Agent 工作說明
 
+## 開工與現況入口
+
+先讀 [Foundation 收尾入口](docs/platform-plan/execution/unified-foundation/closeout.md)，
+以其中的現況快照與需求證據索引核對本次 source、部署、原 requirement IDs 及未驗項。
+歷史 handoff 只作具日期的證據，不能代替目前狀態。
+
+依 [context 工具說明](governance/README.md)從自己的 worktree 根目錄執行：
+
+```sh
+node scripts/freedom.mjs prepare --base-ref <exact-baseline-sha> --paths <affected-paths>
+```
+
+先核對輸出的 repo／head／base、baseline 與 candidate 規則及 affected modules，
+再工作；換 worktree、子 Agent 或跨模組時重新取得對應 context。這份本機 bundle
+不授予 merge／deploy 權限，也不是可信 CI 證據。工具目前只支援從 repo root 執行。
+若回報 `context_size_limit`，記錄 bundle 未產出，按受影響的 `freedom.module.json`
+及其相依關係讀齊 baseline／candidate instructions；根檔或未知路徑須涵蓋全部模組。
+不得改小實際範圍或自行提高上限假稱
+prepare 成功。全 scope 的有界分段載入仍列在 FC-00／GOV-07/09/10 收尾工作包。
+
 ## UI／視覺修改前
 
 Before any UI/visual change, use the design skills `ui-design-system` and `huashu-design` (in-app mode) if your agent has them; match the existing design tokens in [DESIGN.md](DESIGN.md) and the CSS custom properties in `apps/portal-web/src/rpg-theme.css` / `styles.css`; avoid oversized buttons for inline actions (use the small/secondary variant; full-width only for a single primary action on mobile).

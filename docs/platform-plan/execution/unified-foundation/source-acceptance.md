@@ -1,5 +1,10 @@
 # R2 與 Autopilot 原始要求對照
 
+原需求原文與最低證據層級保留在本頁；**目前逐項状态以 [需求證據索引](requirement-evidence.json) 為準**。
+下表 `not_run` 是建立規格映射時的歷史欄位，不再維護為第二份 current 狀態。
+狀態定義、owner 及 FC-00–07 完成門檻見 [收尾入口](closeout.md)；部分證據不能直接升為 accepted。
+
+
 本文件逐字保留 [R2 §18](../../../plans/platform-restructure-r2.md) 的 38 項案例及 [AP §5.7](../../../plans/autopilot-vnext.md) 的 70 項案例；與 [統一計畫驗收](acceptance.md) 的 60 項合計 **168 項來源要求**。另列原 R2 G01–12、AP INV-01–12 共 24 條原則，不重算為額外 24 項產品測試。
 
 來源 ID 以 R2:/AP: 命名空間區分；列內文字是原需求，不表示已實現。Owner 是 spec 責任，不是假造的 test filename。實作 PR 必須將每列接到真正 test IDs 及 evidence；所有狀態目前為 `not_run`。證據格式與禁止把 mock 當實機的規則沿 [共同驗收](acceptance.md)。

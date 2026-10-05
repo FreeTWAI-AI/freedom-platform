@@ -1,0 +1,270 @@
+{
+  "format": "freedom.foundation-current-state/v1",
+  "recorded_at": "2026-10-05T20:13:25.485122+00:00",
+  "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
+  "foundation_complete": false,
+  "requirements": {
+    "index": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
+    "source_tables": [
+      "docs/platform-plan/execution/unified-foundation/acceptance.md",
+      "docs/platform-plan/execution/unified-foundation/source-acceptance.md"
+    ],
+    "source_requirement_count": 168,
+    "completion_rule": "All necessary cases at the original minimum evidence tier; merged code and feature flags cannot establish acceptance."
+  },
+  "merged_source": {
+    "repository": "FreeTWAI-AI/freedom-platform",
+    "sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
+    "tree": "2578e13866673dbff8d1c2b89b25bc7aaa61e217",
+    "pull_request": 129,
+    "merge_at": "2026-10-05T18:29:44Z",
+    "verify": {
+      "run": 37356371713,
+      "conclusion": "success",
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37356371713"
+    },
+    "limitation": "This main commit is not evidence of a member-portal deployment."
+  },
+  "deployment": {
+    "production": {
+      "url": "https://freetwai.com/",
+      "observed_release_sha": "fe93730d36805a5c25a5f381450980b2767efe29",
+      "fresh_health": {
+        "origin": "https://freetwai.com",
+        "path": "/api/v1/health",
+        "resolver": "fresh Cloudflare DNS-over-HTTPS, per-request --resolve; TLS hostname verification retained",
+        "exitCode": 0,
+        "status": 200,
+        "observed": {
+          "status": "ok",
+          "mode": "public",
+          "version": "0.13.0-member-messages",
+          "money_movement_enabled": false,
+          "official": false,
+          "runtime": "cloudflare-workers",
+          "release_sha": "fe93730d36805a5c25a5f381450980b2767efe29"
+        },
+        "sha256": "b6f2905328cfc295b03ff154f0053446f9d86dd2fb8fbfcdd44daedc62541196"
+      },
+      "observed_at": "2026-10-05T19:56:53.468447+00:00",
+      "limitation": "Public health proves this endpoint/release identity, not every feature, private DB schema, or cloud private-AI acceptance."
+    },
+    "staging": {
+      "url": "https://staging.freetwai.com/",
+      "last_operator_release_sha": "fe93730d36805a5c25a5f381450980b2767efe29",
+      "operator_observed_at": "2026-10-05T13:50:44.084143+00:00",
+      "fresh_http": {
+        "origin": "https://staging.freetwai.com",
+        "path": "/api/v1/health",
+        "resolver": "fresh Cloudflare DNS-over-HTTPS, per-request --resolve; TLS hostname verification retained",
+        "exitCode": 0,
+        "status": 302,
+        "authenticatedHealth": "not_obtained",
+        "reason": "Access response"
+      },
+      "fresh_http_at": "2026-10-05T19:56:53.468447+00:00",
+      "limitation": "Fresh Access 302 is not authenticated health; release identity comes from the earlier operator receipt."
+    },
+    "last_operator_rollout": {
+      "source": "fe93730d36805a5c25a5f381450980b2767efe29",
+      "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/127",
+      "kind": "operator_observed_private_receipt",
+      "at": "2026-10-05T13:50:44.084143+00:00",
+      "receipt_sha256": "c562a306daee0ec24152ee76402ce2582066f932cdbd97a6c5a278fa8e8e3e6a",
+      "selected_checks": {
+        "staging": 65,
+        "production": 37
+      },
+      "database_migrations_applied": false,
+      "private_ai_enabled": false,
+      "backup_release_pins_updated": true,
+      "temporary_access_revoked": true,
+      "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance."
+    },
+    "execution_mode": "Explicitly authorized private operator invocation for an exact source; no automatic GitHub Release trigger was verified.",
+    "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
+  },
+  "schema": {
+    "repository_max_migration": 115,
+    "last_observed_live": {
+      "ledger_rows": 112,
+      "through_number": 113,
+      "source_digest_drift": 0,
+      "source": "80acbd471fd28e5bb59898de79a1ace179511ef3",
+      "evidence": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
+      "kind": "historical_operator_observed"
+    },
+    "last_reported_pending": [
+      114,
+      115
+    ],
+    "fresh_live_ledger_read": "not_run",
+    "limitation": "The latest rollout reports no migrations applied. Neither health nor main manifest proves the current SQL ledger; re-read exact names/digests/roles before the next schema or recovery operation."
+  },
+  "topology": {
+    "member_runtime": "Cloudflare Workers",
+    "business_facts": "PostgreSQL",
+    "content": "Private per-environment R2",
+    "active_cluster_name": "freedom-foundation-candidate-20261004-pg",
+    "active_cluster_must_be_preserved": true,
+    "logical_environment_separation": [
+      "production",
+      "staging"
+    ],
+    "evidence": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
+    "limitation": "Cluster name contains candidate but is the live cluster; historical topology was not re-enumerated from provider credentials in this research."
+  },
+  "features": {
+    "media": {
+      "seven_kinds": "operator-observed R2 reads/writes",
+      "last_reported_policy": "bridge",
+      "last_reported_media_flags": "six ON",
+      "legacy_bytes": "retained; historical 27-item observation is not a new live count",
+      "gc": "OFF in last backup evidence",
+      "automatic_retention": "not enabled",
+      "evidence": [
+        "docs/platform-plan/execution/unified-foundation/media-profiles-activation-2026-10-04.md",
+        "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
+        "docs/platform-plan/verification/daily-scheduled-2026-10-05.json"
+      ]
+    },
+    "private_ai": {
+      "last_operator_enabled": false,
+      "reason": "Cloud/client/official CLI and end-to-end acceptance incomplete; OFF does not close requirements.",
+      "local_openrouter_evidence": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json"
+    },
+    "limitation": "No fresh authenticated feature/DB/R2 inspection in this research."
+  },
+  "recovery": {
+    "daily_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+    "last_rollout_backup_release_pin": "fe93730d36805a5c25a5f381450980b2767efe29",
+    "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+    "scheduled_evidence": "docs/platform-plan/verification/daily-scheduled-2026-10-05.json",
+    "scheduled_successes_observed_per_environment": 1,
+    "limitations": [
+      "Host-dependent schedule and operator credentials",
+      "Same Cloudflare account; no independent account disaster boundary",
+      "Not PITR or production failover",
+      "No fresh restore of source567/current full schema",
+      "Second authorized operator in a new environment not yet accepted",
+      "Daily adapter requires GC OFF; retention executor and historical unsettled PUT remain open"
+    ]
+  },
+  "governance_pins": [
+    {
+      "purpose": "Central required workflow: selector/aggregate and native check publication",
+      "ruleset": 24469536,
+      "source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+      "verify_app_id": 15368,
+      "codeql_app_id": 57789,
+      "minimum_reviews": 1,
+      "last_push_approval": true,
+      "dismiss_stale_reviews": true,
+      "bypass_actors": [],
+      "evidence": "docs/platform-plan/verification/main-ruleset-2026-10-05.json",
+      "limitation": "Candidate-checkout suites are not all an independently trusted behavioral harness; preflight fix is not installed."
+    },
+    {
+      "purpose": "Nine consumer source gates",
+      "ruleset": 24473806,
+      "source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+      "publication_ref": "refs/heads/governance/directory-baseline-source-20261005",
+      "evidence": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md"
+    },
+    {
+      "purpose": "Three HTTP/CLI consumer runtime gates",
+      "ruleset": 24476100,
+      "source": "92a58db9948c4c56a9d81d1450b9a856fb94a944",
+      "publication_ref": "refs/heads/next-20261005/consumer-enforcement-source",
+      "evidence": "docs/platform-plan/verification/consumer-entry-cli-enforcement-2026-10-05.json"
+    },
+    {
+      "purpose": "Directory build runtime gate",
+      "ruleset": 24516222,
+      "source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+      "publication_ref": "refs/heads/governance/directory-runtime-source-20261005",
+      "evidence": "docs/platform-plan/verification/directory-runtime-enforcement-2026-10-05.json"
+    },
+    {
+      "purpose": "Approved shared library artifact source; distinct from preview contract and workflow source",
+      "source": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "evidence": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
+      "limitation": "Source digest/resolution alone does not prove actual invocation."
+    }
+  ],
+  "directory_main_queue": {
+    "status": "installed_and_exercised",
+    "rule_id": 24523158,
+    "installed_at": "2026-10-05T18:32:40Z",
+    "evidence_kind": "operator-verified GitHub native runs and readback",
+    "pr": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/22",
+    "central_pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/129",
+    "candidate_and_merged_sha": "9729e4f08c9153bc0f4cc51a0d8c0dbe94892277",
+    "tree": "e4bd56815d9db168808c2db84c864622939ff105",
+    "queue_source_run": 37357019015,
+    "queue_runtime_run": 37357019163,
+    "workflow_sources": {
+      "source_gate": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+      "runtime_gate": "5b471fe730f11a85700d5ab3225d6c862cee7bc3"
+    },
+    "runtime_cases": 10,
+    "cleanup_verified": true,
+    "direct_merge_http_status": 405,
+    "direct_merge_rule_suite": 4372112632,
+    "pages_run": 37357099152,
+    "pages_deployment": 6867000188,
+    "pages_status": "success",
+    "pages_http": [
+      {
+        "url": "https://freetwai-ai.github.io/",
+        "status": 200,
+        "bytes": 4640,
+        "sha256": "64e4f9ee77d7dd6f97a46e2ab1992df76f324cc58aef9994375514b0c68f973a",
+        "matchesDeployedArtifact": true,
+        "matchesPriorProductContent": true
+      },
+      {
+        "url": "https://freetwai-ai.github.io/privacy/discord-bot/",
+        "status": 200,
+        "bytes": 16394,
+        "sha256": "d2ee21e7cc1e8514e5aab32841077d4607c6d8c8d28bb8f1cfc720f973286213",
+        "matchesDeployedArtifact": true,
+        "matchesPriorProductContent": true
+      }
+    ],
+    "limitations": [
+      "Directory main only; not central or other consumer queues",
+      "Does not close fork/supersession, all library invocation, or every original GOV-17 case"
+    ],
+    "observed_at": "2026-10-05T18:37:10.453840+00:00"
+  },
+  "client_support": [
+    {
+      "client": "Member browser portal",
+      "observed": "Existing member/media flows deployed; see per-requirement evidence.",
+      "unaccepted": "Full same-candidate four-flow closeout and every private read surface"
+    },
+    {
+      "client": "Central device/bootstrap and member-owned broker",
+      "observed": "Mounted HTTP and bounded model-step implementation; local owner OpenRouter flow recorded.",
+      "unaccepted": "Real target-cloud full private flow; service/site identity is not implied by schema enums"
+    },
+    {
+      "client": "Agent Kit",
+      "observed": "Pinned member-workspace library adoption and bounded CLI runtime gate.",
+      "unaccepted": "Device flow, ExecutionGrant and executable MCP client integration"
+    },
+    {
+      "client": "Official Codex/Claude CLI adapters",
+      "observed": "Current official_cli execution path explicitly rejects; historical standalone CLI probe is not platform acceptance.",
+      "unaccepted": "Real authenticated platform adapter, Grant/Attempt/Result/control/handoff flow"
+    },
+    {
+      "client": "Extension / neo",
+      "observed": "Central schemas/specifications and bounded cores; external client implementation not established by this audit.",
+      "unaccepted": "Packaged-client permission, reconnect, Stop/Revoke and mixed-version handoff evidence"
+    }
+  ],
+  "next_work": "docs/platform-plan/execution/unified-foundation/closeout.md",
+  "update_rule": "Replace the relevant observation only with a dated source/candidate/environment receipt; retain historical evidence at its original location. Do not blindly align workflow/library/deployment pins to main."
+}

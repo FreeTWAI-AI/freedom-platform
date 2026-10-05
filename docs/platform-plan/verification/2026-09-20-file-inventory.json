@@ -44,8 +44,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 4467,
-      "sha256": "8050356045954e44337834903672a4235a6efd305501d07a0646917429b4659d"
+      "bytes": 5620,
+      "sha256": "b662b653ef5253b5900e6f91489f6d88a6b7e107110e224f1011195caf9330e4"
     },
     {
       "path": "CHANGES-2026-09-19.md",
@@ -64,8 +64,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 17526,
-      "sha256": "edb882a16905b40164580772453711169a721101a49cd6a9b570b6eaa4025ebe"
+      "bytes": 17205,
+      "sha256": "3683d9c13a71ef209d9ffc14168254cf24e54e55fdfa47329d74aed1c7b888cb"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13604,18 +13604,33 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/README.md",
-      "bytes": 11739,
-      "sha256": "a5baf6baa464785830153bbe862f9c5bacd9e5b812c263df1b136917a8569891"
+      "bytes": 11526,
+      "sha256": "9ff175f8038d623346dc687972900cc424dbcdaf23fcb48b614e07d2a9c5bbfd"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
-      "bytes": 12202,
-      "sha256": "250573fe8630ae97be3d273d914eeca91513d290069683ba0863cdb0196740e2"
+      "bytes": 12587,
+      "sha256": "08daf0d3c8fa7fd17ddabe3503a08f25f8a002d5386ab12d19aae3f2bc5b34af"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md",
       "bytes": 8930,
       "sha256": "b122d9e33a071a71213e55592bc25f93dd0fab6a5280d387ea7959b847c30145"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/closeout-patch-evidence.json",
+      "bytes": 4443,
+      "sha256": "4d8515dc81f51652207cb0f84669c48802b664353380aac5eac28d62d4b5266a"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
+      "bytes": 8979,
+      "sha256": "aa970d74b76e1dd1a5c1622dd04760fa99f850f26dc694e9618dbab34b96a407"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
+      "bytes": 12929,
+      "sha256": "7b69ee4f0a4f7c6d40600a841a6d966c9120695f349b3681c83349a32009cd2a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
@@ -13624,13 +13639,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 15476,
-      "sha256": "08ef3233b2229127ed977df2d7be9cdcf1174954dec2963ef7b2462ac9231045"
+      "bytes": 15963,
+      "sha256": "1435b25f4264a6460d351fa99e4203353d1406ee953df032dc248f4efea5d365"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
-      "bytes": 217963,
-      "sha256": "c7f2ff6857831e3ffe39d39eef77b8ab6d66e4e87a7f03f84b79b6bed0964b1e"
+      "bytes": 218409,
+      "sha256": "c8e94002fdff518fe10a12208ad2ec266904e99ada8ede6e81c1e509c892cb1a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/media-profiles-activation-2026-10-04.md",
@@ -13639,8 +13654,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 20132,
-      "sha256": "b7b1c3f4e3b0d4270703db7db6d84706087bed9b52b1d170cf8bdc03f793921c"
+      "bytes": 20471,
+      "sha256": "63de2985c45021db8983ad22506ed39cf2104d1adfb95aac9618fc10ceb76289"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13649,13 +13664,18 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
-      "bytes": 28205,
-      "sha256": "c9ec8b093cb1381ba9c4e650f7ec48e8b66610513cda1fb1459592c7f7fa2513"
+      "bytes": 28642,
+      "sha256": "df53eee1f6224afc65b53fcf0ac825ae7b870b077cd70d75d54a047407820acc"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
+      "bytes": 337519,
+      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
-      "bytes": 24327,
-      "sha256": "92362aa1b8157e0e90796495efec52feb18227609b6ee102c22f0ab407e31097"
+      "bytes": 24694,
+      "sha256": "479817001628e6b30ffd9735963fae0a41f3b25ac7aad2536f946fcd3632e6b6"
     },
     {
       "path": "docs/platform-plan/media/avatar-operator-backfill.md",
@@ -13784,8 +13804,8 @@
     },
     {
       "path": "freedom.project.yaml",
-      "bytes": 5948,
-      "sha256": "0cba297f5db8c901a92af3296233e229af4362d49c9185aa459a1c81cdefd481"
+      "bytes": 6372,
+      "sha256": "feec55028e5390f3401a4fb9e5039e9a7bc9434ef3de0d05b8dc3026cc16d5d7"
     },
     {
       "path": "governance/README.md",
@@ -15724,8 +15744,8 @@
     },
     {
       "path": "packages/contribution-tools/context.mjs",
-      "bytes": 11568,
-      "sha256": "7965eae57ad8759862d4ff4439f9e23fc1e76b1adc561cd9c5f147b819bde5be"
+      "bytes": 11592,
+      "sha256": "3433e417cf87677657240c352490ec3a0039f9d7646684db6588f02954b31cf1"
     },
     {
       "path": "packages/contribution-tools/contracts.mjs",
@@ -15929,8 +15949,8 @@
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
-      "bytes": 19544,
-      "sha256": "ccc32d1c21d237c5bba62c95a2258beef0d9f73f3868d6c795c247f86e32d80e"
+      "bytes": 20641,
+      "sha256": "de8841e9d0db0364034feeaba9f717fb2b706d74e3de0e32fcd10022f2037145"
     },
     {
       "path": "packages/contribution-tools/test/contracts.test.mjs",

@@ -1,12 +1,18 @@
 # 共同基礎：本機與 CI 交付紀錄
 
-## 本輪合併授權與接續計畫
+> **現況入口：** [current-state.json](current-state.json) 記錄各項觀察時間與來源；
+> [requirement-evidence.json](requirement-evidence.json) 記錄原 168 項要求的實作／部分驗收／缺口。
+> [Foundation 收尾](closeout.md)是目前工作順序。下文保留歷史 checkpoint；
+> 「目前／最新／current」均指各段當時的觀察，不能用來推定今天的部署或 sprint 完成。
+
+
+## 歷史合併授權與當時接續計畫（#108）
 
 Ted 已要求完成必要工作後合併 #108，並保留[未來 P0–P3 計畫](post-migration-plan-2026-10-04.md)。目前合併範圍是已移植的平台基底，未驗收功能保持 OFF；原始產品驗收與 installed gate 仍按計畫接續。實際 merge SHA／時間與最終 checks 由 [PR108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108) 記錄。
 
 CodeQL39 經判定時固定 a1adecc 的 SARIF、十個來源及四條完整 flow 的獨立審查，再由根 agent 核對隨機 token／salted-scrypt 邊界，已於 16:34:38 UTC 以 false positive disposition 處理；GitHub readback 為 dismissed。未改 crypto、query 或 fixture 字串。最新完整 CI 仍需針對本輪最終 source 執行，不能沿用 9cc 結果，詳見[安全判定](../../../development/codeql-alert-39.md)。
 
-最新狀態：[2026-10-04 實際移植報告](actual-migration-2026-10-04.md)、[接手筆記](handoff-2026-10-04.md)。已依 Ted 指示直接完成來源備份、寫入凍結、真實 restore／pending migrations／ACL 核對與 staging／正式流量切換，沒有另加獨立預演。
+當時移植狀態：[2026-10-04 實際移植報告](actual-migration-2026-10-04.md)、[接手筆記](handoff-2026-10-04.md)。已依 Ted 指示直接完成來源備份、寫入凍結、真實 restore／pending migrations／ACL 核對與 staging／正式流量切換，沒有另加獨立預演。
 
 ## 合併前的 CI 修正與驗證
 
@@ -18,7 +24,7 @@ CodeQL39 經判定時固定 a1adecc 的 SARIF、十個來源及四條完整 flow
 
 作者最終真實 PostgreSQL／HTTP adversarial 8／8 加 process 1／1，共 9／9、零 skip；無回應 timeout、早期 IPC 拒絕及 timer 清理反例通過。獨立 reviewer 另從最終 source 實跑 helper 的成功、timeout、早期拒絕、零 timer 殘留及無 unhandled rejection 檢查，均通過；先前無界等待的 review blocker 已修正。測試 schema／roles 及 owned container 已清理。根整合 typecheck 與文件檢查通過；完整 hosted CI 必須檢查本輪最後提交，不能把上述局部通過當成新 head 已全綠。合併者核對 [PR108 checks](https://github.com/FreeTWAI-AI/freedom-platform/pull/108/checks) 的實際結果後才執行合併。
 
-## 最新已完成：會員資料與正式入口切換（2026-10-04 09:03:44 UTC）
+## 歷史完成：會員資料與正式入口切換（2026-10-04 09:03:44 UTC）
 
 正式站原有 387 users、staging 8 users 已搬入新的 PostgreSQL 18.6；兩邊各 140 張來源表，最後快照分別 15,989／3,203 rows。還原後、migration 前的逐列全欄位摘要多重集合、欄位、counts 與 sequence values 全部一致；再套 36 份 pending migrations 至 110 files／最後編號 111，並恢復受限 runtime/operator grants。所有既有 legacy media bytea 隨來源資料完整保留，沒有 seed。
 
