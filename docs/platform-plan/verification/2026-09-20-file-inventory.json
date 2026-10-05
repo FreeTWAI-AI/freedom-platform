@@ -5104,8 +5104,8 @@
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
-      "bytes": 12395,
-      "sha256": "05254f61ab16a3bf5e4f9352276f7daf8931c9826d1cca7610a30ea39427fbb0"
+      "bytes": 12739,
+      "sha256": "065b1351da62c73390966cc0800668e02b7583813123832e629e3f83159ab521"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -6584,13 +6584,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
-      "bytes": 16364,
-      "sha256": "c0ec57ec15e94545f8f4a95569d65ef915e3ac8c00e1d689fdfbeab8e9ae6b0a"
+      "bytes": 22461,
+      "sha256": "e3a35642923c98b9c3f3de434487cbe181b3b4050ad1dc2729abeb4fa18fa2f3"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 9486,
-      "sha256": "72a98d0ce271f08202e0b2e6523d08ad32e75e1220e22b709ff4385d414ce89a"
+      "bytes": 10921,
+      "sha256": "b874bb6b50062614792955ba14ae9114b23a6ee7730dd05607a631f68a3d4f9f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -6604,13 +6604,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 15564,
-      "sha256": "c677d591a8dac5fdd2927f543b39f559cbcc73b4e376230e67cb5a51f3b98347"
+      "bytes": 16193,
+      "sha256": "d411c0dcf4dbc83f98e3c3774e8e420752bfa35b2ccf9a38effeee4006026d2f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
-      "bytes": 15731,
-      "sha256": "b8d3711dc2e4264add92ec5cac3410639323b90d97021acc022ae83080b55aa2"
+      "bytes": 22286,
+      "sha256": "3e4d98dbdec41203d8479c8d9e8e3491450f839038d2e2f63d23430cfb4c2aab"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -6653,6 +6653,11 @@
       "sha256": "a401db64dc0ed422805c3697d45f340dca2b21d67843fee0f4a74dc1a9740369"
     },
     {
+      "path": "docs/platform-plan/verification/consumer-cli-runtime-ruleset-2026-10-05.json",
+      "bytes": 1354,
+      "sha256": "1b5f1d45338c8355ef70333349a06030cece472e97174f2ad36c49df1c4b3f18"
+    },
+    {
       "path": "docs/platform-plan/verification/consumer-runtime-ruleset-2026-10-05.json",
       "bytes": 825,
       "sha256": "afb0bafb176b9867675e887af50c7406880d8a797535ef5aee375a285f8f0246"
@@ -6661,6 +6666,11 @@
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-04.json",
       "bytes": 2121,
       "sha256": "eb72c3cd36d09d9319ba95adc3463fe5c88883146484861c8bd0a2738716293b"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-05.json",
+      "bytes": 2201,
+      "sha256": "45c37df1f702008a1f4fc7548e1c15c79bb544df18941a620ab9fd41ea5f7472"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -8589,8 +8599,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-behavior.md",
-      "bytes": 8526,
-      "sha256": "6c48e2e1881d538a43bb774092c2cde3ecad9cbbce5542cca30825f4c2bcf6c8"
+      "bytes": 8829,
+      "sha256": "76e814d73c38da424b5b4a7f9599fc45953cf568a225eaf755c8a4491fa8b0d7"
     },
     {
       "path": "packages/contribution-tools/consumer-cli-canary-ruleset.example.json",
@@ -8599,8 +8609,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-cli-canary.md",
-      "bytes": 5574,
-      "sha256": "7e4430770ce7a6cbf654cd36fff1e00228af8aed684297533d7653b250fa5d06"
+      "bytes": 6089,
+      "sha256": "95381aed0b39e82ca6845536447922127d75018e5df804f0e6eec1abf5dacfa7"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
@@ -8609,13 +8619,13 @@
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-boundaries.md",
-      "bytes": 6981,
-      "sha256": "4b4347c8b13e010487b0ed5e69136a129b68067e100e9b2ba9527c6944893ad1"
+      "bytes": 6996,
+      "sha256": "c4c01f2bcff1930ad9377928baf515e8ac1887403072961acc6f0aee0e9e4de7"
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-recipe.md",
-      "bytes": 9162,
-      "sha256": "6404b90c37aa7cdd8ea00382956da1738a8d25796dbed4155e4f976c6e9758b5"
+      "bytes": 9444,
+      "sha256": "aebed1455e1622f8d8f2a24be3b3a0e7c2109e75d61ee1b583fa547b522b5ec4"
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-recipe.mjs",

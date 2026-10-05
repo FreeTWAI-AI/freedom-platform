@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-10-04T21:42:10.955-04:00",
+  "organization": "FreeTWAI-AI",
+  "ruleset_id": 24476100,
+  "configuration": {
+    "name": "Freedom consumer HTTP behavior — three adopted consumers",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081390,
+          1378081447,
+          1382994244
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/trusted-consumer-runtime.yml",
+              "sha": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+              "ref": "refs/heads/push-20261005/consumer-cli-runtime-source"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "acceptance": {
+    "main_positive_job": "111582738936 success",
+    "main_cli_negative_job": "111582747620 failure",
+    "forged_green_actual_merge_status": 405,
+    "rule_suite_id": 4358652158,
+    "probes_closed_and_refs_removed": true,
+    "consumer_main_unchanged": true,
+    "library_invocation": "not_checked"
+  }
+}

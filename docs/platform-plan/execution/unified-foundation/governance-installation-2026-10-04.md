@@ -114,6 +114,7 @@ Workflow SHA 更新須審查新固定來源及重新驗證，不隨 main 自動�
 舊 c42 ref 沒有移動；上述 c42 配置 artifact 保留為首次安裝紀錄，不冒充現行來源。
 三倉／main 範圍不擴大。九倉 source55／rule `24473806`、library source91 及中央
 `24469536` 在本次 CLI probe／清理期間保持原配置；中央後續更新另記。
+目前固定來源與完整 policy 的非秘密回讀另存為 [c3e runtime 配置](../../verification/consumer-cli-runtime-ruleset-2026-10-05.json)。
 
 新版 host 對 kit 同時要求 source、workspace 及真實 `src/cli.mjs#maker` 的隔離
 HTTP observation，綁定相同 candidate commit/tree 並確認各自 cleanup。CLI 走 synthetic
@@ -162,6 +163,7 @@ kernel、新 durable App publisher 或完整 P2。
 變更是 `/rules/3/parameters/workflows/0/sha`；repository／main 範圍、active、空 bypass、
 App-bound checks、strict freshness、review／last-push approval 與禁止刪除／force push
 均保留。首次配置 artifact 仍是歷史紀錄，不代表現行 workflow SHA。
+現行非秘密配置另存為 [10 月 5 日 main ruleset](../../verification/main-ruleset-2026-10-05.json)。
 
 同一 c3e head 的 [Verify run 37251980098](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37251980098)
 及 [CodeQL run 37251977438](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37251977438)
