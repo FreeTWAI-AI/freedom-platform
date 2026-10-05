@@ -1,10 +1,10 @@
-# 中央 main 的實際治理門檻（2026-10-04）
+# 中央 main 與九個 consumer 的實際治理門檻（2026-10-04）
 
-這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。本輪在 GitHub Enterprise organization 安裝原生 required workflow，並實際測試正常及竄改 PR。`freedom-platform:main` 現在受保護；其他 repositories、完整可信 harness、實際 library usage 與所有入口覆蓋仍未驗收，不能把本輪當作整個 P2 完成。
+這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。中央 `main` 的 ruleset `24469536` 保留；另已安裝九個 consumer `main` 的原生來源檢查 ruleset `24473806`。九倉正例與兩個偽造綠燈負例已在一次性 branches 實際測試 merge；三個共用 library 採用 PR 已正常合併。這些結果不代表完整 P2、所有 runtime 入口或 durable App publisher 已驗收。
 
-實際回讀的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交。
+中央首次安裝的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交；九倉後續配置與驗證範圍見下節。安裝後另以 `freedom-agent-kit:main` 為目標，實際驗到正常 native job 成功及竄改／偽造綠燈的 merge 被新規則拒絕，main 未變。
 
-## 已安裝配置
+## 中央首次安裝紀錄
 
 - Organization：`FreeTWAI-AI`；repository ID：`1378081342`；僅 `refs/heads/main`。
 - Ruleset：`24469536`，`Freedom platform pinned verification`，active，無 bypass actor。
@@ -13,11 +13,11 @@
 - 必須走 PR；至少一位 reviewer、last-push approval、舊 approval 在新 push 後失效、review thread 必須解決；禁止 force push 與 branch deletion。
 - GitHub 回讀另帶 `require_extra_approval_for_unattributed_changes=true` 及空 `required_reviewers`；保留服務端預設，不視為可忽略 drift。實際 `branches/main` 回報 `protected=true`，effective rules 同時含 workflow 與 App-bound checks。
 
-本輪沒有合併任何產品 PR，也沒有改 main commit。安裝前後均為 `d269a8d7605630cab1da605d7cac4d0c254e3258`。PR #111／#112／#113 仍走正常 review 與 merge，不使用 bypass。已開 PR 若缺新規則要求的 workflow run，須觸發符合規則的新候選驗證，舊綠燈不能冒充新 required workflow。
+首次中央安裝操作沒有合併產品 PR，當時 main 前後均為 `d269a8d7605630cab1da605d7cac4d0c254e3258`。這是安裝時點紀錄，不代表後續 PR 的現行狀態。所有產品 PR 仍走正常 review 與 merge，不使用 bypass；缺新規則要求的 workflow run 時，舊綠燈不能冒充新 required workflow。
 
-## 真實正反例
+## 中央首次安裝的真實正反例
 
-測試使用一次性 `ops/governance-acceptance-base-20261004`，從同一 main SHA 建立；永不把故意破壞的 fixture 指向 main。先對此 branch 安裝相同 pinned workflow／verify App-source 規則，再依下列實測結果套用正式 main 配置。
+首次中央測試使用一次性 `ops/governance-acceptance-base-20261004`，從同一 main SHA 建立；該次破壞 fixture 沒有指向 main。先對此 branch 安裝相同 pinned workflow／verify App-source 規則，再依下列實測結果套用正式 main 配置。
 
 | 案例 | 實際結果 |
 | --- | --- |
@@ -32,29 +32,48 @@
 
 ## 仍須完成
 
-固定 YAML 阻止候選 PR 任意替換該 required workflow，但目前 workflow 仍會執行候選 checkout 的 build/test/scripts。因此它不等同 [治理規格](01-contracts-and-governance.md)要求的獨立可信 suite registry、不可竄改反例 harness 與完整 report publisher。`publisher_trust`／`library_usage` 不因本次安裝就改標 PASS。
+固定 YAML 阻止候選 PR 任意替換該 required workflow，但中央 verify workflow 仍會執行候選 checkout 的 build/test/scripts。因此它不等同 [治理規格](01-contracts-and-governance.md)要求的獨立可信 suite registry、不可竄改反例 harness 與完整 report publisher。`publisher_trust`／`library_usage` 不因本次安裝就改標 PASS。
 
-後續沿既有 P2 完成：可信 harness 與證據來源、漏登入口／候選刪測試等反例、consumer 的實際 library resolution／operation 使用、精確授權版本的跨倉同步，以及必要的 merge-group／撤銷／未知 ACK 驗收。原生 required workflow 是目前 Enterprise 能力下的既有規格路徑；若將來改方案，必須先建立等效的可信 App-bound publisher，不直接移除門檻。
+後續沿既有 P2 補完整可信 harness 與證據來源、漏登入口／候選刪測試等反例、其餘 library resolution／operation 覆蓋，以及實際 merge-group／撤銷／durable replay／未知 ACK 驗收。以下 consumer 來源 gate 與局部 HTTP 測試各自只證明明列範圍；它們不證明 durable App publisher 已部署。原生 required workflow 是現有規格路徑，不能因另一方案未完成就移除門檻。
 
 Workflow SHA 更新須審查新固定來源及重新驗證，不隨 main 自動移動。配置回讀和 probe 結果只證明本文件明列的 repository／branch／版本範圍。
 
 
-## 九個 consumer 的當前唯讀盤點
+## 九個 consumer 的已安裝來源 gate
 
-在中央 main 安裝後另向 GitHub 讀回 integration lock 所列九個 repo 的 default branch、contract lock 與含父層 rulesets。沒有修改這些 repo 或建立跨倉 upgrade PR。
+新增的 org ruleset **`24473806`** 為 active，只覆蓋下列九個 repository ID 的 `refs/heads/main`，無 bypass actor，`do_not_enforce_on_create=false`。required workflow 是中央倉的 [`.github/workflows/trusted-consumer-libraries.yml`](https://github.com/FreeTWAI-AI/freedom-platform/blob/55f70c01e574cf66c8fa06b79fc9d8b3ffff0c4a/.github/workflows/trusted-consumer-libraries.yml)，固定來源 **`55f70c01e574cf66c8fa06b79fc9d8b3ffff0c4a`**；三倉 library 的 canonical source 固定 **`91b943ac61e132fbbce72ea066cb2301aa065600`**。逐倉 effective main rules 回讀均含此 workflow；既有中央 ruleset `24469536` 未變，沒有取代或略過既有 review／checks。
 
-| Repo | 實際 main head | protected | rulesets 數 |
-| --- | --- | --- | --- |
-| `FreeTWAI-AI/.github` | `9c8f3b62e2ed3f7f585abcc4d63112c4516c9515` | false | 0 |
-| `FreeTWAI-AI/FreeTWAI-AI.github.io` | `90f790763f4f0507d123f325d194d2cf7b9bf73f` | false | 0 |
-| `FreeTWAI-AI/freedom-agent-kit` | `201fdab8017e2850bafc7b2f1e8dec7e4c0d6233` | false | 0 |
-| `FreeTWAI-AI/freedom-growth-automation` | `d1fd7f223efcbed85c95cda18734a33e6528b82a` | false | 0 |
-| `FreeTWAI-AI/freedom-project-page` | `05508e805a764ec6b681792aaaf8c4803cb7a592` | false | 0 |
-| `FreeTWAI-AI/freedom-project-template` | `9bc7cee3f98d21da3156e5a67bfa63dc63a4615e` | false | 0 |
-| `FreeTWAI-AI/freedom-skill-registry` | `b5aed63bdd40d6c72df2afe039677d2173a2e3f9` | false | 0 |
-| `FreeTWAI-AI/freedom-storefront` | `9823df79f8eee86008c269437880ed2e49bdc394` | false | 0 |
-| `FreeTWAI-AI/freedom-supplier-client` | `53fd5b0ac4a1b67ccd71a8cc4ba092ea15bb3534` | false | 0 |
+| Repo | 本次安裝時核對的 main head | 一次性 branch 正例 PR |
+| --- | --- | --- |
+| `FreeTWAI-AI/.github` | `9c8f3b62e2ed3f7f585abcc4d63112c4516c9515` | [#1](https://github.com/FreeTWAI-AI/.github/pull/1) |
+| `FreeTWAI-AI/FreeTWAI-AI.github.io` | `90f790763f4f0507d123f325d194d2cf7b9bf73f` | [#2](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/2) |
+| `FreeTWAI-AI/freedom-agent-kit` | `b2227bc36a571084f6c3d5c5ab340ed4485c6738` | [#2](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/2) |
+| `FreeTWAI-AI/freedom-growth-automation` | `d1fd7f223efcbed85c95cda18734a33e6528b82a` | [#1](https://github.com/FreeTWAI-AI/freedom-growth-automation/pull/1) |
+| `FreeTWAI-AI/freedom-project-page` | `05508e805a764ec6b681792aaaf8c4803cb7a592` | [#1](https://github.com/FreeTWAI-AI/freedom-project-page/pull/1) |
+| `FreeTWAI-AI/freedom-project-template` | `9bc7cee3f98d21da3156e5a67bfa63dc63a4615e` | [#1](https://github.com/FreeTWAI-AI/freedom-project-template/pull/1) |
+| `FreeTWAI-AI/freedom-skill-registry` | `b5aed63bdd40d6c72df2afe039677d2173a2e3f9` | [#1](https://github.com/FreeTWAI-AI/freedom-skill-registry/pull/1) |
+| `FreeTWAI-AI/freedom-storefront` | `87eda4878fb761deb4f9a1c1d7e421c2701f3dcb` | [#2](https://github.com/FreeTWAI-AI/freedom-storefront/pull/2) |
+| `FreeTWAI-AI/freedom-supplier-client` | `7e98c3733e48aa96517d53de6944e3e365108979` | [#2](https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/2) |
 
-九個 `contracts.lock.json` 都仍指向 `b221d2ba1bcf014dc785e95212455ba6f157ec6d` 的 `freedom.preview/v1`。但它們的 bundle SHA-256 **與 d269 main 的 preview bundle 完全相同**：`835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d`。因此不能僅因舊 source pin 就宣稱現有 preview wire contract 已 drift，也不能把單純改 pin 當成新 execution／governance 接入。
+三個實際採用 PR：[agent-kit #1](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/1)、[storefront #1](https://github.com/FreeTWAI-AI/freedom-storefront/pull/1)、[supplier-client #1](https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/1) 已在 hosted checks 通過後，以 exact head guard 正常合併至上述 main SHA。它們分別 import 共用 member workspace、storefront scoped reader、supplier workspace／transport；原有 preview API 相容性保留。
 
-這九倉尚未受本輪 main ruleset 範圍強制，`libraryUsage=not_checked`。既有 export 入口能分發 preview contract 與 portable tooling，仍不能證明所有 consumer 真正 import／呼叫了新共用 library。下一批必須先產出各 repo 的 profile／入口／實際 imports 差異、目標 ReleaseSet／tooling 版本與相容測試，再沿精確版本批次流程接入。不得把中央 monorepo 的 full verify workflow 原樣強制到不同結構的 consumer，造成所有正常 PR 永久失敗。
+### Hosted merge 證據與邊界
+
+安裝 main 規則前，probe ruleset `24472894` 對一次性 `ops/consumer-source-probe-20261004/base` 使用同一 source55 workflow。上表九個正例的原生 workflow 都成功，merge API 均實際接受合併到各自的一次性 base，native rule-suite 記錄 `pass`。兩個負例先取得明確原生失敗，再在各自 head 發布同名 `consumer-library-source=success` classic status；actual merge 仍回 405、指出 required workflow 失敗，rule-suite 為 `fail`，base 未改變：
+
+| 負例 | 實際被拒的修改 |
+| --- | --- |
+| [agent-kit #3](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/3) | 改共用 member workspace 並重算 candidate lock 的 bytes／hash；canonical source 檢查報 `library_source_bytes_mismatch`。 |
+| [directory #3](https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/3) | 改受保護的 `scripts/build.mjs`；報 `consumer_verification_entry_changed`。 |
+
+這證明一次性 branch 的 native workflow 確實控制 merge，並非看到 check 名稱就當作強制。完整 receipts 留在私有 journal `freedom-platform-push-20261004`：`consumer-guard-probes/root-hosted-acceptance.json`、對應 merge／forged-status receipts、三個 `*-adoption-merge.response.json`、`root-nine-main-source.json` 及 `nine-main-rule-install.readback.json`。
+
+新規則安裝後，另對 kit 的實際 `main` 執行正反例：[#4](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/4) 只改文件，native job `111563483040` success；[#5](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/5) 竄改 library，native job `111563493485` failure，錯誤為 `library_source_bytes_mismatch`。即使 #5 head 有同名 classic success status，帶 exact head guard 的 actual merge 仍回 **405**；rule-suite **`4357871927`** 明確記錄 active workflow rule **`24473806` fail**，main 維持 `b2227bc36a571084f6c3d5c5ab340ed4485c6738`。正例只驗 native job，不把此結果寫成 main 的正例 merge 成功；兩個 PR 均已關閉、未合併，規則保留。對應 `consumer-main-probe/root-main-acceptance.json`、`negative-suite-4357871927.json` 與 `cleanup.json` 保存核對結果。
+
+### Source gate 與實際呼叫分開計算
+
+來源 gate 只讀 immutable Git blobs。三倉檢查 source91 library bytes；其餘六倉檢查 canonical preview、manifest、固定 build／verification automation，產品 source／data 只要求指定路徑存在並交原有 CI 驗證。它不執行 candidate 程式，`library_usage=not_checked`，不能當 runtime 或 ReleaseSet approval。
+
+另以這三個已合併 HEAD、canonical source91、隔離 PostgreSQL 與真實 localhost HTTP 跑既有 `consumer-libraries.test.ts`：**2/2 通過**，實際呼叫三倉入口，含 scope 隔離及 revoke 拒絕；既有跨倉 suite **5/5 通過**。合計 7 個測試已接入 `npm run test:repos`／`governance-consumers` CI。這是合成資料的局部呼叫證據，沒有覆蓋全部九倉 runtime、所有 library／入口或正式 provider；不回填來源 gate 的 usage 欄位。
+
+九倉的 preview pin 仍為 `b221d2ba1bcf014dc785e95212455ba6f157ec6d`，bundle SHA-256 `835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d` 與 canonical source91 相同。沒有用 cosmetic repin 代替採用。完整 P2 仍需其餘 operation／entry coverage、真正 merge queue、durable App publisher 的事件／restart／replay／unknown-ACK 驗收；宣告 `merge_group` trigger 不等於這些項目已通過。
