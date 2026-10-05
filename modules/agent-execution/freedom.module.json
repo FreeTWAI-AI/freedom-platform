@@ -63,7 +63,9 @@
     "contracts/execution/v3/native-text-invocation.ts",
     "contracts/execution/v3/native-text-binding.schema.json",
     "contracts/execution/v3/native-text-context.schema.json",
-    "contracts/execution/v3/native-text-receipt.schema.json"
+    "contracts/execution/v3/native-text-receipt.schema.json",
+    "apps/platform-api/src/private-ai-path.ts",
+    "tests/runtime/private-ai-path.test.ts"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
