@@ -2,6 +2,8 @@
 
 **本日後續執行更新：** #110 的 d269 已部署；七類媒體使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。維持媒體 R2 ON、Private AI OFF、GC OFF。中央 main 規則 `24469536` 保留，九個 consumer main 已另安裝 `24473806`：來源 workflow 固定 `55f70c01e574cf66c8fa06b79fc9d8b3ffff0c4a`，library 固定 `91b943ac61e132fbbce72ea066cb2301aa065600`。九倉一次性 branch 正例實際 merge，兩個偽造綠燈負例被 native workflow 拒絕；三個 library 採用 PR 已正常合併。安裝後 kit main-target 正例 native job 成功，竄改／偽造綠燈負例的 actual merge 回 405，suite `4357871927` 確認新規則拒絕，main 未變。
 
+10 月 5 日另安裝三個 consumer main runtime rule **24476100**（來源 c42），完成 hosted 正反例、三個 temporary 正例實際 merge、空殼入口／偽造綠燈 405，及安裝後 kit main-target 正反例。這強制局部入口 HTTP 行為；library invocation／完整 CLI coverage 仍未證明。新版媒體變體與清理後 daily 回讀已完成，見現行交接。
+
 三個 merged consumers 的 **2/2 HTTP／隔離 PostgreSQL 呼叫測試、5/5 既有跨倉測試通過**並接入既有 CI；來源 gate 仍為 `library_usage=not_checked`。完整入口／library coverage、merge queue、durable App publisher／replay／unknown ACK 與完整 P3 仍未驗收。本批實際使用 3 個 Astra、2 個 Opus 5.5、8 個 Grok 4.7；兩個 Opus 遭 provider 429 後由根 agent／Astra 接續，不把呼叫數當作 13 份已驗收成果。
 
 精確版本、證據及限制見[治理實裝](governance-installation-2026-10-04.md)與[現行交接](handoff-2026-10-04.md)；線上媒體／恢復基線見[搬移／退役](r2-recovery-retirement-2026-10-04.md)、[五類媒體啟用](media-profiles-activation-2026-10-04.md)。下文 9cc、25 頭像、空用途及全 OFF 是制定計畫時的基線，不能當現行部署指令。10 月 5 日兩環境另通過新版 archive 的同 snapshot 全表 evidence、異地完整回讀及實際 PG18／原生 R2 還原；日常 timers 尚未切換此新流程。P0 排程／retention 改善、P1 其餘變體／purge 前置、完整 P2／P3 繼續按未完成事項推進。

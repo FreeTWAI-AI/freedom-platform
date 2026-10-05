@@ -83,4 +83,23 @@ Workflow SHA 更新須審查新固定來源及重新驗證，不隨 main 自動�
 
 [既有 supervisor 的 consumer 模式](../../../../packages/contribution-tools/consumer-behavior.md) 已能從三個實際 merged commits 匯出唯讀 candidate，於 network-none 容器呼叫真實產品入口；host Unix-socket HTTP fixture 獨立記錄路徑、method、synthetic credential 與不可預猜的 response markers。根 agent 重新跑過 12 個實際 Docker 測試：三倉正例、三倉只保留正確 vendor 的 stub 負例、偽造 stdout、竄改回傳、吞掉 scope／revoke 拒絕、隔離限制、非 `/usr` 的 Node 安裝都通過。
 
-這是本機可執行的 `host_observed_http` 證據。它仍不宣稱內部 JavaScript library invocation，也不是 server ACL 的替代證據；相關欄位維持 `not_checked`。目前固定 image／host recipe 尚未批准為 installed trust，沒有將此新模式安裝到九倉 main 規則。另需固定 runtime 來源及 recipe、hosted 正反例後才能增加 required runtime workflow；既有 source55／rule 24473806 保持不變。
+這是本機可執行的 `host_observed_http` 證據。它仍不宣稱內部 JavaScript library invocation，也不是 server ACL 的替代證據；相關欄位維持 `not_checked`。初次本機驗證時尚未安裝 runtime 規則；後續三倉實装與實際 merge 證據如下。既有 source55／rule 24473806 保持不變。
+
+
+### 10 月 5 日：三倉 main 的原生 runtime gate
+
+已新增 active org ruleset **24476100**，僅對 agent-kit、storefront、supplier-client 的三個明列 repository ID／`refs/heads/main` 生效，無 bypass；[公開配置](../../verification/consumer-runtime-ruleset-2026-10-05.json)記錄原始 payload。固定 workflow 為中央 `.github/workflows/trusted-consumer-runtime.yml`，來源 **c42df49e3ee93beed95eeda463a3c7811772b3c5**，library 仍固定 source91。三倉 effective rules 回讀均同時包含來源 gate 與 runtime gate；中央 24469536、九倉 24473806 的規則內容沒有改動。
+
+安裝前，temporary rule 24475590 以同一 c42 workflow 跑六個真實 hosted jobs：三個正例 source/runtime 通過，三個只改產品入口為空殼、保留 vendor／locks 的負例 source 通過而 runtime 明確失敗 `consumer_behavior_mismatch`。三個正例實際 merge 到自建 temporary base；三個負例即使另加同名 classic success status，exact-head merge API 仍回 **405**。三倉 main 全程未變。驗後九個 owned refs、三個 negative PR 及 temporary rule 都已清理。
+
+| Consumer | temporary 正例／負例 | native runtime job 正例／負例 | 負例 rule-suite |
+| --- | --- | --- | --- |
+| agent-kit | [#6](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/6)／[#7](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/7) | 111574506794／111574512252 | 4358341381 |
+| storefront | [#3](https://github.com/FreeTWAI-AI/freedom-storefront/pull/3)／[#4](https://github.com/FreeTWAI-AI/freedom-storefront/pull/4) | 111574517344／111574517678 | 4358342509 |
+| supplier-client | [#3](https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/3)／[#4](https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/4) | 111574527257／111574531581 | 4358343569 |
+
+正式 main 規則安裝後，另用 kit [#8 正例](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/8)與 [#9 空殼負例](https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/9)驗證：source gate 均通過；runtime jobs **111576954462 success／111576968345 failure**。#9 同名 classic green 不能替代 required native workflow；actual merge 回 **405**，rule-suite **4358417877** 明確記錄 24476100 fail。兩個 PR 已關閉且未合併，兩個 owned refs 已刪除，kit main 仍為 b2227bc36a571084f6c3d5c5ab340ed4485c6738；正式規則保留。
+
+每個實際 hosted verdict 都綁定 c42 workflow、candidate merge SHA／tree、固定 Debian manifest／config／rootfs 與 Node 24.21.0 二進位 SHA；四個受限 bind、network-none、唯讀 root 及 cleanup 經 root 與獨立 agent 核對。操作者接受 GitHub managed Ubuntu24 runner／kernel／Docker 為此局部 gate 的 host 信任邊界，未宣稱 host kernel 不可變或另有 durable App publisher。工具的保守 provenance 欄位不以安裝敘述覆寫。
+
+這一版只強制三倉 `src/index` workspace／reader 入口的可觀測 HTTP 行為。`library_invocation`、`library_usage`、`server_authorization` 仍為 `not_checked`；兩個[可執行反例](../../../../packages/contribution-tools/consumer-runtime-boundaries.md)已證明：手寫等價 HTTP、或破壞未覆蓋的真實 CLI，仍可能通過此版 gate。完整 CLI／其他入口、其餘六倉 runtime、merge queue 與治理規格的其餘要求仍待完成。私有 journal 保存 `consumer-runtime-canary/root-hosted-verdicts.json`、`root-merge-acceptance.json`、`cleanup-completed.json` 及 `consumer-runtime-main/completed.json`，只公開上述 aggregate 與 public PR/job IDs。
