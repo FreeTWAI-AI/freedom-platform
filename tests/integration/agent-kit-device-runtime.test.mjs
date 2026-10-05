@@ -26,7 +26,8 @@ test('exact Kit candidate invokes canonical CLI and SDK in the isolated host, re
  const d=result.device_runtime;assert.equal(d.check.test_count,DEVICE_CASES.length);assert.equal(d.cleanup_verified,true);
  assert.equal(d.candidate.commit,candidateCommit);assert.equal(d.candidate.tree,result.source.candidate_tree);
  assert.equal(d.launch_closure.files.length,3);assert.equal(d.real_tls,'not_checked');
- assert(d.cases.every(c=>c.response_matches_challenge&&c.secret_output_absent));
+ assert(d.cases.every(c=>c.response_matches_challenge&&c.secret_output_absent&&c.allowed_request_counts.includes(c.observed_requests)));
+ assert.deepEqual(d.cases.find(c=>c.scenario==='cancelled').allowed_request_counts,[1,2]);
  assert.equal(result.execution_authorized,false);assert.equal(result.server_authorization,'not_checked');
  assert.equal(result.library_invocation,'not_checked'); // Other Kit entrypoints are still not attested.
 });
