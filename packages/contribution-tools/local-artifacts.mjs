@@ -2,7 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
-import { artifactPath } from './io.mjs';
+import { artifactPath, readBounded } from './io.mjs';
 import { requireCondition as check } from './errors.mjs';
 import { git } from './workspace.mjs';
 
@@ -10,6 +10,20 @@ import { git } from './workspace.mjs';
 export function validateArtifactOutputPath(path) {
   artifactPath(path);
   check(/^\.freedom\/(?:context|reports)\/[a-zA-Z0-9._/-]+\.json$/.test(path), 'report_path_denied');
+}
+
+function requireIgnored(root, path) {
+  let pattern;
+  try { pattern = git(root, ['check-ignore', '--no-index', '--non-matching', '--verbose', '-z', '--stdin'], 4096, path + '\0')
+    .toString().split('\0')[2]; }
+  catch { /* Ignore status must be established for both writes and reads. */ }
+  check(typeof pattern === 'string' && pattern.length > 0 && !pattern.startsWith('!'), 'context_artifacts_must_be_ignored');
+}
+
+export async function readLocalArtifact(root, path, maxBytes) {
+  validateArtifactOutputPath(path);
+  requireIgnored(root, path);
+  return readBounded(root, path, maxBytes);
 }
 
 export async function writeLocalArtifact(root, path, value) {
@@ -30,11 +44,7 @@ export async function writeLocalArtifact(root, path, value) {
     check(stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1, 'unsafe_report_target');
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   // An ignored directory is an actual Git property, not just a naming convention.
-  let pattern;
-  try { pattern = git(root, ['check-ignore', '--no-index', '--non-matching', '--verbose', '-z', '--stdin'], 4096, path + '\0')
-    .toString().split('\0')[2]; }
-  catch { /* Refuse to write when ignore status cannot be established. */ }
-  check(typeof pattern === 'string' && pattern.length > 0 && !pattern.startsWith('!'), 'context_artifacts_must_be_ignored');
+  requireIgnored(root, path);
   const temporary = resolve(dirname(target), '.' + randomUUID() + '.tmp');
   let handle;
   try {
