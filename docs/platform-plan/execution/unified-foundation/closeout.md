@@ -61,7 +61,7 @@ FC-00 本批先統一中央入口與索引。Agent Kit README 的「先完成定
 | C6：UF:INT-17、R2:D02/D03 | 一般修改仍 full CI | 影響映射保守 fallback，驗 Command／ArtifactRef 與 runtime MD 選中對應 jobs，不改最低證據 |
 | C7：FC-05／原交付計畫 | 日常全倉 inventory 尚無 release 替代 | release/archive 的 artifact 與歷史 migration 完整性檢查接妥前，保留既有檢查 |
 
-上表 A1／B1 是來源審查所得，尚未用 DB 反例重現，不能宣稱已確認可利用或已修好。
+上表保留最初工作包。A1 receipt 到期與 B1 social bytes writer 已用隔離 PostgreSQL 重現並修補；精確版本、正反例及尚缺的雲端驗收見需求證據索引。C2 的完整 context 分段已在乾淨 worktree 驗收，GOV-07 依其原訂 context-tool 證據層級接受。其他套件、CLI 與治理來源修補仍是待審候選。
 現有 member broker 已經掛載並重查 owner／Grant／資料權限，不重新發明一套機器交易核心。
 單純綁死 generic journal 的 target 會破壞「collection 建立新 Work」的合法不同 target，
 不採用這個未證實的修補建議。
@@ -94,3 +94,11 @@ detached publisher」的工作順序，不撤回 GOV-02／19 或 artifact 的來
 
 後續每次回報列出：關閉的原要求、新增／解除的實際阻礙，以及證據的
 source／candidate／環境。FC-07 未通過前不宣告 Foundation Complete。
+
+## 候選整合觀察（2026-10-05）
+
+本 branch 彙整 #130–137 的已驗候選，用於共用 SDK 匯出與跨包回歸；每個實作仍有自己的 focused review。它不是已合併、已部署或 installed trust source。現況快照的正式版本與 pins 保留原觀察。
+
+同一程式候選 `3bc3eb6843d0e7112fc231212a1e7169094cad08` 通過 receipt／social writer／device SDK 隔離 HTTP/DB 回歸、完整治理工具回歸，以及原有 launcher 的當前 schema116 七類媒體 restore。這是本機整合證據，尚未完成 FC-07 的會員、私人執行、contributor 與第二操作者四條流程。後續 retention planner 修補另有 exact source 的本機反例。
+
+新的 device SDK 只授予 bootstrap status；本人 CLI／Grant／Attempt／Result、重連及跨端流程仍待整合。來源 profile 合法匯出不等於實際 library 呼叫，既有固定 host 也不因候選 lock 改變而自動升級。

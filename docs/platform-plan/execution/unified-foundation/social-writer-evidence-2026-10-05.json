@@ -1,0 +1,88 @@
+{
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local",
+  "packet": "B1 social thumbnail writer floor",
+  "recorded_at": "2026-10-05T20:55:18.630686+00:00",
+  "base_source": "a328c82084f884f4bedad3f59bfe680d6a547892",
+  "candidate_commit": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+  "requirement_mapping": [
+    "R2:S02",
+    "R2:M05"
+  ],
+  "accepted_original_rows": [],
+  "environment": {
+    "postgres_image": "postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd",
+    "network": "none; no published ports; private Unix socket",
+    "role": "DML-only nonsuperuser runtime role, separate owned fixture schema",
+    "objects": "Miniflare native local R2, synthetic objects only"
+  },
+  "reproduction": {
+    "before": "Same final tests on a328 (without116):14 pass and3 fail with missing rejection for hidden/deleted INSERT and active INSERT beside genuine ready pointer.",
+    "after": "17 pass,0 fail/skip/cancel; active case reads actual ready pointer and runtime current_user on the same transaction before inserting bytes; exact23514 floor error required.",
+    "positive_controls": [
+      "Normal native R2 write/read with null SQL media bytes",
+      "Metadata updates for active/hidden/deleted records",
+      "Crypto bytea salt remains usable",
+      "Bridge backfill retains historical bytes; r2_only cutover still refuses retained bytes",
+      "Existing policy lock race, replay/conflict, HTTP preview and other lifecycle cases remain passing"
+    ]
+  },
+  "checks": {
+    "social_runtime": {
+      "command": "TEST_DATABASE_URL=<owned Unix socket> node --import tsx --test --test-concurrency=1 tests/runtime/social-preview-assets.test.ts",
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "skipped": 0
+    },
+    "preflight_compatibility": {
+      "tests": 103,
+      "pass": 103,
+      "fail": 0,
+      "skipped": 0
+    },
+    "typecheck": "npm run typecheck passed",
+    "diff": "git diff --check passed",
+    "historical_sql": "No previously committed SQL file changed; additive116 only",
+    "cleanup": "Both owned Docker servers removed after runs; no remaining task-labelled container"
+  },
+  "log_digests": {
+    "final-before-red.log": "f92db518545eb207928d3add655163532832957e18f2ffe5b81d62c5d22aa585",
+    "final-green.log": "8a06f82b4544551d0f8684b3e5d643cc9d4b2743910d223143c8ad9547320439",
+    "preflight-compatibility.log": "778227604080a9674e21020b94354e03fe5088db7e19a37bf7a9cc03dc0aa5d9"
+  },
+  "changed_files": [
+    {
+      "path": "migrations/116_social_thumbnail_writer_floor.sql",
+      "sha256": "1ebc1703e95e96dcb56175673b8dbf5360a202b19ed02fd121fe38149dce03c5"
+    },
+    {
+      "path": "deploy/cloudflare/environments.json",
+      "sha256": "1a14f47eb13f79ed4c79b094936831bb776970c8103a7a334eb9b17e652c1060"
+    },
+    {
+      "path": "deploy/cloudflare/lib/release-compatibility.mjs",
+      "sha256": "e9f860853ad01fd7351b09cf84d5763f67884bd6578d91b50a68d354365e84dc"
+    },
+    {
+      "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
+      "sha256": "8d126110515d1b27c68d1f541b1776de820226e9335747326ded67ddbe9c0b03"
+    },
+    {
+      "path": "tests/runtime/social-preview-assets.test.ts",
+      "sha256": "dc8a8b7695e6019f4332720a49d5958e346ac97e0070ff59fdd699a43ed56418"
+    }
+  ],
+  "review": {
+    "grok": "Three Grok4.7 sessions completed (provider grok-4.7-build); initial research turn limits resumed in original sessions. Patch review found no blocker.",
+    "triage": "Patch reviewer requested stronger active-pointer/runtime-role observation; added same-transaction state/current_user assertions and exact floor error, reran same tests on baseline and fix.",
+    "integration": "Root continued implementation after storage agent failed; no agent completion inferred."
+  },
+  "limitations": [
+    "Isolated local PostgreSQL/native local R2 evidence; no fresh cloud schema, production old-writer invocation or deployment.",
+    "Migration116 is recognized by compatibility checks but supplies no host schema approval, deployment authority, execution authority or restore proof.",
+    "Current cloud policy remains bridge; GC, automatic retention and legacy byte cleanup are not activated.",
+    "All-purpose restricted-role writer matrix and approved reader-floor/cutover still required before accepting full original rows.",
+    "Already-invalid preexisting bytes and bridge legacy-byte retirement remain separate controlled cleanup work; migration116 does not delete data."
+  ]
+}

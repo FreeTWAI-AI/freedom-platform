@@ -1,0 +1,34 @@
+{
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "packet": "C1 required deploy-preflight aggregation",
+  "source_base": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
+  "candidate": "18f865f7b155803c1fa08f5091a954fa97107ed7",
+  "code_commit": "fa204c2727f59be05e3907f92ff32f79b9393a73",
+  "local": {
+    "checks_passed": 22,
+    "scope": "Local selector and aggregate cases: selected full preflight must succeed; intentional docs skip allowed; missing/failure/cancelled refused.",
+    "assurance": "Local evidence; installed pinned host still old."
+  },
+  "hosted": {
+    "run": 37370758444,
+    "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37370758444",
+    "attempt1": "Two jobs not acquired by hosted runner after multiple attempts; all completed product jobs passed.",
+    "attempt2": "All four runtime partitions, static-worker, UI, governance, source integrity and deploy-preflight succeeded, but runtime aggregate rejected combined timestamps with runtime_full_window_exceeded. Overall verify failed.",
+    "aggregate_job": 111986114351,
+    "aggregate_log_sha256": "7c84d3766c9df3aa530e11d1b6bef74c71ab10ecc56903316582ef934acebf00",
+    "cause": "A partial rerun combines old successful fragment times with later fragment completion; the fixed 900-second overall window remains enforced.",
+    "next": "Run a fresh complete candidate; never relax the original bound or report the mixed-attempt aggregate as passed."
+  },
+  "codeql": {
+    "run": 37370755856,
+    "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37370755856",
+    "result": "Actions/JavaScript succeeded; Python canceled because hosted runner was not acquired. Dynamic CodeQL rerun API returned403, including after completion; not an analysis pass."
+  },
+  "installed_workflow": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+  "limitations": [
+    "Installed workflow remains c3e; merging the candidate alone does not activate its aggregate.",
+    "Original GOV-16 and R2:D04 remain partial until reviewed fixed workflow publication plus actual positive/negative hosted acceptance.",
+    "No merge, release or deployment is authorized by this evidence file."
+  ],
+  "accepted_original_rows": []
+}

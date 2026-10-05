@@ -2,7 +2,7 @@
   "schema": "freedom.foundation.requirement-evidence/v1",
   "recorded_at": "2026-10-05",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
-  "scope": "Original 168 requirements; source reconciliation plus explicitly bounded historical/current operator evidence. No requirement accepted by this index.",
+  "scope": "Original168 requirements with exact candidate-bound patch evidence. Only GOV-07 accepted at its original context-tool tier; other complete requirements remain open.",
   "source_documents": [
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -25,10 +25,10 @@
     },
     "by_state": {
       "not_run": 48,
-      "implemented": 69,
-      "partial": 50,
+      "implemented": 64,
+      "partial": 54,
       "blocked": 1,
-      "accepted": 0
+      "accepted": 1
     }
   },
   "state_definitions": {
@@ -36,11 +36,11 @@
     "implemented": "Applicable code/primitive exists at inspected source; tests listed are source references, not execution receipts. Remaining integrations or required negatives are explicit.",
     "partial": "A bounded actual execution or installed-control observation is recorded; it does not meet the entire original minimum evidence and case set.",
     "blocked": "A named dependency prevents the original integrated acceptance; this is not N/A or removal from scope.",
-    "accepted": "All original necessary cases and minimum evidence are satisfied at an explicitly bound candidate/environment. None qualify in this reconciliation."
+    "accepted": "All original necessary cases and minimum evidence are satisfied at an explicitly bound candidate/environment; acceptance does not imply merge or deployment."
   },
   "evidence_rules": [
     "Original minimum evidence is retained verbatim; evidence types are not a numeric ladder.",
-    "Source references and test declarations are not executed tests. No product/runtime tests were run to build this index.",
+    "Source references and test declarations are not executed tests. Each execution below identifies its exact source, environment and limits.",
     "Executed evidence references resolve to the catalog for exact source/environment/limitations; historical results are not a pass for current source.",
     "Feature flags OFF do not constitute implementation or acceptance.",
     "Original extra R2:G and AP:INV tables remain in source-acceptance.md and are not deleted or counted in the 168-row denominator.",
@@ -368,6 +368,122 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "receipt-session-4797cd9": {
+      "id": "receipt-session-4797cd9",
+      "kind": "isolated_postgresql_runtime",
+      "source_sha": "4797cd96451b10edff236d176059aa4e944ad600",
+      "environment": "private Unix socket; explicit synthetic fp_receipt_a1 database; no env/production discovery",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/receipt-session-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Seven media wrappers and ordinary member receipt SELECT/miss/INSERT waits reject elapsed session and roll back effects.",
+        "Valid replay preserves original receipt namespace and digest."
+      ],
+      "limitations": [
+        "No production/staging/real R2 operations, no deployment or native GitHub enforcement.",
+        "Synthetic domain counter/scoped facts test adapter transaction boundaries; not every media ACL/pipeline.",
+        "No promise of authorization lifetime after final decision through COMMIT/network response.",
+        "R2:A03 full session-revoke/guild-exit/disabled-user domain matrix remains separately tracked; this closes the concrete elapsed-time receipt-wait packet only."
+      ]
+    },
+    "social-writer-421feb1": {
+      "id": "social-writer-421feb1",
+      "kind": "isolated_postgresql_native_r2",
+      "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+      "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/social-writer-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Same final tests on a328 (without116):14 pass and3 fail with missing rejection for hidden/deleted INSERT and active INSERT beside genuine ready pointer.",
+        "17 pass,0 fail/skip/cancel; active case reads actual ready pointer and runtime current_user on the same transaction before inserting bytes; exact23514 floor error required."
+      ],
+      "limitations": [
+        "Isolated local PostgreSQL/native local R2 evidence; no fresh cloud schema, production old-writer invocation or deployment.",
+        "Migration116 is recognized by compatibility checks but supplies no host schema approval, deployment authority, execution authority or restore proof.",
+        "Current cloud policy remains bridge; GC, automatic retention and legacy byte cleanup are not activated.",
+        "All-purpose restricted-role writer matrix and approved reader-floor/cutover still required before accepting full original rows.",
+        "Already-invalid preexisting bytes and bridge legacy-byte retirement remain separate controlled cleanup work; migration116 does not delete data."
+      ]
+    },
+    "context-chunks-664c05b": {
+      "id": "context-chunks-664c05b",
+      "kind": "real_local_repository_context_cli",
+      "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+      "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/context-chunks-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Root all17 modules:112 source/chunks,1,041,026 bytes reconstructed exactly.",
+        "Deep path modules/agent-execution/adapters/byok.ts:complete v1 bundle238,474 bytes with credential-broker/execution-runs/governance rules.",
+        "Missing or mismatched chunk and copied foreign-worktree delivery rejected."
+      ],
+      "limitations": [
+        "GOV-07 acceptance is specific to this exact candidate and its minimum context-tool tier; it is not merged/deployed/client-wide evidence.",
+        "GOV-09 client/subagent entrypoint adoption remains separate, despite genuine clean-worktree and cross-worktree refusal proof.",
+        "GOV-10/12 need trusted hosted CI recomputation; local union/stale/unknown-scope cases do not replace it.",
+        "Local completeness does not certify reading/comprehension, publisher trust, library use, merge permission or any cloud action.",
+        "Initial real CLI driver assumed deep scope required chunks; root proof passed, then driver stopped. Corrected driver verifies actual v1 deep bundle with exact bytes; no product workaround."
+      ]
+    },
+    "machine-device-3bc3eb6": {
+      "id": "machine-device-3bc3eb6",
+      "kind": "isolated_http_postgresql_native_client",
+      "source_sha": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
+      "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/machine-device-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Member approval, device enrollment, refresh, nonce/status, no raw secrets and unknown response quarantine verified.",
+        "Kit thin adapter calls central SDK through six actual HTTP handlers; no model or business execution authority.",
+        "Early timer wakeup and normal gzip/br/deflate response compatibility fixed with regressions."
+      ],
+      "limitations": [
+        "HTTP Request/Response real handler and real server verifier; not real TLS socket/cloud",
+        "No ExecutionGrant, effect authority, provider, model, MCP, official CLI or full AP acceptance",
+        "In-memory only, no durable custody or persistent reconnect; restart requires fresh-key pairing",
+        "Kit published SDK/profile upgrade remains coordinated separately; no manual vendor edits and old package/CLI/lock unchanged",
+        "Focused tests only, not full runtime/CI acceptance",
+        "No client rollout or full execution/device reconnect requirement accepted."
+      ]
+    },
+    "library-profile-bb046a3": {
+      "id": "library-profile-bb046a3",
+      "kind": "local_source_profile_upgrade",
+      "source_sha": "bb046a36afb3d12eb5e8c40289f3edc7641af8b4",
+      "environment": "Temporary real Git repositories and synthetic canonical library fixtures; no installed host or true device runtime",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/library-profile-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Host-selected exact file profile supports a reviewed two-file Agent Kit device SDK distribution while preserving legacy profile.",
+        "Exporter verifies prior source/profile/exact clean consumer head; forgery, arbitrary profile, wrong source, leftovers and narrowing are rejected."
+      ],
+      "limitations": [
+        "Source checks do not prove actual build resolution or library invocation (GOV-03/04).",
+        "Legacy profile compatibility does not prove mixed-client runtime (GOV-18).",
+        "Installed hosts/pins and all original requirement states remain unchanged."
+      ]
+    },
+    "retention-plan-4df26fc": {
+      "id": "retention-plan-4df26fc",
+      "kind": "local_archive_and_planner_regression",
+      "source_sha": "4df26fc79d98736749d42036861055a99cdec969",
+      "environment": "Local temporary archive; no SQL/cloud/delete",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Unknown archive objects now withhold old capture release as well as object pruning; identical regression fails before and passes after."
+      ],
+      "limitations": [
+        "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
+        "Supports FC-02/03 closure work; no original row accepted or state advanced."
+      ]
     }
   },
   "requirements": [
@@ -1954,7 +2070,7 @@
       "fc_gates": [
         "FC-04"
       ],
-      "state": "partial",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -1993,14 +2109,18 @@
             ],
             "commit_sha": "0bf77ac719df3f74e460d5526983826944b43ea5"
           }
+        },
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
         }
       ],
-      "remaining": [
-        "Run a fresh root Agent session editing a deep module and verify its exact module instructions are delivered.",
-        "Root DESIGN.md rejection is fixed at 0bf77ac719df3f74e460d5526983826944b43ea5 with tested file digests retained. Real root prepare still fails context_size_limit; complete bounded instruction delivery before accepting fresh-session startup."
-      ],
-      "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Original minimum context-tool tier met at exact candidate664c05b:from repo root a deep-module request receives every applicable instruction and exact source bytes; launcher and hosted CI requirements are separate rows."
     },
     {
       "id": "GOV-08",
@@ -2073,10 +2193,17 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
+        }
+      ],
       "remaining": [
-        "Exercise an actual subagent handoff and separate git worktree, binding repo, source head, workspace identity and bundle.",
-        "Reject reuse of a bundle from a different repo/worktree; existing realpath/two-clone fixtures are source declarations, not the full Agent handoff receipt."
+        "Wire supported client/subagent launchers to prepare their own current repo/head/worktree context and consume every fragment; clean linked worktree and copied-delivery refusal are verified locally."
       ],
       "accepted": false,
       "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
@@ -2097,7 +2224,7 @@
       "fc_gates": [
         "FC-04"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -2114,7 +2241,15 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
+        }
+      ],
       "remaining": [
         "Provide a loaded-scope/session marker and delta when a long session crosses modules or rebuilds context.",
         "Execute an independent CI recomputation after author scope becomes stale; a manually rerun context command is not automatic session refresh."
@@ -2218,6 +2353,13 @@
             ],
             "commit_sha": "0bf77ac719df3f74e460d5526983826944b43ea5"
           }
+        },
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
         }
       ],
       "remaining": [
@@ -3199,7 +3341,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -3216,13 +3358,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "social-writer-421feb1",
+          "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+          "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+          "covered_part": "Social thumbnail r2_only INSERT/UPDATE, legitimate R2/bridge and crypto bytea controls.",
+          "limitations_reference": "evidence_catalog.social-writer-421feb1.limitations"
+        }
+      ],
       "remaining": [
-        "Source-level r2_only social-thumbnail asset-source INSERT/non-NULL bytes predicate gap independently identified; actual isolated restricted-role reproduction and additive fix required (B-F11/B0a).",
-        "Actual deployment remains bridge in committed evidence; execute all-purpose old writer using actual restricted runtime role at r2_only; verify crypto bytea unaffected."
+        "Actual deployment remains bridge in committed evidence; execute all-purpose old writer using actual restricted runtime role at r2_only; verify crypto bytea unaffected.",
+        "Integrate migration116 with exact host schema approval and controlled target-environment acceptance; do not infer deployment from schema recognition."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Social thumbnail runtime-role INSERT gap reproduced and fixed with positive controls; full all-purpose and target-environment acceptance remains open."
     },
     {
       "id": "R2:S03",
@@ -3808,11 +3958,18 @@
           "environment": "controlled synthetic accounts on Cloudflare staging and production; real HTTPS/R2; bounded Chromium staging playback",
           "covered_part": "Only the bounded purpose/operation observations in the media report apply; the complete original row and all remaining negatives are not accepted.",
           "limitations_reference": "evidence_catalog.media-cloud-d269.limitations"
+        },
+        {
+          "evidence_id": "receipt-session-4797cd9",
+          "source_sha": "4797cd96451b10edff236d176059aa4e944ad600",
+          "environment": "Isolated PostgreSQL18.6 with DML-only runtime role and actual receipt lock waits",
+          "covered_part": "Elapsed-session receipt-wait subcase only; full session revoke/guild exit/disabled-user domain matrix remains open.",
+          "limitations_reference": "evidence_catalog.receipt-session-4797cd9.limitations"
         }
       ],
       "remaining": [
         "Gather session revoke/guild exit/user disabled DB races for every applicable domain, not only cleanup user invalidation.",
-        "Lane A found seven legacy media receipt adapters do not recheck the session deadline after a receipt read/write lock wait. Reproduce with deterministic receipt-table read/insert barriers and fix without changing generic command target semantics; current domain-authorize deadline tests do not cover that wait."
+        "Integrate and deploy the receipt deadline fix; the recorded local source is not deployed evidence."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -4254,7 +4411,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -4271,13 +4428,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "social-writer-421feb1",
+          "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+          "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+          "covered_part": "Social thumbnail r2_only INSERT/UPDATE, legitimate R2/bridge and crypto bytea controls.",
+          "limitations_reference": "evidence_catalog.social-writer-421feb1.limitations"
+        }
+      ],
       "remaining": [
-        "Source-level r2_only social-thumbnail asset-source INSERT/non-NULL bytes predicate gap independently identified; actual isolated restricted-role reproduction and additive fix required (B-F11/B0a).",
-        "Needs approved r2_only cutover after reader and retained-byte floors; bridge intentionally permits untouched legacy writers."
+        "Needs approved r2_only cutover after reader and retained-byte floors; bridge intentionally permits untouched legacy writers.",
+        "Integrate migration116 with exact host schema approval and controlled target-environment acceptance; do not infer deployment from schema recognition."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Social thumbnail runtime-role INSERT gap reproduced and fixed with positive controls; full all-purpose and target-environment acceptance remains open."
     },
     {
       "id": "R2:M06",
@@ -5382,7 +5547,7 @@
         "FC-06",
         "FC-01"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -5399,12 +5564,20 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "machine-device-3bc3eb6",
+          "source_sha": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
+          "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
+          "covered_part": "Actual bootstrap HTTP/DB rejects foreign signing key and expired proof. Audience/method/URI/replay matrix remains open.",
+          "limitations_reference": "evidence_catalog.machine-device-3bc3eb6.limitations"
+        }
+      ],
       "remaining": [
         "Bind wrong proof key, audience, method, URI, expiry and replay negatives to the mounted endpoints that currently accept this proof type, with exact candidate DB/HTTP/proof receipts."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Bounded real HTTP/DB bootstrap client evidence; broader original execution and cross-client requirements remain open."
     },
     {
       "id": "AP:AUTH-14",
@@ -5423,7 +5596,7 @@
         "FC-06",
         "FC-01"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -5439,12 +5612,20 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "machine-device-3bc3eb6",
+          "source_sha": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
+          "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
+          "covered_part": "Committed enrollment/refresh response loss is quarantined without retry; all machine tables and scoped receipts are inspected for raw codes/proofs/tokens/handles. Broader secret-mint paths and cloud logs remain open.",
+          "limitations_reference": "evidence_catalog.machine-device-3bc3eb6.limitations"
+        }
+      ],
       "remaining": [
         "Actual cloud safe-log/capture audit and retry secret nondisclosure receipt"
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Bounded real HTTP/DB bootstrap client evidence; broader original execution and cross-client requirements remain open."
     },
     {
       "id": "AP:AUTH-15",
