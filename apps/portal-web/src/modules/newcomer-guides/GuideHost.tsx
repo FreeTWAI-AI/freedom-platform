@@ -42,11 +42,11 @@ export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey
     return()=>{current=false;controller.abort()};
   },[permitted,scope,pageId,retry,descriptor,packId,chosen]);
   if(!permitted)return null;
-  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery} galleryInfo={pack.galleryInfo}
+  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <aside className="workspace-companion" aria-label={`${page.character.name}的本頁導覽`}><Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery} galleryInfo={pack.galleryInfo}
     characterChoices={pack.characterChoices} initiallyOpen={openAfterSelection.current===scope}
     onSelectCharacter={packId==='ai-sister'?(id)=>{
       if(!pack.characterChoices?.some(choice=>choice.id===id))return;
       const selected=saveAiSisterCharacter(id);openAfterSelection.current=`${baseScope}:${selected}`;setCharacterChoice(selected);
-    }:undefined}/>;}
+    }:undefined}/></aside>;}
   return failed ? <button type="button" className="btn btn-ghost btn-small guide-load-retry" onClick={()=>setRetry(value=>value+1)}>重試載入新手導覽</button> : null;
 }

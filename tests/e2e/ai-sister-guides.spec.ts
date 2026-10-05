@@ -24,7 +24,7 @@ async function registerJoined(page:Page,profile='guide-ai-sister'){
   if(profile==='guide-ai-sister')await expect(widget(page)).toHaveAttribute('data-character-id','claude');
 }
 async function openGuide(page:Page){
-  await page.locator('.page-spirit-launcher').click();
+  await widget(page).getByRole('button',{name:'問本頁',exact:true}).click();
   await expect(widget(page)).toHaveAttribute('data-load-state','ready');
   const skip=panel(page).getByRole('button',{name:'顯示全文',exact:true});if(await skip.isVisible())await skip.click();
 }
@@ -37,10 +37,11 @@ async function imageReady(image:Locator){
   await expect(image).toBeVisible();
   await expect.poll(()=>image.evaluate(element=>(element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 }
-async function fits(page:Page,target:Locator){
+async function fits(page:Page,target:Locator,flow=false){
   const rect=await target.boundingBox(),viewport=page.viewportSize()!;expect(rect).not.toBeNull();
-  expect(rect!.x).toBeGreaterThanOrEqual(0);expect(rect!.y).toBeGreaterThanOrEqual(0);
-  expect(rect!.x+rect!.width).toBeLessThanOrEqual(viewport.width+1);expect(rect!.y+rect!.height).toBeLessThanOrEqual(viewport.height+1);
+  expect(rect!.x).toBeGreaterThanOrEqual(0);
+  expect(rect!.x+rect!.width).toBeLessThanOrEqual(viewport.width+1);
+  if(!flow){expect(rect!.y).toBeGreaterThanOrEqual(0);expect(rect!.y+rect!.height).toBeLessThanOrEqual(viewport.height+1)}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 }
 
@@ -49,23 +50,23 @@ test('member selects one character; it persists across reload and changes outfit
   const art:string[]=[],dragon:string[]=[];
   page.on('request',request=>{const path=new URL(request.url()).pathname;if(path.startsWith('/public/guide-packs/ai-sister/'))art.push(path);if(path.startsWith('/public/guide-packs/dragon/'))dragon.push(path)});
   await registerJoined(page);await imageReady(page.locator('.page-spirit-launcher img'));
-  expect(new Set(art)).toEqual(new Set([asset('claude/portrait')]));
-  await openGuide(page);await imageReady(panel(page).locator('.page-spirit-art'));
-  await expect(panel(page).getByRole('combobox',{name:'導覽角色'}).locator('option')).toHaveCount(17);
-  await panel(page).getByRole('combobox',{name:'導覽角色'}).selectOption('kimi');
+  expect(new Set(art)).toEqual(new Set([asset('claude/education-outfit')]));
+  await expect(widget(page)).toHaveAttribute('data-inline','true');await expect(panel(page)).toHaveCount(0);
+  await expect(widget(page).getByRole('combobox',{name:'導覽角色'}).locator('option')).toHaveCount(17);
+  await widget(page).getByRole('combobox',{name:'導覽角色'}).selectOption('kimi');
   await expect(widget(page)).toHaveAttribute('data-character-id','kimi');await expect(widget(page)).toHaveAttribute('data-open','true');
   await expect(widget(page)).toHaveAttribute('data-outfit-id','education');
-  await expect(panel(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('kimi/education-outfit'));
+  await expect(widget(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('kimi/education-outfit'));
   await expect(panel(page).locator('.page-spirit-line')).toContainText('我是 Kimi。');
   await panel(page).getByRole('button',{name:'結束交談',exact:true}).click();
   await navigate(page,'我的工作');await expect(widget(page)).toHaveAttribute('data-character-id','kimi');
   await expect(widget(page)).toHaveAttribute('data-outfit-id','workplace');await openGuide(page);
-  await expect(panel(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('kimi/workplace-outfit'));
+  await expect(widget(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('kimi/workplace-outfit'));
   await panel(page).getByRole('button',{name:'結束交談',exact:true}).click();await navigate(page,'會員首頁');
   await expect(widget(page)).toHaveAttribute('data-character-id','kimi');await expect(widget(page)).toHaveAttribute('data-open','false');
   await page.reload();await expect(widget(page)).toHaveAttribute('data-character-id','kimi');
   expect(await page.evaluate(()=>localStorage.getItem('freedom-ai-sister-character'))).toBe('kimi');
-  expect(new Set(art)).toEqual(new Set([asset('claude/portrait'),asset('claude/education-outfit'),asset('kimi/portrait'),asset('kimi/education-outfit'),asset('kimi/workplace-outfit')]));
+  expect(new Set(art)).toEqual(new Set([asset('claude/education-outfit'),asset('kimi/education-outfit'),asset('kimi/workplace-outfit')]));
   expect(dragon).toEqual([]);
 });
 
@@ -92,9 +93,10 @@ test('wardrobe gallery offers all characters, 20 outfits and real poses; only se
 
 test('current outfit uses real dialogue reactions and cleans guide focus when changing profile or losing member access',async({page})=>{
   await registerJoined(page);await openGuide(page);
-  await expect(panel(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('claude/education-supported'));
+  await expect(widget(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('claude/education-supported'));
   await panel(page).getByRole('textbox',{name:'問本頁問題'}).fill('謝謝');await panel(page).getByRole('button',{name:'送出',exact:true}).click();
-  await expect(panel(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('claude/education-victory'));
+  await expect(widget(page).locator('.page-spirit-art')).toHaveAttribute('src',asset('claude/education-victory'));
+  await panel(page).locator('.page-spirit-faq > summary').click();
   await panel(page).getByRole('button',{name:'首頁摘要',exact:true}).click();
   await panel(page).getByRole('button',{name:'找到會員摘要',exact:true}).click();
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(1);
@@ -110,7 +112,7 @@ test('OFF or mismatched AI release cannot load art, and late AI release cannot r
   await registerJoined(page,'light');const art:string[]=[];
   page.on('request',request=>{if(request.url().includes('/public/guide-packs/ai-sister/'))art.push(request.url())});
   await page.route('**/api/v1/guide-packs/release/ai-sister',route=>route.fulfill({json:{...AI_SISTER_RELEASE_PIN,enabled:false}}));
-  await selectTheme(page,'新手導覽－AI Sister');await expect(widget(page)).toHaveCount(0);expect(art).toEqual([]);
+  await selectTheme(page,'新手導覽－AI Sister');await expect(widget(page)).toHaveCount(0);await expect(page.locator('.workspace-companion')).toHaveCount(0);expect(art).toEqual([]);
   await selectTheme(page,'自由工坊－明亮');await page.unroute('**/api/v1/guide-packs/release/ai-sister');
   await page.route('**/api/v1/guide-packs/release/ai-sister',route=>route.fulfill({json:{...AI_SISTER_RELEASE_PIN,enabled:true,manifestSha256:'0'.repeat(64)}}));
   await selectTheme(page,'新手導覽－AI Sister');await expect(widget(page)).toHaveCount(0);expect(art).toEqual([]);
@@ -122,16 +124,39 @@ test('OFF or mismatched AI release cannot load art, and late AI release cannot r
 });
 
 test('bright AI Sister panel and wardrobe remain readable within desktop, tablet and mobile viewports',async({page},testInfo)=>{
-  await page.emulateMedia({reducedMotion:'reduce'});await registerJoined(page);await openGuide(page);
+  await page.emulateMedia({reducedMotion:'reduce'});await registerJoined(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme','light');
-  expect(await panel(page).evaluate(element=>getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
-  expect(await panel(page).evaluate(element=>getComputedStyle(element).color)).toBe('rgb(28, 38, 54)');
+  expect(await widget(page).evaluate(element=>getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+  expect(await widget(page).evaluate(element=>getComputedStyle(element).color)).toBe('rgb(28, 38, 54)');
   const directory=process.env.FREEDOM_GUIDE_SCREENSHOT_DIR??testInfo.outputPath('screenshots');await mkdir(directory,{recursive:true});
-  for(const width of [1440,768,390]){
-    await page.setViewportSize({width,height:width===390?844:900});await page.evaluate(()=>window.scrollTo(0,0));await imageReady(panel(page).locator('.page-spirit-art'));await fits(page,panel(page));
+  for(const width of [1440,1280,1279,1024,768,390,320]){
+    await page.setViewportSize({width,height:width<=390?844:900});await page.evaluate(()=>{window.scrollTo(0,0);document.querySelector('.workspace-companion')?.scrollTo(0,0)});await imageReady(widget(page).locator('.page-spirit-art'));await fits(page,widget(page),true);
+    const companion=(await page.locator('.workspace-companion').boundingBox())!,main=(await page.locator('#main-content').boundingBox())!;
+    if(width>=1280)expect(main.x+main.width).toBeLessThanOrEqual(companion.x);
+    else expect(companion.y+companion.height).toBeLessThanOrEqual(main.y);
+    await page.screenshot({path:`${directory}/ai-sister-presence-${width}.png`});
+    await openGuide(page);await panel(page).evaluate(element=>element.scrollTo(0,0));await fits(page,panel(page),true);
     await page.screenshot({path:`${directory}/ai-sister-panel-${width}.png`});
     await panel(page).getByRole('button',{name:'角色圖鑑',exact:true}).click();
     const gallery=page.getByRole('dialog',{name:'AI Sister角色圖鑑',exact:true});await imageReady(gallery.locator('img'));await fits(page,gallery);
     await page.screenshot({path:`${directory}/ai-sister-gallery-${width}.png`});await page.keyboard.press('Escape');
+    await panel(page).getByRole('button',{name:'結束交談',exact:true}).click();
   }
+});
+
+test('selecting another companion preserves the page input and cancels its old guide',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});await registerJoined(page);await navigate(page,'工坊夥伴');
+  const title=page.getByLabel('搜尋夥伴',{exact:true});await expect(title).toBeVisible();
+  await title.fill('保留這個搜尋字詞');
+  const original=await title.elementHandle();
+  await widget(page).getByRole('button',{name:'帶我看',exact:true}).click();
+  await expect(widget(page).getByLabel('本頁指引目錄')).toBeVisible();
+  await widget(page).getByLabel('本頁指引目錄').getByRole('button').first().click();
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(1);
+  await widget(page).getByRole('combobox',{name:'導覽角色'}).selectOption('gemini');
+  await expect(widget(page)).toHaveAttribute('data-character-id','gemini');
+  await expect(widget(page)).toHaveAttribute('data-outfit-id','culture');
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+  expect(await original!.evaluate(element=>element.isConnected)).toBe(true);
+  await expect(title).toHaveValue('保留這個搜尋字詞');
 });
