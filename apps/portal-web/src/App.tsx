@@ -525,6 +525,7 @@ function Workspace({
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const menuToggle = useRef<HTMLButtonElement>(null)
   const mainContent = useRef<HTMLElement>(null)
+  const workspaceTopbar = useRef<HTMLElement>(null)
   const previousTab = useRef(tab)
   useEffect(() => {
     if (previousTab.current === tab) return
@@ -532,7 +533,7 @@ function Workspace({
     logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
-    mainContent.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+    workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
   const selectTab = useCallback((next: TabId) => {
     setMobileOpen(false)
@@ -639,14 +640,20 @@ function Workspace({
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{mobileOpen ? '關閉選單' : '開啟選單'}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} mobileOpen={mobileOpen}/>
           </aside>
-          <main ref={mainContent} className="main" id="main-content" tabIndex={-1}>
-            <header className="topbar">
+          <section className="workspace-main">
+            <header ref={workspaceTopbar} className="topbar workspace-topbar">
               <div>
-                <h1>{tabTitle(tab)}</h1>
+                <h1 id="workspace-page-title">{tabTitle(tab)}</h1>
               </div>
               <PageTools pageId={tab} client={client}/>
               <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
             </header>
+            <div className="workspace-content">
+              <aside className="workspace-companion" aria-label={`${tabTitle(tab)}的小精靈`}>
+                <PageSpirit key={spiritScope} pageId={tab} scopeKey={spiritScope}
+                  disabled={mobileOpen || Boolean(pending) || (tab === 'guild-workspace' && !canManageGuild)} />
+              </aside>
+              <main ref={mainContent} className="main" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
             {error && (
               <ErrorPanel
                 error={error}
@@ -679,9 +686,9 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
-            <PageSpirit key={spiritScope} pageId={tab} scopeKey={spiritScope}
-              disabled={mobileOpen || Boolean(pending) || (tab === 'guild-workspace' && !canManageGuild)} />
-          </main>
+              </main>
+            </div>
+          </section>
         </div>
       </div>
     </PortalContext.Provider>

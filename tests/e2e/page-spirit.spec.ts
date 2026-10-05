@@ -18,7 +18,8 @@ const password = 'freedom-npc-synthetic-member-2026';
 const widget = (page: Page) => page.locator('.page-spirit-widget');
 const panel = (page: Page) => page.locator('.page-spirit-panel');
 const line = (page: Page) => panel(page).locator('.page-spirit-line p');
-const actor = (page: Page) => panel(page).locator('.page-spirit-portrait');
+const actor = (page: Page) => widget(page).locator('.page-spirit-portrait');
+const guide = (page: Page) => widget(page).locator('.page-spirit-guide');
 
 async function registerJoined(page: Page) {
   await page.context().route(url => !['127.0.0.1','localhost'].includes(url.hostname), route => route.abort());
@@ -51,6 +52,8 @@ async function openSpirit(page: Page) {
   await expect(widget(page)).toHaveAttribute('data-load-state','ready',{timeout:15_000});
   await expect(panel(page).getByRole('textbox',{name:'問本頁問題',exact:true})).toBeEnabled();
   await finishLine(page);
+  const faq=panel(page).locator('.page-spirit-faq');
+  if(await faq.getAttribute('open')===null)await faq.locator('summary').click();
 }
 
 async function ask(page: Page, question: string) {
@@ -62,6 +65,30 @@ async function ask(page: Page, question: string) {
 async function openPreferences(page: Page) {
   const preferences=panel(page).locator('.page-spirit-preferences');
   if(await preferences.getAttribute('open')===null)await preferences.locator('summary').click();
+}
+
+async function openHistory(page: Page) {
+  const history=panel(page).locator('.page-spirit-history');
+  if(await history.getAttribute('open')===null)await history.locator('summary').click();
+}
+
+async function expectQuietCompanion(page: Page, blocked = false) {
+  await expect(widget(page)).toHaveCount(1);
+  await expect(widget(page)).toHaveAttribute('data-quiet','true');
+  await expect(widget(page)).toHaveAttribute('data-mode','closed');
+  await expect(widget(page)).toHaveAttribute('data-open','false');
+  await expect(panel(page)).toHaveCount(0);
+  await expect(actor(page)).toBeVisible();
+  if(blocked) {
+    const controls=widget(page).locator('.page-spirit-launcher,.page-spirit-entry-actions button');
+    await expect(controls).toHaveCount(3);
+    for(const button of await controls.all()) {
+      await expect(button).toBeDisabled();
+      await button.evaluate(element=>(element as HTMLButtonElement).click());
+    }
+    await expect(widget(page)).toHaveAttribute('data-mode','closed');
+    await expect(panel(page)).toHaveCount(0);
+  }
 }
 
 async function useInstantText(page: Page) {
@@ -92,19 +119,68 @@ async function withinViewport(page: Page, target: Locator) {
   expect(rect!.y).toBeGreaterThanOrEqual(0); expect(rect!.y+rect!.height).toBeLessThanOrEqual(size.height+1);
 }
 
-test('joined member loads only the current portrait before opening and each permitted tab owns its character', async ({page}) => {
+async function expectReservedCompanionSpace(page: Page) {
+  await expect(actor(page)).toBeVisible();
+  await expect(panel(page).locator('.page-spirit-portrait')).toHaveCount(0);
+  await expect(actor(page).locator('img')).toHaveCSS('object-fit','contain');
+  await expect.poll(async()=>page.evaluate(()=>{
+    const main=document.getElementById('main-content'),spirit=document.querySelector<HTMLElement>('.page-spirit-widget'),host=document.querySelector<HTMLElement>('.workspace-companion');
+    if(!main||!spirit||!host||main.contains(spirit)||!host.contains(spirit)||host.parentElement!==main.parentElement)return false;
+    if(['fixed','absolute'].includes(getComputedStyle(spirit).position))return false;
+    const content=main.getBoundingClientRect(),companion=spirit.getBoundingClientRect();
+    if(content.width<=0||content.height<=0||companion.width<=0||companion.height<=0)return false;
+    const intersects=(other:{left:number;right:number;top:number;bottom:number})=>Math.min(content.right,other.right)-Math.max(content.left,other.left)>1
+      &&Math.min(content.bottom,other.bottom)-Math.max(content.top,other.top)>1;
+    if(intersects(companion)||intersects(host.getBoundingClientRect())||document.documentElement.scrollWidth>innerWidth+1)return false;
+    const surfaces=spirit.querySelectorAll<HTMLElement>('.page-spirit-presence,.page-spirit-portrait,.page-spirit-guide,.page-spirit-panel,.page-spirit-disclosure,button,input,summary');
+    if(Array.from(surfaces).some(element=>{
+      const bounds=element.getBoundingClientRect(),style=getComputedStyle(element);
+      const rect={left:bounds.left,right:bounds.right,top:bounds.top,bottom:bounds.bottom};
+      for(let parent=element.parentElement;parent&&host.contains(parent);parent=parent.parentElement){
+        const clip=parent.getBoundingClientRect(),parentStyle=getComputedStyle(parent);
+        if(/hidden|clip|auto|scroll/.test(parentStyle.overflowX)){rect.left=Math.max(rect.left,clip.left);rect.right=Math.min(rect.right,clip.right);}
+        if(/hidden|clip|auto|scroll/.test(parentStyle.overflowY)){rect.top=Math.max(rect.top,clip.top);rect.bottom=Math.min(rect.bottom,clip.bottom);}
+      }
+      return rect.right>rect.left&&rect.bottom>rect.top&&style.display!=='none'&&style.visibility!=='hidden'
+        &&(intersects(rect)||rect.left< -1||rect.right>innerWidth+1);
+    }))return false;
+    if(innerWidth>=1280)return companion.left>=content.right-1;
+    return !['fixed','absolute','sticky'].includes(getComputedStyle(host).position)
+      &&!['fixed','absolute','sticky'].includes(getComputedStyle(spirit).position)&&companion.bottom<=content.top+1;
+  }),{timeout:5000,message:'the companion must occupy a separate page region without covering the main content'}).toBe(true);
+}
+
+async function receivesPointer(page: Page, target: Locator) {
+  await target.evaluate(element=>element.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
+  await expect.poll(async()=>target.evaluate(element=>{
+    const rect=element.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+    if(x<0||y<0||x>=innerWidth||y>=innerHeight)return false;
+    const hit=document.elementFromPoint(x,y);
+    return hit===element||Boolean(hit&&element.contains(hit));
+  }),{timeout:5000,message:'the actual control center must receive pointer input'}).toBe(true);
+  await withinViewport(page,target);
+}
+
+test('joined member loads only the current hero before interaction and each permitted tab owns its character', async ({page}) => {
   test.setTimeout(120_000);
   const requests = collectArtRequests(page);
+  const packRequests:string[]=[];
+  const packChunk=new RegExp(`/assets/(${Object.keys(SPIRIT_CHARACTERS).join('|')})-[^/]+\\.js$`);
+  page.on('request',request=>{const path=new URL(request.url()).pathname;if(packChunk.test(path)||/\/packs\/[^/]+\.json$/.test(path))packRequests.push(path);});
   await registerJoined(page);
   await expect(widget(page).locator('.page-spirit-launcher img')).toHaveJSProperty('complete',true);
   expect(requests.length).toBeGreaterThan(0);
-  expect(requests.every(request=>request.pageId==='home' && request.part==='portrait')).toBe(true);
+  expect(requests.every(request=>request.pageId==='home' && request.part==='hero')).toBe(true);
+  expect(packRequests).toEqual([]);
+  await expect(widget(page).locator('.page-spirit-launcher img')).toHaveAttribute('src',SPIRIT_CHARACTERS.home.hero);
   const businessWrites: string[] = [];
   page.on('request',request=>{if(!['GET','HEAD','OPTIONS'].includes(request.method()) && new URL(request.url()).pathname.startsWith('/api/v1/'))businessWrites.push(new URL(request.url()).pathname);});
   await openSpirit(page);
   await expect(line(page)).toHaveText(home.entryLine);
-  await expect(panel(page)).toHaveAttribute('aria-modal','false');
-  await expect(panel(page).locator('.page-spirit-nameplate strong')).toHaveText(home.characterName);
+  await expect(widget(page)).toHaveAttribute('role','region');
+  await expect(widget(page)).toHaveAccessibleName(`${home.characterName} ${home.title}`);
+  await expect(page.getByRole('region',{name:`${home.characterName}的本頁說明`,exact:true})).toBeVisible();
+  await expect(widget(page).locator('.page-spirit-nameplate strong')).toHaveText(home.characterName);
   expect(requests.every(request=>request.pageId==='home')).toBe(true);
   expect(new Set(requests.filter(request=>request.part.startsWith('frame-')).map(request=>request.part)).size).toBe(6);
   await panel(page).getByRole('button',{name:home.topics[0].label,exact:true}).click(); await finishLine(page);
@@ -121,13 +197,14 @@ test('joined member loads only the current portrait before opening and each perm
     await expect(widget(page)).toHaveAttribute('data-page-id',id);
     const character = SPIRIT_CHARACTERS[id], launcher = widget(page).locator('.page-spirit-launcher');
     await expect(launcher).toHaveAccessibleName(`${character.name}・${character.title}的當頁龍娘`);
-    await expect(launcher.locator('img')).toHaveAttribute('src',character.portrait);
+    await expect(launcher.locator('img')).toHaveAttribute('src',character.hero);
     await expect(launcher.locator('img')).toHaveJSProperty('complete',true);
     expect(await launcher.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth>0)).toBe(true);
     observedNames.add(character.name);
   }
   expect(observedNames.size).toBe(25);
-  expect(requests.filter(request=>request.part!=='portrait').every(request=>request.pageId==='home')).toBe(true);
+  expect(requests.filter(request=>!['portrait','hero'].includes(request.part)).every(request=>request.pageId==='home')).toBe(true);
+  expect(packRequests.every(path=>/\/home-[^/]+\.js$/.test(path)||path.endsWith('/packs/home.json'))).toBe(true);
 });
 
 test('page-only FAQ and raw-input privacy survive a delayed old-page pack and cross-page reset', async ({page}) => {
@@ -160,7 +237,7 @@ test('page-only FAQ and raw-input privacy survive a delayed old-page pack and cr
     await openSpirit(page); await expect(line(page)).toHaveText(home.entryLine);
     await expect(panel(page).getByRole('button',{name:'免費預覽',exact:true})).toHaveCount(0);
     await closeSpirit(page); await navigate(page,'技能書架'); await openSpirit(page);
-    await expect(panel(page).locator('.page-spirit-nameplate strong')).toHaveText(skills.characterName);
+    await expect(widget(page).locator('.page-spirit-nameplate strong')).toHaveText(skills.characterName);
     await panel(page).getByRole('button',{name:'免費預覽',exact:true}).click(); await finishLine(page);
     await expect(line(page)).toHaveText(skills.topics.find(topic=>topic.label==='免費預覽')!.answer);
     for (const input of ['職業公會怎麼加入？','免費預覽，以及其他頁的付款','secret-e2e-only@example.test','<img src=x onerror=alert(1)>']) {
@@ -173,7 +250,7 @@ test('page-only FAQ and raw-input privacy survive a delayed old-page pack and cr
     await ask(page,'幫我付款'); await expect(line(page)).toContainText('原本的按鈕');
     await closeSpirit(page); await navigate(page,'會員首頁'); await openSpirit(page);
     await expect(line(page)).toHaveText(home.entryLine);
-    await expect(panel(page).locator('.page-spirit-sr[role=status]').filter({hasText:home.entryLine})).toHaveCount(1);
+    await expect(widget(page).locator('.page-spirit-sr[role=status]').filter({hasText:home.entryLine})).toHaveCount(1);
   } finally {
     release();
     if (intercepted) await routeFinished;
@@ -181,14 +258,14 @@ test('page-only FAQ and raw-input privacy survive a delayed old-page pack and cr
   }
 });
 
-test('console drafts, the existing page dialog and outside form focus suppress the NPC without stealing data', async ({page}) => {
+test('console drafts, the existing page dialog and outside form focus keep the companion quiet without stealing data', async ({page}) => {
   test.setTimeout(90_000);
   await registerJoined(page);
   const help = page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});
   const original = page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true});
   // The native dialog must return focus before React unmounts it, both with
   // the helper closed and when opening the modal suppresses an active helper.
-  await help.click(); await expect(original).toBeVisible();
+  await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
   await original.getByRole('button',{name:'關閉',exact:true}).click();
   await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
@@ -196,7 +273,7 @@ test('console drafts, the existing page dialog and outside form focus suppress t
   await openSpirit(page);
   await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
   const dock = page.getByRole('complementary',{name:'訊息控制台',exact:true});
-  await expect(dock).toBeVisible(); await expect(widget(page)).toHaveCount(0);
+  await expect(dock).toBeVisible(); await expectQuietCompanion(page,true);
   await dock.getByRole('tab',{name:/^公會聊天/}).click();
   await dock.getByRole('button',{name:'AI 開發公會',exact:true}).click();
   const draft = `private-unsent-npc-draft-${randomUUID()}`;
@@ -212,26 +289,26 @@ test('console drafts, the existing page dialog and outside form focus suppress t
   await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
   await openSpirit(page);
   await help.click();
-  await expect(original).toBeVisible(); await expect(widget(page)).toHaveCount(0);
+  await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
   await original.getByRole('button',{name:'關閉',exact:true}).click(); await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await expect(help).toBeFocused();
   await expect(widget(page).locator('.page-spirit-launcher')).not.toBeFocused();
-  await openSpirit(page); await help.click(); await expect(original).toBeVisible();
+  await openSpirit(page); await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
   await page.keyboard.press('Escape'); await expect(original).toHaveCount(0); await expect(help).toBeFocused();
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await navigate(page,'工坊夥伴'); await openSpirit(page);
   const search = page.getByLabel('搜尋夥伴',{exact:true}), privateSearch = `unsent-profile-${randomUUID()}`;
-  await search.fill(privateSearch); await expect(widget(page)).toHaveCount(0); await expect(search).toHaveValue(privateSearch);
+  await search.fill(privateSearch); await expectQuietCompanion(page); await expect(search).toBeFocused(); await expect(search).toHaveValue(privateSearch);
   await page.getByRole('heading',{name:'工坊夥伴',level:1,exact:true}).click();
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible(); await openSpirit(page);
   await expect(line(page)).not.toContainText(privateSearch); await expect(search).toHaveValue(privateSearch);
 });
 
-test('real six-frame playback finishes, cancels under motion controls and keeps phone controls above the console', async ({page}, testInfo) => {
+test('real six-frame playback finishes, cancels under motion controls and keeps flow controls operable beside the main page', async ({page}, testInfo) => {
   test.setTimeout(90_000);
   await registerJoined(page); await openSpirit(page);
-  if(await panel(page).getByRole('button',{name:'看角色',exact:true}).isVisible())await panel(page).getByRole('button',{name:'看角色',exact:true}).click();
+  await expect(actor(page)).toBeVisible();
   await ask(page,'你好');
   await expect(actor(page)).toHaveAttribute('data-animating','true');
   const observed = await actor(page).evaluate(async element=>{
@@ -261,15 +338,14 @@ test('real six-frame playback finishes, cancels under motion controls and keeps 
   await page.emulateMedia({reducedMotion:'no-preference'});
   for (const width of [1440,390,320]) {
     await page.setViewportSize({width,height:900});
-    await withinViewport(page,panel(page));
+    await expectReservedCompanionSpace(page);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    const submit=panel(page).getByRole('button',{name:'送出',exact:true}); await withinViewport(page,submit);
+    const submit=panel(page).getByRole('button',{name:'送出',exact:true}); await receivesPointer(page,submit);
     const rectangle=await submit.boundingBox(); expect(rectangle!.height).toBeGreaterThanOrEqual(44);
-    const consoleRect=await page.locator('.game-console').first().boundingBox(), spiritRect=await panel(page).boundingBox();
-    expect(consoleRect).not.toBeNull(); expect(spiritRect!.y+spiritRect!.height).toBeLessThanOrEqual(consoleRect!.y-8);
+    await expectReservedCompanionSpace(page);
     await page.screenshot({path:testInfo.outputPath(`page-spirit-${width}.png`),fullPage:false});
     await closeSpirit(page);
-    await withinViewport(page,page.getByRole('button',{name:'展開訊息控制台',exact:true}));
+    await receivesPointer(page,page.getByRole('button',{name:'展開訊息控制台',exact:true}));
     await openSpirit(page);
   }
 });
@@ -282,6 +358,7 @@ test('NPC input and gallery link keep readable contrast under all three real the
     if (await settings.getAttribute('aria-expanded')!=='true') await settings.click();
     await page.getByRole('menuitemradio',{name:label,exact:true}).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+    await page.keyboard.press('Escape');
     await openSpirit(page);
     await panel(page).getByRole('textbox',{name:'問本頁問題',exact:true}).fill('本頁文字對比測試');
     const metrics = await panel(page).evaluate(element => {
@@ -302,7 +379,7 @@ test('NPC input and gallery link keep readable contrast under all three real the
         const first=luminance(foreground),second=luminance(background);
         return {color:style.color,background,contrast:(Math.max(first,second)+0.05)/(Math.min(first,second)+0.05),colorScheme:style.colorScheme};
       };
-      const input=element.querySelector<HTMLInputElement>('.page-spirit-form input'),link=element.querySelector<HTMLAnchorElement>('.page-spirit-tools a');
+      const input=element.querySelector<HTMLInputElement>('.page-spirit-form input'),link=element.querySelector<HTMLAnchorElement>('.page-spirit-art-link');
       if(!input||!link)throw new Error('NPC contrast targets missing');
       return {input:measure(input),link:measure(link)};
     });
@@ -320,6 +397,7 @@ test('natural same-page dialogue, previous-response context, restart and IME kee
   await ask(page,'請問未解鎖能看嗎？'); await expect(line(page)).toHaveText(preview.answer);
   await ask(page,'我想了解投稿入口'); await expect(line(page)).toHaveText(posting.answer);
   const before=await widget(page).getAttribute('data-canonical-count');
+  await openHistory(page);
   await panel(page).getByRole('button',{name:'上一句',exact:true}).click(); await expect(line(page)).toHaveText(preview.answer);
   await expect(widget(page)).toHaveAttribute('data-canonical-count',before!);
   await panel(page).getByRole('button',{name:'回到最新',exact:true}).click(); await expect(line(page)).toHaveText(posting.answer);
@@ -341,10 +419,11 @@ test('natural same-page dialogue, previous-response context, restart and IME kee
   await input.fill('private-unsent-minimize@example.test');
   await panel(page).getByRole('button',{name:'收合交談',exact:true}).click();
   await expect(widget(page)).toHaveAttribute('data-mode','compact'); await expect(panel(page)).toHaveCount(0);
-  await expect(widget(page).locator('.page-spirit-strip')).not.toContainText('private-unsent-minimize@example.test');
+  await expect(widget(page)).not.toContainText('private-unsent-minimize@example.test');
   await widget(page).getByRole('button',{name:'繼續交談',exact:true}).click(); await finishLine(page);
   await expect(input).toHaveValue('private-unsent-minimize@example.test');
   await closeSpirit(page); await openSpirit(page); await expect(input).toHaveValue('');
+  await openHistory(page);
   await panel(page).getByRole('button',{name:'重新開始',exact:true}).click(); await finishLine(page);
   await expect(line(page)).toHaveText(skills.entryLine); await expect(input).toHaveValue('');
   expect(Number(await widget(page).getAttribute('data-canonical-count'))).toBeLessThanOrEqual(1);
@@ -374,10 +453,11 @@ test('only boolean companion preferences survive reload, while raw drafts and cu
   for(const viewport of [{width:390,height:844},{width:320,height:420},{width:320,height:360}]) {
     await page.setViewportSize(viewport);
     await panel(page).getByRole('button',{name:'收合交談',exact:true}).click();
-    const strip=widget(page).locator('.page-spirit-strip'); await withinViewport(page,strip);
-    for(const button of await strip.getByRole('button').all()){const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
-    await strip.getByRole('button',{name:'繼續交談',exact:true}).click(); await finishLine(page);
-    await withinViewport(page,panel(page)); await withinViewport(page,panel(page).getByRole('button',{name:'送出',exact:true}));
+    const actions=widget(page).locator('.page-spirit-entry-actions'); await expectReservedCompanionSpace(page);
+    await expect(actor(page)).toBeVisible();
+    for(const button of await actions.getByRole('button').all()){await receivesPointer(page,button);const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
+    await actions.getByRole('button',{name:'繼續交談',exact:true}).click(); await finishLine(page);
+    await expectReservedCompanionSpace(page); await receivesPointer(page,panel(page).getByRole('button',{name:'送出',exact:true}));
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:testInfo.outputPath(`page-spirit-ux-${viewport.width}x${viewport.height}.png`),fullPage:false});
   }
@@ -397,12 +477,13 @@ test('explicit current-topic guide focuses and highlights the real control witho
   for(const size of [{width:1440,height:900},{width:320,height:420},{width:320,height:360}]) {
     await page.setViewportSize(size); await ask(page,'請問免費預覽呢？');
     await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
-    const strip=widget(page).locator('.page-spirit-strip');
+    const guideRegion=guide(page);
     await expect(widget(page)).toHaveAttribute('data-mode','guide');
-    await expect(strip).toHaveAttribute('data-guide-found','true');
+    await expectReservedCompanionSpace(page);
+    await expect(guideRegion).toHaveAttribute('data-guide-found','true');
     await expect(target).toBeFocused(); await expect(target).toHaveAttribute('data-page-spirit-guide-target','true');
     await expect.poll(async()=>{
-      const control=await target.boundingBox(),helper=await strip.boundingBox(),consoleBox=await page.locator('.game-console-ticker').boundingBox();
+      const control=await target.boundingBox(),helper=await guideRegion.boundingBox(),consoleBox=await page.locator('.game-console-ticker').boundingBox();
       if(!control||!helper||!consoleBox)return false;
       const overlap=(a:typeof control,b:typeof helper)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
       const receivesPointer=await target.evaluate(element=>{
@@ -411,7 +492,7 @@ test('explicit current-topic guide focuses and highlights the real control witho
       });
       return control.x>=0&&control.y>=0&&control.x+control.width<=size.width+1&&control.y+control.height<=size.height+1&&!overlap(control,helper)&&!overlap(control,consoleBox)&&receivesPointer;
     },{timeout:5000,message:`guide target must remain operable at ${size.width}x${size.height}`}).toBe(true);
-    for(const button of await strip.getByRole('button').all()){const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
+    for(const button of await guideRegion.getByRole('button').all()){const box=await button.boundingBox();expect(box!.height).toBeGreaterThanOrEqual(44);}
     expect(await target.getAttribute('aria-pressed')).toBe(clickedBefore);expect(page.url()).toBe(urlBefore);
     expect(await page.evaluate(()=>(window as typeof window&{__pageSpiritGuideClicks:number}).__pageSpiritGuideClicks)).toBe(0);
     expect(await page.locator('.community-library [data-book-id]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-book-id')))).toEqual(booksBefore);
@@ -439,8 +520,8 @@ test('a missing original control yields an honest guide notice and never chooses
   const definition=getSpiritGuide('members','members:topic-2')!; expect(definition).not.toBeNull();
   await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
   await expect(widget(page)).toHaveAttribute('data-mode','guide');
-  await expect(widget(page).locator('.page-spirit-strip')).toHaveAttribute('data-guide-found','false');
-  await expect(widget(page).locator('.page-spirit-guide-missing')).toContainText('入口目前無法使用');
+  await expect(guide(page)).toHaveAttribute('data-guide-found','false');
+  await expect(guide(page).locator('.page-spirit-note')).toContainText('入口目前無法使用');
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
   await widget(page).getByRole('button',{name:'結束指引',exact:true}).click();
   await expect(widget(page)).toHaveAttribute('data-mode','closed'); await expect(widget(page).locator('.page-spirit-launcher')).toBeFocused();
@@ -456,15 +537,15 @@ test('guide target invalidation restores original attributes and never resumes w
     await expect(target).toHaveAttribute('data-page-spirit-guide-target','true');
     const previous=await target.getAttribute(attribute);
     await target.evaluate((element,{attribute,value})=>element.setAttribute(attribute,value),{attribute,value});
-    const strip=widget(page).locator('.page-spirit-strip');
-    await expect(strip).toHaveAttribute('data-guide-found','false');
+    const guideRegion=guide(page);
+    await expect(guideRegion).toHaveAttribute('data-guide-found','false');
     await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
     expect(await target.getAttribute('tabindex')).toBe(tabIndex);
     await target.evaluate((element,{attribute,previous})=>{if(previous===null)element.removeAttribute(attribute);else element.setAttribute(attribute,previous);},{attribute,previous});
-    await expect(strip).toHaveAttribute('data-guide-found','false');
-    await strip.getByRole('button',{name:'重找入口',exact:true}).click();
-    await expect(strip).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
-    await strip.getByRole('button',{name:'結束指引',exact:true}).click();
+    await expect(guideRegion).toHaveAttribute('data-guide-found','false');
+    await guideRegion.getByRole('button',{name:'重找入口',exact:true}).click();
+    await expect(guideRegion).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
+    await guideRegion.getByRole('button',{name:'結束指引',exact:true}).click();
     await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true'); await openSpirit(page);
   }
   await ask(page,'免費預覽'); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
@@ -474,7 +555,7 @@ test('guide target invalidation restores original attributes and never resumes w
   await page.keyboard.press('Escape');await expect(original).toHaveCount(0);await expect(help).toBeFocused();
   await openSpirit(page);await ask(page,'免費預覽');await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
   const removed=await target.elementHandle();await target.evaluate(element=>element.remove());
-  await expect(widget(page).locator('.page-spirit-strip')).toHaveAttribute('data-guide-found','false');
+  await expect(guide(page)).toHaveAttribute('data-guide-found','false');
   expect(await removed!.getAttribute('data-page-spirit-guide-target')).toBeNull();
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
 });
@@ -486,8 +567,9 @@ test('a tall real calendar guide shows its beginning and stops scrolling when di
   await openSpirit(page); await useInstantText(page); await page.setViewportSize({width:320,height:420});
   const topic=events.topics.find(item=>item.id==='events:topic-2')!,definition=getSpiritGuide('events',topic.id)!;
   await ask(page,topic.label); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
-  const target=page.locator(definition.steps[0].selector),strip=widget(page).locator('.page-spirit-strip');
-  await expect(strip).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
+  const target=page.locator(definition.steps[0].selector),guideRegion=guide(page);
+  await expect(guideRegion).toHaveAttribute('data-guide-found','true'); await expect(target).toBeFocused();
+  await expectReservedCompanionSpace(page);
   expect((await target.boundingBox())!.height).toBeGreaterThan(210);
   await expect.poll(async()=>target.evaluate(element=>{
     const rect=element.getBoundingClientRect();
@@ -495,7 +577,7 @@ test('a tall real calendar guide shows its beginning and stops scrolling when di
     return rect.top>=0&&rect.top<innerHeight/2&&Boolean(hit&&(hit===element||element.contains(hit)));
   }),{timeout:5000,message:'the calendar heading must be visible above the guide, not its middle'}).toBe(true);
   await page.screenshot({path:testInfo.outputPath('page-spirit-calendar-guide-320.png'),fullPage:false});
-  await strip.getByRole('button',{name:'結束指引',exact:true}).click();
+  await guideRegion.getByRole('button',{name:'結束指引',exact:true}).click();
   await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
   await expect(widget(page).locator('.page-spirit-launcher')).toBeFocused();
   const positions=await page.evaluate(async()=>{
@@ -504,4 +586,65 @@ test('a tall real calendar guide shows its beginning and stops scrolling when di
     return samples;
   });
   expect(Math.max(...positions)-Math.min(...positions)).toBeLessThanOrEqual(1);
+});
+
+test('every companion mode reserves its own region and leaves real main-page controls operable across desktop and phone layouts', async ({page}, testInfo) => {
+  test.setTimeout(120_000);
+  await registerJoined(page); await navigate(page,'技能書架');
+  await page.setViewportSize({width:1440,height:900}); await openSpirit(page); await useInstantText(page);
+  await panel(page).getByRole('checkbox',{name:'靜態省電',exact:true}).check();
+  await panel(page).locator('.page-spirit-preferences > summary').click(); await closeSpirit(page);
+  const preview=skills.topics.find(topic=>topic.label==='免費預覽')!,definition=getSpiritGuide('skills',preview.id)!;
+  const target=page.locator(definition.steps[0].selector);
+  await widget(page).getByRole('button',{name:'帶我看',exact:true}).click();
+  await expect(widget(page).locator('.page-spirit-guide-directory')).toBeVisible();
+  await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+  await expect(target).not.toBeFocused();
+  await widget(page).locator('.page-spirit-guide-directory').getByRole('button',{name:definition.label,exact:true}).click();
+  await expect(widget(page)).toHaveAttribute('data-mode','guide');
+  await expect(target).toHaveAttribute('data-page-spirit-guide-target','true'); await expect(target).toBeFocused();
+  await widget(page).getByRole('button',{name:'結束指引',exact:true}).click();
+  for(const viewport of [{width:1440,height:900},{width:1280,height:900},{width:1024,height:900},{width:768,height:900},{width:390,height:844},{width:320,height:420},{width:320,height:360}]) {
+    await page.setViewportSize(viewport);
+    await expect(widget(page)).toHaveAttribute('data-mode','closed');
+    await expectReservedCompanionSpace(page); await receivesPointer(page,target);
+    const actions=widget(page).locator('.page-spirit-entry-actions');
+    for(const button of await actions.getByRole('button').all()) {
+      await receivesPointer(page,button); expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await actions.getByRole('button',{name:'帶我看',exact:true}).click();
+    await expect(widget(page)).toHaveAttribute('data-load-state','ready');
+    const directory=widget(page).locator('.page-spirit-guide-directory');
+    await expect(directory).toBeVisible();
+    await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
+    await expect(target).not.toBeFocused();
+    await expectReservedCompanionSpace(page); await receivesPointer(page,target);
+    for(const button of await directory.getByRole('button').all()) {
+      await receivesPointer(page,button); expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await directory.locator('summary').click();
+    await expect(widget(page)).toHaveAttribute('data-mode','closed');
+    await openSpirit(page);
+    await expect(widget(page)).toHaveAttribute('data-mode','expanded');
+    await expectReservedCompanionSpace(page); await receivesPointer(page,target);
+    await receivesPointer(page,panel(page).getByRole('button',{name:'送出',exact:true}));
+    await expect(actor(page)).toBeVisible();
+    await expect(actor(page).locator('img')).toHaveAttribute('src',SPIRIT_CHARACTERS.skills.hero);
+    await panel(page).getByRole('button',{name:'收合交談',exact:true}).click();
+    await expect(widget(page)).toHaveAttribute('data-mode','compact');
+    await expectReservedCompanionSpace(page); await receivesPointer(page,target);
+    const resume=widget(page).getByRole('button',{name:'繼續交談',exact:true});
+    await receivesPointer(page,resume); expect((await resume.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await resume.click(); await finishLine(page); await ask(page,preview.label);
+    await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
+    await expect(widget(page)).toHaveAttribute('data-mode','guide');
+    await expectReservedCompanionSpace(page); await expect(target).toBeFocused(); await receivesPointer(page,target);
+    const end=widget(page).getByRole('button',{name:'結束指引',exact:true});
+    await receivesPointer(page,end); expect((await end.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expectReservedCompanionSpace(page);
+    await page.screenshot({path:testInfo.outputPath(`page-spirit-reserved-guide-${viewport.width}x${viewport.height}.png`),fullPage:false});
+    await end.click(); await expect(widget(page)).toHaveAttribute('data-mode','closed');
+    await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true');
+    await expectReservedCompanionSpace(page);
+  }
 });

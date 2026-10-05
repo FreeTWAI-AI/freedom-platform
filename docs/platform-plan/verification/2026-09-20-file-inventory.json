@@ -2564,8 +2564,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 86687,
-      "sha256": "484e3236ce36be2e32627268a79a53b9e71e2e4ac94c7a8035634f91dec3e1b2"
+      "bytes": 87119,
+      "sha256": "58dadab5e14b3dfa3e167efc92e42f7363fb6212404326270ece4e37d215349a"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -2618,6 +2618,11 @@
       "sha256": "9792a8b04e7da634a90d871c34b803174c82ecd24196eaf389f797ed72430ff5"
     },
     {
+      "path": "apps/portal-web/src/WorkspaceCompanionLayout.css",
+      "bytes": 1435,
+      "sha256": "323d68828a024fab8e9e506e1a7759df6a443a6371128dddfd3c49937eba8c32"
+    },
+    {
       "path": "apps/portal-web/src/access-fetch.ts",
       "bytes": 1317,
       "sha256": "3e889900d1cc7d0c77d278bcf8159dc0c84bf60553438a84adf276ff97360fb3"
@@ -2654,8 +2659,8 @@
     },
     {
       "path": "apps/portal-web/src/main.tsx",
-      "bytes": 757,
-      "sha256": "315874dd9cc98a73c9965275b4851ffc3b082d6504afb15e08ba5eab7836b54b"
+      "bytes": 797,
+      "sha256": "1cfa347afe4582abbd32b159da6f3578cd2c82b16f058e65c5c7372f30e075f3"
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
@@ -3264,8 +3269,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/PageSpirit.tsx",
-      "bytes": 39000,
-      "sha256": "b014de7d481717941526ef436330ddda7e7a3663158c38fa09bbaf915cb30d87"
+      "bytes": 37209,
+      "sha256": "720285d9a655b441d8f41b8ac1c9a73ab8b8cd7bb5600c9b4fbc05ae4c027403"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/catalog.ts",
@@ -3424,8 +3429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/page-spirit.css",
-      "bytes": 11019,
-      "sha256": "593d6339d2e99d5082314b00e731870bb7f67cd7dc24f5817c5b776ba7646a10"
+      "bytes": 7267,
+      "sha256": "49105253484add047a268f289cebb5727e4842b3e68fbe4e7eb0b49ad02c992b"
     },
     {
       "path": "apps/portal-web/src/modules/page-spirit/preferences.ts",
@@ -4029,8 +4034,8 @@
     },
     {
       "path": "docs/development/page-spirit.md",
-      "bytes": 5442,
-      "sha256": "e058683a1f50a2cd241f3fbaea81a18e429f861d019f4bd595dea88176dd9ab5"
+      "bytes": 6562,
+      "sha256": "d082b6e350dba2b44dda8d830d96ef7eddbd212b1494cea2b925b016eedcfe87"
     },
     {
       "path": "docs/development/page-tools.md",
@@ -6774,8 +6779,8 @@
     },
     {
       "path": "tests/e2e/page-spirit.spec.ts",
-      "bytes": 37849,
-      "sha256": "b718e7abbf15435fa134e25684c8a766b88160c1c3755abf491075c9b4fe64f6"
+      "bytes": 47922,
+      "sha256": "79200a1c28361e7a3e6cd015ab395700f7d97b92187efcfad4fb7dc3aae9d88d"
     },
     {
       "path": "tests/e2e/page-tools-notification.spec.ts",
