@@ -13669,8 +13669,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338330,
+      "sha256": "2c508f6919cd783fe8556b62d833ab36c1aa8537ba5f0bc698ede4a419f6d066"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
+      "bytes": 1169,
+      "sha256": "d64853b2a21b4b4d84ea22752710fd33fee465528d8abae7fbd36a58b95a413f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -16209,8 +16214,8 @@
     },
     {
       "path": "packages/media-migration/backup-retention.ts",
-      "bytes": 15266,
-      "sha256": "3b7b3810c36d0e5450bb301bdcdc2e687dc79eaa89035eee36d7b03ae9058f4f"
+      "bytes": 15379,
+      "sha256": "4c5e551ad6f74e8d54b99563c72fa802cbc3a96dffcebd3d530362d5b912296d"
     },
     {
       "path": "packages/media-migration/backup-transfer.ts",
@@ -17854,8 +17859,8 @@
     },
     {
       "path": "tests/runtime/media-backup-retention.test.ts",
-      "bytes": 15288,
-      "sha256": "04f498de259d7916bf9e19accc8b6a5b7902b006be6527a1e55bb9489b94c340"
+      "bytes": 16443,
+      "sha256": "79f9aad8f36ff211ab2b3518201d9244a90e4ba180e5b2f7546deaea9adbc586"
     },
     {
       "path": "tests/runtime/media-backup-transfer.test.ts",

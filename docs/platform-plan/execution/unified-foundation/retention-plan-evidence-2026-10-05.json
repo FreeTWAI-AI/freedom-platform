@@ -1,0 +1,28 @@
+{
+  "task": "B2 retention stray-key source-pin planner regression",
+  "base_source": "4183957b3010dfc2deae1339fe350cf35deefaa3",
+  "candidate_commit": "4df26fc79d98736749d42036861055a99cdec969",
+  "environment": "Local Node, synthetic in-memory objects plus temporary local archive directory; no DB/cloud/deletes",
+  "command": "node --import tsx --test tests/runtime/media-backup-retention.test.ts",
+  "before": {
+    "pass": 6,
+    "fail": 1,
+    "skip": 0,
+    "reason": "strayKeys=1 planned release of old capture despite unknown archive references"
+  },
+  "after": {
+    "pass": 7,
+    "fail": 0,
+    "skip": 0,
+    "includes": "Pure negative and real archive scanner stray key before any corrupt manifest; plan remains deterministic and execution:not_run"
+  },
+  "remaining": "No retention execution or live GC policy activation; anchors/unknown ACK/shared publisher serialization need separate executor acceptance.",
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local_planner",
+  "accepted_original_rows": [],
+  "publication_candidate": "4da95bbfa33c4901bcd848f19d44944291ab5dd8",
+  "related_gates": [
+    "FC-02",
+    "FC-03"
+  ]
+}

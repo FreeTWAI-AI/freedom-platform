@@ -368,6 +368,22 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "retention-plan-4df26fc": {
+      "id": "retention-plan-4df26fc",
+      "kind": "local_archive_and_planner_regression",
+      "source_sha": "4df26fc79d98736749d42036861055a99cdec969",
+      "environment": "Local temporary archive; no SQL/cloud/delete",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Unknown archive objects now withhold old capture release as well as object pruning; identical regression fails before and passes after."
+      ],
+      "limitations": [
+        "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
+        "Supports FC-02/03 closure work; no original row accepted or state advanced."
+      ]
     }
   },
   "requirements": [
