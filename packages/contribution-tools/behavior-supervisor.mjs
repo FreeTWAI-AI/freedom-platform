@@ -533,7 +533,8 @@ async function executeDirectoryBuild(id) {
 }
 
 /** Bounded actual static build. The daemon pauses every container before copying
- * its tmpfs tree; a host-only reader hashes regular files without extracting them.
+ * its tmpfs tree; a host-only reader hashes regular files and captures bounded
+ * static HTML bytes without extracting them.
  * No writable host mount, candidate test, collector or self-reported verdict. */
 export async function runIsolatedDirectoryBuild({ repository, candidateRepository, candidateCommit }) {
   if (repository !== DIRECTORY_REPOSITORY) fail('consumer_profile_required');

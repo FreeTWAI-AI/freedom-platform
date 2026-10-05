@@ -61,6 +61,7 @@ jobs:
         working-directory: source
         env:
           FREEDOM_RUN_DIRECTORY_RUNTIME: '1'
+          FREEDOM_DIRECTORY_EVIDENCE: '1'
           FREEDOM_DIRECTORY_ROOT: ${{ github.workspace }}/directory
           FREEDOM_CONSUMER_SOURCE_ROOT: ${{ github.workspace }}/source
           FREEDOM_CONSUMER_WORKFLOW_SHA: ${{ github.sha }}
