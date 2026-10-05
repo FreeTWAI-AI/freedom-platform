@@ -83,15 +83,25 @@ purpose/environment/client/nonce/digest/signature and current original session,
 connection, credential, consent and SQL claim checks remain authoritative.
 There is no transported Actor, prompt, provider URL or execution capability.
 
-The existing opaque activation bundles must survive activation to execution in
-the same broker isolate. A cache contains genuine factories and opaque proof
-registries, not SQL clients. AsyncLocalStorage routes their SQL proxies into the
-current request's separate Hyperdrive pools, which are always ended after that
-request. Calls outside the request scope fail. Pools/clients never persist in the
-isolate cache. Another isolate or restarted Worker cannot reconstruct proof from
-SQL; it returns unavailable, preserving the original fail-closed behavior.
-This candidate does not claim cross-replica affinity, Durable Object execution,
-or recovery of an interrupted dispatch.
+Activation persists an exact immutable binding and reservation in SQL, not an
+executable proof. Execution on any broker instance first reads that owned reserved
+step and performs fresh provider verification. Only the genuine new opaque proof,
+matching recovery generation and evidence origin, can pass the locked SQL CAS and
+mint one dispatch capability. Verification cannot extend the original lease.
+Concurrent instances may perform read-only provider verification; only one consumes
+the reservation. Dispatched, unknown or completed steps never gain another
+capability. An interrupted dispatch is not recovered or retried.
+
+Activation acknowledgement and spent authorization replay read SQL metadata only,
+without provider verification or a credential resolver. AsyncLocalStorage still
+routes SQL proxies into the current request's separate Hyperdrive pools, ended
+after that request. Neither SQL clients nor executable proof registries must
+survive across requests.
+
+The runtime model-step tests use independent hosts/services against PostgreSQL;
+the broker bridge adversarial test additionally uses separate child processes and
+a restarted broker with genuine signed claims, restricted SQL roles and synthetic
+loopback provider HTTP. These prove local continuity, not remote edge routing.
 
 Native provider fetch preserves the original fixed host selection and bounded
 response profile, refuses redirects, enforces deadlines/byte/chunk limits, and
