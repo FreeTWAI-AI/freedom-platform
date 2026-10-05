@@ -1,6 +1,7 @@
 """Read a bounded Docker archive without extracting or following any links.
 
-This trusted host program emits names/hashes only. Candidate files remain data.
+The default emits names/hashes. Explicit HTML mode also returns bounded bytes
+for exactly two static output paths. Candidate files remain data, never verdicts.
 """
 import hashlib
 import base64

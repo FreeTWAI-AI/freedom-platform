@@ -90,7 +90,7 @@ a 128 MiB heap ceiling, a 3-second timeout and 64 KiB stdout/stderr budget. The
 tree is limited to 20,000 nodes, depth 128 and 32 attributes per element. Parsing
 never executes scripts or fetches resources. It uses the existing sanitized
 subprocess environment, and candidate builds retain network-none containers.
-Malformed output, parser crashes/timeouts, missing parser bytes and incomplete
+Malformed parser reports, parser crashes/timeouts, missing parser bytes and incomplete
 readback are unavailable, never accepted as expected input rejection.
 
 Run `node --test packages/contribution-tools/test/directory-build.test.mjs` for the

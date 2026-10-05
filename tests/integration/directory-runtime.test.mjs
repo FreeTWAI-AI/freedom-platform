@@ -38,6 +38,14 @@ function clean(result) {
   assert.equal(result.runtime.cleanup_verified, true, JSON.stringify(result.runtime));
   assert.equal(result.runtime.cleanup.volumes_verified, true);
   assert.equal(result.gate_enforced, false); assert.equal(result.library_usage, 'not_checked');
+  if (process.env.FREEDOM_DIRECTORY_EVIDENCE === '1') console.log(JSON.stringify({
+    format: 'freedom.directory-profile-test-observation/v1', assurance_level: 'local',
+    workflow_commit: result.workflow_commit, source_commit: result.source_commit,
+    candidate_commit: result.candidate_commit, candidate_tree: result.candidate_tree,
+    status: result.status, reason: result.runtime.reason, semantic_profile: result.runtime.semantic_profile,
+    cleanup_verified: result.runtime.cleanup_verified, installation: result.runtime.installation ?? null,
+    cases: result.runtime.cases, gate_enforced: false, merge_authorized: false,
+  }));
 }
 function passed(result) {
   clean(result); assert.equal(result.status, 'passed', JSON.stringify(result));
