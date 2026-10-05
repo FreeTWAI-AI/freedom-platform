@@ -1,0 +1,691 @@
+{
+  "format": "freedom.foundation-kit-invocation-evidence/v1",
+  "packet": "C3b",
+  "binding": {
+    "producer": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+    "candidate": "ff273fce3b65f7ebda3e6f0918d58e8ede2520ca",
+    "candidate_tree": "3d47377b28eca8fe39cf25d275340a9f5416dfc1",
+    "host": "3564187ef94411453c792ae858697561bdf0f812",
+    "profile": "agent-kit-device-cli-v1",
+    "other_consumer_source": "91b943ac61e132fbbce72ea066cb2301aa065600"
+  },
+  "environment": "Local isolated Docker; real canonical CLI/SDK ES256 requests over synthetic fixed-host Unix-socket transport, not TLS or platform database",
+  "review_composition_code": "8159c7cb",
+  "tests": [
+    {
+      "passed": 16,
+      "source": "6320258f03af0b75f32c476258f49ef07a6b9a97",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "6c7b9d6e25f3546be32daa392bd2e1bcaf9acaf710d62c9529587ba19483b44c",
+      "test_entry": "node --test packages/contribution-tools/test/{consumer-libraries,machine-device-cli}.test.mjs"
+    },
+    {
+      "passed": 44,
+      "source": "7a7202d099b13673010abcb6823b8b4104627ff2",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "6cd4c15731cc98ddd1f03499a8411fe6f987eb167a4a4183377d9585bb6abda6",
+      "test_entry": "node --test packages/contribution-tools/test/{agent-kit-device-fixture,agent-kit-device-profile,consumer-entry-coverage,github-consumer-host,github-consumer-profiles,consumer-libraries,machine-device-cli}.test.mjs"
+    },
+    {
+      "passed": 8,
+      "source": "7a7202d099b13673010abcb6823b8b4104627ff2",
+      "fixture_prerequisite": "Empty ignored root node_modules directory, not an installed product dependency tree; initial missing-directory failure retained in supervisor-regression.log",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "564dd5577ad47a9466c43e105c71d86e15f1a58dac92f6d20d528af1fe255324",
+      "test_entry": "node --test packages/contribution-tools/test/{behavior-supervisor,supervisor-create-lifecycle}.test.mjs"
+    },
+    {
+      "passed": 47,
+      "source": "7a7202d099b13673010abcb6823b8b4104627ff2",
+      "result": "Standalone distribution/copy closures pass; no additional verifier allowlist changes needed",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "537af03c4579406208d4caf576dfeef4dd087c565ee71d2d8ef844e9f176973b",
+      "test_entry": "node --test packages/contribution-tools/test/{trusted-ci,github-trusted-adapter,github-app-publisher,github-behavior-host}.test.mjs"
+    },
+    {
+      "passed": 12,
+      "source": "7a7202d099b13673010abcb6823b8b4104627ff2",
+      "tier": "local isolated Docker / synthetic host HTTP",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "8c42e44b20b9b87ce9b97dba4f6db727a8d76f447e4520eadf6d4b869141fc36",
+      "test_entry": "node --test --test-concurrency=1 tests/integration/native-consumer-runtime.test.ts"
+    },
+    {
+      "passed": 10,
+      "source": "3564187ef94411453c792ae858697561bdf0f812",
+      "tier": "local isolated Docker + immutable Git negatives; genuine CLI/SDK ES256 with synthetic Unix-socket transport",
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "log_sha256": "6ec7ae1c1c1924c8d2e5a7df13012e30e970019c918e5850e7533a8f4dd02008",
+      "test_entry": "node --test --test-concurrency=1 tests/integration/agent-kit-device-runtime.test.mjs"
+    }
+  ],
+  "review_receipts": [
+    {
+      "name": "grok-design",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "session_id": "01a10dff-6b75-75c0-aa91-f38a701cd712",
+      "stop_reason": "end_turn",
+      "actual_tools": [
+        "read_file",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "source_scope": "mutable initial design reads; advisory only",
+      "result": "bounded design advice, not implementation approval",
+      "limitations": [
+        "No external reviewer approval or hosted CI authority"
+      ],
+      "prompt_sha256": "defc231c1a6866c4e98eadf15bc0f12e45f5fc15d347abf6b95a99867447a774",
+      "stream_sha256": "bb417d9032286d82c98b7b8cfc50e25c318b779d271d13d078b0c035b750c667",
+      "answer_sha256": "bdaf599bbb64a55a04a621fb818099e111566711c19f31dfbc160444f2cc897f"
+    },
+    {
+      "name": "grok-patch",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "session_id": "01a10e0a-85ab-7370-84e5-8f50d10dc380",
+      "stop_reason": "end_turn",
+      "actual_tools": [
+        "grep",
+        "grep",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "source_scope": "7a7202d099b13673010abcb6823b8b4104627ff2; entry-review four source files unchanged at final356",
+      "result": "No blocking finding within explicitly read scope",
+      "limitations": [
+        "No external reviewer approval or hosted CI authority",
+        "First patch review only read target/preload search hits; separate entry review read all four target/preload/host files"
+      ],
+      "prompt_sha256": "cbce58c973fda7d288f2b784895e17ee333953eb47609f48648dec02aba7f062",
+      "stream_sha256": "c1a3e5668e04ab2392f0271c0206b1af3f16c00ea12d23b5090f6b0c5c727ea7",
+      "answer_sha256": "7b246a056aa9449400c4c6914b62ace8cbb69224470167ad1e0378ab1505c9ec"
+    },
+    {
+      "name": "grok-entry",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "session_id": "01a10e0d-de21-79d3-a638-fb63f9d7404a",
+      "stop_reason": "end_turn",
+      "actual_tools": [
+        "read_file",
+        "read_file",
+        "read_file",
+        "read_file"
+      ],
+      "source_scope": "7a7202d099b13673010abcb6823b8b4104627ff2; entry-review four source files unchanged at final356",
+      "result": "No blocking finding within explicitly read scope",
+      "limitations": [
+        "No external reviewer approval or hosted CI authority"
+      ],
+      "prompt_sha256": "e6ac70b520811a414eabec139e3efdaae49d92a58992959d39b60b9817e0ccd5",
+      "stream_sha256": "04e173f18769044e75fd411bd4520c0cab76716d02f1bc49361831c6d1f8e23c",
+      "answer_sha256": "fbaacd0f2ae5f8176c6f723d3398ab77205123692b7dcb0525322ea811bfb16d"
+    }
+  ],
+  "runtime_scenarios": [
+    "authorized",
+    "authorized_other_config",
+    "denied",
+    "foreign_challenge",
+    "exchange_unknown",
+    "refresh_unknown",
+    "revoked",
+    "cancelled",
+    "insecure_origin"
+  ],
+  "source_negatives": [
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "unused_import",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "library_entry_source_mismatch",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "dead_call_private_client",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "library_entry_source_mismatch",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "private_same_shape_client",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "library_entry_source_mismatch",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "wrong_source_pin",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "library_source_mismatch",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "sdk_replaced",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "library_bytes_mismatch",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "command_retarget",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "consumer_entry_registration_changed",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "candidate_preload",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "consumer_entry_registration_changed",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    },
+    {
+      "format": "freedom.kit-device-source-negative/v1",
+      "kind": "package_scope",
+      "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+      "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+      "result": "rejected",
+      "code": "consumer_entry_registry_set_changed",
+      "environment": "local-immutable-git",
+      "candidate_executed": false
+    }
+  ],
+  "observed_summary": {
+    "status": "passed",
+    "repository": "FreeTWAI-AI/freedom-agent-kit",
+    "candidate_commit": "ff273fce3b65f7ebda3e6f0918d58e8ede2520ca",
+    "candidate_tree": "3d47377b28eca8fe39cf25d275340a9f5416dfc1",
+    "workflow_commit": "3564187ef94411453c792ae858697561bdf0f812",
+    "source_commit": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+    "device_library_invocation": "closed_canonical_cli_observed",
+    "library_usage": "not_checked",
+    "library_invocation": "not_checked",
+    "server_authorization": "not_checked",
+    "gate_enforced": false,
+    "merge_authorized": false,
+    "execution_authorized": false
+  },
+  "raw_observation_sha256": "f97f62702cd7420ae109a52cd02886a8e73721616d11d16e65b4577e7d6a5da8",
+  "limits": [
+    "Same candidate source and immutable tree are bound across source/workspace/demo CLI/device CLI",
+    "Installed GitHub pins/rules and Pages are unchanged",
+    "No real TLS, browser approval, cloud API, auth DB or ExecutionGrant claim",
+    "Other Kit entrypoints and other consumers retain generic library_invocation=not_checked",
+    "Producer057 and Kitff are review-only candidates; publication does not imply installed approval"
+  ],
+  "initial_failures_resolved": [
+    "Fixture expected-output conditional accidentally overwritten during cancellation edit; fixed before7a with9trueDocker cases",
+    "Prototype normalization in registration transition; fixed via existing strict parseJson before7a",
+    "Old synthetic source CLI tests depended on environment chosen pins; updated to assert fixed host tuple and actual native CLI positive with real candidate",
+    "Supervisor test initial fixture lacked ignored node_modules directory; added empty fixture prerequisite only"
+  ],
+  "requirements": {
+    "accepted": [],
+    "mapping": "Related GOV-01/03/04/05/06 and AP:AUTH-06/12 retain their original row states: this closed device CLI does not substitute for page/API auth, two incompatible SDK build graphs or real DB family revocation. Actual client bootstrap evidence separately supports the existing AP:AUTH-13/14 partial rows."
+  },
+  "scenario_observations": [
+    {
+      "scenario": "authorized",
+      "status": "passed",
+      "expected_requests": 6,
+      "allowed_request_counts": [
+        6
+      ],
+      "observed_requests": 6,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "8fbba074147da059682887a75b36ed8b1d5049ddadcab7aae5f5c96b72a02c04",
+          "response_sha256": "f4909da53a1bbcaccffc4d9cdc2b81e4c8bb37ce5be47bb88ea732025cbb8419"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "e30df2be582bef22d4d96ac8f69422b3efb0b18c83c8821839e17823a103d2af",
+          "response_sha256": "7dd3af978c1af6170a7b5f1018da719c384c387f7ce46d6e87adb382acf359d4"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "e69a286c692a634b3634b9d8e0b5ada9414c9ad91e23cba9718f2b0f295054f6",
+          "response_sha256": "147e3490c36ad4473f9533067bc60ccf834be4500c72dca2ae979db271f82fd6"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "25de0150912ad9d87272d4e2aa3a9f2ea52d019f4b18d63ec7d5d12e5d3a03c4",
+          "response_sha256": "626d99d616167ec8214574428015fd3005a9510847e7220b85b83ac76e5dcafd"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/nonce",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "6b90edec66f55e94cea6478948482616e9bd8bba64585d2af15484f627a037c1",
+          "response_sha256": "8c506ce07d7905e277a25acc4ce5dc914b98951dff840df6de99133a81a44553"
+        },
+        {
+          "method": "GET",
+          "path": "/execution-api/v1/bootstrap",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "response_sha256": "4fa8850d838d3914116faa9b1f7a1f0c4f7afaa5251d45f814e23cd44386cc92"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "authorized_other_config",
+      "status": "passed",
+      "expected_requests": 6,
+      "allowed_request_counts": [
+        6
+      ],
+      "observed_requests": 6,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "edad53b66e872b03386d4553ac6308cdb6297247c4b5f4802c8e71d3d20c0cb0",
+          "response_sha256": "e3ed760381174ad8f1eccd185247b08644b21194b73b77e8e604ab9c756dd85e"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "31451120b2212625f96da3ede7b243683ca4048682efbf45c78f4f37e34161d4",
+          "response_sha256": "86c9bc9b075377c99e567f43627e6f46e69041f0ef69e8fd9cf7c894007bc8f0"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "f5b5ea29da3cc519e8959c949bb80ebdaf461744c2a2875fe70603ba015f83c5",
+          "response_sha256": "53229ba43f42b7441de8bcec3e3d4cd138e03411d189813bacdb1c072aa210ce"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "bb332cf3e32564ef2989d62ed1094a97e00b626884ec5e1fbbb2e5f2ee844ed4",
+          "response_sha256": "070f6121c87f06de705cf98e165a84a6d4e1f25ac7ac12dba445bc4e680aec30"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/nonce",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "eedac19161f277964d42ecce18ed0673d7085e2de38e674b7648900738c66ed8",
+          "response_sha256": "6863276d9bb5e38ae68e09c0864f7a3a1a5d3c6056210c1170c82ff734b480c3"
+        },
+        {
+          "method": "GET",
+          "path": "/execution-api/v1/bootstrap",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "response_sha256": "ead0186674292ba856d124c324630a148fbbf1d7cf2e4224e25624f014540f34"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "denied",
+      "status": "passed",
+      "expected_requests": 2,
+      "allowed_request_counts": [
+        2
+      ],
+      "observed_requests": 2,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "f37e0161f326bed1cb6975be65a98651b1d32a40b112b197121d0ce4d0f881f2",
+          "response_sha256": "310d1517ab57dac7a2d6aaa01820ba54060d82f8f03fca0f76b39a8dd31823c3"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "c7da771ecf231ac0f3a99e9e2a2c265c3cee9d911785487f49220a1a7d42f2f4",
+          "response_sha256": "a2f6c706753e7e3525aae240617fdb7b70cf4a48d2ba794b0092998bf1ca0935"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "foreign_challenge",
+      "status": "passed",
+      "expected_requests": 2,
+      "allowed_request_counts": [
+        2
+      ],
+      "observed_requests": 2,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "1efae989d9411ff405d05b9195c1cb6665e4e909bc559536df4577c7cc3e295b",
+          "response_sha256": "347ffa76164dbe6a958d8176a3cad11c3ba3df44d854c79c2866d82942fb454b"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "e464a833acd8ab5f1aedf189de93a24d1ccd358e08ecba32b17ec24bfe85f7d4",
+          "response_sha256": "630cfa149b75261dc26256507f649088528f0d5cbe02d3b90c246a7bdede11ec"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "exchange_unknown",
+      "status": "passed",
+      "expected_requests": 3,
+      "allowed_request_counts": [
+        3
+      ],
+      "observed_requests": 3,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "a0ceb198dd3b5f610755254780cebe72b1f5032f2b7f7cafb65b20dcc6b92c17",
+          "response_sha256": "1f68d55605476b834a9313261dc1f1ffb118d1444c5f2c55f509291c1e0095bc"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "3c2c7fe670bee75ad5155b8f844710324fd95826d6235f7c5a247fb2e4682dc8",
+          "response_sha256": "9bbd7a114e16972a091e2d51fcc5e1f823f536823f6fca09694a5018a6426977"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": "response_lost",
+          "proof_verified": true,
+          "request_sha256": "334e9b4e82c4c056dca9d851924a60b2b29b6b3c8a15fa4eeac7e8d9e2f8d379",
+          "response_sha256": null
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "refresh_unknown",
+      "status": "passed",
+      "expected_requests": 4,
+      "allowed_request_counts": [
+        4
+      ],
+      "observed_requests": 4,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "1b4177a9aa22da85620c569a279d431bde726d4a3c56a2d89c43a4fb260d1a51",
+          "response_sha256": "1b4527028b4f618260382f11695b1910112035cdae4598df9c48dc220029393b"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "3258f8a2fe3ee53a35b0b8d7383c2b3eba66552e87ac2beb5f07fbee609d5203",
+          "response_sha256": "fc966030767f6b4fe14bccebdd2f1692fb16569bb97e6c4baac769a38af3ca08"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "b51cc1c62c5feab51d7e1da6b785ab2de5943db8b6715dc84279af33775f75da",
+          "response_sha256": "4988bfa902ff85310a7cdaed972483f4cae88524ee2c51ee43a8734ba5051940"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": "response_lost",
+          "proof_verified": true,
+          "request_sha256": "7bf7f7598ee9c1a3013568d93156684bbcdb1877ac51bffb13691937c6612275",
+          "response_sha256": null
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "revoked",
+      "status": "passed",
+      "expected_requests": 5,
+      "allowed_request_counts": [
+        5
+      ],
+      "observed_requests": 5,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "557cde9370663c46d1f7b1cda33963a3f4e4e828011df6a8638df3c3ce17efd7",
+          "response_sha256": "c0ee9d9ab14ccc73643b854a79e36a308634b565bab761520edb8d9a63d53a47"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "7d78006642d4c81b3b027c3c88efff6e572a78ef2989b7da906e8b0dbc2bc231",
+          "response_sha256": "df327c6f068df812d918b6c292a669820bd89f57bc52dafd3b1ddb04a1dfa528"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "05f404d36d0c9503b1bff746a6b726c72e11066069872fb5ca720ec3fcd6fb6a",
+          "response_sha256": "0c217df41655314887100887bdc0f25c2143a4dfdac3c673e6437238ec7d22f8"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/token",
+          "status": 200,
+          "proof_verified": true,
+          "request_sha256": "a6d121907b4b48c2b283add7ce15d789b16be378d875b44f2041bd137d1609bf",
+          "response_sha256": "64aae827b90e7de6ebf28a50b6cd9581a378639b2dd877f3a87b388ae6820636"
+        },
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/nonce",
+          "status": 401,
+          "proof_verified": true,
+          "request_sha256": "a5e55a114f4e1320d57214e0d48bcf55c1b3c74b4150103d122b1b6628937b91",
+          "response_sha256": "535bd9dde0c301392c84460654b9e4e70ccb1ebc8075be41392b2213885239ec"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "cancelled",
+      "status": "passed",
+      "expected_requests": null,
+      "allowed_request_counts": [
+        1,
+        2
+      ],
+      "observed_requests": 1,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [
+        {
+          "method": "POST",
+          "path": "/execution-api/v1/auth/device-authorizations",
+          "status": 201,
+          "proof_verified": true,
+          "request_sha256": "8a4b145036270149902aeee2db0580b67ff63144ecdaa1e682ca96345bbf6d4d",
+          "response_sha256": "94eb8adf0275366298734d253f1cfab3a3ea47811d72edc3aeede99bd21b824a"
+        }
+      ],
+      "execution_authorized": false
+    },
+    {
+      "scenario": "insecure_origin",
+      "status": "passed",
+      "expected_requests": 0,
+      "allowed_request_counts": [
+        0
+      ],
+      "observed_requests": 0,
+      "response_matches_challenge": true,
+      "output_matches_expected": true,
+      "exit_code": 1,
+      "stderr_bytes": 0,
+      "secret_output_absent": true,
+      "http_trace": [],
+      "execution_authorized": false
+    }
+  ],
+  "isolation_observed": [
+    {
+      "id": "206f2d1c872fff9422bc7420c56f00f5b0cbe09fd8ecf55bf5a9810693b3490c",
+      "image": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+      "network": "none",
+      "readonly_root": true,
+      "memory_bytes": 536870912,
+      "pids": 128,
+      "ulimits": [
+        {
+          "Name": "core",
+          "Soft": 0,
+          "Hard": 0
+        },
+        {
+          "Name": "nofile",
+          "Soft": 512,
+          "Hard": 512
+        }
+      ],
+      "bind_destinations": [
+        "/candidate",
+        "/device-preload.mjs",
+        "/fixture",
+        "/target.mjs",
+        "/trusted-node"
+      ]
+    }
+  ],
+  "host_os_approval": "unverified",
+  "cleanup_verified": true
+}

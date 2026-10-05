@@ -19,13 +19,13 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-libraries.yml",
-      "bytes": 2607,
-      "sha256": "70fdc6affc43142ef3caa0fc2b705c7f8dc4c91714700ad73a5fb72cf0994534"
+      "bytes": 2523,
+      "sha256": "0e780c58833bf5db26675d61a9288ec5340898adca254d17098cb4507b71d0eb"
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 2736,
-      "sha256": "da297a100a7fedf4a8942174049f9de63244c1f121ed0c898e52ea536c4f2f8d"
+      "bytes": 2735,
+      "sha256": "8f4132370293f8f0a67f37afdb887516f77af3a1016364b4c71c84f11b56ced2"
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -13653,6 +13653,11 @@
       "sha256": "c8e94002fdff518fe10a12208ad2ec266904e99ada8ede6e81c1e509c892cb1a"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/kit-invocation-evidence-2026-10-05.json",
+      "bytes": 26523,
+      "sha256": "894116f3bf3a2f6d9abc1c345845a911bd63bcd888a5c9163b44df60f8e46b04"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/library-profile-evidence-2026-10-05.json",
       "bytes": 7611,
       "sha256": "2aaf0a8be8bd4fad5cd6fc1c29330386df2c3be286ee2532d6533f46cb1dacda"
@@ -13689,8 +13694,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 349006,
-      "sha256": "e1895f64eaaa10272b57d7f95bbca80bc46ed974df9402495d6179bcb1d23575"
+      "bytes": 350401,
+      "sha256": "3c5f6b24af7508dffabe61f1b2cece6ef526cda3e1cb623a4ec4dd666d83d43f"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -15688,6 +15693,31 @@
       "sha256": "2197c29016e4b1f8848ac38a9ae82bdf23cc9c8d483e8cd6be4d976372a679ce"
     },
     {
+      "path": "packages/contribution-tools/agent-kit-device-fixture.mjs",
+      "bytes": 12396,
+      "sha256": "a96c9b747766ac4519a2c243c511a1ae3c81d950e8c13919d6cef909c8288217"
+    },
+    {
+      "path": "packages/contribution-tools/agent-kit-device-preload.mjs",
+      "bytes": 1572,
+      "sha256": "fab57cf22642e7f6a8a2317bb8647e108ac016ed0043a152609548bbac66bb26"
+    },
+    {
+      "path": "packages/contribution-tools/agent-kit-device-profile.md",
+      "bytes": 5208,
+      "sha256": "1711b6612f6fa0aed9cc0b83bd1b9be742c2d62db62d11092143ec02697cf23a"
+    },
+    {
+      "path": "packages/contribution-tools/agent-kit-device-profile.mjs",
+      "bytes": 2215,
+      "sha256": "697c97481b0b12bc25332316dc9de4cfbf099338db49eb516739a7ff8949e0bc"
+    },
+    {
+      "path": "packages/contribution-tools/agent-kit-device-target.mjs",
+      "bytes": 1434,
+      "sha256": "9e5b7205cbac75b4d27288e79d515c131f932a7bc938a0646445d9cb356fd013"
+    },
+    {
       "path": "packages/contribution-tools/behavior-harness.md",
       "bytes": 5131,
       "sha256": "b845f9259b5eff3e49ca6b41d3d3fa8304e49c050ff8918da96a7779a3f76e4b"
@@ -15719,8 +15749,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 50312,
-      "sha256": "a9069fd28ea25264b66386ce8ab81c18406d8fa1815c61db24be740b8f1e262d"
+      "bytes": 52152,
+      "sha256": "c3bcb45d632cd88ee0cf34f256f6d934f456d4b0ae9b92d84bd8036e045743af"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -15754,8 +15784,13 @@
     },
     {
       "path": "packages/contribution-tools/consumer-entry-coverage.mjs",
-      "bytes": 3840,
-      "sha256": "648eef58f71484b058ca59368d7151bed91755aad0ef2e5125e19f2f6f753596"
+      "bytes": 4102,
+      "sha256": "f823dc7f4699b0cdc80dc0a27c71aea7a581244a269eaffa1b15330e225b2983"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-host-tuples.mjs",
+      "bytes": 1028,
+      "sha256": "1ded4a92abb239100b670bf71e9f4680fcc341dc8ddbe64a320ebfc8ba4600de"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
@@ -15834,8 +15869,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 1859,
-      "sha256": "7bb0b2b958bdbbdfb83c0d01076bb2ec8d32adcb2f5f4e45196a759f19cf3973"
+      "bytes": 2931,
+      "sha256": "36156da2ce0a9e1c4fd4449d28787080c68f03f1690f39ffb843628f4f0c8eef"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -15859,13 +15894,13 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.mjs",
-      "bytes": 9931,
-      "sha256": "1b6fdd5c98344c9a1166d5b463f8ef752a93b00cc5ba7e3beec68c5b13173b68"
+      "bytes": 10499,
+      "sha256": "fb5746e2263a99c1ce1664ea49e61f6933f576f6653ccb3bfe6f9aad6a239ff1"
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 6127,
-      "sha256": "2b782df5040cb4c270544a9afbaa538990e847fe2dee66cd664832d39bfe86ca"
+      "bytes": 7454,
+      "sha256": "ba4344e5acbf6391e7743798eac8933cd62ee2d7c5ead765d86b7f36ed976463"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -15941,6 +15976,16 @@
       "path": "packages/contribution-tools/surface-audit.mjs",
       "bytes": 19029,
       "sha256": "c569913e07c9be00fbdc48b715314f62b21f92f456fb3e6e8f7a3ed18e4a7f80"
+    },
+    {
+      "path": "packages/contribution-tools/test/agent-kit-device-fixture.test.mjs",
+      "bytes": 3474,
+      "sha256": "34b52bef4f9585aef566e4e707ca88c012e95de4417571d61adbe3c8bf753e36"
+    },
+    {
+      "path": "packages/contribution-tools/test/agent-kit-device-profile.test.mjs",
+      "bytes": 3663,
+      "sha256": "79dcb08004bc4735fd66d9cd400b4ad0380623ab698d9a83e44f74df59ba64b3"
     },
     {
       "path": "packages/contribution-tools/test/behavior-harness-adversarial.test.mjs",
@@ -16034,8 +16079,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-host.test.mjs",
-      "bytes": 15551,
-      "sha256": "56fda4ef29ff06d6f121ad3855b843a94e5517aa4cdb2e91d3529285e9f43cfa"
+      "bytes": 15576,
+      "sha256": "0f4d7ce05f02aabfda25e2f1d60899b193b72d2d8ceb4570a24d85abdbb6ddc2"
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-profiles.test.mjs",
@@ -17306,6 +17351,11 @@
       "path": "tests/e2e/workshop-design.spec.ts",
       "bytes": 6617,
       "sha256": "5cf041231ed2c429229279f5313b127f1d392a1d37b57313e221d8f3114f79a9"
+    },
+    {
+      "path": "tests/integration/agent-kit-device-runtime.test.mjs",
+      "bytes": 7631,
+      "sha256": "e7a95add15d8d596d7c1e01b05eafa7b2dfa6226add83216e0b0fdd63cf5c2e1"
     },
     {
       "path": "tests/integration/behavior-supervisor.test.ts",

@@ -484,6 +484,27 @@
         "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
         "Supports FC-02/03 closure work; no original row accepted or state advanced."
       ]
+    },
+    "kit-canonical-cli-candidate": {
+      "id": "kit-canonical-cli-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "3564187ef94411453c792ae858697561bdf0f812",
+      "environment": "Local isolated Docker; real canonical CLI/SDK ES256 requests over synthetic fixed-host Unix-socket transport, not TLS or platform database",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/kit-invocation-evidence-2026-10-05.json",
+        "packages/contribution-tools/agent-kit-device-profile.md"
+      ],
+      "observations": [
+        "Exact generated launcher and closed canonical command/SDK execute under fixed host; nine protocol scenarios and eight executable source-negative variants pass.",
+        "Host-selected per-repository source/profile transition keeps other consumers on91b943ac; candidate locks/environment cannot select authority."
+      ],
+      "limitations": [
+        "Same candidate source and immutable tree are bound across source/workspace/demo CLI/device CLI",
+        "Installed GitHub pins/rules and Pages are unchanged",
+        "No real TLS, browser approval, cloud API, auth DB or ExecutionGrant claim",
+        "Other Kit entrypoints and other consumers retain generic library_invocation=not_checked",
+        "Producer057 and Kitff are review-only candidates; publication does not imply installed approval"
+      ]
     }
   },
   "requirements": [
