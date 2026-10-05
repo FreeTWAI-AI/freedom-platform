@@ -133,6 +133,91 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     await expect(page.getByRole('button', { name: '撤銷模型同意', exact: true })).toBeDisabled();
     await expect(page.locator('.private-ai-text')).toHaveCount(0);
   });
+  test('Stop reads fresh CAS and stays available while the execute request is pending', async ({ page, e2eAuthPool }) => {
+    await login(page); await readyStep(page, '合成測試：送出中仍可停止');
+    const stepId = await page.getByRole('combobox', { name: '推論狀態', exact: true }).inputValue();
+    const before = (await e2eAuthPool.query('SELECT aggregate_version::text version FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].version;
+    let release!: () => void, executes = 0, freshReads = 0;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const stopped: string[] = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && request.url().endsWith(`/${stepId}:stop`)) stopped.push(request.headers()['if-match']);
+      if (request.method() === 'GET' && request.url().endsWith(`/model-steps/${stepId}`)) freshReads++;
+    });
+    await page.route('**/api/v1/me/model-steps/*:execute', async route => { executes++; await held; await route.continue(); });
+    try {
+      await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+      await expect.poll(() => executes).toBe(1);
+      await expect(page.getByLabel('工作標題', { exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: '停止推論', exact: true })).toBeEnabled();
+      await page.getByRole('button', { name: '停止推論', exact: true }).click();
+      await expect(page.getByRole('status').filter({ hasText: /已停止.*synthetic-text-model/ })).toBeVisible();
+      expect(stopped).toEqual([`"${before}"`]); expect(freshReads).toBe(1);
+      await page.getByRole('button', { name: '撤銷單次同意', exact: true }).click();
+      await expect(page.getByRole('button', { name: '撤銷單次同意', exact: true })).toBeDisabled();
+      expect(executes).toBe(1);
+    } finally { release(); }
+    await expect(page.getByLabel('工作標題', { exact: true })).toBeEnabled();
+    expect((await e2eAuthPool.query('SELECT state FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].state).toBe('cancelled');
+    await expect(page.locator('.private-ai-text')).toHaveCount(0);
+  });
+  test('a stale Stop button refreshes an already ended step without another control mutation', async ({ page, e2eAuthPool }) => {
+    await login(page); await readyStep(page, '合成測試：其他裝置已停止');
+    const stepId = await page.getByRole('combobox', { name: '推論狀態', exact: true }).inputValue();
+    const version = (await e2eAuthPool.query('SELECT aggregate_version::text version FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].version;
+    const session = await (await page.request.get('/api/v1/session')).json();
+    const paused = await page.request.post(`/api/v1/me/model-steps/${stepId}:pause`, {
+      headers: { Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': crypto.randomUUID(), 'If-Match': `"${version}"` }, data: {},
+    });
+    expect(paused.status()).toBe(200);
+    let stops = 0; page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith(`/${stepId}:stop`)) stops++; });
+    await page.getByRole('button', { name: '停止推論', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '推論停止的對象已結束或撤銷' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '停止推論', exact: true })).toBeDisabled();
+    expect(stops).toBe(0);
+  });
+  test('unknown execute and unknown Stop retain independent exact replays while revocation remains available', async ({ page, e2eAuthPool }, testInfo) => {
+    await login(page); await readyStep(page, '合成測試：兩個未確認請求');
+    const workId = await page.getByRole('combobox', { name: '選擇私人工作', exact: true }).inputValue();
+    const commands: Record<string, { key?: string; version?: string; body: string | null }[]> = { execute: [], stop: [] };
+    await page.route('**/api/v1/me/model-steps/*:execute', async route => {
+      const request = route.request(); commands.execute.push({ key: request.headers()['idempotency-key'], version: request.headers()['if-match'], body: request.postData() });
+      if (commands.execute.length === 1) await route.fulfill({ status: 503, json: { code: 'synthetic_ambiguous_execute' } });
+      else await route.fulfill({ response: await route.fetch() });
+    });
+    await page.route('**/api/v1/me/model-steps/*:stop', async route => {
+      const request = route.request(); commands.stop.push({ key: request.headers()['idempotency-key'], version: request.headers()['if-match'], body: request.postData() });
+      const response = await route.fetch();
+      if (commands.stop.length === 1) await route.fulfill({ status: 503, json: { code: 'synthetic_ambiguous_stop' } });
+      else await route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '停止推論', exact: true }).click();
+    const retryStop = page.getByRole('button', { name: '以原控制請求確認推論停止', exact: true });
+    await expect(retryStop).toBeVisible();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeDisabled();
+    await expect(page.getByLabel('工作標題', { exact: true })).toBeDisabled();
+    for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
+      await page.setViewportSize({ width, height }); await page.evaluate(() => scrollTo(0, 0));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`private-ai-uncertain-controls-${width}.png`) });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: '撤銷單次同意', exact: true }).click();
+    await expect(page.getByRole('button', { name: '撤銷單次同意', exact: true })).toBeDisabled();
+    await expect(retryStop).toBeVisible();
+    await page.getByRole('button', { name: '撤銷模型同意', exact: true }).click();
+    await expect(page.getByRole('button', { name: '撤銷模型同意', exact: true })).toBeDisabled();
+    expect(commands.execute).toHaveLength(1);
+    await retryStop.click(); await expect(retryStop).toHaveCount(0);
+    expect(commands.stop).toHaveLength(2); expect(commands.stop[1]).toEqual(commands.stop[0]);
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: '以原請求確認結果', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toHaveCount(0);
+    expect(commands.execute).toHaveLength(2); expect(commands.execute[1]).toEqual(commands.execute[0]);
+    expect((await e2eAuthPool.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1', [workId])).rows[0].n).toBe(0);
+  });
   test('withdrawn persistence hides private content while metadata still supports stopping and revocation after reload', async ({ page, e2eAuthPool }) => {
     await login(page); await readyStep(page, '合成測試：政策撤回後控制');
     const workId = await page.getByRole('combobox', { name: '選擇私人工作', exact: true }).inputValue();
