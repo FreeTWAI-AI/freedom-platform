@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { exportConsumerLibraries, LIBRARY_TOOL_FILES } from '../export.mjs';
-import { CONSUMER_LIBRARIES, AGENT_KIT_DEVICE_LIBRARY_PROFILE, LEGACY_LIBRARY_PROFILE,
+import { CONSUMER_LIBRARIES, AGENT_KIT_DEVICE_LIBRARY_PROFILE, AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE, LEGACY_LIBRARY_PROFILE,
   verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from '../consumer-libraries.mjs';
 import { sha256 } from '../io.mjs';
 import { fixtureRoot, put } from './fixtures.mjs';
@@ -247,4 +247,30 @@ test('new profile repeat upgrade requires its explicit old profile and refuses s
     expectedSourceCommit: state.expectedSourceCommit, sourceRoot: state.sourceRoot });
   assert.equal(result.files_verified, 2);
   assert.equal(await readFile(join(kit.root, LIBRARY_PREFIX + devicePath), 'utf8'), 'export const deviceFixture = "version two";\n');
+});
+
+
+test('versioned device CLI export binds the generated launcher and entire canonical command closure', async t => {
+  const state = await deviceUpgrade(t), kit = state.destinations[0];
+  for (const path of ['packages/sdk/machine-device-cli.mjs', 'scripts/repository-bootstrap/agent-kit-device-cli.mjs']) {
+    await put(state.sourceRoot, path, await readFile(new URL('../../../' + path, import.meta.url)));
+  }
+  state.expectedSourceCommit = commit(state.sourceRoot);
+  kit.expectedLibraryProfile = AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE;
+  await exportConsumerLibraries([kit], state);
+  const options = { repository: kit.repository, expectedSourceCommit: state.expectedSourceCommit,
+    expectedLibraryProfile: AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE, sourceRoot: state.sourceRoot };
+  assert.equal((await verifyConsumerLibraries(kit.root, options)).files_verified, 4);
+  assert.equal(git(kit.root, ['diff', '--', 'contracts.lock.json', 'vendor/freedom-platform', 'src/index.mjs']), '');
+  const entry = await readFile(join(kit.root, 'src/device-cli.mjs'));
+  for (const bytes of [Buffer.concat([entry, Buffer.from('\nfetch("https://private.example.invalid");\n')]),
+    Buffer.from('import "../vendor/freedom-libraries/packages/sdk/machine-device-cli.mjs";\nconsole.log("unused");\n')]) {
+    await put(kit.root, 'src/device-cli.mjs', bytes);
+    await assert.rejects(verifyConsumerLibraries(kit.root, options), { code: 'library_entry_source_mismatch' });
+  }
+  await put(kit.root, 'src/device-cli.mjs', entry);
+  kit.upgradeFrom = { consumerCommit: commit(kit.root), sourceCommit: state.expectedSourceCommit,
+    expectedLibraryProfile: AGENT_KIT_DEVICE_CLI_LIBRARY_PROFILE };
+  await assert.rejects(exportConsumerLibraries([{ ...kit, expectedLibraryProfile: AGENT_KIT_DEVICE_LIBRARY_PROFILE }], state),
+    { code: 'library_profile_removal_unsupported' });
 });

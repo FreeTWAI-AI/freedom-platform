@@ -95,6 +95,7 @@ export async function exportConsumerLibraries(destinations, {
       files.push({ source_path, path, sha256: sha256(bytes), bytes: bytes.length });
       output.push({ path, bytes });
     }
+    for (const { source, target: path } of profile.entrypoints ?? []) output.push({ path, bytes: await committed(source) });
     for (const { source, target: path } of libraryToolMappings) output.push({ path, bytes: await committed(source) });
     output.push({ path: LIBRARY_LOCK, bytes: Buffer.from(JSON.stringify({
       format: profile.format, ...(profile.id === LEGACY_LIBRARY_PROFILE ? {} : { profile: profile.id }),

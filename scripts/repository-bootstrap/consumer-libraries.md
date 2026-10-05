@@ -133,3 +133,23 @@ At the existing `repositories.lock.json` commits, the observed source paths are:
 Vendored files and source inspection alone are not operation evidence. The integration tests exercise the named paths, not all nine consumer surfaces or the future execution libraries. Preview compatibility, library adoption and installed governance enforcement remain separate facts.
 
 When testing a supplier candidate exported from a different intermediate source commit, explicitly set `FREEDOM_SUPPLIER_SOURCE_COMMIT` to that independently selected SHA; otherwise it uses the common expected source SHA. Final batch publication should use the final intended source pins.
+
+## Versioned bootstrap CLI closure
+
+`agent-kit-device-cli-v1` adds `packages/sdk/machine-device-cli.mjs` to the
+existing device SDK set and generates `src/device-cli.mjs` from the producer's
+`scripts/repository-bootstrap/agent-kit-device-cli.mjs`. The launcher and command
+are intentionally versioned trust material: a direct relative import, fixed
+pairing/refresh/status sequence and public-only JSON, without candidate callbacks
+in the real CLI. `runDeviceCli` remains exported for isolated unit tests. The
+supported command accepts exactly HTTPS origin, environment and client ID; it
+provides bootstrap status only, never execution authority or durable custody.
+
+The exporter requires the caller's explicit new profile and exact previous
+profile/source/consumer tuple. It validates and writes the generated launcher
+alongside canonical library artifacts, before the lock. It leaves preview v1 and
+other consumer profiles unchanged. The source verifier compares the launcher to
+the same independently selected producer commit. Merely installing this profile
+is source evidence, not runtime invocation evidence or permission to upgrade an
+installed workflow. A future trusted runtime gate must additionally launch this
+exact closure in its isolated candidate snapshot and observe protocol behavior.
