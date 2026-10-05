@@ -12,10 +12,8 @@ jobs:
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      # Reviewed library bytes at this immutable ancestor; native rule installation
-      # follows publication and hosted positive/negative probes.
-      FREEDOM_LIBRARY_SOURCE_SHA: 91b943ac61e132fbbce72ea066cb2301aa065600
+    # The reviewed host owns per-repository source/profile tuples. Installation
+    # still follows publication and hosted positive/negative probes.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

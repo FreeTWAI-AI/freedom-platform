@@ -5,6 +5,8 @@ import { mkdtemp, mkdir, writeFile, rm, realpath, lstat } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { consumerHostTuple } from './consumer-host-tuples.mjs';
+import { DEVICE_PROFILE, verifyDeviceLaunchClosure } from './agent-kit-device-profile.mjs';
 import { CONSUMER_LIBRARIES, consumerLibraryProfile, verifyConsumerLibraries, LIBRARY_LOCK, LIBRARY_PREFIX } from './consumer-libraries.mjs';
 import { CONSUMER_SOURCE_PROFILES, verifyConsumerSourceProfile } from './consumer-source-profiles.mjs';
 import { verifyConsumerEntryCoverage } from './consumer-entry-coverage.mjs';
@@ -79,7 +81,7 @@ export async function verifyNativeConsumerSource(input) {
     const fixedLibraries = libraryProfile.paths.map(path => LIBRARY_PREFIX + path);
     const actualLibraries = [...candidateFiles.keys()].filter(path => path.startsWith(LIBRARY_PREFIX)).sort();
     check(JSON.stringify(actualLibraries) === JSON.stringify([...fixedLibraries].sort()), 'consumer_library_file_set_mismatch');
-    selectedPaths = [LIBRARY_LOCK, ...fixedLibraries];
+    selectedPaths = [LIBRARY_LOCK, ...fixedLibraries, ...(libraryProfile.entrypoints ?? []).map(value => value.target)];
   }
   const snapshot = await mkdtemp(join(tmpdir(), 'fp-consumer-source-'));
   try {
@@ -96,15 +98,18 @@ export async function verifyNativeConsumerSource(input) {
       : await verifyConsumerLibraries(snapshot, { repository: config.repository, expectedSourceCommit: config.expectedSourceCommit,
         expectedLibraryProfile: libraryProfile.id, sourceRoot: source });
     check(!profile || verified.status === 'passed', 'consumer_profile_not_passed');
+    const launchClosure = libraryProfile?.id === DEVICE_PROFILE
+      ? await verifyDeviceLaunchClosure(path => read(candidate, candidateFiles, path),
+        path => git(source, ['show', `${config.expectedSourceCommit}:${path}`])) : null;
     const entryCoverage = await verifyConsumerEntryCoverage({ candidateFiles, baselineFiles,
       readCandidate: path => read(candidate, candidateFiles, path),
-      readBaseline: path => read(candidate, baselineFiles, path) });
+      readBaseline: path => read(candidate, baselineFiles, path), entryProfile: libraryProfile?.id });
     return { format: 'freedom.native-consumer-source/v1', status: 'passed', gate_enforced: false, merge_authorized: false,
       repository: config.repository, candidate_commit: config.candidateCommit,
       candidate_tree: git(candidate, ['rev-parse', config.candidateCommit + '^{tree}']).toString().trim(),
       baseline_commit: baseline, workflow_commit: config.expectedWorkflowCommit, source_commit: config.expectedSourceCommit,
       verification: verified.verification, preview: verified.preview ?? 'unchanged-from-approved-baseline',
-      entry_coverage: entryCoverage,
+      entry_coverage: entryCoverage, launch_closure: launchClosure,
       source_profile: profile ? verified.profile : 'adopted-shared-libraries',
       ...(profile ? { profile_result: verified } : { library_profile: libraryProfile.id }),
       library_usage: 'not_checked', runtime_observation: 'not_checked', evidence };
@@ -116,10 +121,11 @@ async function cli() {
   check(['pull_request', 'merge_group'].includes(process.env.GITHUB_EVENT_NAME), 'unsupported_host_event');
   check(process.env.FREEDOM_WORKFLOW_REPOSITORY === 'FreeTWAI-AI/freedom-platform'
     && process.env.FREEDOM_WORKFLOW_PATH === '.github/workflows/trusted-consumer-libraries.yml', 'host_workflow_identity_mismatch');
+  const tuple = consumerHostTuple(process.env.GITHUB_REPOSITORY);
   return verifyNativeConsumerSource({ repository: process.env.GITHUB_REPOSITORY, candidateRoot, sourceRoot,
-    candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: process.env.FREEDOM_LIBRARY_SOURCE_SHA,
+    candidateCommit: process.env.GITHUB_SHA, expectedSourceCommit: tuple.source,
     expectedWorkflowCommit: process.env.FREEDOM_WORKFLOW_SHA,
-    ...(process.env.FREEDOM_LIBRARY_PROFILE === undefined ? {} : { expectedLibraryProfile: process.env.FREEDOM_LIBRARY_PROFILE }) });
+    ...(Object.hasOwn(CONSUMER_LIBRARIES, process.env.GITHUB_REPOSITORY) ? { expectedLibraryProfile: tuple.library_profile } : {}) });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { console.log(JSON.stringify(await cli())); }
