@@ -1,3 +1,5 @@
+// @ts-expect-error Canonical tooling is JavaScript without a declaration file.
+import {createIngestBrowserDiagnostic} from '../../packages/contribution-tools/test-failure-diagnostic.mjs';
 import assert from 'node:assert/strict';
 import { fork, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID, randomBytes, X509Certificate } from 'node:crypto';
@@ -9,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { request as tlsRequest } from 'node:https';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { chromium,type Browser,type BrowserContext } from '@playwright/test';
+import { chromium,type Browser,type BrowserContext,type Page,type Request as BrowserRequest,type Response as BrowserResponse } from '@playwright/test';
 import {profile,fileStore,listen,closeServer} from './credential-ingest-fixtures/shared.js';
 import { CompactSign, exportJWK, generateKeyPair } from 'jose';
 import { Pool } from 'pg';
@@ -27,6 +29,16 @@ import type { BootstrapSessionHost } from '../../contracts/execution/v1/bootstra
 import type { ModelSelection } from '../../contracts/execution/v1/member-execution.js';
 import { ModelStepMetadataSchema } from '../../contracts/execution/v2/model-step.js';
 
+
+/** Exact fixture routes only; never read URLs into diagnostics or inspect bodies. */
+export function observeIngestBrowserPage(page:Page,setupOrigin:string,diagnostic:{observe(kind:string,event:string,status?:number):void}){
+ const kind=(r:BrowserRequest)=>r.method()==='POST'?(r.url()===setupOrigin+'/credential-setup/prepare'?'prepare':r.url()===setupOrigin+'/credential-setup/secret'?'secret':null):null;
+ const request=(r:BrowserRequest)=>{const k=kind(r);if(k)diagnostic.observe(k,'request');};
+ const response=(r:BrowserResponse)=>{const k=kind(r.request());if(k)diagnostic.observe(k,'response',r.status());};
+ const failed=(r:BrowserRequest)=>{const k=kind(r);if(k)diagnostic.observe(k,'failed');};
+ page.on('request',request);page.on('response',response);page.on('requestfailed',failed);
+ return()=>{page.off('request',request);page.off('response',response);page.off('requestfailed',failed);};
+}
 
 const iso=(time=Date.now())=>new Date(time).toISOString();
 const hash=(value:string)=>createHash('sha256').update(value,'ascii').digest('base64url');
@@ -144,26 +156,39 @@ export async function ingestFixture() {
     await context.addCookies([{name:'freedom_local_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);
     return context;
   }
-  async function navigateSetup(context:BrowserContext,assertion:string) {
-    const page=await context.newPage();await page.goto(mainOrigin+'/__fixture_blank');
-    await page.evaluate(({setupOrigin,assertion})=>{const form=document.createElement('form');form.method='POST';form.action=setupOrigin+'/credential-setup';const input=document.createElement('input');input.name='assertion';input.value=assertion;form.append(input);document.body.append(form);form.submit();},{setupOrigin,assertion});
-    await page.waitForURL(setupOrigin+'/credential-setup');return page;
+  async function navigateSetup(context:BrowserContext,assertion:string,diagnostic?:{phase(value:string):void}) {
+    const page=await context.newPage();diagnostic?.phase('navigation_blank');await page.goto(mainOrigin+'/__fixture_blank');
+    diagnostic?.phase('navigation_submit');await page.evaluate(({setupOrigin,assertion})=>{const form=document.createElement('form');form.method='POST';form.action=setupOrigin+'/credential-setup';const input=document.createElement('input');input.name='assertion';input.value=assertion;form.append(input);document.body.append(form);form.submit();},{setupOrigin,assertion});
+    diagnostic?.phase('navigation_wait');await page.waitForURL(setupOrigin+'/credential-setup');return page;
   }
   async function ingestBrowser(human:Awaited<ReturnType<typeof member>>,modelConnectionId:string) {
+    const diagnostic=createIngestBrowserDiagnostic();let context:BrowserContext|undefined;const detach:(()=>void)[]=[];
+    const watch=(page:Page)=>{detach.push(observeIngestBrowserPage(page,setupOrigin,diagnostic));};
+    try{
     // Browser startup is fixture preparation, not part of the signed setup lifetime.
-    const context=await browserContext(human);
-    const response=await issue(human,modelConnectionId);assert.equal(response.status,201,await response.clone().text());const bootstrap=await response.json() as any;
-    const page=await navigateSetup(context,bootstrap.assertion);
-    if(process.env.INGEST_SCREENSHOT_DIR){await mkdir(process.env.INGEST_SCREENSHOT_DIR,{recursive:true});for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.INGEST_SCREENSHOT_DIR,`protected-setup-${width}.png`),fullPage:true});}}
-    await page.locator('#credential-key').fill(secret);await page.locator('#credential-consent').check();await page.locator('#credential-submit').click();
+    context=await browserContext(human);context.on('page',watch);
+    diagnostic.phase('issue');const response=await issue(human,modelConnectionId);assert.equal(response.status,201,await response.clone().text());const bootstrap=await response.json() as any;
+    const page=await navigateSetup(context,bootstrap.assertion,diagnostic);
+    diagnostic.phase('screenshot');if(process.env.INGEST_SCREENSHOT_DIR){await mkdir(process.env.INGEST_SCREENSHOT_DIR,{recursive:true});for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.INGEST_SCREENSHOT_DIR,`protected-setup-${width}.png`),fullPage:true});}}
+    diagnostic.phase('key_fill');await page.locator('#credential-key').fill(secret);diagnostic.phase('consent_check');await page.locator('#credential-consent').check();diagnostic.phase('submit_click');await page.locator('#credential-submit').click();
     // This success helper expects the browser's actual broker acknowledgement.
     // Owner polling shares the real execution_member quota with approve/activate/
     // execute; racing up to 100 reads can exhaust 60/min before execution starts.
-    await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor({timeout:10000});
-    const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});
+    diagnostic.phase('ack_wait');await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor({timeout:10000});
+    diagnostic.phase('owner_read');const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});
     assert.equal(read.status,200);const outcome:any=await read.json();
-    assert.equal(outcome?.state,'committed',JSON.stringify({outcome,status:await page.locator('#credential-status').textContent(),sqlErrors:await broker!.request('sqlErrors'),broker:await broker!.request('snapshot')}));
-    await page.close();return outcome.credential;
+    diagnostic.phase('owner_assert');assert.equal(outcome?.state,'committed',JSON.stringify({outcome,status:await page.locator('#credential-status').textContent(),sqlErrors:await broker!.request('sqlErrors'),broker:await broker!.request('snapshot')}));
+    diagnostic.phase('page_close');await page.close();return outcome.credential;
+    }catch(error){
+      // One failure-only local fixture observation, never owner HTTP polling or
+      // raw SQL/error output. MVCC reads do not wait for pending row writers.
+      try{const q=await owner.connect();try{
+        await q.query('BEGIN');await q.query("SET LOCAL statement_timeout='1s'");
+        const n=(await q.query("SELECT count(*)::int n FROM (SELECT 1 FROM broker_model_credentials WHERE model_connection_id=$1 AND state='active' LIMIT 2) c",[modelConnectionId])).rows[0]?.n;
+        diagnostic.custody(n===0?'absent':n===1?'one_active':n===2?'multiple_active':'unavailable');
+      }finally{try{await q.query('ROLLBACK');}finally{q.release();}}}catch{diagnostic.custody('unavailable');}
+      throw diagnostic.annotate(error);
+    }finally{context?.off('page',watch);for(const remove of detach)remove();}
   }
   async function configured() { const human=await member(),initial=await paired(human);const model=await prerequisites.models.create(human.actor,{key:randomUUID(),connectionId:initial.connectionId,expectedConnectionVersion:'1',selection:modelSelection});return {...human,initial,model}; }
   async function approved() {

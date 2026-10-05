@@ -84,7 +84,7 @@ async function failureDiagnostics() {
     const paths=parseJson(process.env.FREEDOM_TEST_PROGRESS_FILES,{maxBytes:131072,maxDepth:2,maxNodes:514});
     if(!Array.isArray(paths)||paths.length>512)return ()=>{};
     const sources=[];
-    for(const path of ['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts','tests/runtime/credential-ingest-process.test.ts','tests/runtime/credential-ingest-adversarial.test.ts','tests/runtime/member-model-settings-process.test.ts']) {
+    for(const path of ['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts','tests/runtime/credential-ingest-process.test.ts','tests/runtime/credential-ingest-adversarial.test.ts','tests/runtime/member-model-settings-process.test.ts','tests/runtime/credential-ingest-rate-budget.test.ts']) {
       if(!paths.includes(path))continue;
       const bytes=await readBounded(process.cwd(),path);
       sources.push({path,source_sha256:sha256(bytes),source_lines:bytes.toString('utf8').split('\n').length});

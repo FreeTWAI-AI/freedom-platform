@@ -2,7 +2,7 @@ import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseJson } from './io.mjs';
 
-const PATHS = ['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts','tests/runtime/credential-ingest-process.test.ts','tests/runtime/credential-ingest-adversarial.test.ts','tests/runtime/member-model-settings-process.test.ts'];
+const PATHS = ['tests/runtime/model-broker-bridge-adversarial.test.ts','tests/runtime/media-verify.test.ts','tests/runtime/credential-ingest-process.test.ts','tests/runtime/credential-ingest-adversarial.test.ts','tests/runtime/member-model-settings-process.test.ts','tests/runtime/credential-ingest-rate-budget.test.ts'];
 const SCHEMA = 'freedom.test-failure-diagnostic/v1';
 const MAX_BYTES = 262144, MAX_LINE = 2048, MAX_RECORDS = 64;
 const NAMES = ['AssertionError','TypeError','Error','unknown'];
@@ -11,6 +11,21 @@ const CLASSES = ['sql_wait_not_observed','asset_read_not_reached','expiry_assert
 const hash = v => typeof v==='string' && /^[a-f0-9]{64}$(?![\s\S])/.test(v);
 const exact = (v,keys) => v && typeof v==='object' && !Array.isArray(v) && Object.keys(v).length===keys.length && keys.every(k=>Object.hasOwn(v,k));
 const comparisonValue = v => typeof v==='boolean' || Number.isSafeInteger(v)&&Math.abs(v)<=20000;
+const INGEST_PHASES=['browser_context','issue','navigation_blank','navigation_submit','navigation_wait','screenshot','key_fill','consent_check','submit_click','ack_wait','owner_read','owner_assert','page_close'];
+const INGEST_STATES=['not_seen','request','response','failed'];
+const validIngest=d=>exact(d,['phase','prepare_state','prepare_status','secret_state','secret_status','custody'])
+  &&['not_checked','absent','one_active','multiple_active','unavailable'].includes(d.custody)&&INGEST_PHASES.includes(d.phase)&&INGEST_STATES.includes(d.prepare_state)&&INGEST_STATES.includes(d.secret_state)
+  &&[d.prepare_status,d.secret_status].every(v=>v===null||Number.isInteger(v)&&v>=100&&v<=599);
+/** Fixture-only bounded annotations. Never replace the original Error/TimeoutError. */
+export function createIngestBrowserDiagnostic(){
+ const state={phase:'browser_context',prepare_state:'not_seen',prepare_status:null,secret_state:'not_seen',secret_status:null,custody:'not_checked'};
+ return Object.freeze({phase(value){if(INGEST_PHASES.includes(value))state.phase=value;},
+  observe(kind,event,status=null){if(!['prepare','secret'].includes(kind)||!INGEST_STATES.includes(event)||!(status===null||Number.isInteger(status)&&status>=100&&status<=599))return;
+   state[kind+'_state']=event;if(status!==null)state[kind+'_status']=status;},
+  custody(value){if(['absent','one_active','multiple_active','unavailable'].includes(value))state.custody=value;},
+  annotate(error){try{if(error&&typeof error==='object')Object.defineProperty(error,'freedom_ingest',{value:{...state},enumerable:true,configurable:true});}catch{}return error;}
+ });
+}
 function sourcesMap(sources) {
   return new Map(sources.filter(s=>PATHS.includes(s.path)).map(s=>[s.path,s]));
 }
@@ -24,13 +39,15 @@ function detail(error) {
     :actual.code==='ERR_ASSERTION'&&actual.expected==='committed'?'custody_outcome_unconfirmed'
     :chain.some(e=>e.name==='TimeoutError')?'operation_timeout'
     :actual.code==='ERR_ASSERTION'?'assertion_failed':message==='fetch failed'?'fetch_failed':'unknown';
-  return {error_name:NAMES.includes(actual.name)?actual.name:'unknown',error_code:CODES.includes(actual.code)?actual.code:'unknown',message_class,
+  const ingest=chain.map(e=>e.freedom_ingest).find(validIngest);
+  return {error_name:NAMES.includes(actual.name)?actual.name:'unknown',error_code:CODES.includes(actual.code)?actual.code:'unknown',message_class,...(ingest?{ingest:{...ingest}}:{}),
     ...(chain.some(e=>e.code==='UND_ERR_SOCKET')?{cause_code:'UND_ERR_SOCKET'}:{}),
     ...(actual.code==='ERR_ASSERTION'&&comparisonValue(actual.actual)&&comparisonValue(actual.expected)?{comparison:{actual:actual.actual,expected:actual.expected}}:{})};
 }
 function validDetail(d) {
-  return exact(d,['error_name','error_code','message_class',...(Object.hasOwn(d??{},'cause_code')?['cause_code']:[]),...(Object.hasOwn(d??{},'comparison')?['comparison']:[])])
+  return exact(d,['error_name','error_code','message_class',...(Object.hasOwn(d??{},'cause_code')?['cause_code']:[]),...(Object.hasOwn(d??{},'comparison')?['comparison']:[]),...(Object.hasOwn(d??{},'ingest')?['ingest']:[])])
     &&NAMES.includes(d.error_name)&&CODES.includes(d.error_code)&&CLASSES.includes(d.message_class)
+    &&(!Object.hasOwn(d,'ingest')||validIngest(d.ingest))
     &&(!Object.hasOwn(d,'cause_code')||d.cause_code==='UND_ERR_SOCKET')
     &&(!Object.hasOwn(d,'comparison')||d.error_code==='ERR_ASSERTION'&&exact(d.comparison,['actual','expected'])&&comparisonValue(d.comparison.actual)&&comparisonValue(d.comparison.expected));
 }
@@ -77,7 +94,7 @@ export function createFailureDiagnosticDecoder(sources,emit) {
       const r=parseJson(line,{maxBytes:MAX_LINE,maxDepth:4,maxNodes:32}),source=selected.get(r.path);
       if(!source||!exact(r,['schema','path','source_sha256','case_sha256','detail',...(Object.hasOwn(r,'source_line')?['source_line']:[])])||r.schema!==SCHEMA||r.source_sha256!==source.source_sha256||!hash(r.case_sha256)||seen.has(r.case_sha256)||!validDetail(r.detail)
         ||Object.hasOwn(r,'source_line')&&(!Number.isSafeInteger(r.source_line)||r.source_line<1||!Number.isSafeInteger(source.source_lines)||r.source_line>source.source_lines))continue;
-      seen.add(r.case_sha256);emit({schema:SCHEMA,path:r.path,source_sha256:r.source_sha256,case_sha256:r.case_sha256,...(Object.hasOwn(r,'source_line')?{source_line:r.source_line}:{}),detail:{error_name:r.detail.error_name,error_code:r.detail.error_code,message_class:r.detail.message_class,...(r.detail.cause_code?{cause_code:r.detail.cause_code}:{}),...(r.detail.comparison?{comparison:{actual:r.detail.comparison.actual,expected:r.detail.comparison.expected}}:{})}});
+      seen.add(r.case_sha256);emit({schema:SCHEMA,path:r.path,source_sha256:r.source_sha256,case_sha256:r.case_sha256,...(Object.hasOwn(r,'source_line')?{source_line:r.source_line}:{}),detail:{error_name:r.detail.error_name,error_code:r.detail.error_code,message_class:r.detail.message_class,...(r.detail.ingest?{ingest:{...r.detail.ingest}}:{}),...(r.detail.cause_code?{cause_code:r.detail.cause_code}:{}),...(r.detail.comparison?{comparison:{actual:r.detail.comparison.actual,expected:r.detail.comparison.expected}}:{})}});
     }catch{/* Invalid untrusted sideband is discarded. */}}
     if(pending.length>MAX_LINE){disabled=true;pending=Buffer.alloc(0);}
   }});
