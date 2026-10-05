@@ -24,7 +24,22 @@ async function setup(f:Fixture,human:Awaited<ReturnType<Fixture['configured']>>,
 async function prepared(f:Fixture,human:Awaited<ReturnType<Fixture['configured']>>,priorBootstrap?:any) {const state=await setup(f,human,priorBootstrap);const response=await httpsFetch(f.setupOrigin+'/credential-setup/prepare',{method:'POST',headers:{...state.headers,'Content-Type':'application/json'},body:'{"consent":true}'});assert.equal(response.status,200,await response.clone().text());return state;}
 const secretRequest=(f:Fixture,s:Awaited<ReturnType<typeof setup>>,extra:Record<string,string>={})=>({path:'/credential-setup/secret',authorizationRef:s.bootstrap.authorizationRef,headers:{...s.headers,'Content-Type':'application/octet-stream','Content-Length':String(f.secret.length),...extra},bytes:bytes(f.secret)});
 async function counts(f:Fixture){return (await f.owner.query(`SELECT (SELECT count(*)::int FROM broker_model_credentials) credentials,(SELECT count(*)::int FROM broker_credential_vault) cipher,(SELECT count(*)::int FROM scoped_command_receipts WHERE operation='broker.credential.create') receipts`)).rows[0];}
-async function sqlBlocked(f:Fixture,holder:any){const pid=(await holder.query('SELECT pg_backend_pid() pid')).rows[0].pid;for(let i=0;i<300;i++){if((await f.admin.query('SELECT count(*)::int n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows[0].n)return;await delay(10);}assert.fail('Actual SQL wait not observed');}
+async function sqlBlocked(f:Fixture,holder:any,expiry:number,pending:Promise<unknown>){
+ const pid=(await holder.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+ // Observe within the existing signed command window, not an unrelated 3s
+ // polling budget. A completed/rejected request cannot later reach the gate.
+ const settled=pending.then(()=>true,()=>true);
+ while(Date.now()<expiry){
+  const observation=await Promise.race([
+   f.admin.query('SELECT count(*)::int n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid]).then(result=>({blocked:result.rows[0].n>0})),
+   settled.then(()=>({blocked:false,settled:true})),
+  ]);
+  if(observation.blocked)return;
+  if('settled' in observation)break;
+  if(await Promise.race([delay(Math.min(10,Math.max(0,expiry-Date.now()))).then(()=>false),settled]))break;
+ }
+ assert.fail('Actual SQL wait not observed');
+}
 
 test('INGEST-ADV genuine bootstrap does not prepare custody, is one-use, and requires current protected capture before key DOM',{timeout:60000},async()=>{
  const f=await ingestFixture();try{const human=await f.configured(),s=await setup(f,human);assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});
@@ -86,18 +101,18 @@ test('INGEST-ADV restarted broker still rejects withdrawn original session befor
  }finally{await f.cleanup();}
 });
 
-test('INGEST-ADV command-only expiry during the actual last receipt INSERT rolls back ciphertext, index and custody receipt',{timeout:60000},async()=>{
- const f=await ingestFixture();let holder:any;try{const human=await f.configured();
+for(const readerDelayMs of [0,3500])test('INGEST-ADV command-only expiry during the actual last receipt INSERT rolls back ciphertext, index and custody receipt'+(readerDelayMs?' after delayed secret reader':''),{timeout:60000},async()=>{
+ const f=await ingestFixture();let holder:any,pending:Promise<any>|undefined;try{const human=await f.configured();
   const lock='independent-ingest-receipt-'+randomUUID();await f.owner.query(`CREATE FUNCTION ingest_validation_receipt_gate() RETURNS trigger LANGUAGE plpgsql AS $gate$ BEGIN IF NEW.operation='broker.credential.create' THEN PERFORM pg_advisory_xact_lock(hashtextextended('${lock}',0)); END IF; RETURN NEW; END $gate$;CREATE TRIGGER z_ingest_validation_gate BEFORE INSERT ON scoped_command_receipts FOR EACH ROW EXECUTE FUNCTION ingest_validation_receipt_gate()`);
   holder=await f.owner.connect();await holder.query('BEGIN');await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock]);
   // Install and acquire the test-only SQL barrier before starting the signed
   // command deadline; test DDL scheduling is not the expiry under test.
   await f.main.request('issuerDeadline',Date.now()+expiryPhaseMs);const s=await prepared(f,human),expiry=Date.parse(claims(s.bootstrap.assertion).expiresAt);
-  assert(expiry>Date.now(),'Setup must complete before the command deadline');const pending=f.broker.request('direct',secretRequest(f,s));await sqlBlocked(f,holder);assert(expiry>Date.now(),'The receipt INSERT must block before command expiry');
+  assert(expiry>Date.now(),'Setup must complete before the command deadline');pending=f.broker.request('direct',{...secretRequest(f,s),delayMs:readerDelayMs});await sqlBlocked(f,holder,expiry,pending);assert(expiry>Date.now(),'The receipt INSERT must block before command expiry');
   const sessionExpiry=(await f.owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1',[human.actor.session_hash])).rows[0].expires_at;assert(sessionExpiry.getTime()>expiry+30000);assert(Date.parse(claims(f.recovery.raw).expiresAt)>expiry+30000);
   await delay(Math.max(0,expiry-Date.now()+50));await holder.query('COMMIT');holder.release();holder=undefined;const result=await pending;assert.equal(result.pulls,1);assert.equal(result.cleared,true);
   assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});const row=(await f.owner.query('SELECT submission_claimed_at,committed_at FROM credential_ingest_authorizations WHERE authorization_id=$1',[s.bootstrap.authorizationRef])).rows[0];assert(row.submission_claimed_at);assert.equal(row.committed_at,null);assert.equal(f.posts.length,0);
- }finally{if(holder){await holder.query('ROLLBACK');holder.release();}await f.cleanup();}
+ }finally{if(holder){await holder.query('ROLLBACK');holder.release();}await pending?.catch(()=>{});await f.cleanup();}
 });
 
 test('INGEST-ADV a secret reader resolving after its actual command deadline is cleared and cannot publish custody',{timeout:60000},async()=>{
