@@ -232,3 +232,77 @@ The report is built from whitelisted fields. Error reasons are check ids or `Err
 - The direct-message and channel rate limit (`429 message_rate_limited` after 20 messages in 60 seconds). `messages` reports `rate_limit: not_covered` so the run does not leave a burst of messages behind.
 - Provider configuration (Hyperdrive or other database cache settings, Access policies). Root checks these; the tool has no provider access.
 - Capacity or performance claims for Cloudflare or the database. Local load numbers are not evidence.
+
+## Staging private AI ingest subset
+
+`--phases private-ai-owner` adds health, authenticated session checks and logout.
+It performs **one browser credential ingest on a dedicated synthetic staging account**,
+then reads that owner's credential metadata through the real authenticated HTTP API.
+It does not establish Ted's owner acceptance. No SQL fixture or session/Grant forging
+is used. The account must already have a genuinely paired active connection and an
+unverified OpenRouter platform-vault model with no credential. This phase does not
+create or independently replay pairing proof.
+
+Before execution, the operator must review the exact main and broker releases,
+broker bindings, setup origin and synthetic account/environment/client ownership.
+The private configuration records that review's SHA-256 digest; this is operator
+attestation, not an independently queried broker release proof. Main health must
+match `--expected-release-sha`. Both configured releases must equal that SHA.
+The model wire environment is `staging-next`, although deployment health mode is
+`staging`. Main and broker installation, dedicated account provisioning, genuine
+pairing and model creation remain prerequisites through their existing supported
+HTTP/browser flows. This verifier does not supply a new account provisioning route.
+
+Supply `FREEDOM_CANDIDATE_PRIVATE_AI_OWNER_FILE` as another operator-owned absolute
+0600 JSON file, in addition to the existing account and optional Access files:
+
+```json
+{
+  "profile": "private-ai.staging-ingest-acceptance/v1",
+  "mainOrigin": "https://staging.freetwai.com",
+  "setupOrigin": "https://REVIEWED-BROKER.freetwai.com",
+  "environment": "staging-next",
+  "mainReleaseSha": "<full lowercase reviewed SHA>",
+  "brokerReleaseSha": "<same reviewed SHA>",
+  "bindingReviewSha256": "<64 lowercase hex review digest>",
+  "accountLabel": "<dedicated account file label>",
+  "clientId": "<genuinely paired client>",
+  "modelConnectionId": "<existing owner model UUID>",
+  "modelVersion": "1",
+  "model": "<pinned OpenRouter model>",
+  "keyFile": "/private/operator/openrouter-key",
+  "receiptDirectory": "/private/operator/unique-ingest-run",
+  "paidExecution": false,
+  "syntheticOwner": true
+}
+```
+
+Replace all placeholders, including the broker's lowercase hostname. The key is a
+raw operator-owned 0600 `sk-or-v1-…` file; the receipt directory must already exist
+with mode 0700. Never use a member's account/key. No key goes in argv or the report.
+The browser may submit only login/logout, the authenticated ingest handoff and the
+three pinned broker setup endpoints (plus its three exact static assets). Access headers never go to the broker or a
+redirect destination. A broker requiring separate Access credentials is unsupported.
+
+```sh
+FREEDOM_CANDIDATE_PRIVATE_AI_OWNER_FILE=/private/operator/owner-ingest.json \
+FREEDOM_CANDIDATE_ACCOUNT_FILE=/private/operator/account.json \
+FREEDOM_CANDIDATE_ACCESS_FILE=/private/operator/access.json \
+npx tsx scripts/verify-cloud-candidate.ts execute --target staging \
+  --expected-release-sha <reviewed-sha> --phases private-ai-owner
+```
+
+A durable exclusive intent is written before browser mutation. Any unknown outcome
+requires operator investigation; rerunning the same receipt directory fails closed,
+even when metadata is stale. Do not replace that directory to retry an uncertain
+submission. The session is logged out best effort, but credential history and intent
+remain operator-owned residue. No automated key rotation or deletion is performed.
+
+Even a successful subset returns overall `incomplete`, `cloud_proof: false`, and a
+nonzero CLI exit. Paid dispatch, Grant, Result read/edit, Stop/Revoke and remote R2
+are explicitly not run. This is not native-emulator or full remote owner acceptance.
+A future paid phase requires separately reviewed exact-owner operator policy and
+budget reservation before any inference; this phase cannot enable it.
+
+Local guard validation (synthetic HTTP/browser doubles; no cloud or paid calls):
+`npx tsx --test tests/worker/cloud-private-ai-owner.test.ts`.
