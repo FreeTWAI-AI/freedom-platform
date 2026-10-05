@@ -296,47 +296,14 @@ test('failed, cancelled, missing, and inconsistent dependencies never pass', () 
   assert.equal(evaluateVerifyAggregate(null).reason, 'needs_missing');
 });
 
-test('checkout descriptors keep an ordinary development doc narrow and a claimed doc full', () => {
+test('real checkout descriptors parse without freezing live document ownership', () => {
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const loaded = loadModuleDescriptors(root, sha);
   assert.equal(loaded.ok, true);
+  assert.ok(loaded.descriptors.length > 0);
   assert.ok(loaded.descriptors.every(descriptor => validateDescriptor(descriptor)));
-  const ordinary = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/runtime-ci-postgres.md')],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(ordinary.mode, 'docs');
-  const withInventory = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/runtime-ci-postgres.md'), edited(GENERATED_INVENTORY_PATH)],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(withInventory.mode, 'docs');
-  assert.equal(withInventory.reason, 'docs_allowlist');
-  for (const id of SELECTABLE_JOBS) assert.equal(withInventory.jobs[id], false);
-  const inventoryOnly = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited(GENERATED_INVENTORY_PATH)],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(inventoryOnly.reason, 'governance_security_or_shared_runtime');
-  const claimed = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/worker-private-ai-bindings.md')],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(claimed.reason, 'baseline_candidate_union');
-  const candidate = loaded.descriptors.map(descriptor => ({
-    ...descriptor,
-    owned_paths: descriptor.owned_paths.filter(path => path !== 'docs/development/worker-private-ai-bindings.md'),
-  }));
-  const shrunk = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/worker-private-ai-bindings.md')],
-    baseline: loaded.descriptors, candidate,
-  });
-  assert.equal(shrunk.reason, 'baseline_candidate_union');
+  // Ownership/union/shrink assertions use controlled fixtures above. A valid
+  // future module claiming an existing doc may legitimately select full CI.
 });
 
 test('repository tree diff narrows a docs edit and refuses a rename or merge_group input', async t => {
