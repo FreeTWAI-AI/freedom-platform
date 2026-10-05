@@ -14,25 +14,26 @@ const Config=z.object({profile:z.literal('private-ai.openrouter-owner-acceptance
   acknowledgeRealProvider:z.literal(true),expectedRelease:z.string().regex(/^[a-f0-9]{40}$/),
   keyFile:z.string().min(1),receiptDirectory:z.string().min(1),ledgerDirectory:z.string().min(1),model:z.string(),expiresAt:z.string(),maxUsd:z.number()}).strict();
 const check=(value:unknown):void=>{if(!value)throw Error('acceptance_check_failed');};
-async function safeJson(response:Response,status=200){check(response.status===status);return response.json() as Promise<any>;}
 
 /** Explicit operator invocation only. No environment contains the model key.
  * Local synthetic owner/pairing/recovery + SQL + native R2 emulator; only the
  * fixed OpenRouter provider endpoints use genuine public HTTPS. */
-export async function run(configPath:string) {
+export async function run(configPath:string,syntheticTest?:{kind:'synthetic_transport';transport:typeof fetch}) {
   const config=Config.parse(JSON.parse(await readFile(configPath,'utf8')));
   validateBudget(config);await privateDirectory(config.receiptDirectory);
   const {stdout:head}=await promisify(execFile)('git',['rev-parse','HEAD']);check(head.trim()===config.expectedRelease);
-  const {stdout:dirty}=await promisify(execFile)('git',['status','--porcelain']);check(dirty==='');
+  if(!syntheticTest){const {stdout:dirty}=await promisify(execFile)('git',['status','--porcelain']);check(dirty==='');}
   const source=resolve(fileURLToPath(new URL('..',import.meta.url)));check(resolve(process.cwd())===source);
   const runId=randomUUID(),startedAt=new Date().toISOString();
   await durableCreate(join(config.receiptDirectory,'intent.json'),{profile:config.profile,runId,startedAt,source:config.expectedRelease,
     model:config.model,maxOutputTokens:128,maxProviderPosts:1,maxUsd:config.maxUsd,expiresAt:config.expiresAt,
-    owner:'synthetic_local',database:'owned_local_postgresql',objectStore:'native_R2_emulator',provider:'real_https_openrouter',
+    owner:'synthetic_local',database:'owned_local_postgresql',objectStore:'native_R2_emulator',provider:syntheticTest?'synthetic_test_transport':'real_https_openrouter',sourceVerification:syntheticTest?'test_worktree':'clean_exact_SHA',
     remoteR2:'not_run',remoteCloud:'not_run',captureReadiness:'synthetic_local_assertion',rerun:'forbidden_after_intent'});
   let sessionBudget:Awaited<ReturnType<typeof reserveSessionBudget>>|undefined;let cleanupCompleted=false;
-  const egress=createAcceptanceEgress(config,config.receiptDirectory,globalThis.fetch);
+  const egress=createAcceptanceEgress(config,config.receiptDirectory,syntheticTest?.transport??globalThis.fetch);
   let stage='budget_reservation',f:Awaited<ReturnType<typeof nativeBrokerSqlFixture>>|undefined;
+  let checkpoint='initial',lastHttpStatus:number|null=null;
+  async function safeJson(response:Response,status=200){lastHttpStatus=response.status;check(response.status===status);return response.json() as Promise<any>;}
   const checks:Record<string,boolean>={};let resultSha256:string|undefined,resultBytes:number|undefined;
   try {
     sessionBudget=await reserveSessionBudget(config.ledgerDirectory,runId,config);stage='fixture';
@@ -122,14 +123,17 @@ export async function run(configPath:string) {
     check(egress.summary().posts===beforeReplay.posts&&egress.summary().gets===beforeReplay.gets);checks.completedReplayMetadataOnly=true;
     stage='owner_result_edit';
     const editedText=result.text+'\nSynthetic owner edit: welcome new gardeners.',editKey=randomUUID();
-    const edited=await post('/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId+'/edit',
+    checkpoint='edit_post';const edited=await post('/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId+'/edit',
       {text:editedText},result.aggregateVersion,editKey);
-    check(edited.provenance==='human'&&edited.revision==='2');
-    const revised=await safeJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/current'));
-    check(revised.text===editedText&&revised.provenance==='human');
-    const original=await safeJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId));
-    check(original.text===result.text&&original.provenance==='model');
-    check((await bucket.list()).objects.length===2&&egress.summary().posts===1);checks.ownerResultEditPreservesSource=true;
+    checkpoint='edit_metadata';check(edited.provenance==='human'&&edited.revision==='2');
+    checkpoint='edit_read_current';const revised=await safeJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/current'));
+    checkpoint='edit_current_bytes';check(revised.text===editedText&&revised.provenance==='human');
+    checkpoint='edit_read_source';const original=await safeJson(await get('/api/v1/me/private-work/'+first.work.workId+'/results/'+result.resultId));
+    checkpoint='edit_source_bytes';check(original.text===result.text&&original.provenance==='model');
+    // Miniflare resource handles belong to one runtime generation. Reacquire
+    // after restart; the persisted emulator objects, not the old stub, survive.
+    checkpoint='edit_r2_list';const currentBucket=await f.mf.getR2Bucket('MEDIA','main');
+    check((await currentBucket.list()).objects.length===2&&egress.summary().posts===1);checks.ownerResultEditPreservesSource=true;
     stage='recovery_stop_revoke';const second=await prepareStep('Synthetic reserved draft to cancel');
     await(await f.mf.getWorker('recovery-state')).fetch('https://freedom-private-ai.internal/unavailable');
     const denied=await nativeCall(f,'main','/api/v1/me/model-steps/'+second.step.stepId+':execute',{method:'POST',headers:{...human.headers,
@@ -144,7 +148,7 @@ export async function run(configPath:string) {
   finally {
     let cleanup='not_created';if(f){try{await f.cleanup();cleanup='completed';cleanupCompleted=true;}catch{cleanup='unavailable';}}
     await durableCreate(join(config.receiptDirectory,'receipt.json'),{profile:'private-ai.openrouter-owner-receipt/v1',runId,source:config.expectedRelease,
-      startedAt,finishedAt:new Date().toISOString(),status:stage==='complete'&&cleanup==='completed'?'pass':'unavailable',stage,checks,
+      startedAt,finishedAt:new Date().toISOString(),status:stage==='complete'&&cleanup==='completed'?'pass':'unavailable',stage,checkpoint,lastHttpStatus,checks,providerEvidence:syntheticTest?'synthetic_test_transport':'real_https_openrouter',sourceVerification:syntheticTest?'test_worktree':'clean_exact_SHA',
       sessionBudget,provider:egress.summary(),resultSha256,resultBytes,cleanup,remoteR2:'not_run',remoteCloud:'not_run',realBrowserIngress:'not_run',humanResultEdit:checks.ownerResultEditPreservesSource?'synthetic_owner_native_API_pass':'not_run',
       recoveryAuthority:'synthetic_local',owner:'synthetic_local',noAutomaticRetry:true});
   }

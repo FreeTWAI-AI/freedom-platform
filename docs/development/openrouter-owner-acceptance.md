@@ -69,7 +69,7 @@ budget reservation, execution metadata, dispatch intent and final receipt.
 Neither an existing intent nor receipt is overwritten. It prints only fixed
 success/unavailable codes; raw errors, responses, key material and paths are not
 printed. Exit 2 means unavailable; inspect the private receipt's fixed stage and
-checks. Do not automatically rerun, create another attempt directory, or retry
+checks, fixed checkpoint and latest HTTP status. No error text or response body is recorded. Do not automatically rerun, create another attempt directory, or retry
 an unknown dispatch.
 
 Before forwarding its only inference POST, the guard verifies the approved key
@@ -93,4 +93,13 @@ Hermetic verification (no real provider):
 ```sh
 node --import tsx --test tests/worker/openrouter-acceptance-guard.test.ts
 TEST_DATABASE_URL='<owned loopback PostgreSQL fp_* admin URL>' node --import tsx --test tests/worker/private-ai-native-owner-flow.test.ts
+TEST_DATABASE_URL='<owned loopback PostgreSQL fp_* admin URL>' node --import tsx --test tests/worker/openrouter-native-owner-harness.test.ts
 ```
+
+The full harness regression injects a synthetic transport through the imported
+function (there is no CLI transport override). Its intent/receipt explicitly say
+`synthetic_test_transport` and `test_worktree`; it may test uncommitted source and
+never establishes real-provider evidence. The real CLI still requires a clean
+exact SHA. It exercises the same two native restarts, edit and source comparison,
+then reacquires a current-generation R2 handle before checking retained objects.
+Run fixed-database native fixtures serially on their dedicated server.
