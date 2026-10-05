@@ -1,7 +1,8 @@
-import {createFailureDiagnosticDecoder} from '../test-failure-diagnostic.mjs';
+import {createFailureDiagnosticDecoder,createFailureDiagnosticEmitter} from '../test-failure-diagnostic.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
+import {createRequire} from 'node:module';
 import {readFile,symlink} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
@@ -11,8 +12,8 @@ import {verificationEnvironment} from '../process-env.mjs';
 import {fixtureRoot,put} from './fixtures.mjs';
 const reporter=fileURLToPath(new URL('../test-reporter.mjs',import.meta.url));
 const source="import{test}from'node:test';test('PRIVATE_CASE_NAME',()=>{console.log('PRIVATE_STDOUT');console.error('PRIVATE_STDERR');});\n";
-async function nodeRun(root,files,{config=files,killOnStart,failureDetail=false}={}){
- const child=spawn(process.execPath,['--test','--test-concurrency=1','--test-reporter='+reporter,...files],{cwd:root,detached:process.platform!=='win32',env:{...verificationEnvironment(),PRIVATE_ENV:'PRIVATE_ENV_VALUE',FREEDOM_TEST_PROGRESS_FILES:JSON.stringify(config)},stdio:['ignore','pipe','pipe','pipe',...(failureDetail?['pipe']:[])]});
+async function nodeRun(root,files,{config=files,killOnStart,failureDetail=false,runtimeLoader=false}={}){
+ const child=spawn(process.execPath,[...(runtimeLoader?['--import',createRequire(import.meta.url).resolve('tsx')]:[]),'--test','--test-concurrency=1','--test-reporter='+reporter,...files],{cwd:root,detached:process.platform!=='win32',env:{...verificationEnvironment(),PRIVATE_ENV:'PRIVATE_ENV_VALUE',FREEDOM_TEST_PROGRESS_FILES:JSON.stringify(config)},stdio:['ignore','pipe','pipe','pipe',...(failureDetail?['pipe']:[])]});
  let output='',stderr='',progress='',failureDiagnostic='';if(failureDetail)child.stdio[4].on('data',b=>{failureDiagnostic+=b;if(killOnStart&&progress.includes(killOnStart))kill();});const kill=()=>{try{process.platform==='win32'?child.kill('SIGKILL'):process.kill(-child.pid,'SIGKILL');}catch{}};
  const timer=setTimeout(kill,5000);child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>stderr+=b);child.stdio[3].on('data',b=>{progress+=b;if(killOnStart&&(!failureDetail||failureDiagnostic.includes('\n'))&&progress.split('\n').filter(Boolean).some(line=>{try{const r=JSON.parse(line);return r.event==='started'&&r.path===killOnStart;}catch{return false;}}))kill();});
  const result=await new Promise((done,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>done({code,signal}));});clearTimeout(timer);return {...result,output,stderr,progress,failureDiagnostic};
@@ -113,4 +114,61 @@ test('FD4 failures survive a later hung selected file and cap without reducing f
  await put(root,files[0],"import{test}from'node:test';import assert from'node:assert/strict';"+Array.from({length:65},(_,i)=>`test('PRIVATE_${i}',()=>assert.equal(8,7));`).join('')+'\n');
  const capped=await nodeRun(root,[files[0]],{failureDetail:true});assert.equal(capped.code,1);assert.equal(JSON.parse(capped.output).counts.failed,65);assert.equal(capped.failureDiagnostic.trim().split('\n').length,64);
  const absent=await nodeRun(root,[files[0]]);assert.equal(absent.output,capped.output);
+});
+
+
+test('ingest process failures expose bounded classes without private response bodies, SQL errors or state strings',async t=>{
+ const root=await fixtureRoot(t),files=['tests/runtime/credential-ingest-process.test.ts','tests/runtime/credential-ingest-adversarial.test.ts','tests/runtime/member-model-settings-process.test.ts'];
+ for(const path of files)await put(root,path,"import{test}from'node:test';import assert from'node:assert/strict';\n"+
+  "test('PRIVATE_INGEST_EXECUTE',()=>{\nassert.equal(503,200,JSON.stringify({body:'PRIVATE_RESPONSE',sqlErrors:['PRIVATE_SQL']}));});\n"+
+  "test('PRIVATE_INGEST_COMMIT',()=>assert.equal('PRIVATE_STATE','committed',JSON.stringify({broker:'PRIVATE_KEY',status:'PRIVATE_STATUS'})));\n"+
+  "test('PRIVATE_BROWSER',()=>{throw Error('PRIVATE_BROWSER_PATH PRIVATE_ENV_VALUE https://private.example')});\n");
+ const ran=await nodeRun(root,files,{failureDetail:true,runtimeLoader:true});assert.equal(ran.code,1);
+ const sources=await Promise.all(files.map(async path=>({path,source_sha256:sha256(await readFile(join(root,path))),source_lines:6}))),records=[];
+ createFailureDiagnosticDecoder(sources,r=>records.push(r)).push(Buffer.from(ran.failureDiagnostic));
+ assert.equal(records.length,9);
+ for(const path of files){const selected=records.filter(r=>r.path===path);assert.deepEqual(selected.map(r=>r.source_line),[3,4,5]);
+ assert.deepEqual(selected.map(r=>r.detail.message_class),['assertion_failed','custody_outcome_unconfirmed','unknown']);
+ assert.deepEqual(selected[0].detail.comparison,{actual:503,expected:200});
+ assert.equal(selected[1].detail.comparison,undefined);assert.equal(selected[2].detail.comparison,undefined);}
+ const primary=JSON.parse(ran.output);assert.equal(primary.counts.failed,9);
+ assert(records.every(r=>primary.cases.some(c=>c.case_sha256===r.case_sha256&&c.status==='failed')));
+ for(const secret of ['PRIVATE_','committed','https://','sqlErrors','broker','stack'])assert(!ran.failureDiagnostic.includes(secret));
+ const absent=await nodeRun(root,files,{runtimeLoader:true});assert.equal(absent.output,ran.output,'optional diagnostics do not change verdict evidence');
+});
+
+
+test('diagnostic stack locations accept only bounded exact same-file frames and never emit raw stack',()=>{
+ const path='tests/runtime/credential-ingest-process.test.ts',source={path,source_sha256:'a'.repeat(64),source_lines:20};
+ const absolute=join(process.cwd(),path);
+ for(const stack of [
+  `PRIVATE\n    at fn (/private/other.test.ts:7:1)`,
+  `PRIVATE\n    at fn (${absolute}:21:1)`,
+  `PRIVATE\n    at fn (${absolute}.extra:7:1)`,
+  `PRIVATE ${absolute}:7:1`,
+  'PRIVATE'.repeat(2000),
+ ]) {
+  const rows=[],emit=createFailureDiagnosticEmitter([source],line=>rows.push(JSON.parse(line)),()=> 'b'.repeat(64));
+  emit({type:'test:fail',data:{file:absolute,line:2,details:{type:'test',error:{name:'Error',message:'PRIVATE',stack}}}});
+  assert.equal(rows[0].source_line,2);assert(!JSON.stringify(rows).includes('PRIVATE'));assert(!JSON.stringify(rows).includes(absolute));
+ }
+});
+
+
+test('ingest fixed classifications admit no private state, timeout message or SQL context',()=>{
+ const path='tests/runtime/credential-ingest-process.test.ts',source={path,source_sha256:'a'.repeat(64),source_lines:20};
+ for(const [error,expected] of [
+  [{name:'AssertionError',code:'ERR_ASSERTION',expected:'committed',actual:'PRIVATE_STATE',message:'PRIVATE_SQL_AND_BROKER_BODY'},'custody_outcome_unconfirmed'],
+  [{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'},'browser_timeout'],
+  [{name:'Error',message:'PRIVATE_WRAPPER',cause:{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'}},'browser_timeout'],
+  [{name:'AssertionError',code:'ERR_ASSERTION',message:'Actual SQL wait not observed'},'sql_wait_not_observed'],
+ ]) {
+  const lines=[],emit=createFailureDiagnosticEmitter([source],line=>lines.push(line),()=> 'b'.repeat(64));
+  emit({type:'test:fail',data:{file:join(process.cwd(),path),line:2,details:{type:'test',error}}});
+  const decoded=[];createFailureDiagnosticDecoder([source],r=>decoded.push(r)).push(Buffer.from(lines.join('')));
+  assert.equal(decoded.length,1);assert.equal(decoded[0].detail.message_class,expected);
+  assert.equal(decoded[0].detail.comparison,undefined);assert(!JSON.stringify(decoded).includes('PRIVATE'));assert(!JSON.stringify(decoded).includes('committed'));
+  const rejected=[];const tampered={...decoded[0],detail:{...decoded[0].detail,message_class:'PRIVATE_CUSTOM_CLASS'}};
+  createFailureDiagnosticDecoder([source],r=>rejected.push(r)).push(Buffer.from(JSON.stringify(tampered)+'\n'));assert.deepEqual(rejected,[]);
+ }
 });
