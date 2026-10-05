@@ -44,8 +44,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 5620,
-      "sha256": "b662b653ef5253b5900e6f91489f6d88a6b7e107110e224f1011195caf9330e4"
+      "bytes": 5844,
+      "sha256": "924e3e28b2c2f8eec0d239bf922242eda5f138476f6056f78538478e5d473ebb"
     },
     {
       "path": "CHANGES-2026-09-19.md",
@@ -13624,8 +13624,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 8979,
-      "sha256": "aa970d74b76e1dd1a5c1622dd04760fa99f850f26dc694e9618dbab34b96a407"
+      "bytes": 9267,
+      "sha256": "63e1aab454ce5b75b8dbed1e46aebc23b5b0d681c76b29739e683511874d2a1c"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/context-chunks-evidence-2026-10-05.json",
+      "bytes": 12601,
+      "sha256": "27404d38e82f7397979b243ee74b340893077f2440c9732f67100be1c34d474d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
@@ -13669,8 +13674,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 340602,
+      "sha256": "75c616ee5595e884f3a6de27d32524bd2655044a02e0bb78d5cf1ff0a9f01189"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -13809,8 +13814,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 19562,
-      "sha256": "cef3735ece9d5708a2ca0fb274287d868c1850b488ee8cab548420a681ddbf70"
+      "bytes": 23036,
+      "sha256": "7f8fa30d8b3899f9500e902ae09be78034e4130eebdc25d41e00ff98d7937673"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -15684,8 +15689,8 @@
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
-      "bytes": 2618,
-      "sha256": "b7dda22bbefb4202ce8012c176c437cf0f7a5a621f6daf45a458dc7cb14b809f"
+      "bytes": 4492,
+      "sha256": "d3b3eab1b5ebc7d313770c7daa58d01f22ea4a0a14da51ad6f0b170025e1833d"
     },
     {
       "path": "packages/contribution-tools/consumer-behavior-fixture.mjs",
@@ -15744,8 +15749,8 @@
     },
     {
       "path": "packages/contribution-tools/context.mjs",
-      "bytes": 11592,
-      "sha256": "3433e417cf87677657240c352490ec3a0039f9d7646684db6588f02954b31cf1"
+      "bytes": 20571,
+      "sha256": "77d27c2c1b5337fb1704813d15ac297308c118fc5efc91607bfc9fbe8270a498"
     },
     {
       "path": "packages/contribution-tools/contracts.mjs",
@@ -15854,8 +15859,8 @@
     },
     {
       "path": "packages/contribution-tools/local-artifacts.mjs",
-      "bytes": 2421,
-      "sha256": "c3daf7c3f90e49684889a3e2d146d2219ae1135850f2f3d67552e7f8e61644c2"
+      "bytes": 2685,
+      "sha256": "157d98a31fdb3896256eba7772af113666970a1764bcf6d34a74094d9514a8d9"
     },
     {
       "path": "packages/contribution-tools/pin-cli.mjs",
@@ -15949,8 +15954,8 @@
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
-      "bytes": 20641,
-      "sha256": "de8841e9d0db0364034feeaba9f717fb2b706d74e3de0e32fcd10022f2037145"
+      "bytes": 33726,
+      "sha256": "3f1e0f101e2084869165fc93cd858246bcba2b6cd94dc45f7a02b8c487bbd186"
     },
     {
       "path": "packages/contribution-tools/test/contracts.test.mjs",
@@ -16079,8 +16084,8 @@
     },
     {
       "path": "packages/contribution-tools/verify.mjs",
-      "bytes": 4143,
-      "sha256": "601ca72792e32e3ddbfbd79edf270efc83b6e419d151e2f506ecb80ccdeecee5"
+      "bytes": 4159,
+      "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
     },
     {
       "path": "packages/contribution-tools/workflows/trusted-member.yml",

@@ -1,0 +1,329 @@
+{
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local",
+  "packet": "C2 complete bounded context",
+  "base_source": "a328c82084f884f4bedad3f59bfe680d6a547892",
+  "candidate_commit": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+  "accepted_original_rows": [
+    "GOV-07"
+  ],
+  "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+  "implementation": [
+    {
+      "path": "packages/contribution-tools/context.mjs:122",
+      "behavior": "One collector retains baseline/candidate union, reverse dependencies, nested rules and full unknown-path fallback; missing baseline/candidate obligations stay explicit blockers."
+    },
+    {
+      "path": "packages/contribution-tools/context.mjs:198",
+      "behavior": "v1 content/serialization cap 512000; fragment content 65536 intact UTF-8; manifest/serialized fragment 512000; source count 1024; chunk count 1024; aggregate content 32000000; per-source existing 2000000 cap."
+    },
+    {
+      "path": "packages/contribution-tools/context.mjs:227",
+      "behavior": "Manifest binds exact worktree/base/head/scope and baseline/candidate dependency metadata, source digests and deltas. Every source revision is delivered; source and projection-content digests are distinct."
+    },
+    {
+      "path": "packages/contribution-tools/context.mjs:286",
+      "behavior": "All chunks use safe ignored local writer; manifest is written last. Reads recompute current complete context and verify every chunk before returning a selected fragment or completeness result."
+    },
+    {
+      "path": "packages/contribution-tools/cli.mjs:31",
+      "behavior": "prepare/context automatically use chunks only when v1 exceeds cap; context --manifest PATH --chunk N or --check complete is the only retrieval interface. Saved manifest cannot override base/scope."
+    },
+    {
+      "path": "packages/contribution-tools/local-artifacts.mjs:24",
+      "behavior": "Bounded reads retain safe path/ignored-file/nonsymlink/hardlink rejection."
+    },
+    {
+      "path": "packages/contribution-tools/verify.mjs:34",
+      "behavior": "Metadata mode still reads and validates every applicable rule, retaining all required suite selection and missing-rule blockers."
+    },
+    {
+      "path": "governance/README.md:30",
+      "behavior": "Concrete CLI workflow, bounds, identity/delta and local unverified trust semantics documented."
+    }
+  ],
+  "negative_cases_verified": [
+    "missing final chunk blocks first chunk read",
+    "wrong/reordered source fragment",
+    "corrupt chunk",
+    "symlink fragment/output",
+    "partial write does not publish manifest or alter linked outside file",
+    "manifest omitted chunk",
+    "path traversal/arbitrary file read denied",
+    "stale candidate/index/head/base/branch/scope",
+    "cross-worktree copied manifest/chunks",
+    "baseline instruction absent",
+    "candidate instruction absent",
+    "oversized source/aggregate content",
+    "invalid UTF-8",
+    "unknown entry selects all applicable modules and dependencies but remains blocked",
+    "dependency-manifest private text not copied"
+  ],
+  "tests": [
+    {
+      "command": "node --test packages/contribution-tools/test/context.test.mjs",
+      "pass": 30,
+      "fail": 0,
+      "skip": 0,
+      "tier": "isolated local synthetic Git/worktree CLI and focused unit regressions"
+    },
+    {
+      "command": "node --test packages/contribution-tools/test/export.test.mjs packages/contribution-tools/test/io.test.mjs",
+      "pass": 49,
+      "fail": 0,
+      "skip": 0,
+      "tier": "isolated local portability and safe I/O regressions"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed",
+      "tier": "local static"
+    }
+  ],
+  "root_cli": {
+    "chunks_read_and_verified": 112,
+    "source_count": 112,
+    "source_bytes": 1041026,
+    "manifest_bytes": 101388,
+    "max_stdout_bytes": 23846,
+    "negative_codes": [
+      "artifact_missing",
+      "context_chunk_mismatch",
+      "stale_or_modified_context_manifest"
+    ]
+  },
+  "deep_cli": {
+    "format": "freedom.coding-context/v1",
+    "bundle_bytes": 238474,
+    "module_ids": [
+      "credential-broker",
+      "execution-runs",
+      "governance"
+    ]
+  },
+  "profiles": [
+    {
+      "name": "root",
+      "requested_path": "AGENTS.md",
+      "prepare_command": [
+        "node",
+        "scripts/freedom.mjs",
+        "prepare",
+        "--base-ref",
+        "a328c82084f884f4bedad3f59bfe680d6a547892",
+        "--paths",
+        "AGENTS.md"
+      ],
+      "manifest_sha256": "114f5cbb1915ccd9848227ffca43bc19414ce0330ba7359e6b50f356890dd5a7",
+      "manifest_bytes": 101388,
+      "module_ids": [
+        "asset-lifecycle",
+        "asset-storage",
+        "assets",
+        "command-core",
+        "credential-broker",
+        "execution-decision",
+        "execution-runs",
+        "governance",
+        "media-migration",
+        "member-card",
+        "newcomer-guides",
+        "private-results",
+        "public-guide-assets",
+        "resource-scopes",
+        "runtime-registration",
+        "scoped-commands",
+        "work"
+      ],
+      "chunks_read_and_verified": 112,
+      "source_count": 112,
+      "source_bytes": 1041026,
+      "max_stdout_bytes": 23846,
+      "complete": {
+        "format": "freedom.coding-context-completeness/v1",
+        "assurance_level": "local",
+        "delivery_id": "8c81305845c758fa667a5334e49e783cf13a0df60cf9f47cfaa09b743eb00ccc",
+        "binding": {
+          "assurance_level": "local",
+          "task_id": "task-ac125f6bf033a5f2",
+          "repository": "FreeTWAI-AI/freedom-platform",
+          "workspace_id": "a1d607f1ec0cdc7d038e01675da5a34db35b4bea453ba7dfe37893610f3f0360",
+          "branch": "HEAD",
+          "base_commit": "a328c82084f884f4bedad3f59bfe680d6a547892",
+          "head_commit": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "workspace_sha256": "1927334984f100438d06ac29f854bffde8d5ebc57eb7dd21864e35f040278e2b",
+          "requested_paths": [
+            "AGENTS.md"
+          ],
+          "changed_paths": [
+            "governance/README.md",
+            "packages/contribution-tools/cli.mjs",
+            "packages/contribution-tools/context.mjs",
+            "packages/contribution-tools/local-artifacts.mjs",
+            "packages/contribution-tools/test/context.test.mjs",
+            "packages/contribution-tools/verify.mjs"
+          ],
+          "module_ids": [
+            "asset-lifecycle",
+            "asset-storage",
+            "assets",
+            "command-core",
+            "credential-broker",
+            "execution-decision",
+            "execution-runs",
+            "governance",
+            "media-migration",
+            "member-card",
+            "newcomer-guides",
+            "private-results",
+            "public-guide-assets",
+            "resource-scopes",
+            "runtime-registration",
+            "scoped-commands",
+            "work"
+          ],
+          "version_inputs": [
+            {
+              "path": "contracts/preview/v1/bundle.json",
+              "revision": "base",
+              "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d",
+              "bytes": 1474
+            },
+            {
+              "path": "contracts/preview/v1/bundle.json",
+              "revision": "candidate",
+              "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d",
+              "bytes": 1474
+            },
+            {
+              "path": "package.json",
+              "revision": "base",
+              "sha256": "fd70e6c15bd965f3200f5451dff9088b955a39118afeb22987ed4f0f0f303fa2",
+              "bytes": 7774
+            },
+            {
+              "path": "package.json",
+              "revision": "candidate",
+              "sha256": "fd70e6c15bd965f3200f5451dff9088b955a39118afeb22987ed4f0f0f303fa2",
+              "bytes": 7774
+            },
+            {
+              "path": "package-lock.json",
+              "revision": "base",
+              "sha256": "2b73d82d25aa826d3ab6d4e438030c91b32c668e1dae1c9e46ddfd1aee4fcb93",
+              "bytes": 126411
+            },
+            {
+              "path": "package-lock.json",
+              "revision": "candidate",
+              "sha256": "2b73d82d25aa826d3ab6d4e438030c91b32c668e1dae1c9e46ddfd1aee4fcb93",
+              "bytes": 126411
+            }
+          ],
+          "publisher_trust": "unverified",
+          "library_usage": "not_checked",
+          "tests": [
+            "governance.unit",
+            "runtime.avatar",
+            "runtime.command-core",
+            "runtime.full",
+            "runtime.member-card",
+            "runtime.resource-scopes",
+            "runtime.scoped-member-command",
+            "runtime.work",
+            "runtime.work-privacy"
+          ],
+          "blockers": []
+        },
+        "complete": true,
+        "sources": 112,
+        "chunks": 112,
+        "publisher_trust": "unverified",
+        "library_usage": "not_checked"
+      },
+      "negative_codes": [
+        "artifact_missing",
+        "context_chunk_mismatch",
+        "stale_or_modified_context_manifest"
+      ],
+      "duration_seconds": 77.58
+    },
+    {
+      "name": "deep-module",
+      "format": "freedom.coding-context/v1",
+      "requested_path": "modules/agent-execution/adapters/byok.ts",
+      "prepare_command": [
+        "node",
+        "scripts/freedom.mjs",
+        "prepare",
+        "--base-ref",
+        "a328c82084f884f4bedad3f59bfe680d6a547892",
+        "--paths",
+        "modules/agent-execution/adapters/byok.ts"
+      ],
+      "bundle_sha256": "6d64ec8f470765d32a581ae932dbcabfb41022daa4b184ba8f684b900e27db79",
+      "bundle_bytes": 238474,
+      "module_ids": [
+        "credential-broker",
+        "execution-runs",
+        "governance"
+      ],
+      "version_inputs_verified": 6,
+      "complete": true,
+      "duration_seconds": 0.53
+    }
+  ],
+  "log_digests": {
+    "context-with-chunks-final.log": "617ac62d420f6664f9e45ba736aafac3cbf8fc6588516987c0cadf4a98845e0e",
+    "export-io.log": "20748d78394fedeea96f436d0c2a9580d5fff4a4f80d4907bbc930f3f6325868",
+    "clean-worktree-cli-receipt.json": "34298ce68bdd455089c87c982b51f20cea6fbdf6e72a0ff9e9b1d062007ba8ef"
+  },
+  "changed_files": [
+    {
+      "path": "packages/contribution-tools/context.mjs",
+      "sha256": "77d27c2c1b5337fb1704813d15ac297308c118fc5efc91607bfc9fbe8270a498"
+    },
+    {
+      "path": "packages/contribution-tools/cli.mjs",
+      "sha256": "d3b3eab1b5ebc7d313770c7daa58d01f22ea4a0a14da51ad6f0b170025e1833d"
+    },
+    {
+      "path": "packages/contribution-tools/local-artifacts.mjs",
+      "sha256": "157d98a31fdb3896256eba7772af113666970a1764bcf6d34a74094d9514a8d9"
+    },
+    {
+      "path": "packages/contribution-tools/verify.mjs",
+      "sha256": "c4893deb3910bb88fad4d5ea7a32d30af9bffa741d6d7ad5c91b4a6a5304830d"
+    },
+    {
+      "path": "packages/contribution-tools/test/context.test.mjs",
+      "sha256": "3f1e0f101e2084869165fc93cd858246bcba2b6cd94dc45f7a02b8c487bbd186"
+    },
+    {
+      "path": "governance/README.md",
+      "sha256": "7f8fa30d8b3899f9500e902ae09be78034e4130eebdc25d41e00ff98d7937673"
+    }
+  ],
+  "review": {
+    "integration": "Full context/CLI/local-artifact/verify diff reviewed; no blocker.",
+    "models": "Three Grok4.7 sessions completed with final conclusions; patch reviewer found no blocking issue. Interrupted/turn-limited rounds resumed in the same sessions; advisory only."
+  },
+  "limitations": [
+    "GOV-07 acceptance is specific to this exact candidate and its minimum context-tool tier; it is not merged/deployed/client-wide evidence.",
+    "GOV-09 client/subagent entrypoint adoption remains separate, despite genuine clean-worktree and cross-worktree refusal proof.",
+    "GOV-10/12 need trusted hosted CI recomputation; local union/stale/unknown-scope cases do not replace it.",
+    "Local completeness does not certify reading/comprehension, publisher trust, library use, merge permission or any cloud action.",
+    "Initial real CLI driver assumed deep scope required chunks; root proof passed, then driver stopped. Corrected driver verifies actual v1 deep bundle with exact bytes; no product workaround."
+  ],
+  "integration_entrypoint_check": {
+    "tool_source": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+    "root_agents_sha256": "924e3e28b2c2f8eec0d239bf922242eda5f138476f6056f78538478e5d473ebb",
+    "prepare": "passed after root instructions were updated",
+    "completeness": {
+      "complete": true,
+      "sources": 112,
+      "chunks": 112,
+      "blockers": []
+    }
+  }
+}

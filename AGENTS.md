@@ -15,10 +15,12 @@ node scripts/freedom.mjs prepare --base-ref <exact-baseline-sha> --paths <affect
 先核對輸出的 repo／head／base、baseline 與 candidate 規則及 affected modules，
 再工作；換 worktree、子 Agent 或跨模組時重新取得對應 context。這份本機 bundle
 不授予 merge／deploy 權限，也不是可信 CI 證據。工具目前只支援從 repo root 執行。
-若回報 `context_size_limit`，記錄 bundle 未產出，按受影響的 `freedom.module.json`
-及其相依關係讀齊 baseline／candidate instructions；根檔或未知路徑須涵蓋全部模組。
-不得改小實際範圍或自行提高上限假稱
-prepare 成功。全 scope 的有界分段載入仍列在 FC-00／GOV-07/09/10 收尾工作包。
+較大範圍會輸出有界 manifest／chunks；依 `context_path` 逐片讀取所有
+`0..chunk_count-1`，最後執行 `context --manifest <context_path> --check complete`。
+小範圍仍回傳 v1 bundle。完整性檢查只確認目前 worktree 的規則齊備，不表示 Agent
+已理解規則或獲得任何操作權。不得只讀 manifest、縮 scope 或跳過 blockers。
+若命中明確的 source／總量上限，記錄工具未完成，依 affected descriptors 讀齊
+baseline／candidate 規則；根檔或未知路徑涵蓋全部模組。詳見上述工具入口。
 
 ## UI／視覺修改前
 

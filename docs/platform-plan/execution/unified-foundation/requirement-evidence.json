@@ -25,10 +25,10 @@
     },
     "by_state": {
       "not_run": 48,
-      "implemented": 69,
+      "implemented": 68,
       "partial": 50,
       "blocked": 1,
-      "accepted": 0
+      "accepted": 1
     }
   },
   "state_definitions": {
@@ -368,6 +368,27 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "context-chunks-664c05b": {
+      "id": "context-chunks-664c05b",
+      "kind": "real_local_repository_context_cli",
+      "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+      "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/context-chunks-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Root all17 modules:112 source/chunks,1,041,026 bytes reconstructed exactly.",
+        "Deep path modules/agent-execution/adapters/byok.ts:complete v1 bundle238,474 bytes with credential-broker/execution-runs/governance rules.",
+        "Missing or mismatched chunk and copied foreign-worktree delivery rejected."
+      ],
+      "limitations": [
+        "GOV-07 acceptance is specific to this exact candidate and its minimum context-tool tier; it is not merged/deployed/client-wide evidence.",
+        "GOV-09 client/subagent entrypoint adoption remains separate, despite genuine clean-worktree and cross-worktree refusal proof.",
+        "GOV-10/12 need trusted hosted CI recomputation; local union/stale/unknown-scope cases do not replace it.",
+        "Local completeness does not certify reading/comprehension, publisher trust, library use, merge permission or any cloud action.",
+        "Initial real CLI driver assumed deep scope required chunks; root proof passed, then driver stopped. Corrected driver verifies actual v1 deep bundle with exact bytes; no product workaround."
+      ]
     }
   },
   "requirements": [
@@ -1954,7 +1975,7 @@
       "fc_gates": [
         "FC-04"
       ],
-      "state": "partial",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -1993,14 +2014,18 @@
             ],
             "commit_sha": "0bf77ac719df3f74e460d5526983826944b43ea5"
           }
+        },
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
         }
       ],
-      "remaining": [
-        "Run a fresh root Agent session editing a deep module and verify its exact module instructions are delivered.",
-        "Root DESIGN.md rejection is fixed at 0bf77ac719df3f74e460d5526983826944b43ea5 with tested file digests retained. Real root prepare still fails context_size_limit; complete bounded instruction delivery before accepting fresh-session startup."
-      ],
-      "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Original minimum context-tool tier met at exact candidate664c05b:from repo root a deep-module request receives every applicable instruction and exact source bytes; launcher and hosted CI requirements are separate rows."
     },
     {
       "id": "GOV-08",
@@ -2073,10 +2098,17 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
+        }
+      ],
       "remaining": [
-        "Exercise an actual subagent handoff and separate git worktree, binding repo, source head, workspace identity and bundle.",
-        "Reject reuse of a bundle from a different repo/worktree; existing realpath/two-clone fixtures are source declarations, not the full Agent handoff receipt."
+        "Wire supported client/subagent launchers to prepare their own current repo/head/worktree context and consume every fragment; clean linked worktree and copied-delivery refusal are verified locally."
       ],
       "accepted": false,
       "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
@@ -2097,7 +2129,7 @@
       "fc_gates": [
         "FC-04"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -2114,7 +2146,15 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
+        }
+      ],
       "remaining": [
         "Provide a loaded-scope/session marker and delta when a long session crosses modules or rebuilds context.",
         "Execute an independent CI recomputation after author scope becomes stale; a manually rerun context command is not automatic session refresh."
@@ -2218,6 +2258,13 @@
             ],
             "commit_sha": "0bf77ac719df3f74e460d5526983826944b43ea5"
           }
+        },
+        {
+          "evidence_id": "context-chunks-664c05b",
+          "source_sha": "664c05bd80b1396f69f53e1e22cc591c1ebce6da",
+          "environment": "new isolated local detached Git worktree; no cloud, DB or GitHub",
+          "covered_part": "Complete bounded root/deep instruction delivery with baseline/candidate union, stale/missing/foreign-worktree refusal.",
+          "limitations_reference": "evidence_catalog.context-chunks-664c05b.limitations"
         }
       ],
       "remaining": [
