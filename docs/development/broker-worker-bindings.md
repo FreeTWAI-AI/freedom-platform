@@ -9,8 +9,9 @@ response private signer or provider resolver.
 `wrangler.broker.example.jsonc` uses the native HTTPS provider adapter only in
 this broker bundle. The ordinary platform bundle still has the unavailable
 provider adapter; Node's original provider transport remains available unchanged.
-There are no public routes, worker previews, generated key defaults or ingress
-credential routes in this candidate.
+The example has no public routes, worker previews or generated key defaults.
+An optional direct credential setup host is composed only with the complete
+independent ingest profile and readiness binding described below.
 
 ## Explicit bindings
 
@@ -41,6 +42,38 @@ profile, origin, duplicate keys, missing ports, shared role bindings or unsuitab
 roles fail closed. Each request checks current DB/role identity, nonadministrative
 privileges, no memberships, and the expected vault rights. The executor cannot
 read or write vault ciphertext.
+
+## Optional direct credential setup host
+
+The closed `ingest` profile pins `setupOrigin`, main request `issuer`/`audience`,
+`requestKeys`, separate `responseIssuer`/`responseAudience`/`responseKeyId`,
+`readinessAuthority` and `readinessKeys`. `setupOrigin` must be a distinct HTTPS
+origin. Main carries only its ingest request signer and response public pins;
+the protected setup form sends secret bytes directly to this broker host.
+
+`FREEDOM_BROKER_INGEST_RESPONSE_KEY` is a separate minimal private Ed25519 JWK.
+The Worker verifies a fresh private-key signature under the declared public `x`,
+requires canonical 32-byte base64url `x`/`d`, and rejects public identities reused
+across execution, ingest, recovery and readiness purposes. Native workerd accepts
+some inconsistent private JWKs at import, so successful import alone is insufficient.
+
+`CREDENTIAL_INGEST_READINESS` must resolve the private fixed endpoint
+`https://freedom-private-ai.internal/internal/credential-ingest/readiness`.
+It supplies `{signedReadiness}`: an EdDSA compact JWS with type
+`freedom-credential-capture-readiness+jws`, approved key ID, exact environment,
+setup origin and authority, `captureDisabled:true`, and a validity window of at
+most 60 seconds. Missing, expired, foreign or invalid statements fail closed.
+The signature proves what the authority asserted; it does not independently
+prove that edge logs, tracing, body capture or other capture systems are disabled.
+An operator must establish that authority and validate the real ingress before
+installing a setup hostname. The repository example intentionally omits it.
+
+The optional host uses only the restricted cipher SQL port. Its one-use setup
+registry is isolate-local: restart or a request routed to another isolate fails
+closed. Browser/replica continuity is an outstanding release condition. Known
+Cloudflare edge headers are removed before the existing strict transport
+allowlist; arbitrary `CF-*` headers are not exempt. Native secret-body reads stay
+inside the existing authorization/claim path.
 
 ## Request and proof lifetime
 
@@ -83,7 +116,14 @@ provider or deployment binding. Every configuration/secret is generated locally.
 Remote Hyperdrive/R2/recovery identity and permissions, independent recovery/floor
 service deployment, public platform and private broker rollout, real provider
 acceptance, multi-replica routing and browser staging acceptance remain release
-gaps. Direct credential ingest is not installed by this Worker. No resources,
+gaps. `tests/worker/broker-ingest-worker.test.ts` additionally exercises the native
+setup bundle with synthetic main signatures, readiness withdrawal, key mismatch
+and pad-bit aliases, header/CSRF refusal, encrypted vault commit and replay.
+Its synthetic ingress reconstructs requested headers and known-length bodies
+inside workerd to avoid Node proxy rewriting; it is not a live browser/edge test.
+`private-ai-native-owner-flow.test.ts` exercises both native bundles through the
+synthetic owner setup, private Result and Stop/Revoke flow. Neither test is
+real owner consent, capture-policy or provider acceptance. No resources,
 secrets or staging/live routes are changed by local dry runs or these tests.
 
 ## Repository candidate preflight
