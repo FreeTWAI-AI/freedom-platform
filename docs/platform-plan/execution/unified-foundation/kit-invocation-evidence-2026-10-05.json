@@ -687,5 +687,16 @@
     }
   ],
   "host_os_approval": "unverified",
-  "cleanup_verified": true
+  "cleanup_verified": true,
+  "root_registration_validation": {
+    "source": "478b6fb8",
+    "command": "node --test packages/contribution-tools/test/context.test.mjs packages/contribution-tools/test/surface-audit.test.mjs",
+    "passed": 59,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "21d75b287efaa6681d965ac8d548c80c8e70264af71b69e71bc5087b8575a8d5",
+    "initial_attempt": "30 context tests passed; surface suite could not load missing @typescript/typescript6. Linked the existing exact dependency installation, then reran both suites successfully; no assertion was weakened.",
+    "initial_log_sha256": "29548badb080d56bfec30101df19bc6b63ecf294b4180864be0e1ad1d8621f80",
+    "meaning": "Registers exact source/runtime/isolated driver CLI entries and their existing files; does not assert complete platform surface coverage."
+  }
 }
