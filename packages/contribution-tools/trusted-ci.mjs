@@ -27,7 +27,7 @@ function commit(value) { check(typeof value === 'string' && SHA.test(value), 'in
 // installation fingerprint, NOT a self-authenticating trust root: the host must
 // approve the expected digest before loading these immutable bytes.
 export const VERIFIER_INSTALLATION_FILES = Object.freeze([
-  ...['trusted-ci', 'context', 'workspace', 'process-env', 'contracts', 'formats', 'schema', 'io', 'errors']
+  ...['trusted-ci', 'context', 'local-artifacts', 'workspace', 'process-env', 'contracts', 'formats', 'schema', 'io', 'errors']
     .map(name => `packages/contribution-tools/${name}.mjs`),
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),
