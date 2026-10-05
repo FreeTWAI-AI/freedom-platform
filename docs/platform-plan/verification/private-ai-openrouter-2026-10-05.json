@@ -398,6 +398,211 @@
       },
       "productionCodeChanged": false,
       "finalHostedHead": "pending"
+    },
+    "hostedObserverCorrection": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "verifyRun": 37280752891,
+      "status": "failed",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "codeql": "success",
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "failed",
+        "2": "passed",
+        "3": "passed"
+      },
+      "failures": [
+        {
+          "file": "credential-ingest-adversarial.test.ts",
+          "case": "genuine rotation initial browser ingest",
+          "observed": "operation_timeout",
+          "sourceLine": 137
+        },
+        {
+          "file": "credential-ingest-rate-budget.test.ts",
+          "case": "browser waits for delayed custody commit before one owner observation",
+          "observed": "assertion detail unavailable in this head"
+        }
+      ],
+      "quota429Boundary": "passed",
+      "cause": "not established",
+      "unchangedRateLocal": {
+        "passed": 2,
+        "failed": 0
+      },
+      "instrumentedRateOneCpu": {
+        "passed": 1,
+        "failed": 0,
+        "durationSeconds": 8.204
+      },
+      "nextStep": "bounded helper phase, request status and fixture custody observation; local passes do not resolve hosted failure",
+      "diagnosticFollowup": {
+        "sources": [
+          "bdd8f3e0",
+          "5ba50314"
+        ],
+        "privacyReporterPassed": 18,
+        "controlledBrowserAndConnectionFailurePassed": 2,
+        "typecheck": "passed",
+        "independentReview": "passed",
+        "deadlinesChanged": false,
+        "rawPayloadsPublished": false,
+        "custodyObservation": "point-in-time active record count; not independent commit proof"
+      }
+    },
+    "actualStagingBackup115Rehearsal": {
+      "source": "3789877d215bc4a58b2302935b74d6feca02282b",
+      "status": "passed",
+      "postgresMajor": 18,
+      "archiveHashVerified": true,
+      "restoredBaseline": {
+        "tables": 192,
+        "rows": "4209",
+        "sequences": 2,
+        "sequencesAdvanced": 0
+      },
+      "ledgerBefore": 113,
+      "ledgerAfter": 115,
+      "onlyPendingMigrations": [
+        114,
+        115
+      ],
+      "migrationAndGrantsOneTransaction": true,
+      "grants": {
+        "runtimePreparationDenied": true,
+        "brokerPreparationReadInsertOnly": true,
+        "executorPreparationDenied": true,
+        "backupAllTableReadOnly": true,
+        "restrictedRoles": true
+      },
+      "restoreAcl": {
+        "functionsPublicExecuteRevoked": 24,
+        "runtimeSchemaUsageBootstrapped": true
+      },
+      "existingRowsPreserved": true,
+      "cleanupVerified": true,
+      "priorLocalAssumptionFailuresPreserved": 5,
+      "remoteDatabaseChanged": false,
+      "r2Restored": false,
+      "daily115PipelineValidated": false
+    },
+    "hostedBoundedIngestDiagnosis": {
+      "source": "b8497fbcf03d76024a46e40ffea7254ebcc604e7",
+      "verifyRun": 37283589044,
+      "status": "failed",
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "passed",
+        "1": "failed",
+        "2": "failed",
+        "3": "passed"
+      },
+      "partition1": {
+        "passed": 485,
+        "failed": 1
+      },
+      "partition2": {
+        "passed": 906,
+        "failed": 2
+      },
+      "ingestProcessAndDelayedCustody": {
+        "phase": "ack_wait",
+        "prepareState": "response",
+        "prepareStatus": 200,
+        "secretState": "failed",
+        "secretStatus": null,
+        "custody": "one_active",
+        "interpretation": "fresh model has an active custody row while browser secret delivery failed; ACK-only fixture success assumption is insufficient",
+        "specificNetworkDelayCause": "not established"
+      },
+      "memberSettings": {
+        "observed": "secret browser request failed",
+        "custody": "not observed in failure path",
+        "cause": "not established; separate ACK-only browser fixture requires bounded owner reconciliation"
+      },
+      "workerLane": {
+        "observed": "new controlled Chromium diagnostic ran without installed browser",
+        "correction": "move actual browser case into existing browser runtime file; preserve all coverage and file partition mapping"
+      },
+      "runtimeArtifactCleanup": true,
+      "rerunOrCancellation": false
+    },
+    "terminalDeliveryReconciliation": {
+      "source": "2b051468eb169e5ef09c053c478175b71713b6f3",
+      "integratedSource": "ffd2f185",
+      "oldHelperControlledLateAck": {
+        "passed": 1,
+        "responseDelayMs": 6000,
+        "realBrowserAbortMs": 5000,
+        "custodyRows": 1,
+        "prepareRequests": 1,
+        "secretRequests": 1,
+        "oldAckOnlyHelper": "TimeoutError",
+        "ownerOutcome": "committed"
+      },
+      "correctedRateFile": {
+        "passed": 6,
+        "failed": 0,
+        "durationSeconds": 41.16
+      },
+      "cases": [
+        "genuine quota boundary",
+        "delayed SQL custody with one owner observation",
+        "controlled browser diagnostic",
+        "actual response delivery after browser abort",
+        "preparation denial",
+        "custody SQL rollback"
+      ],
+      "mechanism": "wait bounded terminal browser state and trusted fixture request settlement, then perform one exact authorization owner GET; unknown browser delivery alone is never success",
+      "browserKeyClearedAndDisabled": true,
+      "inferencePosts": 0,
+      "ownerHttpPolling": false,
+      "productionDeadlineChanged": false,
+      "privacyReporterPassed": 18,
+      "typecheck": "passed",
+      "independentReview": "passed",
+      "finalHostedHead": "pending"
+    },
+    "settingsTerminalDeliveryReconciliation": {
+      "source": "f59d7c17c4f0ec6e1df0c3692c282ac9c96e3be7",
+      "integratedSource": "2bee9931",
+      "passed": 5,
+      "failed": 0,
+      "durationSeconds": 52.5,
+      "freshBuild": true,
+      "typecheck": "passed",
+      "independentReview": "passed",
+      "createAndRotation": "each exact captured authorization requires one owner GET confirming committed after bounded browser terminal state and genuine broker completion",
+      "cases": [
+        "ordinary create and rotation",
+        "actual secret responses delayed six seconds for both create and rotation",
+        "unchanged lost-main-ACK handling",
+        "preparation denied",
+        "SQL custody rollback"
+      ],
+      "inputClearedAndDisabled": true,
+      "priorRequestCannotSatisfyNextOperation": true,
+      "deniedAndRollbackCustodyRows": 0,
+      "inferencePosts": 0,
+      "productCodeChanged": false,
+      "productionDeadlineChanged": false,
+      "hostedOriginalSettingsCustody": "not observed; deterministic local cases do not establish hosted outcome",
+      "finalHostedHead": "pending"
     }
   },
   "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",

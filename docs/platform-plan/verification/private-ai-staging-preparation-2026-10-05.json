@@ -61,7 +61,7 @@
     "observabilityRequested": false,
     "observabilityReadback": null,
     "captureControlsAcceptance": "not_established",
-    "initialReadbackFailure": "operator expected explicit observability.enabled=false; API returned null; deployment was successful, no retry performed",
+    "initialReadbackFailure": "operator expected explicit observability.enabled=false; combined settings omitted observability; script-settings later returned null. Deployment succeeded and was not retried.",
     "disabledProbes": [
       {
         "purpose": "service",
@@ -76,7 +76,26 @@
         "cacheControl": "private, no-store"
       }
     ],
-    "probeCleanup": true
+    "probeCleanup": true,
+    "explicitObservabilityDisable": {
+      "at": "2026-10-05T08:50:15.141Z",
+      "method": "PATCH script-settings",
+      "httpStatus": 200,
+      "accepted": true,
+      "requested": {
+        "enabled": false,
+        "logs": false,
+        "invocationLogs": false,
+        "traces": false,
+        "issues": false,
+        "logpush": false,
+        "tailConsumers": []
+      },
+      "readbackObservability": null,
+      "captureControlsAcceptance": "not_established",
+      "mainChanged": false,
+      "brokerEnabled": false
+    }
   },
   "remaining": [
     "merged release and migrations",

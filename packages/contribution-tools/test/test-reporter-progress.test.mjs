@@ -1,4 +1,4 @@
-import {createFailureDiagnosticDecoder,createFailureDiagnosticEmitter} from '../test-failure-diagnostic.mjs';
+import {createFailureDiagnosticDecoder,createFailureDiagnosticEmitter,createIngestBrowserDiagnostic} from '../test-failure-diagnostic.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -171,4 +171,25 @@ test('ingest fixed classifications admit no private state, timeout message or SQ
   const rejected=[];const tampered={...decoded[0],detail:{...decoded[0].detail,message_class:'PRIVATE_CUSTOM_CLASS'}};
   createFailureDiagnosticDecoder([source],r=>rejected.push(r)).push(Buffer.from(JSON.stringify(tampered)+'\n'));assert.deepEqual(rejected,[]);
  }
+});
+
+test('actual Node preserves bounded ingest annotation and TimeoutError through FD4 without raw content',async t=>{
+ const root=await fixtureRoot(t),path='tests/runtime/credential-ingest-rate-budget.test.ts';
+ const module=new URL('../test-failure-diagnostic.mjs',import.meta.url).href;
+ await put(root,path,`import{test}from'node:test';import{createIngestBrowserDiagnostic}from ${JSON.stringify(module)};test('PRIVATE_CASE',()=>{const d=createIngestBrowserDiagnostic();d.phase('ack_wait');d.observe('prepare','response',200);d.observe('secret','failed');d.custody('one_active');const e=Error('PRIVATE_KEY_URL_BODY_COOKIE');e.name='TimeoutError';throw d.annotate(e);});\n`);
+ const ran=await nodeRun(root,[path],{failureDetail:true,runtimeLoader:true});assert.equal(ran.code,1);
+ const records=ran.failureDiagnostic.trim().split('\n').map(JSON.parse);assert.equal(records.length,1);
+ assert.deepEqual(records[0].detail.ingest,{phase:'ack_wait',prepare_state:'response',prepare_status:200,secret_state:'failed',secret_status:null,custody:'one_active'});
+ assert.equal(records[0].detail.message_class,'operation_timeout');assert(!JSON.stringify(ran).includes('PRIVATE_'));
+ const accepted=[],sources=[{path,source_sha256:sha256(await readFile(join(root,path))),source_lines:2}];createFailureDiagnosticDecoder(sources,r=>accepted.push(r)).push(Buffer.from(ran.failureDiagnostic));assert.deepEqual(accepted,records);
+ const without=await nodeRun(root,[path],{runtimeLoader:true});assert.equal(without.output,ran.output);
+ for(const patch of [{phase:'PRIVATE_PHASE'},{prepare_status:600},{secret_status:'PRIVATE_STATUS'},{custody:'PRIVATE_STATE'},{key:'PRIVATE_KEY'}]){
+  const out=[],r={...records[0],detail:{...records[0].detail,ingest:{...records[0].detail.ingest,...patch}}};createFailureDiagnosticDecoder(sources,v=>out.push(v)).push(Buffer.from(JSON.stringify(r)+'\n'));assert.equal(out.length,0);
+ }
+});
+test('ingest annotation preserves original error identity and ignores unbounded raw inputs',()=>{
+ const d=createIngestBrowserDiagnostic(),error=new Error('PRIVATE_BODY');error.name='TimeoutError';
+ d.phase('PRIVATE_URL');d.observe('secret','response',Infinity);d.observe('PRIVATE_PATH','failed');d.custody('PRIVATE_SQL');
+ assert.equal(d.annotate(error),error);assert.equal(error.name,'TimeoutError');assert.deepEqual(error.freedom_ingest,{phase:'browser_context',prepare_state:'not_seen',prepare_status:null,secret_state:'not_seen',secret_status:null,custody:'not_checked'});
+ assert(!JSON.stringify(error.freedom_ingest).includes('PRIVATE_'));
 });
