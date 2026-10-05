@@ -42,10 +42,12 @@ test('actual avatar/private routes and real mounts map twelve baseline+candidate
   // New guide release mount remains explicitly unaudited by this narrow avatar/private-work syntax audit.
   assert.equal(report.issues.filter(x => x.revision === 'candidate' && x.code === 'registration_receiver_escape').length, 5);
   assert.equal(report.status, 'unavailable'); assert.equal(report.registrations.length, 12);
-  assert.equal(report.evidence.length, 16); assert.equal(report.behavior_checked, false);
+  assert.equal(report.evidence.length, 10); assert.equal(report.behavior_checked, false);
   assert.equal(report.merge_authorized, false); assert.equal(report.execution_authorized, false);
   assert(report.blockers.includes('registration_behavior_audit_required'));
   assert(report.blockers.includes('surface_unmapped')); // actual root, legacy Work/page remain uncovered
+  assert(!report.issues.some(issue => issue.code === 'surface_declaration_entry_missing'));
+  // Declared pages exist but do not add supported HTTP parser evidence.
   assert(report.operation_ids.includes('work.private.read'));
   assert.deepEqual(report.parser, { version: ts.version, installation_sha256: parserDigest, provenance: 'host-supplied-not-authenticated-by-this-audit' });
 });

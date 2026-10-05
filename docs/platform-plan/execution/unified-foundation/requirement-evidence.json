@@ -368,6 +368,28 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "portal-composition-candidate": {
+      "id": "portal-composition-candidate",
+      "kind": "local_candidate_tests",
+      "source_sha": "304fbedb78edee6dddf65b642f3e3cb23884d4c4",
+      "environment": "Actual local Chromium1243, isolated network-none PostgreSQL18 and synthetic member API data",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/portal-composition-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "WorkbenchPanel owns work creation, claiming, submissions and review cards.",
+        "ShowcasePanel owns showcase forms, opportunities and cooperation proposals.",
+        "EngagementPanel owns agreement, delivery and receipt-report UI.",
+        "Shared client/context/error types and feedback are leaf modules; App retains session lifecycle, provider, mutation lock/idempotency keys and navigation.",
+        "All28 original function bodies match; actual browser journeys preserve member/session/retry behavior."
+      ],
+      "limitations": [
+        "No visual redesign, new API/authorization or product rollout claimed.",
+        "The complete platform/API responsibility split and surface audit remain unfinished.",
+        "These ordinary member browser cases do not establish the full media/R2 or private execution target flow.",
+        "No original requirement row newly accepted."
+      ]
     }
   },
   "requirements": [

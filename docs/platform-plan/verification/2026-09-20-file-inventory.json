@@ -979,8 +979,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 87395,
-      "sha256": "ed19f4a61ae05147ee0a944008a3825724895c030aa05e469c957381a5bfe357"
+      "bytes": 36554,
+      "sha256": "862f6ece67706c66de4cece81e6e9a48c22f0ac6ec4b4a893884edc5704ecb74"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -1261,6 +1261,11 @@
       "path": "apps/portal-web/src/modules/DeviceConnections.tsx",
       "bytes": 25806,
       "sha256": "17c7900cd65d0778f6c2f16d5fee4253c24a68457b8d755d0af9ed90d72ece1c"
+    },
+    {
+      "path": "apps/portal-web/src/modules/EngagementPanel.tsx",
+      "bytes": 11164,
+      "sha256": "db3d405cfeb1adddc3490fdc09ae23f141099f40a47acdad9d265bab39430ca6"
     },
     {
       "path": "apps/portal-web/src/modules/EntryResources.tsx",
@@ -1623,6 +1628,11 @@
       "sha256": "a41fce1875e4d5e5589ee2333aed9f3245c0ade1b546bdc20f7d9be107c28218"
     },
     {
+      "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
+      "bytes": 15461,
+      "sha256": "b43efa792939e11b5b736fadf3983cc4c9573bffb5b5a8b9466019786156a4c6"
+    },
+    {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
       "bytes": 11173,
       "sha256": "c048ed21a7a525ecac45e684d2eb8c2e00cc33267ee9d093cf4a7fc12adae732"
@@ -1716,6 +1726,11 @@
       "path": "apps/portal-web/src/modules/WorkSharingEntry.tsx",
       "bytes": 417,
       "sha256": "5c0be866f13879d4a52315058e66ec1bf918afaf63bde3276d3448f4b0117525"
+    },
+    {
+      "path": "apps/portal-web/src/modules/WorkbenchPanel.tsx",
+      "bytes": 22551,
+      "sha256": "eeb88b6a31b5dcd81afd04f6eb0be81f82db73b7e64c03c98f6cc32176bc9b63"
     },
     {
       "path": "apps/portal-web/src/modules/admin-client.ts",
@@ -2046,6 +2061,16 @@
       "path": "apps/portal-web/src/page-help.ts",
       "bytes": 15607,
       "sha256": "4dd9564e960b7c792cf105a3c673dbcdd9e91ce66786431056047fe2046ac543"
+    },
+    {
+      "path": "apps/portal-web/src/portal-feedback.tsx",
+      "bytes": 1863,
+      "sha256": "ec01f653e9461e6b7554e216c9363c9022d16198b2d1c52314165bfc48f01c05"
+    },
+    {
+      "path": "apps/portal-web/src/portal-session.tsx",
+      "bytes": 1543,
+      "sha256": "c10fa78c1bd84dec8fa080850c5809ddeacfa901487e0f2e2ec7680811d15d93"
     },
     {
       "path": "apps/portal-web/src/rpg-theme.css",
@@ -13653,6 +13678,11 @@
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/portal-composition-evidence-2026-10-05.json",
+      "bytes": 4546,
+      "sha256": "8d3503f2aa10e03e9980eb7c68ded1cdcf3f11c14bee10190b2922e703792a14"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
       "bytes": 20471,
       "sha256": "63de2985c45021db8983ad22506ed39cf2104d1adfb95aac9618fc10ceb76289"
@@ -13669,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338894,
+      "sha256": "0ab88b76068eb47a442ba3da53ab8f0ec0294e110834c45593514692d87b896c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -15389,8 +15419,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 11018,
-      "sha256": "23c06efa039ae6a34c3a4790e175987fdc93228d5f66aa210eb807e398148120"
+      "bytes": 11648,
+      "sha256": "b90bed2059379a4d92aaa3ede4ecb0444028f67d1b54c04b600bc8cae00b7c0b"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -15399,8 +15429,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 2605,
-      "sha256": "0ccb9750d918672c803a691a008953e51936d608a68a456b22d28e9255b4842e"
+      "bytes": 3853,
+      "sha256": "1c6c30463dc1978f3d29741fd22cf7cea01a484c7c2ea0d4d4c3e922ab80dc8a"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -16044,8 +16074,8 @@
     },
     {
       "path": "packages/contribution-tools/test/surface-audit.test.mjs",
-      "bytes": 12600,
-      "sha256": "6830e2d029f6deeafa2e52ac20002d4f0831b941c374da93f172836e3272d7e0"
+      "bytes": 13157,
+      "sha256": "fbe5d6bedb6fad3c8a5e0cfacc358548212086d1c940e9464690bce9f3e039a0"
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
