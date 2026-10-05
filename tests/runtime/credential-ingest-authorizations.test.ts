@@ -105,6 +105,7 @@ async function authorized(ttlMs=60000){const f=await fixture();recoveryExpiry=Da
 async function prepared(f:Awaited<ReturnType<typeof authorized>>){const invocation=await authority.claimBootstrap(f.claims,{cookieHash:f.cookieHash,csrfHash:f.csrfHash});
  const intent=await store.prepareCreate(f.actor,f.command.input,q=>authority.assertCurrent(q,invocation));
  const {binding,expiresAt}=getCredentialWriteIntentMetadata(intent);
+ await authority.claimPreparation(invocation,new Date(Math.min(Date.parse(expiresAt),Date.parse(f.claims.expiresAt))).toISOString());
  await authority.claimSubmission(invocation,{binding,writeExpiresAt:new Date(Math.min(Date.parse(expiresAt),Date.parse(f.claims.expiresAt))).toISOString(),cookieHash:f.cookieHash,csrfHash:f.csrfHash});
  return {invocation,intent,binding};}
 test('INGEST-AUTH-01 genuine original SQL member create has distinct one-use setup and submission transitions',async()=>{
@@ -115,6 +116,8 @@ test('INGEST-AUTH-01 genuine original SQL member create has distinct one-use set
  const intent=await store.prepareCreate(f.actor,f.command.input,q=>authority.assertCurrent(q,invocation)),meta=getCredentialWriteIntentMetadata(intent);
  assert.equal(Date.parse(meta.expiresAt)-Date.parse(meta.binding.issuedAt),30000);assert(Object.isFrozen(meta));
  const submit={binding:meta.binding,writeExpiresAt:meta.expiresAt,cookieHash:f.cookieHash,csrfHash:f.csrfHash};
+ await assert.rejects(authority.claimSubmission(invocation,submit));
+ await authority.claimPreparation(invocation,meta.expiresAt);
  const submissions=await Promise.allSettled([authority.claimSubmission(invocation,submit),authority.claimSubmission(invocation,submit)]);assert.equal(submissions.filter(r=>r.status==='fulfilled').length,1);
  const sealed=await vault.seal(meta.binding,new TextEncoder().encode('synthetic-ingest-direct-key'));
  const result=await store.commit(f.actor,intent,sealed,q=>authority.assertCurrent(q,invocation));assert.equal(result.state,'active');assert.equal(result.operational_authority,false);
@@ -147,6 +150,7 @@ test('INGEST-AUTH-04 genuine same-byte rotation commits only this replacement an
  const command={operation:'rotate' as const,input:{key:randomUUID(),credentialId:old.credentialId,expectedVersion:'1',replacementModelConnectionId:replacement.modelConnectionId,expectedReplacementModelVersion:'1',consent:true as const}};
  const claims=await issuer.issue(f.actor,{command,nonce:nonce()}),cookieHash=tokenHash(),csrfHash=tokenHash();
  const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash});const intent=await store.prepareRotate(f.actor,command.input,q=>authority.assertCurrent(q,invocation));const meta=getCredentialWriteIntentMetadata(intent);
+ await authority.claimPreparation(invocation,meta.expiresAt);
  await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:meta.expiresAt,cookieHash,csrfHash});
  const fresh=await store.commit(f.actor,intent,await vault.seal(meta.binding,bytes),q=>authority.assertCurrent(q,invocation));assert.equal(fresh.generation,'2');assert.notEqual(fresh.credentialId,old.credentialId);
  await transaction(broker,q=>authority.assertCurrent(q,invocation));assert.deepEqual(await issuer.issue(f.actor,{command,nonce:nonce()}),claims);
@@ -161,6 +165,7 @@ test('INGEST-AUTH-05 final actual store receipt wait across command-only expiry 
   const claims=await shortIssuer.issue(f.actor,{command,nonce:nonce()}),cookieHash=tokenHash(),csrfHash=tokenHash();
   const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash}),intent=await store.prepareCreate(f.actor,command.input,q=>authority.assertCurrent(q,invocation));
   const meta=getCredentialWriteIntentMetadata(intent);assert(Date.parse(meta.binding.expiresAt)>expiry+10000,'credential health must outlive only command expiry');
+  await authority.claimPreparation(invocation,claims.expiresAt);
   await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:claims.expiresAt,cookieHash,csrfHash});
   const bytes=new TextEncoder().encode('synthetic-final-receipt-key'),sealed=await vault.seal(meta.binding,bytes);bytes.fill(0);
   const gate=BigInt('0x'+randomUUID().replaceAll('-','').slice(0,14)),q=await owner.connect();let pending:Promise<unknown>|undefined;
@@ -229,7 +234,8 @@ test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-onl
   const expiry=Date.now()+3000,shortIssuer=createCredentialIngestAuthorizations(app,{...ingestOptions,recover:async()=>({generation:'1',expiresAt:new Date(expiry).toISOString()})});
   const claims=await shortIssuer.issue(f.actor,{command,nonce:nonce()}),cookieHash=tokenHash(),csrfHash=tokenHash();
   const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash}),intent=await store.prepareCreate(f.actor,command.input,q=>authority.assertCurrent(q,invocation)),meta=getCredentialWriteIntentMetadata(intent);
-  assert(Date.parse(meta.binding.expiresAt)>expiry+10000);await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:claims.expiresAt,cookieHash,csrfHash});
+  assert(Date.parse(meta.binding.expiresAt)>expiry+10000);await authority.claimPreparation(invocation,claims.expiresAt);
+  await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:claims.expiresAt,cookieHash,csrfHash});
   const bytes=new TextEncoder().encode('synthetic-final-delivery-key'),sealed=await vault.seal(meta.binding,bytes);bytes.fill(0);
   let release!:()=>void,entered!:()=>void,delivered=0;const gate=new Promise<void>(r=>{release=r;}),blocked=new Promise<void>(r=>{entered=r;});
   // Test-only driver-result gate on the actual transaction PoolClient. SQL,
@@ -255,4 +261,41 @@ test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-onl
     assert.equal((await owner.query("SELECT count(*)::int n FROM scoped_command_receipts WHERE operation='broker.credential.create'")).rows[0].n,0);
     const outcome=await issuer.readOwnerOutcome(f.actor,claims.authorizationRef);assert.equal(outcome.state,'submission_claimed');assert.equal(outcome.credential,null);
   }finally{release?.();(broker as any).connect=originalConnect;if(pending)await pending.catch(()=>{});}
+});
+
+
+test('INGEST-AUTH fresh replica derives original identity; preparation deadline is retained and cannot renew',async()=>{
+ const f=await authorized(),invocation=await authority.claimBootstrap(f.claims,{cookieHash:f.cookieHash,csrfHash:f.csrfHash});
+ const replica=createCredentialIngestAuthorizations(broker,ingestOptions);
+ await assert.rejects(replica.resumeSetup({cookieHash:f.cookieHash,csrfHash:tokenHash()}));
+ const resumed=await replica.resumeSetup({cookieHash:f.cookieHash,csrfHash:f.csrfHash});
+ assert.equal(replica.read(resumed.invocation).actor.session_hash,f.actor.session_hash);assert.equal(resumed.writeExpiresAt,null);
+ assert.throws(()=>authority.read(resumed.invocation));assert.throws(()=>replica.read(invocation));
+ const deadline=new Date(Date.now()+5000).toISOString();await replica.claimPreparation(resumed.invocation,deadline);
+ await assert.rejects(authority.claimPreparation(invocation,new Date(Date.now()+10000).toISOString()));
+ const newIntent=await store.prepareCreate(f.actor,f.command.input,q=>replica.assertCurrent(q,resumed.invocation)),metadata=getCredentialWriteIntentMetadata(newIntent);
+ await assert.rejects(replica.claimSubmission(resumed.invocation,{binding:metadata.binding,writeExpiresAt:metadata.expiresAt,cookieHash:f.cookieHash,csrfHash:f.csrfHash}));
+ const after=await createCredentialIngestAuthorizations(broker,ingestOptions).resumeSetup({cookieHash:f.cookieHash,csrfHash:f.csrfHash});assert.equal(after.writeExpiresAt,deadline);
+ await assert.rejects(broker.query('UPDATE credential_ingest_preparations SET expires_at=expires_at+interval \'1 second\''));
+ await assert.rejects(app.query('SELECT * FROM credential_ingest_preparations'));
+ await owner.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[f.actor.session_hash]);
+ await assert.rejects(replica.resumeSetup({cookieHash:f.cookieHash,csrfHash:f.csrfHash}));
+});
+
+
+test('INGEST-AUTH ambiguous cookie lookup rejects rather than choosing another original session',async()=>{
+ const first=await authorized();await authority.claimBootstrap(first.claims,{cookieHash:first.cookieHash,csrfHash:first.csrfHash});
+ const second=await authorized();await authority.claimBootstrap(second.claims,{cookieHash:first.cookieHash,csrfHash:first.csrfHash});
+ await assert.rejects(createCredentialIngestAuthorizations(broker,ingestOptions).resumeSetup({cookieHash:first.cookieHash,csrfHash:first.csrfHash}));
+});
+
+
+test('INGEST-AUTH expired preparation cannot be renewed by a fresh authorization factory',async()=>{
+ const f=await authorized(),invocation=await authority.claimBootstrap(f.claims,{cookieHash:f.cookieHash,csrfHash:f.csrfHash});
+ const deadline=Date.now()+300;await authority.claimPreparation(invocation,new Date(deadline).toISOString());
+ await delay(Math.max(0,deadline-Date.now()+20));
+ const replica=createCredentialIngestAuthorizations(broker,ingestOptions);
+ await assert.rejects(replica.resumeSetup({cookieHash:f.cookieHash,csrfHash:f.csrfHash}));
+ await assert.rejects(authority.claimPreparation(invocation,new Date(Date.now()+5000).toISOString()));
+ assert.equal((await owner.query('SELECT submission_claimed_at FROM credential_ingest_authorizations WHERE authorization_id=$1',[f.claims.authorizationRef])).rows[0].submission_claimed_at,null);
 });

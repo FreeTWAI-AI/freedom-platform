@@ -1,4 +1,4 @@
--- Opt-in only, after 097. Separate from both ordinary app and cipher custody.
+-- Opt-in only, after 114. Separate from both ordinary app and cipher custody.
 -- Provision <env_prefix>_broker_executor LOGIN NOSUPERUSER NOCREATEDB
 -- NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT, with no memberships.
 -- Run only as the schema migrator. No role passwords, key or installed host.
@@ -65,7 +65,7 @@ GRANT INSERT(transition_id,scope_id,scope_kind,principal_id,principal_kind,authn
 GRANT INSERT(event_id,transition_id,scope_id,scope_kind,event_type,payload) ON scoped_outbox TO :"executor";
 -- Explicit denial also clears old column grants. Inherited/SET ROLE and PUBLIC
 -- access cannot be revoked from another principal here; guard rejects them.
-REVOKE ALL PRIVILEGES ON broker_credential_vault,credential_ingest_authorizations FROM :"executor";
+REVOKE ALL PRIVILEGES ON broker_credential_vault,credential_ingest_authorizations,credential_ingest_preparations FROM :"executor";
 SELECT format($guard$
 DO $role$
 BEGIN
@@ -100,6 +100,8 @@ BEGIN
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid IN ('private_work_persistence_policy'::regclass,'model_inference_export_policy'::regclass)
       AND a.attnum>0 AND NOT a.attisdropped AND (pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'INSERT,REFERENCES')
         OR a.attname<>'scope_kind' AND pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'UPDATE')))
+    OR pg_catalog.has_table_privilege(%1$L,'credential_ingest_preparations','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+    OR pg_catalog.has_any_column_privilege(%1$L,'credential_ingest_preparations','SELECT,INSERT,UPDATE,REFERENCES')
     OR pg_catalog.has_table_privilege(%1$L,'credential_ingest_authorizations','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
     OR pg_catalog.has_any_column_privilege(%1$L,'credential_ingest_authorizations','SELECT,INSERT,UPDATE,REFERENCES')
   THEN RAISE EXCEPTION 'Unsafe dedicated broker execution role'; END IF;

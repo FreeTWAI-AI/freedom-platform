@@ -58,14 +58,31 @@ test('INGEST-ADV concurrent submission commits one irreversible claim and the lo
 test('INGEST-ADV JSON secret, foreign cookies, CSRF and current recovery floor deny before the application secret reader',{timeout:60000},async()=>{
  const f=await ingestFixture();try{const human=await f.configured(),s=await prepared(f,human);
   for(const changed of ([{'Content-Type':'application/json'},{Cookie:human.headers.Cookie},{'X-FP-Broker-CSRF':'A'.repeat(43)},{Origin:f.mainOrigin}] as Record<string,string>[])){const response=await httpsFetch(f.setupOrigin+'/credential-setup/secret',{method:'POST',headers:secretRequest(f,s,changed).headers,body:f.secret});assert(response.status>=400);}
-  f.recovery.floor='2';const denied=await httpsFetch(f.setupOrigin+'/credential-setup/secret',{method:'POST',headers:secretRequest(f,s).headers,body:f.secret});const envelope=await denied.json() as any;assert.equal(claims(envelope.response).outcome.kind,'problem');assert((await f.broker.request('snapshot')).requests.filter((r:any)=>r.path==='/credential-setup/secret').every((r:any)=>r.readCalls===0));assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});assert.equal(f.posts.length,0);
+  f.recovery.floor='2';const denied=await httpsFetch(f.setupOrigin+'/credential-setup/secret',{method:'POST',headers:secretRequest(f,s).headers,body:f.secret});assert(denied.status>=400);assert((await f.broker.request('snapshot')).requests.filter((r:any)=>r.path==='/credential-setup/secret').every((r:any)=>r.readCalls===0));assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});assert.equal(f.posts.length,0);
  }finally{await f.cleanup();}
 });
 
-test('INGEST-ADV copied cookie and SQL claim cannot revive private setup on a wrong replica or restarted process',{timeout:60000},async()=>{
- const f=await ingestFixture();try{const human=await f.configured(),s=await prepared(f,human),replica=await f.spawnReplica();const wrong=await replica.request('direct',secretRequest(f,s));assert.equal(wrong.pulls,0);assert(wrong.status>=400);
-  const restarted=await f.restartBroker();const denied=await restarted.request('direct',secretRequest(f,s));assert.equal(denied.pulls,0);assert(denied.status>=400);assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});
+test('INGEST-ADV setup survives restart and preparation survives a different broker process without replay',{timeout:60000},async()=>{
+ const f=await ingestFixture();try{const human=await f.configured(),s=await setup(f,human);
+  await f.restartBroker();
+  const preparation=await httpsFetch(f.setupOrigin+'/credential-setup/prepare',{method:'POST',headers:{...s.headers,'Content-Type':'application/json'},body:'{"consent":true}'});
+  assert.equal(preparation.status,200,await preparation.clone().text());const deadline=(await preparation.json() as any).expiresAt;
+  const replica=await f.spawnReplica();
+  const bad=await replica.request('direct',secretRequest(f,s,{'X-FP-Broker-CSRF':'A'.repeat(43)}));assert.equal(bad.pulls,0);assert(bad.status>=400);
+  const result=await replica.request('direct',secretRequest(f,s));assert.equal(result.pulls,1);assert.equal(result.submissionAlreadyCommitted,true);assert.equal(result.cleared,true);
+  assert.deepEqual(await counts(f),{credentials:1,cipher:1,receipts:1});
+  const row=(await f.owner.query('SELECT p.expires_at,a.write_expires_at FROM credential_ingest_preparations p JOIN credential_ingest_authorizations a USING(authorization_id) WHERE authorization_id=$1',[s.bootstrap.authorizationRef])).rows[0];
+  assert.equal(row.expires_at.toISOString(),deadline);assert(row.write_expires_at<=row.expires_at);
+  const restarted=await f.restartBroker(),replay=await restarted.request('direct',secretRequest(f,s));assert.equal(replay.pulls,0);assert(replay.status>=400);
   const retry=await httpsFetch(f.setupOrigin+'/credential-setup',{method:'POST',headers:formHeaders(f),body:'assertion='+s.bootstrap.assertion});assert(retry.status>=400);assert.equal(retry.headers.get('Set-Cookie'),null);
+ }finally{await f.cleanup();}
+});
+
+test('INGEST-ADV restarted broker still rejects withdrawn original session before secret read',{timeout:60000},async()=>{
+ const f=await ingestFixture();try{const human=await f.configured(),s=await prepared(f,human);
+  await f.owner.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[human.actor.session_hash]);
+  const restarted=await f.restartBroker(),denied=await restarted.request('direct',secretRequest(f,s));assert.equal(denied.pulls,0);assert(denied.status>=400);
+  assert.deepEqual(await counts(f),{credentials:0,cipher:0,receipts:0});
  }finally{await f.cleanup();}
 });
 

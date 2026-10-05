@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { BrokerModelSelectionSchema, type ModelCredentialBinding } from '../../../contracts/execution/v2/model-credential.js';
 import * as c from '../../../contracts/execution/v2/model-credential-ingest.js';
@@ -68,18 +68,23 @@ export async function createCredentialIngestService(options:CredentialIngestServ
   const authority=desc.authorizations.value as CredentialIngestAuthorizations,capture=desc.assertProtectedSurface.value as CredentialIngestServiceOptions['assertProtectedSurface'];
   const max=desc.maxSetups?.value??128;
   if(!pool||typeof pool.connect!=='function'||typeof capture!=='function'||!Number.isInteger(max)||max<1||max>128||!authority
-    ||['claimBootstrap','read','claimSubmission','assertCurrent'].some(k=>typeof(authority as unknown as Record<string,unknown>)[k]!=='function'))problem();
+    ||['claimBootstrap','resumeSetup','claimPreparation','read','claimSubmission','assertCurrent'].some(k=>typeof(authority as unknown as Record<string,unknown>)[k]!=='function'))problem();
   const claimBootstrap=authority.claimBootstrap.bind(authority),read=authority.read.bind(authority),claimSubmission=authority.claimSubmission.bind(authority),assertCurrent=authority.assertCurrent.bind(authority);
+  const resumeSetup=authority.resumeSetup.bind(authority),claimPreparation=authority.claimPreparation.bind(authority);
   const store=createBrokerCredentialStore(pool,{environment,clientId,vault,recover});
   const cryptoPort=await createCredentialIngestCrypto({environment,clientId,issuer:desc.issuer.value!,requestAudience:desc.requestAudience.value!,setupOrigin,
     requestKeys:desc.requestKeys.value!,responseSigningKey:desc.responseSigningKey.value!,responseKeyId:desc.responseKeyId.value!,responseIssuer:desc.responseIssuer.value!,responseAudience:desc.responseAudience.value!});
+  // Per-isolate admission accounting only; never used as setup authority.
   const setups=new Map<string,Setup>();let pending=0;
   function prune(){for(const[key,s]of setups)if(Date.now()>=Date.parse(s.expiresAt)||performance.now()>=s.end)setups.delete(key);}
-  function locate(cookie:string,csrf?:string):Setup {
-    prune();if(typeof cookie!=='string'||!/^[A-Za-z0-9_-]{43}$(?![\s\S])/.test(cookie))problem('credential_ingest_registry_unavailable',403);
-    const s=setups.get(hash(cookie));if(!s)problem('credential_ingest_registry_unavailable',403);
-    if(csrf!==undefined){if(!/^[A-Za-z0-9_-]{43}$(?![\s\S])/.test(csrf)||!timingSafeEqual(Buffer.from(hash(csrf),'hex'),Buffer.from(s!.csrfHash,'hex')))problem('credential_ingest_authorization_invalid',403);}
-    return s!;
+  async function locate(cookie:string,csrf?:string):Promise<Setup> {
+    prune();if(typeof cookie!=='string'||!/^[A-Za-z0-9_-]{43}$(?![\s\S])/.test(cookie)
+      ||(csrf!==undefined&&(typeof csrf!=='string'||!/^[A-Za-z0-9_-]{43}$(?![\s\S])/.test(csrf))))problem('credential_ingest_authorization_invalid',403);
+    const cookieHash=hash(cookie),restored=await resumeSetup({cookieHash,...(csrf!==undefined?{csrfHash:hash(csrf)}:{})});
+    const data=read(restored.invocation),expiresAt=data.setupExpiresAt,writeExpiresAt=restored.writeExpiresAt??undefined;
+    return {invocation:restored.invocation,data,cookieHash,csrfHash:restored.csrfHash,expiresAt,
+      end:performance.now()+Date.parse(expiresAt)-Date.now(),phase:writeExpiresAt?'prepared':'setup',writeExpiresAt,
+      writeEnd:writeExpiresAt?performance.now()+Date.parse(writeExpiresAt)-Date.now():undefined};
   }
   function fence(s:Setup,write=false){const f=new Fence(write?s.writeExpiresAt!:s.expiresAt);
     Object.defineProperty(f,'end',{value:Math.min(f.end,s.end,write?s.writeEnd!:Infinity)});f.assert();return f;}
@@ -104,23 +109,27 @@ export async function createCredentialIngestService(options:CredentialIngestServ
           csrfToken,expiresAt,operational_authority:false})};
       }catch(error){if(installed)setups.delete(installed);throw error;}finally{unwatch?.();pending--;}
     },
-    async assertSetupCurrent(cookie:string):Promise<void>{const s=locate(cookie),f=fence(s);await readiness(f);await current(s,f);f.assert();},
+    async assertSetupCurrent(cookie:string):Promise<void>{const s=await locate(cookie),f=fence(s);await readiness(f);await current(s,f);f.assert();},
     async prepare(cookie:string,csrf:string,signal?:AbortSignal):Promise<{expiresAt:string;operational_authority:false}>{
-      const s=locate(cookie,csrf);if(s.phase!=='setup')problem('credential_ingest_submission_consumed',409);s.phase='preparing';const f=fence(s);
+      const s=await locate(cookie,csrf);if(s.phase!=='setup')problem('credential_ingest_submission_consumed',409);s.phase='preparing';const f=fence(s);
       const unwatch=f.watch(signal);try{
         await readiness(f);await current(s,f);const g=guard(s,f),command=s.data.command,prepareEnd=performance.now()+c.CredentialIngestLimits.writeMs;
         const intent=await f.wait(()=>command.operation==='create'?store.prepareCreate(s.data.actor,command.input,g):store.prepareRotate(s.data.actor,command.input,g));
         const metadata=getCredentialWriteIntentMetadata(intent);f.assert();
-        s.writeExpiresAt=new Date(Math.min(Date.parse(metadata.expiresAt),Date.parse(s.expiresAt))).toISOString();
-        s.writeEnd=Math.min(s.end,prepareEnd,performance.now()+Date.parse(s.writeExpiresAt)-Date.now());s.intent=intent;s.phase='prepared';
+        s.writeExpiresAt=new Date(Math.min(Date.parse(metadata.expiresAt),Date.parse(s.expiresAt),Math.floor(Date.now()+prepareEnd-performance.now()))).toISOString();
+        s.writeEnd=Math.min(s.end,prepareEnd,performance.now()+Date.parse(s.writeExpiresAt)-Date.now());s.phase='prepared';
+        await f.wait(()=>claimPreparation(s.invocation,s.writeExpiresAt!));
         const w=fence(s,true);w.assert();return {expiresAt:s.writeExpiresAt,operational_authority:false};
       }catch(error){f.cancelled=true;setups.delete(s.cookieHash);throw error;}finally{unwatch();}
     },
     async submit(cookie:string,csrf:string,body:CredentialIngestBodyPort):Promise<c.CredentialIngestResponseEnvelope>{
-      const s=locate(cookie,csrf);if(s.phase!=='prepared'||!s.intent)problem('credential_ingest_submission_consumed',409);
+      const s=await locate(cookie,csrf);if(s.phase!=='prepared')problem('credential_ingest_submission_consumed',409);
       if(!body||typeof body.read!=='function')problem();const readBody=body.read.bind(body);s.phase='submitting';const f=fence(s,true);const unwatch=f.watch(body.signal);let bytes:Uint8Array|undefined;
       try{
-        await readiness(f);await current(s,f);const metadata=getCredentialWriteIntentMetadata(s.intent!);
+        await readiness(f);await current(s,f);const command=s.data.command,g=guard(s,f);
+        s.intent=await f.wait(()=>command.operation==='create'?store.prepareCreate(s.data.actor,command.input,g):store.prepareRotate(s.data.actor,command.input,g));
+        const metadata=getCredentialWriteIntentMetadata(s.intent);
+        s.writeExpiresAt=new Date(Math.min(Date.parse(s.writeExpiresAt!),Date.parse(metadata.expiresAt))).toISOString();
         await f.wait(()=>claimSubmission(s.invocation,{binding:metadata.binding,writeExpiresAt:s.writeExpiresAt!,cookieHash:s.cookieHash,csrfHash:s.csrfHash}));
         await readiness(f);await current(s,f);f.assert();
         bytes=await f.wait(()=>readBody({maxBytes:c.CredentialIngestLimits.secretBytes,maxChunks:c.CredentialIngestLimits.chunks,
