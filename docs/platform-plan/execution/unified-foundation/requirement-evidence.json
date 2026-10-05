@@ -484,6 +484,28 @@
         "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
         "Supports FC-02/03 closure work; no original row accepted or state advanced."
       ]
+    },
+    "affected-ci-e10": {
+      "id": "affected-ci-e10",
+      "kind": "local_candidate_execution",
+      "source_sha": "5b6555fcd67e192d1655cc71270c783e83ff77b2",
+      "environment": "local Node plus actual synthetic Git trees/CLI; no hosted workflow",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/affected-ci-evidence-2026-10-05.json",
+        "scripts/ci/affected-jobs.md"
+      ],
+      "observations": [
+        "Member-card/newcomer-guide leaf changes retain full runtime, runtime aggregate, browser and static-worker jobs; skip only unrelated consumer and deployment jobs.",
+        "Whole baseline/candidate descriptor graphs, reverse dependencies and fixed path ownership must agree; missing/changed/unknown/security/contract paths remain full.",
+        "Aggregate accepts only the exact affected job vector; missing, failed, cancelled or skipped selected jobs reject.",
+        "Source integrity, generated contracts, runtime Markdown and daily full inventory remain mandatory."
+      ],
+      "limitations": [
+        "No installed workflow upgrade or hosted cost saving claimed.",
+        "UF:INT-17 still requires trusted Command/ArtifactRef fixture and original TS/Rust conformance.",
+        "R2:D02/D03 still require their exact trusted docs/runtime Markdown fixtures.",
+        "Full daily inventory remains until release/archive replacement is validated."
+      ]
     }
   },
   "requirements": [

@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 18776,
-      "sha256": "fb9a61d7e69b091a2b1a4e398fcaea6893cc7f21c66baefa332929c8b18e2eef"
+      "bytes": 19036,
+      "sha256": "971e4b72559eedf17ca755477b419daa6148965fd0eb569e7081723fa9e299a6"
     },
     {
       "path": ".gitignore",
@@ -13618,6 +13618,11 @@
       "sha256": "b122d9e33a071a71213e55592bc25f93dd0fab6a5280d387ea7959b847c30145"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/affected-ci-evidence-2026-10-05.json",
+      "bytes": 2336,
+      "sha256": "34ba808817c60fe93239928bd5fbdb9b362e97f72e17b0d6505ca0a3b68c3350"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/closeout-patch-evidence.json",
       "bytes": 4443,
       "sha256": "4d8515dc81f51652207cb0f84669c48802b664353380aac5eac28d62d4b5266a"
@@ -13689,8 +13694,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 349006,
-      "sha256": "e1895f64eaaa10272b57d7f95bbca80bc46ed974df9402495d6179bcb1d23575"
+      "bytes": 350430,
+      "sha256": "412f6de6397012c674a9d69c57203ca8db06c446ea5640e3d538508d11b1baff"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -16608,6 +16613,11 @@
       "sha256": "ff6aa2efe5afd39a734a9e383f5cc68aa4b572933cb960047cc947bd3b60706d"
     },
     {
+      "path": "scripts/ci/affected-jobs.md",
+      "bytes": 2714,
+      "sha256": "17e0745950ee5e41081ee437fe0ddf5a10fc38b713b410c95f33b63e8cb27fe7"
+    },
+    {
       "path": "scripts/ci/broker-bridge-check.mjs",
       "bytes": 4001,
       "sha256": "3aae94bc9a2e2cfa8e296ef9809f1cfe8a99e94b7a0ce062f2123f8997aa83eb"
@@ -16639,13 +16649,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 21499,
-      "sha256": "55fc048afa959d395b99cac6bf19c6bbd07b7c3a570f5dd21a5a6580287b5106"
+      "bytes": 25802,
+      "sha256": "99cfc8a3c2a3cb2946665ae4680e790413c05fdb2e947384aace5adcc30f5b19"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 35145,
-      "sha256": "b83ed5a8d6373d709ae5a209cb61751ca6e79084235f29ccdc0dc1b0ce696d31"
+      "bytes": 43959,
+      "sha256": "d55228aa009ddc75337ad12664636c66496b416fbd26e7b6022313b7146d4617"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
