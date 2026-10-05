@@ -91,7 +91,8 @@ node packages/contribution-tools/behavior-supervisor.mjs consumer-cli \
 The host API is `runIsolatedAgentKitCliBehavior` with the same exact
 `{repository, candidateRepository, candidateCommit}` inputs as the workspace
 runner. Other repositories are rejected for this profile. The existing three
-workspace profiles and native c42 workflow remain unchanged in selection.
+workspace profiles are preserved. The installed c42 workflow still selects its
+old host; the new host requires the additional kit CLI profile.
 
 Only inside the existing candidate container, the installed launcher supplies a
 socket-backed fetch adapter and fixed argv, then imports the real CLI. The CLI
@@ -112,9 +113,10 @@ untrusted container; capture itself is not authenticated proof. The host's actua
 HTTP trace and unpredictable response comparison decide the verdict.
 
 The new profile is executable locally but is **not selected by the installed c42
-native workflow**. Installation requires a separately reviewed wrapper/workflow
-that runs both source/workspace and CLI verdicts for the same commit/tree, followed
-by a new immutable source pin and actual hosted CLI positive/stub-negative canaries.
+native workflow**. The candidate combined host now requires source/workspace and CLI verdicts for
+the same kit commit/tree; storefront/supplier retain their workspace profiles.
+The existing workflow entrypoint is unchanged. Installation requires a new
+reviewed immutable source pin and the [hosted canaries](consumer-cli-canary.md).
 Do not change c42/source55/library91 in place. No current rules or workflow YAML
 are changed by this increment. `library_invocation` stays `not_checked`: candidate
 JavaScript can reproduce the externally observed behavior without using the

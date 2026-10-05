@@ -7,7 +7,9 @@ import { join, isAbsolute } from 'node:path';
 // @ts-expect-error Fixed host JavaScript, never imported from candidate.
 import { verifyNativeConsumerRuntime } from '../../packages/contribution-tools/github-consumer-runtime-host.mjs';
 // @ts-expect-error Fixed isolated CLI profile; candidate executes only in Docker.
-import { runIsolatedAgentKitCliBehavior } from '../../packages/contribution-tools/behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior } from '../../packages/contribution-tools/behavior-supervisor.mjs';
+// @ts-expect-error Explicit old workspace-only composition, never a candidate verdict.
+import { verifyNativeConsumerSource } from '../../packages/contribution-tools/github-consumer-host.mjs';
 // @ts-expect-error Existing clean subprocess environment.
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 
@@ -29,6 +31,14 @@ for (const [name, commit] of candidates) test(`combined fixed host binds source 
   assert.equal(result.source.candidate_tree, result.runtime.candidate.tree);
   assert.equal(result.runtime.cleanup_verified, true); assert.equal(result.library_usage, 'not_checked');
   assert.equal(result.gate_enforced, false); assert.equal(result.merge_authorized, false);
+  assert.equal(result.failure, null); assert.equal(result.cli_required, name === 'freedom-agent-kit');
+  if (name === 'freedom-agent-kit') {
+    assert.equal(result.cli_runtime.check.status, 'passed'); assert.equal(result.cli_runtime.cleanup_verified, true);
+    assert.equal(result.cli_runtime.entry, 'src/cli.mjs#maker'); assert.equal(result.cli_runtime.cases[0].observed_requests, 8);
+    assert.equal(result.cli_runtime.candidate.commit, result.source.candidate_commit);
+    assert.equal(result.cli_runtime.candidate.tree, result.source.candidate_tree);
+  } else assert.equal(result.cli_runtime, null);
+
 });
 test('combined native host rejects a source-valid stub rather than accepting source PASS as runtime proof', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'fp-native-consumer-negative-'));
@@ -47,6 +57,8 @@ test('combined native host rejects a source-valid stub rather than accepting sou
   const result = await verifyNativeConsumerRuntime(input('freedom-agent-kit', repository, git(['rev-parse', 'HEAD'])));
   assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'failed');
   assert.equal(result.status, 'failed'); assert.equal(result.runtime.cleanup_verified, true);
+  assert.equal(result.cli_required, true); assert.equal(result.cli_runtime, null);
+  assert.deepEqual(result.failure, { stage: 'workspace', kind: 'behavior_mismatch' });
 });
 
 
@@ -88,12 +100,15 @@ test('source and observed HTTP PASS do not prove the approved workspace library 
   assert.equal(result.runtime.library_invocation, 'not_checked'); assert.equal(result.runtime.cleanup_verified, true);
 });
 
-test('the workspace-export profile does not certify a replaced actual CLI entrypoint', async t => {
+test('the old c42 workspace-only profile does not certify a replaced actual CLI entrypoint', async t => {
   const result = await sourceValidKitMutation(t, 'src/cli.mjs', `
     // The real user-facing entrypoint no longer invokes any workspace operation.
     process.stdout.write(JSON.stringify({status:'passed'})+'\\n');
-  `);
-  assert.equal(result.status, 'passed', JSON.stringify(result));
+  `, async (candidate: any) => ({
+    source: await verifyNativeConsumerSource(candidate),
+    runtime: await runIsolatedConsumerBehavior({ repository: candidate.repository,
+      candidateRepository: candidate.candidateRoot, candidateCommit: candidate.candidateCommit }),
+  }));
   assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'passed');
   assert.equal(result.runtime.entry, 'src/index.mjs#loadMemberWorkspace');
   assert.equal(result.runtime.runtime_observation, 'host_observed_http');
@@ -101,13 +116,25 @@ test('the workspace-export profile does not certify a replaced actual CLI entryp
 });
 
 
-test('separate actual CLI profile rejects the same stub that still passes source and workspace checks', async t => {
-  const evidence = await sourceValidKitMutation(t, 'src/cli.mjs', `console.log(JSON.stringify({status:'passed'}));`,
-    async (candidate: any) => ({ workspace: await verifyNativeConsumerRuntime(candidate),
-      cli: await runIsolatedAgentKitCliBehavior({ repository: candidate.repository,
-        candidateRepository: candidate.candidateRoot, candidateCommit: candidate.candidateCommit }) }));
-  assert.equal(evidence.workspace.source.status, 'passed'); assert.equal(evidence.workspace.runtime.check.status, 'passed');
-  assert.equal(evidence.cli.check.status, 'failed', JSON.stringify(evidence));
-  assert.equal(evidence.cli.reason, 'consumer_behavior_mismatch'); assert.equal(evidence.cli.cases[0].observed_requests, 0);
-  assert.equal(evidence.cli.cleanup_verified, true); assert.equal(evidence.cli.library_invocation, 'not_checked');
+test('combined gate requires the actual CLI and rejects a stub despite source and workspace PASS', async t => {
+  const result = await sourceValidKitMutation(t, 'src/cli.mjs', `console.log(JSON.stringify({status:'passed'}));`);
+  assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'passed');
+  assert.equal(result.status, 'failed'); assert.equal(result.cli_required, true);
+  assert.deepEqual(result.failure, { stage: 'cli', kind: 'behavior_mismatch' });
+  assert.equal(result.cli_runtime.check.status, 'failed', JSON.stringify(result));
+  assert.equal(result.cli_runtime.reason, 'consumer_behavior_mismatch'); assert.equal(result.cli_runtime.cases[0].observed_requests, 0);
+  assert.equal(result.cli_runtime.cleanup_verified, true); assert.equal(result.cli_runtime.library_invocation, 'not_checked');
+  assert.equal(result.cli_runtime.candidate.commit, result.source.candidate_commit);
+  assert.equal(result.cli_runtime.candidate.tree, result.source.candidate_tree);
+});
+
+test('source PASS cannot hide an unavailable runtime snapshot or count it as behavioral rejection', async t => {
+  // Valid immutable source input, but intentionally invalid for the isolated
+  // runtime's portable case-collision policy. No Docker/image mutation is needed.
+  const result = await sourceValidKitMutation(t, 'src/INDEX.mjs', '// Synthetic conflicting snapshot path.\n');
+  assert.equal(result.source.status, 'passed'); assert.equal(result.status, 'failed');
+  assert.equal(result.runtime.reason, 'supervisor_case_collision'); assert.equal(result.runtime.phase, 'snapshot');
+  assert.equal(result.runtime.check.status, 'failed'); assert.equal(result.runtime.cleanup_verified, true);
+  assert.deepEqual(result.failure, { stage: 'workspace', kind: 'unavailable' });
+  assert.equal(result.cli_required, true); assert.equal(result.cli_runtime, null);
 });

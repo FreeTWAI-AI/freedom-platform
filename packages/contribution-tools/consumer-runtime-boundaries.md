@@ -61,6 +61,9 @@ The subsequent local candidate now implements this step as
 [CLI profile instructions](consumer-behavior.md#actual-agent-kit-cli-candidate-profile).
 The c42 native workflow still selects only the original workspace profile. The
 new candidate does not alter any of the c42 limits reproduced above.
+The new combined-host candidate requires the additional kit CLI verdict, with a
+[separate hosted installation canary](consumer-cli-canary.md); installed c42 stays
+unchanged until explicitly reviewed and repinned by the operator.
 
 Extend the **existing isolated consumer supervisor** to the actual agent-kit CLI
 as one separately reviewed profile. The real CLI performs demo login, workspace

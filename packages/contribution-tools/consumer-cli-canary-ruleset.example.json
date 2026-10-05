@@ -1,0 +1,31 @@
+{
+  "name": "Freedom actual CLI canary — owned temporary refs only",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "repository_id": {
+      "repository_ids": [1378081390, 1378081447, 1382994244]
+    },
+    "ref_name": {
+      "include": ["refs/heads/ops/consumer-cli-canary/base"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "workflows",
+      "parameters": {
+        "workflows": [
+          {
+            "repository_id": 1378081342,
+            "path": ".github/workflows/trusted-consumer-runtime.yml",
+            "sha": "REPLACE_WITH_REVIEWED_40_HEX_SOURCE_SHA",
+            "ref": "refs/heads/push-20261004/consumer-cli-runtime-source"
+          }
+        ],
+        "do_not_enforce_on_create": false
+      }
+    }
+  ]
+}

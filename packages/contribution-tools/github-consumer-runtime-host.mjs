@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Fixed workflow source only. Both verdicts are computed by this host process.
+// Fixed workflow source only. All required verdicts are computed by this host process.
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyNativeConsumerSource } from './github-consumer-host.mjs';
-import { runIsolatedConsumerBehavior } from './behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior } from './behavior-supervisor.mjs';
 import { CONSUMER_BEHAVIOR_PROFILES } from './consumer-behavior-fixture.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { requireCondition as check, safeFailure } from './errors.mjs';
@@ -14,13 +14,27 @@ export async function verifyNativeConsumerRuntime(input) {
   check(source.status === 'passed', 'consumer_source_not_passed');
   const runtime = await runIsolatedConsumerBehavior({ repository: input.repository,
     candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit });
-  const passed = runtime.check?.status === 'passed' && runtime.cleanup_verified === true
-    && runtime.runtime_observation === 'host_observed_http'
-    && runtime.candidate?.commit === source.candidate_commit && runtime.candidate?.tree === source.candidate_tree;
+  const observed = (value, entry, count) => value?.check?.status === 'passed' && value.cleanup_verified === true
+    && value.runtime_observation === 'host_observed_http' && value.entry === entry
+    && value.check.test_count === count && value.check.expected_test_count === count
+    && value.candidate?.commit === source.candidate_commit && value.candidate?.tree === source.candidate_tree;
+  const profile = CONSUMER_BEHAVIOR_PROFILES[input.repository];
+  const workspacePassed = observed(runtime, 'src/index.mjs#' + profile.entry, profile.scenarios.length);
+  const cliRequired = input.repository === 'FreeTWAI-AI/freedom-agent-kit';
+  // Preserve the source/workspace prerequisite. A failed or unavailable workspace
+  // cannot gain a passing gate from a separate successful CLI run.
+  const cliRuntime = workspacePassed && cliRequired
+    ? await runIsolatedAgentKitCliBehavior({ repository: input.repository,
+      candidateRepository: input.candidateRoot, candidateCommit: input.candidateCommit }) : null;
+  const passed = workspacePassed && (!cliRequired || observed(cliRuntime, 'src/cli.mjs#maker', 1));
+  const failedStage = !workspacePassed ? 'workspace' : !passed ? 'cli' : null;
+  const failedResult = failedStage === 'workspace' ? runtime : cliRuntime;
+  const failure = passed ? null : { stage: failedStage,
+    kind: failedResult?.reason === 'consumer_behavior_mismatch' ? 'behavior_mismatch' : 'unavailable' };
   return { format: 'freedom.native-consumer-runtime/v1', status: passed ? 'passed' : 'failed',
     repository: input.repository, candidate_commit: source.candidate_commit, candidate_tree: source.candidate_tree,
     workflow_commit: input.expectedWorkflowCommit, source_commit: input.expectedSourceCommit,
-    source, runtime, library_usage: 'not_checked', library_invocation: 'not_checked', server_authorization: 'not_checked',
+    source, runtime, cli_required: cliRequired, cli_runtime: cliRuntime, failure, library_usage: 'not_checked', library_invocation: 'not_checked', server_authorization: 'not_checked',
     gate_enforced: false, merge_authorized: false, execution_authorized: false };
 }
 
