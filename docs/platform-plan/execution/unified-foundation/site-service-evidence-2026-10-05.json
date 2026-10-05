@@ -1,0 +1,240 @@
+{
+  "format": "freedom.foundation.a2b.local-evidence/v1",
+  "base_sha": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+  "a2a_parent_sha": "0792b2955e3d1ac78cb815e4e2f2e26e76161864",
+  "machine117_upstream_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048",
+  "machine117_cherry_pick_sha": "23a0da6bd8a33c5de3b38a21453ff0c8ea3ba5f0",
+  "core_sha": "f8abb4e699b90f245e148eb8383f9fb2a3499ad5",
+  "final_sha": "ee022f8fe26021989ff2e8797fde9fb316dca197",
+  "owned_sources": {
+    "apps/platform-api/src/app.ts": "b0cf5edf999320dfe4e01c50d671feb9cafbe20a98854feee37ba9a6eae5b2bc",
+    "apps/platform-api/src/platform-app.ts": "93455802e699e6b4020362822544b34705a863a067da2db3c6876f9616a5f328",
+    "apps/platform-api/src/routes/agent-commerce.ts": "0fbfcb9399740991c2d5da67b36f711b6766958e7d0e1bfb8574e770e87e7236",
+    "apps/platform-api/src/runtime.ts": "0bc5e9272bdc3dae8ee86c1d399e040a2eb8b7f4a93a9950903cc80de2a8f308",
+    "apps/platform-api/src/worker.ts": "caca4cb3b40e479e3cf2b9a74fa17a70ccf4dd9545ec4563818c3323da217e24",
+    "contracts/common/README.md": "afdb02156f3a5a6863fb51fec436b1f47d4d4ec2a6090d2e469f0b85c6fbda4f",
+    "deploy/cloudflare/lib/wrangler.mjs": "1aa740decf5022a0f69836c4ebe8aca3fbb6e777d2fc0ccf4d451f5b7afbfc5f",
+    "deploy/cloudflare/test/shop-key-policy.test.mjs": "7dd20b8c9cd81702ae5ddc5bb768e340a9beaec3aa8c3405858fb4595f1021ce",
+    "migrations/118_shop_service_identity.sql": "41c7481b5a44a750cc00b2fb4b76f46d184b80e81d9c077597b0be67f72a546c",
+    "modules/agent-commerce/README.md": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755",
+    "modules/agent-commerce/freedom.module.json": "315151dd0ee038c65e99b6c5307b2345881489ae20fc156e4a44a073ca9b8444",
+    "modules/agent-commerce/key-exit.ts": "2e9d957566b29c81d714913be7f03f9bac1ced342c603090595347232bfbce6f",
+    "modules/agent-commerce/orders.ts": "b6fffbc6c4848851454b8428afabac9e9048cd1727ca0d6f539969bce682e2e9",
+    "modules/agent-commerce/service-command.ts": "056c1bda67108ad20e732cf4641b59e294214ad901cec0082aa3982e1bce677f",
+    "packages/resource-scopes/README.md": "be0d1b947a701c9b7639d70b86b2ebc8ab6c57e4da52b2b5c12c7917d00125e8",
+    "packages/resource-scopes/freedom.module.json": "82e7d4ff1c5f1ae16d53b3104f1ea70e912abc653bd0613c0fe03827e788e091",
+    "packages/resource-scopes/shop-service.ts": "6637f6f91e3f6b9ceb5a21447903be4183b7e0a365658774dd313656b0201351",
+    "scripts/shop-key-legacy-exit.ts": "31130841413e4ff477555175b6758b46664704e142cdd995f7935e0921f90571",
+    "tests/runtime/agent-commerce-key-expiry.test.ts": "ae1c67b3c96cd2441d906e20cc23fe3fe88ebef48f5506b1296c1b190d17d166",
+    "tests/runtime/agent-commerce.test.ts": "66280861e8d0a60abdbaff6d7f010153d3cb7837916a875fa05b493ac1f26602",
+    "tests/runtime/resource-scopes.test.ts": "785ff98d5c96edc43192d1c8e11b30b9daf5692f93d228cb55ff086fcfd21885",
+    "tests/runtime/shop-key-exit.test.ts": "0022839e3b7eb1220ea284525a79ca08198f0fa978c695b906bac1f81db240c8",
+    "tests/runtime/shop-service-command.test.ts": "8576eb6ddd6adb163a9faf701682bf9adbd764ef74dede0e89ded187e17ca27a",
+    "tests/runtime/shop-service-identity.test.ts": "5dfcd2a8ec96a9184768b7a41503c7a444e0233b7c80a9306175d6cc06940d1e"
+  },
+  "schema_digests": {
+    "migrations/117_machine_text_execution.sql": "5579fe2cb4ae6d6c8450cd36446b1dbc5a708c028df9a08059742783fa7f387a",
+    "migrations/118_shop_service_identity.sql": "41c7481b5a44a750cc00b2fb4b76f46d184b80e81d9c077597b0be67f72a546c"
+  },
+  "environment": {
+    "tier": "isolated local real PostgreSQL/HTTP",
+    "image": "postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd",
+    "network": "none, no published ports, marker-owned private Unix socket",
+    "database": "owned disposable fp_shop_service",
+    "roles": "synthetic owner, actual separate DML LOGIN role, actual separate read-only LOGIN roles",
+    "identity_http": "actual Hono application request handlers, including installed private-product routes",
+    "exit_http": "real Node HTTP health servers reached by an explicit test-only HTTPS-origin-to-loopback fetch port",
+    "private_asset_store": "FakeObjectStore bytes with real SQL Asset lifecycle and actual Result read/edit routes; not cloud R2",
+    "production_access": false
+  },
+  "runs": [
+    {
+      "source": "core commit f8abb4e6; uncommitted exit/docs not imported by these cases",
+      "launcher": "run-core-tests.mjs",
+      "log": "core-committed.tap",
+      "passed": 142,
+      "failed": 0,
+      "skipped": 0,
+      "coverage": "shop identity/cancel, legacy commerce expiry, commerce, member command/core/scopes,117 machine SQL",
+      "log_sha256": "294830493cac44283acf60b39fe72bd9b7415ba88b4964dd625b12efb812e8b5"
+    },
+    {
+      "source": "final unchanged code bytes now in ee022f8f; executed before commit",
+      "launcher": "run-exit-tests.mjs",
+      "log": "exit-endpoint-final.tap",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "coverage": "read-only real roles/health, metadata binding, cross-env duplicate count, missing/stale/Access rejection, exact endpoint/routing, PG ambient settings",
+      "log_sha256": "b8fa22549d7c48fe224f496ac3522a3f3c1593acdf43f6663df800d546d171da"
+    },
+    {
+      "source": "final unchanged code/test bytes now in ee022f8f; executed before commit",
+      "launcher": "run-boundary-tests.mjs",
+      "log": "foreign-asset-worker-final.tap",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "coverage": "13 identity cases incl actual other-member Result/Asset GET+edit denied;19 existing Worker cases with owned real PG",
+      "log_sha256": "ce174fbc338d30d969eaaa3895be4527350b07baa7bbbff9ed09655782b93cc3"
+    },
+    {
+      "source": "core/final same checker bytes",
+      "command": "node --test deploy/cloudflare/test/shop-key-policy.test.mjs",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "source": "final unchanged code/test bytes now in ee022f8f",
+      "command": "npm run typecheck",
+      "exit": 0
+    }
+  ],
+  "earlier_failures": [
+    {
+      "log": "full-first.tap",
+      "passed": 149,
+      "failed": 1,
+      "reason": "old member test expected SQL23502 for person user_ref=NULL;118 correctly rejects by paired backing CHECK23514",
+      "resolution": "precise expected SQLSTATE updated; full-second151/151 then core-committed142/142"
+    },
+    {
+      "log": "identity-exit.tap",
+      "reason": "synthetic fixture reused one UUID/text SQL placeholder,42P08",
+      "resolution": "separate typed parameter; exit tests pass"
+    },
+    {
+      "log": "foreign-asset-worker.tap",
+      "reason": "new fixture asserted intentionally omitted public assetId instead of Result DTO; actual owner route200 succeeded",
+      "resolution": "assert resultId plus actual SQL catalog asset relation;32/32"
+    },
+    {
+      "command": "worker-adapter.test.ts without owned TEST_DATABASE_URL",
+      "reason": "suite fell back to loopback54339 and ECONNREFUSED before fixture setup; no database connected or mutated",
+      "resolution": "reran only through owned fixture in32/32 result"
+    }
+  ],
+  "model_reviews": [
+    {
+      "file": "review-identity.review.txt",
+      "scope": "static only; no model executed tests",
+      "model": "grok-4.7-build",
+      "session": "01a10e2a-3ab1-7cf0-8003-54544023da59",
+      "stop_reason": "end_turn"
+    },
+    {
+      "file": "review-exit-final.review.txt",
+      "scope": "static only; no model executed tests",
+      "model": "grok-4.7-build",
+      "session": "01a10e32-26ef-7741-952b-c850231975eb",
+      "stop_reason": "end_turn"
+    },
+    {
+      "file": "review-cancel-final.review.txt",
+      "scope": "static only; no model executed tests",
+      "model": "grok-4.7-build",
+      "session": "01a10e35-1dc9-7aa2-96db-9b56a241a5d1",
+      "stop_reason": "end_turn"
+    },
+    {
+      "file": "review-exit-endpoint.review.txt",
+      "scope": "static only; no model executed tests",
+      "model": "grok-4.7-build",
+      "session": "01a10e3c-8b72-7dd3-b33f-6ab8b8620c1e",
+      "stop_reason": "end_turn"
+    }
+  ],
+  "peer_review": {
+    "reviewer": "device_integration",
+    "source": "f8abb4e699b90f245e148eb8383f9fb2a3499ad5",
+    "finding": "No confirmed fake-Actor, current replay clock or SQL binding bypass; static only, tests not rerun"
+  },
+  "requirements": [
+    {
+      "id": "UF:INT-04",
+      "evidence": "real existing shop service/site plus other actual member private Result/Asset read/edit denial at installed HTTP routes, SQL and object bytes unchanged, owner positive read+edit controls",
+      "closure_decision": "integration owner must compare original row; no blanket foundation acceptance"
+    },
+    {
+      "id": "GOV-25",
+      "evidence": "site bearer cannot become member cookie/login, private-product rejects credential kind before real resource access",
+      "remaining": "other credential classes/permit login obligations require their original separate evidence"
+    },
+    {
+      "id": "GOV-26",
+      "evidence": "two configured environments accept own v2 credentials, reject cross-env/stamped clone and wrong provenance; same binary explicit legacy transition",
+      "remaining": "actual controlled legacy writer/reader floor, owner rotations, complete retained issuer inventory, cross-target live audit and strict policy rollout"
+    },
+    {
+      "id": "GOV-29",
+      "evidence": "site credential denies existing private Result/Asset path and invokes no model provider",
+      "remaining": "original broker cross-owner model-ref/Grant/data-policy cases belong to broker/machine integration; not substituted by this site test"
+    }
+  ],
+  "limits": [
+    "No live secrets/provider configuration, cloud DB, migration, key rotation, rollout, push or deployment used.",
+    "Existing create/order payment mutations preserve original dynamic dedupe/readback; their common scoped receipt/audit conversion is separate unfinished work.",
+    "Exit only observes operator-selected endpoints, not physical provider identity or global inventory; always legacy_exit:false and deployment_authority:false.",
+    "Context baseline union retains surface_unmapped; accurate new registrations are not executable runtime coverage.",
+    "Root owns inventory, manifest/release compatibility, public aggregate evidence and publication."
+  ],
+  "review_triage": [
+    "Identity reviewer old118 lacked fact branch; subsequent cancel review separately read completed118 and shared registry.",
+    "Earlier exit/cancel sessions exhausted bounded tool turns and returned cancelled; resumed sessions reached end_turn; initial cancelled runs are not final reviews.",
+    "Old exit reviewer0700 file-mode claim corrected: actual check requires group/other bits clear, not a specific owner mode.",
+    "Endpoint reviewer claim URL credentials decoded twice rejected: URL.username/password retain percent encoding, decoder runs once.",
+    "Endpoint reviewer unhandled deadline rejection claim rejected: Promise.race attaches rejection handlers and finally clears timer; no uncovered rejection shown.",
+    "Physical branch/origin-to-SQL binding and global issuer completeness remain operator evidence, not inferred."
+  ],
+  "context": {
+    "manifest": ".freedom/context/task-1097a373e5341ed3/182c5f682ccde02607eadc99e50d31b43f21bffd41079c8b02ba8a5a0a032076/manifest.json",
+    "source_sha": "ee022f8fe26021989ff2e8797fde9fb316dca197",
+    "chunks_read": 113,
+    "instruction_deltas_from_initial": [
+      "contracts/common/README.md",
+      "modules/agent-commerce/README.md",
+      "packages/resource-scopes/README.md"
+    ],
+    "complete": false,
+    "blockers": [
+      "surface_unmapped"
+    ],
+    "read_records": "context-frozen-chunks.json",
+    "note": "Initial baseline/candidate112 read with delegated instruction summaries plus independent core reads; final113 fetched, only changed instruction content is the3 authored/independently-read docs. No narrowing or blocker suppression."
+  },
+  "additional_checks": [
+    "git diff --check passed",
+    "Both edited/new module descriptors validate against governance schema; registration is not runtime verification."
+  ],
+  "root_review_source": "533523f3",
+  "root_verification": [
+    {
+      "source": "533523f3",
+      "passed": 117,
+      "failed": 0,
+      "skipped": 0,
+      "log": "site-service-runtime.log",
+      "sha256": "b2e118b7c1d8698e347f90d72ab26114afa8d736ff82293828cde6176b641946"
+    },
+    {
+      "source": "533523f3",
+      "passed": 137,
+      "failed": 0,
+      "skipped": 0,
+      "log": "site-service-registration.log",
+      "sha256": "6bacb3e75e7e6a1287138d4c42256d25c25ea8d70d724cccc0fe8fc19c947d49"
+    }
+  ],
+  "root_typecheck_exit": 0,
+  "reader_floor": {
+    "shape": "commerce.shop-service-authority.v1",
+    "migration": 118,
+    "covers": [
+      "service/site mappings",
+      "purpose-bound shop key",
+      "site scoped command facts"
+    ],
+    "behavior": "enabled, written, requested and retained shapes require capable active readers even after creation is OFF; schema alone supplies no authority."
+  }
+}

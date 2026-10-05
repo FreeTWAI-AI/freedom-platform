@@ -16,20 +16,11 @@
     }
   ],
   "counts": {
-    "total": 168,
-    "by_family": {
-      "INT": 28,
-      "GOV": 32,
-      "R2": 38,
-      "AP": 70
-    },
-    "by_state": {
-      "not_run": 48,
-      "implemented": 64,
-      "partial": 54,
-      "blocked": 1,
-      "accepted": 1
-    }
+    "partial": 54,
+    "accepted": 2,
+    "implemented": 63,
+    "not_run": 48,
+    "blocked": 1
   },
   "state_definitions": {
     "not_run": "No applicable operational implementation/evidence for the required case; specs or adjacent primitives may exist.",
@@ -506,6 +497,30 @@
         "Existing Step fixture is genuinely member-approved; it does not prove machine-created Grant/Attempt/Step.",
         "No original full requirement accepted here; cloud/native/client reconnect/MV3/neo remain open."
       ]
+    },
+    "site-service-533": {
+      "id": "site-service-533",
+      "kind": "local_candidate_execution",
+      "source_sha": "533523f3",
+      "environment": "owned isolated PostgreSQL18 and actual Hono HTTP handlers; synthetic object bytes, no cloud R2",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/site-service-evidence-2026-10-05.json",
+        "modules/agent-commerce/README.md",
+        "packages/resource-scopes/README.md"
+      ],
+      "observations": [
+        "Valid own-site credential works; real service/site SQL identity cannot manufacture a member or another principal.",
+        "Another actual member private Result/Asset read/current/edit via mounted HTTP denied before object/provider access;11SQL tables and object counts unchanged; actual owner can read and edit.",
+        "Current scope/key clocks rechecked after waits and replay; common cancellation journal stays atomic.",
+        "Reader floor rejects mixed old releases; readonly exit tool never changes keys, data or policy."
+      ],
+      "limitations": [
+        "No live secrets/provider configuration, cloud DB, migration, key rotation, rollout, push or deployment used.",
+        "Existing create/order payment mutations preserve original dynamic dedupe/readback; their common scoped receipt/audit conversion is separate unfinished work.",
+        "Exit only observes operator-selected endpoints, not physical provider identity or global inventory; always legacy_exit:false and deployment_authority:false.",
+        "Context baseline union retains surface_unmapped; accurate new registrations are not executable runtime coverage.",
+        "Root owns inventory, manifest/release compatibility, public aggregate evidence and publication."
+      ]
     }
   },
   "requirements": [
@@ -704,7 +719,7 @@
       "fc_gates": [
         "FC-01"
       ],
-      "state": "implemented",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -727,13 +742,18 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
-      "remaining": [
-        "Exercise a genuine site credential supplying another principal/asset without delegation against the actual DB-backed HTTP boundary, and prove no fake member session or foreign asset access is created.",
-        "Bind the credential identity, denied operation and unchanged database facts to the tested source; reserved service/site enums alone do not exercise this case."
+      "executed_evidence": [
+        {
+          "evidence_id": "site-service-533",
+          "source_sha": "533523f3",
+          "environment": "owned isolated PostgreSQL18 and actual Hono HTTP handlers; synthetic object bytes, no cloud R2",
+          "covered_part": "Complete original site-key cross-principal/private-Asset DB＋HTTP rejection plus genuine positive controls.",
+          "limitations_reference": "evidence_catalog.site-service-533.limitations"
+        }
       ],
-      "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Original DB＋HTTP case passed at fixed candidate: a valid site key specifying another member principal and existing private Asset is denied without delegation, while own-site and true-owner positive controls succeed. This accepts this original row at its specified isolated tier, not cloud rollout or the full service credential lifecycle."
     },
     {
       "id": "UF:INT-05",
