@@ -47,7 +47,13 @@ export async function runInstalledBehaviorHost(rawConfig, rawJobEnvelope) {
   // observed from a candidate checkout is never used as an expected pin.
   await outside(fileURLToPath(new URL('../../', import.meta.url)), config.adapter.candidate_roots);
   await outside(config.dependency_root, config.adapter.candidate_roots);
-  const installation = await installedSupervisorIdentity();
+  const installation = await installedSupervisorIdentity().catch(error => {
+    // A missing/unreadable pinned component cannot satisfy the installation.
+    // In particular, setup-node hosts need not provide the member recipe's
+    // /usr/bin/node. Refuse it without substituting another interpreter.
+    if (['ENOENT', 'ENOTDIR', 'EACCES'].includes(error?.code)) check(false, 'installed_behavior_pin_mismatch');
+    throw error;
+  });
   const dependency = await validateBehaviorDependencyCache(config.dependency_root);
   for (const key of ['supervisor_sha256', 'harness_sha256', 'node_runtime_sha256'])
     check(installation[key] === config.installation[key], 'installed_behavior_pin_mismatch');

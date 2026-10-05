@@ -8619,8 +8619,8 @@
     },
     {
       "path": "packages/contribution-tools/github-behavior-host.mjs",
-      "bytes": 8882,
-      "sha256": "c1b1f3f19245e77981600b49757a9907f61273ffab254c0d799522f6990553e5"
+      "bytes": 9261,
+      "sha256": "11aa5a98081a7c3b26de1e81d6dcb2f83632c059c5c7592668ca1ca976598f38"
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.md",
