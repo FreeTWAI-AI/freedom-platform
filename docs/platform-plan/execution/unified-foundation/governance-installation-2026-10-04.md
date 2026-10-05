@@ -1,6 +1,6 @@
 # 中央 main 與九個 consumer 的實際治理門檻（2026-10-04）
 
-這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。中央 `main` 的 ruleset `24469536` 已保留既有政策並更新固定 workflow 來源至 c3e；另已安裝九個 consumer `main` 的原生來源檢查 ruleset `24473806`。九倉正例與兩個偽造綠燈負例已在一次性 branches 實際測試 merge；三個共用 library 採用 PR 已正常合併。三倉 runtime rule `24476100` 已於 10 月 5 日由 c42 升級到固定 c3e，增加 kit 實際 CLI 強制，詳見文末。這些結果不代表完整 P2、所有 runtime 入口或 durable App publisher 已驗收。
+這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
 
 中央首次安裝的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交；九倉後續配置與驗證範圍見下節。安裝後另以 `freedom-agent-kit:main` 為目標，實際驗到正常 native job 成功及竄改／偽造綠燈的 merge 被新規則拒絕，main 未變。
 
@@ -175,3 +175,26 @@ App-bound checks、strict freshness、review／last-push approval 與禁止刪�
 readbacks；configuration verified、PUT ACK 已知，沒有新增 bypass 或跳過 reviewer。
 這次更新不改 consumer source55／library91 或三倉 runtime rule `24476100`，也不補足前述
 candidate-authored test scripts、library invocation 與完整 P2 的信任缺口。
+
+
+## 10 月 5 日：九倉入口登錄與三倉實際 CLI 強制（92a58db）
+
+這次只改既有 `24473806`／`24476100` 的 canonical workflow `sha`／`ref`，固定 ref 為 `refs/heads/next-20261005/consumer-enforcement-source`，SHA 為 `92a58db9948c4c56a9d81d1450b9a856fb94a944`。逐倉回讀九個 main 都有 source gate，只有已採用 library 的 kit／storefront／supplier 三倉另有 runtime gate；library 保留 source91。範圍、無 bypass、其餘規則與中央必要 review 均未改動。
+
+Source host 比較完整 immutable Git 路徑與核准基線，保護 root／nested package 的可執行登錄、生命週期 scripts、已知 workflow／launcher 設定、隱含 Node/npm 入口及新增 executable mode。描述欄位與一般產品 source 可改；dependencies、engines 等非描述 package 欄位也須經可信基線更新，不能誤認為一般依賴升級自動放行。這不是所有動態 route／runtime 入口的完整發現。
+
+Runtime 沿既有隔離 supervisor，新增 storefront／supplier 的 `scripts/run-client.mjs` → `client/cli.mjs` 真實程序鏈；正常資源讀取、錯誤 scope、撤銷及 server error 都由獨立 host HTTP trace 與不可預猜的回應核對，並保留 kit maker-demo CLI。外層 launcher 會把子 CLI failure 彙整成 exit 1，所以不能單由該 exit 推定每個失敗原因；結果仍須符合完整 trace／輸出條件。`library_invocation`、`library_usage`、server ACL 與其餘六倉 runtime 維持 `not_checked`。
+
+本機真實 Docker 檢查發現另一個 bug：`docker create` timeout 後，daemon 可能晚於兩次空掃描才完成建立。Supervisor 現在先記錄 pending create；缺有效 ACK 時保留 `supervisor_create_outcome_unknown`／`create_pending`，即使掃描為空也不宣稱 cleanup verified。測試覆蓋該時序，沒有靠延長 timeout 或刪除不明來源容器消除證據。
+
+安裝前的 21 個一次性 branch probes 都使用同一固定來源：九個文件正例 native source 通過（其中三倉 workspace／CLI 也通過）並實際 merge 到臨時 base；九個新增 `bin` 負例各報 `consumer_entry_registration_changed`，三個僅替換 CLI 的負例 source／workspace 通過、CLI 報 `consumer_behavior_mismatch`。12 次負例 actual merge 全為 405。所有執行過的 runtime cleanup 已核對，沒有偽造 check、rerun 或取消 native run。
+
+正式 pins 升級後，再以 storefront 實際 main 為目標：
+
+| Probe | Native 結果與 actual merge |
+| --- | --- |
+| [#9 正例](https://github.com/FreeTWAI-AI/freedom-storefront/pull/9) | [source 37267160241](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267160241)／[runtime 37267160235](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267160235) 成功，實際 CLI 七個情境通過；只驗 green，關閉且未 merge。 |
+| [#10 新增入口](https://github.com/FreeTWAI-AI/freedom-storefront/pull/10) | [source 37267162055](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267162055)／runtime 都因入口登錄變更拒絕，actual merge 405；suite `4360306561` 記錄兩個 active rules 失敗。 |
+| [#11 替換 CLI](https://github.com/FreeTWAI-AI/freedom-storefront/pull/11) | [source 37267165139](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165139)／workspace 通過，[runtime 37267165130](https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165130) 只在 CLI 行為失敗；actual merge 405，suite `4360309737` 為 source pass／runtime fail。 |
+
+36 個 native jobs 的 source SHA、固定 checkout、workflow path、GitHub Actions App `15368`、check suite、PR head／tested merge tree 與失敗原因均核對。24 張 probes 全部結束，兩個臨時 rules `24483203`／`24483204` 及本輪 owned probe refs 已刪除；九個 consumer main 未變。正式新規則與 immutable source ref 保留。完整 API／logs 留在私有 `freedom-platform-next-20261005/consumer-probes` 與 `consumer-main-probes`；公開 JSON 僅保存配置、版本、run IDs、結果與邊界。

@@ -1,0 +1,815 @@
+{
+  "schema": "freedom.consumer-entry-cli-installation/v1",
+  "recorded_at": "2026-10-05T05:22:24.314379+00:00",
+  "workflow_source": {
+    "repository": "FreeTWAI-AI/freedom-platform",
+    "sha": "92a58db9948c4c56a9d81d1450b9a856fb94a944",
+    "ref": "refs/heads/next-20261005/consumer-enforcement-source"
+  },
+  "library_source_sha": "91b943ac61e132fbbce72ea066cb2301aa065600",
+  "rules": {
+    "source": {
+      "name": "Freedom consumer source integrity — nine approved consumers",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "repository_id": {
+          "repository_ids": [
+            1378081390,
+            1378081447,
+            1378081485,
+            1378081523,
+            1378081556,
+            1378081612,
+            1378081649,
+            1378081698,
+            1382994244
+          ]
+        },
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "refs/heads/main"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "type": "workflows",
+          "parameters": {
+            "do_not_enforce_on_create": false,
+            "workflows": [
+              {
+                "repository_id": 1378081342,
+                "path": ".github/workflows/trusted-consumer-libraries.yml",
+                "sha": "92a58db9948c4c56a9d81d1450b9a856fb94a944",
+                "ref": "refs/heads/next-20261005/consumer-enforcement-source"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "name": "Freedom consumer HTTP behavior — three adopted consumers",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "repository_id": {
+          "repository_ids": [
+            1378081390,
+            1378081447,
+            1382994244
+          ]
+        },
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "refs/heads/main"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "type": "workflows",
+          "parameters": {
+            "do_not_enforce_on_create": false,
+            "workflows": [
+              {
+                "repository_id": 1378081342,
+                "path": ".github/workflows/trusted-consumer-runtime.yml",
+                "sha": "92a58db9948c4c56a9d81d1450b9a856fb94a944",
+                "ref": "refs/heads/next-20261005/consumer-enforcement-source"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "central_rule_24469536_unchanged": true,
+    "changes": "Only sha/ref of the two existing canonical required workflows; no bypass/policy/scope changes."
+  },
+  "consumer_mains": [
+    {
+      "repository": "FreeTWAI-AI/.github",
+      "sha": "9c8f3b62e2ed3f7f585abcc4d63112c4516c9515",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "sha": "90f790763f4f0507d123f325d194d2cf7b9bf73f",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "sha": "b2227bc36a571084f6c3d5c5ab340ed4485c6738",
+      "source_enforced": true,
+      "runtime_enforced": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "sha": "d1fd7f223efcbed85c95cda18734a33e6528b82a",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-page",
+      "sha": "05508e805a764ec6b681792aaaf8c4803cb7a592",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-template",
+      "sha": "9bc7cee3f98d21da3156e5a67bfa63dc63a4615e",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "sha": "b5aed63bdd40d6c72df2afe039677d2173a2e3f9",
+      "source_enforced": true,
+      "runtime_enforced": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "sha": "87eda4878fb761deb4f9a1c1d7e421c2701f3dcb",
+      "source_enforced": true,
+      "runtime_enforced": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "sha": "7e98c3733e48aa96517d53de6944e3e365108979",
+      "source_enforced": true,
+      "runtime_enforced": true
+    }
+  ],
+  "temporary_probes": [
+    {
+      "repository": "FreeTWAI-AI/.github",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/.github/pull/2",
+      "head": "2010a04be254e301904fa363d00f542ae446fa9c",
+      "candidate_tree": "3853660ef162176f4e0a377686fcd549e15bcc11",
+      "required_native_runs": [
+        {
+          "id": 37265819814,
+          "url": "https://github.com/FreeTWAI-AI/.github/actions/runs/37265819814",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622312948,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/.github",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/.github/pull/3",
+      "head": "e4a43346d034c9855b168d66c7f3b4269e506cbb",
+      "candidate_tree": "0e7fe0b924987409fec692513a5b37407f44170a",
+      "required_native_runs": [
+        {
+          "id": 37265821423,
+          "url": "https://github.com/FreeTWAI-AI/.github/actions/runs/37265821423",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622318352,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/4",
+      "head": "38b7aa5a610861d20e3d8b537257794517ab3cc8",
+      "candidate_tree": "30ad921ccbbaa637b9478eeeaaa45f65551377df",
+      "required_native_runs": [
+        {
+          "id": 37265823286,
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37265823286",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622323714,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/pull/5",
+      "head": "cccca5da46336023c7e8c97c99763d240535e05a",
+      "candidate_tree": "3a79dae2a1788ed8fd3411ad30898ba894323fe4",
+      "required_native_runs": [
+        {
+          "id": 37265824656,
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37265824656",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622328060,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/14",
+      "head": "e3f3b86254741733eb0a2f14576612e2114d86a0",
+      "candidate_tree": "461a3adb6a396271d2f72c02cb63747bddec6dc3",
+      "required_native_runs": [
+        {
+          "id": 37265826550,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265826550",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622333576,
+          "conclusion": "success",
+          "reason": "source_workspace_actual_cli_pass",
+          "cleanup": "verified"
+        },
+        {
+          "id": 37265826537,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265826537",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622333521,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/15",
+      "head": "fcaf5902e156633599f63b3145ec5185fb1b2d56",
+      "candidate_tree": "b46deee199bc753e974eabfef925f732163e844c",
+      "required_native_runs": [
+        {
+          "id": 37265826916,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265826916",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622334910,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        },
+        {
+          "id": 37265826825,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265826825",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622334856,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-agent-kit",
+      "kind": "cli-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-agent-kit/pull/16",
+      "head": "b1e2cd6f4d1577038351c33919050c79f4cef075",
+      "candidate_tree": "42fbef8b6c8deeb0c52792fec7ee897bb4b5c9e5",
+      "required_native_runs": [
+        {
+          "id": 37265828838,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265828838",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622340680,
+          "conclusion": "failure",
+          "reason": "source_pass_workspace_pass_cli_behavior_mismatch",
+          "cleanup": "verified"
+        },
+        {
+          "id": 37265828831,
+          "url": "https://github.com/FreeTWAI-AI/freedom-agent-kit/actions/runs/37265828831",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622340675,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-growth-automation/pull/2",
+      "head": "9bb1e0ba2c7fd7d598d156431f5ef52b894a393d",
+      "candidate_tree": "0f4e0f673b3f3d7116f917dd313704b2f9e7fc7e",
+      "required_native_runs": [
+        {
+          "id": 37265831098,
+          "url": "https://github.com/FreeTWAI-AI/freedom-growth-automation/actions/runs/37265831098",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622348246,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-growth-automation",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-growth-automation/pull/3",
+      "head": "879d369b8741df4dcefd18b43fdc509bd2381dac",
+      "candidate_tree": "bb28f9d51589518484417de75c01ff87b6fed00b",
+      "required_native_runs": [
+        {
+          "id": 37265832880,
+          "url": "https://github.com/FreeTWAI-AI/freedom-growth-automation/actions/runs/37265832880",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622353696,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-page",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-project-page/pull/2",
+      "head": "8ccd487f12a9c9a5b879e077989e8f7698759f23",
+      "candidate_tree": "f19869e4685772d97fb261bb3adc72f610641acc",
+      "required_native_runs": [
+        {
+          "id": 37265834697,
+          "url": "https://github.com/FreeTWAI-AI/freedom-project-page/actions/runs/37265834697",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622359114,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-page",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-project-page/pull/3",
+      "head": "6b9d53e498758305bd00e44a4ad150b4d587ddc4",
+      "candidate_tree": "f9950dea926c58e9dcfdb6cc20a5e01cfa41275d",
+      "required_native_runs": [
+        {
+          "id": 37265835652,
+          "url": "https://github.com/FreeTWAI-AI/freedom-project-page/actions/runs/37265835652",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622362285,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-template",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-project-template/pull/2",
+      "head": "12131f3ef97cc5d8de8ce901f2b94cc57934d89b",
+      "candidate_tree": "1b1a1746fc5b5253953453a88d399149a96ca9c8",
+      "required_native_runs": [
+        {
+          "id": 37265836038,
+          "url": "https://github.com/FreeTWAI-AI/freedom-project-template/actions/runs/37265836038",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622363094,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-project-template",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-project-template/pull/3",
+      "head": "f3a54060c9234c5855bd128aa2aa52cce9d8ed2c",
+      "candidate_tree": "3f9ece2e9adeb0f423b45a83ae7467f9ba1a6944",
+      "required_native_runs": [
+        {
+          "id": 37265837702,
+          "url": "https://github.com/FreeTWAI-AI/freedom-project-template/actions/runs/37265837702",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622368145,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-skill-registry/pull/2",
+      "head": "0342db228fd3f5e6fce89af8546a148193d53fe1",
+      "candidate_tree": "df879232f27282056f01fd0ae91e5372ef818dba",
+      "required_native_runs": [
+        {
+          "id": 37265840153,
+          "url": "https://github.com/FreeTWAI-AI/freedom-skill-registry/actions/runs/37265840153",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622374792,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-skill-registry",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-skill-registry/pull/3",
+      "head": "c3943da6a3d1fc3391867a2c151e73473a652f15",
+      "candidate_tree": "78e9fb13e37a56f09d0e46ca1407e74410026580",
+      "required_native_runs": [
+        {
+          "id": 37265841987,
+          "url": "https://github.com/FreeTWAI-AI/freedom-skill-registry/actions/runs/37265841987",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622380233,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/6",
+      "head": "127c15645421b367e8cbc150aae8791b8482d63f",
+      "candidate_tree": "6a459dea41abf401bc10c27c38727b49bfaf280e",
+      "required_native_runs": [
+        {
+          "id": 37265843022,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265843022",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622383202,
+          "conclusion": "success",
+          "reason": "source_workspace_actual_cli_pass",
+          "cleanup": "verified"
+        },
+        {
+          "id": 37265843011,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265843011",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622383633,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/7",
+      "head": "945bb6fdc8cf72d2454d956312380db657f25321",
+      "candidate_tree": "1dc2091b22d2fd63eb28617e70eb208bbd1f6304",
+      "required_native_runs": [
+        {
+          "id": 37265843782,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265843782",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622385937,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        },
+        {
+          "id": 37265843780,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265843780",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622385881,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "cli-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/8",
+      "head": "9aeb719cbdce3356fa5d112005e335fa9e3829a0",
+      "candidate_tree": "1d6b445cc8e4dcd59d5b0da2858bde10a4d8e56b",
+      "required_native_runs": [
+        {
+          "id": 37265847309,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265847309",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622396905,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        },
+        {
+          "id": 37265847303,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37265847303",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622396803,
+          "conclusion": "failure",
+          "reason": "source_pass_workspace_pass_cli_behavior_mismatch",
+          "cleanup": "verified"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/6",
+      "head": "de7e87a8305e0b10f490b3551414a56145acbcbe",
+      "candidate_tree": "8fb93028d0ee73beb183cc764df82dc2d073d4b1",
+      "required_native_runs": [
+        {
+          "id": 37265847571,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265847571",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622397458,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        },
+        {
+          "id": 37265847567,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265847567",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622397486,
+          "conclusion": "success",
+          "reason": "source_workspace_actual_cli_pass",
+          "cleanup": "verified"
+        }
+      ],
+      "merge_http_status": 200,
+      "merged_to_temporary_base": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/7",
+      "head": "adb46cf1bd05a68a1a3fd142582d64ca50578464",
+      "candidate_tree": "8eb66e0aa89c3506c4649110153b457e197199c6",
+      "required_native_runs": [
+        {
+          "id": 37265849173,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265849173",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622402984,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        },
+        {
+          "id": 37265849149,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265849149",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622403174,
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-supplier-client",
+      "kind": "cli-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-supplier-client/pull/8",
+      "head": "649d33500de821780a820fbf55674e033a775bdd",
+      "candidate_tree": "d685c59bdb7eedcfa525ce97399ed36f73b754b6",
+      "required_native_runs": [
+        {
+          "id": 37265850194,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265850194",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "job_id": 111622406823,
+          "conclusion": "failure",
+          "reason": "source_pass_workspace_pass_cli_behavior_mismatch",
+          "cleanup": "verified"
+        },
+        {
+          "id": 37265850117,
+          "url": "https://github.com/FreeTWAI-AI/freedom-supplier-client/actions/runs/37265850117",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "job_id": 111622406283,
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        }
+      ],
+      "merge_http_status": 405,
+      "merged_to_temporary_base": false
+    }
+  ],
+  "main_probes": [
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "positive",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/9",
+      "head": "127c15645421b367e8cbc150aae8791b8482d63f",
+      "candidate_tree": "6a459dea41abf401bc10c27c38727b49bfaf280e",
+      "required_native_runs": [
+        {
+          "id": 37267160241,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267160241",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        },
+        {
+          "id": 37267160235,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267160235",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "conclusion": "success",
+          "reason": "source_workspace_actual_cli_pass",
+          "cleanup": "verified"
+        }
+      ],
+      "merged": false,
+      "closed": true
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "entry-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/10",
+      "head": "945bb6fdc8cf72d2454d956312380db657f25321",
+      "candidate_tree": "1dc2091b22d2fd63eb28617e70eb208bbd1f6304",
+      "required_native_runs": [
+        {
+          "id": 37267162055,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267162055",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        },
+        {
+          "id": 37267162027,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267162027",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "conclusion": "failure",
+          "reason": "consumer_entry_registration_changed",
+          "cleanup": "not_started_source_rejected"
+        }
+      ],
+      "merged": false,
+      "closed": true,
+      "merge_http_status": 405,
+      "rule_suite": {
+        "id": 4360306561,
+        "result": "fail",
+        "evaluations": [
+          {
+            "rule_source": {
+              "type": "ruleset",
+              "id": 24473806,
+              "name": "Freedom consumer source integrity — nine approved consumers"
+            },
+            "enforcement": "active",
+            "result": "fail",
+            "rule_type": "workflows",
+            "details": "Required workflows 'Trusted consumer source' failed"
+          },
+          {
+            "rule_source": {
+              "type": "ruleset",
+              "id": 24476100,
+              "name": "Freedom consumer HTTP behavior — three adopted consumers"
+            },
+            "enforcement": "active",
+            "result": "fail",
+            "rule_type": "workflows",
+            "details": "Required workflows 'Consumer runtime canary' failed"
+          }
+        ]
+      }
+    },
+    {
+      "repository": "FreeTWAI-AI/freedom-storefront",
+      "kind": "cli-negative",
+      "pull_request": "https://github.com/FreeTWAI-AI/freedom-storefront/pull/11",
+      "head": "9aeb719cbdce3356fa5d112005e335fa9e3829a0",
+      "candidate_tree": "1d6b445cc8e4dcd59d5b0da2858bde10a4d8e56b",
+      "required_native_runs": [
+        {
+          "id": 37267165139,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165139",
+          "path": ".github/workflows/trusted-consumer-libraries.yml",
+          "conclusion": "success",
+          "reason": "source_pass",
+          "cleanup": "source_only"
+        },
+        {
+          "id": 37267165130,
+          "url": "https://github.com/FreeTWAI-AI/freedom-storefront/actions/runs/37267165130",
+          "path": ".github/workflows/trusted-consumer-runtime.yml",
+          "conclusion": "failure",
+          "reason": "source_pass_workspace_pass_cli_behavior_mismatch",
+          "cleanup": "verified"
+        }
+      ],
+      "merged": false,
+      "closed": true,
+      "merge_http_status": 405,
+      "rule_suite": {
+        "id": 4360309737,
+        "result": "fail",
+        "evaluations": [
+          {
+            "rule_source": {
+              "type": "ruleset",
+              "id": 24473806,
+              "name": "Freedom consumer source integrity — nine approved consumers"
+            },
+            "enforcement": "active",
+            "result": "pass",
+            "rule_type": "workflows"
+          },
+          {
+            "rule_source": {
+              "type": "ruleset",
+              "id": 24476100,
+              "name": "Freedom consumer HTTP behavior — three adopted consumers"
+            },
+            "enforcement": "active",
+            "result": "fail",
+            "rule_type": "workflows",
+            "details": "Required workflows 'Consumer runtime canary' failed"
+          }
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "temporary_rules_deleted": [
+      24483203,
+      24483204
+    ],
+    "all_24_probes_closed_or_temporarily_merged": true,
+    "owned_probe_refs_deleted": true,
+    "consumer_mains_unchanged": true,
+    "fixed_source_ref_retained": true
+  },
+  "boundaries": {
+    "entry_coverage": "explicit package registrations and known launcher files; baseline changes need separate trusted review",
+    "runtime_coverage": "three adopted consumer workspace+actual CLI scenarios only",
+    "library_invocation": "not_checked",
+    "library_usage": "not_checked",
+    "server_authorization": "not_checked",
+    "remaining_six_consumer_runtime": "not_checked",
+    "durable_publisher": "not_installed",
+    "merge_queue": "not_tested",
+    "full_P2_complete": false,
+    "no_forged_checks_or_cancelled_runs_in_this_batch": true
+  }
+}

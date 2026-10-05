@@ -1,5 +1,7 @@
 # 實際移植後的執行計畫（2026-10-04）
 
+**2026-10-05 05:22 UTC 治理增量：** 九倉 source 與三倉 runtime 的既有正式規則已升級至固定 `92a58db`。新增入口登錄檢查、storefront／supplier 實際 CLI 及 Docker create 未知結果修正；21 個臨時 branch probes（九次正常 merge、十二次拒絕）及三個 storefront main probes完成，後兩個負例 actual merge 均 405。所有 probes 已清理、consumer mains 不變，中央 review 規則保留。完整 library invocation／其餘六倉 runtime／durable publisher／merge queue 仍未驗，見[實裝紀錄](governance-installation-2026-10-04.md#10-月-5-日九倉入口登錄與三倉實際-cli-強制92a58db)。下方 source55／c3e consumer pins 為較早的執行更新。
+
 **2026-10-05 04:53 UTC 後續：** #117 與 #121 已依序正常合併／部署，兩環境目前為 `89f64ace`。新版日備份已各完成一次真正定時觸發，異地完整回讀、相同 snapshot 的 DB／R2 隔離恢復及清理通過，見[定時執行證據](r2-recovery-retirement-2026-10-04.md#新版部署後的真正定時執行2026-10-05)。下文 02:10 UTC 的「下一次尚未觀察」為當時狀態。GC 與 Private AI 維持 OFF；完整 P2／P3 仍未驗收。
 
 **本日後續執行更新：** #110 的 d269 已部署；七類媒體使用 R2、DB＋R2 隔離恢復及每日異地備份已通過，兩個舊庫已核對後退役。維持媒體 R2 ON、Private AI OFF、GC OFF。中央 main 規則 `24469536` 保留，九個 consumer main 已另安裝 `24473806`：來源 workflow 固定 `55f70c01e574cf66c8fa06b79fc9d8b3ffff0c4a`，library 固定 `91b943ac61e132fbbce72ea066cb2301aa065600`。九倉一次性 branch 正例實際 merge，兩個偽造綠燈負例被 native workflow 拒絕；三個 library 採用 PR 已正常合併。安裝後 kit main-target 正例 native job 成功，竄改／偽造綠燈負例的 actual merge 回 405，suite `4357871927` 確認新規則拒絕，main 未變。

@@ -271,10 +271,13 @@ unavailable conditions and must retain separate evidence through the existing
 release procedure; this tool cannot authorize enabling either product flag.
 
 Before actual owner model acceptance, verify the setup POST, prepare and secret
-requests across real browser/edge routing. Setup sessions and activation proof
-registries are isolate-local; cross-isolate/restart behavior must stay fail-closed.
-Do not claim a usable multi-replica installation solely from the single-isolate
-native test or silently regenerate authority after an unavailable/ambiguous result.
+requests across real browser/edge routing. Setup preparation now resumes through
+one-use SQL records, and a reserved activation may continue on a fresh broker
+only after new provider verification and current SQL/recovery checks. A consumed
+execute request returns metadata and cannot dispatch again. Opaque capabilities
+remain local to their single dispatch. Cross-process tests cover these boundaries;
+they do not establish a usable Cloudflare installation or authorize retrying an
+unknown provider outcome as a new paid operation.
 
 Use the owner-action table above as the acceptance sequence. Record each step as
 `not_run`, `pass` or `fail`, with source/release, environment and a private receipt

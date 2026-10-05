@@ -68,9 +68,12 @@ prove that edge logs, tracing, body capture or other capture systems are disable
 An operator must establish that authority and validate the real ingress before
 installing a setup hostname. The repository example intentionally omits it.
 
-The optional host uses only the restricted cipher SQL port. Its one-use setup
-registry is isolate-local: restart or a request routed to another isolate fails
-closed. Browser/replica continuity is an outstanding release condition. Known
+The optional host uses only the restricted cipher SQL port. Setup and preparation
+resume across broker instances from original cookie/CSRF hashes and the durable
+one-use preparation record (migration 114). Each request rechecks the original
+session, recovery generation, authorization and fixed expiry before creating a
+new local handle; stored metadata cannot supply execution authority. Real
+browser/Cloudflare routing acceptance remains a release condition. Known
 Cloudflare edge headers are removed before the existing strict transport
 allowlist; arbitrary `CF-*` headers are not exempt. Native secret-body reads stay
 inside the existing authorization/claim path.
