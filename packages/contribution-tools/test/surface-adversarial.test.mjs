@@ -10,9 +10,15 @@ const root = 'apps/platform-api/src/platform-app.ts';
 const avatar = 'apps/platform-api/src/routes/avatars.ts';
 const work = 'apps/platform-api/src/routes/private-work.ts';
 const descriptor = 'modules/identity-membership/freedom.module.json';
-const paths = [root, avatar, work, descriptor, 'modules/opportunity-project-work/freedom.module.json',
-  'apps/portal-web/src/modules/MemberTasks.tsx'];
-const files = new Map(paths.map(path => [path, readFileSync(new URL('../../../' + path, import.meta.url))]));
+const workDescriptor = 'modules/opportunity-project-work/freedom.module.json';
+const file = path => readFileSync(new URL('../../../' + path, import.meta.url));
+const paths = new Set([root, avatar, work, descriptor, workDescriptor]);
+// Keep the real-source control complete when a feature page moves. The narrow
+// HTTP parser still reports those pages as unsupported, never as verified.
+for (const path of [descriptor, workDescriptor]) {
+  for (const surface of JSON.parse(file(path)).surfaces) paths.add(surface.entry);
+}
+const files = new Map([...paths].map(path => [path, file(path)]));
 // These are independent test-harness inputs, NOT candidate proof or publisher approval.
 const parserEntry = import.meta.resolve('@typescript/typescript6');
 const implementation = createRequire(parserEntry).resolve('@typescript/old');
@@ -60,6 +66,7 @@ const reject = (path, change) => {
 test('independent real-source control extracts six-route facts but cannot approve unresolved root delegates', () => {
   const report = audit();
   assert.equal(report.coverage_kind, 'fixed-syntax-only');
+  assert(!report.issues.some(issue => issue.code === 'declared_surface_file_missing'));
   assert.equal(report.structural_status, 'unavailable');
   assert.equal(Object.hasOwn(report, 'registration_status'), false);
   assert.equal(report.status, 'unavailable');
