@@ -65,7 +65,7 @@
     {
       "path": "repositories.lock.json",
       "bytes": 1450,
-      "sha256": "97ac3769e114870c31fb71def4fe3c7bec927520529bb4bc2a4c5ba75fef7047"
+      "sha256": "396ecbf068aa169d0f995cde58963deafeef7cbccfd41b303e672a88eef2ad6b"
     },
     {
       "path": "tsconfig.json",
@@ -134,8 +134,8 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 2260,
-      "sha256": "3396a09db88b4f1c612f529b1d2f0d7780297dc8c4a9233d48a2a7b412da1b81"
+      "bytes": 2975,
+      "sha256": "cc81f4f202644afa3c805bc3e418951c5db0eb4c2d9e6814470539423bac34f5"
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -15684,8 +15684,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 37019,
-      "sha256": "8fcdac86546af2d4f6182a3eed91b5391e2bd21de7edb94cf21b45d33cee8fac"
+      "bytes": 37116,
+      "sha256": "721496f914eafd13381656f737adf6a80f883c6c85e5a40f60d945795e016d1d"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -15694,18 +15694,18 @@
     },
     {
       "path": "packages/contribution-tools/consumer-behavior-fixture.mjs",
-      "bytes": 13963,
-      "sha256": "6d02799f6822d66fe661ebecd8d155ffc9559ac4825c0908518725945f276ac6"
+      "bytes": 15790,
+      "sha256": "344cb2eb40dc5c78161cefc2b5dd924aded28e024d1a85dc341c2bfe9e349184"
     },
     {
       "path": "packages/contribution-tools/consumer-behavior-target.mjs",
-      "bytes": 5285,
-      "sha256": "e6a9c0da5cfa18e039c8df995bdb20bc9778f940c7b372334a223a8b1a54a7f5"
+      "bytes": 5682,
+      "sha256": "3117d331000532c16591c8965c940075da49c5dea4fd829066a5212343d389ca"
     },
     {
       "path": "packages/contribution-tools/consumer-behavior.md",
-      "bytes": 12288,
-      "sha256": "56dd1dd7284da793bb01b5b5c4046797816bcb6c178b20fc2eeea52c30f09d73"
+      "bytes": 15197,
+      "sha256": "3bd9afb360283a06ef0526b8c1b8ef5481530da76ef3971a08dd6bb4fb4efbfd"
     },
     {
       "path": "packages/contribution-tools/consumer-cli-canary-ruleset.example.json",
@@ -15804,8 +15804,8 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 4386,
-      "sha256": "33e7b45dc0c9c49424cf7781e09c3b9a0863aeb2bff914a2c37f0baeb8792ae0"
+      "bytes": 5093,
+      "sha256": "8e162b1c83a1f9af57011b85c768de03f9b9507fc8e25f54105d6c805a920ee4"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -16729,8 +16729,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/consumer-source-profiles.md",
-      "bytes": 3845,
-      "sha256": "8fea9ab3f5fe29de5980bb0605fadb43754d2a2564124966c4602adf171136f9"
+      "bytes": 7181,
+      "sha256": "870d2a1cda71518ab66509601dba5bb2d7fb3357e42281a7a638d5343d65d713"
     },
     {
       "path": "scripts/repository-bootstrap/freedom.mjs",
@@ -17221,6 +17221,16 @@
       "path": "tests/integration/consumer-libraries.test.ts",
       "bytes": 11324,
       "sha256": "317875e94693b3fd87c581e925d5289365e01136b05c5cff7c074531ab0e0621"
+    },
+    {
+      "path": "tests/integration/directory-baseline-transition.test.mjs",
+      "bytes": 5980,
+      "sha256": "6d0f7fab40e99c2281562521bbd15d316c12cbd559e53e052d162f553ed696fb"
+    },
+    {
+      "path": "tests/integration/growth-consumer-runtime.test.mjs",
+      "bytes": 7893,
+      "sha256": "7e08fe92119c30b50a2fde5f79f5dcd5d27bac63d4184a79befa4d90a062aecc"
     },
     {
       "path": "tests/integration/media-backup-archive.test.ts",
