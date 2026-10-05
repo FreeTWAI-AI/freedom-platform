@@ -46,3 +46,54 @@ test('combined native host rejects a source-valid stub rather than accepting sou
   assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'failed');
   assert.equal(result.status, 'failed'); assert.equal(result.runtime.cleanup_verified, true);
 });
+
+
+async function sourceValidKitMutation(t: any, path: string, contents: string) {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-native-consumer-boundary-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const repository = join(directory, 'candidate'); await mkdir(repository);
+  const git = (args: string[]) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
+    cwd: repository, env: { ...verificationEnvironment(), GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_AUTHOR_NAME: 'Synthetic', GIT_COMMITTER_NAME: 'Synthetic',
+      GIT_AUTHOR_EMAIL: 'synthetic@example.invalid', GIT_COMMITTER_EMAIL: 'synthetic@example.invalid' },
+    stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 30000,
+  }).trim();
+  git(['clone', '--quiet', '--no-hardlinks', join(roots!, 'freedom-agent-kit'), '.']);
+  git(['checkout', '--quiet', candidates[0][1]]);
+  await writeFile(join(repository, path), contents);
+  git(['add', '--', path]); git(['-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic assurance-boundary mutation']);
+  assert.equal(git(['diff', '--name-only', candidates[0][1], 'HEAD']), path);
+  assert.equal(git(['diff', '--name-only', candidates[0][1], 'HEAD', '--', 'vendor', 'contracts.lock.json', 'consumer-libraries.lock.json']), '');
+  return verifyNativeConsumerRuntime(input('freedom-agent-kit', repository, git(['rev-parse', 'HEAD'])));
+}
+
+test('source and observed HTTP PASS do not prove the approved workspace library was invoked', async t => {
+  // No import of the approved vendor workspace: reproduce its externally visible
+  // operation sequence and assembly directly. Fresh server markers still match.
+  const result = await sourceValidKitMutation(t, 'src/index.mjs', `
+    export async function loadMemberWorkspace(client) {
+      const [session,dashboard,work,positioning,guilds] = await Promise.all(
+        ['getSession','getDashboard','listWorks','getPositioning','listGuilds'].map(id=>client.call(id)));
+      return {member:session.user,dashboard,work:work.items,positioning,guilds:guilds.items,
+        mode:'internal_preview',agent_execution_grant:false};
+    }
+  `);
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+  assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'passed');
+  assert.equal(result.runtime.cases[0].observed_requests, 6);
+  assert.equal(result.runtime.cases[0].response_matches_challenge, true);
+  assert.equal(result.library_invocation, 'not_checked'); assert.equal(result.library_usage, 'not_checked');
+  assert.equal(result.runtime.library_invocation, 'not_checked'); assert.equal(result.runtime.cleanup_verified, true);
+});
+
+test('the workspace-export profile does not certify a replaced actual CLI entrypoint', async t => {
+  const result = await sourceValidKitMutation(t, 'src/cli.mjs', `
+    // The real user-facing entrypoint no longer invokes any workspace operation.
+    process.stdout.write(JSON.stringify({status:'passed'})+'\\n');
+  `);
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+  assert.equal(result.source.status, 'passed'); assert.equal(result.runtime.check.status, 'passed');
+  assert.equal(result.runtime.entry, 'src/index.mjs#loadMemberWorkspace');
+  assert.equal(result.runtime.runtime_observation, 'host_observed_http');
+  assert.equal(result.runtime.library_invocation, 'not_checked'); assert.equal(result.runtime.cleanup_verified, true);
+});
