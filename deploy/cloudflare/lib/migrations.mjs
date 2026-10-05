@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readMigrationSources } from '../../../packages/db/migration-files.mjs';
+import { migrationDigest, legacyMigrationProfile, resolveMigrationPlan } from '../../../packages/db/migration-plan.mjs';
+export { migrationDigest } from '../../../packages/db/migration-plan.mjs';
 
 // PlanetScale's default role (like other managed PostgreSQL admins) is NOSUPERUSER; these statements fail or need provider support.
 const PRIVILEGED = [
@@ -42,29 +43,18 @@ const REVIEWED_DEFINER = Object.freeze({
   }),
 });
 
-/** Same digest as packages/db digest(sql): sha256 over JSON.stringify of the SQL string. */
-export function migrationDigest(sql) {
-  return createHash('sha256').update(JSON.stringify(sql)).digest('hex');
-}
-
 function stripComments(sql) {
   return sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 export function checkMigrations(dir, expected) {
-  const files = readdirSync(dir).filter((n) => n.endsWith('.sql')).sort();
-  const numbers = files.map((f) => Number(/^(\d{3})_/.exec(f)?.[1] ?? NaN));
+  const sources = readMigrationSources(dir), files = sources.map(e => e.name);
   const problems = [];
-  if (numbers.some(Number.isNaN)) problems.push('migration file without NNN_ prefix');
-  if (new Set(numbers).size !== numbers.length) problems.push('duplicate migration number');
-  const gaps = [];
-  for (let n = expected.first; n <= expected.last; n++) if (!numbers.includes(n)) gaps.push(n);
-  const unexpectedGaps = gaps.filter((g) => !expected.known_gaps.includes(g));
-  if (unexpectedGaps.length) problems.push(`unexpected gaps: ${unexpectedGaps.join(',')}`);
-  if (Math.max(...numbers) !== expected.last) problems.push(`last migration is ${Math.max(...numbers)}, manifest expects ${expected.last}`);
+  let plan;
+  try { plan = resolveMigrationPlan(sources, legacyMigrationProfile(expected)); }
+  catch (error) { problems.push(error.message); }
   const privileged = [], reviewedPrivileged = [];
-  const entries = files.map((name) => {
-    const sql = readFileSync(join(dir, name), 'utf8');
+  const entries = sources.map(({ name, sql }) => {
     const body = stripComments(sql);
     const sha256 = migrationDigest(sql);
     for (const [re, why] of PRIVILEGED) if (re.test(body)) {
@@ -75,13 +65,13 @@ export function checkMigrations(dir, expected) {
     }
     return { name, sha256 };
   });
-  const functionsAndTriggers = files.filter((name) => /\bCREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|TRIGGER)\b/i.test(stripComments(readFileSync(join(dir, name), 'utf8'))));
+  const functionsAndTriggers = sources.filter(({ sql }) => /\bCREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|TRIGGER)\b/i.test(stripComments(sql))).map(e => e.name);
   return {
     ok: problems.length === 0 && privileged.length === 0,
     count: files.length,
     first: files[0],
     last: files.at(-1),
-    known_gaps: gaps.filter((g) => expected.known_gaps.includes(g)),
+    known_gaps: plan?.known_gaps ?? [],
     problems,
     privileged,
     reviewed_privileged: reviewedPrivileged,
