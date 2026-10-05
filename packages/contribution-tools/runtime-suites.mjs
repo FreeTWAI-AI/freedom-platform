@@ -20,6 +20,7 @@ export const NODE_CONSUMER_SUITES = Object.freeze({
 });
 
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
+newcomer-guides newcomer-guide-dialogue guide-anchors guide-pack-assets
 chat-content direct-message-receipts member-card-qr member-session-lifecycle
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
 agent-commerce agent-connections agent-connections-adversarial asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory avatar avatar-bridge

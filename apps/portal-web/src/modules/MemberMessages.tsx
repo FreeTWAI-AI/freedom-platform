@@ -62,7 +62,7 @@ export function MemberMessages({client,session,onNavigate,onNotificationPeer,cha
   }
   return <section className="member-messages">
     <div className="messages-tabs" role="tablist" aria-label="訊息類型" onKeyDown={tabKey}>
-      {VIEWS.map(([id,label])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-controls={`messages-panel-${id}`}
+      {VIEWS.map(([id,label])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} data-guide-anchor={id==='notifications'?'messages:notifications':id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
         aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}>{label}{unread[id]!==undefined&&<span className={unread[id]===0?'chat-sr-only':'messages-count'}>{unreadText(unread[id])}</span>}</button>)}
     </div>
     {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}

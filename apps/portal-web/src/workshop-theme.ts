@@ -1,24 +1,21 @@
 import {useEffect,useState} from 'react';
-
-export type WorkshopTheme='light'|'dark'|'versefolk';
-export const WORKSHOP_THEMES=[
-  ['light','自由工坊－明亮'],
-  ['dark','自由工坊－夜航'],
-  ['versefolk','自由工坊－敘生'],
-] as const satisfies readonly (readonly [WorkshopTheme,string])[];
-
-function currentTheme():WorkshopTheme{
-  const selected=document.documentElement.dataset.theme;
-  return selected==='dark'||selected==='versefolk'?selected:'light';
+import {applyExperienceProfile,resolveExperienceProfile,type WorkshopTheme} from './experience-profiles';
+export {WORKSHOP_THEMES,resolveExperienceProfile} from './experience-profiles';
+export type {WorkshopTheme} from './experience-profiles';
+function currentTheme():WorkshopTheme {
+  return resolveExperienceProfile(document.documentElement.dataset.experienceProfile ?? document.documentElement.dataset.theme).id;
 }
-
 export function useWorkshopTheme(){
   const [theme,setTheme]=useState<WorkshopTheme>(currentTheme);
-  useEffect(()=>{const sync=()=>setTheme(currentTheme());window.addEventListener('freedom-theme-changed',sync);return()=>window.removeEventListener('freedom-theme-changed',sync)},[]);
+  useEffect(()=>{
+    const sync=()=>setTheme(currentTheme());
+    const storage=(event:StorageEvent)=>{if(event.key==='freedom-theme'){applyExperienceProfile(event.newValue);sync();}};
+    window.addEventListener('freedom-theme-changed',sync);window.addEventListener('storage',storage);
+    return()=>{window.removeEventListener('freedom-theme-changed',sync);window.removeEventListener('storage',storage)};
+  },[]);
   function selectTheme(next:WorkshopTheme){
-    document.documentElement.dataset.theme=next;
-    setTheme(next);
-    try{localStorage.setItem('freedom-theme',next)}catch{/* The current visit still uses the selected theme. */}
+    const selected=applyExperienceProfile(next);setTheme(selected);
+    try{localStorage.setItem('freedom-theme',selected)}catch{/* Current visit retains the choice. */}
     window.dispatchEvent(new Event('freedom-theme-changed'));
   }
   return {theme,selectTheme};

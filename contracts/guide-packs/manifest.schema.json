@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "freedom.guide-pack/v1"
+    },
+    "pack": {
+      "type": "string",
+      "const": "dragon"
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 48,
+      "pattern": "^dragon-v[1-9][0-9]*-[0-9]{8}$"
+    },
+    "purpose": {
+      "type": "string",
+      "const": "platform-public"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^https:\\/\\/github\\.com\\/[A-Za-z0-9_.-]{1,100}\\/[A-Za-z0-9_.-]{1,100}$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      },
+      "required": [
+        "repository",
+        "commit"
+      ],
+      "additionalProperties": false
+    },
+    "assets": {
+      "minItems": 1,
+      "maxItems": 512,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "logicalId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}\\/[a-z0-9][a-z0-9-]{0,63}$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 2097152
+          },
+          "mime": {
+            "type": "string",
+            "const": "image/webp"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "logicalId",
+          "sha256",
+          "byteLength",
+          "mime",
+          "width",
+          "height"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "pack",
+    "version",
+    "purpose",
+    "source",
+    "assets"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guide-packs/v1"
+}

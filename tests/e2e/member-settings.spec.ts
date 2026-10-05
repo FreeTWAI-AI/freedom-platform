@@ -64,7 +64,7 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'待辦清單',exact:true})).toBeFocused();
   // 登出 is the last item, after the theme choices.
   await page.keyboard.press('End');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();
-  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'自由工坊－敘生',exact:true})).toBeFocused();
+  await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitemradio',{name:'新手導覽－龍娘',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(menu.getByRole('menuitem',{name:'登出',exact:true})).toBeFocused();
   await page.keyboard.press('Home');await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();

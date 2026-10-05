@@ -157,7 +157,7 @@ export function MemberTasks({client,onNavigate}:{client:PortalClient;onNavigate:
       :onboarding.value.bookCount>0?{state:'done',body:<p>已領取 {onboarding.value.bookCount} 本技能書。</p>,action:go('skills','查看技能書架',false)}
       :{state:'todo',body:<p>到技能書架免費領取第一本技能書。</p>,action:go('skills','前往技能書架',true)})});
 
-  const group=(required:boolean,id:string,title:string)=><section className="member-tasks-group" aria-labelledby={id}>
+  const group=(required:boolean,id:string,title:string)=><section className="member-tasks-group" aria-labelledby={id} data-guide-anchor={required?'todos:required':'todos:suggested'}>
     <h2 id={id} className="member-section-title">{title}</h2>
     <ul className="messages-list">
       {cards.filter(card=>card.required===required).sort((a,b)=>rank(a.state)-rank(b.state)).map(card=>{

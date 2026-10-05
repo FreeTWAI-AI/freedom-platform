@@ -71,7 +71,7 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
     catch { setCopied('請開啟作品頁，複製瀏覽器網址即可分享。'); }
   }
   return <section className="card stack work-sharing-form" aria-label="投稿開源工具">
-    <ol className="work-sharing-progress" aria-label="投稿進度"><li aria-current={!review && !published ? 'step' : undefined}>1 填寫介紹</li><li aria-current={review ? 'step' : undefined}>2 預覽並公開</li><li aria-current={published ? 'step' : undefined}>3 分享連結</li></ol>
+    <ol className="work-sharing-progress" data-guide-anchor="opensource:progress" aria-label="投稿進度"><li aria-current={!review && !published ? 'step' : undefined}>1 填寫介紹</li><li aria-current={review ? 'step' : undefined}>2 預覽並公開</li><li aria-current={published ? 'step' : undefined}>3 分享連結</li></ol>
     {published ? <section ref={success} tabIndex={-1} className="work-sharing-success stack" aria-label="投稿完成">
       <h2>你的工具已分享！</h2><p>已加入社群技能書，夥伴可以閱讀與分享。正式收錄由工坊另行審核。</p>
       <p>想讓更多人看懂這個工具？補上 100 則分享介紹和示意圖，就能升級成完整技能書。送出前，現在的版本保持不變。</p>
@@ -89,7 +89,7 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
       {saved && <p className="hint">已保存私人草稿；公開未完成時，可留在這裡重試，或稍後從下方草稿繼續。</p>}
     </form> : <form className="stack" onSubmit={preview}>
       <div className="section-head"><h2>投稿你的開源工具</h2><p>貼網址、寫一句用途，先預覽再公開。</p></div>
-      <label className="field">GitHub 專案網址<input required type="url" maxLength={300} placeholder="https://github.com/你的帳號/專案名稱" value={draft.repository_url} onChange={event => setDraft({ ...draft, repository_url: event.target.value })}/></label>
+      <label className="field">GitHub 專案網址<input required type="url" maxLength={300} placeholder="https://github.com/你的帳號/專案名稱" data-guide-anchor="opensource:repository" value={draft.repository_url} onChange={event => setDraft({ ...draft, repository_url: event.target.value })}/></label>
       <label className="field">作品名稱<input required maxLength={120} placeholder="例如：自動整理會議筆記" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })}/></label>
       <label className="field">一句話介紹<textarea required maxLength={2000} rows={3} placeholder="它能幫誰，解決什麼問題？" value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })}/></label>
       <label className="field">我與作品的關係<select value={draft.relationship} onChange={event => setDraft({ ...draft, relationship: event.target.value as Relationship })}>{Object.entries(relationshipLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select><span className="field-hint">推薦別人的工具也可以，原作者與授權都會保留。這是你的聲明，不是作者身分驗證。</span></label>

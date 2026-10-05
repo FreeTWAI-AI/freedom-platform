@@ -16,7 +16,7 @@ export const communityLinks = [
   { label: 'LINE・Grok', url: 'https://line.me/ti/g2/83dpd53WEvKWbgDROTV2t0z5hXnNSZTUTq17tg' },
 ];
 export function CommunityLinks() {
-  return <footer className="community-footer"><div><strong>自由工坊</strong><p>自由創作，讓每一種專業都有位置。</p></div><nav aria-label="自由工坊社群">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
+  return <footer className="community-footer"><div><strong>自由工坊</strong><p>自由創作，讓每一種專業都有位置。</p></div><nav aria-label="自由工坊社群" data-guide-anchor="community:links">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
 }
 
 export type CatalogBook = IntroBook & { id: string; fork_url: string | null; license_status: string };
@@ -95,7 +95,7 @@ export function CommunityPanel({ client, onNavigate }: { client: PortalClient; o
     </header>
     <CommunityLinks/>
     <section className="community-footprint" aria-labelledby="community-footprint-title">
-      <header><p className="home-eyebrow">OUR FOOTPRINT</p><h3 id="community-footprint-title">社群足跡</h3></header>
+      <header><p className="home-eyebrow">OUR FOOTPRINT</p><h3 id="community-footprint-title" data-guide-anchor="community:footprint">社群足跡</h3></header>
       {error && <div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => setReload(value => value + 1)}>重新載入社群足跡</button></div>}
       {!data && !error && <p role="status">正在載入社群足跡…</p>}
       <div className="community-metrics">{data?.metrics.map(metric => <div className="community-metric" key={metric.label}>

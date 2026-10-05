@@ -1,0 +1,678 @@
+{
+  "home": {
+    "pageId": "home",
+    "name": "晨曦",
+    "title": "會員首頁",
+    "accent": "#D6A540",
+    "intro": "我是晨曦，這裡的入口怎麼走，我可以陪你看。",
+    "backdropColor": "#bfab84",
+    "portrait": "home/portrait",
+    "hero": "home/hero",
+    "frames": [
+      "home/frame-0",
+      "home/frame-1",
+      "home/frame-2",
+      "home/frame-3",
+      "home/frame-4",
+      "home/frame-5"
+    ],
+    "views": [
+      "home/view-0",
+      "home/view-1",
+      "home/view-2",
+      "home/view-3",
+      "home/view-4",
+      "home/view-5"
+    ]
+  },
+  "guilds": {
+    "pageId": "guilds",
+    "name": "翠珀",
+    "title": "職業公會",
+    "accent": "#39A475",
+    "intro": "我是翠珀，想找哪一類公會？我們從這頁的分類看起。",
+    "backdropColor": null,
+    "portrait": "guilds/portrait",
+    "hero": "guilds/hero",
+    "frames": [
+      "guilds/frame-0",
+      "guilds/frame-1",
+      "guilds/frame-2",
+      "guilds/frame-3",
+      "guilds/frame-4",
+      "guilds/frame-5"
+    ],
+    "views": [
+      "guilds/view-0",
+      "guilds/view-1",
+      "guilds/view-2",
+      "guilds/view-3",
+      "guilds/view-4",
+      "guilds/view-5"
+    ]
+  },
+  "skills": {
+    "pageId": "skills",
+    "name": "星墨",
+    "title": "技能書架",
+    "accent": "#8D74D9",
+    "intro": "我是星墨，這頁的技能書想先找哪一本？",
+    "backdropColor": null,
+    "portrait": "skills/portrait",
+    "hero": "skills/hero",
+    "frames": [
+      "skills/frame-0",
+      "skills/frame-1",
+      "skills/frame-2",
+      "skills/frame-3",
+      "skills/frame-4",
+      "skills/frame-5"
+    ],
+    "views": [
+      "skills/view-0",
+      "skills/view-1",
+      "skills/view-2",
+      "skills/view-3",
+      "skills/view-4",
+      "skills/view-5"
+    ]
+  },
+  "messages": {
+    "pageId": "messages",
+    "name": "鈴語",
+    "title": "我的訊息",
+    "accent": "#557BDE",
+    "intro": "我是鈴語，通知和聊天在哪裡，我可以幫你分清楚。",
+    "backdropColor": null,
+    "portrait": "messages/portrait",
+    "hero": "messages/hero",
+    "frames": [
+      "messages/frame-0",
+      "messages/frame-1",
+      "messages/frame-2",
+      "messages/frame-3",
+      "messages/frame-4",
+      "messages/frame-5"
+    ],
+    "views": [
+      "messages/view-0",
+      "messages/view-1",
+      "messages/view-2",
+      "messages/view-3",
+      "messages/view-4",
+      "messages/view-5"
+    ]
+  },
+  "events": {
+    "pageId": "events",
+    "name": "緋舞",
+    "title": "社群活動",
+    "accent": "#E47776",
+    "intro": "我是緋舞，來看看這頁有哪些活動可以參加。",
+    "backdropColor": null,
+    "portrait": "events/portrait",
+    "hero": "events/hero",
+    "frames": [
+      "events/frame-0",
+      "events/frame-1",
+      "events/frame-2",
+      "events/frame-3",
+      "events/frame-4",
+      "events/frame-5"
+    ],
+    "views": [
+      "events/view-0",
+      "events/view-1",
+      "events/view-2",
+      "events/view-3",
+      "events/view-4",
+      "events/view-5"
+    ]
+  },
+  "tasks": {
+    "pageId": "tasks",
+    "name": "燈巡",
+    "title": "社群任務",
+    "accent": "#E59A36",
+    "intro": "我是燈巡，認領和提交任務的流程，我陪你一步一步看。",
+    "backdropColor": null,
+    "portrait": "tasks/portrait",
+    "hero": "tasks/hero",
+    "frames": [
+      "tasks/frame-0",
+      "tasks/frame-1",
+      "tasks/frame-2",
+      "tasks/frame-3",
+      "tasks/frame-4",
+      "tasks/frame-5"
+    ],
+    "views": [
+      "tasks/view-0",
+      "tasks/view-1",
+      "tasks/view-2",
+      "tasks/view-3",
+      "tasks/view-4",
+      "tasks/view-5"
+    ]
+  },
+  "members": {
+    "pageId": "members",
+    "name": "花棠",
+    "title": "工坊夥伴",
+    "accent": "#D78EAC",
+    "intro": "我是花棠，想找什麼專長的夥伴？先看看這頁的篩選。",
+    "backdropColor": null,
+    "portrait": "members/portrait",
+    "hero": "members/hero",
+    "frames": [
+      "members/frame-0",
+      "members/frame-1",
+      "members/frame-2",
+      "members/frame-3",
+      "members/frame-4",
+      "members/frame-5"
+    ],
+    "views": [
+      "members/view-0",
+      "members/view-1",
+      "members/view-2",
+      "members/view-3",
+      "members/view-4",
+      "members/view-5"
+    ]
+  },
+  "friends": {
+    "pageId": "friends",
+    "name": "澄友",
+    "title": "我的好友",
+    "accent": "#52B8C1",
+    "intro": "我是澄友，這頁的邀請和好友名單，我可以陪你整理。",
+    "backdropColor": null,
+    "portrait": "friends/portrait",
+    "hero": "friends/hero",
+    "frames": [
+      "friends/frame-0",
+      "friends/frame-1",
+      "friends/frame-2",
+      "friends/frame-3",
+      "friends/frame-4",
+      "friends/frame-5"
+    ],
+    "views": [
+      "friends/view-0",
+      "friends/view-1",
+      "friends/view-2",
+      "friends/view-3",
+      "friends/view-4",
+      "friends/view-5"
+    ]
+  },
+  "highlights": {
+    "pageId": "highlights",
+    "name": "映光",
+    "title": "活動集錦（會員入口）",
+    "accent": "#C75C55",
+    "intro": "我是映光，想回顧哪場活動？我們從這頁的集錦找起。",
+    "backdropColor": null,
+    "portrait": "highlights/portrait",
+    "hero": "highlights/hero",
+    "frames": [
+      "highlights/frame-0",
+      "highlights/frame-1",
+      "highlights/frame-2",
+      "highlights/frame-3",
+      "highlights/frame-4",
+      "highlights/frame-5"
+    ],
+    "views": [
+      "highlights/view-0",
+      "highlights/view-1",
+      "highlights/view-2",
+      "highlights/view-3",
+      "highlights/view-4",
+      "highlights/view-5"
+    ]
+  },
+  "positioning": {
+    "pageId": "positioning",
+    "name": "知羽",
+    "title": "我的定位",
+    "accent": "#B3ABCF",
+    "intro": "我是知羽，這頁的定位結果哪裡看不懂？",
+    "backdropColor": null,
+    "portrait": "positioning/portrait",
+    "hero": "positioning/hero",
+    "frames": [
+      "positioning/frame-0",
+      "positioning/frame-1",
+      "positioning/frame-2",
+      "positioning/frame-3",
+      "positioning/frame-4",
+      "positioning/frame-5"
+    ],
+    "views": [
+      "positioning/view-0",
+      "positioning/view-1",
+      "positioning/view-2",
+      "positioning/view-3",
+      "positioning/view-4",
+      "positioning/view-5"
+    ]
+  },
+  "squads": {
+    "pageId": "squads",
+    "name": "嵐翼",
+    "title": "小隊集合",
+    "accent": "#568D98",
+    "intro": "我是嵐翼，小隊要怎麼加入，我陪你看這頁的條件。",
+    "backdropColor": null,
+    "portrait": "squads/portrait",
+    "hero": "squads/hero",
+    "frames": [
+      "squads/frame-0",
+      "squads/frame-1",
+      "squads/frame-2",
+      "squads/frame-3",
+      "squads/frame-4",
+      "squads/frame-5"
+    ],
+    "views": [
+      "squads/view-0",
+      "squads/view-1",
+      "squads/view-2",
+      "squads/view-3",
+      "squads/view-4",
+      "squads/view-5"
+    ]
+  },
+  "cocreation": {
+    "pageId": "cocreation",
+    "name": "工晴",
+    "title": "一起開發",
+    "accent": "#68B9E4",
+    "intro": "我是工晴，想一起做點什麼？先看看這頁的開發入口。",
+    "backdropColor": null,
+    "portrait": "cocreation/portrait",
+    "hero": "cocreation/hero",
+    "frames": [
+      "cocreation/frame-0",
+      "cocreation/frame-1",
+      "cocreation/frame-2",
+      "cocreation/frame-3",
+      "cocreation/frame-4",
+      "cocreation/frame-5"
+    ],
+    "views": [
+      "cocreation/view-0",
+      "cocreation/view-1",
+      "cocreation/view-2",
+      "cocreation/view-3",
+      "cocreation/view-4",
+      "cocreation/view-5"
+    ]
+  },
+  "social": {
+    "pageId": "social",
+    "name": "璃音",
+    "title": "社群分享",
+    "accent": "#BA70BE",
+    "intro": "我是璃音，這頁要分享到哪裡、哪些內容會公開，我可以說明。",
+    "backdropColor": null,
+    "portrait": "social/portrait",
+    "hero": "social/hero",
+    "frames": [
+      "social/frame-0",
+      "social/frame-1",
+      "social/frame-2",
+      "social/frame-3",
+      "social/frame-4",
+      "social/frame-5"
+    ],
+    "views": [
+      "social/view-0",
+      "social/view-1",
+      "social/view-2",
+      "social/view-3",
+      "social/view-4",
+      "social/view-5"
+    ]
+  },
+  "services": {
+    "pageId": "services",
+    "name": "茶芽",
+    "title": "社員服務",
+    "accent": "#8AA66A",
+    "intro": "我是茶芽，這頁的服務想先了解哪一項？",
+    "backdropColor": null,
+    "portrait": "services/portrait",
+    "hero": "services/hero",
+    "frames": [
+      "services/frame-0",
+      "services/frame-1",
+      "services/frame-2",
+      "services/frame-3",
+      "services/frame-4",
+      "services/frame-5"
+    ],
+    "views": [
+      "services/view-0",
+      "services/view-1",
+      "services/view-2",
+      "services/view-3",
+      "services/view-4",
+      "services/view-5"
+    ]
+  },
+  "promotion": {
+    "pageId": "promotion",
+    "name": "耀璃",
+    "title": "推廣排行榜",
+    "accent": "#D5B04B",
+    "intro": "我是耀璃，排行榜怎麼算分，我陪你看這頁的規則。",
+    "backdropColor": null,
+    "portrait": "promotion/portrait",
+    "hero": "promotion/hero",
+    "frames": [
+      "promotion/frame-0",
+      "promotion/frame-1",
+      "promotion/frame-2",
+      "promotion/frame-3",
+      "promotion/frame-4",
+      "promotion/frame-5"
+    ],
+    "views": [
+      "promotion/view-0",
+      "promotion/view-1",
+      "promotion/view-2",
+      "promotion/view-3",
+      "promotion/view-4",
+      "promotion/view-5"
+    ]
+  },
+  "workbench": {
+    "pageId": "workbench",
+    "name": "礪星",
+    "title": "我的工作",
+    "accent": "#6986A5",
+    "intro": "我是礪星，這頁的工作進度卡在哪一步？",
+    "backdropColor": null,
+    "portrait": "workbench/portrait",
+    "hero": "workbench/hero",
+    "frames": [
+      "workbench/frame-0",
+      "workbench/frame-1",
+      "workbench/frame-2",
+      "workbench/frame-3",
+      "workbench/frame-4",
+      "workbench/frame-5"
+    ],
+    "views": [
+      "workbench/view-0",
+      "workbench/view-1",
+      "workbench/view-2",
+      "workbench/view-3",
+      "workbench/view-4",
+      "workbench/view-5"
+    ]
+  },
+  "opensource": {
+    "pageId": "opensource",
+    "name": "碼芽",
+    "title": "開源投稿",
+    "accent": "#5CC4B2",
+    "intro": "我是碼芽，開源投稿要準備什麼，我可以陪你核對。",
+    "backdropColor": null,
+    "portrait": "opensource/portrait",
+    "hero": "opensource/hero",
+    "frames": [
+      "opensource/frame-0",
+      "opensource/frame-1",
+      "opensource/frame-2",
+      "opensource/frame-3",
+      "opensource/frame-4",
+      "opensource/frame-5"
+    ],
+    "views": [
+      "opensource/view-0",
+      "opensource/view-1",
+      "opensource/view-2",
+      "opensource/view-3",
+      "opensource/view-4",
+      "opensource/view-5"
+    ]
+  },
+  "showcase": {
+    "pageId": "showcase",
+    "name": "繪璃",
+    "title": "作品與需求",
+    "accent": "#BC79A5",
+    "intro": "我是繪璃，這頁要看作品，還是看看大家需要什麼？",
+    "backdropColor": "#b19396",
+    "portrait": "showcase/portrait",
+    "hero": "showcase/hero",
+    "frames": [
+      "showcase/frame-0",
+      "showcase/frame-1",
+      "showcase/frame-2",
+      "showcase/frame-3",
+      "showcase/frame-4",
+      "showcase/frame-5"
+    ],
+    "views": [
+      "showcase/view-0",
+      "showcase/view-1",
+      "showcase/view-2",
+      "showcase/view-3",
+      "showcase/view-4",
+      "showcase/view-5"
+    ]
+  },
+  "engagement": {
+    "pageId": "engagement",
+    "name": "緣書",
+    "title": "合作紀錄",
+    "accent": "#995970",
+    "intro": "我是緣書，這頁的合作紀錄要從哪一筆看起？",
+    "backdropColor": null,
+    "portrait": "engagement/portrait",
+    "hero": "engagement/hero",
+    "frames": [
+      "engagement/frame-0",
+      "engagement/frame-1",
+      "engagement/frame-2",
+      "engagement/frame-3",
+      "engagement/frame-4",
+      "engagement/frame-5"
+    ],
+    "views": [
+      "engagement/view-0",
+      "engagement/view-1",
+      "engagement/view-2",
+      "engagement/view-3",
+      "engagement/view-4",
+      "engagement/view-5"
+    ]
+  },
+  "supplier": {
+    "pageId": "supplier",
+    "name": "琥珀",
+    "title": "我有東西要賣",
+    "accent": "#B98050",
+    "intro": "我是琥珀，這頁的供貨設定哪裡需要幫忙？",
+    "backdropColor": null,
+    "portrait": "supplier/portrait",
+    "hero": "supplier/hero",
+    "frames": [
+      "supplier/frame-0",
+      "supplier/frame-1",
+      "supplier/frame-2",
+      "supplier/frame-3",
+      "supplier/frame-4",
+      "supplier/frame-5"
+    ],
+    "views": [
+      "supplier/view-0",
+      "supplier/view-1",
+      "supplier/view-2",
+      "supplier/view-3",
+      "supplier/view-4",
+      "supplier/view-5"
+    ]
+  },
+  "retail": {
+    "pageId": "retail",
+    "name": "蜜菈",
+    "title": "我可以賣東西",
+    "accent": "#D8B34B",
+    "intro": "我是蜜菈，這頁的銷售商品和分享入口，我可以陪你看。",
+    "backdropColor": null,
+    "portrait": "retail/portrait",
+    "hero": "retail/hero",
+    "frames": [
+      "retail/frame-0",
+      "retail/frame-1",
+      "retail/frame-2",
+      "retail/frame-3",
+      "retail/frame-4",
+      "retail/frame-5"
+    ],
+    "views": [
+      "retail/view-0",
+      "retail/view-1",
+      "retail/view-2",
+      "retail/view-3",
+      "retail/view-4",
+      "retail/view-5"
+    ]
+  },
+  "marketing": {
+    "pageId": "marketing",
+    "name": "霓霞",
+    "title": "行銷工作室",
+    "accent": "#BE72D2",
+    "intro": "我是霓霞，這頁要找行銷任務，還是先看素材工具？",
+    "backdropColor": null,
+    "portrait": "marketing/portrait",
+    "hero": "marketing/hero",
+    "frames": [
+      "marketing/frame-0",
+      "marketing/frame-1",
+      "marketing/frame-2",
+      "marketing/frame-3",
+      "marketing/frame-4",
+      "marketing/frame-5"
+    ],
+    "views": [
+      "marketing/view-0",
+      "marketing/view-1",
+      "marketing/view-2",
+      "marketing/view-3",
+      "marketing/view-4",
+      "marketing/view-5"
+    ]
+  },
+  "guild-workspace": {
+    "pageId": "guild-workspace",
+    "name": "御青",
+    "title": "公會管理",
+    "accent": "#4D947D",
+    "intro": "我是御青，這頁的公告、技能書和審核入口，我可以帶你找。",
+    "backdropColor": null,
+    "portrait": "guild-workspace/portrait",
+    "hero": "guild-workspace/hero",
+    "frames": [
+      "guild-workspace/frame-0",
+      "guild-workspace/frame-1",
+      "guild-workspace/frame-2",
+      "guild-workspace/frame-3",
+      "guild-workspace/frame-4",
+      "guild-workspace/frame-5"
+    ],
+    "views": [
+      "guild-workspace/view-0",
+      "guild-workspace/view-1",
+      "guild-workspace/view-2",
+      "guild-workspace/view-3",
+      "guild-workspace/view-4",
+      "guild-workspace/view-5"
+    ]
+  },
+  "community": {
+    "pageId": "community",
+    "name": "和鈴",
+    "title": "自由工坊社群",
+    "accent": "#7BBEAE",
+    "intro": "我是和鈴，這頁的社群入口想先看哪一個？",
+    "backdropColor": null,
+    "portrait": "community/portrait",
+    "hero": "community/hero",
+    "frames": [
+      "community/frame-0",
+      "community/frame-1",
+      "community/frame-2",
+      "community/frame-3",
+      "community/frame-4",
+      "community/frame-5"
+    ],
+    "views": [
+      "community/view-0",
+      "community/view-1",
+      "community/view-2",
+      "community/view-3",
+      "community/view-4",
+      "community/view-5"
+    ]
+  },
+  "account": {
+    "pageId": "account",
+    "name": "鏡月",
+    "title": "我的名片",
+    "accent": "#91ABC9",
+    "intro": "我是鏡月，這頁的名片哪些會公開，我可以陪你核對。",
+    "backdropColor": null,
+    "portrait": "account/portrait",
+    "hero": "account/hero",
+    "frames": [
+      "account/frame-0",
+      "account/frame-1",
+      "account/frame-2",
+      "account/frame-3",
+      "account/frame-4",
+      "account/frame-5"
+    ],
+    "views": [
+      "account/view-0",
+      "account/view-1",
+      "account/view-2",
+      "account/view-3",
+      "account/view-4",
+      "account/view-5"
+    ]
+  },
+  "todos": {
+    "pageId": "todos",
+    "name": "序星",
+    "title": "待辦清單",
+    "accent": "#9A91AF",
+    "intro": "我是序星，這頁的待辦想先整理哪一件？",
+    "backdropColor": null,
+    "portrait": "todos/portrait",
+    "hero": "todos/hero",
+    "frames": [
+      "todos/frame-0",
+      "todos/frame-1",
+      "todos/frame-2",
+      "todos/frame-3",
+      "todos/frame-4",
+      "todos/frame-5"
+    ],
+    "views": [
+      "todos/view-0",
+      "todos/view-1",
+      "todos/view-2",
+      "todos/view-3",
+      "todos/view-4",
+      "todos/view-5"
+    ]
+  }
+}

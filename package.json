@@ -69,7 +69,8 @@
     "test:media-restore": "node scripts/run-media-restore-test.mjs",
     "media:restore-acl": "tsx scripts/media-restore-acl.ts",
     "media:worker-preflight": "node -- deploy/cloudflare/media-preflight.mjs",
-    "worker:dry-run:media-operator": "wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env \"\" --outdir .wrangler/dry-run/media-operator-local && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env staging-next --outdir .wrangler/dry-run/media-operator-staging-next && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env next --outdir .wrangler/dry-run/media-operator-next"
+    "worker:dry-run:media-operator": "wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env \"\" --outdir .wrangler/dry-run/media-operator-local && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env staging-next --outdir .wrangler/dry-run/media-operator-staging-next && wrangler deploy --dry-run --config wrangler.media-operator.example.jsonc --env next --outdir .wrangler/dry-run/media-operator-next",
+    "guide:publish-plan": "node --import tsx scripts/guide-pack-publish-plan.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

@@ -1,0 +1,24 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "newcomer-guides",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/portal-web/src/modules/newcomer-guides/**",
+    "apps/portal-web/src/experience-profiles.ts",
+    "apps/portal-web/src/workshop-theme.ts",
+    "apps/portal-web/src/dragon-theme.css",
+    "docs/development/newcomer-guides.md",
+    "tests/runtime/newcomer-guides.test.ts",
+    "tests/runtime/newcomer-guide-dialogue.test.ts",
+    "tests/runtime/guide-anchors.test.ts",
+    "tests/e2e/newcomer-guides.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": ["public-guide-assets"],
+  "contract_families": ["newcomer-guide-v1"],
+  "client_profiles": ["member"],
+  "instructions": ["AGENTS.md", "DESIGN.md", "docs/development/newcomer-guides.md"],
+  "invariants": ["explicit-profile-and-page-opt-in", "release-pinned-public-assets", "no-guide-business-actions", "no-secrets-in-artifacts"],
+  "tests": ["runtime.full"],
+  "surfaces": [{"surface_id":"member.newcomer-guide","kind":"page","entry":"apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx","operations":["guide.read","guide.focus"],"auth_profile":"member-session"}]
+}

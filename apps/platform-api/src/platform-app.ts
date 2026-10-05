@@ -1,3 +1,4 @@
+import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
@@ -120,12 +121,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.use('/api/v1/me/onboarding/*',onboardingDiagnostics());
   app.use('*',async(c,next)=>{
+    c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
-    c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
+    // Public guide responses are terminal and own their explicit validated cache policy.
+    // Return before generic mutation body parsing; unknown paths never reach the SPA.
+    if(isGuideAssetPath(c.req.path)){
+      const response=await guideAssetResponse(c.req.raw,runtime.publicGuideAssets);
+      c.header('Cache-Control',response.headers.get('Cache-Control')??'no-store');
+      return response;
+    }
     // These host-installed child transports authorize and bound the ORIGINAL
     // request body. The legacy generic text reader must not consume it first.
     if(isPrivateAiPath(c.req.path)&&runtime.privateAiProduct)return runtime.privateAiProduct(c.req.raw);
@@ -183,6 +191,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
     }
   });
+  registerGuideReleaseRoute(app,runtime.publicGuideAssets);
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer}));
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));

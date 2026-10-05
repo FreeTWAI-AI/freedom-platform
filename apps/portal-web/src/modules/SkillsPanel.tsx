@@ -59,8 +59,8 @@ export function SkillsPanel({ client, onNavigate }: ModulePanelProps) {
         <header className="page-toolbar skill-shelf-heading">
           <h2 id={guildHeading}>公會指定技能書</h2>
           <div className="scope-tabs" role="group" aria-label="技能書範圍">
-            <button ref={unlockedTab} className="btn btn-ghost" aria-pressed={scope === 'unlocked'} onClick={() => setScope('unlocked')}>已解鎖{ids ? ` · ${ids.length}` : ''}</button>
-            <button className="btn btn-ghost" aria-pressed={scope === 'locked'} onClick={() => setScope('locked')}>未解鎖</button>
+            <button data-guide-anchor="skills:unlocked" ref={unlockedTab} className="btn btn-ghost" aria-pressed={scope === 'unlocked'} onClick={() => setScope('unlocked')}>已解鎖{ids ? ` · ${ids.length}` : ''}</button>
+            <button data-guide-anchor="skills:locked" className="btn btn-ghost" aria-pressed={scope === 'locked'} onClick={() => setScope('locked')}>未解鎖</button>
           </div>
         </header>
         {notice && <p role="status" className="banner banner-info">{notice}</p>}

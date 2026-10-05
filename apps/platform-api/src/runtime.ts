@@ -1,3 +1,4 @@
+import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
 import type {EventHighlightAssetService} from '../../../modules/assets/event-highlight.js';
 import type {SkillImageAssetService} from '../../../modules/assets/skill-image.js';
 import type {SocialThumbnailAssetService} from '../../../modules/assets/social-thumbnail.js';
@@ -20,6 +21,8 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  /** Independently installed read-only platform-public guide release. Never MEDIA. */
+  publicGuideAssets?: PublicGuideAssets;
   /** Community new registrations join; read per request. */
   registrationCommunityId: () => string | undefined;
   /** Base64 AES key protecting stored GitHub credentials; never logged or returned. */
