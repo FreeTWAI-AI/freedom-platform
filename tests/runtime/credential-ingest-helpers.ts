@@ -1,6 +1,7 @@
 // @ts-expect-error Canonical tooling is JavaScript without a declaration file.
 import {createIngestBrowserDiagnostic} from '../../packages/contribution-tools/test-failure-diagnostic.mjs';
 import assert from 'node:assert/strict';
+import {setTimeout as pause} from 'node:timers/promises';
 import { fork, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID, randomBytes, X509Certificate } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
@@ -57,14 +58,20 @@ export async function template(owner:Pool,schema:string,file:string,role:string,
   const source=(await readFile(new URL('../../deploy/cloudflare/sql/'+file,import.meta.url),'utf8')).replace(/^\\set .*$/mg,'').replaceAll('SCHEMA public','SCHEMA '+schema).replaceAll("n.nspname='public'","n.nspname='"+schema+"'").replaceAll("'public','CREATE'","'"+schema+"','CREATE'").replaceAll(':"'+variable+'"','"'+role+'"').replaceAll(":'"+variable+"'","'"+role+"'");
   const q=await owner.connect();try{const pieces=source.split('\\gexec');for(let i=0;i<pieces.length;i++){const result=await q.query(pieces[i]);if(i<pieces.length-1){const last=Array.isArray(result)?result[result.length-1]:result;for(const row of last.rows)await q.query(Object.values(row)[0] as string);}}}catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
 }
-export interface ChildHandle { child:ChildProcess; logs:()=>string; request:(kind:string,value?:unknown)=>Promise<any>; close:()=>Promise<void> }
+export interface ChildHandle { child:ChildProcess; logs:()=>string; request:(kind:string,value?:unknown,timeoutMs?:number)=>Promise<any>; close:()=>Promise<void> }
 async function childProcess(kind:string,config:Record<string,unknown>):Promise<ChildHandle> {
   const child=fork(fileURLToPath(new URL('./credential-ingest-fixtures/'+kind+'-child.ts',import.meta.url)),[],{execArgv:['--import','tsx'],env:{PATH:process.env.PATH,LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe','ipc']});
   let logs='',serial=0;const pending=new Map<number,{resolve:(v:any)=>void;reject:(e:Error)=>void}>();
   child.stdout!.on('data',chunk=>{logs+=String(chunk);});child.stderr!.on('data',chunk=>{logs+=String(chunk);});
   child.on('message',(message:any)=>{const waiter=pending.get(message.id);if(waiter){pending.delete(message.id);if(message.error)waiter.reject(new Error(message.error));else waiter.resolve(message.value);}});
   child.on('exit',()=>{for(const waiter of pending.values())waiter.reject(new Error('Fixture child exited: '+logs));pending.clear();});
-  const request=(kind:string,value?:unknown)=>new Promise<any>((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject});child.send({id,kind,value});});
+  const request=(kind:string,value?:unknown,timeoutMs?:number)=>new Promise<any>((resolve,reject)=>{
+    const id=++serial;let timer:ReturnType<typeof setTimeout>|undefined;
+    const finish=(callback:(value:any)=>void,result:any)=>{pending.delete(id);clearTimeout(timer);callback(result);};
+    pending.set(id,{resolve:value=>finish(resolve,value),reject:error=>finish(reject,error)});
+    if(timeoutMs!==undefined)timer=setTimeout(()=>pending.get(id)?.reject(Error('Fixture IPC response deadline exceeded')),Math.max(1,timeoutMs));
+    try{child.send({id,kind,value},error=>{if(error)pending.get(id)?.reject(Error('Fixture IPC send failed'));});}catch{pending.get(id)?.reject(Error('Fixture IPC send failed'));}
+  });
   const handle={child,logs:()=>logs,request,close:async()=>{if(child.exitCode!==null)return;try{await request('close');}finally{child.kill();}}};
   try{await request('init',config);return handle;}catch(error){child.kill();throw error;}
 }
@@ -170,20 +177,36 @@ export async function ingestFixture() {
     diagnostic?.phase('navigation_submit');await page.evaluate(({setupOrigin,assertion})=>{const form=document.createElement('form');form.method='POST';form.action=setupOrigin+'/credential-setup';const input=document.createElement('input');input.name='assertion';input.value=assertion;form.append(input);document.body.append(form);form.submit();},{setupOrigin,assertion});
     diagnostic?.phase('navigation_wait');await page.waitForURL(setupOrigin+'/credential-setup');return page;
   }
-  async function ingestBrowser(human:Awaited<ReturnType<typeof member>>,modelConnectionId:string) {
+  let browserIngestActive=false;
+  async function ingestBrowser(human:Awaited<ReturnType<typeof member>>,modelConnectionId:string,observePage?:(page:Page)=>Promise<void>) {
+    assert.equal(browserIngestActive,false,'Fixture browser ingest must run exclusively');browserIngestActive=true;
     const diagnostic=createIngestBrowserDiagnostic();let context:BrowserContext|undefined;const detach:(()=>void)[]=[];
     const watch=(page:Page)=>{detach.push(observeIngestBrowserPage(page,setupOrigin,diagnostic));};
     try{
     // Browser startup is fixture preparation, not part of the signed setup lifetime.
     context=await browserContext(human);context.on('page',watch);
+    const beforeRequests=(await broker!.request('snapshot',undefined,10000)).requests.length;
     diagnostic.phase('issue');const response=await issue(human,modelConnectionId);assert.equal(response.status,201,await response.clone().text());const bootstrap=await response.json() as any;
-    const page=await navigateSetup(context,bootstrap.assertion,diagnostic);
+    const page=await navigateSetup(context,bootstrap.assertion,diagnostic);if(observePage)await observePage(page);
     diagnostic.phase('screenshot');if(process.env.INGEST_SCREENSHOT_DIR){await mkdir(process.env.INGEST_SCREENSHOT_DIR,{recursive:true});for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.INGEST_SCREENSHOT_DIR,`protected-setup-${width}.png`),fullPage:true});}}
     diagnostic.phase('key_fill');await page.locator('#credential-key').fill(secret);diagnostic.phase('consent_check');await page.locator('#credential-consent').check();diagnostic.phase('submit_click');await page.locator('#credential-submit').click();
-    // This success helper expects the browser's actual broker acknowledgement.
-    // Owner polling shares the real execution_member quota with approve/activate/
-    // execute; racing up to 100 reads can exhaust 60/min before execution starts.
-    diagnostic.phase('ack_wait');await page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'}).waitFor({timeout:10000});
+    // Browser delivery and SQL custody are separate outcomes. Keep the existing
+    // 10s observation budget and never resubmit a key or poll the owner endpoint.
+    const deadline=performance.now()+10000;
+    diagnostic.phase('ack_wait');await page.locator('#credential-status[data-error="true"]').or(page.locator('#credential-status').filter({hasText:'已收到設定服務回覆'})).waitFor({timeout:10000});
+    assert(performance.now()<deadline,'Fixture browser observation deadline exceeded');
+    assert.equal(await page.locator('#credential-key').inputValue({timeout:Math.max(1,deadline-performance.now())}),'');
+    assert(performance.now()<deadline,'Fixture browser observation deadline exceeded');
+    assert.equal(await page.locator('#credential-submit').isDisabled({timeout:Math.max(1,deadline-performance.now())}),true);
+    diagnostic.phase('broker_wait');let settled=false;
+    while(performance.now()<deadline){
+      const snapshot=await broker!.request('snapshot',undefined,Math.max(1,deadline-performance.now()));
+      const requests=snapshot.requests.slice(beforeRequests),secret=requests.filter((r:any)=>r.path==='/credential-setup/secret'&&r.method==='POST'),prepare=requests.filter((r:any)=>r.path==='/credential-setup/prepare'&&r.method==='POST');
+      assert(secret.length<=1);assert(prepare.length<=1);
+      if(secret.length===1&&secret[0].settled===true||secret.length===0&&prepare.length===1&&prepare[0].settled===true&&prepare[0].status!==200){settled=true;break;}
+      await pause(Math.min(10,Math.max(0,deadline-performance.now())));
+    }
+    assert(settled,'Fixture broker completion unavailable');
     diagnostic.phase('owner_read');const read=await httpsFetch(mainOrigin+'/api/v1/me/credential-ingests/'+bootstrap.authorizationRef,{headers:{...human.headers,Origin:mainOrigin}});
     assert.equal(read.status,200);const outcome:any=await read.json();
     diagnostic.phase('owner_assert');assert.equal(outcome?.state,'committed',JSON.stringify({outcome,status:await page.locator('#credential-status').textContent(),sqlErrors:await broker!.request('sqlErrors'),broker:await broker!.request('snapshot')}));
@@ -193,7 +216,7 @@ export async function ingestFixture() {
       // raw SQL/error output. MVCC reads do not wait for pending row writers.
       diagnostic.custody(await readIngestCustodyDiagnostic(roleUrl(roles.owner),schema,modelConnectionId));
       throw diagnostic.annotate(error);
-    }finally{context?.off('page',watch);for(const remove of detach)remove();}
+    }finally{browserIngestActive=false;context?.off('page',watch);for(const remove of detach)remove();}
   }
   async function configured() { const human=await member(),initial=await paired(human);const model=await prerequisites.models.create(human.actor,{key:randomUUID(),connectionId:initial.connectionId,expectedConnectionVersion:'1',selection:modelSelection});return {...human,initial,model}; }
   async function approved() {

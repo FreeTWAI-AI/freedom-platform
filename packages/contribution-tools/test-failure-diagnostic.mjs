@@ -11,7 +11,7 @@ const CLASSES = ['sql_wait_not_observed','asset_read_not_reached','expiry_assert
 const hash = v => typeof v==='string' && /^[a-f0-9]{64}$(?![\s\S])/.test(v);
 const exact = (v,keys) => v && typeof v==='object' && !Array.isArray(v) && Object.keys(v).length===keys.length && keys.every(k=>Object.hasOwn(v,k));
 const comparisonValue = v => typeof v==='boolean' || Number.isSafeInteger(v)&&Math.abs(v)<=20000;
-const INGEST_PHASES=['browser_context','issue','navigation_blank','navigation_submit','navigation_wait','screenshot','key_fill','consent_check','submit_click','ack_wait','owner_read','owner_assert','page_close'];
+const INGEST_PHASES=['browser_context','issue','navigation_blank','navigation_submit','navigation_wait','screenshot','key_fill','consent_check','submit_click','ack_wait','broker_wait','owner_read','owner_assert','page_close'];
 const INGEST_STATES=['not_seen','request','response','failed'];
 const validIngest=d=>exact(d,['phase','prepare_state','prepare_status','secret_state','secret_status','custody'])
   &&['not_checked','absent','one_active','multiple_active','unavailable'].includes(d.custody)&&INGEST_PHASES.includes(d.phase)&&INGEST_STATES.includes(d.prepare_state)&&INGEST_STATES.includes(d.secret_state)

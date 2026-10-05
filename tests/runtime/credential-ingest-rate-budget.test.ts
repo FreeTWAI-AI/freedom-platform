@@ -81,3 +81,42 @@ test('controlled Chromium secret abort records request failure and preserves act
  }finally{await browser.close();}
 });
 
+
+test('INGEST-LATE-ACK real committed custody remains discoverable after delayed broker reply crosses browser abort',{timeout:60000},async()=>{
+ const f=await ingestFixture();let delivery:Promise<void>|undefined,status:number|undefined,browserTerminal:Promise<{keyCleared:boolean;disabled:boolean}>|undefined;
+ try{
+  const human=await f.configured();
+  const credential=await f.ingestBrowser(human,human.model.modelConnectionId,async p=>{
+   browserTerminal=p.evaluate(()=>new Promise<{keyCleared:boolean;disabled:boolean}>(resolve=>{const status=document.getElementById('credential-status')!;const observer=new MutationObserver(()=>{if(status.dataset.error==='true'){observer.disconnect();resolve({keyCleared:(document.getElementById('credential-key') as HTMLInputElement).value==='',disabled:(document.getElementById('credential-submit') as HTMLButtonElement).disabled});}});observer.observe(status,{attributes:true,childList:true});}));
+   await p.route(f.setupOrigin+'/credential-setup/secret',route=>{
+    delivery=(async()=>{
+     const request=route.request();
+     // Same genuine fixture TLS origin and pinned CA; no fake broker response.
+     const response=await httpsFetch(request.url(),{method:'POST',headers:await request.allHeaders(),body:request.postDataBuffer()!});
+     status=response.status;const body=await response.text();await delay(6000);
+     await route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body}).catch(()=>{});
+    })();return delivery;
+   });
+  });
+  await delivery;assert.equal(status,200);assert(credential.credentialId);assert.deepEqual(await browserTerminal,{keyCleared:true,disabled:true});
+  assert.equal((await f.owner.query('SELECT count(*)::int n FROM broker_model_credentials WHERE model_connection_id=$1',[human.model.modelConnectionId])).rows[0].n,1);
+  const broker=await f.broker.request('snapshot');assert.equal(broker.requests.filter((r:any)=>r.path==='/credential-setup/prepare').length,1);assert.equal(broker.requests.filter((r:any)=>r.path==='/credential-setup/secret').length,1);assert(broker.reads.every((r:any)=>r.cleared));
+  const main=await f.main.request('snapshot');assert.equal(main.received.filter((r:any)=>r.method==='GET'&&r.path.startsWith('/api/v1/me/credential-ingests/')).length,1);assert.equal(f.posts.length,0);
+ }finally{await delivery?.catch(()=>{});await f.cleanup();}
+});
+
+for(const mode of ['prepare_denied','custody_rollback'] as const)test('INGEST-LATE-ACK '+mode+' remains a failed custody fixture without resubmission',{timeout:60000},async()=>{
+ const f=await ingestFixture();try{
+  const human=await f.configured();
+  if(mode==='custody_rollback')await f.owner.query(`CREATE FUNCTION fixture_late_ack_rollback() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+    IF NEW.operation='broker.credential.create' THEN RAISE EXCEPTION 'synthetic custody rollback'; END IF; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_late_ack_rollback BEFORE INSERT ON scoped_command_receipts FOR EACH ROW EXECUTE FUNCTION fixture_late_ack_rollback()`);
+  await assert.rejects(f.ingestBrowser(human,human.model.modelConnectionId,async()=>{if(mode==='prepare_denied')await f.broker.request('captureReady',false);}));
+  assert.equal((await f.owner.query('SELECT count(*)::int n FROM broker_model_credentials')).rows[0].n,0);
+  assert.equal((await f.owner.query('SELECT count(*)::int n FROM broker_credential_vault')).rows[0].n,0);
+  assert.equal((await f.owner.query("SELECT count(*)::int n FROM scoped_command_receipts WHERE operation='broker.credential.create'")).rows[0].n,0);
+  const snapshot=await f.broker.request('snapshot'),secret=snapshot.requests.filter((r:any)=>r.path==='/credential-setup/secret');
+  assert.equal(secret.length,mode==='prepare_denied'?0:1);assert(snapshot.reads.every((r:any)=>r.cleared));assert.equal(f.posts.length,0);
+  assert.equal((await f.main.request('snapshot')).received.filter((r:any)=>r.method==='GET'&&r.path.startsWith('/api/v1/me/credential-ingests/')).length,1);
+ }finally{await f.cleanup();}
+});
