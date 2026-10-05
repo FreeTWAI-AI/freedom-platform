@@ -1,0 +1,275 @@
+{
+  "packet": "C5b shared repository/operator migration entries",
+  "base": "7565e1d643b91754cbc04a31dfd462773a8c147c",
+  "commits": [
+    "2166be6c3048a701b682b64399169c6730552c9e",
+    "79579765079084b70f5d50c0331167e55c216661"
+  ],
+  "final_source": "79579765079084b70f5d50c0331167e55c216661",
+  "status": "reviewed-local-candidate",
+  "requirements": [
+    {
+      "id": "UF:INT-23",
+      "status": "partial",
+      "owner": "C5 + integration/operator owner",
+      "implemented": [
+        "packages/db/migration-runner.mjs",
+        "scripts/database.ts",
+        "deploy/cloudflare/migration-operator.mjs",
+        "scripts/migrate-installed.mjs"
+      ],
+      "evidence_tier": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
+      "remaining": [
+        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "Current production/operator pending migration pipeline installation has not been changed or verified.",
+        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
+      ]
+    }
+  ],
+  "verification_before_followup": {
+    "source": "2166be6c3048a701b682b64399169c6730552c9e",
+    "tests": [
+      {
+        "log": "planner-release-final.log",
+        "pass": 394
+      },
+      {
+        "log": "entrypoints-pg-final3.log",
+        "pass": 11
+      },
+      {
+        "log": "canonical-proof-final.log",
+        "pass": 8,
+        "kind": "exact2166 both real full legacy entries"
+      }
+    ],
+    "typecheck": "typecheck-final.log",
+    "receipts": "canonical-entrypoint-receipts.json"
+  },
+  "verification_after_followup": {
+    "source": "79579765079084b70f5d50c0331167e55c216661",
+    "tests": [
+      {
+        "log": "operator-followup.log",
+        "pass": 6,
+        "includes": "HTTP alternate metadata rejected with network disabled in Git"
+      },
+      {
+        "log": "entrypoints-followup.log",
+        "pass": 12,
+        "includes": "after import yields caller target/pins mutation cannot redirect admitted target or receipt"
+      },
+      {
+        "log": "final795/canonical-proof.log",
+        "pass": 8,
+        "kind": "exact795 both real full legacy entries, external copied reviewed host adapter closure"
+      }
+    ],
+    "typecheck": "typecheck-followup.log",
+    "diff_check": "pass",
+    "receipts": "final795/canonical-entrypoint-receipts.json"
+  },
+  "behavior": {
+    "one_sql_executor": true,
+    "both_entries_reverse_merge_and_empty_replay": true,
+    "final_observed_ledger_verified_before_commit": true,
+    "unknown_digest_and_wrong_target_refused": true,
+    "host_pins_independent_of_candidate_manifest": true,
+    "dag_fp_target_restriction": "compatibility fence only, not authority or isolation",
+    "installed_source_core_snapshot": "exact Git bytes and independently supplied source/profile/installation pins",
+    "caller_inputs": "frozen value copies before first async import",
+    "owned_database_cleanup": "containers and socket directories removed; public code snapshots and wrappers retained"
+  },
+  "advisory_review": {
+    "model_requested": "grok-4.7",
+    "session": "01a10e3a-56c2-7792-a77b-1ddec18b51f4",
+    "stop_reason": "end_turn",
+    "result": "No blocker in four-file read-only scope",
+    "source_at_review": "2166be6c3048a701b682b64399169c6730552c9e",
+    "receipt": "grok-review-final.txt",
+    "limits": [
+      "Reviewer did not execute tests or independently check Git SHA.",
+      "Planner/loader/SQL/fixtures and PostgreSQL tests were outside its read set.",
+      "Followup795 reviewed independently by root, not claimed covered by Grok2166."
+    ]
+  },
+  "retained_initial_failures": [
+    "typecheck initially exposed Promise<receipt> mismatch; repo migrate now awaits shared runner preserving Promise<void>.",
+    "Wrapper initially used unsupported named Pool import from CJS; fixed default import and exact error-code assertions.",
+    "Original proof parent was group writable; adapter correctly refused it. Proof rerun uses new0700 host directory."
+  ],
+  "limits": [
+    "No live database, migration, deployment, GitHub pin, or historical private wrapper changed.",
+    "Pinned SQL remains reviewed executable trust material; transaction wrapper does not sandbox malicious COMMIT.",
+    "Source package-lock provenance does not certify installed host Node/pg/runtime.",
+    "Host-supplied JSON alone is not approval; independently reviewed source/profile/pins required.",
+    "Full394 suite belongs to2166.795 repeated focused affected tests and exact full-source installation only.",
+    "Exact2166 original wrapper is historical evidence; final795 wrapper uses a preserved external read-only host tool closure."
+  ],
+  "context": {
+    "prepare": "prepare-final.json",
+    "retrieved_chunks": 112,
+    "complete": "context-final-complete.json",
+    "blockers": [
+      "surface_unmapped"
+    ],
+    "trust": "local/unverified; new installed CLI surface must be registered by integration owner"
+  },
+  "shared_files": "Root owns descriptor/index/inventory/release compatibility registry; this branch did not update them.",
+  "format": "freedom.migration-entrypoints-evidence/v1",
+  "canonical_receipts": {
+    "source": "79579765079084b70f5d50c0331167e55c216661",
+    "receipts": [
+      {
+        "kind": "repository",
+        "source": "79579765079084b70f5d50c0331167e55c216661",
+        "source_tree": "cf33f657aa352d922caa1c7d15dd9aea925fd1ff",
+        "installation_digest": "6d9e15dfddb59ec72527f6ef255e55e0638edf38a0aec3899416817db38b9468",
+        "profile_digest": "fa295bca192aecd17b76b2d6ac441ca79e92f7798d4ba9a70ccaa66a2f841628",
+        "wrapper_digest": null,
+        "first_applied": 115,
+        "replay_applied": 0,
+        "observed_ledger_digest": "8b4a69b5bcc32eed9eb17d95c9901b6e987ca76af3370996d45f4a32023e7121",
+        "target": {
+          "database": "fp_c5_migrations",
+          "role": "postgres",
+          "schema": "fp_c5_1c941f141795398e"
+        },
+        "host_tool_files": [
+          {
+            "path": "deploy/cloudflare/migration-operator.mjs",
+            "sha256": "3ae8bd790d82f147a7158717f8a21727a953b9630deede5fe2740ea479ce4475"
+          },
+          {
+            "path": "packages/db/migration-plan.mjs",
+            "sha256": "a193ae38ca595b565fc2d2009f9512a0744ea96bf7f2df3c5d99bedbe8063784"
+          },
+          {
+            "path": "packages/db/migration-files.mjs",
+            "sha256": "e90997ac4210ca7e48d8358d40dc5cb6bb7dfa57f71a9f83bf3ba3603a96dc3b"
+          },
+          {
+            "path": "packages/db/migration-runner.mjs",
+            "sha256": "2628729cdd5027076a159408e0a5aa5ad6537e094eb22833a5955387fda3c0a7"
+          },
+          {
+            "path": "scripts/migrate-installed.mjs",
+            "sha256": "f7748c8bb95e886a29707937bdaccae968094cb62f41cd45d83e457788a7f5b0"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "2b73d82d25aa826d3ab6d4e438030c91b32c668e1dae1c9e46ddfd1aee4fcb93"
+          }
+        ],
+        "trust": "local-review-only",
+        "deployment_authorized": false
+      },
+      {
+        "kind": "operator",
+        "source": "79579765079084b70f5d50c0331167e55c216661",
+        "source_tree": "cf33f657aa352d922caa1c7d15dd9aea925fd1ff",
+        "installation_digest": "6d9e15dfddb59ec72527f6ef255e55e0638edf38a0aec3899416817db38b9468",
+        "profile_digest": "fa295bca192aecd17b76b2d6ac441ca79e92f7798d4ba9a70ccaa66a2f841628",
+        "wrapper_digest": "15ff1494786b297e0815c36fbcdba47d559e7279b614f57bbc7b6328d920d17b",
+        "first_applied": 115,
+        "replay_applied": 0,
+        "observed_ledger_digest": "8b4a69b5bcc32eed9eb17d95c9901b6e987ca76af3370996d45f4a32023e7121",
+        "target": {
+          "database": "fp_c5_migrations",
+          "role": "postgres",
+          "schema": "fp_c5_3a7f1fc42257d162"
+        },
+        "host_tool_files": [
+          {
+            "path": "deploy/cloudflare/migration-operator.mjs",
+            "sha256": "3ae8bd790d82f147a7158717f8a21727a953b9630deede5fe2740ea479ce4475"
+          },
+          {
+            "path": "packages/db/migration-plan.mjs",
+            "sha256": "a193ae38ca595b565fc2d2009f9512a0744ea96bf7f2df3c5d99bedbe8063784"
+          },
+          {
+            "path": "packages/db/migration-files.mjs",
+            "sha256": "e90997ac4210ca7e48d8358d40dc5cb6bb7dfa57f71a9f83bf3ba3603a96dc3b"
+          },
+          {
+            "path": "packages/db/migration-runner.mjs",
+            "sha256": "2628729cdd5027076a159408e0a5aa5ad6537e094eb22833a5955387fda3c0a7"
+          },
+          {
+            "path": "scripts/migrate-installed.mjs",
+            "sha256": "f7748c8bb95e886a29707937bdaccae968094cb62f41cd45d83e457788a7f5b0"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "2b73d82d25aa826d3ab6d4e438030c91b32c668e1dae1c9e46ddfd1aee4fcb93"
+          }
+        ],
+        "trust": "local-review-only",
+        "deployment_authorized": false
+      }
+    ],
+    "expected_cleanup": "owned fixture after hook removes container/schemas/socket; installation/wrapper preserved",
+    "historical_private_helpers_changed": false,
+    "host_runtime_certified": false
+  },
+  "root_verification": [
+    {
+      "log": "migration-entrypoints-ci-pg.log",
+      "source": "8119ef82",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "sha256": "fbbb8fed92dd70baec6ef8a75ba0a6e46312046295c72b4d3949599bf4f0f05c"
+    },
+    {
+      "log": "migration-entrypoints-ci-binding.log",
+      "source": "8119ef82",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "sha256": "716c286ff6114d17e83b733d0df87ea129ad31f8aa9dc3b35d04e7f3395c459d"
+    },
+    {
+      "log": "migration-entrypoints-registration.log",
+      "source": "6126881c46b9954498da51f1b61e34efe71dd5a1 with descriptor registration bytes later committed as8119ef82",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "sha256": "c59e9661e012980d70f8f7b4183011277022edfacac371ef5d45654eb10ed1c8"
+    }
+  ],
+  "root_followup": {
+    "source": "8119ef82",
+    "change": "Register installed CLI and add both owned PostgreSQL entries to the existing deploy-preflight job, with an explicit immutable image pull and portable local image-ID readback.",
+    "typecheck_exit": 0,
+    "installed_workflow_changed": false,
+    "hosted_workflow_executed": false
+  },
+  "logs": [
+    {
+      "log": "planner-release-final.log",
+      "sha256": "1156dbecaae6a1c81fe5fd39c9cf984ba731d1ab9ddcd9f1be111970e7bf2930"
+    },
+    {
+      "log": "entrypoints-pg-final3.log",
+      "sha256": "2468b4102d1c872ec3dadb71e5161a988495ed6d0dbc195f819028de24d7b102"
+    },
+    {
+      "log": "canonical-proof-final.log",
+      "sha256": "3e301355ff4322c88055f32ede78cb923811e196a0b4e0a905ca65c0a191cefe"
+    },
+    {
+      "log": "operator-followup.log",
+      "sha256": "730ef719ef31ba9bc7e19670da18619eaf3473c6f0c64cee762acaed8a65f37d"
+    },
+    {
+      "log": "entrypoints-followup.log",
+      "sha256": "bb50589a7ef0c1678fe03ec19804fc45e6d3a1a90947b32c2770810fbc461a33"
+    },
+    {
+      "log": "final795/canonical-proof.log",
+      "sha256": "ab473459c9f84ac69bde52e99b5cecff73c7adf6ea20003ab016851be81b4a61"
+    }
+  ]
+}

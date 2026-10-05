@@ -505,6 +505,26 @@
         "versioned release floor exact-set/dependency semantics and shape identities",
         "actual private pipeline compatibility receipt before formal v2 naming"
       ]
+    },
+    "migration-entrypoints-795": {
+      "id": "migration-entrypoints-795",
+      "kind": "local_candidate_execution",
+      "source_sha": "79579765079084b70f5d50c0331167e55c216661",
+      "environment": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/migration-entrypoints-evidence-2026-10-05.json",
+        "deploy/cloudflare/migration-operator.md"
+      ],
+      "observations": [
+        "Both real entrypoints apply A→B/B→A/empty catalogs to identical SQL/constraints/ledger; unknown/digest/target and host pin mismatch rejected.",
+        "Exact795 full legacy source115 files applied once via repository CLI and a preserved external reviewed operator wrapper; second replay applies zero.",
+        "Inputs are frozen before async import; exact independent host installation/source/profile pins remain required."
+      ],
+      "limitations": [
+        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "Current production/operator pending migration pipeline installation has not been changed or verified.",
+        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
+      ]
     }
   },
   "requirements": [
@@ -1574,16 +1594,22 @@
           "environment": "isolated owned PostgreSQL18.6 plus local Node; synthetic SQL DAG only",
           "covered_part": "Bounded DAG planner and existing source path integration with real isolated SQL reverse/empty replay.",
           "limitations_reference": "evidence_catalog.migration-planner-7565.limitations"
+        },
+        {
+          "evidence_id": "migration-entrypoints-795",
+          "source_sha": "79579765079084b70f5d50c0331167e55c216661",
+          "environment": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
+          "covered_part": "Both real entrypoints apply A→B/B→A/empty catalogs to identical SQL/constraints/ledger; unknown/digest/target and host pin mismatch rejected.",
+          "limitations_reference": "evidence_catalog.migration-entrypoints-795.limitations"
         }
       ],
       "remaining": [
-        "current operator entrypoint installation/pin and shared runner integration",
-        "both real entrypoints replay synthetic DAGs",
-        "versioned release floor exact-set/dependency semantics and shape identities",
-        "actual private pipeline compatibility receipt before formal v2 naming"
+        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "Current production/operator pending migration pipeline installation has not been changed or verified.",
+        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
       ],
       "accepted": false,
-      "state_basis": "Partial real local SQL evidence; actual operator entrypoint installation and release-floor compatibility remain unverified."
+      "state_basis": "Both actual local entrypoints now validated, including externally installed reviewed wrapper; formal DAG/release-floor/private pipeline transition remains open."
     },
     {
       "id": "UF:INT-24",
