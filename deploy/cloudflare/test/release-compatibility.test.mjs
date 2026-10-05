@@ -192,7 +192,7 @@ test('editorial and scoped-chat migrations preserve host approval and authority 
 
 test('preparation and OpenRouter migrations require exact ledger bytes and independent host approval', () => {
   const f = fixture();
-  assert.deepEqual(f.scan.ledger.slice(-2).map(row => row.name), ['114_credential_ingest_preparations.sql', '115_openrouter_byok.sql']);
+  assert.deepEqual(f.scan.ledger.filter(row => /^(114|115)_/.test(row.name)).map(row => row.name), ['114_credential_ingest_preparations.sql', '115_openrouter_byok.sql']);
   const result = evaluate(f);
   assert.equal(result.status, 'compatible');
   for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
@@ -208,6 +208,24 @@ test('preparation and OpenRouter migrations require exact ledger bytes and indep
   }
   f.host.release_records[0].schema_ledger_digests = [prefix(f.scan, 113).ledger_digest];
   assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+});
+
+test('social writer floor recognition does not grant schema or deployment approval', () => {
+  const filename = '116_social_thumbnail_writer_floor.sql', f = fixture();
+  assert.equal(f.scan.ledger.filter(row => row.name === filename).length, 1);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
+  f.host.release_records[0].schema_ledger_digests = [prefix(f.scan, 115).ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const changed = fixture();
+  changed.scan.ledger.find(row => row.name === filename).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixture();
+  renamed.scan.ledger.find(row => row.name === filename).name = '116_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
 });
 
 test('schema extension is unavailable until its exact known migration rule is reviewed', () => {

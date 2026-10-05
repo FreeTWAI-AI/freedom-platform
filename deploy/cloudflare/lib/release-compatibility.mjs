@@ -75,6 +75,8 @@ const FOUNDATION_NAMES = [
   // Preparation deadline and explicit OpenRouter admission. Schema recognition
   // never supplies provider readiness, execution or release approval.
   '114_credential_ingest_preparations.sql', '115_openrouter_byok.sql',
+  // SQL media writer fence only; does not activate R2-only or retire legacy bytes.
+  '116_social_thumbnail_writer_floor.sql',
 ];
 
 function reject(code) { throw new Error(code); }
