@@ -13629,8 +13629,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/context-chunks-evidence-2026-10-05.json",
-      "bytes": 12601,
-      "sha256": "27404d38e82f7397979b243ee74b340893077f2440c9732f67100be1c34d474d"
+      "bytes": 13838,
+      "sha256": "38353d6d82506e16fb8d2f4b0e178307af2ab2fe4861dc4735b1ec28008de32b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
@@ -15849,8 +15849,8 @@
     },
     {
       "path": "packages/contribution-tools/github-trusted-adapter.mjs",
-      "bytes": 12116,
-      "sha256": "78df53cbe14359b1222819ecc2be771faf58bb8eeddac04c3fce8d72ae5c20d4"
+      "bytes": 12134,
+      "sha256": "df363d63c8792576f2d053f81ad9e4c4a384f1b6b37c607cafde20fa2d5df93d"
     },
     {
       "path": "packages/contribution-tools/io.mjs",
@@ -16079,8 +16079,8 @@
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
-      "bytes": 18296,
-      "sha256": "f5ae6c6f82d1b0de07ff3a74e8b1a98765b6d53b25acbec93d73b18250069679"
+      "bytes": 18315,
+      "sha256": "3d5bfbab92b0010d6327e0db8484b48934874388800898096a22434c87b39045"
     },
     {
       "path": "packages/contribution-tools/verify.mjs",

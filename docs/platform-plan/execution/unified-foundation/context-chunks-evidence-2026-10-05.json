@@ -325,5 +325,29 @@
       "chunks": 112,
       "blockers": []
     }
+  },
+  "distribution_followup": {
+    "candidate_commit": "f52bf5e34758f4504ab829655daa1ca26bbe5bb2",
+    "defect": "Full integrated governance exposed4 missing-module failures:context imports local-artifacts but2 fixed independent verifier distribution lists omitted it.",
+    "fix": "Include local-artifacts in both installedVerifierDigest file list and trusted adapter copied allowlist. No installed trust/publisher change.",
+    "checks": {
+      "command": "npm run test:governance",
+      "tests": 360,
+      "pass": 360,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "9d73a60ea5ed1b5563f6d50f48ac7e131569c4301fbb2a1f9556f02b49abeb0b"
+    },
+    "setup_note": "An earlier rerun in this worktree lacked npm dependencies and used uncommitted verifier files; those setup failures were retained, then npm ci + committed source used for successful full run.",
+    "changed_files": [
+      {
+        "path": "packages/contribution-tools/trusted-ci.mjs",
+        "sha256": "3d5bfbab92b0010d6327e0db8484b48934874388800898096a22434c87b39045"
+      },
+      {
+        "path": "packages/contribution-tools/github-trusted-adapter.mjs",
+        "sha256": "df363d63c8792576f2d053f81ad9e4c4a384f1b6b37c607cafde20fa2d5df93d"
+      }
+    ]
   }
 }
