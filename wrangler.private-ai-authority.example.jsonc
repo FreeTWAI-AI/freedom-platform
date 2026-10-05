@@ -1,0 +1,84 @@
+{
+  // Candidate only. Three scripts, three Durable Object namespaces. No routes,
+  // previews, Hyperdrive, R2, or signing keys. Flags stay false until root
+  // reviews an installation. Do not deploy this file as-is.
+  "name": "freedom-private-ai-authority-candidate",
+  "main": "apps/private-ai-authority/src/worker.ts",
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AuthorityGeneration"] }],
+  "vars": { "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false" },
+  "env": {
+    "staging-next-recovery-state": {
+      "name": "freedom-private-ai-authority-staging-next-recovery-state",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "recovery-state",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "staging-next"
+      }
+    },
+    "staging-next-recovery-floor": {
+      "name": "freedom-private-ai-authority-staging-next-recovery-floor",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "recovery-floor",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "staging-next"
+      }
+    },
+    "staging-next-capture-readiness": {
+      "name": "freedom-private-ai-authority-staging-next-capture-readiness",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "capture-readiness",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "staging-next"
+      }
+    },
+    "next-recovery-state": {
+      "name": "freedom-private-ai-authority-next-recovery-state",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "recovery-state",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "next"
+      }
+    },
+    "next-recovery-floor": {
+      "name": "freedom-private-ai-authority-next-recovery-floor",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "recovery-floor",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "next"
+      }
+    },
+    "next-capture-readiness": {
+      "name": "freedom-private-ai-authority-next-capture-readiness",
+      "durable_objects": { "bindings": [{ "name": "AUTHORITY_GENERATION", "class_name": "AuthorityGeneration" }] },
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "FREEDOM_PRIVATE_AI_AUTHORITY_ENABLED": "false",
+        "FREEDOM_AUTHORITY_PURPOSE": "capture-readiness",
+        "FREEDOM_AUTHORITY_ENVIRONMENT": "next"
+      }
+    }
+  }
+}
