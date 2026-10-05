@@ -56,6 +56,12 @@ reviewed native-equivalent acceptance definition; do not silently mark them done
 
 ## Smallest next behavior improvement
 
+The subsequent local candidate now implements this step as
+`runIsolatedAgentKitCliBehavior` / `behavior-supervisor.mjs consumer-cli`; see the
+[CLI profile instructions](consumer-behavior.md#actual-agent-kit-cli-candidate-profile).
+The c42 native workflow still selects only the original workspace profile. The
+new candidate does not alter any of the c42 limits reproduced above.
+
 Extend the **existing isolated consumer supervisor** to the actual agent-kit CLI
 as one separately reviewed profile. The real CLI performs demo login, workspace
 reads and logout, so the host fixture must support those exact synthetic protocol,

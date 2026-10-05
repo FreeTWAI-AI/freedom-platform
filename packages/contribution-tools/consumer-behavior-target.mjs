@@ -23,12 +23,30 @@ async function fixtureFetch(input, options = {}) {
   });
 }
 
-const entries = await import('/candidate/src/index.mjs');
+const cli = process.argv[2] === 'kit-cli';
+const entries = cli ? null : await import('/candidate/src/index.mjs');
 for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
   const frame = JSON.parse(line), input = JSON.parse(Buffer.from(frame.body, 'base64'));
   let status = 200, result;
   try {
-    if (input.repository === 'FreeTWAI-AI/freedom-agent-kit') {
+    if (cli) {
+      if (input.repository !== 'FreeTWAI-AI/freedom-agent-kit') throw Error('unsupported_consumer');
+      // This process remains untrusted. Host HTTP traces, not this captured output,
+      // decide the verdict. The real CLI receives only fixed synthetic argv.
+      const logs = []; let bytes = 0;
+      const originalLog = console.log;
+      console.log = (...args) => {
+        const value = args.map(String).join(' '); bytes += Buffer.byteLength(value);
+        if (bytes > 65536 || logs.length) throw Error('cli_output_limit'); logs.push(value);
+      };
+      globalThis.fetch = fixtureFetch;
+      process.argv = [process.execPath, '/candidate/src/cli.mjs', origin + '/api/v1', 'maker'];
+      try {
+        await import('/candidate/src/cli.mjs');
+        if (process.exitCode || logs.length !== 1) throw Error('cli_failed');
+        result = JSON.parse(logs[0]);
+      } finally { console.log = originalLog; }
+    } else if (input.repository === 'FreeTWAI-AI/freedom-agent-kit') {
       const { PlatformClient } = await import('/candidate/packages/client/index.mjs');
       const client = new PlatformClient({ baseUrl: origin + '/api/v1', cookie: input.credential, fetcher: fixtureFetch });
       await client.assertCompatible();

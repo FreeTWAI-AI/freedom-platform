@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error Host-installed JavaScript supervisor; candidate imports stay in Docker.
-import { runIsolatedConsumerBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
 // @ts-expect-error Existing clean subprocess environment.
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 
@@ -40,19 +40,20 @@ for (const [name, , commit] of profiles) test(`actual merged ${name} entrypoint 
   }
 });
 
-async function mutated(t: any, profile: string[], source: (original: string) => string) {
+async function mutated(t: any, profile: string[], source: (original: string) => string,
+  { entry = 'src/index.mjs', run = runIsolatedConsumerBehavior } = {}) {
   const [name, , commit] = profile, directory = await mkdtemp(join(tmpdir(), 'fp-consumer-negative-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const candidateRepository = join(directory, 'candidate'); await mkdir(candidateRepository);
   await materializeBehaviorCandidate(join(roots!, name), commit, candidateRepository);
-  const path = join(candidateRepository, 'src/index.mjs'), original = await readFile(path, 'utf8');
+  const path = join(candidateRepository, entry), original = await readFile(path, 'utf8');
   const lock = await readFile(join(candidateRepository, 'consumer-libraries.lock.json'));
   git(candidateRepository, ['init', '-q']); git(candidateRepository, ['add', '.']); git(candidateRepository, ['commit', '-qm', 'Original approved bytes']);
   await chmod(path, 0o644); await writeFile(path, source(original));
   git(candidateRepository, ['add', '.']); git(candidateRepository, ['commit', '-qm', 'Synthetic entrypoint mutation']);
-  assert.equal(git(candidateRepository, ['diff', 'HEAD~', 'HEAD', '--name-only']), 'src/index.mjs');
+  assert.equal(git(candidateRepository, ['diff', 'HEAD~', 'HEAD', '--name-only']), entry);
   assert.deepEqual(await readFile(join(candidateRepository, 'consumer-libraries.lock.json')), lock);
-  return runIsolatedConsumerBehavior({ repository: 'FreeTWAI-AI/' + name, candidateRepository,
+  return run({ repository: 'FreeTWAI-AI/' + name, candidateRepository,
     candidateCommit: git(candidateRepository, ['rev-parse', 'HEAD']) });
 }
 for (const profile of profiles) test(`correct vendor bytes do not let a stubbed ${profile[0]} entrypoint pass`, async t => {
@@ -143,4 +144,68 @@ test('consumer host executes with no npm installation or candidate dependencies'
   const text = execFileSync(process.execPath, [script, 'consumer', 'FreeTWAI-AI/freedom-agent-kit',
     join(roots, 'freedom-agent-kit'), profiles[0][2]], { cwd: directory, env: verificationEnvironment(), encoding: 'utf8', timeout: 20000, maxBuffer: 256000 });
   const result = JSON.parse(text); assert.equal(result.check.status, 'passed', text); assert.equal(result.cleanup_verified, true);
+});
+
+
+test('actual kit CLI performs synthetic login, fresh workspace reads and CSRF-protected logout', async () => {
+  const result = await runIsolatedAgentKitCliBehavior({ repository: 'FreeTWAI-AI/freedom-agent-kit',
+    candidateRepository: join(roots, profiles[0][0]), candidateCommit: profiles[0][2] });
+  assert.equal(result.check?.status, 'passed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.entry, 'src/cli.mjs#maker'); assert.equal(result.library_invocation, 'not_checked');
+  assert.equal(result.server_authorization, 'not_checked'); assert.equal(result.merge_authorized, false);
+  const trace = result.cases[0].http_trace;
+  assert.equal(trace.length, 8); assert.equal(result.cases[0].response_matches_challenge, true);
+  assert.deepEqual(trace.slice(0, 2).map((x: any) => [x.method, x.path, x.authentication]),
+    [['GET', '/api/v1/protocol', 'none'], ['POST', '/api/v1/auth/login', 'none']]);
+  assert.deepEqual(trace.slice(2, 7).map((x: any) => x.path).sort(),
+    ['/api/v1/session', '/api/v1/dashboard', '/api/v1/work-items', '/api/v1/me/positioning', '/api/v1/guilds'].sort());
+  assert.equal(trace.at(-1).path, '/api/v1/auth/logout'); assert.equal(trace.at(-1).method, 'POST');
+  assert.equal(trace.at(-1).csrf_checked, true); assert.equal(trace.at(-1).credential_matched, true);
+  assert.deepEqual(result.isolation[0].bind_destinations, ['/candidate', '/fixture', '/target.mjs', '/trusted-node']);
+  assert(!JSON.stringify(result).includes('freedom_local_session=')); assert(!JSON.stringify(result).includes('freedom-local-demo'));
+});
+
+const mutatedCli = (t: any, source: (original: string) => string) => mutated(t, profiles[0], source,
+  { entry: 'src/cli.mjs', run: runIsolatedAgentKitCliBehavior });
+test('the actual CLI stub is rejected even though vendor, workspace export and locks remain correct', async t => {
+  const result = await mutatedCli(t, () => `console.log(JSON.stringify({status:'passed'}));`);
+  assert.equal(result.check?.status, 'failed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.reason, 'consumer_behavior_mismatch'); assert.equal(result.cases[0].observed_requests, 0);
+});
+test('CLI workspace output without its real logout is rejected', async t => {
+  const result = await mutatedCli(t, original => {
+    assert(original.includes("finally{if(client)await client.call('logout',{body:{}});}"));
+    return original.replace("finally{if(client)await client.call('logout',{body:{}});}", 'finally{}');
+  });
+  assert.equal(result.check?.status, 'failed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.reason, 'consumer_behavior_mismatch'); assert.equal(result.cases[0].observed_requests, 7);
+});
+for (const header of ['X-CSRF-Token', 'Cookie']) test(`CLI logout with changed ${header} cannot pass`, async t => {
+  const result = await mutatedCli(t, original => `
+    const realFetch=globalThis.fetch;
+    globalThis.fetch=(url,options)=>{if(url.endsWith('/auth/logout'))options.headers[${JSON.stringify(header)}]='forged';return realFetch(url,options);};
+    ${original}
+  `);
+  assert.equal(result.check?.status, 'failed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.runtime_observation, 'not_checked');
+  assert.equal(result.phase, 'behavior', JSON.stringify(result));
+  assert(['consumer_fixture_invalid', 'consumer_supervisor_failed'].includes(result.reason), JSON.stringify(result));
+});
+test('CLI with all real requests but corrupted printed workspace fails the fresh challenge comparison', async t => {
+  const result = await mutatedCli(t, original => `
+    const realLog=console.log;
+    console.log=()=>realLog(JSON.stringify({status:'passed'}));
+    ${original}
+  `);
+  assert.equal(result.check?.status, 'failed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.cases[0].observed_requests, 8); assert.equal(result.cases[0].response_matches_challenge, false);
+});
+test('CLI forged response-port output cannot replace independently observed login or reads', async t => {
+  const result = await mutatedCli(t, () => `
+    process.stdout.write(JSON.stringify({id:1,status:200,headers:[['content-type','application/json']],body:Buffer.from(JSON.stringify({status:'passed'})).toString('base64')})+'\\n');
+  `);
+  assert.equal(result.check?.status, 'failed', JSON.stringify(result)); assert.equal(result.cleanup_verified, true);
+  assert.equal(result.runtime_observation, 'not_checked');
+  assert(result.reason === 'consumer_behavior_mismatch' || (result.phase === 'behavior'
+    && result.reason === 'consumer_supervisor_failed'), JSON.stringify(result));
 });

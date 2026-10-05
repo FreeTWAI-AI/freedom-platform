@@ -78,6 +78,48 @@ for the same Git commit/tree. It uses no candidate verdict. The recipe documents
 public provenance, remaining host approval boundaries and the required hosted
 canaries; creating this workflow does not install or approve it.
 
+## Actual agent-kit CLI candidate profile
+
+A separate executable profile now exercises the actual approved consumer
+`src/cli.mjs`, with the fixed `maker` loopback-demo arguments:
+
+```
+node packages/contribution-tools/behavior-supervisor.mjs consumer-cli \
+  FreeTWAI-AI/freedom-agent-kit /absolute/consumer/checkout EXACT_CANDIDATE_SHA
+```
+
+The host API is `runIsolatedAgentKitCliBehavior` with the same exact
+`{repository, candidateRepository, candidateCommit}` inputs as the workspace
+runner. Other repositories are rejected for this profile. The existing three
+workspace profiles and native c42 workflow remain unchanged in selection.
+
+Only inside the existing candidate container, the installed launcher supplies a
+socket-backed fetch adapter and fixed argv, then imports the real CLI. The CLI
+must obtain a fresh synthetic session cookie/CSRF from login, perform its five
+workspace reads, print the fresh assembled workspace and log out. The host
+independently requires eight actual HTTP requests: protocol, login, five reads,
+logout. Login must precede reads and logout must follow them, carrying the exact
+cookie, Origin and CSRF with an empty JSON body. No session credentials are sent
+in the driver command. A stub, omitted logout, forged cookie/CSRF, altered printed
+output or forged transport response fails. Cookie/CSRF/body bytes are not retained
+in evidence. The demo password is the existing consumer's public synthetic fixture
+value; this is not production authentication or server authorization evidence.
+
+This is one fixed maker-role CLI scenario. Reviewer/client roles, CLI error exits,
+other consumers' launchers, package aliases, internal library invocation and full
+surface coverage remain outside it. The launcher captures output inside the
+untrusted container; capture itself is not authenticated proof. The host's actual
+HTTP trace and unpredictable response comparison decide the verdict.
+
+The new profile is executable locally but is **not selected by the installed c42
+native workflow**. Installation requires a separately reviewed wrapper/workflow
+that runs both source/workspace and CLI verdicts for the same commit/tree, followed
+by a new immutable source pin and actual hosted CLI positive/stub-negative canaries.
+Do not change c42/source55/library91 in place. No current rules or workflow YAML
+are changed by this increment. `library_invocation` stays `not_checked`: candidate
+JavaScript can reproduce the externally observed behavior without using the
+approved workspace module.
+
 ## Validation
 
 ```

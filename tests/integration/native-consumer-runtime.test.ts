@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 // @ts-expect-error Fixed host JavaScript, never imported from candidate.
 import { verifyNativeConsumerRuntime } from '../../packages/contribution-tools/github-consumer-runtime-host.mjs';
+// @ts-expect-error Fixed isolated CLI profile; candidate executes only in Docker.
+import { runIsolatedAgentKitCliBehavior } from '../../packages/contribution-tools/behavior-supervisor.mjs';
 // @ts-expect-error Existing clean subprocess environment.
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 
@@ -48,7 +50,7 @@ test('combined native host rejects a source-valid stub rather than accepting sou
 });
 
 
-async function sourceValidKitMutation(t: any, path: string, contents: string) {
+async function sourceValidKitMutation(t: any, path: string, contents: string, verify = verifyNativeConsumerRuntime) {
   const directory = await mkdtemp(join(tmpdir(), 'fp-native-consumer-boundary-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const repository = join(directory, 'candidate'); await mkdir(repository);
@@ -64,7 +66,7 @@ async function sourceValidKitMutation(t: any, path: string, contents: string) {
   git(['add', '--', path]); git(['-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic assurance-boundary mutation']);
   assert.equal(git(['diff', '--name-only', candidates[0][1], 'HEAD']), path);
   assert.equal(git(['diff', '--name-only', candidates[0][1], 'HEAD', '--', 'vendor', 'contracts.lock.json', 'consumer-libraries.lock.json']), '');
-  return verifyNativeConsumerRuntime(input('freedom-agent-kit', repository, git(['rev-parse', 'HEAD'])));
+  return verify(input('freedom-agent-kit', repository, git(['rev-parse', 'HEAD'])));
 }
 
 test('source and observed HTTP PASS do not prove the approved workspace library was invoked', async t => {
@@ -96,4 +98,16 @@ test('the workspace-export profile does not certify a replaced actual CLI entryp
   assert.equal(result.runtime.entry, 'src/index.mjs#loadMemberWorkspace');
   assert.equal(result.runtime.runtime_observation, 'host_observed_http');
   assert.equal(result.runtime.library_invocation, 'not_checked'); assert.equal(result.runtime.cleanup_verified, true);
+});
+
+
+test('separate actual CLI profile rejects the same stub that still passes source and workspace checks', async t => {
+  const evidence = await sourceValidKitMutation(t, 'src/cli.mjs', `console.log(JSON.stringify({status:'passed'}));`,
+    async (candidate: any) => ({ workspace: await verifyNativeConsumerRuntime(candidate),
+      cli: await runIsolatedAgentKitCliBehavior({ repository: candidate.repository,
+        candidateRepository: candidate.candidateRoot, candidateCommit: candidate.candidateCommit }) }));
+  assert.equal(evidence.workspace.source.status, 'passed'); assert.equal(evidence.workspace.runtime.check.status, 'passed');
+  assert.equal(evidence.cli.check.status, 'failed', JSON.stringify(evidence));
+  assert.equal(evidence.cli.reason, 'consumer_behavior_mismatch'); assert.equal(evidence.cli.cases[0].observed_requests, 0);
+  assert.equal(evidence.cli.cleanup_verified, true); assert.equal(evidence.cli.library_invocation, 'not_checked');
 });
