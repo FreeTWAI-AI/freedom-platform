@@ -306,3 +306,62 @@ budget reservation before any inference; this phase cannot enable it.
 
 Local guard validation (synthetic HTTP/browser doubles; no cloud or paid calls):
 `npx tsx --test tests/worker/cloud-private-ai-owner.test.ts`.
+
+### Separate staging pairing and model preparation
+
+`--phases private-ai-prepare` prepares the synthetic account for the ingest phase
+without fixture SQL or a precreated connection. It adds health and logout, and
+cannot be combined with other write phases. Default plans remain read-only.
+This phase performs tool login, signed device begin, authenticated owner review
+and approval, enrollment challenge signing, two interval-respecting polls, and
+one unverified model creation. It does not ingest credentials, activate a model,
+execute inference, grant execution or export anything. Success remains
+`incomplete`, with no full cloud acceptance claim.
+
+Use the existing private account and Access files. Set
+`FREEDOM_CANDIDATE_PRIVATE_AI_PREPARE_FILE` to a private, owned, regular 0600 JSON
+file containing this closed profile (substitute operator-reviewed metadata):
+
+```json
+{
+  "profile": "private-ai.staging-owner-prepare/v1",
+  "mainOrigin": "https://staging.freetwai.com",
+  "environment": "staging-next",
+  "setupOrigin": "https://<reviewed-setup-host>.freetwai.com",
+  "mainReleaseSha": "<reviewed-40-hex-sha>",
+  "brokerReleaseSha": "<same-reviewed-40-hex-sha>",
+  "bindingReviewSha256": "<operator-review-64-hex-sha256>",
+  "accountLabel": "<dedicated-synthetic-account-label>",
+  "clientId": "<installed-bootstrap-client-id>",
+  "model": "<exact-advertised-openrouter-model>",
+  "receiptDirectory": "<absolute-private-unused-attempt-directory>",
+  "paidExecution": false,
+  "syntheticOwner": true
+}
+```
+
+Run the existing CLI with `execute --target staging --expected-release-sha
+<reviewed-sha> --phases private-ai-prepare`. The main health release must match;
+the broker release and binding review are operator inputs, not remote broker
+attestation. The setup origin and exact selection must match owner settings.
+Device verification URI is pinned to `https://staging.freetwai.com/device`.
+Machine pairing calls retain main Access headers and omit member Cookie, CSRF
+and Origin. The ephemeral P-256 private key never leaves process memory.
+
+A permanent exclusive, fsynced `prepare-intent.json` precedes even login.
+Never reuse the directory after an unknown result or automatically retry with a
+new directory. Reconcile server owner metadata first: a failed acknowledgement
+may already have created a pairing or model. Successful preparation writes
+`prepare-handoff.json` with connection, runtime and model IDs/version plus
+reviewed metadata only. No signer, pairing codes, token, refresh handle or proof
+is persisted. Use its model ID/version and identical reviewed metadata in the
+existing private ingest config, adding the separately held key-file path there.
+The handoff itself is not an ingest configuration or authorization proof.
+Explicit account/session/connection cleanup remains an operator responsibility;
+this phase logs out only its own tool session.
+
+Focused synthetic protocol tests:
+`node --import tsx --test tests/worker/cloud-private-ai-prepare.test.ts
+ tests/worker/cloud-private-ai-owner.test.ts`. These cryptographically verify
+transport proofs and native enrollment proof bytes; they are not remote
+installation, provider or Cloudflare acceptance.
