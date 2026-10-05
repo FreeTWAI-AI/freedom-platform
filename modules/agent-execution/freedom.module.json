@@ -57,7 +57,13 @@
     "tests/worker/private-ai-service-binding.test.ts",
     "tests/worker/private-ai-fixtures/**",
     "wrangler.private-ai.example.jsonc",
-    "docs/development/worker-private-ai-bindings.md"
+    "docs/development/worker-private-ai-bindings.md",
+    "tests/runtime/native-text-invocation.test.ts",
+    "tests/runtime/native-text-process.test.ts",
+    "contracts/execution/v3/native-text-invocation.ts",
+    "contracts/execution/v3/native-text-binding.schema.json",
+    "contracts/execution/v3/native-text-context.schema.json",
+    "contracts/execution/v3/native-text-receipt.schema.json"
   ],
   "public_exports": [
     "modules/agent-execution/runs.ts",
@@ -79,7 +85,9 @@
     "contracts/execution/v2/model-credential-ingest.ts",
     "contracts/execution/v2/member-model-settings.ts",
     "modules/agent-execution/member-model-settings.ts",
-    "apps/platform-api/src/routes/member-model-settings-http.ts"
+    "apps/platform-api/src/routes/member-model-settings-http.ts",
+    "contracts/execution/v3/native-text-invocation.ts",
+    "modules/agent-execution/adapters/native-text-process.ts"
   ],
   "dependencies": [
     "work",
@@ -101,7 +109,8 @@
     "model-credential",
     "model-broker-bridge",
     "model-credential-ingest",
-    "member-model-settings"
+    "member-model-settings",
+    "native-text-invocation"
   ],
   "client_profiles": [],
   "instructions": [
@@ -157,7 +166,11 @@
     "sql-only-owner-credential-history",
     "installed-broker-policy-from-same-opaque-client",
     "native-form-origin-without-path-or-query",
-    "explicit-replacement-model-before-credential-rotation"
+    "explicit-replacement-model-before-credential-rotation",
+    "native-cli-controls-before-claim-and-private-context",
+    "native-cli-host-ports-are-not-json-authority",
+    "native-cli-local-dispatch-is-not-provider-call-or-money-cap",
+    "native-cli-fixture-is-not-actual-owner-cli-acceptance"
   ],
   "tests": [
     "runtime.full"
