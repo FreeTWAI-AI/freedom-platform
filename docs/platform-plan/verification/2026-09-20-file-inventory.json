@@ -13628,6 +13628,11 @@
       "sha256": "1918d0fc63c728013fc6c70c9c2ea4adb61b3a41e4f12a4ffef4db267a1b9f34"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/consumer-transition-evidence-2026-10-05.json",
+      "bytes": 5990,
+      "sha256": "3abc977b194a5584501c85a3393781bd7d299f839af6e0ae9ef0704ee525bb38"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/context-chunks-evidence-2026-10-05.json",
       "bytes": 13838,
       "sha256": "38353d6d82506e16fb8d2f4b0e178307af2ab2fe4861dc4735b1ec28008de32b"
@@ -13694,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 350401,
-      "sha256": "3c5f6b24af7508dffabe61f1b2cece6ef526cda3e1cb623a4ec4dd666d83d43f"
+      "bytes": 351589,
+      "sha256": "0a2374f4ab4c8b4e522d0e21a5e5e2757a6ce33a143de10455c01cf42e2cf6b5"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -15704,8 +15709,8 @@
     },
     {
       "path": "packages/contribution-tools/agent-kit-device-profile.md",
-      "bytes": 5208,
-      "sha256": "1711b6612f6fa0aed9cc0b83bd1b9be742c2d62db62d11092143ec02697cf23a"
+      "bytes": 6309,
+      "sha256": "88489f6ec3ec61eb70ee07ad04976fd348c4c3e86ba75f4f43d4f624a2777f2a"
     },
     {
       "path": "packages/contribution-tools/agent-kit-device-profile.mjs",
@@ -15789,8 +15794,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-host-tuples.mjs",
-      "bytes": 1028,
-      "sha256": "1ded4a92abb239100b670bf71e9f4680fcc341dc8ddbe64a320ebfc8ba4600de"
+      "bytes": 2036,
+      "sha256": "acb5628d93527238e483d7d98c5c30a83ff20c8cfd425748229b764fed5ad56e"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
@@ -15869,8 +15874,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 2931,
-      "sha256": "36156da2ce0a9e1c4fd4449d28787080c68f03f1690f39ffb843628f4f0c8eef"
+      "bytes": 2995,
+      "sha256": "6b1da109644b3ee039fabcc19dc90c3c4c945fb5d94ca0912c068efbba35dc4a"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -15894,13 +15899,13 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.mjs",
-      "bytes": 10499,
-      "sha256": "fb5746e2263a99c1ce1664ea49e61f6933f576f6653ccb3bfe6f9aad6a239ff1"
+      "bytes": 11399,
+      "sha256": "d1d41294e53f52ca371da96d6e43f31a04420c5e19d9d4167d640b071a407109"
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 7454,
-      "sha256": "ba4344e5acbf6391e7743798eac8933cd62ee2d7c5ead765d86b7f36ed976463"
+      "bytes": 7207,
+      "sha256": "91dbeb4ebcfffa1dabdf43b15f44dd1d124ac3be4db92ef76e3a6e778ff0c449"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -16079,8 +16084,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-host.test.mjs",
-      "bytes": 15576,
-      "sha256": "0f4d7ce05f02aabfda25e2f1d60899b193b72d2d8ceb4570a24d85abdbb6ddc2"
+      "bytes": 15574,
+      "sha256": "5af0e03c444b341c4a8698d89a0f8c3574c90d34d672e0775ecddbd8b3663bd9"
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-profiles.test.mjs",
@@ -17371,6 +17376,11 @@
       "path": "tests/integration/consumer-libraries.test.ts",
       "bytes": 11324,
       "sha256": "317875e94693b3fd87c581e925d5289365e01136b05c5cff7c074531ab0e0621"
+    },
+    {
+      "path": "tests/integration/consumer-supported-transition.test.mjs",
+      "bytes": 6809,
+      "sha256": "3b199e0b0640d8d8073f7bce5b3c5822d8cfc81fcb12d95eee611f807e4da063"
     },
     {
       "path": "tests/integration/directory-baseline-transition.test.mjs",

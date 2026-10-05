@@ -505,6 +505,25 @@
         "Other Kit entrypoints and other consumers retain generic library_invocation=not_checked",
         "Producer057 and Kitff are review-only candidates; publication does not imply installed approval"
       ]
+    },
+    "consumer-transition-a07": {
+      "id": "consumer-transition-a07",
+      "kind": "local_candidate_execution",
+      "source_sha": "a07a89b0f13d9586d1c42ae3f09f4db74d29aeb0",
+      "environment": "local full Git clones; isolated Docker with fixed Node and synthetic HTTP transport, no product credentials",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/consumer-transition-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Both supported consumer versions and ordinary previous-version edits pass actual native source entry.",
+        "Previous workspace/CLI and current device runtime pass; unknown/mixed tuple and new entry with old libraries fail."
+      ],
+      "limitations": [
+        "No installed native workflow pin changed.",
+        "Old consumer workspace/CLI passes do not claim actual shared library invocation or device support.",
+        "Current device command invocation is bounded synthetic transport, not actual hosted TLS, auth DB or full private execution.",
+        "This finite support policy does not replace signed ReleaseSet provenance, revocation or independent host installation review."
+      ]
     }
   },
   "requirements": [

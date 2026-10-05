@@ -1,0 +1,128 @@
+{
+  "format": "freedom.consumer-transition-evidence/v1",
+  "source_commit": "a07a89b0f13d9586d1c42ae3f09f4db74d29aeb0",
+  "repository": "FreeTWAI-AI/freedom-agent-kit",
+  "previous_candidate": "b2227bc36a571084f6c3d5c5ab340ed4485c6738",
+  "current_candidate": "ff273fce3b65f7ebda3e6f0918d58e8ede2520ca",
+  "previous_library_source": "91b943ac61e132fbbce72ea066cb2301aa065600",
+  "current_library_source": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+  "host_policy": "Explicit finite installed tuples; immutable Git lock can match one approved tuple but cannot introduce authority.",
+  "environment": "local full Git clones; isolated Docker with fixed Node and synthetic HTTP transport, no product credentials",
+  "passed_cases": [
+    "exact Kit candidate invokes canonical CLI and SDK in the isolated host, retaining legacy workspace and CLI checks",
+    "actual native source executable selects its reviewed tuple independently of environment overrides",
+    "real immutable source rejects unused_import before any candidate execution",
+    "real immutable source rejects dead_call_private_client before any candidate execution",
+    "real immutable source rejects private_same_shape_client before any candidate execution",
+    "real immutable source rejects wrong_source_pin before any candidate execution",
+    "real immutable source rejects sdk_replaced before any candidate execution",
+    "real immutable source rejects command_retarget before any candidate execution",
+    "real immutable source rejects candidate_preload before any candidate execution",
+    "real immutable source rejects package_scope before any candidate execution",
+    "supported previous candidate passes actual native source CLI and bounded workspace/CLI runtime without device claims",
+    "supported previous candidate permits ordinary product edits and ignores dirty lock and environment authority",
+    "installed host refuses new_profile_old_source without candidate execution",
+    "installed host refuses unknown_source without candidate execution",
+    "installed host refuses unknown_profile without candidate execution",
+    "installed host refuses new_source_legacy_format without candidate execution",
+    "installed host refuses old_libraries_new_entry without candidate execution",
+    "native host identity API refuses caller-selected sources and profiles"
+  ],
+  "observations": [
+    {
+      "status": "passed",
+      "candidate_commit": "b2227bc36a571084f6c3d5c5ab340ed4485c6738",
+      "candidate_tree": "0bb07931ead5f4f7c5c1cbd82defd899e9b956ac",
+      "workflow_commit": "a07a89b0f13d9586d1c42ae3f09f4db74d29aeb0",
+      "source_commit": "91b943ac61e132fbbce72ea066cb2301aa065600",
+      "device_required": false,
+      "device_runtime": null,
+      "device_library_invocation": "not_checked",
+      "library_invocation": "not_checked",
+      "execution_authorized": false
+    },
+    {
+      "kind": "previous_ordinary_edit",
+      "candidate": "59b8618d3d5c5f12226256967fb36d47bd790cea",
+      "result": "passed"
+    },
+    {
+      "kind": "new_profile_old_source",
+      "candidate": "d46517fe6c47b30463dff48b1f39c052623fc906",
+      "result": "rejected",
+      "code": "consumer_supported_tuple_required",
+      "candidate_executed": false
+    },
+    {
+      "kind": "unknown_source",
+      "candidate": "a3dcafc223595348f9ea41557d3eab7cd23d1837",
+      "result": "rejected",
+      "code": "consumer_supported_tuple_required",
+      "candidate_executed": false
+    },
+    {
+      "kind": "unknown_profile",
+      "candidate": "af5e465402a936023a0f5dbbb0f8334a137c35fb",
+      "result": "rejected",
+      "code": "consumer_supported_tuple_required",
+      "candidate_executed": false
+    },
+    {
+      "kind": "new_source_legacy_format",
+      "candidate": "cfe70b9092c0ced0153ebf5ab72bb0ffc1f82a86",
+      "result": "rejected",
+      "code": "consumer_supported_tuple_required",
+      "candidate_executed": false
+    },
+    {
+      "kind": "old_libraries_new_entry",
+      "candidate": "e7e5fb16dad500dafb73c7482a8bd60bd7341142",
+      "result": "rejected",
+      "code": "consumer_entry_registration_changed",
+      "candidate_executed": false
+    }
+  ],
+  "validation": [
+    {
+      "log": "transition-runtime.log",
+      "sha256": "f02edac417fa230fb03c47a16df3acce0073cd56bc972195ac2a0d1b03f08ed1",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "transition-source-unit.log",
+      "sha256": "9048b196ddc59c573c5c5c50b0320b720f23a2f0679b04f99aa87cf13703ac18",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "transition-surface-ready.log",
+      "sha256": "e422e56feb7664b303ae10d744ab6b2dedcbef97c3a4d074474056748d261e78",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "review": {
+    "model": "grok-4.7-build",
+    "session": "01a10e39-0422-7120-bdbd-ed219b6a7e23",
+    "stop_reason": "end_turn",
+    "finding": "No blocker observed within listed host/source/runtime call chain; did not execute tests.",
+    "source": "a07a89b0f13d9586d1c42ae3f09f4db74d29aeb0"
+  },
+  "limitations": [
+    "No installed native workflow pin changed.",
+    "Old consumer workspace/CLI passes do not claim actual shared library invocation or device support.",
+    "Current device command invocation is bounded synthetic transport, not actual hosted TLS, auth DB or full private execution.",
+    "This finite support policy does not replace signed ReleaseSet provenance, revocation or independent host installation review."
+  ],
+  "hosted_current_candidate_failure": {
+    "source_job": "112001225190",
+    "runtime_job": "112001226403",
+    "both_code": "consumer_library_file_set_mismatch",
+    "cause": "Existing installed host requires previous library file set."
+  },
+  "initial_setup": "transition-focus.log passed59 other cases; surface-audit refused missing local TypeScript dependency. Provisioned existing exact-lock node_modules, then all29 surface cases passed. No assertion weakened."
+}
