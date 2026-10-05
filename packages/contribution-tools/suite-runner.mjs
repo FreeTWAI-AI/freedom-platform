@@ -163,10 +163,32 @@ async function runGroup(root, selections, runtime, options) {
   });
 }
 
-// Deterministic disjoint partition of the already validated exact selection.
+// Reviewed scheduling estimates only, never pass evidence or caller input.
+// Hosted run 37249458229 concentrated 134s ingest + 109s bridge on one shard.
+// Round its six >30s files up to 5s; unmeasured files receive the 10s default.
+// No candidate timing report is loaded by the selector or aggregate.
+const RUNTIME_FILE_WEIGHTS = Object.freeze({
+  'tests/runtime/credential-ingest-adversarial.test.ts': 135,
+  'tests/runtime/model-broker-bridge-adversarial.test.ts': 110,
+  'tests/runtime/bootstrap-sessions-adversarial.test.ts': 55,
+  'tests/runtime/model-broker-client.test.ts': 55,
+  'tests/runtime/member-model-settings-adversarial.test.ts': 50,
+  'tests/runtime/device-authorizations.test.ts': 45,
+});
+// Deterministic longest-estimated-first allocation, then original file order
+// within each serial process. Full local runner and matrix producer/aggregate
+// use this same function; no selected file is dropped or split.
 export function partitionRuntimeFiles(files, count) {
   if (![1, 2, 4].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
-  return Array.from({ length: count }, (_, index) => files.filter((_, offset) => offset % count === index));
+  const loads = Array(count).fill(0), assignments = new Map();
+  const ordered = files.map((path, index) => ({path, index, weight: RUNTIME_FILE_WEIGHTS[path] ?? 10}))
+    .sort((a, b) => b.weight - a.weight || a.index - b.index);
+  for (const {path, weight} of ordered) {
+    let target = 0;
+    for (let i = 1; i < count; i++) if (loads[i] < loads[target]) target = i;
+    assignments.set(path, target); loads[target] += weight;
+  }
+  return Array.from({ length: count }, (_, index) => files.filter(path => assignments.get(path) === index));
 }
 
 async function runSharded(root, selections, files, options, timeout, count) {

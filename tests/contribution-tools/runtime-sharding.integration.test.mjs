@@ -86,7 +86,7 @@ test('full shards cover every file once; one failing shard cannot hide the compl
   const root = await fullFixture(t);
   // Distinct shards execute the same public table name on independent DBs.
   const pgPath = createRequire(import.meta.url).resolve('pg');
-  for (const [index, path] of names.slice(0, 4).entries()) await put(root, path, `import {test} from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';const {Client}=createRequire(import.meta.url)(${JSON.stringify(pgPath)});test('real database',async()=>{const c=new Client({connectionString:process.env.TEST_DATABASE_URL});await c.connect();try{await c.query('CREATE TABLE public.shard_collision(value integer)');${index === 0 ? "assert.fail('bounded synthetic assertion');" : "await c.query('INSERT INTO public.shard_collision VALUES(2)');"}}finally{await c.end();}});`);
+  for (const [index, path] of partitionRuntimeFiles(names, 4).map(shard => shard[0]).entries()) await put(root, path, `import {test} from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';const {Client}=createRequire(import.meta.url)(${JSON.stringify(pgPath)});test('real database',async()=>{const c=new Client({connectionString:process.env.TEST_DATABASE_URL});await c.connect();try{await c.query('CREATE TABLE public.shard_collision(value integer)');${index === 0 ? "assert.fail('bounded synthetic assertion');" : "await c.query('INSERT INTO public.shard_collision VALUES(2)');"}}finally{await c.end();}});`);
   const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database });
   validateReport(result);
   assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_process_failed');
@@ -102,7 +102,7 @@ test('full shards cover every file once; one failing shard cannot hide the compl
 
 test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  for (const path of names.slice(0, 4)) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
+  for (const path of partitionRuntimeFiles(names, 4).map(shard => shard[0])) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 1000);
   try {
