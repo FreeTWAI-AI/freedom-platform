@@ -187,12 +187,26 @@ assertions, device approval or model labels into an owner installation.
 | Recovery ports | Install both fixed state/floor bindings from the binding table, with current signed generation and independently persisted monotonic floor. Record state/floor agreement and fail-closed outage behavior. Neither authority is reconstructed from a platform DB/R2 backup. |
 | Protected capture readiness | Install the broker-only `CREDENTIAL_INGEST_READINESS` binding, authority and public pins specified in the broker document. Record actual ingress logging/tracing/body-capture controls and their trusted readiness source. A fresh signed `captureDisabled:true` assertion alone is insufficient operational evidence. |
 | Assets and secrets | Both Workers refer to the existing environment `MEDIA` bucket. Broker alone owns the KEK ring and cipher connection. Check purpose-separated key material, not merely different key IDs. Secrets and resource identifiers stay in the private installation record. |
-| Device and model | Record the actual device/bootstrap host and owner's explicit selection. The current broker catalog accepts `providerRef` openai or anthropic, the owner's exact `modelRef`, `credentialCustody:platform_vault`, `engineLocation:platform`, `billingSource:user_byok`, `processingLocation:provider_remote`, `artifactCustody:platform_asset`. Metadata does not verify availability or authorize a charge/export. |
+| Device and model | Record the actual device/bootstrap host and owner's explicit selection. The current broker catalog accepts `providerRef` openai, anthropic or openrouter, the owner's exact `modelRef`, `credentialCustody:platform_vault`, `engineLocation:platform`, `billingSource:user_byok`, `processingLocation:provider_remote`, `artifactCustody:platform_asset`. Metadata does not verify availability or authorize a charge/export. |
 
-The owner's model/provider choice is still an unanswered input for this P3 work;
-no default selection or owner credential has been supplied by this worksheet.
-Provider authentication occurs only through the installed independent setup
-surface and owner-approved workflow. Main does not need the provider secret.
+For the 2026-10-05 acceptance work, the owner explicitly authorized OpenRouter
+BYOK and supplied a temporary credential privately to root, with a 24-hour expiry
+and US$10 budget. The selected test model is `openai/gpt-4.1-mini`, with
+`providerRef:openrouter`, `credentialCustody:platform_vault`,
+`engineLocation:platform`, `billingSource:user_byok`,
+`processingLocation:provider_remote` and `artifactCustody:platform_asset`.
+This choice is no longer an unanswered input; it is not a default for other
+members or a standing authorization beyond that temporary credential's limits.
+
+Root's real-provider native acceptance has produced and owner-read a private
+model Result using that selection. Its SQL, member/device and R2 environment are
+local test infrastructure; this does not establish an installed staging/public
+broker, setup origin, recovery/readiness authorities or remote R2 acceptance.
+The [opt-in acceptance harness](openrouter-owner-acceptance.md) labels those bounds
+and keeps exact outcomes in private receipts. Credentials remain root-only and
+must never be copied into this worksheet, main Worker configuration or logs.
+Per-environment installation and the real browser/edge owner workflow still need
+the independent evidence below. Main does not need the provider secret.
 
 For repository preparation, run the existing static check and bundle check:
 
