@@ -29,6 +29,6 @@ export function GuideHost({pageId,scopeKey,memberAccess}:{pageId:string;scopeKey
     return()=>{current=false;controller.abort()};
   },[permitted,scope,pageId,retry]);
   if(!permitted)return null;
-  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery}/>;}
+  if(ready?.scope===scope){const {Engine,pack,page}=ready;return <aside className="workspace-companion" aria-label={`${page.character.name}的本頁導覽`}><Engine key={scope} pageId={pageId} scopeKey={scope} page={page} label={pack.label} gallery={pack.gallery}/></aside>;}
   return failed ? <button type="button" className="btn btn-ghost btn-small guide-load-retry" onClick={()=>setRetry(value=>value+1)}>重試載入新手導覽</button> : null;
 }
