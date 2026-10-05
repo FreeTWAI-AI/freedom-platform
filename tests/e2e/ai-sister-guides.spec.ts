@@ -91,7 +91,7 @@ test('wardrobe gallery offers all characters, 20 outfits and real poses; only se
     await gallery.getByRole('button',{name:label,exact:true}).click();await imageReady(gallery.locator('img'));await expect(gallery.locator('img')).toHaveAttribute('src',asset(`venice/festival-${pose}`));
   }
   expect(new Set(images).size).toBeLessThanOrEqual(6);expect(await gallery.textContent()).not.toContain('mars-tw');
-  await expect(gallery.getByRole('link',{name:'Multi-Ai-Chatapp'})).toHaveAttribute('href','https://github.com/teddashh/Multi-Ai-Chatapp');
+  await expect(gallery.getByRole('link',{name:'AI-Sister.com'})).toHaveAttribute('href','https://ai-sister.com');
   await page.keyboard.press('Escape');await expect(gallery).toHaveCount(0);
   await expect(panel(page).getByRole('button',{name:'角色圖鑑',exact:true})).toBeFocused();
   await expect(widget(page)).toHaveAttribute('data-character-id','claude');
