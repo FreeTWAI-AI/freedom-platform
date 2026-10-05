@@ -67,7 +67,7 @@ export function prepareMigrationInstallation({ sourceRoot, sourceCommit, profile
     || !outside(sourceRoot, installationParent)) fail('migration_source_identity_invalid');
   if (git(sourceRoot, ['rev-parse','--show-prefix']).toString().trim() !== '' || git(sourceRoot, ['rev-parse','HEAD']).toString().trim() !== sourceCommit
     || git(sourceRoot, ['status','--porcelain=v1','--untracked-files=all']).length) fail('migration_source_mixed_worktree');
-  for (const path of ['objects/info/alternates','info/grafts']) {
+  for (const path of ['objects/info/alternates','objects/info/http-alternates','info/grafts']) {
     const metadata = git(sourceRoot, ['rev-parse','--git-path',path]).toString().trim();
     if (existsSync(resolve(sourceRoot,metadata))) fail('migration_source_indirection');
   }
@@ -130,7 +130,13 @@ function loadInstallation({ installationDirectory, expectedInstallationDigest, e
 /** Caller supplies a host-owned pool and target; no secret file is read here. */
 export async function runInstalledMigrations(pool, options) {
   exact(options,['installationDirectory','expectedInstallationDigest','expectedSourceCommit','expectedProfileDigest','target'],'migration_host_arguments_invalid');
-  exact(options.target,['database','role','schema'],'migration_target_required');
+  const target = options.target;
+  exact(target,['database','role','schema'],'migration_target_required');
+  // Capture host admission before the import yields; callers retain their own
+  // mutable input objects, but cannot redirect this invocation after admission.
+  options = Object.freeze({ installationDirectory: options.installationDirectory,
+    expectedInstallationDigest: options.expectedInstallationDigest, expectedSourceCommit: options.expectedSourceCommit,
+    expectedProfileDigest: options.expectedProfileDigest, target: Object.freeze({ ...target }) });
   const installed = loadInstallation(options);
   // Formal DAG release floors are not installed. This adapter admits DAG only
   // under the existing disposable-test naming boundary, never a public target.

@@ -68,3 +68,22 @@ test('actual CLI refuses wrong target, corrupted/unknown restored ledger and mis
     assert.deepEqual(await facts(pool),baseline);
   });
 });
+
+test('host source pins and target are captured before the installed runner import yields', {timeout:60000},async t=>{
+  const f=createMigrationFixture();t.after(()=>rmSync(f.root,{recursive:true,force:true}));
+  const { runInstalledMigrations } = await import(new URL('../../deploy/cloudflare/migration-operator.mjs',import.meta.url).href);
+  await isolated(async(pool,_url,target)=>{
+    const callerTarget={...target},options=installedOptions(f.ab,callerTarget);
+    // The async call validates and starts its fresh module import synchronously.
+    // This mutation runs before that import continuation and before pool.connect.
+    const pending=runInstalledMigrations(pool,options);
+    callerTarget.schema='fp_foreign';callerTarget.database='fp_other';
+    options.target={database:'fp_replaced',role:'other',schema:'fp_replaced'};
+    options.expectedInstallationDigest='f'.repeat(64);options.expectedSourceCommit='f'.repeat(40);
+    options.expectedProfileDigest='f'.repeat(64);options.installationDirectory='/not-the-admitted-installation';
+    const result=await pending;
+    assert.equal(result.source_commit,f.ab.source_commit);assert.equal(result.installation_digest,f.ab.installation_digest);
+    assert.equal(result.profile_digest,f.ab.profile_digest);assert.deepEqual(result.applied,['001_base.sql','003_tail.sql',A,B,C]);
+    assert.deepEqual((await facts(pool)).data.child,[{a:1,b:1}]);
+  });
+});
