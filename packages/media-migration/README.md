@@ -52,3 +52,49 @@ contains placeholders and exits unavailable. Remote physical isolation,
 private bucket/bytes, installed role/policy/fleet evidence and actual cloud
 acceptance must be supplied separately. Broker remains OFF because its existing
 origin contract does not permit the proposed separate candidate hostname.
+
+The [daily composition](backup-daily.ts) keeps its existing `gcSafety: 'disabled'`
+contract when no mode is supplied. The operator CLI accepts an explicit
+`--gc-safety snapshot-pins`; that option does not enable a policy, install an
+adapter or authorize GC. It requires the existing source policy to be enabled,
+its revision and SQL-derived SHA-256, and an actual source database observation
+at each protection check. The digest is PostgreSQL's deterministic JSONB text
+encoding of the complete singleton policy row except `generation`: that counter
+is the capture/GC synchronization gate and legitimately advances during capture
+and renewal. Changing retention, TTLs, limits or either enable flag, even under
+the same revision label, changes the digest and refuses completion. Legacy
+adapters may omit the digest only in the default disabled mode.
+
+In snapshot-pins mode the coordinator still commits its capture barrier, pins
+all references from the exported snapshot, dumps that exact snapshot and copies
+verified object bytes. Before seal, offsite publication, remote full readback and
+isolated restore, the daily runner renews the existing capture and checks its
+complete identity (capture ID, release, schema, snapshot and every reference
+including content digest). It checks again after each phase without renewing
+first. An expired pin cannot be revived; an exception, changed tuple, changed
+policy or incomplete readback fails the run and retains its uncertain effects.
+These are point-in-time checks, not a promise that a lease remains live throughout
+external I/O. The existing database GC guard keeps capturing barriers and
+unreleased pinned references protective regardless of TTL. No database row lock
+spans object/provider I/O, and the runner never releases a capture.
+
+Only this proved mode permits unrelated tombstones to advance during the run.
+The report identifies its mode and the last successful boundary as
+`checked_after_restore_before_cleanup`; cleanup then closes owned resources and
+rechecks the same policy. This is not pin-release, object-deletion, recovery
+exposure, dispatch or PITR authorization. `sourcePins: retained` describes the
+runner's no-release behavior, not authority to trust another operator's later
+release. Restore remains quarantined; full readback does not settle unknown
+provider effects. The retention CLI remains a planner: unknown archive keys now
+withhold both object deletion and capture release. A later executor still needs
+fresh anchor verification, serialized publication/retention, explicit policy
+and unknown-effect reconciliation before any deletion or final pin release.
+
+`node scripts/run-media-restore-test.mjs --archive-only` exercises both daily
+modes with synthetic data in the existing owned PostgreSQL18/native-R2 fixture.
+The snapshot-pins cases include real concurrent avatar finalization, deletion of
+an unrelated post-snapshot object, retained unknown PUT effects, expired pins,
+changed capture/policy identity and corrupted downloaded bytes. These are local
+integration cases, not installed cloud GC/retention or operator-handoff evidence.
+The module's CLI surface declarations register ownership only; they do not claim
+runtime entry coverage or deployment.

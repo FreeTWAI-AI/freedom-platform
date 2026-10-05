@@ -8,6 +8,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {mkdtemp,mkdir,readFile,writeFile,open,rename,rm} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {Readable} from 'node:stream';
+import {setTimeout as delay} from 'node:timers/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Pool} from 'pg';
@@ -17,6 +18,10 @@ import {migrate} from '../../scripts/database.js';
 import {withMemberScope} from '../../packages/resource-scopes/index.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 import {createAssetMaintenance} from '../../modules/assets/maintenance.js';
+import {createAvatarAssetService} from '../../modules/assets/index.js';
+import {resolveAvatarUploadPolicy} from '../../modules/assets/avatar-policy.js';
+import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../modules/assets/event-banner.js';
+import {normalizeImage} from '../../packages/shared/image-runtime.js';
 import {createR2ObjectStore,type AssetR2Binding} from '../../packages/asset-storage/r2.js';
 import {objectKey,sha256,writeVerifiedObject,readVerifiedObject} from '../../packages/asset-storage/index.js';
 import {createConsistentAssetBackup} from '../../packages/media-migration/backup-coordinator.js';
@@ -63,7 +68,7 @@ async function pgTool(tool:'pg_dump'|'pg_restore',args:string[],input?:Uint8Arra
   }finally{clearTimeout(timer);}
 }
 
-test('New recovery archive restores a real snapshot and native R2, and refuses corrupt/current-revoked/sequence-reset recovery',{timeout:120000},async()=>{
+test('New recovery archive restores a real snapshot and native R2, and refuses corrupt/current-revoked/sequence-reset recovery',{timeout:120000},async(t)=>{
   const admin=new Pool({connectionString:url.href,options:'-c statement_timeout=30000',max:2});
   const pool=new Pool({connectionString:url.href,options:`-c search_path=${schema} -c statement_timeout=30000`,max:6});
   const targets:{name:string;pool:Pool}[]=[];let created=false,mf:Miniflare|undefined,root:string|undefined,outbound=0;
@@ -72,9 +77,9 @@ test('New recovery archive restores a real snapshot and native R2, and refuses c
     root=await mkdtemp(join(tmpdir(),'fp-real-recovery-archive-'));const dumpPathSource=join(root,'captured.dump');
     await admin.query(`CREATE SCHEMA ${schema}`);created=true;await migrate(pool);
     mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:'export default {fetch(){return new Response(null,{status:503})}}',
-      compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','REVOKED','RESET','QUARANTINE','DAILY_REMOTE','DAILY_RESTORED'],
+      compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','REVOKED','RESET','QUARANTINE','DAILY_REMOTE','DAILY_RESTORED',...Array.from({length:10},(_,i)=>['PIN_REMOTE_'+i,'PIN_RESTORED_'+i]).flat()],
       outboundService:()=>{outbound++;return new Response(null,{status:503});}}));await mf.ready;
-    const store=async(name:string)=>createR2ObjectStore(await mf!.getR2Bucket(name) as unknown as AssetR2Binding);
+    const store=async(name:string,allowDelete=false)=>createR2ObjectStore(await mf!.getR2Bucket(name) as unknown as AssetR2Binding,{allowDelete});
     const source=await store('SOURCE'),backupObjects=await store('BACKUP');
     await pool.query(`UPDATE asset_maintenance_policy SET enabled=true,revision='synthetic-archive',orphan_retention_seconds=1,
       retired_retention_seconds=1,delete_lease_seconds=30,capture_seconds=120,pin_seconds=120,max_capture_objects=10`);
@@ -95,7 +100,7 @@ test('New recovery archive restores a real snapshot and native R2, and refuses c
         VALUES($1,$2,$3,'image/webp',$4,$5,'avatar.webp.v1','synthetic-content')`,[assetId,scopeId,representationId,bytes.length,metadata.sha256]);
       await pool.query("UPDATE assets SET state='ready',ready_at=clock_timestamp()-interval '1 hour' WHERE asset_id=$1",[assetId]);
       if(retired)await pool.query("UPDATE assets SET state='retired',retired_at=clock_timestamp()-interval '1 hour' WHERE asset_id=$1",[assetId]);
-      return {assetId,key,bytes,metadata};
+      return {assetId,key,bytes,metadata,actor};
     }
     const first=await asset(),retired=await asset(true);
     await pool.query("SELECT nextval('positioning_guild_officer_revision') FROM generate_series(1,7)");
@@ -194,6 +199,164 @@ test('New recovery archive restores a real snapshot and native R2, and refuses c
     assert.equal(daily.restore,'database_and_objects_restored');assert.equal(daily.objects?.count,3);
     assert.equal(daily.exposure,'quarantine_not_approved_for_exposure');assert.equal(daily.cleanupVerified,true);assert.equal(dailyCleanup,1);
     for(const object of [first,retired,late])assert.deepEqual((await readVerifiedObject(await store('DAILY_RESTORED'),object.key,object.metadata)).bytes,object.bytes);
+
+
+    // Explicit new mode: actual SQL policy + persistent snapshot pins, without
+    // changing any deployed default or holding a row lock during external I/O.
+    await pool.query(`UPDATE asset_maintenance_policy SET enabled=true,domain_media_enabled=true,max_capture_objects=100`);
+    const deleteMaintenance=createAssetMaintenance(pool,{store:await store('SOURCE',true),enabled:true,domainMediaEnabled:true});
+    let pinnedRun=0;
+    async function pinnedDaily(hooks:{
+      inSnapshot?:()=>Promise<void>; afterPublish?:(captureId:string)=>Promise<void>;
+      afterRestore?:(restored:Pool)=>Promise<void>; forgedCapture?:boolean; forgedPolicy?:boolean; corruptRemote?:boolean;
+      expireDuring?:'seal'|'readback'|'restore';
+    }={}){
+      const index=pinnedRun++,localDir=join(root!,'pins-local-'+index),remoteDir=join(root!,'pins-remote-'+index),dumpPath=join(root!,'pins-'+index+'.dump');
+      await mkdir(localDir);await mkdir(remoteDir);
+      const local=await createFileArchiveStore(localDir),remote=await createFileArchiveStore(remoteDir);
+      let captureId:string|undefined,restored:Awaited<ReturnType<typeof target>>|undefined,cleanup=0,published=false;
+      const expire=async()=>{assert(captureId);await pool.query("UPDATE asset_backup_captures SET pin_expires_at=clock_timestamp()-interval '1 second' WHERE capture_id=$1",[captureId]);};
+      const selectedMaintenance={...maintenance,async beginCapture(input:Parameters<typeof maintenance.beginCapture>[0]){
+        const started=await maintenance.beginCapture(input);captureId=started.captureId;return started;
+      },async readReferences(id:string){
+        const exact=await maintenance.readReferences(id);
+        return hooks.forgedCapture&&published?{...exact,referenceSnapshot:'101:201:151'}:exact;
+      }};
+      const before=await observeMediaGcState(pool);
+      const report=await runDailyBackup({environment:'local',database,schema,sourceRelease:'a'.repeat(40),operatorSource:'b'.repeat(40),
+        setId:randomUUID(),createdAt:new Date().toISOString(),runDirectory:localDir,signal:new AbortController().signal,gcSafety:'snapshot-pins'},{
+        async preflight(){return hooks.forgedPolicy?{...before,policySha256:'f'.repeat(64)}:before;},
+        async openCapture(){return {pool,archive:{...local,async putIfAbsent(key,value){
+          const outcome=await local.putIfAbsent(key,value);if(hooks.expireDuring==='seal'&&key.endsWith('/recovery-set.json'))await expire();return outcome;
+        }},dump:{async open(){return Readable.toWeb(createReadStream(dumpPath)) as ReadableStream<Uint8Array>;}},
+          options:{maintenance:selectedMaintenance,source,destination:backupObjects,databaseSnapshot:{async write(input){
+            // Runs after pins have committed but while the exported snapshot is
+            // still open. Changes here must not alter that SQL/R2 recovery set.
+            await hooks.inSnapshot?.();
+            const bytes=await pgTool('pg_dump',['--dbname',input.database,'--schema',input.schema,'--snapshot',input.snapshotId,'--format=custom','--no-owner','--no-privileges']);
+            const file=await open(dumpPath,'wx',0o600);try{await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+            return {sha256:createHash('sha256').update(bytes).digest('hex'),byteSize:bytes.length};
+          }}}};},
+        async publishAndOpen(context,sealed){
+          captureId=sealed.captureId;
+          for(const key of await local.list(recoverySetKeys(context.setId).base,100)){
+            const body=await local.get(key);assert(body);await remote.putIfAbsent(key,body);
+          }
+          const from=await mf!.getR2Bucket('BACKUP'),to=await mf!.getR2Bucket('PIN_REMOTE_'+index);
+          for(const entry of (await from.list()).objects){const object=await from.get(entry.key);assert(object);
+            await to.put(entry.key,await object.arrayBuffer(),{httpMetadata:object.httpMetadata,customMetadata:object.customMetadata});}
+          if(hooks.corruptRemote){
+            const original=await to.get(first.key);assert(original);
+            await to.put(first.key,new Uint8Array(first.bytes.length).fill(1),{httpMetadata:original.httpMetadata,customMetadata:original.customMetadata});
+          }
+          published=true;await hooks.afterPublish?.(captureId);
+          const remoteObjects=await store('PIN_REMOTE_'+index);let expiredDuringRead=false;
+          return {archive:remote,backupObjects:{...remoteObjects,async get(key){
+            const object=await remoteObjects.get(key);if(hooks.expireDuring==='readback'&&!expiredDuringRead){expiredDuringRead=true;await expire();}return object;
+          }},publication:{mode:'unique_single_writer',atomicCreateOnly:false}};
+        },
+        async openRestore(){restored=await target();return {pool:restored.pool,databaseName:restored.name,
+          database:writer(async()=>{await hooks.afterRestore?.(restored!.pool);if(hooks.expireDuring==='restore')await expire();}),objects:await store('PIN_RESTORED_'+index)};},
+        async cleanup(){cleanup++;
+          if(restored){await restored.pool.end();await admin.query(`DROP DATABASE ${restored.name} WITH (FORCE)`);
+            targets.splice(targets.findIndex(value=>value.name===restored!.name),1);restored=undefined;}
+          return {gc:await observeMediaGcState(pool),ownedResourcesRemaining:0};
+        },
+      });
+      assert.equal(cleanup,1);assert.equal(report.retentionExecuted,false);assert.equal(report.cutoverAuthorized,false);
+      return {report,captureId,before,after:await observeMediaGcState(pool)};
+    }
+    await t.test('SQL policy digest excludes the gate generation only, not same-revision retention edits',async()=>{
+      const initial=await observeMediaGcState(pool);assert.match(initial.policySha256!,/^[a-f0-9]{64}$/);
+      await pool.query('UPDATE asset_maintenance_policy SET generation=generation+1');
+      assert.equal((await observeMediaGcState(pool)).policySha256,initial.policySha256);
+      await pool.query('UPDATE asset_maintenance_policy SET pin_seconds=pin_seconds+1');
+      const changed=await observeMediaGcState(pool);assert.equal(changed.policyRevision,initial.policyRevision);assert.notEqual(changed.policySha256,initial.policySha256);
+      await pool.query('UPDATE asset_maintenance_policy SET pin_seconds=pin_seconds-1');
+      assert.equal((await observeMediaGcState(pool)).policySha256,initial.policySha256);
+    });
+    // Actual lost-acknowledgement PUT. Full object readback allows publication,
+    // but it must not settle the independent unknown write effect or allow GC.
+    const owner=await asset(),png=await sharp({create:{width:40,height:20,channels:3,background:'blue'}}).png().toBuffer();
+    const body=()=>new ReadableStream<Uint8Array>({start(c){c.enqueue(png);c.close();}});
+    await pool.query("UPDATE domain_media_storage_policy SET mode='bridge',policy_revision='synthetic-unknown',persistence_allowed=true,retained_byte_limit=10485760 WHERE purpose='community.event-banner'");
+    const eventId=randomUUID();await pool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
+      VALUES($1,$2,$3,'Synthetic','Synthetic',clock_timestamp()+interval '2 days',clock_timestamp()+interval '3 days','online','Synthetic','pending','open','other')`,[eventId,owner.actor.community_id,owner.actor.user_id]);
+    const banner=createEventBannerAssetService(pool,{store:{...source,async putImmutable(key,value){await source.putImmutable(key,value);throw Error('synthetic lost acknowledgement');}},resolvePolicy:resolveEventBannerUploadPolicy});
+    const bannerPrepared=await banner.prepare(owner.actor,{key:randomUUID(),targetEventId:eventId,expectedVersion:'1',contentType:'image/png',byteSize:png.length,sha256:await sha256(png),orientation:'landscape'});
+    const bannerClaim=await banner.claim(owner.actor,{key:randomUUID(),intentId:bannerPrepared.intentId});
+    const bannerLease={intentId:bannerClaim.intentId,fence:bannerClaim.fence,leaseToken:bannerClaim.leaseToken};
+    await banner.write(owner.actor,{key:randomUUID(),...bannerLease},body());await banner.finalize(owner.actor,{key:randomUUID(),...bannerLease});
+    await pool.query('DELETE FROM community_event_banners WHERE event_id=$1',[eventId]);await delay(1100);
+    assert.equal((await pool.query('SELECT state FROM asset_object_write_effects WHERE asset_id=$1',[bannerPrepared.assetId])).rows[0].state,'unknown');
+    await assert.rejects(deleteMaintenance.claimDelete(bannerPrepared.assetId),(e:any)=>e.code==='23514','unknown effect itself blocks GC before any backup pins cover it');
+    await pool.query("UPDATE avatar_storage_policy SET mode='bridge',policy_revision='synthetic-avatar',persistence_allowed=true,retained_byte_limit=10485760");
+    const avatar=createAvatarAssetService(pool,{store:source,resolvePolicy:resolveAvatarUploadPolicy,normalizeAvatar:(bytes,spec)=>normalizeImage(Buffer.from(bytes),spec)});
+    async function preparedAvatar(expectedVersion:string){
+      const prepared=await avatar.prepare(owner.actor,{key:randomUUID(),targetUserId:owner.actor.user_id,expectedVersion,contentType:'image/png',byteSize:png.length,sha256:await sha256(png)});
+      const claimed=await avatar.claim(owner.actor,{key:randomUUID(),intentId:prepared.intentId});
+      const lease={intentId:claimed.intentId,fence:claimed.fence,leaseToken:claimed.leaseToken};
+      await avatar.write(owner.actor,{key:randomUUID(),...lease},body());return {prepared,lease};
+    }
+    const oldAvatar=await preparedAvatar('1');await avatar.finalize(owner.actor,{key:randomUUID(),...oldAvatar.lease});
+    const nextAvatar=await preparedAvatar('2');
+    await t.test('pinned daily restore survives actual concurrent finalize and unrelated native-R2 GC, retaining unknown effects',async()=>{
+      let removed:Awaited<ReturnType<typeof asset>>|undefined;
+      const run=await pinnedDaily({async inSnapshot(){
+        assert.equal((await avatar.finalize(owner.actor,{key:randomUUID(),...nextAvatar.lease})).aggregateVersion,'3');
+        await delay(1100);
+        assert.equal((await pool.query("SELECT state='retired' AND retired_at+interval '1 second'<clock_timestamp() eligible FROM assets WHERE asset_id=$1",[oldAvatar.prepared.assetId])).rows[0].eligible,true);
+        await assert.rejects(deleteMaintenance.claimDelete(oldAvatar.prepared.assetId),(e:any)=>e.code==='23514','exact snapshot pin protects old representation after pointer replacement');
+        removed=await asset(true);
+        assert.equal((await deleteMaintenance.deleteObject(await deleteMaintenance.claimDelete(removed.assetId))).observation,'missing');
+        assert.equal(await source.head(removed.key),null);
+      },async afterRestore(restored){
+        const pointer=(await restored.query('SELECT asset_id FROM member_avatar_asset_targets WHERE user_id=$1',[owner.actor.user_id])).rows[0];
+        assert.equal(pointer.asset_id,oldAvatar.prepared.assetId);
+        assert.equal((await restored.query('SELECT state FROM asset_upload_intents WHERE intent_id=$1',[nextAvatar.prepared.intentId])).rows[0].state,'stored');
+        assert.equal((await restored.query('SELECT state FROM asset_object_write_effects WHERE asset_id=$1',[bannerPrepared.assetId])).rows[0].state,'unknown');
+        assert.equal((await restored.query('SELECT count(*)::int n FROM assets WHERE asset_id=$1',[removed!.assetId])).rows[0].n,0);
+      }});
+      assert.equal(run.report.status,'passed',JSON.stringify(run.report));assert.equal(run.report.sourceProtection.checks,8);
+      assert.equal(run.report.sourceProtection.status,'checked_after_restore_before_cleanup');assert.equal(run.report.restore,'database_and_objects_restored');
+      assert.equal(run.report.exposure,'quarantine_not_approved_for_exposure');assert.equal(run.after.tombstones,run.before.tombstones+1);
+      assert.notEqual(run.after.tombstoneDigest,run.before.tombstoneDigest);assert.equal(run.after.policySha256,run.before.policySha256);
+      assert.equal((await pool.query('SELECT state FROM asset_object_write_effects WHERE asset_id=$1',[bannerPrepared.assetId])).rows[0].state,'unknown');
+    });
+    await t.test('expiry during offsite I/O refuses success and renewal, while expired unreleased pins still block GC',async()=>{
+      const probe=await asset(true);
+      const run=await pinnedDaily({async afterPublish(captureId){
+        await pool.query("UPDATE asset_backup_captures SET pin_expires_at=clock_timestamp()-interval '1 second' WHERE capture_id=$1",[captureId]);
+      }});
+      assert.equal(run.report.status,'failed');assert.equal(run.report.stage,'offsite');assert.equal(run.report.code,'daily_backup_protection_lost');
+      assert.equal(run.report.restore,'not_verified');assert.equal(run.report.sourceProtection.status,'not_verified');assert.equal(run.report.cleanupVerified,true);
+      assert(run.captureId);await assert.rejects(maintenance.renewProtection(run.captureId),(e:any)=>e.code==='asset_capture_expired');
+      assert.equal((await pool.query('SELECT state FROM asset_backup_captures WHERE capture_id=$1',[run.captureId])).rows[0].state,'pinned');
+      await assert.rejects(deleteMaintenance.claimDelete(probe.assetId),(e:any)=>e.code==='23514');assert(await source.head(probe.key));
+    });
+    await t.test('every remaining external phase rechecks pin expiry without reviving or releasing it',async()=>{
+      for(const phase of ['seal','readback','restore'] as const){
+        const run=await pinnedDaily({expireDuring:phase});
+        assert.equal(run.report.status,'failed',phase);assert.equal(run.report.stage,phase);assert.equal(run.report.code,'daily_backup_protection_lost');
+        assert.equal(run.report.sourceProtection.status,'not_verified');assert.equal(run.report.cleanupVerified,true);
+        assert(run.captureId);assert.equal((await pool.query('SELECT state FROM asset_backup_captures WHERE capture_id=$1',[run.captureId])).rows[0].state,'pinned');
+        await assert.rejects(maintenance.renewProtection(run.captureId),(e:any)=>e.code==='asset_capture_expired');
+      }
+      const released=await pinnedDaily({async afterPublish(id){await maintenance.releaseProtection(id,'release');}});
+      assert.equal(released.report.status,'failed');assert.equal(released.report.code,'daily_backup_protection_lost');
+      assert.equal(released.report.stage,'offsite');assert.equal(released.report.sourceProtection.status,'not_verified');
+    });
+    await t.test('pin tuple substitution, same-revision policy edit, fabricated policy digest and corrupted remote bytes are refused',async()=>{
+      const forged=await pinnedDaily({forgedCapture:true});assert.equal(forged.report.code,'daily_backup_protection_lost');assert.equal(forged.report.stage,'offsite');
+      const policy=await pinnedDaily({async afterPublish(){await pool.query('UPDATE asset_maintenance_policy SET pin_seconds=pin_seconds+1');}});
+      assert.equal(policy.report.status,'failed');assert.equal(policy.report.stage,'offsite');assert.equal(policy.report.cleanupVerified,false);
+      await pool.query('UPDATE asset_maintenance_policy SET pin_seconds=pin_seconds-1');
+      const declared=await pinnedDaily({forgedPolicy:true});assert.equal(declared.report.status,'failed');assert.equal(declared.report.stage,'seal');
+      assert.equal(declared.report.sourceProtection.checks,0,'fixed SQL rejects caller digest before sealing');
+      const corrupt=await pinnedDaily({corruptRemote:true});assert.equal(corrupt.report.status,'failed');assert.equal(corrupt.report.stage,'readback');
+      assert.equal(corrupt.report.remoteReadback,'not_verified');assert.equal(corrupt.report.restore,'not_verified');
+      assert.equal(corrupt.report.cleanupVerified,true);assert.equal(corrupt.report.sourceProtection.status,'not_verified');
+    });
 
     const dumpPath=join(root,recoverySetKeys(setId).dump),stored=await readFile(dumpPath),corrupt=Buffer.from(stored);corrupt[0]^=1;await writeFile(dumpPath,corrupt);
     let restores=0;
