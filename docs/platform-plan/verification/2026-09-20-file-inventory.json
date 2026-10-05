@@ -5328,6 +5328,11 @@
       "sha256": "6dab0e8e46f9db2ac53305c347b55f720d9e0e93c9bf5dfcdc8f67e060e02fcc"
     },
     {
+      "path": "docs/development/selector-canary-note.md",
+      "bytes": 31,
+      "sha256": "99d52d3b7b3c42190599a5c7264c162aee7860fbddaf53e200750f3e4743600c"
+    },
+    {
       "path": "docs/development/service-cover-worker.md",
       "bytes": 1936,
       "sha256": "de29ba89858aeb2488ee2bb11fb0a94fb6a30fa1fef197acf05ffad4c3fba135"
