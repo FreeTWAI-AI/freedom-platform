@@ -54,8 +54,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 10020,
-      "sha256": "78e074b95bb2eddc2ffcb40bcf61c40d9d516c79d38c7365a548abad6119b8eb"
+      "bytes": 10048,
+      "sha256": "99be74e404306021315b7fc2317ec70e7c5c2bf6f624e2b6cba1c936e8cd74ab"
     },
     {
       "path": "README.md",
@@ -1844,8 +1844,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/ai-sister/index.ts",
-      "bytes": 2774,
-      "sha256": "1174ae38bb32f1a5a55b111df7b1b37356301137ab622874f29f6dd5e3f710c7"
+      "bytes": 2748,
+      "sha256": "2d1a704cf72789fdaab6decde0b69b759e1c21f9d2f1c5d9bde66ef6efe7da0f"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/dragon/characters.json",
@@ -16764,8 +16764,8 @@
     },
     {
       "path": "tests/e2e/ai-sister-guides.spec.ts",
-      "bytes": 17031,
-      "sha256": "fc2c62048b2ed3f452a77ea12e37bf59676139ce59c947d166f5fe68628e94e5"
+      "bytes": 17005,
+      "sha256": "a6d73d1647905e79f351b7c3e22d1bb4d3aa8e287760d5d443c2c5afe3093575"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",

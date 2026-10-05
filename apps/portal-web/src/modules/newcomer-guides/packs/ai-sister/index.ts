@@ -21,7 +21,7 @@ export const AI_SISTER_PACK:GuidePack={
   format:'freedom.newcomer-guide/v1',id:'ai-sister',version:AI_SISTER_RELEASE_PIN.version,engineContractVersion:1,locale:'zh-Hant',label:'AI Sister',
   pages,gallery:Object.values(catalog),
   characterChoices:Object.entries(catalog).map(([id,character])=>({id,label:character.name})),
-  galleryInfo:{title:'角色圖鑑',attribution:'AI Sister 角色與素材來自 Ted 的',sourceLabel:'Multi-Ai-Chatapp',sourceUrl:'https://github.com/teddashh/Multi-Ai-Chatapp'},
+  galleryInfo:{title:'角色圖鑑',attribution:'AI Sister 角色與素材來自 Ted 的',sourceLabel:'AI-Sister.com',sourceUrl:'https://ai-sister.com'},
   async loadPage(pageId,characterId){
     const support=Object.hasOwn(pages,pageId)?pages[pageId]:null;
     if(support?.status!=='supported')throw Error('Unsupported guide page');
