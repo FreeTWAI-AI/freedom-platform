@@ -219,11 +219,13 @@ test('a failed backfill batch rolls back principal insertion and resumes without
   await finishBackfill(); assert.equal((await mappingSnapshot()).principals.length, 1);
 });
 
-test('database rejects unsupported identities, ambiguous scope ownership and dangling backing refs', async () => {
+test('database rejects unbacked identities, ambiguous scope ownership and dangling backing refs', async () => {
   const owner = await member(), context = await inspect(owner), user = owner.user_id, principal = context.subject_principal.principal_id;
   const cases: [string, unknown[], string][] = [
     ["INSERT INTO principals(kind,user_ref) VALUES('service',$1)", [user], '23514'],
-    ["INSERT INTO principals(user_ref) VALUES(NULL)", [], '23502'],
+    // 118 pairs each kind with its real backing via CHECK; person still cannot
+    // omit user_ref even though the column is nullable for shop services.
+    ["INSERT INTO principals(user_ref) VALUES(NULL)", [], '23514'],
     ["INSERT INTO principals(user_ref) VALUES($1)", [randomUUID()], '23503'],
     ["INSERT INTO principals(user_ref) VALUES($1)", [user], '23505'],
     ["INSERT INTO resource_scopes(kind,community_ref) VALUES('site',$1)", [firstCommunity], '23514'],

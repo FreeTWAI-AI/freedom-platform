@@ -142,6 +142,8 @@ export function checkWranglerConfig(path, manifest, { hyperdriveConfigs } = {}) 
       if (/(URL|KEY|SECRET|TOKEN|PASSWORD)$/.test(k) && k !== 'APP_ORIGIN') errors.push(`${label}: ${k} must be a secret, not a plain var`);
       if (/^(postgres(ql)?|mysql):\/\//i.test(String(v))) errors.push(`${label}: var ${k} contains a connection string`);
     }
+    if (vars.FREEDOM_SHOP_KEY_POLICY === undefined) injections.push(`${label}: FREEDOM_SHOP_KEY_POLICY requires an explicit reviewed legacy upgrade policy`);
+    else if (!['legacy-compatible', 'purpose-bound-only'].includes(vars.FREEDOM_SHOP_KEY_POLICY)) errors.push(`${label}: FREEDOM_SHOP_KEY_POLICY is invalid`);
     if (vars.APP_ORIGIN !== `https://${env.hostname}`) errors.push(`${label}: APP_ORIGIN must be https://${env.hostname}`);
     if (vars.FREEDOM_ENV !== env.freedom_env) errors.push(`${label}: FREEDOM_ENV must be ${env.freedom_env}`);
     if (vars[rt.source_ip_var.name] !== rt.source_ip_var.value) errors.push(`${label}: ${rt.source_ip_var.name} must be "${rt.source_ip_var.value}" behind Cloudflare`);

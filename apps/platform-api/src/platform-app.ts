@@ -1,3 +1,4 @@
+import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
@@ -94,6 +95,7 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
+  const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
   if(brokerFormOrigin!==undefined){
@@ -195,7 +197,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer}));
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
-  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health}));
+  app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
@@ -235,7 +237,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createSkillDiscoveryRoutes(pool));
   app.route('/api/v1',createPublicClientConnectionRoutes(pool,origin,authNetwork));
   app.route('/client-api/v1',createClientApiRoutes(pool));
-  app.route('/shop-api/v1',createShopMachineRoutes(pool));
+  app.route('/shop-api/v1',createShopMachineRoutes(pool,shopHost));
   app.route('/',createPublicShopRoutes(pool));
   app.route('/agent-api/v1',createAgentSkillSubmissionRoutes(pool,origin,authNetwork,runtime));
   app.route('/development-agent/v1',createDevelopmentAgentRoutes(pool,loadSocial,authNetwork));
@@ -336,7 +338,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken,runtime));
   app.route('/api/v1',createPositioningRoutes(pool));
   app.route('/api/v1',createCommerceRoutes(pool));
-  app.route('/api/v1',createAgentCommerceRoutes(pool,origin));
+  app.route('/api/v1',createAgentCommerceRoutes(pool,origin,shopHost));
   app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
   app.route('/api/v1',createCoCreationRoutes(pool,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
