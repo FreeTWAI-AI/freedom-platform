@@ -73,6 +73,22 @@ test('existing scoped Agent Kit package resolves local identity without granting
   await assert.rejects(buildContext(f.options), { code: 'repository_identity_required' });
 });
 
+test('selected module can include root DESIGN while arbitrary root instructions remain denied', async t => {
+  const f = await fixture(t), module = descriptor('portal', ['apps/portal-web/**']);
+  module.instructions = ['DESIGN.md'];
+  await put(f.root, 'apps/portal-web/freedom.module.json', pretty(module));
+  await put(f.root, 'DESIGN.md', '# Approved design rules\n');
+  f.git(['update-ref', 'refs/heads/baseline', f.commit()]);
+  await put(f.root, 'DESIGN.md', '# Updated design rules\n');
+  const { context } = await buildContext({ ...f.options, requestedPaths: ['apps/portal-web/deep/page.tsx'] });
+  assert.deepEqual(context.documents.filter(doc => doc.path === 'DESIGN.md').map(doc => doc.revision), ['base', 'candidate']);
+  assert.equal(context.publisher_trust, 'unverified');
+  module.instructions = ['private-notes.md'];
+  await put(f.root, 'apps/portal-web/freedom.module.json', pretty(module));
+  await put(f.root, 'private-notes.md', 'must not enter the bundle');
+  await assert.rejects(buildContext({ ...f.options, scopes: ['portal'] }), { code: 'instruction_path_denied' });
+});
+
 test('single-module consumer root descriptor participates in candidate and baseline context', async t => {
   const f = await fixture(t);
   await rename(join(f.root, 'packages/contribution-tools/freedom.module.json'), join(f.root, 'freedom.module.json'));

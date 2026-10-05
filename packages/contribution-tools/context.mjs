@@ -83,7 +83,7 @@ async function descriptorsFor(workspace, revision) {
 
 function allowedInstruction(path) {
   artifactPath(path);
-  check(ROOT_INSTRUCTIONS.includes(path) || path.endsWith('/AGENTS.md') || /^(docs|modules|packages|contracts|governance)\/.*\.md$/.test(path)
+  check(ROOT_INSTRUCTIONS.includes(path) || path === 'DESIGN.md' || path.endsWith('/AGENTS.md') || /^(docs|modules|packages|contracts|governance)\/.*\.md$/.test(path)
     || path === 'vendor/freedom-tooling/governance/README.md', 'instruction_path_denied');
   check(!path.split('/').some(part => part.startsWith('.')), 'instruction_path_denied');
 }
