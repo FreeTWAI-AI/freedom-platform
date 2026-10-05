@@ -54,8 +54,8 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 8841,
-      "sha256": "8d29926fe248594e1decd6008f026223a97e4758d08a8c3c8721bba820a231b0"
+      "bytes": 9268,
+      "sha256": "652a2fbfa12bf16a6e99153947096445156c47da0b77a1e3b08745a28275b6ac"
     },
     {
       "path": "README.md",
@@ -974,8 +974,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 86981,
-      "sha256": "4b16d5d80853715e7eab28f8583f353112fa2670360fdb9c7eff0509d1eabb23"
+      "bytes": 87395,
+      "sha256": "ed19f4a61ae05147ee0a944008a3825724895c030aa05e469c957381a5bfe357"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -1028,6 +1028,11 @@
       "sha256": "8accd02042f1c03ea7c92cdefa107505efd0c9aa5a7ec7b94bf04031a4d0e2ab"
     },
     {
+      "path": "apps/portal-web/src/WorkspaceCompanionLayout.css",
+      "bytes": 2173,
+      "sha256": "f9b15a9fc04b8f04ea65909f942147d8006b7639d421f29e8557feb0c47c5458"
+    },
+    {
       "path": "apps/portal-web/src/access-fetch.ts",
       "bytes": 1317,
       "sha256": "3e889900d1cc7d0c77d278bcf8159dc0c84bf60553438a84adf276ff97360fb3"
@@ -1039,8 +1044,8 @@
     },
     {
       "path": "apps/portal-web/src/dragon-theme.css",
-      "bytes": 730,
-      "sha256": "e3eb7a2a1bbe51e911c3c74f05c9bfad2a828c99de059cdd7b279d2c0fde2118"
+      "bytes": 703,
+      "sha256": "da06beb9b7eedea6e6ae53ab1ea9c02c2eedaf3412dffd40d9720306c295bd63"
     },
     {
       "path": "apps/portal-web/src/experience-profiles.ts",
@@ -1074,8 +1079,8 @@
     },
     {
       "path": "apps/portal-web/src/main.tsx",
-      "bytes": 668,
-      "sha256": "fb513fc0dd0aa5c74129d66d8567a67323b24a0c719dd208b9169fccf2f29a16"
+      "bytes": 708,
+      "sha256": "26f5399ae2588b9f661990695fde1316dab21e32553e96e6c01422b7a9036948"
     },
     {
       "path": "apps/portal-web/src/module-light-theme.css",
@@ -1764,8 +1769,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
-      "bytes": 2437,
-      "sha256": "3feb7e37a1f8c00ce9f0ff94e0f5316c917eb1a710e2848f9d1a2e55354dfd82"
+      "bytes": 2537,
+      "sha256": "522253d4c5cb19e67a646f096d3d2f448d21342155a2e1fc6f752415e57a9427"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/contracts.ts",
@@ -1774,8 +1779,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideEngine.tsx",
-      "bytes": 39918,
-      "sha256": "0b08c386b8b5ea312bd29da4288e14d1ec33a3968fae56fa5e71e69572479715"
+      "bytes": 38858,
+      "sha256": "d96c07ba691475c485ab205c526bc9585ae4b2fe48e3f609cd99fc68f7087ad0"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/GuideGallery.tsx",
@@ -1794,8 +1799,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/page-spirit.css",
-      "bytes": 11588,
-      "sha256": "32b850cb5b8e667138b42e7f65219c6929761a7364e10ca5a13692fec82dd18a"
+      "bytes": 7793,
+      "sha256": "7b031d65a478d63e7aad56e7f4c4df4ba5bba0278bdcaef361efc4c2ee41a54e"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/engine/preferences.ts",
@@ -5274,8 +5279,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 7178,
-      "sha256": "ffa0e9dfdc40e63cfb66306b1c3a16f154038fcc78686308c73392ffc82e0d3a"
+      "bytes": 9000,
+      "sha256": "a514e4db0f4748b9462a5ad72a270ec45f6ad4a718210df75730d7049282c05b"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -9684,8 +9689,8 @@
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
-      "bytes": 13682,
-      "sha256": "2dc93cb0e028680b4243c7ebbc35053c22216d9d5edfed3017b8c167ad52bf75"
+      "bytes": 13694,
+      "sha256": "fca3179aa11df22e64267b51a6bd43c5203005e298878f6c42e5f8edccefc39e"
     },
     {
       "path": "tests/e2e/audit-identity-final.spec.ts",
@@ -9959,8 +9964,8 @@
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
-      "bytes": 47340,
-      "sha256": "5b815bb2d45229dd63fa5c9efb6a6ab8e913cf5bde496b3879957f7948eac3a2"
+      "bytes": 69653,
+      "sha256": "3886c7bd8012f5acf71bbf06dabbac15d815361b51ee101ef284a970066191b7"
     },
     {
       "path": "tests/e2e/notification-bell-actions.spec.ts",

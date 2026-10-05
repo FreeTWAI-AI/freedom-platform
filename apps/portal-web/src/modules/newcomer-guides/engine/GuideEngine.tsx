@@ -1,6 +1,6 @@
-// Generic behavior adapted from mars-tw PR #106, exact source 46a40342509a9278c3a7b8a940bce27b7f464227.
+// Generic behavior adapted from mars-tw PR #106, source 46a40342509a9278c3a7b8a940bce27b7f464227.
+// Inline companion UI adapted from mars-tw 99b90451b1b047a34d443318a21e4aad973ae226.
 import {useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent} from 'react'
-import {createPortal} from 'react-dom'
 import type {GuidePage,GuideCharacter} from '../contracts'
 import {GuideGallery} from './GuideGallery'
 import {createPageSession, type SpiritPack} from './core'
@@ -29,6 +29,11 @@ function editing(element: Element | null) {
   return element instanceof HTMLElement && (element.isContentEditable || element.matches('input,textarea,select'))
 }
 
+function blockingSurface(own: HTMLElement | null) {
+  return Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
+    || Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded')).some(visible)
+}
+
 export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = false}: Props) {
   const character = page.character
   const getSpiritGuide = (_pageId:string, topicId:string|null) => topicId?.startsWith(`${pageId}:`) ? page.guides[topicId] ?? null : null
@@ -44,8 +49,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   const questionInput = useRef<HTMLInputElement>(null)
   const compactContinue = useRef<HTMLButtonElement>(null)
   const showFullButton = useRef<HTMLButtonElement>(null)
-  const strip = useRef<HTMLElement>(null)
-  const content = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLElement>(null)
   const mounted = useRef(false)
   const active = useRef({identity, open: false, mode: 'closed' as ViewMode, disabled, suppressed: false, energy: preferences.energy, instantText: preferences.instantText, reduced: false})
   active.current.identity = identity
@@ -71,15 +75,16 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   const guideTarget = useRef<HTMLElement | null>(null)
   const guideCleanup = useRef<(() => void) | null>(null)
   const guideEpoch = useRef(0)
-  const guideAlignment = useRef(0)
   const guideIdentity = useRef('')
   const guideState = useRef<GuideState | null>(null)
   const [historyPosition, setHistoryPosition] = useState(-1)
   const [mode, setMode] = useState<ViewMode>('closed')
-  const open = mode === 'expanded'
+  const [questionsOpen, setQuestionsOpen] = useState(false)
+  const [guideMenuOpen, setGuideMenuOpen] = useState(false)
+  const open = questionsOpen
   const [guide, setGuide] = useState<GuideState | null>(null)
-  const [artExpanded, setArtExpanded] = useState(false)
   const [suppressed, setSuppressed] = useState(false)
+  const [hardSuppressed, setHardSuppressed] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [pack, setPack] = useState<SpiritPack | null>(null)
   const [question, setQuestion] = useState('')
@@ -88,7 +93,6 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   const [announcementRevision, setAnnouncementRevision] = useState(0)
   const [typing, setTyping] = useState(false)
   const [sprite, setSprite] = useState<{src: string; index: number | 'hero'; playing: boolean; identity: string}>({src: character.hero, index: 'hero', playing: false, identity})
-  const [geometry, setGeometry] = useState({bottom: 64, maxHeight: 560})
 
   const permitted = useCallback((expectedIdentity: string) => mounted.current && active.current.identity === expectedIdentity
     && active.current.open && !active.current.disabled && !active.current.suppressed && !document.hidden, [])
@@ -98,47 +102,8 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
 
   const clearGuide = useCallback(() => {
     guideEpoch.current++
-    if (guideAlignment.current) cancelAnimationFrame(guideAlignment.current)
-    guideAlignment.current = 0
     guideCleanup.current?.(); guideCleanup.current = null; guideTarget.current = null; guideIdentity.current = ''; guideState.current = null
     if (mounted.current) setGuide(null)
-  }, [])
-  const alignGuideTarget = useCallback(() => {
-    if (guideAlignment.current) cancelAnimationFrame(guideAlignment.current)
-    const expectedIdentity = active.current.identity, epoch = guideEpoch.current
-    const started = performance.now()
-    const measure = () => {
-      guideAlignment.current = 0
-      const target = guideTarget.current, panel = strip.current
-      if (!mounted.current || active.current.disabled || active.current.suppressed || document.hidden || active.current.mode !== 'guide'
-        || expectedIdentity !== active.current.identity || epoch !== guideEpoch.current || !guideState.current?.found || !target?.isConnected || !panel) return
-      const targetRect = target.getBoundingClientRect(), stripRect = panel.getBoundingClientRect()
-      const viewportTop = window.visualViewport?.offsetTop ?? 0
-      const topEdge = Array.from(document.querySelectorAll<HTMLElement>('.sidebar,.topbar')).filter(element => {
-        const rect = element.getBoundingClientRect(), position = getComputedStyle(element).position
-        return visible(element) && (position === 'fixed' || position === 'sticky') && rect.top <= viewportTop + 12
-          && rect.right > targetRect.left && rect.left < targetRect.right
-      }).reduce((edge, element) => Math.max(edge, element.getBoundingClientRect().bottom + 8), viewportTop + 8)
-      const horizontalOverlap = stripRect.right > targetRect.left && stripRect.left < targetRect.right
-      const consoleTop = Array.from(document.querySelectorAll<HTMLElement>('.game-console')).filter(visible)
-        .reduce((edge, element) => Math.min(edge, element.getBoundingClientRect().top - 8), (window.visualViewport?.height ?? window.innerHeight) + viewportTop - 8)
-      const bottomEdge = horizontalOverlap ? Math.min(stripRect.top - 8, consoleTop) : consoleTop
-      if (bottomEdge <= topEdge) return
-      const desiredTop = targetRect.height > bottomEdge - topEdge
-        ? topEdge : Math.max(topEdge, Math.min(targetRect.top, bottomEdge - targetRect.height))
-      const delta = targetRect.top - desiredTop
-      if (Math.abs(delta) >= 1) {
-        let scroller = target.parentElement
-        while (scroller && scroller !== document.body && scroller !== document.documentElement) {
-          if (/(auto|scroll)/.test(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight) break
-          scroller = scroller.parentElement
-        }
-        if (scroller && scroller !== document.body && scroller !== document.documentElement) scroller.scrollBy({top: delta, behavior: 'instant'})
-        else window.scrollBy({top: delta, behavior: 'instant'})
-      }
-      if (!active.current.reduced && !active.current.energy && performance.now() - started < 450) guideAlignment.current = requestAnimationFrame(measure)
-    }
-    guideAlignment.current = requestAnimationFrame(measure)
   }, [])
   const unavailableGuideTarget = useCallback(() => {
     const current = guideState.current
@@ -178,6 +143,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
   }, [])
 
   const close = useCallback((returnFocus = false, clear = false) => {
+    const expectedIdentity = active.current.identity
     active.current.open = false
     active.current.mode = 'closed'
     packEpoch.current++
@@ -185,7 +151,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     forgetFrames()
     clearGuide()
     if (mounted.current) {
-      setMode('closed'); setGalleryOpen(false); setAnnouncement(''); setArtExpanded(false); setQuestion(''); composing.current = false
+      setMode('closed'); setQuestionsOpen(false); setGuideMenuOpen(false); setGalleryOpen(false); setAnnouncement(''); setQuestion(''); composing.current = false
       if (!currentPack.current) setLoadState('idle')
     }
     if (clear) {
@@ -196,7 +162,12 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     }
     if (returnFocus) focusRequest.current = requestAnimationFrame(() => {
       focusRequest.current = 0
-      if (mounted.current && !active.current.open && !active.current.disabled && !active.current.suppressed) launcher.current?.focus({preventScroll: true})
+      if (mounted.current && active.current.identity === expectedIdentity && active.current.mode === 'closed' && !active.current.disabled && !active.current.suppressed
+        && !document.hidden && !blockingSurface(wrapper.current)
+        && (!editing(document.activeElement) || wrapper.current?.contains(document.activeElement))) {
+        launcher.current?.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'})
+        launcher.current?.focus({preventScroll: true})
+      }
     })
   }, [cancelMotion, clearGuide, forgetFrames])
 
@@ -288,13 +259,16 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     }
   }, [page, pageId, permitted, playSprite, showLine, stopText])
 
-  const begin = useCallback((origin?: HTMLElement) => {
-    if (active.current.disabled || active.current.suppressed || document.hidden) return
+  const begin = useCallback((origin?: HTMLElement, intent: 'questions' | 'guides' = 'questions') => {
+    if (active.current.disabled || document.hidden || blockingSurface(wrapper.current)) return
+    if (focusRequest.current) cancelAnimationFrame(focusRequest.current)
     origin?.focus({preventScroll: true})
+    active.current.suppressed = false; setSuppressed(false)
     clearGuide()
     active.current.open = true
     active.current.mode = 'expanded'
     setMode('expanded')
+    setQuestionsOpen(intent === 'questions'); setGuideMenuOpen(intent === 'guides')
     if (currentPack.current && session.current && packIdentity.current === active.current.identity) {
       showLine(hasOpened.current ? fullText.current || currentPack.current.entryLine : currentPack.current.entryLine, currentTopic.current, false, false)
       hasOpened.current = true; playSprite()
@@ -302,8 +276,8 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     focusRequest.current = requestAnimationFrame(() => {
       focusRequest.current = 0
       const own = wrapper.current
-      const blocked = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
-      if (permitted(active.current.identity) && !blocked && (!editing(document.activeElement) || own?.contains(document.activeElement))) closeButton.current?.focus({preventScroll: true})
+      const blocked = blockingSurface(own)
+      if (intent === 'questions' && permitted(active.current.identity) && !blocked && (!editing(document.activeElement) || own?.contains(document.activeElement))) closeButton.current?.focus({preventScroll: true})
     })
   }, [clearGuide, loadPack, permitted, playSprite, showLine])
 
@@ -312,11 +286,15 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     active.current.open = false; active.current.mode = 'compact'
     packEpoch.current++; cancelMotion(true)
     if (!currentPack.current) setLoadState('idle')
-    setMode('compact'); setAnnouncement('')
+    setMode('compact'); setQuestionsOpen(false); setGuideMenuOpen(false); setAnnouncement('')
     composing.current = false
     focusRequest.current = requestAnimationFrame(() => {
       focusRequest.current = 0
-      if (mounted.current && active.current.mode === 'compact' && !active.current.suppressed && !active.current.disabled) compactContinue.current?.focus({preventScroll: true})
+      if (mounted.current && active.current.mode === 'compact' && !active.current.suppressed && !active.current.disabled
+        && !document.hidden && !blockingSurface(wrapper.current)) {
+        compactContinue.current?.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'})
+        compactContinue.current?.focus({preventScroll: true})
+      }
     })
   }, [cancelMotion, clearGuide])
 
@@ -332,22 +310,41 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     active.current.open = false; active.current.mode = 'guide'
     packEpoch.current++; cancelMotion(true)
     composing.current = false; setQuestion('')
+    setQuestionsOpen(false); setGuideMenuOpen(false)
     const next = {definition, index, found: Boolean(target), identity: expectedIdentity}
     guideState.current = next; setMode('guide'); setGuide(next)
     setAnnouncement(target ? step.instruction : `${step.instruction} 這個入口目前無法使用，請先查看本頁提示。`)
     if (target) {
-      const cleanup = focusGuideTarget(target, active.current.reduced || active.current.energy)
-      if (epoch !== guideEpoch.current || active.current.identity !== expectedIdentity || !mounted.current || active.current.disabled || !target.isConnected) {cleanup(); return}
-      guideCleanup.current = cleanup
-      alignGuideTarget()
+      // The inline explanation changes the document layout when it collapses.
+      // Revalidate and focus the named control after React commits that change.
+      focusRequest.current = requestAnimationFrame(() => {
+        focusRequest.current = 0
+        if (epoch !== guideEpoch.current || active.current.identity !== expectedIdentity || !mounted.current || active.current.disabled
+          || active.current.suppressed || document.hidden || blockingSurface(wrapper.current) || !target.isConnected) return
+        const currentRoot = document.getElementById('main-content')
+        if (!(currentRoot instanceof HTMLElement) || findGuideTarget(currentRoot, step) !== target) {unavailableGuideTarget(); return}
+        const cleanup = focusGuideTarget(target, active.current.reduced || active.current.energy)
+        if (epoch !== guideEpoch.current || active.current.identity !== expectedIdentity || !mounted.current || active.current.disabled || !target.isConnected) {cleanup(); return}
+        guideCleanup.current = cleanup
+      })
     }
-  }, [alignGuideTarget, cancelMotion, clearGuide])
+  }, [cancelMotion, clearGuide, unavailableGuideTarget])
 
   const startGuide = useCallback(() => {
     if (!permitted(active.current.identity) || packIdentity.current !== active.current.identity) return
     const definition = getSpiritGuide(pageId, currentTopic.current)
     if (definition?.steps.length) moveGuide(definition, 0)
   }, [moveGuide, pageId, permitted])
+
+  const chooseGuide = useCallback((topicId: string) => {
+    if (!permitted(active.current.identity) || packIdentity.current !== active.current.identity || !session.current) return
+    const topic = currentPack.current?.topics.find(entry => entry.id === topicId)
+    const definition = getSpiritGuide(pageId, topicId)
+    if (!topic || !definition?.steps.length) return
+    const reply = session.current.ask(topic.label, topic.id, currentTopic.current)
+    showLine(reply.text, reply.topicId)
+    moveGuide(definition, 0)
+  }, [moveGuide, pageId, permitted, showLine])
 
   const previous = useCallback(() => {
     if (!permitted(active.current.identity) || canonicalCursor.current <= 0) return
@@ -372,7 +369,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     clearGuide(); cancelMotion(false)
     session.current?.clear(); session.current = createPageSession(trusted)
     canonical.current = []; canonicalCursor.current = -1; currentTopic.current = null; composing.current = false
-    setQuestion(''); setHistoryPosition(-1); setArtExpanded(false)
+    setQuestion(''); setHistoryPosition(-1)
     showLine(trusted.entryLine); playSprite()
   }, [cancelMotion, clearGuide, permitted, playSprite, showLine])
 
@@ -431,13 +428,10 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
 
   useEffect(() => {
     let layoutRequest = 0
-    const consoleElements = new Set<HTMLElement>()
     const inspect = () => {
       layoutRequest = 0
       const own = wrapper.current
       const consoles = Array.from(document.querySelectorAll<HTMLElement>('.game-console')).filter(element => !own?.contains(element))
-      for (const element of consoleElements) if (!consoles.includes(element)) {resize?.unobserve(element); consoleElements.delete(element)}
-      for (const element of consoles) if (!consoleElements.has(element)) {consoleElements.add(element); resize?.observe(element)}
       const consoleOpen = consoles.some(element => element.classList.contains('game-console-expanded') && visible(element))
       const modalOpen = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
       const guidedFocus = active.current.mode === 'guide' && guideIdentity.current === active.current.identity
@@ -446,6 +440,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
       const blocked = consoleOpen || modalOpen || outsideInput
       active.current.suppressed = blocked
       setSuppressed(previous => previous === blocked ? previous : blocked)
+      setHardSuppressed(previous => previous === (consoleOpen || modalOpen) ? previous : consoleOpen || modalOpen)
       const root=document.getElementById('main-content'),currentGuide=guideState.current
       // A target can become ambiguous after it was selected. Recheck the exact
       // current-step anchor, not merely the retained element's visibility.
@@ -453,16 +448,8 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
         || findGuideTarget(root,currentGuide.definition.steps[currentGuide.index])!==guideTarget.current)
       if (blocked && active.current.mode !== 'closed') close(false)
       else if (targetInvalid) unavailableGuideTarget()
-      const viewport = window.visualViewport
-      const keyboard = Math.max(0, window.innerHeight - ((viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0)))
-      const consoleBottom = consoles.filter(visible).reduce((bottom, element) => Math.max(bottom, window.innerHeight - element.getBoundingClientRect().top + 12), 12)
-      const bottom = Math.ceil(Math.max(consoleBottom, keyboard + 12))
-      const freeHeight = Math.floor((viewport?.height ?? window.innerHeight) - (bottom - keyboard) - 24)
-      const maxHeight = Math.max(160, window.innerWidth <= 640 ? Math.min(freeHeight, Math.floor((viewport?.height ?? window.innerHeight) * .6)) : freeHeight)
-      setGeometry(previous => previous.bottom === bottom && previous.maxHeight === maxHeight ? previous : {bottom, maxHeight})
     }
     const schedule = () => {if (!layoutRequest) layoutRequest = requestAnimationFrame(inspect)}
-    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
     const relevant = (node: Node) => node instanceof HTMLElement && !wrapper.current?.contains(node)
       && (node.matches(ENVIRONMENT_SELECTOR) || !!node.querySelector(ENVIRONMENT_SELECTOR) || node === guideTarget.current
         || Boolean(guideTarget.current && node.contains(guideTarget.current)))
@@ -488,21 +475,14 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     document.addEventListener('focusin', focused)
     document.addEventListener('focusout', schedule)
     window.addEventListener('resize', schedule)
-    window.visualViewport?.addEventListener('resize', schedule)
-    window.visualViewport?.addEventListener('scroll', schedule)
     inspect()
     return () => {
-      observer.disconnect(); resize?.disconnect()
+      observer.disconnect()
       if (layoutRequest) cancelAnimationFrame(layoutRequest)
       document.removeEventListener('focusin', focused); document.removeEventListener('focusout', schedule)
       window.removeEventListener('resize', schedule)
-      window.visualViewport?.removeEventListener('resize', schedule); window.visualViewport?.removeEventListener('scroll', schedule)
     }
   }, [close, unavailableGuideTarget])
-
-  useEffect(() => {
-    if (mode === 'guide' && guide?.found) alignGuideTarget()
-  }, [alignGuideTarget, mode, guide?.index, guide?.found, geometry.bottom, geometry.maxHeight])
 
   const changePreference = (key: keyof SpiritPreferences, checked: boolean) => {
     const next = {...preferenceRef.current, [key]: checked}
@@ -511,69 +491,88 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
     if (key === 'energy') cancelMotion(true)
     else stopText(true)
   }
-  if (disabled || suppressed || typeof document === 'undefined') return null
-  const style = {
-    '--page-spirit-accent': character.accent,
-    '--page-spirit-backdrop': character.backdropColor || '#f1f3f5',
-    '--page-spirit-bottom': `${geometry.bottom}px`,
-    '--page-spirit-max-height': `${geometry.maxHeight}px`,
-  } as CSSProperties
+  if (typeof document === 'undefined') return null
+  const style = {'--page-spirit-accent': character.accent, '--page-spirit-backdrop': character.backdropColor || 'transparent'} as CSSProperties
   const availableGuide = packIdentity.current === identity ? getSpiritGuide(pageId, currentTopic.current) : null
   const currentGuide = mode === 'guide' && guide?.identity === identity ? guide : null
   const topicMetadata = packIdentity.current === identity ? pack?.topics.find(topic => topic.id === currentTopic.current) : null
-  return createPortal(<div ref={wrapper} className="page-spirit-widget" style={style} data-page-id={pageId} data-open={open} data-mode={mode}
-    data-load-state={loadState} data-compact={geometry.maxHeight < 280} data-canonical-count={canonical.current.length}>
-    <button ref={launcher} type="button" className="page-spirit-launcher" hidden={mode !== 'closed'} onClick={event => begin(event.currentTarget)}
-      aria-label={`${character.name}・${character.title}的當頁${label}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${uid}-dialog`}>
-      <img src={character.portrait} width="64" height="64" alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true}}/>
-    </button>
-    {(mode === 'compact' || mode === 'guide') && <section ref={strip} className="page-spirit-strip" role="region" aria-labelledby={`${uid}-strip-name`}
-      data-guide-step={currentGuide ? currentGuide.index + 1 : undefined} data-guide-found={currentGuide?.found}
-      onKeyDown={event => {if (event.key === 'Escape' && mode === 'compact') {event.preventDefault(); event.stopPropagation(); close(true)}}}>
-      <div className="page-spirit-strip-heading"><img src={character.portrait} width="44" height="48" alt="" onError={event=>{event.currentTarget.hidden=true}}/>
-        <div><strong id={`${uid}-strip-name`}>{character.name}・{character.title}</strong>
-          {currentGuide ? <p className="page-spirit-guide-instruction"><span>指引 {currentGuide.index + 1}/{currentGuide.definition.steps.length}</span>{currentGuide.definition.steps[currentGuide.index].instruction}</p>
-            : <p>剛才的說明還在，想看時再叫我。</p>}</div></div>
-      {currentGuide && !currentGuide.found && <p className="page-spirit-guide-missing">這個入口目前無法使用，請先查看本頁提示。</p>}
-      <div className="page-spirit-strip-actions">
-        {currentGuide && !currentGuide.found && <button type="button" className="page-spirit-button" onClick={() => moveGuide(currentGuide.definition, currentGuide.index)}>重找入口</button>}
-        {currentGuide && currentGuide.found && currentGuide.index + 1 < currentGuide.definition.steps.length && <button type="button" className="page-spirit-button" onClick={() => moveGuide(currentGuide.definition, currentGuide.index + 1)}>下一步</button>}
-        <button ref={compactContinue} type="button" className="page-spirit-button page-spirit-primary" onClick={event => begin(event.currentTarget)}>繼續交談</button>
-        <button type="button" className="page-spirit-button" onClick={() => close(true)}>{currentGuide ? '結束指引' : '結束交談'}</button>
-      </div>
-      <p className="page-spirit-sr" role="status" aria-live="polite" aria-atomic="true">{currentGuide ? announcement : ''}</p>
-    </section>}
-    {open && <section id={`${uid}-dialog`} className="page-spirit-panel" role="dialog" aria-modal={false} aria-labelledby={`${uid}-name ${uid}-page`} data-art-expanded={artExpanded}
-      onKeyDown={event => {if (event.key === 'Escape' && !composing.current && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {event.preventDefault(); event.stopPropagation(); close(true)}}}>
-      <header className="page-spirit-header">
+  const guideOptions = packIdentity.current === identity ? (pack?.topics ?? []).flatMap(topic => {
+    const definition = getSpiritGuide(pageId, topic.id)
+    return definition?.steps.length ? [{topicId: topic.id, definition}] : []
+  }) : []
+  const controlsDisabled = disabled || hardSuppressed
+  return <div ref={wrapper} className="page-spirit-widget" style={style} role="region" aria-labelledby={`${uid}-name ${uid}-page`}
+    data-page-id={pageId} data-open={open} data-mode={mode} data-inline="true" data-quiet={disabled || suppressed}
+    data-load-state={loadState} data-canonical-count={canonical.current.length}
+    onKeyDown={event => {
+      if (event.key === 'Escape' && mode !== 'closed' && !composing.current && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+        event.preventDefault(); event.stopPropagation(); close(true)
+      }
+    }}>
+    <div className="page-spirit-presence">
+      <button ref={launcher} type="button" className="page-spirit-launcher" disabled={controlsDisabled} onClick={event => begin(event.currentTarget)}
+        aria-label={`${character.name}・${character.title}的當頁${label}`} aria-expanded={questionsOpen} aria-controls={`${uid}-questions`}>
+        <span className="page-spirit-portrait" aria-hidden="true" data-animating={sprite.identity === identity && sprite.playing} data-frame-index={sprite.identity === identity ? sprite.index : 'hero'}>
+          <img className="page-spirit-art" src={sprite.identity === identity ? sprite.src : character.hero} width="96" height="144" alt="" decoding="async" onLoad={event => {event.currentTarget.hidden = false}} onError={event => {event.currentTarget.hidden = true}}/>
+        </span>
+      </button>
+      <div className="page-spirit-presence-copy">
         <div className="page-spirit-nameplate"><strong id={`${uid}-name`}>{character.name}</strong><span id={`${uid}-page`}>{character.title}</span></div>
-        <div className="page-spirit-header-actions"><button type="button" className="page-spirit-button page-spirit-close" onClick={minimize}>收合交談</button>
-          <button ref={closeButton} type="button" className="page-spirit-button page-spirit-close" onClick={() => close(true)}>結束交談</button></div>
-      </header>
-      <div ref={content} className="page-spirit-content">
-        <div className="page-spirit-portrait" aria-hidden="true" data-animating={sprite.identity === identity && sprite.playing} data-frame-index={sprite.identity === identity ? sprite.index : 'hero'}>
-          <img className="page-spirit-art" src={sprite.identity === identity ? sprite.src : character.hero} width="384" height="576" alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true}}/>
+        <p className="page-spirit-brief">{disabled || hardSuppressed ? '先專心操作，想問時再叫我。' : '我在這一頁陪你看。'}</p>
+      </div>
+      <div className="page-spirit-entry-actions">
+        <button ref={compactContinue} type="button" className="page-spirit-button page-spirit-primary" disabled={controlsDisabled} aria-expanded={questionsOpen} aria-controls={`${uid}-questions`} onClick={event => begin(event.currentTarget)}>{mode === 'compact' ? '繼續交談' : '問本頁'}</button>
+        <button type="button" className="page-spirit-button" disabled={controlsDisabled} aria-expanded={guideMenuOpen} aria-controls={`${uid}-guides`} onClick={event => begin(event.currentTarget, 'guides')}>帶我看</button>
+      </div>
+    </div>
+
+    {guideMenuOpen && <details id={`${uid}-guides`} className="page-spirit-disclosure page-spirit-guide-directory" open>
+      <summary onClick={event => {event.preventDefault(); close(true)}}>選一個本頁入口</summary>
+      <div className="page-spirit-disclosure-body">
+        {loadState === 'loading' && <p className="page-spirit-note">正在準備這一頁的指引。</p>}
+        {loadState === 'error' && <button type="button" className="page-spirit-button" onClick={() => void loadPack()}>重新讀取本頁說明</button>}
+        {loadState === 'ready' && <div className="page-spirit-guide-options" aria-label="本頁指引目錄">
+          {guideOptions.map(option => <button type="button" className="page-spirit-option" key={option.topicId} aria-label={option.definition.label} onClick={() => chooseGuide(option.topicId)}>{option.definition.label}</button>)}
+          {!guideOptions.length && <p className="page-spirit-note">這一頁先用問題陪你看。可以點「問本頁」選一題。</p>}
+        </div>}
+      </div>
+    </details>}
+
+    {currentGuide && <section className="page-spirit-guide" aria-label="當頁操作指引" data-guide-step={currentGuide.index + 1} data-guide-found={currentGuide.found}>
+      <p className="page-spirit-guide-count">指引 {currentGuide.index + 1}/{currentGuide.definition.steps.length}</p>
+      <p className="page-spirit-guide-instruction">{currentGuide.definition.steps[currentGuide.index].instruction}</p>
+      {!currentGuide.found && <p className="page-spirit-note">這個入口目前無法使用，請先查看本頁提示。</p>}
+      <div className="page-spirit-guide-actions">
+        {!currentGuide.found && <button type="button" className="page-spirit-button" onClick={() => moveGuide(currentGuide.definition, currentGuide.index)}>重找入口</button>}
+        {currentGuide.found && currentGuide.index + 1 < currentGuide.definition.steps.length && <button type="button" className="page-spirit-button" onClick={() => moveGuide(currentGuide.definition, currentGuide.index + 1)}>下一步</button>}
+        <button type="button" className="page-spirit-button" onClick={event => begin(event.currentTarget)}>繼續交談</button>
+        <button type="button" className="page-spirit-button" onClick={() => close(true)}>結束指引</button>
+      </div>
+    </section>}
+
+    {questionsOpen && <details id={`${uid}-questions`} className="page-spirit-disclosure page-spirit-question-disclosure" open>
+      <summary onClick={event => {event.preventDefault(); minimize()}}>本頁說明</summary>
+      <section ref={content} className="page-spirit-panel" aria-label={`${character.name}的本頁說明`}>
+        <div className="page-spirit-panel-actions">
+          <button type="button" className="page-spirit-button" onClick={minimize}>收合交談</button>
+          <button ref={closeButton} type="button" className="page-spirit-button" onClick={() => close(true)}>結束交談</button>
         </div>
-        <div className="page-spirit-dialogue">
+        <div className="page-spirit-content">
           <div className="page-spirit-line" aria-hidden="true" data-typing={typing}><p>{lineIdentity.current === identity ? line : ''}</p></div>
-          <p className="page-spirit-sr" role="status" aria-live="polite" aria-atomic="true"><span key={announcementRevision}>{lineIdentity.current === identity ? announcement : ''}</span></p>
           {typing && <button ref={showFullButton} type="button" className="page-spirit-button page-spirit-skip" onClick={() => {stopText(true); closeButton.current?.focus({preventScroll: true})}}>顯示全文</button>}
           {loadState === 'error' && <button type="button" className="page-spirit-button" onClick={() => void loadPack()}>重新讀取本頁說明</button>}
-          {loadState === 'ready' && packIdentity.current === identity && <div className="page-spirit-response-tools">
-            <button type="button" className="page-spirit-button" aria-disabled={historyPosition <= 0} onClick={previous}>上一句</button>
-            {historyPosition < canonical.current.length - 1 && <button type="button" className="page-spirit-button" onClick={latest}>回到最新</button>}
-            <button type="button" className="page-spirit-button" onClick={restart}>重新開始</button>
+          {loadState === 'ready' && packIdentity.current === identity && <>
             {availableGuide && <button type="button" className="page-spirit-button page-spirit-guide-button" onClick={startGuide}>{availableGuide.label}</button>}
-          </div>}
-        </div>
-        <div className="page-spirit-questions">
-          {loadState === 'ready' && pack && packIdentity.current === identity && <>
-            <p className="page-spirit-prompt">想問這一頁的哪件事？</p>
-            <div className="page-spirit-topics" aria-label="本頁交談選項">{pack.topics.map((topic: SpiritPack['topics'][number]) => <button type="button" className="page-spirit-option" key={topic.id} aria-label={topic.label} onClick={() => ask(topic.label, topic.id)}>{topic.label}</button>)}</div>
+            <details className="page-spirit-faq"><summary>可以問這些問題</summary>
+              <div className="page-spirit-topics" aria-label="本頁交談選項">{pack?.topics.map((topic: SpiritPack['topics'][number]) => <button type="button" className="page-spirit-option" key={topic.id} aria-label={topic.label} onClick={() => ask(topic.label, topic.id)}>{topic.label}</button>)}</div>
+            </details>
+            <details className="page-spirit-history"><summary>剛才的說明</summary><div className="page-spirit-response-tools">
+              <button type="button" className="page-spirit-button" aria-disabled={historyPosition <= 0} onClick={previous}>上一句</button>
+              {historyPosition < canonical.current.length - 1 && <button type="button" className="page-spirit-button" onClick={latest}>回到最新</button>}
+              <button type="button" className="page-spirit-button" onClick={restart}>重新開始</button>
+            </div></details>
           </>}
         </div>
-      </div>
-      <footer className="page-spirit-footer">
         <form className="page-spirit-form" onSubmit={submit}>
           <label htmlFor={`${uid}-input`} className="page-spirit-sr">問本頁問題</label>
           <input ref={questionInput} id={`${uid}-input`} value={packIdentity.current === identity ? question : ''} onChange={event => setQuestion(event.target.value)} maxLength={240} autoComplete="off"
@@ -583,14 +582,14 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, disabled = 
           <button className="page-spirit-button page-spirit-primary" type="submit" disabled={loadState !== 'ready' || packIdentity.current !== identity || !question.trim()}>送出</button>
         </form>
         {topicMetadata?.nextStep && <p className="page-spirit-follow-up">也可以問：下一步呢</p>}
-        <div className="page-spirit-tools"><details className="page-spirit-preferences"><summary>陪伴偏好</summary><div>
+        <details className="page-spirit-preferences"><summary>陪伴偏好</summary><div>
           <label><input type="checkbox" checked={preferences.energy} onChange={event => changePreference('energy', event.target.checked)}/>靜態省電</label>
           <label><input type="checkbox" checked={preferences.instantText} onChange={event => changePreference('instantText', event.target.checked)}/>直接顯示全文</label>
         </div></details>
-          <button type="button" className="page-spirit-button page-spirit-art-toggle" aria-pressed={artExpanded} onClick={() => setArtExpanded(value => !value)}>{artExpanded ? '收起角色' : '看角色'}</button>
-          <button type="button" className="page-spirit-button" onClick={()=>setGalleryOpen(true)}>角色六視圖</button></div>
-      </footer>
-    </section>}
-    {galleryOpen&&<GuideGallery characters={gallery} label={label} initial={pageId} onClose={()=>setGalleryOpen(false)}/>}
-  </div>, document.body)
+        <button type="button" className="page-spirit-button page-spirit-art-link" onClick={() => {cancelMotion(true); setGalleryOpen(true)}}>角色六視圖</button>
+      </section>
+    </details>}
+    <p className="page-spirit-sr" role="status" aria-live="polite" aria-atomic="true"><span key={announcementRevision}>{lineIdentity.current === identity || currentGuide ? announcement : ''}</span></p>
+    {galleryOpen && <GuideGallery characters={gallery} label={label} initial={pageId} onClose={() => setGalleryOpen(false)}/>}
+  </div>
 }

@@ -13,6 +13,7 @@ import './CalmExperience.css'
 
 import {initializeExperienceProfile} from './experience-profiles'
 import './dragon-theme.css'
+import './WorkspaceCompanionLayout.css'
 
 initializeExperienceProfile()
 
