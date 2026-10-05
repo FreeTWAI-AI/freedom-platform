@@ -484,6 +484,28 @@
         "Planner execution remains not_run; no GC/retention activation, actual pin release or second-operator recovery.",
         "Supports FC-02/03 closure work; no original row accepted or state advanced."
       ]
+    },
+    "machine-admission-9a0": {
+      "id": "machine-admission-9a0",
+      "kind": "local_candidate_execution",
+      "source_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048",
+      "environment": "owned isolated PostgreSQL18 network-none; genuine ES256 fixture device and existing member-approved SQL Step/Attempt; no product provider or cloud",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/machine-admission-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Exact device/key/owner/connection/family/environment binding derived from locked SQL, not a synthetic member Actor.",
+        "Separate execute/evidence purposes, one-use proof/challenge, current decision clocks after receipt SELECT/INSERT waits.",
+        "Shared runCommandCore and transaction-owned scoped facts with composite execution references; original member receipt namespace/digest preserved.",
+        "Schema recognition and test deletion protection are explicit and do not activate HTTP or execution."
+      ],
+      "limitations": [
+        "Root runtime/preflight checks ran on the exact code and schema bytes later committed as registration_source; Git HEAD during those checks was implementation_source with the four registration changes.",
+        "Clean runtime partition identity checks were then run at registration_source.",
+        "No mounted machine activation/execute route or broker/Result flow exists in this stage.",
+        "Existing Step fixture is genuinely member-approved; it does not prove machine-created Grant/Attempt/Step.",
+        "No original full requirement accepted here; cloud/native/client reconnect/MV3/neo remain open."
+      ]
     }
   },
   "requirements": [
@@ -5571,6 +5593,13 @@
           "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
           "covered_part": "Actual bootstrap HTTP/DB rejects foreign signing key and expired proof. Audience/method/URI/replay matrix remains open.",
           "limitations_reference": "evidence_catalog.machine-device-3bc3eb6.limitations"
+        },
+        {
+          "evidence_id": "machine-admission-9a0",
+          "source_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048",
+          "environment": "owned isolated PostgreSQL18 network-none; genuine ES256 fixture device and existing member-approved SQL Step/Attempt; no product provider or cloud",
+          "covered_part": "Machine proof/current SQL admission and replay/expiry negatives; no mounted machine HTTP endpoint acceptance.",
+          "limitations_reference": "evidence_catalog.machine-admission-9a0.limitations"
         }
       ],
       "remaining": [
@@ -5622,7 +5651,7 @@
         }
       ],
       "remaining": [
-        "Actual cloud safe-log/capture audit and retry secret nondisclosure receipt"
+        "Capture retries from every supported secret mint path with actual DB/HTTP/proof and captured logs at one candidate. Cloud operational acceptance is tracked separately; the original row does not require cloud evidence by itself."
       ],
       "accepted": false,
       "state_basis": "Bounded real HTTP/DB bootstrap client evidence; broader original execution and cross-client requirements remain open."
