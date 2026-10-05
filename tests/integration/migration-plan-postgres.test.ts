@@ -13,6 +13,7 @@ import { Pool } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { DAG_MIGRATIONS, LEGACY_MIGRATIONS, MIGRATION_V2_GUARD, migrationDigest, resolveMigrationPlan, type MigrationSource } from '../../packages/db/migration-plan.mjs';
 import { readMigrationSources } from '../../packages/db/migration-files.mjs';
+import { runMigrationPlan } from '../../packages/db/migration-runner.mjs';
 
 const image = 'sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
 const label = randomUUID(), password = randomBytes(32).toString('base64url');
@@ -79,10 +80,11 @@ after(async () => {
   assert.equal(poolClosed, true, 'test pool closed'); assert.equal(cleanup.cleanup_verified, true, 'owned create/cleanup resolved; retain intent/socket otherwise');
   console.log('owned PostgreSQL container and socket directory removed');
 });
-async function isolated(run: (pool: Pool) => Promise<void>) {
+export async function isolated(run: (pool: Pool, connectionString: string, target: { database: string; role: string; schema: string }) => Promise<void>) {
   const schema = 'fp_c5_' + randomBytes(8).toString('hex'); await admin!.query(`CREATE SCHEMA ${schema}`);
   const pool = new Pool({ host: socket, user: 'postgres', database: 'fp_c5_migrations', password, options: `-c search_path=${schema} -c statement_timeout=30000`, max: 2 });
-  try { await run(pool); } finally { await pool.end(); await admin!.query(`DROP SCHEMA ${schema} CASCADE`); }
+  const url = new URL('postgresql://postgres:'+password+'@localhost/fp_c5_migrations'); url.searchParams.set('host',socket); url.searchParams.set('options',`-c search_path=${schema}`);
+  try { await run(pool,url.href,{database:'fp_c5_migrations',role:'postgres',schema}); } finally { await pool.end(); await admin!.query(`DROP SCHEMA ${schema} CASCADE`); }
 }
 test('real repo runner: legacy empty replay, upgrade/no-op and corrupt restored-ledger rejection', { timeout: 120000 }, async () => isolated(async pool => {
   await migrate(pool);
@@ -129,15 +131,7 @@ const b = fixture(B, ['001_base.sql'], 'CREATE TABLE beta(id integer PRIMARY KEY
 const c = fixture(C, [A,B], 'CREATE TABLE child(a integer REFERENCES alpha,b integer REFERENCES beta); INSERT INTO child SELECT a.id,b.id FROM alpha a,beta b;');
 const host = { format: DAG_MIGRATIONS, legacy: { format: LEGACY_MIGRATIONS, first: 1, last: 1, known_gaps: [] }, legacy_ledger: legacy.map(e => ({ name: e.name, sha256: migrationDigest(e.sql) })) };
 async function applyFixture(pool: Pool, additions: MigrationSource[]) {
-  const q = await pool.connect();
-  try {
-    await q.query('BEGIN'); await q.query('SELECT pg_advisory_xact_lock(2026092000)');
-    await q.query('CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())');
-    const plan = resolveMigrationPlan([...legacy,...additions], host, (await q.query('SELECT name,sha256 FROM schema_migrations ORDER BY name')).rows);
-    await q.query("SELECT set_config('freedom.migration_protocol',$1,true)", [DAG_MIGRATIONS]);
-    for (const name of plan.pending) { await q.query(plan.sql[name]); await q.query('INSERT INTO schema_migrations(name,sha256) VALUES($1,$2)', [name,plan.ledger.find(e => e.name === name)!.sha256]); }
-    await q.query('COMMIT'); return [...plan.pending];
-  } catch (error) { await q.query('ROLLBACK'); throw error; } finally { q.release(); }
+  const result = await runMigrationPlan(pool,{sources:[...legacy,...additions],profile:host}); return [...result.applied];
 }
 async function facts(pool: Pool) {
   const tables = ['base','alpha','beta','child'], data: Record<string, unknown> = {};
@@ -178,3 +172,8 @@ test('fixed supervisor initializes real member/work/avatar data with the shared 
   assert.equal(work.owner_ref, fixture.owner.id); assert.equal(typeof work.title, 'string'); assert(work.title.length > 0);
   assert.equal((await admin!.query('SELECT count(*)::int n FROM member_avatars WHERE user_id=$1', [fixture.owner.id])).rows[0].n, 1);
 });
+test('shared runner verifies its final observed ledger and rolls back rogue ledger SQL atomically', {timeout:30000},async()=>isolated(async pool=>{
+  const rogue={...a,sql:a.sql+" INSERT INTO schema_migrations(name,sha256) VALUES('999_unknown.sql',repeat('f',64));"};
+  await assert.rejects(runMigrationPlan(pool,{sources:[...legacy,rogue],profile:host}),{code:'migration_final_ledger_mismatch'});
+  assert.equal((await pool.query("SELECT to_regclass('base') base,to_regclass('alpha') alpha,to_regclass('schema_migrations') ledger")).rows[0].ledger,null);
+}));

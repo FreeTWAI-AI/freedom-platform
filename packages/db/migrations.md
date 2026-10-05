@@ -17,8 +17,11 @@ No database row is inferred from a maximum/latest id.
 ## Closed DAG profile
 
 Only callers explicitly supplying `freedom.migrations/dag-v2` to the pure
-planner can plan synthetic mixed catalogs. Repository entrypoints always
+planner can plan mixed catalogs. Ordinary repository and scanner entrypoints
 select `freedom.migrations/legacy-v1`; a candidate manifest cannot activate v2.
+The separate [local installed operator entry](../../deploy/cloudflare/migration-operator.md)
+requires independent host pins and restricts DAG targets to disposable `fp_`
+database/schema names while the formal release floor remains unimplemented.
 The DAG profile contains a host-selected exact legacy name/digest set plus its
 legacy numbering/gap policy. A maximum number alone is not a frontier. The
 eventual installed host must authenticate that profile and source; the pure
@@ -79,8 +82,9 @@ The last command owns a disposable PostgreSQL 18 container pinned to the
 existing supervisor image, with no network and synthetic data only. It tests
 the real repository runner's empty replay, legacy upgrade/no-op and invalid
 restored ledger rejection, plus test-only DAG SQL execution in both merge
-orders, empty replay and the old-runner guard. Its DAG executor is a fixture,
-not proof that a private operator entrypoint is installed. The container and
+orders, empty replay and the old-runner guard. These cases now share the same
+executor as the local installed entry, but do not prove the live private
+operator entrypoint has been upgraded. The container and
 schemas are removed after the run. No private config or TEST_DATABASE_URL is
 read. Public scanner tests retain exact reviewed privileged-source exceptions.
 
