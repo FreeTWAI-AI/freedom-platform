@@ -25,8 +25,8 @@
     },
     "by_state": {
       "not_run": 48,
-      "implemented": 69,
-      "partial": 50,
+      "implemented": 67,
+      "partial": 52,
       "blocked": 1,
       "accepted": 0
     }
@@ -368,6 +368,26 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "social-writer-421feb1": {
+      "id": "social-writer-421feb1",
+      "kind": "isolated_postgresql_native_r2",
+      "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+      "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/social-writer-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Same final tests on a328 (without116):14 pass and3 fail with missing rejection for hidden/deleted INSERT and active INSERT beside genuine ready pointer.",
+        "17 pass,0 fail/skip/cancel; active case reads actual ready pointer and runtime current_user on the same transaction before inserting bytes; exact23514 floor error required."
+      ],
+      "limitations": [
+        "Isolated local PostgreSQL/native local R2 evidence; no fresh cloud schema, production old-writer invocation or deployment.",
+        "Migration116 is recognized by compatibility checks but supplies no host schema approval, deployment authority, execution authority or restore proof.",
+        "Current cloud policy remains bridge; GC, automatic retention and legacy byte cleanup are not activated.",
+        "All-purpose restricted-role writer matrix and approved reader-floor/cutover still required before accepting full original rows.",
+        "Already-invalid preexisting bytes and bridge legacy-byte retirement remain separate controlled cleanup work; migration116 does not delete data."
+      ]
     }
   },
   "requirements": [
@@ -3199,7 +3219,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -3216,13 +3236,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "social-writer-421feb1",
+          "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+          "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+          "covered_part": "Social thumbnail r2_only INSERT/UPDATE, legitimate R2/bridge and crypto bytea controls.",
+          "limitations_reference": "evidence_catalog.social-writer-421feb1.limitations"
+        }
+      ],
       "remaining": [
-        "Source-level r2_only social-thumbnail asset-source INSERT/non-NULL bytes predicate gap independently identified; actual isolated restricted-role reproduction and additive fix required (B-F11/B0a).",
-        "Actual deployment remains bridge in committed evidence; execute all-purpose old writer using actual restricted runtime role at r2_only; verify crypto bytea unaffected."
+        "Actual deployment remains bridge in committed evidence; execute all-purpose old writer using actual restricted runtime role at r2_only; verify crypto bytea unaffected.",
+        "Integrate migration116 with exact host schema approval and controlled target-environment acceptance; do not infer deployment from schema recognition."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Social thumbnail runtime-role INSERT gap reproduced and fixed with positive controls; full all-purpose and target-environment acceptance remains open."
     },
     {
       "id": "R2:S03",
@@ -4254,7 +4282,7 @@
       "fc_gates": [
         "FC-02"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -4271,13 +4299,21 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "social-writer-421feb1",
+          "source_sha": "421feb14af035f5c58c7ec10e085e09b7da4e010",
+          "environment": "Owned PostgreSQL18 + native local R2; runtime DML role",
+          "covered_part": "Social thumbnail r2_only INSERT/UPDATE, legitimate R2/bridge and crypto bytea controls.",
+          "limitations_reference": "evidence_catalog.social-writer-421feb1.limitations"
+        }
+      ],
       "remaining": [
-        "Source-level r2_only social-thumbnail asset-source INSERT/non-NULL bytes predicate gap independently identified; actual isolated restricted-role reproduction and additive fix required (B-F11/B0a).",
-        "Needs approved r2_only cutover after reader and retained-byte floors; bridge intentionally permits untouched legacy writers."
+        "Needs approved r2_only cutover after reader and retained-byte floors; bridge intentionally permits untouched legacy writers.",
+        "Integrate migration116 with exact host schema approval and controlled target-environment acceptance; do not infer deployment from schema recognition."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Social thumbnail runtime-role INSERT gap reproduced and fixed with positive controls; full all-purpose and target-environment acceptance remains open."
     },
     {
       "id": "R2:M06",

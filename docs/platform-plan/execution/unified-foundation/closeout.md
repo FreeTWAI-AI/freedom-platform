@@ -48,7 +48,7 @@ FC-00 本批先統一中央入口與索引。Agent Kit README 的「先完成定
 | --- | --- | --- |
 | C1：GOV-16、R2:D04 | `verify.needs` 及 aggregate 的第二份 job 清單都漏掉 `deploy-preflight` | 將 preflight 納入；full 必須 success，docs 可正常 skip，missing／failure／cancelled 拒絕。獨立審查後再升級 installed workflow pin |
 | A1：R2:A03、FC-01（session 到期回歸） | 七個 legacy media command 的 receipt ports 未在等待 DB receipt 後重查 session 時效；generic scoped command 已有檢查 | 用隔離 PostgreSQL 的 receipt SELECT／INSERT barrier 跨過到期時間重現；保留既有 digest／namespace，修補後證明授權有效的 replay 正常 |
-| B1：R2:S02/M05、FC-02 | migration 106 的 social thumbnail fence 僅檢查 legacy source；migration 102 允許 asset＋bytes，hidden／deleted 不要求 active pointer | 先以 restricted runtime role 驗證 r2_only 下 INSERT／UPDATE 反例；若重現，以新增 migration 封口並保留合法 R2 寫入及 bridge backfill |
+| B1：R2:S02/M05、FC-02 | 已以 DML-only role 重現 asset＋bytes INSERT，新增 migration116 修補；舊 SQL 與 bridge bytes 保留 | 先以 restricted runtime role 驗證 r2_only 下 INSERT／UPDATE 反例；若重現，以新增 migration 封口並保留合法 R2 寫入及 bridge backfill |
 | C2：GOV-07/09/10/12 | root context 被模組宣告的 DESIGN.md 拒絕；修正後全 scope 又超過 512,000 bytes | 精確允許 DESIGN.md，保留任意根檔拒絕；後續有界分段載入含 baseline/candidate/delta 的完整必要規則，不能靜默截斷或縮 scope 避開未知修改 |
 | D1：AP:AUTH-13/14/15、UF:INT-07/09/25 | 中央 device/bootstrap／member broker 已存在；Kit client 及 official CLI adapter 尚未完成 | Kit 接既有 API；一條受控真實 CLI／BYOK 工作走 Grant→Attempt→Result→修改→Stop／Revoke／換端，不拿 CLI pong 代替平台驗收 |
 | C3：GOV-03/04/05/06/23 | 四倉有界 runtime 尚不證明共用 library 被呼叫，其餘五倉缺適用 profile | 真實 build resolution＋call path；unused import／自寫同形 client 必須失敗；cron／queue／MCP／bridge 按適用入口納管 |
@@ -61,7 +61,7 @@ FC-00 本批先統一中央入口與索引。Agent Kit README 的「先完成定
 | C6：UF:INT-17、R2:D02/D03 | 一般修改仍 full CI | 影響映射保守 fallback，驗 Command／ArtifactRef 與 runtime MD 選中對應 jobs，不改最低證據 |
 | C7：FC-05／原交付計畫 | 日常全倉 inventory 尚無 release 替代 | release/archive 的 artifact 與歷史 migration 完整性檢查接妥前，保留既有檢查 |
 
-上表 A1／B1 是來源審查所得，尚未用 DB 反例重現，不能宣稱已確認可利用或已修好。
+B1 的 [隔離 PostgreSQL／native local R2 證據](social-writer-evidence-2026-10-05.json)記錄三個 INSERT 反例與合法 R2、bridge、crypto bytea 正例。這只關閉 social thumbnail writer 缺口；R2:S02/M05 的全 purpose／目標環境驗收仍未完成。A1 另有 receipt-session 工作包，不由此紀錄推定完成。
 現有 member broker 已經掛載並重查 owner／Grant／資料權限，不重新發明一套機器交易核心。
 單純綁死 generic journal 的 target 會破壞「collection 建立新 Work」的合法不同 target，
 不採用這個未證實的修補建議。

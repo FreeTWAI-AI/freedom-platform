@@ -11500,7 +11500,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "297c53b997977f4452ab323023edfdc09e11947ef076fa5b2036efdbd8a1d724"
+      "sha256": "1a14f47eb13f79ed4c79b094936831bb776970c8103a7a334eb9b17e652c1060"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -11579,8 +11579,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 27392,
-      "sha256": "cf76a42b07435db34e0b720175b4fc61679920c8ae0041a7e3f407e5c4ea58cc"
+      "bytes": 27519,
+      "sha256": "e9f860853ad01fd7351b09cf84d5763f67884bd6578d91b50a68d354365e84dc"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -11699,8 +11699,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 32728,
-      "sha256": "1ce6541d0d085f9066f170b3c0aaf0a4fe31f80a1d7dd016be45e3d5293465be"
+      "bytes": 33891,
+      "sha256": "8d126110515d1b27c68d1f541b1776de820226e9335747326ded67ddbe9c0b03"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 8979,
-      "sha256": "aa970d74b76e1dd1a5c1622dd04760fa99f850f26dc694e9618dbab34b96a407"
+      "bytes": 9171,
+      "sha256": "a654271f5a54ad9d4aebbde78216c301a1a959acd8a3aad854191a0e8b0cbe78"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
@@ -13669,8 +13669,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 339855,
+      "sha256": "9ec5490268fb712215ed1f80f547895fc9bf1d5021e2122b15fd1ccb6547ff6d"
+    },
+    {
+      "path": "docs/platform-plan/execution/unified-foundation/social-writer-evidence-2026-10-05.json",
+      "bytes": 4533,
+      "sha256": "111733eedaab79d0beff5d3d8320cdc57dd65ed6796857a3d88ed23f1273c5ac"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -14421,6 +14426,11 @@
       "path": "migrations/115_openrouter_byok.sql",
       "bytes": 20722,
       "sha256": "50180ea6a29b960dd7421973803bb9909936eccb3542993c8ba0c02f5463df93"
+    },
+    {
+      "path": "migrations/116_social_thumbnail_writer_floor.sql",
+      "bytes": 925,
+      "sha256": "1ebc1703e95e96dcb56175673b8dbf5360a202b19ed02fd121fe38149dce03c5"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -18419,8 +18429,8 @@
     },
     {
       "path": "tests/runtime/social-preview-assets.test.ts",
-      "bytes": 14371,
-      "sha256": "049b499a5987ee177c2cd4ebc4cbef93d8d186f19447e8623b576a02d969cd88"
+      "bytes": 20153,
+      "sha256": "dc8a8b7695e6019f4332720a49d5958e346ac97e0070ff59fdd699a43ed56418"
     },
     {
       "path": "tests/runtime/social-thumbnail-assets.test.ts",
