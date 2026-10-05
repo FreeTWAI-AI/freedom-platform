@@ -18,6 +18,11 @@
       "sha256": "70fdc6affc43142ef3caa0fc2b705c7f8dc4c91714700ad73a5fb72cf0994534"
     },
     {
+      "path": ".github/workflows/trusted-consumer-runtime.yml",
+      "bytes": 2260,
+      "sha256": "3396a09db88b4f1c612f529b1d2f0d7780297dc8c4a9233d48a2a7b412da1b81"
+    },
+    {
       "path": ".github/workflows/verify.yml",
       "bytes": 18758,
       "sha256": "0df911e10527d9236644e984aede60188bb47daeb93df1c74f72de552004fcf0"
@@ -8544,8 +8549,8 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 34161,
-      "sha256": "17ad93aff00a5555a40de9143c0cb701dc74fa9faa21f80ebc91cab52a1fb640"
+      "bytes": 34336,
+      "sha256": "e1b1da2930e578ee583a953cf9f487276dfb6bc7c4d251b0de787746a07c2cdd"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
@@ -8564,13 +8569,23 @@
     },
     {
       "path": "packages/contribution-tools/consumer-behavior.md",
-      "bytes": 5730,
-      "sha256": "f43eb67bf279d236d554c766609b529f465b12350c0308476832a11364560aa8"
+      "bytes": 5859,
+      "sha256": "a06fd470e52552d1cf2eae6122c19f59c46144609d8f276162338f4d2183d5f8"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
       "bytes": 3154,
       "sha256": "6d2c8f72f5e05429480b54e0cd4196829c265f6cde0621dfc6e76e33fbf216e0"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-runtime-recipe.md",
+      "bytes": 9162,
+      "sha256": "6404b90c37aa7cdd8ea00382956da1738a8d25796dbed4155e4f976c6e9758b5"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-runtime-recipe.mjs",
+      "bytes": 5678,
+      "sha256": "5042371476ac36d83d5712e193de2a2b99d88541e99356bb35ea05f1b6062268"
     },
     {
       "path": "packages/contribution-tools/consumer-source-profiles.mjs",
@@ -8631,6 +8646,11 @@
       "path": "packages/contribution-tools/github-consumer-host.mjs",
       "bytes": 9094,
       "sha256": "63b849dc354fbca07dd1b02e50f5e766bcabce1971276bdd749a50af669b998e"
+    },
+    {
+      "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
+      "bytes": 3094,
+      "sha256": "dff61f99baf64802599447003945faea4a7d74dd4b98e7ab61a953560d89c425"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -8731,6 +8751,11 @@
       "path": "packages/contribution-tools/test/consumer-libraries.test.mjs",
       "bytes": 11346,
       "sha256": "526d721877ae2de5194907c0411c74496ec4a9746cd879efedd1d5000b2a81ca"
+    },
+    {
+      "path": "packages/contribution-tools/test/consumer-runtime-recipe.test.mjs",
+      "bytes": 1605,
+      "sha256": "2809075d1d4ba89d75386f2cae595e5b4e68da30421ff3a1db6a4a5d831ee65a"
     },
     {
       "path": "packages/contribution-tools/test/consumer-source-profiles.test.mjs",
@@ -9969,8 +9994,8 @@
     },
     {
       "path": "tests/integration/consumer-behavior-supervisor.test.ts",
-      "bytes": 9884,
-      "sha256": "92de223e797ffd6d94b237941390e42772a30f0c84ae66acbc4bcb65e7a179ad"
+      "bytes": 11082,
+      "sha256": "aed069778ae09f38328ca49b47a2aecc7ea6fbd56c86c142df3735cbd94eecc9"
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",
@@ -9991,6 +10016,11 @@
       "path": "tests/integration/media-backup-restore.test.ts",
       "bytes": 25570,
       "sha256": "f1afb2f9fafdf00c2e89636ddf160e6493b4d225d09dc3f98f8127ff58efa8f5"
+    },
+    {
+      "path": "tests/integration/native-consumer-runtime.test.ts",
+      "bytes": 3761,
+      "sha256": "fffd775e6ebb322c1230bf126d102c716c2244aaeccbadecf06dc8db940c5a8f"
     },
     {
       "path": "tests/integration/repositories.test.ts",
@@ -11174,8 +11204,8 @@
     },
     {
       "path": "tests/worker/fetch-redirect.test.ts",
-      "bytes": 6826,
-      "sha256": "6afeb731ba9b8212abca2bebff5a5c53aa680d386be70597c99a1a9a67ed30da"
+      "bytes": 7206,
+      "sha256": "e31fe8f3c2517e362ec9932038d26086564ab1ce94d91cd5694c6eb558d95e8b"
     },
     {
       "path": "tests/worker/github-sync-scheduled.test.ts",
