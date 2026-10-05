@@ -2,9 +2,11 @@
 
 The application implements independently gated Dragon and AI Sister guide asset paths. Its local plan
 tool does not create buckets, upload art, grant credentials or deploy Workers.
-The separate operator publication is recorded in
-[publisher evidence](guide-publisher-2026-10-05.md), and the activation change in
-`packages/public-guide-assets/release.ts` pins both actual publisher receipts.
+The separate operator publications are recorded in
+[Dragon publisher evidence](guide-publisher-2026-10-05.md) and
+[AI Sister publisher evidence](ai-sister-publisher-2026-10-05.md). Their independent
+activation pins in `packages/public-guide-assets/release.ts` and
+`packages/public-guide-assets/ai-sister-release.ts` bind the respective receipt sets.
 The native host still defaults OFF without `FREEDOM_PUBLIC_GUIDE_ENABLED=true` and
 its separate `GUIDE_STATIC` binding; activation requires CI, review and merge before deployment.
 
@@ -111,7 +113,7 @@ Actual WebP bytes live in `assets/guide-packs/dragon-v1-20261004/`, outside Vite
 public tree, so building the ordinary app does not publish the fixture files.
 
 The independent [AI Sister pack](ai-sister-guides.md) uses its own generated
-manifest literal, frontend pin and **OFF** activation pin. Its 1,377 objects
+manifest literal, frontend pin and independent receipt-backed activation pin. Its 1,377 objects
 contain owner-approved wardrobe derivatives and portraits; source snapshot
 hashes and attribution are separate from the original Dragon art. The local
 publisher plan accepts `--pack ai-sister`; omission remains Dragon-compatible.
