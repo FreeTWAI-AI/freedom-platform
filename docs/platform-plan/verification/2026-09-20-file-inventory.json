@@ -13648,6 +13648,11 @@
       "sha256": "c8e94002fdff518fe10a12208ad2ec266904e99ada8ede6e81c1e509c892cb1a"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/library-profile-evidence-2026-10-05.json",
+      "bytes": 7611,
+      "sha256": "2aaf0a8be8bd4fad5cd6fc1c29330386df2c3be286ee2532d6533f46cb1dacda"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/media-profiles-activation-2026-10-04.md",
       "bytes": 11900,
       "sha256": "fdbf5cda1c98aa7b6d7e7ad2f940564bb8840bca3419b455bf3fa0cc33f4ac7c"
@@ -13669,8 +13674,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 337519,
-      "sha256": "737371fb7c2be9c76d449a59f930ed61e30cc4d2ba054f92ad179914da5004a3"
+      "bytes": 338605,
+      "sha256": "5897cb1c527df567bfae463b90dc87f6f99f573ae6fb03148bf0fc9493f5bb7a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/source-acceptance.md",
@@ -15719,8 +15724,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
-      "bytes": 3154,
-      "sha256": "6d2c8f72f5e05429480b54e0cd4196829c265f6cde0621dfc6e76e33fbf216e0"
+      "bytes": 4230,
+      "sha256": "663a4d5ac0570ecb3594a9e0d4b450a30873f9de4891247893d95a627ec9085d"
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-boundaries.md",
@@ -15784,8 +15789,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 10176,
-      "sha256": "56a88a771f424afdb9a16c129bbc4d06757f102a8f687c1ca9b4f48e7d94f442"
+      "bytes": 10780,
+      "sha256": "c8e256e2381d459dc8ce950dd5372230f71da1d691dc8c36cb439f67a1d61ee0"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -15814,18 +15819,18 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.md",
-      "bytes": 8476,
-      "sha256": "20d353e96cc288079ee551f6ee95f1501797fb1d373da60da47f4cd1937c8550"
+      "bytes": 10452,
+      "sha256": "485ecb93400c9b273a620ab939bd8bb9856be45de656c8c29138a5ae1ecb633c"
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.mjs",
-      "bytes": 9438,
-      "sha256": "883c9ca63157da3b482d459cfc09ac39f600593a6648273607c73f5df58feeb0"
+      "bytes": 9931,
+      "sha256": "1b6fdd5c98344c9a1166d5b463f8ef752a93b00cc5ba7e3beec68c5b13173b68"
     },
     {
       "path": "packages/contribution-tools/github-consumer-runtime-host.mjs",
-      "bytes": 5996,
-      "sha256": "ec27691b8994b15cb5d60b671b645c7fc7956de9f23eb7161d0e873e10cb5a9c"
+      "bytes": 6127,
+      "sha256": "2b782df5040cb4c270544a9afbaa538990e847fe2dee66cd664832d39bfe86ca"
     },
     {
       "path": "packages/contribution-tools/github-durable-publisher.mjs",
@@ -15929,8 +15934,8 @@
     },
     {
       "path": "packages/contribution-tools/test/consumer-libraries.test.mjs",
-      "bytes": 11346,
-      "sha256": "526d721877ae2de5194907c0411c74496ec4a9746cd879efedd1d5000b2a81ca"
+      "bytes": 18189,
+      "sha256": "2bc7552277da28914b56e0dfb17f1e46189d21ca042e2f3facd8e2b710217a3e"
     },
     {
       "path": "packages/contribution-tools/test/consumer-runtime-recipe.test.mjs",
@@ -15994,8 +15999,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-host.test.mjs",
-      "bytes": 10356,
-      "sha256": "4867d9fc0f89699389e3450a5feb06270d30f5ef44fdf577d62e4fc64c8dce77"
+      "bytes": 15551,
+      "sha256": "56fda4ef29ff06d6f121ad3855b843a94e5517aa4cdb2e91d3529285e9f43cfa"
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-profiles.test.mjs",
@@ -16684,8 +16689,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/consumer-libraries.md",
-      "bytes": 8687,
-      "sha256": "4cac5c9f662e1a719b1e26e65bc2b6da78682d7ca76b326869df0b9ad9178f18"
+      "bytes": 10837,
+      "sha256": "367d48640085311cca8957760e09a0d596e3579bef8616f0ee3810010dbe60cc"
     },
     {
       "path": "scripts/repository-bootstrap/consumer-source-profiles.md",
@@ -16704,8 +16709,8 @@
     },
     {
       "path": "scripts/repository-bootstrap/verify-consumer-libraries.mjs",
-      "bytes": 840,
-      "sha256": "6a37c605b7c3489815cf8c4d5586ea4f61e96db85a048a69f74e38d399a09ccb"
+      "bytes": 1133,
+      "sha256": "8c42aeeb86d933dd31406f500e337f118177e61224cbe62fe1897386889f968b"
     },
     {
       "path": "scripts/repository-bootstrap/verify-contracts.mjs",

@@ -368,6 +368,24 @@
         "failed": 0,
         "skipped": 0
       }
+    },
+    "library-profile-bb046a3": {
+      "id": "library-profile-bb046a3",
+      "kind": "local_source_profile_upgrade",
+      "source_sha": "bb046a36afb3d12eb5e8c40289f3edc7641af8b4",
+      "environment": "Temporary real Git repositories and synthetic canonical library fixtures; no installed host or true device runtime",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/library-profile-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Host-selected exact file profile supports a reviewed two-file Agent Kit device SDK distribution while preserving legacy profile.",
+        "Exporter verifies prior source/profile/exact clean consumer head; forgery, arbitrary profile, wrong source, leftovers and narrowing are rejected."
+      ],
+      "limitations": [
+        "Source checks do not prove actual build resolution or library invocation (GOV-03/04).",
+        "Legacy profile compatibility does not prove mixed-client runtime (GOV-18).",
+        "Installed hosts/pins and all original requirement states remain unchanged."
+      ]
     }
   },
   "requirements": [
