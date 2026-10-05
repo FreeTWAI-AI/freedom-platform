@@ -21,12 +21,14 @@ type Owned = { service_id: string; state: string; aggregate_version: string };
 type Row = {
   service_id: string; title: string; category: ServiceCategory; summary: string; description: string | null;
   price_text: string | null; area_text: string | null; service_mode: ServiceMode; contacts: ServiceContact[];
-  state: string; aggregate_version: string; updated_at: Date | string; owner_user_id: string; display_name: string;
+  state: string; aggregate_version: string; updated_at: Date | string; updated_cursor: string; owner_user_id: string; display_name: string;
   avatar_version: string | null; has_avatar: boolean; test_account: boolean; has_cover: boolean; total_points: number; my_points: number;
 };
 
+// Date.toISOString() drops microseconds, and cover publication writes clock_timestamp(). The keyset must keep them or the next page skips rows inside that millisecond.
+const UPDATED_CURSOR = `to_char(s.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_cursor`;
 const LIST = `SELECT s.service_id,s.title,s.category,s.summary,s.description,s.price_text,s.area_text,s.service_mode,s.contacts,s.state,
-  s.aggregate_version::text AS aggregate_version,s.updated_at,s.owner_user_id,u.display_name,
+  s.aggregate_version::text AS aggregate_version,s.updated_at,${UPDATED_CURSOR},s.owner_user_id,u.display_name,
   a.aggregate_version::text AS avatar_version,a.present AS has_avatar,
   is_verification_test_account(u.user_id) AS test_account,c.service_id IS NOT NULL AS has_cover,
   (SELECT count(*)::int FROM promotion_clicks k JOIN promotion_links l ON l.link_id=k.link_id WHERE l.kind='member_service' AND l.target_key=s.service_id::text) AS total_points,
@@ -103,9 +105,9 @@ export async function listMemberServices(pool: Pool, actor: Actor, query: { cate
       AND ($3::text IS NULL OR s.category=$3)
       AND ($4::timestamptz IS NULL OR (s.updated_at,s.service_id)<($4::timestamptz,$5::uuid))
     ORDER BY s.updated_at DESC,s.service_id DESC LIMIT 25`, [actor.community_id, actor.user_id, category || null, cursor?.updatedAt ?? null, cursor?.id ?? null])).rows as Row[];
-  const page = rows.slice(0, MEMBER_PAGE).map(row => view(row, actor.user_id, canHide));
-  const last = page.at(-1);
-  return { items: page, next_cursor: rows.length > MEMBER_PAGE && last ? encodeCursor(last.updated_at, last.service_id) : null, can_hide: canHide };
+  const pageRows = rows.slice(0, MEMBER_PAGE);
+  const last = pageRows.at(-1);
+  return { items: pageRows.map(row => view(row, actor.user_id, canHide)), next_cursor: rows.length > MEMBER_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null, can_hide: canHide };
 }
 
 export async function listMyMemberServices(pool: Pool, actor: Actor) {
@@ -280,11 +282,15 @@ export async function readMemberServiceTitles(pool: Pool, communityId: string, i
 }
 
 const PUBLIC_LIST = `SELECT s.service_id::text,s.title,s.category,s.summary,s.price_text,s.area_text,u.display_name AS owner_name,
-  c.service_id IS NOT NULL AS has_cover,s.updated_at
+  c.service_id IS NOT NULL AS has_cover,s.updated_at,${UPDATED_CURSOR}
   FROM member_services s JOIN users u ON u.user_id=s.owner_user_id LEFT JOIN member_service_covers c ON c.service_id=s.service_id`;
 
-function cardOf(row: { service_id: string; title: string; category: ServiceCategory; summary: string; price_text: string | null; area_text: string | null; owner_name: string; has_cover: boolean; updated_at: Date }): PublicServiceCard {
-  return { ...row, has_cover: Boolean(row.has_cover), updated_at: iso(row.updated_at) };
+function cardOf(row: { service_id: string; title: string; category: ServiceCategory; summary: string; price_text: string | null; area_text: string | null; owner_name: string; has_cover: boolean; updated_at: Date | string }): PublicServiceCard {
+  return {
+    service_id: row.service_id, title: row.title, category: row.category, summary: row.summary,
+    price_text: row.price_text, area_text: row.area_text, owner_name: row.owner_name,
+    has_cover: Boolean(row.has_cover), updated_at: iso(row.updated_at),
+  };
 }
 
 export async function publicServiceListDocument(pool: Pool, communityId: string | null, origin: string, categoryRaw?: string, cursorRaw?: string) {
@@ -294,10 +300,10 @@ export async function publicServiceListDocument(pool: Pool, communityId: string 
   const rows = (await pool.query(`${PUBLIC_LIST} WHERE s.community_id=$1 AND ${PUBLIC_VISIBLE}
     AND ($2::text IS NULL OR s.category=$2)
     AND ($3::timestamptz IS NULL OR (s.updated_at,s.service_id)<($3::timestamptz,$4::uuid))
-    ORDER BY s.updated_at DESC,s.service_id DESC LIMIT 13`, [communityId, category || null, cursor?.updatedAt ?? null, cursor?.id ?? null])).rows as Parameters<typeof cardOf>[0][];
-  const page = rows.slice(0, PUBLIC_PAGE).map(cardOf);
-  const last = page.at(-1);
-  return serviceListHtml(origin, category, page, rows.length > PUBLIC_PAGE && last ? encodeCursor(last.updated_at, last.service_id) : null);
+    ORDER BY s.updated_at DESC,s.service_id DESC LIMIT 13`, [communityId, category || null, cursor?.updatedAt ?? null, cursor?.id ?? null])).rows as (Parameters<typeof cardOf>[0] & { updated_cursor: string })[];
+  const pageRows = rows.slice(0, PUBLIC_PAGE);
+  const last = pageRows.at(-1);
+  return serviceListHtml(origin, category, pageRows.map(cardOf), rows.length > PUBLIC_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null);
 }
 
 export async function publicServiceDocument(pool: Pool, communityId: string | null, origin: string, id: string) {

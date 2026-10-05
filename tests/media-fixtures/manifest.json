@@ -1,0 +1,67 @@
+{
+  "schema": "freedom.media-format-fixtures/v1",
+  "evidence": "local_synthetic_fixture",
+  "liveAcceptance": false,
+  "video": {
+    "file": "event-video-160x90.mp4",
+    "contentType": "video/mp4",
+    "byteSize": 1991,
+    "sha256": "c67cfa694ce1bcc4e0a974787c7c6e5a90083073e7399e8f87b6e2b63b222b02",
+    "codec": "h264",
+    "pixFmt": "yuv420p",
+    "width": 160,
+    "height": 90,
+    "durationSeconds": 2.4,
+    "seekSeconds": 1.8,
+    "boxes": [
+      "ftyp",
+      "moov",
+      "free",
+      "mdat"
+    ]
+  },
+  "highlights": {
+    "photo": {
+      "file": "highlight-photo.png",
+      "contentType": "image/png",
+      "byteSize": 125,
+      "sha256": "0fa06d8e072efcf5844f197e0574b2753c305a1bb86456547c9ad7f7429d897e",
+      "kind": "photo",
+      "width": 32,
+      "height": 24
+    },
+    "poster": {
+      "file": "highlight-poster.jpg",
+      "contentType": "image/jpeg",
+      "byteSize": 283,
+      "sha256": "088c33452c447839df2f5d2c2a858c093b7dc0cbd91a8b5066933147a0e8bdd3",
+      "kind": "poster",
+      "width": 48,
+      "height": 36
+    },
+    "still": {
+      "file": "highlight-still.webp",
+      "contentType": "image/webp",
+      "byteSize": 66,
+      "sha256": "345a9958741e556e022e05370e5e8ccfc69c6502de3e16f7559f3e3c1a87d4a1",
+      "kind": "photo",
+      "width": 64,
+      "height": 48
+    }
+  },
+  "links": {
+    "youtube": {
+      "input": "https://www.youtube.com/watch?v=aqz-KE-bpKQ&utm_source=fixture#t=1",
+      "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      "platform": "youtube",
+      "title": "YouTube 影片",
+      "videoId": "aqz-KE-bpKQ"
+    },
+    "other": {
+      "input": "https://example.com/highlight-fixture",
+      "url": "https://example.com/highlight-fixture",
+      "platform": "other",
+      "title": "相關連結"
+    }
+  }
+}

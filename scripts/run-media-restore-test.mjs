@@ -8,6 +8,11 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {verificationEnvironment} from '../packages/contribution-tools/process-env.mjs';
 const image='postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
+const args=process.argv.slice(2);
+if(args.length>1||(args.length===1&&args[0]!=='--archive-only')){
+  console.error('Usage: node scripts/run-media-restore-test.mjs [--archive-only]');process.exit(2);
+}
+const testFile=args[0]==='--archive-only'?'tests/integration/media-backup-archive.test.ts':'tests/integration/media-backup-restore.test.ts';
 const task='media-restore-drill',owner='run-media-restore-test';
 const directory=await mkdtemp(join(tmpdir(),'fp-media-restore-')),socket=join(directory,'socket');
 await mkdir(socket);await chmod(socket,0o777);
@@ -42,7 +47,7 @@ try{
     throw Error('restore_fixture_start_failed');
   }
   const db=new URL('postgresql://postgres@localhost/fp_media_restore');db.searchParams.set('host',socket);
-  phase='run_restore_tests';child=spawn(process.execPath,['--import','tsx','--test','--test-concurrency=1','tests/integration/media-backup-restore.test.ts'],
+  phase='run_restore_tests';child=spawn(process.execPath,['--import','tsx','--test','--test-concurrency=1',testFile],
     {cwd:resolve(new URL('..',import.meta.url).pathname),detached:true,env:{...verificationEnvironment(),
       TEST_DATABASE_URL:db.href,TEST_POSTGRES_CONTAINER_ID:container,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','inherit','inherit']});
   let timedOut=false;const timer=setTimeout(()=>{timedOut=true;try{process.kill(-child.pid,'SIGKILL');}catch{}},120000);

@@ -2,18 +2,19 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, lstat, realpath, readlink, rm, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, dirname, basename, relative, isAbsolute } from 'node:path';
+import { join, dirname, basename, relative, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { runMemberRouteBehavior, behaviorFixtureIdentity, installedBehaviorHarnessDigest } from './behavior-harness.mjs';
-import { installedVerifierDigest } from './trusted-ci.mjs';
+import { installedVerifierDigest, validateHostEvidenceBinding, validateHostWorkflow } from './trusted-ci.mjs';
 import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { openSupervisorDatabase, initializeSupervisorFixture, supervisorFixtureFacts, FIXTURE_DATABASE } from './behavior-supervisor-fixture.mjs';
+import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES, AGENT_KIT_CLI_PROFILE } from './consumer-behavior-fixture.mjs';
+import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 
-// This prototype uses ONLY already cached immutable local image identities.
-// Their local selection is not production supply-chain/publisher approval.
+// Member mode retains its cached local image identities; consumer mode uses the
+// separately provisioned public recipe. Neither is operator trust approval.
 const BASE_IMAGE = 'sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171';
 const PG_IMAGE = 'sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -117,14 +118,18 @@ export async function validateBehaviorDependencyCache(source) {
   }
   await inspect(root); return { root, sha256: sha256(JSON.stringify(records)), files: count };
 }
-async function installedSupervisorIdentity() {
+export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node' } = {}) {
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
-    'packages/contribution-tools/behavior-supervisor-target.mjs', 'package-lock.json'];
+    'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/consumer-behavior-target.mjs',
+    'packages/contribution-tools/consumer-behavior-fixture.mjs', 'packages/contribution-tools/consumer-runtime-recipe.mjs',
+    'contracts/preview/v1/protocol.mjs',
+    'packages/contribution-tools/github-behavior-host.mjs',
+    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
   for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
   const files = [];
   for (const path of paths.sort()) files.push([path, sha256(await readFile(join(ROOT, path)))]);
   const runtimeFiles = [];
-  for (const path of ['/usr/bin/node', '/usr/lib/x86_64-linux-gnu/libdl.so.2', '/usr/lib/x86_64-linux-gnu/libstdc++.so.6',
+  for (const path of [nodeExecutable, '/usr/lib/x86_64-linux-gnu/libdl.so.2', '/usr/lib/x86_64-linux-gnu/libstdc++.so.6',
     '/usr/lib/x86_64-linux-gnu/libm.so.6', '/usr/lib/x86_64-linux-gnu/libgcc_s.so.1', '/usr/lib/x86_64-linux-gnu/libpthread.so.0',
     '/usr/lib/x86_64-linux-gnu/libc.so.6', '/usr/lib64/ld-linux-x86-64.so.2']) runtimeFiles.push([path, sha256(await readFile(path))]);
   return { supervisor_sha256: sha256(JSON.stringify(files)), harness_sha256: await installedBehaviorHarnessDigest(),
@@ -147,7 +152,12 @@ export function decodeBehaviorResponseFrame(bytes, expectedId) {
 }
 function responsePort(child, terminate) {
   let pending, failed = false, buffer = Buffer.alloc(0), total = 0, stderr = 0, sequence = 0;
-  const abort = () => { failed = true; pending?.reject(new Error('supervisor_transport_failed')); pending = undefined; terminate(); };
+  const clearPending = () => {
+    const current = pending; pending = undefined;
+    current?.signal.removeEventListener('abort', abort);
+    return current;
+  };
+  const abort = () => { failed = true; clearPending()?.reject(new Error('supervisor_transport_failed')); terminate(); };
   child.on('error', abort); child.on('exit', abort);
   child.stderr.on('data', bytes => { if ((stderr += bytes.length) > LIMITS.stderrBytes) abort(); });
   child.stdout.on('data', bytes => {
@@ -155,13 +165,13 @@ function responsePort(child, terminate) {
     buffer = Buffer.concat([buffer, bytes]); const end = buffer.indexOf(10); if (end < 0) return;
     if (!pending || end !== buffer.length - 1) return abort();
     try { const value = decodeBehaviorResponseFrame(buffer.subarray(0, end), pending.id); buffer = Buffer.alloc(0);
-      const current = pending; pending = undefined; current.resolve(value); } catch { abort(); }
+      const current = clearPending(); current.resolve(value); } catch { abort(); }
   });
   return async (request, signal) => {
     if (failed || pending || signal.aborted) fail('supervisor_transport_failed');
     const id = ++sequence, body = request.body ? Buffer.from(await request.arrayBuffer()).toString('base64') : null;
     const frame = JSON.stringify({ id, url: request.url, method: request.method, headers: [...request.headers], body }) + '\n';
-    const value = await new Promise((resolve, reject) => { pending = { id, resolve, reject };
+    const value = await new Promise((resolve, reject) => { pending = { id, resolve, reject, signal };
       signal.addEventListener('abort', abort, { once: true }); child.stdin.write(frame, error => { if (error) abort(); });
     });
     const responseBody = request.method === 'HEAD' || [204, 205, 304].includes(value.status) ? null : value.body;
@@ -170,6 +180,25 @@ function responsePort(child, terminate) {
     return new Response(responseBody, { status: value.status, headers: value.headers });
   };
 }
+function observeSupervisorContainer(item, label) {
+  const value = JSON.parse(docker(['inspect', '--format', '{{json .}}', item.id]));
+  const ulimits = validateSupervisorUlimits(value.HostConfig.Ulimits, item.kind);
+  if (value.Id !== item.id || value.Config.Labels?.['freedom.behavior-owner'] !== label || !value.State.Running
+    || value.HostConfig.NetworkMode !== 'none' || !value.HostConfig.ReadonlyRootfs || value.HostConfig.Privileged
+    || value.HostConfig.PidsLimit !== 128 || value.HostConfig.Memory !== 536870912
+    || value.HostConfig.NanoCpus !== 1000000000 || value.Image !== (item.image ?? (item.kind === 'candidate' ? BASE_IMAGE : PG_IMAGE))
+    || (item.imageReference && value.Config.Image !== item.imageReference)
+    || value.Config.User !== (item.kind === 'candidate' ? `${process.getuid()}:${process.getgid()}` : 'postgres')
+    || !value.HostConfig.CapDrop?.includes('ALL') || !value.HostConfig.SecurityOpt?.includes('no-new-privileges')) fail('supervisor_container_changed');
+  if (value.Mounts.some(mount => !['bind', 'tmpfs'].includes(mount.Type))) fail('supervisor_container_changed');
+  const mounts = value.Mounts.filter(mount => mount.Type === 'bind').map(mount => [mount.Source, mount.Destination, mount.RW]).sort();
+  if (item.mounts && JSON.stringify(mounts) !== JSON.stringify(item.mounts.slice().sort())) fail('supervisor_container_changed');
+  if (item.kind === 'candidate' && value.Config.Env.some(entry => !['PATH', 'TMPDIR', 'NODE_ENV', 'FP_BEHAVIOR_DB_PASSWORD'].includes(entry.split('=', 1)[0]))) fail('supervisor_container_changed');
+  return { id: value.Id, image: value.Image, network: 'none', readonly_root: true, memory_bytes: value.HostConfig.Memory, pids: value.HostConfig.PidsLimit, ulimits };
+}
+const containerLimits = label => ['--pull=never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+  '--memory', '512m', '--memory-swap', '512m', '--pids-limit', '128', '--cpus', '1', '--label', 'freedom.behavior-owner=' + label,
+  '--log-driver', 'none', '--ulimit', 'core=0:0'];
 const safeCodes = new Set(['supervisor_host_command_failed','supervisor_candidate_identity_invalid','supervisor_candidate_path_rejected',
   'supervisor_nonregular_candidate','supervisor_case_collision','supervisor_source_limit','supervisor_git_blob_invalid',
   'supervisor_source_changed','supervisor_dependencies_invalid','supervisor_dependency_limit','supervisor_dependency_escape',
@@ -177,29 +206,16 @@ const safeCodes = new Set(['supervisor_host_command_failed','supervisor_candidat
 
 /** Explicit local host entrypoint. No candidate callbacks, reports or test lists.
  * A pass remains local/unavailable: GitHub workflow/source approval is absent. */
-export async function runIsolatedMemberBehavior({ candidateRepository, candidateCommit, dependencyRoot }) {
+export async function runIsolatedMemberBehavior({ candidateRepository, candidateCommit, dependencyRoot, hostEvidence = null }) {
   const label = randomUUID(), owned = [], started = Date.now(); let directory, pool, child, timer, timedOut = false, phase = 'preflight', outcome;
   const killCandidate = () => { if (child?.pid) { try { child.kill('SIGKILL'); } catch {} }
     const id = owned.find(value => value.kind === 'candidate')?.id; if (id) { try { docker(['kill', id]); } catch {} } };
   const report = (reason, extra = {}) => (outcome = { assurance_level: 'local', status: 'unavailable', merge_authorized: false,
     execution_authorized: false, publisher_trust: 'unverified', reason, ...extra });
-  function observeContainer(item) {
-    const value = JSON.parse(docker(['inspect', '--format', '{{json .}}', item.id]));
-    const ulimits = validateSupervisorUlimits(value.HostConfig.Ulimits, item.kind);
-    if (value.Id !== item.id || value.Config.Labels?.['freedom.behavior-owner'] !== label || !value.State.Running
-      || value.HostConfig.NetworkMode !== 'none' || !value.HostConfig.ReadonlyRootfs || value.HostConfig.Privileged
-      || value.HostConfig.PidsLimit !== 128 || value.HostConfig.Memory !== 536870912
-      || value.HostConfig.NanoCpus !== 1000000000 || value.Image !== (item.kind === 'candidate' ? BASE_IMAGE : PG_IMAGE)
-      || value.Config.User !== (item.kind === 'candidate' ? `${process.getuid()}:${process.getgid()}` : 'postgres')
-      || !value.HostConfig.CapDrop?.includes('ALL') || !value.HostConfig.SecurityOpt?.includes('no-new-privileges')) fail('supervisor_container_changed');
-    if (value.Mounts.some(mount => !['bind', 'tmpfs'].includes(mount.Type))) fail('supervisor_container_changed');
-    const mounts = value.Mounts.filter(mount => mount.Type === 'bind').map(mount => [mount.Source, mount.Destination, mount.RW]).sort();
-    if (item.mounts && JSON.stringify(mounts) !== JSON.stringify(item.mounts.slice().sort())) fail('supervisor_container_changed');
-    if (item.kind === 'candidate' && value.Config.Env.some(entry => !['PATH', 'TMPDIR', 'NODE_ENV', 'FP_BEHAVIOR_DB_PASSWORD'].includes(entry.split('=', 1)[0]))) fail('supervisor_container_changed');
-    return { id: value.Id, image: value.Image, network: 'none', readonly_root: true, memory_bytes: value.HostConfig.Memory, pids: value.HostConfig.PidsLimit, ulimits };
-  }
+  const observeContainer = item => observeSupervisorContainer(item, label);
   try {
     if (process.platform !== 'linux' || Number(process.versions.node.split('.')[0]) < 24 || process.getuid() === 0) fail('supervisor_host_command_failed');
+    const { openSupervisorDatabase, initializeSupervisorFixture, supervisorFixtureFacts, FIXTURE_DATABASE } = await import('./behavior-supervisor-fixture.mjs');
     directory = await mkdtemp(join(tmpdir(), 'fp-behavior-supervisor-'));
     const candidate = join(directory, 'candidate'), socket = join(directory, 'database'), launcher = join(directory, 'target.mjs');
     await mkdir(candidate); await mkdir(socket); await chmod(socket, 0o777);
@@ -207,11 +223,17 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
     const dependency = await validateBehaviorDependencyCache(dependencyRoot), dependencies = dependency.root;
     const installation = await installedSupervisorIdentity();
+    // Only the installed host adapter supplies this object. Structural validation
+    // here is not authentication; pin/approval checks happen before this call.
+    const evidence = hostEvidence === null ? null : {
+      binding: validateHostEvidenceBinding(hostEvidence.binding), workflow: validateHostWorkflow(hostEvidence.workflow),
+      harness: hostEvidence.harness_sha256,
+    };
+    if (evidence && (evidence.binding.candidate_commit !== snapshot.commit || evidence.binding.candidate_tree !== snapshot.tree
+      || evidence.harness !== installation.harness_sha256 || evidence.binding.verifier_sha256 !== await installedVerifierDigest())) fail('supervisor_installation_changed');
     await mkdir(join(candidate, 'node_modules'));
     await writeFile(launcher, await readFile(new URL('./behavior-supervisor-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
-    const common = ['--pull=never', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
-      '--memory', '512m', '--memory-swap', '512m', '--pids-limit', '128', '--cpus', '1', '--label', 'freedom.behavior-owner=' + label,
-      '--log-driver', 'none', '--ulimit', 'core=0:0'];
+    const common = containerLimits(label);
     const adminPassword = randomBytes(32).toString('base64url'), appPassword = randomBytes(32).toString('base64url');
     phase = 'database'; const pgId = docker(['run', '-d', ...common, '--ulimit', `nofile=${SUPERVISOR_NOFILE.database}:${SUPERVISOR_NOFILE.database}`, '--user', 'postgres', '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
       '--tmpfs', '/var/lib/postgresql:rw,nosuid,nodev,size=1m',
@@ -241,13 +263,14 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
     }
     if (!appObservation || timedOut) fail(timedOut ? 'supervisor_deadline' : 'supervisor_container_changed');
     const harness = await installedBehaviorHarnessDigest(), verifier = await installedVerifierDigest();
-    const hostCommit = git(ROOT, ['rev-parse', 'HEAD']).toString().trim();
-    // Explicitly local identities: never claim a real PR/run/policy approval.
-    const binding = { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label, run_attempt: 1,
+    const hostCommit = evidence ? null : git(ROOT, ['rev-parse', 'HEAD']).toString().trim();
+    // Local callers retain synthetic identities; the installed adapter supplies
+    // authenticated bindings without requiring Git metadata in its installation.
+    const binding = evidence?.binding ?? { repository: 'local/isolated-candidate', pull_request: 1, run_id: 'local-' + label, run_attempt: 1,
       base_commit: snapshot.commit, head_commit: snapshot.commit, candidate_commit: snapshot.commit, candidate_tree: snapshot.tree,
       source_commit: hostCommit, release_set_sha256: snapshot.source_sha256, policy_revision: 'local-supervisor-prototype',
       policy_sha256: sha256('local-supervisor-prototype'), verifier_commit: hostCommit, verifier_sha256: verifier };
-    const workflow = { identity: 'local/isolated-behavior', commit: hostCommit, publisher: 'unverified-local-host' };
+    const workflow = evidence?.workflow ?? { identity: 'local/isolated-behavior', commit: hostCommit, publisher: 'unverified-local-host' };
     phase = 'behavior'; const observed = await runMemberRouteBehavior({ binding, workflow, fixture, expectedHarnessSha256: harness }, {
       request, observeTarget: async () => { for (const item of owned) observeContainer(item); await checkSnapshot(candidate, snapshot.records);
         if (timedOut) fail('supervisor_deadline');
@@ -284,4 +307,117 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
       if (!outcome.cleanup_verified) { outcome.reason = 'supervisor_cleanup_failed'; outcome.observation = null; delete outcome.check; }
     }
   }
+}
+
+/** Fixed three-consumer profile. Same immutable export, container restrictions and
+ * bounded response port as the member supervisor; host independently records HTTP.
+ * Local observations do not install a publisher or prove internal library calls. */
+export async function runIsolatedConsumerBehavior(input) { return runConsumerProfile(input, 'workspace'); }
+
+/** Fixed actual user-facing kit CLI; not selected by the existing native gate. */
+export async function runIsolatedAgentKitCliBehavior(input) { return runConsumerProfile(input, 'kit-cli'); }
+
+async function runConsumerProfile(input, profile) {
+  const keys = ['repository', 'candidateRepository', 'candidateCommit'];
+  if (!input || Object.keys(input).sort().join() !== keys.sort().join()
+    || !Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
+    || (profile === 'kit-cli' && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
+  const { repository, candidateRepository, candidateCommit } = input;
+  const selected = profile === 'kit-cli' ? AGENT_KIT_CLI_PROFILE : CONSUMER_BEHAVIOR_PROFILES[repository];
+  const label = randomUUID(), owned = [], cases = [];
+  let directory, child, fixture, timer, timedOut = false, outcome, phase = 'preflight';
+  const kill = () => {
+    if (child?.pid) { try { child.kill('SIGKILL'); } catch {} }
+    for (const item of owned) { try { docker(['kill', item.id]); } catch {} }
+  };
+  const report = (reason, extra = {}) => (outcome = { format: 'freedom.isolated-consumer-http/v1',
+    repository, assurance_level: 'local', status: 'unavailable', reason,
+    source_integrity: 'not_checked', runtime_observation: 'not_checked', library_invocation: 'not_checked', library_usage: 'not_checked',
+    server_authorization: 'not_checked', gate_enforced: false, merge_authorized: false, execution_authorized: false,
+    publisher_trust: 'unverified', ...extra });
+  try {
+    if (process.platform !== 'linux' || Number(process.versions.node.split('.')[0]) < 24 || process.getuid() === 0) fail('supervisor_host_command_failed');
+    directory = await mkdtemp(join(tmpdir(), 'fp-consumer-supervisor-'));
+    const candidate = join(directory, 'candidate'), socket = join(directory, 'fixture'), launcher = join(directory, 'target.mjs');
+    await mkdir(candidate); await mkdir(socket);
+    timer = setTimeout(() => { timedOut = true; kill(); }, LIMITS.wallMs);
+    phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
+    const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
+    const installation = await installedSupervisorIdentity({ nodeExecutable });
+    await writeFile(launcher, await readFile(new URL('./consumer-behavior-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
+    phase = 'fixture'; fixture = await createConsumerHttpFixture({ repository, socketPath: join(socket, 'http.sock'), onViolation: kill, profile });
+    phase = 'candidate';
+    const id = docker(['create', '-i', ...containerLimits(label),
+      '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
+      '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
+      '--mount', `type=bind,src=${nodeExecutable},dst=/trusted-node,readonly`,
+      '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${socket},dst=/fixture,readonly`,
+      '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`, '--workdir', '/candidate',
+      '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '--entrypoint', '/trusted-node',
+      runtime.image.reference, '--max-old-space-size=256', '/target.mjs', profile]).toString().trim();
+    if (!/^[a-f0-9]{64}$/.test(id)) fail('supervisor_host_command_failed');
+    owned.push({ id, kind: 'candidate', image: runtime.image.local_id, imageReference: runtime.image.reference, mounts: [[nodeExecutable, '/trusted-node', false], [candidate, '/candidate', false],
+      [socket, '/fixture', false], [launcher, '/target.mjs', false]] });
+    if (timedOut) fail('supervisor_deadline');
+    clearTimeout(timer); timer = setTimeout(() => { timedOut = true; kill(); }, 15000);
+    child = spawn('/usr/bin/docker', ['start', '-a', '-i', id], { env: env(), stdio: ['pipe', 'pipe', 'pipe'] });
+    const request = responsePort(child, kill);
+    let isolation;
+    for (let tries = 0; tries < 30; tries++) {
+      try { isolation = observeSupervisorContainer(owned[0], label); break; } catch { await new Promise(resolve => setTimeout(resolve, 100)); }
+    }
+    if (!isolation) fail('supervisor_container_changed');
+    phase = 'behavior';
+    for (const scenario of selected.scenarios) {
+      const challenge = fixture.begin(scenario);
+      const response = await request(new Request('http://127.0.0.1:4310/consumer-driver', {
+        method: 'POST', body: JSON.stringify(challenge), headers: { 'content-type': 'application/json' },
+      }), AbortSignal.timeout(5000));
+      const observed = await fixture.verify(response); cases.push(observed);
+      observeSupervisorContainer(owned[0], label); await checkSnapshot(candidate, snapshot.records);
+      if (observed.status !== 'passed') break;
+    }
+    kill(); await fixture.close(); fixture.assertHealthy(); fixture = null;
+    if (timedOut) fail('supervisor_deadline');
+    if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())) fail('supervisor_installation_changed');
+    if (JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable }))) fail('supervisor_installation_changed');
+    const passed = cases.length === selected.scenarios.length && cases.every(value => value.status === 'passed');
+    return report(passed ? 'isolated_consumer_http_observed_only' : 'consumer_behavior_mismatch', {
+      check: { status: passed ? 'passed' : 'failed', test_count: cases.length, expected_test_count: selected.scenarios.length },
+      runtime_observation: passed ? 'host_observed_http' : 'not_checked', cases, isolation: [{ ...isolation, bind_destinations: owned[0].mounts.map(item => item[1]).sort() }],
+      installation: { ...installation, node_executable: nodeExecutable, runtime_recipe: runtime },
+      candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
+      entry: profile === 'kit-cli' ? selected.entry : 'src/index.mjs#' + selected.entry,
+    });
+  } catch (error) {
+    return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || ['consumer_fixture_invalid', 'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch', 'consumer_runtime_platform_mismatch'].includes(error.message)
+      ? error.message : 'consumer_supervisor_failed', { phase, check: { status: 'failed' }, cases });
+  } finally {
+    clearTimeout(timer); kill(); if (fixture) await fixture.close();
+    try {
+      for (const id of docker(['ps', '-aq', '--no-trunc', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim().split('\n')) {
+        if (/^[a-f0-9]{64}$/.test(id) && !owned.some(item => item.id === id)) owned.push({ id });
+      }
+    } catch {}
+    for (const item of owned) {
+      try { if (docker(['inspect', '--format', '{{index .Config.Labels "freedom.behavior-owner"}}', item.id]).toString().trim() === label) docker(['rm', '-f', '-v', item.id]); } catch {}
+    }
+    if (directory) await rm(directory, { recursive: true, force: false });
+    if (outcome) {
+      try { outcome.cleanup_verified = docker(['ps', '-aq', '--filter', 'label=freedom.behavior-owner=' + label]).toString().trim() === ''; }
+      catch { outcome.cleanup_verified = false; }
+      if (!outcome.cleanup_verified) { outcome.reason = 'supervisor_cleanup_failed'; outcome.runtime_observation = 'not_checked'; outcome.check = { status: 'failed' }; }
+    }
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const [mode, repository, candidateRepository, candidateCommit, ...extra] = process.argv.slice(2);
+    if (!['consumer', 'consumer-cli'].includes(mode) || extra.length) fail('consumer_supervisor_cli_usage');
+    const run = mode === 'consumer-cli' ? runIsolatedAgentKitCliBehavior : runIsolatedConsumerBehavior;
+    const result = await run({ repository, candidateRepository, candidateCommit });
+    console.log(JSON.stringify(result));
+    if (result.check?.status !== 'passed' || result.cleanup_verified !== true) process.exitCode = 1;
+  } catch { console.log(JSON.stringify({ status: 'unavailable', reason: 'consumer_supervisor_cli_invalid', merge_authorized: false })); process.exitCode = 1; }
 }

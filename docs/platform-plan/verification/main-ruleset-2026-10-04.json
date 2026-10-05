@@ -1,0 +1,83 @@
+{
+  "recorded_at": "2026-10-04T21:44:43.061Z",
+  "organization": "FreeTWAI-AI",
+  "repository": "FreeTWAI-AI/freedom-platform",
+  "ruleset_id": 24469536,
+  "main_unchanged": "d269a8d7605630cab1da605d7cac4d0c254e3258",
+  "protected": true,
+  "configuration": {
+    "name": "Freedom platform pinned verification",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081342
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "verify",
+              "integration_id": 15368
+            },
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            }
+          ]
+        }
+      },
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/verify.yml",
+              "sha": "d269a8d7605630cab1da605d7cac4d0c254e3258",
+              "ref": "refs/heads/main"
+            }
+          ]
+        }
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 1,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": true,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge",
+            "squash",
+            "rebase"
+          ]
+        }
+      }
+    ]
+  }
+}

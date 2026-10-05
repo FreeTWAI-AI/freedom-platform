@@ -60,9 +60,13 @@ test('workerd admin-sync forced run rejects a redirect without following it, the
   const calls: string[] = [];
   let mode: 'redirect' | 'allow' = 'redirect';
   let mf: Miniflare | undefined, db: Pool | undefined;
+  const closedClients: Promise<void>[] = [];
   try {
     await server.query(`CREATE DATABASE ${database}`);
     db = new Pool({ connectionString: databaseUrl, max: 2 });
+    // pg-pool resolves end() after removing clients, before their sockets close.
+    // DROP FORCE must wait for actual client termination to avoid killing one.
+    db.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
     await migrate(db);
     await db.query('INSERT INTO communities(community_id,name) VALUES($1,$2)', [randomUUID(), 'Workerd admin sync']);
     await db.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,(SELECT community_id FROM communities),$2,$3)', [randomUUID(), email, 'Sync Admin']);
@@ -111,8 +115,13 @@ test('workerd admin-sync forced run rejects a redirect without following it, the
     const row = (await db.query('SELECT aggregate_version::text AS aggregate_version, access_synced_version::text AS access_synced_version FROM platform_admins')).rows[0];
     assert.equal(row.access_synced_version, row.aggregate_version);
   } finally {
-    await mf?.dispose().catch(() => undefined); await db?.end().catch(() => undefined);
-    try { await server.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`); }
-    finally { await server.end(); }
+    try { await mf?.dispose(); }
+    finally {
+      try { await db?.end(); await Promise.all(closedClients); }
+      finally {
+        try { await server.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`); }
+        finally { await server.end(); }
+      }
+    }
   }
 });

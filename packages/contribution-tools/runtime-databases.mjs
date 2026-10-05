@@ -71,7 +71,12 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
     }
     async function stop(c, pid, application) {
       const rows = (await boundedQuery(c, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application])).rows;
-      if (rows.some(row => row.stopped !== true)) throw Error('owner_backend_unsettled');
+      if (rows.some(row => row.stopped !== true)) {
+        // A backend may leave between pg_stat_activity and termination. Only
+        // a fresh absence observation can reconcile a false acknowledgement.
+        const live = await boundedQuery(c, 'SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND usename=$2 AND application_name=$3', [pid, owner, application]);
+        if (live.rowCount) throw Error('owner_backend_unsettled');
+      }
     }
     // CREATE may commit with an unknown ACK. Its exact nonce-bound owner must
     // stop before we consider any pre-registered name on a fresh connection.
@@ -89,7 +94,10 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
         if (!found.rows.length) continue;
         if (found.rows[0].owner !== owner) { okay = false; continue; }
         const stopped = await boundedQuery(cleaner, 'SELECT pg_terminate_backend(pid,1000) AS stopped FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
-        if (stopped.rows.some(row => row.stopped !== true)) throw Error('database_backend_unsettled');
+        if (stopped.rows.some(row => row.stopped !== true)) {
+          const live = await boundedQuery(cleaner, 'SELECT 1 FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
+          if (live.rowCount) throw Error('database_backend_unsettled');
+        }
         const dropBudget = Math.min(6000, Math.floor((remaining() - 4000) / (names.length - index)));
         try { await boundedQuery(cleaner, `DROP DATABASE ${quote(name)}`, [], dropBudget); }
         catch { /* Unknown DROP acknowledgement requires fresh reconciliation. */ }

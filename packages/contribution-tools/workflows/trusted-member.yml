@@ -1,0 +1,28 @@
+# Installation template. Operator copies to .github/workflows/trusted-member.yml
+# and pins that reviewed commit in the org required-workflow ruleset.
+# Requires a restricted runner group and installed host/job gateway first.
+name: Trusted installed member behavior
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+permissions: {}
+jobs:
+  trusted-member:
+    runs-on:
+      group: freedom-trusted-host
+      labels: [self-hosted, linux, x64, freedom-installed-behavior]
+    timeout-minutes: 8
+    steps:
+      # No checkout, npm, downloaded artifact, candidate shell or publisher token.
+      # An independently authenticated gateway prepares this exact run/attempt's
+      # short-lived signed job and host-owned complete bare Git objects.
+      - name: Execute installed harness against exact signed candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          /usr/bin/node /opt/freedom-trusted-host/packages/contribution-tools/github-behavior-host.mjs \
+            --actions /etc/freedom-trusted-host/member.json \
+            "/var/lib/freedom-trusted-host/jobs/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
