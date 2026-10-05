@@ -310,6 +310,50 @@
         "partition0SelectedFilesFourCpuPassed": 14
       },
       "cause": "not established; bounded hosted diagnostics added; local passes do not resolve hosted failures"
+    },
+    "hostedFailureDiagnosis": {
+      "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+      "verifyRun": 37275427175,
+      "safeDiagnosticsOnly": true,
+      "ingestProcess": {
+        "observedStatus": 429,
+        "expectedStatus": 200,
+        "sourceLine": 14,
+        "deterministicReproduction": "57 owner-outcome GETs plus issue, approval and activation consume the 60/min execution-member network bucket; execution returns member_model_http_rate_limited and makes zero provider POSTs",
+        "fix": "successful browser helper awaits actual broker acknowledgement, then performs one owner outcome GET",
+        "beforeFixBlockedCustodyReads": 31,
+        "afterFixBlockedCustodyReads": 0,
+        "afterCommitOutcomeReads": 1,
+        "productRatePolicyChanged": false
+      },
+      "receiptBarrier": {
+        "observedFailure": "sql_wait_not_observed",
+        "deterministicReproduction": "3500ms trusted reader delay exceeds unrelated 300x10ms observer budget while signed command remains current",
+        "fix": "observe until existing signed command expiry or request settlement; release and drain before fixture cleanup",
+        "signedCommandWindowMs": 8000,
+        "productionDeadlineChanged": false,
+        "hostedCauseProven": false
+      },
+      "memberSettings": {
+        "observedFailure": "operation_timeout waiting for setup acknowledgement",
+        "cause": "not established",
+        "followup": "failure-only fixed request phase and numeric HTTP/status flags; controlled browser preparation abort verifies diagnostic; no production timeout change"
+      }
+    },
+    "postDiagnosisIntegration": {
+      "source": "b49d330900ab56fd9da573642b21d9c03de0c48e",
+      "passed": 18,
+      "failed": 0,
+      "freshBuild": true,
+      "sanitizedRunnerEnvironment": true,
+      "files": [
+        "credential-ingest-adversarial.test.ts",
+        "credential-ingest-process.test.ts",
+        "credential-ingest-rate-budget.test.ts",
+        "member-model-settings-process.test.ts"
+      ],
+      "durationSeconds": 160.83,
+      "fullHostedVerify": "pending new head"
     }
   },
   "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
@@ -355,5 +399,60 @@
     "pageErrors": 0,
     "expectedUnauthenticatedSessionStatus": 401,
     "memberOperations": "not_run"
+  },
+  "remoteRecoveryAuthorityAcceptance": {
+    "at": "2026-10-05T07:20:18.850Z",
+    "source": "9217914e6f0c76f95643ea378372856b1a38b319",
+    "status": "pass",
+    "privateCandidateAcceptance": true,
+    "mainPrivateAiEnabled": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "providerCalls": 0,
+    "generation": "3",
+    "recoveryStateEnabled": true,
+    "recoveryFloorEnabled": true,
+    "captureReadinessEnabled": false,
+    "signerInstalled": "recovery-state-only",
+    "namespacesRetained": true,
+    "publicDomains": 0,
+    "checks": [
+      {
+        "label": "settled-generation-mismatch",
+        "pass": true
+      },
+      {
+        "label": "fresh-three-agrees",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-withdrawal",
+        "pass": true
+      },
+      {
+        "label": "fresh-state-restored",
+        "pass": true
+      },
+      {
+        "label": "fresh-persisted-floor-rollback",
+        "pass": true
+      },
+      {
+        "label": "fresh-final-three-agrees",
+        "pass": true
+      }
+    ],
+    "priorFailurePreserved": true,
+    "initialAttemptInterpretation": "long-lived preview boundary observed; new sessions verify current releases; server-side version pin mechanism unproven",
+    "pending": [
+      "exact merged main release and migrations",
+      "capture readiness ingress attestation",
+      "broker roles and bindings",
+      "owner remote acceptance"
+    ],
+    "transport": "genuine recovery verifier in local Worker via authenticated remote service bindings to deployed staging Workers and existing Durable Object namespaces",
+    "firstAttemptMismatchNotProven": true,
+    "freshProbePerDeployedConfiguration": true,
+    "configurationConvergence": "transient 503 observed during version/configuration change; retained failures; later readback and six explicit assertions passed"
   }
 }

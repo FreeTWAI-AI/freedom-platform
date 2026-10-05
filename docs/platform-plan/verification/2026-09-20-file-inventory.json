@@ -13699,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 18704,
-      "sha256": "1bca49bbe001b92b461aab8b827269e2a866277b50cbd5891fad5c19fd5e9e20"
+      "bytes": 19111,
+      "sha256": "a4a6b986cf0005d1a1ab475a898f3b1961a3d8f05033ee828e7e38ceefd0e99a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 11729,
-      "sha256": "16c6c661748f6348c167786a7b1f628951d9eae35e15c263012060510a548524"
+      "bytes": 15719,
+      "sha256": "933803f88fcee492a530b96eb063d0b686af42105b020c12ded0588d79d05324"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -17484,8 +17484,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-adversarial.test.ts",
-      "bytes": 22459,
-      "sha256": "e966d706ad2332820c34c98b5737eaa67c0b8729acb584690b1223a13a6035f6"
+      "bytes": 23175,
+      "sha256": "2e79e33bb32510aead62296a5d6b0907219988be7131a9517c7e32bebef7f2dd"
     },
     {
       "path": "tests/runtime/credential-ingest-authorizations.test.ts",
@@ -17499,13 +17499,18 @@
     },
     {
       "path": "tests/runtime/credential-ingest-helpers.ts",
-      "bytes": 25533,
-      "sha256": "3b6482cb316079b35e6d98ce913662826ac2d2b2295c6114c1ed07c7274ff118"
+      "bytes": 25776,
+      "sha256": "1db3b6bb56eb592245991da650d13e64e0d12079e09a88541d7e20c6e42567a2"
     },
     {
       "path": "tests/runtime/credential-ingest-process.test.ts",
       "bytes": 3803,
       "sha256": "f837f7fa66a7e1c02f213a256cffe0f63ea319225e83658848f67f95f72e561a"
+    },
+    {
+      "path": "tests/runtime/credential-ingest-rate-budget.test.ts",
+      "bytes": 6472,
+      "sha256": "70d8f479eb9460cd36b9657bf7efacd2698fcc158268577fb2f95ae1560980c9"
     },
     {
       "path": "tests/runtime/credential-setup-ui.test.ts",
@@ -17914,8 +17919,8 @@
     },
     {
       "path": "tests/runtime/member-model-settings-process.test.ts",
-      "bytes": 11575,
-      "sha256": "034f3344ca839d982dc135f558e18bebadd9714d8aa07d0eca85a986e826c8fa"
+      "bytes": 12885,
+      "sha256": "58fb88bca9703c5536d771887114f1a916fc56ea4dfa7638a0790fcb9dd37966"
     },
     {
       "path": "tests/runtime/member-model-settings.test.ts",
