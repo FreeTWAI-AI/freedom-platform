@@ -99,3 +99,20 @@ Staging 原本七類皆空。本輪用自己的測試會員建立 legacy 頭像�
 後續主 Worker 發布由 `placement-release-next/`、`placement-release-staging/` 接續；canonical `release-latest.txt` 已指向本輪正式 plan。舊 `actual-migration/current-release/` 的 9cc／全 OFF templates 已過時，禁止直接部署。必須維持新的 R2 reader floor，不能僅切 legacy flag 或用舊 helper 做回退。
 
 P1 尚餘五類用途正例、legacy bytes 清除與 GC 的完整條件；P2 可信 publisher／App-bound enforcement 及負向 PR，P3 私人 AI／跨端 Autopilot 的真人流程均未因此完成。後續沿用[現有計畫](post-migration-plan-2026-10-04.md)，不另起架構。
+
+## 新版封存的真實資料還原（2026-10-05）
+
+這是其後新一輪證據，不覆寫上文較早 snapshots。Operator source 為 `88ef1b7b58c20f6aa26f4d4db89c398cbee7d362`，線上 source 仍為 d269。使用新的 coordinator／seal／readback／restore API：先取得同一 exported snapshot 的全表欄位摘要、counts、sequences 與 custom dump，保存同 snapshot object pins，再 create-only 封裝並最後發布 manifest、fsync；異地 TAR 完整下載核對後，還原到自有 network-none PG18 暫存容器及 Miniflare 原生 R2。
+
+| 環境／完成 UTC | 全表 evidence | R2 objects／bytes | Dump bytes／SHA-256 | 異地 TAR SHA-256 |
+| --- | --- | --- | --- | --- |
+| staging／00:22:26 | 192 表、3,843 rows、2 sequences；matched | 18／30,056 | 1,448,366／`7389e3326a15ad0a84256fd5499a452fd7916c7071e2714789d9e07833992bb1` | `7cd270d344e447e3b1824504d4d50f5d040313805f6d9c2a909485dee112a5b2` |
+| production／00:31:39 | 192 表、17,915 rows、2 sequences；matched | 37／382,316 | 5,120,362／`a5a563e306b9507605fcc1374230f582060cee80393fb0edc62f33483f7b7fa6` | `fb9970857fb4ebb0e80b932eb28b149545a3e64657b1fbb5bd73664576a1f72c` |
+
+兩邊所有 sequence 均未超過記錄下限；完整 DB evidence、DB references 及每個 R2 object bytes／metadata 均一致。Manifest SHA-256 分別為 staging `059be3479a212c2262b0decf158fda9091a5886ee6170bd87eadaab9b4df1e89`、production `0200ecdc035e514db089e120abc639630f1584632104f22d905c9858dc6c74b3`。異地副本仍在同一 private Cloudflare recovery bucket，沒有公開資料入口。
+
+Staging 首輪 capture 後因 operator 傳入 `staging-next` 而非 archive schema 的 `staging` 被拒絕；核對已完成 dump／objects、未封裝及 GC OFF 後修正 enum，只接續原 capture。接續完成 seal／異地 readback 後，過長 Unix socket path 造成隔離 PG 連線 EINVAL；清除自有容器，改用短暫存路徑，再以 restore-only 完整重讀同一封存並成功還原，沒有重複上傳或覆寫 archive。正式環境使用修正後 helper，一次完成。
+
+兩個 completion receipts 均在確認 **GC disabled**、自有隔離環境清除後才寫入。恢復結果為 `quarantine_not_approved_for_exposure`：沒有對外服務、沒有替換現行資料庫，也沒有宣稱已完成 cloud cutover、目前撤銷權限重套或 PITR。私有證據在 `freedom-platform-push-20261004/archive-live/{staging,next}-media-backup.completed.json` 及 `archive-live-reconciliation.md`。
+
+既有 daily timers 仍用較早的 disabled-GC object-superset 方法；本輪未把 migrator credential 加入新排程。新版每次 capture 的持續 source pins 保留；自動 retention、日常同 snapshot evidence、獨立排程與跨 Cloudflare 帳戶備援仍待接續。

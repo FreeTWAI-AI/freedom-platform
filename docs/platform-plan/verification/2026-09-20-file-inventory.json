@@ -6564,13 +6564,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
-      "bytes": 11821,
-      "sha256": "18007d867123b8a5068b54c34b722a234df1763743b66715297622dadcd8c292"
+      "bytes": 12884,
+      "sha256": "d5b8ddd81c2f7bbe9ea00e8b09cdc94bd127cb80b7b0fb6007950dc0aaddf289"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 8029,
-      "sha256": "b90e60f70ad2cc9e4c545c8df0c0126569058b1d7be58058d1b162f0fef3da30"
+      "bytes": 8863,
+      "sha256": "caf2b37128222964d91dc8ef3c956feeabe6a16ace506655fa93868e930d5012"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -6584,13 +6584,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 14985,
-      "sha256": "8c71d1d9e35b5cec68685e5140ed764663df4873fb80865921430249cc9aa9fa"
+      "bytes": 15172,
+      "sha256": "04f5c4fbb885fe0461672d64e99c971a5e8ca169d9b8ad79e59e30feffeab7c9"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
-      "bytes": 12936,
-      "sha256": "37f9c86b5f0021dac21b9ba8c87ae9c2f63f130ea8207de9eaa3aa6e9340b36f"
+      "bytes": 15731,
+      "sha256": "b8d3711dc2e4264add92ec5cac3410639323b90d97021acc022ae83080b55aa2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/release-readiness.md",
@@ -8544,13 +8544,28 @@
     },
     {
       "path": "packages/contribution-tools/behavior-supervisor.mjs",
-      "bytes": 25299,
-      "sha256": "6e78e1ddf4da196d61280948007553ffd80dafd62a9598421cc6009a48279343"
+      "bytes": 34018,
+      "sha256": "c3229f0d8a34f2139887f743f01428dd983d92fd4a15194f465bb1e88b1c1867"
     },
     {
       "path": "packages/contribution-tools/cli.mjs",
       "bytes": 2618,
       "sha256": "b7dda22bbefb4202ce8012c176c437cf0f7a5a621f6daf45a458dc7cb14b809f"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-behavior-fixture.mjs",
+      "bytes": 7958,
+      "sha256": "1251aecbbacd3df7859929a6e44aff567673f2e7b706163a4ab963e63e6a2ec9"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-behavior-target.mjs",
+      "bytes": 2703,
+      "sha256": "e13d3805d0878d19f9bb45eb7528ebb7c0ebc0cd9e4dad50e43770874874b4e2"
+    },
+    {
+      "path": "packages/contribution-tools/consumer-behavior.md",
+      "bytes": 5730,
+      "sha256": "f43eb67bf279d236d554c766609b529f465b12350c0308476832a11364560aa8"
     },
     {
       "path": "packages/contribution-tools/consumer-libraries.mjs",
@@ -9946,6 +9961,11 @@
       "path": "tests/integration/behavior-supervisor.test.ts",
       "bytes": 7192,
       "sha256": "d8cf2cba84c3625887d8e8b1f85b45dca4817a3802f0bb9435372640e2c59976"
+    },
+    {
+      "path": "tests/integration/consumer-behavior-supervisor.test.ts",
+      "bytes": 9305,
+      "sha256": "142af831593c48b5ba99dc716f7aae2cf347fec7f140c508a02fafbe51a0f2a5"
     },
     {
       "path": "tests/integration/consumer-libraries.test.ts",

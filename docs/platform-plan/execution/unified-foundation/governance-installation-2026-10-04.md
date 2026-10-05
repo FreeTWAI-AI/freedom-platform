@@ -77,3 +77,10 @@ Workflow SHA 更新須審查新固定來源及重新驗證，不隨 main 自動�
 另以這三個已合併 HEAD、canonical source91、隔離 PostgreSQL 與真實 localhost HTTP 跑既有 `consumer-libraries.test.ts`：**2/2 通過**，實際呼叫三倉入口，含 scope 隔離及 revoke 拒絕；既有跨倉 suite **5/5 通過**。合計 7 個測試已接入 `npm run test:repos`／`governance-consumers` CI。這是合成資料的局部呼叫證據，沒有覆蓋全部九倉 runtime、所有 library／入口或正式 provider；不回填來源 gate 的 usage 欄位。
 
 九倉的 preview pin 仍為 `b221d2ba1bcf014dc785e95212455ba6f157ec6d`，bundle SHA-256 `835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d` 與 canonical source91 相同。沒有用 cosmetic repin 代替採用。完整 P2 仍需其餘 operation／entry coverage、真正 merge queue、durable App publisher 的事件／restart／replay／unknown-ACK 驗收；宣告 `merge_group` trigger 不等於這些項目已通過。
+
+
+## 三個 consumer 的隔離 HTTP 行為增量
+
+[既有 supervisor 的 consumer 模式](../../../../packages/contribution-tools/consumer-behavior.md) 已能從三個實際 merged commits 匯出唯讀 candidate，於 network-none 容器呼叫真實產品入口；host Unix-socket HTTP fixture 獨立記錄路徑、method、synthetic credential 與不可預猜的 response markers。根 agent 重新跑過 12 個實際 Docker 測試：三倉正例、三倉只保留正確 vendor 的 stub 負例、偽造 stdout、竄改回傳、吞掉 scope／revoke 拒絕、隔離限制、非 `/usr` 的 Node 安裝都通過。
+
+這是本機可執行的 `host_observed_http` 證據。它仍不宣稱內部 JavaScript library invocation，也不是 server ACL 的替代證據；相關欄位維持 `not_checked`。目前固定 image／host recipe 尚未批准為 installed trust，沒有將此新模式安裝到九倉 main 規則。另需固定 runtime 來源及 recipe、hosted 正反例後才能增加 required runtime workflow；既有 source55／rule 24473806 保持不變。
