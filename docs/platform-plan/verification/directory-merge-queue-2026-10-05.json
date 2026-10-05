@@ -1,0 +1,638 @@
+{
+  "format": "freedom.directory-merge-queue-evidence/v1",
+  "observed_at": "2026-10-05T17:43:38.942272+00:00",
+  "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+  "scope": "Owned temporary queue only; no main queue installation",
+  "initial_base": "e888d6a751269221e0b2b64ed4bc2d945ee8bd3e",
+  "temporary_base": "canary/directory-queue-20261005/base",
+  "fixed_workflows": {
+    ".github/workflows/trusted-consumer-libraries.yml": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+    ".github/workflows/trusted-consumer-runtime.yml": "5b471fe730f11a85700d5ab3225d6c862cee7bc3"
+  },
+  "library_source": "91b943ac61e132fbbce72ea066cb2301aa065600",
+  "temporary_native_rule": {
+    "id": 24519256,
+    "configuration": {
+      "name": "Freedom directory queue 20261005 native canary",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "repository_id": {
+          "repository_ids": [
+            1378081698
+          ]
+        },
+        "ref_name": {
+          "include": [
+            "refs/heads/canary/directory-queue-20261005/base"
+          ],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {
+          "type": "workflows",
+          "parameters": {
+            "do_not_enforce_on_create": false,
+            "workflows": [
+              {
+                "repository_id": 1378081342,
+                "path": ".github/workflows/trusted-consumer-libraries.yml",
+                "sha": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+                "ref": "refs/heads/governance/directory-baseline-source-20261005"
+              },
+              {
+                "repository_id": 1378081342,
+                "path": ".github/workflows/trusted-consumer-runtime.yml",
+                "sha": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+                "ref": "refs/heads/governance/directory-runtime-source-20261005"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "temporary_queue_rule": {
+    "id": 24519258,
+    "configuration": {
+      "name": "Freedom directory queue 20261005 owned canary",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "refs/heads/canary/directory-queue-20261005/base"
+          ],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {
+          "type": "merge_queue",
+          "parameters": {
+            "check_response_timeout_minutes": 10,
+            "grouping_strategy": "ALLGREEN",
+            "max_entries_to_build": 2,
+            "max_entries_to_merge": 2,
+            "merge_method": "MERGE",
+            "min_entries_to_merge": 1,
+            "min_entries_to_merge_wait_minutes": 1
+          }
+        }
+      ]
+    }
+  },
+  "pull_requests": [
+    {
+      "case": "a-renderer",
+      "pr": 19,
+      "head": "caa7d40f144317ce4aee5c563a823ed773ea9f5d",
+      "parent": "e888d6a751269221e0b2b64ed4bc2d945ee8bd3e",
+      "tested_tree": "01191499a8895f44d3a3e67901cc3162fe64bd66",
+      "native_runs": [
+        {
+          "run_id": 37349422367,
+          "job_id": 111896204620,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "caa7d40f144317ce4aee5c563a823ed773ea9f5d",
+          "candidate_commit": "27cb292fc60b6bfacd11f463bf87938af51bb495",
+          "candidate_tree": "01191499a8895f44d3a3e67901cc3162fe64bd66",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349422367",
+          "raw_log_sha256": "7feb2850999aeb92368a54a2ed4f16dd3f9127bfd5de4c2d974dde00b3c7a0b5"
+        },
+        {
+          "run_id": 37349422366,
+          "job_id": 111896204982,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "caa7d40f144317ce4aee5c563a823ed773ea9f5d",
+          "candidate_commit": "27cb292fc60b6bfacd11f463bf87938af51bb495",
+          "candidate_tree": "01191499a8895f44d3a3e67901cc3162fe64bd66",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349422366",
+          "raw_log_sha256": "2be9c9186f75e54a2662556d31537fca7c5ad4b3d648caa295262922c340db86",
+          "runtime_check": {
+            "status": "passed",
+            "test_count": 10,
+            "expected_test_count": 10
+          },
+          "failure": null,
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "passed"
+            },
+            {
+              "id": "escaped-challenge",
+              "status": "passed"
+            },
+            {
+              "id": "empty-directory",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate-repository",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-directory-schema",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-privacy-section",
+              "status": "passed"
+            },
+            {
+              "id": "traversal-path",
+              "status": "passed"
+            },
+            {
+              "id": "absolute-path",
+              "status": "passed"
+            },
+            {
+              "id": "encoded-path",
+              "status": "passed"
+            },
+            {
+              "id": "malformed-privacy-json",
+              "status": "passed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    },
+    {
+      "case": "b-data",
+      "pr": 20,
+      "head": "37eacc21e14be60941c327a7e745bbd97e95f60c",
+      "parent": "e888d6a751269221e0b2b64ed4bc2d945ee8bd3e",
+      "tested_tree": "1c029d214a2f817c77f8b60724f7e45cf8a54d6a",
+      "native_runs": [
+        {
+          "run_id": 37349425448,
+          "job_id": 111896214829,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "37eacc21e14be60941c327a7e745bbd97e95f60c",
+          "candidate_commit": "2b17ad7f9b79dff0d31feec7a8def9950091ae05",
+          "candidate_tree": "1c029d214a2f817c77f8b60724f7e45cf8a54d6a",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349425448",
+          "raw_log_sha256": "3baa99117c7a4eea0db052123b064dfb11b224df6b3149433501934fb812916f"
+        },
+        {
+          "run_id": 37349425423,
+          "job_id": 111896214400,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "37eacc21e14be60941c327a7e745bbd97e95f60c",
+          "candidate_commit": "2b17ad7f9b79dff0d31feec7a8def9950091ae05",
+          "candidate_tree": "1c029d214a2f817c77f8b60724f7e45cf8a54d6a",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349425423",
+          "raw_log_sha256": "2f51dcfae30e66e22784cbd5f7da04727713ba11183c5912de6ff9708739421c",
+          "runtime_check": {
+            "status": "passed",
+            "test_count": 10,
+            "expected_test_count": 10
+          },
+          "failure": null,
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "passed"
+            },
+            {
+              "id": "escaped-challenge",
+              "status": "passed"
+            },
+            {
+              "id": "empty-directory",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate-repository",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-directory-schema",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-privacy-section",
+              "status": "passed"
+            },
+            {
+              "id": "traversal-path",
+              "status": "passed"
+            },
+            {
+              "id": "absolute-path",
+              "status": "passed"
+            },
+            {
+              "id": "encoded-path",
+              "status": "passed"
+            },
+            {
+              "id": "malformed-privacy-json",
+              "status": "passed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    },
+    {
+      "case": "c-recovery",
+      "pr": 21,
+      "head": "95c6c6085d3be6b9c57ecbacfc40d92c923334ec",
+      "parent": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+      "tested_tree": "82ddd3f6ac952f5b22dc783da06150dd80e9cc6d",
+      "native_runs": [
+        {
+          "run_id": 37350105034,
+          "job_id": 111898509865,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "95c6c6085d3be6b9c57ecbacfc40d92c923334ec",
+          "candidate_commit": "e97281f81c3adc2ec42511f573617100b2dff971",
+          "candidate_tree": "82ddd3f6ac952f5b22dc783da06150dd80e9cc6d",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350105034",
+          "raw_log_sha256": "340b60f254422ca8f05d81bb6c50012bd076498bf25ace9dcae013feaa508de2"
+        },
+        {
+          "run_id": 37350105106,
+          "job_id": 111898510046,
+          "event": "pull_request",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "95c6c6085d3be6b9c57ecbacfc40d92c923334ec",
+          "candidate_commit": "e97281f81c3adc2ec42511f573617100b2dff971",
+          "candidate_tree": "82ddd3f6ac952f5b22dc783da06150dd80e9cc6d",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350105106",
+          "raw_log_sha256": "b0a84669e78883d1359286d36a5fd21669a3565e2d27aad6aa1874f85efa9c8e",
+          "runtime_check": {
+            "status": "passed",
+            "test_count": 10,
+            "expected_test_count": 10
+          },
+          "failure": null,
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "passed"
+            },
+            {
+              "id": "escaped-challenge",
+              "status": "passed"
+            },
+            {
+              "id": "empty-directory",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate-repository",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-directory-schema",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-privacy-section",
+              "status": "passed"
+            },
+            {
+              "id": "traversal-path",
+              "status": "passed"
+            },
+            {
+              "id": "absolute-path",
+              "status": "passed"
+            },
+            {
+              "id": "encoded-path",
+              "status": "passed"
+            },
+            {
+              "id": "malformed-privacy-json",
+              "status": "passed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    }
+  ],
+  "merge_groups": [
+    {
+      "case": "combined-negative",
+      "head": "d823cc8e14c1192a16d8801f5e89cea5413ed9df",
+      "native_runs": [
+        {
+          "run_id": 37349789893,
+          "job_id": 111897435430,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "d823cc8e14c1192a16d8801f5e89cea5413ed9df",
+          "candidate_commit": "d823cc8e14c1192a16d8801f5e89cea5413ed9df",
+          "candidate_tree": "fa7eb49a95a9dec3a41c8dadb83d006943c4deb8",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349789893",
+          "raw_log_sha256": "75720c240f140f6a57013a7fcfd5acb4c80efc7e731c29c00461d557dbdf0b77"
+        },
+        {
+          "run_id": 37349789840,
+          "job_id": 111897435754,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "d823cc8e14c1192a16d8801f5e89cea5413ed9df",
+          "candidate_commit": "d823cc8e14c1192a16d8801f5e89cea5413ed9df",
+          "candidate_tree": "fa7eb49a95a9dec3a41c8dadb83d006943c4deb8",
+          "conclusion": "failure",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349789840",
+          "raw_log_sha256": "05b6717403714e4b71b773ece23be372b437e62b752d0c37ee8e6722578f519e",
+          "runtime_check": {
+            "status": "failed",
+            "test_count": 1,
+            "expected_test_count": 10
+          },
+          "failure": {
+            "stage": "build",
+            "kind": "behavior_mismatch"
+          },
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "failed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    },
+    {
+      "case": "positive-a",
+      "head": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+      "native_runs": [
+        {
+          "run_id": 37349786300,
+          "job_id": 111897419662,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+          "candidate_commit": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+          "candidate_tree": "01191499a8895f44d3a3e67901cc3162fe64bd66",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349786300",
+          "raw_log_sha256": "1b127d83262a0979b6f6c472067e058d553c995ba32fce7edb3fba82e2597135"
+        },
+        {
+          "run_id": 37349786354,
+          "job_id": 111897419773,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+          "candidate_commit": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+          "candidate_tree": "01191499a8895f44d3a3e67901cc3162fe64bd66",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37349786354",
+          "raw_log_sha256": "6518135e7b7d6b935e7737a7ea659eed8ffc6e6f08bfea29dbad89f730522d83",
+          "runtime_check": {
+            "status": "passed",
+            "test_count": 10,
+            "expected_test_count": 10
+          },
+          "failure": null,
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "passed"
+            },
+            {
+              "id": "escaped-challenge",
+              "status": "passed"
+            },
+            {
+              "id": "empty-directory",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate-repository",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-directory-schema",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-privacy-section",
+              "status": "passed"
+            },
+            {
+              "id": "traversal-path",
+              "status": "passed"
+            },
+            {
+              "id": "absolute-path",
+              "status": "passed"
+            },
+            {
+              "id": "encoded-path",
+              "status": "passed"
+            },
+            {
+              "id": "malformed-privacy-json",
+              "status": "passed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    },
+    {
+      "case": "recovery-positive",
+      "head": "5574d679c0481fe035cfebfc547bbab28e74fcc5",
+      "native_runs": [
+        {
+          "run_id": 37350350817,
+          "job_id": 111899347616,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-libraries.yml",
+          "workflow_source": "a254a2048b8470a2c1bc6a04e59e61b8531161df",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "5574d679c0481fe035cfebfc547bbab28e74fcc5",
+          "candidate_commit": "5574d679c0481fe035cfebfc547bbab28e74fcc5",
+          "candidate_tree": "82ddd3f6ac952f5b22dc783da06150dd80e9cc6d",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350350817",
+          "raw_log_sha256": "6b53805837304a4c1f8029105076b836d0a826c6d1617ddd642367f3b6f5ce8a"
+        },
+        {
+          "run_id": 37350351136,
+          "job_id": 111899348543,
+          "event": "merge_group",
+          "workflow_path": ".github/workflows/trusted-consumer-runtime.yml",
+          "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+          "app_id": 15368,
+          "run_attempt": 1,
+          "head_sha": "5574d679c0481fe035cfebfc547bbab28e74fcc5",
+          "candidate_commit": "5574d679c0481fe035cfebfc547bbab28e74fcc5",
+          "candidate_tree": "82ddd3f6ac952f5b22dc783da06150dd80e9cc6d",
+          "conclusion": "success",
+          "source_status": "passed",
+          "url": "https://github.com/FreeTWAI-AI/FreeTWAI-AI.github.io/actions/runs/37350351136",
+          "raw_log_sha256": "8ad06687d8afeba828ed8457f7d87e855ca6d6d92af0fc068691b7f468822b67",
+          "runtime_check": {
+            "status": "passed",
+            "test_count": 10,
+            "expected_test_count": 10
+          },
+          "failure": null,
+          "case_results": [
+            {
+              "id": "candidate-data",
+              "status": "passed"
+            },
+            {
+              "id": "escaped-challenge",
+              "status": "passed"
+            },
+            {
+              "id": "empty-directory",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate-repository",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-directory-schema",
+              "status": "passed"
+            },
+            {
+              "id": "invalid-privacy-section",
+              "status": "passed"
+            },
+            {
+              "id": "traversal-path",
+              "status": "passed"
+            },
+            {
+              "id": "absolute-path",
+              "status": "passed"
+            },
+            {
+              "id": "encoded-path",
+              "status": "passed"
+            },
+            {
+              "id": "malformed-privacy-json",
+              "status": "passed"
+            }
+          ],
+          "cleanup_verified": true,
+          "volumes_cleanup_verified": true
+        }
+      ]
+    }
+  ],
+  "negative_removal_events": [
+    {
+      "id": "RFMQE_lADOUiPbos8AAAABVLlpiM8AAAAHkw1H5g",
+      "createdAt": "2026-10-05T17:37:47Z",
+      "reason": "failed_checks",
+      "beforeCommit": {
+        "oid": "d823cc8e14c1192a16d8801f5e89cea5413ed9df"
+      }
+    }
+  ],
+  "accepted_merges": {
+    "a": "eb1871616ebe7fd7ed52d8e904ba8b5b81ba11b8",
+    "recovery": "5574d679c0481fe035cfebfc547bbab28e74fcc5"
+  },
+  "negative_merged": false,
+  "native_job_count": 12,
+  "native_runtime_cleanup_verified": true,
+  "cleanup": {
+    "at": "2026-10-05T17:43:38.942272+00:00",
+    "ownedBranchesRemoved": 4,
+    "queueBranchesRemovedByGithub": true,
+    "removedRules": [
+      24519256,
+      24519258
+    ],
+    "mainUnchanged": "e888d6a751269221e0b2b64ed4bc2d945ee8bd3e",
+    "preservedRules": [
+      24469536,
+      24473806,
+      24476100,
+      24516222
+    ]
+  },
+  "limitations": [
+    "directory profile only",
+    "no formal main merge queue installation",
+    "other consumer queues pending",
+    "fork and supersession not checked",
+    "bounded host inputs, not arbitrary behavior",
+    "library invocation not checked",
+    "detached App publisher durable replay and unknown ACK not checked"
+  ]
+}

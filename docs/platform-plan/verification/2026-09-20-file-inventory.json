@@ -13619,13 +13619,13 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
-      "bytes": 26742,
-      "sha256": "84f0710d0d8ab98880cf98a58e18f186b8ce7b289ea3198dadf310aa050a037f"
+      "bytes": 32394,
+      "sha256": "714ade34f19c881f8a9565f8f037bc02d020156f0e89175664b4166656ce716a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
-      "bytes": 14270,
-      "sha256": "79eb0b6c00233b41b9600509bbc78a3167432f4551f06d811b4c4dee58ffa721"
+      "bytes": 15476,
+      "sha256": "08ef3233b2229127ed977df2d7be9cdcf1174954dec2963ef7b2462ac9231045"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/implementation-status.md",
@@ -13639,8 +13639,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 19132,
-      "sha256": "98bceee8bd17d8f0b1ed422d0771a500004e5d9a720adfe204f3569f95021dda"
+      "bytes": 20132,
+      "sha256": "b7b1c3f4e3b0d4270703db7db6d84706087bed9b52b1d170cf8bdc03f793921c"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13706,6 +13706,16 @@
       "path": "docs/platform-plan/verification/daily-scheduled-2026-10-05.json",
       "bytes": 2778,
       "sha256": "ac5b35e92000656d88e38ac23aa23b32a32cc06e7c7349b9aa1bde57d509de53"
+    },
+    {
+      "path": "docs/platform-plan/verification/directory-merge-queue-2026-10-05.json",
+      "bytes": 22007,
+      "sha256": "83787c0681d2685552730e776733cf6aa24084d14762042dbe9bbabe0a0b5e33"
+    },
+    {
+      "path": "docs/platform-plan/verification/directory-runtime-enforcement-2026-10-05.json",
+      "bytes": 4411,
+      "sha256": "f4c8a57376a56176b48a493197ff8e926e7178f98bebf9bfe2309888ced1e2c6"
     },
     {
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-04.json",
@@ -15694,8 +15704,8 @@
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-boundaries.md",
-      "bytes": 6996,
-      "sha256": "c4c01f2bcff1930ad9377928baf515e8ac1887403072961acc6f0aee0e9e4de7"
+      "bytes": 8325,
+      "sha256": "a307cdbf57a42855adfe55861682d8fa7c20fba4b909434b6b72d9b078d39fe9"
     },
     {
       "path": "packages/contribution-tools/consumer-runtime-recipe.md",
@@ -15734,8 +15744,8 @@
     },
     {
       "path": "packages/contribution-tools/directory-build-profile.md",
-      "bytes": 4535,
-      "sha256": "3eb3e340bb18f8601ca6b1d38c7568af6bbc73c147065d922af03a6ca609889e"
+      "bytes": 5113,
+      "sha256": "4806fe76b8562f02a2e702bb66e30c3c1d36112876d399f0ba532522917a630a"
     },
     {
       "path": "packages/contribution-tools/directory-reference/index.mjs",

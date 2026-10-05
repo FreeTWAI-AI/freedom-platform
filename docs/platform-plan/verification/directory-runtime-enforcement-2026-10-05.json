@@ -1,0 +1,146 @@
+{
+  "format": "freedom.directory-runtime-enforcement-evidence/v1",
+  "observed_at": "2026-10-05T16:29:29.967717+00:00",
+  "repository": "FreeTWAI-AI/FreeTWAI-AI.github.io",
+  "implementation_pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/128",
+  "reviewed_head": "25449d111e848f78245f675ecc5e13c980e9fd6f",
+  "workflow_source": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+  "source_ref": "refs/heads/governance/directory-runtime-source-20261005",
+  "ruleset_id": 24516222,
+  "ruleset": {
+    "name": "Freedom directory build behavior",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081698
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/trusted-consumer-runtime.yml",
+              "sha": "5b471fe730f11a85700d5ab3225d6c862cee7bc3",
+              "ref": "refs/heads/governance/directory-runtime-source-20261005"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "temporary_cases": [
+    {
+      "case": "approved",
+      "pr": 12,
+      "run": 37340386905,
+      "jobId": 111865680045,
+      "conclusion": "success",
+      "merge": {
+        "sha": "1eae96b095310af7fd841aab0d6c33e9ab524411",
+        "merged": true,
+        "message": "Pull Request successfully merged"
+      }
+    },
+    {
+      "case": "data-change",
+      "pr": 13,
+      "run": 37340438525,
+      "jobId": 111865855444,
+      "conclusion": "success",
+      "merge": {
+        "sha": "8b20b3c7d8b4653fca5507a184478653c65da675",
+        "merged": true,
+        "message": "Pull Request successfully merged"
+      }
+    },
+    {
+      "case": "constant-output",
+      "pr": 14,
+      "run": 37340379928,
+      "jobId": 111865658060,
+      "conclusion": "failure",
+      "merge": {
+        "message": "Repository rule violations found\n\nRequired workflows 'Consumer runtime canary' failed\n\n",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+        "status": "405"
+      }
+    },
+    {
+      "case": "removed-escaping",
+      "pr": 15,
+      "run": 37340385953,
+      "jobId": 111865676848,
+      "conclusion": "failure",
+      "merge": {
+        "message": "Repository rule violations found\n\nRequired workflows 'Consumer runtime canary' failed\n\n",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+        "status": "405"
+      }
+    },
+    {
+      "case": "early-write",
+      "pr": 16,
+      "run": 37340449307,
+      "jobId": 111865890547,
+      "conclusion": "failure",
+      "merge": {
+        "message": "Repository rule violations found\n\nRequired workflows 'Consumer runtime canary' failed\n\n",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+        "status": "405"
+      }
+    }
+  ],
+  "main_cases": [
+    {
+      "case": "approved",
+      "pr": 17,
+      "run": 37340965425,
+      "jobId": 111867629496,
+      "conclusion": "success",
+      "merge": {
+        "merged": false,
+        "attempted": false,
+        "reason": "Positive main probe is validation only"
+      }
+    },
+    {
+      "case": "constant-output",
+      "pr": 18,
+      "run": 37340971618,
+      "jobId": 111867645172,
+      "conclusion": "failure",
+      "merge": {
+        "message": "Repository rule violations found\n\nRequired workflows 'Consumer runtime canary' failed\n\n",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+        "status": "405"
+      }
+    }
+  ],
+  "main_negative_rule_suite": 4369999977,
+  "temporary_branches_removed": 12,
+  "temporary_ruleset_removed": 24516070,
+  "preserved_rulesets": [
+    24469536,
+    24473806,
+    24476100
+  ],
+  "directory_main_unchanged": "e888d6a751269221e0b2b64ed4bc2d945ee8bd3e",
+  "library_source": "91b943ac61e132fbbce72ea066cb2301aa065600",
+  "native_cleanup_verified": true,
+  "negative_actual_merge_405_count": 4,
+  "scope": "bounded directory build only; fixed reviewed reference bytes; not proof of library invocation or complete P2"
+}
