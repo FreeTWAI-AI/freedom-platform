@@ -1,7 +1,8 @@
 import {test} from 'node:test';
+import {createServer,type Socket} from 'node:net';
 import assert from 'node:assert/strict';
 import {chromium,errors} from '@playwright/test';
-import {observeIngestBrowserPage} from '../runtime/credential-ingest-helpers.js';
+import {observeIngestBrowserPage,readIngestCustodyDiagnostic} from '../runtime/credential-ingest-helpers.js';
 // @ts-expect-error Canonical tooling is JavaScript without a declaration file.
 import {createIngestBrowserDiagnostic} from '../../packages/contribution-tools/test-failure-diagnostic.mjs';
 
@@ -21,4 +22,12 @@ test('controlled Chromium secret abort records request failure and preserves act
   assert.deepEqual(value,{phase:'ack_wait',prepare_state:'response',prepare_status:200,secret_state:'failed',secret_status:null,custody:'not_checked'});
   assert(!JSON.stringify(value).includes('PRIVATE'));assert(!JSON.stringify(value).includes(origin));detach();await context.close();
  }finally{await browser.close();}
+});
+
+test('failure custody observation bounds a stalled PostgreSQL connection without shared pool checkout',async()=>{
+ const sockets=new Set<Socket>(),server=createServer(socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));});
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();assert(address&&typeof address==='object');
+ try{const start=performance.now();const value=await readIngestCustodyDiagnostic(`postgres://synthetic:synthetic@127.0.0.1:${address.port}/fp_synthetic`,'fp_ingest_synthetic','00000000-0000-4000-8000-000000000001');
+  assert.equal(value,'unavailable');assert(performance.now()-start<4000);
+ }finally{for(const socket of sockets)socket.destroy();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

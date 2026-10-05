@@ -40,6 +40,15 @@ export function observeIngestBrowserPage(page:Page,setupOrigin:string,diagnostic
  return()=>{page.off('request',request);page.off('response',response);page.off('requestfailed',failed);};
 }
 
+/** Failure-only snapshot, not proof that the attempted command committed. */
+export async function readIngestCustodyDiagnostic(connectionString:string,schema:string,modelConnectionId:string){
+ const pool=new Pool({connectionString,max:1,connectionTimeoutMillis:1000,query_timeout:1000,
+  options:`-c search_path=${schema} -c statement_timeout=1000 -c default_transaction_read_only=on`});
+ try{const n=(await pool.query("SELECT count(*)::int n FROM (SELECT 1 FROM broker_model_credentials WHERE model_connection_id=$1 AND state='active' LIMIT 2) c",[modelConnectionId])).rows[0]?.n;
+  return n===0?'absent':n===1?'one_active':n===2?'multiple_active':'unavailable';
+ }catch{return 'unavailable';}finally{await pool.end().catch(()=>{});}
+}
+
 const iso=(time=Date.now())=>new Date(time).toISOString();
 const hash=(value:string)=>createHash('sha256').update(value,'ascii').digest('base64url');
 const modelSelection:ModelSelection={providerRef:'openai',modelRef:'synthetic-model',processingLocation:'provider_remote',artifactCustody:'platform_asset',credentialCustody:'platform_vault',engineLocation:'platform',billingSource:'user_byok'};
@@ -182,11 +191,7 @@ export async function ingestFixture() {
     }catch(error){
       // One failure-only local fixture observation, never owner HTTP polling or
       // raw SQL/error output. MVCC reads do not wait for pending row writers.
-      try{const q=await owner.connect();try{
-        await q.query('BEGIN');await q.query("SET LOCAL statement_timeout='1s'");
-        const n=(await q.query("SELECT count(*)::int n FROM (SELECT 1 FROM broker_model_credentials WHERE model_connection_id=$1 AND state='active' LIMIT 2) c",[modelConnectionId])).rows[0]?.n;
-        diagnostic.custody(n===0?'absent':n===1?'one_active':n===2?'multiple_active':'unavailable');
-      }finally{try{await q.query('ROLLBACK');}finally{q.release();}}}catch{diagnostic.custody('unavailable');}
+      diagnostic.custody(await readIngestCustodyDiagnostic(roleUrl(roles.owner),schema,modelConnectionId));
       throw diagnostic.annotate(error);
     }finally{context?.off('page',watch);for(const remove of detach)remove();}
   }
