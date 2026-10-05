@@ -17,7 +17,8 @@ const keyProfile = z.object({ data: z.object({
   creator_user_id: z.string().max(256).nullable().optional(), organization_id: z.string().max(256).nullable().optional(),
   workspace_id: z.string().max(256).nullable().optional(), allowed_data_regions: z.array(z.string().max(32)).max(16).optional(),
   free_model_daily_requests: z.object({ limit: integer, remaining: integer, used: integer }).strict().optional(),
-  rate_limit: z.object({ interval: z.string().max(64), requests: integer, note: text.optional() }).strict().optional(),
+  // Observed legacy -1 sentinel; this deprecated metadata never grants budget.
+  rate_limit: z.object({ interval: z.string().max(64), requests: z.union([integer, z.literal(-1)]), note: text.optional() }).strict().optional(),
 }).strict() }).strict();
 const modelProfile = z.object({ data: z.object({ id: OpenRouterModelRefSchema, canonical_slug: OpenRouterModelRefSchema,
   name: text, created: integer, description: text.optional(), context_length: integer.positive(),

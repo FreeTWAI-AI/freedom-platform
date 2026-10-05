@@ -23,7 +23,8 @@ const completion = () => ({ id: 'synthetic-completion', object: 'chat.completion
     cost_details: { upstream_inference_cost: 0.0000532, upstream_inference_prompt_cost: 0.0000164, upstream_inference_completions_cost: 0.0000368 },
     completion_tokens_details: { reasoning_tokens: 0, image_tokens: 0, audio_tokens: 0 } } });
 const observed = (value = completion()) => ({ status: 200, headers: { 'content-type': 'application/json' }, body: encode(value) });
-const keyProfile = () => ({ data: { limit: 10, limit_remaining: 10, limit_reset: 'daily', usage: 0, expires_at: new Date(Date.now() + 45000).toISOString(), is_management_key: false } });
+const keyProfile = () => ({ data: { limit: 10, limit_remaining: 10, limit_reset: 'daily', usage: 0, expires_at: new Date(Date.now() + 45000).toISOString(), is_management_key: false,
+  rate_limit: { requests: -1, interval: '10s', note: 'This field is deprecated and safe to ignore.' } } });
 const modelProfile = () => ({ data: { id: selected.modelRef, canonical_slug: 'openai/gpt-4.1-mini-2025-04-14', name: 'Synthetic model metadata', created: 1, context_length: 1000, knowledge_cutoff: '2024-06-30',
   benchmarks: { design_arena: [{ arena: 'models', category: 'code', elo: 999, win_rate: 47.5, rank: 115 }], artificial_analysis: { intelligence_index: null, coding_index: 20.2, agentic_index: null } },
   architecture: { input_modalities: ['text'], output_modalities: ['text'], tokenizer: 'GPT', instruct_type: null },
@@ -66,7 +67,8 @@ test('OpenRouter refuses model fallback, missing/invalid usage, hidden reasoning
 });
 test('OpenRouter readiness fails closed for expired/exhausted/management keys and different model/capabilities', () => {
   assert(readOpenRouterKey(encode(keyProfile())).expiresAt); assertOpenRouterModel(encode(modelProfile()), selected.modelRef, 32);
-  for (const patch of [{ expires_at: '2000-01-01T00:00:00Z' }, { limit_remaining: 0 }, { is_management_key: true }, { usage: -1 }]) assert.throws(() => readOpenRouterKey(encode({ data: { ...keyProfile().data, ...patch } })), fault('authentication_unavailable'));
+  for (const patch of [{ expires_at: '2000-01-01T00:00:00Z' }, { limit_remaining: 0 }, { is_management_key: true }, { usage: -1 },
+    ...[-2, 1.5, '-1'].map(requests => ({ rate_limit: { requests, interval: '10s' } }))]) assert.throws(() => readOpenRouterKey(encode({ data: { ...keyProfile().data, ...patch } })), fault('authentication_unavailable'));
   for (const patch of [{ id: 'openai/other' }, { knowledge_cutoff: 'invalid' }, { benchmarks: { unknown: true } }, { benchmarks: { design_arena: [{ arena: 'models', category: 'code', elo: 999, win_rate: 101, rank: 1 }] } }, { supported_parameters: [] }, { top_provider: { ...modelProfile().data.top_provider, max_completion_tokens: 8 } }]) assert.throws(() => assertOpenRouterModel(encode({ data: { ...modelProfile().data, ...patch } }), selected.modelRef, 32), fault());
 });
 test('Worker denies non-allowlisted targets before fetch and never follows or retries a provider error', async t => {
