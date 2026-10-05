@@ -95,10 +95,12 @@ function jsonSnapshot(value: unknown, maxBytes: number): { value: unknown; json:
 export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberCommand,
   authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: MemberScopeContext) => Promise<T>,
-  revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>): Promise<T> {
+  revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
+  assertCurrentTime?: () => void): Promise<T> {
   // This server-owned port is outside the request/digest. Time-bounded domain
   // authority must survive the actual receipt read/write wait on this client.
-  requireCondition(revalidate === undefined || typeof revalidate === 'function',
+  requireCondition((revalidate === undefined || typeof revalidate === 'function')
+    && (assertCurrentTime === undefined || typeof assertCurrentTime === 'function'),
     400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['actor', 'scope', 'operation', 'key', 'body', 'target', 'expected', 'lockUser'].includes(key)),
@@ -140,6 +142,9 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
         // sink trigger). Never disclose a replay after that wait expires login.
         await assertCurrentSessionClock(q, actor);
         if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
+        // The final SQL result may itself arrive after a domain deadline. This
+        // synchronous server-owned check must run inside the rollback boundary.
+        assertCurrentTime?.();
         return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
       },
       async writeReceipt(q, hash, response) {
@@ -153,10 +158,14 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
         // clock check, not a guarantee about COMMIT/network delivery time.
         await assertCurrentSessionClock(q, actor);
         if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
+        // The final SQL result may itself arrive after a domain deadline. This
+        // synchronous server-owned check must run inside the rollback boundary.
+        assertCurrentTime?.();
       },
     }, async q => {
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
+      assertCurrentTime?.();
       activeCommands.get(context)!.authorized = true;
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
   } finally { if (context!) activeCommands.delete(context); }

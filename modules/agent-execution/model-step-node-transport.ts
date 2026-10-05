@@ -1,3 +1,4 @@
+import { assertProviderTarget } from './provider-target.js';
 import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import { AdapterFault } from './adapters/common.js';
@@ -5,6 +6,7 @@ import type { ByokObservation } from './adapters/byok.js';
 
 /** Node broker provider transport only. Worker bundles replace this module. */
 export async function exchange(url: URL, method: 'GET' | 'POST', headers: Record<string, string>, body?: Uint8Array): Promise<ByokObservation> {
+  assertProviderTarget(url, method, true);
   return new Promise((resolve, reject) => {
     let settled = false, size = 0, chunks = 0;
     const parts: Buffer[] = [];

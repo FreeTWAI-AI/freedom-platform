@@ -62,12 +62,26 @@ async function port<T>(operation: () => Promise<T>, discard?: (late: T) => void,
 }
 export type CredentialWriteInvocationGuard = (q: PoolClient) => Promise<void>;
 const localWriteGuard: CredentialWriteInvocationGuard = async () => {};
+const writeTimeChecks = new WeakMap<CredentialWriteInvocationGuard, () => void>();
+/** Server-owned synchronous deadline/cancellation check. It supplements genuine
+ * SQL authorization after the last awaited result; request data cannot bind it. */
+export function bindCredentialWriteInvocationTime(guard: CredentialWriteInvocationGuard, assertCurrentTime: () => void): CredentialWriteInvocationGuard {
+  requireCondition(typeof guard === 'function' && typeof assertCurrentTime === 'function',
+    409, 'broker_write_intent_required', 'Private write guard required.');
+  const bound: CredentialWriteInvocationGuard = async q => {
+    assertCurrentTime(); await guard(q); assertCurrentTime();
+  };
+  writeTimeChecks.set(bound, assertCurrentTime);
+  return bound;
+}
+function assertWriteInvocationTime(guard: CredentialWriteInvocationGuard): void { writeTimeChecks.get(guard)?.(); }
 function captureWriteGuard(guard?: CredentialWriteInvocationGuard): CredentialWriteInvocationGuard {
   if (guard === undefined) return localWriteGuard;
   requireCondition(typeof guard === 'function', 409, 'broker_write_intent_required', 'Private write guard required.');
   return guard;
 }
 function assertIntentTime(data: WriteIntent) {
+  assertWriteInvocationTime(data.guard);
   if (Date.now() >= data.deadline || performance.now() >= data.monotonic || Date.parse(data.binding.expiresAt) <= Date.now()) invalid();
 }
 export function getCredentialWriteIntentMetadata(intent: OpaqueCredentialWriteIntent): Readonly<{ binding: c.ModelCredentialBinding; expiresAt: string }> {
@@ -223,6 +237,7 @@ export function createBrokerCredentialStore(pool: Pool, options: {
     const actor = captureActor(actorRaw), data = handle && typeof handle === 'object' ? intents.get(handle) : undefined;
     requireCondition(data, 409, 'broker_write_intent_required', 'Current private write intent required.');
     requireCondition(data.store === identity && equal(actor, data.actor), 409, 'broker_write_intent_required', 'Current private write intent required.');
+    const assertCurrentTime = () => { assertIntentTime(data); assertWriteInvocationTime(suppliedGuard); };
     const guard: CredentialWriteInvocationGuard = async q => { await data.guard(q); if (suppliedGuard !== data.guard) await suppliedGuard(q); };
     assertIntentTime(data);
     // Authenticated private vault provenance precedes any domain SQL mutation.
@@ -274,8 +289,8 @@ export function createBrokerCredentialStore(pool: Pool, options: {
       await scopedJournal(q, context, { aggregate_type: 'model_credential', id: binding.credentialId, version: '1', operation,
         data: { state: 'active', generation: binding.generation, modelConnectionId: binding.modelConnectionId } });
       return metadata(row);
-    }, validate);
-    assertIntentTime(data); return result;
+    }, validate, assertCurrentTime);
+    assertCurrentTime(); return result;
   }
   async function read(actorRaw: Actor, raw: c.ModelCredentialRead): Promise<c.ModelCredentialMetadata> {
     const actor = captureActor(actorRaw), input = parse(c.ModelCredentialReadSchema, raw);

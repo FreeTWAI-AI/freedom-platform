@@ -1,11 +1,26 @@
 # Closed member private Work/Result HTTP transport
 
 `createPrivateWorkTransport(pool, { origin, freedomEnv, store? })` in
-[private-work-transport.ts](../../apps/platform-api/src/routes/private-work-transport.ts) is an **unmounted** router
-factory. Tests may mount it under `/api/v1`; neither `createPlatformApp` nor the
-Worker imports or registers it. Production retains only its existing two private
-Work GET routes. This is local transport evidence, not private-feature activation.
-No pending PR, UI, migration, model, cloud policy or binding is changed.
+[private-work-transport.ts](../../apps/platform-api/src/routes/private-work-transport.ts)
+is mounted only by the explicitly installed private-AI product. Unconfigured
+hosts retain the existing private Work GET routes. Private-AI flags remain off;
+local transport and browser tests do not establish production readiness.
+
+The owner Result editor posts strict `{text}` to
+`/api/v1/me/private-work/:workId/results/:resultId/edit`, with the original
+`Idempotency-Key`, Work `If-Match`, member cookie, CSRF token and exact Origin.
+It verifies the source Result through the existing owner reader and rejects
+unchanged text. The human Result service appends a new revision; model rows,
+provenance, objects and history are preserved. No new schema is required.
+
+The editor accepts at most 16 KiB of UTF-8 text within the existing 32 KiB JSON
+wire limit. Source text, draft and unresolved request remain in memory only.
+The original request key derives the upload preparation key; retry resumes that
+same intent/lease, writes only if needed and replays the finalization receipt.
+An unknown response retains the original text, key and Work version; refresh
+does not silently create another save. A changed Work version requires explicit
+owner confirmation before a new request. Archived Work, expired sessions,
+foreign ownership and withdrawn persistence policy still deny access.
 
 ## Fixed member boundary
 
@@ -51,6 +66,7 @@ Paths below are relative to the factory; the test mount adds `/api/v1`.
 | GET `/me/private-work/:id/results` | `limit` 1–50, `offset` 0–10000 | bounded metadata history |
 | GET `/me/private-work/:id/results/current` | no query | current verified text DTO, or JSON null when no Result |
 | GET `/me/private-work/:id/results/:resultId` | no query | exact historical verified text DTO |
+| POST `/me/private-work/:id/results/:resultId/edit` | `{text}`, Work If-Match | new human Result metadata and Work version |
 
 Work GET uses the old snake_case DTO with numeric `aggregate_version`: unsafe
 bigints fail with `version_overflow`, matching the actual existing `createApp`
@@ -61,9 +77,9 @@ DTOs preserve their canonical decimal-string versions. Command successes set
 
 Result text is JSON string data, even for `text/markdown`; this router never
 renders HTML/Markdown, fetches arbitrary URLs, signs a download URL, or returns
-raw object keys, scope IDs, bucket details or credentials. Future UI must render
-untrusted text safely. Result provenance remains `human`; reading it is not AI
-execution, submission, acceptance, publication or XP evidence.
+raw object keys, scope IDs, bucket details or credentials. The UI renders
+untrusted text as text. Historical Results retain `human` or `model` provenance;
+reading them is not execution, submission, acceptance, publication or XP evidence.
 
 HEAD follows the corresponding GET, including all current authority and, for
 content, both service checks around object I/O; only the response body is omitted.

@@ -340,7 +340,7 @@ test('MODELSTEP-ADV one real local HTTP dispatch produces one typed private AI A
     assert.equal(s.activation.evidenceOrigin,'synthetic_local_fixture'); assert.equal(s.activation.operational_authority,false);
     await assert.rejects(runs.read(s.actor,{runId:s.run.runId}),status(409));
     assert.equal((await owner.query('SELECT state FROM execution_runs WHERE run_id=$1',[s.run.runId])).rows[0].state,'running');
-    assert.equal(s.provider.requests.length,1); assert.deepEqual(s.provider.probes,[`/v1/models/${encodeURIComponent(selection.modelRef)}`]);
+    assert.equal(s.provider.requests.length,1); assert.deepEqual(s.provider.probes,Array(2).fill(`/v1/models/${encodeURIComponent(selection.modelRef)}`));
     const body = s.provider.requests[0].body as {model:string;input:{content:{text:string}[]}[];tools:unknown[]};
     assert.equal(body.model,selection.modelRef); assert.deepEqual(body.tools,[]);
     assert.equal(createHash('sha256').update(body.input[0].content[0].text).digest('hex'),s.approval.contextSha256);

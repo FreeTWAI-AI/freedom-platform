@@ -238,3 +238,36 @@ test('HTTP-14 actual empty stored CSRF fails closed in both shared production an
   const logout = await production.request(ORIGIN+'/api/v1/auth/logout', { method: 'POST', headers: headers(healthy), body: '{}' });
   assert.equal(logout.status, 200, 'normal generated CSRF remains valid in production boundary');
 });
+
+test('HTTP-RESULT-EDIT interrupted object write resumes one intent and published replay appends no duplicate', async () => {
+  const owner=await member(),w=await work(owner),store=new FakeObjectStore(),original=await result(owner,w.workId,store);
+  const path=`/${w.workId}/results/${original.resultId}/edit`,key=randomUUID(),requestHeaders={'If-Match':'"2"','Idempotency-Key':key};
+  const text='OWNER_EDIT_😀_new private revision';
+  store.failNext('put-after'); store.failNext('get');
+  const unknown=await post(app(store),path,owner,{text},requestHeaders);assert.equal(unknown.status,503);safe(unknown);
+  const before=(await pool.query('SELECT intent_id FROM asset_upload_intents WHERE target_work_id=$1 ORDER BY created_at',[w.workId])).rows;
+  assert.equal(before.length,2);
+  const saved=await post(app(store),path,owner,{text},requestHeaders);assert.equal(saved.status,200,await saved.clone().text());
+  const metadata=await saved.json();assert.equal(metadata.provenance,'human');assert.equal(metadata.revision,'2');assert.equal(metadata.aggregateVersion,'3');
+  const replay=await post(app(store),path,owner,{text},requestHeaders);assert.equal(replay.status,200);assert.deepEqual(await replay.json(),metadata);
+  assert.deepEqual((await pool.query('SELECT intent_id FROM asset_upload_intents WHERE target_work_id=$1 ORDER BY created_at',[w.workId])).rows,before);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM private_work_result_index WHERE work_item_id=$1',[w.workId])).rows[0].n,2);
+  const current=await app(store).request(ORIGIN+`/api/v1/me/private-work/${w.workId}/results/current`,{headers:headers(owner)});assert.equal((await current.json()).text,text);
+  const previous=await app(store).request(ORIGIN+`/api/v1/me/private-work/${w.workId}/results/${original.resultId}`,{headers:headers(owner)});assert.equal((await previous.json()).text,'PRIVATE_RESULT_😀_<script>never-render</script>');
+  assert.equal((await post(app(store),path,owner,{text:'different bytes'},requestHeaders)).status,409);
+});
+
+test('HTTP-RESULT-EDIT rejects foreign ownership, unchanged bytes, CSRF, stale CAS and oversized input', async () => {
+  const owner=await member(),foreign=await member(),w=await work(owner),store=new FakeObjectStore(),original=await result(owner,w.workId,store),router=app(store);
+  const path=`/${w.workId}/results/${original.resultId}/edit`,version={'If-Match':'"2"'};
+  assert.equal((await post(router,path,foreign,{text:'foreign edit'},version)).status,404);
+  assert.equal((await post(router,path,owner,{text:'changed'}, {...version,'X-CSRF-Token':''})).status,403);
+  assert.equal((await post(router,path,owner,{text:'changed'}, {...version,Origin:'https://foreign.invalid'})).status,403);
+  assert.equal((await post(router,path,owner,{text:'PRIVATE_RESULT_😀_<script>never-render</script>'},version)).status,422);
+  assert.equal((await post(router,path,owner,{text:'changed'},{'If-Match':'"1"'})).status,412);
+  assert.equal((await post(router,path,owner,{text:'😀'.repeat(5000)},version)).status,413);
+  assert.equal((await post(router,path,owner,{text:'changed',provenance:'model'},version)).status,422);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM asset_upload_intents WHERE target_work_id=$1',[w.workId])).rows[0].n,1);
+  await pool.query('UPDATE private_work_persistence_policy SET revision=revision+1,persistence_allowed=false WHERE scope_id=$1',[owner.context.scope.scope_id]);
+  assert.equal((await post(router,path,owner,{text:'changed'},version)).status,503);
+});

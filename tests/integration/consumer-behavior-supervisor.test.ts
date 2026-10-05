@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import childProcess, { execFileSync } from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import { mkdtemp, mkdir, readFile, writeFile, chmod, rm, copyFile, cp, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error Host-installed JavaScript supervisor; candidate imports stay in Docker.
-import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
+import { runIsolatedConsumerBehavior, runIsolatedAgentKitCliBehavior, runIsolatedConsumerCliBehavior, materializeBehaviorCandidate } from '../../packages/contribution-tools/behavior-supervisor.mjs';
 // @ts-expect-error Existing clean subprocess environment.
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 
@@ -208,4 +209,73 @@ test('CLI forged response-port output cannot replace independently observed logi
   assert.equal(result.runtime_observation, 'not_checked');
   assert(result.reason === 'consumer_behavior_mismatch' || (result.phase === 'behavior'
     && result.reason === 'consumer_supervisor_failed'), JSON.stringify(result));
+});
+
+for (const profile of profiles.slice(1)) {
+  const scopedMutation = (t: any, transform: (original: string) => string) => mutated(t, profile, transform,
+    { entry: 'client/cli.mjs', run: runIsolatedConsumerCliBehavior });
+  test(`${profile[0]} real CLI requests with forged stdout fail fresh response validation`, async t => {
+    const result = await scopedMutation(t, original => `console.log=()=>process.stdout.write('{"status":"passed"}');\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert.equal(result.cases[0].observed_requests, 1); assert.equal(result.cases[0].response_matches_challenge, false);
+    assert.equal(result.cleanup_verified, true);
+  });
+  test(`${profile[0]} swallowing CLI errors cannot pass wrong-scope behavior`, async t => {
+    const result = await scopedMutation(t, original => `process.on('uncaughtException',()=>{process.exitCode=0;});\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert(result.cases.slice(0, -1).every((c: any) => c.status === 'passed'));
+    assert.equal(result.cases.at(-1).scenario, 'wrong_scope'); assert.equal(result.cases.at(-1).status, 'failed');
+    assert.equal(result.cleanup_verified, true);
+  });
+  for (const status of [401, 503]) test(`${profile[0]} CLI hiding HTTP ${status} is rejected after successful reads`, async t => {
+    const result = await scopedMutation(t, original => `process.on('uncaughtException',error=>{process.exitCode=error.status===${status}?0:1;});\n` + original);
+    assert.equal(result.check.status, 'failed'); assert.equal(result.reason, 'consumer_behavior_mismatch');
+    assert(result.cases.slice(0, -1).every((c: any) => c.status === 'passed'));
+    assert.equal(result.cases.at(-1).scenario, status === 401 ? 'revoked' : 'server_error');
+    assert.equal(result.cases.at(-1).http_trace[0].status, status); assert.equal(result.cleanup_verified, true);
+  });
+}
+
+
+test('unknown Docker create acknowledgement cannot pass full supervisor cleanup after empty scans', async () => {
+  // Trusted test-only host seam. Candidate source cannot install this callback;
+  // the production supervisor API still accepts only immutable input identities.
+  const original = childProcess.execFileSync;
+  let dispatches = 0, ownerLabel: string | undefined;
+  const cleanupLabels: string[] = [];
+  try {
+    childProcess.execFileSync = ((executable: string, args: string[], options: any) => {
+      if (executable === '/usr/bin/docker' && args[0] === 'create') {
+        dispatches++;
+        ownerLabel = args[args.indexOf('--label') + 1]?.replace('freedom.behavior-owner=', '');
+        // Do not actually dispatch a create: simulate a CLI losing its daemon
+        // acknowledgement. The separate lifecycle test models late completion.
+        throw Object.assign(new Error('Synthetic unknown create acknowledgement'), { code: 'ETIMEDOUT' });
+      }
+      if (executable === '/usr/bin/docker' && args[0] === 'ps' && ownerLabel) {
+        const filter = args[args.indexOf('--filter') + 1];
+        assert.equal(filter, 'label=freedom.behavior-owner=' + ownerLabel);
+        cleanupLabels.push(filter);
+        return Buffer.from(''); // Both recovery and final readback appear empty.
+      }
+      return original(executable, args, options);
+    }) as typeof childProcess.execFileSync;
+    syncBuiltinESMExports();
+    const result = await runIsolatedConsumerBehavior({ repository: 'FreeTWAI-AI/freedom-agent-kit',
+      candidateRepository: join(roots!, profiles[0][0]), candidateCommit: profiles[0][2] });
+    assert.equal(dispatches, 1, JSON.stringify(result));
+    assert.equal(cleanupLabels.length, 2);
+    assert.match(ownerLabel!, /^[a-f0-9-]{36}$/);
+    assert.equal(result.phase, 'candidate');
+    assert.equal(result.reason, 'supervisor_create_outcome_unknown');
+    assert.equal(result.operation_failure_reason, 'supervisor_host_command_failed');
+    assert.equal(result.cleanup_verified, false);
+    assert.equal(result.check.status, 'failed');
+    assert.equal(result.runtime_observation, 'not_checked');
+    assert.deepEqual(result.cleanup, { status: 'create_pending', cleanup_verified: false,
+      pending_creates: [{ kind: 'candidate', operation: 'create', state: 'create_pending' }], owner_label: ownerLabel });
+  } finally {
+    childProcess.execFileSync = original;
+    syncBuiltinESMExports();
+  }
 });

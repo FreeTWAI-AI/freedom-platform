@@ -99,11 +99,11 @@ async function blocking(q: PoolClient) {
   assert.fail('Actual PostgreSQL lock wait not observed');
 }
 
-let posts=0,credentialExpires=()=>new Date(Date.now()+60000).toISOString(),generation='7';
+let gets=0,posts=0,credentialExpires=()=>new Date(Date.now()+60000).toISOString(),generation='7';
 const server=createServer((req,res)=>{
   res.setHeader('Content-Type','application/json');
   if(req.headers.authorization!=='Bearer synthetic-not-a-provider-key'){res.statusCode=401;res.end('{}');return;}
-  if(req.method==='GET'){res.end(JSON.stringify({id:'synthetic-model',object:'model',created:0,owned_by:'synthetic-fixture'}));return;}
+  if(req.method==='GET'){gets++;res.end(JSON.stringify({id:'synthetic-model',object:'model',created:0,owned_by:'synthetic-fixture'}));return;}
   posts++;let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
     const parsed=JSON.parse(body);assert.equal(parsed.model,'synthetic-model');assert.equal(parsed.tools.length,0);
     res.end(JSON.stringify({id:'synthetic-response',object:'response',model:'synthetic-model',status:'completed',
@@ -117,7 +117,7 @@ before(async()=>{await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',re
     recover:async()=>({generation,expiresAt:credentialExpires()}),resolveCredential:async()=>({key:new TextEncoder().encode('synthetic-not-a-provider-key'),expiresAt:credentialExpires()})});
   steps=createModelStepService(app,{...options,host});});
 after(async()=>{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));});
-beforeEach(()=>{posts=0;generation='7';credentialExpires=()=>new Date(Date.now()+60000).toISOString();});
+beforeEach(()=>{gets=0;posts=0;generation='7';credentialExpires=()=>new Date(Date.now()+60000).toISOString();});
 async function approved() {
   const f=await fixture(),grant=await currentGrant(f);
   await owner.query(`INSERT INTO model_inference_export_policy(policy_id,scope_id,owner_principal_id,environment,client_id,selection,revision,export_allowed,max_prompt_bytes,max_output_tokens)
@@ -208,4 +208,61 @@ test('STEP-10 actual receipt read lock crossing host expiry rolls back known obs
   }finally{await q.query('ROLLBACK');q.release();}
   const retained=await steps.read(f.actor,{stepId:a.stepId});assert.equal(retained.state,'dispatched');assert.equal(retained.usageStatus,'unknown');
   assert.equal((await owner.query('SELECT observation FROM model_text_steps')).rows[0].observation,null);assert.equal(posts,1);
+});
+
+function replica() {
+  const address=server.address();assert(address&&typeof address==='object');
+  const host=createLocalFixtureModelStepHost({environment:'local',origin:`http://127.0.0.1:${address.port}`,
+    recover:async()=>({generation,expiresAt:credentialExpires()}),
+    resolveCredential:async()=>({key:new TextEncoder().encode('synthetic-not-a-provider-key'),expiresAt:credentialExpires()})});
+  return {host,steps:createModelStepService(app,{...options,host})};
+}
+test('STEP-11 independent host/service continues SQL reservation with fresh proof; acknowledgement is metadata only',async()=>{
+  const f=await approved(),input=activateInput(f),a=await steps.activate(f.actor,input);
+  const stored=(await owner.query('SELECT verified_binding FROM model_text_steps WHERE step_id=$1',[a.stepId])).rows[0].verified_binding;
+  const b=replica(),metadataOnly=createModelStepService(app,{...options,host:createUnavailableModelStepHost()});
+  assert.deepEqual(await metadataOnly.readActivation(f.actor,input),a);assert.equal(gets,1);
+  const command={key:randomUUID(),stepId:a.stepId,expectedVersion:'1'};
+  const begun=await b.steps.begin(f.actor,command);assert(begun.capability);assert.equal(gets,2);
+  const fresh=(await owner.query('SELECT verified_binding FROM model_text_steps WHERE step_id=$1',[a.stepId])).rows[0].verified_binding;
+  assert.notEqual(fresh.bindingId,stored.bindingId);assert.deepEqual(fresh.binding,stored.binding);
+  const replay=await replica().steps.begin(f.actor,command);assert.equal(replay.capability,null);assert.equal(gets,2);
+  const observation=await b.host.dispatch(begun.capability,await b.steps.context(f.actor,begun.capability));
+  await b.steps.record(f.actor,begun.capability,observation);assert.equal(posts,1);
+  await assert.rejects(replica().steps.begin(f.actor,{...command,key:randomUUID(),expectedVersion:'3'}));
+  assert.equal(gets,2);assert.equal(posts,1);
+  assert.equal((await metadataOnly.readActivation(f.actor,input)).state,'awaiting_result');
+});
+test('STEP-12 two independent services race one SQL reservation; unknown dispatch never regains authority',async()=>{
+  const f=await approved(),a=await steps.activate(f.actor,activateInput(f)),b=replica(),c=replica();
+  const command={key:randomUUID(),stepId:a.stepId,expectedVersion:'1'};
+  const results=await Promise.all([b.steps.begin(f.actor,command),c.steps.begin(f.actor,command)]);
+  assert.equal(results.filter(r=>r.capability).length,1);
+  const i=results.findIndex(r=>r.capability),winner=i===0?b:c,cap=results[i].capability!;
+  await winner.host.dispatch(cap,await winner.steps.context(f.actor,cap));assert.equal(posts,1);
+  await winner.steps.unknown(f.actor,cap);const before=gets;
+  for(const service of [winner.steps,replica().steps]) {
+    await assert.rejects(service.begin(f.actor,command));
+    await assert.rejects(service.begin(f.actor,{...command,key:randomUUID(),expectedVersion:'3'}));
+  }
+  assert.equal(gets,before);assert.equal(posts,1);
+});
+test('STEP-13 continuation cannot cross recovery generation or withdrawn approval',async()=>{
+  for(const change of ['generation','approval'] as const) {
+    generation='7';const f=await approved(),a=await steps.activate(f.actor,activateInput(f));
+    if(change==='generation')generation='8';else await steps.approvals.revoke(f.actor,{key:randomUUID(),approvalId:f.approval.approvalId,expectedVersion:'1'});
+    await assert.rejects(replica().steps.begin(f.actor,{key:randomUUID(),stepId:a.stepId,expectedVersion:'1'}));
+    assert.equal((await steps.read(f.actor,{stepId:a.stepId})).state,'reserved');
+  }
+  assert.equal(posts,0);
+});
+test('STEP-14 repeated control on cancelled step returns typed conflict without duplicate journal version',async()=>{
+  const f=await approved(),a=await steps.activate(f.actor,activateInput(f));
+  const command={key:randomUUID(),stepId:a.stepId,expectedVersion:'1',action:'pause' as const};
+  const paused=await steps.control(f.actor,command);assert.equal(paused.state,'cancelled');
+  assert.deepEqual(await replica().steps.control(f.actor,command),paused);
+  const before=await counts();
+  await assert.rejects(replica().steps.control(f.actor,{...command,key:randomUUID(),expectedVersion:'2',action:'stop'}),
+    (error:unknown)=>error instanceof Problem&&error.status===409&&error.code==='model_step_already_consumed');
+  assert.deepEqual(await counts(),before);assert.equal(posts,0);
 });

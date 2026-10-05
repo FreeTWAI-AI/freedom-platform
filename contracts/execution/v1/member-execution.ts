@@ -22,11 +22,12 @@ const Key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
 const Label = z.string().min(1).max(96).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$(?![\s\S])/);
 const Time = z.iso.datetime({ precision: 3 });
 const PolicyRevision = z.string().max(33).regex(new RegExp(`^private-work\\.v${versionDigits}$(?![\\s\\S])`));
+export const OpenRouterModelRefSchema = z.string().min(3).max(96).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:-]*$(?![\s\S])/);
 const selectionFields = {
   providerRef: Label, modelRef: Label, processingLocation: Label,
   artifactCustody: z.enum(['runtime_local', 'platform_asset']),
 };
-export const ModelSelectionSchema = z.discriminatedUnion('credentialCustody', [
+export const LegacyModelSelectionSchema = z.discriminatedUnion('credentialCustody', [
   z.object({ ...selectionFields, credentialCustody: z.literal('official_cli'),
     engineLocation: z.literal('runtime_local'), billingSource: z.literal('user_cli') }).strict(),
   z.object({ ...selectionFields, credentialCustody: z.literal('local_keychain'),
@@ -34,6 +35,16 @@ export const ModelSelectionSchema = z.discriminatedUnion('credentialCustody', [
   z.object({ ...selectionFields, credentialCustody: z.literal('platform_vault'),
     engineLocation: z.literal('platform'), billingSource: z.literal('user_byok') }).strict(),
 ]).describe('Explicit member selection metadata only. Provider, model, processing/custody and billing labels are not authentication, verified availability, or operational support. No automatic fallback.');
+
+// Namespaced identifiers are specific to OpenRouter, never endpoint/URL inputs.
+const openRouterFields = { ...selectionFields, providerRef: z.literal('openrouter'), modelRef: OpenRouterModelRefSchema,
+  processingLocation: z.literal('provider_remote') };
+export const OpenRouterModelSelectionSchema = z.discriminatedUnion('credentialCustody', [
+  z.object({ ...openRouterFields, credentialCustody: z.literal('local_keychain'), engineLocation: z.literal('runtime_local'), billingSource: z.literal('user_byok') }).strict(),
+  z.object({ ...openRouterFields, credentialCustody: z.literal('platform_vault'), engineLocation: z.literal('platform'), billingSource: z.literal('user_byok') }).strict(),
+]);
+export const ModelSelectionSchema = z.union([...LegacyModelSelectionSchema.options, ...OpenRouterModelSelectionSchema.options])
+  .describe('Explicit owner selection metadata only; OpenRouter requires an exact namespaced model and BYOK custody. No automatic fallback or authentication authority.');
 
 // Missing expected versions reach the existing server checkVersion/428 path.
 // The public TypeScript command types below still require expected versions.

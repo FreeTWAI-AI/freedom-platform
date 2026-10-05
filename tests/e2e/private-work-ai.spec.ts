@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.js';
+import { Pool } from 'pg';
 import { navigate } from './navigation.js';
 
 const fixtureEnabled = process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1';
@@ -133,6 +134,91 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     await expect(page.getByRole('button', { name: '撤銷模型同意', exact: true })).toBeDisabled();
     await expect(page.locator('.private-ai-text')).toHaveCount(0);
   });
+  test('Stop reads fresh CAS and stays available while the execute request is pending', async ({ page, e2eAuthPool }) => {
+    await login(page); await readyStep(page, '合成測試：送出中仍可停止');
+    const stepId = await page.getByRole('combobox', { name: '推論狀態', exact: true }).inputValue();
+    const before = (await e2eAuthPool.query('SELECT aggregate_version::text version FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].version;
+    let release!: () => void, executes = 0, freshReads = 0;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const stopped: string[] = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && request.url().endsWith(`/${stepId}:stop`)) stopped.push(request.headers()['if-match']);
+      if (request.method() === 'GET' && request.url().endsWith(`/model-steps/${stepId}`)) freshReads++;
+    });
+    await page.route('**/api/v1/me/model-steps/*:execute', async route => { executes++; await held; await route.continue(); });
+    try {
+      await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+      await expect.poll(() => executes).toBe(1);
+      await expect(page.getByLabel('工作標題', { exact: true })).toBeDisabled();
+      await expect(page.getByRole('button', { name: '停止推論', exact: true })).toBeEnabled();
+      await page.getByRole('button', { name: '停止推論', exact: true }).click();
+      await expect(page.getByRole('status').filter({ hasText: /已停止.*synthetic-text-model/ })).toBeVisible();
+      expect(stopped).toEqual([`"${before}"`]); expect(freshReads).toBe(1);
+      await page.getByRole('button', { name: '撤銷單次同意', exact: true }).click();
+      await expect(page.getByRole('button', { name: '撤銷單次同意', exact: true })).toBeDisabled();
+      expect(executes).toBe(1);
+    } finally { release(); }
+    await expect(page.getByLabel('工作標題', { exact: true })).toBeEnabled();
+    expect((await e2eAuthPool.query('SELECT state FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].state).toBe('cancelled');
+    await expect(page.locator('.private-ai-text')).toHaveCount(0);
+  });
+  test('a stale Stop button refreshes an already ended step without another control mutation', async ({ page, e2eAuthPool }) => {
+    await login(page); await readyStep(page, '合成測試：其他裝置已停止');
+    const stepId = await page.getByRole('combobox', { name: '推論狀態', exact: true }).inputValue();
+    const version = (await e2eAuthPool.query('SELECT aggregate_version::text version FROM model_text_steps WHERE step_id=$1', [stepId])).rows[0].version;
+    const session = await (await page.request.get('/api/v1/session')).json();
+    const paused = await page.request.post(`/api/v1/me/model-steps/${stepId}:pause`, {
+      headers: { Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': crypto.randomUUID(), 'If-Match': `"${version}"` }, data: {},
+    });
+    expect(paused.status()).toBe(200);
+    let stops = 0; page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith(`/${stepId}:stop`)) stops++; });
+    await page.getByRole('button', { name: '停止推論', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '推論停止的對象已結束或撤銷' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '停止推論', exact: true })).toBeDisabled();
+    expect(stops).toBe(0);
+  });
+  test('unknown execute and unknown Stop retain independent exact replays while revocation remains available', async ({ page, e2eAuthPool }, testInfo) => {
+    await login(page); await readyStep(page, '合成測試：兩個未確認請求');
+    const workId = await page.getByRole('combobox', { name: '選擇私人工作', exact: true }).inputValue();
+    const commands: Record<string, { key?: string; version?: string; body: string | null }[]> = { execute: [], stop: [] };
+    await page.route('**/api/v1/me/model-steps/*:execute', async route => {
+      const request = route.request(); commands.execute.push({ key: request.headers()['idempotency-key'], version: request.headers()['if-match'], body: request.postData() });
+      if (commands.execute.length === 1) await route.fulfill({ status: 503, json: { code: 'synthetic_ambiguous_execute' } });
+      else await route.fulfill({ response: await route.fetch() });
+    });
+    await page.route('**/api/v1/me/model-steps/*:stop', async route => {
+      const request = route.request(); commands.stop.push({ key: request.headers()['idempotency-key'], version: request.headers()['if-match'], body: request.postData() });
+      const response = await route.fetch();
+      if (commands.stop.length === 1) await route.fulfill({ status: 503, json: { code: 'synthetic_ambiguous_stop' } });
+      else await route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '停止推論', exact: true }).click();
+    const retryStop = page.getByRole('button', { name: '以原控制請求確認推論停止', exact: true });
+    await expect(retryStop).toBeVisible();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeDisabled();
+    await expect(page.getByLabel('工作標題', { exact: true })).toBeDisabled();
+    for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
+      await page.setViewportSize({ width, height }); await page.evaluate(() => scrollTo(0, 0));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`private-ai-uncertain-controls-${width}.png`) });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: '撤銷單次同意', exact: true }).click();
+    await expect(page.getByRole('button', { name: '撤銷單次同意', exact: true })).toBeDisabled();
+    await expect(retryStop).toBeVisible();
+    await page.getByRole('button', { name: '撤銷模型同意', exact: true }).click();
+    await expect(page.getByRole('button', { name: '撤銷模型同意', exact: true })).toBeDisabled();
+    expect(commands.execute).toHaveLength(1);
+    await retryStop.click(); await expect(retryStop).toHaveCount(0);
+    expect(commands.stop).toHaveLength(2); expect(commands.stop[1]).toEqual(commands.stop[0]);
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: '以原請求確認結果', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toHaveCount(0);
+    expect(commands.execute).toHaveLength(2); expect(commands.execute[1]).toEqual(commands.execute[0]);
+    expect((await e2eAuthPool.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1', [workId])).rows[0].n).toBe(0);
+  });
   test('withdrawn persistence hides private content while metadata still supports stopping and revocation after reload', async ({ page, e2eAuthPool }) => {
     await login(page); await readyStep(page, '合成測試：政策撤回後控制');
     const workId = await page.getByRole('combobox', { name: '選擇私人工作', exact: true }).inputValue();
@@ -182,6 +268,74 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     } finally {
       await e2eAuthPool.query('UPDATE model_inference_export_policy SET revision=revision+1,export_allowed=true WHERE policy_id=$1', [policy.policy_id]);
     }
+  });
+
+  test('owner edits append a human revision and unknown save replay retains the original intent', async ({ page }, testInfo) => {
+    await login(page); await readyStep(page, '合成測試：本人修改成果');
+    await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '第 1 版 · 模型產出', exact: true })).toBeVisible();
+    const original=await page.locator('.private-ai-text').innerText();
+    await page.getByRole('button', { name: '編輯成果', exact: true }).click();
+    await expect(page.getByRole('button', { name: '保存成果修改', exact: true })).toBeDisabled();
+    const edited=original+'\n本人補充：這份成果經過我的修改。';
+    await page.getByLabel('成果修改內容', { exact: true }).fill(edited);
+    for(const [width,height] of [[1440,900],[768,1024],[390,844]]) {
+      await page.setViewportSize({width,height});await page.getByLabel('成果修改內容', {exact:true}).scrollIntoViewIfNeeded();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:testInfo.outputPath(`result-editor-${width}.png`)});
+    }
+    const sent:{key:string|undefined;version:string|undefined;body:string|null}[]=[];
+    await page.route('**/api/v1/me/private-work/*/results/*/edit', async route=>{
+      const request=route.request();sent.push({key:request.headers()['idempotency-key'],version:request.headers()['if-match'],body:request.postData()});
+      const actual=await route.fetch();expect(actual.status()).toBe(200);
+      if(sent.length===1)await route.fulfill({status:503,json:{code:'synthetic_lost_result_ack'}});else await route.fulfill({response:actual});
+    });
+    await page.getByRole('button', { name: '保存成果修改', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeVisible();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveValue(edited);
+    await page.getByRole('button', { name: '重新讀取狀態', exact: true }).click();
+    await expect(page.getByRole('heading', {name:'第 2 版 · 本人保存',exact:true})).toBeVisible();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveValue(edited);
+    expect(sent).toHaveLength(1);
+    await page.getByRole('button', { name: '以原請求確認結果', exact: true }).click();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveCount(0);
+    expect(sent).toHaveLength(2);expect(sent[1]).toEqual(sent[0]);
+    await expect(page.locator('.private-ai-text')).toHaveText(edited);
+    const versions=page.getByRole('combobox', {name:'成果版本',exact:true});await expect(versions.locator('option')).toHaveCount(3);
+    await versions.selectOption({index:2});await expect(page.getByRole('heading', {name:'第 1 版 · 模型產出',exact:true})).toBeVisible();
+    await expect(page.locator('.private-ai-text')).toHaveText(original);await expect(page.locator('.private-ai-panel')).toContainText('synthetic-text-model');
+    expect(await page.evaluate(()=>Object.values(localStorage).some(value=>value.includes('本人補充'))||Object.values(sessionStorage).some(value=>value.includes('本人補充')))).toBe(false);
+  });
+
+  test('same-key dispatched replay keeps editing locked while the original provider response is pending', async ({ page, e2eAuthPool }) => {
+    await login(page);await readyStep(page,'合成測試：仍在處理的原請求');
+    const stepId=await page.getByRole('combobox',{name:'推論狀態',exact:true}).inputValue();
+    const workId=await page.getByRole('combobox',{name:'選擇私人工作',exact:true}).inputValue();
+    const schema=(await e2eAuthPool.query('SELECT current_schema() name')).rows[0].name;
+    const gatePool=new Pool({...e2eAuthPool.options,max:1}),holder=await gatePool.connect();
+    await holder.query('BEGIN');const pid=(await holder.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`private-ai-browser-provider/${schema}`]);
+    let observed!:()=>void;const providerBlocked=new Promise<void>(resolve=>{observed=resolve;});
+    let original:Promise<unknown>|undefined,requests=0,freshReads=0;const replayStates:string[]=[],sent:{key?:string;version?:string;body:string|null}[]=[];
+    page.on('request',request=>{if(request.method()==='GET'&&request.url().endsWith(`/model-steps/${stepId}`))freshReads++;});
+    await page.route('**/api/v1/me/model-steps/*:execute',async route=>{
+      const request=route.request();sent.push({key:request.headers()['idempotency-key'],version:request.headers()['if-match'],body:request.postData()});
+      requests++;if(requests===1){original=route.fetch().catch(()=>undefined);await providerBlocked;await route.fulfill({status:503,json:{code:'synthetic_original_still_pending'}});}
+      else{const actual=await route.fetch();expect(actual.status()).toBe(200);replayStates.push((await actual.json()).state);await route.fulfill({response:actual});}
+    });
+    try{
+      await page.getByRole('button',{name:'執行一次推論',exact:true}).click();
+      await expect.poll(async()=>Number((await e2eAuthPool.query('SELECT count(*)::int n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rows[0].n)).toBe(1);
+      observed();const replay=page.getByRole('button',{name:'以原請求確認結果',exact:true});await expect(replay).toBeVisible();
+      await replay.click();await expect.poll(()=>replayStates.length).toBe(1);expect(replayStates).toEqual(['dispatched']);
+      await expect.poll(()=>freshReads).toBe(1);await expect(replay).toBeEnabled();
+      await expect(page.getByLabel('工作標題',{exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'新增私人工作',exact:true})).toBeDisabled();
+      await expect(page.getByRole('button',{name:'停止推論',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'撤銷單次同意',exact:true})).toBeEnabled();
+      expect(requests).toBe(2);expect(sent[1]).toEqual(sent[0]);await page.getByRole('button',{name:'停止推論',exact:true}).click();
+      await expect(page.getByRole('status').filter({hasText:/推論停止已保存/})).toBeVisible();
+      expect((await e2eAuthPool.query('SELECT state FROM model_text_steps WHERE step_id=$1',[stepId])).rows[0].state).toBe('outcome_unknown');
+    } finally {observed();await holder.query('COMMIT');holder.release();await gatePool.end();await original;}
+    expect((await e2eAuthPool.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[workId])).rows[0].n).toBe(0);
   });
 
 });

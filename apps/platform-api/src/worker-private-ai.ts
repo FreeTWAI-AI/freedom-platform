@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { Pool } from 'pg';
-import { DeviceAuthorizationHostSchema } from '../../../contracts/execution/v1/device-pairing.js';
-import { RuntimePublicJwkSchema,RuntimeEnvironmentSchema } from '../../../contracts/execution/v1/runtime-registration.js';
-import { BootstrapClientIdSchema } from '../../../contracts/execution/v1/bootstrap.js';
-import { BrokerModelSelectionSchema,CredentialRecoveryFloorSchema } from '../../../contracts/execution/v2/model-credential.js';
+import { RuntimePublicJwkSchema } from '../../../contracts/execution/v1/runtime-registration.js';
+import { CredentialRecoveryFloorSchema } from '../../../contracts/execution/v2/model-credential.js';
+import { WorkerPrivateAiProfileSchema,PrivateAiPublicKeySchema as PublicKey,PrivateAiPinnedKeysSchema as Keys,PrivateAiKeyComponentSchema as X } from './worker-private-ai-profile.js';
+export { WorkerPrivateAiProfileSchema } from './worker-private-ai-profile.js';
 import { createR2ObjectStore,type AssetR2Binding } from '../../../packages/asset-storage/r2.js';
 import { parseBoundedJson } from '../../../packages/execution-state/decode.js';
 import { createSignedRecoverySource } from '../../credential-broker/src/recovery.js';
@@ -29,15 +29,6 @@ export interface WorkerPrivateAiBindings {
   CREDENTIAL_RECOVERY_FLOOR?:PrivateAiServiceBinding;
   MEDIA?:AssetR2Binding;
 }
-const Label=z.string().min(1).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$(?![\s\S])/);
-const Kid=z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const X=z.string().length(43).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
-const PublicKey=z.object({kty:z.literal('OKP'),crv:z.literal('Ed25519'),x:X}).strict();
-const Keys=z.array(z.object({keyId:Kid,publicJwk:PublicKey}).strict()).min(1).max(16);
-export const WorkerPrivateAiProfileSchema=z.object({environment:RuntimeEnvironmentSchema,platformOrigin:z.string().min(1).max(256),clientId:BootstrapClientIdSchema,issuer:Label,audience:Label,
-  brokerIdentity:Label,responseAudience:Label,requestKid:Kid,responseKeys:Keys,recoveryAuthority:Kid,recoveryKeys:Keys,
-  settingsSelections:z.array(BrokerModelSelectionSchema).max(50),bootstrap:DeviceAuthorizationHostSchema.optional(),
-  ingest:z.object({setupOrigin:z.string().min(1).max(256),issuer:Label,audience:Label,keyId:Kid}).strict().optional()}).strict();
 const SignedState=z.object({signedState:z.string().min(1).max(4096)}).strict();
 const root='https://freedom-private-ai.internal';
 async function verificationKeys(raw:z.infer<typeof Keys>) {

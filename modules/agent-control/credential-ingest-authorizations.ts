@@ -20,6 +20,8 @@ export interface CredentialIngestInvocationData {
 export interface CredentialIngestAuthorizations {
   issue(actor:Actor,input:{command:CredentialIngestCommand;nonce:string}):Promise<CredentialIngestBootstrapClaims>;
   claimBootstrap(claims:CredentialIngestBootstrapClaims,input:{cookieHash:string;csrfHash:string}):Promise<OpaqueCredentialIngestInvocation>;
+  resumeSetup(input:{cookieHash:string;csrfHash?:string}):Promise<{invocation:OpaqueCredentialIngestInvocation;csrfHash:string;writeExpiresAt:string|null}>;
+  claimPreparation(invocation:OpaqueCredentialIngestInvocation,expiresAt:string):Promise<void>;
   read(invocation:OpaqueCredentialIngestInvocation):CredentialIngestInvocationData;
   claimSubmission(invocation:OpaqueCredentialIngestInvocation,input:{binding:ModelCredentialBinding;writeExpiresAt:string;cookieHash:string;csrfHash:string}):Promise<void>;
   assertCurrent(q:PoolClient,invocation:OpaqueCredentialIngestInvocation):Promise<void>;
@@ -254,6 +256,43 @@ export function createCredentialIngestAuthorizations(pool:Pool,options:Credentia
       await assertCurrent(q,invocation);return invocation;
     });
   }
+  // Possession of the high-entropy setup cookie only selects an existing SQL
+  // claim. Identity, command, expiry and revocation are re-derived and checked;
+  // an Actor DTO or a deserialized WeakMap capability is never accepted.
+  async function resumeSetup(input:{cookieHash:string;csrfHash?:string}) {
+    input=parse(z.object({cookieHash:Hash,csrfHash:Hash.optional()}).strict(),input);
+    return transaction(pool,async q=>{
+      const rows=(await q.query<Row>(`SELECT a.*,${rowColumns} FROM credential_ingest_authorizations a
+        WHERE a.setup_cookie_hash=$1 AND a.environment=$2 AND a.client_id=$3`,[input.cookieHash,environment,clientId])).rows;
+      if(rows.length!==1)invalid();const row=rows[0]!;
+      if(!row.bootstrap_claimed_at||!row.setup_expires_at||!row.setup_csrf_hash||row.submission_claimed_at
+        ||(input.csrfHash!==undefined&&input.csrfHash!==row.setup_csrf_hash)
+        ||row.assertion.issuer!==issuer||row.assertion.audience!==audience||row.assertion.setupOrigin!==setupOrigin
+        ||row.nonce_hash!==hash(row.assertion.nonce)||credentialIngestCommandDigest(row.command)!==row.command_digest)invalid();
+      const auth=await currentRow(q,row,await recovery());
+      const actor=Object.freeze({user_id:row.owner_user_id,community_id:auth.community_id,session_hash:row.original_session_hash}) as Actor;
+      const data=freezeTree({actor,command:parse(c.CredentialIngestCommandSchema,row.command),authorizationRef:row.authorization_id,nonce:row.assertion.nonce,
+        commandDigest:row.command_digest,recoveryGeneration:row.recovery_generation,expiresAt:row.expires_at.toISOString(),setupExpiresAt:row.setup_expires_at!.toISOString(),
+        model:parse(ModelConnectionMetadataSchema,row.model_metadata)});
+      const invocation=Object.freeze(Object.create(null)) as OpaqueCredentialIngestInvocation;
+      invocations.set(invocation,{identity,row,data,monotonic:performance.now()+Math.max(0,row.setup_expires_at!.getTime()-Date.now())});
+      const prepared=(await q.query<{expires_at:Date}>(`SELECT expires_at FROM credential_ingest_preparations WHERE authorization_id=$1`,[row.authorization_id])).rows[0];
+      if(prepared&&prepared.expires_at.getTime()<=Date.now())invalid();
+      await assertCurrent(q,invocation);
+      return {invocation,csrfHash:row.setup_csrf_hash!,writeExpiresAt:prepared?.expires_at.toISOString()??null};
+    });
+  }
+  async function claimPreparation(invocation:OpaqueCredentialIngestInvocation,expiresAt:string):Promise<void> {
+    const expiry=new Date(z.iso.datetime({precision:3}).parse(expiresAt)),data=captured(invocation);active(data);
+    await transaction(pool,async q=>{
+      await q.query('SELECT authorization_id FROM credential_ingest_authorizations WHERE authorization_id=$1 FOR UPDATE',[data.row.authorization_id]);
+      await assertCurrent(q,invocation);active(data);
+      if(expiry.getTime()<=Date.now()||expiry.getTime()>data.row.setup_expires_at!.getTime())invalid();
+      await q.query(`INSERT INTO credential_ingest_preparations(authorization_id,prepared_at,expires_at)
+        VALUES($1,date_trunc('milliseconds',clock_timestamp()),$2)`,[data.row.authorization_id,expiry]);
+      await assertCurrent(q,invocation);active(data);
+    });
+  }
   async function claimSubmission(invocation:OpaqueCredentialIngestInvocation,input:{binding:ModelCredentialBinding;writeExpiresAt:string;cookieHash:string;csrfHash:string}):Promise<void> {
     input=parse(z.object({binding:ModelCredentialBindingSchema,writeExpiresAt:z.iso.datetime({precision:3}),cookieHash:Hash,csrfHash:Hash}).strict(),input);
     const data=captured(invocation);active(data);const binding=input.binding,cookieHash=input.cookieHash,csrfHash=input.csrfHash;
@@ -269,6 +308,8 @@ export function createCredentialIngestAuthorizations(pool:Pool,options:Credentia
     await transaction(pool,async q=>{
       const current=(await q.query<Row>(`SELECT a.*,${rowColumns} FROM credential_ingest_authorizations a WHERE a.authorization_id=$1 FOR UPDATE`,[row.authorization_id])).rows[0];
       if(!current||current.submission_claimed_at||current.setup_cookie_hash!==cookieHash||current.setup_csrf_hash!==csrfHash)invalid();
+      const prepared=(await q.query<{expires_at:Date}>('SELECT expires_at FROM credential_ingest_preparations WHERE authorization_id=$1',[row.authorization_id])).rows[0];
+      if(!prepared||writeExpiry.getTime()>prepared.expires_at.getTime()||prepared.expires_at.getTime()<=Date.now())invalid();
       await assertCurrent(q,invocation);active(data);
       const updated=(await q.query<Row>(`UPDATE credential_ingest_authorizations a SET submission_claimed_at=date_trunc('milliseconds',clock_timestamp()),
         write_expires_at=$2,submitted_credential_id=$3,submitted_binding=$4 WHERE authorization_id=$1 AND submission_claimed_at IS NULL RETURNING a.*,${rowColumns}`,
@@ -297,5 +338,5 @@ export function createCredentialIngestAuthorizations(pool:Pool,options:Credentia
       await assertCurrentSessionClock(q,actor);return result;
     });
   }
-  return Object.freeze({issue,claimBootstrap,read,claimSubmission,assertCurrent,readOwnerOutcome});
+  return Object.freeze({issue,claimBootstrap,resumeSetup,claimPreparation,read,claimSubmission,assertCurrent,readOwnerOutcome});
 }

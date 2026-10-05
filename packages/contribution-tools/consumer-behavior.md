@@ -111,7 +111,7 @@ in evidence. The demo password is the existing consumer's public synthetic fixtu
 value; this is not production authentication or server authorization evidence.
 
 This is one fixed maker-role CLI scenario. Reviewer/client roles, CLI error exits,
-other consumers' launchers, package aliases, internal library invocation and full
+package aliases, internal library invocation and full
 surface coverage remain outside it. The launcher captures output inside the
 untrusted container; capture itself is not authenticated proof. The host's actual
 HTTP trace and unpredictable response comparison decide the verdict.
@@ -124,6 +124,42 @@ remains a template for separately reviewed future upgrades. The old c42, source5
 and library91 publication refs remain immutable. `library_invocation` stays
 `not_checked`: equivalent candidate code can reproduce the observed behavior
 without invoking the approved workspace module.
+
+## Storefront and supplier read launchers
+
+The combined host source now requires CLI observations for all three consumers.
+This source change does not establish that a new workflow pin is installed; the
+existing c3e installation described above remains historical deployment evidence.
+`runIsolatedConsumerCliBehavior` selects the kit profile or the scoped read profile.
+The `consumer-cli` command also accepts storefront and supplier repositories.
+
+For scoped consumers the installed launcher executes the actual
+`scripts/run-client.mjs read RESOURCE`, which spawns the actual `client/cli.mjs`.
+Both processes stay inside the same network-none, read-only candidate container.
+An inherited fixed Node preload redirects fetch to the private Unix socket. The
+launcher creates a mode-0600 synthetic credential file in container tmpfs, removes
+it after each subprocess exits, and bounds combined stdout/stderr. Real credentials,
+network services and candidate code on the host are never used.
+
+Each resource gets a fresh unpredictable response: storefront connection, catalog,
+stores and listings; supplier connection, products and requests. The host requires
+exactly the expected authenticated request and deep-compares parsed CLI stdout to
+its fresh response. Three additional cases require a nonzero exit and empty stdout:
+a wrong-scope saved credential (no HTTP), a revoked connection (HTTP 401), and a
+server error (HTTP 503). Signal termination of the directly supervised `scripts/run-client.mjs` launcher
+does not count as a correct error exit. The launcher can translate a nested CLI
+signal or exception into a nonzero exit; this check does not distinguish the
+nested failure cause or prove a particular error-handling implementation.
+Reports retain HTTP status/path/digests, not synthetic tokens, credential files or
+stderr. Tests replace both launcher and CLI while keeping source/vendor/workspace
+valid, proving the old source/workspace gate would pass and the new CLI gate fails.
+They also reject real requests paired with forged output or swallowed errors.
+
+This covers read commands only. Pairing, package-script aliases, default arguments,
+all local-file error conditions and internal library invocation remain unverified.
+`library_invocation` and server authorization remain `not_checked`; equivalent code
+can reproduce the observed behavior. Cleanup is independently checked by the
+existing supervisor before any passing verdict is accepted.
 
 ## Validation
 
@@ -140,3 +176,19 @@ each entrypoint with unchanged vendor/lock bytes, stdout forgery, corrupted
 challenge output, swallowed scope/revocation failures, read-only/network isolation
 and an interpreter copied outside `/usr` to exercise the hosted toolcache layout.
 Every run removes only its randomly labeled containers and private snapshots.
+
+## Unknown Docker creation outcomes
+
+Every consumer container create, member candidate create and member database
+`docker run` is recorded before dispatch and acknowledged only by a valid container
+ID. A timeout, missing/invalid acknowledgement or host-command failure leaves that
+request `create_pending`. Docker can complete it after the CLI exits, so even an
+empty owner-label scan cannot establish cleanup. Such runs return
+`supervisor_create_outcome_unknown`, `cleanup_verified: false`, the original
+`operation_failure_reason`, and `cleanup.owner_label` with pending operation kinds.
+They cannot pass either native runtime gate. Known owned IDs still receive the
+existing bounded best-effort cleanup; no create retry or background deletion is
+started. The 15-second host-command timeout and existing run budgets are unchanged.
+An operator can use the recorded nonce to inspect a late container and verify its
+ownership separately; historical receipts without the nonce do not prove ownership
+from timestamp correlation alone.

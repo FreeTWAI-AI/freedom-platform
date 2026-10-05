@@ -53,14 +53,17 @@ no-store/no-referrer/nosniff。DOM 標記不是 capture 關閉證據。
 
 ## 在提交時準備真正 intent
 
-bootstrap registry 僅留 factory-bound opaque Invocation，最長到原 60 秒 authorization
-期限；最多 128 個 setup，reservation 防並發超額。不在 bootstrap 開始 30 秒
-write budget。本人輸入 key 並明確同意後，broker 同源
-`POST /credential-setup/prepare` 只接受 `{consent:true}`，需要自己的 cookie／
-`X-FP-Broker-CSRF`、exact Origin/Host 及 current original authority。
-只可準備一次，呼叫原 `store.prepareCreate/prepareRotate`，捕獲原始 opaque intent
-及 genuine intent deadline；30 秒從 prepare 的實際 SQL 時鐘開始，不能因 cookie、
-navigation、await、replica 或 handler 延長。已準備／失敗流程要求新的明確授權。
+bootstrap 以 SQL 保留 cookie／CSRF hashes 與原 session 授權，最長到原 60 秒期限。
+每個 isolate 的 128 個 setup reservation 只限制本地 admission，不再是跨請求 authority。
+每次請求用 cookie hash 查找唯一 SQL claim，重新檢查原 session／recovery，產生本地
+opaque Invocation；不反序列化 Actor 或 WeakMap capability。不在 bootstrap 開始 write budget。
+本人輸入 key 並明確同意後，broker 同源 `POST /credential-setup/prepare` 只接受
+`{consent:true}`，需要 cookie／`X-FP-Broker-CSRF`、exact Origin/Host 及 current authority。
+原 `store.prepareCreate/prepareRotate` 驗證後，migration 114 的 append-only
+`credential_ingest_preparations` 記錄一次性 deadline；30 秒從 prepare 的 genuine intent
+SQL 時鐘開始。submit 在同一 deadline 內重新建立 genuine store intent，再用原 SQL
+submission claim 消耗一次權限，之後才讀 secret。navigation、await、replica、restart
+均不能延長 deadline，重複 prepare／已消耗 submission 不可重播。
 
 secret 直接 `POST /credential-setup/secret`：同源 cookie/CSRF，
 `application/octet-stream`，exact declared/actual length，1–4096 bytes，最多 128 chunks，
@@ -105,7 +108,8 @@ app SQL role 可 issue/read，不能 update claim 或讀 ciphertext；cipher bro
 或 ciphertext。實際檢查 table/column/PUBLIC、grant-option、membership/SET ROLE，
 不引入 SECURITY DEFINER 或 superuser bypass。SQL JSON CHECK 明確拒絕 null 三值漏洞。
 
-ACK 遺失或逾時保留 unknown，registry miss/restart/replica 要新明確 main authorization。
+ACK 遺失或逾時保留 unknown；restart／replica 可延續未消耗且仍有效的 SQL setup，
+不重播已接受 submission。遺失 cookie／CSRF、期限過期或原授權撤銷仍需新明確授權。
 `GET /api/v1/me/credential-ingests/:ref` 只回當前本人 safe outcome／credential metadata，
 不依賴 KEK/recovery/provider 健康，不重發 cookie/intent/body permission。success 只
 代表加密 custody committed；ModelConnection 仍 unverified，metadata
@@ -122,7 +126,7 @@ protected browser/native capture 已關閉或停止。沒有 port、逾時、過
 本機測試需真正 login/cookie/CSRF、AES-GCM/Ed25519、獨立 SQL roles/recovery/floor、
 兩程序，秘密只由 test parent 直接傳 broker，不再 seed IPC 或 main entry 的 key
 常數。保留 ingest → original host → 一次 provider POST → Asset/Result/owner read
-閉環；counterexamples 實測 purpose/origin/session/CAS、並發輸入、registry loss、
+閉環；counterexamples 實測 purpose/origin/session/CAS、並發輸入、跨 process setup／restart、
 late read/seal/最後 SQL 等待、rotation rollback、floor advance、zero application pull
 與 actual buffers 清零。main/log/receipt/audit/storage 不得含合成 sentinel 或編碼。
 
