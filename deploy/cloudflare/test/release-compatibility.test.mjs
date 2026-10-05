@@ -228,6 +228,24 @@ test('social writer floor recognition does not grant schema or deployment approv
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
 });
 
+test('machine admission schema still requires independently approved release and ledger', () => {
+  const filename = '117_machine_text_execution.sql', f = fixture();
+  assert.equal(f.scan.ledger.filter(row => row.name === filename).length, 1);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
+  f.host.release_records[0].schema_ledger_digests = [prefix(f.scan, 116).ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const changed = fixture();
+  changed.scan.ledger.find(row => row.name === filename).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixture();
+  renamed.scan.ledger.find(row => row.name === filename).name = '117_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+});
+
 test('schema extension is unavailable until its exact known migration rule is reviewed', () => {
   const f = fixture();
   const next = Number(f.scan.ledger.at(-1).name.slice(0, 3)) + 1;
