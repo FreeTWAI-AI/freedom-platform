@@ -3,6 +3,8 @@
   "module_id": "runtime-registration",
   "owner_role": "foundation",
   "owned_paths": [
+    "packages/sdk/machine-device-client.mjs",
+    "tests/runtime/machine-device-client.test.ts",
     "modules/agent-control/**",
     "contracts/execution/v1/**",
     "migrations/087_runtime_registrations.sql",
@@ -50,6 +52,7 @@
     "tests/e2e/device-connections-visual.ts"
   ],
   "public_exports": [
+    "packages/sdk/machine-device-client.mjs",
     "contracts/execution/v1/runtime-registration.ts",
     "contracts/execution/v1/bootstrap.ts",
     "contracts/execution/v1/bootstrap-status.ts",
