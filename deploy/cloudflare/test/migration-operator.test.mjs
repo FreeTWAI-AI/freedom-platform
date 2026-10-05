@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, chmodSync, rmSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { prepareMigrationInstallation, runInstalledMigrations, installedMigrationArguments } from '../migration-operator.mjs';
 import { createMigrationFixture, installedOptions, dagProfile, git, A } from './migration-fixtures.mjs';
 const target={database:'fp_fixture',role:'postgres',schema:'fp_case'};
@@ -44,4 +44,14 @@ test('CLI pins/target arguments are exact and cannot hide duplicate or candidate
   const args=['--installation','/host/install','--expected-installation','a'.repeat(64),'--expected-source','b'.repeat(40),'--expected-profile','c'.repeat(64),'--database','fp_target','--role','postgres','--schema','fp_case'];
   assert.equal(installedMigrationArguments(args).target.schema,'fp_case');
   for(const bad of [[],args.slice(0,-2),[...args,'--manifest','candidate.json'],args.map((x,i)=>i===12?'--role':x)]) assert.throws(()=>installedMigrationArguments(bad),{code:'migration_host_arguments_invalid'});
+});
+
+test('source preparation refuses local alternate metadata including HTTP alternates without fetching',t=>{
+  const f=setup(t),input={sourceRoot:f.source,sourceCommit:f.ba.source_commit,profile:dagProfile,installationParent:f.host};
+  for(const name of ['objects/info/alternates','objects/info/http-alternates','info/grafts']) {
+    const path=resolve(f.source,git(f.source,['rev-parse','--git-path',name]));
+    writeFileSync(path,'');
+    assert.throws(()=>prepareMigrationInstallation(input),{code:'migration_source_indirection'});
+    rmSync(path);
+  }
 });
