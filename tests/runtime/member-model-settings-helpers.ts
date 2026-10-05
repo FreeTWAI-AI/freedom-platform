@@ -37,14 +37,20 @@ export async function template(owner:Pool,schema:string,file:string,role:string,
   const source=(await readFile(new URL('../../deploy/cloudflare/sql/'+file,import.meta.url),'utf8')).replace(/^\\set .*$/mg,'').replaceAll('SCHEMA public','SCHEMA '+schema).replaceAll("n.nspname='public'","n.nspname='"+schema+"'").replaceAll("'public','CREATE'","'"+schema+"','CREATE'").replaceAll(':"'+variable+'"','"'+role+'"').replaceAll(":'"+variable+"'","'"+role+"'");
   const q=await owner.connect();try{const pieces=source.split('\\gexec');for(let i=0;i<pieces.length;i++){const result=await q.query(pieces[i]);if(i<pieces.length-1){const last=Array.isArray(result)?result[result.length-1]:result;for(const row of last.rows)await q.query(Object.values(row)[0] as string);}}}catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
 }
-export interface ChildHandle { child:ChildProcess; logs:()=>string; request:(kind:string,value?:unknown)=>Promise<any>; close:()=>Promise<void> }
+export interface ChildHandle { child:ChildProcess; logs:()=>string; request:(kind:string,value?:unknown,timeoutMs?:number)=>Promise<any>; close:()=>Promise<void> }
 async function childProcess(kind:string,config:Record<string,unknown>):Promise<ChildHandle> {
   const child=fork(fileURLToPath(new URL('./member-model-settings-fixtures/'+kind+'-child.ts',import.meta.url)),[],{execArgv:['--import','tsx'],env:{PATH:process.env.PATH,LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe','ipc']});
   let logs='',serial=0;const pending=new Map<number,{resolve:(v:any)=>void;reject:(e:Error)=>void}>();
   child.stdout!.on('data',chunk=>{logs+=String(chunk);});child.stderr!.on('data',chunk=>{logs+=String(chunk);});
   child.on('message',(message:any)=>{const waiter=pending.get(message.id);if(waiter){pending.delete(message.id);if(message.error)waiter.reject(new Error(message.error));else waiter.resolve(message.value);}});
   child.on('exit',()=>{for(const waiter of pending.values())waiter.reject(new Error('Fixture child exited: '+logs));pending.clear();});
-  const request=(kind:string,value?:unknown)=>new Promise<any>((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject});child.send({id,kind,value});});
+  const request=(kind:string,value?:unknown,timeoutMs?:number)=>new Promise<any>((resolve,reject)=>{
+    const id=++serial;let timer:ReturnType<typeof setTimeout>|undefined;
+    const finish=(callback:(value:any)=>void,result:any)=>{pending.delete(id);clearTimeout(timer);callback(result);};
+    pending.set(id,{resolve:value=>finish(resolve,value),reject:error=>finish(reject,error)});
+    if(timeoutMs!==undefined)timer=setTimeout(()=>pending.get(id)?.reject(Error('Fixture IPC response deadline exceeded')),Math.max(1,timeoutMs));
+    try{child.send({id,kind,value},error=>{if(error)pending.get(id)?.reject(Error('Fixture IPC send failed'));});}catch{pending.get(id)?.reject(Error('Fixture IPC send failed'));}
+  });
   const handle={child,logs:()=>logs,request,close:async()=>{if(child.exitCode!==null)return;try{await request('close');}finally{child.kill();}}};
   try{await request('init',config);return handle;}catch(error){child.kill();throw error;}
 }
