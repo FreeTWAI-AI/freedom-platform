@@ -281,7 +281,79 @@
         "adversarial receipt timing",
         "cross-process browser test; both locally passed before and after setup-order correction"
       ]
+    },
+    "hostedIntegratedMain": {
+      "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+      "verifyRun": 37273271143,
+      "codeql": "success",
+      "baselineBrowser": {
+        "passed": 470,
+        "skipped": 10
+      },
+      "configuredPrivateAiBrowser": {
+        "passed": 10,
+        "skipped": 1
+      },
+      "runtimePartitions": {
+        "0": "failed",
+        "1": "passed",
+        "2": "failed",
+        "3": "passed"
+      },
+      "remainingFailures": {
+        "tests/runtime/credential-ingest-adversarial.test.ts": 2,
+        "tests/runtime/credential-ingest-process.test.ts": 1,
+        "tests/runtime/member-model-settings-process.test.ts": 1
+      },
+      "localExactSourceReproductions": {
+        "partition2PrefixPassed": 272,
+        "partition0SelectedFilesFourCpuPassed": 14
+      },
+      "cause": "not established; bounded hosted diagnostics added; local passes do not resolve hosted failures"
     }
   },
-  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z"
+  "providerUsageObservedAt": "2026-10-05T06:32:57.889Z",
+  "remoteCloudProvisioning": {
+    "recordedAt": "2026-10-05T06:46:49.653Z",
+    "source": "f9bfea99c88b7ea1cf043321d6f3a1d3e909180e",
+    "environment": "staging-next",
+    "services": [
+      "recovery-state",
+      "recovery-floor",
+      "capture-readiness"
+    ],
+    "separateDurableObjectNamespaces": true,
+    "enabled": false,
+    "signersInstalled": false,
+    "publicRoutes": false,
+    "workersDev": false,
+    "previewUrls": false,
+    "mainBindingsChanged": false,
+    "databaseChanged": false,
+    "operationalAcceptance": "not_run",
+    "privateAiEnabled": false,
+    "remaining": [
+      "signer installation and correspondence",
+      "generation and floor readback; outage rejection",
+      "capture controls and readiness profile",
+      "broker SQL roles and Hyperdrives",
+      "main and broker bindings",
+      "real browser ingress and owner remote acceptance"
+    ]
+  },
+  "liveUnauthenticatedBrowser": {
+    "recordedAt": "2026-10-05T06:56:50.334Z",
+    "release": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
+    "health": "ok",
+    "widths": [
+      1366,
+      390,
+      320
+    ],
+    "httpStatus": 200,
+    "horizontalOverflow": false,
+    "pageErrors": 0,
+    "expectedUnauthenticatedSessionStatus": 401,
+    "memberOperations": "not_run"
+  }
 }

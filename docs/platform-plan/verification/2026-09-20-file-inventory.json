@@ -13699,8 +13699,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md",
-      "bytes": 18471,
-      "sha256": "152d173842167d3dd3698a0dd14711d4ae2a2cfe9fa657a96c701d6fbda20531"
+      "bytes": 18704,
+      "sha256": "1bca49bbe001b92b461aab8b827269e2a866277b50cbd5891fad5c19fd5e9e20"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json",
-      "bytes": 9514,
-      "sha256": "53e90fbd9e7e9ee52a1b05fff62bccdb242c7fb3191e837b5404a547495f09b5"
+      "bytes": 11729,
+      "sha256": "16c6c661748f6348c167786a7b1f628951d9eae35e15c263012060510a548524"
     },
     {
       "path": "docs/platform-plan/verification/verify_revision.py",
@@ -15884,8 +15884,8 @@
     },
     {
       "path": "packages/contribution-tools/test-failure-diagnostic.mjs",
-      "bytes": 5422,
-      "sha256": "eb99de18cc01f2e5ff22588cddcefc8a65402a542bd5d8ce060491503bbb063c"
+      "bytes": 7070,
+      "sha256": "4d529cf379bd1c37de5e68bc79021f6466c0b6ee39bbc53d8f02ba5390b5c6ca"
     },
     {
       "path": "packages/contribution-tools/test-progress.md",
@@ -15894,8 +15894,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9617,
-      "sha256": "ecfb45046f75ae5da8b8ede6be3bb782e37ff3308f979d96ae5aeab8f347b3d6"
+      "bytes": 9775,
+      "sha256": "7227ac19c47e836f3f121c663b09a340707514b3a453fadd6e53aa24218a55a3"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -16049,8 +16049,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 19100,
-      "sha256": "ebb42cf61d765acbda58c8bd59aaf78438e448ed4cef98dc81030f00d779f1b1"
+      "bytes": 23912,
+      "sha256": "36f126ec4813891a15d307dc9d4f87c9025271b070affdaf2f4e03ca30210ed7"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",

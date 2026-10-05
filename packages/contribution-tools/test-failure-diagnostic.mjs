@@ -7,7 +7,7 @@ const SCHEMA = 'freedom.test-failure-diagnostic/v1';
 const MAX_BYTES = 262144, MAX_LINE = 2048, MAX_RECORDS = 64;
 const NAMES = ['AssertionError','TypeError','Error','unknown'];
 const CODES = ['ERR_ASSERTION','ERR_TEST_FAILURE','unknown'];
-const CLASSES = ['sql_wait_not_observed','asset_read_not_reached','expiry_assertion','assertion_failed','fetch_failed','custody_outcome_unconfirmed','browser_timeout','unknown'];
+const CLASSES = ['sql_wait_not_observed','asset_read_not_reached','expiry_assertion','assertion_failed','fetch_failed','custody_outcome_unconfirmed','operation_timeout','unknown'];
 const hash = v => typeof v==='string' && /^[a-f0-9]{64}$(?![\s\S])/.test(v);
 const exact = (v,keys) => v && typeof v==='object' && !Array.isArray(v) && Object.keys(v).length===keys.length && keys.every(k=>Object.hasOwn(v,k));
 const comparisonValue = v => typeof v==='boolean' || Number.isSafeInteger(v)&&Math.abs(v)<=20000;
@@ -22,7 +22,7 @@ function detail(error) {
     :message==='actual asset read must reach the trusted port before deadline'?'asset_read_not_reached'
     :actual.code==='ERR_ASSERTION'&&/assert\(\s*expires\s*>\s*Date\.now\(\)\s*\)/.test(message)?'expiry_assertion'
     :actual.code==='ERR_ASSERTION'&&actual.expected==='committed'?'custody_outcome_unconfirmed'
-    :chain.some(e=>e.name==='TimeoutError')?'browser_timeout'
+    :chain.some(e=>e.name==='TimeoutError')?'operation_timeout'
     :actual.code==='ERR_ASSERTION'?'assertion_failed':message==='fetch failed'?'fetch_failed':'unknown';
   return {error_name:NAMES.includes(actual.name)?actual.name:'unknown',error_code:CODES.includes(actual.code)?actual.code:'unknown',message_class,
     ...(chain.some(e=>e.code==='UND_ERR_SOCKET')?{cause_code:'UND_ERR_SOCKET'}:{}),

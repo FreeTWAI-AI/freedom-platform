@@ -159,8 +159,8 @@ test('ingest fixed classifications admit no private state, timeout message or SQ
  const path='tests/runtime/credential-ingest-process.test.ts',source={path,source_sha256:'a'.repeat(64),source_lines:20};
  for(const [error,expected] of [
   [{name:'AssertionError',code:'ERR_ASSERTION',expected:'committed',actual:'PRIVATE_STATE',message:'PRIVATE_SQL_AND_BROKER_BODY'},'custody_outcome_unconfirmed'],
-  [{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'},'browser_timeout'],
-  [{name:'Error',message:'PRIVATE_WRAPPER',cause:{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'}},'browser_timeout'],
+  [{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'},'operation_timeout'],
+  [{name:'Error',message:'PRIVATE_WRAPPER',cause:{name:'TimeoutError',message:'PRIVATE_BROWSER_URL_AND_SELECTOR'}},'operation_timeout'],
   [{name:'AssertionError',code:'ERR_ASSERTION',message:'Actual SQL wait not observed'},'sql_wait_not_observed'],
  ]) {
   const lines=[],emit=createFailureDiagnosticEmitter([source],line=>lines.push(line),()=> 'b'.repeat(64));
