@@ -8,7 +8,7 @@ import type { CredentialIngestAuthorizations, CredentialIngestInvocationData, Op
 import { withMemberScope } from '../../../packages/resource-scopes/index.js';
 import { Problem } from '../../../packages/shared/problem.js';
 import type { RecoveryObservation } from '../../../modules/agent-execution/model-step-host.js';
-import { createBrokerCredentialStore, getCredentialWriteIntentMetadata, type OpaqueCredentialWriteIntent } from './store.js';
+import { bindCredentialWriteInvocationTime, createBrokerCredentialStore, getCredentialWriteIntentMetadata, type OpaqueCredentialWriteIntent } from './store.js';
 import type { CredentialVault } from './vault.js';
 import { createCredentialIngestCrypto, type CredentialIngestCryptoOptions } from './ingest-crypto.js';
 
@@ -89,7 +89,7 @@ export async function createCredentialIngestService(options:CredentialIngestServ
   function fence(s:Setup,write=false){const f=new Fence(write?s.writeExpiresAt!:s.expiresAt);
     Object.defineProperty(f,'end',{value:Math.min(f.end,s.end,write?s.writeEnd!:Infinity)});f.assert();return f;}
   async function readiness(f:Fence){await f.wait(()=>capture(Object.freeze({origin:setupOrigin,purpose:'credential-ingest' as const})),1000);}
-  function guard(s:Setup,f:Fence){return async(q:PoolClient)=>{f.assert();await assertCurrent(q,s.invocation);f.assert();};}
+  function guard(s:Setup,f:Fence){return bindCredentialWriteInvocationTime(async(q:PoolClient)=>{await assertCurrent(q,s.invocation);},()=>{f.assert();read(s.invocation);});}
   async function current(s:Setup,f:Fence){const g=guard(s,f);await f.wait(()=>withMemberScope(pool,{actor:s.data.actor,scope:'personal'},g,async q=>g(q)));f.assert();}
   return Object.freeze({
     async bootstrap(assertion:string,signal?:AbortSignal):Promise<{cookieToken:string;csrfToken:string;setup:ProtectedCredentialSetupDto}>{

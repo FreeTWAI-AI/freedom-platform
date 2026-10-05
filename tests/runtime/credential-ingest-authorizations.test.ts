@@ -16,7 +16,7 @@ import { createAgentConnections } from '../../modules/agent-control/agent-connec
 import { insertInitialRefreshFamily } from '../../modules/agent-control/bootstrap-session-store.js';
 import { createExecutionPrerequisites } from '../../modules/agent-execution/prerequisites.js';
 import { createCredentialVault, type CredentialVault } from '../../apps/credential-broker/src/vault.js';
-import { createBrokerCredentialStore, getCredentialWriteIntentMetadata } from '../../apps/credential-broker/src/store.js';
+import { bindCredentialWriteInvocationTime, createBrokerCredentialStore, getCredentialWriteIntentMetadata } from '../../apps/credential-broker/src/store.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) throw new Error('Explicit disposable fp_* TEST_DATABASE_URL required.');
@@ -229,15 +229,15 @@ test('INGEST-AUTH-07 actual cipher/executor grants reject ciphertext, ingest col
   await executorGrants();
 });
 
-test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-only expiry cannot commit credential custody',async()=>{
+test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-only expiry cannot commit credential custody',async(t)=>{
   const f=await fixture(),command={operation:'create' as const,input:{key:randomUUID(),modelConnectionId:f.model.modelConnectionId,expectedModelVersion:'1',consent:true as const}};
-  const expiry=Date.now()+3000,shortIssuer=createCredentialIngestAuthorizations(app,{...ingestOptions,recover:async()=>({generation:'1',expiresAt:new Date(expiry).toISOString()})});
+  const expiry=Date.now()+20_000,shortIssuer=createCredentialIngestAuthorizations(app,{...ingestOptions,recover:async()=>({generation:'1',expiresAt:new Date(expiry).toISOString()})});
   const claims=await shortIssuer.issue(f.actor,{command,nonce:nonce()}),cookieHash=tokenHash(),csrfHash=tokenHash();
-  const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash}),intent=await store.prepareCreate(f.actor,command.input,q=>authority.assertCurrent(q,invocation)),meta=getCredentialWriteIntentMetadata(intent);
+  const invocation=await authority.claimBootstrap(claims,{cookieHash,csrfHash}),writeGuard=bindCredentialWriteInvocationTime(q=>authority.assertCurrent(q,invocation),()=>{authority.read(invocation);}),intent=await store.prepareCreate(f.actor,command.input,writeGuard),meta=getCredentialWriteIntentMetadata(intent);
   assert(Date.parse(meta.binding.expiresAt)>expiry+10000);await authority.claimPreparation(invocation,claims.expiresAt);
   await authority.claimSubmission(invocation,{binding:meta.binding,writeExpiresAt:claims.expiresAt,cookieHash,csrfHash});
   const bytes=new TextEncoder().encode('synthetic-final-delivery-key'),sealed=await vault.seal(meta.binding,bytes);bytes.fill(0);
-  let release!:()=>void,entered!:()=>void,delivered=0;const gate=new Promise<void>(r=>{release=r;}),blocked=new Promise<void>(r=>{entered=r;});
+  let release!:()=>void,entered!:()=>void,delivered=0,restoreClock:(()=>void)|undefined;const gate=new Promise<void>(r=>{release=r;}),blocked=new Promise<void>(r=>{entered=r;});
   // Test-only driver-result gate on the actual transaction PoolClient. SQL,
   // row mutation, original store and original receipt orchestration stay real.
   const originalConnect=broker.connect.bind(broker);let pending:Promise<unknown>|undefined;
@@ -248,19 +248,30 @@ test('INGEST-AUTH-08 actual final SQL session-result delivery beyond command-onl
       return result;};
     (q as any).release=(...args:any[])=>{q.query=originalQuery;q.release=originalRelease;(originalRelease as any).apply(q,args);};return q;};
   try {
-    pending=store.commit(f.actor,intent,sealed,q=>authority.assertCurrent(q,invocation));
+    pending=store.commit(f.actor,intent,sealed,writeGuard);
     await Promise.race([blocked,pending.then(()=>{throw Error('Expected actual final SQL result barrier was not reached');},error=>{throw error;})]);
-    await delay(Math.max(0,expiry-Date.now()+100));release();
-    const settled=await pending.then(()=>({kind:'committed' as const}),()=>({kind:'rejected' as const}));
+    // Advance only the delivery clock after the real final SQL has completed.
+    // A three-second setup budget can race additional preparation SQL under
+    // CI load; SQL, one-use transitions and rollback remain unmodified here.
+    // AUTH-05 separately retains the real elapsed database-wait expiry test.
+    assert(Date.now()<expiry,'the real final SQL barrier must precede command expiry');
+    const deliveredAt=expiry+100;
+    assert(deliveredAt<Date.parse(meta.expiresAt),'write intent must remain current at delivery');
+    assert(deliveredAt<Date.parse(meta.binding.expiresAt),'credential binding must remain current at delivery');
+    const clock=t.mock.method(Date,'now',()=>deliveredAt);restoreClock=()=>clock.mock.restore();
+    assert(Date.now()>Date.parse(claims.expiresAt),'only command authority must be expired at delivery');
+    release();
+    const settled=await pending.then(()=>({kind:'committed' as const}),error=>({kind:'rejected' as const,error}));
     const facts=(await owner.query(`SELECT (SELECT count(*)::int FROM broker_model_credentials) credentials,
       (SELECT count(*)::int FROM broker_credential_vault) ciphertext,
       (SELECT count(*)::int FROM scoped_command_receipts WHERE operation='broker.credential.create') receipts`)).rows[0];
     assert.equal(settled.kind,'rejected',`Final command expiry must roll back custody; actual credentials=${facts.credentials}, ciphertext=${facts.ciphertext}, receipts=${facts.receipts}`);assert.equal(delivered,1);
+    if(settled.kind==='rejected')assert.equal(settled.error.code,'credential_ingest_authorization_invalid');
     assert.equal((await owner.query('SELECT count(*)::int n FROM broker_model_credentials')).rows[0].n,0);
     assert.equal((await owner.query('SELECT count(*)::int n FROM broker_credential_vault')).rows[0].n,0);
     assert.equal((await owner.query("SELECT count(*)::int n FROM scoped_command_receipts WHERE operation='broker.credential.create'")).rows[0].n,0);
     const outcome=await issuer.readOwnerOutcome(f.actor,claims.authorizationRef);assert.equal(outcome.state,'submission_claimed');assert.equal(outcome.credential,null);
-  }finally{release?.();(broker as any).connect=originalConnect;if(pending)await pending.catch(()=>{});}
+  }finally{release?.();(broker as any).connect=originalConnect;try{if(pending)await pending.catch(()=>{});}finally{restoreClock?.();}}
 });
 
 
