@@ -16,7 +16,14 @@ const actualParserEntry = createRequire(parserEntry).resolve('@typescript/old');
 const parserDigest = sha256(JSON.stringify([parserEntry, actualParserEntry].map(path => sha256(readFileSync(path.startsWith('file:') ? new URL(path) : path)))));
 const approvedParser = { version: ts.version, installationSha256: parserDigest };
 const ports = { parser: { api: ts, ...approvedParser }, approvedParser };
-const original = new Map([root, avatar, work, avatarDescriptor, workDescriptor, 'apps/portal-web/src/modules/MemberTasks.tsx'].map(path => [path, file(path)]));
+// Load the actual declared entry files as well as the audited factories. New
+// feature pages remain explicitly unmapped by this narrow HTTP profile; an
+// incomplete test fixture must not misreport them as absent source files.
+const fixturePaths = new Set([root, avatar, work, avatarDescriptor, workDescriptor]);
+for (const descriptor of [avatarDescriptor, workDescriptor]) {
+  for (const surface of JSON.parse(file(descriptor)).surfaces) fixturePaths.add(surface.entry);
+}
+const original = new Map([...fixturePaths].map(path => [path, file(path)]));
 const reader = files => ({ paths: [...files.keys()], read: path => files.get(path) });
 const run = (candidate = original, baseline = original, options = {}) => auditSurfaceRegistrations({
   baseline: reader(baseline), candidate: reader(candidate), ...options,
@@ -35,7 +42,7 @@ test('actual avatar/private routes and real mounts map twelve baseline+candidate
   // New guide release mount remains explicitly unaudited by this narrow avatar/private-work syntax audit.
   assert.equal(report.issues.filter(x => x.revision === 'candidate' && x.code === 'registration_receiver_escape').length, 5);
   assert.equal(report.status, 'unavailable'); assert.equal(report.registrations.length, 12);
-  assert.equal(report.evidence.length, 10); assert.equal(report.behavior_checked, false);
+  assert.equal(report.evidence.length, 16); assert.equal(report.behavior_checked, false);
   assert.equal(report.merge_authorized, false); assert.equal(report.execution_authorized, false);
   assert(report.blockers.includes('registration_behavior_audit_required'));
   assert(report.blockers.includes('surface_unmapped')); // actual root, legacy Work/page remain uncovered
