@@ -8,4 +8,4 @@
 :root[data-guide-skin="dragon"] .sidebar {background:#16111e}
 :root[data-guide-skin="dragon"] .nav-item.is-active {background:#342719;color:#f6d798;border-color:#a78349}
 :root[data-guide-skin="dragon"] .game-console {border-color:#54445c}
-.guide-load-retry {position:fixed;bottom:70px;right:16px;z-index:20}
+.guide-load-retry {align-self:flex-start}
