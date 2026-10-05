@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, type PortalClient } from '../api';
 import type { ModelSelection, ModelConnectionMetadata, ExecutionGrantMetadata } from '../../../../contracts/execution/v1/member-execution';
 import type { MemberModelHttpOverview } from '../../../../contracts/execution/v2/member-model-http';
@@ -12,7 +12,7 @@ type Run = { runId: string; workId: string; inputWorkVersion: string; aggregateV
 type Overview = MemberModelHttpOverview;
 type Result = { resultId: string; revision: string; workVersion: string; createdAt: string; provenance: 'human' | 'model'; text?: string;
   model?: { selection: ModelSelection; evidenceOrigin: string; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; costStatus: 'unknown' } };
-type Command = { label: string; path: string; body: unknown; version?: number | string; key: string; accepted?: (value: unknown) => void };
+type Command = { label: string; path: string; body: unknown; version?: number | string; key: string; accepted?: (value: unknown) => void; retainOnServerError?: boolean };
 const label = (selection: ModelSelection) => `${selection.providerRef} / ${selection.modelRef}`;
 const time = (value: string) => new Date(value).toLocaleString('zh-TW');
 const stateLabels: Record<string, string> = { created: '已建立', paused: '已暫停', cancelled: '已停止', running: '執行中',
@@ -30,6 +30,8 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
   const [title, setTitle] = useState(''), [objective, setObjective] = useState('');
   const [creating, setCreating] = useState(false), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [serviceError, setServiceError] = useState(''), [resultError, setResultError] = useState(''), [notice, setNotice] = useState('');
+  const resultEditorId = useId();
+  const [resultEdit, setResultEdit] = useState<{ sourceId: string; original: string; text: string; version: number | string } | null>(null);
   const [history, setHistory] = useState<Result[]>([]), [result, setResult] = useState<Result | null>(null);
   const [runId, setRunId] = useState(''), [connectionId, setConnectionId] = useState(''), [modelId, setModelId] = useState(''), [selectionIndex, setSelectionIndex] = useState('');
   const [grantId, setGrantId] = useState(''), [approvalId, setApprovalId] = useState(''), [stepId, setStepId] = useState('');
@@ -68,7 +70,7 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
     if (!live.current || sequence !== readSequence.current) return;
     if (values[0].status === 'fulfilled') setWorks(values[0].value.items);
     else { setWorks(null); setError('私人工作服務目前無法使用，請稍後重新整理。'); }
-    if (values[1].status === 'fulfilled') { setOverview(values[1].value); if (!values[1].value.persistenceAvailable) { workGeneration.current++; resultSequence.current++; setWork(null); setResult(null); setHistory([]); setTitle(''); setObjective(''); setCreating(false); setExportConsent(false); setGrantConsent(false); setWorks([]); } }
+    if (values[1].status === 'fulfilled') { setOverview(values[1].value); if (!values[1].value.persistenceAvailable) { workGeneration.current++; resultSequence.current++; setWork(null); setResult(null); setResultEdit(null); setHistory([]); setTitle(''); setObjective(''); setCreating(false); setExportConsent(false); setGrantConsent(false); setWorks([]); } }
     else { setOverview(null); setServiceError('模型執行服務目前無法使用。尚未確認供應商登入、模型可用性或費用。'); }
     if (values[1].status !== 'fulfilled' || values[1].value.persistenceAvailable) await readWork(selectedWork.current);
     if (live.current && sequence === readSequence.current) setLoading(false);
@@ -76,7 +78,7 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     setRunId(''); setGrantId(''); setApprovalId(''); setStepId(''); setGrantConsent(false); setExportConsent(false);
-    setWork(null); setHistory([]); setResult(null); setError(''); setNotice('');
+    setWork(null); setHistory([]); setResult(null); setResultEdit(null); setError(''); setNotice('');
     if (!workId) { setTitle(''); setObjective(''); return; }
     setCreating(false); void readWork(workId);
   }, [workId, readWork]);
@@ -93,7 +95,7 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
       await refresh();
     } catch (cause) {
       if (!live.current) return;
-      if (!succeeded && cause instanceof ApiError && (cause.network || cause.timedOut)) {
+      if (!succeeded && cause instanceof ApiError && (cause.network || cause.timedOut || command.retainOnServerError && cause.status >= 500)) {
         setUnresolved(command); setError('尚未確認這次操作結果。先重新讀取狀態；需要補送時，使用下方「以原請求確認結果」。不會自動再次呼叫模型。');
       } else if (cause instanceof ApiError && cause.conflict) {
         setUnresolved(null); setExportConsent(false); setGrantConsent(false); setError('資料版本已更新，請重新讀取，再確認目前內容與模型。');
@@ -152,6 +154,15 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
     });
     else if (work) command('工作修改', `/me/private-work/${workId}/edit`, body, work.aggregate_version);
   }
+  const resultBytes = resultEdit ? new TextEncoder().encode(resultEdit.text).length : 0;
+  const resultWireBytes = resultEdit ? new TextEncoder().encode(JSON.stringify({ text: resultEdit.text })).length : 0;
+  function saveResult(event: FormEvent) {
+    event.preventDefault();
+    if (disabled || !resultEdit || !resultEdit.text.trim() || resultEdit.text === resultEdit.original || resultBytes > 16384 || resultWireBytes > 32768) return;
+    void submit({ label: '成果修改', path: `/me/private-work/${workId}/results/${resultEdit.sourceId}/edit`,
+      body: { text: resultEdit.text }, version: resultEdit.version, key: crypto.randomUUID(), retainOnServerError: true,
+      accepted: () => setResultEdit(null) });
+  }
   const runs = overview?.runs.filter(value => value.workId === workId) ?? [];
   const run = runs.find(value => value.runId === runId);
   const models = overview?.models.filter(value => value.state !== 'revoked') ?? [];
@@ -204,8 +215,20 @@ export function PrivateWorkAI({ client }: { client: PortalClient }) {
         {!workId ? <p className="muted">選擇工作後查看本人可讀的成果。</p> : <>
           {resultError && <p role="alert">{resultError}</p>}
           {!result && !resultError && <p className="muted">尚無目前成果。</p>}
-          {result && <><ResultDetails result={result}/><pre className="private-ai-text">{result.text}</pre></>}
-          {history.length > 0 && <label>成果版本<select disabled={busy || loading} value={result?.resultId ?? ''} onChange={event => {
+          {result && <><ResultDetails result={result}/><pre className="private-ai-text">{result.text}</pre>
+            {!resultEdit && <div className="actions"><button type="button" className="btn btn-ghost" disabled={disabled || !work || work.state !== 'draft' || typeof result.text !== 'string'}
+              onClick={() => setResultEdit({ sourceId: result.resultId, original: result.text!, text: result.text!, version: work!.aggregate_version })}>編輯成果</button></div>}</>}
+          {resultEdit && <form className="stack" onSubmit={saveResult}>
+            <label htmlFor={resultEditorId}>成果修改內容</label><textarea id={resultEditorId} rows={9} value={resultEdit.text} maxLength={16384} disabled={disabled}
+              onChange={event => setResultEdit({ ...resultEdit, text: event.target.value })}/>
+            <p className="field-hint">保存為新的本人編修版本，原始成果與模型紀錄會保留。草稿只留在此頁；最多 16 KiB。</p>
+            {(resultBytes > 16384 || resultWireBytes > 32768) && <p role="alert">內容超過保存上限，請縮短文字。</p>}
+            {work && String(work.aggregate_version) !== String(resultEdit.version) && !unresolved && <p className="field-hint">工作版本已改變，修改仍保留。請確認目前成果後再保存。 <button type="button" className="btn btn-ghost" disabled={disabled}
+              onClick={() => setResultEdit({ ...resultEdit, version: work.aggregate_version })}>採用目前工作版本</button></p>}
+            <div className="actions"><button type="submit" className="btn btn-primary" disabled={disabled || !resultEdit.text.trim() || resultEdit.text === resultEdit.original || resultBytes > 16384 || resultWireBytes > 32768}>保存成果修改</button>
+              <button type="button" className="btn btn-ghost" disabled={disabled} onClick={() => setResultEdit(null)}>取消成果編輯</button></div>
+          </form>}
+          {history.length > 0 && <label>成果版本<select disabled={disabled || Boolean(resultEdit)} value={result?.resultId ?? ''} onChange={event => {
             const id = event.target.value, generation = workGeneration.current, resultRequest = ++resultSequence.current, selectedId = workId; setResult(null); setResultError('');
             void client.get<Result>(`/me/private-work/${workId}/results/${id}`, { background: true }).then(value => {
               if (live.current && generation === workGeneration.current && resultRequest === resultSequence.current && selectedWork.current === selectedId) setResult(value);

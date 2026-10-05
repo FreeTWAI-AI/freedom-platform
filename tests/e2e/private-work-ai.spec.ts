@@ -269,4 +269,41 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     }
   });
 
+  test('owner edits append a human revision and unknown save replay retains the original intent', async ({ page }, testInfo) => {
+    await login(page); await readyStep(page, '合成測試：本人修改成果');
+    await page.getByRole('button', { name: '執行一次推論', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '第 1 版 · 模型產出', exact: true })).toBeVisible();
+    const original=await page.locator('.private-ai-text').innerText();
+    await page.getByRole('button', { name: '編輯成果', exact: true }).click();
+    await expect(page.getByRole('button', { name: '保存成果修改', exact: true })).toBeDisabled();
+    const edited=original+'\n本人補充：這份成果經過我的修改。';
+    await page.getByLabel('成果修改內容', { exact: true }).fill(edited);
+    for(const [width,height] of [[1440,900],[768,1024],[390,844]]) {
+      await page.setViewportSize({width,height});await page.getByLabel('成果修改內容', {exact:true}).scrollIntoViewIfNeeded();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:testInfo.outputPath(`result-editor-${width}.png`)});
+    }
+    const sent:{key:string|undefined;version:string|undefined;body:string|null}[]=[];
+    await page.route('**/api/v1/me/private-work/*/results/*/edit', async route=>{
+      const request=route.request();sent.push({key:request.headers()['idempotency-key'],version:request.headers()['if-match'],body:request.postData()});
+      const actual=await route.fetch();expect(actual.status()).toBe(200);
+      if(sent.length===1)await route.fulfill({status:503,json:{code:'synthetic_lost_result_ack'}});else await route.fulfill({response:actual});
+    });
+    await page.getByRole('button', { name: '保存成果修改', exact: true }).click();
+    await expect(page.getByRole('button', { name: '以原請求確認結果', exact: true })).toBeVisible();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveValue(edited);
+    await page.getByRole('button', { name: '重新讀取狀態', exact: true }).click();
+    await expect(page.getByRole('heading', {name:'第 2 版 · 本人保存',exact:true})).toBeVisible();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveValue(edited);
+    expect(sent).toHaveLength(1);
+    await page.getByRole('button', { name: '以原請求確認結果', exact: true }).click();
+    await expect(page.getByLabel('成果修改內容', {exact:true})).toHaveCount(0);
+    expect(sent).toHaveLength(2);expect(sent[1]).toEqual(sent[0]);
+    await expect(page.locator('.private-ai-text')).toHaveText(edited);
+    const versions=page.getByRole('combobox', {name:'成果版本',exact:true});await expect(versions.locator('option')).toHaveCount(3);
+    await versions.selectOption({index:2});await expect(page.getByRole('heading', {name:'第 1 版 · 模型產出',exact:true})).toBeVisible();
+    await expect(page.locator('.private-ai-text')).toHaveText(original);await expect(page.locator('.private-ai-panel')).toContainText('synthetic-text-model');
+    expect(await page.evaluate(()=>Object.values(localStorage).some(value=>value.includes('本人補充'))||Object.values(sessionStorage).some(value=>value.includes('本人補充')))).toBe(false);
+  });
+
 });
