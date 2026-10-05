@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { objectKey, preparePrivateText, prepareLegacyMediaRepresentation, readVerifiedObject,
   type ObjectStore, type AssetObjectKey } from '../../packages/asset-storage/index.js';
-import { transferBackup, transferRestore, MediaBackupError, type BackupCapture } from '../../packages/media-migration/backup-transfer.js';
+import { transferBackup, transferRestore, assertBackupCaptureCurrent, MediaBackupError, type BackupCapture } from '../../packages/media-migration/backup-transfer.js';
 
 const stream=(bytes:Uint8Array)=>new ReadableStream<Uint8Array>({start(c){c.enqueue(bytes);c.close();}});
 const policy={revision:'synthetic-transfer',platformPersistenceAllowed:true};
@@ -65,6 +65,17 @@ test('Backup protection expiry, pin mutation and changes after actual PUT refuse
   await assert.rejects(transferBackup(f.capture,f.source,f.destination,{...f.protection,async assertCurrent(){return {...f.capture,sourceRelease:'b'.repeat(40)};}}),code('capture_changed'));
   let reads=0;await assert.rejects(transferBackup(f.capture,f.source,f.destination,{...f.protection,async assertCurrent(){return ++reads===1?f.capture:{...f.capture,references:[]};}}),code('capture_changed'));
   assert(await f.destination.head(f.key),'real incomplete effects are retained for reconciliation');
+});
+test('Phase boundary check preserves the complete capture tuple and never renews expired protection',async()=>{
+  const f=await fixture();await assertBackupCaptureCurrent(f.capture,f.protection);
+  assert.equal(f.checks(),1);assert.equal(f.renewals(),0);
+  for(const changed of [{captureId:randomUUID()},{sourceRelease:'b'.repeat(40)},{sourceSchema:'other_schema'},
+    {referenceSnapshot:'101:201:151'},{references:[]},
+    {references:[{...f.capture.references[0],content_sha256:'f'.repeat(64)}]}]){
+    await assert.rejects(assertBackupCaptureCurrent(f.capture,{async assertCurrent(){return {...f.capture,...changed};}}),code('capture_changed'));
+  }
+  await assert.rejects(assertBackupCaptureCurrent(f.capture,{async assertCurrent(){throw Error('RAW_PRIVATE expired');}}),code('protection_lost'));
+  assert.equal(f.renewals(),0);assert.equal(await f.destination.head(f.key),null);
 });
 test('Backup never exposes a forged upstream MediaBackupError message',async()=>{
   const f=await fixture();f.source.head=async()=>{const e=new MediaBackupError('object_missing');e.message='RAW_PRIVATE upstream secret';throw e;};

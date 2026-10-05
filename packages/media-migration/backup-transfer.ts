@@ -198,10 +198,19 @@ async function copyObject(source: ObjectStore, destination: ObjectStore, pin: Pi
 async function renew(protection: BackupProtection): Promise<void> {
   try { await protection.renew(); } catch { fail('protection_lost'); }
 }
-async function checkCurrent(protection: BackupProtection, n: Normalized): Promise<void> {
+async function checkCurrent(protection: Pick<BackupProtection, 'assertCurrent'>, n: Normalized): Promise<void> {
   let current: unknown;
   try { current = await protection.assertCurrent(); } catch { fail('protection_lost'); }
   if (normalizeCapture(current, 'capture_changed').fingerprint !== n.fingerprint) fail('capture_changed');
+}
+
+/** Recheck the same immutable capture after a later archive/restore phase.
+ * Renewal is separate: a failed/expired protection cannot be revived here.
+ * This observes one decision boundary, not a lease held throughout external I/O. */
+export async function assertBackupCaptureCurrent(capture: BackupCapture, protection: Pick<BackupProtection, 'assertCurrent'>): Promise<void> {
+  const n = normalizeCapture(capture, 'invalid_capture');
+  if (typeof protection?.assertCurrent !== 'function') fail('invalid_options');
+  await checkCurrent(protection, n);
 }
 async function authorize(auth: RestoreAuthorization, entry: BackupManifestEntry): Promise<void> {
   let result: unknown;

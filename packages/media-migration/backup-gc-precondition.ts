@@ -19,6 +19,9 @@ export interface MediaGcObservation {
   readonly maintenanceEnabled: boolean;
   readonly domainMaintenanceEnabled: boolean;
   readonly policyRevision: string | null;
+  /** Exact configured policy, excluding only the capture gate's changing generation.
+   * Optional for legacy adapters; snapshot-pins admission requires this readback. */
+  readonly policySha256?: string;
   readonly deletionFences: number;
   readonly tombstones: number;
   /** Digest of the ordered tombstone asset ids; detects replace-in-place. */
@@ -40,6 +43,8 @@ export async function observeMediaGcState(db: Pool | PoolClient): Promise<MediaG
         COALESCE((SELECT bool_or(enabled) FROM asset_maintenance_policy),false) AS enabled,
         COALESCE((SELECT bool_or(domain_media_enabled) FROM asset_maintenance_policy),false) AS domain_enabled,
         (SELECT min(revision) FROM asset_maintenance_policy) AS revision,
+        (SELECT encode(pg_catalog.sha256(convert_to((to_jsonb(p)-'generation')::text,'UTF8')),'hex')
+           FROM asset_maintenance_policy p) AS policy_sha256,
         (SELECT count(*)::int FROM assets WHERE deletion_fence<>0) AS fences,
         (SELECT count(*)::int FROM asset_deletion_tombstones) AS tombstones,
         (SELECT encode(pg_catalog.sha256(convert_to(COALESCE(string_agg(asset_id::text,',' ORDER BY asset_id),''),'UTF8')),'hex')
@@ -49,11 +54,12 @@ export async function observeMediaGcState(db: Pool | PoolClient): Promise<MediaG
   const int = (v: unknown) => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : NaN);
   if (!row || row.policies !== 1 || typeof row.observed_at !== 'string' || typeof row.database !== 'string' || typeof row.schema !== 'string'
     || typeof row.enabled !== 'boolean' || typeof row.domain_enabled !== 'boolean'
-    || !(row.revision === null || typeof row.revision === 'string') || typeof row.tombstone_digest !== 'string'
+    || !(row.revision === null || typeof row.revision === 'string') || typeof row.policy_sha256 !== 'string'
+    || !/^[0-9a-f]{64}$/.test(row.policy_sha256) || typeof row.tombstone_digest !== 'string'
     || !/^[0-9a-f]{64}$/.test(row.tombstone_digest) || [row.fences, row.tombstones, row.open_captures].some(v => Number.isNaN(int(v))))
     throw new GcPreconditionError('gc_observation_unavailable');
   return Object.freeze({ observedAt: row.observed_at, database: row.database, schema: row.schema, maintenanceEnabled: row.enabled,
-    domainMaintenanceEnabled: row.domain_enabled, policyRevision: row.revision as string | null, deletionFences: row.fences as number,
+    domainMaintenanceEnabled: row.domain_enabled, policyRevision: row.revision as string | null, policySha256: row.policy_sha256, deletionFences: row.fences as number,
     tombstones: row.tombstones as number, tombstoneDigest: row.tombstone_digest, openCaptures: row.open_captures as number });
 }
 
