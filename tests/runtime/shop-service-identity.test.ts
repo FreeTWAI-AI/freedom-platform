@@ -8,6 +8,12 @@ import {tokenHash} from '../../modules/identity-membership/service.js';
 import {withMemberScope} from '../../packages/resource-scopes/index.js';
 import {assertShopServiceClock,lockShopService,forgetShopService,shopServiceHost,type ShopContext} from '../../packages/resource-scopes/shop-service.js';
 import {transaction} from '../../packages/db/index.js';
+import {createPrivateAiProductTransport} from '../../apps/platform-api/src/private-ai-product.js';
+import {createPrivateWorkCommands} from '../../modules/opportunity-project-work/private-commands.js';
+import {createPrivateResultService} from '../../modules/autopilot-work/results.js';
+import {resolvePrivateWorkPersistencePolicy} from '../../modules/autopilot-work/policy.js';
+import {FakeObjectStore} from '../../packages/asset-storage/fake-store.js';
+import {sha256,type AssetObjectKey,type PreparedRepresentation} from '../../packages/asset-storage/index.js';
 
 const configured=process.env.TEST_DATABASE_URL;
 assert(configured,'Explicit disposable TEST_DATABASE_URL required');
@@ -137,4 +143,49 @@ test('SQL backing shape rejects service impersonation, NULL binding bypass, cros
  await assert.rejects(()=>pool.query('UPDATE principals SET service_shop_ref=$1 WHERE principal_id=$2',[other.shop,principal]),code);
  await assert.rejects(()=>pool.query('DELETE FROM principals WHERE principal_id=$1',[principal]),code);
  for(const field of ['purpose','issuer','audience','environment'])await assert.rejects(()=>pool.query(`UPDATE commerce_shop_keys SET ${field}=NULL WHERE shop_id=$1`,[f.shop]),code);
+});
+
+test('valid site key cannot read or edit another actual member private Result/Asset through installed routes',async()=>{
+ const website=await fixture(),victim=await fixture(),siteKey=await issue(website);assert.equal((await connection(siteKey)).status,200);
+ const actor={...(await pool.query('SELECT * FROM users WHERE user_id=$1',[victim.owner])).rows[0],session_hash:tokenHash(victim.session),csrf_token:'synthetic'};
+ const context=await withMemberScope(pool,{actor,scope:'personal'},async()=>{},async(_q,c)=>c);
+ await pool.query(`INSERT INTO private_work_persistence_policy(scope_id,purpose,owner_principal_id,revision,persistence_allowed,retained_byte_limit)
+  VALUES($1,'work.private-draft',$2,1,true,10485760)`,[context.scope.scope_id,context.subject_principal.principal_id]);
+ class Store extends FakeObjectStore {gets=0;puts=0;
+  override async get(key:AssetObjectKey){this.gets++;return super.get(key);}
+  override async putImmutable(key:AssetObjectKey,representation:PreparedRepresentation){this.puts++;return super.putImmutable(key,representation);}
+ }
+ const store=new Store(),results=createPrivateResultService(pool,{store,resolvePolicy:resolvePrivateWorkPersistencePolicy});
+ const work=await createPrivateWorkCommands(pool,{resolvePolicy:resolvePrivateWorkPersistencePolicy}).create(actor,{key:randomUUID(),title:'Another owner private work',objective:'Synthetic private objective'});
+ const text='ANOTHER_OWNER_PRIVATE_ASSET_CONTENT',bytes=new TextEncoder().encode(text);
+ const prepared=await results.prepare(actor,{key:randomUUID(),targetWorkId:work.workId,expectedVersion:'1',contentType:'text/plain',byteSize:bytes.length,sha256:await sha256(bytes)});
+ const lease=await results.claim(actor,{key:randomUUID(),intentId:prepared.intentId}),binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+ await results.write(actor,{...binding,key:randomUUID()},new ReadableStream({start(c){c.enqueue(bytes);c.close();}}));
+ const result=await results.finalize(actor,{...binding,key:randomUUID()});let providerCalls=0;
+ const product=await createPrivateAiProductTransport(pool,{origin,environment:'local',clientId:'shop-service-acl-fixture',store,
+  host:{async verify(){providerCalls++;throw Error('Unexpected model verification');},async dispatch(){providerCalls++;throw Error('Unexpected provider call');}}});
+ const installed=createApp(pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',privateAiProduct:product});
+ const route=`/api/v1/me/private-work/${work.workId}/results/${result.resultId}`;
+ const ownerRead=await request(route,{app:installed,session:victim.session});assert.equal(ownerRead.status,200,ownerRead.text);assert.equal(ownerRead.data.text,text);assert.equal(ownerRead.data.resultId,result.resultId);
+ assert.equal((await pool.query('SELECT asset_id FROM private_work_result_catalog WHERE result_id=$1',[result.resultId])).rows[0].asset_id,result.assetId);
+ const snapshot=async()=>{
+  const values:Record<string,unknown>={};
+  for(const table of ['work_items','assets','asset_objects','asset_upload_intents','private_work_results','private_work_result_targets','scoped_command_receipts','scoped_transition_journal','principals','resource_scopes','sessions'])
+   values[table]=(await pool.query(`SELECT to_jsonb(t) value FROM ${table} t ORDER BY to_jsonb(t)::text`)).rows;
+  return values;
+ };
+ const before=await snapshot(),gets=store.gets,puts=store.puts;
+ for(const path of [route,`/api/v1/me/private-work/${work.workId}/results/current`,route+'/edit']){
+  const isEdit=path.endsWith('/edit'),denied=await request(path,{app:installed,token:siteKey,
+   ...(isEdit?{body:{text:'unauthorized replacement'}}:{}),headers:{Origin:origin,'If-Match':'"2"','X-Freedom-Principal':context.subject_principal.principal_id}});
+  assert.equal(denied.status,403,denied.text);assert.equal(denied.data.code,'credential_kind_rejected');assert(!denied.text.includes(text));
+ }
+ const loginForgery=await request(route,{app:installed,session:siteKey});assert.equal(loginForgery.status,401,loginForgery.text);
+ assert.equal(store.gets,gets);assert.equal(store.puts,puts);assert.equal(providerCalls,0);assert.deepEqual(await snapshot(),before);
+ // Both requested read and mutation routes really exist: the actual owner can
+ // read those same stored bytes and create the next immutable human revision.
+ const unchanged=await results.readResult(actor,{workId:work.workId,resultId:result.resultId});assert.equal(unchanged?.text,text);
+ const validEdit=await request(route+'/edit',{app:installed,session:victim.session,body:{text:'Explicit owner edit'},headers:{'If-Match':'"2"'}});
+ assert.equal(validEdit.status,200,validEdit.text);assert.equal(validEdit.data.revision,'2');assert.notEqual(validEdit.data.assetId,result.assetId);
+ assert.equal((await results.readResult(actor,{workId:work.workId,resultId:result.resultId}))?.text,text);assert.equal(providerCalls,0);
 });
