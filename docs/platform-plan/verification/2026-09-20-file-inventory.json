@@ -11888,6 +11888,11 @@
       "sha256": "e68ead5b7e387265d2e1e7168c56e25f17cecad00e176fb90a723d901ba8630d"
     },
     {
+      "path": "deploy/cloudflare/test/trust-pin-preflight-probe.test.mjs",
+      "bytes": 434,
+      "sha256": "40ce67bf4b9ec18cbeab6396428a32aa97133e047e728c66b1b6593945dc5425"
+    },
+    {
       "path": "deploy/operator-backup/freedom-next-backup.service.d/coordinator.conf",
       "bytes": 381,
       "sha256": "375ac7d3a8bbf3aac2a09b5dc81a2b761979b3e0f8959c44c7b3acfaa4636e81"
