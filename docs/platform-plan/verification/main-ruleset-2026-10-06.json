@@ -1,0 +1,1476 @@
+{
+  "schema": "freedom.central-workflow-pin-upgrade/v1",
+  "recorded_at": "2026-10-06T17:54:39.771288+00:00",
+  "organization": "FreeTWAI-AI",
+  "repository": "FreeTWAI-AI/freedom-platform",
+  "repository_id": 1378081342,
+  "ruleset_id": 24469536,
+  "workflow": {
+    "path": ".github/workflows/verify.yml",
+    "previous_sha": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+    "sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+    "publication_ref": "refs/heads/main"
+  },
+  "change": {
+    "put_intent_at": "2026-10-06T16:57:40.184Z",
+    "readback_at": "2026-10-06T16:57:41.245Z",
+    "changed_paths": [
+      "/rules/3/parameters/workflows/0/sha"
+    ],
+    "configuration_verified": true,
+    "before_matched_2026_10_05_record": true
+  },
+  "configuration": {
+    "name": "Freedom platform pinned verification",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081342
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "verify",
+              "integration_id": 15368
+            },
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            }
+          ]
+        }
+      },
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/verify.yml",
+              "sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+              "ref": "refs/heads/main"
+            }
+          ]
+        }
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 1,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": true,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge",
+            "squash",
+            "rebase"
+          ]
+        }
+      }
+    ]
+  },
+  "temporary_rulesets": [
+    {
+      "id": 24592769,
+      "refs": [
+        "refs/heads/ops/trust-pin-d1c9-base-20261006",
+        "refs/heads/ops/trust-pin-d1c9-empty-base-20261006"
+      ],
+      "difference_from_main": "required_status_checks verify@15368 only (no CodeQL); 0 approvals; created at c3e then changed only the workflow sha"
+    },
+    {
+      "id": 24593147,
+      "refs": [
+        "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006"
+      ],
+      "difference_from_main": "same as 24592769; used for the close/reopen and selected-preflight probes"
+    }
+  ],
+  "temporary_probes": [
+    {
+      "id": "S",
+      "kind": "positive_then_pin_supersession",
+      "pull_request": {
+        "number": 168,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/168",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "old-pin run on head",
+          "native_run": {
+            "id": 37493405573,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493405573",
+            "event": "pull_request",
+            "head": "b4252e9155c67e9cb4c365ae6f437af0c823f862",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "select": "success",
+              "source-integrity": "success",
+              "static-worker": "skipped",
+              "deploy-preflight": "skipped",
+              "runtime-full": "skipped",
+              "governance-consumers": "skipped",
+              "ui-e2e": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "probe ruleset 24592769 changed only /rules/3/parameters/workflows/0/sha to d1c9",
+          "at": "2026-10-06T16:11:12.001Z"
+        },
+        {
+          "step": "merge the old-pin green head",
+          "merge": {
+            "requested_head": "b4252e9155c67e9cb4c365ae6f437af0c823f862",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+            ],
+            "base": "ops/trust-pin-d1c9-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+          },
+          "rule_suite": {
+            "id": 4389941231,
+            "ref": "refs/heads/ops/trust-pin-d1c9-base-20261006",
+            "after_sha": "feb20b8ba4a0af9c5e234d1de472d7bb66c391e5",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "workflows",
+                "ruleset": 24592769,
+                "details": "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+              }
+            ]
+          }
+        },
+        {
+          "step": "new head pushed; new-pin run",
+          "native_run": {
+            "id": 37493743415,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493743415",
+            "event": "pull_request",
+            "head": "4e0a44ab5665fcff4887a139046fdf14352f42e8",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "select": "success",
+              "source-integrity": "success",
+              "static-worker": "skipped",
+              "runtime-full": "skipped",
+              "deploy-preflight": "skipped",
+              "governance-consumers": "skipped",
+              "ui-e2e": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge new-pin green head",
+          "merge": {
+            "requested_head": "4e0a44ab5665fcff4887a139046fdf14352f42e8",
+            "http_status": 200,
+            "merged": true,
+            "message": [
+              "Pull Request successfully merged"
+            ],
+            "base": "ops/trust-pin-d1c9-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+          },
+          "rule_suite": {
+            "id": 4389982354,
+            "ref": "refs/heads/ops/trust-pin-d1c9-base-20261006",
+            "after_sha": "42aaac0d8597932783c7a1b219ffd51c6c390ca7",
+            "result": "pass",
+            "failed_rules": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "R",
+      "kind": "close_reopen_revalidation_without_commit",
+      "pull_request": {
+        "number": 174,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/174",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "old-pin run on head (ruleset 24593147 at c3e)",
+          "native_run": {
+            "id": 37494669727,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494669727",
+            "event": "pull_request",
+            "head": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "ui-e2e": "skipped",
+              "runtime-full": "skipped",
+              "deploy-preflight": "skipped",
+              "static-worker": "skipped",
+              "governance-consumers": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "ruleset 24593147 changed only /rules/3/parameters/workflows/0/sha to d1c9",
+          "at": "2026-10-06T16:20:30.123Z"
+        },
+        {
+          "step": "merge the old-pin green head",
+          "merge": {
+            "requested_head": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+            ],
+            "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+          },
+          "rule_suite": {
+            "id": 4390093276,
+            "ref": "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006",
+            "after_sha": "8c9e29a07a4f34ac90f673d3562cab27fe48648b",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "workflows",
+                "ruleset": 24593147,
+                "details": "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+              }
+            ]
+          }
+        },
+        {
+          "step": "close and reopen, same head, no push",
+          "event": {
+            "at": "2026-10-06T16:20:51.691Z",
+            "number": 174,
+            "head": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+            "closedAt": "2026-10-06T16:20:43Z",
+            "reopenedState": "open",
+            "headAfter": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247"
+          }
+        },
+        {
+          "step": "reopened run",
+          "native_run": {
+            "id": 37494978728,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494978728",
+            "event": "pull_request",
+            "head": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "ui-e2e": "skipped",
+              "governance-consumers": "skipped",
+              "deploy-preflight": "skipped",
+              "static-worker": "skipped",
+              "runtime-full": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge after reopened new-pin run",
+          "merge": {
+            "requested_head": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+            "http_status": 200,
+            "merged": true,
+            "message": [
+              "Pull Request successfully merged"
+            ],
+            "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "edf7e79d35685068f2e8f596ab7729080fb26a71"
+          },
+          "rule_suite": {
+            "id": 4390128413,
+            "ref": "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006",
+            "after_sha": "edf7e79d35685068f2e8f596ab7729080fb26a71",
+            "result": "pass",
+            "failed_rules": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "N2",
+      "kind": "same_head_base_advanced_strict",
+      "pull_request": {
+        "number": 173,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/173",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "base_at_open": "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+      },
+      "steps": [
+        {
+          "step": "head created from d1c9 after the base advanced to 42aaac0d; run",
+          "native_run": {
+            "id": 37494157186,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494157186",
+            "event": "pull_request",
+            "head": "e150b9439950b2dcfb3f14466602e75356fc96aa",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "deleted_path"
+            },
+            "aggregate_reason": "full_selection",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "runtime-full": "success",
+              "static-worker": "success",
+              "deploy-preflight": "success",
+              "governance-consumers": "success",
+              "ui-e2e": "success",
+              "runtime-aggregate": "success",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge the stale green head",
+          "merge": {
+            "requested_head": "e150b9439950b2dcfb3f14466602e75356fc96aa",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required status check \"verify\" is expected."
+            ],
+            "base": "ops/trust-pin-d1c9-base-20261006",
+            "base_before": "42aaac0d8597932783c7a1b219ffd51c6c390ca7",
+            "base_after": "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+          },
+          "rule_suite": {
+            "id": 4390372841,
+            "ref": "refs/heads/ops/trust-pin-d1c9-base-20261006",
+            "after_sha": "a44937ccef9b9f931fd1ee1f82b57605c4544446",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "required_status_checks",
+                "ruleset": 24592769,
+                "details": "Required status check \"verify\" is expected."
+              }
+            ]
+          }
+        },
+        {
+          "step": "update-branch creates a new integration candidate",
+          "update_branch": {
+            "at": "2026-10-06T16:38:52.939Z",
+            "before": "e150b9439950b2dcfb3f14466602e75356fc96aa",
+            "response": {
+              "exitCode": 0,
+              "data": {
+                "message": "Updating pull request branch.",
+                "url": "https://api.github.com/repos/FreeTWAI-AI/freedom-platform/pulls/173"
+              },
+              "stderr": ""
+            },
+            "newHead": "da9211942071241e454938005684644ea4cc8cf6",
+            "parents": [
+              "e150b9439950b2dcfb3f14466602e75356fc96aa",
+              "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+            ],
+            "baseRef": "ops/trust-pin-d1c9-base-20261006",
+            "baseSha": "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+          }
+        },
+        {
+          "step": "new candidate run",
+          "native_run": {
+            "id": 37497346997,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37497346997",
+            "event": "pull_request",
+            "head": "da9211942071241e454938005684644ea4cc8cf6",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "runtime-full": "skipped",
+              "governance-consumers": "skipped",
+              "static-worker": "skipped",
+              "ui-e2e": "skipped",
+              "deploy-preflight": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge new candidate",
+          "merge": {
+            "requested_head": "da9211942071241e454938005684644ea4cc8cf6",
+            "http_status": 200,
+            "merged": true,
+            "message": [
+              "Pull Request successfully merged"
+            ],
+            "base": "ops/trust-pin-d1c9-base-20261006",
+            "base_before": "42aaac0d8597932783c7a1b219ffd51c6c390ca7",
+            "base_after": "89476409f6a0bf42887a5ba2cadba67d4c593684"
+          },
+          "rule_suite": {
+            "id": 4390428231,
+            "ref": "refs/heads/ops/trust-pin-d1c9-base-20261006",
+            "after_sha": "89476409f6a0bf42887a5ba2cadba67d4c593684",
+            "result": "pass",
+            "failed_rules": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1",
+      "kind": "conflicting_stale_head_not_counted",
+      "pull_request": {
+        "number": 169,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/169",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "run",
+          "native_run": {
+            "id": 37493753612,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493753612",
+            "event": "pull_request",
+            "head": "05e18e8b3c09b37882694a3488e039de35394adf",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "ui-e2e": "skipped",
+              "deploy-preflight": "skipped",
+              "runtime-full": "skipped",
+              "governance-consumers": "skipped",
+              "static-worker": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge",
+          "merge": {
+            "requested_head": "05e18e8b3c09b37882694a3488e039de35394adf",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Pull Request has merge conflicts"
+            ],
+            "base": "ops/trust-pin-d1c9-base-20261006",
+            "base_before": "42aaac0d8597932783c7a1b219ffd51c6c390ca7",
+            "base_after": "42aaac0d8597932783c7a1b219ffd51c6c390ca7"
+          }
+        }
+      ],
+      "note": "Rejected by a merge conflict, which masks strict freshness; N2 is the strict-freshness probe."
+    },
+    {
+      "id": "H",
+      "kind": "contract_and_workflow_tamper_with_forged_greens",
+      "pull_request": {
+        "number": 170,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/170",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "first head H1 (synthetic doc) run",
+          "native_run": {
+            "id": 37493758554,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493758554",
+            "event": "pull_request",
+            "head": "de4b42f3f1605d6de24a8254242697b09d2a6484",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "governance-consumers": "skipped",
+              "static-worker": "skipped",
+              "deploy-preflight": "skipped",
+              "runtime-full": "skipped",
+              "ui-e2e": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "H2 pushed: generated metadata/bundle/inventory tamper plus a candidate workflow whose job is named verify",
+          "native_run": {
+            "id": 37494063326,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494063326",
+            "event": "pull_request",
+            "head": "be63d8cd6fae6f01e2b9ee54a87e8510ab099f82",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "failure",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "governance_security_or_shared_runtime"
+            },
+            "aggregate_reason": "source_integrity_not_success",
+            "jobs": {
+              "source-integrity": "failure",
+              "select": "success",
+              "deploy-preflight": "success",
+              "ui-e2e": "success",
+              "runtime-full": "failure",
+              "static-worker": "failure",
+              "governance-consumers": "failure",
+              "runtime-aggregate": "failure",
+              "verify": "failure"
+            }
+          }
+        },
+        {
+          "step": "operator posts forged success statuses verify/CodeQL; candidate workflow published a same-app verify check",
+          "forged": {
+            "at": "2026-10-06T16:37:25.436Z",
+            "sha": "be63d8cd6fae6f01e2b9ee54a87e8510ab099f82",
+            "statuses": [
+              {
+                "id": 55717004703,
+                "context": "verify",
+                "state": "success",
+                "creator": "teddashh"
+              },
+              {
+                "id": 55717006097,
+                "context": "CodeQL",
+                "state": "success",
+                "creator": "teddashh"
+              }
+            ],
+            "verifyCheckRuns": [
+              {
+                "id": 112383937503,
+                "app": 15368,
+                "conclusion": "failure",
+                "suite": 101562640913,
+                "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494063326/job/112383937503"
+              },
+              {
+                "id": 112373940739,
+                "app": 15368,
+                "conclusion": "success",
+                "suite": 101562641811,
+                "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37494063662/job/112373940739"
+              }
+            ]
+          }
+        },
+        {
+          "step": "merge H2",
+          "merge": {
+            "requested_head": "be63d8cd6fae6f01e2b9ee54a87e8510ab099f82",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required status check \"verify\" is failing.",
+              "Required workflows 'Verify local milestone' failed"
+            ],
+            "base": "ops/trust-pin-d1c9-empty-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+          },
+          "rule_suite": {
+            "id": 4390392254,
+            "ref": "refs/heads/ops/trust-pin-d1c9-empty-base-20261006",
+            "after_sha": "25ef9bf7402719f2d25c3706e5037ae8b990941b",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "required_status_checks",
+                "ruleset": 24592769,
+                "details": "Required status check \"verify\" is failing."
+              },
+              {
+                "rule": "workflows",
+                "ruleset": 24592769,
+                "details": "Required workflows 'Verify local milestone' failed"
+              }
+            ]
+          }
+        },
+        {
+          "step": "merge request naming the superseded H1 head",
+          "merge": {
+            "requested_head": "de4b42f3f1605d6de24a8254242697b09d2a6484",
+            "http_status": 409,
+            "merged": false,
+            "message": [
+              "Head branch was modified. Review and try the merge again."
+            ],
+            "base": "ops/trust-pin-d1c9-empty-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "kind": "fork_selector_workflow_contract_tamper",
+      "pull_request": {
+        "number": 172,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/172",
+        "head_repository": "teddashh/freedom-platform",
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "fork run (selector returns docs, verify.yml replaced by echo, contract tamper)",
+          "native_run": {
+            "id": 37493896280,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493896280",
+            "event": "pull_request",
+            "head": "0322432e07ec2d8a819096ba603c6a2602e08669",
+            "head_repository": "teddashh/freedom-platform",
+            "conclusion": "failure",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "governance_security_or_shared_runtime"
+            },
+            "aggregate_reason": "source_integrity_not_success",
+            "jobs": {
+              "source-integrity": "failure",
+              "select": "success",
+              "ui-e2e": "success",
+              "static-worker": "failure",
+              "deploy-preflight": "success",
+              "governance-consumers": "failure",
+              "runtime-full": "failure",
+              "runtime-aggregate": "failure",
+              "verify": "failure"
+            }
+          },
+          "token_permissions": [
+            "Contents: read",
+            "Metadata: read"
+          ],
+          "secret_source": "None"
+        },
+        {
+          "step": "merge",
+          "merge": {
+            "requested_head": "0322432e07ec2d8a819096ba603c6a2602e08669",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required status check \"verify\" is failing.",
+              "Required workflows 'Verify local milestone' failed"
+            ],
+            "base": "ops/trust-pin-d1c9-empty-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+          },
+          "rule_suite": {
+            "id": 4390394090,
+            "ref": "refs/heads/ops/trust-pin-d1c9-empty-base-20261006",
+            "after_sha": "1bf2de0b610138b0fae1b51212399d7a77f64984",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "required_status_checks",
+                "ruleset": 24592769,
+                "details": "Required status check \"verify\" is failing."
+              },
+              {
+                "rule": "workflows",
+                "ruleset": 24592769,
+                "details": "Required workflows 'Verify local milestone' failed"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "kind": "hostile_fork_credential_probe",
+      "pull_request": {
+        "number": 177,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/177",
+        "head_repository": "teddashh/freedom-platform",
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "base_at_open": "89476409f6a0bf42887a5ba2cadba67d4c593684"
+      },
+      "steps": [
+        {
+          "step": "fork run (candidate test:governance runs the probe before the normal governance tests)",
+          "native_run": {
+            "id": 37497658343,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37497658343",
+            "event": "pull_request",
+            "head": "4c1fffbe765a52f3a56e980927e7d64f53f605c3",
+            "head_repository": "teddashh/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "deleted_path"
+            },
+            "aggregate_reason": "full_selection",
+            "jobs": {
+              "select": "success",
+              "source-integrity": "success",
+              "static-worker": "success",
+              "deploy-preflight": "success",
+              "ui-e2e": "success",
+              "runtime-full": "success",
+              "governance-consumers": "success",
+              "runtime-aggregate": "success",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "probe lines (presence booleans and outcome categories only)",
+          "observations": {
+            "at": "2026-10-06T17:04:22.215Z",
+            "run": 37497658343,
+            "probes": [
+              {
+                "job": "select",
+                "id": 112386242501,
+                "conclusion": "success",
+                "token_permissions": [
+                  "Contents: read",
+                  "Metadata: read"
+                ],
+                "secret_source": "None",
+                "probe_lines": []
+              },
+              {
+                "job": "source-integrity",
+                "id": 112386242882,
+                "conclusion": "success",
+                "token_permissions": [
+                  "Contents: read",
+                  "Metadata: read"
+                ],
+                "secret_source": "None",
+                "probe_lines": [
+                  {
+                    "job": "source-integrity",
+                    "event": "pull_request",
+                    "head_repository": "fork_or_branch_head",
+                    "present": {
+                      "CLOUDFLARE_API_TOKEN": false,
+                      "CLOUDFLARE_ACCOUNT_ID": false,
+                      "CF_API_TOKEN": false,
+                      "R2_ACCESS_KEY_ID": false,
+                      "R2_SECRET_ACCESS_KEY": false,
+                      "AWS_ACCESS_KEY_ID": false,
+                      "AWS_SECRET_ACCESS_KEY": false,
+                      "OPENROUTER_API_KEY": false,
+                      "FREEDOM_SIGNING_KEY": false,
+                      "GITHUB_TOKEN": false,
+                      "GH_TOKEN": false,
+                      "ACTIONS_ID_TOKEN_REQUEST_URL": false,
+                      "ACTIONS_ID_TOKEN_REQUEST_TOKEN": false,
+                      "ACTIONS_RUNTIME_TOKEN": false
+                    },
+                    "secret_like_names": [],
+                    "persisted_checkout_credential": true,
+                    "push": "denied",
+                    "push_reason": "permission_denied"
+                  }
+                ]
+              },
+              {
+                "job": "governance-consumers",
+                "id": 112386412658,
+                "conclusion": "success",
+                "token_permissions": [
+                  "Contents: read",
+                  "Metadata: read"
+                ],
+                "secret_source": "None",
+                "probe_lines": [
+                  {
+                    "job": "governance-consumers",
+                    "event": "pull_request",
+                    "head_repository": "fork_or_branch_head",
+                    "present": {
+                      "CLOUDFLARE_API_TOKEN": false,
+                      "CLOUDFLARE_ACCOUNT_ID": false,
+                      "CF_API_TOKEN": false,
+                      "R2_ACCESS_KEY_ID": false,
+                      "R2_SECRET_ACCESS_KEY": false,
+                      "AWS_ACCESS_KEY_ID": false,
+                      "AWS_SECRET_ACCESS_KEY": false,
+                      "OPENROUTER_API_KEY": false,
+                      "FREEDOM_SIGNING_KEY": false,
+                      "GITHUB_TOKEN": false,
+                      "GH_TOKEN": false,
+                      "ACTIONS_ID_TOKEN_REQUEST_URL": false,
+                      "ACTIONS_ID_TOKEN_REQUEST_TOKEN": false,
+                      "ACTIONS_RUNTIME_TOKEN": false
+                    },
+                    "secret_like_names": [],
+                    "persisted_checkout_credential": true,
+                    "push": "denied",
+                    "push_reason": "permission_denied"
+                  }
+                ]
+              }
+            ],
+            "push_target_ref_absent": true
+          }
+        }
+      ],
+      "findings": [
+        "All extracted jobs report GITHUB_TOKEN permissions Contents: read and Metadata: read, and Secret source: None.",
+        "No Cloudflare, R2, AWS, OpenRouter, signing, GITHUB_TOKEN/GH_TOKEN or OIDC request variable was present in the candidate process environment; no secret-like variable names were present.",
+        "actions/checkout persisted the read-only job token in the candidate checkout (persist-credentials default); a git push with it to a new platform branch was denied (permission_denied) and the target ref stayed absent."
+      ],
+      "note": "Selected full because the fork head was based on d1c9 while the disposable base had advanced (deleted_path). Closed without merge."
+    },
+    {
+      "id": "P",
+      "kind": "selected_deploy_preflight_failure",
+      "pull_request": {
+        "number": 176,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/176",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+        "base_at_open": "edf7e79d35685068f2e8f596ab7729080fb26a71"
+      },
+      "steps": [
+        {
+          "step": "run",
+          "native_run": {
+            "id": 37496919612,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37496919612",
+            "event": "pull_request",
+            "head": "6f75fc5a9e54fce0717d9395be679e58226dbd02",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "failure",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "governance_security_or_shared_runtime"
+            },
+            "aggregate_reason": "selected_job_not_success",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "deploy-preflight": "failure",
+              "governance-consumers": "success",
+              "runtime-full": "success",
+              "static-worker": "success",
+              "ui-e2e": "success",
+              "runtime-aggregate": "success",
+              "verify": "failure"
+            }
+          }
+        },
+        {
+          "step": "merge",
+          "merge": {
+            "requested_head": "6f75fc5a9e54fce0717d9395be679e58226dbd02",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required status check \"verify\" is failing.",
+              "Required workflows 'Verify local milestone' failed"
+            ],
+            "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+            "base_before": "edf7e79d35685068f2e8f596ab7729080fb26a71",
+            "base_after": "edf7e79d35685068f2e8f596ab7729080fb26a71"
+          },
+          "rule_suite": {
+            "id": 4390704528,
+            "ref": "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006",
+            "after_sha": "51a8305537d54bf484f5830006b898767a7d547b",
+            "result": "fail",
+            "failed_rules": [
+              {
+                "rule": "required_status_checks",
+                "ruleset": 24593147,
+                "details": "Required status check \"verify\" is failing."
+              },
+              {
+                "rule": "workflows",
+                "ruleset": 24593147,
+                "details": "Required workflows 'Verify local milestone' failed"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "kind": "empty_test_set_boundary",
+      "pull_request": {
+        "number": 171,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/171",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "steps": [
+        {
+          "step": "candidate changes package.json test:governance to a glob matching no file",
+          "native_run": {
+            "id": 37493817795,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37493817795",
+            "event": "pull_request",
+            "head": "db0b18a6ec81407cb6d199738f704c1f7a08e2c7",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "full",
+              "reason": "not_docs_allowlist"
+            },
+            "aggregate_reason": "full_selection",
+            "jobs": {
+              "select": "success",
+              "source-integrity": "success",
+              "ui-e2e": "success",
+              "deploy-preflight": "success",
+              "governance-consumers": "success",
+              "static-worker": "success",
+              "runtime-full": "success",
+              "runtime-aggregate": "success",
+              "verify": "success"
+            }
+          },
+          "observed": "source-integrity and governance-consumers ran npm run test:governance with tests 0 / pass 0 / fail 0; verify success"
+        },
+        {
+          "step": "merge to the disposable base",
+          "merge": {
+            "requested_head": "db0b18a6ec81407cb6d199738f704c1f7a08e2c7",
+            "http_status": 200,
+            "merged": true,
+            "message": [
+              "Pull Request successfully merged"
+            ],
+            "base": "ops/trust-pin-d1c9-empty-base-20261006",
+            "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "base_after": "602a09df33e4bc48dc17d99d842e0fc9631c193d"
+          },
+          "rule_suite": {
+            "id": 4390406135,
+            "ref": "refs/heads/ops/trust-pin-d1c9-empty-base-20261006",
+            "after_sha": "602a09df33e4bc48dc17d99d842e0fc9631c193d",
+            "result": "pass",
+            "failed_rules": []
+          }
+        }
+      ],
+      "boundary": "Candidate-controlled npm scripts can make a selected suite run zero tests while the pinned aggregate still succeeds. The pin fixes selector/aggregate bytes, not the commands they wrap."
+    }
+  ],
+  "main_probes": [
+    {
+      "id": "MP",
+      "kind": "main_target_positive_not_merged",
+      "pull_request": {
+        "number": 178,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/178",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "native_run": {
+        "id": 37499846392,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499846392",
+        "event": "pull_request",
+        "head": "63ca5214e86e69f2c5db67135c8c876563f2eeab",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "success",
+        "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+        "selection": {
+          "mode": "docs",
+          "reason": "docs_allowlist"
+        },
+        "aggregate_reason": "docs_selected_subset",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "success",
+          "verify": "success",
+          "static-worker": "skipped",
+          "ui-e2e": "skipped",
+          "deploy-preflight": "skipped",
+          "runtime-full": "skipped",
+          "governance-consumers": "skipped",
+          "runtime-aggregate": "skipped"
+        }
+      },
+      "observation": {
+        "at": "2026-10-06T17:01:25.469Z",
+        "number": 178,
+        "head": "63ca5214e86e69f2c5db67135c8c876563f2eeab",
+        "head_ref": "ops/trust-pin-d1c9-main-probe-positive-20261006",
+        "mergeable_state": "blocked",
+        "approvals": 0,
+        "required_check_runs": [
+          {
+            "name": "verify",
+            "app_id": 15368,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "CodeQL",
+            "app_id": 57789,
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "commit_statuses": [],
+        "merge_attempted": false
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-positive-20261006.md",
+          "status": "added",
+          "additions": 5,
+          "deletions": 0
+        },
+        {
+          "path": "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "status": "modified",
+          "additions": 5,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-06T17:01:32.440Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-d1c9-main-probe-positive-20261006",
+        "ref_delete_exit": 0,
+        "ref_absent": true
+      }
+    },
+    {
+      "id": "MN",
+      "kind": "main_target_negative",
+      "pull_request": {
+        "number": 179,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/179",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "native_run": {
+        "id": 37499843838,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499843838",
+        "event": "pull_request",
+        "head": "06817f7d7548beb2d6c277d634b9b0a6185daf11",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+        "selection": {
+          "mode": "docs",
+          "reason": "docs_allowlist"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "source-integrity": "failure",
+          "select": "success",
+          "deploy-preflight": "skipped",
+          "ui-e2e": "skipped",
+          "runtime-full": "skipped",
+          "static-worker": "skipped",
+          "governance-consumers": "skipped",
+          "runtime-aggregate": "skipped",
+          "verify": "failure"
+        }
+      },
+      "merge": {
+        "requested_head": "06817f7d7548beb2d6c277d634b9b0a6185daf11",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed",
+          "New changes require approval from someone other than the last pusher."
+        ],
+        "base": "main",
+        "base_before": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+        "base_after": "d1c9e18fffabebbdceaba233a34f3605220e2dd7"
+      },
+      "rule_suite": {
+        "id": 4390763223,
+        "ref": "refs/heads/main",
+        "after_sha": "640e206add01fe782cef9431005d0ac11cd3180a",
+        "result": "fail",
+        "failed_rules": [
+          {
+            "rule": "required_status_checks",
+            "ruleset": 24469536,
+            "details": "Required status check \"verify\" is failing."
+          },
+          {
+            "rule": "workflows",
+            "ruleset": 24469536,
+            "details": "Required workflows 'Verify local milestone' failed"
+          },
+          {
+            "rule": "pull_request",
+            "ruleset": 24469536,
+            "details": "New changes require approval from someone other than the last pusher."
+          }
+        ]
+      },
+      "observation": {
+        "at": "2026-10-06T17:01:27.601Z",
+        "number": 179,
+        "head": "06817f7d7548beb2d6c277d634b9b0a6185daf11",
+        "head_ref": "ops/trust-pin-d1c9-main-probe-negative-20261006",
+        "mergeable_state": "blocked",
+        "approvals": 0,
+        "required_check_runs": [
+          {
+            "name": "CodeQL",
+            "app_id": 57789,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "verify",
+            "app_id": 15368,
+            "status": "completed",
+            "conclusion": "failure"
+          }
+        ],
+        "commit_statuses": [],
+        "merge_attempted": true
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-negative-20261006.md",
+          "status": "added",
+          "additions": 5,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-06T17:01:32.440Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-d1c9-main-probe-negative-20261006",
+        "ref_delete_exit": 0,
+        "ref_absent": true
+      }
+    }
+  ],
+  "cleanup": {
+    "at": "2026-10-06T17:06:25.415Z",
+    "pull_requests": [
+      {
+        "number": 168,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-s-20261006"
+      },
+      {
+        "number": 171,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-e-20261006"
+      },
+      {
+        "number": 173,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-n2-20261006"
+      },
+      {
+        "number": 174,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-r-20261006"
+      },
+      {
+        "number": 169,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-n-20261006"
+      },
+      {
+        "number": 170,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-h-20261006"
+      },
+      {
+        "number": 172,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-d1c9-empty-base-20261006",
+        "head": "teddashh/freedom-platform:trust-pin-d1c9-probe-f-20261006"
+      },
+      {
+        "number": 176,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-d1c9-reopen-base-20261006",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-d1c9-probe-p-20261006"
+      },
+      {
+        "number": 177,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-d1c9-base-20261006",
+        "head": "teddashh/freedom-platform:trust-pin-d1c9-probe-f2-20261006"
+      }
+    ],
+    "temporary_rulesets": [
+      {
+        "id": 24592769,
+        "name": "Trust pin upgrade probe d1c9 20261006 (temporary)",
+        "refs": [
+          "refs/heads/ops/trust-pin-d1c9-base-20261006",
+          "refs/heads/ops/trust-pin-d1c9-empty-base-20261006"
+        ],
+        "delete_exit": 0,
+        "readback_absent": true
+      },
+      {
+        "id": 24593147,
+        "name": "Trust pin upgrade probe d1c9 reopen 20261006 (temporary)",
+        "refs": [
+          "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006"
+        ],
+        "delete_exit": 0,
+        "readback_absent": true
+      }
+    ],
+    "refs": [
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-base-20261006",
+        "sha": "89476409f6a0bf42887a5ba2cadba67d4c593684",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-empty-base-20261006",
+        "sha": "602a09df33e4bc48dc17d99d842e0fc9631c193d",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-e-20261006",
+        "sha": "db0b18a6ec81407cb6d199738f704c1f7a08e2c7",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-h-20261006",
+        "sha": "be63d8cd6fae6f01e2b9ee54a87e8510ab099f82",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-n-20261006",
+        "sha": "05e18e8b3c09b37882694a3488e039de35394adf",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-n2-20261006",
+        "sha": "da9211942071241e454938005684644ea4cc8cf6",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-p-20261006",
+        "sha": "6f75fc5a9e54fce0717d9395be679e58226dbd02",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-r-20261006",
+        "sha": "cb1bb7e6b5b5fa83cb854c1a688fa570fb156247",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-probe-s-20261006",
+        "sha": "4e0a44ab5665fcff4887a139046fdf14352f42e8",
+        "delete_exit": 0
+      },
+      {
+        "repository": "FreeTWAI-AI/freedom-platform",
+        "ref": "refs/heads/ops/trust-pin-d1c9-reopen-base-20261006",
+        "sha": "edf7e79d35685068f2e8f596ab7729080fb26a71",
+        "delete_exit": 0
+      },
+      {
+        "repository": "teddashh/freedom-platform",
+        "ref": "refs/heads/trust-pin-d1c9-probe-f-20261006",
+        "sha": "0322432e07ec2d8a819096ba603c6a2602e08669",
+        "delete_exit": 0
+      },
+      {
+        "repository": "teddashh/freedom-platform",
+        "ref": "refs/heads/trust-pin-d1c9-probe-f2-20261006",
+        "sha": "4c1fffbe765a52f3a56e980927e7d64f53f605c3",
+        "delete_exit": 0
+      }
+    ],
+    "remaining_platform_probe_refs": [],
+    "remaining_fork_probe_refs": [],
+    "accidental_push_ref_absent": true,
+    "main_ruleset": {
+      "id": 24469536,
+      "workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "policy_drift_since_switch": []
+    },
+    "main_after_cleanup": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+    "fork_repository": {
+      "name": "teddashh/freedom-platform",
+      "retained": true,
+      "reason": "operator token has no delete_repo scope; owner deletes manually"
+    }
+  },
+  "incidents": [
+    {
+      "at": "2026-10-06T16:40:44.189Z",
+      "what": "A local dry run of the F2 probe script used the operator git credential and created platform branch ops/trust-pin-d1c9-fork-push-probe-20261006 pointing at the reviewed d1c9 main commit.",
+      "delete_exit": 0,
+      "readback_message": "Not Found",
+      "handling": "Deleted through the API immediately (readback Not Found); no workflow run or rule suite was created for it; it is not counted as evidence. Push-attempting probe code now runs only in the hosted fork job."
+    }
+  ],
+  "boundaries": {
+    "empty_test_set": "observed gap (probe E); not fixed by this pin",
+    "candidate_checkout_suites": "still candidate-controlled; not an independent behavioural harness",
+    "probe_review_and_codeql": "probe rulesets used 0 approvals and no CodeQL; main keeps 1 approval, last-push approval and CodeQL@57789",
+    "merge_queue": "not used on central main; strict freshness plus update-branch only",
+    "selected_skipped_cancelled": "probe P exercised a failed selected deploy-preflight job only; selected skipped and cancelled hosted jobs were not exercised on d1c9",
+    "fork_credential_probe_scope": "F2 checked process-environment presence and a push with the persisted job token; it did not probe runner metadata, other workflows or every job; the read-only job token stays readable by candidate code while persist-credentials is the default",
+    "durable_publisher": "not_installed",
+    "full_P2_complete": false
+  }
+}

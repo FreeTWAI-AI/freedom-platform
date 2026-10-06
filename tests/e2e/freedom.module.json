@@ -1,0 +1,47 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "e2e-harness",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "docs/development/e2e-harness.md",
+    "playwright.config.ts",
+    "scripts/e2e-server.ts",
+    "scripts/run-e2e.mjs",
+    "scripts/run-e2e.test.mjs",
+    "tests/e2e/fixtures.ts",
+    "tests/e2e/navigation.ts",
+    "tests/e2e/quick-join.ts"
+  ],
+  "public_exports": [
+    "tests/e2e/fixtures.ts",
+    "tests/e2e/navigation.ts",
+    "tests/e2e/quick-join.ts"
+  ],
+  "dependencies": [
+    "assets",
+    "command-core",
+    "execution-runs",
+    "public-guide-assets"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "docs/development/e2e-harness.md",
+    "governance/README.md"
+  ],
+  "invariants": [
+    "browser-server-local-only",
+    "fixture-flags-never-combined",
+    "github-fetch-stubbed-when-flagged",
+    "isolated-fp-e2e-schema",
+    "link-preview-fetch-is-local",
+    "port-from-freedom-e2e-port",
+    "single-playwright-worker"
+  ],
+  "tests": [
+    "e2e.harness"
+  ],
+  "surfaces": []
+}

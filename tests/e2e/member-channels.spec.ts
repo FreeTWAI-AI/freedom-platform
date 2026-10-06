@@ -515,7 +515,7 @@ test('light and versefolk selection uses the workshop green palette',async({page
   test.setTimeout(90000);
   mkdirSync(selectionShots,{recursive:true});
   const peer='30000000-0000-4000-8000-0000000000b1';
-  const participant={user_id:peer,display_name:'合成私訊',is_online:false,last_login_at:null};
+  const participant={user_id:peer,display_name:'合成私訊',is_online:false,last_seen_at:null};
   await page.route(/\/api\/v1\/me\/conversations/,route=>{
     const url=route.request().url();
     if(url.includes('/activity'))return route.fulfill({json:{last_message_id:'peer-m1',unread_count:2,can_send:true}});

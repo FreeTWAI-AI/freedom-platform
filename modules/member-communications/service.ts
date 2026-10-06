@@ -92,7 +92,7 @@ export async function markNotificationRead(pool:Pool,input:Command,rawId:string)
 type Peer={participant:Participant;ready:boolean;viewer_ready:boolean;has_history:boolean};
 async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer>{
   const row=(await q.query(`SELECT u.user_id,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
-      (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
+      (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
       (SELECT ${ready('v')} FROM users v WHERE v.user_id=$2 AND v.community_id=$1) AS viewer_ready,
@@ -104,7 +104,7 @@ async function resolvePeer(q:PoolClient|Pool,actor:Actor,id:string):Promise<Peer
   requireCondition(row&&(row.ready||row.has_history),404,'member_not_found','找不到這位會員。');
   return {ready:row.ready,viewer_ready:Boolean(row.viewer_ready),has_history:row.has_history,
     participant:{user_id:row.user_id,display_name:row.display_name,avatar_url:row.ready?avatarUrl(row.user_id,row.avatar_version??'1',Boolean(row.avatar_present)):null,
-      last_login_at:row.last_login_at?new Date(row.last_login_at).toISOString():null,is_online:row.is_online}};
+      last_seen_at:row.last_seen_at?new Date(row.last_seen_at).toISOString():null,is_online:row.is_online}};
 }
 
 export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promise<ConversationPage>{
@@ -118,7 +118,7 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
           WHERE community_id=$1 AND (sender_ref=$2 OR recipient_ref=$2)) pair
         ORDER BY peer,created_at DESC,message_id DESC)
       SELECT l.*,u.display_name,${ready('u')} AS ready,av.aggregate_version AS avatar_version,av.present AS avatar_present,
-        (SELECT max(s.created_at) FROM sessions s WHERE s.user_id=u.user_id) AS last_login_at,
+        (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
         EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
           AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
         (SELECT count(*)::int FROM member_direct_messages d WHERE d.community_id=$1 AND d.recipient_ref=$2 AND d.sender_ref=l.peer AND d.read_at IS NULL) AS unread_count
@@ -129,7 +129,7 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
     const contents=await messageContents(q,page.items,'direct',actor.user_id);
     return {unread_count:unread,next_offset:page.next_offset,items:page.items.map((row,index)=>({
       participant:{user_id:row.peer,display_name:row.display_name,avatar_url:row.ready?avatarUrl(row.peer,row.avatar_version??'1',Boolean(row.avatar_present)):null,
-        last_login_at:row.last_login_at?new Date(row.last_login_at).toISOString():null,is_online:row.is_online},
+        last_seen_at:row.last_seen_at?new Date(row.last_seen_at).toISOString():null,is_online:row.is_online},
       can_send:viewerReady&&row.ready,last_message:{...message(row),...contents[index]},unread_count:row.unread_count}))};
   });
 }

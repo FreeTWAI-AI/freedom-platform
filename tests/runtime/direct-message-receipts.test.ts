@@ -10,7 +10,7 @@ const message = (index: number, sender = 'sender', read: string | null = null): 
 });
 const page = (items: Message[], next: number | null = null): MessagePage => ({
   items, next_offset: next, unread_count: 0, can_send: true,
-  participant: { user_id: 'peer', display_name: 'Synthetic peer', avatar_url: null, is_online: false, last_login_at: null },
+  participant: { user_id: 'peer', display_name: 'Synthetic peer', avatar_url: null, is_online: false, last_seen_at: null },
 });
 
 test('quiet refresh updates all 25 loaded outgoing receipts, including the older page', async () => {
