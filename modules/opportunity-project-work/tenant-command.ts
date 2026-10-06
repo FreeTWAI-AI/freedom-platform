@@ -13,12 +13,19 @@ type CommandFields = Omit<ScopedTenantCommand, 'capabilitiesForRole' | 'tenantLo
   actor: ScopedTenantCommand['actor'];
 };
 
+type Journal<T> = {
+  id: string; version: string; record: boolean;
+  commit?: (q: PoolClient, context: TenantScopeContext) => Promise<T>;
+};
+
 /** Same key and body replays the stored JSON. A miss runs produce outside any command so object I/O is not nested under the tenant lock.
  * produce fills journal with an aggregate id and version that are not already used: the journal is unique per scope, type, id and version.
- * record=false skips the fact when this attempt only rereads a commit that already journaled that version. */
+ * record=false skips the fact when this attempt only rereads a commit that already journaled that version.
+ * commit(work) opens the one receipt transaction. work runs inside it, then the journal fact and the receipt.
+ * A stored receipt returns its response and does not call work. */
 export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields,
   authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
-  produce: (journal: { id: string; version: string; record: boolean; commit?: (q: PoolClient, context: TenantScopeContext) => Promise<T> }) => Promise<T | undefined>,
+  produce: (journal: Journal<T>, commit: (work: (q: PoolClient, context: TenantScopeContext) => Promise<T>) => Promise<T>) => Promise<T | undefined>,
   inspect?: (q: PoolClient, context: TenantScopeContext) => Promise<void>): Promise<T> {
   const input: ScopedTenantCommand = { ...fields, tenantLock: 'share', capabilitiesForRole: tenantWorkCapabilities };
   try {
@@ -29,13 +36,26 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
   } catch (error) {
     if (!(error instanceof ReceiptMiss)) throw error;
   }
-  const journal: { id: string; version: string; record: boolean; commit?: (q: PoolClient, context: TenantScopeContext) => Promise<T> } = {
-    id: fields.target.id, version: '1', record: true,
+  const journal: Journal<T> = { id: fields.target.id, version: '1', record: true };
+  let opened = false;
+  const commit = (work: (q: PoolClient, context: TenantScopeContext) => Promise<T>) => {
+    opened = true;
+    return scopedTenantCommand(pool, input, async (_q, context) => {
+      requireTenantCapability(context, 'work:result.write', true);
+    }, async (q, context) => {
+      const value = await work(q, context);
+      if (journal.record) {
+        await scopedJournal(q, context, {
+          aggregate_type: 'tenant_work', id: journal.id, version: journal.version, operation: fields.operation,
+          data: { tenant_id: fields.tenantId, target_id: journal.id },
+        });
+      }
+      return value;
+    });
   };
-  const produced = await produce(journal);
+  const produced = await produce(journal, commit);
+  if (opened) return produced as T;
   // The probe already rolled back. This later commit still has to see result-write authority.
-  // commit() publishes inside this same transaction, so a waiter on the tenant lock cannot
-  // revoke the member between the Result insert and the success receipt.
   return scopedTenantCommand(pool, input, async (_q, context) => {
     requireTenantCapability(context, 'work:result.write', true);
   }, async (q, context) => {

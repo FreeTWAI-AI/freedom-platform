@@ -22,21 +22,37 @@ class BarrierStore implements ObjectStore {
   readonly inner = new FakeObjectStore();
   entered: Promise<void> = Promise.resolve();
   held = 0;
+  getEntered: Promise<void> = Promise.resolve();
+  getsHeld = 0;
   readDuring: (() => Promise<void>) | null = null;
+  observe: (() => void) | null = null;
   private signalEntered: (() => void) | null = null;
   private waiting: Promise<void> = Promise.resolve();
   private releaseWait: (() => void) | null = null;
+  private signalGet: (() => void) | null = null;
+  private getWaiting: Promise<void> = Promise.resolve();
+  private releaseGet: (() => void) | null = null;
   holdNextPut() {
     this.held = 0;
     this.entered = new Promise(resolve => { this.signalEntered = resolve; });
     this.waiting = new Promise(resolve => { this.releaseWait = resolve; });
   }
+  holdGets() {
+    this.getsHeld = 0;
+    this.getEntered = new Promise(resolve => { this.signalGet = resolve; });
+    this.getWaiting = new Promise(resolve => { this.releaseGet = resolve; });
+  }
   release() {
     this.releaseWait?.();
     this.releaseWait = null;
     this.waiting = Promise.resolve();
+    this.releaseGet?.();
+    this.releaseGet = null;
+    this.getWaiting = Promise.resolve();
   }
+  private touch() { this.observe?.(); }
   async putImmutable(key: AssetObjectKey, value: PreparedRepresentation) {
+    this.touch();
     const outcome = await this.inner.putImmutable(key, value);
     if (this.releaseWait) {
       this.held += 1;
@@ -46,14 +62,20 @@ class BarrierStore implements ObjectStore {
     return outcome;
   }
   async get(key: AssetObjectKey, range?: ObjectRange) {
+    this.touch();
     const object = await this.inner.get(key, range);
+    if (this.releaseGet) {
+      this.getsHeld += 1;
+      if (this.getsHeld === 1) this.signalGet?.();
+      await this.getWaiting;
+    }
     const hook = this.readDuring;
     this.readDuring = null;
     if (hook) await hook();
     return object;
   }
-  head(key: AssetObjectKey) { return this.inner.head(key); }
-  delete(key: AssetObjectKey) { return this.inner.delete(key); }
+  head(key: AssetObjectKey) { this.touch(); return this.inner.head(key); }
+  delete(key: AssetObjectKey) { this.touch(); return this.inner.delete(key); }
 }
 
 const store = new BarrierStore();
@@ -76,6 +98,7 @@ after(async () => {
 beforeEach(async () => {
   store.release();
   store.readDuring = null;
+  store.observe = null;
   await pool.query('TRUNCATE communities, login_attempts, auth_rate_limits CASCADE');
   await seedLocal(pool);
   await pool.query(`INSERT INTO tenant_capacity_policies(
@@ -787,6 +810,152 @@ test('two keys finalizing one upload leave one result', { timeout: 30_000 }, asy
     if (held) await holder.query('ROLLBACK').catch(() => undefined);
     await Promise.allSettled([left, right]);
     holder.release();
+  }
+});
+
+test('a finalize receipt keeps one pool client and does not read the object store', async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '單一交易定稿');
+  const workId = work.data.resource_ref.resource_id as string;
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, ABC, '1')).status, 200);
+  let checkedOut = 0;
+  let receiptOpen = 0;
+  let maxDuringReceipt = 0;
+  let storeCallsDuringReceipt = 0;
+  const watch = () => { if (receiptOpen > 0) maxDuringReceipt = Math.max(maxDuringReceipt, checkedOut); };
+  store.observe = () => { if (receiptOpen > 0) storeCallsDuringReceipt += 1; };
+  const originalConnect = pool.connect.bind(pool);
+  const wrap = (client: PoolClient) => {
+    const query = client.query.bind(client) as (...params: any[]) => any;
+    const release = client.release.bind(client);
+    let marked = false;
+    (client as any).query = (...args: any[]) => {
+      const params = Array.isArray(args[1]) ? args[1] : [];
+      if (!marked && params.some(value => typeof value === 'string' && value.includes('freedom.scoped-tenant-command/v1'))) {
+        marked = true;
+        receiptOpen += 1;
+        watch();
+      }
+      return query(...args);
+    };
+    (client as any).release = (...args: any[]) => {
+      if (marked) { receiptOpen -= 1; marked = false; }
+      checkedOut -= 1;
+      client.query = query;
+      client.release = release;
+      return release(...args);
+    };
+    checkedOut += 1;
+    watch();
+    return client;
+  };
+  (pool as any).connect = (callback?: unknown) => {
+    if (typeof callback === 'function') {
+      return originalConnect((error: Error | undefined, client?: PoolClient, done?: (error?: Error) => void) => {
+        if (error || !client) return (callback as (error?: Error, client?: PoolClient, done?: () => void) => void)(error, client, done);
+        const wrapped = wrap(client);
+        (callback as (error: null, client: PoolClient, done: (error?: Error) => void) => void)(null, wrapped, error => wrapped.release(error));
+      });
+    }
+    return originalConnect().then(wrap);
+  };
+  try {
+    const finished = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2');
+    assert.equal(finished.status, 200, JSON.stringify(finished.data));
+    assert.equal(receiptOpen, 0);
+    assert.equal(maxDuringReceipt, 1);
+    assert.equal(storeCallsDuringReceipt, 0);
+  } finally {
+    (pool as any).connect = originalConnect;
+    store.observe = null;
+  }
+});
+
+test('archiving the work while finalize waits rejects the result', { timeout: 30_000 }, async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '定稿時被封存');
+  const workId = work.data.resource_ref.resource_id as string;
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, ABC, '1')).status, 200);
+  const holder = await pool.connect();
+  let held = true;
+  let pending: Promise<Reply> | undefined;
+  const key = randomUUID();
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [workId]);
+    const holderPid = Number((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    pending = finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', key);
+    await waitForBlockedBy(holderPid, 1);
+    await holder.query(`UPDATE work_items SET state='archived', updated_at=clock_timestamp(), aggregate_version=aggregate_version+1
+      WHERE work_item_id=$1 AND state='draft'`, [workId]);
+    await holder.query('COMMIT');
+    held = false;
+    const finalized = await pending;
+    assert.notEqual(finalized.status, 500, JSON.stringify(finalized.data));
+    assert.equal(finalized.status, 409, JSON.stringify(finalized.data));
+    assert.equal(finalized.data.code, 'work_archived');
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n, 0);
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_transition_journal WHERE operation='work.tenant.finalize'`)).rows[0].n, 0);
+    await noSuccess(key);
+    assert.equal((await pool.query(`SELECT state FROM asset_upload_intents WHERE intent_id=$1`, [uploadId])).rows[0].state, 'stored');
+  } finally {
+    if (held) await holder.query('ROLLBACK').catch(() => undefined);
+    await Promise.allSettled([pending]);
+    holder.release();
+  }
+});
+
+test('two keys that both pass resume before publish replay one result', { timeout: 30_000 }, async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '兩邊都已讀過');
+  const workId = work.data.resource_ref.resource_id as string;
+  const note = new TextEncoder().encode('both-resumed');
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', note, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, note, '1')).status, 200);
+  const keyA = randomUUID();
+  const keyB = randomUUID();
+  store.holdGets();
+  const left = finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyA);
+  const right = (async () => {
+    await store.getEntered;
+    return finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyB);
+  })();
+  try {
+    for (let attempt = 0; attempt < 50 && store.getsHeld < 2; attempt += 1) await delay(40);
+    assert.equal(store.getsHeld, 2);
+    store.release();
+    const [a, b] = await Promise.all([left, right]);
+    assert.equal(a.status, 200, JSON.stringify(a.data));
+    assert.equal(b.status, 200, JSON.stringify(b.data));
+    assert.equal(a.data.resource_ref.resource_id, b.data.resource_ref.resource_id);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n, 1);
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_transition_journal
+      WHERE aggregate_id=$1 AND operation='work.tenant.finalize'`, [workId])).rows[0].n, 1);
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_transition_journal
+      WHERE aggregate_type='tenant_work' AND aggregate_id=$1 AND operation='work.tenant.finalize'`, [a.data.resource_ref.resource_id])).rows[0].n, 1);
+  } finally {
+    store.release();
+    await Promise.allSettled([left, right]);
   }
 });
 

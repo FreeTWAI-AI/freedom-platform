@@ -75,7 +75,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     parsePrepare: raw => prepareInput.parse(raw),
     targetId: input => input.targetWorkId,
     async lockTarget(q, context, _actor, id, create): Promise<LifecycleTarget> {
-      // The engine passes false except while preparing. The Result insert locks the Work row in that command.
+      // The engine passes false except while preparing. Publication locks the Work row itself.
       const row = await loadWork(q, context.tenant_id, context.scope.scope_id, id, create);
       requireCondition(row, 404, 'not_found', '找不到這個工作。');
       requireCondition(row.state === 'draft', 409, 'work_archived', '這個工作已封存。');
@@ -90,7 +90,14 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     prepareRepresentation: preparePrivateText,
     // Runs inside the inserting command, including after the receipt wait.
     revalidate: async (_q, context) => { requireTenantCapability(context, 'work:result.write', true); },
-    lockPublication: async () => undefined,
+    async lockPublication(q, context, _actor, row) {
+      // Intent is already locked. The result trigger locks the Work row next, so this matches that order.
+      const workId = row.target_work_id;
+      requireCondition(workId, 404, 'not_found', '找不到這個工作。');
+      const work = await loadWork(q, context.tenant_id, context.scope.scope_id, workId, true);
+      requireCondition(work, 404, 'not_found', '找不到這個工作。');
+      requireCondition(work.state === 'draft', 409, 'work_archived', '這個工作已封存。');
+    },
     async publish(q, _context, actor, intent) {
       let row: { result_id: string; work_item_id: string; asset_id: string; revision: string; work_version: string };
       try {
@@ -202,12 +209,12 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     let instanceId = '';
     const resumeKey = digest({ profile: 'freedom.tenant-upload/v1', httpKey: key, phase: 'resume', intentId: uploadId });
     try {
-      return await rememberTenantCommand(pool, {
+      return await rememberTenantCommand<Operation>(pool, {
         actor, tenantId, operation: 'work.tenant.finalize', key, target: { kind: 'tenant_upload', id: uploadId },
         body: { work_id: workId, upload_id: uploadId, expected_work_version: input.expected_work_version },
       }, async (_q, context) => {
         requireTenantCapability(context, 'work:result.write', true);
-      }, async journal => {
+      }, async (journal, commit) => {
         const bound = actorOf(actor, tenantId);
         const lease = await engine.resumeUpload(bound, { key: resumeKey, intentId: uploadId });
         if (lease.state === 'finalized') {
@@ -220,19 +227,33 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
         const leaseInput = {
           key: digest({ resumeKey, phase: 'finalize', fence: lease.fence }), intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken,
         };
-        // Publish on the receipt transaction. A separate engine command would release the tenant
-        // share lock before this receipt, and a queued revocation would make the success path 404.
-        journal.commit = async (q, context) => {
-          const saved = await engine.finalizeVia<Published>(bound, leaseInput, {
-            operation: 'work.tenant.finalize',
-            execute: run => run(q, context),
-            validateIntent() { /* The tenant intent was bound in the probe and again by the engine lock. */ },
-            result: value => value,
-          });
-          journal.id = saved.resultId;
-          journal.version = saved.workVersion;
-          return wire(tenantId, instanceId, 'work.result', saved.resultId, key, 'work.tenant.finalize');
-        };
+        // Verify while no receipt transaction is open. commit() is the one transaction that publishes.
+        return engine.finalizeVia<Operation>(bound, leaseInput, {
+          operation: 'work.tenant.finalize',
+          execute: run => commit(async (q, context) => {
+            const locked = await q.query<{ state: string; fence: string; lease_token: string }>(`SELECT state, fence::text AS fence, lease_token
+              FROM asset_upload_intents
+              WHERE intent_id=$1 AND target_tenant_id=$2 AND scope_id=$3 AND purpose='work.tenant-result' FOR UPDATE`,
+            [uploadId, context.tenant_id, context.scope.scope_id]);
+            requireCondition(locked.rowCount === 1, 404, 'not_found', '找不到這個上傳。');
+            const current = locked.rows[0];
+            if (current.state === 'finalized') {
+              requireCondition(current.fence === lease.fence && current.lease_token === lease.leaseToken, 409, 'asset_lease_stale', '上傳租約已失效。');
+              const existing = (await q.query<{ result_id: string }>(
+                `SELECT result_id FROM tenant_work_results WHERE intent_id=$1`, [uploadId])).rows[0];
+              requireCondition(existing, 404, 'not_found', '找不到這個成果。');
+              journal.record = false;
+              return wire(tenantId, instanceId, 'work.result', existing.result_id, key, 'work.tenant.finalize');
+            }
+            return run(q, context);
+          }),
+          validateIntent() { /* The tenant intent was bound in the probe and again by the engine lock. */ },
+          result: value => {
+            journal.id = value.resultId;
+            journal.version = value.workVersion;
+            return wire(tenantId, instanceId, 'work.result', value.resultId, key, 'work.tenant.finalize');
+          },
+        });
       }, async (q, context) => {
         const row = await intent(q, context, uploadId, workId);
         const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
