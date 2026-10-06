@@ -36,7 +36,7 @@ cloud、正式營運證據不得互換。Feature OFF 是發布設定，不是驗
 | FC-06 | 本人 CLI／BYOK、Grant／Attempt、私人 Result、Stop／Revoke、重連及 Extension／neo 交接 | D |
 | FC-07 | 同一候選版本完成會員、私人 AI、contributor、第二操作者恢復四條流程 | 整合 owner |
 
-## 第一批小工作包
+## 第一批小工作包（保留研究起點）
 
 每包固定來源、隔離 worktree、可改範圍及必要反例。共用 manifest／索引／入口由整合
 owner 協調。依賴未齊時保留缺口，不把它改成 N/A 或自動移到下一個 sprint。
@@ -60,6 +60,8 @@ FC-00 本批先統一中央入口與索引。Agent Kit README 的「先完成定
 | C5：UF:INT-23 | migration scanner/helper 仍 NNN | migration v2 同時升級兩個 runner，驗逆序 merge 與空庫 replay；保留所有已套用名稱／digest |
 | C6：UF:INT-17、R2:D02/D03 | 一般修改仍 full CI | 影響映射保守 fallback，驗 Command／ArtifactRef 與 runtime MD 選中對應 jobs，不改最低證據 |
 | C7：FC-05／原交付計畫 | 日常全倉 inventory 尚無 release 替代 | release/archive 的 artifact 與歷史 migration 完整性檢查接妥前，保留既有檢查 |
+
+上表保留初次研究時的缺口；後續 A1／B1 已在隔離 PostgreSQL 重現並修補，精確 source 與證據見下方對應 PR。它们仍非已部署或整列驗收完成。
 
 B1 的 [隔離 PostgreSQL／native local R2 證據](social-writer-evidence-2026-10-05.json)記錄三個 INSERT 反例與合法 R2、bridge、crypto bytea 正例。這只關閉 social thumbnail writer 缺口；R2:S02/M05 的全 purpose／目標環境驗收仍未完成。A1 另有 receipt-session 工作包，不由此紀錄推定完成。
 現有 member broker 已經掛載並重查 owner／Grant／資料權限，不重新發明一套機器交易核心。
@@ -94,3 +96,20 @@ detached publisher」的工作順序，不撤回 GOV-02／19 或 artifact 的來
 
 後續每次回報列出：關閉的原要求、新增／解除的實際阻礙，以及證據的
 source／candidate／環境。FC-07 未通過前不宣告 Foundation Complete。
+
+## 2026-10-05 收尾候選索引
+
+下列連結是待審實作與各自證據，不改寫現況快照的已合併／部署／治理 pins，也不把尚未合併的修補標為正式完成。原168列在各 focused PR 隨對應實作更新，整合 owner 合併時對帳。
+
+| 工作包 | review 與可驗證結果 | 仍未完成 |
+| --- | --- | --- |
+| C1 | [#130](https://github.com/FreeTWAI-AI/freedom-platform/pull/130)：aggregate 包含 deploy-preflight，full/missing/fail/cancel/docs-skip 分開判定 | installed workflow 升級與真實正反例；舊 hosted partial retry 超過原900秒窗口，不能記 pass |
+| A1 | [#132](https://github.com/FreeTWAI-AI/freedom-platform/pull/132)：receipt SELECT/INSERT 等待跨過 session 到期會拒絕，合法 replay 保留 | 其餘私人讀面與正式環境驗收 |
+| B1 | [#133](https://github.com/FreeTWAI-AI/freedom-platform/pull/133)：新 migration116 阻止 asset 標籤繞回 DB bytes，正常 R2 與 bridge 保留 | 正式 migration/floor、legacy bytes 退出 |
+| C2 | [#134](https://github.com/FreeTWAI-AI/freedom-platform/pull/134)：完整分段 context 與独立 verifier 相依閉合；GOV-07 在 exact664 candidate 滿足原context-tool層級 | supported launcher/client、subagent 實際採用及 hosted 邊界 |
+| D1 | [#135](https://github.com/FreeTWAI-AI/freedom-platform/pull/135)：sessionless device SDK、一次性 response-loss 與撤銷反例 | Grant/Attempt、私人Result、本人CLI與持久重連；僅AUTH13/14部分證據 |
+| C3 | [#136](https://github.com/FreeTWAI-AI/freedom-platform/pull/136)：host 選定的 library profile 與 canonical 合法升級 | 實際 library invocation、其餘repo/entry、installed tuple 升級 |
+| B2 前置 | [#137](https://github.com/FreeTWAI-AI/freedom-platform/pull/137)：未知 archive object 同時阻擋 prune 及舊 capture pin release | retention executor、GC日常啟用、第二操作者接手 |
+| C4 | [#138](https://github.com/FreeTWAI-AI/freedom-platform/pull/138)：真實 build 容許合法CSS/ARIA修改並拒絕資料/安全反例 | 獨立review後 hosted canary 與固定workflow升級；非browser視覺驗收 |
+
+同一整合程式候選 `3bc3eb6843d0e7112fc231212a1e7169094cad08` 的本機 HTTP/DB、治理工具、schema116 七類媒體 restore 都有實跑結果；FC-07 所需四條完整流程仍未齊全，不能用這些回歸結果代替。
