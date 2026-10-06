@@ -15924,8 +15924,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 7774,
-      "sha256": "fd70e6c15bd965f3200f5451dff9088b955a39118afeb22987ed4f0f0f303fa2"
+      "bytes": 7799,
+      "sha256": "52e1810eaa7570d8823b843b0408457ef8180c64086bc740b9f8c6ff6d9c9968"
     },
     {
       "path": "packages/asset-storage/README.md",
