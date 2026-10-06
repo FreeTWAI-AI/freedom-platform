@@ -1374,13 +1374,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.css",
-      "bytes": 1465,
-      "sha256": "6205872c4a1e15e2e96ebf623a6e00d758e572d1bde67b4c68e917a9daeffdbb"
+      "bytes": 1714,
+      "sha256": "421e8a30bd9087f1a6e82611dfd855a12474309646221e385896bc618789750c"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 37291,
-      "sha256": "5ff4e2002d6386db9dc6d8106cf3d57506aec548fb4eeb8b8b1a30febad34e1f"
+      "bytes": 37617,
+      "sha256": "be3b2336b83f1166f580077367bac07951c716d32e587497d0b3d501873dd025"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -17534,8 +17534,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 14348,
-      "sha256": "6f4cf5f06ea743b05f38362e8b87d427adfa5d4db114c7639ffad5141af9a4cc"
+      "bytes": 14793,
+      "sha256": "9e426a36c2f4abaf08b2e83a63b376fb88a02b2df139378af2ad048988504b51"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
