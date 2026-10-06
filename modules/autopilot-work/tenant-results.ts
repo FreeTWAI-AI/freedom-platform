@@ -16,12 +16,12 @@ import {
 } from '../../packages/asset-storage/index.js';
 import { assetCommandKey, assetVersion, createAssetLifecycleWithAuthority, type LifecycleTarget } from '../assets/engine.js';
 import { createTenantLifecycleAuthority, type TenantWorkActor } from '../assets/tenant-lifecycle-authority.js';
-import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability } from '../opportunity-project-work/tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, requirePolicy, retainedByteUsage } from '../opportunity-project-work/tenant-capacity.js';
 import { rememberTenantCommand, stableOperationId } from '../opportunity-project-work/tenant-command.js';
-import { loadWork, lockWritableInstance, withTenantRead } from '../opportunity-project-work/tenant-work.js';
+import { loadWork, lockWritableInstance, tenantWorkReadInput } from '../opportunity-project-work/tenant-work.js';
 
 const prepareInput = z.object({
   key: assetCommandKey, targetWorkId: OpaqueId, expectedVersion: assetVersion,
@@ -283,7 +283,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
   }
 
   async function readUpload(actor: Actor, tenantId: string, workId: string, uploadId: string) {
-    return withTenantRead(pool, actor, tenantId, async (q, context) => {
+    return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       requireTenantCapability(context, 'work:result.write', false);
       return uploadView(await intent(q, context, uploadId, workId));
     });
@@ -311,7 +311,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       if (!/^[1-9][0-9]{0,18}$/.test(text)) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
       cursor = text;
     }
-    return withTenantRead(pool, actor, tenantId, async (q, context) => {
+    return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       requireTenantCapability(context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
@@ -327,7 +327,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     });
   }
   async function readResult(actor: Actor, tenantId: string, workId: string, resultId: string) {
-    return withTenantRead(pool, actor, tenantId, async (q, context) => {
+    return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       requireTenantCapability(context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
@@ -340,7 +340,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
   }
 
   async function snapshot(actor: Actor, tenantId: string, workId: string, resultId: string) {
-    return withTenantRead(pool, actor, tenantId, async (q, context) => {
+    return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       requireTenantCapability(context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');

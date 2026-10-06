@@ -1,9 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
-import { transaction } from '../../packages/db/index.js';
-import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
-import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { withTenantRead, type TenantScopeInput } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
@@ -41,14 +39,8 @@ export function workView(row: TenantWorkRow): WorkView {
   });
 }
 
-export async function withTenantRead<T>(pool: Pool, actor: Actor, tenantId: string, run: (q: PoolClient, context: TenantScopeContext) => Promise<T>) {
-  const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
-  return transaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    const result = await run(q, context);
-    await assertCurrentSessionClock(q, clock);
-    return result;
-  });
+export function tenantWorkReadInput(actor: Actor, tenantId: string): TenantScopeInput {
+  return { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities };
 }
 
 export async function loadWork(q: PoolClient, tenantId: string, scopeId: string, workId: string, lock: boolean): Promise<TenantWorkRow | null> {
@@ -92,7 +84,7 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
   const limit = query.limit ?? 20;
   const cursor = decodeKeyset(query.cursor);
-  return withTenantRead(pool, actor, tenantId, async (q, context) => {
+  return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
     requireTenantCapability(context, 'work:read', false);
     const source = await workspaceSource(q, tenantId, workspaceId);
     const rows = (await q.query<TenantWorkRow & { cursor_at: string }>(`SELECT ${FIELDS},
@@ -115,7 +107,7 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
 
 export async function readTenantWork(pool: Pool, actor: Actor, tenantId: string, workId: string) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workId);
-  return withTenantRead(pool, actor, tenantId, async (q, context) => {
+  return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
     requireTenantCapability(context, 'work:read', false);
     const row = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
     requireCondition(row && row.state === 'draft', 404, 'not_found', '找不到這個工作。');
