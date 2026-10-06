@@ -179,6 +179,8 @@ export interface ScopedTenantCommand {
   target: { kind: string; id: string };
   expected?: string;
   lockUser?: boolean;
+  /** Data commands take SHARE so members do not block each other. Default UPDATE preserves membership authority. */
+  tenantLock?: 'update' | 'share';
   capabilitiesForRole: (role: TenantScopeContext['role']) => readonly string[];
 }
 
@@ -189,7 +191,7 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
   authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: TenantScopeContext) => Promise<T>): Promise<T> {
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
-    ['actor', 'tenantId', 'operation', 'key', 'body', 'target', 'expected', 'lockUser', 'capabilitiesForRole'].includes(key)),
+    ['actor', 'tenantId', 'operation', 'key', 'body', 'target', 'expected', 'lockUser', 'tenantLock', 'capabilitiesForRole'].includes(key)),
   400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(typeof input.capabilitiesForRole === 'function', 400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
@@ -199,6 +201,7 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
     400, 'invalid_target', '目標識別碼無效。');
   requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
   requireCondition(input.lockUser === undefined || typeof input.lockUser === 'boolean', 400, 'invalid_scoped_command', '操作資料無效。');
+  requireCondition(input.tenantLock === undefined || input.tenantLock === 'update' || input.tenantLock === 'share', 400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(input.actor && uuid(input.actor.user_id) && uuid(input.actor.community_id)
     && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
   401, 'session_expired', '請重新登入。');
@@ -230,7 +233,7 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
   try {
     return await runCommandCore(pool, {
       async authenticateAndLock(q) {
-        context = await lockTenantScope(q, { actor, tenantId, forUpdate: true, lockUser, capabilitiesForRole });
+        context = await lockTenantScope(q, { actor, tenantId, forUpdate: input.tenantLock !== 'share', lockUser, capabilitiesForRole });
         await assertCurrentSessionClock(q, actor);
         registerScopedCommand(context, q, operation);
       },
