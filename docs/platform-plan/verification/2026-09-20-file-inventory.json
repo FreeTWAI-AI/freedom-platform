@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/credential-broker/freedom.module.json",
-      "bytes": 2484,
-      "sha256": "4745ebbac7a36f4971bf6264c59e1c4101d66f19a027ef30b0f07284882ee2eb"
+      "bytes": 2871,
+      "sha256": "ade3dbd9ded8beba0556ed3feb34228a62263edb67afd735555bbb8bfc872700"
     },
     {
       "path": "apps/credential-broker/src/bridge.ts",
@@ -15659,8 +15659,8 @@
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
-      "bytes": 1556,
-      "sha256": "3c16296346f2c90020b5b0441e797911e57b6bb7b3f1679bfb7071151ad40164"
+      "bytes": 1653,
+      "sha256": "ad0f519747828217506816585d0e67de1ef48b1027d475e9849ba7b8ffa153a8"
     },
     {
       "path": "modules/identity-membership/member-connections.ts",
@@ -17058,6 +17058,11 @@
       "sha256": "143338872618b711462ac1135a87c60a99c68de49799d5c8cb84e715440416cb"
     },
     {
+      "path": "packages/testing/e2e-avatar-asset-fixture.ts",
+      "bytes": 11539,
+      "sha256": "c8085097d2c4ec3f6c5aeb7271131103206befda2c53bd207aa531c200f96dca"
+    },
+    {
       "path": "packages/testing/e2e-origin.ts",
       "bytes": 591,
       "sha256": "2aa122768b1ba3a49d9b4c1ba3e822bce33b9dd687651d388aa071213670ccda"
@@ -17189,8 +17194,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 8026,
-      "sha256": "e7ff29ee0f54bd68502ee5f8050fb11cd9bf24c33833a4caca336a151953772d"
+      "bytes": 10517,
+      "sha256": "962604f473134bb9d142184ed2c29620ccd266c96f31ff61ab93fcadadcafbf8"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -17324,18 +17329,23 @@
     },
     {
       "path": "scripts/run-e2e.mjs",
-      "bytes": 4390,
-      "sha256": "b7b28ed61f22c4f88e300c271ff59c4d8f3dee58efb066840bd1a43f0145583a"
+      "bytes": 4787,
+      "sha256": "3d20eaeff66b0dadca0d41472028aa68d579f12316b43c25fcdfd245a9766d77"
     },
     {
       "path": "scripts/run-e2e.test.mjs",
-      "bytes": 5921,
-      "sha256": "fdee78e630b22069e85274409f72abf8713542f650192e397da2698d02dfea32"
+      "bytes": 8343,
+      "sha256": "ae3fcebe6039bcd638ba8d7aa9f05c75c73cba039abfabdf7081e416d80a11c0"
     },
     {
       "path": "scripts/run-media-restore-test.mjs",
       "bytes": 6094,
       "sha256": "1aa329bd5eea9cc84992797df9f87ac7da29d3a417551c5352470c82902681c7"
+    },
+    {
+      "path": "scripts/run-recovery-generation-drill.mjs",
+      "bytes": 5875,
+      "sha256": "bfc9ae62d9c3c84f68e381c4903cd257647cc61f51fe12c8a6477d2d974beb9a"
     },
     {
       "path": "scripts/runtime-aggregate.mjs",
@@ -17611,6 +17621,11 @@
       "path": "tests/e2e/journeys.spec.ts",
       "bytes": 8600,
       "sha256": "f3269bd9a0dce3234542c1f59b96599196aa47f8a50980f564c851c4bf5f9021"
+    },
+    {
+      "path": "tests/e2e/member-avatar-asset.spec.ts",
+      "bytes": 11802,
+      "sha256": "4163ce0c5d24fce8bad5fd2877e23b566ac1951e80535feaae25a3cf49f3a46a"
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
@@ -17941,6 +17956,11 @@
       "path": "tests/integration/native-consumer-runtime.test.ts",
       "bytes": 12233,
       "sha256": "2b76d3975d39798dde56f9cf68a2ac6748e0ad16c25463de92f3379bee093dd5"
+    },
+    {
+      "path": "tests/integration/recovery-generation-restore.test.ts",
+      "bytes": 66902,
+      "sha256": "7142a809b6b93d4494422209cc6a82a51579477a14869d2a3fbd6cfec09487cd"
     },
     {
       "path": "tests/integration/repositories.test.ts",

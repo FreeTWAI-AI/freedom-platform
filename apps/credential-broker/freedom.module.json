@@ -15,7 +15,9 @@
     "tests/runtime/credential-ingest-process.test.ts",
     "tests/runtime/credential-ingest-adversarial.test.ts",
     "deploy/cloudflare/sql/45-model-broker-execution-grants.psql",
-    "tests/runtime/machine-model-broker.test.ts"
+    "tests/runtime/machine-model-broker.test.ts",
+    "tests/integration/recovery-generation-restore.test.ts",
+    "scripts/run-recovery-generation-drill.mjs"
   ],
   "public_exports": [],
   "dependencies": [
@@ -61,5 +63,15 @@
   "tests": [
     "runtime.full"
   ],
-  "surfaces": []
+  "surfaces": [
+    {
+      "surface_id": "operations.recovery-generation-drill",
+      "kind": "cli",
+      "entry": "scripts/run-recovery-generation-drill.mjs",
+      "operations": [
+        "recovery.generation-drill"
+      ],
+      "auth_profile": "owned-isolated-test-container"
+    }
+  ]
 }
