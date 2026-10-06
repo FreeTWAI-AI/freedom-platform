@@ -84,6 +84,7 @@ const FOUNDATION_NAMES = [
   '117_machine_text_execution.sql',
   '118_shop_service_identity.sql',
   '119_tenant_workspaces.sql',
+  '120_tenant_manual_work.sql',
 ];
 
 function reject(code) { throw new Error(code); }
