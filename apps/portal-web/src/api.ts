@@ -53,6 +53,8 @@ export type RequestOptions = {
   body?: unknown
   idempotencyKey?: string
   ifMatch?: number | string
+  /** Unquoted positive decimal version for leave-v2 when the guild is a category primary. */
+  preferenceVersion?: string
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
@@ -196,6 +198,9 @@ export class PortalClient {
     }
     if (options.ifMatch !== undefined) {
       headers['If-Match'] = quoteEtag(options.ifMatch)
+    }
+    if (options.preferenceVersion !== undefined) {
+      headers['X-Preference-Version'] = options.preferenceVersion
     }
 
     const controller = new AbortController()

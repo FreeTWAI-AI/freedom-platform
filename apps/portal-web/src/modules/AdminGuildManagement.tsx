@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
+import {CATEGORY_LABELS,CATEGORY_ORDER} from '../../../../contracts/guild-launchpad/v1/guild-preferences';
 import './AdminGuildManagement.css';
 import {GuildDiscoveryReport} from './GuildDiscoveryReport';
 import {GuildName} from './GuildName';
@@ -7,7 +8,7 @@ export type GuildExpert={user_id:string;display_name:string;active:true;member_a
 export type ManagedGuild={guild_key:string;name:string;alias?:string;profession_title?:string;catalog_version?:number;purpose:string;guild_master:{user_id?:string;display_name:string;member_tier?:'intern'|'full'|null}|null;officer_version:number|null;guild_experts?:GuildExpert[];full_member_count?:number;intern_member_count?:number};
 const customGuildKey=/^guild_custom_[0-9A-Fa-f]{32}$/;
 type ProfileBody={name?:string;alias:string;profession_title?:string;reason:string};
-type Client={request<T>(path:string):Promise<T>};
+type Client={request<T>(path:string, body?:unknown, options?:{key?:string; version?:number|string|null}):Promise<T>};
 type Candidate={user_id:string;display_name:string;email:string;active:boolean;eligible:boolean;eligibility_reason:null|'inactive';is_current:boolean;joined:boolean;is_expert:boolean;expert_version:number|null};
 type CandidatePage={items:Candidate[];total:number;next_offset:number|null};
 type Assignment=(guild:ManagedGuild,userId:string,reason:string)=>Promise<boolean>;
@@ -20,7 +21,8 @@ export function AdminGuildManagement({client,guilds,busy,loading,error,onSave,on
   const [search,setSearch]=useState(''),[opened,setOpened]=useState<Opened|null>(null),[saved,setSaved]=useState<{guildKey:string;message:string}|null>(null);
   const term=search.trim().toLocaleLowerCase(),shown=guilds.filter(guild=>!term||[guild.name,guild.alias].join(' ').toLocaleLowerCase().includes(term));
   function open(guildKey:string,role:Opened['role'],userId?:string){setOpened({guildKey,role,userId});setSaved(null);}
-  return <section className="stack admin-guild-management"><div className="card-head"><h2>公會管理</h2><button type="button" className="btn btn-ghost" disabled={busy||loading} onClick={()=>void onReload()}>重讀公會</button></div><label className="field admin-guild-filter">搜尋公會<input type="search" value={search} disabled={busy} maxLength={100} onChange={event=>{setSearch(event.target.value);setOpened(null);}} placeholder="例如：影音、資安、活動…"/></label>
+  return <section className="stack admin-guild-management"><div className="card-head"><h2>公會管理</h2><button type="button" className="btn btn-ghost" disabled={busy||loading} onClick={()=>void onReload()}>重讀公會</button></div>
+    <GuildCategoryTools client={client} busy={busy}/><label className="field admin-guild-filter">搜尋公會<input type="search" value={search} disabled={busy} maxLength={100} onChange={event=>{setSearch(event.target.value);setOpened(null);}} placeholder="例如：影音、資安、活動…"/></label>
     <GuildDiscoveryReport client={client}/>
     {!opened&&error&&<p role="alert" className="banner banner-error">{error}</p>}
     {!loading&&!shown.length&&<p className="muted">{term?'沒有符合的公會。請換個名稱。':'目前沒有公會。'}</p>}
@@ -105,4 +107,76 @@ function ExpertRemoval({expert,busy,error,onSave,onCancel,onRefresh}:{expert:Gui
     {error&&<div role="alert" className="banner banner-error"><p>{error}</p><button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>void onRefresh()}>重讀公會與人選</button></div>}
     <div className="actions"><button className="btn btn-primary" disabled={pending||reason.trim().length<3}>{pending?'正在移除…':'確認移除專家'}</button><button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancel}>取消</button></div>
   </form>;
+}
+
+type CategoryKey=typeof CATEGORY_ORDER[number];
+type ClassifiedGuild={guild_key:string;name:string;category:CategoryKey|null;category_review:'pending'|'approved'|string;capability_tags:string[];catalog_revision:string|null};
+type CategoryCatalog={catalog_revision:string;categories:{category:CategoryKey;label:string;section:string;items:ClassifiedGuild[]}[];pending:ClassifiedGuild[]};
+type BackfillReport={dry_run:boolean;processed:number;mapped:number;blocked:number;remaining:number};
+type SwitchReport={state:string;blocked:number;processed:number;already_switched:boolean};
+const tagList=(value:string)=>value.split(/[,\n]/).map(item=>item.trim()).filter(Boolean);
+function adminNote(cause:unknown){
+  const status=cause instanceof Error&&'status' in cause?Number((cause as {status?:number}).status):0;
+  if(status===0||status>=500)return '正在確認是否已儲存';
+  return cause instanceof Error?cause.message:'需要處理';
+}
+
+function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
+  const [panel,setPanel]=useState<null|'catalog'|'switch'>(null),[catalog,setCatalog]=useState<CategoryCatalog|null>(null),[note,setNote]=useState(''),[loading,setLoading]=useState(false);
+  const [guildKey,setGuildKey]=useState(''),[category,setCategory]=useState<CategoryKey>('internal'),[tags,setTags]=useState(''),[reason,setReason]=useState(''),[saving,setSaving]=useState(false);
+  const [report,setReport]=useState<BackfillReport|null>(null),[accept,setAccept]=useState(false),[switched,setSwitched]=useState<SwitchReport|null>(null);
+  const items=catalog?[...catalog.categories.flatMap(group=>group.items),...catalog.pending]:[];
+  const selected=items.find(item=>item.guild_key===guildKey)??null;
+  async function loadCatalog(){
+    setLoading(true);setNote('');setPanel('catalog');
+    try{const data=await client.request<CategoryCatalog>('/guild-categories');setCatalog(data);}
+    catch(cause){setCatalog(null);setNote(adminNote(cause));}
+    finally{setLoading(false);}
+  }
+  async function preview(){
+    setLoading(true);setNote('');setSwitched(null);setAccept(false);setPanel('switch');
+    try{setReport(await client.request<BackfillReport>('/guild-preferences/backfill',{dry_run:true}));}
+    catch(cause){setReport(null);setNote(adminNote(cause));}
+    finally{setLoading(false);}
+  }
+  function chooseGuild(key:string){
+    setGuildKey(key);setNote('');
+    const item=items.find(row=>row.guild_key===key);
+    if(item?.category)setCategory(item.category);
+    setTags(item?.capability_tags.join('\n')??'');
+  }
+  async function saveClassification(event:FormEvent){
+    event.preventDefault();
+    if(!selected||saving||busy)return;
+    if(!selected.catalog_revision){setNote('無法核對版本。');return;}
+    setSaving(true);setNote('');
+    try{
+      await client.request(`/guilds/${encodeURIComponent(selected.guild_key)}/classification`,{category,capability_tags:tagList(tags),reason:reason.trim()},{version:selected.catalog_revision});
+      setReason('');setNote(`已儲存${selected.name}的分類。`);
+      const data=await client.request<CategoryCatalog>('/guild-categories');setCatalog(data);
+    }catch(cause){setNote(adminNote(cause));}
+    finally{setSaving(false);}
+  }
+  async function confirmSwitch(){
+    if(!report||saving||busy)return;
+    if(report.blocked>0&&!accept){setNote(`還有 ${report.blocked} 位會員無法對照。請確認後再切換。`);return;}
+    setSaving(true);setNote('');
+    try{setSwitched(await client.request<SwitchReport>('/guild-preferences/switch',{accept_blocked:report.blocked>0}));}
+    catch(cause){setNote(adminNote(cause));}
+    finally{setSaving(false);}
+  }
+  const pending=busy||loading||saving;
+  return <div className="admin-guild-category-tools">
+    <div className="actions"><button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>void loadCatalog()}>分類與能力標籤</button><button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>void preview()}>分類與主力切換</button></div>
+    {note&&<div role="status" className="banner status-note"><p>{note}</p></div>}
+    {panel==='catalog'&&catalog&&<form className="stack" onSubmit={saveClassification}><fieldset disabled={pending}><legend>分類與能力標籤</legend>
+      <label className="field">公會<select value={guildKey} onChange={event=>chooseGuild(event.target.value)}><option value="">選擇公會</option>{items.map(item=><option key={item.guild_key} value={item.guild_key}>{item.name}{item.category_review==='approved'&&item.category?` · ${CATEGORY_LABELS[item.category]}`:' · 分類整理中'}</option>)}</select></label>
+      <label className="field">類別<select value={category} onChange={event=>setCategory(event.target.value as CategoryKey)}>{CATEGORY_ORDER.map(key=><option key={key} value={key}>{CATEGORY_LABELS[key]}</option>)}</select></label>
+      <label className="field">能力標籤<textarea value={tags} rows={3} maxLength={1400} onChange={event=>setTags(event.target.value)} placeholder="以逗號或換行分隔"/></label>
+      <p className="field-hint">標籤只幫助瀏覽，不授予權限。最多 20 個。</p>
+      <label className="field">調整理由<textarea required minLength={3} maxLength={1000} rows={2} value={reason} onChange={event=>setReason(event.target.value)}/></label>
+      {!selected?.catalog_revision&&guildKey&&<p className="field-hint">無法核對版本。</p>}
+    </fieldset><div className="actions"><button className="btn btn-primary" disabled={pending||!selected?.catalog_revision||reason.trim().length<3}>{saving?'結果確認中':'儲存分類'}</button></div></form>}
+    {panel==='switch'&&<section className="stack" aria-label="分類與主力切換">{loading&&<p role="status">正在載入對照…</p>}{report&&<><p>預覽：檢視 {report.processed} 位，可對照 {report.mapped} 位，無法對照 {report.blocked} 位，尚餘 {report.remaining} 位。</p>{report.blocked>0&&<label className="checkbox-row"><input type="checkbox" checked={accept} disabled={pending} onChange={event=>setAccept(event.target.checked)}/>我確認仍要切換。這會留下 {report.blocked} 位無法對照的會員，不自動補上主力。</label>}<div className="actions"><button type="button" className="btn btn-primary" disabled={pending||(report.blocked>0&&!accept)} onClick={()=>void confirmSwitch()}>{saving?'結果確認中':'確認切換'}</button></div></>}{switched&&<p role="status">{switched.already_switched?'這個社群已經切換。':`已切換。這次處理 ${switched.processed} 位，無法對照 ${switched.blocked} 位。`}</p>}</section>}
+  </div>;
 }
