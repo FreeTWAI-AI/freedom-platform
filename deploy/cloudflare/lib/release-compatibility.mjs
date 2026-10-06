@@ -83,6 +83,9 @@ const FOUNDATION_NAMES = [
   // Closed machine admission records; recognition does not activate execution.
   '117_machine_text_execution.sql',
   '118_shop_service_identity.sql',
+  // Machine model pins, dispatch evidence and one-use broker authorization;
+  // recognition does not install the broker or activate execution.
+  '119_machine_model_invocations.sql',
 ];
 
 function reject(code) { throw new Error(code); }
