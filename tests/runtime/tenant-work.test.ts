@@ -603,6 +603,46 @@ test('bad keys, versions, cursors, forged fields, and archive stay closed', asyn
   assert.equal(needed.data.code, 'work_instance_required');
 });
 
+test('finalizing an archived work answers work_archived, and a missing work stays not_found', async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const stranger = await signIn(DEMO_USERS[1].email);
+  const made = await createTenant(owner, '品牌甲');
+  const other = await createTenant(stranger, '品牌乙');
+  await fullMember(owner.user.user_id, guild);
+  await fullMember(stranger.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  assert.equal((await enable(stranger, other.tenantId, other.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '封存後不能定稿');
+  const workId = work.data.resource_ref.resource_id as string;
+  const elsewhere = await createWork(stranger, other.tenantId, other.workspaceId, '另一個空間的工作');
+  assert.equal(elsewhere.status, 201, JSON.stringify(elsewhere.data));
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, ABC, '1')).status, 200);
+  const archived = await post(`/tenants/${made.tenantId}/works/${workId}/archive`, owner, {}, '"1"');
+  assert.equal(archived.status, 200, JSON.stringify(archived.data));
+  const key = randomUUID();
+  const finalized = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', key);
+  assert.equal(finalized.status, 409, JSON.stringify(finalized.data));
+  assert.equal(finalized.data.code, 'work_archived');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n, 0);
+  await noSuccess(key);
+  assert.equal((await pool.query(`SELECT state FROM asset_upload_intents WHERE intent_id=$1`, [uploadId])).rows[0].state, 'stored');
+  const replay = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', key);
+  assert.notEqual(replay.status, 200);
+  assert.equal(replay.status, 409, JSON.stringify(replay.data));
+  assert.equal(replay.data.code, 'work_archived');
+  await noSuccess(key);
+  const missingWork = await finalizeUpload(owner, made.tenantId, randomUUID(), uploadId, '1', '2');
+  const missingUpload = await finalizeUpload(stranger, other.tenantId, elsewhere.data.resource_ref.resource_id, uploadId, '1', '2');
+  assert.equal(missingWork.status, 404, JSON.stringify(missingWork.data));
+  assert.equal(missingWork.data.code, 'not_found');
+  assert.equal(missingUpload.status, 404, JSON.stringify(missingUpload.data));
+  assert.deepEqual(missingWork.data, missingUpload.data);
+});
+
 test('upload metadata is readable by another admin, while content writes stay with the preparer', async () => {
   const [guild] = await guildKeys();
   const owner = await signIn(DEMO_USERS[0].email);

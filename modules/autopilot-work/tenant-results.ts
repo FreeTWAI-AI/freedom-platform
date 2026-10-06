@@ -257,7 +257,8 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       }, async (q, context) => {
         const row = await intent(q, context, uploadId, workId);
         const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
-        requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
+        requireCondition(work, 404, 'not_found', '找不到這個工作。');
+        requireCondition(work.state === 'draft', 409, 'work_archived', '這個工作已封存。');
         checkVersion(uploadVersion(row.fence), expected);
         requireCondition(row.expected_version === input.expected_work_version, 412, 'version_conflict', '工作版本已改變。');
         instanceId = work.instance_id;
