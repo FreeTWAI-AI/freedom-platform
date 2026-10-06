@@ -285,7 +285,7 @@ html[data-theme="dark"] .guilds-panel .guild-application-status.is-declined { ba
 }
 
 /* One primary and two secondary guilds until the community switches; then three category slots. */
-.guild-category-board { display: grid; gap: 12px; margin-bottom: 16px; }
+.guild-category-board { display: grid; align-items: start; gap: 12px; margin-bottom: 16px; }
 .guild-category-board fieldset { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 .guild-category-board legend { padding: 0 6px; }
 .guild-category-board .guild-card { min-height: 0; }

@@ -74,6 +74,13 @@ test('a switched community can set and clear two category primaries, including k
       const internal = session.page.getByRole('group', {name: '內政主力', exact: true});
       await expect(internal.getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
       await expect(internal.getByText('本類主力', {exact: true})).toBeVisible();
+      const emptyCategory = session.page.getByRole('group', {name: '專業與產業主力', exact: true});
+      const emptyBox = await emptyCategory.boundingBox();
+      const heldBox = await internal.boundingBox();
+      expect(emptyBox).not.toBeNull();
+      expect(heldBox).not.toBeNull();
+      expect(emptyBox!.height).toBeLessThan(200);
+      expect(heldBox!.height).toBeGreaterThan(400);
       const partnership = session.page.getByRole('article', {name: guildNames.partnership, exact: true});
       await partnership.getByRole('button', {name: '設為本類主力', exact: true}).click();
       const external = session.page.getByRole('group', {name: '外交主力', exact: true});
