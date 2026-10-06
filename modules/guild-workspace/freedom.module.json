@@ -4,7 +4,7 @@
   "owner_role": "foundation",
   "owned_paths": [
     "modules/guild-workspace/**",
-    "migrations/119_guild_launchpad_config.sql",
+    "migrations/120_guild_launchpad_config.sql",
     "contracts/guild-launchpad/v1/config.ts",
     "apps/platform-api/src/routes/guild-launchpad.ts",
     "apps/portal-web/src/modules/GuildLaunchpad.tsx",
