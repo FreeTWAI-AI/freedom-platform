@@ -22,6 +22,7 @@ class BarrierStore implements ObjectStore {
   readonly inner = new FakeObjectStore();
   entered: Promise<void> = Promise.resolve();
   held = 0;
+  readDuring: (() => Promise<void>) | null = null;
   private signalEntered: (() => void) | null = null;
   private waiting: Promise<void> = Promise.resolve();
   private releaseWait: (() => void) | null = null;
@@ -44,7 +45,13 @@ class BarrierStore implements ObjectStore {
     }
     return outcome;
   }
-  get(key: AssetObjectKey, range?: ObjectRange) { return this.inner.get(key, range); }
+  async get(key: AssetObjectKey, range?: ObjectRange) {
+    const object = await this.inner.get(key, range);
+    const hook = this.readDuring;
+    this.readDuring = null;
+    if (hook) await hook();
+    return object;
+  }
   head(key: AssetObjectKey) { return this.inner.head(key); }
   delete(key: AssetObjectKey) { return this.inner.delete(key); }
 }
@@ -68,6 +75,7 @@ after(async () => {
 });
 beforeEach(async () => {
   store.release();
+  store.readDuring = null;
   await pool.query('TRUNCATE communities, login_attempts, auth_rate_limits CASCADE');
   await seedLocal(pool);
   await pool.query(`INSERT INTO tenant_capacity_policies(
@@ -780,6 +788,45 @@ test('two keys finalizing one upload leave one result', { timeout: 30_000 }, asy
     await Promise.allSettled([left, right]);
     holder.release();
   }
+});
+
+test('revoking the reader during the object read returns the uniform denial and no bytes', async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '可讀的筆記');
+  const workId = work.data.resource_ref.resource_id as string;
+  const note = new TextEncoder().encode('reader-note');
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', note, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, note, '1')).status, 200);
+  const finished = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2');
+  assert.equal(finished.status, 200, JSON.stringify(finished.data));
+  const resultId = finished.data.resource_ref.resource_id as string;
+  const reader = await person('讀取中的管理員');
+  const principalId = await candidate(owner, reader.id);
+  const invitation = await invite(owner, made.tenantId, principalId, 'admin');
+  assert.equal(invitation.status, 201, JSON.stringify(invitation.data));
+  await accept(reader.session, made.tenantId, invitation);
+  store.readDuring = async () => {
+    const writer = await pool.connect();
+    try {
+      const updated = await writer.query(`UPDATE tenant_memberships
+        SET status='revoked', revoked_at=clock_timestamp(), updated_at=clock_timestamp()
+        WHERE tenant_id=$1 AND principal_id=$2 AND status='active'`, [made.tenantId, principalId]);
+      assert.equal(updated.rowCount, 1);
+    } finally { writer.release(); }
+  };
+  const denied = await call('GET', `/tenants/${made.tenantId}/works/${workId}/results/${resultId}/content`, reader.session);
+  assert.equal(denied.status, 404, JSON.stringify(denied.data));
+  assert.equal(denied.data.code, 'tenant_not_found');
+  assert.equal(Buffer.from(denied.bytes).includes(Buffer.from(note)), false);
+  const kept = await call('GET', `/tenants/${made.tenantId}/works/${workId}/results/${resultId}/content`, owner);
+  assert.equal(kept.status, 200, JSON.stringify(kept.data));
+  assert.deepEqual(Buffer.from(kept.bytes), Buffer.from(note));
 });
 
 test('work, instance, and retained-byte limits reject the request that would pass them', async () => {
