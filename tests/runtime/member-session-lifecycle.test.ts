@@ -8,7 +8,7 @@ import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/see
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { tokenHash } from '../../modules/identity-membership/service.js';
 
-// #107: returning-member regressions, not a new login method or a longer session.
+// #107: a 30-day absolute session from login or registration, still without sliding renewal.
 // Requests are in-process; only the disposable PostgreSQL fixture is contacted.
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -56,16 +56,16 @@ async function stored(session: Session) {
   return (await pool.query('SELECT expires_at, revoked_at, last_seen_at FROM sessions WHERE token_hash=$1', [session.hash])).rows[0];
 }
 
-test('returning member keeps one persistent eight-hour session across fresh apps without sliding expiry', async () => {
+test('returning member keeps one persistent thirty-day session across fresh apps without sliding expiry', async () => {
   const start = (await pool.query('SELECT clock_timestamp() AS time')).rows[0].time.getTime();
   const { session, setCookie } = await signIn();
   const end = (await pool.query('SELECT clock_timestamp() AS time')).rows[0].time.getTime();
-  assert.match(setCookie, /; Max-Age=28800(?:;|$)/);
+  assert.match(setCookie, /; Max-Age=2592000(?:;|$)/);
   assert.match(setCookie, /; Path=\//);
   assert.match(setCookie, /; HttpOnly/);
   assert.match(setCookie, /; SameSite=Strict/);
   const expiry = (await stored(session)).expires_at.getTime();
-  assert.ok(expiry >= start + 8 * 60 * 60 * 1000 && expiry <= end + 8 * 60 * 60 * 1000);
+  assert.ok(expiry >= start + 30 * 24 * 60 * 60 * 1000 && expiry <= end + 30 * 24 * 60 * 60 * 1000);
   await pool.query("UPDATE sessions SET last_seen_at=now()-interval '2 minutes' WHERE token_hash=$1", [session.hash]);
   const priorPresence = (await stored(session)).last_seen_at.getTime();
   for (let visit = 0; visit < 2; visit++) {
@@ -79,6 +79,43 @@ test('returning member keeps one persistent eight-hour session across fresh apps
   assert.equal(current.expires_at.getTime(), expiry);
   assert.ok(current.last_seen_at.getTime() > priorPresence);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM sessions')).rows[0].n, 1);
+});
+
+test('registration sets the same thirty-day cookie and server expiry as login', async () => {
+  const start = (await pool.query('SELECT clock_timestamp() AS time')).rows[0].time.getTime();
+  const result = await request('/auth/register', undefined, {
+    email: 'thirty-day@example.com', password: 'long-enough-session-password', nickname: '三十天新會員',
+  });
+  const end = (await pool.query('SELECT clock_timestamp() AS time')).rows[0].time.getTime();
+  assert.equal(result.status, 201, JSON.stringify(result.data));
+  const setCookie = result.response.headers.get('set-cookie')!;
+  assert.match(setCookie, /; Max-Age=2592000(?:;|$)/);
+  assert.match(setCookie, /; Path=\//);
+  assert.match(setCookie, /; HttpOnly/);
+  assert.match(setCookie, /; SameSite=Strict/);
+  const cookie = setCookie.split(';')[0];
+  const session: Session = { cookie, csrf: result.data.csrf_token, hash: tokenHash(cookie.split('=')[1]), userId: result.data.user.user_id };
+  const expiry = (await stored(session)).expires_at.getTime();
+  assert.ok(expiry >= start + 30 * 24 * 60 * 60 * 1000 && expiry <= end + 30 * 24 * 60 * 60 * 1000);
+});
+
+test('a session older than eight hours still accepts a read and a CSRF write until its original expiry', async () => {
+  const { session } = await signIn();
+  await pool.query("UPDATE sessions SET created_at=created_at-interval '9 hours', expires_at=expires_at-interval '9 hours' WHERE token_hash=$1", [session.hash]);
+  const before = (await pool.query(`SELECT created_at, expires_at,
+    created_at<clock_timestamp()-interval '8 hours' AS older_than_eight_hours,
+    expires_at>clock_timestamp() AS unexpired
+    FROM sessions WHERE token_hash=$1`, [session.hash])).rows[0];
+  assert.equal(before.older_than_eight_hours, true);
+  assert.equal(before.unexpired, true);
+  const read = await request('/session', session, undefined, { app: createApp(pool, origin) });
+  assert.equal(read.status, 200);
+  assert.equal(read.data.user.user_id, session.userId);
+  assert.equal(read.response.headers.get('set-cookie'), null);
+  const write = await request('/me/client-errors', session, { action: 'UI /home', error_code: 'synthetic_nine_hours' }, { app: createApp(pool, origin) });
+  assert.equal(write.status, 201, JSON.stringify(write.data));
+  assert.equal(write.response.headers.get('set-cookie'), null);
+  assert.equal((await stored(session)).expires_at.getTime(), before.expires_at.getTime());
 });
 
 test('missing browser cookie and expired server session reject reads and writes without refreshing expiry', async () => {

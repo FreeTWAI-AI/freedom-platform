@@ -3,7 +3,7 @@ import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
 import { command,checkVersion,journal,transaction,type Command } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
-import { hashPasswordAsync,tokenHash,type Actor } from './service.js';
+import { hashPasswordAsync,SESSION_LIFETIME_SECONDS,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummary } from '../positioning/onboarding.js';
 import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
@@ -75,7 +75,7 @@ export async function registerMember(pool:Pool,raw:unknown,options:{communityId?
     const contacts={...emptyContacts(),...body.contacts};
     await q.query('INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3)',[user.user_id,communityId,JSON.stringify(contacts)]);
     const token=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');
-    await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+interval '8 hours',NULL)`,[tokenHash(token),user.user_id,csrf]);
+    await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
     return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf} as Actor};
   });
 }
