@@ -94,13 +94,24 @@ replay. The formal private installation and release floor remain open. Historica
 `migrate()`; that is not evidence of a current installed pending-migration path.
 Do not create a second SQL executor to satisfy the two-entrypoint requirement.
 
-The current release compatibility host still accepts only numeric ledgers,
-positional prefixes and numeric shape dependencies. V2 needs a separately
-reviewed profile: exact digest-set inclusion and dependency closure for observed,
-planned and retained floors, and exact migration identities for new shapes.
-Existing target, recovery-generation, capability, approval and freshness checks
-remain mandatory. Old host profiles must continue rejecting unsupported v2 data.
+`freedom.release-compatibility-host/v2` still accepts only numeric ledgers,
+positional prefixes and numeric shape thresholds, and it rejects any ledger
+that contains a `v2_` name. `freedom.release-compatibility-host/v3` is the
+separately reviewed profile: the host alone supplies
+`{format:'freedom.migrations/dag-v2', legacy, legacy_ledger}`, and the candidate
+request cannot select it. v3 requires exact `(name, sha256)` inclusion
+(retained floor ⊆ observed ⊆ planned), dependency closure of each set against
+the planned scan's `dependencies` (`schema_dependency_closure_invalid`), and
+the canonical filename-sorted ledger digest. A `v2_` row requires that exact
+legacy frontier; a legacy prefix with no `v2_` row stays valid. A shape
+introduced by a v2 migration names that filename and is satisfied only when
+the planned digest is present. No production v2 shape or `v2_` SQL file is
+installed. Target, recovery-generation, capability, approval and freshness
+checks are unchanged, and old host profiles still reject v2 ledgers.
+`preflight.mjs` still calls the legacy scanner and does not install v3.
 Restored ACL lockdown still compares the complete canonical ledger. The fixed
 supervisor now includes every SQL file plus the planner, loader and migration
 manifest in its installation identity; its fixture rejects unactivated files.
-The full repository inventory rule remains unchanged pending C7.
+The full repository inventory rule remains unchanged pending C7. Formal
+private-operator installation, the first real v2 SQL file, and both
+entrypoints on that catalog remain open, so UF:INT-23 stays partial.
