@@ -149,8 +149,6 @@ function textIssue(ctx: {addIssue: (issue: {code: 'custom'; message: string; pat
 
 function httpsUrl(value: string): boolean {
   if (value.length > 2048 || CONTROL.test(value) || hasLoneSurrogate(value)) return false;
-  const lower = value.toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('file:') || lower.startsWith('http:')) return false;
   if (!value.startsWith('https://')) return false;
   try {
     const url = new URL(value);
