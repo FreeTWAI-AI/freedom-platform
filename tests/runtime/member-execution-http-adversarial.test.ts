@@ -159,10 +159,12 @@ async function fixture(grantTtlSeconds?: number) {
 }
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 async function snapshot(f: Fixture) {
-  const rows: Record<string, unknown> = {};
-  for (const table of ['execution_runs', 'model_connections', 'execution_grants', 'execution_attempts', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox'])
-    rows[table] = (await owner.query(`SELECT to_jsonb(t) row FROM ${table} t WHERE scope_id=$1 ORDER BY to_jsonb(t)::text`, [f.context.scope.scope_id])).rows;
-  return rows;
+  // One statement preserves the full committed rollback baseline without seven
+  // round trips consuming the short-lived Grant before the request is dispatched.
+  const columns = ['execution_runs', 'model_connections', 'execution_grants', 'execution_attempts', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox']
+    .map(table => `(SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text), '[]'::jsonb)
+      FROM ${table} t WHERE scope_id=$1) AS ${table}`);
+  return (await owner.query(`SELECT ${columns.join(',')}`, [f.context.scope.scope_id])).rows[0] as Record<string, unknown>;
 }
 async function rejectedUnchanged(f: Fixture, action: () => Promise<Reply>, ...codes: number[]) {
   const before = await snapshot(f); const result = await action(); failure(result, ...codes); assert.deepEqual(await snapshot(f), before); return result;
@@ -394,23 +396,24 @@ test('MEMBER-HTTP-ADV foreign owner and different trusted environment/client can
 
 test('MEMBER-HTTP-ADV session and Grant expiry after real SQL waits reject HTTP disclosure and roll back domain rows', async () => {
   const f = await fixture(), holder = await owner.connect();
-  await owner.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '500 milliseconds' WHERE token_hash=$1", [f.actor.session_hash]);
-  const expiry = (await owner.query('SELECT expires_at FROM sessions WHERE token_hash=$1', [f.actor.session_hash])).rows[0].expires_at;
   const before = await snapshot(f); await holder.query('BEGIN');
   try {
     await holder.query('SELECT model_connection_id FROM model_connections WHERE model_connection_id=$1 FOR UPDATE', [f.model.modelConnectionId]);
+    // Arm the same short deadline only after baseline and lock setup are ready.
+    const expiry = (await owner.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '500 milliseconds' WHERE token_hash=$1 RETURNING expires_at", [f.actor.session_hash])).rows[0].expires_at;
     const pending = send(f.transport, paths.models + '/' + f.model.modelConnectionId, f);
     await blockedBy(holder); await waitUntil(expiry.getTime()); await holder.query('COMMIT'); failure(await pending, 401);
   } finally { await holder.query('ROLLBACK'); holder.release(); }
   assert.deepEqual(await snapshot(f), before);
-  const short = await fixture(2), consent = await grant(short), receiptHolder = await owner.connect(), beforeAttempt = await snapshot(short);
+  const short = await fixture(2), receiptHolder = await owner.connect();
   await receiptHolder.query('BEGIN');
   try {
+    const consent = await grant(short), beforeAttempt = await snapshot(short);
     await receiptHolder.query('LOCK TABLE scoped_command_receipts IN SHARE MODE');
     const pending = send(short.transport, paths.runs + '/' + short.run.runId + '/attempts', short, { body: { grantId: consent.grantId, expectedGrantVersion: '1' } });
     await blockedBy(receiptHolder); await waitUntil(Date.parse(consent.expiresAt)); await receiptHolder.query('COMMIT'); failure(await pending, 409);
+    assert.deepEqual(await snapshot(short), beforeAttempt);
   } finally { await receiptHolder.query('ROLLBACK'); receiptHolder.release(); }
-  assert.deepEqual(await snapshot(short), beforeAttempt);
 });
 
 test('MEMBER-HTTP-ADV real rate charges commit across domain denial, ignore network headers and saturate at the configured network cap', async () => {
