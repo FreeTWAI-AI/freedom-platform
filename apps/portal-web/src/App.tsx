@@ -457,7 +457,7 @@ function Workspace({
     document.addEventListener('visibilitychange',heartbeat);
     return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
   },[session.user.user_id]);
-  const [tab, setTab] = useState<TabId>(() => tabFromHash())
+  const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
@@ -488,12 +488,17 @@ function Workspace({
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
+  const launchpadEnabled = site?.guild_launchpad_enabled === true
   useEffect(() => {
-    const changed = () => { setLocationHash(window.location.hash); setTab(tabFromHash()) }
+    setLocationHash(window.location.hash)
+    setTab(tabFromHash(launchpadEnabled))
+  }, [launchpadEnabled])
+  useEffect(() => {
+    const changed = () => { setLocationHash(window.location.hash); setTab(tabFromHash(launchpadEnabled)) }
     window.addEventListener('hashchange', changed)
     window.addEventListener('popstate', changed)
     return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
-  }, [])
+  }, [launchpadEnabled])
   const launchpadOpen = site?.guild_launchpad_enabled === true && tab === 'guilds' && guildKeyFromHash(locationHash) !== null
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<ActionError | null>(null)
@@ -638,11 +643,11 @@ function tabTitle(tab: TabId): string {
   return TAB_TITLES[tab]
 }
 
-function tabFromHash(): TabId {
+function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
-  if(value.startsWith('guilds/'))return 'guilds'
+  if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'

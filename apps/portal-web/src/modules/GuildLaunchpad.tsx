@@ -1,6 +1,7 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import {hasLoneSurrogate, type Config, type ConfigView, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {ApiError, type PortalClient} from '../api';
+import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
 import './GuildLaunchpad.css';
@@ -8,7 +9,9 @@ import './GuildLaunchpad.css';
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
 const CONTROL = /[\u0000-\u001F\u007F\u0080-\u009F]/;
 const FIELD_MESSAGE: Record<string, string> = {
+  too_short: '不能是空白',
   too_long: '超過長度上限',
+  version_invalid: '版本號格式不正確',
   control_character: '不能包含換行或控制字元',
   lone_surrogate: '包含不成對的字元',
   invalid_order: '順序必須是 0 到 1000 的不重複整數',
@@ -49,8 +52,9 @@ export function guildKeyFromHash(hash = typeof window === 'undefined' ? '' : win
 
 type BookRef = {book_id: string; title: string; introduction_url: string | null; upstream_url: string};
 type AnnouncementRef = {announcement_id: string; title: string; body: string; published_at: string | null};
-type RevisionMeta = {revision: string; status: string; source: string; created_at: string};
-type DelegationRow = {delegation_id: string; principal_id: string; capabilities: string[]; expires_at: string; status: string; version: string; display_name: string};
+type ConfigProblem = {code: 'config_schema_unsupported'; revision: string} | null;
+type RevisionMeta = {revision: string; status: string; source: string; created_at: string; revert_reason: string | null; reverted_from_revision: string | null};
+type DelegationRow = {delegation_id: string; principal_id: string; capabilities: string[]; expires_at: string; expired: boolean; status: string; version: string; display_name: string};
 type Candidate = {display_name: string; principal_id: string | null};
 type LeaderConfig = ConfigView & {
   viewer_can_edit_config: boolean;
@@ -58,12 +62,14 @@ type LeaderConfig = ConfigView & {
   viewer_can_publish_config: boolean;
   viewer_can_manage_delegations: boolean;
   revisions: RevisionMeta[];
+  config_problem: ConfigProblem;
   delegations?: DelegationRow[];
   delegation_candidates?: Candidate[];
 };
 type MemberView = {
-  guild: {guild_key: string; name: string; purpose: string; category: null};
+  guild: {guild_key: string; name: string; purpose: string};
   config: ConfigView;
+  config_problem: ConfigProblem;
   membership: {state: string; member_tier: string};
   announcements: AnnouncementRef[];
   skill_books: BookRef[];
@@ -75,6 +81,7 @@ type MemberView = {
 type PublicView = {
   guild: {guild_key: string; name: string; purpose: string; category: null};
   config: {revision: string; body: Omit<Config, 'extensions'>};
+  config_problem: ConfigProblem;
   announcements: AnnouncementRef[];
   skill_books: BookRef[];
 };
@@ -193,6 +200,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   const [skillBooks, setSkillBooks] = useState<BookRef[]>([]);
   const [visitor, setVisitor] = useState(mode === 'public');
   const [memberTier, setMemberTier] = useState<string | undefined>();
+  const [configProblem, setConfigProblem] = useState<ConfigProblem>(null);
   const [draft, setDraft] = useState<Config | null>(null);
   const [saved, setSaved] = useState<ConfigView | null>(null);
   const [savedJson, setSavedJson] = useState('');
@@ -243,7 +251,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     setLoading(true); setBanner(''); setGuild(null);
     const signal = controller.signal;
     const applyPublic = (value: PublicView) => {
-      setGuild(value.guild); setAnnouncements(value.announcements); setSkillBooks(value.skill_books);
+      setGuild(value.guild); setAnnouncements(value.announcements); setSkillBooks(value.skill_books); setConfigProblem(value.config_problem);
       setVisitor(true); setMemberTier(undefined); setAccess({edit: false, preview: false, publish: false, delegate: false}); setLeader(null);
       const next = asConfig(guildKey, value.config.body);
       setDraft(next); setSaved(null); setSavedJson(JSON.stringify(next));
@@ -258,16 +266,16 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
       try {
         const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`, {signal});
         if (current !== generation.current) return;
-        setGuild(member.guild); setAnnouncements(member.announcements); setSkillBooks(member.skill_books);
+        setGuild(member.guild); setAnnouncements(member.announcements); setSkillBooks(member.skill_books); setConfigProblem(member.config_problem);
         setVisitor(false); setMemberTier(member.membership.member_tier);
         const flags = {edit: member.viewer_can_edit_config, preview: member.viewer_can_preview_config, publish: member.viewer_can_publish_config, delegate: member.viewer_can_manage_delegations};
         setAccess(flags);
         if (flags.edit || flags.preview || flags.publish) {
           const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`, {signal});
           if (current !== generation.current) return;
-          setLeader(config); remember(config);
+          setLeader(config); setConfigProblem(config.config_problem); remember(config);
         } else {
-          setLeader(null); remember(member.config, false);
+          setLeader(null); setConfigProblem(member.config_problem); remember(member.config, false);
           if (member.config.status === 'published' && member.config.source === 'guild_editor') setStatus(`已發布版本 ${member.config.revision}`);
         }
       } catch (error) {
@@ -291,10 +299,10 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     try {
       if (mode === 'public' || visitor) return;
       const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`);
-      setAnnouncements(member.announcements); setSkillBooks(member.skill_books); setMemberTier(member.membership.member_tier);
+      setAnnouncements(member.announcements); setSkillBooks(member.skill_books); setMemberTier(member.membership.member_tier); setConfigProblem(member.config_problem);
       if (access.edit || access.preview || access.publish) {
         const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
-        setLeader(config); remember(config);
+        setLeader(config); setConfigProblem(config.config_problem); remember(config);
       } else remember(member.config);
     } catch (error) {
       setBanner(error instanceof Error ? error.message : '重新載入失敗。');
@@ -414,6 +422,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     {mode === 'member' && <button type="button" className="btn btn-ghost" onClick={onBack}>返回公會列表</button>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
+    {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
     {banner && <p className="banner banner-error" role="alert">{banner}</p>}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button>}
@@ -469,17 +478,17 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
       </div>
       {access.publish && leader && <fieldset>
         <legend>版本</legend>
-        <ul>{leader.revisions.map(revision => <li key={revision.revision}>版本 {revision.revision} · {revision.status === 'draft' ? '草稿' : revision.status === 'published' ? '已發布' : '已取代'}
+        <ul>{leader.revisions.map(revision => <li key={revision.revision}>版本 {revision.revision} · {revision.status === 'draft' ? '草稿' : revision.status === 'published' ? '已發布' : '已取代'}{revision.revert_reason ? ` · 回復自版本 ${revision.reverted_from_revision}：${revision.revert_reason}` : ''}
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => { setRevertTarget(revision.revision); setRevertReason(''); openDialog(revertDialog.current, event.currentTarget); }}>回復到此版本</button>
         </li>)}</ul>
       </fieldset>}
       {access.delegate && leader?.delegations && <fieldset>
         <legend>授權</legend>
-        <label className="field">成員<select value={grantPrincipal} onChange={event => setGrantPrincipal(event.target.value)}><option value="">選擇成員</option>{(leader.delegation_candidates ?? []).map(candidate => <option key={candidate.display_name} value={candidate.principal_id ?? ''} disabled={!candidate.principal_id}>{candidate.display_name}{candidate.principal_id ? '' : '（尚未建立身份，無法授權）'}</option>)}</select></label>
+        <label className="field">成員<select value={grantPrincipal} onChange={event => setGrantPrincipal(event.target.value)}><option value="">選擇成員</option>{(leader.delegation_candidates ?? []).map((candidate, index) => <option key={candidate.principal_id ?? `missing-principal-${index}`} value={candidate.principal_id ?? ''} disabled={!candidate.principal_id}>{candidate.display_name}{candidate.principal_id ? '' : '（尚未建立身份，無法授權）'}</option>)}</select></label>
         <div>{Object.entries(CAPABILITY_LABEL).map(([capability, label]) => <label key={capability} className="checkbox-row"><input type="checkbox" checked={grantCaps.includes(capability)} onChange={event => setGrantCaps(current => event.target.checked ? [...current, capability] : current.filter(item => item !== capability))}/>{label}</label>)}</div>
         <label className="field">到期時間<input type="datetime-local" value={grantExpiry} onChange={event => setGrantExpiry(event.target.value)}/></label>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void grant()}>授權</button>
-        <ul>{leader.delegations.map(row => <li key={row.delegation_id}>{row.display_name} · {row.capabilities.map(capability => CAPABILITY_LABEL[capability] ?? capability).join('、')}
+        <ul>{leader.delegations.map(row => <li key={row.delegation_id}>{row.display_name} · {row.capabilities.map(capability => CAPABILITY_LABEL[capability] ?? capability).join('、')} · <time dateTime={row.expires_at}>{formatIsoLocal(row.expires_at)}</time>{row.expired ? ' · 已過期' : ''}
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => { setRevokeId(row.delegation_id); setRevokeReason(''); openDialog(revokeDialog.current, event.currentTarget); }}>撤銷</button>
         </li>)}</ul>
       </fieldset>}
