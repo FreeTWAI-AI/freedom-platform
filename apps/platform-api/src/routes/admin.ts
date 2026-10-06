@@ -11,14 +11,14 @@ import type {Pool} from 'pg';
 import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
 import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
-import {approveRecoveryCase,closeRecoveryCase,executeRecoveryCase,getRecoveryCase,openRecoveryCase} from '../../../../modules/tenant-workspaces/recovery.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
 import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
+import {approveRecoveryCase,closeRecoveryCase,executeRecoveryCase,getRecoveryCase,openRecoveryCase} from '../../../../modules/tenant-workspaces/recovery.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer;guildLaunchpadEnabled?:boolean}={origin:'http://127.0.0.1:4310'}){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'},guildLaunchpadEnabled=false){
   const app=new Hono<AdminEnv>();
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
@@ -93,7 +93,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     return c.json({items:rows.rows});
   });
   app.route('/',createRepoMaintainerAdminRoutes(pool));
-  if(github.guildLaunchpadEnabled===true){
+  if(guildLaunchpadEnabled){
     const matched=async(c:Context<AdminEnv>)=>{
       const version=c.req.header('If-Match');
       if(version===undefined)throw new Problem(428,'version_required','請提供 If-Match 版本。');
