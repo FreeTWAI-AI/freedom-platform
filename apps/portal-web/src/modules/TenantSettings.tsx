@@ -6,11 +6,15 @@ import { TenantSelector, roleLabel } from './TenantSelector';
 import './tenant-workspaces.css';
 
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
-type Attempt = { key: string; path: string; body: unknown; ifMatch?: string; tenantId: string | null };
+type Attempt = { key: string; path: string; body: unknown; ifMatch?: string; tenantId: string | null; notice?: string };
 type DirectoryPerson = { user_id: string; nickname: string };
 const INVITE_ROLES = ['admin', 'operator', 'viewer'] as const;
+const UNRESOLVED_ALERT = '上一個操作的結果還在確認。請先按「再確認一次」，或重新送出原本的操作。';
 
 function attemptSlot(tenantId: string | null) { return tenantId ?? ''; }
+function sameRequest(attempt: Attempt, path: string, body: unknown, ifMatch?: string) {
+  return attempt.path === path && JSON.stringify(attempt.body) === JSON.stringify(body) && attempt.ifMatch === ifMatch;
+}
 
 function storedKey(userId: string) { return `freedom-acting-tenant:${userId}`; }
 function readStored(userId: string): string | null {
@@ -62,11 +66,17 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const slot = attemptSlot(attempt.tenantId);
     if (unresolvedRef.current.get(slot)?.key === attempt.key) unresolvedRef.current.delete(slot);
   }
-  function attemptFor(tenantId: string | null, path: string, body: unknown, ifMatch?: string): Attempt {
+  // One unresolved attempt per slot. A different path, body, or If-Match stays unsent.
+  function attemptFor(tenantId: string | null, path: string, body: unknown, ifMatch?: string, notice?: string): Attempt | null {
     const kept = unresolvedRef.current.get(attemptSlot(tenantId));
-    if (kept?.path === path) return kept;
-    if (pending?.tenantId === tenantId && pending.path === path) return pending;
-    return { key: crypto.randomUUID(), path, body, ifMatch, tenantId };
+    if (kept) {
+      if (sameRequest(kept, path, body, ifMatch)) return kept;
+      setPending(kept);
+      setAlertText(UNRESOLVED_ALERT);
+      return null;
+    }
+    if (pending && pending.tenantId === tenantId && sameRequest(pending, path, body, ifMatch)) return pending;
+    return { key: crypto.randomUUID(), path, body, ifMatch, tenantId, notice };
   }
 
   function begin() {
@@ -173,6 +183,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     if (attempt.tenantId !== null && attempt.tenantId !== selectedId) return;
     const value = await run<{ tenant?: TenantView }>(attempt);
     if (!value) return;
+    if (attempt.notice) { setNotice(attempt.notice); setPeople([]); }
     await loadMine(attempt.path === '/tenants' ? value.tenant?.tenant_id : selectedId ?? undefined);
   }
 
@@ -180,7 +191,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     event.preventDefault();
     const body: { display_name: string; workspace_name?: string } = { display_name: createName.trim() };
     if (createWorkspace.trim()) body.workspace_name = createWorkspace.trim();
-    const created = await run<{ tenant: TenantView; workspace: WorkspaceView }>(attemptFor(null, '/tenants', body));
+    const attempt = attemptFor(null, '/tenants', body);
+    if (!attempt) return;
+    const created = await run<{ tenant: TenantView; workspace: WorkspaceView }>(attempt);
     if (!created) return;
     setCreateName(''); setCreateWorkspace(''); setNotice(`已建立${created.tenant.display_name}。`);
     await loadMine(created.tenant.tenant_id);
@@ -189,7 +202,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   async function saveTenant(event: FormEvent) {
     event.preventDefault();
     if (!tenant) return;
-    const saved = await run<TenantView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/edit`, { display_name: editName.trim(), public_slug: slug.trim() || null }, tenant.version));
+    const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/edit`, { display_name: editName.trim(), public_slug: slug.trim() || null }, tenant.version);
+    if (!attempt) return;
+    const saved = await run<TenantView>(attempt);
     if (!saved) return;
     setNotice('已儲存業務空間資料。'); await loadMine(saved.tenant_id);
   }
@@ -200,7 +215,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     // The ref closes the gap before the disabled render, so one double-click sends one key.
     workspaceLock.current = true;
     try {
-      const saved = await run<WorkspaceView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/workspaces`, { name: newWorkspace.trim() }));
+      const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/workspaces`, { name: newWorkspace.trim() });
+      if (!attempt) return;
+      const saved = await run<WorkspaceView>(attempt);
       if (!saved) return;
       setNewWorkspace(''); setNotice(`已建立工作區${saved.name}。`); await loadMine(tenant.tenant_id);
     } finally {
@@ -242,16 +259,20 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     }
     if (!live()) return;
     const expires = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
-    const saved = await run<InvitationView>(attemptFor(tenantId, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: inviteRole, instance_capabilities: [], expires_at: expires }));
+    const attempt = attemptFor(tenantId, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: inviteRole, instance_capabilities: [], expires_at: expires }, undefined, `已邀請${candidate.display_name}。`);
+    if (!attempt) return;
+    const saved = await run<InvitationView>(attempt);
     if (!saved) return;
     setNotice(`已邀請${candidate.display_name}。`); setPeople([]);
   }
 
   async function respond(invitation: InvitationView, action: 'accept' | 'decline') {
     const path = `/tenants/${invitation.tenant_id}/invitations/${invitation.invitation_id}/${action}`;
-    const saved = await run<unknown>(action === 'accept'
+    const attempt = action === 'accept'
       ? attemptFor(invitation.tenant_id, path, {}, invitation.version)
-      : attemptFor(invitation.tenant_id, path, {}));
+      : attemptFor(invitation.tenant_id, path, {});
+    if (!attempt) return;
+    const saved = await run<unknown>(attempt);
     if (!saved) return;
     setNotice(action === 'accept' ? `已加入${invitation.tenant_display_name}。` : `已婉拒${invitation.tenant_display_name}。`);
     await loadMine(action === 'accept' ? invitation.tenant_id : selectedId ?? undefined);
@@ -259,7 +280,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function changeMember(member: MemberView, status: 'active' | 'revoked') {
     if (!tenant) return;
-    const saved = await run<MemberView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, { role: member.role === 'owner' ? 'viewer' : member.role, status, instance_capabilities: [], reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' }, member.version));
+    const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, { role: member.role === 'owner' ? 'viewer' : member.role, status, instance_capabilities: [], reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' }, member.version);
+    if (!attempt) return;
+    const saved = await run<MemberView>(attempt);
     if (!saved) return;
     setNotice(status === 'revoked' ? `已撤銷${member.display_name}。` : `已更新${member.display_name}的角色。`);
     await loadMine(tenant.tenant_id);
@@ -271,7 +294,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function leave() {
     if (!tenant) return;
-    const saved = await run<{ status: 'revoked'; version: string }>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/leave`, {}, tenant.my_membership.version));
+    const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/leave`, {}, tenant.my_membership.version);
+    if (!attempt) return;
+    const saved = await run<{ status: 'revoked'; version: string }>(attempt);
     if (!saved) return;
     setNotice('已離開這個業務空間。'); await loadMine();
   }
