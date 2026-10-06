@@ -26,7 +26,7 @@ export async function authenticateAdmin(q:Pool|PoolClient,identity:VerifiedAdmin
   return {...row,subject:identity.subject};
 }
 function publicAdmin(admin:AdminActor){return {admin_id:admin.admin_id,community_id:admin.community_id,email:admin.email,display_name:admin.display_name,role:admin.role};}
-export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false):Promise<T>{
+export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false,revalidate?:(q:PoolClient)=>Promise<unknown>):Promise<T>{
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   return transaction(pool,async q=>{
     // Role mutations and Access synchronization serialize before locking the
@@ -36,8 +36,15 @@ export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`admin-command/${input.admin.admin_id}/${input.operation}/${input.key}`]);
     await authorize(q);
     const hash=digest({body:input.body,expected:input.expected??null}),prior=(await q.query('SELECT * FROM platform_admin_receipts WHERE admin_id=$1 AND operation=$2 AND idempotency_key=$3',[input.admin.admin_id,input.operation,input.key])).rows[0];
-    if(prior){requireCondition(prior.request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');return prior.response as T;}
-    const result=await run(q);await q.query('INSERT INTO platform_admin_receipts(admin_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.admin.admin_id,input.operation,input.key,hash,JSON.stringify(result)]);return result;
+    if(prior){
+      requireCondition(prior.request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');
+      if(revalidate)await revalidate(q);
+      return prior.response as T;
+    }
+    const result=await run(q);
+    await q.query('INSERT INTO platform_admin_receipts(admin_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.admin.admin_id,input.operation,input.key,hash,JSON.stringify(result)]);
+    if(revalidate)await revalidate(q);
+    return result;
   });
 }
 export async function audit(q:PoolClient,admin:AdminActor,action:string,type:string,ref:string,why:string,before:unknown,after:unknown){

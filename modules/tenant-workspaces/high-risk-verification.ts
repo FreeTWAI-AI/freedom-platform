@@ -105,9 +105,19 @@ export async function requireFreshVerification(q: PoolClient, input: {
   }
 }
 
+/** The row lock from requireFreshVerification does not keep expires_at current.
+ * Call this after the last lock wait and before effects. clock_timestamp()
+ * moves during the wait; transaction-start now() does not. */
+export async function assertFreshVerificationCurrent(q: PoolClient, verificationId: string): Promise<void> {
+  const row = (await q.query<{ ok: boolean }>(
+    `SELECT expires_at > clock_timestamp() AS ok FROM tenant_high_risk_verifications WHERE verification_id=$1`,
+    [verificationId])).rows[0];
+  requireCondition(row?.ok === true, 403, 'fresh_auth_required', '需要重新驗證。');
+}
+
 export async function consumeFreshVerification(q: PoolClient, verificationId: string, namespaceDigest: string): Promise<void> {
   const consumed = await q.query(`UPDATE tenant_high_risk_verifications
     SET consumed_at=clock_timestamp(), consumed_by=$2
-    WHERE verification_id=$1 AND consumed_at IS NULL`, [verificationId, namespaceDigest]);
+    WHERE verification_id=$1 AND consumed_at IS NULL AND expires_at > clock_timestamp()`, [verificationId, namespaceDigest]);
   requireCondition(consumed.rowCount === 1, 403, 'fresh_auth_required', '需要重新驗證。');
 }

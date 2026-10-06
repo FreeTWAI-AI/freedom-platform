@@ -16,7 +16,7 @@ import {
   auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, NOT_FOUND, persistTransferFailure,
   readCursor, requireMutableStatus, TRANSFER_MISSING, versionOf,
 } from './facts.js';
-import { consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
+import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
 
 const MEMBER_PROFILE = 'freedom.scoped-member-command/v1';
@@ -48,6 +48,18 @@ async function callerPrincipal(q: PoolClient, actor: Actor): Promise<string> {
   return principal.principal_id;
 }
 
+/** Same rule as lockTenantScope: a disabled tenant scope is 403 scope_disabled.
+ * Lock the scope before the tenant row. A fresh status read follows the lock
+ * because a waiting UPDATE can commit a disable that this statement's first
+ * snapshot did not see. */
+async function requireActiveTenantScope(q: PoolClient, tenantId: string): Promise<void> {
+  const locked = await q.query(`SELECT scope_id FROM resource_scopes WHERE tenant_ref=$1 FOR SHARE`, [tenantId]);
+  if ((locked.rowCount ?? 0) !== 1) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
+  const current = (await q.query<{ status: string }>(`SELECT status FROM resource_scopes WHERE tenant_ref=$1`, [tenantId])).rows[0];
+  if (!current) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
+  requireCondition(current.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
+}
+
 function transferFailure(error: unknown): error is Problem {
   return error instanceof Problem && (error.code === 'transfer_expired' || error.code === 'transfer_authority_changed' || error.code === 'tenant_recovery_required');
 }
@@ -76,8 +88,11 @@ export async function proposeTransfer(pool: Pool, actor: Actor, tenantId: string
       purpose: 'tenant.ownership.propose', verificationId: input.fresh_auth_verification_id, namespaceDigest: digest,
     });
     await loadActivePolicy(q);
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
   }, async (q, context) => {
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
     const policy = await loadActivePolicy(q);
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
     await withinTransferTtl(q, input.expires_at, policy.transfer_ttl_seconds);
     requireCondition(input.to_principal_id !== context.principal_id, 422, 'validation_failed', '不能將擁有權移交給自己。');
     const recipient = (await q.query<{ principal_id: string }>(`SELECT p.principal_id FROM principals p
@@ -198,7 +213,9 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
         tenantId, purpose: 'tenant.ownership.accept', verificationId: input.fresh_auth_verification_id, namespaceDigest: digest,
       });
       await loadActivePolicy(q);
+      await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
     }, async (q, context) => {
+      await requireActiveTenantScope(q, tenantId);
       const tenant = (await q.query<{ status: string; authorization_revision: string; community_id: string }>(
         `SELECT status, authorization_revision::text AS authorization_revision, community_id FROM tenants WHERE tenant_id=$1 FOR UPDATE`, [tenantId])).rows[0];
       if (!tenant || tenant.community_id !== actor.community_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
@@ -234,6 +251,8 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
       const recipientUser = (await q.query<{ ok: boolean }>(`SELECT (p.status='active' AND u.active) AS ok
         FROM principals p JOIN users u ON u.user_id=p.user_ref WHERE p.principal_id=$1 AND p.kind='person'`, [transfer.to_principal_id])).rows[0];
       requireCondition(recipientUser?.ok, 409, 'transfer_authority_changed', '業務空間的權限已變更，這份移交已失效。');
+      await requireActiveTenantScope(q, tenantId);
+      await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
       if (recipient) {
         await q.query(`UPDATE tenant_memberships SET role='owner', status='active', revoked_at=NULL, accepted_at=clock_timestamp(), version=version+1, updated_at=clock_timestamp()
           WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, transfer.to_principal_id]);
@@ -276,6 +295,8 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
         transfer: await transferView(q, transferId), tenant_id: tenantId, authorization_revision: revision, my_role: 'owner',
       });
     }, async (q, context) => {
+      await requireActiveTenantScope(q, tenantId);
+      await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
       const prior = (await q.query<{ response: { tenant_id?: unknown } }>(`SELECT response FROM scoped_command_receipts
         WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation='tenant.ownership.accept' AND idempotency_key=$4`,
       [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, key])).rows[0];

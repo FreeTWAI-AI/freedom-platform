@@ -462,3 +462,161 @@ test('an inactive recipient is rejected by the session lock, and persistTransfer
   assert.equal(invalidated.state, 'invalidated');
   assert.equal(invalidated.version, String(Number(transfer.version) + 1));
 });
+
+async function shortProof(userId: string, principalId: string, tenantId: string, purpose: string) {
+  // expires_at is frozen after insert. A short-lived row is the deadline the
+  // barrier crosses; the product TTL is unchanged.
+  return (await pool.query<{ verification_id: string }>(`INSERT INTO tenant_high_risk_verifications(user_id,principal_id,session_hash,tenant_id,purpose,verified_at,expires_at)
+    VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp()+interval '4 seconds') RETURNING verification_id`,
+  [userId, principalId, await sessionHash(userId), tenantId, purpose])).rows[0].verification_id;
+}
+async function proofExpired(verificationId: string) {
+  for (let i = 0; i < 160; i += 1) {
+    const expired = (await pool.query<{ expired: boolean }>(
+      `SELECT expires_at<=clock_timestamp() AS expired FROM tenant_high_risk_verifications WHERE verification_id=$1`,
+      [verificationId])).rows[0]?.expired;
+    if (expired) return;
+    await delay(50);
+  }
+  assert.fail('fresh verification did not expire');
+}
+async function authorityFootprint(tenantId: string) {
+  const tenant = (await pool.query<{ status: string; revision: string }>(
+    `SELECT status, authorization_revision::text AS revision FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
+  const memberships = await roles(tenantId);
+  const counts = (await pool.query<{ audit: number; receipts: number; outbox: number; journal: number }>(`SELECT
+    (SELECT count(*)::int FROM tenant_authority_audit WHERE tenant_id=$1) AS audit,
+    (SELECT count(*)::int FROM scoped_command_receipts) AS receipts,
+    (SELECT count(*)::int FROM scoped_outbox) AS outbox,
+    (SELECT count(*)::int FROM scoped_transition_journal) AS journal`, [tenantId])).rows[0];
+  return { tenant, memberships, counts };
+}
+function noPrivate(body: unknown, secret: string) {
+  const text = JSON.stringify(body);
+  assert.equal(text.includes(secret), false);
+  assert.equal(text.includes('password'), false);
+}
+
+test('T-049 accept refuses a fresh proof that expires while the tenant row is locked', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const transfer = await propose(owner.session, tenant.tenant_id, to, 'admin');
+  const verificationId = await shortProof(recipient.id, to, tenant.tenant_id, 'tenant.ownership.accept');
+  const before = await authorityFootprint(tenant.tenant_id);
+  const transferBefore = (await pool.query<{ state: string; version: string }>(
+    `SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0];
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [tenant.tenant_id]);
+    const pending = send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, recipient.session, {
+      accept_scope: true, fresh_auth_verification_id: verificationId,
+    }, `"${transfer.version}"`);
+    await blockedBy(pid);
+    await proofExpired(verificationId);
+    const stillWaiting = (await admin.query<{ n: number }>('SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [pid])).rows[0].n;
+    assert.ok(stillWaiting >= 1, 'accept left the tenant lock before the proof expired');
+    await holder.query('COMMIT');
+    const denied = await Promise.race([pending, delay(20000).then(() => { throw new Error('accept did not finish'); })]);
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'fresh_auth_required');
+    noPrivate(denied.data, verificationId);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+  }
+  assert.deepEqual(await authorityFootprint(tenant.tenant_id), before);
+  assert.deepEqual((await pool.query<{ state: string; version: string }>(
+    `SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0], transferBefore);
+  const fresh = await accept(recipient.session, tenant.tenant_id, transfer.transfer_id, `"${transfer.version}"`);
+  assert.equal(fresh.status, 200, fresh.text);
+  assert.equal(fresh.data.my_role, 'owner');
+});
+
+test('T-049 propose refuses a fresh proof that expires while the policy row is locked', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const verificationId = await shortProof(owner.id, tenant.my_membership.principal_id, tenant.tenant_id, 'tenant.ownership.propose');
+  const before = await authorityFootprint(tenant.tenant_id);
+  const transfersBefore = (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_ownership_transfers WHERE tenant_id=$1`, [tenant.tenant_id])).rows[0].n;
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query(`SELECT revision FROM tenant_authority_policies WHERE status='active' FOR UPDATE`);
+    const pending = send(`/tenants/${tenant.tenant_id}/ownership-transfers`, owner.session, {
+      to_principal_id: to, from_role_after: 'admin', expires_at: later(), reason: '交給下一位擁有者', fresh_auth_verification_id: verificationId,
+    });
+    await blockedBy(pid);
+    await proofExpired(verificationId);
+    await holder.query('COMMIT');
+    const denied = await Promise.race([pending, delay(20000).then(() => { throw new Error('propose did not finish'); })]);
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'fresh_auth_required');
+    noPrivate(denied.data, verificationId);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+  }
+  assert.deepEqual(await authorityFootprint(tenant.tenant_id), before);
+  assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_ownership_transfers WHERE tenant_id=$1`, [tenant.tenant_id])).rows[0].n, transfersBefore);
+  const made = await propose(owner.session, tenant.tenant_id, to, 'admin');
+  assert.equal(made.state, 'pending');
+});
+
+test('T-049 accept refuses a disabled target tenant scope, including replay', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const transfer = await propose(owner.session, tenant.tenant_id, to, 'admin');
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.ownership.accept');
+  await pool.query(`UPDATE resource_scopes SET status='disabled' WHERE tenant_ref=$1`, [tenant.tenant_id]);
+  const ordinary = await send(`/tenants/${tenant.tenant_id}/workspaces`, owner.session, { name: '第二櫃' });
+  assert.equal(ordinary.status, 403, ordinary.text);
+  assert.equal(ordinary.data.code, 'scope_disabled');
+  const before = await authorityFootprint(tenant.tenant_id);
+  const transferBefore = (await pool.query<{ state: string; version: string }>(
+    `SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0];
+  const denied = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, `"${transfer.version}"`);
+  assert.equal(denied.status, 403, denied.text);
+  assert.equal(denied.data.code, 'scope_disabled');
+  noPrivate(denied.data, verificationId);
+  assert.deepEqual(await authorityFootprint(tenant.tenant_id), before);
+  assert.deepEqual((await pool.query<{ state: string; version: string }>(
+    `SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0], transferBefore);
+  await pool.query(`UPDATE resource_scopes SET status='active' WHERE tenant_ref=$1`, [tenant.tenant_id]);
+  const accepted = await accept(recipient.session, tenant.tenant_id, transfer.transfer_id, `"${transfer.version}"`);
+  assert.equal(accepted.status, 200, accepted.text);
+  assert.equal(accepted.data.my_role, 'owner');
+});
+
+test('T-049 replaying an accepted transfer faces the current target scope', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const transfer = await propose(owner.session, tenant.tenant_id, to, 'admin');
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.ownership.accept');
+  const key = randomUUID();
+  const accepted = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, `"${transfer.version}"`, key);
+  assert.equal(accepted.status, 200, accepted.text);
+  const afterAccept = await authorityFootprint(tenant.tenant_id);
+  await pool.query(`UPDATE resource_scopes SET status='disabled' WHERE tenant_ref=$1`, [tenant.tenant_id]);
+  const replay = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, `"${transfer.version}"`, key);
+  assert.equal(replay.status, 403, replay.text);
+  assert.equal(replay.data.code, 'scope_disabled');
+  noPrivate(replay.data, verificationId);
+  assert.deepEqual(await authorityFootprint(tenant.tenant_id), afterAccept);
+});

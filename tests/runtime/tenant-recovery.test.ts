@@ -10,6 +10,8 @@ import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../pack
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
+import { applyOwnerAccountStatus } from '../../modules/tenant-workspaces/security-path.js';
+import { revokeRecoveryCapability } from '../../modules/tenant-workspaces/recovery.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -744,4 +746,349 @@ test('T-016 guild join, leave and intern to full leave tenant status and roles u
       FROM tenant_memberships m WHERE m.tenant_id=t.tenant_id) AS members
     FROM tenants t WHERE t.tenant_id=$1`, [tenant.tenant_id])).rows[0];
   assert.deepEqual(after, before);
+});
+
+async function shortProof(userId: string, principalId: string, tenantId: string, purpose: string) {
+  const hash = (await pool.query<{ token_hash: string }>('SELECT token_hash FROM sessions WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1', [userId])).rows[0].token_hash;
+  return (await pool.query<{ verification_id: string }>(`INSERT INTO tenant_high_risk_verifications(user_id,principal_id,session_hash,tenant_id,purpose,verified_at,expires_at)
+    VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp()+interval '4 seconds') RETURNING verification_id`,
+  [userId, principalId, hash, tenantId, purpose])).rows[0].verification_id;
+}
+async function proofExpired(verificationId: string) {
+  for (let i = 0; i < 160; i += 1) {
+    const expired = (await pool.query<{ expired: boolean }>(
+      `SELECT expires_at<=clock_timestamp() AS expired FROM tenant_high_risk_verifications WHERE verification_id=$1`,
+      [verificationId])).rows[0]?.expired;
+    if (expired) return;
+    await delay(50);
+  }
+  assert.fail('fresh verification did not expire');
+}
+async function adminKey(who: Admin, path: string, key: string, body: unknown, version?: string): Promise<Reply> {
+  const headers: Record<string, string> = {
+    Origin: origin, 'Cf-Access-Jwt-Assertion': who.jwt, 'X-Admin-CSRF': who.csrf,
+    'Content-Type': 'application/json', 'Idempotency-Key': key,
+  };
+  if (version !== undefined) headers['If-Match'] = version.startsWith('"') ? version : `"${version}"`;
+  const response = await app.request(origin + '/admin/api' + path, { method: 'POST', headers, body: JSON.stringify(body) });
+  const text = await response.text();
+  return { status: response.status, data: text ? JSON.parse(text) : {}, text, etag: response.headers.get('etag'), cacheControl: response.headers.get('cache-control') };
+}
+async function recoveryFootprint(tenantId: string, caseId?: string) {
+  const tenant = (await pool.query<{ status: string; revision: string }>(
+    `SELECT status, authorization_revision::text AS revision FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
+  const memberships = (await pool.query(`SELECT principal_id, role, status, version::text AS version FROM tenant_memberships WHERE tenant_id=$1 ORDER BY principal_id`, [tenantId])).rows;
+  const recovery = caseId
+    ? (await pool.query(`SELECT state, version::text AS version, recipient_accepted_at IS NOT NULL AS accepted, executed_by_admin_id FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0]
+    : null;
+  const counts = (await pool.query<{ audit: number; admin_audit: number; receipts: number; outbox: number; journal: number }>(`SELECT
+    (SELECT count(*)::int FROM tenant_authority_audit WHERE tenant_id=$1) AS audit,
+    (SELECT count(*)::int FROM platform_admin_audit) AS admin_audit,
+    (SELECT count(*)::int FROM platform_admin_receipts) AS receipts,
+    (SELECT count(*)::int FROM scoped_outbox) AS outbox,
+    (SELECT count(*)::int FROM scoped_transition_journal) AS journal`, [tenantId])).rows[0];
+  return { tenant, memberships, recovery, counts };
+}
+async function secondOwner(tenantId: string, userId: string, actor: Session) {
+  const principalId = await candidate(actor, userId);
+  await pool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`, [tenantId, principalId]);
+  return principalId;
+}
+async function revokeCapability(adminId: string, capability: string) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const pid = (await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await revokeRecoveryCapability(client, adminId, capability as 'tenant.recovery.open' | 'tenant.recovery.review' | 'tenant.recovery.execute');
+    return { client, pid, commit: () => client.query('COMMIT') };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    client.release();
+    throw error;
+  }
+}
+
+test('T-014 two owners disabled before either commit still require recovery', async () => {
+  const owner = await person('擁有者');
+  const other = await person('另一位擁有者');
+  const tenant = await createTenant(owner.session);
+  await secondOwner(tenant.tenant_id, other.id, owner.session);
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  let failed: unknown;
+  try {
+    await clientA.query('BEGIN');
+    await clientB.query('BEGIN');
+    await clientA.query('UPDATE users SET active=false WHERE user_id=$1', [owner.id]);
+    await clientB.query('UPDATE users SET active=false WHERE user_id=$1', [other.id]);
+    const pidA = (await clientA.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const pidB = (await clientB.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const done = { a: false, b: false };
+    const pathA = applyOwnerAccountStatus(clientA, owner.id, false).then(() => { done.a = true; }, error => { failed = error; done.a = true; });
+    const pathB = applyOwnerAccountStatus(clientB, other.id, false).then(() => { done.b = true; }, error => { failed = error; done.b = true; });
+    let holder: 'a' | 'b' | null = null;
+    for (let i = 0; i < 200 && !failed; i += 1) {
+      const blockedByA = (await adminPool.query('SELECT 1 FROM pg_stat_activity WHERE pid=$2 AND $1=ANY(pg_blocking_pids(pid))', [pidA, pidB])).rowCount;
+      const blockedByB = (await adminPool.query('SELECT 1 FROM pg_stat_activity WHERE pid=$2 AND $1=ANY(pg_blocking_pids(pid))', [pidB, pidA])).rowCount;
+      if ((blockedByA ?? 0) > 0) { holder = 'a'; break; }
+      if ((blockedByB ?? 0) > 0) { holder = 'b'; break; }
+      if (done.a && done.b) break;
+      await delay(20);
+    }
+    if (holder === 'a') { await pathA; await clientA.query('COMMIT'); await pathB; await clientB.query('COMMIT'); }
+    else if (holder === 'b') { await pathB; await clientB.query('COMMIT'); await pathA; await clientA.query('COMMIT'); }
+    else { await pathA; await pathB; await clientA.query('COMMIT'); await clientB.query('COMMIT'); }
+    if (failed) throw failed;
+    const statusNow = await tenantStatus(tenant.tenant_id);
+    const eventsNow = (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM scoped_outbox WHERE event_type='freedom.tenant.recovery.required.v1'`)).rows[0].n;
+    assert.equal(holder === 'a' || holder === 'b', true, `the two security paths did not serialize on the tenant (status=${statusNow}, recovery_events=${eventsNow}, holder=${String(holder)})`);
+  } finally {
+    await clientA.query('ROLLBACK');
+    await clientB.query('ROLLBACK');
+    clientA.release();
+    clientB.release();
+  }
+  assert.equal(await tenantStatus(tenant.tenant_id), 'recovery_required');
+  const loginable = (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships m
+    JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
+    JOIN users u ON u.user_id=p.user_ref AND u.active
+    WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active'`, [tenant.tenant_id])).rows[0].n;
+  assert.equal(loginable, 0);
+  assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM scoped_outbox WHERE event_type='freedom.tenant.recovery.required.v1'`)).rows[0].n, 1);
+  assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_authority_audit WHERE tenant_id=$1 AND reason_code='owner_account_disabled'`, [tenant.tenant_id])).rows[0].n, 1);
+});
+
+test('T-014 two co-owned tenants disabled together do not deadlock', async () => {
+  const owner = await person('擁有者');
+  const other = await person('另一位擁有者');
+  const first = await createTenant(owner.session, '品牌甲');
+  const second = await createTenant(owner.session, '品牌乙');
+  await secondOwner(first.tenant_id, other.id, owner.session);
+  await secondOwner(second.tenant_id, other.id, owner.session);
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  let failed: unknown;
+  try {
+    await clientA.query('BEGIN');
+    await clientB.query('BEGIN');
+    await clientA.query('UPDATE users SET active=false WHERE user_id=$1', [owner.id]);
+    await clientB.query('UPDATE users SET active=false WHERE user_id=$1', [other.id]);
+    const pidA = (await clientA.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const pidB = (await clientB.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const done = { a: false, b: false };
+    const pathA = applyOwnerAccountStatus(clientA, owner.id, false).then(() => { done.a = true; }, error => { failed = error; done.a = true; });
+    const pathB = applyOwnerAccountStatus(clientB, other.id, false).then(() => { done.b = true; }, error => { failed = error; done.b = true; });
+    let holder: 'a' | 'b' | null = null;
+    for (let i = 0; i < 200 && !failed; i += 1) {
+      const blockedByA = (await adminPool.query('SELECT 1 FROM pg_stat_activity WHERE pid=$2 AND $1=ANY(pg_blocking_pids(pid))', [pidA, pidB])).rowCount;
+      const blockedByB = (await adminPool.query('SELECT 1 FROM pg_stat_activity WHERE pid=$2 AND $1=ANY(pg_blocking_pids(pid))', [pidB, pidA])).rowCount;
+      if ((blockedByA ?? 0) > 0 && (blockedByB ?? 0) > 0) throw new Error('deadlock: each security path is waiting on the other');
+      if ((blockedByA ?? 0) > 0) { holder = 'a'; break; }
+      if ((blockedByB ?? 0) > 0) { holder = 'b'; break; }
+      if (done.a && done.b) break;
+      await delay(20);
+    }
+    if (failed) throw failed;
+    if (holder === 'a') { await pathA; await clientA.query('COMMIT'); await pathB; await clientB.query('COMMIT'); }
+    else if (holder === 'b') { await pathB; await clientB.query('COMMIT'); await pathA; await clientA.query('COMMIT'); }
+    else { await pathA; await pathB; await clientA.query('COMMIT'); await clientB.query('COMMIT'); }
+  } finally {
+    await clientA.query('ROLLBACK');
+    await clientB.query('ROLLBACK');
+    clientA.release();
+    clientB.release();
+  }
+  assert.equal(await tenantStatus(first.tenant_id), 'recovery_required');
+  assert.equal(await tenantStatus(second.tenant_id), 'recovery_required');
+  assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM scoped_outbox WHERE event_type='freedom.tenant.recovery.required.v1'`)).rows[0].n, 2);
+});
+
+test('T-055 recovery accept refuses a fresh proof that expires while the case row is locked', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  assert.equal(opened.status, 201, opened.text);
+  const caseId = opened.data.case_id as string;
+  const verificationId = await shortProof(recipient.id, to, tenant.tenant_id, 'tenant.recovery.accept');
+  const before = await recoveryFootprint(tenant.tenant_id, caseId);
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('SELECT case_id FROM tenant_recovery_cases WHERE case_id=$1 FOR UPDATE', [caseId]);
+    const pending = send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+      accept_scope: true, fresh_auth_verification_id: verificationId,
+    }, '"1"');
+    await blockedBy(pid);
+    await proofExpired(verificationId);
+    await holder.query('COMMIT');
+    const denied = await finish(pending, 'recovery accept');
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'fresh_auth_required');
+    assert.equal(JSON.stringify(denied.data).includes(verificationId), false);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+  }
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), before);
+  const again = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  const accepted = await send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: again,
+  }, '"1"');
+  assert.equal(accepted.status, 200, accepted.text);
+  assert.equal(accepted.data.recipient_accepted, true);
+});
+
+async function preparedCase() {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  assert.equal(opened.status, 201, opened.text);
+  const caseId = opened.data.case_id as string;
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  assert.equal((await send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"1"')).status, 200);
+  assert.equal((await approve(admins.reviewer, caseId, '2')).status, 200);
+  return { owner, recipient, tenant, to, caseId };
+}
+
+test('T-055 execute refuses a capability revoked while the tenant row is locked', async () => {
+  const { tenant, caseId } = await preparedCase();
+  const before = await recoveryFootprint(tenant.tenant_id, caseId);
+  const holder = await pool.connect();
+  const key = randomUUID();
+  let revoker: Awaited<ReturnType<typeof revokeCapability>> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [tenant.tenant_id]);
+    const pending = adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+    await blockedBy(pid);
+    revoker = await revokeCapability(admins.executor.id, 'tenant.recovery.execute');
+    await revoker.commit();
+    revoker.client.release();
+    revoker = undefined;
+    await holder.query('COMMIT');
+    const denied = await finish(pending, 'execute');
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'recovery_authority_required');
+    assert.equal(JSON.stringify(denied.data).includes(caseId), false);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+    if (revoker) { await revoker.client.query('ROLLBACK'); revoker.client.release(); }
+  }
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), before);
+});
+
+test('T-055 replaying execute waits on an in-flight capability revocation', async () => {
+  const { tenant, caseId } = await preparedCase();
+  const key = randomUUID();
+  const executed = await adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+  assert.equal(executed.status, 200, executed.text);
+  const after = await recoveryFootprint(tenant.tenant_id, caseId);
+  const revoker = await pool.connect();
+  let released = false;
+  try {
+    await revoker.query('BEGIN');
+    const pid = (await revoker.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await revokeRecoveryCapability(revoker, admins.executor.id, 'tenant.recovery.execute');
+    let settled = false;
+    const pending = adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3').then(value => { settled = true; return value; });
+    let sawBlock = false;
+    for (let i = 0; i < 200 && !settled; i += 1) {
+      const waiting = (await adminPool.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))', [pid])).rowCount ?? 0;
+      if (waiting > 0) { sawBlock = true; break; }
+      await delay(20);
+    }
+    assert.equal(sawBlock, true, 'replay returned before the capability revocation committed');
+    await revoker.query('COMMIT');
+    released = true;
+    const replay = await finish(pending, 'execute replay');
+    assert.equal(replay.status, 403, replay.text);
+    assert.equal(replay.data.code, 'recovery_authority_required');
+  } finally {
+    if (!released) await revoker.query('ROLLBACK');
+    revoker.release();
+  }
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), after);
+});
+
+test('T-055 open and approve refuse a capability revoked during their row wait', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const beforeOpen = await recoveryFootprint(tenant.tenant_id);
+  const holder = await pool.connect();
+  let revoker: Awaited<ReturnType<typeof revokeCapability>> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [tenant.tenant_id]);
+    const pending = admin(admins.opener, '/tenant-recovery-cases', {
+      tenant_id: tenant.tenant_id, proposed_owner_principal_id: to, reason: '唯一可登入的擁有者已停用', evidence_ref: randomUUID(),
+    });
+    await blockedBy(pid);
+    revoker = await revokeCapability(admins.opener.id, 'tenant.recovery.open');
+    await revoker.commit();
+    revoker.client.release();
+    revoker = undefined;
+    await holder.query('COMMIT');
+    const denied = await finish(pending, 'open');
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'recovery_authority_required');
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+    if (revoker) { await revoker.client.query('ROLLBACK'); revoker.client.release(); }
+  }
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id), beforeOpen);
+  assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_recovery_cases WHERE tenant_id=$1`, [tenant.tenant_id])).rows[0].n, 0);
+});
+
+test('T-055 approve refuses a capability revoked during the case-row wait', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  assert.equal(opened.status, 201, opened.text);
+  const caseId = opened.data.case_id as string;
+  const beforeApprove = await recoveryFootprint(tenant.tenant_id, caseId);
+  const caseHolder = await pool.connect();
+  let revoker: Awaited<ReturnType<typeof revokeCapability>> | undefined;
+  try {
+    await caseHolder.query('BEGIN');
+    const pid = (await caseHolder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await caseHolder.query('SELECT case_id FROM tenant_recovery_cases WHERE case_id=$1 FOR UPDATE', [caseId]);
+    const pending = admin(admins.reviewer, `/tenant-recovery-cases/${caseId}/approve`, {
+      approved_scope: ['tenant.owner.restore'],
+      expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      reason: '證據足夠，核准恢復擁有者',
+    }, '1');
+    await blockedBy(pid);
+    revoker = await revokeCapability(admins.reviewer.id, 'tenant.recovery.review');
+    await revoker.commit();
+    revoker.client.release();
+    revoker = undefined;
+    await caseHolder.query('COMMIT');
+    const denied = await finish(pending, 'approve');
+    assert.equal(denied.status, 403, denied.text);
+    assert.equal(denied.data.code, 'recovery_authority_required');
+  } finally {
+    await caseHolder.query('ROLLBACK');
+    caseHolder.release();
+    if (revoker) { await revoker.client.query('ROLLBACK'); revoker.client.release(); }
+  }
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), beforeApprove);
 });

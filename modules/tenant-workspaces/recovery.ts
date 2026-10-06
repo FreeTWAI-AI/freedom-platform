@@ -16,7 +16,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
   auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, readCursor, RECOVERY_MISSING, versionOf, writeTenantControlEvent,
 } from './facts.js';
-import { consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
+import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
 
 const MEMBER_PROFILE = 'freedom.scoped-member-command/v1';
@@ -34,6 +34,33 @@ async function requireCapability(q: PoolClient, adminId: string, capability: Cap
   const row = await q.query(`SELECT 1 FROM platform_admin_tenant_recovery_capabilities
     WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL`, [adminId, capability]);
   requireCondition(row.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
+}
+
+/** Final authority check. FOR SHARE is taken after the tenant and case waits,
+ * then a fresh statement re-reads revoked_at. Holding it in authorize would
+ * deadlock a revoke that commits while execute waits on the tenant. */
+async function lockActiveCapability(q: PoolClient, adminId: string, capability: Capability): Promise<void> {
+  const locked = await q.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL
+    ORDER BY capability_id
+    FOR SHARE`, [adminId, capability]);
+  requireCondition(locked.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
+  const current = await q.query(`SELECT 1 FROM platform_admin_tenant_recovery_capabilities
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL`, [adminId, capability]);
+  requireCondition(current.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
+}
+
+/** The revocation takes FOR UPDATE so it conflicts with lockActiveCapability. */
+export async function revokeRecoveryCapability(q: PoolClient, adminId: string, capability: Capability): Promise<void> {
+  const locked = await q.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL
+    ORDER BY capability_id
+    FOR UPDATE`, [adminId, capability]);
+  requireCondition(locked.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
+  const updated = await q.query(`UPDATE platform_admin_tenant_recovery_capabilities
+    SET revoked_at=clock_timestamp()
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL`, [adminId, capability]);
+  requireCondition(updated.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
 }
 
 function assertIndependent(admin: AdminActor, targetEmail: string, blockedAdminIds: Array<string | null>): void {
@@ -100,6 +127,7 @@ export async function openRecoveryCase(pool: Pool, input: AdminCommand) {
     const open = (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_recovery_cases
       WHERE tenant_id=$1 AND state IN ('opened','evidence_required','approved')`, [body.tenant_id])).rows[0].n;
     requireCondition(open < policy.max_open_recovery_cases_per_tenant, 409, 'recovery_case_pending', '這個業務空間已有進行中的復原。');
+    await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.open');
     const inserted = (await q.query<{ case_id: string }>(`INSERT INTO tenant_recovery_cases(
       tenant_id, state, proposed_owner_principal_id, reason, evidence_ref, opened_by_admin_id)
       VALUES($1,'evidence_required',$2,$3,$4,$5) RETURNING case_id`,
@@ -108,7 +136,7 @@ export async function openRecoveryCase(pool: Pool, input: AdminCommand) {
     await auditTenant(q, body.tenant_id, body.proposed_owner_principal_id, 'tenant.recovery.open', body.proposed_owner_principal_id, tenant.authorization_revision, tenant.authorization_revision, 'tenant.recovery.opened');
     await audit(q, input.admin, 'tenant.recovery.open', 'tenant_recovery_case', inserted.case_id, body.reason, null, { state: view.state, tenant_id: body.tenant_id });
     return view;
-  });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.open'); });
 }
 
 export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -126,6 +154,7 @@ export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseI
     assertIndependent(input.admin, current.target_email, [current.opened_by_admin_id]);
     await withinApprovalTtl(q, body.expires_at, policy.recovery_approval_ttl_seconds);
     requireCondition(body.approved_scope.length === 1 && body.approved_scope[0] === 'tenant.owner.restore', 403, 'recovery_authority_required', '核准範圍只能恢復擁有者。');
+    await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review');
     await q.query(`UPDATE tenant_recovery_cases
       SET state='approved', approved_by_admin_id=$2, approved_scope=$3::jsonb, expires_at=$4, version=version+1, updated_at=clock_timestamp()
       WHERE case_id=$1 AND state='evidence_required'`, [caseId, input.admin.admin_id, JSON.stringify(body.approved_scope), body.expires_at]);
@@ -134,7 +163,7 @@ export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseI
     await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.approve', current.proposed_owner_principal_id, revision, revision, 'tenant.recovery.approved');
     await audit(q, input.admin, 'tenant.recovery.approve', 'tenant_recovery_case', caseId, body.reason, { state: 'evidence_required' }, { state: 'approved' });
     return view;
-  });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); });
 }
 
 export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -187,6 +216,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
     if (tenant.status !== 'recovery_required' || (loginable.rowCount ?? 0) > 0 || !current.owner_active || current.principal_status !== 'active') {
       throw new Problem(409, 'recovery_not_required', '目前不能完成這份復原。');
     }
+    await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute');
     const existing = (await q.query<{ version: string }>(`SELECT version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`,
       [current.tenant_id, current.proposed_owner_principal_id])).rows[0];
     if (existing) {
@@ -229,7 +259,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
       eventType: 'freedom.tenant.membership.changed.v1',
     });
     return RecoveryExecuteResultSchema.parse({ case: adminView(await loadCase(q, caseId)), authorization_revision: revision });
-  });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute'); });
 }
 
 export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -244,6 +274,7 @@ export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId:
     requireCondition(current.state === 'evidence_required' || current.state === 'approved', 409, 'recovery_case_terminal', '這份復原目前不能這樣變更。');
     checkVersion(versionOf(current.version), input.expected);
     assertIndependent(input.admin, current.target_email, [current.opened_by_admin_id]);
+    await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review');
     await q.query(`UPDATE tenant_recovery_cases SET state=$2, closed_reason=$3, version=version+1, updated_at=clock_timestamp()
       WHERE case_id=$1 AND state IN ('evidence_required','approved')`, [caseId, body.decision, body.reason]);
     const view = adminView(await loadCase(q, caseId));
@@ -251,7 +282,7 @@ export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId:
     await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.close', current.proposed_owner_principal_id, revision, revision, 'tenant.recovery.closed');
     await audit(q, input.admin, 'tenant.recovery.close', 'tenant_recovery_case', caseId, body.reason, { state: current.state }, { state: body.decision });
     return view;
-  });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); });
 }
 
 export async function getRecoveryCase(pool: Pool, admin: AdminActor, caseId: string) {
@@ -308,8 +339,10 @@ export async function acceptRecoveryCase(pool: Pool, actor: Actor, caseId: strin
       tenantId: visible.tenant_id, purpose: 'tenant.recovery.accept', verificationId: input.fresh_auth_verification_id, namespaceDigest: digest,
     });
     await loadActivePolicy(q);
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
   }, async (q, context) => {
     const current = await loadCase(q, caseId, true);
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
     if (current.proposed_owner_principal_id !== context.subject_principal.principal_id) throw new Problem(404, 'recovery_case_not_found', RECOVERY_MISSING);
     if (terminal(current.state)) throw new Problem(409, 'recovery_case_terminal', '這份復原已結束，不能再變更。');
     checkVersion(versionOf(current.version), expected);
@@ -324,6 +357,7 @@ export async function acceptRecoveryCase(pool: Pool, actor: Actor, caseId: strin
     await consumeFreshVerification(q, input.fresh_auth_verification_id, digest);
     return memberView(await loadCase(q, caseId));
   }, async (q, context) => {
+    await assertFreshVerificationCurrent(q, input.fresh_auth_verification_id);
     const prior = (await q.query(`SELECT 1 FROM scoped_command_receipts
       WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation='tenant.recovery.accept' AND idempotency_key=$4`,
     [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, key])).rows[0];
