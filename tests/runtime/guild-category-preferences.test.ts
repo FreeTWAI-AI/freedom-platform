@@ -534,7 +534,7 @@ test('T-054 an interrupted backfill resumes without a second audit row', async (
   assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[])`, [ids])).rows[0].count, '3');
 });
 
-test('T-011 dry-run counts a blocked member past the first page and only an accepted switch stores it', async () => {
+test('T-010 dry-run counts a blocked member past the first page and only an accepted switch stores it', async () => {
   const community = DEMO_COMMUNITY;
   const maker = DEMO_USERS[0].user_id;
   const blockedId = 'b0000000-0000-4000-8000-000000000101';
@@ -574,7 +574,7 @@ test('T-011 dry-run counts a blocked member past the first page and only an acce
   assert.equal((await pool.query(`SELECT count(*) FROM guild_category_preferences WHERE guild_key = 'guild_talent_direction'`)).rows[0].count, '100');
 });
 
-test('T-017 classification journals one public event and refuses without an active member', async () => {
+test('T-001 classification journals one public event and refuses without an active member', async () => {
   async function facts() {
     return {
       revision: await revision('guild_security'),
@@ -620,7 +620,7 @@ test('T-017 classification journals one public event and refuses without an acti
   assert.equal((await pool.query(`SELECT count(*) FROM transition_journal WHERE command = 'classify_guild'`)).rows[0].count, '1');
 });
 
-test('T-018 the same guild cannot stay a primary after it is left', async () => {
+test('T-016 the same guild cannot stay a primary after it is left', async () => {
   const s = await login();
   const guild = 'guild_member_operations';
   await join(s, 'guild_talent_direction');
@@ -653,7 +653,7 @@ test('T-018 the same guild cannot stay a primary after it is left', async () => 
   await race(false);
 });
 
-test('T-019 raw membership and catalog updates cannot keep a stale slot', async () => {
+test('T-002 raw membership and catalog updates cannot keep a stale slot', async () => {
   const s = await login();
   await join(s, 'guild_security');
   await join(s, 'guild_talent_direction');
@@ -679,7 +679,7 @@ test('T-019 raw membership and catalog updates cannot keep a stale slot', async 
   assert.equal(moved.status, 200, JSON.stringify(moved.data));
 });
 
-test('T-040 member writes share the catalog fence and wait for an exclusive classification lock', async () => {
+test('T-001 member writes share the catalog fence and wait for an exclusive classification lock', async () => {
   const community = DEMO_COMMUNITY;
   const maker = DEMO_USERS[0].user_id;
   const first = 'a0000000-0000-4000-8000-000000000041';
@@ -749,7 +749,7 @@ test('T-040 member writes share the catalog fence and wait for an exclusive clas
   }
 });
 
-test('T-055 execute continues past a blocked member at the front of the batch', async () => {
+test('T-054 execute continues past a blocked member at the front of the batch', async () => {
   const communityId = randomUUID();
   const maker = DEMO_USERS[0].user_id;
   const blocked = 'c0000000-0000-4000-8000-000000000001';
