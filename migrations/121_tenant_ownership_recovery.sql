@@ -201,7 +201,14 @@ CREATE TABLE tenant_recovery_cases (
     OR (state IN ('denied','cancelled') AND executed_by_admin_id IS NULL AND closed_reason IS NOT NULL
       AND ((approved_by_admin_id IS NULL AND approved_scope = '[]'::jsonb AND expires_at IS NULL)
         OR (approved_by_admin_id IS NOT NULL AND approved_scope = '["tenant.owner.restore"]'::jsonb AND expires_at IS NOT NULL)))
-  )
+  ),
+  CONSTRAINT tenant_recovery_cases_approver_distinct CHECK (
+    approved_by_admin_id IS NULL OR approved_by_admin_id <> opened_by_admin_id),
+  CONSTRAINT tenant_recovery_cases_executor_distinct CHECK (
+    executed_by_admin_id IS NULL OR (
+      approved_by_admin_id IS NOT NULL
+      AND executed_by_admin_id <> approved_by_admin_id
+      AND executed_by_admin_id <> opened_by_admin_id))
 );
 CREATE INDEX tenant_recovery_cases_by_tenant ON tenant_recovery_cases (tenant_id, case_id);
 CREATE INDEX tenant_recovery_cases_by_owner ON tenant_recovery_cases (proposed_owner_principal_id, case_id);
