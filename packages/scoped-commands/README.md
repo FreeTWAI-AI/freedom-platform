@@ -87,7 +87,11 @@ passed. This evidence does not attest deployment, real object durability or
 trusted CI enforcement.
 
 `scopedTenantCommand` is the opt-in tenant adapter. Its digest profile is
-`freedom.scoped-tenant-command/v1`. It locks the tenant scope for update, then
+`freedom.scoped-tenant-command/v1`. Optional `tenantLock` is `update` or `share`;
+omitted, it is `update`. `update` locks the tenant and membership rows
+`FOR UPDATE`. `share` locks those rows `FOR SHARE` so two data commands can
+proceed together while a membership change still waits. The field is an
+allow-listed server input and is not part of the receipt digest. The adapter
 re-reads membership, role, tenant status, and authorization revision after the
 receipt read and after the receipt insert. A row this transaction itself updated
 is recognized by `xmin` compared with the low 32 bits of `txid_current()`
