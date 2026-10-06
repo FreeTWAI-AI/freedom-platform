@@ -7,7 +7,8 @@ import { auditTenant, bumpAuthorizationRevision, invalidatePendingTransfersOfPri
  * Re-activation restores active only when the tenant is still recovery_required
  * for owner_account_disabled, no case has been approved or executed, and this
  * person is still an active owner. An evidence_required case does not block
- * re-activation; a later execute then refuses because a loginable owner exists.
+ * re-activation. Recovery execute revokes every other active owner membership,
+ * so re-activating a former owner never hands control back.
  * Audit actor is this person's principal: tenant_authority_audit cannot store
  * an admin, and platform_admin_audit already records the admin. */
 export async function applyOwnerAccountStatus(q: PoolClient, userId: string, active: boolean): Promise<void> {

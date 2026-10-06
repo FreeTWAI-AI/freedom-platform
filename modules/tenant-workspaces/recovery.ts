@@ -14,7 +14,7 @@ import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
 import { scopedMemberCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
-  auditTenant, bumpAuthorizationRevision, encodeCursor, iso, limitOf, readCursor, RECOVERY_MISSING, versionOf, writeTenantControlEvent,
+  auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, readCursor, RECOVERY_MISSING, versionOf, writeTenantControlEvent,
 } from './facts.js';
 import { consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
@@ -148,18 +148,38 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
     const preview = await loadCase(q, caseId);
     requireCondition(preview.community_id === input.admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
     assertIndependent(input.admin, preview.target_email, [preview.opened_by_admin_id, preview.approved_by_admin_id]);
-    await q.query(`SELECT user_id FROM users WHERE user_id=$1 FOR SHARE`, [preview.owner_user_id]);
+    const userIds = (await q.query<{ user_id: string }>(`SELECT user_id FROM (
+        SELECT p.user_ref AS user_id FROM principals p WHERE p.principal_id=$1
+        UNION
+        SELECT p.user_ref FROM tenant_memberships m
+        JOIN principals p ON p.principal_id=m.principal_id
+        WHERE m.tenant_id=$2 AND m.role='owner' AND m.status='active'
+      ) people ORDER BY user_id`, [preview.proposed_owner_principal_id, preview.tenant_id])).rows.map(row => row.user_id);
+    const lockedUsers = new Set(userIds);
+    for (const userId of userIds) await q.query(`SELECT user_id FROM users WHERE user_id=$1 FOR SHARE`, [userId]);
     const tenant = (await q.query<{ status: string; authorization_revision: string }>(
       `SELECT status, authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1 FOR UPDATE`, [preview.tenant_id])).rows[0];
     requireCondition(tenant, 404, 'recovery_case_not_found', RECOVERY_MISSING);
-    await q.query(`SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR UPDATE`, [preview.tenant_id, preview.proposed_owner_principal_id]);
+    const ownersNow = (await q.query<{ principal_id: string; user_id: string }>(`SELECT m.principal_id, p.user_ref AS user_id
+      FROM tenant_memberships m JOIN principals p ON p.principal_id=m.principal_id
+      WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active' ORDER BY m.principal_id`, [preview.tenant_id])).rows;
+    if (ownersNow.some(owner => !lockedUsers.has(owner.user_id))) throw new Problem(409, 'recovery_not_required', '目前不能完成這份復原。');
+    const membershipIds = [...new Set([preview.proposed_owner_principal_id, ...ownersNow.map(owner => owner.principal_id)])].sort();
+    for (const principalId of membershipIds) {
+      await q.query(`SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR UPDATE`, [preview.tenant_id, principalId]);
+    }
     const current = await loadCase(q, caseId, true);
+    assertIndependent(input.admin, current.target_email, [current.opened_by_admin_id, current.approved_by_admin_id]);
     if (terminal(current.state)) throw new Problem(409, 'recovery_case_terminal', '這份復原已結束，不能再變更。');
     requireCondition(current.state === 'approved', 409, 'recovery_case_terminal', '這份復原目前不能這樣變更。');
     checkVersion(versionOf(current.version), input.expected);
     const expired = (await q.query<{ expired: boolean }>(`SELECT expires_at<=clock_timestamp() AS expired FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
     if (expired?.expired) throw new Problem(409, 'recovery_approval_expired', '復原核准已過期。');
     if (!current.recipient_accepted_at) throw new Problem(409, 'recovery_acceptance_required', '受讓人尚未接受復原。');
+    const ownersLocked = (await q.query<{ principal_id: string; user_id: string }>(`SELECT m.principal_id, p.user_ref AS user_id
+      FROM tenant_memberships m JOIN principals p ON p.principal_id=m.principal_id
+      WHERE m.tenant_id=$1 AND m.role='owner' AND m.status='active' ORDER BY m.principal_id`, [current.tenant_id])).rows;
+    if (ownersLocked.some(owner => !lockedUsers.has(owner.user_id))) throw new Problem(409, 'recovery_not_required', '目前不能完成這份復原。');
     const loginable = await q.query(`SELECT 1 FROM tenant_memberships m
       JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
       JOIN users u ON u.user_id=p.user_ref AND u.active
@@ -176,10 +196,28 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
       await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,
         [current.tenant_id, current.proposed_owner_principal_id]);
     }
+    const revoked: Array<{ principal_id: string; version: string; role: string }> = [];
+    for (const owner of ownersLocked) {
+      if (owner.principal_id === current.proposed_owner_principal_id) continue;
+      const row = (await q.query<{ version: string; role: string }>(`UPDATE tenant_memberships
+        SET status='revoked', revoked_at=clock_timestamp(), version=version+1, updated_at=clock_timestamp()
+        WHERE tenant_id=$1 AND principal_id=$2 AND status='active'
+        RETURNING version::text AS version, role`, [current.tenant_id, owner.principal_id])).rows[0];
+      if (row) revoked.push({ principal_id: owner.principal_id, version: row.version, role: row.role });
+    }
     await q.query(`UPDATE tenants SET status='active', updated_at=clock_timestamp() WHERE tenant_id=$1 AND status='recovery_required'`, [current.tenant_id]);
     await q.query(`UPDATE tenant_recovery_cases SET state='executed', executed_by_admin_id=$2, version=version+1, updated_at=clock_timestamp()
       WHERE case_id=$1 AND state='approved'`, [caseId, input.admin.admin_id]);
     const revision = await bumpAuthorizationRevision(q, current.tenant_id);
+    for (const membership of revoked) {
+      await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.execute', membership.principal_id, tenant.authorization_revision, revision, 'tenant.recovery.executed');
+      await writeTenantControlEvent(q, {
+        tenantId: current.tenant_id, principalId: membership.principal_id, operation: 'tenant.recovery.execute',
+        aggregateType: 'tenant_membership', aggregateId: membership.principal_id, aggregateVersion: versionOf(membership.version),
+        data: { tenant_id: current.tenant_id, principal_id: membership.principal_id, role: membership.role, status: 'revoked', authorization_revision: revision },
+        eventType: 'freedom.tenant.membership.changed.v1',
+      });
+    }
     const membership = (await q.query<{ version: string }>(`SELECT version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`,
       [current.tenant_id, current.proposed_owner_principal_id])).rows[0];
     await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.execute', current.proposed_owner_principal_id, tenant.authorization_revision, revision, 'tenant.recovery.executed');
@@ -245,10 +283,11 @@ export async function listMyRecoveryCases(pool: Pool, actor: Actor, query: { cur
         AND ($2::uuid IS NULL OR c.case_id > $2::uuid)
       ORDER BY c.case_id LIMIT $3`, [principal.principal_id, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
+    const sourceVersion = await countedSourceVersion(q, 'tenant_recovery_cases', 'proposed_owner_principal_id=$1', [principal.principal_id]);
     return RecoveryCasePageSchema.parse({
       items: page.map(memberView),
       next_cursor: rows.length > limit ? encodeCursor(principal.principal_id, 'my_recovery_cases', null, page[page.length - 1].case_id) : null,
-      source_version: '1',
+      source_version: sourceVersion,
     });
   });
 }
