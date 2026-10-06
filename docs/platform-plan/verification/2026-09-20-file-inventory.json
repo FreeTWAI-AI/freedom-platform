@@ -11780,7 +11780,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "588b94b259a630527bf2ba833b94c9536b8bf3b2d1378663db5aa21908d1da89"
+      "sha256": "8ed97d41d331ddef7bb3fae3da5f1eca2495a7a94c480ee189a5b2f8bf5ea12f"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -11814,8 +11814,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52231,
-      "sha256": "caeadf788c5fb79820c5eb31195eb4088ea0a20e8c41a02e4d6ddf2982926917"
+      "bytes": 52235,
+      "sha256": "15e97077a2c9258a552b5a4950042023c88d71bba33e75ba098cfcfdc2e9466c"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
