@@ -10,6 +10,7 @@
     "apps/portal-web/src/modules/GuildLaunchpad.tsx",
     "apps/portal-web/src/modules/GuildLaunchpad.css",
     "tests/runtime/guild-launchpad.test.ts",
+    "tests/runtime/guild-launchpad-deadline.test.ts",
     "tests/e2e/guild-launchpad.spec.ts"
   ],
   "public_exports": [
