@@ -1,6 +1,7 @@
 .guild-launchpad{max-width:72rem;display:grid;gap:1rem;overflow-wrap:anywhere}
 .guild-launchpad-actions,.guild-launchpad-block-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.guild-launchpad input[type="checkbox"]{width:44px;height:44px;min-width:44px;min-height:44px;accent-color:var(--green)}
+.guild-launchpad .checkbox-row{min-height:44px;align-items:center}
+.guild-launchpad .checkbox-row input{margin-top:0}
 .guild-launchpad-block{display:grid;gap:.45rem;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev)}
 .guild-launchpad-editor{display:grid;gap:.8rem}
 .guild-launchpad-editor .field{display:grid;gap:.3rem}

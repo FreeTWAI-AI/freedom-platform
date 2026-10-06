@@ -1,10 +1,34 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import type {Config, ConfigView, FieldError} from '../../../../contracts/guild-launchpad/v1/config';
+import {hasLoneSurrogate, type Config, type ConfigView, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {ApiError, type PortalClient} from '../api';
+import type {GuildSummary} from './Onboarding';
+import {useModuleMutation} from './shared';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
 const CONTROL = /[\u0000-\u001F\u007F\u0080-\u009F]/;
+const FIELD_MESSAGE: Record<string, string> = {
+  too_long: '超過長度上限',
+  control_character: '不能包含換行或控制字元',
+  lone_surrogate: '包含不成對的字元',
+  invalid_order: '順序必須是 0 到 1000 的不重複整數',
+  enabled_locked: '這個區塊不能關閉',
+  unsupported_url: '只接受 https:// 開頭、不含帳號密碼的網址',
+  unknown_field: '不能包含未定義的欄位',
+  block_kind_invalid: '區塊種類不正確',
+  block_kind_duplicate: '區塊種類重複',
+  block_kind_missing: '缺少必要的區塊',
+  block_set_invalid: '版面必須包含七種區塊各一次',
+  application_release_unknown: '這個應用版本尚未核准',
+  guild_key_mismatch: '公會代碼與網址不一致',
+  schema_version_invalid: '配置版本不正確',
+  config_too_large: '配置內容過大',
+  stable_key_invalid: '識別碼格式不正確',
+  capability_duplicate: '能力不能重複',
+  capabilities_invalid: '能力清單不正確',
+  delegation_recipient_invalid: '授權對象必須是這個公會的有效成員',
+  delegation_expiry_invalid: '授權到期時間必須是未來的時間',
+};
 const BLOCK_LABEL: Record<Config['blocks'][number]['kind'], string> = {
   mission: '使命', announcements: '公告', skill_books: '技能書', applications: '應用',
   community_tasks: '公共任務', my_work: '我的工作', support: '協助',
@@ -78,6 +102,30 @@ function asConfig(guildKey: string, body: {mission_override?: string | null; blo
 }
 function fieldHits(errors: FieldError[], path: string): FieldError[] {
   return errors.filter(error => error.path === path || error.path.endsWith(`.${path}`));
+}
+function fieldMessage(code: string): string {
+  return FIELD_MESSAGE[code] ?? '這個欄位格式不正確';
+}
+function describedBy(errors: FieldError[], path: string, errorId: string, hintId?: string): string | undefined {
+  const ids: string[] = [];
+  if (hintId) ids.push(hintId);
+  if (fieldHits(errors, path).length) ids.push(errorId);
+  return ids.length ? ids.join(' ') : undefined;
+}
+function looseText(error: FieldError, draft: Config): string {
+  const message = fieldMessage(error.code);
+  const path = error.path.replace(/^body\./, '');
+  const indexed = /^blocks\.(\d+)(?:\.|$)/.exec(path);
+  if (indexed) {
+    const kind = draft.blocks[Number(indexed[1])]?.kind;
+    const label = kind && Object.hasOwn(BLOCK_LABEL, kind) ? `${BLOCK_LABEL[kind]}區塊` : '區塊';
+    return `${label}：${message}`;
+  }
+  if (path === 'blocks' || path.startsWith('blocks.')) return `版面區塊：${message}`;
+  return message;
+}
+function blockedReason(value: string): boolean {
+  return value.trim().length < 3 || CONTROL.test(value) || hasLoneSurrogate(value);
 }
 
 export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter?: Config['starter'] | null}) {
@@ -174,6 +222,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   const keys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const headingId = useId();
+  const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
   const canPublish = Boolean(saved?.status === 'draft' && saved.config_id && !dirty);
   const showEditor = mode === 'member' && !visitor && (access.edit || access.preview || access.publish);
@@ -292,7 +341,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     } catch (error) { fail(error); } finally { setBusy(false); }
   }
   async function revert() {
-    if (!revertTarget || busy || revertReason.trim().length < 3 || CONTROL.test(revertReason)) return;
+    if (!revertTarget || busy || blockedReason(revertReason)) return;
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('revert', `/guilds/${guildKey}/launchpad-config/revert`, {to_revision: revertTarget, reason: revertReason.trim()}, pointer);
@@ -322,7 +371,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   }
   async function revoke() {
     const row = leader?.delegations?.find(item => item.delegation_id === revokeId);
-    if (!row || revokeReason.trim().length < 3 || CONTROL.test(revokeReason) || busy) return;
+    if (!row || blockedReason(revokeReason) || busy) return;
     setBusy(true); setBanner('');
     try {
       await command('revoke', `/guilds/${guildKey}/launchpad-delegations/${row.delegation_id}/revoke`, {reason: revokeReason.trim()}, row.version);
@@ -331,11 +380,16 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     } catch (error) { fail(error); } finally { setBusy(false); }
   }
   async function join() {
-    setBusy(true); setBanner('');
+    setBanner('');
     try {
-      await client.post(`/guilds/${guildKey}/join`, {});
-      window.location.reload();
-    } catch (error) { fail(error); setBusy(false); }
+      const directory = await client.get<{items: GuildSummary[]}>('/guilds/directory');
+      const membership = directory.items.find(item => item.guild_key === guildKey)?.membership;
+      const result = await mutate(`/guilds/${guildKey}/join`, {}, membership?.aggregate_version);
+      if (result) {
+        window.dispatchEvent(new Event('freedom-profile-updated'));
+        window.location.reload();
+      }
+    } catch (error) { fail(error); }
   }
   function updateBlock(index: number, patch: Partial<Config['blocks'][number]>) {
     setDraft(current => current && {...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)});
@@ -362,41 +416,46 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {banner && <p className="banner banner-error" role="alert">{banner}</p>}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
-    {visitor && mode === 'member' && guild && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void join()}>加入{guild.name}</button>}
+    {visitor && mode === 'member' && guild && <button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button>}
+    {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
     {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
-      {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{error.path || '配置'}：{error.code}</li>)}</ul>}
+      {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}
       <label className="field" htmlFor="launchpad-mission">公會使命補充
-        <input id="launchpad-mission" value={draft.mission_override ?? ''} maxLength={1200} onChange={event => setDraft({...draft, mission_override: event.target.value === '' ? null : event.target.value})}/>
+        <input id="launchpad-mission" aria-describedby={describedBy(errors, 'mission_override', 'launchpad-mission-error', 'launchpad-mission-hint')} value={draft.mission_override ?? ''} maxLength={1200} onChange={event => setDraft({...draft, mission_override: event.target.value === '' ? null : event.target.value})}/>
       </label>
       <p className="field-hint" id="launchpad-mission-hint">這段文字不能換行</p>
-      <FieldNote errors={errors} path="mission_override"/>
+      <FieldNote id="launchpad-mission-error" errors={errors} path="mission_override"/>
       <fieldset>
         <legend>版面區塊</legend>
         <div className="stack">{draft.blocks.map((block, index) => <div key={block.kind} className="guild-launchpad-block">
           <p>{BLOCK_LABEL[block.kind]}</p>
           <div className="guild-launchpad-block-actions">
-            <button type="button" className="btn btn-ghost" aria-label={`上移${BLOCK_LABEL[block.kind]}`} disabled={busy || index === 0} onClick={() => moveBlock(index, -1)}>上移</button>
-            <button type="button" className="btn btn-ghost" aria-label={`下移${BLOCK_LABEL[block.kind]}`} disabled={busy || index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}>下移</button>
-            {OPTIONAL.has(block.kind) && <label className="checkbox-row"><input type="checkbox" checked={block.enabled} onChange={event => updateBlock(index, {enabled: event.target.checked})}/>顯示這個區塊</label>}
+            <button type="button" className="btn btn-ghost" aria-label={`上移${BLOCK_LABEL[block.kind]}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === 0} onClick={() => moveBlock(index, -1)}>上移</button>
+            <button type="button" className="btn btn-ghost" aria-label={`下移${BLOCK_LABEL[block.kind]}`} aria-describedby={describedBy(errors, `blocks.${index}.order`, `launchpad-block-order-${index}-error`)} disabled={busy || index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}>下移</button>
+            {OPTIONAL.has(block.kind) && <label className="checkbox-row"><input type="checkbox" checked={block.enabled} aria-describedby={describedBy(errors, `blocks.${index}.enabled`, `launchpad-block-enabled-${index}-error`)} onChange={event => updateBlock(index, {enabled: event.target.checked})}/>顯示這個區塊</label>}
           </div>
-          <label className="field">區塊標題<input value={block.title ?? ''} maxLength={120} onChange={event => updateBlock(index, {title: event.target.value === '' ? null : event.target.value})}/></label>
-          <FieldNote errors={errors} path={`blocks.${index}.title`}/>
+          <FieldNote id={`launchpad-block-order-${index}-error`} errors={errors} path={`blocks.${index}.order`}/>
+          <FieldNote id={`launchpad-block-enabled-${index}-error`} errors={errors} path={`blocks.${index}.enabled`}/>
+          <label className="field" htmlFor={`launchpad-block-title-${index}`}>區塊標題<input id={`launchpad-block-title-${index}`} aria-describedby={describedBy(errors, `blocks.${index}.title`, `launchpad-block-title-${index}-error`)} value={block.title ?? ''} maxLength={120} onChange={event => updateBlock(index, {title: event.target.value === '' ? null : event.target.value})}/></label>
+          <FieldNote id={`launchpad-block-title-${index}-error`} errors={errors} path={`blocks.${index}.title`}/>
         </div>)}</div>
       </fieldset>
       <fieldset>
         <legend>起步提示</legend>
-        <label className="field" htmlFor="launchpad-starter-title">標題<input id="launchpad-starter-title" value={draft.starter.title_label} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, title_label: event.target.value}})}/></label>
-        <FieldNote errors={errors} path="starter.title_label"/>
-        <label className="field" htmlFor="launchpad-starter-objective">目標<input id="launchpad-starter-objective" value={draft.starter.objective_hint} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, objective_hint: event.target.value}})}/></label>
-        <label className="field" htmlFor="launchpad-starter-note">筆記<input id="launchpad-starter-note" value={draft.starter.note_hint} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, note_hint: event.target.value}})}/></label>
+        <label className="field" htmlFor="launchpad-starter-title">標題<input id="launchpad-starter-title" aria-describedby={describedBy(errors, 'starter.title_label', 'launchpad-starter-title-error')} value={draft.starter.title_label} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, title_label: event.target.value}})}/></label>
+        <FieldNote id="launchpad-starter-title-error" errors={errors} path="starter.title_label"/>
+        <label className="field" htmlFor="launchpad-starter-objective">目標<input id="launchpad-starter-objective" aria-describedby={describedBy(errors, 'starter.objective_hint', 'launchpad-starter-objective-error')} value={draft.starter.objective_hint} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, objective_hint: event.target.value}})}/></label>
+        <FieldNote id="launchpad-starter-objective-error" errors={errors} path="starter.objective_hint"/>
+        <label className="field" htmlFor="launchpad-starter-note">筆記<input id="launchpad-starter-note" aria-describedby={describedBy(errors, 'starter.note_hint', 'launchpad-starter-note-error')} value={draft.starter.note_hint} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, note_hint: event.target.value}})}/></label>
+        <FieldNote id="launchpad-starter-note-error" errors={errors} path="starter.note_hint"/>
       </fieldset>
       <fieldset>
         <legend>協助連結</legend>
         <label className="field">協助類型<select value={draft.support.kind} onChange={event => setDraft({...draft, support: {...draft.support, kind: event.target.value as Config['support']['kind']}})}><option value="platform_help">平台說明</option><option value="guild_public_contact">公會公開聯絡</option></select></label>
-        <label className="field" htmlFor="launchpad-support-url">公開網址<input id="launchpad-support-url" value={draft.support.public_url ?? ''} maxLength={2048} placeholder="https://" onChange={event => setDraft({...draft, support: {...draft.support, public_url: event.target.value === '' ? null : event.target.value}})}/></label>
-        <FieldNote errors={errors} path="support.public_url"/>
+        <label className="field" htmlFor="launchpad-support-url">公開網址<input id="launchpad-support-url" aria-describedby={describedBy(errors, 'support.public_url', 'launchpad-support-url-error')} value={draft.support.public_url ?? ''} maxLength={2048} placeholder="https://" onChange={event => setDraft({...draft, support: {...draft.support, public_url: event.target.value === '' ? null : event.target.value}})}/></label>
+        <FieldNote id="launchpad-support-url-error" errors={errors} path="support.public_url"/>
       </fieldset>
       {!canPublish && access.publish && <p className="field-hint">{saved?.status === 'draft' && dirty ? '尚未儲存的修改不會進入這個版本。' : '請先儲存草稿'}</p>}
       <div className="guild-launchpad-actions">
@@ -405,7 +464,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => void runPreview('member', event.currentTarget)}>預覽會員</button>
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => void runPreview('my_work', event.currentTarget)}>預覽我的工作</button>
         </>}
-        {access.edit && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void saveDraft()}>儲存草稿</button>}
+        {access.edit && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveDraft()}>儲存草稿</button>}
         {access.publish && <button type="button" className="btn btn-primary" disabled={busy || !canPublish} onClick={event => { setConfirmPublish(true); openDialog(publishDialog.current, event.currentTarget); }}>發布</button>}
       </div>
       {access.publish && leader && <fieldset>
@@ -440,20 +499,22 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     <dialog ref={revertDialog} aria-labelledby="launchpad-revert-title" onClose={() => opener.current?.focus()}>
       <h2 id="launchpad-revert-title">確認回復</h2>
       <p>回復會建立一個新的已發布版本，沿用版本 {revertTarget} 的內容。</p>
-      <label className="field">回復原因<input value={revertReason} maxLength={1000} onChange={event => setRevertReason(event.target.value)}/></label>
-      <p className="field-hint">這段文字不能換行，至少 3 個字。</p>
-      <div className="guild-launchpad-actions"><button type="button" className="btn btn-primary" disabled={busy || revertReason.trim().length < 3 || CONTROL.test(revertReason)} onClick={() => void revert()}>確認回復</button><button type="button" className="btn btn-ghost" onClick={() => closeDialog(revertDialog.current)}>取消</button></div>
+      <label className="field">回復原因<input aria-describedby={describedBy(errors, 'reason', 'launchpad-revert-reason-error', 'launchpad-revert-reason-hint')} value={revertReason} maxLength={1000} onChange={event => setRevertReason(event.target.value)}/></label>
+      <p className="field-hint" id="launchpad-revert-reason-hint">這段文字不能換行，至少 3 個字。</p>
+      <FieldNote id="launchpad-revert-reason-error" errors={errors} path="reason"/>
+      <div className="guild-launchpad-actions"><button type="button" className="btn btn-primary" disabled={busy || blockedReason(revertReason)} onClick={() => void revert()}>確認回復</button><button type="button" className="btn btn-ghost" onClick={() => closeDialog(revertDialog.current)}>取消</button></div>
     </dialog>
     <dialog ref={revokeDialog} aria-labelledby="launchpad-revoke-title" onClose={() => opener.current?.focus()}>
       <h2 id="launchpad-revoke-title">撤銷授權</h2>
-      <label className="field">撤銷原因<input value={revokeReason} maxLength={1000} onChange={event => setRevokeReason(event.target.value)}/></label>
-      <div className="guild-launchpad-actions"><button type="button" className="btn btn-primary" disabled={busy || revokeReason.trim().length < 3 || CONTROL.test(revokeReason)} onClick={() => void revoke()}>確認撤銷</button><button type="button" className="btn btn-ghost" onClick={() => closeDialog(revokeDialog.current)}>取消</button></div>
+      <label className="field">撤銷原因<input aria-describedby={describedBy(errors, 'reason', 'launchpad-revoke-reason-error')} value={revokeReason} maxLength={1000} onChange={event => setRevokeReason(event.target.value)}/></label>
+      <FieldNote id="launchpad-revoke-reason-error" errors={errors} path="reason"/>
+      <div className="guild-launchpad-actions"><button type="button" className="btn btn-primary" disabled={busy || blockedReason(revokeReason)} onClick={() => void revoke()}>確認撤銷</button><button type="button" className="btn btn-ghost" onClick={() => closeDialog(revokeDialog.current)}>取消</button></div>
     </dialog>
   </section>;
 }
 
-function FieldNote({errors, path}: {errors: FieldError[]; path: string}) {
+function FieldNote({errors, path, id}: {errors: FieldError[]; path: string; id: string}) {
   const hits = fieldHits(errors, path);
   if (!hits.length) return null;
-  return <p className="banner banner-error" role="alert">{hits.map(error => `${error.path}：${error.code}`).join('；')}</p>;
+  return <p id={id} className="banner banner-error" role="alert">{hits.map(error => fieldMessage(error.code)).join('；')}</p>;
 }
