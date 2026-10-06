@@ -7,7 +7,8 @@
     "apps/platform-api/src/routes/module-registry.ts",
     "migrations/121_tenant_manual_work.sql",
     "tests/runtime/tenant-work.test.ts",
-    "tests/runtime/tenant-work-schema.test.ts"
+    "tests/runtime/tenant-work-schema.test.ts",
+    "tests/runtime/tenant-work-authority-races.test.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts"
