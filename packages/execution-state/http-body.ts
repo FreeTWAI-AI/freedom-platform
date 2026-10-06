@@ -6,6 +6,11 @@ const BODY_BYTES = 32768, BODY_CHUNKS = 128, BODY_MS = 5000;
 
 /** Shared closed JSON wire reader. Cancellation never extends the deadline. */
 export async function readBoundedHttpJson(request: Request): Promise<unknown> {
+  return (await readBoundedHttpJsonPayload(request)).value;
+}
+/** Same bounded reader, retaining exact body bytes for a signed request hash.
+ * The parsed object alone cannot reconstruct the signed UTF-8 representation. */
+export async function readBoundedHttpJsonPayload(request:Request):Promise<{value:unknown;bytes:Uint8Array}>{
   requireCondition(/^application\/json(?:;\s*charset=utf-8)?$(?![\s\S])/i.test(request.headers.get('Content-Type') ?? ''),415,'json_required','JSON required.');
   const length = request.headers.get('Content-Length') ?? undefined;
   requireCondition(length === undefined || /^(0|[1-9][0-9]*)$(?![\s\S])/.test(length) && Number(length) <= BODY_BYTES,
@@ -36,7 +41,7 @@ export async function readBoundedHttpJson(request: Request): Promise<unknown> {
     }
     requireCondition(length === undefined || Number(length) === size,400,'invalid_body','Invalid body length.');
     const raw = new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(buffer.subarray(0,size));
-    return parseBoundedJson(raw);
+    return {value:parseBoundedJson(raw),bytes:new Uint8Array(buffer.subarray(0,size))};
   } catch (error) {
     if (error instanceof Problem) throw error;
     throw new Problem(400,'invalid_json','Invalid JSON.');
