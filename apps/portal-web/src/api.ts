@@ -18,6 +18,7 @@ export class ApiError extends Error {
   readonly accessExpired: boolean
   readonly cfRay?: string
   readonly requestId?: string
+  readonly errors?: {code: string; path: string}[]
 
   constructor(init: {
     message: string
@@ -31,6 +32,7 @@ export class ApiError extends Error {
     accessExpired?: boolean
     cfRay?: string
     requestId?: string
+    errors?: {code: string; path: string}[]
   }) {
     super(init.message)
     this.name = 'ApiError'
@@ -44,6 +46,7 @@ export class ApiError extends Error {
     this.accessExpired = init.accessExpired ?? false
     this.cfRay = init.cfRay
     this.requestId = init.requestId
+    this.errors = init.errors
     this.unauthorized = this.status === 401
     this.conflict = this.status === 409 || this.status === 412 || this.code === 'conflict'
   }
@@ -56,6 +59,7 @@ export type RequestOptions = {
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
+  signal?: AbortSignal
 }
 
 function quoteEtag(version: number | string): string {
@@ -147,7 +151,7 @@ export class PortalClient {
     void fetch(`${API_BASE}/me/client-errors`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({action:safeAction,error_code:code,...(httpStatus!==undefined?{http_status:httpStatus}:{})})}).catch(()=>{})
   }
 
-  async get<T>(path: string, options: { skipAuthHandler?: boolean; background?: boolean } = {}): Promise<T> {
+  async get<T>(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
     return this.request<T>('GET', path, options)
   }
 
@@ -199,6 +203,11 @@ export class PortalClient {
     }
 
     const controller = new AbortController()
+    const abortFromCaller = () => controller.abort()
+    if (options.signal) {
+      if (options.signal.aborted) controller.abort()
+      else options.signal.addEventListener('abort', abortFromCaller, { once: true })
+    }
     const currentAuthResponse = () => this.csrfToken === requestCsrfToken && !controller.signal.aborted
     let response: Response | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -259,12 +268,14 @@ export class PortalClient {
           title: serverFailure && !knownGitHub ? undefined : problem?.title,
           detail: serverFailure ? (knownGitHub ? safeDetail : undefined) : problem?.detail,
           code: serverFailure && !knownGitHub ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
+          errors: serverFailure && !knownGitHub ? undefined : fieldErrors(payload),
         })
       }
       return payload as T
     }
     try { return await Promise.race([operation(), timeout]) }
     catch (cause) {
+      if (options.signal?.aborted) throw new ApiError({message:'已取消', code:'aborted', status:0})
       const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
       if(!options.background&&!options.suppressConsole)logConsoleEvent({
         channel:consoleChannel('system_api_error'), level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
@@ -272,7 +283,7 @@ export class PortalClient {
       })
       if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
       throw failure
-    } finally { clearTimeout(timer) }
+    } finally { clearTimeout(timer); options.signal?.removeEventListener('abort', abortFromCaller) }
   }
 
 }
@@ -288,6 +299,18 @@ async function readJson(response: Response): Promise<unknown> {
       status: response.status,
     })
   }
+}
+
+function fieldErrors(payload: unknown): {code: string; path: string}[] | undefined {
+  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as {errors?: unknown}).errors)) return undefined
+  const errors = (payload as {errors: unknown[]}).errors.flatMap(item => {
+    if (!item || typeof item !== 'object') return []
+    const code = (item as {code?: unknown}).code
+    const path = (item as {path?: unknown}).path
+    if (typeof code !== 'string' || typeof path !== 'string' || !/^[a-z0-9_]{1,80}$/.test(code) || path.length > 240) return []
+    return [{code, path}]
+  })
+  return errors.length ? errors : undefined
 }
 
 function isProblem(value: unknown): value is ProblemDetails {

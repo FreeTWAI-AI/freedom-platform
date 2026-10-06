@@ -16,6 +16,7 @@ export type ProblemDetails = {
   status?: number
   detail?: string
   code?: string
+  errors?: {code: string; path: string}[]
 }
 
 export type ParticipationTerms = {

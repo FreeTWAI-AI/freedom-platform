@@ -1,0 +1,17 @@
+.guild-launchpad{max-width:72rem;display:grid;gap:1rem;overflow-wrap:anywhere}
+.guild-launchpad-actions,.guild-launchpad-block-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guild-launchpad input[type="checkbox"]{width:44px;height:44px;min-width:44px;min-height:44px;accent-color:var(--green)}
+.guild-launchpad-block{display:grid;gap:.45rem;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev)}
+.guild-launchpad-editor{display:grid;gap:.8rem}
+.guild-launchpad-editor .field{display:grid;gap:.3rem}
+.guild-launchpad dialog{width:min(40rem,calc(100vw - 1.5rem));max-height:min(80vh,40rem);margin:auto;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink)}
+.guild-launchpad dialog::backdrop{background:color-mix(in srgb,var(--ink) 40%,transparent)}
+.guild-launchpad-public{min-height:100vh;background:var(--bg);color:var(--ink)}
+.guild-launchpad-public>header{display:flex;justify-content:space-between;align-items:center;gap:1rem;max-width:72rem;margin:auto;padding:1rem}
+.guild-launchpad-public>header img{display:block;width:min(220px,55vw);height:auto}
+.guild-launchpad-public>main{max-width:72rem;margin:auto;padding:0 1rem 3rem}
+.guild-launchpad-books{display:grid;gap:.6rem}
+.guild-launchpad-books a{overflow-wrap:anywhere}
+@media(max-width:720px){
+  .guild-launchpad input,.guild-launchpad textarea,.guild-launchpad select{font-size:16px}
+}
