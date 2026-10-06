@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-05T20:13:25.485122+00:00",
+  "recorded_at": "2026-10-06T13:40:05.870544+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,16 +14,16 @@
   },
   "merged_source": {
     "repository": "FreeTWAI-AI/freedom-platform",
-    "sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
-    "tree": "2578e13866673dbff8d1c2b89b25bc7aaa61e217",
-    "pull_request": 129,
-    "merge_at": "2026-10-05T18:29:44Z",
+    "sha": "626e56c3b7eda5d3cf168cc9d2219a0393a44548",
+    "tree": "1dc7ec785796281f860404ac69bd6f949f336844",
+    "pull_request": 161,
+    "merge_at": "2026-10-06T13:29:53Z",
     "verify": {
-      "run": 37356371713,
+      "run": 37471263158,
       "conclusion": "success",
-      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37356371713"
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37471263158"
     },
-    "limitation": "This main commit is not evidence of a member-portal deployment."
+    "limitation": "This main commit is not evidence of a member-portal deployment, an installed workflow pin upgrade or applied migrations 116-119."
   },
   "deployment": {
     "production": {
@@ -85,7 +85,7 @@
     "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
   },
   "schema": {
-    "repository_max_migration": 115,
+    "repository_max_migration": 119,
     "last_observed_live": {
       "ledger_rows": 112,
       "through_number": 113,
