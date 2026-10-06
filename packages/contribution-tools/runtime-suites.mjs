@@ -19,6 +19,12 @@ export const NODE_CONSUMER_SUITES = Object.freeze({
   'consumer.storefront': Object.freeze({ directory: 'tests', baseline: Object.freeze(['tests/read-client.test.mjs', 'tests/storefront.test.mjs', 'tests/templates.test.mjs']) }),
 });
 
+// Fixed producer files. No directory discovery, package hook, or database URL.
+// The list is host code; a descriptor cannot add or replace a path.
+export const FIXED_NODE_SUITES = Object.freeze({
+  'e2e.harness': Object.freeze(['scripts/run-e2e.test.mjs']),
+});
+
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 newcomer-guides newcomer-guide-dialogue guide-anchors guide-pack-assets
 chat-content direct-message-receipts member-card-qr member-session-lifecycle
