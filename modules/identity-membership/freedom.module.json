@@ -11,10 +11,7 @@
     "apps/portal-web/src/modules/avatar-client.ts",
     "tests/runtime/avatar.test.ts",
     "packages/testing/e2e-avatar-asset-fixture.ts",
-    "tests/e2e/member-avatar-asset.spec.ts",
-    "scripts/e2e-server.ts",
-    "scripts/run-e2e.mjs",
-    "scripts/run-e2e.test.mjs"
+    "tests/e2e/member-avatar-asset.spec.ts"
   ],
   "public_exports": [
     "modules/identity-membership/avatars.ts",
