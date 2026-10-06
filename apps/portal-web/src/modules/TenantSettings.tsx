@@ -116,6 +116,20 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     return { key: crypto.randomUUID(), path, body, ifMatch, tenantId, notice };
   }
 
+  // The password dialog would mint a new verification id. A resend must keep the stored one.
+  function gateFreshAuth(tenantId: string | null, path: string, body: unknown, ifMatch?: string): Attempt | 'verify' | null {
+    const kept = unresolvedRef.current.get(attemptSlot(tenantId));
+    if (!kept) return 'verify';
+    const stored = kept.body;
+    const comparable = stored && typeof stored === 'object' && !Array.isArray(stored)
+      ? Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'fresh_auth_verification_id'))
+      : stored;
+    if (kept.path === path && kept.ifMatch === ifMatch && JSON.stringify(comparable) === JSON.stringify(body)) return kept;
+    setPending(kept);
+    setAlertText(UNRESOLVED_ALERT);
+    return null;
+  }
+
   function begin() {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -447,20 +461,29 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const reason = transferReason.trim();
     const role = afterRole;
     const tenantId = tenant.tenant_id;
-    actionPurpose.current = 'tenant.ownership.propose';
-    actionTenant.current = tenantId;
-    openPassword(event, async verificationId => {
-      const attempt = attemptFor(tenantId, `/tenants/${tenantId}/ownership-transfers`, {
-        to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt,
-        reason, fresh_auth_verification_id: verificationId,
-      });
-      if (!attempt) return;
+    const path = `/tenants/${tenantId}/ownership-transfers`;
+    const body = { to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt, reason };
+    const notice = `已提出移交給${preview.displayName}。對方接受前，擁有權不會改變。`;
+    const gate = gateFreshAuth(tenantId, path, body);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
       const saved = await run<TransferView>(attempt);
       if (!saved) return;
       setTransferPreview(null); setRecipient(null); setRecipientPeople([]); setTransferReason('');
       setOutgoing(saved); setOutgoingReadError('');
-      setNotice(`已提出移交給${saved.to_display_name}。對方接受前，擁有權不會改變。`);
+      setNotice(attempt.notice ?? notice);
       await loadMine(tenantId);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
+    actionPurpose.current = 'tenant.ownership.propose';
+    actionTenant.current = tenantId;
+    openPassword(event, async verificationId => {
+      const attempt = attemptFor(tenantId, path, { ...body, fresh_auth_verification_id: verificationId }, undefined, notice);
+      if (!attempt) return;
+      await finish(attempt);
     });
   }
 
@@ -476,41 +499,62 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   }
 
   function startAcceptTransfer(event: MouseEvent<HTMLButtonElement>, transfer: TransferView) {
+    const path = `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`;
+    const body = { accept_scope: true };
+    const notice = `已接受${transfer.tenant_display_name}的擁有權。`;
+    const gate = gateFreshAuth(null, path, body, transfer.version);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
+      const saved = await run<{ tenant_id: string }>(attempt);
+      if (!saved) return;
+      setNotice(attempt.notice ?? notice);
+      await loadMine(transfer.tenant_id);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
     actionPurpose.current = 'tenant.ownership.accept';
     actionTenant.current = transfer.tenant_id;
     openPassword(event, async verificationId => {
-      const attempt = attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, {
-        accept_scope: true, fresh_auth_verification_id: verificationId,
-      }, transfer.version);
+      const attempt = attemptFor(null, path, { ...body, fresh_auth_verification_id: verificationId }, transfer.version, notice);
       if (!attempt) return;
-      const saved = await run<{ tenant_id: string }>(attempt);
-      if (!saved) return;
-      setNotice(`已接受${transfer.tenant_display_name}的擁有權。`);
-      await loadMine(transfer.tenant_id);
+      await finish(attempt);
     });
   }
 
   async function declineTransfer(transfer: TransferView) {
-    const attempt = attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`, {});
+    const notice = `已拒絕${transfer.tenant_display_name}的擁有權移交。`;
+    const attempt = attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`, {}, undefined, notice);
     if (!attempt) return;
     const saved = await run<TransferView>(attempt);
     if (!saved) return;
-    setNotice(`已拒絕${transfer.tenant_display_name}的擁有權移交。`);
+    setNotice(attempt.notice ?? notice);
     await loadMine(selectedId ?? undefined);
   }
 
   function startAcceptRecovery(event: MouseEvent<HTMLButtonElement>, item: RecoveryCaseView) {
+    const path = `/me/tenant-recovery-cases/${item.case_id}/accept`;
+    const body = { accept_scope: true };
+    const notice = `已接受${item.tenant_display_name}的復原。擁有權要等管理員執行後才會變更。`;
+    const gate = gateFreshAuth(null, path, body, item.version);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
+      const saved = await run<RecoveryCaseView>(attempt);
+      if (!saved) return;
+      setNotice(attempt.notice ?? notice);
+      await loadMine(selectedId ?? undefined);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
     actionPurpose.current = 'tenant.recovery.accept';
     actionTenant.current = item.tenant_id;
     openPassword(event, async verificationId => {
-      const attempt = attemptFor(null, `/me/tenant-recovery-cases/${item.case_id}/accept`, {
-        accept_scope: true, fresh_auth_verification_id: verificationId,
-      }, item.version);
+      const attempt = attemptFor(null, path, { ...body, fresh_auth_verification_id: verificationId }, item.version, notice);
       if (!attempt) return;
-      const saved = await run<RecoveryCaseView>(attempt);
-      if (!saved) return;
-      setNotice(`已接受${item.tenant_display_name}的復原。擁有權要等管理員執行後才會變更。`);
-      await loadMine(selectedId ?? undefined);
+      await finish(attempt);
     });
   }
 

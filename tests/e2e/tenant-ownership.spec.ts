@@ -294,13 +294,91 @@ test('a lost transfer acknowledgement is resent with the original key and body',
     await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
     await expect.poll(() => posts.length).toBe(1);
     await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
-    await expect(password).toBeFocused();
-    await password.pressSequentially(DEMO_PASSWORD);
-    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: '重新驗證', exact: true })).toBeHidden();
     await expect.poll(() => posts.length).toBeGreaterThanOrEqual(2);
     expect(new Set(posts.map(item => item.key)).size, JSON.stringify(posts)).toBe(1);
     expect(new Set(posts.map(item => item.body)).size, JSON.stringify(posts)).toBe(1);
+    expect(JSON.parse(posts[1].body).fresh_auth_verification_id).toBe(JSON.parse(posts[0].body).fresh_auth_verification_id);
     expect(posts.every(item => item.method === 'POST')).toBe(true);
+    await expect(page.getByText(`已提議將擁有權移交給${recipient.display_name}`)).toBeVisible();
+    await expect.poll(async () => transferEvidence(e2eAuthPool, tenantName)).toEqual({ transfers: 1, audit: 1, receipts: 1 });
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+const UNRESOLVED_BLOCK = '上一個操作的結果還在確認。請先按「再確認一次」，或重新送出原本的操作。';
+
+test('a different ownership action is blocked while a transfer is unresolved', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌擋${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner, recipient] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1440, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string }[] = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/ownership-transfers$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(),
+      key: route.request().headers()['idempotency-key'] ?? '',
+      body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    await route.continue().catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`櫃檯${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText('我的角色：擁有者', { exact: true })).toBeVisible();
+    await page.getByLabel('搜尋接收者', { exact: true }).fill(recipient.display_name);
+    await page.getByRole('button', { name: '搜尋接收者', exact: true }).click();
+    await page.getByRole('button', { name: `選擇${recipient.display_name}為接收者`, exact: true }).click();
+    await page.getByLabel('移交原因', { exact: true }).fill('交給下一位擁有者');
+    await page.getByRole('button', { name: '檢視移交內容', exact: true }).click();
+    await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+    const password = page.getByLabel('目前的密碼', { exact: true });
+    await expect(password).toBeFocused();
+    await password.pressSequentially(DEMO_PASSWORD);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByLabel('移交原因', { exact: true }).fill('交給另一位擁有者');
+    await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+    const blocked = {
+      dialog: await page.getByRole('heading', { name: '重新驗證', exact: true }).isVisible(),
+      alerts: await page.locator('[role="alert"]').allTextContents(),
+      posts: posts.map(item => ({ ...item })),
+      evidence: await transferEvidence(e2eAuthPool, tenantName),
+    };
+    expect({
+      dialog: blocked.dialog,
+      alerts: blocked.alerts,
+      count: blocked.posts.length,
+      evidence: blocked.evidence,
+    }, JSON.stringify(blocked)).toEqual({
+      dialog: false,
+      alerts: [UNRESOLVED_BLOCK],
+      count: 1,
+      evidence: { transfers: 1, audit: 1, receipts: 1 },
+    });
+    await expect(page.getByRole('button', { name: '再確認一次', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '再確認一次', exact: true }).click();
+    await expect.poll(() => posts.length).toBe(2);
+    expect(new Set(posts.map(item => item.key)).size, JSON.stringify(posts)).toBe(1);
+    expect(new Set(posts.map(item => item.body)).size, JSON.stringify(posts)).toBe(1);
+    expect(posts[1].body).toBe(posts[0].body);
     await expect(page.getByText(`已提議將擁有權移交給${recipient.display_name}`)).toBeVisible();
     await expect.poll(async () => transferEvidence(e2eAuthPool, tenantName)).toEqual({ transfers: 1, audit: 1, receipts: 1 });
   } finally {
