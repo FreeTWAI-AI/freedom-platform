@@ -31,8 +31,8 @@ test('returning member reloads and reopens a page without submitting credentials
   const initial = await sessionCookie(page);
   expect(initial.httpOnly).toBe(true);
   expect(initial.sameSite).toBe('Strict');
-  expect(initial.expires).toBeGreaterThan(Date.now() / 1000 + 7 * 60 * 60);
-  expect(initial.expires).toBeLessThanOrEqual(Date.now() / 1000 + 8 * 60 * 60);
+  expect(initial.expires).toBeGreaterThan(Date.now() / 1000 + 29 * 24 * 60 * 60);
+  expect(initial.expires).toBeLessThanOrEqual(Date.now() / 1000 + 30 * 24 * 60 * 60);
   await page.reload();
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
   await page.close();
