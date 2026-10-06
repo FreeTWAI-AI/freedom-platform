@@ -1,12 +1,13 @@
 import type {Pool, PoolClient} from 'pg';
 import {transaction} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild, type SkillBook} from '../community/catalog.js';
 import {ConfigValidationError, assertStoredVersion, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
 import {
-  activeMember, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
-  readPointerVersion, readSolePublicRevision, readStoredRevision, requireGuildMember, resolvePublishedView,
+  activeMember, assertDelegatedViewerDeadline, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
+  readPointerVersion, readSolePublicRevision, readStoredRevision, refreshDelegateAccess, requireGuildMember, resolvePublishedView,
   tryView, viewerAccess, type CatalogGuild, type ConfigProblem,
 } from './launchpad-config.js';
 
@@ -81,19 +82,23 @@ export async function memberLaunchpad(pool: Pool, actor: Actor, guildKey: string
     const access = await viewerAccess(q, actor, guildKey);
     const pointerVersion = await readPointerVersion(q, actor.community_id, guildKey);
     const resolved = await resolvePublishedView(q, guild, actor.community_id, pointerVersion);
+    const announcementRows = await announcements(q, actor.community_id, guildKey);
+    const books = await bookRefs(q, guildKey, actor.community_id);
+    await assertCurrentSessionClock(q, actor);
+    const fresh = await refreshDelegateAccess(q, actor, guildKey, access);
     return {
       guild: memberGuildDto(guild),
       config: resolved.view,
       config_problem: resolved.problem,
       membership: {state: membership.state as string, member_tier: membership.member_tier as string},
-      announcements: await announcements(q, actor.community_id, guildKey),
-      skill_books: await bookRefs(q, guildKey, actor.community_id),
+      announcements: announcementRows,
+      skill_books: books,
       applications: [] as {application_key: string; release_ref: string; eligibility: {can_launch: false; reason_codes: string[]; required_guild_tier: 'full'; tenant_action: 'denied'; policy_revision: string}}[],
       community_tasks: [] as {work_item_id: string; title: string; state: string}[],
-      viewer_can_edit_config: access.edit,
-      viewer_can_preview_config: access.preview,
-      viewer_can_publish_config: access.publish,
-      viewer_can_manage_delegations: access.leader,
+      viewer_can_edit_config: fresh.edit,
+      viewer_can_preview_config: fresh.preview,
+      viewer_can_publish_config: fresh.publish,
+      viewer_can_manage_delegations: fresh.leader,
     };
   });
 }
@@ -124,6 +129,11 @@ export async function leaderLaunchpadConfig(pool: Pool, actor: Actor, guildKey: 
       }
     }
     const leader = access.leader;
+    const revisions = await listRevisionMeta(q, actor.community_id, guildKey);
+    const delegations = leader ? await listDelegations(q, actor.community_id, guildKey) : undefined;
+    const delegationCandidates = leader ? await listDelegationCandidates(q, actor.community_id, guildKey) : undefined;
+    await assertCurrentSessionClock(q, actor);
+    await assertDelegatedViewerDeadline(q, actor, guildKey, access);
     return {
       ...config,
       config_problem: problem,
@@ -131,8 +141,8 @@ export async function leaderLaunchpadConfig(pool: Pool, actor: Actor, guildKey: 
       viewer_can_preview_config: access.preview,
       viewer_can_publish_config: access.publish,
       viewer_can_manage_delegations: leader,
-      revisions: await listRevisionMeta(q, actor.community_id, guildKey),
-      ...(leader ? {delegations: await listDelegations(q, actor.community_id, guildKey), delegation_candidates: await listDelegationCandidates(q, actor.community_id, guildKey)} : {}),
+      revisions,
+      ...(leader ? {delegations, delegation_candidates: delegationCandidates} : {}),
     };
   });
 }

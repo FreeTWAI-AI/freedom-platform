@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Pool, PoolClient} from 'pg';
 import {command, transaction, checkVersion, digest, journal, type Command} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {
@@ -115,22 +116,52 @@ async function leaderRow(q: PoolClient, actor: Actor, guildKey: string) {
 export async function requireLeader(q: PoolClient, actor: Actor, guildKey: string) {
   requireCondition(await leaderRow(q, actor, guildKey), 403, 'guild_leader_required', '此操作限目前在任的公會長。');
 }
-async function delegationCapabilities(q: PoolClient, actor: Actor, guildKey: string, clock: 'now()' | 'clock_timestamp()' = 'now()'): Promise<string[]> {
-  const row = (await q.query(`SELECT d.capabilities FROM guild_launchpad_delegations d
-    JOIN principals p ON p.principal_id=d.principal_id
-    JOIN positioning_profession_memberships m ON m.community_id=d.community_id AND m.guild_key=d.guild_key AND m.user_id=p.user_ref AND m.state='active'
-    WHERE d.community_id=$1 AND d.guild_key=$2 AND p.user_ref=$3 AND p.kind='person' AND p.status='active'
-      AND d.status='active' AND d.expires_at>${clock}
-    FOR SHARE OF d, m`, [actor.community_id, guildKey, actor.user_id])).rows[0];
+const DELEGATION_CAPABILITY_SQL = `SELECT d.capabilities FROM guild_launchpad_delegations d
+  JOIN principals p ON p.principal_id=d.principal_id
+  JOIN positioning_profession_memberships m ON m.community_id=d.community_id AND m.guild_key=d.guild_key AND m.user_id=p.user_ref AND m.state='active'
+  WHERE d.community_id=$1 AND d.guild_key=$2 AND p.user_ref=$3 AND p.kind='person' AND p.status='active'
+    AND d.status='active' AND d.expires_at>clock_timestamp()`;
+async function delegationCapabilities(q: PoolClient, actor: Actor, guildKey: string, lock: boolean): Promise<string[]> {
+  const sql = lock ? `${DELEGATION_CAPABILITY_SQL} FOR SHARE OF d, m` : DELEGATION_CAPABILITY_SQL;
+  const row = (await q.query(sql, [actor.community_id, guildKey, actor.user_id])).rows[0];
   return Array.isArray(row?.capabilities) ? row.capabilities : [];
 }
-async function requireFreshDelegate(q: PoolClient, actor: Actor, guildKey: string, capability: LaunchpadCapability) {
-  const caps = new Set(await delegationCapabilities(q, actor, guildKey, 'clock_timestamp()'));
-  requireCondition(caps.has(capability), 403, 'guild_leader_required', '此操作限目前在任的公會長。');
+function delegationDenied(caps: string[], capability: LaunchpadCapability) {
+  requireCondition(caps.includes(capability), 403, 'guild_leader_required', '此操作限目前在任的公會長。');
 }
-export async function viewerAccess(q: PoolClient, actor: Actor, guildKey: string) {
+async function requireFreshDelegate(q: PoolClient, actor: Actor, guildKey: string, capability: LaunchpadCapability) {
+  delegationDenied(await delegationCapabilities(q, actor, guildKey, true), capability);
+}
+/** A locking read is not rechecked after a wait when the blocker did not update the row. This is a later, non-waiting statement. */
+async function assertDelegationDeadline(q: PoolClient, actor: Actor, guildKey: string, capability: LaunchpadCapability) {
+  delegationDenied(await delegationCapabilities(q, actor, guildKey, false), capability);
+}
+type ViewerAccess = {leader: boolean; edit: boolean; preview: boolean; publish: boolean};
+/** Leaders stay on the officer lock. A delegate must still hold a live view capability after the last wait. */
+export async function assertDelegatedViewerDeadline(q: PoolClient, actor: Actor, guildKey: string, access: ViewerAccess) {
+  if (access.leader || !(access.edit || access.preview || access.publish)) return;
+  const caps = await delegationCapabilities(q, actor, guildKey, false);
+  requireCondition(
+    (access.edit && caps.includes('guild.content.edit'))
+      || (access.preview && caps.includes('guild.config.preview'))
+      || (access.publish && caps.includes('guild.config.publish')),
+    403, 'guild_leader_required', '此操作限目前在任的公會長。');
+}
+/** A guild member can still read the published launchpad. Delegate flags cannot stay true after the deadline. */
+export async function refreshDelegateAccess(q: PoolClient, actor: Actor, guildKey: string, access: ViewerAccess): Promise<ViewerAccess> {
+  if (access.leader || !(access.edit || access.preview || access.publish)) return access;
+  const caps = await delegationCapabilities(q, actor, guildKey, false);
+  return {leader: false, edit: caps.includes('guild.content.edit'), preview: caps.includes('guild.config.preview'), publish: caps.includes('guild.config.publish')};
+}
+function delegateRevalidation(actor: Actor, guildKey: string, capability: LaunchpadCapability, delegated: () => boolean) {
+  return async (q: PoolClient) => {
+    if (!delegated()) return;
+    await assertDelegationDeadline(q, actor, guildKey, capability);
+  };
+}
+export async function viewerAccess(q: PoolClient, actor: Actor, guildKey: string): Promise<ViewerAccess> {
   const leader = await leaderRow(q, actor, guildKey);
-  const caps = new Set(leader ? CAPABILITIES : await delegationCapabilities(q, actor, guildKey));
+  const caps = new Set(leader ? CAPABILITIES : await delegationCapabilities(q, actor, guildKey, true));
   return {
     leader,
     edit: caps.has('guild.content.edit'),
@@ -218,6 +249,7 @@ export async function createDraft(pool: Pool, input: Command, guildKey: string) 
   let config: Config | null = null;
   let principalId = '';
   let delegated = false;
+  const revalidate = delegateRevalidation(input.actor, guildKey, 'guild.content.edit', () => delegated);
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
@@ -239,8 +271,9 @@ export async function createDraft(pool: Pool, input: Command, guildKey: string) 
       move = target?.status !== 'published';
     }
     const pointerVersion = await movePointer(q, input.actor.community_id, guildKey, stored.config_id, current, move);
+    await revalidate(q);
     return toView(stored, config, pointerVersion);
-  });
+  }, revalidate);
 }
 
 /** Preview validates and returns the submitted config. It does not read tenant work or write rows. */
@@ -248,9 +281,11 @@ export async function previewLaunchpad(pool: Pool, actor: Actor, guildKey: strin
   return transaction(pool, async q => {
     await activeMember(q, actor);
     await loadCatalog(q, guildKey);
-    await requireCapability(q, actor, guildKey, 'guild.config.preview');
+    const access = await requireCapability(q, actor, guildKey, 'guild.config.preview');
     const wrapped = parseInput(previewInput, input);
     const config = configFrom(wrapped.body, guildKey, 'body');
+    await assertCurrentSessionClock(q, actor);
+    if (!access.leader) await assertDelegationDeadline(q, actor, guildKey, 'guild.config.preview');
     return {effective_config: config, validation: [] as {code: string; path: string}[], preview_data_origin: 'synthetic_fixture' as const};
   });
 }
@@ -261,6 +296,7 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
   requireCondition(/^[a-f0-9]{64}$/.test(body.expected_body_sha256), 422, 'invalid_body_sha256', '配置摘要須為 64 碼小寫十六進位。');
   let principalId = '';
   let delegated = false;
+  const revalidate = delegateRevalidation(input.actor, guildKey, 'guild.config.publish', () => delegated);
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
@@ -283,8 +319,9 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
     const published = (await q.query("UPDATE guild_launchpad_config_revisions SET status='published' WHERE config_id=$1 AND status='draft' RETURNING config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at", [row.config_id])).rows[0] as StoredRevision;
     const pointerVersion = await movePointer(q, input.actor.community_id, guildKey, published.config_id, current, true);
     await publishEvent(q, input.actor, guildKey, published.config_id, published.revision);
+    await revalidate(q);
     return toView(published, config, pointerVersion);
-  });
+  }, revalidate);
 }
 
 export async function revertLaunchpad(pool: Pool, input: Command, guildKey: string) {
@@ -293,6 +330,7 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
   reasonIssue(body.reason);
   let principalId = '';
   let delegated = false;
+  const revalidate = delegateRevalidation(input.actor, guildKey, 'guild.config.publish', () => delegated);
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
@@ -313,8 +351,9 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
     const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'published', principalId, revertReason: body.reason, revertedFromRevision: prior.revision});
     const pointerVersion = await movePointer(q, input.actor.community_id, guildKey, stored.config_id, current, true);
     await publishEvent(q, input.actor, guildKey, stored.config_id, stored.revision);
+    await revalidate(q);
     return toView(stored, config, pointerVersion);
-  });
+  }, revalidate);
 }
 
 function reasonIssue(value: string) {
