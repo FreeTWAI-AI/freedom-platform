@@ -87,6 +87,8 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       requireCondition(used + BigInt(reserve) <= BigInt(current.retainedByteLimit), 429, 'quota_exceeded', '已達到這個業務空間的容量上限。');
     },
     prepareRepresentation: preparePrivateText,
+    // Runs inside the inserting command, including after the receipt wait.
+    revalidate: async (_q, context) => { requireTenantCapability(context, 'work:result.write', true); },
     lockPublication: async () => undefined,
     async publish(q, _context, actor, intent) {
       let row: { result_id: string; work_item_id: string; asset_id: string; revision: string; work_version: string };

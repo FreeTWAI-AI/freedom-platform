@@ -46,7 +46,7 @@ export interface LifecycleProfile<P extends LifecyclePrepare,R,A extends Authori
   readonly inputMaxBytes: number; readonly outputMaxBytes: number; readonly retireReplacedAsset: boolean;
   /** Additional trusted invocation check on the caller's current transaction.
    * Captured at composition, never supplied by upload/lease JSON. */
-  readonly revalidate?: (q: PoolClient) => Promise<void>;
+  readonly revalidate?: (q: PoolClient, context: C) => Promise<void>;
   readonly parsePrepare: (raw: P) => P;
   readonly targetId: (input: P) => string;
   readonly lockTarget: (q: PoolClient, context: C, actor: A, targetId: string, create: boolean) => Promise<LifecycleTarget>;
@@ -80,7 +80,7 @@ export function createAssetLifecycleWithAuthority<P extends LifecyclePrepare,R,A
   const revalidation=Object.getOwnPropertyDescriptor(definition,'revalidate');
   requireCondition(revalidation===undefined||(revalidation.enumerable&&'value' in revalidation
     &&(revalidation.value===undefined||typeof revalidation.value==='function')),500,'asset_profile_invalid','內容設定不正確。');
-  const revalidate=revalidation?.value as LifecycleProfile<P,R>['revalidate'];
+  const revalidate=revalidation?.value as LifecycleProfile<P,R,A,C>['revalidate'];
   const profile = Object.freeze({ ...definition }), store = dependencies.store;
   const tenantAuthority=isTenantLifecycleAuthority(authority),tenantProfile=profile.targetKind==='work.tenant-result';
   requireCondition((isMemberLifecycleAuthority(authority) || profile.targetKind==='work.model-result' || (tenantAuthority && tenantProfile)) && tenantAuthority===tenantProfile,500,'asset_authority_profile_invalid','內容授權設定不正確。');
@@ -180,7 +180,7 @@ export function createAssetLifecycleWithAuthority<P extends LifecyclePrepare,R,A
       const {row}=await locked(q,context,actor,input.intentId),resolved=await policy(q,context,targetId(row),row.policy_revision);
       state(row.state==='processing'||row.state==='stored'||allowFinalized&&row.state==='finalized');
       if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
-      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await authority.clock(q,actor);if(revalidate)await revalidate(q);const effectStore=effectMetadata?await admitAssetObjectWriteEffect(q,pool,store,input,effectMetadata):undefined;await authority.clock(q,actor);if(row.state!=='finalized')await live(q,row,input);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata,effectStore};
+      const storedMetadata=row.state==='stored'?await metadata(q,row):null;await authority.clock(q,actor);if(revalidate)await revalidate(q,context);const effectStore=effectMetadata?await admitAssetObjectWriteEffect(q,pool,store,input,effectMetadata):undefined;await authority.clock(q,actor);if(row.state!=='finalized')await live(q,row,input);return {row:Object.freeze({...row}),policy:resolved,metadata:storedMetadata,effectStore};
     });
   }
   async function write(actor:A,raw:AssetLeaseInput,body:ReadableStream<Uint8Array>){
@@ -216,14 +216,14 @@ export function createAssetLifecycleWithAuthority<P extends LifecyclePrepare,R,A
     await q.query("UPDATE asset_upload_intents SET state='finalized',finalized_at=clock_timestamp() WHERE intent_id=$1",[row.intent_id]);
     // The closed highlight main component has no independent domain publication.
     // Its thumb component records the one atomic pair publication below.
-    if(profile.targetKind!=='community.event-highlight.image')await authority.journal(q,context,{aggregate_type:outcome.fact.aggregateType,id:outcome.fact.id,version:outcome.aggregateVersion,operation,data:outcome.fact.data,eventType:outcome.fact.eventType});if(revalidate)await revalidate(q);return outcome.result;
+    if(profile.targetKind!=='community.event-highlight.image')await authority.journal(q,context,{aggregate_type:outcome.fact.aggregateType,id:outcome.fact.id,version:outcome.aggregateVersion,operation,data:outcome.fact.data,eventType:outcome.fact.eventType});if(revalidate)await revalidate(q,context);return outcome.result;
   }
   async function verifyFinalization(actor:A,input:AssetLeaseInput){const snapshot=await inspect(actor,input,true);state(snapshot.row.state==='stored'||snapshot.row.state==='finalized');if(snapshot.row.state==='stored')await verifyObject(store,storageKey(snapshot.row),snapshot.metadata!);}
   async function authorizeFinalization(q:PoolClient,context:C,actor:A,input:AssetLeaseInput){
     const {target,row}=await locked(q,context,actor,input.intentId);await policy(q,context,targetId(row),row.policy_revision);
     const publication=await profile.lockPublication(q,context,actor,row,target);state(row.state==='stored'||row.state==='finalized');
     if(row.state!=='finalized')await live(q,row,input);else requireCondition(row.fence===input.fence&&row.lease_token===input.leaseToken,409,'asset_lease_stale','上傳租約已失效。');
-    await authority.clock(q,actor);if(revalidate)await revalidate(q);return {target,row,publication};
+    await authority.clock(q,actor);if(revalidate)await revalidate(q,context);return {target,row,publication};
   }
   async function finalize(actor:A,raw:AssetLeaseInput){
     actor=authority.snapshot(actor);const input=leaseInput.parse(raw);await verifyFinalization(actor,input);let authorized!:Awaited<ReturnType<typeof authorizeFinalization>>;
@@ -240,7 +240,7 @@ export function createAssetLifecycleWithAuthority<P extends LifecyclePrepare,R,A
     actor=authority.snapshot(actor);const input=claimInput.parse(raw);
     const snapshot=await authority.read(pool,{actor,scope:authorityScope,lockUser},async()=>{},async(q,context)=>{
       const {row}=await locked(q,context,actor,input.intentId);await policy(q,context,targetId(row),row.policy_revision);if(row.state!=='finalized')await live(q,row);
-      const active=(await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0].active;await authority.clock(q,actor);if(revalidate)await revalidate(q);return {row,active};
+      const active=(await q.query('SELECT lease_expires_at>clock_timestamp() AS active FROM asset_upload_intents WHERE intent_id=$1',[row.intent_id])).rows[0].active;await authority.clock(q,actor);if(revalidate)await revalidate(q,context);return {row,active};
     });
     if(snapshot.active||snapshot.row.state==='finalized')return {state:snapshot.row.state,intentId:snapshot.row.intent_id,fence:snapshot.row.fence,leaseToken:snapshot.row.lease_token!};
     const lease=await claim(actor,{intentId:input.intentId,key:digest({facadeKey:input.key,intentId:input.intentId,priorFence:snapshot.row.fence})});return {state:snapshot.row.state==='stored'?'stored' as const:'processing' as const,intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};

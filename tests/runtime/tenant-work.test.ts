@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
@@ -165,6 +165,86 @@ async function writeUpload(session: Session, tenantId: string, workId: string, u
 }
 async function finalizeUpload(session: Session, tenantId: string, workId: string, uploadId: string, workVersion: string, uploadVersion: string, key = randomUUID()) {
   return post(`/tenants/${tenantId}/works/${workId}/results/uploads/${uploadId}/finalize`, session, { expected_work_version: workVersion }, `"${uploadVersion}"`, key);
+}
+const USER_LOCK = 'SELECT user_id FROM users WHERE user_id=$1 AND community_id=$2 AND active';
+async function adminWorkspace() {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const adminUser = await person('會被降級的管理員');
+  const principalId = await candidate(owner, adminUser.id);
+  const invitation = await invite(owner, made.tenantId, principalId, 'admin');
+  await accept(adminUser.session, made.tenantId, invitation);
+  const work = await createWork(adminUser.session, made.tenantId, made.workspaceId, '降級前的工作');
+  assert.equal(work.status, 201, JSON.stringify(work.data));
+  return { owner, tenantId: made.tenantId, workspaceId: made.workspaceId, adminUser, principalId, workId: work.data.resource_ref.resource_id as string };
+}
+async function demoteOnLock<T>(tenantId: string, principalId: string, which: number, run: () => Promise<T>): Promise<T> {
+  assert.match(schema, /^fp_tenant_work_[0-9]+_[0-9]+$/);
+  let seen = 0;
+  let demoted = false;
+  const originalConnect = pool.connect.bind(pool);
+  // pool.query checks a client out with a callback. A promise-only connect drops that callback and the request never starts.
+  const wrap = (client: PoolClient) => {
+    const query = client.query.bind(client) as (...params: any[]) => any;
+    const release = client.release.bind(client);
+    (client as any).query = (...args: any[]) => {
+      const head = args[0];
+      const sql = typeof head === 'string' ? head : head?.text ?? '';
+      const callback = typeof args[args.length - 1] === 'function' ? args[args.length - 1] as (err: Error | null, result?: unknown) => void : undefined;
+      if (!demoted && sql.startsWith(USER_LOCK)) {
+        seen += 1;
+        if (seen === which) {
+          demoted = true;
+          // The owner trigger names tenants unqualified, so this connection must use the test schema.
+          // originalConnect skips this wrapper and is not the command client, which has not locked the tenant yet.
+          const pending = (async () => {
+            const writer = await originalConnect();
+            try {
+              const updated = await writer.query(`UPDATE tenant_memberships SET role='viewer', updated_at=clock_timestamp()
+                WHERE tenant_id=$1 AND principal_id=$2 AND status='active' AND role='admin'`, [tenantId, principalId]);
+              assert.equal(updated.rowCount, 1);
+            } finally { writer.release(); }
+            return callback ? query(...args.slice(0, -1)) : query(...args);
+          })();
+          if (callback) {
+            pending.then(result => callback(null, result), error => callback(error));
+            return undefined;
+          }
+          return pending;
+        }
+      }
+      return query(...args);
+    };
+    (client as any).release = (...args: any[]) => {
+      client.query = query;
+      client.release = release;
+      return release(...args);
+    };
+    return client;
+  };
+  (pool as any).connect = (callback?: unknown) => {
+    if (typeof callback === 'function') {
+      return originalConnect((error: Error | undefined, client?: PoolClient, done?: () => void) => {
+        if (error || !client) return callback(error, client, done);
+        callback(null, wrap(client), done);
+      });
+    }
+    return originalConnect().then(wrap);
+  };
+  try {
+    const result = await run();
+    assert.equal(demoted, true, `membership lock ${which} was not reached (saw ${seen})`);
+    return result;
+  } finally {
+    (pool as any).connect = originalConnect;
+  }
+}
+async function noSuccess(key: string) {
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM scoped_command_receipts WHERE idempotency_key=$1', [key])).rows[0].n, 0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results')).rows[0].n, 0);
 }
 async function modelCounts() {
   const names = (await pool.query<{ relname: string }>(`SELECT c.relname FROM pg_class c
@@ -710,6 +790,81 @@ test('a revoked admin is denied on the next save, and a storage wait lets revoca
   const next = await patch(`/tenants/${made.tenantId}/works/${workId}`, adminUser.session, workBody('撤銷後'), '"1"');
   assert.equal(next.status, 404);
   assert.equal(next.data.code, 'tenant_not_found');
+});
+
+test('demoting the admin to viewer while bytes are stored blocks the result write and its replay', async () => {
+  const { owner, tenantId, adminUser, principalId, workId } = await adminWorkspace();
+  const prepared = await prepareUpload(adminUser.session, tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  const intents = (await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n as number;
+  const objects = (await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n as number;
+  const key = randomUUID();
+  store.holdNextPut();
+  try {
+    const pending = writeUpload(adminUser.session, tenantId, workId, uploadId, ABC, '1', key);
+    await Promise.race([store.entered, delay(20000).then(() => assert.fail('put did not reach the storage barrier'))]);
+    const row = await membership(owner, tenantId, principalId);
+    const demoted = await post(`/tenants/${tenantId}/members/${principalId}/change`, owner, {
+      role: 'viewer', status: 'active', instance_capabilities: [], reason: '改為僅能查看',
+    }, `"${row.version}"`);
+    assert.equal(demoted.status, 200, JSON.stringify(demoted.data));
+    assert.equal(demoted.data.role, 'viewer');
+    assert.equal(demoted.data.status, 'active');
+    store.release();
+    const written = await pending;
+    assert.equal(written.status, 403, JSON.stringify(written.data));
+    assert.equal(written.data.code, 'capability_denied');
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n, intents);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n, objects);
+    await noSuccess(key);
+    const replay = await writeUpload(adminUser.session, tenantId, workId, uploadId, ABC, '1', key);
+    assert.notEqual(replay.status, 200);
+    assert.notEqual(replay.data?.state, 'succeeded');
+    await noSuccess(key);
+  } finally { store.release(); }
+});
+
+test('demoting the admin to viewer after the prepare probe stores no intent', { timeout: 30_000 }, async () => {
+  const { tenantId, adminUser, principalId, workId } = await adminWorkspace();
+  const key = randomUUID();
+  const prepared = await demoteOnLock(tenantId, principalId, 2, () =>
+    prepareUpload(adminUser.session, tenantId, workId, 'note.txt', 'text/plain', ABC, '1', key));
+  assert.equal(prepared.status, 403, JSON.stringify(prepared.data));
+  assert.equal(prepared.data.code, 'capability_denied');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n, 0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n, 0);
+  await noSuccess(key);
+  const replay = await prepareUpload(adminUser.session, tenantId, workId, 'note.txt', 'text/plain', ABC, '1', key);
+  assert.notEqual(replay.status, 201);
+  assert.notEqual(replay.data?.state, 'succeeded');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n, 0);
+  await noSuccess(key);
+});
+
+test('demoting the admin to viewer after the finalize probe stores no result', { timeout: 30_000 }, async () => {
+  const { tenantId, adminUser, principalId, workId } = await adminWorkspace();
+  const prepared = await prepareUpload(adminUser.session, tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  const written = await writeUpload(adminUser.session, tenantId, workId, uploadId, ABC, '1');
+  assert.equal(written.status, 200, JSON.stringify(written.data));
+  assert.equal(written.data.version, '2');
+  const intents = (await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n as number;
+  const objects = (await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n as number;
+  const key = randomUUID();
+  const finalized = await demoteOnLock(tenantId, principalId, 4, () =>
+    finalizeUpload(adminUser.session, tenantId, workId, uploadId, '1', '2', key));
+  assert.equal(finalized.status, 403, JSON.stringify(finalized.data));
+  assert.equal(finalized.data.code, 'capability_denied');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n, intents);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n, objects);
+  assert.equal((await pool.query(`SELECT state FROM asset_upload_intents WHERE intent_id=$1`, [uploadId])).rows[0].state, 'stored');
+  await noSuccess(key);
+  const replay = await finalizeUpload(adminUser.session, tenantId, workId, uploadId, '1', '2', key);
+  assert.notEqual(replay.status, 200);
+  assert.notEqual(replay.data?.state, 'succeeded');
+  await noSuccess(key);
 });
 
 test('one pooled connection alternates two tenants without mixing their work', async () => {

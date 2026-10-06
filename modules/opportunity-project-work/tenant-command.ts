@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import { scopedJournal, scopedTenantCommand, type ScopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { digest } from '../../packages/db/index.js';
-import { tenantWorkCapabilities } from './tenant-capabilities.js';
+import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
 
 /** Thrown from run only after authorize. Rollback leaves no receipt, so the caller can perform storage I/O and record the same body. */
 export class ReceiptMiss extends Error {
@@ -31,7 +31,10 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
   }
   const journal = { id: fields.target.id, version: '1', record: true };
   const value = await produce(journal);
-  return scopedTenantCommand(pool, input, async () => {}, async (q, context) => {
+  // The probe already rolled back. This later commit still has to see result-write authority.
+  return scopedTenantCommand(pool, input, async (_q, context) => {
+    requireTenantCapability(context, 'work:result.write', true);
+  }, async (q, context) => {
     if (journal.record) {
       await scopedJournal(q, context, {
         aggregate_type: 'tenant_work', id: journal.id, version: journal.version, operation: fields.operation,
