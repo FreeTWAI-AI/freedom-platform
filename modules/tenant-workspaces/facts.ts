@@ -11,6 +11,15 @@ export const RECOVERY_MISSING = '找不到這份復原。';
 export function versionOf(value: unknown): string {
   return VersionSchema.parse(String(value));
 }
+
+/** One plus the sum of `version`. VersionSchema rejects 0, and mapping an empty
+ * sum to 1 would not move when the first version-1 row appears. Rows of these
+ * tables are never deleted, and every state change bumps version by one. */
+export async function countedSourceVersion(q: PoolClient, table: 'tenant_ownership_transfers' | 'tenant_recovery_cases', predicate: string, params: unknown[]): Promise<string> {
+  const sum = (await q.query<{ version: string }>(
+    `SELECT COALESCE(sum(version), 0)::bigint::text AS version FROM ${table} WHERE ${predicate}`, params)).rows[0].version;
+  return versionOf((BigInt(sum) + 1n).toString());
+}
 export function iso(value: unknown): string {
   const date = value instanceof Date ? value : new Date(String(value));
   requireCondition(!Number.isNaN(date.getTime()), 500, 'internal_error', '時間無法讀取。');
@@ -85,7 +94,11 @@ export async function persistTransferFailure(pool: Pool, transferId: string): Pr
           SELECT 1 FROM tenant_memberships m
           JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
           JOIN users u ON u.user_id=p.user_ref AND u.active
-          WHERE m.tenant_id=t.tenant_id AND m.principal_id=t.from_principal_id AND m.role='owner' AND m.status='active'))`, [transferId]);
+          WHERE m.tenant_id=t.tenant_id AND m.principal_id=t.from_principal_id AND m.role='owner' AND m.status='active')
+        OR NOT EXISTS (
+          SELECT 1 FROM principals rp
+          JOIN users ru ON ru.user_id=rp.user_ref AND ru.active
+          WHERE rp.principal_id=t.to_principal_id AND rp.kind='person' AND rp.status='active'))`, [transferId]);
 }
 
 export function encodeCursor(principalId: string, kind: string, tenantId: string | null, after: string): string {
