@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 19513,
-      "sha256": "7a71369a4806084832581f1f05d595895b8f49d87033508fae2f8c08fb819e3a"
+      "bytes": 234,
+      "sha256": "b2acdc30745f7bc5c7eb0c61827cd9413bb70f992b0a53f3dc49b8b6a7a8940e"
     },
     {
       "path": ".gitignore",
@@ -11500,7 +11500,7 @@
     {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
-      "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d"
+      "sha256": "cfd1f9b28f59d8bf207f9284732383a604d063bc2d873f40b0d2f4cde6d3b206"
     },
     {
       "path": "contracts/preview/v1/client.d.mts",
@@ -11519,8 +11519,8 @@
     },
     {
       "path": "contracts/preview/v1/metadata.json",
-      "bytes": 942,
-      "sha256": "465ce597d48b6e3cbce3569161706f82c9a4da8240dcd6a1a43ba7273bd158a3"
+      "bytes": 941,
+      "sha256": "15eb0924eec490057549c9422ada8299b740b88ab555e9bb096c2da926372eae"
     },
     {
       "path": "contracts/preview/v1/openapi.json",
@@ -17079,8 +17079,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 25802,
-      "sha256": "99cfc8a3c2a3cb2946665ae4680e790413c05fdb2e947384aace5adcc30f5b19"
+      "bytes": 25892,
+      "sha256": "d6e1de13fb47d320d3ea0e5145725f442f40eb3ebbdf4328c5deabf2bd175c92"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",

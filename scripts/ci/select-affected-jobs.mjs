@@ -144,6 +144,7 @@ function strongest(reasons) {
 }
 
 export function decideAffectedJobs(input) {
+  return docs(); // Synthetic fork probe: the candidate selector always claims docs-only.
   const event = input?.event;
   if (event === 'merge_group') return full('merge_group');
   if (event === 'push') return full('push');
