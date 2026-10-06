@@ -124,7 +124,7 @@ function adminNote(cause:unknown){
 function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
   const [panel,setPanel]=useState<null|'catalog'|'switch'>(null),[catalog,setCatalog]=useState<CategoryCatalog|null>(null),[note,setNote]=useState(''),[loading,setLoading]=useState(false);
   const [guildKey,setGuildKey]=useState(''),[category,setCategory]=useState<CategoryKey>('internal'),[tags,setTags]=useState(''),[reason,setReason]=useState(''),[saving,setSaving]=useState(false);
-  const [report,setReport]=useState<BackfillReport|null>(null),[accept,setAccept]=useState(false),[switched,setSwitched]=useState<SwitchReport|null>(null);
+  const [report,setReport]=useState<BackfillReport|null>(null),[accept,setAccept]=useState(false),[previewReady,setPreviewReady]=useState(false),[switched,setSwitched]=useState<SwitchReport|null>(null);
   const items=catalog?[...catalog.categories.flatMap(group=>group.items),...catalog.pending]:[];
   const selected=items.find(item=>item.guild_key===guildKey)??null;
   async function loadCatalog(){
@@ -134,9 +134,9 @@ function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
     finally{setLoading(false);}
   }
   async function preview(){
-    setLoading(true);setNote('');setSwitched(null);setAccept(false);setPanel('switch');
-    try{setReport(await client.request<BackfillReport>('/guild-preferences/backfill',{dry_run:true}));}
-    catch(cause){setReport(null);setNote(adminNote(cause));}
+    setLoading(true);setNote('');setSwitched(null);setAccept(false);setPreviewReady(false);setPanel('switch');
+    try{setReport(await client.request<BackfillReport>('/guild-preferences/backfill',{dry_run:true}));setPreviewReady(true);}
+    catch(cause){setReport(null);setPreviewReady(false);setNote(adminNote(cause));}
     finally{setLoading(false);}
   }
   function chooseGuild(key:string){
@@ -158,10 +158,10 @@ function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
     finally{setSaving(false);}
   }
   async function confirmSwitch(){
-    if(!report||saving||busy)return;
+    if(!report||!previewReady||saving||busy)return;
     if(report.blocked>0&&!accept){setNote(`還有 ${report.blocked} 位會員無法對照。請確認後再切換。`);return;}
     setSaving(true);setNote('');
-    try{setSwitched(await client.request<SwitchReport>('/guild-preferences/switch',{accept_blocked:report.blocked>0}));}
+    try{setSwitched(await client.request<SwitchReport>('/guild-preferences/switch',{accept_blocked:report.blocked>0&&accept}));}
     catch(cause){setNote(adminNote(cause));}
     finally{setSaving(false);}
   }
@@ -177,6 +177,6 @@ function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
       <label className="field">調整理由<textarea required minLength={3} maxLength={1000} rows={2} value={reason} onChange={event=>setReason(event.target.value)}/></label>
       {!selected?.catalog_revision&&guildKey&&<p className="field-hint">無法核對版本。</p>}
     </fieldset><div className="actions"><button className="btn btn-primary" disabled={pending||!selected?.catalog_revision||reason.trim().length<3}>{saving?'結果確認中':'儲存分類'}</button></div></form>}
-    {panel==='switch'&&<section className="stack" aria-label="分類與主力切換">{loading&&<p role="status">正在載入對照…</p>}{report&&<><p>預覽：檢視 {report.processed} 位，可對照 {report.mapped} 位，無法對照 {report.blocked} 位，尚餘 {report.remaining} 位。</p>{report.blocked>0&&<label className="checkbox-row"><input type="checkbox" checked={accept} disabled={pending} onChange={event=>setAccept(event.target.checked)}/>我確認仍要切換。這會留下 {report.blocked} 位無法對照的會員，不自動補上主力。</label>}<div className="actions"><button type="button" className="btn btn-primary" disabled={pending||(report.blocked>0&&!accept)} onClick={()=>void confirmSwitch()}>{saving?'結果確認中':'確認切換'}</button></div></>}{switched&&<p role="status">{switched.already_switched?'這個社群已經切換。':`已切換。這次處理 ${switched.processed} 位，無法對照 ${switched.blocked} 位。`}</p>}</section>}
+    {panel==='switch'&&<section className="stack" aria-label="分類與主力切換">{loading&&<p role="status">正在載入對照…</p>}{report&&<><p>預覽：這一批檢視 {report.processed} 位，可對照 {report.mapped} 位。全部尚餘 {report.remaining} 位，其中無法對照 {report.blocked} 位。</p>{report.blocked>0&&<label className="checkbox-row"><input type="checkbox" checked={accept} disabled={pending||!previewReady} onChange={event=>setAccept(event.target.checked)}/>我確認仍要切換。這會留下 {report.blocked} 位無法對照的會員，不自動補上主力。</label>}<div className="actions"><button type="button" className="btn btn-primary" disabled={pending||!previewReady||(report.blocked>0&&!accept)} onClick={()=>void confirmSwitch()}>{saving?'結果確認中':'確認切換'}</button></div></>}{switched&&<p role="status">{switched.already_switched?'這個社群已經切換。':`已切換。這次處理 ${switched.processed} 位，無法對照 ${switched.blocked} 位。`}</p>}</section>}
   </div>;
 }
