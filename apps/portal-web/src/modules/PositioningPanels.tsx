@@ -127,6 +127,16 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
       preferenceKeys.current.delete(requestKey);setCategoryNote('');setError(cause instanceof Error?cause.message:'需要處理');
     }finally{setCategoryBusy(false);}
   }
+  async function submitFresh(draft:PreferenceDraft){
+    setCategoryBusy(true);setCategoryNote('');setError(null);
+    try{
+      const view=await client.get<PreferenceView>('/me/guild-preferences/v2',{background:true});
+      if(view.migration_state!=='switched'){setCategoryNote('社群尚未切換到三類主力。');return;}
+      setBoard(current=>current?{...current,view}:current);
+      await sendPreference(draft,view.aggregate_version);
+    }catch(cause){setCategoryNote(cause instanceof Error?cause.message:'需要處理');}
+    finally{setCategoryBusy(false);}
+  }
   function toggleCategory(g:GuildSummary){
     if(!board)return;
     const selected=slotFor(g.guild_key);
@@ -248,7 +258,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
         const invalidated=board.view.invalidated.find(item=>item.category===category);
         return <fieldset key={category}><legend>{SECTION_LABELS[category]}</legend>{guild?<GuildCard guild={guild} client={client} busy={busy||categoryBusy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>undefined} onMembership={()=>void change(guild)} categorySlot={categorySlot(guild)}/>:<p>尚未選擇</p>}{invalidated&&<p className="field-hint">先前的{SECTION_LABELS[category]}已失效，請重新選擇。</p>}</fieldset>;
       })}</div>}
-      {categoryNote&&<div role="status" className="banner status-note"><p>{categoryNote}</p>{unknownDraft&&<button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void sendPreference(unknownDraft.draft,unknownDraft.version)}>再試一次</button>}{held&&board&&!unknownDraft&&<><p>草稿：{SECTION_LABELS[held.category]} · {held.guild_key?held.guildName:'清空'}</p><p>目前：{SECTION_LABELS[held.category]} · {guilds.find(item=>item.guild_key===board.view.primaries.find(slot=>slot.category===held.category)?.guild_key)?.name??'尚未選擇'}</p><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void load()}>讀取新版本</button><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void sendPreference(held,board.view.aggregate_version)}>用新版本送出草稿</button></>}</div>}
+      {categoryNote&&<div role="status" className="banner status-note"><p>{categoryNote}</p>{unknownDraft&&<button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void sendPreference(unknownDraft.draft,unknownDraft.version)}>再試一次</button>}{held&&board&&!unknownDraft&&<><p>草稿：{SECTION_LABELS[held.category]} · {held.guild_key?held.guildName:'清空'}</p><p>目前：{SECTION_LABELS[held.category]} · {guilds.find(item=>item.guild_key===board.view.primaries.find(slot=>slot.category===held.category)?.guild_key)?.name??'尚未選擇'}</p><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void load()}>讀取新版本</button><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void submitFresh(held)}>用新版本送出草稿</button></>}</div>}
       {leaveDraft&&<div role="status" className="banner status-note"><p>退出{leaveDraft.guild.name}會清空{leaveDraft.section}。私人業務資料不會移動，也不會刪除。</p><div className="actions"><button type="button" className="btn btn-primary" disabled={categoryBusy} onClick={()=>void leaveV2(leaveDraft.guild,true,leaveDraft.section)}>確認退出</button><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>setLeaveDraft(null)}>取消</button></div></div>}
       {!board&&<div className="guild-secondary-toolbar"><button type="button" className="btn btn-ghost" aria-expanded={editing} aria-controls="secondary-guild-editor" disabled={busy} onClick={()=>{setSecondaryDraft(secondaryKeys);setEditing(!editing);}}>設定次要公會</button><span className="muted">主要 1 個・次要最多 2 個</span></div>}
       {!board&&editing&&<form id="secondary-guild-editor" className="card guild-secondary-editor" onSubmit={saveSecondary}><fieldset disabled={busy}><legend>選擇次要公會 · {secondaryDraft.length} / 2</legend><div className="guild-secondary-choices">{classified.filter(g=>g.membership?.state==='active'&&!g.is_primary).map(g=><label key={g.guild_key} className="checkbox-row"><input type="checkbox" checked={secondaryDraft.includes(g.guild_key)} disabled={!secondaryDraft.includes(g.guild_key)&&secondaryDraft.length>=2} onChange={event=>setSecondaryDraft(current=>event.target.checked?[...current,g.guild_key]:current.filter(key=>key!==g.guild_key))}/>{g.name}{secondaryDraft.includes(g.guild_key)&&<span className="muted">次要 {secondaryDraft.indexOf(g.guild_key)+1}</span>}</label>)}</div>{joinedCount<2&&<p>先加入另一個公會，再設為次要公會。</p>}</fieldset><div className="actions"><button className="btn btn-primary" disabled={busy}>儲存次要公會</button><button className="btn btn-ghost" type="button" disabled={busy} onClick={()=>setEditing(false)}>取消</button></div></form>}
