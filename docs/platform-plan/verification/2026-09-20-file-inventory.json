@@ -18,6 +18,11 @@
       "sha256": "c2ca5c511bafa00e5d2054786ad46bc97f38f7f1ad6a76598a0bdbe10bbc0fa4"
     },
     {
+      "path": ".github/workflows/trust-pin-forged-verify-probe.yml",
+      "bytes": 252,
+      "sha256": "275d467ac5077ac27e200604ed65746ff4f070b96b52635c451a06c4d29f0a2c"
+    },
+    {
       "path": ".github/workflows/trusted-consumer-libraries.yml",
       "bytes": 2523,
       "sha256": "0e780c58833bf5db26675d61a9288ec5340898adca254d17098cb4507b71d0eb"
@@ -11500,7 +11505,7 @@
     {
       "path": "contracts/preview/v1/bundle.json",
       "bytes": 1474,
-      "sha256": "835e9a898d3c10eaabd16c92cfeb25eae050f658814da3aec055f019a7245d3d"
+      "sha256": "cfd1f9b28f59d8bf207f9284732383a604d063bc2d873f40b0d2f4cde6d3b206"
     },
     {
       "path": "contracts/preview/v1/client.d.mts",
@@ -11519,8 +11524,8 @@
     },
     {
       "path": "contracts/preview/v1/metadata.json",
-      "bytes": 942,
-      "sha256": "465ce597d48b6e3cbce3569161706f82c9a4da8240dcd6a1a43ba7273bd158a3"
+      "bytes": 941,
+      "sha256": "15eb0924eec490057549c9422ada8299b740b88ab555e9bb096c2da926372eae"
     },
     {
       "path": "contracts/preview/v1/openapi.json",

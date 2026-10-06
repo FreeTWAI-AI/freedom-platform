@@ -1,0 +1,10 @@
+name: Trust pin forged verify probe
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Synthetic same-name verify forgery for the 2026-10-06 trust-pin probe; not a verified result'
