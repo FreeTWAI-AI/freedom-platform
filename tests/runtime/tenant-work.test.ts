@@ -520,6 +520,35 @@ test('interns, operators, viewers, and other tenants cannot use manual work', as
   assert.equal(launch.data.capacity_summary.policy_revision, '1');
 });
 
+test('guild key accept set follows the family GuildKey on enable and launchpad context', async () => {
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  const counts = async () => {
+    const instances = (await pool.query<{ n: number }>('SELECT count(*)::int AS n FROM module_instances')).rows[0].n;
+    const bindings = (await pool.query<{ n: number }>('SELECT count(*)::int AS n FROM workspace_module_bindings')).rows[0].n;
+    return { instances, bindings };
+  };
+  const before = await counts();
+  assert.deepEqual(before, { instances: 0, bindings: 0 });
+  const classes: { name: string; key: string; status: number; code: string }[] = [
+    { name: 'non-catalog shape', key: 'abc', status: 422, code: 'validation_failed' },
+    { name: 'prefix only', key: 'guild_', status: 422, code: 'validation_failed' },
+    { name: 'trailing newline', key: 'abc\n', status: 422, code: 'validation_failed' },
+    { name: 'upper-case custom hex', key: `guild_custom_${'AB'.repeat(16)}`, status: 404, code: 'guild_not_found' },
+    { name: 'catalog shape at the old length limit plus one', key: `guild_${'a'.repeat(76)}`, status: 404, code: 'guild_not_found' },
+    { name: 'catalog shape at the family maximum', key: `guild_${'a'.repeat(94)}`, status: 404, code: 'guild_not_found' },
+  ];
+  for (const item of classes) {
+    const enabled = await enable(owner, made.tenantId, made.workspaceId, item.key);
+    assert.equal(enabled.status, item.status, `${item.name} enable ${JSON.stringify(enabled.data)}`);
+    assert.equal(enabled.data.code, item.code, item.name);
+    const launch = await call('GET', `/tenants/${made.tenantId}/workspaces/${made.workspaceId}/launchpad-context?guild_key=${encodeURIComponent(item.key)}`, owner);
+    assert.equal(launch.status, item.status, `${item.name} launch ${JSON.stringify(launch.data)}`);
+    assert.equal(launch.data.code, item.code, `${item.name} launch`);
+  }
+  assert.deepEqual(await counts(), before);
+});
+
 test('bad keys, versions, cursors, forged fields, and archive stay closed', async () => {
   const [guild] = await guildKeys();
   const owner = await signIn(DEMO_USERS[0].email);
