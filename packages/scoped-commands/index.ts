@@ -186,10 +186,18 @@ export interface ScopedTenantCommand {
 
 /** Tenant-scoped member command. Personal and community adapters are unchanged.
  * Digest profile is freedom.scoped-tenant-command/v1. Authority is re-read
- * after the receipt lock and after the receipt insert. */
+ * after the receipt lock and after the receipt insert. Optional revalidate and
+ * assertCurrentTime run next to that recheck and are outside the digest. */
 export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantCommand,
   authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
-  run: (q: PoolClient, context: TenantScopeContext) => Promise<T>): Promise<T> {
+  run: (q: PoolClient, context: TenantScopeContext) => Promise<T>,
+  revalidate?: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
+  assertCurrentTime?: () => void): Promise<T> {
+  // This server-owned port is outside the request/digest. Time-bounded domain
+  // authority must survive the actual receipt read/write wait on this client.
+  requireCondition((revalidate === undefined || typeof revalidate === 'function')
+    && (assertCurrentTime === undefined || typeof assertCurrentTime === 'function'),
+    400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['actor', 'tenantId', 'operation', 'key', 'body', 'target', 'expected', 'lockUser', 'tenantLock', 'capabilitiesForRole'].includes(key)),
   400, 'invalid_scoped_command', '操作資料無效。');
@@ -245,7 +253,13 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
       async readReceipt(q) {
         const prior = (await q.query(`SELECT request_sha256,response FROM scoped_command_receipts
           WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation=$4 AND idempotency_key=$5`, namespace())).rows[0];
+        // Receipt storage can block after domain authorization (e.g. DDL or a
+        // sink trigger). Never disclose a replay after that wait expires login.
         await recheck(q);
+        if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
+        // The final SQL result may itself arrive after a domain deadline. This
+        // synchronous server-owned check must run inside the rollback boundary.
+        assertCurrentTime?.();
         return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
       },
       async writeReceipt(q, hash, response) {
@@ -254,7 +268,14 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
           principal_kind,scope_kind,target_kind,target_id,request_sha256,response)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [...namespace(), context.subject_principal.kind, context.scope.kind, target.kind, target.id, hash, encoded.json]);
+        // Keep the response and every domain/fact write in the same rollback
+        // when a receipt sink wait crosses session expiry. This is a decision
+        // clock check, not a guarantee about COMMIT/network delivery time.
         await recheck(q);
+        if (revalidate) { await revalidate(q, context); await assertCurrentSessionClock(q, actor); }
+        // The final SQL result may itself arrive after a domain deadline. This
+        // synchronous server-owned check must run inside the rollback boundary.
+        assertCurrentTime?.();
       },
     }, async q => {
       await authorize(q, context);

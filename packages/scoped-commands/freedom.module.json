@@ -8,6 +8,7 @@
     "tests/runtime/scoped-member-command.test.ts",
     "tests/runtime/avatar-command-compat.test.ts",
     "tests/runtime/scoped-member-domain-revalidation.test.ts",
+    "tests/runtime/scoped-tenant-domain-revalidation.test.ts",
     "tests/runtime/scoped-command-context.test.ts"
   ],
   "public_exports": [

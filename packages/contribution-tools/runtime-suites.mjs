@@ -43,7 +43,7 @@ member-services member-skill-registration notification-events onboarding-diagnos
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
 portal-client-recovery positioning preview-protocol private-policy-grants private-result-races private-result-schema private-results private-work-commands private-work-http private-work-http-adversarial private-work-policy private-work-policy-adversarial published-skills repo-author-claims repo-maintainer-admin
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
-repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
+repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions
 skill-upload-chat skill-upload-client social-links squad-invitations tenant-authorization tenant-ownership tenant-work tenant-work-schema verification-test-data work-privacy worker-adapter
 `.trim().split(/\s+/)).sort());

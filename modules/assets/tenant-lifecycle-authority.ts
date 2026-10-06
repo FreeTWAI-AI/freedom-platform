@@ -30,11 +30,7 @@ export function createTenantLifecycleAuthority(): LifecycleAuthority<TenantWorkA
         actor: input.actor, tenantId: input.actor.tenant_id, operation: input.operation, key: input.key,
         body: input.body, target: input.target, expected: input.expected, lockUser: input.lockUser, tenantLock: 'share',
         capabilitiesForRole: tenantWorkCapabilities,
-      }, async (q, context) => {
-        if (revalidate) await revalidate(q, context);
-        await authorize(q, context);
-        assertCurrentTime?.();
-      }, run);
+      }, authorize, run, revalidate, assertCurrentTime);
     },
     clock: (q, actor) => assertCurrentSessionClock(q, actor),
     communityId: actor => actor.community_id,
