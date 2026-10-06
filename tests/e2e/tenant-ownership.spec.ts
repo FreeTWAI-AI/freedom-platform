@@ -37,6 +37,15 @@ async function open(browser: Browser, baseURL: string, person: Person, viewport:
 async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
+async function widthAgainstForm(page: Page, name: string) {
+  const button = page.getByRole('button', { name, exact: true });
+  const form = button.locator('xpath=ancestor::form[1]');
+  const buttonBox = await button.boundingBox();
+  const formBox = await form.boundingBox();
+  expect(buttonBox).not.toBeNull();
+  expect(formBox).not.toBeNull();
+  return buttonBox!.width / formBox!.width;
+}
 
 test('an owner proposes a transfer and the named recipient accepts it', async ({ browser, baseURL, e2eAuthPool }) => {
   test.setTimeout(120_000);
@@ -51,6 +60,7 @@ test('an owner proposes a transfer and the named recipient accepts it', async ({
     await ownerSession.page.getByLabel('工作區名稱（可略過）', { exact: true }).fill('櫃檯甲');
     await ownerSession.page.getByRole('button', { name: '建立業務空間', exact: true }).click();
     await expect(ownerSession.page.getByText('我的角色：擁有者', { exact: true })).toBeVisible();
+    const searchRatio = await widthAgainstForm(ownerSession.page, '搜尋接收者');
     await ownerSession.page.getByLabel('搜尋接收者', { exact: true }).fill(recipient.display_name);
     await ownerSession.page.getByRole('button', { name: '搜尋接收者', exact: true }).click();
     await ownerSession.page.getByRole('button', { name: `選擇${recipient.display_name}為接收者`, exact: true }).click();
@@ -70,6 +80,8 @@ test('an owner proposes a transfer and the named recipient accepts it', async ({
     await ownerSession.page.keyboard.press('Enter');
     await expect(ownerSession.page.getByText(`已提出移交給${recipient.display_name}。對方接受前，擁有權不會改變。`)).toBeVisible();
     await expect(ownerSession.page.getByRole('button', { name: '取消移交', exact: true })).toBeVisible();
+    const cancelRatio = await widthAgainstForm(ownerSession.page, '取消移交');
+    expect(Math.max(searchRatio, cancelRatio)).toBeLessThan(0.5);
     await ownerSession.page.evaluate(() => sessionStorage.clear());
     await ownerSession.page.reload();
     await navigate(ownerSession.page, '業務空間');

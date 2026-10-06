@@ -511,11 +511,11 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
             <p>已提議將擁有權移交給{outgoing.to_display_name}。對方接受前，你仍是擁有者。接受後你的角色是{AFTER_LABEL[outgoing.from_role_after]}。</p>
             <p>到期：{absoluteWhen(outgoing.expires_at)}</p>
             <label className="field">取消原因<input value={cancelReason} minLength={3} maxLength={1000} required onChange={event => setCancelReason(event.target.value)}/></label>
-            <button className="btn btn-ghost" type="submit">取消移交</button>
+            <div className="actions"><button className="btn btn-ghost" type="submit">取消移交</button></div>
           </form>
           : <form className="stack" onSubmit={event => void previewTransfer(event)}>
             <label className="field">搜尋接收者<input type="search" value={recipientQuery} maxLength={80} onChange={event => setRecipientQuery(event.target.value)}/></label>
-            <button className="btn btn-ghost" type="button" onClick={() => void findRecipients()}>搜尋接收者</button>
+            <div className="actions"><button className="btn btn-ghost" type="button" onClick={() => void findRecipients()}>搜尋接收者</button></div>
             <ul className="stack">{recipientPeople.map(person => <li key={person.user_id}>
               <button type="button" className={recipient?.user_id === person.user_id ? 'btn btn-primary' : 'btn btn-ghost'} aria-pressed={recipient?.user_id === person.user_id} onClick={() => setRecipient(person)}>選擇{person.nickname}為接收者</button>
             </li>)}</ul>
@@ -526,12 +526,14 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
               {TRANSFER_HOURS.map(hours => <option key={hours} value={hours}>{hours} 小時</option>)}
             </select></label>
             <label className="field">移交原因<input value={transferReason} minLength={3} maxLength={1000} required onChange={event => setTransferReason(event.target.value)}/></label>
-            <button className="btn btn-ghost" type="submit" disabled={!recipient}>檢視移交內容</button>
+            <div className="actions"><button className="btn btn-ghost" type="submit" disabled={!recipient}>檢視移交內容</button></div>
           </form>}
         {transferPreview && recipient && <section className="stack card" aria-label="確認移交">
           <p>將把「{tenant.display_name}」的擁有權移交給{transferPreview.displayName}。對方接受後成為擁有者，你的角色會變成{AFTER_LABEL[afterRole]}。對方接受前，擁有權不會改變。</p>
-          <button type="button" className="btn btn-primary" onClick={startPropose}>繼續，重新驗證密碼</button>
-          <button type="button" className="btn btn-ghost" onClick={() => setTransferPreview(null)}>返回修改</button>
+          <div className="actions">
+            <button type="button" className="btn btn-primary" onClick={startPropose}>繼續，重新驗證密碼</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setTransferPreview(null)}>返回修改</button>
+          </div>
         </section>}
       </section>}
       {!recovering && <section className="stack" aria-label="離開業務空間">
