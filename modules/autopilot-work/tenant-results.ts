@@ -167,10 +167,25 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
           }, new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(bytes); controller.close(); } }));
         }
         const version = uploadVersion(lease.fence);
+        const verified = UploadVerifiedSchema.parse({ upload_id: uploadId, verified: true, version });
         journal.id = uploadId;
         journal.version = version;
-        journal.record = fresh;
-        return UploadVerifiedSchema.parse({ upload_id: uploadId, verified: true, version });
+        // The object commit releases the intent lock before this receipt. Two keys that both
+        // saw a live lease would otherwise insert the same upload fact. Re-lock and skip when it exists.
+        journal.record = false;
+        journal.commit = async (q, context) => {
+          const locked = await q.query(`SELECT intent_id FROM asset_upload_intents
+            WHERE intent_id=$1 AND target_tenant_id=$2 AND scope_id=$3 AND purpose='work.tenant-result' FOR UPDATE`,
+          [uploadId, context.tenant_id, context.scope.scope_id]);
+          requireCondition(locked.rowCount === 1, 404, 'not_found', '找不到這個上傳。');
+          if (fresh) {
+            const prior = await q.query(`SELECT 1 FROM scoped_transition_journal
+              WHERE scope_id=$1 AND aggregate_type='tenant_work' AND aggregate_id=$2 AND aggregate_version=$3::bigint`,
+            [context.scope.scope_id, uploadId, version]);
+            journal.record = prior.rows.length === 0;
+          }
+          return verified;
+        };
       }, async (q, context) => {
         const row = await intent(q, context, uploadId, workId);
         if (bytes.byteLength !== row.source_byte_size || digestHex !== row.source_sha256) {

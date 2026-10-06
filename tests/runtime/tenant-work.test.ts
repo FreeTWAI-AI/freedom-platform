@@ -21,10 +21,12 @@ const ABC_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015a
 class BarrierStore implements ObjectStore {
   readonly inner = new FakeObjectStore();
   entered: Promise<void> = Promise.resolve();
+  held = 0;
   private signalEntered: (() => void) | null = null;
   private waiting: Promise<void> = Promise.resolve();
   private releaseWait: (() => void) | null = null;
   holdNextPut() {
+    this.held = 0;
     this.entered = new Promise(resolve => { this.signalEntered = resolve; });
     this.waiting = new Promise(resolve => { this.releaseWait = resolve; });
   }
@@ -35,8 +37,11 @@ class BarrierStore implements ObjectStore {
   }
   async putImmutable(key: AssetObjectKey, value: PreparedRepresentation) {
     const outcome = await this.inner.putImmutable(key, value);
-    this.signalEntered?.();
-    await this.waiting;
+    if (this.releaseWait) {
+      this.held += 1;
+      if (this.held === 1) this.signalEntered?.();
+      await this.waiting;
+    }
     return outcome;
   }
   get(key: AssetObjectKey, range?: ObjectRange) { return this.inner.get(key, range); }
@@ -74,6 +79,24 @@ beforeEach(async () => {
 
 function sha(bytes: Uint8Array) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+async function blockers(pid: number) {
+  const row = (await admin.query('SELECT pg_blocking_pids($1) AS pids', [pid])).rows[0].pids as Array<number | string>;
+  return (row ?? []).map(Number);
+}
+async function pidsBlockedBy(pid: number) {
+  const rows = (await admin.query<{ pid: number }>(
+    `SELECT pid FROM pg_stat_activity WHERE pid <> $1 AND $1 = ANY(pg_blocking_pids(pid))`, [pid])).rows;
+  return rows.map(row => Number(row.pid));
+}
+async function waitForBlockedBy(pid: number, count: number) {
+  let waiting: number[] = [];
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    waiting = await pidsBlockedBy(pid);
+    if (waiting.length >= count) return waiting;
+    await delay(40);
+  }
+  assert.fail(`expected ${count} backends blocked by ${pid}, saw ${waiting.join(',')}`);
 }
 async function call(method: string, path: string, session?: Session, body?: BodyInit | Uint8Array, headers: Record<string, string> = {}, target = app): Promise<Reply> {
   const sent: Record<string, string> = { Origin: origin, ...headers };
@@ -656,6 +679,107 @@ test('one of two finalizes prepared at the same work version wins, and the other
   assert.deepEqual(statuses, [200, 412], JSON.stringify([left.data, right.data]));
   assert.equal([left, right].find(item => item.status === 412)?.data.code, 'version_conflict');
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n, 1);
+});
+
+test('two keys writing one live upload keep a single journal fact', { timeout: 30_000 }, async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '同一份上傳');
+  const workId = work.data.resource_ref.resource_id as string;
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', ABC, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  const keyA = randomUUID();
+  const keyB = randomUUID();
+  store.holdNextPut();
+  const pending = writeUpload(owner, made.tenantId, workId, uploadId, ABC, '1', keyA);
+  const secondPromise = (async () => {
+    await store.entered;
+    return writeUpload(owner, made.tenantId, workId, uploadId, ABC, '2', keyB);
+  })();
+  try {
+    for (let attempt = 0; attempt < 50 && store.held < 2; attempt += 1) await delay(40);
+    assert.equal(store.held, 2);
+    store.release();
+    const [first, second] = await Promise.all([pending, secondPromise]);
+    assert.equal(second.status, 200, JSON.stringify(second.data));
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM asset_objects o
+      JOIN asset_upload_intents i ON i.asset_id=o.asset_id WHERE i.intent_id=$1`, [uploadId])).rows[0].n, 1);
+    const facts = (await pool.query(`SELECT aggregate_version::text AS version, operation, scope_id FROM scoped_transition_journal
+      WHERE aggregate_type='tenant_work' AND aggregate_id=$1 ORDER BY aggregate_version`, [uploadId])).rows;
+    assert.deepEqual(facts.map(row => ({ version: row.version, operation: row.operation })), [
+      { version: '1', operation: 'work.tenant.prepare' },
+      { version: '2', operation: 'work.tenant.write' },
+    ], JSON.stringify(facts));
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_command_receipts
+      WHERE operation='work.tenant.write' AND idempotency_key = ANY($1::text[])`, [[keyA, keyB]])).rows[0].n, 2);
+    const replayA = await writeUpload(owner, made.tenantId, workId, uploadId, ABC, '1', keyA);
+    const replayB = await writeUpload(owner, made.tenantId, workId, uploadId, ABC, '2', keyB);
+    assert.equal(replayA.status, 200, JSON.stringify(replayA.data));
+    assert.deepEqual(replayA.data, first.data);
+    assert.equal(replayB.status, 200, JSON.stringify(replayB.data));
+    assert.deepEqual(replayB.data, second.data);
+  } finally {
+    store.release();
+    await Promise.allSettled([pending, secondPromise]);
+  }
+});
+
+test('two keys finalizing one upload leave one result', { timeout: 30_000 }, async () => {
+  const [guild] = await guildKeys();
+  const owner = await signIn(DEMO_USERS[0].email);
+  const made = await createTenant(owner, '品牌甲');
+  await fullMember(owner.user.user_id, guild);
+  assert.equal((await enable(owner, made.tenantId, made.workspaceId, guild)).status, 200);
+  const work = await createWork(owner, made.tenantId, made.workspaceId, '同一份定稿');
+  const workId = work.data.resource_ref.resource_id as string;
+  const note = new TextEncoder().encode('same-note');
+  const prepared = await prepareUpload(owner, made.tenantId, workId, 'note.txt', 'text/plain', note, '1');
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  assert.equal((await writeUpload(owner, made.tenantId, workId, uploadId, note, '1')).status, 200);
+  const holder = await pool.connect();
+  let held = true;
+  let left: Promise<Reply> | undefined;
+  let right: Promise<Reply> | undefined;
+  const keyA = randomUUID();
+  const keyB = randomUUID();
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [workId]);
+    const holderPid = Number((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    left = finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyA);
+    const [firstPid] = await waitForBlockedBy(holderPid, 1);
+    right = finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyB);
+    const [secondPid] = await waitForBlockedBy(firstPid, 1);
+    assert.equal((await blockers(firstPid)).includes(secondPid), false);
+    assert.equal((await blockers(secondPid)).includes(firstPid), true);
+    await holder.query('ROLLBACK');
+    held = false;
+    const [a, b] = await Promise.all([left, right]);
+    assert.equal(a.status, 200, JSON.stringify(a.data));
+    assert.equal(b.status, 200, JSON.stringify(b.data));
+    assert.equal(a.data.resource_ref.resource_id, b.data.resource_ref.resource_id);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n, 1);
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_transition_journal
+      WHERE aggregate_type='tenant_work' AND aggregate_id=$1`, [a.data.resource_ref.resource_id])).rows[0].n, 1);
+    assert.equal((await pool.query(`SELECT count(*)::int AS n FROM scoped_transition_journal
+      WHERE aggregate_id=$1 AND operation='work.tenant.finalize'`, [workId])).rows[0].n, 1);
+    const replayA = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyA);
+    const replayB = await finalizeUpload(owner, made.tenantId, workId, uploadId, '1', '2', keyB);
+    assert.equal(replayA.status, 200, JSON.stringify(replayA.data));
+    assert.deepEqual(replayA.data, a.data);
+    assert.equal(replayB.status, 200, JSON.stringify(replayB.data));
+    assert.deepEqual(replayB.data, b.data);
+  } finally {
+    if (held) await holder.query('ROLLBACK').catch(() => undefined);
+    await Promise.allSettled([left, right]);
+    holder.release();
+  }
 });
 
 test('work, instance, and retained-byte limits reject the request that would pass them', async () => {
