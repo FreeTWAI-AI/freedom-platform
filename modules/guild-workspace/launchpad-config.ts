@@ -5,7 +5,7 @@ import {command, transaction, checkVersion, digest, journal, type Command} from 
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {
-  ConfigValidationError, VERSION_PATTERN, parseConfig, parseFieldErrors,
+  ConfigValidationError, VERSION_PATTERN, hasLoneSurrogate, parseConfig, parseFieldErrors,
   type Config, type ConfigView,
 } from '../../contracts/guild-launchpad/v1/config.js';
 
@@ -270,7 +270,7 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
 
 export async function revertLaunchpad(pool: Pool, input: Command, guildKey: string) {
   const body = parseInput(revertInput, input.body);
-  if (CONTROL_TEXT(body.reason)) throw new ConfigValidationError([{code: 'control_character', path: 'reason'}]);
+  reasonIssue(body.reason);
   let principalId = '';
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
@@ -287,7 +287,6 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
     const config = parseConfig(prior.body, guildKey);
     const hash = digest(config);
     const revision = await nextRevision(q, input.actor.community_id, guildKey);
-    requireCondition(BigInt(revision) > BigInt(prior.revision), 409, 'config_not_draft', '回復必須建立更新的版本。');
     await supersedePublished(q, input.actor.community_id, guildKey, randomUUID());
     const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'published', principalId});
     const pointerVersion = await movePointer(q, input.actor.community_id, guildKey, stored.config_id, current, true);
@@ -296,7 +295,10 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
   });
 }
 
-function CONTROL_TEXT(value: string) { return /[\u0000-\u001F\u007F\u0080-\u009F]/.test(value) || /[\uD800-\uDFFF]/.test(value); }
+function reasonIssue(value: string) {
+  if (/[\u0000-\u001F\u007F\u0080-\u009F]/.test(value)) throw new ConfigValidationError([{code: 'control_character', path: 'reason'}]);
+  if (hasLoneSurrogate(value)) throw new ConfigValidationError([{code: 'lone_surrogate', path: 'reason'}]);
+}
 
 export async function grantDelegation(pool: Pool, input: Command, guildKey: string) {
   const body = parseInput(grantInput, input.body);
@@ -333,7 +335,7 @@ export async function grantDelegation(pool: Pool, input: Command, guildKey: stri
 export async function revokeDelegation(pool: Pool, input: Command, guildKey: string, delegationId: string) {
   requireCondition(isUuid(delegationId), 404, 'delegation_not_found', '找不到這筆授權。');
   const body = parseInput(revokeInput, input.body);
-  if (CONTROL_TEXT(body.reason)) throw new ConfigValidationError([{code: 'control_character', path: 'reason'}]);
+  reasonIssue(body.reason);
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);

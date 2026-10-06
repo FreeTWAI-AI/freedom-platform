@@ -9,7 +9,12 @@ export type BlockKind = typeof BLOCK_KINDS[number];
 export const OPTIONAL_BLOCK_KINDS = ['announcements','community_tasks','applications'] as const;
 export const CONFIG_SCHEMA_VERSION = 'guild-launchpad.config/v1' as const;
 const CONTROL = /[\u0000-\u001F\u007F\u0080-\u009F]/;
-const SURROGATE = /[\uD800-\uDFFF]/;
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/** True only for an unpaired UTF-16 surrogate. A well-formed astral character is allowed. */
+export function hasLoneSurrogate(value: string): boolean {
+  return LONE_SURROGATE.test(value);
+}
 const MAX_CONFIG_BYTES = 24000;
 
 export type FieldError = {code: string; path: string};
@@ -116,13 +121,13 @@ export const configSchema = z.object({
 
 function textIssue(ctx: {addIssue: (issue: {code: 'custom'; message: string; path: (string | number)[]}) => void}, value: string, path: (string | number)[], limits: {maxBytes: number; minChars: number; maxChars: number}) {
   if (CONTROL.test(value)) { ctx.addIssue({code: 'custom', message: 'control_character', path}); return; }
-  if (SURROGATE.test(value)) { ctx.addIssue({code: 'custom', message: 'lone_surrogate', path}); return; }
+  if (hasLoneSurrogate(value)) { ctx.addIssue({code: 'custom', message: 'lone_surrogate', path}); return; }
   const chars = [...value].length;
   if (chars < limits.minChars || chars > limits.maxChars || new TextEncoder().encode(value).length > limits.maxBytes) ctx.addIssue({code: 'custom', message: 'too_long', path});
 }
 
 function httpsUrl(value: string): boolean {
-  if (value.length > 2048 || CONTROL.test(value) || SURROGATE.test(value)) return false;
+  if (value.length > 2048 || CONTROL.test(value) || hasLoneSurrogate(value)) return false;
   const lower = value.toLowerCase();
   if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('file:') || lower.startsWith('http:')) return false;
   try {
