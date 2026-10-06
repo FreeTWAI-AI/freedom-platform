@@ -5,7 +5,7 @@ import {command, transaction, checkVersion, digest, journal, type Command} from 
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {
-  ConfigValidationError, VERSION_PATTERN, hasLoneSurrogate, parseConfig, parseFieldErrors,
+  ConfigValidationError, VERSION_PATTERN, assertStoredVersion, hasLoneSurrogate, parseConfig, parseFieldErrors,
   type Config, type ConfigView,
 } from '../../contracts/guild-launchpad/v1/config.js';
 
@@ -15,31 +15,42 @@ export const PUBLISHED_EVENT = 'freedom.guild.launchpad.config.published.v1';
 const CAPABILITIES = ['guild.content.edit', 'guild.config.preview', 'guild.config.publish'] as const;
 export type LaunchpadCapability = typeof CAPABILITIES[number];
 
-const STARTERS: Record<string, readonly [string, string, string]> = {
-  guild_talent_direction: ['私人方向筆記', '目標、下一步', '只記自己的觀察與下一步，不把推測寫成已決定的方向。'],
-  guild_member_operations: ['新人支援', '活動準備', '寫下這次要協助的人與還沒完成的交接。'],
-  guild_platform_engineering: ['問題重現', '規格筆記', '附上重現步驟，尚未驗證的部分保持未驗證。'],
-  guild_ai_vibe: ['開源作品需求', '驗收', '需求與驗收分開寫，未完成就保持未完成。'],
-  guild_ai_field: ['導入測試計畫', '寫下要驗證的環境與通過條件。', '還沒實測的項目標成未執行。'],
-  guild_ai_project: ['範圍', '里程碑／交付', '每項交付寫完成條件，未完成的留下真實狀態。'],
-  guild_opportunity_partnership: ['合作需求紀錄', '寫下雙方確認的範圍與排除項。', '未約定的事項不要寫成已成立。'],
-  guild_product_quality_supply: ['商品', '供貨檢查清單', '逐項寫檢查結果，不要預填通過。'],
-  guild_commerce_sales: ['選品', '營運待辦', '待辦寫下一步，不把尚未成交寫成業績。'],
-  guild_commerce_settlement: ['商家對帳步驟', '證據索引', '金額、幣別與差異分開列，待核實不要標成已確認。'],
-  guild_marketing: ['內容草稿', '發布計畫', '草稿與已發布分開，未按發布就保持草稿。'],
-  guild_media_automation: ['腳本', '素材與剪輯 brief', '素材來源與剪輯範圍寫清楚，未產出不要寫成已完成。'],
-  guild_security: ['授權範圍', '檢查證據', '只記錄已授權的檢查與實際證據。'],
-  guild_music_mv: ['歌曲', 'MV 構想與素材來源', '段落、畫面與素材來源對得起來，未授權素材不要當成可用。'],
-  guild_commercial_production: ['拍攝 brief', '分鏡／交付', '每個鏡位對應已確認的事實與交付規格。'],
-  guild_event_space: ['場地 brief', '動線／備援', '容量、動線與尚未確認的項目分開寫。'],
-  guild_projection_mapping: ['場勘', '投影分區／cue 表', '每段 cue 寫輸入輸出；現場條件另記待驗。'],
-  guild_human_design: ['共讀來源', '限制／反思', '出處、限制與個人觀察分開，不作診斷或能力評等。'],
+const OBJECTIVE_HINT = '寫下這次工作的目標。';
+const NOTE_HINT = '記下過程、來源與下一步。';
+const FALLBACK_TITLE = '我的第一個工作';
+/** SP-03 §2.3 cell text. A fullwidth semicolon splits title and objective. */
+const STARTER_CELLS: Record<string, string> = {
+  guild_talent_direction: '私人方向筆記；目標、下一步',
+  guild_member_operations: '新人支援／活動準備',
+  guild_platform_engineering: '問題重現／規格筆記',
+  guild_ai_vibe: '開源作品需求／驗收',
+  guild_ai_field: '導入測試計畫',
+  guild_ai_project: '範圍／里程碑／交付',
+  guild_opportunity_partnership: '合作需求紀錄',
+  guild_product_quality_supply: '商品／供貨檢查清單',
+  guild_commerce_sales: '選品／營運待辦',
+  guild_commerce_settlement: '商家對帳步驟／證據索引',
+  guild_marketing: '內容草稿／發布計畫',
+  guild_media_automation: '腳本／素材與剪輯brief',
+  guild_security: '授權範圍／檢查證據',
+  guild_music_mv: '歌曲／MV構想與素材來源',
+  guild_commercial_production: '拍攝brief／分鏡／交付',
+  guild_event_space: '場地brief／動線／備援',
+  guild_projection_mapping: '場勘／投影分區／cue表',
+  guild_human_design: '共讀來源／限制／反思',
 };
-const GENERIC: readonly [string, string, string] = ['我的第一個工作', '寫下標題、目標與下一步。', '筆記與附件只記真實內容，未完成不要標成已完成。'];
+function starterCopy(guildKey: string): Config['starter'] {
+  const cell = STARTER_CELLS[guildKey];
+  if (!cell) return {title_label: FALLBACK_TITLE, objective_hint: OBJECTIVE_HINT, note_hint: NOTE_HINT};
+  const split = cell.indexOf('；');
+  if (split === -1) return {title_label: cell, objective_hint: OBJECTIVE_HINT, note_hint: NOTE_HINT};
+  return {title_label: cell.slice(0, split), objective_hint: cell.slice(split + 1), note_hint: NOTE_HINT};
+}
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EXPIRY_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export type CatalogGuild = {guild_key: string; name: string; purpose: string};
+export type ConfigProblem = {code: 'config_schema_unsupported'; revision: string} | null;
 type StoredRevision = {
   config_id: string; revision: string; schema_version: string; body: unknown; body_sha256: string;
   status: 'draft' | 'published' | 'superseded'; source: 'platform_default' | 'guild_editor'; created_at: Date | string;
@@ -47,14 +58,13 @@ type StoredRevision = {
 
 export function defaultConfigFor(guild: CatalogGuild): Config {
   requireCondition(typeof guild.name === 'string' && typeof guild.purpose === 'string', 404, 'guild_not_found', '找不到這個公會。');
-  const starter = STARTERS[guild.guild_key] ?? GENERIC;
   return {
     schema_version: 'guild-launchpad.config/v1',
     guild_key: guild.guild_key,
     mission_override: null,
     blocks: (['mission', 'announcements', 'skill_books', 'applications', 'community_tasks', 'my_work', 'support'] as const).map((kind, order) => ({id: kind, kind, order, enabled: true, title: null})),
     application_refs: [],
-    starter: {title_label: starter[0], objective_hint: starter[1], note_hint: starter[2]},
+    starter: starterCopy(guild.guild_key),
     support: {kind: 'platform_help', public_url: null},
     extensions: {},
   };
@@ -105,13 +115,18 @@ async function leaderRow(q: PoolClient, actor: Actor, guildKey: string) {
 export async function requireLeader(q: PoolClient, actor: Actor, guildKey: string) {
   requireCondition(await leaderRow(q, actor, guildKey), 403, 'guild_leader_required', '此操作限目前在任的公會長。');
 }
-async function delegationCapabilities(q: PoolClient, actor: Actor, guildKey: string): Promise<string[]> {
+async function delegationCapabilities(q: PoolClient, actor: Actor, guildKey: string, clock: 'now()' | 'clock_timestamp()' = 'now()'): Promise<string[]> {
   const row = (await q.query(`SELECT d.capabilities FROM guild_launchpad_delegations d
     JOIN principals p ON p.principal_id=d.principal_id
+    JOIN positioning_profession_memberships m ON m.community_id=d.community_id AND m.guild_key=d.guild_key AND m.user_id=p.user_ref AND m.state='active'
     WHERE d.community_id=$1 AND d.guild_key=$2 AND p.user_ref=$3 AND p.kind='person' AND p.status='active'
-      AND d.status='active' AND d.expires_at>now()
-    FOR SHARE OF d`, [actor.community_id, guildKey, actor.user_id])).rows[0];
+      AND d.status='active' AND d.expires_at>${clock}
+    FOR SHARE OF d, m`, [actor.community_id, guildKey, actor.user_id])).rows[0];
   return Array.isArray(row?.capabilities) ? row.capabilities : [];
+}
+async function requireFreshDelegate(q: PoolClient, actor: Actor, guildKey: string, capability: LaunchpadCapability) {
+  const caps = new Set(await delegationCapabilities(q, actor, guildKey, 'clock_timestamp()'));
+  requireCondition(caps.has(capability), 403, 'guild_leader_required', '此操作限目前在任的公會長。');
 }
 export async function viewerAccess(q: PoolClient, actor: Actor, guildKey: string) {
   const leader = await leaderRow(q, actor, guildKey);
@@ -160,12 +175,12 @@ export function tryView(row: StoredRevision | undefined, guildKey: string, point
   try { return toView(row, parseConfig(row.body, guildKey), pointerVersion); }
   catch (error) { if (error instanceof ConfigValidationError) return null; throw error; }
 }
-async function insertRevision(q: PoolClient, row: {configId: string; communityId: string; guildKey: string; revision: string; body: Config; hash: string; status: 'draft' | 'published'; principalId: string}) {
+async function insertRevision(q: PoolClient, row: {configId: string; communityId: string; guildKey: string; revision: string; body: Config; hash: string; status: 'draft' | 'published'; principalId: string; revertReason?: string; revertedFromRevision?: string}) {
   const inserted = (await q.query(`INSERT INTO guild_launchpad_config_revisions
-    (config_id, community_id, guild_key, revision, schema_version, body, body_sha256, status, source, created_by_principal_id)
-    VALUES ($1,$2,$3,$4::bigint,$5,$6::jsonb,$7,$8,'guild_editor',$9)
+    (config_id, community_id, guild_key, revision, schema_version, body, body_sha256, status, source, created_by_principal_id, revert_reason, reverted_from_revision)
+    VALUES ($1,$2,$3,$4::bigint,$5,$6::jsonb,$7,$8,'guild_editor',$9,$10,$11::bigint)
     RETURNING config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at`,
-  [row.configId, row.communityId, row.guildKey, row.revision, row.body.schema_version, JSON.stringify(row.body), row.hash, row.status, row.principalId])).rows[0];
+  [row.configId, row.communityId, row.guildKey, row.revision, row.body.schema_version, JSON.stringify(row.body), row.hash, row.status, row.principalId, row.revertReason ?? null, row.revertedFromRevision ?? null])).rows[0];
   return inserted as StoredRevision;
 }
 async function movePointer(q: PoolClient, communityId: string, guildKey: string, configId: string, previous: {pointer_version: string} | undefined, moveConfig: boolean) {
@@ -202,17 +217,19 @@ export async function createDraft(pool: Pool, input: Command, guildKey: string) 
   const wrapped = parseInput(draftInput, input.body);
   let config: Config | null = null;
   let principalId = '';
+  let delegated = false;
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
     config = configFrom(wrapped.body, guildKey, 'body');
     principalId = await ensurePrincipal(q, input.actor);
-    await requireCapability(q, input.actor, guildKey, 'guild.content.edit');
+    delegated = !(await requireCapability(q, input.actor, guildKey, 'guild.content.edit')).leader;
   }, async q => {
     if (!config) throw new ConfigValidationError([{code: 'unknown_field', path: 'body'}]);
     const hash = digest(config);
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
+    if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.content.edit');
     checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
     const revision = await nextRevision(q, input.actor.community_id, guildKey);
     const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'draft', principalId});
@@ -243,15 +260,17 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
   const body = parseInput(publishInput, input.body);
   requireCondition(/^[a-f0-9]{64}$/.test(body.expected_body_sha256), 422, 'invalid_body_sha256', '配置摘要須為 64 碼小寫十六進位。');
   let principalId = '';
+  let delegated = false;
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
     principalId = await ensurePrincipal(q, input.actor);
-    await requireCapability(q, input.actor, guildKey, 'guild.config.publish');
+    delegated = !(await requireCapability(q, input.actor, guildKey, 'guild.config.publish')).leader;
   }, async q => {
     void principalId;
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
+    if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.config.publish');
     checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
     const row = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
       FROM guild_launchpad_config_revisions WHERE config_id=$1 AND community_id=$2 AND guild_key=$3 FOR UPDATE`, [configId, input.actor.community_id, guildKey])).rows[0] as StoredRevision | undefined;
@@ -269,17 +288,20 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
 }
 
 export async function revertLaunchpad(pool: Pool, input: Command, guildKey: string) {
+  if (input.body && typeof input.body === 'object' && 'to_revision' in input.body) assertStoredVersion((input.body as {to_revision?: unknown}).to_revision, 'to_revision');
   const body = parseInput(revertInput, input.body);
   reasonIssue(body.reason);
   let principalId = '';
+  let delegated = false;
   return command(pool, input, async q => {
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
     principalId = await ensurePrincipal(q, input.actor);
-    await requireCapability(q, input.actor, guildKey, 'guild.config.publish');
+    delegated = !(await requireCapability(q, input.actor, guildKey, 'guild.config.publish')).leader;
   }, async q => {
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
+    if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.config.publish');
     checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
     const prior = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
       FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2 AND revision=$3::bigint FOR SHARE`, [input.actor.community_id, guildKey, body.to_revision])).rows[0] as StoredRevision | undefined;
@@ -288,7 +310,7 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
     const hash = digest(config);
     const revision = await nextRevision(q, input.actor.community_id, guildKey);
     await supersedePublished(q, input.actor.community_id, guildKey, randomUUID());
-    const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'published', principalId});
+    const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'published', principalId, revertReason: body.reason, revertedFromRevision: prior.revision});
     const pointerVersion = await movePointer(q, input.actor.community_id, guildKey, stored.config_id, current, true);
     await publishEvent(q, input.actor, guildKey, stored.config_id, stored.revision);
     return toView(stored, config, pointerVersion);
@@ -319,6 +341,18 @@ export async function grantDelegation(pool: Pool, input: Command, guildKey: stri
       WHERE p.principal_id=$1 AND p.kind='person' AND p.status='active' AND u.active
       FOR SHARE OF p, u, m`, [body.principal_id, input.actor.community_id, guildKey])).rows[0];
     requireCondition(recipient, 422, 'delegation_recipient_invalid', '授權對象必須是這個公會的有效成員。');
+    const expired = await q.query(`UPDATE guild_launchpad_delegations
+      SET status='expired', version=version+1
+      WHERE community_id=$1 AND guild_key=$2 AND principal_id=$3 AND status='active' AND expires_at<=clock_timestamp()
+      RETURNING delegation_id, version::text AS version`, [input.actor.community_id, guildKey, body.principal_id]);
+    if ((expired.rowCount ?? 0) > 0) {
+      const previous = expired.rows[0];
+      await journal(q, input.actor, 'guild_launchpad_delegation', previous.delegation_id as string, previous.version as string, 'expire', {guild_key: guildKey, delegation_id: previous.delegation_id, status: 'expired'});
+    } else {
+      const live = await q.query(`SELECT 1 FROM guild_launchpad_delegations
+        WHERE community_id=$1 AND guild_key=$2 AND principal_id=$3 AND status='active' FOR UPDATE`, [input.actor.community_id, guildKey, body.principal_id]);
+      if ((live.rowCount ?? 0) > 0) throw new Problem(409, 'delegation_exists', '這位成員已有尚未撤銷的授權。');
+    }
     const delegationId = randomUUID();
     try {
       await q.query(`INSERT INTO guild_launchpad_delegations
@@ -355,13 +389,14 @@ export async function revokeDelegation(pool: Pool, input: Command, guildKey: str
 }
 
 export async function listDelegations(q: PoolClient, communityId: string, guildKey: string) {
-  const rows = (await q.query(`SELECT d.delegation_id, d.principal_id, d.capabilities, d.expires_at, d.status, d.version::text AS version, u.display_name
+  const rows = (await q.query(`SELECT d.delegation_id, d.principal_id, d.capabilities, d.expires_at, d.status, d.version::text AS version, u.display_name,
+      (d.expires_at<=clock_timestamp()) AS expired
     FROM guild_launchpad_delegations d
     JOIN principals p ON p.principal_id=d.principal_id
     JOIN users u ON u.user_id=p.user_ref
     WHERE d.community_id=$1 AND d.guild_key=$2 AND d.status='active'
     ORDER BY d.created_at, d.delegation_id`, [communityId, guildKey])).rows;
-  return rows.map(row => ({delegation_id: row.delegation_id as string, principal_id: row.principal_id as string, capabilities: row.capabilities as string[], expires_at: new Date(row.expires_at).toISOString(), status: 'active' as const, version: row.version as string, display_name: row.display_name as string}));
+  return rows.map(row => ({delegation_id: row.delegation_id as string, principal_id: row.principal_id as string, capabilities: row.capabilities as string[], expires_at: new Date(row.expires_at).toISOString(), expired: row.expired === true, status: 'active' as const, version: row.version as string, display_name: row.display_name as string}));
 }
 export async function listDelegationCandidates(q: PoolClient, communityId: string, guildKey: string) {
   const rows = (await q.query(`SELECT u.display_name, p.principal_id
@@ -374,10 +409,17 @@ export async function listDelegationCandidates(q: PoolClient, communityId: strin
   return rows.map(row => ({display_name: row.display_name as string, principal_id: (row.principal_id as string | null) ?? null}));
 }
 export async function listRevisionMeta(q: PoolClient, communityId: string, guildKey: string) {
-  const rows = (await q.query(`SELECT revision::text AS revision, status, source, created_at
+  const rows = (await q.query(`SELECT revision::text AS revision, status, source, created_at, revert_reason, reverted_from_revision::text AS reverted_from_revision
     FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2
     ORDER BY revision DESC LIMIT 50`, [communityId, guildKey])).rows;
-  return rows.map(row => ({revision: row.revision as string, status: row.status as string, source: row.source as string, created_at: new Date(row.created_at).toISOString()}));
+  return rows.map(row => ({
+    revision: row.revision as string,
+    status: row.status as string,
+    source: row.source as string,
+    created_at: new Date(row.created_at).toISOString(),
+    revert_reason: (row.revert_reason as string | null) ?? null,
+    reverted_from_revision: (row.reverted_from_revision as string | null) ?? null,
+  }));
 }
 export async function readStoredRevision(q: PoolClient, communityId: string, guildKey: string, revision?: string): Promise<StoredRevision | undefined> {
   if (revision) {
@@ -391,6 +433,23 @@ export async function readStoredRevision(q: PoolClient, communityId: string, gui
 export async function readPublishedRevision(q: PoolClient, communityId: string, guildKey: string): Promise<StoredRevision | undefined> {
   return (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
     FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2 AND status='published'`, [communityId, guildKey])).rows[0];
+}
+const EARLIER_REVISION_LIMIT = 20;
+export async function resolvePublishedView(q: PoolClient, guild: CatalogGuild, communityId: string, pointerVersion: string): Promise<{view: ConfigView; problem: ConfigProblem}> {
+  const current = await readPublishedRevision(q, communityId, guild.guild_key);
+  if (!current) return {view: platformDefaultView(guild, pointerVersion), problem: null};
+  const parsed = tryView(current, guild.guild_key, pointerVersion);
+  if (parsed) return {view: parsed, problem: null};
+  const problem: ConfigProblem = {code: 'config_schema_unsupported', revision: String(current.revision)};
+  const earlier = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
+    FROM guild_launchpad_config_revisions
+    WHERE community_id=$1 AND guild_key=$2 AND status IN ('published','superseded') AND revision < $3::bigint
+    ORDER BY revision DESC LIMIT $4`, [communityId, guild.guild_key, current.revision, EARLIER_REVISION_LIMIT])).rows as StoredRevision[];
+  for (const row of earlier) {
+    const view = tryView(row, guild.guild_key, pointerVersion);
+    if (view) return {view, problem};
+  }
+  return {view: platformDefaultView(guild, pointerVersion), problem};
 }
 export async function readSolePublicRevision(q: PoolClient, guildKey: string): Promise<(StoredRevision & {community_id: string}) | undefined> {
   const rows = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at, community_id

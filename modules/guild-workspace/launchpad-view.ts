@@ -3,11 +3,11 @@ import {transaction} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild, type SkillBook} from '../community/catalog.js';
-import {ConfigValidationError, VERSION_PATTERN, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
+import {ConfigValidationError, assertStoredVersion, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
 import {
   activeMember, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
-  readPointerVersion, readPublishedRevision, readSolePublicRevision, readStoredRevision, requireGuildMember,
-  tryView, viewerAccess, type CatalogGuild,
+  readPointerVersion, readSolePublicRevision, readStoredRevision, requireGuildMember, resolvePublishedView,
+  tryView, viewerAccess, type CatalogGuild, type ConfigProblem,
 } from './launchpad-config.js';
 
 type BookRef = {book_id: string; title: string; introduction_url: string | null; upstream_url: string};
@@ -44,23 +44,26 @@ async function announcements(q: PoolClient, communityId: string, guildKey: strin
     ORDER BY updated_at DESC, announcement_id LIMIT 50`, [communityId, guildKey])).rows;
   return rows.map(row => ({announcement_id: row.announcement_id as string, title: row.title as string, body: row.body as string, published_at: new Date(row.updated_at).toISOString()}));
 }
-function guildDto(guild: CatalogGuild) {
-  return {guild_key: guild.guild_key, name: guild.name, purpose: guild.purpose, category: null as null};
+function memberGuildDto(guild: CatalogGuild) {
+  return {guild_key: guild.guild_key, name: guild.name, purpose: guild.purpose};
 }
-function publishedView(guild: CatalogGuild, row: Parameters<typeof tryView>[0], pointerVersion: string): ConfigView {
-  return tryView(row, guild.guild_key, pointerVersion) ?? platformDefaultView(guild, pointerVersion);
+function publicGuildDto(guild: CatalogGuild) {
+  return {...memberGuildDto(guild), category: null as null};
 }
 
 export async function publicLaunchpad(pool: Pool, guildKey: string) {
   return transaction(pool, async q => {
     const guild = await loadCatalog(q, guildKey);
     const stored = await readSolePublicRevision(q, guildKey);
-    const parsed = stored ? tryView(stored, guildKey, '1') : null;
-    const view = parsed ?? platformDefaultView(guild, '1');
-    const communityId = parsed && stored ? stored.community_id : null;
+    const resolved = stored
+      ? await resolvePublishedView(q, guild, stored.community_id, '1')
+      : {view: platformDefaultView(guild, '1'), problem: null as ConfigProblem};
+    const view = resolved.view;
+    const communityId = stored && view.source === 'guild_editor' ? stored.community_id : null;
     return {
-      guild: guildDto(guild),
+      guild: publicGuildDto(guild),
       config: {revision: view.revision, body: publicSafeConfig(view.body)},
+      config_problem: resolved.problem,
       announcements: [] as AnnouncementRef[],
       skill_books: await bookRefs(q, guildKey, communityId),
       public_results: [] as {result_id: string; title: string; public_url: string}[],
@@ -77,10 +80,11 @@ export async function memberLaunchpad(pool: Pool, actor: Actor, guildKey: string
     requireCondition(membership, 403, 'guild_member_required', '加入公會後可閱讀公告。');
     const access = await viewerAccess(q, actor, guildKey);
     const pointerVersion = await readPointerVersion(q, actor.community_id, guildKey);
-    const config = publishedView(guild, await readPublishedRevision(q, actor.community_id, guildKey), pointerVersion);
+    const resolved = await resolvePublishedView(q, guild, actor.community_id, pointerVersion);
     return {
-      guild: guildDto(guild),
-      config,
+      guild: memberGuildDto(guild),
+      config: resolved.view,
+      config_problem: resolved.problem,
       membership: {state: membership.state as string, member_tier: membership.member_tier as string},
       announcements: await announcements(q, actor.community_id, guildKey),
       skill_books: await bookRefs(q, guildKey, actor.community_id),
@@ -95,7 +99,7 @@ export async function memberLaunchpad(pool: Pool, actor: Actor, guildKey: string
 }
 
 export async function leaderLaunchpadConfig(pool: Pool, actor: Actor, guildKey: string, revision: string | undefined) {
-  if (revision !== undefined && !VERSION_PATTERN.test(revision)) throw new ConfigValidationError([{code: 'unknown_field', path: 'revision'}]);
+  if (revision !== undefined) assertStoredVersion(revision, 'revision');
   return transaction(pool, async q => {
     await activeMember(q, actor);
     const guild = await loadCatalog(q, guildKey);
@@ -103,6 +107,7 @@ export async function leaderLaunchpadConfig(pool: Pool, actor: Actor, guildKey: 
     requireCondition(access.edit || access.preview || access.publish, 403, 'guild_leader_required', '此操作限目前在任的公會長。');
     const pointerVersion = await readPointerVersion(q, actor.community_id, guildKey);
     let config: ConfigView;
+    let problem: ConfigProblem = null;
     if (revision) {
       const row = await readStoredRevision(q, actor.community_id, guildKey, revision);
       requireCondition(row, 404, 'config_revision_not_found', '找不到這個啟動台版本。');
@@ -111,11 +116,17 @@ export async function leaderLaunchpadConfig(pool: Pool, actor: Actor, guildKey: 
       config = parsed;
     } else {
       const draft = tryView(await readStoredRevision(q, actor.community_id, guildKey), guildKey, pointerVersion);
-      config = draft ?? publishedView(guild, await readPublishedRevision(q, actor.community_id, guildKey), pointerVersion);
+      if (draft) config = draft;
+      else {
+        const resolved = await resolvePublishedView(q, guild, actor.community_id, pointerVersion);
+        config = resolved.view;
+        problem = resolved.problem;
+      }
     }
     const leader = access.leader;
     return {
       ...config,
+      config_problem: problem,
       viewer_can_edit_config: access.edit,
       viewer_can_preview_config: access.preview,
       viewer_can_publish_config: access.publish,
