@@ -9,7 +9,7 @@ import { avatarUrl } from '../identity-membership/avatars.js';
 import { skillBooksForGuild, officialGuildKeys, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
 import { ASSESSMENT_VERSION, ASSESSMENT_SHA256, assessmentQuestions, publicAssessmentDefinition, evaluateAssessment, guildTitles } from './assessment.js';
 import { assertGuildAnswers, entryQuestionsForGuild, presentGuildAnswers } from './guild-questions.js';
-import { assertLegacyPreferenceWritable, lockGuildCatalog, projectOnboardingGuild, recomputeLegacyProjection, switchedPositioningCard } from './guild-categories.js';
+import { assertLegacyPreferenceWritable, lockGuildCatalogShared, projectOnboardingGuild, recomputeLegacyProjection, switchedPositioningCard } from './guild-categories.js';
 
 type Queryable=Pick<Pool,'query'>;
 const Empty=z.object({}).strict();
@@ -100,7 +100,7 @@ const SecondaryInput=z.object({secondary_guild_keys:distinct(2)}).strict();
 export async function setSecondaryGuilds(pool:Pool,input:Command){
  const body=SecondaryInput.parse(input.body);
  return command(pool,input,async()=>{},async q=>{
-   await lockGuildCatalog(q);
+   await lockGuildCatalogShared(q);
    await lockMemberGuilds(q,input.actor);
    await assertLegacyPreferenceWritable(q,input.actor.community_id);
    const current=await guildPreferenceState(q,input.actor);
@@ -187,7 +187,7 @@ export async function completeOnboarding(pool:Pool,input:Command){
  const body=CompleteInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主力公會必須是你這次選擇加入的公會。');
  return command(pool,{...input,lockUser:true},async()=>{},async q=>{
-   await lockGuildCatalog(q);
+   await lockGuildCatalogShared(q);
    const current=await currentAssessment(q,input);
    requireCondition(current.state==='evaluated'&&current.result,409,'assessment_not_evaluated','請先完成定位並查看公會建議。');
    requireCondition((await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[body.guild_keys])).rowCount===body.guild_keys.length,422,'unknown_guild','請選擇目前已建立的公會。');
@@ -204,7 +204,7 @@ export async function quickStartOnboarding(pool:Pool,input:Command){
  const body=QuickStartInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主要公會必須是你選擇加入的公會。');
  return command(pool,{...input,lockUser:true},async()=>{},async q=>{
-   await lockGuildCatalog(q);
+   await lockGuildCatalogShared(q);
    await lockMemberGuilds(q,input.actor);
    const user=(await q.query('SELECT onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0];
    requireCondition(!user.onboarding_completed_at,409,'onboarding_already_completed','已完成加入，請到公會頁調整公會。');
@@ -250,7 +250,7 @@ export async function saveGuildAnswers(pool:Pool,input:Command,guildKey:string){
 export async function setPrimaryGuild(pool:Pool,input:Command,guildKey:string){
  Empty.parse(input.body);
  return command(pool,input,async()=>{},async q=>{
-   await lockGuildCatalog(q);
+   await lockGuildCatalogShared(q);
    await lockMemberGuilds(q,input.actor);
    await assertLegacyPreferenceWritable(q,input.actor.community_id);
    const membership=(await q.query("SELECT membership_id FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];

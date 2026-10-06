@@ -20,8 +20,12 @@ const journalActor = (communityId: string, userId: string): Actor => ({
   community_id: communityId, user_id: userId, email: '', display_name: '', profession_membership_ref: '', session_hash: '', csrf_token: '',
 });
 
+const catalogFence = 'guild-catalog-revision';
 export async function lockGuildCatalog(q: PoolClient) {
-  await q.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['guild-catalog-revision']);
+  await q.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [catalogFence]);
+}
+export async function lockGuildCatalogShared(q: PoolClient) {
+  await q.query(`SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))`, [catalogFence]);
 }
 async function lockMember(q: PoolClient, member: MemberRef) {
   await q.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`guild-member/${member.community_id}/${member.user_id}`]);
@@ -203,7 +207,7 @@ async function bumpSet(q: PoolClient, member: MemberRef) {
 }
 
 export async function ensureRegisteredPreferenceSet(q: PoolClient, communityId: string, userId: string) {
-  await lockGuildCatalog(q);
+  await lockGuildCatalogShared(q);
   const switched = await communitySwitched(q, communityId);
   await q.query(`INSERT INTO guild_preference_sets(community_id,user_id,aggregate_version,migration_state) VALUES ($1,$2,1,$3)
     ON CONFLICT DO NOTHING`, [communityId, userId, switched ? 'switched' : 'backfilled']);
@@ -291,7 +295,7 @@ export async function getPreferenceView(q: Queryable, member: MemberRef) {
 export async function setCategoryPreference(pool: Pool, input: Command) {
   const body = SetPreferenceInput.parse(input.body);
   return command(pool, input, async () => {}, async q => {
-    await lockGuildCatalog(q);
+    await lockGuildCatalogShared(q);
     await lockMember(q, input.actor);
     requireCondition(await communitySwitched(q, input.actor.community_id), 409, 'preference_switch_pending', '社群尚未切換到三類主力。');
     const set = await lockedSet(q, input.actor);
@@ -353,23 +357,26 @@ function limitOf(value: number | undefined) {
 async function candidates(q: Queryable, communityId: string) {
   return (await q.query(`${candidateSql} ORDER BY u.user_id`, [communityId])).rows as LegacyRow[];
 }
-function counts(plans: MemberPlan[]) {
-  const blocked = plans.filter(plan => plan.reason);
-  return {
-    processed: plans.length,
-    mapped: plans.filter(plan => !plan.reason && CATEGORY_ORDER.some(category => plan.slots[category])).length,
-    blocked: blocked.length,
-    ambiguous: blocked.length,
-    blocked_members: blocked.map(plan => ({user_id: plan.user_id, reason: plan.reason!})),
-  };
+function blockedMembersOf(plans: MemberPlan[], limit: number) {
+  return plans.filter(plan => plan.reason).slice(0, limit).map(plan => ({user_id: plan.user_id, reason: plan.reason!}));
 }
 export async function backfillInTransaction(q: PoolClient, options: {communityId: string; limit?: number; dryRun?: boolean; runId?: string}) {
   await lockGuildCatalog(q);
   const dryRun = options.dryRun !== false;
   const limit = limitOf(options.limit);
   const rows = await candidates(q, options.communityId);
-  const batch = rows.slice(0, limit).map(planMember);
-  if (dryRun) return {dry_run: true, ...counts(batch), remaining: rows.length};
+  const plans = rows.map(planMember);
+  const blockedAll = plans.filter(plan => plan.reason);
+  const page = plans.slice(0, limit);
+  if (dryRun) return {
+    dry_run: true,
+    processed: page.length,
+    mapped: page.filter(plan => !plan.reason && CATEGORY_ORDER.some(category => plan.slots[category])).length,
+    blocked: blockedAll.length,
+    ambiguous: blockedAll.length,
+    remaining: rows.length,
+    blocked_members: blockedMembersOf(plans, limit),
+  };
   const runId = options.runId ?? randomUUID();
   let processed = 0, mapped = 0, blocked = 0;
   const blockedMembers: {user_id: string; reason: BlockReason}[] = [];
@@ -380,10 +387,14 @@ export async function backfillInTransaction(q: PoolClient, options: {communityId
     const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, row.user_id])).rows[0] as LegacyRow | undefined;
     if (!fresh) continue;
     const plan = planMember(fresh);
+    if (plan.reason) {
+      blocked += 1;
+      blockedMembers.push({user_id: plan.user_id, reason: plan.reason});
+      continue;
+    }
     await writeProjection(q, member, plan, runId, 'backfilled');
     processed += 1;
-    if (plan.reason) { blocked += 1; blockedMembers.push({user_id: plan.user_id, reason: plan.reason}); }
-    else if (CATEGORY_ORDER.some(category => plan.slots[category])) mapped += 1;
+    if (CATEGORY_ORDER.some(category => plan.slots[category])) mapped += 1;
   }
   const remaining = Number((await q.query(`SELECT count(*) FROM (${candidateSql}) c`, [options.communityId])).rows[0].count);
   return {dry_run: false, processed, mapped, blocked, ambiguous: blocked, remaining, blocked_members: blockedMembers};
@@ -397,24 +408,37 @@ export async function switchInTransaction(q: PoolClient, options: {communityId: 
   await q.query(`INSERT INTO guild_preference_switch(community_id, state, aggregate_version) VALUES ($1, 'legacy', 1) ON CONFLICT DO NOTHING`, [options.communityId]);
   const current = (await q.query(`SELECT state, aggregate_version::text AS aggregate_version FROM guild_preference_switch WHERE community_id=$1 FOR UPDATE`, [options.communityId])).rows[0];
   if (current.state === 'switched') return {state: 'switched' as const, aggregate_version: String(current.aggregate_version), blocked: 0, processed: 0, already_switched: true};
-  const plans = (await candidates(q, options.communityId)).map(planMember);
-  const blocked = plans.filter(plan => plan.reason);
-  requireCondition(blocked.length === 0 || options.acceptBlocked, 409, 'preference_switch_blocked', `還有 ${blocked.length} 位會員無法對照，請確認後再切換。`);
-  const runId = randomUUID();
-  for (const plan of plans) {
-    const member = {community_id: options.communityId, user_id: plan.user_id};
+  const rows = await candidates(q, options.communityId);
+  const ready: {member: MemberRef; plan: MemberPlan}[] = [];
+  for (const row of rows) {
+    const member = {community_id: options.communityId, user_id: row.user_id};
     await lockMember(q, member);
     if ((await q.query(`SELECT 1 FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id])).rowCount) continue;
-    await writeProjection(q, member, plan, runId, 'backfilled');
+    const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, row.user_id])).rows[0] as LegacyRow | undefined;
+    if (!fresh) continue;
+    ready.push({member, plan: planMember(fresh)});
   }
+  const blocked = ready.filter(item => item.plan.reason);
+  requireCondition(blocked.length === 0 || options.acceptBlocked, 409, 'preference_switch_blocked', `還有 ${blocked.length} 位會員無法對照，請確認後再切換。`);
+  const runId = randomUUID();
+  for (const item of ready) await writeProjection(q, item.member, item.plan, runId, 'backfilled');
   await q.query(`UPDATE guild_preference_sets SET migration_state='switched', aggregate_version=aggregate_version+1, updated_at=now() WHERE community_id=$1`, [options.communityId]);
+  if (blocked.length) {
+    await q.query(`UPDATE guild_preference_invalidations i SET new_version = s.aggregate_version
+      FROM guild_preference_sets s
+      WHERE i.community_id = s.community_id AND i.user_id = s.user_id
+        AND i.community_id = $1 AND i.user_id = ANY($2::uuid[]) AND i.reason = 'legacy_ambiguous'`,
+      [options.communityId, blocked.map(item => item.member.user_id)]);
+  }
   const switched = (await q.query(`UPDATE guild_preference_switch SET state='switched', aggregate_version=aggregate_version+1, switched_at=now(), switched_by=$2
     WHERE community_id=$1 RETURNING aggregate_version::text AS aggregate_version`, [options.communityId, options.switchedBy])).rows[0];
-  return {state: 'switched' as const, aggregate_version: String(switched.aggregate_version), blocked: blocked.length, processed: plans.length, already_switched: false};
+  return {state: 'switched' as const, aggregate_version: String(switched.aggregate_version), blocked: blocked.length, processed: ready.length, already_switched: false};
 }
 
 export async function classifyInTransaction(q: PoolClient, admin: {admin_id: string; community_id: string; email: string}, guildKey: string, raw: unknown, expected?: string) {
   const body = ClassificationInput.parse(raw);
+  const actor = (await q.query(`SELECT user_id FROM users WHERE community_id=$1 AND lower(email)=lower($2) AND active LIMIT 1`, [admin.community_id, admin.email])).rows[0];
+  if (!actor) throw new Problem(403, 'guild_classification_denied', '分類需要以同社群的會員帳號留下事件紀錄，請先確認管理員信箱有對應的會員帳號。');
   await lockGuildCatalog(q);
   requireCondition((await q.query(`SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1`, [guildKey])).rowCount === 1, 404, 'guild_not_found', '找不到這個公會。');
   const current = (await q.query(`SELECT guild_key, category::text AS category, category_review::text AS category_review, capability_tags, active,
@@ -439,8 +463,7 @@ export async function classifyInTransaction(q: PoolClient, admin: {admin_id: str
     guild_key: guildKey, category: updated.category as GuildCategoryName, category_review: 'approved' as const,
     capability_tags: updated.capability_tags as string[], active: updated.active === true, catalog_revision: String(updated.catalog_revision),
   };
-  const actor = (await q.query(`SELECT user_id FROM users WHERE community_id=$1 AND lower(email)=lower($2) LIMIT 1`, [admin.community_id, admin.email])).rows[0];
-  if (actor) await journal(q, journalActor(admin.community_id, actor.user_id), 'guild_classification', updated.classification_id, classification.catalog_revision, 'classify_guild', {
+  await journal(q, journalActor(admin.community_id, actor.user_id), 'guild_classification', updated.classification_id, classification.catalog_revision, 'classify_guild', {
     guild_key: guildKey, category: classification.category, category_review: classification.category_review,
     capability_tags: classification.capability_tags, active: classification.active, catalog_revision: classification.catalog_revision,
   }, 'freedom.guild.classification.changed.v1');

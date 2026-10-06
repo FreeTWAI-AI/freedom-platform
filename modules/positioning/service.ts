@@ -6,7 +6,7 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { lockMemberGuilds,grantGuildBooks,assertCanLeaveGuild,removeSecondaryGuildOnLeave } from './onboarding.js';
 import { LeaveV2Input } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
-import { categorySlotForGuild, clearCategorySlot, communitySwitched, ensureProjectionSet, getPreferenceView, lockGuildCatalog, recomputeLegacyProjection } from './guild-categories.js';
+import { categorySlotForGuild, clearCategorySlot, communitySwitched, ensureProjectionSet, getPreferenceView, lockGuildCatalogShared, recomputeLegacyProjection } from './guild-categories.js';
 
 const short=z.string().trim().min(1).max(100);
 const uniqueStrings=(max:number)=>z.array(short).max(max).refine(a=>new Set(a).size===a.length,'請移除重複選項。');
@@ -58,7 +58,7 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
   return command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
   },async q=>{
-    await lockGuildCatalog(q);
+    await lockGuildCatalogShared(q);
     await lockMemberGuilds(q,input.actor);
     const switched=await communitySwitched(q,input.actor.community_id);
     if(action==='leave'){
@@ -88,7 +88,7 @@ export async function leaveGuildV2(pool:Pool,input:Command,guildKey:string,prefe
   return command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
   },async q=>{
-    await lockGuildCatalog(q);
+    await lockGuildCatalogShared(q);
     await lockMemberGuilds(q,input.actor);
     const switched=await communitySwitched(q,input.actor.community_id);
     let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
