@@ -116,3 +116,146 @@ test('two members create, invite, accept and switch tenants without sharing the 
     await cleanup(e2eAuthPool, people);
   }
 });
+
+async function workspaceEvidence(db: import('pg').Pool, displayName: string) {
+  const spaces = await db.query<{ name: string }>(`SELECT w.name FROM workspaces w JOIN tenants t ON t.tenant_id=w.tenant_id
+    WHERE t.display_name=$1 AND w.is_default=false ORDER BY w.name`, [displayName]);
+  const audit = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_authority_audit a
+    JOIN tenants t ON t.tenant_id=a.tenant_id WHERE t.display_name=$1 AND a.action='tenant.workspace.create'`, [displayName]);
+  const receipts = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM scoped_command_receipts r
+    JOIN resource_scopes s ON s.scope_id=r.scope_id JOIN tenants t ON t.tenant_id=s.tenant_ref
+    WHERE t.display_name=$1 AND r.operation='tenant.workspace.create'`, [displayName]);
+  return { names: spaces.rows.map(row => row.name), audit: audit.rows[0].n, receipts: receipts.rows[0].n };
+}
+
+test('a cancelled edit stays on its tenant when the member switches before the result returns', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const nameA = `品牌甲${run}`;
+  const nameB = `品牌乙${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const edits: { pathname: string; method: string; key: string; body: string; phase: string }[] = [];
+  let phase = 'setup';
+  let releaseHold: () => void = () => undefined;
+  const held = new Promise<void>(resolve => { releaseHold = resolve; });
+  let heldOnce = false;
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/edit$/.test(url.pathname), async route => {
+    const request = route.request();
+    edits.push({
+      pathname: new URL(request.url()).pathname, method: request.method(),
+      key: request.headers()['idempotency-key'] ?? '', body: request.postData() ?? '', phase,
+    });
+    if (!heldOnce) {
+      heldOnce = true;
+      await held;
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(nameA);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`櫃檯甲${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${nameA}／櫃檯甲${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(nameB);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`櫃檯乙${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${nameB}／櫃檯乙${run}`, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: `${nameA}・擁有者`, exact: true }).click();
+    await expect(page.getByText(`${nameA}／櫃檯甲${run}`, { exact: true })).toBeVisible();
+    phase = 'A';
+    await page.getByLabel('顯示名稱', { exact: true }).fill(`${nameA}改`);
+    await page.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect.poll(() => edits.length).toBe(1);
+    phase = 'B';
+    await page.getByRole('button', { name: `${nameB}・擁有者`, exact: true }).click();
+    releaseHold();
+    await expect(page.getByText(`${nameB}／櫃檯乙${run}`, { exact: true })).toBeVisible();
+    const retries = page.getByRole('button', { name: '再確認一次', exact: true });
+    const retryCount = await retries.count();
+    for (let index = 0; index < retryCount; index += 1) await retries.nth(index).click();
+    expect(edits.filter(item => item.phase === 'B')).toEqual([]);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByLabel('顯示名稱', { exact: true })).toHaveValue(nameB);
+    phase = 'A-return';
+    await page.getByRole('button', { name: `${nameA}・擁有者`, exact: true }).click();
+    await expect(page.getByText(`${nameA}／櫃檯甲${run}`, { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '再確認一次', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '再確認一次', exact: true }).click();
+    await expect.poll(() => edits.filter(item => item.phase === 'A-return').length).toBe(1);
+    const retried = edits.filter(item => item.phase === 'A-return');
+    expect(retried).toHaveLength(1);
+    expect(retried[0]).toMatchObject({ pathname: edits[0].pathname, method: 'POST', key: edits[0].key, body: edits[0].body });
+    await expect(page.getByText(`${nameA}改／櫃檯甲${run}`, { exact: true })).toBeVisible();
+  } finally {
+    releaseHold();
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+test('a lost workspace acknowledgement is resent with the original key and body', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌櫃${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string; pathname: string }[] = [];
+  let settle = false;
+  const waiters: Array<() => void> = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/workspaces$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    if (!settle) await new Promise<void>(resolve => { waiters.push(resolve); });
+    await route.continue().catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`預設${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${tenantName}／預設${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('新工作區名稱', { exact: true }).fill('加開一');
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect.poll(() => posts.length).toBeGreaterThanOrEqual(2);
+    await page.getByRole('button', { name: '建立工作區', exact: true }).dblclick();
+    await page.waitForTimeout(1000);
+    expect(new Set(posts.map(item => item.key)).size, JSON.stringify(posts)).toBe(1);
+    expect(new Set(posts.map(item => item.body)).size, JSON.stringify(posts)).toBe(1);
+    expect(posts.every(item => item.method === 'POST' && item.body === JSON.stringify({ name: '加開一' }))).toBe(true);
+    settle = true;
+    for (const release of waiters) release();
+    await expect(page.getByText('已建立工作區加開一。', { exact: true })).toBeVisible();
+    await expect.poll(async () => workspaceEvidence(e2eAuthPool, tenantName)).toEqual({ names: ['加開一'], audit: 1, receipts: 1 });
+    await page.getByLabel('新工作區名稱', { exact: true }).fill('加開二');
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect(page.getByText('已建立工作區加開二。', { exact: true })).toBeVisible();
+    await expect.poll(async () => workspaceEvidence(e2eAuthPool, tenantName)).toEqual({ names: ['加開一', '加開二'], audit: 2, receipts: 2 });
+  } finally {
+    settle = true;
+    for (const release of waiters) release();
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
