@@ -1,0 +1,20 @@
+.my-work{display:grid;gap:.8rem;min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+.my-work ul{list-style:none;padding:0;margin:0;display:grid;gap:.45rem}
+.my-work li{min-width:0}
+.my-work-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.my-work-status,.my-work-name{margin:0;overflow-wrap:anywhere}
+.my-work-stage{color:var(--ink);background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius);padding:.6rem .8rem;margin:0}
+.my-work-result{display:grid;gap:.35rem;padding:.6rem 0;border-bottom:1px solid var(--line)}
+.my-work pre{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:.6rem;margin:0}
+.my-work select{min-height:44px;width:100%}
+.my-work>.my-work-primary{justify-self:start;width:auto}
+.my-work .stack>.btn{align-self:flex-start;width:auto}
+.my-work a{overflow-wrap:anywhere}
+.my-work-result a{display:inline-flex;align-items:center;min-height:44px}
+.my-work dialog{width:min(40rem,calc(100vw - 1.5rem));max-height:min(80vh,40rem);overflow:auto;margin:auto;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink)}
+.my-work dialog::backdrop{background:color-mix(in srgb,var(--ink) 40%,transparent)}
+.my-work-conflict{display:grid;gap:.35rem;padding:.6rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
+@media(max-width:720px){
+  .my-work input,.my-work textarea,.my-work select{font-size:16px}
+  .my-work>.my-work-primary,.my-work .stack>.my-work-primary{width:100%;justify-self:stretch;align-self:stretch}
+}
