@@ -11,6 +11,7 @@ import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-comman
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
+import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from '../agent-execution/model-step-service.js';
 
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
@@ -131,14 +132,16 @@ export function createAgentConnections(pool: Pool, rawOptions: { environment: Ru
   async function revoke(actor: Actor, raw: RevokeAgentConnectionInput): Promise<AgentConnectionMetadata> {
     plainInput(raw);
     actor = Object.freeze({ ...actor }); const input = Object.freeze(revokeSchema.parse(raw)), operation = 'agent.connection.revoke';
-    let current!: ConnectionRow;
+    let current!: ConnectionRow, machineSteps: readonly string[] = [];
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'agent_connection', id: input.connectionId }, expected: input.expectedVersion, body: { environment, clientId } },
-    async (q, context) => { await eligible(q, actor); await ownerLock(q, context); current = await ownedConnection(q, actor, context, input.connectionId); },
+    async (q, context) => { await eligible(q, actor); await ownerLock(q, context); current = await ownedConnection(q, actor, context, input.connectionId);
+      machineSteps = await lockConsumedMachineSteps(q, { connectionId: input.connectionId }); },
     async (q, context) => {
       checkVersion(current.aggregate_version, input.expectedVersion);
       if (current.state === 'revoked') unavailable();
       requireCondition(BigInt(current.aggregate_version) < 9223372036854775807n, 409, 'agent_connection_version_exhausted', '機器連線無法再更新。');
+      await applyConsumedMachineReconciliation(q, machineSteps, context);
       const now = await decisionClock(q, actor);
       const row = (await q.query<ConnectionRow>(`UPDATE agent_connections SET state='revoked',revoked_at=$3,aggregate_version=aggregate_version+1
         WHERE connection_id=$1 AND aggregate_version=$2 RETURNING *,aggregate_version::text`, [input.connectionId, input.expectedVersion, now])).rows[0];

@@ -4,8 +4,8 @@ import { transaction } from '../../packages/db/transaction.js';
 import { Problem } from '../../packages/shared/problem.js';
 import type { RuntimeEnvironment } from '../../contracts/execution/v1/runtime-registration.js';
 
-export type BootstrapHttpOperation = 'begin' | 'token' | 'nonce' | 'status' | 'member' | 'execution_member';
-const limits = Object.freeze({ begin: [20, 400], token: [90, 600], nonce: [90, 600], status: [120, 1200], member: [60, 600], execution_member: [60, 600] } as const);
+export type BootstrapHttpOperation = 'begin' | 'token' | 'nonce' | 'status' | 'member' | 'execution_member' | 'execution_machine';
+const limits = Object.freeze({ begin: [20, 400], token: [90, 600], nonce: [90, 600], status: [120, 1200], member: [60, 600], execution_member: [60, 600], execution_machine: [60, 600] } as const);
 
 /** Independent committed anti-abuse charge. No caller clock or raw secret key. */
 export async function chargeBootstrapHttp(pool: Pool, environment: RuntimeEnvironment, clientId: string,
