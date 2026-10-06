@@ -10,8 +10,8 @@ import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { transaction } from '../../packages/db/transaction.js';
-import { lockMemberSession } from '../../packages/db/member-session.js';
-import { lockTenantScope, mapPersonPrincipal, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { assertCurrentSessionClock, lockMemberSession } from '../../packages/db/member-session.js';
+import { mapPersonPrincipal, withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { scopedJournal, scopedMemberCommand, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
@@ -200,29 +200,33 @@ export async function createTenant(pool: Pool, actor: Actor, body: unknown, key:
 export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: string; limit?: string }) {
   const limit = limitOf(query.limit);
   return transaction(pool, async q => {
-    const context = await lockMemberSession(q, actor).then(() => mapPersonPrincipal(q, actor.user_id));
-    requireCondition(context.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
-    const after = readCursor(query.cursor, context.principal_id, 'tenants', null);
-    const rows = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
-      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id > $3::uuid)
-      ORDER BY t.tenant_id LIMIT $4`, [context.principal_id, actor.community_id, after, limit + 1])).rows;
-    const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
-    const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
-      FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
-      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
-    return TenantPageSchema.parse({
-      items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'tenants', null, page[page.length - 1].tenant_id) : null,
-      source_version: versionOf(source === '0' ? '1' : source),
-    });
+    await lockMemberSession(q, actor);
+    try {
+      const context = await mapPersonPrincipal(q, actor.user_id);
+      requireCondition(context.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+      const after = readCursor(query.cursor, context.principal_id, 'tenants', null);
+      const rows = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
+        WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id > $3::uuid)
+        ORDER BY t.tenant_id LIMIT $4`, [context.principal_id, actor.community_id, after, limit + 1])).rows;
+      const page = rows.slice(0, limit);
+      const items = [];
+      for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
+      const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
+        FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
+        WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
+      return TenantPageSchema.parse({
+        items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'tenants', null, page[page.length - 1].tenant_id) : null,
+        source_version: versionOf(source === '0' ? '1' : source),
+      });
+    } finally {
+      await assertCurrentSessionClock(q, actor);
+    }
   });
 }
 
 export async function getTenant(pool: Pool, actor: Actor, tenantId: string) {
   OpaqueId.parse(tenantId);
-  return transaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, capabilitiesForRole: roleCapabilities });
+  return withTenantRead(pool, { actor, tenantId, capabilitiesForRole: roleCapabilities }, async (q, context) => {
     return tenantView(q, context.tenant_id, context.principal_id);
   });
 }
@@ -264,8 +268,7 @@ export async function createWorkspace(pool: Pool, actor: Actor, tenantId: string
 export async function listWorkspaces(pool: Pool, actor: Actor, tenantId: string, query: { cursor?: string; limit?: string }) {
   OpaqueId.parse(tenantId);
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, capabilitiesForRole: roleCapabilities });
+  return withTenantRead(pool, { actor, tenantId, capabilitiesForRole: roleCapabilities }, async (q, context) => {
     requireCap(context, 'tenant.workspace.read');
     const after = readCursor(query.cursor, context.principal_id, 'workspaces', context.tenant_id);
     const rows = (await q.query<{ workspace_id: string }>(`SELECT workspace_id FROM workspaces WHERE tenant_id=$1 AND ($2::uuid IS NULL OR workspace_id > $2::uuid)
@@ -284,8 +287,7 @@ export async function listWorkspaces(pool: Pool, actor: Actor, tenantId: string,
 export async function listMembers(pool: Pool, actor: Actor, tenantId: string, query: { cursor?: string; limit?: string }) {
   OpaqueId.parse(tenantId);
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, capabilitiesForRole: roleCapabilities });
+  return withTenantRead(pool, { actor, tenantId, capabilitiesForRole: roleCapabilities }, async (q, context) => {
     const full = can(context.role, 'tenant.member.read');
     const after = readCursor(query.cursor, context.principal_id, full ? 'members' : 'my_membership', context.tenant_id);
     const rows = full
@@ -347,18 +349,22 @@ export async function listMyInvitations(pool: Pool, actor: Actor, query: { curso
     WHERE invitee_principal_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [principalId]);
   return transaction(pool, async q => {
     await lockMemberSession(q, actor);
-    const after = readCursor(query.cursor, principalId, 'my_invitations', null);
-    const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
-      AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
-    const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await invitationView(q, row.invitation_id));
-    const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
-      FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
-    return InvitationPageSchema.parse({
-      items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_invitations', null, page[page.length - 1].invitation_id) : null,
-      source_version: versionOf(source),
-    });
+    try {
+      const after = readCursor(query.cursor, principalId, 'my_invitations', null);
+      const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
+        AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
+      const page = rows.slice(0, limit);
+      const items = [];
+      for (const row of page) items.push(await invitationView(q, row.invitation_id));
+      const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
+        FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
+      return InvitationPageSchema.parse({
+        items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_invitations', null, page[page.length - 1].invitation_id) : null,
+        source_version: versionOf(source),
+      });
+    } finally {
+      await assertCurrentSessionClock(q, actor);
+    }
   });
 }
 
@@ -552,11 +558,15 @@ export async function resolveInviteCandidate(pool: Pool, actor: Actor, userId: s
   OpaqueId.parse(userId);
   return transaction(pool, async q => {
     await lockMemberSession(q, actor);
-    const user = (await q.query<{ user_id: string; display_name: string }>(`SELECT user_id,display_name FROM users
-      WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`, [userId, actor.community_id])).rows[0];
-    requireCondition(user, 404, 'member_not_found', '找不到這位會員。');
-    const principal = await mapPersonPrincipal(q, user.user_id);
-    requireCondition(principal.kind === 'person' && principal.status === 'active', 404, 'member_not_found', '找不到這位會員。');
-    return InviteCandidateSchema.parse({ principal_id: principal.principal_id, display_name: user.display_name });
+    try {
+      const user = (await q.query<{ user_id: string; display_name: string }>(`SELECT user_id,display_name FROM users
+        WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`, [userId, actor.community_id])).rows[0];
+      requireCondition(user, 404, 'member_not_found', '找不到這位會員。');
+      const principal = await mapPersonPrincipal(q, user.user_id);
+      requireCondition(principal.kind === 'person' && principal.status === 'active', 404, 'member_not_found', '找不到這位會員。');
+      return InviteCandidateSchema.parse({ principal_id: principal.principal_id, display_name: user.display_name });
+    } finally {
+      await assertCurrentSessionClock(q, actor);
+    }
   });
 }

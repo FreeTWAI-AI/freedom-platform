@@ -63,3 +63,5 @@ See the [local delivery record](../../docs/platform-plan/execution/unified-found
 ## Tenant scope
 
 `lockTenantScope` resolves an authenticated person plus a server-checked tenant id. Lock order is session, person principal, the existing tenant `resource_scopes` row, the tenant row, then the actor's membership. It never inserts a tenant scope. `withMemberScope` and `lockMemberScope` still accept only `personal` and `community`; a `tenant` or `site` reference is rejected before a transaction starts. Missing tenant, scope, or active membership is the same 404 as a missing tenant. Suspended, recovery, and archived tenants still return context to an active member, with `tenant_status` set, so the domain can allow metadata reads.
+
+`withTenantRead` is the private-read wrapper later tenant endpoints should call. It opens one transaction, calls `lockTenantScope`, runs the read, then `assertCurrentSessionClock` before the value leaves the transaction. It is not a command and writes no receipt. `lockTenantScope` itself stays the command lock; commands already recheck the session clock in the scoped command core.

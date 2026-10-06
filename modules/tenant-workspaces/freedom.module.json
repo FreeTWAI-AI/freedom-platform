@@ -11,7 +11,9 @@
     "apps/portal-web/src/modules/tenant-workspaces.css",
     "migrations/120_tenant_workspaces.sql",
     "tests/runtime/tenant-authorization.test.ts",
+    "tests/runtime/tenant-membership-identity.test.ts",
     "tests/runtime/tenant-ownership.test.ts",
+    "tests/runtime/tenant-read-deadline.test.ts",
     "tests/e2e/tenant-workspaces.spec.ts"
   ],
   "public_exports": [
