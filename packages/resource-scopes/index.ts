@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../../modules/identity-membership/service.js';
 import { OpaqueId, PrincipalRefSchema, ResourceScopeRefSchema, type PrincipalRef, type ResourceScopeRef } from '../../contracts/common/v1/identity.js';
 import { transaction } from '../db/transaction.js';
-import { lockMemberSession } from '../db/member-session.js';
+import { assertCurrentSessionClock, lockMemberSession } from '../db/member-session.js';
 import { requireCondition } from '../shared/problem.js';
 
 type MemberScopeKind = 'personal' | 'community';
@@ -188,5 +188,25 @@ export async function lockTenantScope(q: PoolClient, input: TenantScopeInput): P
     tenant_status: tenant.status,
     principal_id: principal.principal_id,
     membership_version: membership.version,
+  });
+}
+
+/**
+ * Private tenant read. Later tenant read endpoints should call this instead of
+ * opening a transaction around lockTenantScope. Not a command and not a receipt.
+ * The session clock is checked after a successful read(), which is after the
+ * tenant and membership locks, and before the value is returned. A thrown read
+ * is not followed by that query, so its SQLSTATE still reaches the caller.
+ */
+export async function withTenantRead<T>(
+  pool: Pool,
+  input: TenantScopeInput,
+  read: (q: PoolClient, context: TenantScopeContext) => Promise<T>,
+): Promise<T> {
+  return transaction(pool, async q => {
+    const context = await lockTenantScope(q, input);
+    const value = await read(q, context);
+    await assertCurrentSessionClock(q, input.actor);
+    return value;
   });
 }

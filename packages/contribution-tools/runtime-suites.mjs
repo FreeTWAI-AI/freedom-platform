@@ -19,6 +19,12 @@ export const NODE_CONSUMER_SUITES = Object.freeze({
   'consumer.storefront': Object.freeze({ directory: 'tests', baseline: Object.freeze(['tests/read-client.test.mjs', 'tests/storefront.test.mjs', 'tests/templates.test.mjs']) }),
 });
 
+// Fixed producer files. No directory discovery, package hook, or database URL.
+// The list is host code; a descriptor cannot add or replace a path.
+export const FIXED_NODE_SUITES = Object.freeze({
+  'e2e.harness': Object.freeze(['scripts/run-e2e.test.mjs']),
+});
+
 export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 newcomer-guides newcomer-guide-dialogue guide-anchors guide-pack-assets
 chat-content direct-message-receipts member-card-qr member-session-lifecycle
@@ -45,5 +51,5 @@ portal-client-recovery positioning preview-protocol private-policy-grants privat
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions
-skill-upload-chat skill-upload-client social-links squad-invitations tenant-authorization tenant-ownership tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy worker-adapter
+skill-upload-chat skill-upload-client social-links squad-invitations tenant-authorization tenant-membership-identity tenant-ownership tenant-read-deadline tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy worker-adapter
 `.trim().split(/\s+/)).sort());

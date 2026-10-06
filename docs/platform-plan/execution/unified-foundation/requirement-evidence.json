@@ -1,6 +1,6 @@
 {
   "schema": "freedom.foundation.requirement-evidence/v1",
-  "recorded_at": "2026-10-05",
+  "recorded_at": "2026-10-06",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
   "scope": "Original168 requirements retain their exact original cases and minimum tiers. GOV-07 is accepted at its original context-tool tier, R2:M07 at its complete isolated DB/R2 restore tier and UF:INT-04 at its fixed candidate DB+HTTP tier; other full requirements remain open.",
   "source_documents": [
@@ -24,8 +24,8 @@
       "AP": 70
     },
     "by_state": {
-      "partial": 54,
-      "implemented": 62,
+      "partial": 55,
+      "implemented": 61,
       "not_run": 48,
       "blocked": 1,
       "accepted": 3
@@ -788,6 +788,123 @@
         "docs/platform-plan/execution/unified-foundation/api-composition-evidence-2026-10-05.json"
       ],
       "source_sha": "c31f00d9fcfd7adff6edb3c6a7c2ca2d0e49e2fc"
+    },
+    "release-compat-v3-81bb": {
+      "environment": "local Node deploy suite and owned network-none PostgreSQL18 entrypoint test; no preflight installation or cloud",
+      "id": "release-compat-v3-81bb",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Host v3 is not installed in deploy/cloudflare/preflight.mjs or the operator entrypoint; environments.json and the installed v2 host are unchanged.",
+        "No real v2_ migration exists under migrations/; neither entrypoint has planned, applied or released a real DAG catalog.",
+        "A v3 host must list the repository legacy frontier in migration_profile.legacy_ledger; that operator data is not in the repository."
+      ],
+      "observations": [
+        "Exact (name, sha256) sets with retained floor within observation within plan, each closed over planned dependencies; unknown rows, changed digests, slug substitution and a legacy frontier mismatch beside v2_ rows fail closed.",
+        "Only the host supplies the DAG profile; a candidate request cannot carry or select it. Host v2 is unchanged and rejects v2_ names in plan, observation and floor.",
+        "The ledger digest is canonical filename-sorted, so A-then-B, B-then-A and different topological application orders produce one digest.",
+        "At PR head 81bb178d the GitHub-hosted verify run 37426040500 (attempt 3) succeeded; locally the deploy suite was 456/456, migration-runner-plan 3/3, governance 379/379 and typecheck passed; the owned network-none PostgreSQL18 entrypoint test was 9/9 at f111be09."
+      ],
+      "references": [
+        "deploy/cloudflare/release-compatibility.md",
+        "deploy/cloudflare/lib/release-compatibility.mjs",
+        "deploy/cloudflare/test/release-compatibility.test.mjs"
+      ],
+      "source_sha": "81bb178daf28ecfb5b3a5ada2ea3f7625eb80f06"
+    },
+    "machine-broker-6f03": {
+      "environment": "isolated network-none PostgreSQL18, mounted Hono route and synthetic provider, locally and in GitHub-hosted runtime partitions on the PR head; no Worker, service binding or key profile installed",
+      "id": "machine-broker-6f03",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "No real BYOK provider call; the provider is a local synthetic fixture.",
+        "No Worker installs the machine broker; request/response key profiles and the reader floor for execution_machine_broker_authorizations are undecided.",
+        "No native CLI custody, reconnect, Extension/neo handoff or cloud execution; private AI stays off in every deployment."
+      ],
+      "observations": [
+        "A registered device obtains one model Step through DPoP and SQL admission; main signs a one-time broker authorization stored only as digests, and the credential broker re-reads SQL before the existing BYOK Step.",
+        "The mounted machine model route rejects wrong key, audience, method, URI, expiry and replay proofs; fixed trust refuses jku and unknown kid without network.",
+        "Pin substitution, a second mint, a second consume, wrong request or response keys and crossed purposes fail closed before provider dispatch; two connections claim and dispatch once.",
+        "Owner grant, model, approval, runtime and connection revoke and refresh reuse after dispatch move the machine Step to outcome_unknown with its reservation held; lost or late broker responses are not retried or reminted.",
+        "At PR head 6f0327cd the GitHub-hosted verify run 37437693880 succeeded with runtime partitions at 752-895 s of the 900 s budget; locally 228/228 across 19 machine, model-broker, credential-broker and model-step files on owned PostgreSQL18 at f05f5e0d, member-device-browser 2/2, deploy 456/456 and governance 379/379."
+      ],
+      "references": [
+        "migrations/119_machine_model_invocations.sql",
+        "apps/credential-broker/src/machine-bridge.ts",
+        "apps/platform-api/src/routes/machine-model-http.ts",
+        "tests/runtime/machine-model-http.test.ts",
+        "tests/runtime/machine-model-broker.test.ts",
+        "tests/runtime/machine-model-revocation.test.ts"
+      ],
+      "source_sha": "6f0327cd2d4e19df405e1e9ad3476613cc38e42e"
+    },
+    "recovery-generation-ae8b": {
+      "environment": "owned network-none PostgreSQL18 pair, real pg_dump/pg_restore recovery set, private-ai-authority Worker code in local workerd (Miniflare) with SQLite persistence; synthetic provider; authority not deployed",
+      "id": "recovery-generation-ae8b",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "The external authority is the Worker code in local Miniflare, not the deployed independent authority; remote generation/floor readback and this restore were not combined.",
+        "One filesystem model-result object, not R2; schema evidence unavailable.",
+        "No second authorized operator, device access token, session invalidation, offline reconnect, general queue drain or private model-result byte read."
+      ],
+      "observations": [
+        "A credential rotated after the snapshot is active again at generation 3 in the restored SQL; a fresh broker process reading floor 4 refuses claim, issue, bridge and rotate before any provider call and mints no new authorization.",
+        "A held one-use authorization and a dispatched Step captured before the snapshot are refused after the floor moves; begin replay is model_step_already_consumed and the Step stays outcome_unknown with its reservation held.",
+        "Owner metadata read, Stop and revoke succeed while recovery reads fail; rollback of the authority configuration is 503 and a forged profile header is refused; a credential ingested at generation 4 works once.",
+        "At PR head ae8ba0cc (tree 504047d1) the GitHub-hosted verify run 37451092690 succeeded with runtime partitions at 544-815 s of the 900 s budget; the drill is a manual owned drill outside hosted runtime discovery and passed 1/1 locally on tree 504047d1 with no leftover containers, after Grok's drill-10 and drill-11 on the 3fd7a310 bytes."
+      ],
+      "references": [
+        "tests/integration/recovery-generation-restore.test.ts",
+        "scripts/run-recovery-generation-drill.mjs"
+      ],
+      "source_sha": "ae8ba0ccb17b6aad6c2d741de4cdbf1409aa595b"
+    },
+    "member-avatar-r2-9f65": {
+      "environment": "local Playwright Chromium; owned network-none PostgreSQL18 unix socket; native local Miniflare R2; private AI product not installed",
+      "id": "member-avatar-r2-9f65",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Not staging, cloud R2, production or a second operator; no real model provider.",
+        "The fixture revoked the key through the broker store owner revoke (broker.credential.revoke) with the member session before the browser steps, not through the member UI or HTTP route.",
+        "The revoked BYOK key is a synthetic secret sealed with a local key; the no-key and revoked-key pair is not bound to a deployed candidate."
+      ],
+      "observations": [
+        "A member with no model key and a member whose BYOK key was revoked through broker.credential.revoke each save an avatar through the member card UI under policy r2_only; the served image/webp bytes match asset_objects.content_sha256 and the native local R2 object, and member_avatars.image_bytes stays null.",
+        "With the private AI product not installed the page shows the unavailable state, installed private-AI families return 503 private_ai_product_unavailable and model-connections is not mounted.",
+        "SVG is 415 avatar_format and 2 MiB plus one byte is 413 avatar_too_large with no new asset, receipt or legacy bytes; anonymous clients get 401 and a random public card token gets 404 avatar_not_found.",
+        "At PR head 9f655b01 (tree 1dc7ec78, the tree merged as main 626e56c3) the GitHub-hosted verify run 37468374935 succeeded with runtime partitions at 615-798 s of the 900 s budget; its ui-e2e job ran the main pass (470 passed, 10 skipped), the private-AI pass (10 passed, 1 skipped) and this avatar pass (1 passed). Locally on tree 1dc7ec78 with one owned network-none PostgreSQL18 per pass, the avatar pass was 1/1, the unflagged avatar spec 4/4 and the private-AI pass 10 passed with 1 skipped, leaving no container, socket or R2 directory."
+      ],
+      "references": [
+        "tests/e2e/member-avatar-asset.spec.ts",
+        "packages/testing/e2e-avatar-asset-fixture.ts",
+        "scripts/run-e2e.mjs"
+      ],
+      "source_sha": "9f655b01d1b73738917fdae761f2ed960f68bf1a"
+    },
+    "central-pin-d1c9": {
+      "id": "central-pin-d1c9",
+      "kind": "committed_github_execution",
+      "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+      "references": [
+        "docs/platform-plan/verification/main-ruleset-2026-10-06.json",
+        "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md"
+      ],
+      "observations": [
+        "Formal main ruleset24469536 pins verify.yml d1c9; the readback changed only the workflow SHA, and review, App-bound checks, strict freshness and no bypass are retained.",
+        "Old-pin green runs were refused after the pin change (S, R); a new head, or close/reopen on the same head, produced a d1c9 run before merge.",
+        "A green same head after base advance was refused by strict freshness (N2); update-branch created a new integration candidate that ran under d1c9 and merged.",
+        "A failed selected deploy-preflight made the aggregate return selected_job_not_success and the merge was refused (P).",
+        "Generated contract/inventory tamper with forged statuses and a same-App candidate verify check was refused (H2); a merge naming the superseded head returned 409.",
+        "Fork selector/workflow/contract tamper was refused (F). A hostile fork found a read-only token, Secret source None, no deploy/R2/provider/signing/OIDC variables, and a denied push (F2).",
+        "On formal main, the positive probe ran green under d1c9 and was closed unmerged; the negative probe failed source integrity and its merge was refused with workflow, check and approval violations."
+      ],
+      "limitations": [
+        "A candidate-controlled npm script made a selected suite run zero tests while verify succeeded (probe E); the pin fixes selector/aggregate bytes, not the commands they wrap.",
+        "Selected skipped and cancelled hosted jobs were not exercised on d1c9; P covers a failed selected job only.",
+        "Temporary probe rulesets used zero approvals and no CodeQL; main-target probes were not merged.",
+        "F2 checked process environment and a push with the persisted read-only job token in the jobs that run test:governance; runner metadata, other workflows and every job were not probed.",
+        "Central main has no merge queue; durable App publisher not installed; full P2 incomplete."
+      ]
     }
   },
   "requirements": [
@@ -899,12 +1016,18 @@
           "environment": "controlled synthetic accounts on Cloudflare staging and production; real HTTPS/R2; bounded Chromium staging playback",
           "covered_part": "Ordinary real member media flows with private AI disabled; exact revoke-model-key E2E matrix remains.",
           "limitations_reference": "evidence_catalog.media-cloud-d269.limitations"
+        },
+        {
+          "evidence_id": "member-avatar-r2-9f65",
+          "source_sha": "9f655b01d1b73738917fdae761f2ed960f68bf1a",
+          "environment": "local Playwright Chromium; owned network-none PostgreSQL18 unix socket; native local Miniflare R2; private AI product not installed",
+          "covered_part": "No-key and revoked-BYOK members each save an avatar on shared r2_only storage through the member UI while Private AI is off; unsupported and oversized uploads are rejected and anonymous clients do not receive the object.",
+          "limitations_reference": "evidence_catalog.member-avatar-r2-9f65.limitations"
         }
       ],
       "remaining": [
-        "Attach existing DB/E2E receipts if exact case includes no model key and revoked model key.",
-        "One current-version no-key/revoked-key avatar positive pair before accepted.",
-        "Member cloud avatar works while Private AI OFF; bind no-key/revoke-key E2E to integrated candidate."
+        "A local no-key/revoked-key avatar pair runs in the hosted ui-e2e job (r2_only on native local Miniflare R2, Private AI not installed); one current-version cloud pair on real R2 is still required before acceptance.",
+        "Member cloud avatar works while Private AI OFF; bind the no-key/revoked-key pair to the integrated candidate."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -1640,13 +1763,20 @@
           "environment": "existing host timers for staging and production; offsite full readback; isolated PostgreSQL/native local R2 quarantine",
           "covered_part": "Historical isolated DB/R2 restore is a separate bounded proof; it was not combined with old-token and queued-effect rejection.",
           "limitations_reference": "evidence_catalog.daily-snapshot-89f64.limitations"
+        },
+        {
+          "evidence_id": "recovery-generation-ae8b",
+          "source_sha": "ae8ba0ccb17b6aad6c2d741de4cdbf1409aa595b",
+          "environment": "owned network-none PostgreSQL18 pair, real pg_dump/pg_restore recovery set, private-ai-authority Worker code in local workerd (Miniflare) with SQLite persistence; synthetic provider; authority not deployed",
+          "covered_part": "Current-schema local restore, fresh process, persisted local Durable Object floor: an old one-use authorization and a pre-snapshot dispatched Step are refused and not replayed; owner read, Stop and revoke still succeed.",
+          "limitations_reference": "evidence_catalog.recovery-generation-ae8b.limitations"
         }
       ],
       "remaining": [
-        "Current 114/115-enabled candidate DB+R2 restore with durable independent recovery authority, fresh process, old tokens/queued dispatches retained.",
-        "Deny old effects and private reads; allow safe owner control; do not infer from older backup timer success.",
-        "Quarantine DB/object restore and session invalidation do not establish external current recovery generation, old queue drain or unknown effect nonreplay. A/D prerequisite.",
-        "Remote generation/floor readback is real but not an actual current DB restore + old queued command drill."
+        "Cloud or remote R2 restore is not this drill; the object transfer was one filesystem model-result object and schema evidence was unavailable.",
+        "Private model-result byte reads, device access tokens and session invalidation were not asserted.",
+        "Quarantine restore still does not establish a deployed current recovery generation or a general old-queue drain. A/D prerequisite.",
+        "Remote generation/floor readback is real but has not been combined with an actual current DB restore; the drill authority is local Miniflare."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -1869,15 +1999,22 @@
           "environment": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
           "covered_part": "Both real entrypoints apply A→B/B→A/empty catalogs to identical SQL/constraints/ledger; unknown/digest/target and host pin mismatch rejected.",
           "limitations_reference": "evidence_catalog.migration-entrypoints-795.limitations"
+        },
+        {
+          "evidence_id": "release-compat-v3-81bb",
+          "source_sha": "81bb178daf28ecfb5b3a5ada2ea3f7625eb80f06",
+          "environment": "local Node deploy suite and owned network-none PostgreSQL18 entrypoint test; no preflight installation or cloud",
+          "covered_part": "Release-compatibility host v3: host-only DAG profile and exact digest sets for floor, observation and plan with dependency closure; host v2 unchanged.",
+          "limitations_reference": "evidence_catalog.release-compat-v3-81bb.limitations"
         }
       ],
       "remaining": [
-        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "The host-approved DAG profile and release-floor set semantics exist as reviewed host v3 (#156) but are not installed in preflight or the operator pipeline; no real v2_ migration has been planned, applied or released through it.",
         "Current production/operator pending migration pipeline installation has not been changed or verified.",
-        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
+        "Repository legacy frontier is 119 (#158 machine lane: environments.json migrations.last and FOUNDATION_NAMES); 116-119 are not recorded as applied to any environment, and a v3 host must list the frontier in migration_profile.legacy_ledger."
       ],
       "accepted": false,
-      "state_basis": "Both actual local entrypoints now validated, including externally installed reviewed wrapper; formal DAG/release-floor/private pipeline transition remains open."
+      "state_basis": "Both actual local entrypoints validated, including the externally installed reviewed wrapper; the host-only DAG profile and release-floor set semantics exist locally as host v3 (#156), while formal installation and the private pipeline transition remain open."
     },
     {
       "id": "UF:INT-24",
@@ -1964,7 +2101,15 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "machine-broker-6f03",
+          "source_sha": "6f0327cd2d4e19df405e1e9ad3476613cc38e42e",
+          "environment": "isolated network-none PostgreSQL18, mounted Hono route and synthetic provider, locally and in GitHub-hosted runtime partitions on the PR head; no Worker, service binding or key profile installed",
+          "covered_part": "Machine broker path only: pin substitution, second mint or consume, wrong keys and crossed purposes fail closed before dispatch; the member broker tamper matrix is unchanged.",
+          "limitations_reference": "evidence_catalog.machine-broker-6f03.limitations"
+        }
+      ],
       "remaining": [
         "Attach exact candidate DB/HTTP receipts for modified step/context/owner/attempt/data/budget across real broker boundary.",
         "Confirm budget and export-policy tampering all mapped, not only signature forgery.",
@@ -2814,7 +2959,7 @@
       "fc_gates": [
         "FC-05"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -2828,13 +2973,22 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Actual hostile fork PR under the installed d1c9 pin: read-only Contents/Metadata token, Secret source None, no deploy/R2/provider/signing/OIDC variables in the candidate process, and a denied push with the persisted job token.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        }
+      ],
       "remaining": [
-        "Execute an actual hostile fork with attempts to read production R2/provider/signing credentials and record denial.",
-        "Prove fork code runs without privileged publish/deploy credentials; source permissions and absence of pull_request_target are only configuration evidence."
+        "Extend the hostile fork probe beyond process environment and a token push: every job and workflow that executes fork code, runner metadata and credential files.",
+        "Record a decision on persist-credentials for candidate checkouts; the read-only job token is currently readable by candidate code.",
+        "Source permissions and absence of pull_request_target remain configuration evidence; repeat the probe after any workflow or secret-scope change."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
     },
     {
       "id": "GOV-16",
@@ -2883,12 +3037,19 @@
           "environment": "local Node tests; no hosted run",
           "covered_part": "Focused local aggregate regression for selected deployment preflight; installed hosted workflow source is not changed by these local tests.",
           "limitations_reference": "evidence_catalog.preflight-aggregate-candidate.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Run separate selected-job skipped, cancelled and failed hosted candidates and retain aggregate non-success and merge rejection for each.",
+        "Run selected-job skipped and cancelled hosted candidates on the installed d1c9 pin and retain aggregate non-success and merge rejection for each; P covered only the failed selected deploy-preflight case.",
         "Existing #115 failure/cancellation rejection is bounded; it does not isolate every selected-job skip case.",
-        "After review of the preflight fix, install the new immutable required-workflow SHA in the GitHub ruleset and read it back; merging the candidate alone does not update installed c3e enforcement. Then retain hosted selected-preflight skipped/cancelled/failure rejection on that exact pin."
+        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; selected-suite test-count integrity is not enforced by the pin."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -2940,11 +3101,18 @@
           "environment": "formal directory main merge_group, ruleset24523158 active with no bypass",
           "covered_part": "Formal main queue actually revalidated and merged the exact candidate with fixed source/runtime workflows.",
           "limitations_reference": "evidence_catalog.directory-main-queue-9729.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Preserve candidate freshness for central main and every applicable consumer; formal directory main success is only one repo.",
-        "Complete same-head/base-advance and superseded-candidate rejection outside the directory profile; fork credential isolation is tracked by GOV-15.",
+        "Central evidence used temporary probe bases with zero approvals; formal central main has no merge queue and relies on strict freshness plus update-branch.",
+        "Preserve candidate freshness for every applicable consumer; the directory main queue and central strict freshness cover two repositories only.",
         "Keep temporary incompatible-combination rejection distinct from formal-main positive queue rollout."
       ],
       "accepted": false,
@@ -3497,10 +3665,17 @@
           "environment": "private candidate; local Worker genuine verifier through authenticated remote service bindings to deployed staging Workers/DO namespaces",
           "covered_part": "Real remote generation and rollback-floor verifier cases; does not restore DB/queue or test complete runtime rotation/offline/Stop matrix.",
           "limitations_reference": "evidence_catalog.recovery-authority-92179.limitations"
+        },
+        {
+          "evidence_id": "recovery-generation-ae8b",
+          "source_sha": "ae8ba0ccb17b6aad6c2d741de4cdbf1409aa595b",
+          "environment": "owned network-none PostgreSQL18 pair, real pg_dump/pg_restore recovery set, private-ai-authority Worker code in local workerd (Miniflare) with SQLite persistence; synthetic provider; authority not deployed",
+          "covered_part": "Restored current-schema DB against an independent local authority: old broker authorization refused after the generation moved; Stop returns outcome_unknown with the reservation held.",
+          "limitations_reference": "evidence_catalog.recovery-generation-ae8b.limitations"
         }
       ],
       "remaining": [
-        "Offline runtime reconnect and current-version restored DB against independent authority; deny old tokens after rotation while Stop still succeeds."
+        "Offline runtime reconnect with rotated device tokens is not covered; the restored-DB check used broker authorizations and a local Miniflare authority, not runtime access tokens or the deployed authority."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -5079,12 +5254,18 @@
           "environment": "local Node tests; no hosted run",
           "covered_part": "Focused local aggregate regression for selected deployment preflight; installed hosted workflow source is not changed by these local tests.",
           "limitations_reference": "evidence_catalog.preflight-aggregate-candidate.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "The source567/installed c3e aggregate omits selected deployment preflight from both verify.needs and result enforcement.",
-        "The local candidate fixes both omissions and has passing focused regressions; run selected cancelled/skipped hosted counterexamples with non-success verify.",
-        "After review of the preflight fix, install the new immutable required-workflow SHA in the GitHub ruleset and read it back; merging the candidate alone does not update installed c3e enforcement. Then retain hosted selected-preflight skipped/cancelled/failure rejection on that exact pin."
+        "Installed d1c9 includes selected deployment preflight in verify.needs and aggregate enforcement (hosted failure case P refused); run selected cancelled and skipped hosted counterexamples with non-success verify on this pin.",
+        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; this pin does not close that gap."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -5234,11 +5415,18 @@
           "environment": "formal directory main merge_group, ruleset24523158 active with no bypass",
           "covered_part": "Formal main queue actually revalidated and merged the exact candidate with fixed source/runtime workflows.",
           "limitations_reference": "evidence_catalog.directory-main-queue-9729.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Preserve candidate freshness for central main and every applicable consumer; formal directory main success is only one repo.",
-        "Complete same-head/base-advance and superseded-candidate rejection outside the directory profile; fork credential isolation is tracked by GOV-15.",
+        "Central evidence used temporary probe bases with zero approvals; formal central main has no merge queue and relies on strict freshness plus update-branch.",
+        "Preserve candidate freshness for every applicable consumer; the directory main queue and central strict freshness cover two repositories only.",
         "Keep temporary incompatible-combination rejection distinct from formal-main positive queue rollout."
       ],
       "accepted": false,
@@ -5914,6 +6102,13 @@
           "evidence_id": "machine-admission-9a0",
           "limitations_reference": "evidence_catalog.machine-admission-9a0.limitations",
           "source_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048"
+        },
+        {
+          "evidence_id": "machine-broker-6f03",
+          "source_sha": "6f0327cd2d4e19df405e1e9ad3476613cc38e42e",
+          "environment": "isolated network-none PostgreSQL18, mounted Hono route and synthetic provider, locally and in GitHub-hosted runtime partitions on the PR head; no Worker, service binding or key profile installed",
+          "covered_part": "Machine model route only: wrong key, audience, method, URI, expiry and replay proofs rejected on the mounted route; jku and unknown kid refused without network.",
+          "limitations_reference": "evidence_catalog.machine-broker-6f03.limitations"
         }
       ],
       "remaining": [
@@ -7903,11 +8098,19 @@
           "environment": "private candidate; local Worker genuine verifier through authenticated remote service bindings to deployed staging Workers/DO namespaces",
           "covered_part": "Real remote generation and rollback-floor verifier cases; does not restore DB/queue or test complete runtime rotation/offline/Stop matrix.",
           "limitations_reference": "evidence_catalog.recovery-authority-92179.limitations"
+        },
+        {
+          "evidence_id": "recovery-generation-ae8b",
+          "source_sha": "ae8ba0ccb17b6aad6c2d741de4cdbf1409aa595b",
+          "environment": "owned network-none PostgreSQL18 pair, real pg_dump/pg_restore recovery set, private-ai-authority Worker code in local workerd (Miniflare) with SQLite persistence; synthetic provider; authority not deployed",
+          "covered_part": "Older DB restore with a subsequently rotated key: SQL shows it active, a fresh broker refuses it against the persisted local authority floor, rotation of the restored row is refused and a new-generation key works once.",
+          "limitations_reference": "evidence_catalog.recovery-generation-ae8b.limitations"
         }
       ],
       "remaining": [
-        "Restore an older DB containing a subsequently revoked key and verify the independent external recovery generation prevents renewed authorization.",
-        "Check rotation/denylist state against that restored DB. Second-operator takeover and full R2 restoration remain separate FC-03/R2:M07 requirements."
+        "The restore and rotation checks used the authority Worker in local Miniflare; combine an older-DB restore with the deployed independent recovery generation on one candidate before acceptance.",
+        "Only a key rotated after the snapshot was revived and refused; a key revoked after the snapshot without rotation and the denylist check were not run. The broker compares the binding generation, not the credential state, so the refusal depends on the floor having moved after the restore.",
+        "Second-operator takeover and full R2 restoration remain separate FC-03/R2:M07 requirements."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."

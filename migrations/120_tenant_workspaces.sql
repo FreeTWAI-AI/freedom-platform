@@ -99,26 +99,54 @@ CREATE TRIGGER preserve_tenant_authority_audit
   BEFORE UPDATE OR DELETE ON tenant_authority_audit
   FOR EACH ROW EXECUTE FUNCTION preserve_tenant_authority_audit();
 
+-- Membership identity never moves. Ownership transfer changes role on the
+-- same row or inserts a new row. No product statement updates these columns.
+CREATE FUNCTION preserve_tenant_membership_identity() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.principal_id IS DISTINCT FROM OLD.principal_id THEN
+    RAISE EXCEPTION 'tenant membership identity is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER preserve_tenant_membership_identity
+  BEFORE UPDATE ON tenant_memberships
+  FOR EACH ROW EXECUTE FUNCTION preserve_tenant_membership_identity();
+
 -- Every tenant status except recovery_required needs at least one active
 -- owner. Deferred so create can insert the tenant and its owner together.
--- The row lock serializes concurrent demotions.
+-- A membership change checks every tenant id it touches, locking those
+-- tenants in ascending id order so two demotions cannot both commit.
 CREATE FUNCTION tenant_requires_active_owner() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
+  tids uuid[];
   tid uuid;
   st text;
   owners integer;
 BEGIN
-  tid := COALESCE(NEW.tenant_id, OLD.tenant_id);
-  -- Lock the tenant before counting. Two READ COMMITTED demotions must not
-  -- each observe the other owner and both commit.
-  SELECT status INTO st FROM tenants WHERE tenant_id = tid FOR NO KEY UPDATE;
-  IF st IS DISTINCT FROM 'recovery_required' THEN
-    SELECT count(*)::integer INTO owners FROM tenant_memberships
-      WHERE tenant_id = tid AND role = 'owner' AND status = 'active';
-    IF owners < 1 THEN
-      RAISE EXCEPTION 'active tenant requires an active owner' USING ERRCODE = '23514';
-    END IF;
+  IF TG_TABLE_NAME = 'tenants' THEN
+    tids := ARRAY[NEW.tenant_id];
+  ELSIF TG_OP = 'INSERT' THEN
+    tids := ARRAY[NEW.tenant_id];
+  ELSIF TG_OP = 'DELETE' THEN
+    tids := ARRAY[OLD.tenant_id];
+  ELSIF NEW.tenant_id = OLD.tenant_id THEN
+    tids := ARRAY[NEW.tenant_id];
+  ELSIF NEW.tenant_id < OLD.tenant_id THEN
+    tids := ARRAY[NEW.tenant_id, OLD.tenant_id];
+  ELSE
+    tids := ARRAY[OLD.tenant_id, NEW.tenant_id];
   END IF;
+  FOREACH tid IN ARRAY tids LOOP
+    SELECT status INTO st FROM tenants WHERE tenant_id = tid FOR NO KEY UPDATE;
+    IF st IS DISTINCT FROM 'recovery_required' THEN
+      SELECT count(*)::integer INTO owners FROM tenant_memberships
+        WHERE tenant_id = tid AND role = 'owner' AND status = 'active';
+      IF owners < 1 THEN
+        RAISE EXCEPTION 'active tenant requires an active owner' USING ERRCODE = '23514';
+      END IF;
+    END IF;
+  END LOOP;
   RETURN NULL;
 END;
 $$;
