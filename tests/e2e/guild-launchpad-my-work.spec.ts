@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
 import type { Pool } from 'pg';
 import { test, expect, type Browser, type Page } from './fixtures.js';
 
@@ -9,8 +8,6 @@ import { hashPassword } from '../../modules/identity-membership/service.js';
 const ABC_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
 const LEAVE = '有尚未儲存的內容，確定要離開嗎？';
 const UPGRADE = '你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。';
-// Brief screenshot directory, joined so the committed diff has no machine path token.
-const SHOTS = ['', 'tmp', 'glp', 'jobs', 'pc2ui', 'shots'].join('/');
 
 type GuildRow = { guild_key: string; name: string; category: string };
 type Person = { userId: string; email: string };
@@ -116,6 +113,33 @@ function assertLocal(urls: string[]) {
 }
 async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+async function assertMyWorkButtons(page: Page, width: number) {
+  const measured = await page.locator('.my-work').evaluate(root => {
+    const box = root.getBoundingClientRect().width;
+    const buttons = [...root.querySelectorAll<HTMLElement>('.btn')].map(element => {
+      const form = element.closest('form');
+      return {
+        label: (element.textContent ?? '').trim().slice(0, 24),
+        width: element.getBoundingClientRect().width,
+        formWidth: form ? form.getBoundingClientRect().width : 0,
+        primary: element.classList.contains('my-work-primary'),
+      };
+    });
+    return { box, buttons };
+  });
+  if (width === 1280) {
+    for (const button of measured.buttons) expect(button.width, button.label).toBeLessThanOrEqual(measured.box * 0.6);
+  }
+  if (width === 360) {
+    const inForm = measured.buttons.filter(button => button.formWidth > 0);
+    const primaries = inForm.filter(button => button.primary);
+    expect(primaries.length).toBeGreaterThan(0);
+    for (const button of inForm) {
+      if (button.width >= button.formWidth * 0.9) expect(button.primary, button.label).toBe(true);
+    }
+    for (const button of primaries) expect(button.width, button.label).toBeGreaterThanOrEqual(button.formWidth * 0.9);
+  }
 }
 async function theme(page: Page, id: 'light' | 'dark' | 'versefolk') {
   await page.evaluate(value => {
@@ -290,9 +314,8 @@ test('T-006 a non-member of the tenant sees none of its work and an unknown guil
   }
 });
 
-test('T-055 keyboard, themes, narrow layout, unsaved leave, and a late workspace response', async ({ browser, baseURL, e2eAuthPool }) => {
+test('T-055 keyboard, themes, narrow layout, unsaved leave, and a late workspace response', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
   test.setTimeout(300_000);
-  mkdirSync(SHOTS, { recursive: true });
   // Button colors transition for 160ms. Reduced motion settles the theme before a color read.
   const [guild] = await guildsByCategory(e2eAuthPool);
   const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
@@ -325,6 +348,8 @@ test('T-055 keyboard, themes, narrow layout, unsaved leave, and a late workspace
     await expect(session.page.getByRole('button', { name: '建立', exact: true })).toBeFocused();
     await session.page.keyboard.press('Enter');
     await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible();
+    await expect(session.page.getByRole('heading', { level: 4, name: '新增工作', exact: true })).toBeVisible();
+    await expect(session.page.getByRole('heading', { level: 4, name: title, exact: true })).toBeVisible();
     await session.page.locator('#my-work-note').focus();
     await session.page.keyboard.type(`鍵盤筆記${run}`);
     await session.page.keyboard.press('Tab');
@@ -335,11 +360,12 @@ test('T-055 keyboard, themes, narrow layout, unsaved leave, and a late workspace
     await expect(session.page.locator('.my-work-stage')).toContainText(/已儲存・第 \d+ 版・/, { timeout: 20_000 });
     for (const id of ['light', 'dark', 'versefolk'] as const) {
       await theme(session.page, id);
-      for (const [width, height] of [[1280, 900], [360, 780]] as const) {
+      for (const [width, height] of [[1280, 900], [390, 844], [360, 780], [320, 640]] as const) {
         await session.page.setViewportSize({ width, height });
         await expect(session.page.getByRole('heading', { level: 1, name: guild.name })).toBeVisible();
         await noOverflow(session.page);
-        await session.page.screenshot({ path: `${SHOTS}/t055-${id}-${width}.png`, fullPage: true });
+        await assertMyWorkButtons(session.page, width);
+        await session.page.screenshot({ path: testInfo.outputPath(`t055-${id}-${width}.png`), fullPage: true });
       }
     }
     await theme(session.page, 'light');
@@ -363,7 +389,7 @@ test('T-055 keyboard, themes, narrow layout, unsaved leave, and a late workspace
     await session.page.reload();
     await expect(session.page.getByRole('heading', { level: 1, name: longName })).toBeVisible();
     await noOverflow(session.page);
-    await session.page.screenshot({ path: `${SHOTS}/t055-long-name-360.png`, fullPage: true });
+    await session.page.screenshot({ path: testInfo.outputPath('t055-long-name-360.png'), fullPage: true });
     await e2eAuthPool.query('UPDATE positioning_guild_catalog SET name=$2 WHERE guild_key=$1', [guild.guild_key, originalName]);
     await session.page.setViewportSize({ width: 1280, height: 900 });
     await session.page.reload();
@@ -497,19 +523,23 @@ test('a lost finalize acknowledgement retries once and keeps a single result', a
       await route.fetch();
       await route.abort();
     });
-    await session.page.getByLabel(starter.note_hint, { exact: true }).fill(`重試筆記${run}`);
+    const longNote = 'a'.repeat(20_000);
+    await session.page.getByLabel(starter.note_hint, { exact: true }).fill(longNote);
     await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
     await expect(session.page.getByText('尚未確認是否儲存，請按重試（不會重複保存）', { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(session.page.locator('.my-work-stage')).not.toContainText('已儲存');
+    await expect(session.page.getByText('筆記超過 262144 位元組。', { exact: true })).toHaveCount(0);
     await session.page.getByRole('button', { name: '重試', exact: true }).click();
     await expect(session.page.locator('.my-work-stage')).toContainText(/已儲存・第 1 版・/, { timeout: 20_000 });
+    await expect(session.page.locator('.my-work-result')).toContainText(`${longNote.length} 位元組`);
     const works = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
     const workId = ((await works.json()) as { items: { work_id: string; title: string }[] }).items.find(item => item.title === title)?.work_id;
     expect(workId).toBeTruthy();
     const results = await session.page.request.get(`/api/v1/tenants/${tenantId}/works/${workId}/results?limit=20`);
-    const items = ((await results.json()) as { items: { revision: string; sha256: string }[] }).items;
+    const items = ((await results.json()) as { items: { revision: string; byte_size: number }[] }).items;
     expect(items).toHaveLength(1);
     expect(items[0].revision).toBe('1');
+    expect(items[0].byte_size).toBe(longNote.length);
   } finally {
     await session.context.close();
     await cleanup(e2eAuthPool, member.userId);
