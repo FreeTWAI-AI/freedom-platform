@@ -13,7 +13,8 @@
     "tests/runtime/model-broker-bridge-adversarial.test.ts",
     "tests/runtime/credential-ingest-broker.test.ts",
     "tests/runtime/credential-ingest-process.test.ts",
-    "tests/runtime/credential-ingest-adversarial.test.ts"
+    "tests/runtime/credential-ingest-adversarial.test.ts",
+    "deploy/cloudflare/sql/45-model-broker-execution-grants.psql"
   ],
   "public_exports": [],
   "dependencies": [
