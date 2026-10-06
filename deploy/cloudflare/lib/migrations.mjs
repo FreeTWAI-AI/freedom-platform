@@ -47,11 +47,13 @@ function stripComments(sql) {
   return sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-export function checkMigrations(dir, expected) {
+/** Third argument is a host-selected DAG profile. Manifests, env and candidate JSON cannot select it. */
+export function checkMigrations(dir, expected, hostProfile) {
   const sources = readMigrationSources(dir), files = sources.map(e => e.name);
   const problems = [];
   let plan;
-  try { plan = resolveMigrationPlan(sources, legacyMigrationProfile(expected)); }
+  const dag = hostProfile !== undefined;
+  try { plan = resolveMigrationPlan(sources, dag ? hostProfile : legacyMigrationProfile(expected)); }
   catch (error) { problems.push(error.message); }
   const privileged = [], reviewedPrivileged = [];
   const entries = sources.map(({ name, sql }) => {
@@ -66,7 +68,7 @@ export function checkMigrations(dir, expected) {
     return { name, sha256 };
   });
   const functionsAndTriggers = sources.filter(({ sql }) => /\bCREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|TRIGGER)\b/i.test(stripComments(sql))).map(e => e.name);
-  return {
+  const result = {
     ok: problems.length === 0 && privileged.length === 0,
     count: files.length,
     first: files[0],
@@ -79,4 +81,7 @@ export function checkMigrations(dir, expected) {
     ledger: entries,
     ledger_digest: createHash('sha256').update(entries.map((e) => `${e.name}:${e.sha256}`).join('\n')).digest('hex'),
   };
+  // Absent on the legacy path so existing scan objects stay byte-identical.
+  if (dag) result.dependencies = plan ? plan.dependencies.map(({ name, depends_on }) => ({ name, depends_on: [...depends_on] })) : [];
+  return result;
 }
