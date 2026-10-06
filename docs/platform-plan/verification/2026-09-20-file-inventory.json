@@ -11529,8 +11529,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 14570,
-      "sha256": "71b56da89f4b49d145fd94d1e007bf9fb8bd110ba7490c0d0bb63f1e2bc7f588"
+      "bytes": 14653,
+      "sha256": "5afa6ffae15c574394f02249c9c81290de6d7387fdea45ff99d553859e8f65de"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -11609,8 +11609,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
-      "bytes": 4345,
-      "sha256": "1c53518967276aca0661f19aae4b7a719b5a8f2d08c9a759f9baffc3d2a98da6"
+      "bytes": 4762,
+      "sha256": "81b59ec95874542a2edfa50c57046f8874ebd0164a707836f50cad8105bd47d3"
     },
     {
       "path": "deploy/cloudflare/lib/oci.mjs",
@@ -11644,8 +11644,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 27976,
-      "sha256": "b2cbfb0199988af9063c4e46f09cf2fcdb0a4a4e0560c1b690afca18531c680c"
+      "bytes": 38963,
+      "sha256": "5f33f4624f770f2744041f94be33f53d745d89201a7e7a8c1b0725391f3813ee"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -11664,8 +11664,8 @@
     },
     {
       "path": "deploy/cloudflare/migration-operator.md",
-      "bytes": 172,
-      "sha256": "34d42076f5e0111da04b56280c2ccdf84ea859ba31b270adc7f6e83ef7df1688"
+      "bytes": 352,
+      "sha256": "ec3ac24634bc5a8c8a620c75c50002d4deec71be77c5165ceb1b7a460362c29b"
     },
     {
       "path": "deploy/cloudflare/migration-operator.mjs",
@@ -11679,8 +11679,8 @@
     },
     {
       "path": "deploy/cloudflare/release-compatibility.md",
-      "bytes": 26171,
-      "sha256": "85af5853251314371bbe73441c98030772fd9381a5f83e104adccd1746c09a0f"
+      "bytes": 29026,
+      "sha256": "68b10eb8b8a049228842468cc8d48cd203417f1452f699608497a21b586abaef"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -11754,8 +11754,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 10958,
-      "sha256": "5d0f61b557b5e6e2dc0f2dbab1963f7a5f7efc6f2c722bc5d856cf8cdca122f0"
+      "bytes": 12359,
+      "sha256": "588b94b259a630527bf2ba833b94c9536b8bf3b2d1378663db5aa21908d1da89"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -11789,8 +11789,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 37383,
-      "sha256": "9cc633f65cd6ef94f2bfc4b489e607ed381499695a985a861c919dd44bc1c1e7"
+      "bytes": 52231,
+      "sha256": "caeadf788c5fb79820c5eb31195eb4088ea0a20e8c41a02e4d6ddf2982926917"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -12484,8 +12484,8 @@
     },
     {
       "path": "docs/development/seven-media-backup-restore.md",
-      "bytes": 7926,
-      "sha256": "452d79505b8c2a1bc109d85322c466a1b6ed5828f2f7ce4ad01e6a39e9c887e0"
+      "bytes": 10172,
+      "sha256": "8a5bd9ad0beb893bae0cf17761422ba4aec5d7a51e284700d1aed8dde5de4628"
     },
     {
       "path": "docs/development/share-promotion.md",
@@ -16499,8 +16499,8 @@
     },
     {
       "path": "packages/db/migration-operator.md",
-      "bytes": 4982,
-      "sha256": "ad0b4731ab934e1b1e431790b38c8b2e59ee284f97317e35419c2721452a3475"
+      "bytes": 5124,
+      "sha256": "83f54fe26e2d0da33feb88c57cca4823563d2beb384b3d1b62ddcc6c9330f2b6"
     },
     {
       "path": "packages/db/migration-plan.d.mts",
@@ -16524,8 +16524,8 @@
     },
     {
       "path": "packages/db/migrations.md",
-      "bytes": 6060,
-      "sha256": "158ec039ced8032ad364fb72633ae40e62e6f3e1c4af34a3ec3b959aa2d02720"
+      "bytes": 6843,
+      "sha256": "9ca2c47aa587a0a0f178ffce82164337a5165bc47ad032bea9c328e10fce14f5"
     },
     {
       "path": "packages/db/snapshot-evidence.ts",
@@ -16584,8 +16584,8 @@
     },
     {
       "path": "packages/media-migration/backup-archive.ts",
-      "bytes": 33391,
-      "sha256": "ad173407a76c28c3956d54dcdea652fe0a9ca19a84c84bbf48c3bb8d3db550d8"
+      "bytes": 34942,
+      "sha256": "18fd0db00067e9e5a206c209ef0030912299eb841df6043134c901a6cdaeca6e"
     },
     {
       "path": "packages/media-migration/backup-coordinator.ts",
@@ -16594,8 +16594,8 @@
     },
     {
       "path": "packages/media-migration/backup-daily.ts",
-      "bytes": 14132,
-      "sha256": "4398d856cbaf8ac9231d8a6108cb65b40c15784404422562b7dae7ec40e0ea68"
+      "bytes": 14383,
+      "sha256": "f13c48ff3d36b9b36927ce805ffa608b967886a2520e9a606f9598d7926dccca"
     },
     {
       "path": "packages/media-migration/backup-evidence.ts",
@@ -16624,8 +16624,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4032,
-      "sha256": "cc0cc58ba921afc58a3c50e20ca7bf644395901824cd264a9a22cd32868b9688"
+      "bytes": 4509,
+      "sha256": "8a134bf192da879b8586da3e265a6ba7c73a2a07a9c24ccb43ab5f3a3d8b63fd"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -16643,9 +16643,24 @@
       "sha256": "cdc6e85517f446e3c93a4a943d996fc974057b3fe9bc0d96103d043e11bc33ee"
     },
     {
+      "path": "packages/media-migration/owned-recovery-target.ts",
+      "bytes": 13911,
+      "sha256": "74554988a41525be2a990dbf03a8e9a9001cc087b95d56f206c12d37bf84413b"
+    },
+    {
+      "path": "packages/media-migration/recovery-bundle.ts",
+      "bytes": 5187,
+      "sha256": "ac225e6df5f0b7bd77178a2635dac58c1035aec6ba70ed0bc4cfa0dca074f867"
+    },
+    {
+      "path": "packages/media-migration/recovery-handover.ts",
+      "bytes": 10099,
+      "sha256": "52cc7dd5f476bc69fc8710ec3882aebe43bbd51a1dd640e037dae2a6cecc6501"
+    },
+    {
       "path": "packages/media-migration/restore-acl-lockdown.ts",
-      "bytes": 10278,
-      "sha256": "6f7a604a6a543a404de289cd861f40de632ef013c3f27074e589302bbb72b441"
+      "bytes": 10506,
+      "sha256": "916ccd34a2f34af4706a2830c0984488b6e9f44e797cbc20b089978a1f7b8f69"
     },
     {
       "path": "packages/media-migration/verify.ts",
@@ -17116,6 +17131,11 @@
       "path": "scripts/media-inventory.ts",
       "bytes": 4446,
       "sha256": "0d25bd55f1195cdcecc3c7792b9fb2882b6caf1386a82a4fcfeeb4c6b7289606"
+    },
+    {
+      "path": "scripts/media-recovery-restore.ts",
+      "bytes": 6189,
+      "sha256": "3aac0a544bf969abd667835ea6d278152494a42fb48604e06f44613ea4c5a243"
     },
     {
       "path": "scripts/media-restore-acl.ts",
@@ -17763,9 +17783,19 @@
       "sha256": "f1afb2f9fafdf00c2e89636ddf160e6493b4d225d09dc3f98f8127ff58efa8f5"
     },
     {
+      "path": "tests/integration/media-recovery-handover-producer.ts",
+      "bytes": 11486,
+      "sha256": "eaa725a9c02593e369dc0124507049aa0b2491694a72da86068985cb48516922"
+    },
+    {
+      "path": "tests/integration/media-recovery-handover.test.ts",
+      "bytes": 23700,
+      "sha256": "4e691448b247508d8842314e0fb0cff2011b6cb4b7bedee76d77876d22d385cb"
+    },
+    {
       "path": "tests/integration/migration-entrypoints-postgres.test.ts",
-      "bytes": 7780,
-      "sha256": "85f8ff4b2244d4fb8518617ca1ae266486d7a92710c9115ee83829b2d001cd5c"
+      "bytes": 7781,
+      "sha256": "3b57462677652730675c8d9fa706665428aea94dafccf859c70ff4058430ee0e"
     },
     {
       "path": "tests/integration/migration-plan-postgres.test.ts",
@@ -18359,8 +18389,8 @@
     },
     {
       "path": "tests/runtime/media-backup-archive.test.ts",
-      "bytes": 19120,
-      "sha256": "bad027fbf029a82760dd5997ed327759abd9fc94b13e9f50619d615f76cbc84e"
+      "bytes": 22258,
+      "sha256": "b49c210c85003142adcd5dd8a295c3a1bc5ea96f2c4f0f0f3a5769a0eb0f7150"
     },
     {
       "path": "tests/runtime/media-backup-daily.test.ts",
@@ -18391,6 +18421,11 @@
       "path": "tests/runtime/media-inventory.test.ts",
       "bytes": 20556,
       "sha256": "8b330172a12a0bada78217fb3b33de6f914de5eeb42360bd4fba2ac9b40596a2"
+    },
+    {
+      "path": "tests/runtime/media-recovery-bundle.test.ts",
+      "bytes": 4835,
+      "sha256": "f0e51a896f64addf1d167897401f300fa4fc3031a2f733a14fe842bafa7f1af7"
     },
     {
       "path": "tests/runtime/media-session-recovery.test.ts",

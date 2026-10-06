@@ -326,6 +326,55 @@ writes, cleanup, a model adapter, or a Run/Grant. Backup policy, actual object-c
 verification, restore/revocation reconciliation, binding checks, approved release
 slot, app/grants probes and deployment authorization remain separate gates.
 
+## Host profile v3
+
+`freedom.release-compatibility-host/v3` adds one host field, `migration_profile`:
+the planner DAG profile `{format:'freedom.migrations/dag-v2', legacy, legacy_ledger}`.
+Only the trusted host supplies it. The candidate request has no profile field,
+and `preflight.mjs` still calls `checkMigrations(dir, expected)` with the legacy
+manifest. A third scanner argument can carry that same host profile and then
+returns the planner's `dependencies`; the default scan does not.
+
+v2, documented above, is unchanged: positional prefixes, numeric shape
+thresholds, and rejection of every ledger that contains a `v2_` name.
+
+v3 checks:
+
+- Legacy rows keep numbering, the historical 022 gap and reviewed names from
+  076 onward. Without a `v2_` row, a legacy prefix stays valid. Any `v2_` row
+  requires the legacy rows to equal `legacy_ledger` exactly.
+- Inclusion is the exact `(name, sha256)` set: retained floor ⊆ observed ⊆
+  planned. Unknown names and changed digests fail closed. The same timestamp
+  and discriminator under another slug is `schema_identity_mismatch`.
+- Planned legacy rows must equal the host frontier
+  (`schema_legacy_frontier_mismatch`). A partial or gapped legacy set is
+  rejected by the existing numbering rules.
+- Each of planned, observed and the retained floor must be closed under the
+  planned scan's `dependencies`. A node missing a declared dependency is
+  `schema_dependency_closure_invalid`, with `ledger` set to `planned`,
+  `observed` or `rollback_floor`. A row that is not in the planned ledger
+  already fails inclusion. A v2-bearing catalog whose dependency list is
+  missing or does not cover the planned ledger is `schema_scan_failed`.
+- Digests stay the filename-sorted `name:sha256` digest. Reverse-order merges
+  and a database that applied v2 nodes in another topological order therefore
+  share one digest. Release records must name those canonical digests, not an
+  application-order digest.
+- Numeric shapes still compare against the legacy number only. A shape with
+  `migration_name` is satisfied only when that exact filename is in the
+  relevant set with the planned digest. `INTERNAL_V2_SHAPE` is a fixed
+  internal fixture for that rule and is absent from the shape and capability
+  allow-lists, so neither the candidate nor the host can inject it. No
+  production v2 shape is installed.
+- Malformed profiles are `migration_profile_invalid`. Any other profile format
+  is `migration_profile_unsupported`. An unknown host schema is
+  `host_version_unsupported`.
+
+Target, recovery generation, freshness, completeness, withdrawal, expiry,
+environment, capability and authority flags are the same checks as v2. Every
+report still sets `deployment_authority`, `restore_proof` and
+`execution_authority` to false. Installing v3 in the real preflight or operator
+path is a separate review.
+
 ## Test evidence and limits
 
 Dedicated tests use synthetic host approvals/observations plus the actual local

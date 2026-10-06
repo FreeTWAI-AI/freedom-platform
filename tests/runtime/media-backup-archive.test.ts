@@ -63,6 +63,41 @@ async function fixture(options: { evidence?: boolean } = {}) {
 }
 const createdAt = '2026-10-04T20:00:00.000Z';
 
+test('Independent recovery identity rejects swapped sets before target queries, restore or object writes', async () => {
+  const f=await fixture({evidence:false}),setId=randomUUID();
+  const sealed=await sealRecoverySet({backup:f.backup,setId,environment:'local',createdAt,dump:f.dump,archive:f.archive,backupObjects:f.backupObjects});
+  const expected={setId,manifestSha256:sealed.manifestSha256,environment:'local' as const,database:sealed.database,schema:SCHEMA,sourceRelease:sealed.sourceRelease};
+  let targetQueries=0,restores=0;
+  const destination=new FakeObjectStore();
+  const restore=(identity:typeof expected)=>restoreRecoverySet({archive:f.archive,setId,expected:identity,backupObjects:f.backupObjects,destinationObjects:destination,
+    restoredDatabase:'fp_restored',restoredPool:{async query(){targetQueries++;return {rows:[{database:'fp_restored',relations:0}]};}} as unknown as Pool,
+    database:{async restore({archive}){restores++;await new Response(archive).arrayBuffer();}},allowUnavailableEvidence:true,
+    objectAuthority:{exposure:'quarantine_not_approved_for_exposure',authorization:{async assertAllowed(){}}}});
+  for(const changed of [{setId:randomUUID()},{manifestSha256:'f'.repeat(64)},{environment:'staging'},
+    {database:'fp_other'},{schema:'fp_other'},{sourceRelease:'b'.repeat(40)}]){
+    const wrong={...expected,...changed} as typeof expected;
+    await assert.rejects(readbackRecoverySet({archive:f.archive,setId,expected:wrong,backupObjects:f.backupObjects,verifiedAt:createdAt}),code('recovery_identity_mismatch'));
+    await assert.rejects(restore(wrong),code('recovery_identity_mismatch'));
+  }
+  assert.equal(targetQueries,0);assert.equal(restores,0);
+  for(const object of f.backup.objects.objects)assert.equal(await destination.head(object.key),null);
+  assert.equal((await restore(expected)).status,'database_and_objects_restored');assert.equal(restores,1);
+});
+
+test('Expected recovery identity is copied before archive awaits and invalid tuples never read storage', async () => {
+  const f=await fixture(),setId=randomUUID();
+  const sealed=await sealRecoverySet({backup:f.backup,setId,environment:'local',createdAt,dump:f.dump,archive:f.archive,backupObjects:f.backupObjects});
+  const expected={setId,manifestSha256:sealed.manifestSha256,environment:'local' as const,database:sealed.database,schema:SCHEMA,sourceRelease:sealed.sourceRelease};
+  let reads=0;
+  const archive={...f.archive,async get(key:string){reads++;expected.manifestSha256='f'.repeat(64);expected.database='fp_changed';return f.archive.get(key);}};
+  const result=await readbackRecoverySet({archive,setId,expected,backupObjects:f.backupObjects,verifiedAt:createdAt});
+  assert.equal(result.manifestSha256,sealed.manifestSha256);assert.equal(result.database,sealed.database);
+  const before=reads;
+  for(const malformed of [{...expected,manifestSha256:'bad'},{...expected,unexpected:true},{...expected,database:'../escape'}])
+    await assert.rejects(readbackRecoverySet({archive,setId,expected:malformed,backupObjects:f.backupObjects,verifiedAt:createdAt}),code('invalid_input'));
+  assert.equal(reads,before);
+});
+
 test('Restored reference authority captures its mode and bound current check before caller mutation', async () => {
   let queries=0,checks=0;
   const pool={async query(){queries++;return {rows:[{database:'fp_restored',found:true}]};}} as unknown as Pool;
