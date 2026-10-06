@@ -71,6 +71,8 @@ export type PlatformRuntime = {
   now?: () => Date;
   /** Link-preview fetch. Production calls global fetch unbound; tests pass a fixture. */
   linkPreviewFetch?: (input: string, init?: RequestInit) => Promise<Response>;
+  /** Explicit store for tenant Result bytes. Absent refuses upload and content reads. */
+  tenantWorkAssetStore?: ObjectStore;
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
 };

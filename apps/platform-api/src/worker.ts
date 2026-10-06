@@ -171,6 +171,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
     // workerd rejects a bound global fetch, so the preview caller stays unbound.
     linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
+    tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
   };
 }
