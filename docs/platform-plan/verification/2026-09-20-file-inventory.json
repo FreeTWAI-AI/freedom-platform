@@ -13759,8 +13759,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 22720,
-      "sha256": "62a7b4bef4b20cc699ec447f73b551746961a7fea5c763c3a94cbc780f28ce04"
+      "bytes": 23589,
+      "sha256": "446f7c54879b9ea9aa3264d1b58199e7a159c41d0e35b31b076c233575370415"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 22323,
-      "sha256": "36f835b6f5818c4c3fc8bf0d4ca1976bc657861206948d57736eb8d8445b1046"
+      "bytes": 26311,
+      "sha256": "4818f5f4642dd4bcf145cfee2405b077d13380cc20dcb6c006bebcc235b70a1a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",

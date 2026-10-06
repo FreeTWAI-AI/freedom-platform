@@ -173,5 +173,13 @@ GOV-15 依此改為 `partial`；GOV-16／R2:D04／GOV-17／R2:D07 附加證據�
 migration 前的備份做過隔離還原與遠端 readback（第一次在 capture 階段因單一 R2 物件讀取逾時失敗，重跑一次通過），
 migration 114–119 由 production migrator 套用，`FREEDOM_SHOP_KEY_POLICY` 用與 staging 相同的 `legacy-compatible`；
 22 個唯讀公開 checks 通過，5 次 fresh health 都是 d1c9，兩個環境的 backup pin 都改成 d1c9。這些是 selected checks，不是 foundation acceptance。
-main 之後的 #180／#182／#162 沒有部署；改成 `purpose-bound-only` 前要先完成 agent-commerce 的 controlled legacy exit。
+
+同日第二輪：owner 於 21:35Z 核准後，main `8d2213d7`（d1c9 之後的 #180／#182／#162）於 21:52Z 部署到 staging：
+37 個 selected checks 通過，部署後 cron 有寫入，after-rollout 備份做過隔離還原與遠端 readback。
+22:12Z 再以同一份 dist 部署到 production：22 個唯讀公開 checks 通過，5 次 fresh health 都是 8d2213d7，
+after-rollout 備份通過，部署後 cron 有寫入；兩個環境的 backup pin 都改成 8d2213d7。同樣是 selected checks，不是 foundation acceptance。
+這一輪沒有 migration（兩個 ledger 唯讀確認到 119、無 pending），`FREEDOM_SHOP_KEY_POLICY` 維持 `legacy-compatible`。
+#162 的具名 prepared statement 只在 Private AI 開啟（兩邊都關）或尚未部署的 credential broker 才會執行，
+所以這一輪沒有在 Hyperdrive 上驗到它。回滾是重新部署 `d1c9e18f`，不需要還原資料。
+改成 `purpose-bound-only` 前要先完成 agent-commerce 的 controlled legacy exit。
 細節見[現況快照](current-state.json)與[治理安裝紀錄](governance-installation-2026-10-04.md)。
