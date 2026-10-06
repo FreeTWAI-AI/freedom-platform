@@ -104,6 +104,7 @@ export function createTenantWorkspaceRoutes(pool: Pool) {
     const headers = commandHeaders(c, false);
     return c.json(await ownership.proposeTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), await c.req.json(), headers.key), 201);
   });
+  app.get('/tenants/:tenant_id/ownership-transfers', async c => c.json(await ownership.listTenantTransfers(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), PageQuerySchema.parse(singleQuery(c)))));
   app.get('/tenants/:tenant_id/ownership-transfers/:id', async c => {
     EmptyObjectSchema.parse(singleQuery(c));
     return c.json(await ownership.getTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('id'))));

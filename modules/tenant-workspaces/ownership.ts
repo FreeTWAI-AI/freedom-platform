@@ -13,7 +13,7 @@ import { scopedJournal, scopedMemberCommand, scopedTenantCommand } from '../../p
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { roleCapabilities } from './authorization.js';
 import {
-  auditTenant, bumpAuthorizationRevision, encodeCursor, iso, limitOf, NOT_FOUND, persistTransferFailure,
+  auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, NOT_FOUND, persistTransferFailure,
   readCursor, requireMutableStatus, TRANSFER_MISSING, versionOf,
 } from './facts.js';
 import { consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
@@ -143,9 +143,38 @@ export async function listMyTransfers(pool: Pool, actor: Actor, query: { cursor?
     const page = rows.slice(0, limit);
     const items = [];
     for (const row of page) items.push(await transferView(q, row.transfer_id));
+    const sourceVersion = await countedSourceVersion(q, 'tenant_ownership_transfers', 'to_principal_id=$1', [principalId]);
     return TransferPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_transfers', null, page[page.length - 1].transfer_id) : null,
-      source_version: '1',
+      source_version: sourceVersion,
+    });
+  });
+}
+
+export async function listTenantTransfers(pool: Pool, actor: Actor, tenantId: string, query: { cursor?: string; limit?: string }) {
+  OpaqueId.parse(tenantId);
+  const limit = limitOf(query.limit);
+  return transaction(pool, async q => {
+    const principalId = await callerPrincipal(q, actor);
+    const tenant = (await q.query<{ community_id: string }>(`SELECT community_id FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
+    if (!tenant || tenant.community_id !== actor.community_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
+    const owner = await q.query(`SELECT 1 FROM tenant_memberships
+      WHERE tenant_id=$1 AND principal_id=$2 AND role='owner' AND status='active'`, [tenantId, principalId]);
+    if (owner.rowCount !== 1) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
+    const after = readCursor(query.cursor, principalId, 'tenant_transfers', tenantId);
+    await q.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+      WHERE tenant_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [tenantId]);
+    const rows = (await q.query<{ transfer_id: string }>(`SELECT transfer_id FROM tenant_ownership_transfers
+      WHERE tenant_id=$1 AND state='pending' AND ($2::uuid IS NULL OR transfer_id > $2::uuid)
+      ORDER BY transfer_id LIMIT $3`, [tenantId, after, limit + 1])).rows;
+    const page = rows.slice(0, limit);
+    const items = [];
+    for (const row of page) items.push(await transferView(q, row.transfer_id));
+    const sourceVersion = await countedSourceVersion(q, 'tenant_ownership_transfers', 'tenant_id=$1', [tenantId]);
+    return TransferPageSchema.parse({
+      items,
+      next_cursor: rows.length > limit ? encodeCursor(principalId, 'tenant_transfers', tenantId, page[page.length - 1].transfer_id) : null,
+      source_version: sourceVersion,
     });
   });
 }
@@ -188,6 +217,7 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
       // A past row is pre-expired and its version has already moved. Say so
       // before If-Match, which would otherwise report a stale version.
       if (transfer.expired || transfer.state === 'expired') throw new Problem(409, 'transfer_expired', '移交已過期。');
+      if (transfer.state === 'invalidated') throw new Problem(409, 'transfer_authority_changed', '業務空間的權限已變更，這份移交已失效。');
       requireCondition(transfer.state === 'pending', 409, 'transfer_closed', '這份移交已結束。');
       checkVersion(versionOf(transfer.version), expected);
       if (tenant.status === 'recovery_required') throw new Problem(409, 'tenant_recovery_required', '這個業務空間需要復原後才能變更。');
