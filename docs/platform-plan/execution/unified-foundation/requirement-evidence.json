@@ -640,6 +640,26 @@
         "No original requirement is newly accepted by an internal extraction.",
         "No cloud deployment, provider execution or installed trust change."
       ]
+    },
+    "api-composition-5fbd": {
+      "id": "api-composition-5fbd",
+      "kind": "local_candidate_execution",
+      "source_sha": "c31f00d9fcfd7adff6edb3c6a7c2ca2d0e49e2fc",
+      "environment": "owned isolated PostgreSQL18; actual existing Hono member-model/bootstrap handlers plus classifier cases",
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/api-composition-evidence-2026-10-05.json"
+      ],
+      "observations": [
+        "Private AI path families and terminal installation decision have one classifier.",
+        "Original request reaches its existing purpose-specific transport once; original method/body/auth boundaries remain downstream.",
+        "Missing required host installation stays unavailable; encoded reserved aliases terminate before generic body handling.",
+        "This change does not install machine model execution."
+      ],
+      "limitations": [
+        "Original full App/API responsibility and surface obligations require their complete cases; no full requirement accepted here.",
+        "No cloud, browser or machine broker acceptance.",
+        "Installed private execution profile and exact supported client scope remain separate work."
+      ]
     }
   },
   "requirements": [
