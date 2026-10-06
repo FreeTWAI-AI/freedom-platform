@@ -10,6 +10,7 @@
     "apps/portal-web/src/modules/TenantSettings.tsx",
     "apps/portal-web/src/modules/tenant-workspaces.css",
     "migrations/119_tenant_workspaces.sql",
+    "migrations/120_tenant_ownership_recovery.sql",
     "tests/runtime/tenant-authorization.test.ts",
     "tests/runtime/tenant-ownership.test.ts",
     "tests/e2e/tenant-workspaces.spec.ts"

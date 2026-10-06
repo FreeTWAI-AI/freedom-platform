@@ -75,6 +75,57 @@ FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespac
 WHERE n.nspname='public' AND c.relname IN ('domain_media_storage_policy') AND c.relkind='r'
 \gexec
 -- END DOMAIN MEDIA POLICY GRANTS
+-- Runtime may lock the authority policy, never change its values.
+-- Recovery capabilities are readable only. One statement fences both tables.
+-- BEGIN TENANT AUTHORITY POLICY GRANTS
+SELECT format($policy$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT, UPDATE (policy_lock) ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+        WHERE a.attrelid=%3$L::oid AND a.attname='policy_lock' AND a.attgenerated='s'
+          AND pg_catalog.pg_get_expr(d.adbin,d.adrelid)='0')
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND (
+          pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')
+          OR (a.attname<>'policy_lock' AND pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'UPDATE'))))
+    THEN RAISE EXCEPTION 'Unsafe runtime tenant authority policy privileges'; END IF;
+  END $guard$;
+$policy$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname = 'tenant_authority_policies' AND c.relkind='r'
+UNION ALL
+SELECT format($policy$
+  REVOKE ALL PRIVILEGES ON TABLE %1$s FROM %2$I;
+  REVOKE ALL PRIVILEGES (%4$s) ON TABLE %1$s FROM %2$I;
+  GRANT SELECT ON TABLE %1$s TO %2$I;
+  DO $guard$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=%2$L AND
+        (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+          OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)))
+      OR pg_catalog.has_table_privilege(%2$L,%3$L::oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=%3$L::oid AND a.attnum>0 AND NOT a.attisdropped AND (
+          pg_catalog.has_column_privilege(%2$L,%3$L::oid,a.attnum,'INSERT,UPDATE,REFERENCES,SELECT WITH GRANT OPTION,UPDATE WITH GRANT OPTION')))
+    THEN RAISE EXCEPTION 'Unsafe runtime tenant authority policy privileges'; END IF;
+  END $guard$;
+$policy$, c.oid::regclass, :'runtime', c.oid,
+  (SELECT string_agg(quote_ident(a.attname),',' ORDER BY a.attnum)
+    FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped))
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relname = 'platform_admin_tenant_recovery_capabilities' AND c.relkind='r'
+\gexec
+-- END TENANT AUTHORITY POLICY GRANTS
 -- An app role cannot approve, run or rewrite an operator migration.
 -- Remove table and stale column grants left by the broad legacy grant above.
 -- BEGIN OPERATOR MEDIA TABLE EXCLUSIONS
