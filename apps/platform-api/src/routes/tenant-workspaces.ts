@@ -2,6 +2,9 @@ import { Hono, type Context } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import { EmptyObjectSchema, InviteCandidateQuerySchema, PageQuerySchema } from '../../../../contracts/guild-launchpad/v1/tenant.js';
+import { createHighRiskVerification } from '../../../../modules/tenant-workspaces/high-risk-verification.js';
+import * as ownership from '../../../../modules/tenant-workspaces/ownership.js';
+import * as recovery from '../../../../modules/tenant-workspaces/recovery.js';
 import * as service from '../../../../modules/tenant-workspaces/service.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
@@ -51,6 +54,13 @@ export function createTenantWorkspaceRoutes(pool: Pool) {
   });
   app.get('/tenants/invite-candidates', async c => c.json(await service.resolveInviteCandidate(pool, c.get('actor'), InviteCandidateQuerySchema.parse(singleQuery(c)).user_id)));
   app.get('/me/tenant-invitations', async c => c.json(await service.listMyInvitations(pool, c.get('actor'), PageQuerySchema.parse(singleQuery(c)))));
+  app.post('/me/high-risk-verifications', async c => c.json(await createHighRiskVerification(pool, c.get('actor'), await c.req.json()), 201));
+  app.get('/me/tenant-ownership-transfers', async c => c.json(await ownership.listMyTransfers(pool, c.get('actor'), PageQuerySchema.parse(singleQuery(c)))));
+  app.get('/me/tenant-recovery-cases', async c => c.json(await recovery.listMyRecoveryCases(pool, c.get('actor'), PageQuerySchema.parse(singleQuery(c)))));
+  app.post('/me/tenant-recovery-cases/:id/accept', async c => {
+    const headers = commandHeaders(c, true);
+    return c.json(await recovery.acceptRecoveryCase(pool, c.get('actor'), OpaqueId.parse(c.req.param('id')), await c.req.json(), headers.key, headers.expected!));
+  });
   app.get('/tenants/:tenant_id', async c => {
     EmptyObjectSchema.parse(singleQuery(c));
     return c.json(await service.getTenant(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id'))));
@@ -90,5 +100,25 @@ export function createTenantWorkspaceRoutes(pool: Pool) {
     return c.json(await service.createWorkspace(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), await c.req.json(), headers.key), 201);
   });
   app.get('/tenants/:tenant_id/workspaces', async c => c.json(await service.listWorkspaces(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), PageQuerySchema.parse(singleQuery(c)))));
+  app.post('/tenants/:tenant_id/ownership-transfers', async c => {
+    const headers = commandHeaders(c, false);
+    return c.json(await ownership.proposeTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), await c.req.json(), headers.key), 201);
+  });
+  app.get('/tenants/:tenant_id/ownership-transfers/:id', async c => {
+    EmptyObjectSchema.parse(singleQuery(c));
+    return c.json(await ownership.getTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('id'))));
+  });
+  app.post('/tenants/:tenant_id/ownership-transfers/:id/accept', async c => {
+    const headers = commandHeaders(c, true);
+    return c.json(await ownership.acceptTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('id')), await c.req.json(), headers.key, headers.expected!));
+  });
+  app.post('/tenants/:tenant_id/ownership-transfers/:id/cancel', async c => {
+    const headers = commandHeaders(c, false);
+    return c.json(await ownership.cancelTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('id')), await c.req.json(), headers.key));
+  });
+  app.post('/tenants/:tenant_id/ownership-transfers/:id/decline', async c => {
+    const headers = commandHeaders(c, false);
+    return c.json(await ownership.declineTransfer(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('id')), await c.req.json(), headers.key));
+  });
   return app;
 }

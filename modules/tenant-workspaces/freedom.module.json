@@ -58,7 +58,13 @@
         "tenant.invite.revoke",
         "tenant.member.change",
         "tenant.member.leave",
-        "tenant.workspace.create"
+        "tenant.workspace.create",
+        "tenant.ownership.propose",
+        "tenant.ownership.accept",
+        "tenant.ownership.cancel",
+        "tenant.ownership.decline",
+        "tenant.recovery.accept",
+        "tenant.high_risk_verification"
       ],
       "auth_profile": "member-session"
     },
