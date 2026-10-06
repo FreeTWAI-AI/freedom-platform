@@ -11,6 +11,7 @@ import { requireTenantCapability, tenantWorkCapabilities } from '../opportunity-
 import { lockCapacityPolicy, lockDimension, rejectAtLimit, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
 import { scopedJournal, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import { transaction } from '../../packages/db/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { InstanceSelectionRequired } from './problems.js';
@@ -39,6 +40,21 @@ async function guildGate(q: PoolClient, context: TenantScopeContext, actor: Acto
     WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active' AND member_tier='full'`,
   [context.community_id, actor.user_id, guildKey]);
   requireCondition(member.rowCount === 1, 403, 'guild_full_member_required', '需要這個公會的正式會員身分。');
+}
+
+/** After the workspace and policy waits. Do not take this share before those waits. */
+async function lockGuildFullMember(q: PoolClient, context: TenantScopeContext, actor: Actor, guildKey: string) {
+  const member = await q.query(`SELECT 1 FROM positioning_profession_memberships
+    WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active' AND member_tier='full' FOR SHARE`,
+  [context.community_id, actor.user_id, guildKey]);
+  requireCondition(member.rowCount === 1, 403, 'guild_full_member_required', '需要這個公會的正式會員身分。');
+}
+
+async function lockActiveWorkInstance(q: PoolClient, tenantId: string, instanceId: string) {
+  const picked = (await q.query<{ status: string; module_key: string }>(
+    `SELECT status, module_key FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 FOR SHARE`,
+    [tenantId, instanceId])).rows[0];
+  requireCondition(picked && picked.status === 'active' && picked.module_key === 'work', 404, 'not_found', '找不到這個模組實例。');
 }
 
 async function lockWorkspace(q: PoolClient, tenantId: string, workspaceId: string) {
@@ -101,7 +117,9 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
     requireTenantCapability(context, 'instance.manage', true);
     await guildGate(q, context, actor, input.guild_key);
     await lockWorkspace(q, tenantId, workspaceId);
+    if (input.choice?.kind === 'reuse') await lockActiveWorkInstance(q, tenantId, input.choice.instance_id);
     requirePolicy(await lockCapacityPolicy(q, tenantId));
+    await lockGuildFullMember(q, context, actor, input.guild_key);
   }, async (q, context) => {
     const existing = await bindingOf(q, tenantId, workspaceId);
     if (existing) {
@@ -155,6 +173,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
   OpaqueId.parse(tenantId);
   const limit = query.limit ?? 20;
   const cursor = decodeCursor(query.cursor);
+  const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
   return transaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'instance.manage', false);
@@ -171,24 +190,30 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
     const items = [];
     for (const row of page) items.push(await instanceView(q, tenantId, row.instance_id));
     const version = (await q.query<{ v: string | null }>(`SELECT max(version)::text AS v FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].v;
-    return ModuleInstancePageSchema.parse({
+    const body = ModuleInstancePageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].instance_id) : null,
       source_version: version && version !== '0' ? version : context.authorization_revision,
     });
+    await assertCurrentSessionClock(q, clock);
+    return body;
   });
 }
 
 export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: string, workspaceId: string) {
+  const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
   return transaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'work:read', false);
     const row = await bindingOf(q, tenantId, workspaceId);
-    return row ? bindingView(tenantId, workspaceId, row, true) : null;
+    const view = row ? bindingView(tenantId, workspaceId, row, true) : null;
+    await assertCurrentSessionClock(q, clock);
+    return view;
   });
 }
 
 export async function launchpadContext(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, guildKey: string, workPage: unknown) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
+  const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
   return transaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'work:read', false);
@@ -205,10 +230,12 @@ export async function launchpadContext(pool: Pool, actor: Actor, tenantId: strin
     const maxInstance = (await q.query<{ v: string | null }>(`SELECT max(version)::text AS v FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].v;
     const workSource = (workPage as { source_version: string }).source_version;
     const source = [workSource, maxInstance ?? '0', workspace.version].reduce((best, value) => BigInt(value) > BigInt(best) ? value : best, '1');
-    return LaunchpadContextSchema.parse({
+    const body = LaunchpadContextSchema.parse({
       tenant_id: tenantId, workspace_id: workspaceId, source_version: source, instances: views, work_page: workPage,
       capacity_summary: await capacitySummary(q, context.scope.scope_id, tenantId),
       connection_summary: binding && hosted ? [{ instance_id: binding.instance_id, status: 'hosted_active' }] : [],
     });
+    await assertCurrentSessionClock(q, clock);
+    return body;
   });
 }

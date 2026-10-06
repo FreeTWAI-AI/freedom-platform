@@ -181,4 +181,4 @@ private GC and production rollout remain unimplemented or unverified here.
 
 ## Tenant human Results
 
-`tenant-results.ts` is a separate Result pair (`tenant_work_results`, `tenant_work_result_targets`). It reuses the asset engine profile `work.tenant-result` and does not widen personal Result tables, triggers, or the 094 publish functions. Personal Result behaviour stays as it is. No model call, event, or share path is added here.
+`tenant-results.ts` is a separate Result pair (`tenant_work_results`, `tenant_work_result_targets`). It reuses the asset engine profile `work.tenant-result` and does not widen personal Result tables, triggers, or the 094 publish functions. Personal Result behaviour stays as it is. No model call, event, or share path is added here. Tenant prepare locks the capacity policy before the Work row. Personal drafts still lock Work before policy.

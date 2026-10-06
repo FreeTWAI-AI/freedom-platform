@@ -21,7 +21,7 @@ import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability } from '../opportunity-project-work/tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, requirePolicy, retainedByteUsage } from '../opportunity-project-work/tenant-capacity.js';
 import { rememberTenantCommand, stableOperationId } from '../opportunity-project-work/tenant-command.js';
-import { loadWork, withTenantRead } from '../opportunity-project-work/tenant-work.js';
+import { loadWork, lockWritableInstance, withTenantRead } from '../opportunity-project-work/tenant-work.js';
 
 const prepareInput = z.object({
   key: assetCommandKey, targetWorkId: OpaqueId, expectedVersion: assetVersion,
@@ -75,8 +75,15 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     parsePrepare: raw => prepareInput.parse(raw),
     targetId: input => input.targetWorkId,
     async lockTarget(q, context, _actor, id, create): Promise<LifecycleTarget> {
-      // The engine passes false except while preparing. Publication locks the Work row itself.
-      const row = await loadWork(q, context.tenant_id, context.scope.scope_id, id, create);
+      // Prepare (create) locks instance, then capacity policy, then Work.
+      // Other phases lock the instance only; publication locks the intent, then policy, then Work.
+      const preview = await loadWork(q, context.tenant_id, context.scope.scope_id, id, false);
+      requireCondition(preview, 404, 'not_found', '找不到這個工作。');
+      requireCondition(preview.state === 'draft', 409, 'work_archived', '這個工作已封存。');
+      await lockWritableInstance(q, context.tenant_id, preview.instance_id);
+      if (!create) return { targetId: id, aggregateVersion: preview.aggregate_version, assetId: null };
+      requirePolicy(await lockCapacityPolicy(q, context.tenant_id));
+      const row = await loadWork(q, context.tenant_id, context.scope.scope_id, id, true);
       requireCondition(row, 404, 'not_found', '找不到這個工作。');
       requireCondition(row.state === 'draft', 409, 'work_archived', '這個工作已封存。');
       return { targetId: id, aggregateVersion: row.aggregate_version, assetId: null };

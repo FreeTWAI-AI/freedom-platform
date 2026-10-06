@@ -8,7 +8,7 @@ import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, rejectAtLimit, requirePolicy } from './tenant-capacity.js';
-import { loadWork, requireActiveWorkspace, type TenantWorkRow } from './tenant-work.js';
+import { loadWork, lockWritableInstance, requireActiveWorkspace, type TenantWorkRow } from './tenant-work.js';
 
 function operation(tenantId: string, instanceId: string, workId: string, operationId = randomUUID()): Operation {
   return OperationSchema.parse({
@@ -47,6 +47,7 @@ export function createTenantWorkCommands(pool: Pool) {
       requireTenantCapability(context, 'work:create', true);
     }, async (q, context) => {
       const instanceId = await boundInstance(q, tenantId, workspaceId);
+      await lockWritableInstance(q, tenantId, instanceId);
       const policy = requirePolicy(await lockCapacityPolicy(q, tenantId));
       await lockDimension(q, tenantId, 'work_items');
       const count = (await q.query<{ n: string }>(`SELECT count(*)::text AS n FROM work_items
@@ -71,10 +72,14 @@ export function createTenantWorkCommands(pool: Pool) {
       target: { kind: 'tenant_work', id: workId }, capabilitiesForRole: tenantWorkCapabilities,
     }, async (q, context) => {
       requireTenantCapability(context, 'work:write', true);
+      const preview = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
+      requireCondition(preview, 404, 'not_found', '找不到這個工作。');
+      requireCondition(preview.state === 'draft', 409, 'work_archived', '這個工作已封存。');
+      await requireActiveWorkspace(q, tenantId, preview.workspace_id);
+      await lockWritableInstance(q, tenantId, preview.instance_id);
       const row = await loadWork(q, tenantId, context.scope.scope_id, workId, true);
       requireCondition(row, 404, 'not_found', '找不到這個工作。');
       requireCondition(row.state === 'draft', 409, 'work_archived', '這個工作已封存。');
-      await requireActiveWorkspace(q, tenantId, row.workspace_id);
       locked = row;
     }, async (q, context) => {
       checkVersion(locked.aggregate_version, expected);

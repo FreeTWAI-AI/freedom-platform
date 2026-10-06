@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { transaction } from '../../packages/db/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -41,9 +42,12 @@ export function workView(row: TenantWorkRow): WorkView {
 }
 
 export async function withTenantRead<T>(pool: Pool, actor: Actor, tenantId: string, run: (q: PoolClient, context: TenantScopeContext) => Promise<T>) {
+  const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
   return transaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    return run(q, context);
+    const result = await run(q, context);
+    await assertCurrentSessionClock(q, clock);
+    return result;
   });
 }
 
@@ -58,6 +62,17 @@ export async function requireActiveWorkspace(q: PoolClient, tenantId: string, wo
   const row = (await q.query<{ status: string }>(`SELECT status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`, [tenantId, workspaceId])).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這個工作區。');
   requireCondition(row.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
+}
+
+/** New writes only. Instance FOR SHARE, then its deployment FOR SHARE. */
+export async function lockWritableInstance(q: PoolClient, tenantId: string, instanceId: string) {
+  const instance = (await q.query<{ status: string; binding_id: string }>(
+    `SELECT status, binding_id FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 FOR SHARE`,
+    [tenantId, instanceId])).rows[0];
+  const deployment = instance ? (await q.query<{ state: string }>(
+    `SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND binding_id=$2 AND instance_id=$3 FOR SHARE`,
+    [tenantId, instance.binding_id, instanceId])).rows[0] : undefined;
+  requireCondition(instance?.status === 'active' && deployment?.state === 'active', 409, 'work_instance_unavailable', '這個工作實例目前無法接受新的寫入。');
 }
 
 async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: string) {
