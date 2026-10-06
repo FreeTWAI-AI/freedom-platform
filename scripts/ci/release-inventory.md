@@ -67,7 +67,9 @@ The fixed profile accepts 1–16,384 files, at most 4 MiB per file, 256 MiB tota
 source bytes, an 8 MiB manifest and bounded uncompressed USTAR overhead. Paths
 must fit the fixed USTAR profile; unsupported extended headers, compression,
 links, devices, duplicate paths, traversal, extra/missing files, noncanonical
-metadata and nonzero trailing bytes fail. This intentionally is not a general
+metadata and nonzero trailing bytes fail. The trailer must be exactly the two
+zero blocks plus the zero fill to the next 10,240-byte record that `build`
+writes, so it is 1,024 to 10,752 bytes depending on the content offset. This intentionally is not a general
 tar extractor. [Python's tar documentation](https://docs.python.org/3/library/tarfile.html)
 describes the USTAR serializer used for exact header comparison.
 
@@ -88,7 +90,9 @@ python3 scripts/ci/test_release_source_archive.py
 The tests use real Git repositories and the actual CLI, then independently
 recompute a restored Git tree. They cover SQL/contract tampering, missing/extra/
 duplicate members, wrong source/pins, unsafe headers/paths, indirection, partial
-failures and a restore directory replaced with a symlink. Actual Foundation
+failures, a restore directory replaced with a symlink, and real builds at all 20
+512-byte offsets within a record, each checked by Python's own tar reader and
+rejected with an extra, short or missing trailer. Actual Foundation
 source archive/restore evidence must record both the source commit being
 archived and the separate tool source/digest. It is not hosted CI or operational
 backup evidence.

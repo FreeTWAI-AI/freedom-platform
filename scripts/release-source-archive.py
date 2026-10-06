@@ -292,8 +292,11 @@ def verify_stream(file, files):
         pad = file.read(-entry["bytes"] % 512)
         require(pad == b"\0" * len(pad) and len(pad) == -entry["bytes"] % 512, "archive_padding_invalid")
         archive_hash.update(raw); archive_hash.update(data); archive_hash.update(pad)
-    trailer = file.read(10241)
-    require(1024 <= len(trailer) <= 10240 and not trailer.strip(b"\0") and file.tell() % 10240 == 0 and not file.read(1), "archive_trailer_invalid")
+    # build() always writes two zero blocks, then zero-fills to a 10240-byte
+    # record, so the exact trailer length follows from the content offset.
+    expected = 1024 + (-(file.tell() + 1024) % 10240)
+    trailer = file.read(expected)
+    require(len(trailer) == expected and not trailer.strip(b"\0") and file.tell() % 10240 == 0 and not file.read(1), "archive_trailer_invalid")
     archive_hash.update(trailer)
     return offsets, archive_hash.hexdigest()
 

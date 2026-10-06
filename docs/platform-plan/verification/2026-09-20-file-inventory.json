@@ -16633,6 +16633,11 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/release-inventory.md",
+      "bytes": 5505,
+      "sha256": "8a7701f1fee75450647d241280f0fbfc66c91aabfd7794431382c1177cfb9576"
+    },
+    {
       "path": "scripts/ci/render-bwrap-deleted-compat.py",
       "bytes": 1436,
       "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
@@ -16646,6 +16651,11 @@
       "path": "scripts/ci/select-affected-jobs.test.mjs",
       "bytes": 35145,
       "sha256": "b83ed5a8d6373d709ae5a209cb61751ca6e79084235f29ccdc0dc1b0ce696d31"
+    },
+    {
+      "path": "scripts/ci/test_release_source_archive.py",
+      "bytes": 16033,
+      "sha256": "e5388bbc79f8719c3abed612f50b5f1c683034687fd64d81219f2a431c0f5c53"
     },
     {
       "path": "scripts/ci/verify-native-cli-prerequisites.sh",
@@ -16741,6 +16751,11 @@
       "path": "scripts/media-verify.ts",
       "bytes": 6809,
       "sha256": "5dadc37f3c3f1928ade48d1215671a3609a34af0b65b93adfa30e44a0d48d30e"
+    },
+    {
+      "path": "scripts/release-source-archive.py",
+      "bytes": 19827,
+      "sha256": "f13bfd9ac00e5e205c5c7666f8655d220ecc4bcce8a9fdef402ed3ee1bd56644"
     },
     {
       "path": "scripts/repository-bootstrap/agent-kit-device-cli.mjs",

@@ -112,6 +112,35 @@ class SourceArchiveTests(unittest.TestCase):
         self.assertEqual(bad.returncode, 1)
         self.assertEqual(json.loads(bad.stderr)["code"], "archive_inventory_pin_mismatch")
 
+    def test_every_record_alignment_builds_verifies_and_restores_exactly(self):
+        # One file of k*512 bytes puts the members at (k+1)*512 bytes, which
+        # covers all 20 offsets modulo the 10240-byte record, including 9728
+        # where the trailer is 1024+9728 bytes.
+        alignments = set()
+        for blocks in range(20):
+            with self.subTest(blocks=blocks):
+                self.repository = self.root / f"aligned-{blocks}"
+                self.repository.mkdir(mode=0o700)
+                self.git("init", "-q", "-b", "main")
+                (self.repository / "data.bin").write_bytes(bytes([blocks + 1]) * (blocks * 512))
+                self.commit()
+                self.output, self.restored = self.root / f"release-{blocks}", self.root / f"restored-{blocks}"
+                receipt = self.build()
+                content = (blocks + 1) * 512
+                alignments.add(content % 10240)
+                self.assertEqual(receipt["archive_bytes"], content + 1024 + (-(content + 1024) % 10240))
+                self.assertEqual(receipt["archive_bytes"] % 10240, 0)
+                with tarfile.open(self.output / "source.tar") as stdlib:  # Independent reader.
+                    self.assertEqual([(m.name, m.size) for m in stdlib.getmembers()], [("data.bin", blocks * 512)])
+                self.assertEqual(self.verify()["archive_sha256"], receipt["archive_sha256"])
+                self.assertEqual((self.restored / "data.bin").read_bytes(), bytes([blocks + 1]) * (blocks * 512))
+                original = (self.output / "source.tar").read_bytes()
+                shutil.rmtree(self.restored)
+                for data in [original + b"\0" * 10240, original[:-512], original[:-10240]]:
+                    self.rewrite_tar(data)
+                    self.rejected()
+        self.assertEqual(alignments, set(range(0, 10240, 512)))
+
     def test_source_and_inventory_pins_cannot_be_replaced_by_embedded_claims(self):
         self.build()
         self.pin = "f" * 64
