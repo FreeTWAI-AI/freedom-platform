@@ -47,6 +47,132 @@ async function widthAgainstForm(page: Page, name: string) {
   return buttonBox!.width / formBox!.width;
 }
 
+type Posted = { method: string; path: string; key?: string; ifMatch?: string; body: string | null };
+
+function recordPosts(page: Page): Posted[] {
+  const posted: Posted[] = [];
+  page.on('request', request => {
+    if (request.method() !== 'POST') return;
+    const headers = request.headers();
+    posted.push({
+      method: request.method(),
+      path: new URL(request.url()).pathname,
+      key: headers['idempotency-key'],
+      ifMatch: headers['if-match'],
+      body: request.postData(),
+    });
+  });
+  return posted;
+}
+
+function isHighRisk(path: string) {
+  return path === '/api/v1/me/high-risk-verifications';
+}
+
+function isFollowUp(path: string) {
+  return /\/ownership-transfers(?:\/|$)/.test(path) || /\/tenant-recovery-cases\/[^/]+\/accept$/.test(path);
+}
+
+/** Hold the fresh-auth response until the dialog is dismissed, then prove the
+ * captured command is not sent. A short bound after the body arrives is the
+ * only way to observe that no follow-up was emitted. */
+async function dismissHeldVerification(page: Page, posted: Posted[], gesture: 'escape' | 'cancel') {
+  let release: (() => void) | undefined;
+  let arrived: (() => void) | undefined;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const held = new Promise<void>(resolve => { arrived = resolve; });
+  let armed = true;
+  await page.route('**/api/v1/me/high-risk-verifications', async route => {
+    if (route.request().method() !== 'POST' || !armed) {
+      await route.continue();
+      return;
+    }
+    armed = false;
+    arrived?.();
+    await gate;
+    await route.continue();
+  });
+  const password = page.getByLabel('目前的密碼', { exact: true });
+  const before = posted.length;
+  await password.pressSequentially(DEMO_PASSWORD);
+  await page.getByRole('button', { name: '確認密碼', exact: true }).click();
+  await held;
+  if (gesture === 'escape') await page.keyboard.press('Escape');
+  else await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '重新驗證', exact: true })).toBeHidden();
+  const response = page.waitForResponse(candidate => candidate.request().method() === 'POST' && isHighRisk(new URL(candidate.url()).pathname));
+  release?.();
+  await (await response).finished();
+  await page.waitForTimeout(1000);
+  const added = posted.slice(before);
+  const leaked = added.filter(item => isFollowUp(item.path));
+  expect(leaked, `${gesture} sent ${JSON.stringify(leaked)}`).toEqual([]);
+  expect(added.filter(item => isHighRisk(item.path))).toHaveLength(1);
+  await page.unroute('**/api/v1/me/high-risk-verifications');
+}
+
+async function confirmPropose(page: Page, posted: Posted[], recipientName: string) {
+  const before = posted.length;
+  await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+  const password = page.getByLabel('目前的密碼', { exact: true });
+  await expect(password).toBeFocused();
+  await password.pressSequentially(DEMO_PASSWORD);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(`已提出移交給${recipientName}。對方接受前，擁有權不會改變。`)).toBeVisible();
+  const follow = posted.slice(before).filter(item => /\/tenants\/[^/]+\/ownership-transfers$/.test(item.path));
+  expect(follow).toHaveLength(1);
+  expect(follow[0].method).toBe('POST');
+  expect(follow[0].key).toMatch(/^[A-Za-z0-9_-]{8,128}$/);
+  expect(follow[0].ifMatch).toBeUndefined();
+  const body = JSON.parse(follow[0].body ?? '{}') as { to_principal_id?: string; fresh_auth_verification_id?: string; reason?: string; from_role_after?: string };
+  expect(body.to_principal_id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(body.fresh_auth_verification_id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(body.reason).toBe('交給下一位擁有者');
+  expect(body.from_role_after).toBe('admin');
+}
+
+async function openProposeDialog(page: Page, recipientName: string) {
+  await navigate(page, '業務空間');
+  await page.getByLabel('業務空間名稱', { exact: true }).fill('品牌甲');
+  await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill('櫃檯甲');
+  await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+  await expect(page.getByText('我的角色：擁有者', { exact: true })).toBeVisible();
+  await page.getByLabel('搜尋接收者', { exact: true }).fill(recipientName);
+  await page.getByRole('button', { name: '搜尋接收者', exact: true }).click();
+  await page.getByRole('button', { name: `選擇${recipientName}為接收者`, exact: true }).click();
+  await page.getByLabel('移交原因', { exact: true }).fill('交給下一位擁有者');
+  await page.getByRole('button', { name: '檢視移交內容', exact: true }).click();
+  await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+  await expect(page.getByLabel('目前的密碼', { exact: true })).toBeFocused();
+}
+
+async function heldDismiss(gesture: 'escape' | 'cancel', browser: Browser, baseURL: string, db: import('pg').Pool) {
+  const run = randomUUID().slice(0, 8);
+  const people = await seed(db, run);
+  const [owner, recipient] = people;
+  const ownerSession = await open(browser, baseURL, owner, { width: gesture === 'escape' ? 1440 : 390, height: gesture === 'escape' ? 900 : 844 });
+  const posted = recordPosts(ownerSession.page);
+  try {
+    await openProposeDialog(ownerSession.page, recipient.display_name);
+    await dismissHeldVerification(ownerSession.page, posted, gesture);
+    await confirmPropose(ownerSession.page, posted, recipient.display_name);
+    await noOverflow(ownerSession.page);
+  } finally {
+    await ownerSession.context.close();
+    await cleanup(db, people);
+  }
+}
+
+test('Escape during a held password check does not send the captured transfer', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  await heldDismiss('escape', browser, baseURL!, e2eAuthPool);
+});
+
+test('Cancel during a held password check does not send the captured transfer', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  await heldDismiss('cancel', browser, baseURL!, e2eAuthPool);
+});
+
 test('an owner proposes a transfer and the named recipient accepts it', async ({ browser, baseURL, e2eAuthPool }) => {
   test.setTimeout(120_000);
   const run = randomUUID().slice(0, 8);

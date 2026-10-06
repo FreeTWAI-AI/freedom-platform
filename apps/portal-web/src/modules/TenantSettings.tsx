@@ -46,6 +46,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const dialogRef = useRef<HTMLDialogElement>(null);
   const actionPurpose = useRef<'tenant.ownership.propose' | 'tenant.ownership.accept' | 'tenant.recovery.accept' | null>(null);
   const actionTenant = useRef<string | null>(null);
+  const passwordAttempt = useRef(0);
   const dialogTitle = useId();
   const [tenants, setTenants] = useState<TenantView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -305,6 +306,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   }
 
   function closePassword() {
+    passwordAttempt.current += 1;
+    actionPurpose.current = null;
+    actionTenant.current = null;
     setPassword(''); setPasswordError(''); setPasswordOpen(false); setVerifiedAction(null);
     returnFocus.current?.focus();
   }
@@ -320,18 +324,20 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const action = verifiedAction;
     const secret = password;
     if (!action || !secret) return;
+    const attempt = passwordAttempt.current;
+    const purpose = actionPurpose.current;
+    const tenantId = actionTenant.current;
+    if (!purpose || !tenantId) return;
     setPassword(''); setPasswordBusy(true); setPasswordError('');
     try {
-      const purpose = actionPurpose.current;
-      const tenantId = actionTenant.current;
-      if (!purpose || !tenantId) return;
       const verified = await client.post<{ verification_id: string }>('/me/high-risk-verifications', {
         password: secret, purpose, tenant_id: tenantId,
       }, { signal: abortRef.current?.signal });
+      if (attempt !== passwordAttempt.current) return;
       setPasswordOpen(false); setVerifiedAction(null);
       await action(verified.verification_id);
     } catch (error) {
-      if (abortRef.current?.signal.aborted) return;
+      if (attempt !== passwordAttempt.current || abortRef.current?.signal.aborted) return;
       if (networkFailure(error)) {
         setPasswordError('無法確認重新驗證，請再輸入一次密碼。');
         return;
