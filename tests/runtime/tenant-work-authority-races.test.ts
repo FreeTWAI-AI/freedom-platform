@@ -183,13 +183,24 @@ async function waitForBlockedQuery(holderPid: number, parts: string[]) {
   const seen = await blockedQueries(holderPid);
   assert.fail(`no backend blocked by ${holderPid} matching ${parts.join(' & ')}; saw ${JSON.stringify(seen)}`);
 }
-async function holdsWorkUpdate(pid: number) {
+/** A held FOR UPDATE lives in the tuple header. pg_locks shows that row only while some other backend waits. */
+async function holdsWorkUpdate(workId: string) {
   assert.match(schema, /^fp_tw_fix_[0-9]+_[0-9]+$/);
-  const row = (await admin.query(
-    `SELECT count(*)::int AS n FROM pg_locks
-     WHERE pid=$1 AND granted AND locktype='tuple' AND mode='ForUpdate' AND relation=$2::regclass`,
-    [pid, `${schema}.work_items`])).rows[0];
-  return Number(row.n) > 0;
+  const client = await admin.connect();
+  try {
+    await client.query('BEGIN');
+    try {
+      await client.query(`SELECT 1 FROM ${schema}.work_items WHERE work_item_id=$1 FOR KEY SHARE NOWAIT`, [workId]);
+      return false;
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '55P03') return true;
+      throw error;
+    } finally {
+      await client.query('ROLLBACK');
+    }
+  } finally {
+    client.release();
+  }
 }
 async function holdsGrantedAdvisory(pid: number) {
   const row = (await admin.query(
@@ -422,7 +433,7 @@ test('prepare and finalize that cross on the capacity policy do not deadlock', {
     const shape = {
       publication: publication.query,
       prepare: waiter.query,
-      prepareHoldsWork: await holdsWorkUpdate(waiter.pid),
+      prepareHoldsWork: await holdsWorkUpdate(workId),
     };
     await parked.release();
     const [finished, next] = await Promise.all([finishing, preparing]);
