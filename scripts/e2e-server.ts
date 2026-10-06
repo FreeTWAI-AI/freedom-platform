@@ -1,3 +1,7 @@
+import { spawn } from 'node:child_process';
+import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -36,10 +40,35 @@ let server:ReturnType<typeof serve>|undefined,stopping=false;
 let productPool:Pool|undefined,productRole:string|undefined;
 let productRoleCreated=false;
 let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/private-ai-product-fixture.js')['createPrivateAiBrowserFixture']>>|undefined;
+let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
 // Installed before migrate. Playwright's graceful SIGTERM must drop the schema even if startup is still running.
+// npx/tsx dies on the group SIGTERM and SIGKILLs this process at its first await, so the
+// async DROP never runs. Release the schema and the avatar bucket before yielding.
+let released=false;
+function releaseOwnedResources(){
+  if(released)return;released=true;
+  if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'){
+    try{rmSync(join(tmpdir(),`fp-e2e-avatar-r2-${schema}`),{recursive:true,force:true});}catch{/* close() retries */ }
+  }
+  if(url.includes(':54339/')||url.endsWith(':54339'))return;
+  const child=spawn(process.execPath,['--input-type=module','-e',`import pg from 'pg';
+const schema=process.env.FREEDOM_E2E_SCHEMA??'';
+const connectionString=process.env.TEST_DATABASE_URL;
+if(!/^fp_e2e_[a-f0-9]{32}$/.test(schema)||!connectionString)process.exit(1);
+const client=new pg.Client({connectionString});
+await client.connect();
+await client.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1 AND pid<>pg_backend_pid()',[schema]);
+await client.query('DROP SCHEMA IF EXISTS '+schema+' CASCADE');
+await client.query("DO $body$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='"+schema+"_app') THEN EXECUTE 'DROP ROLE "+schema+"_app'; END IF; END $body$");
+await client.end();`],{detached:true,stdio:'ignore',env:{...process.env,FREEDOM_E2E_SCHEMA:schema,TEST_DATABASE_URL:url}});
+  child.unref();
+}
 async function stop(code=0){
   if(stopping)return;stopping=true;
+  releaseOwnedResources();
+  let exitCode=code;
   if(server)await Promise.race([new Promise<void>(resolve=>server!.close(()=>resolve())),new Promise<void>(resolve=>setTimeout(resolve,2000))]);
+  if(avatarAssetFixture){try{await avatarAssetFixture.close();}catch{console.error('avatar_asset_fixture_cleanup_failed');if(exitCode===0)exitCode=1;}}
   if(privateAiFixture) {
     await privateAiFixture.close();
   }
@@ -55,11 +84,13 @@ async function stop(code=0){
       await mkdir('.freedom/reports',{recursive:true,mode:0o700});
       await writeFile('.freedom/reports/member-model-e2e-fixture-observation.json',JSON.stringify(privateAiFixture.evidence(),null,2)+'\n');
     }catch{console.error('private_ai_fixture_evidence_unavailable');}
-    process.exit(code);
+    process.exit(exitCode);
   }
 }
-process.on('SIGTERM',()=>void stop());process.on('SIGINT',()=>void stop());
+process.on('SIGTERM',()=>{releaseOwnedResources();void stop();});process.on('SIGINT',()=>{releaseOwnedResources();void stop();});
+process.on('SIGHUP',()=>{releaseOwnedResources();void stop();});
 try{
+  if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'&&process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1')throw Error('Avatar asset and private AI browser fixtures are mutually exclusive.');
   await migrate(pool);
   await seedLocal(pool);
   // One fixture sync fills github_items before the browser opens. No timer.
@@ -85,13 +116,18 @@ try{
     const {createPrivateAiBrowserFixture}=await import('../packages/testing/private-ai-product-fixture.js');
     privateAiFixture=await createPrivateAiBrowserFixture(pool,productPool,origin);
   }
+  if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'){
+    const {createAvatarAssetBrowserFixture}=await import('../packages/testing/e2e-avatar-asset-fixture.js');
+    avatarAssetFixture=await createAvatarAssetBrowserFixture(pool,origin);
+  }
 }catch(error){console.error(error);await stop(1);}
 // Explicit local-only fixtures; per-pack production activation is separate.
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
 const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,
-  ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{})});
+  ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
+  ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
 server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});
