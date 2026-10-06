@@ -74,8 +74,9 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     inputMaxBytes: PRIVATE_TEXT_MAX_BYTES, outputMaxBytes: PRIVATE_TEXT_MAX_BYTES, retireReplacedAsset: false,
     parsePrepare: raw => prepareInput.parse(raw),
     targetId: input => input.targetWorkId,
-    async lockTarget(q, context, _actor, id): Promise<LifecycleTarget> {
-      const row = await loadWork(q, context.tenant_id, context.scope.scope_id, id, true);
+    async lockTarget(q, context, _actor, id, create): Promise<LifecycleTarget> {
+      // The engine passes false except while preparing. The Result insert locks the Work row in that command.
+      const row = await loadWork(q, context.tenant_id, context.scope.scope_id, id, create);
       requireCondition(row, 404, 'not_found', '找不到這個工作。');
       requireCondition(row.state === 'draft', 409, 'work_archived', '這個工作已封存。');
       return { targetId: id, aggregateVersion: row.aggregate_version, assetId: null };
@@ -201,12 +202,22 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
           journal.record = false;
           return wire(tenantId, instanceId, 'work.result', existing.result_id, key, 'work.tenant.finalize');
         }
-        const saved = await engine.finalize(bound, {
+        const leaseInput = {
           key: digest({ resumeKey, phase: 'finalize', fence: lease.fence }), intentId: lease.intentId, fence: lease.fence, leaseToken: lease.leaseToken,
-        });
-        journal.id = saved.resultId;
-        journal.version = saved.workVersion;
-        return wire(tenantId, instanceId, 'work.result', saved.resultId, key, 'work.tenant.finalize');
+        };
+        // Publish on the receipt transaction. A separate engine command would release the tenant
+        // share lock before this receipt, and a queued revocation would make the success path 404.
+        journal.commit = async (q, context) => {
+          const saved = await engine.finalizeVia<Published>(bound, leaseInput, {
+            operation: 'work.tenant.finalize',
+            execute: run => run(q, context),
+            validateIntent() { /* The tenant intent was bound in the probe and again by the engine lock. */ },
+            result: value => value,
+          });
+          journal.id = saved.resultId;
+          journal.version = saved.workVersion;
+          return wire(tenantId, instanceId, 'work.result', saved.resultId, key, 'work.tenant.finalize');
+        };
       }, async (q, context) => {
         const row = await intent(q, context, uploadId, workId);
         const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);

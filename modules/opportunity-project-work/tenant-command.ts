@@ -18,7 +18,7 @@ type CommandFields = Omit<ScopedTenantCommand, 'capabilitiesForRole' | 'tenantLo
  * record=false skips the fact when this attempt only rereads a commit that already journaled that version. */
 export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields,
   authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
-  produce: (journal: { id: string; version: string; record: boolean }) => Promise<T>,
+  produce: (journal: { id: string; version: string; record: boolean; commit?: (q: PoolClient, context: TenantScopeContext) => Promise<T> }) => Promise<T | undefined>,
   inspect?: (q: PoolClient, context: TenantScopeContext) => Promise<void>): Promise<T> {
   const input: ScopedTenantCommand = { ...fields, tenantLock: 'share', capabilitiesForRole: tenantWorkCapabilities };
   try {
@@ -29,12 +29,17 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
   } catch (error) {
     if (!(error instanceof ReceiptMiss)) throw error;
   }
-  const journal = { id: fields.target.id, version: '1', record: true };
-  const value = await produce(journal);
+  const journal: { id: string; version: string; record: boolean; commit?: (q: PoolClient, context: TenantScopeContext) => Promise<T> } = {
+    id: fields.target.id, version: '1', record: true,
+  };
+  const produced = await produce(journal);
   // The probe already rolled back. This later commit still has to see result-write authority.
+  // commit() publishes inside this same transaction, so a waiter on the tenant lock cannot
+  // revoke the member between the Result insert and the success receipt.
   return scopedTenantCommand(pool, input, async (_q, context) => {
     requireTenantCapability(context, 'work:result.write', true);
   }, async (q, context) => {
+    const value = journal.commit ? await journal.commit(q, context) : produced as T;
     if (journal.record) {
       await scopedJournal(q, context, {
         aggregate_type: 'tenant_work', id: journal.id, version: journal.version, operation: fields.operation,

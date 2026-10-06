@@ -853,7 +853,7 @@ test('demoting the admin to viewer after the finalize probe stores no result', {
   const intents = (await pool.query('SELECT count(*)::int AS n FROM asset_upload_intents')).rows[0].n as number;
   const objects = (await pool.query('SELECT count(*)::int AS n FROM asset_objects')).rows[0].n as number;
   const key = randomUUID();
-  const finalized = await demoteOnLock(tenantId, principalId, 4, () =>
+  const finalized = await demoteOnLock(tenantId, principalId, 3, () =>
     finalizeUpload(adminUser.session, tenantId, workId, uploadId, '1', '2', key));
   assert.equal(finalized.status, 403, JSON.stringify(finalized.data));
   assert.equal(finalized.data.code, 'capability_denied');

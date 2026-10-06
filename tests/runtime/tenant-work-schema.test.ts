@@ -145,6 +145,36 @@ async function waitBlocked(pid: number) {
   }
   assert.fail(`pid ${pid} was not blocked`);
 }
+async function pidsBlockedBy(pid: number) {
+  const client = await admin.connect();
+  try {
+    await client.query("SELECT set_config('statement_timeout', '800', false)");
+    const rows = (await client.query<{ pid: number }>(
+      `SELECT pid FROM pg_stat_activity WHERE pid <> $1 AND $1 = ANY(pg_blocking_pids(pid))`, [pid])).rows;
+    return rows.map(row => Number(row.pid));
+  } finally {
+    await client.query("SELECT set_config('statement_timeout', '0', false)").catch(() => undefined);
+    client.release();
+  }
+}
+async function waitForBlockedBy(pid: number, count: number) {
+  let waiting: number[] = [];
+  let lastError = '';
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    try {
+      waiting = await pidsBlockedBy(pid);
+      if (waiting.length >= count) return waiting;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await delay(40);
+  }
+  assert.fail(`expected ${count} backends blocked by ${pid}, saw ${waiting.join(',')}${lastError ? ` (${lastError})` : ''}`);
+}
+async function cancelLockWaiters() {
+  await admin.query(`SELECT pg_cancel_backend(pid) FROM pg_stat_activity
+    WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock'`).catch(() => undefined);
+}
 
 test('intent work_mode stays personal, and tenant_work_mode is the new generated column', async () => {
   const expr = async (column: string) => (await pool.query<{ expr: string }>(`SELECT pg_get_expr(d.adbin, d.adrelid) AS expr
@@ -231,14 +261,14 @@ test('tenant placement, archive, results, bindings, and typed uploads reject ill
   assert.equal(pointer, second);
 });
 
-test('share holders do not block each other, and revocation waits behind an in-flight share', async () => {
+test('share holders do not block each other, and revocation waits behind an in-flight share', { timeout: 30_000 }, async () => {
   const ctx = await openTenant();
   const adminUserId = randomUUID();
   const email = `tenant-${adminUserId}@example.test`;
   await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,active,onboarding_required)
     SELECT $1,$2,$3,'管理員',password_hash,$4,true,false FROM users WHERE email=$5`,
   [adminUserId, DEMO_COMMUNITY, email, randomUUID(), DEMO_USERS[0].email]);
-  const admin = await sessionFrom(email);
+  const adminSession = await sessionFrom(email);
   const found = await call('GET', `/tenants/invite-candidates?user_id=${adminUserId}`, ctx.owner);
   assert.equal(found.status, 200, JSON.stringify(found.data));
   const principalId = found.data.principal_id as string;
@@ -247,66 +277,73 @@ test('share holders do not block each other, and revocation waits behind an in-f
     invitee_principal_id: principalId, role: 'admin', instance_capabilities: [], expires_at: soon,
   });
   assert.equal(invitation.status, 201, JSON.stringify(invitation.data));
-  assert.equal((await post(`/tenants/${ctx.tenantId}/invitations/${invitation.data.invitation_id}/accept`, admin, {}, `"${invitation.data.version}"`)).status, 200);
-  const ownerPrincipal = (await pool.query<{ principal_id: string }>('SELECT principal_id FROM principals WHERE user_ref=$1', [ctx.owner.user.user_id])).rows[0].principal_id;
-  const a = await pool.connect();
-  const b = await pool.connect();
-  const c = await pool.connect();
-  const d = await pool.connect();
+  assert.equal((await post(`/tenants/${ctx.tenantId}/invitations/${invitation.data.invitation_id}/accept`, adminSession, {}, `"${invitation.data.version}"`)).status, 200);
+  const second = await post(`/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/works`, adminSession, {
+    title: '管理員的筆記', objective: '這則筆記會在撤銷前定稿', progress: 'todo',
+  });
+  assert.equal(second.status, 201, JSON.stringify(second.data));
+  const adminWorkId = second.data.resource_ref.resource_id as string;
+  const prepared = await post(`/tenants/${ctx.tenantId}/works/${adminWorkId}/results/uploads`, adminSession, {
+    content_type: 'text/plain', byte_size: ABC.byteLength, sha256: sha(ABC), display_name: 'note.txt', expected_work_version: '1',
+  });
+  assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  const uploadId = prepared.data.resource_ref.resource_id as string;
+  const written = await app.request(origin + `/api/v1/tenants/${ctx.tenantId}/works/${adminWorkId}/results/uploads/${uploadId}/content`, {
+    method: 'PUT', headers: {
+      Origin: origin, Cookie: adminSession.cookie, 'X-CSRF-Token': adminSession.csrf, 'Idempotency-Key': randomUUID(), 'If-Match': '"1"',
+    }, body: new Uint8Array(ABC),
+  });
+  assert.equal(written.status, 200, JSON.stringify(await written.json()));
+  const members = await call('GET', `/tenants/${ctx.tenantId}/members?limit=100`, ctx.owner);
+  const membership = members.data.items.find((item: { principal_id: string }) => item.principal_id === principalId);
+  const holder = await pool.connect();
+  let held = true;
+  let finalizeWait: Promise<{ status: number; data: { code?: string; resource_ref?: { resource_id: string } } }> | undefined;
+  let saveWait: Promise<{ status: number; data: { code?: string } }> | undefined;
+  let revokeWait: Promise<{ status: number; data: { code?: string; status?: string } }> | undefined;
   try {
-    await a.query('BEGIN');
-    await b.query('BEGIN');
-    const pidA = Number((await a.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    const pidB = Number((await b.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    await a.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR SHARE', [ctx.tenantId]);
-    await a.query('SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR SHARE', [ctx.tenantId, ownerPrincipal]);
-    await b.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR SHARE', [ctx.tenantId]);
-    await b.query('SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR SHARE', [ctx.tenantId, principalId]);
-    assert.equal((await blockers(pidA)).includes(pidB), false);
-    assert.equal((await blockers(pidB)).includes(pidA), false);
-    await c.query('BEGIN');
-    const pidC = Number((await c.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    const waiting = c.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [ctx.tenantId]);
-    await waitBlocked(pidC);
-    assert.ok((await blockers(pidC)).includes(pidA) || (await blockers(pidC)).includes(pidB));
-    await a.query('ROLLBACK');
-    await b.query('ROLLBACK');
-    await waiting;
-    await c.query('ROLLBACK');
-
-    await d.query('BEGIN');
-    const pidD = Number((await d.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    await d.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [ctx.workId]);
-    await a.query('BEGIN');
-    await b.query('BEGIN');
-    const sharePid = Number((await a.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    await a.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR SHARE', [ctx.tenantId]);
-    await a.query('SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR SHARE', [ctx.tenantId, principalId]);
-    const workWait = a.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [ctx.workId]);
-    await waitBlocked(sharePid);
-    assert.equal((await blockers(pidD)).includes(sharePid), false);
-    const revokePid = Number((await b.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-    const revokeWait = b.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [ctx.tenantId]);
-    await waitBlocked(revokePid);
-    assert.ok((await blockers(revokePid)).includes(sharePid));
-    await d.query('ROLLBACK');
-    await workWait;
-    await a.query('COMMIT');
-    await revokeWait;
-    await b.query(`UPDATE tenant_memberships SET status='revoked', revoked_at=clock_timestamp(), version=version+1, updated_at=clock_timestamp()
-      WHERE tenant_id=$1 AND principal_id=$2`, [ctx.tenantId, principalId]);
-    await b.query('COMMIT');
+    await holder.query('BEGIN');
+    await holder.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [ctx.workId]);
+    await holder.query('SELECT work_item_id FROM work_items WHERE work_item_id=$1 FOR UPDATE', [adminWorkId]);
+    const holderPid = Number((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    finalizeWait = post(`/tenants/${ctx.tenantId}/works/${adminWorkId}/results/uploads/${uploadId}/finalize`, adminSession, { expected_work_version: '1' }, '"2"');
+    const [finalizePid] = await waitForBlockedBy(holderPid, 1);
+    saveWait = call('PATCH', `/tenants/${ctx.tenantId}/works/${ctx.workId}`, ctx.owner, {
+      title: '擁有者的筆記', objective: '這則筆記與定稿同時進行', progress: 'todo',
+    }, { 'Idempotency-Key': randomUUID(), 'If-Match': '"1"' });
+    const pair = await waitForBlockedBy(holderPid, 2);
+    assert.deepEqual(pair.slice().sort(), [finalizePid, pair.find(pid => pid !== finalizePid)].sort());
+    const savePid = pair.find(pid => pid !== finalizePid)!;
+    assert.equal((await blockers(finalizePid)).includes(savePid), false);
+    assert.equal((await blockers(savePid)).includes(finalizePid), false);
+    revokeWait = post(`/tenants/${ctx.tenantId}/members/${principalId}/change`, ctx.owner, {
+      role: 'admin', status: 'revoked', instance_capabilities: [], reason: '撤銷這位管理員',
+    }, `"${membership.version}"`);
+    const [revokePid] = await waitForBlockedBy(finalizePid, 1);
+    assert.equal((await blockers(revokePid)).includes(finalizePid), true);
+    await holder.query('ROLLBACK');
+    held = false;
+    const [finalized, saved, revoked] = await Promise.all([finalizeWait, saveWait, revokeWait]);
+    assert.equal(finalized.status, 200, JSON.stringify(finalized.data));
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results')).rows[0].n, 1);
+    assert.equal((await pool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [adminWorkId])).rows[0].result_id, finalized.data.resource_ref!.resource_id);
+    assert.equal(revoked.status, 200, JSON.stringify(revoked.data));
+    assert.equal(revoked.data.status, 'revoked');
+    const denied = await call('PATCH', `/tenants/${ctx.tenantId}/works/${adminWorkId}`, adminSession, {
+      title: '撤銷後', objective: '不該寫入', progress: 'todo',
+    }, { 'Idempotency-Key': randomUUID(), 'If-Match': '"2"' });
+    assert.equal(denied.status, 404, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'tenant_not_found');
   } finally {
-    for (const client of [a, b, c, d]) {
-      await client.query('ROLLBACK').catch(() => {});
-      client.release();
+    if (held) {
+      await holder.query('ROLLBACK').catch(() => undefined);
+      // An update lock deadlocks the in-transaction verification read. Cancel it so the process can exit.
+      await cancelLockWaiters();
     }
+    await Promise.allSettled([finalizeWait, saveWait, revokeWait]);
+    holder.release();
   }
-  const denied = await call('PATCH', `/tenants/${ctx.tenantId}/works/${ctx.workId}`, admin, {
-    title: '撤銷後', objective: '不該寫入', progress: 'todo',
-  }, { 'Idempotency-Key': randomUUID(), 'If-Match': '"1"' });
-  assert.equal(denied.status, 404, JSON.stringify(denied.data));
-  assert.equal(denied.data.code, 'tenant_not_found');
 });
 
 test('a restricted runtime role can enable and create, and cannot change capacity limits', async () => {
