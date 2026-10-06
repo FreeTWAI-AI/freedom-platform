@@ -256,13 +256,118 @@ test('launchpad drafts stay private, publication is conditional, and authority i
   assert.equal(missingMember.status, 404);
   assert.equal(missingMember.data.code, 'guild_not_found');
 
-  for (const target of [disabled]) {
-    const anon = await request(`/public/guilds/${guild}/launchpad`, undefined, undefined, undefined, randomUUID(), target);
-    const signed = await request(`/guilds/${guild}/launchpad`, leader, undefined, undefined, randomUUID(), target);
-    assert.equal(anon.status, 404);
-    assert.equal(anon.data.code, 'not_found');
-    assert.equal(anon.data.detail, '此版本尚未提供這個 API。');
-    assert.equal(signed.status, 404);
-    assert.equal(signed.data.code, 'not_found');
+});
+
+const launchpadRoutes: {method: 'GET' | 'POST'; path: string}[] = [
+  {method: 'GET', path: `/public/guilds/${guild}/launchpad`},
+  {method: 'GET', path: `/guilds/${guild}/launchpad`},
+  {method: 'GET', path: `/guilds/${guild}/launchpad-config`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-config/drafts`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-config/preview`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-config/${randomUUID()}/publish`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-config/revert`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-delegations`},
+  {method: 'POST', path: `/guilds/${guild}/launchpad-delegations/${randomUUID()}/revoke`},
+];
+
+async function probe(target: ReturnType<typeof createApp>, path: string, method: 'GET' | 'POST', session?: Session, csrf = true) {
+  const headers: Record<string, string> = {Origin: origin};
+  if (session) {
+    headers.Cookie = session.cookie;
+    if (csrf) headers['X-CSRF-Token'] = session.csrf;
   }
+  if (method === 'POST') {
+    headers['Content-Type'] = 'application/json';
+    headers['Idempotency-Key'] = randomUUID();
+  }
+  const response = await target.request(origin + '/api/v1' + path, {method, headers, body: method === 'POST' ? '{}' : undefined});
+  return {status: response.status, data: await response.json()};
+}
+
+test('the site flag follows community and a disabled app matches unknown paths', async () => {
+  for (const target of [app, disabled]) {
+    const response = await target.request(origin + '/api/v1/site');
+    const text = await response.text();
+    assert.equal(response.status, 200);
+    const body = JSON.parse(text) as Record<string, unknown>;
+    const keys = Object.keys(body);
+    assert.equal(keys.at(-2), 'community');
+    assert.equal(keys.at(-1), 'guild_launchpad_enabled');
+    assert.equal(body.guild_launchpad_enabled, target === app);
+    assert.match(text, /,"community":.+"guild_launchpad_enabled":(true|false)}$/);
+  }
+  const member = await signIn();
+  const unknown = `/guilds/${guild}/launchpad-zz-${randomUUID()}`;
+  for (const route of launchpadRoutes) {
+    for (const session of [undefined, member] as const) {
+      const actual = await probe(disabled, route.path, route.method, session);
+      const control = await probe(disabled, unknown, route.method, session);
+      assert.equal(actual.status, control.status, `${route.method} ${route.path} signed ${session ? 'in' : 'out'}`);
+      assert.deepEqual(actual.data, control.data);
+    }
+    if (route.method === 'POST') {
+      const actual = await probe(disabled, route.path, route.method, member, false);
+      const control = await probe(disabled, unknown, route.method, member, false);
+      assert.equal(actual.status, control.status);
+      assert.deepEqual(actual.data, control.data);
+    }
+  }
+});
+
+test('astral titles round-trip and a lone surrogate is rejected', async () => {
+  const leader = await signIn();
+  await lead(leader.user.user_id);
+  const config = defaultConfigFor(await catalog(guild));
+  const astral = '起步 🚀 與 𠮷';
+  const body = {
+    ...config,
+    mission_override: astral,
+    blocks: config.blocks.map(block => block.kind === 'announcements' ? {...block, title: astral} : block),
+    starter: {title_label: astral, objective_hint: astral, note_hint: astral},
+  };
+  const draft = await request(`/guilds/${guild}/launchpad-config/drafts`, leader, {body}, '1');
+  assert.equal(draft.status, 201, JSON.stringify(draft.data));
+  assert.equal(draft.data.body.mission_override, astral);
+  assert.equal(draft.data.body.blocks.find((block: {kind: string}) => block.kind === 'announcements').title, astral);
+  assert.equal(draft.data.body.starter.title_label, astral);
+  assert.equal(draft.data.body.starter.objective_hint, astral);
+  assert.equal(draft.data.body.starter.note_hint, astral);
+  const published = await request(`/guilds/${guild}/launchpad-config/${draft.data.config_id}/publish`, leader, {expected_body_sha256: draft.data.body_sha256}, draft.data.pointer_version);
+  assert.equal(published.status, 200, JSON.stringify(published.data));
+  const pub = await request(`/public/guilds/${guild}/launchpad`);
+  assert.equal(pub.status, 200, JSON.stringify(pub.data));
+  const seen = pub.data.config.body;
+  assert.equal(seen.mission_override, astral);
+  assert.equal(seen.blocks.find((block: {kind: string}) => block.kind === 'announcements').title, astral);
+  assert.equal(seen.starter.title_label, astral);
+  assert.equal(seen.starter.objective_hint, astral);
+  assert.equal(seen.starter.note_hint, astral);
+  assert.equal(Buffer.from(JSON.stringify(seen.mission_override)).equals(Buffer.from(JSON.stringify(astral))), true);
+  const lone = await request(`/guilds/${guild}/launchpad-config/drafts`, leader, {body: {...config, blocks: config.blocks.map(block => block.kind === 'announcements' ? {...block, title: '題\uD800'} : block)}}, published.data.pointer_version);
+  assert.equal(lone.status, 422, JSON.stringify(lone.data));
+  hasError(lone.data, 'lone_surrogate');
+  const reverted = await request(`/guilds/${guild}/launchpad-config/revert`, leader, {to_revision: published.data.revision, reason: `回復 ${astral}`}, published.data.pointer_version);
+  assert.equal(reverted.status, 200, JSON.stringify(reverted.data));
+  assert.equal(reverted.data.body.mission_override, astral);
+});
+
+test('delegation refuses a non-member and a service principal', async () => {
+  const leader = await signIn(DEMO_USERS[0].email);
+  const outsider = await signIn(DEMO_USERS[2].email);
+  await lead(leader.user.user_id);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier)
+    VALUES($1,$2,$3,$4,'left','full')`, [randomUUID(), DEMO_COMMUNITY, outsider.user.user_id, guild]);
+  await pool.query('INSERT INTO principals(user_ref) VALUES($1)', [outsider.user.user_id]);
+  const person = (await pool.query('SELECT principal_id FROM principals WHERE user_ref=$1', [outsider.user.user_id])).rows[0].principal_id as string;
+  const shop = randomUUID();
+  await pool.query(`INSERT INTO commerce_shops(shop_id, community_id, owner_id, kind, name, description, website_url, contact, currency, manifest_sha256)
+    VALUES($1,$2,$3,'internal','服務身份','測試用商店','https://shop.example.invalid','none','TWD',$4)`, [shop, DEMO_COMMUNITY, leader.user.user_id, randomUUID().replaceAll('-', '')]);
+  const service = (await pool.query(`INSERT INTO principals(kind, service_shop_ref) VALUES('service',$1) RETURNING principal_id`, [shop])).rows[0].principal_id as string;
+  const expires = new Date(Date.now() + 86_400_000).toISOString();
+  for (const principalId of [person, service]) {
+    const denied = await request(`/guilds/${guild}/launchpad-delegations`, leader, {principal_id: principalId, capabilities: ['guild.content.edit'], expires_at: expires});
+    assert.equal(denied.status, 422, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'delegation_recipient_invalid');
+  }
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM guild_launchpad_delegations')).rows[0].n, 0);
 });

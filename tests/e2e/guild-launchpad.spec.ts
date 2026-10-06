@@ -54,7 +54,7 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 async function tallEnough(page: Page) {
-  const heights = await page.locator('.guild-launchpad button:visible, .guild-launchpad input:visible, .guild-launchpad select:visible').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+  const heights = await page.locator('.guild-launchpad .checkbox-row:visible, .guild-launchpad button:visible, .guild-launchpad input:not([type=checkbox]):visible, .guild-launchpad select:visible').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
   expect(heights.length).toBeGreaterThan(0);
   expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
 }
@@ -155,4 +155,32 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     await noOverflow(session.page);
     await tallEnough(session.page);
   } finally { await session.context.close(); await cleanup(e2eAuthPool, fixture.userId, fixture.previousOfficer); }
+});
+
+test('a member who left can rejoin from the launchpad', async ({browser, baseURL, e2eAuthPool}) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const userId = randomUUID();
+  const email = `launchpad-rejoin-${run}@example.invalid`;
+  const names = await e2eAuthPool.query('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [music]);
+  const musicName = names.rows[0].name as string;
+  await e2eAuthPool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref, onboarding_required)
+    VALUES($1,$2,$3,$4,$5,$6,false)`, [userId, DEMO_COMMUNITY, email, `再加入會員 ${run}`, hashPassword(DEMO_PASSWORD), randomUUID()]);
+  await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier)
+    VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, userId, space]);
+  await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier, aggregate_version)
+    VALUES($1,$2,$3,$4,'left','full',4)`, [randomUUID(), DEMO_COMMUNITY, userId, music]);
+  await e2eAuthPool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key) VALUES($1,$2,$3)`, [DEMO_COMMUNITY, userId, space]);
+  const session = await login(browser, baseURL!, email);
+  let ifMatch = '';
+  await session.page.route('**/api/v1/guilds/guild_music_mv/join', async route => {
+    ifMatch = route.request().headers()['if-match'] ?? '';
+    await route.continue();
+  });
+  try {
+    await session.page.goto(`/#guilds/${music}`);
+    await session.page.getByRole('button', {name: `加入${musicName}`, exact: true}).click();
+    await expect(session.page.getByText('成員身分：實習成員')).toBeVisible();
+    expect(ifMatch).toBe('"4"');
+  } finally { await session.context.close(); await cleanup(e2eAuthPool, userId, undefined); }
 });
