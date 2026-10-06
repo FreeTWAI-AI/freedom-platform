@@ -122,6 +122,16 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     await session.page.setViewportSize({width: 1280, height: 900});
     await open.click();
     await expect(session.page.getByRole('heading', {level: 1, name: fixture.musicName})).toBeVisible();
+    await expect(session.page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveClass(/btn-ghost/);
+    await expect(session.page.getByRole('button', {name: '發布', exact: true})).toHaveClass(/btn-primary/);
+    await session.page.locator('#launchpad-support-url').fill('http://example.com/help');
+    await session.page.getByRole('button', {name: '儲存草稿', exact: true}).click();
+    const urlError = session.page.locator('#launchpad-support-url-error');
+    await expect(urlError).toHaveText('只接受 https:// 開頭、不含帳號密碼的網址');
+    await expect(session.page.locator('#launchpad-support-url')).toHaveAttribute('aria-describedby', /launchpad-support-url-error/);
+    await expect(session.page.getByText('unsupported_url')).toHaveCount(0);
+    await expect(session.page.getByText('blocks.')).toHaveCount(0);
+    await session.page.locator('#launchpad-support-url').fill('');
     await session.page.locator('#launchpad-mission').fill(first);
     await session.page.getByRole('button', {name: '上移公告', exact: true}).click();
     await expect(session.page.getByRole('heading', {level: 2}).first()).toHaveText('公告');
