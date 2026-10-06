@@ -17,7 +17,8 @@ GRANT USAGE ON SCHEMA public TO :"executor";
 -- retained quota/Result index reads used by the existing broker domain chain.
 GRANT SELECT ON users,sessions,principals,resource_scopes,runtime_registration_challenges,
   runtime_registrations,agent_connections,bootstrap_refresh_families,model_connections,
-  broker_model_credentials,model_broker_authorizations,execution_grants,execution_runs,
+  broker_model_credentials,model_broker_authorizations,execution_machine_authorizations,
+  execution_machine_model_pins,execution_machine_broker_authorizations,execution_grants,execution_runs,
   execution_attempts,model_export_approvals,model_text_steps,work_items,
   private_work_persistence_policy,model_inference_export_policy,assets,asset_objects,
   asset_upload_intents,private_work_results,private_model_work_results,private_work_result_index,private_work_result_catalog,
@@ -32,6 +33,7 @@ GRANT UPDATE(state) ON runtime_registrations,agent_connections,
   bootstrap_refresh_families,model_connections,execution_grants,execution_attempts,model_export_approvals TO :"executor";
 GRANT UPDATE(scope_kind) ON private_work_persistence_policy,model_inference_export_policy TO :"executor";
 GRANT UPDATE(accepted_at) ON model_broker_authorizations TO :"executor";
+GRANT UPDATE(consumed_at) ON execution_machine_broker_authorizations TO :"executor";
 GRANT UPDATE(aggregate_version) ON work_items TO :"executor";
 GRANT UPDATE(state,aggregate_version,task_lease_epoch,current_attempt_id) ON execution_runs TO :"executor";
 GRANT INSERT(attempt_id,run_id,work_item_id,owner_user_id,owner_principal_id,scope_id,grant_id,
@@ -59,9 +61,11 @@ GRANT INSERT(work_item_id,scope_id,owner_principal_id,owner_user_id,result_id,as
   ON private_work_result_targets TO :"executor";
 GRANT UPDATE(result_id,asset_id,linked_at_work_version) ON private_work_result_targets TO :"executor";
 GRANT INSERT(principal_id,authn_kind,scope_id,operation,idempotency_key,principal_kind,scope_kind,target_kind,
-  target_id,request_sha256,response) ON scoped_command_receipts TO :"executor";
+  target_id,request_sha256,response,execution_authorization_id,execution_attempt_id,execution_grant_id,
+  execution_runtime_device_id,execution_connection_id) ON scoped_command_receipts TO :"executor";
 GRANT INSERT(transition_id,scope_id,scope_kind,principal_id,principal_kind,authn_kind,aggregate_type,
-  aggregate_id,aggregate_version,operation,data) ON scoped_transition_journal TO :"executor";
+  aggregate_id,aggregate_version,operation,data,execution_authorization_id,execution_attempt_id,execution_grant_id,
+  execution_runtime_device_id,execution_connection_id) ON scoped_transition_journal TO :"executor";
 GRANT INSERT(event_id,transition_id,scope_id,scope_kind,event_type,payload) ON scoped_outbox TO :"executor";
 -- Explicit denial also clears old column grants. Inherited/SET ROLE and PUBLIC
 -- access cannot be revoked from another principal here; guard rejects them.
@@ -80,7 +84,8 @@ BEGIN
       WHERE n.nspname='public' AND c.relkind IN ('r','v','m','p')
         AND c.relname NOT IN ('users','sessions','principals','resource_scopes','runtime_registration_challenges',
           'runtime_registrations','agent_connections','bootstrap_refresh_families','model_connections','broker_model_credentials',
-          'model_broker_authorizations','execution_grants','execution_runs','execution_attempts','model_export_approvals',
+          'model_broker_authorizations','execution_machine_authorizations','execution_machine_model_pins',
+          'execution_machine_broker_authorizations','execution_grants','execution_runs','execution_attempts','model_export_approvals',
           'model_text_steps','work_items','private_work_persistence_policy','model_inference_export_policy','assets','asset_objects',
           'asset_upload_intents','private_work_results','private_model_work_results','private_work_result_index','private_work_result_catalog',
           'private_work_result_targets','scoped_command_receipts','scoped_transition_journal','scoped_outbox')
@@ -97,6 +102,9 @@ BEGIN
     OR pg_catalog.has_any_column_privilege(%1$L,'model_broker_authorizations','INSERT,REFERENCES')
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid='model_broker_authorizations'::regclass
       AND a.attnum>0 AND NOT a.attisdropped AND a.attname<>'accepted_at' AND pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'UPDATE'))
+    OR pg_catalog.has_any_column_privilege(%1$L,'execution_machine_broker_authorizations','INSERT,REFERENCES')
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid='execution_machine_broker_authorizations'::regclass
+      AND a.attnum>0 AND NOT a.attisdropped AND a.attname<>'consumed_at' AND pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'UPDATE'))
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid IN ('private_work_persistence_policy'::regclass,'model_inference_export_policy'::regclass)
       AND a.attnum>0 AND NOT a.attisdropped AND (pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'INSERT,REFERENCES')
         OR a.attname<>'scope_kind' AND pg_catalog.has_column_privilege(%1$L,a.attrelid,a.attnum,'UPDATE')))

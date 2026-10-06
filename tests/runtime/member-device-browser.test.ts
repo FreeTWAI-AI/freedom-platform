@@ -60,7 +60,7 @@ before(async () => {
   const exclusions = [
     { marker:'PRIVATE POLICY GRANTS', tables:['private_work_persistence_policy','model_inference_export_policy'] },
     { marker:'BROKER CREDENTIAL EXCLUSIONS', tables:['broker_model_credentials','broker_credential_vault','credential_ingest_preparations'] },
-    { marker:'MODEL BROKER AUTHORIZATION EXCLUSIONS', tables:['model_broker_authorizations','credential_ingest_authorizations'] },
+    { marker:'MODEL BROKER AUTHORIZATION EXCLUSIONS', tables:['model_broker_authorizations','credential_ingest_authorizations','execution_machine_broker_authorizations'] },
   ].map(({marker,tables})=>({tables,sql:template.split('-- BEGIN '+marker+'\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'",`'${runtime}'`).replace("n.nspname='public'",`n.nspname='${schema}'`)}));
   const q = await owner.connect();

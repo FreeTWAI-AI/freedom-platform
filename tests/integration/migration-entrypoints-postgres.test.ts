@@ -23,7 +23,7 @@ function entry(kind: 'repository'|'operator', record: any, host: string, connect
       +`catch(error) { console.error(JSON.stringify({code:/^migration_[a-z0-9_]+$/.test(error.code??'')?error.code:'migration_entry_unavailable'}));process.exitCode=1; } finally {await pool.end();}\n`;
     writeFileSync(executable,code,{mode:0o400,flag:'wx'});before=createHash('sha256').update(code).digest('hex');
   }
-  const output=execFileSync('/usr/bin/node',[executable,...args],{cwd:host,timeout:30000,encoding:'utf8',maxBuffer:1048576,
+  const output=execFileSync(process.execPath,[executable,...args],{cwd:host,timeout:30000,encoding:'utf8',maxBuffer:1048576,
     env:{PATH:'/usr/bin:/bin',NODE_ENV:'test',DATABASE_URL:connectionString},stdio:['ignore','pipe','pipe']});
   if(before)assert.equal(createHash('sha256').update(readFileSync(executable)).digest('hex'),before);
   const result=JSON.parse(output);assert.equal(result.deployment_authorized,false);assert.equal(result.source_commit,record.source_commit);

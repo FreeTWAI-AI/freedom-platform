@@ -20,7 +20,8 @@ import { BackupEvidenceError, collectSchemaEvidence, compareEvidence, decodeEvid
 export type RecoveryArchiveErrorCode =
   | 'invalid_input' | 'archive_unavailable' | 'archive_missing' | 'archive_conflict' | 'archive_corrupt' | 'source_unavailable'
   | 'dump_mismatch' | 'evidence_unavailable' | 'evidence_mismatch' | 'objects_unverified'
-  | 'restore_target_mismatch' | 'restore_target_not_empty' | 'restore_failed' | 'objects_restore_failed';
+  | 'restore_target_mismatch' | 'restore_target_not_empty' | 'restore_failed' | 'objects_restore_failed'
+  | 'recovery_identity_mismatch';
 
 export class RecoveryArchiveError extends Error {
   /** Fixed enumerated sub-code only (e.g. MediaBackupError code); never upstream text. */
@@ -325,13 +326,33 @@ export async function sealRecoverySet(input: {
     writeReceipt: true, objectOptions: input.objectOptions });
 }
 
+/** Independently selected operator expectation, not data taken from this set.
+ * Optional for existing callers; handover callers require the complete tuple. */
+export interface RecoverySetIdentity {
+  readonly setId: string; readonly manifestSha256: string;
+  readonly environment: RecoverySetBody['environment']; readonly database: string;
+  readonly schema: string; readonly sourceRelease: string;
+}
+const identitySchema = z.object({ setId: z.string().regex(UUID), manifestSha256: z.string().regex(HEX64),
+  environment: z.enum(['local', 'staging', 'production']), database: z.string().regex(IDENT),
+  schema: z.string().regex(IDENT), sourceRelease: z.string().regex(/^[a-f0-9]{40}$/) }).strict();
+function expectedIdentity(raw: RecoverySetIdentity | undefined): Readonly<RecoverySetIdentity> | undefined {
+  if (raw === undefined) return undefined;
+  const value = identitySchema.safeParse(raw);
+  if (!value.success) fail('invalid_input');
+  return Object.freeze(value.data!);
+}
 interface Loaded { body: RecoverySetBody; manifestSha256: string; evidence?: SchemaEvidence }
-async function loadVerified(archive: ArchiveStore, setId: string, backupObjects: ObjectStore, options?: TransferOptions): Promise<Loaded> {
+async function loadVerified(archive: ArchiveStore, setId: string, backupObjects: ObjectStore, options?: TransferOptions,
+  expected?: Readonly<RecoverySetIdentity>): Promise<Loaded> {
   const keys = recoverySetKeys(setId);
   const bytes = await getBytes(archive, keys.manifest, MANIFEST_MAX_BYTES);
   if (bytes === null) fail('archive_missing');
   const { body: b, manifestSha256 } = decodeRecoverySet(bytes!);
   if (b.setId !== setId) fail('archive_corrupt');
+  if (expected && (manifestSha256 !== expected.manifestSha256 || b.setId !== expected.setId
+    || b.environment !== expected.environment || b.database !== expected.database
+    || b.schema !== expected.schema || b.sourceRelease !== expected.sourceRelease)) fail('recovery_identity_mismatch');
   await verifyBlob(archive, keys.dump, b.dump, DUMP_MAX_BYTES, 'dump_mismatch');
   let evidence: SchemaEvidence | undefined;
   if (b.evidence.status === 'captured') {
@@ -350,9 +371,11 @@ async function loadVerified(archive: ArchiveStore, setId: string, backupObjects:
  * a create-only receipt that retention may count as "verified". */
 export async function readbackRecoverySet(input: {
   archive: ArchiveStore; setId: string; backupObjects: ObjectStore; verifiedAt: string; writeReceipt?: boolean; objectOptions?: TransferOptions;
+  expected?: RecoverySetIdentity;
 }): Promise<RecoverySetVerification> {
+  const expected = expectedIdentity(input?.expected);
   const verifiedMs = parseInstant(input?.verifiedAt);
-  const loaded = await loadVerified(input.archive, input.setId, input.backupObjects, input.objectOptions);
+  const loaded = await loadVerified(input.archive, input.setId, input.backupObjects, input.objectOptions, expected);
   const b = loaded.body;
   if (verifiedMs < parseInstant(b.createdAt)) fail('invalid_input');
   const result = {
@@ -449,16 +472,18 @@ export async function restoreRecoverySet(input: {
   objectAuthority: RestoreObjectAuthority;
   /** Required to proceed when a set predates evidence capture; result says unavailable. */
   allowUnavailableEvidence?: boolean; objectOptions?: TransferOptions;
+  expected?: RecoverySetIdentity;
 }): Promise<RecoverySetRestore> {
   // Capture both the assertion and its reported provenance before any await.
   // A caller may mutate its options while archive/database I/O is in flight.
   const authority=input?.objectAuthority, selected=authority?.authorization, exposure=authority?.exposure;
+  const expected = expectedIdentity(input?.expected);
   const assertAllowed=selected?.assertAllowed;
   if (!input || typeof input.database?.restore !== 'function' || typeof assertAllowed !== 'function'
     || !['current_authority_applied', 'quarantine_not_approved_for_exposure'].includes(exposure)
     || typeof input.restoredDatabase !== 'string' || !IDENT.test(input.restoredDatabase)) fail('invalid_input');
   const authorization:RestoreAuthorization=Object.freeze({assertAllowed:assertAllowed.bind(selected)});
-  const loaded = await loadVerified(input.archive, input.setId, input.backupObjects, input.objectOptions);
+  const loaded = await loadVerified(input.archive, input.setId, input.backupObjects, input.objectOptions, expected);
   const b = loaded.body;
   if (!loaded.evidence && input.allowUnavailableEvidence !== true) fail('evidence_unavailable');
   await assertEmptyTarget(input.restoredPool, input.restoredDatabase, b.schema);
