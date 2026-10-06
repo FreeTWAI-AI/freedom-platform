@@ -359,5 +359,3 @@ export async function declineTransfer(pool: Pool, actor: Actor, tenantId: string
     throw error;
   }
 }
-
-
