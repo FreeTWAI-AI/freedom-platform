@@ -17049,8 +17049,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 7465,
-      "sha256": "8fc1e688eccdb9728a99520a4c6a2bdde497775429cd7479dade1afc28f62138"
+      "bytes": 7603,
+      "sha256": "530385ae4170220487e000da5dd3e7ea44567be11a89badeec31fd9005747c6b"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -17219,8 +17219,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
-      "bytes": 69674,
-      "sha256": "faced1e0502f81adb9fa02a6ce7258204768327bdc58f438b30b980dee8bffa3"
+      "bytes": 70410,
+      "sha256": "542722c956e79e9480c9a9f3a25e49a031c13cba0e9216cf4aa590c7e0c51242"
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
@@ -17229,8 +17229,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
-      "bytes": 33923,
-      "sha256": "4c44003a9c747c3867add5b1887ecbd144d84d97690a8e9258017fc23c8edd00"
+      "bytes": 34110,
+      "sha256": "2fa251a1cc3e8809255c6a3344e9ed6cca6417e37040b54faa81f5a0a928e90a"
     },
     {
       "path": "scripts/verify-cloud-candidate.ts",
@@ -17354,8 +17354,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 74697,
-      "sha256": "e638b1c7c3e69c1de5a3685e79fec7d18710d17fc547d108fcdb9343a4f8712c"
+      "bytes": 75335,
+      "sha256": "8236ce14fa32e1d490a40593ee9025ace0a6808c5a9112d9804aa94246dc5f7a"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -18269,8 +18269,8 @@
     },
     {
       "path": "tests/runtime/guide-anchors.test.ts",
-      "bytes": 4803,
-      "sha256": "add4abe83a75ee43c662b1a6fc71d5f105a595bd6327949501afd1429340823b"
+      "bytes": 4911,
+      "sha256": "06cf9fafcdd6b739de7625274bcb64723ae5711694d449faf0bd1e15393bbd4d"
     },
     {
       "path": "tests/runtime/guide-pack-assets.test.ts",
@@ -18289,8 +18289,8 @@
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",
-      "bytes": 19823,
-      "sha256": "115498b745bd4ce011274785b206668a6cb07d41be5f5e210725afff2161eab9"
+      "bytes": 19960,
+      "sha256": "851e8f20aa58cb9a022b32420572e9f95c57295a604c3003a2a027fc4ccce133"
     },
     {
       "path": "tests/runtime/guild-preferences.test.ts",

@@ -179,7 +179,8 @@ test('a membership created before migration 069 stays full and a membership crea
  try{
   await adminPool.query(`CREATE SCHEMA ${backfill}`);
   await back.query('CREATE TABLE schema_migrations (name text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())');
-  for(const name of (await readdir(resolve(root,'migrations'))).filter(file=>file.endsWith('.sql')&&file!=='069_guild_member_tiers.sql').sort()){
+  // Legacy ledgers are closed chains, so the older database holds the exact prefix before 069 and the runner applies 069 onward in order.
+  for(const name of (await readdir(resolve(root,'migrations'))).filter(file=>file.endsWith('.sql')&&file<'069_guild_member_tiers.sql').sort()){
    const sql=await readFile(resolve(root,'migrations',name),'utf8');
    await back.query(sql);await back.query('INSERT INTO schema_migrations(name,sha256) VALUES($1,$2)',[name,digest(sql)]);
   }
