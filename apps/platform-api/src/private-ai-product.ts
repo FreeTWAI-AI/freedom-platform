@@ -69,7 +69,7 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
       throw new Error('invalid_private_ai_bootstrap_binding');
     bootstrap = await createBootstrapHttpTransport(pool,{host:bootstrapHost,signingKey:ports.signingKey.value as CryptoKey,...network});
   }
-  let machine:ReturnType<typeof createMachineModelHttpTransport>|undefined;
+  let machine:Awaited<ReturnType<typeof createMachineModelHttpTransport>>|undefined;
   if(descriptors.machine){
     const installation=descriptors.machine.value,d=installation&&Object.getOwnPropertyDescriptors(installation);
     if(!installation||Object.getPrototypeOf(installation)!==Object.prototype||Reflect.ownKeys(installation).length!==2
@@ -78,7 +78,7 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
       throw new Error('invalid_machine_model_installation');
     const machineHost=parseMachineTextHost(d.host.value);
     if(machineHost.environment!==environment||machineHost.clientId!==clientId||machineHost.origin!==origin)throw new Error('invalid_machine_model_binding');
-    machine=createMachineModelHttpTransport(pool,{host:machineHost,signingKey:d.signingKey.value,modelHost:host,store,...network});
+    machine=await createMachineModelHttpTransport(pool,{host:machineHost,signingKey:d.signingKey.value,modelHost:host,store,...network});
   }
   const ingestClient = descriptors.ingest ? bindCredentialIngestClient(descriptors.ingest.value as CredentialIngestClient,pool,origin,environment,clientId) : undefined;
   const setupOrigin = ingestClient?.setupOrigin;

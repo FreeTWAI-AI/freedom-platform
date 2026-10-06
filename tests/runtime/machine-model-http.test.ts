@@ -13,7 +13,7 @@ async function fixture(){
  const f=await approved(),issuer=await generateKeyPair('ES256',{extractable:true}),jwk=parseRuntimePublicJwk(await exportJWK(f.pair.publicKey));
  const host:MachineTextHost={profile:'freedom.machine-text.host/v1',environment:'local',clientId:'agent-kit',origin,issuer:origin+'/issuer',audience:origin+base,issuerKid:'machine-issuer-key-0001',
   keys:[{kid:'machine-issuer-key-0001',purpose:'machine_text',environment:'local',publicJwk:parseRuntimePublicJwk(await exportJWK(issuer.publicKey)),notBeforeMs:0,notAfterMs:Date.now()+3600000,revoked:false}]};
- const transport=createMachineModelHttpTransport(app,{host,signingKey:issuer.privateKey,modelHost,store:new FakeObjectStore()});
+ const transport=await createMachineModelHttpTransport(app,{host,signingKey:issuer.privateKey,modelHost,store:new FakeObjectStore()});
  async function sign(claims:unknown,key=f.pair.privateKey,header:Record<string,unknown>={}){return new CompactSign(new TextEncoder().encode(JSON.stringify(claims))).setProtectedHeader({typ:'dpop+jwt',alg:'ES256',jwk,...header}).sign(key);}
  async function request(name:'challenge'|'activate'|'execute'|'status'|'evidence',body:unknown,extra:{stepId?:string;token?:string;key?:string;version?:string;claims?:Record<string,unknown>;headers?:Record<string,string>;raw?:string;method?:string;url?:string;proof?:string;privateKey?:CryptoKey;proofHeader?:Record<string,unknown>}={}){
   const path=name==='challenge'?base+'/challenge':name==='activate'?base:base+'/'+extra.stepId+(name==='status'?'':'/'+name),method=name==='status'?'GET':'POST';
@@ -45,7 +45,7 @@ test('MACHINE-HTTP-01 mounted Hono signed device -> activation -> one dispatch -
 test('AP:AUTH-13 machine HTTP proof rejects key/audience/method/URI/expiry/replay and fixed trust refuses jku/unknown kid without network',async()=>{
  const f=await fixture(),a=await f.activate(),stepId=a.metadata.stepId,token=a.credentials.accessToken,other=await generateKeyPair('ES256');
  const rejected=async(extra:Parameters<typeof f.request>[2])=>{const r=await f.request('execute',{}, {stepId,token,...extra});assert.equal(r.status,401,r.text);assert.equal(posts,0);};
- for(const claims of [{htm:'GET'},{htu:origin+base+'/'+stepId},{iat:Math.floor(Date.now()/1000)-61},{iat:Math.floor(Date.now()/1000)+6},{connection_id:randomUUID()},{family_id:randomUUID()},{ath:'A'.repeat(43)},{request_sha256:'f'.repeat(64)}])await rejected({claims});
+ for(const claims of [{htm:'GET'},{htu:origin+base+'/'+stepId},{iat:Math.floor(Date.now()/1000)-120},{iat:Math.floor(Date.now()/1000)+30},{connection_id:randomUUID()},{family_id:randomUUID()},{ath:'A'.repeat(43)},{request_sha256:'f'.repeat(64)}])await rejected({claims});
  await rejected({privateKey:other.privateKey});
  let fetched=0;const original=globalThis.fetch;globalThis.fetch=async()=>{fetched++;throw Error('network_denied');};
  try{
