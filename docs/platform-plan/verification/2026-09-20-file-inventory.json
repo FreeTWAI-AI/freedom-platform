@@ -1354,8 +1354,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildDesign.css",
-      "bytes": 28798,
-      "sha256": "fe26665dd6aa865963fc64df1b7315f3d1b7cd9539548bad0a507eea543fcdbc"
+      "bytes": 28818,
+      "sha256": "c4b4906c7bcdbda3af1c37eb4868e70afadf231926eb1e4e66dad6cd925946e6"
     },
     {
       "path": "apps/portal-web/src/modules/GuildDiscoveryReport.tsx",
@@ -17514,8 +17514,8 @@
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 11742,
-      "sha256": "02a64f551c4c00ed41ae6c7ad3326adef0c2ab7f7f401056f68a86369ee27177"
+      "bytes": 12138,
+      "sha256": "7af1d73ffe04dd95ff912a09e9eaeacf49e78d7c25fa416fc8c78743a243eb4a"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
