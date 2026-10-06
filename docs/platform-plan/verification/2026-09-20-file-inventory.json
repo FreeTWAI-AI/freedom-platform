@@ -12248,6 +12248,11 @@
       "sha256": "065b1351da62c73390966cc0800668e02b7583813123832e629e3f83159ab521"
     },
     {
+      "path": "docs/development/e2e-harness.md",
+      "bytes": 15166,
+      "sha256": "31a46e8e058d3d5936c6632ac993dcf5b72a1635cb916915c7ed3541e457ee5e"
+    },
+    {
       "path": "docs/development/event-banner-worker.md",
       "bytes": 1610,
       "sha256": "d711075b224ae63478472be73e42ebe44a1385c169c0f375909d608e3ff1fceb"
@@ -14044,8 +14049,8 @@
     },
     {
       "path": "governance/README.md",
-      "bytes": 23036,
-      "sha256": "7f8fa30d8b3899f9500e902ae09be78034e4130eebdc25d41e00ff98d7937673"
+      "bytes": 24046,
+      "sha256": "dc0393b06d2ae6adbf22e25ec72972718a7ccd4f46c73f34de54d5da64a13f71"
     },
     {
       "path": "governance/schemas/coding-context.schema.json",
@@ -14084,8 +14089,8 @@
     },
     {
       "path": "governance/schemas/verifier-report.schema.json",
-      "bytes": 11454,
-      "sha256": "c852505c3d87ac8d55d734f0f748dc7d9de3b6e43287b2c20b0b04bc3fef5849"
+      "bytes": 11512,
+      "sha256": "e12868db02d6996133d43ff2263ba590bed8d4e20f387c376535a028330f1d49"
     },
     {
       "path": "migrations/001_local_core.sql",
@@ -16264,8 +16269,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5551,
-      "sha256": "528a3d9fa7005235d87e0e68ed14ee31af1f23c5425deb2f30b086b7a2947b07"
+      "bytes": 5816,
+      "sha256": "6b3ad65e433436514b6d640c93a4011ffde6d2b63eec815e54ec23da38128c9c"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -16274,8 +16279,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 31314,
-      "sha256": "b11dee359dc56404ec48e4380cf895ad4b135df2afdabe4d27917e11b1320659"
+      "bytes": 31717,
+      "sha256": "bec030c7327bfc386007ce535163d25ce5cdf5bba201f9771aa04d6388cf91a8"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16434,8 +16439,8 @@
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
-      "bytes": 12724,
-      "sha256": "ba5c0a0e17049b60689c5eaed185915b02ef579a2e4716cf5e5a071e838c89a0"
+      "bytes": 14427,
+      "sha256": "7910b5e7324c2fed7680a4710a335074ef5ba030615ca99a0adc315881a2c32b"
     },
     {
       "path": "packages/contribution-tools/test/supervisor-create-lifecycle.test.mjs",
@@ -17481,6 +17486,11 @@
       "path": "tests/e2e/fixtures.ts",
       "bytes": 1010,
       "sha256": "7ea2a53b6a4f42a04289afb16889686dd80bd75ff6cd58a505ca3c43a9ed27e0"
+    },
+    {
+      "path": "tests/e2e/freedom.module.json",
+      "bytes": 1089,
+      "sha256": "cceb6f9b56f6d40e8e0148d4ab59322089db9fe076f011b6abd8313f36051ecd"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",

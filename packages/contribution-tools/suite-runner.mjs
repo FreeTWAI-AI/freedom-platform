@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-databases.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES } from './runtime-suites.mjs';
+import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES, FIXED_NODE_SUITES } from './runtime-suites.mjs';
 
 import { createProgressDecoder } from './test-reporter.mjs';
 
@@ -29,6 +29,8 @@ async function suiteFiles(root, id) {
     const found = (await readdir(resolve(root, directory)))
       .filter(name => /^[a-z][a-z0-9_-]*\.test\.mjs$/.test(name)).map(name => directory + '/' + name);
     files = [...new Set([...baseline, ...found])].sort();
+  } else if (Object.hasOwn(FIXED_NODE_SUITES, id)) {
+    files = [...FIXED_NODE_SUITES[id]];
   } else if (id === 'runtime.full') {
     const found = (await readdir(resolve(root, 'tests/runtime')))
       .filter(name => /^[a-z][a-z0-9_-]*\.test\.ts$/.test(name)).map(name => 'tests/runtime/' + name);
@@ -345,10 +347,11 @@ async function runSharded(root, selections, files, options, timeout, count) {
 }
 
 export async function runLocalSuites(root, ids, options = {}) {
-  const results = new Map(), governance = [], runtime = [];
+  const results = new Map(), governance = [], fixedNode = [], runtime = [];
   for (const id of [...new Set(ids)].sort()) {
     const isRuntime = id === 'runtime.full' || Object.hasOwn(RUNTIME_SUITES, id);
-    if (id !== 'governance.unit' && !isRuntime && !Object.hasOwn(NODE_CONSUMER_SUITES, id)) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
+    const isFixedNode = Object.hasOwn(FIXED_NODE_SUITES, id);
+    if (id !== 'governance.unit' && !isRuntime && !Object.hasOwn(NODE_CONSUMER_SUITES, id) && !isFixedNode) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
     if (isRuntime && !isDisposableDatabaseUrl(options.testDatabaseUrl)) {
       results.set(id, result(id, 'not_run', options.testDatabaseUrl === undefined ? 'test_database_required' : 'test_database_rejected')); continue;
     }
@@ -356,9 +359,11 @@ export async function runLocalSuites(root, ids, options = {}) {
     try { files = await suiteFiles(root, id); }
     catch { results.set(id, result(id, 'not_run', 'suite_files_unavailable')); continue; }
     if (!files.length) { results.set(id, { ...result(id, 'failed', 'empty_test_set'), test_count: 0 }); continue; }
-    (isRuntime ? runtime : governance).push({ id, files });
+    (isRuntime ? runtime : isFixedNode ? fixedNode : governance).push({ id, files });
   }
-  for (const [selected, isRuntime] of [[governance, false], [runtime, true]]) {
+  // Fixed-file suites stay in their own non-runtime group so they keep the
+  // 60-second budget and a planner failure does not fail governance.unit.
+  for (const [selected, isRuntime] of [[governance, false], [fixedNode, false], [runtime, true]]) {
     if (selected.length) for (const item of await runGroup(root, selected, isRuntime, isRuntime ? options : { ...options, runtimeShards: 1 })) results.set(item.check_id, item);
   }
   return [...results.values()].sort((a, b) => a.check_id.localeCompare(b.check_id));
