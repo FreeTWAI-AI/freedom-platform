@@ -12558,6 +12558,11 @@
       "sha256": "14cb5c15b7f148e153d7fd9b397308112389430c3c182f47ce0e103f21f4f82d"
     },
     {
+      "path": "docs/development/trust-pin-probe-s-20261006.md",
+      "bytes": 389,
+      "sha256": "760717b7a956aa5d41d10722a94080dadc394a80f0607c62da4e4e4d767a25c9"
+    },
+    {
       "path": "docs/development/worker-private-ai-bindings.md",
       "bytes": 22399,
       "sha256": "47eb1103668fd27d6f32e165378cff1d996e1fda075585856e47bd19dbaaedba"
