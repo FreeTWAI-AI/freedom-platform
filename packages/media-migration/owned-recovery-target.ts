@@ -43,7 +43,8 @@ function inspectRaw(reference:string):DockerInspect|undefined{
     if(typeof first!=='object'||first===null)fail();
     return first as DockerInspect;
   }catch(error){const stderr=error instanceof Error&&'stderr' in error?String((error as {stderr?:unknown}).stderr??''):'';
-    if(stderr.includes('No such object')||stderr.includes('No such container'))return undefined;return fail();}
+    const text=(stderr+'\n'+(error instanceof Error?error.message:'')).toLowerCase();
+    if(text.includes('no such object')||text.includes('no such container'))return undefined;return fail();}
 }
 export function assertOwnedRecoveryIdentity(item:DockerInspect,identity:OwnedRecoveryIdentity):void{
   const binds=(item.Mounts??[]).filter(mount=>mount.Type==='bind');
