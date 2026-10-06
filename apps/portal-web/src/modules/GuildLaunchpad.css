@@ -1,5 +1,9 @@
 .guild-launchpad{max-width:72rem;display:grid;gap:1rem;overflow-wrap:anywhere}
+.guild-launchpad>.actions{justify-self:start;margin-top:0}
 .guild-launchpad-actions,.guild-launchpad-block-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.guild-launchpad .fieldset{display:flex;flex-direction:column;gap:.8rem;margin:0}
+.guild-launchpad .fieldset>*{margin:0;min-width:0}
+.guild-launchpad .fieldset>button{align-self:flex-start}
 .guild-launchpad .checkbox-row{min-height:44px;align-items:center}
 .guild-launchpad .checkbox-row input{margin-top:0}
 .guild-launchpad-block{display:grid;gap:.45rem;padding:1rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev)}

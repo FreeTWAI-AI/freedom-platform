@@ -140,7 +140,7 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   return <div className="stack">
     <p>業務空間尚未在此環境啟用</p>
     <p>這個環境還沒有開啟公會業務空間，所以這裡不能建立或保存工作。</p>
-    {starter && <dl>
+    {starter && <dl className="detail-list">
       <div><dt>標題</dt><dd>{starter.title_label}</dd></div>
       <div><dt>目標</dt><dd>{starter.objective_hint}</dd></div>
       <div><dt>筆記</dt><dd>{starter.note_hint}</dd></div>
@@ -419,13 +419,13 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <button type="button" className="btn btn-ghost" onClick={onBack}>返回公會列表</button>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={onBack}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
     {banner && <p className="banner banner-error" role="alert">{banner}</p>}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
-    {visitor && mode === 'member' && guild && <button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button>}
+    {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
     {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
@@ -436,7 +436,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
       </label>
       <p className="field-hint" id="launchpad-mission-hint">這段文字不能換行</p>
       <FieldNote id="launchpad-mission-error" errors={errors} path="mission_override"/>
-      <fieldset>
+      <fieldset className="fieldset">
         <legend>版面區塊</legend>
         <div className="stack">{draft.blocks.map((block, index) => <div key={block.kind} className="guild-launchpad-block">
           <p>{BLOCK_LABEL[block.kind]}</p>
@@ -451,7 +451,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
           <FieldNote id={`launchpad-block-title-${index}-error`} errors={errors} path={`blocks.${index}.title`}/>
         </div>)}</div>
       </fieldset>
-      <fieldset>
+      <fieldset className="fieldset">
         <legend>起步提示</legend>
         <label className="field" htmlFor="launchpad-starter-title">標題<input id="launchpad-starter-title" aria-describedby={describedBy(errors, 'starter.title_label', 'launchpad-starter-title-error')} value={draft.starter.title_label} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, title_label: event.target.value}})}/></label>
         <FieldNote id="launchpad-starter-title-error" errors={errors} path="starter.title_label"/>
@@ -460,7 +460,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
         <label className="field" htmlFor="launchpad-starter-note">筆記<input id="launchpad-starter-note" aria-describedby={describedBy(errors, 'starter.note_hint', 'launchpad-starter-note-error')} value={draft.starter.note_hint} maxLength={480} onChange={event => setDraft({...draft, starter: {...draft.starter, note_hint: event.target.value}})}/></label>
         <FieldNote id="launchpad-starter-note-error" errors={errors} path="starter.note_hint"/>
       </fieldset>
-      <fieldset>
+      <fieldset className="fieldset">
         <legend>協助連結</legend>
         <label className="field">協助類型<select value={draft.support.kind} onChange={event => setDraft({...draft, support: {...draft.support, kind: event.target.value as Config['support']['kind']}})}><option value="platform_help">平台說明</option><option value="guild_public_contact">公會公開聯絡</option></select></label>
         <label className="field" htmlFor="launchpad-support-url">公開網址<input id="launchpad-support-url" aria-describedby={describedBy(errors, 'support.public_url', 'launchpad-support-url-error')} value={draft.support.public_url ?? ''} maxLength={2048} placeholder="https://" onChange={event => setDraft({...draft, support: {...draft.support, public_url: event.target.value === '' ? null : event.target.value}})}/></label>
@@ -476,21 +476,21 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
         {access.edit && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveDraft()}>儲存草稿</button>}
         {access.publish && <button type="button" className="btn btn-primary" disabled={busy || !canPublish} onClick={event => { setConfirmPublish(true); openDialog(publishDialog.current, event.currentTarget); }}>發布</button>}
       </div>
-      {access.publish && leader && <fieldset>
+      {access.publish && leader && <fieldset className="fieldset">
         <legend>版本</legend>
-        <ul>{leader.revisions.map(revision => <li key={revision.revision}>版本 {revision.revision} · {revision.status === 'draft' ? '草稿' : revision.status === 'published' ? '已發布' : '已取代'}{revision.revert_reason ? ` · 回復自版本 ${revision.reverted_from_revision}：${revision.revert_reason}` : ''}
+        {leader.revisions.length === 0 ? <p>還沒有任何版本。</p> : <ul>{leader.revisions.map(revision => <li key={revision.revision}>版本 {revision.revision} · {revision.status === 'draft' ? '草稿' : revision.status === 'published' ? '已發布' : '已取代'}{revision.revert_reason ? ` · 回復自版本 ${revision.reverted_from_revision}：${revision.revert_reason}` : ''}
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => { setRevertTarget(revision.revision); setRevertReason(''); openDialog(revertDialog.current, event.currentTarget); }}>回復到此版本</button>
-        </li>)}</ul>
+        </li>)}</ul>}
       </fieldset>}
-      {access.delegate && leader?.delegations && <fieldset>
+      {access.delegate && leader?.delegations && <fieldset className="fieldset">
         <legend>授權</legend>
         <label className="field">成員<select value={grantPrincipal} onChange={event => setGrantPrincipal(event.target.value)}><option value="">選擇成員</option>{(leader.delegation_candidates ?? []).map((candidate, index) => <option key={candidate.principal_id ?? `missing-principal-${index}`} value={candidate.principal_id ?? ''} disabled={!candidate.principal_id}>{candidate.display_name}{candidate.principal_id ? '' : '（尚未建立身份，無法授權）'}</option>)}</select></label>
         <div>{Object.entries(CAPABILITY_LABEL).map(([capability, label]) => <label key={capability} className="checkbox-row"><input type="checkbox" checked={grantCaps.includes(capability)} onChange={event => setGrantCaps(current => event.target.checked ? [...current, capability] : current.filter(item => item !== capability))}/>{label}</label>)}</div>
         <label className="field">到期時間<input type="datetime-local" value={grantExpiry} onChange={event => setGrantExpiry(event.target.value)}/></label>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void grant()}>授權</button>
-        <ul>{leader.delegations.map(row => <li key={row.delegation_id}>{row.display_name} · {row.capabilities.map(capability => CAPABILITY_LABEL[capability] ?? capability).join('、')} · <time dateTime={row.expires_at}>{formatIsoLocal(row.expires_at)}</time>{row.expired ? ' · 已過期' : ''}
+        {leader.delegations.length === 0 ? <p>目前沒有授權。</p> : <ul>{leader.delegations.map(row => <li key={row.delegation_id}>{row.display_name} · {row.capabilities.map(capability => CAPABILITY_LABEL[capability] ?? capability).join('、')} · <time dateTime={row.expires_at}>{formatIsoLocal(row.expires_at)}</time>{row.expired ? ' · 已過期' : ''}
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={event => { setRevokeId(row.delegation_id); setRevokeReason(''); openDialog(revokeDialog.current, event.currentTarget); }}>撤銷</button>
-        </li>)}</ul>
+        </li>)}</ul>}
       </fieldset>}
     </form>}
     <dialog ref={previewDialog} aria-labelledby="launchpad-preview-title" onClose={() => opener.current?.focus()}>
