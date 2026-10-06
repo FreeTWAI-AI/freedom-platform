@@ -65,7 +65,7 @@
     "apps/platform-api/src/routes/machine-model-http.ts",
     "tests/runtime/machine-model-http.test.ts",
     "tests/runtime/machine-model-execution.test.ts",
-    "tests/runtime/machine-model-broker.test.ts"
+    "tests/runtime/machine-model-revocation.test.ts"
   ],
   "public_exports": [
     "packages/sdk/machine-device-client.mjs",

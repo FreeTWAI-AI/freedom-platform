@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/credential-broker/freedom.module.json",
-      "bytes": 2434,
-      "sha256": "80ca9333ea323fafd5b452ece8047a6fa56ba63d42b382981ff183d983284cf7"
+      "bytes": 2484,
+      "sha256": "4745ebbac7a36f4971bf6264c59e1c4101d66f19a027ef30b0f07284882ee2eb"
     },
     {
       "path": "apps/credential-broker/src/bridge.ts",
@@ -14824,8 +14824,8 @@
     },
     {
       "path": "modules/agent-control/freedom.module.json",
-      "bytes": 8333,
-      "sha256": "490b62d0be15ac1d901d4f8f8a6af44f247a2fdd3072f54fd417fd1a588fcb9f"
+      "bytes": 8337,
+      "sha256": "5986828cb69ace02d7c1b54804f2b447688663a6f41a9339396e4eaef47c4381"
     },
     {
       "path": "modules/agent-control/generate-bootstrap-http.ts",
@@ -14964,8 +14964,8 @@
     },
     {
       "path": "modules/agent-execution/freedom.module.json",
-      "bytes": 8692,
-      "sha256": "dba749aa593251007e1886862e3ecaf8fa1ac8421cebff1ac56eb41527321de3"
+      "bytes": 8638,
+      "sha256": "e436d81b2e18772659eee5dfea6b3045f9976dd20a49220ec9cf5b13d29a5793"
     },
     {
       "path": "modules/agent-execution/generate-member-execution-http.ts",
@@ -18499,8 +18499,8 @@
     },
     {
       "path": "tests/runtime/member-device-browser.test.ts",
-      "bytes": 21671,
-      "sha256": "73ccbf990e4b23f965167a785e1f9b9c52363c35f4f21df9503e3a935679dece"
+      "bytes": 21713,
+      "sha256": "984fed07061327317b5f65c7b2e6fe763170907d9b2320debfb5d0cc16b41d89"
     },
     {
       "path": "tests/runtime/member-device-client.test.ts",
