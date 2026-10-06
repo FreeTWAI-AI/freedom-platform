@@ -244,8 +244,8 @@ test('admin category tools are reading-width cards and send the classification a
   await expect(confirm).toBeDisabled();
   await region.getByRole('checkbox', {name: /我確認仍要切換/}).check();
   await confirm.click();
-  expect(switched?.body).toEqual({accept_blocked: true});
   await expect(region.getByRole('status')).toHaveText('已切換。這次處理 40 位，無法對照 3 位。');
+  expect(switched?.body).toEqual({accept_blocked: true});
   await page.setViewportSize({width: 320, height: 800});
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
   await classifyToggle.click();
