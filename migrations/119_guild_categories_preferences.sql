@@ -73,14 +73,16 @@ DECLARE
 BEGIN
   SELECT m.state INTO membership_state
     FROM positioning_profession_memberships m
-    WHERE m.community_id = NEW.community_id AND m.user_id = NEW.user_id AND m.guild_key = NEW.guild_key;
+    WHERE m.community_id = NEW.community_id AND m.user_id = NEW.user_id AND m.guild_key = NEW.guild_key
+    FOR SHARE;
   IF membership_state IS DISTINCT FROM 'active' THEN
     RAISE EXCEPTION 'guild_category_preference_rejected' USING ERRCODE = '23514';
   END IF;
   SELECT c.category_review::text, c.category::text, c.active
     INTO review, catalog_category, catalog_active
     FROM guild_catalog_categories c
-    WHERE c.guild_key = NEW.guild_key;
+    WHERE c.guild_key = NEW.guild_key
+    FOR SHARE;
   IF review IS DISTINCT FROM 'approved'
      OR catalog_category IS DISTINCT FROM NEW.category::text
      OR catalog_active IS DISTINCT FROM true THEN
@@ -94,6 +96,41 @@ CREATE CONSTRAINT TRIGGER guild_category_preference_guard
   AFTER INSERT OR UPDATE ON guild_category_preferences
   DEFERRABLE INITIALLY IMMEDIATE
   FOR EACH ROW EXECUTE FUNCTION guild_category_preference_guard();
+
+CREATE FUNCTION guild_category_preference_membership_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.state IS DISTINCT FROM 'active' AND EXISTS (
+    SELECT 1 FROM guild_category_preferences p
+    WHERE p.community_id = NEW.community_id AND p.user_id = NEW.user_id AND p.guild_key = NEW.guild_key
+  ) THEN
+    RAISE EXCEPTION 'guild_category_preference_rejected' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER guild_category_preference_membership_guard
+  AFTER UPDATE OF state ON positioning_profession_memberships
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION guild_category_preference_membership_guard();
+
+CREATE FUNCTION guild_category_preference_catalog_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM guild_category_preferences p
+    WHERE p.guild_key = NEW.guild_key
+      AND (p.category::text IS DISTINCT FROM NEW.category::text OR NEW.active IS DISTINCT FROM true)
+  ) THEN
+    RAISE EXCEPTION 'guild_category_preference_rejected' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER guild_category_preference_catalog_guard
+  AFTER UPDATE OF category, active ON guild_catalog_categories
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION guild_category_preference_catalog_guard();
 
 CREATE INDEX guild_category_preferences_by_guild ON guild_category_preferences(guild_key, user_id);
 
