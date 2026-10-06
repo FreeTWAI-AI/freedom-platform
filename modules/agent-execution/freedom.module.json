@@ -31,6 +31,7 @@
     "tests/runtime/model-step-contracts.test.ts",
     "tests/runtime/model-step-adversarial.test.ts",
     "tests/runtime/model-step-revocation-races.test.ts",
+    "tests/runtime/machine-model-revocation.test.ts",
     "apps/platform-api/src/private-ai-product.ts",
     "apps/platform-api/src/routes/member-model-http.ts",
     "apps/portal-web/src/modules/PrivateWorkAI.tsx",
