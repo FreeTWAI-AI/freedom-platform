@@ -2,13 +2,54 @@
   "format": "freedom.module/v1",
   "module_id": "command-core",
   "owner_role": "foundation",
-  "owned_paths": ["packages/db/**", "tests/runtime/command-core.test.ts"],
-  "public_exports": ["packages/db/index.ts", "packages/db/command-core.ts"],
+  "owned_paths": [
+    "packages/db/**",
+    "tests/runtime/command-core.test.ts",
+    "scripts/database.ts",
+    "scripts/migrate-installed.mjs",
+    "deploy/cloudflare/migration-operator.mjs",
+    "deploy/cloudflare/migration-operator.md",
+    "deploy/cloudflare/test/migration-operator.test.mjs",
+    "deploy/cloudflare/test/migration-fixtures.mjs",
+    "tests/integration/migration-plan-postgres.test.ts",
+    "tests/integration/migration-entrypoints-postgres.test.ts",
+    "tests/runtime/migration-runner-plan.test.ts"
+  ],
+  "public_exports": [
+    "packages/db/index.ts",
+    "packages/db/command-core.ts"
+  ],
   "dependencies": [],
-  "contract_families": ["preview"],
-  "client_profiles": ["member"],
-  "instructions": ["packages/db/README.md", "docs/platform-plan/execution/unified-foundation/02-principal-command.md"],
-  "invariants": ["current-authority-before-replay", "legacy-member-receipt-compatibility", "single-transaction-effects"],
-  "tests": ["runtime.command-core", "runtime.full"],
-  "surfaces": []
+  "contract_families": [
+    "preview"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "packages/db/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "packages/db/migrations.md",
+    "packages/db/migration-operator.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "legacy-member-receipt-compatibility",
+    "single-transaction-effects"
+  ],
+  "tests": [
+    "runtime.command-core",
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "operator.migration-installation",
+      "kind": "cli",
+      "entry": "scripts/migrate-installed.mjs",
+      "operations": [
+        "operator.migration.apply"
+      ],
+      "auth_profile": "explicit-host-installed-source-and-private-db-role"
+    }
+  ]
 }

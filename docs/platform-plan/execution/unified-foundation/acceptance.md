@@ -1,6 +1,11 @@
 # 共同基礎需求與驗收對照
 
-這份索引保留統一計畫的 INT-01–28 與 GOV-01–32，共 60 項；另有 [R2/AP 原始驗收](source-acceptance.md) 38+70 項，合計 168 項來源要求。本輪只完成規格映射，全部產品驗收狀態為 `not_run`；實作仍需補每項的測試程式、競態反例及實際證據，168 不是完整 test case 數。
+原需求原文與最低證據層級保留在本頁；**目前逐項状态以 [需求證據索引](requirement-evidence.json) 為準**。
+下表 `not_run` 是建立規格映射時的歷史欄位，不再維護為第二份 current 狀態。
+狀態定義、owner 及 FC-00–07 完成門檻見 [收尾入口](closeout.md)；部分證據不能直接升為 accepted。
+
+
+這份索引保留統一計畫的 INT-01–28 與 GOV-01–32，共 60 項；另有 [R2/AP 原始驗收](source-acceptance.md) 38+70 項，合計 168 項來源要求。原始建表時只完成規格映射，當時全部產品驗收狀態為 `not_run`；後續實作、競態反例及實際證據已移至上方單一索引，168 不是完整 test case 數。
 
 來源：[統一計畫 §19 與 §31](../../../plans/unified-foundation.md)。下表情境及預期保留原文；owner spec 簡稱對應 [GOV](01-contracts-and-governance.md)、[CORE](02-principal-command.md)、[ASSET-WORK](03-assets-private-work.md)、[EXEC-OPS](04-execution-adapters-release.md)。INT 以 `UF:INT-xx` 識別命名空間，原 ID 不變。
 

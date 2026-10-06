@@ -21,6 +21,8 @@ export const SHARED_NETWORK_KEY = 'shared-server';
  * bindings, so no configuration is shared through process-wide state.
  */
 export type PlatformRuntime = {
+  /** Explicit upgrade policy. Absence closes shop-key operations; never allows legacy. */
+  shopKeyPolicy?: 'legacy-compatible'|'purpose-bound-only';
   /** Independently installed read-only platform-public guide release. Never MEDIA. */
   publicGuideAssets?: PublicGuideAssets;
   /** Community new registrations join; read per request. */

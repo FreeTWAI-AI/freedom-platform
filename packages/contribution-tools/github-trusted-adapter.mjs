@@ -10,7 +10,7 @@ import { requireCondition as check, VerificationError, safeFailure } from './err
 
 // Bootstrap-approved closure; no manifest-selected entrypoints or dependencies.
 const FILES = Object.freeze([
-  ...['trusted-ci','context','workspace','process-env','contracts','formats','schema','io','errors'].map(n=>`packages/contribution-tools/${n}.mjs`),
+  ...['trusted-ci','context','local-artifacts','workspace','process-env','contracts','formats','schema','io','errors'].map(n=>`packages/contribution-tools/${n}.mjs`),
   ...['release-set','contract-pin-v1','contract-pin-v2','release-proof','release-trust','module','coding-context','verifier-report'].map(n=>`governance/schemas/${n}.schema.json`),
 ].sort());
 const sha = value => check(typeof value==='string' && /^[a-f0-9]{40}$/.test(value),'invalid_host_commit');

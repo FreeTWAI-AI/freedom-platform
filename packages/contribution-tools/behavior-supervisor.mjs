@@ -12,8 +12,13 @@ import { MEMBER_BEHAVIOR as manifest } from './behavior-manifest.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { createConsumerHttpFixture, CONSUMER_BEHAVIOR_PROFILES, CONSUMER_CLI_PROFILES } from './consumer-behavior-fixture.mjs';
+import { createAgentKitDeviceFixture, DEVICE_CASES } from './agent-kit-device-fixture.mjs';
+import { DEVICE_REPOSITORY, DEVICE_ENTRY, verifyDeviceLaunchClosure } from './agent-kit-device-profile.mjs';
+import { consumerHostTuple } from './consumer-host-tuples.mjs';
 import { inspectConsumerRuntime } from './consumer-runtime-recipe.mjs';
 import { DIRECTORY_REPOSITORY, directoryBuildCases, checkDirectoryBuildArchive } from './directory-build-fixture.mjs';
+import { directoryHtmlDependencyIdentity } from './directory-html-dependencies.mjs';
+import { readMigrationSources } from '../db/migration-files.mjs';
 
 // Member mode retains its cached local image identities; consumer mode uses the
 // separately provisioned public recipe. Neither is operator trust approval.
@@ -155,16 +160,24 @@ export async function validateBehaviorDependencyCache(source) {
   }
   await inspect(root); return { root, sha256: sha256(JSON.stringify(records)), files: count };
 }
-export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node' } = {}) {
+export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/node', directoryHtml = false } = {}) {
   const paths = ['packages/contribution-tools/behavior-supervisor.mjs', 'packages/contribution-tools/behavior-supervisor-fixture.mjs',
     'packages/contribution-tools/behavior-supervisor-target.mjs', 'packages/contribution-tools/consumer-behavior-target.mjs',
     'packages/contribution-tools/consumer-behavior-fixture.mjs', 'packages/contribution-tools/consumer-runtime-recipe.mjs',
+    ...['agent-kit-device-fixture', 'agent-kit-device-profile', 'agent-kit-device-preload', 'agent-kit-device-target', 'consumer-host-tuples'].map(name => `packages/contribution-tools/${name}.mjs`),
     'packages/contribution-tools/directory-build-fixture.mjs', 'packages/contribution-tools/directory-build-archive.py',
+    'packages/contribution-tools/directory-html-dependencies.mjs',
     'packages/contribution-tools/directory-reference/index.mjs', 'packages/contribution-tools/directory-reference/privacy.mjs',
     'contracts/preview/v1/protocol.mjs',
     'packages/contribution-tools/github-behavior-host.mjs',
-    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json'];
-  for (const name of await readdir(join(ROOT, 'migrations'))) if (/^\d{3}_[a-z0-9_]+\.sql$/.test(name)) paths.push('migrations/' + name);
+    'packages/contribution-tools/github-trusted-adapter.mjs', 'package-lock.json',
+    'packages/db/migration-plan.mjs', 'packages/db/migration-files.mjs', 'deploy/cloudflare/environments.json'];
+  const directoryParser = directoryHtml ? await directoryHtmlDependencyIdentity() : null;
+  if (directoryHtml) paths.push('packages/contribution-tools/directory-html-profile.mjs', 'packages/contribution-tools/directory-html-host/package.json',
+    'packages/contribution-tools/directory-html-host/package-lock.json');
+  // Include every SQL file even when its naming profile is not yet admitted;
+  // the fixed fixture planner rejects it rather than silently omitting it.
+  for (const { name } of readMigrationSources(join(ROOT, 'migrations'))) paths.push('migrations/' + name);
   const files = [];
   for (const path of paths.sort()) files.push([path, sha256(await readFile(join(ROOT, path)))]);
   const runtimeFiles = [];
@@ -173,7 +186,8 @@ export async function installedSupervisorIdentity({ nodeExecutable = '/usr/bin/n
     '/usr/lib/x86_64-linux-gnu/libc.so.6', '/usr/lib64/ld-linux-x86-64.so.2']) runtimeFiles.push([path, sha256(await readFile(path))]);
   return { supervisor_sha256: sha256(JSON.stringify(files)), harness_sha256: await installedBehaviorHarnessDigest(),
     node_runtime_sha256: sha256(JSON.stringify(runtimeFiles)), node_version: process.version,
-    runtime_coverage: 'node-and-listed-linked-libraries-only', host_os_approval: 'unverified' };
+    runtime_coverage: 'node-and-listed-linked-libraries-only', host_os_approval: 'unverified',
+    ...(directoryHtml ? { directory_html_parser: directoryParser } : {}) };
 }
 export function decodeBehaviorResponseFrame(bytes, expectedId) {
   const value = parseJson(bytes, { maxBytes: LIMITS.frameBytes, maxDepth: 4, maxNodes: 512 });
@@ -362,6 +376,7 @@ export async function runIsolatedMemberBehavior({ candidateRepository, candidate
 /** Fixed three-consumer profile. Same immutable export, container restrictions and
  * bounded response port as the member supervisor; host independently records HTTP.
  * Local observations do not install a publisher or prove internal library calls. */
+export async function runIsolatedAgentKitDeviceBehavior(input) { return runConsumerProfile(input, 'kit-device'); }
 export async function runIsolatedConsumerBehavior(input) { return runConsumerProfile(input, 'workspace'); }
 
 /** Fixed actual user-facing CLI, executed only in the candidate container. */
@@ -374,9 +389,11 @@ async function runConsumerProfile(input, profile) {
   const keys = ['repository', 'candidateRepository', 'candidateCommit'];
   if (!input || Object.keys(input).sort().join() !== keys.sort().join()
     || !Object.hasOwn(CONSUMER_BEHAVIOR_PROFILES, input.repository)
-    || (profile === 'kit-cli' && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
+    || (['kit-cli', 'kit-device'].includes(profile) && input.repository !== 'FreeTWAI-AI/freedom-agent-kit')) fail('consumer_profile_required');
   const { repository, candidateRepository, candidateCommit } = input;
-  const selected = profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository];
+  const device = profile === 'kit-device';
+  const selected = device ? { entry: DEVICE_ENTRY, scenarios: DEVICE_CASES }
+    : profile === 'workspace' ? CONSUMER_BEHAVIOR_PROFILES[repository] : CONSUMER_CLI_PROFILES[repository];
   const label = randomUUID(), owned = [], lifecycle = createSupervisorContainerLifecycle(), cases = [];
   let directory, child, fixture, timer, timedOut = false, outcome, phase = 'preflight';
   const kill = () => {
@@ -391,28 +408,35 @@ async function runConsumerProfile(input, profile) {
   try {
     if (process.platform !== 'linux' || Number(process.versions.node.split('.')[0]) < 24 || process.getuid() === 0) fail('supervisor_host_command_failed');
     directory = await mkdtemp(join(tmpdir(), 'fp-consumer-supervisor-'));
-    const candidate = join(directory, 'candidate'), socket = join(directory, 'fixture'), launcher = join(directory, 'target.mjs');
+    const candidate = join(directory, 'candidate'), socket = join(directory, 'fixture'), launcher = join(directory, 'target.mjs'), preload = join(directory, 'device-preload.mjs');
     await mkdir(candidate); await mkdir(socket);
     timer = setTimeout(() => { timedOut = true; kill(); }, LIMITS.wallMs);
     phase = 'snapshot'; const snapshot = await materializeBehaviorCandidate(candidateRepository, candidateCommit, candidate);
     const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
     const installation = await installedSupervisorIdentity({ nodeExecutable });
-    await writeFile(launcher, await readFile(new URL('./consumer-behavior-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
-    phase = 'fixture'; fixture = await createConsumerHttpFixture({ repository, socketPath: join(socket, 'http.sock'), onViolation: kill, profile });
+    let launchClosure;
+    const closure = () => verifyDeviceLaunchClosure(path => readFile(join(candidate, path)),
+      path => command('/usr/bin/git', ['show', `${consumerHostTuple(DEVICE_REPOSITORY).source}:${path}`], { cwd: ROOT }));
+    if (device) { launchClosure = await closure(); await writeFile(preload, await readFile(new URL('./agent-kit-device-preload.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' }); }
+    await writeFile(launcher, await readFile(new URL(device ? './agent-kit-device-target.mjs' : './consumer-behavior-target.mjs', import.meta.url)), { mode: 0o444, flag: 'wx' });
+    phase = 'fixture'; fixture = device
+      ? await createAgentKitDeviceFixture({ socketPath: join(socket, 'http.sock'), onViolation: kill })
+      : await createConsumerHttpFixture({ repository, socketPath: join(socket, 'http.sock'), onViolation: kill, profile });
     phase = 'candidate';
     const id = lifecycle.dispatch('candidate', 'create', () => docker(['create', '-i', ...containerLimits(label),
       '--ulimit', `nofile=${SUPERVISOR_NOFILE.candidate}:${SUPERVISOR_NOFILE.candidate}`, '--user', `${process.getuid()}:${process.getgid()}`,
       '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
       '--mount', `type=bind,src=${nodeExecutable},dst=/trusted-node,readonly`,
       '--mount', `type=bind,src=${candidate},dst=/candidate,readonly`, '--mount', `type=bind,src=${socket},dst=/fixture,readonly`,
-      '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`, '--workdir', '/candidate',
+      '--mount', `type=bind,src=${launcher},dst=/target.mjs,readonly`,
+      ...(device ? ['--mount', `type=bind,src=${preload},dst=/device-preload.mjs,readonly`] : []), '--workdir', '/candidate',
       '-e', 'TMPDIR=/tmp', '-e', 'NODE_ENV=test', '--entrypoint', '/trusted-node',
       runtime.image.reference, '--max-old-space-size=256', '/target.mjs', profile]));
     if (!/^[a-f0-9]{64}$/.test(id)) fail('supervisor_host_command_failed');
     owned.push({ id, kind: 'candidate', image: runtime.image.local_id, imageReference: runtime.image.reference, mounts: [[nodeExecutable, '/trusted-node', false], [candidate, '/candidate', false],
-      [socket, '/fixture', false], [launcher, '/target.mjs', false]] });
+      [socket, '/fixture', false], [launcher, '/target.mjs', false], ...(device ? [[preload, '/device-preload.mjs', false]] : [])] });
     if (timedOut) fail('supervisor_deadline');
-    clearTimeout(timer); timer = setTimeout(() => { timedOut = true; kill(); }, 15000);
+    clearTimeout(timer); timer = setTimeout(() => { timedOut = true; kill(); }, device ? 120000 : 15000);
     child = spawn('/usr/bin/docker', ['start', '-a', '-i', id], { env: env(), stdio: ['pipe', 'pipe', 'pipe'] });
     const request = responsePort(child, kill);
     let isolation;
@@ -425,9 +449,10 @@ async function runConsumerProfile(input, profile) {
       const challenge = fixture.begin(scenario);
       const response = await request(new Request('http://127.0.0.1:4310/consumer-driver', {
         method: 'POST', body: JSON.stringify(challenge), headers: { 'content-type': 'application/json' },
-      }), AbortSignal.timeout(5000));
+      }), AbortSignal.timeout(device ? 15000 : 5000));
       const observed = await fixture.verify(response); cases.push(observed);
       observeSupervisorContainer(owned[0], label); await checkSnapshot(candidate, snapshot.records);
+      if (device) await closure();
       if (observed.status !== 'passed') break;
     }
     kill(); await fixture.close(); fixture.assertHealthy(); fixture = null;
@@ -437,13 +462,15 @@ async function runConsumerProfile(input, profile) {
     const passed = cases.length === selected.scenarios.length && cases.every(value => value.status === 'passed');
     return report(passed ? 'isolated_consumer_http_observed_only' : 'consumer_behavior_mismatch', {
       check: { status: passed ? 'passed' : 'failed', test_count: cases.length, expected_test_count: selected.scenarios.length },
-      runtime_observation: passed ? 'host_observed_http' : 'not_checked', cases, isolation: [{ ...isolation, bind_destinations: owned[0].mounts.map(item => item[1]).sort() }],
+      runtime_observation: passed ? 'host_observed_http' : 'not_checked',
+      ...(device ? { launch_closure: launchClosure, library_invocation: passed ? 'closed_canonical_cli_observed' : 'not_checked',
+        transport: 'host_owned_synthetic_https_uri_over_unix_socket', real_tls: 'not_checked' } : {}), cases, isolation: [{ ...isolation, bind_destinations: owned[0].mounts.map(item => item[1]).sort() }],
       installation: { ...installation, node_executable: nodeExecutable, runtime_recipe: runtime },
       candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
       entry: profile === 'workspace' ? 'src/index.mjs#' + selected.entry : selected.entry,
     });
   } catch (error) {
-    return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || ['consumer_fixture_invalid', 'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch', 'consumer_runtime_platform_mismatch'].includes(error.message)
+    return report(timedOut ? 'supervisor_deadline' : safeCodes.has(error.message) || ['consumer_fixture_invalid', 'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch', 'consumer_runtime_platform_mismatch', 'device_launch_closure_mismatch'].includes(error.message)
       ? error.message : 'consumer_supervisor_failed', { phase, check: { status: 'failed' }, cases });
   } finally {
     clearTimeout(timer); kill(); if (fixture) await fixture.close();
@@ -510,7 +537,8 @@ async function executeDirectoryBuild(id) {
 }
 
 /** Bounded actual static build. The daemon pauses every container before copying
- * its tmpfs tree; a host-only reader hashes regular files without extracting them.
+ * its tmpfs tree; a host-only reader hashes regular files and captures bounded
+ * static HTML bytes without extracting them.
  * No writable host mount, candidate test, collector or self-reported verdict. */
 export async function runIsolatedDirectoryBuild({ repository, candidateRepository, candidateCommit }) {
   if (repository !== DIRECTORY_REPOSITORY) fail('consumer_profile_required');
@@ -520,13 +548,13 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
   const started = Date.now();
   const deadline = () => { if (Date.now() - started > LIMITS.wallMs) fail('supervisor_deadline'); };
   const report = (reason, extra = {}) => (outcome = { format: 'freedom.isolated-directory-build/v1',
-    repository, assurance_level: 'local', status: 'unavailable', reason,
+    repository, assurance_level: 'local', status: 'unavailable', reason, semantic_profile: 'freedom.directory-html/v2',
     source_integrity: 'not_checked', runtime_observation: 'not_checked', library_usage: 'not_checked',
     gate_enforced: false, merge_authorized: false, execution_authorized: false, publisher_trust: 'unverified',
     entry: 'scripts/build.mjs', check: { status: 'failed' }, cases, ...extra });
   try {
     const runtime = await inspectConsumerRuntime(), nodeExecutable = runtime.node.executable;
-    const installation = await installedSupervisorIdentity({ nodeExecutable });
+    const installation = await installedSupervisorIdentity({ nodeExecutable, directoryHtml: true });
     directory = await mkdtemp(join(tmpdir(), 'fp-directory-build-'));
     const candidate = join(directory, 'candidate'); await mkdir(candidate);
     phase = 'snapshot';
@@ -577,8 +605,8 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       if (!frozen.Running || !frozen.Paused) fail('supervisor_container_changed');
       phase = 'readback';
       const tar = command('/usr/bin/docker', ['cp', id + ':/work', '-'], { maxBuffer: 8 * 1024 * 1024 });
-      const archive = JSON.parse(command('/usr/bin/python3', ['-I', fileURLToPath(new URL('./directory-build-archive.py', import.meta.url))],
-        { input: tar, maxBuffer: 256 * 1024 }));
+      const archive = JSON.parse(command('/usr/bin/python3', ['-I', fileURLToPath(new URL('./directory-build-archive.py', import.meta.url)), '--html'],
+        { input: tar, maxBuffer: 6 * 1024 * 1024 }));
       docker(['rm', '-f', '-v', id]); owned.splice(owned.indexOf(item), 1);
       docker(['volume', 'rm', volume]); volumes.splice(volumes.indexOf(volume), 1);
       await checkSnapshot(candidate, snapshot.records);
@@ -593,7 +621,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
     }
     deadline();
     if (JSON.stringify(runtime) !== JSON.stringify(await inspectConsumerRuntime())
-      || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable })))
+      || JSON.stringify(installation) !== JSON.stringify(await installedSupervisorIdentity({ nodeExecutable, directoryHtml: true })))
       fail('supervisor_installation_changed');
     const passed = cases.length === scenarios.length && cases.every(value => value.status === 'passed');
     return report(passed ? 'isolated_directory_build_observed_only' : 'directory_behavior_mismatch', {
@@ -603,7 +631,7 @@ export async function runIsolatedDirectoryBuild({ repository, candidateRepositor
       candidate: { commit: snapshot.commit, tree: snapshot.tree, source_sha256: snapshot.source_sha256 },
     });
   } catch (error) {
-    return report(safeCodes.has(error.message) || ['directory_snapshot_limit', 'directory_build_unavailable',
+    return report(safeCodes.has(error.message) || ['directory_snapshot_limit', 'directory_build_unavailable', 'directory_html_unavailable', 'directory_parser_dependency_invalid',
       'consumer_image_unavailable', 'consumer_image_identity_mismatch', 'consumer_node_identity_mismatch',
       'consumer_runtime_platform_mismatch'].includes(error.message) ? error.message : 'directory_supervisor_failed', { phase });
   } finally {

@@ -1,0 +1,113 @@
+{
+  "format": "freedom.foundation-closeout-patch-evidence/v1",
+  "base_source": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
+  "kind": "local_candidate_only",
+  "accepted_requirement_ids": [],
+  "patches": [
+    {
+      "name": "context permits descriptor-required root DESIGN.md",
+      "requirement_ids": [
+        "GOV-07",
+        "GOV-12"
+      ],
+      "paths": [
+        "packages/contribution-tools/context.mjs",
+        "packages/contribution-tools/test/context.test.mjs"
+      ],
+      "command": "node --test packages/contribution-tools/test/context.test.mjs",
+      "result": {
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      "environment": "isolated local git fixtures; no DB/cloud",
+      "boundaries": [
+        "Arbitrary root instruction paths remain rejected",
+        "publisher_trust remains unverified",
+        "Real repository root-scope CLI moves from instruction_path_denied to context_size_limit; end-to-end prepare is not accepted"
+      ],
+      "tested_source_files": [
+        {
+          "path": "packages/contribution-tools/context.mjs",
+          "sha256": "3433e417cf87677657240c352490ec3a0039f9d7646684db6588f02954b31cf1"
+        },
+        {
+          "path": "packages/contribution-tools/test/context.test.mjs",
+          "sha256": "de8841e9d0db0364034feeaba9f717fb2b706d74e3de0e32fcd10022f2037145"
+        }
+      ],
+      "source": "0bf77ac719df3f74e460d5526983826944b43ea5"
+    },
+    {
+      "name": "verify includes selected deployment preflight",
+      "source": "fa204c2727f59be05e3907f92ff32f79b9393a73",
+      "branch": "fix/foundation-preflight-aggregate-20261005",
+      "requirement_ids": [
+        "GOV-16",
+        "R2:D04"
+      ],
+      "paths": [
+        ".github/workflows/verify.yml",
+        "scripts/ci/select-affected-jobs.mjs",
+        "scripts/ci/select-affected-jobs.test.mjs"
+      ],
+      "command": "node --test --test-concurrency=1 scripts/ci/select-affected-jobs.test.mjs",
+      "result": {
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0
+      },
+      "regression": "Before patch, two added tests fail: full aggregate accepts missing preflight; verify.needs omits preflight. After patch both pass.",
+      "environment": "local Node tests; no hosted run",
+      "boundaries": [
+        "Valid docs-only skip retained; full selected preflight requires success",
+        "Installed c3e workflow pin unchanged",
+        "No hosted enforcement acceptance, merge, deploy or whole-row acceptance follows"
+      ],
+      "latest_documentation_inventory_commit": "18f865f7b155803c1fa08f5091a954fa97107ed7"
+    }
+  ],
+  "research": {
+    "source": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
+    "grok_cli": {
+      "work_packages": 12,
+      "requested_model": "grok-4.7",
+      "reported_alias": "grok-4.7-build",
+      "lanes": [
+        "identity/command/composition",
+        "media/backup/retirement",
+        "consumers/native CI/context-migrations",
+        "execution/control/cross-client"
+      ],
+      "completion": "Initial plan interruptions/turn limits resumed within the original sessions; final reports reviewed against source."
+    },
+    "agy": {
+      "reviews": 2,
+      "requested_and_reported_model": "claude-opus-5-5-high",
+      "mode": "Embedded public-source review without tool calls",
+      "completed": true,
+      "cli_limitation": "CLI warned plan mode has no effect with slash commands disabled; evidence relies on actual tool-free event logs, not that flag."
+    },
+    "limitation": "Research/model reports are not runtime, cloud or product acceptance evidence."
+  },
+  "reconciliation_checks": {
+    "manifest": {
+      "command": "python3 -m pytest -q -p no:cacheprovider docs/platform-plan/contracts/tests/test_client_credential_manifest.py",
+      "passed": 31,
+      "failed": 0,
+      "sha256": "feec55028e5390f3401a4fb9e5039e9a7bc9434ef3de0d05b8dc3026cc16d5d7"
+    },
+    "root_prepare": {
+      "command": "node scripts/freedom.mjs prepare --base-ref 567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9 --paths freedom.project.yaml,AGENTS.md",
+      "exit_code": 1,
+      "code": "context_size_limit",
+      "status": "known_open_gap"
+    },
+    "original_requirements": {
+      "source": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
+      "count": 168,
+      "id_set_original_text_and_minimum_evidence": "exact match against immutable git objects",
+      "private_receipts_committed": false
+    }
+  }
+}

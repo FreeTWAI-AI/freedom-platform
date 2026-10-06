@@ -1,5 +1,6 @@
 // Trusted registration policy. Read Git blobs as data; never load candidate modules.
 import { isDeepStrictEqual } from 'node:util';
+import { deviceRegistrationBaseline, DEVICE_PROFILE } from './agent-kit-device-profile.mjs';
 import { artifactPath, parseJson } from './io.mjs';
 import { requireCondition as check } from './errors.mjs';
 
@@ -28,7 +29,7 @@ function registrationKind(path) {
 /** Complete path inventories and readers MUST come from the host-selected Git trees.
  * This establishes explicit registration stability, not runtime route discovery,
  * actual imports, shared-library invocation, or operation authorization. */
-export async function verifyConsumerEntryCoverage({ candidateFiles, baselineFiles, readCandidate, readBaseline }) {
+export async function verifyConsumerEntryCoverage({ candidateFiles, baselineFiles, readCandidate, readBaseline, entryProfile }) {
   check(candidateFiles instanceof Map && baselineFiles instanceof Map
     && typeof readCandidate === 'function' && typeof readBaseline === 'function', 'trusted_entry_inventory_required');
   const paths = [...new Set([...candidateFiles.keys(), ...baselineFiles.keys()])].sort(), evidence = [];
@@ -42,7 +43,11 @@ export async function verifyConsumerEntryCoverage({ candidateFiles, baselineFile
     }
     if (!kind) continue;
     check(candidate && baseline, 'consumer_entry_registry_set_changed');
-    if (kind === 'package') verifyPackageEntryRegistrations(parseJson(await readCandidate(path)), parseJson(await readBaseline(path)));
+    if (kind === 'package') {
+      const approved = parseJson(await readBaseline(path));
+      verifyPackageEntryRegistrations(parseJson(await readCandidate(path)),
+        entryProfile === DEVICE_PROFILE && path === 'package.json' ? deviceRegistrationBaseline(approved) : approved);
+    }
     else if (kind === 'automation') check((await readCandidate(path)).equals(await readBaseline(path)), 'consumer_entry_automation_changed');
     evidence.push({ path, kind });
   }

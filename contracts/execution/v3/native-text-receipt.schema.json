@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "freedom.native-text.receipt/v1"
+        },
+        "dispatchId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "bindingSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "contextSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "adapterProfile": {
+          "type": "string",
+          "const": "grok-1.0.46-text/v1"
+        },
+        "executableSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "requestedModelRef": {
+          "type": "string",
+          "const": "grok-4.7"
+        },
+        "evidenceOrigin": {
+          "type": "string",
+          "enum": [
+            "native_cli_local_observed",
+            "synthetic_local_fixture"
+          ]
+        },
+        "assurance": {
+          "type": "string",
+          "const": "local_observed"
+        },
+        "capability": {
+          "type": "string",
+          "const": "assisted_local"
+        },
+        "localDispatches": {
+          "type": "number",
+          "const": 1
+        },
+        "providerCalls": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "usageStatus": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "costStatus": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        },
+        "outcome": {
+          "type": "string",
+          "const": "observed_success"
+        },
+        "reportedModelRef": {
+          "type": "string",
+          "const": "grok-4.7-build"
+        },
+        "outputSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "outputByteSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        }
+      },
+      "required": [
+        "profile",
+        "dispatchId",
+        "attemptId",
+        "runId",
+        "bindingSha256",
+        "contextSha256",
+        "adapterProfile",
+        "executableSha256",
+        "requestedModelRef",
+        "evidenceOrigin",
+        "assurance",
+        "capability",
+        "localDispatches",
+        "providerCalls",
+        "usageStatus",
+        "costStatus",
+        "operational_authority",
+        "outcome",
+        "reportedModelRef",
+        "outputSha256",
+        "outputByteSize"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "freedom.native-text.receipt/v1"
+        },
+        "dispatchId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "bindingSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "contextSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "adapterProfile": {
+          "type": "string",
+          "const": "grok-1.0.46-text/v1"
+        },
+        "executableSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$(?![\\s\\S])"
+        },
+        "requestedModelRef": {
+          "type": "string",
+          "const": "grok-4.7"
+        },
+        "evidenceOrigin": {
+          "type": "string",
+          "enum": [
+            "native_cli_local_observed",
+            "synthetic_local_fixture"
+          ]
+        },
+        "assurance": {
+          "type": "string",
+          "const": "local_observed"
+        },
+        "capability": {
+          "type": "string",
+          "const": "assisted_local"
+        },
+        "localDispatches": {
+          "type": "number",
+          "const": 1
+        },
+        "providerCalls": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "usageStatus": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "costStatus": {
+          "type": "string",
+          "const": "unknown"
+        },
+        "operational_authority": {
+          "type": "boolean",
+          "const": false
+        },
+        "outcome": {
+          "type": "string",
+          "const": "observed_unknown"
+        },
+        "reportedModelRef": {
+          "type": "null"
+        },
+        "outputSha256": {
+          "type": "null"
+        },
+        "outputByteSize": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "profile",
+        "dispatchId",
+        "attemptId",
+        "runId",
+        "bindingSha256",
+        "contextSha256",
+        "adapterProfile",
+        "executableSha256",
+        "requestedModelRef",
+        "evidenceOrigin",
+        "assurance",
+        "capability",
+        "localDispatches",
+        "providerCalls",
+        "usageStatus",
+        "costStatus",
+        "operational_authority",
+        "outcome",
+        "reportedModelRef",
+        "outputSha256",
+        "outputByteSize"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$id": "https://freetwai.com/contracts/execution/v3/native-text-receipt",
+  "description": "Structural native CLI data only. No device verification, current Grant/Attempt authority, provider attestation or private Result authority."
+}

@@ -1,14 +1,20 @@
 # Push, merge and deployment readiness
 
-## Authorized integration merge and future scope
+> **現況入口：** [current-state.json](current-state.json) 記錄各項觀察時間與來源；
+> [requirement-evidence.json](requirement-evidence.json) 記錄原 168 項要求的實作／部分驗收／缺口。
+> [Foundation 收尾](closeout.md)是目前工作順序。下文保留歷史 checkpoint；
+> 「目前／最新／current」均指各段當時的觀察，不能用來推定今天的部署或 sprint 完成。
+
+
+## Historical authorization: PR108 integration merge
 
 On 2026-10-04 Ted explicitly requested that the remaining necessary work be completed, PR108 merged, and the future plan recorded. This authorizes the foundation integration merge once the actual current-head tests/security review are checked. Keep unaccepted features OFF. The [post-migration plan](post-migration-plan-2026-10-04.md) retains P0 operations/recovery, P1 R2 conversion, P2 installed publisher/enforcement and P3 private execution; completing all168 original product items is not a prerequisite for this authorized integration merge. A merge does not activate or redeploy them. Exact checks, merge SHA and time are recorded on [PR108](https://github.com/FreeTWAI-AI/freedom-platform/pull/108).
 
 CodeQL39 was independently reviewed and then dismissed as a false positive at 16:34:38 UTC with GitHub readback confirming the disposition. All reported paths select a random session token; password storage remains salted scrypt. The [security evidence](../../../development/codeql-alert-39.md) records the exact source, SARIF and rationale. No query, crypto or scanner configuration was weakened. This disposition does not replace verification of the final head or establish installed App-bound enforcement.
 
-Current operation, 2026-10-04 09:03:44 UTC: staging and public are serving the migrated PostgreSQL databases with runtime `9cc283c6976a920b5f481ec605a7f468044e3a1b`. The [actual migration report](actual-migration-2026-10-04.md) and [handoff](handoff-2026-10-04.md) supersede the candidate-only state and standalone rehearsal sequence below. Ted authorized direct migration; backups and checks were performed within that operation.
+Historical operation, 2026-10-04 09:03:44 UTC: staging and public are serving the migrated PostgreSQL databases with runtime `9cc283c6976a920b5f481ec605a7f468044e3a1b`. The [actual migration report](actual-migration-2026-10-04.md) and [handoff](handoff-2026-10-04.md) supersede the candidate-only state and standalone rehearsal sequence below. Ted authorized direct migration; backups and checks were performed within that operation.
 
-## Current completed checkpoint: actual data migration and HTTPS cutover
+## Historical completed checkpoint: actual data migration and HTTPS cutover
 
 All 387 original public users and eight staging users were restored. Both 140-table snapshots matched completely before pending migrations, including columns, all-column row digest multisets, row counts and sequence states. Both databases now have all 110 canonical migration files through111, verified ownership, PUBLIC function ACL lockdown and restricted grants. Existing legacy media bytes were preserved in PostgreSQL. Two live main Workers and two admin-sync Workers use the new environment; secrets, Access, EMAIL, R2 bindings, disabled features and original schedules were checked. Each environment passed 66/66 selected HTTPS checks. Both real backup services completed with valid archives/checksums, renewal ran successfully against the new targets, and future release plans preserve the migrated topology.
 

@@ -24,12 +24,18 @@ export async function resolvePrivateWorkPersistencePolicy(q: PoolClient, context
   const scope = ResourceScopeRefSchema.safeParse(context?.scope);
   if (context?.authn_kind !== 'member_session' || !principal.success || principal.data.kind !== 'person'
     || !scope.success || scope.data.kind !== 'personal') unavailable();
+  return readLockedPrivateWorkPersistencePolicy(q,principal.data!.principal_id,scope.data!.scope_id);
+}
+
+/** Internal DB lookup only, not authentication or a target ACL. Authenticated
+ * adapters must hold exact owner/scope/domain locks and recheck their clock. */
+export async function readLockedPrivateWorkPersistencePolicy(q:PoolClient,principalId:string,scopeId:string):Promise<LifecyclePolicy>{
   let row: { revision: string; persistence_allowed: boolean; retained_byte_limit: string | null } | undefined;
   try {
     row = (await q.query(`SELECT revision::text,persistence_allowed,retained_byte_limit::text
       FROM private_work_persistence_policy
       WHERE scope_id=$1 AND owner_principal_id=$2 AND purpose='work.private-draft' FOR SHARE`,
-    [scope.data!.scope_id, principal.data!.principal_id])).rows[0];
+    [scopeId,principalId])).rows[0];
   } catch { unavailable(); }
   if (!row || row.persistence_allowed !== true || !positiveBigint(row.revision)
     || !positiveBigint(row.retained_byte_limit) || BigInt(row.retained_byte_limit) < BigInt(PRIVATE_TEXT_MAX_BYTES)) unavailable();

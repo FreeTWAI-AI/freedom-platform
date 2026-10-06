@@ -23,7 +23,7 @@ after(async()=>{await mf?.dispose();await pool.end();await fixture.end();if(init
 beforeEach(async context=>{await fixture.query('TRUNCATE communities CASCADE');if(context.name!=='default legacy automatic preview preserves original bytes without any Asset effects')await fixture.query("UPDATE domain_media_storage_policy SET mode='bridge',policy_revision='synthetic-social-policy',persistence_allowed=true,retained_byte_limit=10485760 WHERE purpose='community.social-thumbnail'");await fixture.query('INSERT INTO communities VALUES($1,$2)',[community,'Synthetic social']);});
 async function member(communityId=community){const id=randomUUID(),token=randomBytes(32).toString('base64url'),hash=tokenHash(token);const row=(await fixture.query('INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[id,communityId,id+'@social.local.test','Synthetic owner','not-a-login-hash',randomUUID()])).rows[0];await fixture.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'synthetic',clock_timestamp()+interval '1 hour')",[hash,id]);return {...row,session_hash:hash,csrf_token:'synthetic',synthetic_token:token} as Actor;}
 
-async function setup(native=false){const owner=await member(),store=native?{...createR2ObjectStore(bucket)}:new FakeObjectStore(),api=createSocialThumbnailAssetService(pool,{store,resolvePolicy:resolveSocialThumbnailUploadPolicy}),image=await sharp(png).resize(640,360).webp().toBuffer(),preview={title:'Synthetic preview',image,source:'page' as const},command={actor:owner,operation:'POST /api/v1/social-posts',key:randomUUID(),body:{url:'https://example.org/'+randomUUID(),note:'Synthetic note'}};return {owner,store,api,preview,command};}
+async function setup(native=false,sqlPool=pool){const owner=await member(),store=native?{...createR2ObjectStore(bucket)}:new FakeObjectStore(),api=createSocialThumbnailAssetService(sqlPool,{store,resolvePolicy:resolveSocialThumbnailUploadPolicy}),image=await sharp(png).resize(640,360).webp().toBuffer(),preview={title:'Synthetic preview',image,source:'page' as const},command={actor:owner,operation:'POST /api/v1/social-posts',key:randomUUID(),body:{url:'https://example.org/'+randomUUID(),note:'Synthetic note'}};return {owner,store,api,preview,command};}
 async function upload(s:Awaited<ReturnType<typeof setup>>){return createSocialPost(pool,s.command,s.preview,new Date(),'https://workshop.local.test',s.api);}
 const code=(c:string)=>(e:unknown)=>e instanceof Problem&&e.code===c;
 test('default legacy automatic preview preserves original bytes without any Asset effects',async()=>{const s=await setup(),row=(await fixture.query("SELECT mode,persistence_allowed,policy_revision,retained_byte_limit FROM domain_media_storage_policy WHERE purpose='community.social-thumbnail'")).rows[0];assert.deepEqual(row,{mode:'legacy',persistence_allowed:false,policy_revision:null,retained_byte_limit:null});const result=await createSocialPost(pool,s.command,s.preview);assert.deepEqual(await publicSocialThumbnail(pool,result.post_id),s.preview.image);assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);});
@@ -38,4 +38,73 @@ test('HTTP original safe link-preview redirects/caps/normalization are unchanged
 
 test('daily cap filled after PUT cannot publish a twenty-first post',async()=>{const s=await setup(),put=s.store.putImmutable.bind(s.store);s.store.putImmutable=async(...args)=>{const value=await put(...args);for(let i=0;i<20;i++)await fixture.query("INSERT INTO community_social_posts(community_id,author_user_id,url,platform,title,state) VALUES($1,$2,$3,'other','Synthetic concurrent','active')",[community,s.owner.user_id,'https://example.org/concurrent-'+i]);return value;};await assert.rejects(upload(s),code('social_post_limit'));assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,20);assert.ok((await pool.query('SELECT state FROM assets')).rows.every(r=>r.state==='pending'));});
 test('canonical policy after the last object verification is rechecked after an actual publication lock wait',async()=>{const s=await setup(),get=s.store.get.bind(s.store),locker=await fixture.connect();let gets=0,signal!:()=>void;const blocked=new Promise<void>(r=>signal=r);s.store.get=async(...args)=>{const value=await get(...args);if(++gets===2){await locker.query('BEGIN');await locker.query("SELECT purpose FROM domain_media_storage_policy WHERE purpose='community.social-thumbnail' FOR UPDATE");signal();}return value;};const pending=upload(s),outcome=pending.then(value=>({value}),error=>({error}));try{await blocked;let waiting=false;for(let i=0;i<80;i++){waiting=(await fixture.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE query LIKE '%SELECT%domain_media_storage_policy%' AND wait_event_type='Lock' AND pid<>pg_backend_pid()) AS waiting")).rows[0].waiting;if(waiting)break;await new Promise(r=>setTimeout(r,10));}assert.equal(waiting,true);await locker.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='community.social-thumbnail'");await locker.query('COMMIT');const result=await outcome;assert.ok('error' in result);assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,0);assert.ok((await pool.query('SELECT state FROM assets')).rows.every(r=>r.state==='pending'));}finally{await locker.query('ROLLBACK');locker.release();await outcome;}});
-test('all migrated preview/manual writers obey R2-only floor and legacy byte rows still block cutover',async()=>{const s=await setup();await fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'");const result=await upload(s);assert.deepEqual(await publicSocialThumbnail(pool,result.post_id,s.store),s.preview.image);await assert.rejects(fixture.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source) VALUES($1,$2,'page') ON CONFLICT(post_id) DO UPDATE SET image_bytes=EXCLUDED.image_bytes",[result.post_id,s.preview.image]),(e:any)=>e.code==='23514');});
+test('all migrated preview/manual writers obey R2-only floor and legacy byte rows still block cutover',async()=>{const s=await setup();await fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'");const result=await upload(s);assert.deepEqual(await publicSocialThumbnail(pool,result.post_id,s.store),s.preview.image);await assert.rejects(pool.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source) VALUES($1,$2,'page') ON CONFLICT(post_id) DO UPDATE SET image_bytes=EXCLUDED.image_bytes",[result.post_id,s.preview.image]),(e:any)=>e.code==='23514');});
+
+const writerFenced=(error:unknown)=>!!error&&typeof error==='object'&&'code' in error&&error.code==='23514';
+for(const state of ['hidden','deleted'] as const){
+ test(`R2:S02/M05 runtime role cannot INSERT asset-labelled bytes for a ${state} post under r2_only`,async()=>{
+  const s=await setup();
+  await fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'");
+  assert.equal((await pool.query('SELECT current_user AS role')).rows[0].role,role);
+  const post=(await pool.query("INSERT INTO community_social_posts(community_id,author_user_id,url,platform,title,state) VALUES($1,$2,$3,'other','Synthetic writer fence',$4) RETURNING post_id",[community,s.owner.user_id,'https://example.org/'+randomUUID(),state])).rows[0];
+  await assert.rejects(pool.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,storage_source) VALUES($1,$2,'upload','asset')",[post.post_id,s.preview.image]),writerFenced);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_post_thumbnails')).rows[0].n,0);
+ });
+}
+
+test('R2:S02/M05 runtime role cannot INSERT bytes beside a genuine ready social Asset pointer',async()=>{
+ // Change only the SQL writer's thumbnail payload. The normal lifecycle still
+ // creates/verifies native R2, intent, ready Asset and typed pointer under the
+ // restricted role. This avoids fabricating ready rows or bypassing triggers.
+ const writer=new Pool({connectionString:url,options:`-c role=${role} -c search_path=${schema} -c statement_timeout=10000`});
+ let injected=0,readyPointers=0;let legacyBytes:Buffer;
+ writer.on('connect',client=>{client.query=new Proxy(client.query,{apply(query,_receiver,args){
+  if(typeof args[0]==='string'&&args[0].startsWith('INSERT INTO community_social_post_thumbnails(')){
+   assert.ok(args[0].includes("VALUES($1,NULL,$2,'asset')"));
+   const changed=[args[0].replace("VALUES($1,NULL,$2,'asset')","VALUES($1,$3,$2,'asset')"),[...args[1],legacyBytes]];
+   return (async()=>{
+    const pointer=await Reflect.apply(query,client,["SELECT a.state,current_user AS role FROM community_social_thumbnail_asset_targets t JOIN assets a USING(asset_id) WHERE t.post_id=$1",[args[1][0]]]);
+    assert.equal(pointer.rowCount,1);assert.deepEqual(pointer.rows[0],{state:'ready',role});readyPointers++;
+    injected++;
+    return Reflect.apply(query,client,changed);
+   })();
+  }
+  return Reflect.apply(query,client,args);
+ }});});
+ try{
+  const s=await setup(true,writer);legacyBytes=s.preview.image;
+  await fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'");
+  await assert.rejects(upload(s),(error:unknown)=>writerFenced(error)&&error instanceof Error&&error.message==='Thumbnail writer violates the storage floor');
+  assert.equal(injected,1);assert.equal(readyPointers,1);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,0);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_post_thumbnails')).rows[0].n,0);
+  assert.equal((await pool.query("SELECT count(*)::int n FROM assets WHERE state='ready'")).rows[0].n,0);
+ }finally{await writer.end();}
+});
+
+test('R2-only permits genuine R2 writes and metadata, rejects byte UPDATEs, and leaves crypto bytea usable',async()=>{
+ const s=await setup(true);
+ await fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'");
+ const result=await upload(s);
+ assert.deepEqual(await publicSocialThumbnail(pool,result.post_id,s.store),s.preview.image);
+ for(const state of ['active','hidden','deleted']){
+  if(state!=='active')await pool.query('UPDATE community_social_posts SET state=$2 WHERE post_id=$1',[result.post_id,state]);
+  await assert.rejects(pool.query('UPDATE community_social_post_thumbnails SET image_bytes=$2 WHERE post_id=$1',[result.post_id,s.preview.image]),writerFenced);
+  await pool.query("UPDATE community_social_post_thumbnails SET source='upload',updated_at=clock_timestamp() WHERE post_id=$1",[result.post_id]);
+  assert.equal((await pool.query('SELECT image_bytes FROM community_social_post_thumbnails WHERE post_id=$1',[result.post_id])).rows[0].image_bytes,null);
+ }
+ const salt=randomBytes(32);
+ await pool.query("INSERT INTO promotion_click_salts(click_day,salt) VALUES('2099-01-01',$1)",[salt]);
+ assert.deepEqual((await pool.query("SELECT salt FROM promotion_click_salts WHERE click_day='2099-01-01'")).rows[0].salt,salt);
+});
+
+test('bridge still preserves historical preview bytes while publishing a genuine R2 pointer',async()=>{
+ const s=await setup(true);
+ const post=(await pool.query("INSERT INTO community_social_posts(community_id,author_user_id,url,platform,title,state) VALUES($1,$2,$3,'other','Synthetic bridge','active') RETURNING post_id",[community,s.owner.user_id,'https://example.org/'+randomUUID()])).rows[0];
+ await pool.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source) VALUES($1,$2,'page')",[post.post_id,s.preview.image]);
+ await saveSocialThumbnail(pool,{actor:s.owner,operation:`PUT /api/v1/social-posts/${post.post_id}/thumbnail`,key:randomUUID(),body:null},post.post_id,{bytes:png,mime:'image/png'},new Date(),s.api);
+ const retained=(await pool.query('SELECT storage_source,image_bytes FROM community_social_post_thumbnails WHERE post_id=$1',[post.post_id])).rows[0];
+ assert.equal(retained.storage_source,'asset');assert.deepEqual(retained.image_bytes,s.preview.image);
+ assert.ok((await publicSocialThumbnail(pool,post.post_id,s.store)).length>0);
+ await assert.rejects(fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'"),writerFenced);
+});

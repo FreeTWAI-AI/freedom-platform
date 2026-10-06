@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool, type PoolClient } from 'pg';
-import { avatarMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
+import { avatarMemberCommand, serviceCoverMemberCommand, eventBannerMemberCommand, eventVideoMemberCommand,
+  socialThumbnailMemberCommand, socialPostCreateMemberCommand, highlightMemberCommand, scopedJournal } from '../../packages/scoped-commands/index.js';
 import { withMemberScope, type MemberScopeContext } from '../../packages/resource-scopes/index.js';
 import { command, checkVersion, digest, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
@@ -23,6 +24,18 @@ before(async () => {
   assert.match(schema, /^fp_avatar_command_[0-9]+_[0-9]+$/);
   await admin.query(`CREATE SCHEMA ${schema}`); created = true; await migrate(pool);
   await pool.query("UPDATE avatar_storage_policy SET mode='bridge'");
+  await pool.query(`CREATE TABLE fixture_receipt_effects(user_id uuid PRIMARY KEY REFERENCES users ON DELETE CASCADE,
+    version bigint NOT NULL DEFAULT 1);
+    CREATE TABLE fixture_receipt_insert_gate(id integer PRIMARY KEY);
+    INSERT INTO fixture_receipt_insert_gate VALUES(1);
+    CREATE FUNCTION fixture_wait_receipt_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.idempotency_key = 'receipt-clock-fixture' THEN
+        PERFORM id FROM fixture_receipt_insert_gate WHERE id=1 FOR UPDATE;
+      END IF;
+      RETURN NEW;
+    END $$;
+    CREATE TRIGGER fixture_receipt_insert_wait BEFORE INSERT ON command_receipts
+      FOR EACH ROW EXECUTE FUNCTION fixture_wait_receipt_insert()`);
 });
 after(async () => { await pool.end(); if (created) await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end(); });
 beforeEach(async () => {
@@ -273,3 +286,135 @@ test('DML-only runtime uses the closed adapter and old receipt replay without sc
     if (roleCreated) { await admin.query(`DROP OWNED BY ${role}`); await admin.query(`DROP ROLE ${role}`); }
   }
 });
+
+// A domain-authorize/advisory wait happens before the adapters' existing clock
+// check. These barriers instead stop the actual receipt SELECT or INSERT,
+// after authorization, so a pre-receipt check cannot make this regression pass.
+type ReceiptResponse = { version: string };
+type ReceiptCallback = (q: PoolClient, context: MemberScopeContext) => Promise<ReceiptResponse>;
+type ReceiptAuthorization = (q: PoolClient, context: MemberScopeContext) => Promise<unknown>;
+const receiptTarget = '30000000-0000-4000-8000-000000000001';
+const receiptMedia = '30000000-0000-4000-8000-000000000002';
+const receiptHash = 'a'.repeat(64);
+const receiptAdapters = [
+  { name: 'avatar', execute: avatarMemberCommand<ReceiptResponse>, operation: 'POST /api/v1/me/avatar',
+    body: { content_type: 'image/png', sha256: receiptHash }, journal: 'member.avatar.replace', aggregate: 'member_avatar' },
+  { name: 'service-cover', execute: serviceCoverMemberCommand<ReceiptResponse>, operation: `PUT /api/v1/member-services/${receiptTarget}/cover`,
+    body: { sha256: receiptHash }, journal: 'member.service.cover.replace', aggregate: 'member_service' },
+  { name: 'event-banner', execute: eventBannerMemberCommand<ReceiptResponse>, operation: `POST /api/v1/events/${receiptTarget}/banner`,
+    body: { mime: 'image/png', orientation: 'landscape', sha256: receiptHash }, journal: 'community.event.banner.replace', aggregate: 'community_event' },
+  { name: 'event-video', execute: eventVideoMemberCommand<ReceiptResponse>, operation: `POST /api/v1/events/${receiptTarget}/video`,
+    body: { mime: 'video/webm', sha256: receiptHash }, journal: 'community.event.video.replace', aggregate: 'community_event' },
+  { name: 'social-thumbnail', execute: socialThumbnailMemberCommand<ReceiptResponse>, operation: `PUT /api/v1/social-posts/${receiptTarget}/thumbnail`,
+    body: { sha256: receiptHash }, journal: 'community.social.thumbnail.replace', aggregate: 'social_post' },
+  { name: 'social-create', execute: (db: Pool, input: Command, auth: ReceiptAuthorization, run: ReceiptCallback) =>
+    socialPostCreateMemberCommand(db, input, receiptTarget, auth, run), operation: 'POST /api/v1/social-posts',
+    body: { url: 'https://example.invalid/synthetic' }, journal: 'community.social.post.create', aggregate: 'social_post' },
+  { name: 'highlight', execute: (db: Pool, input: Command, auth: ReceiptAuthorization, run: ReceiptCallback) =>
+    highlightMemberCommand(db, input, receiptMedia, auth, run), operation: `POST /api/v1/event-highlights/${receiptTarget}/photos`,
+    body: { sha256: receiptHash, orientation: 'landscape', title: null }, journal: 'community.event.highlight.create', aggregate: 'community_event_highlight' },
+] as const;
+const legacyReceiptAdapter = { name: 'legacy-member', operation: 'fixture.receipt.expiry', body: {} } as const;
+type ReceiptAdapter = typeof receiptAdapters[number] | typeof legacyReceiptAdapter;
+
+async function receiptFacts() {
+  return (await pool.query(`SELECT (SELECT count(*)::int FROM command_receipts) receipts,
+    (SELECT count(*)::int FROM scoped_command_receipts) scoped_receipts,
+    (SELECT count(*)::int FROM scoped_transition_journal) journals,
+    (SELECT count(*)::int FROM scoped_outbox) events,
+    (SELECT COALESCE(sum(version-1),0)::int FROM fixture_receipt_effects) effects`)).rows[0];
+}
+const receiptEmpty = { receipts: 0, scoped_receipts: 0, journals: 0, events: 0, effects: 0 };
+const receiptChanged = { receipts: 1, scoped_receipts: 0, journals: 1, events: 1, effects: 1 };
+async function receiptStatementBlockedBy(pid: number, phase: 'read' | 'write') {
+  const prefix = phase === 'read' ? 'SELECT * FROM command_receipts' : 'INSERT INTO command_receipts';
+  for (let i = 0; i < 200; i++) {
+    const rows = (await admin.query(`SELECT query FROM pg_stat_activity
+      WHERE $1=ANY(pg_blocking_pids(pid)) AND state='active' AND wait_event_type='Lock'`, [pid])).rows;
+    if (rows.some(row => row.query.startsWith(prefix))) return;
+    await delay(10);
+  }
+  assert.fail(`Actual receipt ${phase} statement lock wait was not observed`);
+}
+
+async function receiptWaitCase(adapter: ReceiptAdapter, phase: 'replay' | 'miss' | 'write', expire: boolean) {
+  const actor = await member();
+  await pool.query('INSERT INTO fixture_receipt_effects(user_id) VALUES($1)', [actor.user_id]);
+  const role = `fp_receipt_runtime_${process.pid}_${Date.now()}`;
+  const runtime = new Pool({ connectionString, options: `-c search_path=${schema} -c role=${role} -c statement_timeout=10000`, max: 2 });
+  const blocker = await pool.connect();
+  let roleCreated = false, ran = 0;
+  let pending: Promise<{ value: ReceiptResponse; error?: never } | { error: unknown; value?: never }> | undefined;
+  const input: Command = { actor, operation: adapter.operation, key: 'receipt-clock-fixture', body: adapter.body, expected: '1' };
+  const currentDomain = async (q: PoolClient) => {
+    const row = await q.query('SELECT version FROM fixture_receipt_effects WHERE user_id=$1 FOR UPDATE', [actor.user_id]);
+    assert.equal(row.rowCount, 1);
+  };
+  const effect = async (q: PoolClient, context?: MemberScopeContext) => {
+    ran++;
+    const version = (await q.query('UPDATE fixture_receipt_effects SET version=version+1 WHERE user_id=$1 RETURNING version::text', [actor.user_id])).rows[0].version;
+    if (context && adapter.name !== 'legacy-member') await scopedJournal(q, context, { aggregate_type: adapter.aggregate,
+      id: adapter.name === 'avatar' ? actor.user_id : adapter.name === 'highlight' ? receiptMedia : receiptTarget,
+      version, operation: adapter.journal, data: { state: 'synthetic' }, eventType: 'fixture.receipt.changed.v1' });
+    return { version };
+  };
+  const execute = () => adapter.name === 'legacy-member'
+    ? command(runtime, input, currentDomain, effect)
+    : adapter.execute(runtime, input, currentDomain, effect);
+  const retained = adapter.name === 'legacy-member' ? { ...receiptChanged, journals: 0, events: 0 } : receiptChanged;
+  try {
+    await admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`); roleCreated = true;
+    await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
+    await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${role}`);
+    await admin.query(`GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO ${role}`);
+    assert.deepEqual((await runtime.query(`SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user`)).rows[0],
+      { rolsuper: false, rolcreatedb: false, rolcreaterole: false });
+    if (phase === 'replay') assert.deepEqual(await execute(), { version: '2' });
+    const prior = (await pool.query('SELECT * FROM command_receipts')).rows;
+    await blocker.query('BEGIN');
+    const pid = (await blocker.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+    if (phase === 'write') await blocker.query('SELECT id FROM fixture_receipt_insert_gate WHERE id=1 FOR UPDATE');
+    else await blocker.query('LOCK TABLE command_receipts IN ACCESS EXCLUSIVE MODE');
+    // A valid control uses the same real statement barrier without crossing expiry.
+    const deadline: Date = (await pool.query(`UPDATE sessions SET expires_at=clock_timestamp()+$2::interval
+      WHERE token_hash=$1 RETURNING expires_at`, [actor.session_hash, expire ? '1 second' : '1 hour'])).rows[0].expires_at;
+    pending = execute().then(value => ({ value }), error => ({ error }));
+    await receiptStatementBlockedBy(pid, phase === 'write' ? 'write' : 'read');
+    assert.equal(ran, phase === 'miss' ? 0 : 1, 'Receipt wait must occur after authorization and at the intended effect phase');
+    assert.equal((await admin.query('SELECT clock_timestamp()<$1::timestamptz valid', [deadline])).rows[0].valid, true,
+      'The actual receipt statement must start waiting while the session is still valid');
+    if (expire) {
+      const milliseconds = Number((await admin.query(`SELECT GREATEST(0,EXTRACT(EPOCH FROM ($1::timestamptz-clock_timestamp()))*1000)::float8 remaining`, [deadline])).rows[0].remaining);
+      await delay(milliseconds + 20);
+      assert.equal((await admin.query('SELECT clock_timestamp()>$1::timestamptz expired', [deadline])).rows[0].expired, true);
+    }
+    await blocker.query('COMMIT');
+    const outcome = await pending;
+    if (expire) {
+      assert(outcome.error instanceof Problem, 'Expired receipt wait must reject, not return its response');
+      assert.equal(outcome.error.status, 401); assert.equal(outcome.error.code, 'session_expired');
+      assert.deepEqual(await receiptFacts(), phase === 'replay' ? retained : receiptEmpty);
+      assert.deepEqual((await pool.query('SELECT * FROM command_receipts')).rows, prior, 'Historical receipt bytes/namespace must remain unchanged');
+      assert.equal(ran, phase === 'miss' ? 0 : 1, 'An expired receipt miss must not enter the domain callback');
+    } else {
+      assert.equal(outcome.error, undefined); assert.deepEqual(outcome.value, { version: '2' });
+      const receipt = (await pool.query('SELECT * FROM command_receipts')).rows[0];
+      assert.equal(receipt.request_sha256, digest({ body: adapter.body, expected: '1' }));
+      assert.equal(receipt.user_id, actor.user_id); assert.equal(receipt.operation, adapter.operation); assert.equal(receipt.idempotency_key, input.key);
+      // Old entrypoint still reads the exact same receipt without another effect.
+      assert.deepEqual(await command(runtime, input, q => authorize(q, actor), async () => assert.fail('Must replay historical receipt')), outcome.value);
+      assert.deepEqual(await receiptFacts(), retained); assert.equal(ran, 1);
+    }
+  } finally {
+    await blocker.query('ROLLBACK'); blocker.release();
+    await pending; await runtime.end();
+    if (roleCreated) { await admin.query(`DROP OWNED BY ${role}`); await admin.query(`DROP ROLE ${role}`); }
+  }
+}
+
+for (const adapter of [...receiptAdapters, legacyReceiptAdapter]) {
+  for (const phase of ['replay', 'miss', 'write'] as const)
+    test(`${adapter.name}: receipt ${phase} lock wait crossing session expiry rejects and rolls back`, async () => receiptWaitCase(adapter, phase, true));
+  for (const phase of ['replay', 'write'] as const)
+    test(`${adapter.name}: valid session survives receipt ${phase} lock wait with original receipt`, async () => receiptWaitCase(adapter, phase, false));
+}

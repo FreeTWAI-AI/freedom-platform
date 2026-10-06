@@ -38,6 +38,14 @@ function clean(result) {
   assert.equal(result.runtime.cleanup_verified, true, JSON.stringify(result.runtime));
   assert.equal(result.runtime.cleanup.volumes_verified, true);
   assert.equal(result.gate_enforced, false); assert.equal(result.library_usage, 'not_checked');
+  if (process.env.FREEDOM_DIRECTORY_EVIDENCE === '1') console.log(JSON.stringify({
+    format: 'freedom.directory-profile-test-observation/v1', assurance_level: 'local',
+    workflow_commit: result.workflow_commit, source_commit: result.source_commit,
+    candidate_commit: result.candidate_commit, candidate_tree: result.candidate_tree,
+    status: result.status, reason: result.runtime.reason, semantic_profile: result.runtime.semantic_profile,
+    cleanup_verified: result.runtime.cleanup_verified, installation: result.runtime.installation ?? null,
+    cases: result.runtime.cases, gate_enforced: false, merge_authorized: false,
+  }));
 }
 function passed(result) {
   clean(result); assert.equal(result.status, 'passed', JSON.stringify(result));
@@ -56,12 +64,25 @@ test('legitimate current data changes pass without freezing directory contents',
     return JSON.stringify(data);
   }));
 });
+test('legitimate CSS redesign passes the same complete actual build contract', async t => {
+  passed(await mutation(t, 'src/index.mjs', value => value.replace('color:#153c33', 'color:#223344')
+    .replace('max-width:1120px', 'max-width:960px').replace('border-radius:18px', 'border-radius:8px')));
+});
+test('legitimate wrappers and accessibility attributes pass without changing public data or authority', async t => {
+  passed(await mutation(t, 'src/index.mjs', value => value
+    .replace('<main>', '<main id="content" role="main" tabindex="-1">')
+    .replace('<article>', '<div role="article" class="source-card">').replace('</article>', '</div>')
+    .replace('<h1>', '<h1 id="intro-title">').replace('<header class="intro">', '<header class="intro" aria-labelledby="intro-title">')));
+});
 const negatives = [
   ['constant renderer with fabricated passing stdout', 'src/index.mjs', () => `console.log('{"status":"passed"}'); export const renderDirectory = () => '<html>stub</html>';`, 'candidate-data'],
   ['missing HTML escaping', 'src/index.mjs', value => value.replace(/^const escapeHtml = .*;$/m, 'const escapeHtml = String;'), 'escaped-challenge'],
   ['removed duplicate repository validation', 'src/index.mjs', value => value.replace(/^.*if \(seen.has.*\n/m, ''), 'duplicate-repository'],
   ['write before input validation', 'src/privacy.mjs', value => `import {mkdirSync,writeFileSync} from 'node:fs'; mkdirSync('/work/dist',{recursive:true}); writeFileSync('/work/dist/index.html','partial');\n` + value, 'duplicate-repository'],
   ['unexpected artifact outside dist', 'src/index.mjs', value => `import {writeFileSync} from 'node:fs'; writeFileSync('/work/unexpected.html','extra');\n` + value, 'candidate-data'],
+  ['missing public project scope', 'src/index.mjs', value => value.replace('escapeHtml(project.scope)', 'escapeHtml("omitted")'), 'candidate-data'],
+  ['weakened CSP permits resource exfiltration', 'src/index.mjs', value => value.replace("default-src 'none'", "default-src https:"), 'candidate-data'],
+  ['hidden encoded unsafe URL', 'src/index.mjs', value => value.replace('</body>', '<a hidden href="&#106;avascript:alert(1)">unsafe</a></body>'), 'candidate-data'],
 ];
 for (const [name, path, transform, failingCase] of negatives) test(`source-valid ${name} fails actual build observation`, async t => {
   const result = await mutation(t, path, transform); clean(result);

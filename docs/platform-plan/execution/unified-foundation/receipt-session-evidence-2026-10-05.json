@@ -1,0 +1,105 @@
+{
+  "packet": "A1 legacy receipt session deadline",
+  "base_source": "a328c82084f884f4bedad3f59bfe680d6a547892",
+  "candidate_commit": "4797cd96451b10edff236d176059aa4e944ad600",
+  "requirement_mapping": [
+    "R2:A03 elapsed-session regression",
+    "FC-01"
+  ],
+  "accepted_original_rows": [],
+  "environment": {
+    "kind": "owned disposable PostgreSQL",
+    "postgres_version": "18.6",
+    "node_version": "v24.21.0",
+    "docker_image": "postgres:18",
+    "docker_image_id": "sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722",
+    "network": "none",
+    "published_ports": [],
+    "connection": "private Unix socket; explicit synthetic fp_receipt_a1 database; no env/production discovery",
+    "runtime_role": "per-case NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; DML grants on owned schema"
+  },
+  "tests": {
+    "repro-before": {
+      "tests": 57,
+      "pass": 36,
+      "fail": 21,
+      "skipped": 0,
+      "cancelled": 0,
+      "sha256": "80547ff9ab50438f632898873ee8a96149ace519ad41fe456d53989bcaed1af9"
+    },
+    "fix-after": {
+      "tests": 168,
+      "pass": 168,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "sha256": "2c0b3f567d3cc6cf1369e6111d65f8856baf322f53c655d3d0b71a6056478ed9"
+    },
+    "final-focused": {
+      "tests": 62,
+      "pass": 62,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "sha256": "146843ca4a88c978011ac879a01d3a5f6db361fd31c920649e9e170b4bdea339"
+    },
+    "session-mutation-regressions": {
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "sha256": "ac94c80f4f8e160b3de4c0ae49c5c9ec0c4dd283a1c13e76748f7028dcca08e8"
+    }
+  },
+  "reproduction": {
+    "before": "Original production source a328 plus seven-wrapper receipt tests: 21 expired replay/read-miss/insert cases incorrectly succeed; 22 existing and14 valid controls pass.",
+    "barriers": "SELECT blocked by ACCESS EXCLUSIVE command_receipts lock; INSERT blocked within test-only BEFORE INSERT trigger by separate row lock. pg_stat_activity receipt query and blocking PID observed while session valid; actual DB clock crosses expiry before release. Final test strengthens observation with wait_event_type Lock.",
+    "after": "Same shared port is checked after awaited SELECT (hit and miss) and INSERT on locked transaction client. All seven wrappers plus ordinary member tested; valid original namespace/digest/replay preserved; expired writes roll back receipt, effect and scoped journal/outbox."
+  },
+  "execution_notes": [
+    "The broader 168-case invocation included an absent literal access-sessions.test.ts; Node ignored it. Its actual successful set was the other seven existing files. No access-session claim is based on that missing path.",
+    "Session lifecycle, password recovery and platform-admin were subsequently executed by their real existing filenames: 28 passed, zero skipped.",
+    "Final-focused62 passed after adding wait_event_type Lock. Existing baseline57 did not yet contain ordinary member cases."
+  ],
+  "limitations": [
+    "No production/staging/real R2 operations, no deployment or native GitHub enforcement.",
+    "Synthetic domain counter/scoped facts test adapter transaction boundaries; not every media ACL/pipeline.",
+    "No promise of authorization lifetime after final decision through COMMIT/network response.",
+    "R2:A03 full session-revoke/guild-exit/disabled-user domain matrix remains separately tracked; this closes the concrete elapsed-time receipt-wait packet only."
+  ],
+  "cleanup": {
+    "remaining_fp_schemas": 0,
+    "remaining_fp_roles": 0,
+    "container_removed": true,
+    "socket_directory_removed": true
+  },
+  "changed_files": [
+    {
+      "path": "packages/db/member-command.ts",
+      "sha256": "ea5ddd10184e0c3c2f6b93d6ed140c2b81c69b32d373ddfbe09ab132b7cbc1f8"
+    },
+    {
+      "path": "packages/db/README.md",
+      "sha256": "acc6924d8f9f79f57dbff76f4d97827123d1b876bf1942f1c954fa026a5ac715"
+    },
+    {
+      "path": "tests/runtime/avatar-command-compat.test.ts",
+      "sha256": "29686ec8a2649a62638dd9f157a575854f081628180be09d638597e17b7cc184"
+    }
+  ],
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "assurance_level": "local",
+  "review": {
+    "implementation_owner": "core_research",
+    "integration_review": "Complete code and test cleanup/tail inspected; three completed Grok4.7 reviews are advisory, not GitHub approval.",
+    "model_review_scope": "One patch reviewer read tests only through line400; later lines independently inspected by integration owner."
+  },
+  "commands": {
+    "baseline": "TEST_DATABASE_URL=<owned unix socket fp_receipt_a1> node --import tsx --test --test-concurrency=1 tests/runtime/avatar-command-compat.test.ts",
+    "final_focused": "TEST_DATABASE_URL=<owned unix socket fp_receipt_a1> node --import tsx --test --test-concurrency=1 tests/runtime/avatar-command-compat.test.ts",
+    "session_mutation_regressions": "TEST_DATABASE_URL=<owned unix socket fp_receipt_a1> node --import tsx --test --test-concurrency=1 tests/runtime/member-session-lifecycle.test.ts tests/runtime/password-recovery.test.ts tests/runtime/platform-admin.test.ts",
+    "typecheck": "npm run typecheck",
+    "whitespace": "git diff --check"
+  }
+}

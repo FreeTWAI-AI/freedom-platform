@@ -1,10 +1,10 @@
-# Member principal and resource-scope mapping
+# Principal and resource-scope mapping
 
-This server-only package implements the person/community/personal part of [UF-SPEC-CORE](../../docs/platform-plan/execution/unified-foundation/02-principal-command.md). It does not expose an HTTP route, issue credentials, implement an execution/service adapter, authorize private Work, or change existing member routes/receipts.
+This server-only package implements member mapping and the closed, shop-backed service resolver in [shop-service.ts](shop-service.ts). Both use current database authority on the caller's transaction. A common schema reference alone cannot authenticate a member, execution device or website service. The member helper below retains its existing interface and receipts.
 
 ## Authoritative records
 
-The additive [076 migration](../../migrations/076_principal_resource_scopes.sql) creates two tables without copying or modifying existing data. Its number is provisional until merge; resolve the next available number and update the descriptor/deploy manifest together.
+The additive [076 migration](../../migrations/076_principal_resource_scopes.sql) created the member mappings without copying or modifying existing data. Later migrations extend the backing shapes without renaming or changing that applied SQL.
 
 | Mapping | Database constraint | Meaning |
 | --- | --- | --- |
@@ -12,9 +12,19 @@ The additive [076 migration](../../migrations/076_principal_resource_scopes.sql)
 | community scope → community | unique, non-null community FK; no owner principal | Scope does not invent a community owner or replace membership/domain rules. |
 | personal scope → person principal | unique composite FK to `(principal_id, kind)`; generated owner kind is `person`; no community ref | One personal scope per person; no future service principal can silently acquire one. |
 
-Both tables accept only `active`/`disabled` status. CHECK constraints reject service/site records until real backing tables, FKs and validators are implemented. Identity fields are immutable; UPDATE cannot transfer a mapping and DELETE is rejected, so a DML client cannot delete/reinsert it to reset status or rebind an ID. Disable it instead. This is not protection against a privileged schema owner disabling triggers or truncating tables. Account erasure/purge requires a separately reviewed lifecycle; there is no deletion endpoint here.
+Both tables accept only `active`/`disabled` status. [118](../../migrations/118_shop_service_identity.sql) adds a service principal backed by exactly one existing `commerce_shops` row and a site scope composite-bound to that same shop/service. It preserves the person-only personal-owner FK. Identity fields are immutable; UPDATE cannot transfer a mapping and DELETE is rejected, so a DML client cannot delete/reinsert it to reset status or rebind an ID. Disable it instead. This is not protection against a privileged schema owner disabling triggers or truncating tables. Account erasure/purge requires a separately reviewed lifecycle; there is no deletion endpoint here.
 
-[Common reference schemas](../../contracts/common/README.md) reserve service/site wire shapes for future use. Shape validation is not current runtime support or authorization. No common artifacts have been added to a published ReleaseSet or consumer lock yet.
+[Common reference schemas](../../contracts/common/README.md) describe wire shapes; support still depends on a real adapter and backing. The service implementation here supports only the existing shop API, not generic website services or owner private Work. It publishes no consumer ReleaseSet.
+
+## Shop service context
+
+`lockShopService(q, authorization, host)` requires the actual opaque bearer key, active shop owner, current key expiry/revocation, and the v2 key's exact purpose/issuer/audience/environment. These expectations come from the installed host's validated origin/environment and explicit `FREEDOM_SHOP_KEY_POLICY`; request headers, model keys and caller principal IDs supply none of them. New owner-issued `fw_shop_v2_` credentials use `freedom.shop-service-key/v1`, purpose `shop-api`, issuer equal to `APP_ORIGIN`, and audience `APP_ORIGIN + /shop-api/v1`. Shop payment mode (`test`/`live`) is unrelated to deployment environment.
+
+The resolver locks owner → key → service principal → site scope → existing community commerce advisory lock → current shop. Lazy mapping uses unique backing plus a separate read of the committed winner and never re-enables disabled rows. The returned service/site is distinct from the administrative owner's person/personal identity. `assertShopServiceClock` accepts only a live context on the same SQL client and rechecks the key after waits; callers must `forgetShopService` on both success and failure. Current row locks provide revocation ordering, not cancellation of an earlier committed operation or a promise about network delivery after COMMIT.
+
+The closed [cancel adapter](../../modules/agent-commerce/service-command.ts) uses the existing command core, a server-derived order UUID receipt key, current own-order authorization before replay, and the shared transaction context/journal. Only pending → cancelled creates one `commerce_order_cancellation` fact at version 1. A prior legacy cancellation can gain a compatible receipt without inventing a new transition. Receipt SELECT/INSERT and domain/journal waits are followed by key clock checks; a failure rolls back inventory, order, facts and receipt together. Other existing shop operations retain their business dedupe and dynamic readback; converting their remaining mutation receipts/audit is still open.
+
+Missing policy closes shop credential access and issuance with 503 while member routes remain available. Explicit `legacy-compatible` accepts existing unbound keys using their original shop authority and expiry/revoke checks, without a fabricated service principal. Explicit `purpose-bound-only` refuses them. Migration does not stamp, rotate or revoke live keys. See the executable, read-only [exit procedure](../../modules/agent-commerce/README.md); local compatibility tests are not evidence that deployed issuers or live legacy keys have retired.
 
 ## Current member context
 

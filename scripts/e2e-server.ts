@@ -89,7 +89,8 @@ try{
 // Explicit local-only fixtures; per-pack production activation is separate.
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
-const app=createApp(productPool??pool,origin,'local',{adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,
+// Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
+const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));

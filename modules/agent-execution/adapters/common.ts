@@ -85,8 +85,11 @@ export function assertOutputText(raw: unknown): string {
 /** Separate provider grammar: unlike execution decision inputs, provider cost
  * metadata may contain finite decimals. Identity/version/usage schemas still
  * enforce their own integer/string constraints. No existing decoder is widened. */
-export function parseModelJson(bytes: Uint8Array): unknown {
-  const copy = copyModelBytes(bytes);
+export function parseModelJson(bytes: Uint8Array, maximum: number = MODEL_ADAPTER_LIMITS.responseBytes): unknown {
+  // A trusted native codec may select the 64 KiB process profile. Existing
+  // provider codecs retain their 32 KiB default; a request cannot lift this cap.
+  if (!Number.isInteger(maximum) || maximum < 1 || maximum > MODEL_ADAPTER_LIMITS.eventBytes) throw new AdapterFault('invalid_input');
+  const copy = copyModelBytes(bytes, maximum);
   let raw: string;
   try { raw = new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(copy); }
   catch { throw new AdapterFault('invalid_response'); }

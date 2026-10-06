@@ -57,6 +57,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   GUIDE_STATIC?: GuideR2Binding;
   FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
+  FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -90,6 +91,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.FREEDOM_ENV !== 'string' || !env.FREEDOM_ENV.trim()) throw new ReadinessError('FREEDOM_ENV binding is required.');
   let freedomEnv: FreedomEnv;
   try { freedomEnv = resolveFreedomEnv(env.FREEDOM_ENV); } catch { throw new ReadinessError('FREEDOM_ENV binding is invalid.'); }
+  if(env.FREEDOM_SHOP_KEY_POLICY!==undefined&&!['legacy-compatible','purpose-bound-only'].includes(env.FREEDOM_SHOP_KEY_POLICY))throw new ReadinessError('FREEDOM_SHOP_KEY_POLICY is invalid.');
   const origin = env.APP_ORIGIN ?? '';
   try { assertOriginAllowed(freedomEnv, origin); } catch { throw new ReadinessError('APP_ORIGIN binding is invalid for this environment.'); }
   const release = env.FREEDOM_RELEASE_SHA || null;
@@ -149,6 +151,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
   try { if (env.MEDIA) avatarAssetStore = createR2ObjectStore(env.MEDIA); } catch { /* unavailable, no binding diagnostics */ }
   return {
     avatarAssetStore,
+    shopKeyPolicy:env.FREEDOM_SHOP_KEY_POLICY,
     registrationCommunityId: () => community,
     githubTokenKey: () => tokenKey,
     githubMetricsToken: () => metricsToken,

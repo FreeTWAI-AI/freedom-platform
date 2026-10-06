@@ -1,0 +1,99 @@
+{
+  "format": "freedom.foundation-portal-composition-evidence/v1",
+  "base": "44435955dbe7ae2f854fbb47daf3ec1f50fc5fba",
+  "implementation": "304fbedb78edee6dddf65b642f3e3cb23884d4c4",
+  "packet": "A3 portal composition",
+  "changes": [
+    "WorkbenchPanel owns work creation, claiming, submissions and review cards.",
+    "ShowcasePanel owns showcase forms, opportunities and cooperation proposals.",
+    "EngagementPanel owns agreement, delivery and receipt-report UI.",
+    "Shared client/context/error types and feedback are leaf modules; App retains session lifecycle, provider, mutation lock/idempotency keys and navigation."
+  ],
+  "extraction": {
+    "base": "44435955dbe7ae2f854fbb47daf3ec1f50fc5fba",
+    "functions": 28,
+    "moved_or_retained_body_exact": true,
+    "changed": [],
+    "added": [],
+    "import_cycle_to_app": []
+  },
+  "validation": {
+    "typecheck": "passed",
+    "build": "passed",
+    "browser": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "environment": "Actual local Chromium1243, isolated network-none PostgreSQL18 and synthetic member API data",
+      "files": [
+        "tests/e2e/journeys.spec.ts",
+        "tests/e2e/session-recovery.spec.ts",
+        "tests/e2e/benefits.spec.ts",
+        "tests/e2e/simple-work-sharing.spec.ts"
+      ],
+      "cases": [
+        "Member claim/start/submit/reviewer acceptance/read after login and reload",
+        "Showcase/opportunity/agreement/delivery/two-party receipt projection",
+        "Previous member delayed401/access denial cannot invalidate replacement login",
+        "Benefit observations and private reports",
+        "1280px/320px sharing, failed publish recovery and three-theme form readability"
+      ]
+    },
+    "context_surface": {
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "command": "node --test packages/contribution-tools/test/context.test.mjs packages/contribution-tools/test/surface-audit.test.mjs"
+    }
+  },
+  "initial_findings": [
+    "Typecheck caught missing useRef import in extracted ShowcasePanel; fixed before successful build/browser runs.",
+    "Surface fixture hardcoded old entry files and falsely marked newly declared feature files missing; it now loads each actual descriptor entry. Existing strict missing-entry behavior and unsupported-page coverage remain.",
+    "Intermediate expected parser evidence count16 was incorrect: these pages remain unsupported by the narrow HTTP parser, so evidence count stays10. Final assertions retain unavailable status and reject missing declared files."
+  ],
+  "grok_review": {
+    "requested_model": "grok-4.7",
+    "reported_model": "grok-4.7-build",
+    "session": "01a10e24-d858-7203-bd50-fe3070317a05",
+    "initial_stop": "cancelled after8-turn cap; no completed verdict",
+    "followup_stop": "end_turn;1turn, no additional reads",
+    "result": "No introduced blocker in read scope; shared client/context and mutation lifecycle retained.",
+    "limits": [
+      "Pre-move body comparison was independently performed by root; model did not compare it.",
+      "Some imported helpers only inspected at edges.",
+      "No model-executed tests or external reviewer approval."
+    ]
+  },
+  "log_sha256": {
+    "portal-typecheck.log": "e152ef3960657c5382e16b6f913fc21c66775ffe601b470949e573c10a75222d",
+    "portal-build.log": "8679d09eb7b825fd1868d93fea4fe0558373ddeb4eeb0c15b92c12b9e9305d1b",
+    "portal-browser.log": "8b7a89c1f5cd0ab7ef10b8e5cd6d44424a984ee5798a751c8908f2f437873f12",
+    "portal-registration.log": "fea56b07f71f1748d8b4a05567bb7bbac3b859e7232d34b94f9a93f9d0858736",
+    "portal-registration-ready.log": "744bf0e552d654b6ec56116e64ea4cc371b9591c2f6eb1e54537aa67918b3c1f",
+    "portal-registration-final.log": "d17071dcde747170e372d98af3be4350229728f82ce8eaaa6d672f59970c24a7",
+    "portal-review.events.jsonl": "ab8b508d97230d04998a65ee00751e69e050415fd15065c8f4c9e858506e3526",
+    "portal-review-final.events.jsonl": "b0f718ce08abfe5ae1e41491b960e2f6b23beb2985332f3eb6ff73f7a09d9c5e"
+  },
+  "context": {
+    "tool_source": "e8551383601ed1dd1d9f8254ae79fde0dad2e47e",
+    "chunks": 112,
+    "blockers": [
+      "surface_unmapped"
+    ],
+    "complete": false
+  },
+  "limitations": [
+    "No visual redesign, new API/authorization or product rollout claimed.",
+    "The complete platform/API responsibility split and surface audit remain unfinished.",
+    "These ordinary member browser cases do not establish the full media/R2 or private execution target flow.",
+    "No original requirement row newly accepted."
+  ],
+  "adversarial_fixture_followup": {
+    "cause": "Full composed governance found two additional controls whose synthetic file inventory omitted the newly extracted declared pages.",
+    "fix": "Load real descriptor entry files while keeping unsupported-page and independent-parser blockers; no production validator changed.",
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "0cac3895840a3b713e1782940d0b262edcec41bee55bfc378a1419a68ded64cb"
+  }
+}

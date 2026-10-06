@@ -1,8 +1,8 @@
 // Conservative job selection for .github/workflows/verify.yml.
-// A pull request narrows only when the complete tree diff is inside the explicit
-// docs allowlist and neither the baseline nor the candidate module descriptors
-// claim those paths. The exact generated inventory manifest may accompany those
-// docs; owning that one metadata file does not widen the decision, and the file
+// A pull request narrows only inside the explicit docs allowlist or the fixed
+// frontend leaf profiles below. Leaf edits retain all runtime/browser/static
+// jobs and require unchanged, compatible baseline/candidate descriptor graphs.
+// The exact generated inventory manifest may accompany qualifying edits; owning that one metadata file does not widen the decision, and the file
 // is not itself an allowlisted document. source-integrity still verifies the
 // manifest unconditionally. Rename, delete, copy, mode change, unknown paths,
 // merge_group, push, and governance, security, or shared-runtime paths keep
@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { selectImpact, validateDescriptor, isModuleDescriptorPath, ROOT_INSTRUCTIONS } from '../../packages/contribution-tools/context.mjs';
+import { selectImpact, validateDescriptor, isModuleDescriptorPath, ROOT_INSTRUCTIONS, owns } from '../../packages/contribution-tools/context.mjs';
 import { artifactPath, parseJson } from '../../packages/contribution-tools/io.mjs';
 import { verificationEnvironment } from '../../packages/contribution-tools/process-env.mjs';
 import { runtimeTextSources } from '../generate-runtime-text.mjs';
@@ -20,9 +20,9 @@ import { runtimeTextSources } from '../generate-runtime-text.mjs';
 export const SELECTABLE_JOBS = Object.freeze([
   'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers', 'deploy-preflight',
 ]);
-export const REQUIRED_SELECTED_JOBS = Object.freeze([
-  'runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker', 'governance-consumers',
-]);
+// Every selectable job must report a result, including an intentional docs skip.
+// Keep one list so a selected check cannot disappear from aggregate validation.
+export const REQUIRED_SELECTED_JOBS = SELECTABLE_JOBS;
 export const JOB_OUTPUT_KEYS = Object.freeze({
   'runtime-full': 'runtime_full',
   'runtime-aggregate': 'runtime_aggregate',
@@ -44,6 +44,21 @@ export const DOCS_ALLOWLIST_PREFIXES = Object.freeze([
 // scripts/update-inventory.py rewrites this manifest for every hashed source
 // change. It remains under docs/platform-plan/ for every other classification.
 export const GENERATED_INVENTORY_PATH = 'docs/platform-plan/verification/2026-09-20-file-inventory.json';
+
+// Host-owned paths and expected module obligations, never a candidate glob or
+// executable command. New files, public sharing/auth helpers, guide contracts,
+// gates, content/release pins and unlisted frontend paths retain full selection.
+export const FRONTEND_LEAF_PROFILES = Object.freeze([
+  Object.freeze({ module: 'member-card', dependencies: Object.freeze(['command-core']), tests: Object.freeze(['runtime.member-card']),
+    paths: Object.freeze(['MemberECard.tsx', 'MemberECard.css', 'MemberEditorialCard.css', 'MemberCardDownload.tsx', 'MemberCardQr.tsx']
+      .map(path => 'apps/portal-web/src/modules/' + path)) }),
+  Object.freeze({ module: 'newcomer-guides', dependencies: Object.freeze(['public-guide-assets']), tests: Object.freeze(['runtime.full']),
+    paths: Object.freeze(['GuideHost.tsx', 'engine/GuideEngine.tsx', 'engine/GuideGallery.tsx', 'engine/page-spirit.css']
+      .map(path => 'apps/portal-web/src/modules/newcomer-guides/' + path)) }),
+]);
+export const FRONTEND_LEAF_JOBS = Object.freeze(['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker']);
+const leafProfile = path => FRONTEND_LEAF_PROFILES.find(profile => profile.paths.includes(path));
+const sameSet = (a, b) => { const right = [...b].sort(); return a.length === b.length && [...a].sort().every((value, index) => value === right[index]); };
 
 const TREE_PATH_LIMIT = 16384;
 const DESCRIPTOR_LIMIT = 256;
@@ -73,14 +88,15 @@ export function heavyJobCondition(outputKey) {
 }
 
 function decision(mode, reason, selected) {
-  if ((mode !== 'full' && mode !== 'docs') || !/^[a-z0-9_]+$/.test(reason)) throw new Error('invalid_selection_decision');
+  if (!['full', 'docs', 'affected'].includes(mode) || !/^[a-z0-9_]+$/.test(reason)) throw new Error('invalid_selection_decision');
   return Object.freeze({
     mode, reason,
-    jobs: Object.freeze(Object.fromEntries(SELECTABLE_JOBS.map(id => [id, selected]))),
+    jobs: Object.freeze(Object.fromEntries(SELECTABLE_JOBS.map(id => [id, mode === 'affected' ? FRONTEND_LEAF_JOBS.includes(id) : selected]))),
   });
 }
 const full = reason => decision('full', reason, true);
 const docs = () => decision('docs', 'docs_allowlist', false);
+const affected = () => decision('affected', 'frontend_leaf_profiles', false);
 
 function inScope(path, entry) {
   return entry.endsWith('/') ? path.startsWith(entry) : path === entry;
@@ -106,10 +122,10 @@ export function isDocsAllowlisted(path) {
 function rejectionReason(path) {
   if (!safeRepoPath(path)) return 'unknown_path';
   if (ROOT_INSTRUCTIONS.includes(path)) return 'root_instruction';
-  if (FULL_SCOPE.some(entry => inScope(path, entry)) || RUNTIME_TEXT.has(path)) return 'governance_security_or_shared_runtime';
+  if (FULL_SCOPE.some(entry => inScope(path, entry)) || RUNTIME_TEXT.has(path) || isModuleDescriptorPath(path)) return 'governance_security_or_shared_runtime';
   if (hiddenSegment(path)) return 'unknown_path';
   if (bannedDocsEntry(path)) return 'excluded_test_spec_or_config';
-  if (!isDocsAllowlisted(path)) return 'not_docs_allowlist';
+  if (!isDocsAllowlisted(path) && !leafProfile(path)) return 'not_docs_allowlist';
   return null;
 }
 function statusReason(change) {
@@ -141,8 +157,9 @@ export function decideAffectedJobs(input) {
     const status = statusReason(change);
     if (status) { reasons.push(status); continue; }
     // A content edit of the generated manifest is metadata. It is omitted from
-    // selectImpact so descriptor ownership of that path cannot veto the docs.
+    // selectImpact so ownership of that metadata cannot veto qualifying edits.
     if (change.path === GENERATED_INVENTORY_PATH) { inventoryCompanion = true; continue; }
+    if (leafProfile(change.path) && change.status !== 'M') { reasons.push('untrusted_change_status'); continue; }
     const reason = rejectionReason(change.path);
     if (reason) reasons.push(reason);
     else paths.push(change.path);
@@ -161,8 +178,52 @@ export function decideAffectedJobs(input) {
     return full(error?.code === 'invalid_artifact_path' ? 'unknown_path' : 'descriptors_unproven');
   }
   if (impact.unknown_paths.length) return full('unknown_path');
+  if (paths.some(path => leafProfile(path))) {
+    return compatibleLeafImpact(paths, baseline, candidate, impact) ? affected() : full('leaf_profile_unproven');
+  }
   if (impact.module_ids.length || impact.tests.length) return full('baseline_candidate_union');
   return docs();
+}
+
+function compatibleLeafImpact(paths, baseline, candidate, impact) {
+  // Drift cannot subtract baseline obligations. Validate the whole bounded graph
+  // because an unrelated module can add a reverse dependency on a changed leaf.
+  const graphs = [];
+  try {
+    for (const descriptors of [baseline, candidate]) {
+      if (descriptors.length > DESCRIPTOR_LIMIT) return false;
+      const byId = new Map();
+      for (const descriptor of descriptors) {
+        validateDescriptor(descriptor);
+        if (byId.has(descriptor.module_id)) return false;
+        byId.set(descriptor.module_id, descriptor);
+      }
+      const active = new Set(), done = new Set();
+      const visit = id => {
+        if (active.has(id) || !byId.has(id)) throw new Error('invalid_module_graph');
+        if (done.has(id)) return;
+        active.add(id);
+        for (const dependency of byId.get(id).dependencies) visit(dependency);
+        active.delete(id); done.add(id);
+      };
+      for (const id of byId.keys()) visit(id);
+      graphs.push(byId);
+    }
+    if (!sameSet([...graphs[0].keys()], [...graphs[1].keys()])) return false;
+    for (const [id, value] of graphs[0]) if (JSON.stringify(value) !== JSON.stringify(graphs[1].get(id))) return false;
+    const profiles = [...new Set(paths.map(leafProfile).filter(Boolean))];
+    if (!sameSet(impact.module_ids, profiles.map(profile => profile.module))
+      || !sameSet(impact.tests, [...new Set(profiles.flatMap(profile => profile.tests))])) return false;
+    for (const path of paths.filter(path => leafProfile(path))) {
+      const expected = leafProfile(path);
+      for (const descriptors of [baseline, candidate]) {
+        const owners = descriptors.filter(descriptor => owns(descriptor, path));
+        if (owners.length !== 1 || owners[0].module_id !== expected.module || owners[0].owner_role !== 'foundation'
+          || !sameSet(owners[0].dependencies, expected.dependencies) || !sameSet(owners[0].tests, expected.tests)) return false;
+      }
+    }
+    return true;
+  } catch { return false; }
 }
 
 function regularBlob(entry) {
@@ -328,7 +389,8 @@ function resultOf(job) {
 export function decisionFromNeeds(needs) {
   const outputs = needs?.select?.outputs;
   if (!outputs || typeof outputs !== 'object') return { ok: false, reason: 'decision_incomplete' };
-  if (outputs.mode !== 'full' && outputs.mode !== 'docs') return { ok: false, reason: 'decision_incomplete' };
+  if (!['full', 'docs', 'affected'].includes(outputs.mode) || typeof outputs.reason !== 'string'
+    || !/^[a-z0-9_]+$/.test(outputs.reason)) return { ok: false, reason: 'decision_incomplete' };
   const jobs = {};
   for (const [id, key] of Object.entries(JOB_OUTPUT_KEYS)) {
     if (outputs[key] !== 'true' && outputs[key] !== 'false') return { ok: false, reason: 'decision_incomplete' };
@@ -338,6 +400,8 @@ export function decisionFromNeeds(needs) {
   const selectedNone = SELECTABLE_JOBS.every(id => !jobs[id]);
   if (outputs.mode === 'full' && !selectedAll) return { ok: false, reason: 'decision_inconsistent' };
   if (outputs.mode === 'docs' && !selectedNone) return { ok: false, reason: 'decision_inconsistent' };
+  if (outputs.mode === 'affected' && (outputs.reason !== 'frontend_leaf_profiles'
+    || SELECTABLE_JOBS.some(id => jobs[id] !== FRONTEND_LEAF_JOBS.includes(id)))) return { ok: false, reason: 'decision_inconsistent' };
   if (jobs['runtime-full'] !== jobs['runtime-aggregate']) return { ok: false, reason: 'runtime_selection_split' };
   return { ok: true, decision: { mode: outputs.mode, reason: outputs.reason ?? '', jobs } };
 }
@@ -360,7 +424,7 @@ export function evaluateVerifyAggregate(needs) {
       return { ok: false, reason: 'unselected_job_not_clean', job: id, result: result ?? 'missing' };
     }
   }
-  return { ok: true, reason: parsed.decision.mode === 'docs' ? 'docs_selected_subset' : 'full_selection' };
+  return { ok: true, reason: parsed.decision.mode === 'docs' ? 'docs_selected_subset' : parsed.decision.mode === 'affected' ? 'affected_selected_subset' : 'full_selection' };
 }
 export function githubOutput(selection) {
   const lines = [`mode=${selection.mode}`, `reason=${selection.reason}`];

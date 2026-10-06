@@ -1,3 +1,5 @@
+import {cancelShopOrder} from '../../../../modules/agent-commerce/service-command.js';
+import type {ShopServiceHost} from '../../../../packages/resource-scopes/shop-service.js';
 import {Hono} from 'hono';
 import type {Pool} from 'pg';
 import {z} from 'zod';
@@ -7,10 +9,10 @@ import {authRateLimit} from '../../../../modules/identity-membership/members.js'
 import {catalog,ownShops,previewImport,importShop,fetchManifest} from '../../../../modules/agent-commerce/imports.js';
 import {parseManifestFile} from '../../../../modules/agent-commerce/schema.js';
 import {agentKit} from '../../../../modules/agent-commerce/kit.js';
-import {issueKey,revokeKey,machine,createOrder,orderView,shopOrders,payment,setPaymentUrl,recordShipment,memberOrders,cancelOrder,setAcceptingOrders} from '../../../../modules/agent-commerce/orders.js';
+import {issueKey,revokeKey,machine,createOrder,orderView,shopOrders,payment,setPaymentUrl,recordShipment,memberOrders,setAcceptingOrders} from '../../../../modules/agent-commerce/orders.js';
 import {decideAcceptance,listAcceptances} from '../../../../modules/agent-commerce/distribution.js';
 
-export function createAgentCommerceRoutes(pool:Pool,origin:string){
+export function createAgentCommerceRoutes(pool:Pool,origin:string,host:ShopServiceHost){
  const app=new Hono<PlatformEnv>();
  app.get('/commerce/catalog',async c=>c.json({items:await catalog(pool,c.get('actor'))}));
  app.get('/commerce/shops',async c=>c.json({items:await ownShops(pool,c.get('actor'))}));
@@ -31,7 +33,7 @@ export function createAgentCommerceRoutes(pool:Pool,origin:string){
   return c.json({filename:body.kind==='internal'?'我的內部商店.md':'我的公開商店.md',markdown:agentKit(body.kind,body.kind==='internal'?[]:items,origin)});
  });
  app.post('/commerce/shops/:id/accepting-orders',async c=>{const input=await moduleCommand(c);const body=z.object({accepting:z.boolean()}).strict().parse(input.body);return c.json(await setAcceptingOrders(pool,input,z.uuid().parse(c.req.param('id')),body.accepting));});
- app.post('/commerce/shops/:id/key',async c=>{const input=await moduleCommand(c);z.object({}).strict().parse(input.body);return c.json(await issueKey(pool,input,z.uuid().parse(c.req.param('id'))));});
+ app.post('/commerce/shops/:id/key',async c=>{const input=await moduleCommand(c);z.object({}).strict().parse(input.body);return c.json(await issueKey(pool,input,z.uuid().parse(c.req.param('id')),host));});
  app.post('/commerce/shops/:id/revoke-key',async c=>{const input=await moduleCommand(c);z.object({}).strict().parse(input.body);return c.json(await revokeKey(pool,input,z.uuid().parse(c.req.param('id'))));});
  app.get('/commerce/shops/:id/orders',async c=>c.json({items:await memberOrders(pool,c.get('actor'),z.uuid().parse(c.req.param('id')))}));
  app.get('/commerce/distribution-acceptances',async c=>c.json({items:await listAcceptances(pool,c.get('actor'))}));
@@ -40,18 +42,18 @@ export function createAgentCommerceRoutes(pool:Pool,origin:string){
  return app;
 }
 // Bearer only. No cookie/session impersonation. The global JSON size and Origin guards still apply.
-export function createShopMachineRoutes(pool:Pool){
+export function createShopMachineRoutes(pool:Pool,host:ShopServiceHost){
  const app=new Hono();
  app.use('*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
- app.get('/connection',async c=>c.json(await machine(pool,c.req.header('Authorization'),async(q,shop)=>({shop_id:shop.shop_id,kind:shop.kind,currency:shop.currency,mode:shop.mode,accepting_orders:shop.accepting_orders,
+ app.get('/connection',async c=>c.json(await machine(pool,host,c.req.header('Authorization'),async(q,shop)=>({shop_id:shop.shop_id,kind:shop.kind,currency:shop.currency,mode:shop.mode,accepting_orders:shop.accepting_orders,
   selections:shop.kind==='public'?(await q.query("SELECT selection_id,item_id,snapshot FROM commerce_selections WHERE shop_id=$1 AND acceptance_state='sellable'",[shop.shop_id])).rows:[]}))));
- app.get('/orders',async c=>{const offset=z.coerce.number().int().min(0).max(100000).parse(c.req.query('offset')??0);return c.json({items:await machine(pool,c.req.header('Authorization'),(q,s)=>shopOrders(q,s,offset)),offset,limit:100});});
- app.post('/orders',async c=>{const body=await c.req.json();return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>createOrder(q,s,body)),201);});
- app.get('/orders/:id',async c=>c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>orderView(q,s,z.uuid().parse(c.req.param('id'))))));
- app.post('/orders/:id/cancel',async c=>{z.object({}).strict().parse(await c.req.json());return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>cancelOrder(q,s,z.uuid().parse(c.req.param('id')))));});
- app.post('/orders/:id/payment',async c=>{const body=await c.req.json();return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>payment(q,s,z.uuid().parse(c.req.param('id')),undefined,body)));});
- app.post('/orders/:id/transfers/:transfer/payment',async c=>{const body=await c.req.json();return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>payment(q,s,z.uuid().parse(c.req.param('id')),z.uuid().parse(c.req.param('transfer')),body)));});
- app.post('/transfers/:id/payment-link',async c=>{const body=z.object({url:z.string().max(2000)}).strict().parse(await c.req.json());return c.json(await machine(pool,c.req.header('Authorization'),(q,s)=>setPaymentUrl(q,s,z.uuid().parse(c.req.param('id')),body.url)));});
+ app.get('/orders',async c=>{const offset=z.coerce.number().int().min(0).max(100000).parse(c.req.query('offset')??0);return c.json({items:await machine(pool,host,c.req.header('Authorization'),(q,s)=>shopOrders(q,s,offset)),offset,limit:100});});
+ app.post('/orders',async c=>{const body=await c.req.json();return c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>createOrder(q,s,body)),201);});
+ app.get('/orders/:id',async c=>c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>orderView(q,s,z.uuid().parse(c.req.param('id'))))));
+ app.post('/orders/:id/cancel',async c=>{z.object({}).strict().parse(await c.req.json());return c.json(await cancelShopOrder(pool,host,c.req.header('Authorization'),z.uuid().parse(c.req.param('id'))));});
+ app.post('/orders/:id/payment',async c=>{const body=await c.req.json();return c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>payment(q,s,z.uuid().parse(c.req.param('id')),undefined,body)));});
+ app.post('/orders/:id/transfers/:transfer/payment',async c=>{const body=await c.req.json();return c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>payment(q,s,z.uuid().parse(c.req.param('id')),z.uuid().parse(c.req.param('transfer')),body)));});
+ app.post('/transfers/:id/payment-link',async c=>{const body=z.object({url:z.string().max(2000)}).strict().parse(await c.req.json());return c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>setPaymentUrl(q,s,z.uuid().parse(c.req.param('id')),body.url)));});
  return app;
 }
 export function createPublicShopRoutes(pool:Pool){

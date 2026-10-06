@@ -1,0 +1,94 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "agent-commerce",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/**",
+    "apps/platform-api/src/routes/agent-commerce.ts",
+    "scripts/shop-key-legacy-exit.ts",
+    "tests/runtime/agent-commerce.test.ts",
+    "tests/runtime/agent-commerce-key-expiry.test.ts",
+    "tests/runtime/shop-service-command.test.ts",
+    "tests/runtime/shop-key-exit.test.ts"
+  ],
+  "public_exports": [
+    "modules/agent-commerce/orders.ts",
+    "modules/agent-commerce/service-command.ts",
+    "modules/agent-commerce/key-exit.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [
+    "member",
+    "shop-api"
+  ],
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "service-is-not-owner-person",
+    "purpose-and-environment-bound-key",
+    "single-transaction-effects",
+    "legacy-domain-replay-compatibility",
+    "explicit-readonly-target"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "commerce.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/agent-commerce.ts",
+      "operations": [
+        "commerce.catalog",
+        "commerce.shops",
+        "commerce.preview",
+        "commerce.import",
+        "commerce.agent-kit",
+        "commerce.accepting-orders",
+        "commerce.key.issue",
+        "commerce.key.revoke",
+        "commerce.orders",
+        "commerce.distribution.acceptances",
+        "commerce.distribution.decide",
+        "commerce.shipment"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.shop-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/agent-commerce.ts",
+      "operations": [
+        "shop.connection",
+        "shop.orders",
+        "shop.order.create",
+        "shop.order.read",
+        "shop.order.cancel",
+        "shop.order.payment",
+        "shop.transfer.payment",
+        "shop.transfer.payment-link"
+      ],
+      "auth_profile": "shop-service-key-explicit-legacy-policy"
+    },
+    {
+      "surface_id": "operations.shop-key-legacy-exit",
+      "kind": "cli",
+      "entry": "scripts/shop-key-legacy-exit.ts",
+      "operations": [
+        "shop.key.legacy-exit.observe"
+      ],
+      "auth_profile": "operator-readonly-exact-target"
+    }
+  ]
+}
