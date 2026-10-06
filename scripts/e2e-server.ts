@@ -62,6 +62,10 @@ process.on('SIGTERM',()=>void stop());process.on('SIGINT',()=>void stop());
 try{
   await migrate(pool);
   await seedLocal(pool);
+  // Synthetic authority policy for this local harness only. Production seeds none.
+  await pool.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant)
+    SELECT 1,'active',600,86400,86400,1
+    WHERE NOT EXISTS (SELECT 1 FROM tenant_authority_policies WHERE status='active')`);
   // One fixture sync fills github_items before the browser opens. No timer.
   // Events run before repositories. 200 leaves every tracked repository inside one fixture pass.
   if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:200,token:undefined});

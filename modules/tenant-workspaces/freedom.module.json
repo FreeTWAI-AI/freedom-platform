@@ -18,6 +18,9 @@
   "public_exports": [
     "modules/tenant-workspaces/service.ts",
     "modules/tenant-workspaces/authorization.ts",
+    "modules/tenant-workspaces/ownership.ts",
+    "modules/tenant-workspaces/high-risk-verification.ts",
+    "modules/tenant-workspaces/recovery.ts",
     "contracts/guild-launchpad/v1/tenant.ts"
   ],
   "dependencies": [

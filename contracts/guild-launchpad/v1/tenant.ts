@@ -220,3 +220,6 @@ export type InvitationView = z.infer<typeof InvitationViewSchema>;
 export type TenantRole = z.infer<typeof TenantRoleSchema>;
 export type InviteRole = z.infer<typeof InviteRoleSchema>;
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;
+export type TransferView = z.infer<typeof TransferViewSchema>;
+export type RecoveryCaseView = z.infer<typeof RecoveryCaseViewSchema>;
+export type AdminRecoveryCaseView = z.infer<typeof AdminRecoveryCaseViewSchema>;

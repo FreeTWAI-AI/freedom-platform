@@ -1,5 +1,5 @@
 import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { transaction } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 
@@ -16,6 +16,10 @@ export function hashPassword(password: string) {
 const derive = (password:string,salt:string):Promise<Buffer> => new Promise((resolve,reject)=>scrypt(password,salt,64,(error,key)=>error?reject(error):resolve(key)));
 export async function hashPasswordAsync(password:string) {
   const salt=randomBytes(16).toString('hex');return `${salt}:${(await derive(password,salt)).toString('hex')}`;
+}
+export async function verifyMemberPassword(q: PoolClient, userId: string, password: string): Promise<boolean> {
+  const user = (await q.query<{ password_hash: string; active: boolean }>('SELECT password_hash, active FROM users WHERE user_id=$1 FOR SHARE', [userId])).rows[0];
+  return matches(password, user?.active ? user.password_hash : unknownUserHash());
 }
 async function matches(password: string, saved: string) {
   const [salt,expected] = saved.split(':');

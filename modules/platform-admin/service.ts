@@ -6,6 +6,7 @@ import {communityCatalog} from '../community/catalog.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-appointment-membership.js';
 import {notifyGuildApplicationReview,notifyGuildMasterChange} from '../member-communications/events.js';
+import {applyOwnerAccountStatus} from '../tenant-workspaces/security-path.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -72,6 +73,7 @@ export async function changeMemberStatus(pool:Pool,input:AdminCommand,id:string)
     const prior=await scopedUser(q,input.admin,id,true);checkVersion(prior.aggregate_version,input.expected);
     const updated=(await q.query(`UPDATE users SET active=$2,admin_status_version=admin_status_version+1 WHERE user_id=$1 RETURNING ${administrativeMember}`,[id,body.active])).rows[0];
     if(!body.active){await q.query('UPDATE sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1',[id]);await q.query('UPDATE member_client_connections SET revoked_at=COALESCE(revoked_at,now()),aggregate_version=aggregate_version+1 WHERE user_id=$1 AND revoked_at IS NULL',[id]);}
+    await applyOwnerAccountStatus(q,id,body.active);
     await audit(q,input.admin,'member_status','member',id,body.reason,{active:prior.active,aggregate_version:prior.aggregate_version},{active:updated.active,aggregate_version:updated.aggregate_version});return updated;
   });
 }
