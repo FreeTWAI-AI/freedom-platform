@@ -9,7 +9,7 @@ if (!url) throw new Error('Explicit isolated TEST_DATABASE_URL required');
 const schema = `fp_ta_${process.pid}_${Date.now()}`;
 const migrator = `${schema}_owner`, runtime = `${schema}_app`, parent = `${schema}_parent`;
 const admin = new Pool({ connectionString: url });
-const owner = new Pool({ connectionString: url, options: `-c role=${migrator} -c search_path=${schema} -c statement_timeout=10000` });
+const owner = new Pool({ connectionString: url, options: `-c role=${migrator} -c search_path=${schema}` });
 let created = false, query = '';
 before(async () => {
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql', import.meta.url), 'utf8');
@@ -25,6 +25,7 @@ after(async () => {
   await admin.end();
 });
 async function grant(q: PoolClient) {
+  await q.query('SET LOCAL statement_timeout = 10000');
   const rows = (await q.query(query)).rows;
   assert.equal(rows.length, 2);
   for (const row of rows) await q.query(Object.values(row)[0] as string);
