@@ -1,19 +1,17 @@
 import { z } from 'zod';
-import { OpaqueId } from '../../common/v1/identity.js';
+import { OpaqueId, Version, page } from './primitives.js';
 
 // Wire versions are positive decimal strings. Do not name a field aggregate_version:
 // the platform JSON middleware rewrites only that literal name into a number.
-export const VersionSchema = z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value => {
-  try { return BigInt(value) <= 9223372036854775807n; } catch { return false; }
-}, '版本超出範圍。');
+export const VersionSchema = Version;
 export const TenantRoleSchema = z.enum(['owner', 'admin', 'operator', 'viewer']);
 export const InviteRoleSchema = z.enum(['admin', 'operator', 'viewer']);
 export const TenantStatusSchema = z.enum(['active', 'suspended', 'recovery_required', 'archived']);
 export const DisplayNameSchema = z.string().min(1).max(120).refine(value => new TextEncoder().encode(value).length <= 480 && !/[\u0000-\u001f\u007f]/.test(value), '名稱含有不允許的字元。');
 export const PersonNameSchema = z.string().min(1).max(240);
-export const PublicSlugSchema = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])$/);
+export const PublicSlugSchema = z.string().max(64).regex(/^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])$(?![\s\S])/);
 export const ReasonSchema = z.string().min(3).max(1000).refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
-export const IsoTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/);
+export const IsoTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$(?![\s\S])/);
 
 // This slice has no module instances. Inputs must send an empty list so the
 // shape can grow later. Any grant, including high-risk keys, is rejected here.
@@ -24,11 +22,11 @@ export const EmptyInstanceCapabilitiesSchema = z.array(z.object({
 
 export const CapabilityGrantSchema = z.object({
   instance_id: OpaqueId.nullable(),
-  keys: z.array(z.string().regex(/^[a-z][a-z0-9._-]{0,79}$/)).max(100),
+  keys: z.array(z.string().max(80).regex(/^[a-z][a-z0-9._-]{0,79}$(?![\s\S])/)).max(100),
 }).strict();
 export const MemberCapabilitySchema = z.object({
   instance_id: OpaqueId,
-  capabilities: z.array(z.string().regex(/^[a-z][a-z0-9._-]{0,79}$/)).max(100),
+  capabilities: z.array(z.string().max(80).regex(/^[a-z][a-z0-9._-]{0,79}$(?![\s\S])/)).max(100),
 }).strict();
 
 export const TenantViewSchema = z.object({
@@ -71,11 +69,7 @@ export const InvitationViewSchema = z.object({
 }).strict();
 
 export function PageSchema<T extends z.ZodType>(item: T) {
-  return z.object({
-    items: z.array(item),
-    next_cursor: z.string().nullable(),
-    source_version: VersionSchema,
-  }).strict();
+  return page(item);
 }
 export const TenantPageSchema = PageSchema(TenantViewSchema);
 export const WorkspacePageSchema = PageSchema(WorkspaceViewSchema);
