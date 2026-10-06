@@ -6,3 +6,5 @@
 Case: pin supersession. The first head runs under the old pinned workflow
 (c3e5a537). After the probe ruleset moves to d1c9e18f, that old run must not
 satisfy the new pin.
+
+Second head: a docs-only follow-up so the probe ruleset now pinned to d1c9e18f runs its own required workflow on a fresh head.

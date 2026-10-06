@@ -12559,8 +12559,8 @@
     },
     {
       "path": "docs/development/trust-pin-probe-s-20261006.md",
-      "bytes": 389,
-      "sha256": "760717b7a956aa5d41d10722a94080dadc394a80f0607c62da4e4e4d767a25c9"
+      "bytes": 517,
+      "sha256": "5a67cae0d7fcdd64cb61e258706b3d2f9d3bc6114e3b9e9801e209a06a2a951f"
     },
     {
       "path": "docs/development/worker-private-ai-bindings.md",
