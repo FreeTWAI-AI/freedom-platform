@@ -1139,13 +1139,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.css",
-      "bytes": 6082,
-      "sha256": "b5d7a118fc947e7aff62f4509e574fb292d1eec25ab7e2ecd1e5eb7733beb554"
+      "bytes": 6418,
+      "sha256": "0b3e252a236c04a5ecb1c43e88c60a72bb47f6f7dc2ce7c0d6cf3c4f41bcbdfb"
     },
     {
       "path": "apps/portal-web/src/modules/AdminGuildManagement.tsx",
-      "bytes": 26090,
-      "sha256": "df271699936842cccbdfc94bdd30da19724b2de0024f1fb4cb89a13620c686b6"
+      "bytes": 26528,
+      "sha256": "1b3bb18110ec9cb1ebd2a5a6317cc130cdcb29a925740a867cac60e06d7084e2"
     },
     {
       "path": "apps/portal-web/src/modules/AdminLayout.css",
@@ -17514,8 +17514,8 @@
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 12138,
-      "sha256": "7af1d73ffe04dd95ff912a09e9eaeacf49e78d7c25fa416fc8c78743a243eb4a"
+      "bytes": 19274,
+      "sha256": "c9c18bc43fccbebde55f70b5e710c433565f6ad38c7bf7c92c938b6d4b93b71b"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
