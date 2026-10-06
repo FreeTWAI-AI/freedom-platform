@@ -143,6 +143,30 @@ test('INGEST-AUTH-03 revoked original session and advanced external recovery can
  await assert.rejects(issuer.issue(another,{command:f.command,nonce:nonce()}));
  assert.equal((await issuer.readOwnerOutcome(another,f.claims.authorizationRef)).state,'setup_claimed');
 });
+test('INGEST-AUTH reused authority query plans retain fresh session, expiry and recovery checks',async()=>{
+ for(const mode of ['session_revoke','session_expiry','recovery_floor'] as const){
+  generation='1';const f=await authorized(),invocation=await authority.claimBootstrap(f.claims,{cookieHash:f.cookieHash,csrfHash:f.csrfHash});
+  const q=await broker.connect();
+  try{
+   // Use one physical connection and real SQL past PostgreSQL's initial custom
+   // plans. Reusing a plan must never reuse authority rows or volatile clocks.
+   for(let i=0;i<8;i++)await authority.assertCurrent(q,invocation);
+   const plans=(await q.query("SELECT generic_plans::int,custom_plans::int FROM pg_prepared_statements WHERE name='credential-ingest-current-authority-v1'")).rows;
+   assert.equal(plans.length,1);assert(plans[0].generic_plans>0,'the real connection must have reused its authority plan');
+   const observedRecovery=recoveryCalls;
+   if(mode==='recovery_floor')generation='2';
+   else await owner.query(mode==='session_revoke'
+    ?'UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1'
+    :"UPDATE sessions SET expires_at=clock_timestamp()-interval '1 millisecond' WHERE token_hash=$1",[f.actor.session_hash]);
+   await assert.rejects(authority.assertCurrent(q,invocation),(error:any)=>error.code==='credential_ingest_authorization_invalid');
+   assert(recoveryCalls>observedRecovery,'each observation must read fresh external recovery');
+   const facts=(await owner.query(`SELECT (SELECT count(*)::int FROM broker_model_credentials) credentials,
+    (SELECT count(*)::int FROM broker_credential_vault) ciphertext,
+    (SELECT count(*)::int FROM scoped_command_receipts WHERE operation='broker.credential.create') receipts`)).rows[0];
+   assert.deepEqual(facts,{credentials:0,ciphertext:0,receipts:0});
+  }finally{q.release();}
+ }
+});
 test('INGEST-AUTH-04 genuine same-byte rotation commits only this replacement and preserves final original-session guard',async()=>{
  const f=await authorized(),p=await prepared(f),bytes=new TextEncoder().encode('same-synthetic-ingest-key');
  const old=await store.commit(f.actor,p.intent,await vault.seal(p.binding,bytes),q=>authority.assertCurrent(q,p.invocation));
