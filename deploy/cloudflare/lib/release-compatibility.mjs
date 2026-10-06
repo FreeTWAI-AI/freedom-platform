@@ -95,6 +95,9 @@ const FOUNDATION_NAMES = [
   // Tenant business spaces, memberships, invitations and authority audit; guild
   // roles gain no business-space authority and recognition activates nothing.
   '120_tenant_workspaces.sql',
+  // Tenant ownership transfer, fresh verification and controlled recovery; no
+  // authority policy is seeded and recognition activates nothing.
+  '121_tenant_ownership_recovery.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -274,8 +274,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 27976,
-      "sha256": "c02bea7d7de992d0aac965eabffff3c1e52a690df5d65349b2b3b54bd9eb2420"
+      "bytes": 28035,
+      "sha256": "3e0adc16a46cb98a7e2324d6b2360d682c2953e5fbd3976da306ac1161d3fd41"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -294,8 +294,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 9309,
-      "sha256": "74af935027e790463816941c721224a22bd99535efa8776474e472bdc3c6a170"
+      "bytes": 11018,
+      "sha256": "c21606a553395d9006a3ed0fea2874db89d7dbe259d8fbbed4f0935a85d97133"
     },
     {
       "path": "apps/platform-api/src/routes/agent-commerce.ts",
@@ -459,8 +459,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/tenant-workspaces.ts",
-      "bytes": 5774,
-      "sha256": "8fddf9548800b1e3ccdcc4c08c458e3ef5ed48cbdaa326942e6c0a8f4495b15e"
+      "bytes": 8279,
+      "sha256": "eabcf71d23c648bb7c8c01a8f70c8210c081e756e309f5fc9a8e971633a82cce"
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
@@ -1749,8 +1749,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/TenantSettings.tsx",
-      "bytes": 18826,
-      "sha256": "df6f21a61f3687696e197907d0d1b00546fb06789f6d201d3dd5d391b080c6b3"
+      "bytes": 36254,
+      "sha256": "a15e9cce5b36a412c9435aac60ee5db299934fc4d1e15932c2aca49c7fabcde9"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -2099,8 +2099,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
-      "bytes": 834,
-      "sha256": "4aeb0fa021e38f5933ddbf142936eb71630409f9f6b8a9b464a2bcfed49eff5a"
+      "bytes": 529,
+      "sha256": "fc83852f548d08fb96736a577c2159a510a8f8b7c25aab0ef4e43c839bae4d51"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -11519,8 +11519,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant.ts",
-      "bytes": 5893,
-      "sha256": "a8b74e79d267dc1b5c1a9ccb89b2131cfeeb5525d662fa6f6928d431356a5697"
+      "bytes": 10170,
+      "sha256": "b9cfac45a8bd9aa0d9ab10daee6399ebc393a1532ff54c394c4220200fae1c0e"
     },
     {
       "path": "contracts/preview/v1/bundle.json",
@@ -11615,7 +11615,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "7aeca46dfc54314b20b0a2e87a2d00b63550f9614185c6c88acc9b5f9cd5f2bc"
+      "sha256": "874c959bf5322c2b6a1664bafd83a934cb94385987e14766c404b7bd5d2a45d2"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -11694,8 +11694,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 39338,
-      "sha256": "e942432161f168442f8f91360dc327ffa1eb37d1da2d37b86117561be88f1d69"
+      "bytes": 39523,
+      "sha256": "ffa7c2277b90430928c579ed2de31b9b813bcb8bfaf602497e03f4f62867f2b1"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -11739,8 +11739,8 @@
     },
     {
       "path": "deploy/cloudflare/sql/20-runtime-grants.psql",
-      "bytes": 12716,
-      "sha256": "91a3f8b33549ccb51ed1a7f40eb4fe15febec54e18316360c7935343c5e97a3f"
+      "bytes": 16037,
+      "sha256": "55279b8bb68c847cd5f3314b13b076b2d3533656a48ceb39fa31b7c9f853bf56"
     },
     {
       "path": "deploy/cloudflare/sql/30-verify-readonly.psql",
@@ -11805,7 +11805,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "1810abd78062eda25e60ea1830e1cb12b56b8f963cc28bf0fc15e5a28afd5a48"
+      "sha256": "32fd4eb17aa150276d9e6c7e5b4ed189b2f81e22097429aa35a521c6a68d814e"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -11839,8 +11839,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52227,
-      "sha256": "aa0466d3b30fd41e9325c8e67d2c51685a85e242ea009bb8a05ec543da27adf0"
+      "bytes": 52235,
+      "sha256": "736451c38eb9423152e7df63ae154f3a05a8972b0aa6362566166dcdc7534716"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -14708,6 +14708,11 @@
       "sha256": "ea172599d506a39ba7a42d73753bf1ffd8f6ac0824098325c3dd5706016c787a"
     },
     {
+      "path": "migrations/121_tenant_ownership_recovery.sql",
+      "bytes": 17507,
+      "sha256": "a3a4f7cfbfcdc1944adf5209563a2acd19095452f82fca1f30c5cba8342aa1d1"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 5367,
       "sha256": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755"
@@ -15604,8 +15609,8 @@
     },
     {
       "path": "modules/development/pages.ts",
-      "bytes": 25785,
-      "sha256": "74cc0570c591bca227d4470db003a6569b6d53710924056cb480f0ea2054e0fb"
+      "bytes": 26079,
+      "sha256": "e4392e5176f951bc56f806d73e57932646b5a0396994d0162f28e3e58edb804a"
     },
     {
       "path": "modules/development/service.ts",
@@ -15679,8 +15684,8 @@
     },
     {
       "path": "modules/identity-membership/service.ts",
-      "bytes": 4612,
-      "sha256": "deaf732ec639c417953404192dba057e7252caefc282a3db8e13379b97676276"
+      "bytes": 4985,
+      "sha256": "5702b6fd19aaf8145a4f63a06e5c4a8097a53ad4edff6a3746fd551bec803b3f"
     },
     {
       "path": "modules/identity-membership/social-links.ts",
@@ -15819,8 +15824,8 @@
     },
     {
       "path": "modules/platform-admin/service.ts",
-      "bytes": 28942,
-      "sha256": "6eb28c2296c986f1f411b60aecb19bd14e83f88209cf9b7c4619c32daf684c17"
+      "bytes": 29074,
+      "sha256": "1c892c6f3373fecced0eab090c91ad24c961e91d98e018b4979f07cf00330748"
     },
     {
       "path": "modules/positioning/assessment.ts",
@@ -15949,8 +15954,8 @@
     },
     {
       "path": "modules/tenant-workspaces/README.md",
-      "bytes": 1771,
-      "sha256": "5ee96e1b93f59fbb6691de31c63ef8fb4d02e13bf1c7e6f6cc9f52e2044cabf9"
+      "bytes": 3165,
+      "sha256": "931a07967b8232d7702538da929704cd259b117b808243609abd2b7843671380"
     },
     {
       "path": "modules/tenant-workspaces/authorization.ts",
@@ -15958,14 +15963,44 @@
       "sha256": "22365f63c997c633761599dce874dd32b94ec002a5c18bd142ce7c0b087e4600"
     },
     {
+      "path": "modules/tenant-workspaces/facts.ts",
+      "bytes": 7147,
+      "sha256": "bb9acf73b49115e11b8b636c4288d7270a844cb34bdf955139689148dc50cd65"
+    },
+    {
       "path": "modules/tenant-workspaces/freedom.module.json",
-      "bytes": 1914,
-      "sha256": "a102551263ecfe8163eadaedf819d272b492f3b1bac6982fb3a60e55ce4dbc7b"
+      "bytes": 2333,
+      "sha256": "f672debaf98bb5c6931bbd01dfdbed571be995aa8d3f014619b1b199b50fd69f"
+    },
+    {
+      "path": "modules/tenant-workspaces/high-risk-verification.ts",
+      "bytes": 7157,
+      "sha256": "586c930371244da10889c7431d78bc29bad343b8d0f62ca5c312de25083c41d1"
+    },
+    {
+      "path": "modules/tenant-workspaces/ownership.ts",
+      "bytes": 25352,
+      "sha256": "2b48c5c6513897922545cad7f5bd3aab3d1c2f7a05b6290fec68ae26895b616f"
+    },
+    {
+      "path": "modules/tenant-workspaces/policy.ts",
+      "bytes": 818,
+      "sha256": "4e68a77348888439d9926cb61cf103a9572068108d8ffff441d24f1478a81547"
+    },
+    {
+      "path": "modules/tenant-workspaces/recovery.ts",
+      "bytes": 22953,
+      "sha256": "be55aa505ea9ff2be15f2e3b2f42ae1d992bf6acf64ded54b9e4c246318cd2fa"
+    },
+    {
+      "path": "modules/tenant-workspaces/security-path.ts",
+      "bytes": 4456,
+      "sha256": "b38dcf9b9f0939b4093c48d86ccbdd5eeeb1fac8c40d341622e01a115e24dbb6"
     },
     {
       "path": "modules/tenant-workspaces/service.ts",
-      "bytes": 45014,
-      "sha256": "e189cbca6ce7f33877be6cfe47cb28fca13e514c70b6ad9e119f9f9734210361"
+      "bytes": 43540,
+      "sha256": "a23742ab344017fd27d060277fd0052eca7e1a1b689aad326a5c9759c93036ac"
     },
     {
       "path": "package-lock.json",
@@ -16314,8 +16349,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5589,
-      "sha256": "9a76a1ab2569b1320c66fae8719b09aeedc4d4f9ce78a3be3da90556473f2b46"
+      "bytes": 5692,
+      "sha256": "bb31c61cbe3369e0a77ed8044c7446d3a833f926bdb245a1e7dbdab608c018da"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -17154,8 +17189,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 7630,
-      "sha256": "9a3577596ea28b251a021689d07de3a04eaf6fc456c86482f358f6cc07a33df3"
+      "bytes": 8026,
+      "sha256": "e7ff29ee0f54bd68502ee5f8050fb11cd9bf24c33833a4caca336a151953772d"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -17801,6 +17836,11 @@
       "path": "tests/e2e/squad-types-channel.spec.ts",
       "bytes": 3179,
       "sha256": "a06a56764fcf42f5e6cb321821de9a873c7c5f172691bd573e0d15f5168aed52"
+    },
+    {
+      "path": "tests/e2e/tenant-ownership.spec.ts",
+      "bytes": 6209,
+      "sha256": "4d3df3e131aa5761cbaa2560d8052cc947c503e08132b3e22aca9b8a42e985a5"
     },
     {
       "path": "tests/e2e/tenant-workspaces.spec.ts",
@@ -19143,14 +19183,34 @@
       "sha256": "466884baece5caf84a5052fb7cd584d6c113a33023c2fcb7425abe88cb5961e6"
     },
     {
+      "path": "tests/runtime/tenant-authority-policy-grants.test.ts",
+      "bytes": 4454,
+      "sha256": "f702cb97e8d09e7394508e7df46f58730e5dde8f36d59b0bae52219c680ec79f"
+    },
+    {
       "path": "tests/runtime/tenant-authorization.test.ts",
       "bytes": 20034,
       "sha256": "87c8a81651e0d4d1008e740c58e385c1e36db00363e805497dfe0aa994b872bc"
     },
     {
+      "path": "tests/runtime/tenant-high-risk-verification.test.ts",
+      "bytes": 16236,
+      "sha256": "b64c49d71984f68839df1997a2c34441222c4612a3a981576c669c7fb2642c41"
+    },
+    {
+      "path": "tests/runtime/tenant-ownership-transfer.test.ts",
+      "bytes": 23813,
+      "sha256": "971e49f9de3e29e863a6b26ee2e56a909ca6080b7a5c92316c1cd86c264477af"
+    },
+    {
       "path": "tests/runtime/tenant-ownership.test.ts",
       "bytes": 30588,
       "sha256": "094ea7a6c2d37be09e142b9e6866e2ac91a9072d53f5d2d9626142cb49b744b2"
+    },
+    {
+      "path": "tests/runtime/tenant-recovery.test.ts",
+      "bytes": 30775,
+      "sha256": "f02fe9c8b022a3db6b4514c13e21863db818e08f370633c940b152791d5282f7"
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",
