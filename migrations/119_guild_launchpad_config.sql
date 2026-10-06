@@ -13,8 +13,12 @@ CREATE TABLE guild_launchpad_config_revisions (
   source text NOT NULL CHECK (source IN ('platform_default','guild_editor')),
   created_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
   created_at timestamptz NOT NULL DEFAULT now(),
+  revert_reason text,
+  reverted_from_revision bigint,
   UNIQUE (community_id, guild_key, revision),
-  UNIQUE (config_id, community_id, guild_key)
+  UNIQUE (config_id, community_id, guild_key),
+  CHECK ((revert_reason IS NULL) = (reverted_from_revision IS NULL)),
+  CHECK (revert_reason IS NULL OR char_length(revert_reason) BETWEEN 1 AND 1000)
 );
 CREATE UNIQUE INDEX guild_launchpad_one_published
   ON guild_launchpad_config_revisions (community_id, guild_key) WHERE status = 'published';
@@ -39,7 +43,7 @@ CREATE TABLE guild_launchpad_delegations (
   granted_by_principal_id uuid NOT NULL REFERENCES principals(principal_id),
   expires_at timestamptz NOT NULL,
   version bigint NOT NULL CHECK (version > 0),
-  status text NOT NULL CHECK (status IN ('active','revoked')),
+  status text NOT NULL CHECK (status IN ('active','revoked','expired')),
   created_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz,
   revoke_reason text,
@@ -47,6 +51,7 @@ CREATE TABLE guild_launchpad_delegations (
   CHECK (capabilities <@ ARRAY['guild.content.edit','guild.config.preview','guild.config.publish']::text[]),
   CHECK (
     (status = 'active' AND revoked_at IS NULL AND revoke_reason IS NULL)
+    OR (status = 'expired' AND revoked_at IS NULL AND revoke_reason IS NULL)
     OR (status = 'revoked' AND revoked_at IS NOT NULL AND revoke_reason IS NOT NULL
         AND char_length(revoke_reason) BETWEEN 3 AND 1000)
   )
@@ -62,9 +67,9 @@ BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'launchpad config revisions cannot be deleted' USING ERRCODE = '23514';
   END IF;
-  IF ROW(NEW.config_id, NEW.community_id, NEW.guild_key, NEW.revision, NEW.schema_version, NEW.body, NEW.body_sha256, NEW.source, NEW.created_by_principal_id, NEW.created_at)
+  IF ROW(NEW.config_id, NEW.community_id, NEW.guild_key, NEW.revision, NEW.schema_version, NEW.body, NEW.body_sha256, NEW.source, NEW.created_by_principal_id, NEW.created_at, NEW.revert_reason, NEW.reverted_from_revision)
      IS DISTINCT FROM
-     ROW(OLD.config_id, OLD.community_id, OLD.guild_key, OLD.revision, OLD.schema_version, OLD.body, OLD.body_sha256, OLD.source, OLD.created_by_principal_id, OLD.created_at) THEN
+     ROW(OLD.config_id, OLD.community_id, OLD.guild_key, OLD.revision, OLD.schema_version, OLD.body, OLD.body_sha256, OLD.source, OLD.created_by_principal_id, OLD.created_at, OLD.revert_reason, OLD.reverted_from_revision) THEN
     RAISE EXCEPTION 'launchpad config revisions are immutable' USING ERRCODE = '23514';
   END IF;
   IF NEW.status IS NOT DISTINCT FROM OLD.status THEN
@@ -122,7 +127,8 @@ BEGIN
        ROW(OLD.delegation_id, OLD.community_id, OLD.guild_key, OLD.principal_id, OLD.capabilities, OLD.granted_by_principal_id, OLD.expires_at, OLD.created_at) THEN
       RAISE EXCEPTION 'launchpad delegation identity is immutable' USING ERRCODE = '23514';
     END IF;
-    IF NOT (OLD.status = 'active' AND NEW.status = 'revoked') THEN
+    IF NOT ((OLD.status = 'active' AND NEW.status = 'revoked')
+      OR (OLD.status = 'active' AND NEW.status = 'expired' AND OLD.expires_at <= clock_timestamp())) THEN
       RAISE EXCEPTION 'launchpad delegation status transition is not allowed' USING ERRCODE = '23514';
     END IF;
     IF NEW.version <> OLD.version + 1 THEN
