@@ -295,17 +295,17 @@ d1c9 帶入 [#130](https://github.com/FreeTWAI-AI/freedom-platform/pull/130)：�
 
 | Probe | 實際結果 |
 | --- | --- |
-| [#178 MP](https://github.com/FreeTWAI-AI/freedom-platform/pull/178) | 合成文件加正確 inventory；[run 37499846392](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499846392) 由 d1c9 執行並成功，`verify@15368` 與 `CodeQL@57789` 均 success；0 approval，GitHub 回報 blocked。只驗 green，關閉且未 merge。 |
-| [#179 MN](https://github.com/FreeTWAI-AI/freedom-platform/pull/179) | 合成文件故意不更新 inventory；[run 37499843838](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499843838) 在 `source-integrity` 失敗，aggregate 回 `source_integrity_not_success`。實際 merge 405，rule suite `4390763223` 同時列出 verify 失敗、required workflow 失敗與缺少非 last pusher 的 approval；main 維持 d1c9。 |
+| [#178 MP](https://github.com/FreeTWAI-AI/freedom-platform/pull/178) | 只新增一份合成文件並更新 inventory（`changed_files` 兩項）；[run 37499846392](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499846392) 由 d1c9 執行並成功，`verify@15368` 與 `CodeQL@57789` 均 success；0 approval，GitHub 回報 blocked。只驗 green，關閉且未 merge。 |
+| [#179 MN](https://github.com/FreeTWAI-AI/freedom-platform/pull/179) | 只新增一份合成文件，故意不更新 inventory（`changed_files` 一項）；[run 37499843838](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499843838) 在 `source-integrity` 失敗，aggregate 回 `source_integrity_not_success`。實際 merge 405，rule suite `4390763223` 同時列出 verify 失敗、required workflow 失敗與缺少非 last pusher 的 approval；main 維持 d1c9。 |
 
-所有 probe PR 已結束。兩條臨時規則先刪除並回讀 404，再刪除 12 個 probe refs（含 fork 的兩個分支）；
+所有 probe PR 已關閉：#178／#179 於 17:01:32 UTC 關閉且未 merge，並刪除 head refs（`main_probes[].closure`），其餘九個列於 `cleanup.pull_requests`。兩條臨時規則先刪除，回讀確認已不存在，再刪除 12 個 probe refs（含 fork 的兩個分支）；
 main ruleset 在清理後回讀，與切換後完全相同。操作者私有 journal `freedom-trust-pin-d1c9-20261006`
 保存 API receipts、logs 與規則前後配置；公開 JSON 只含配置、run／job、rule suite、HTTP 結果與邊界。
 探測用 fork `teddashh/freedom-platform` 仍保留：操作者 token 沒有 `delete_repo` scope，需由擁有者手動刪除。
 
 過程中有一次操作失誤：本機試跑 F2 探測腳本時，腳本以操作者 git 憑證實際 push 了
 `ops/trust-pin-d1c9-fork-push-probe-20261006`，指向已審查的 d1c9 main commit。該 ref 立即經 API
-刪除並回讀 404，沒有產生 workflow run 或 rule suite，也不計入證據。此後會嘗試 push 的探測只在
+刪除並回讀為 Not Found，沒有產生 workflow run 或 rule suite，也不計入證據。此後會嘗試 push 的探測只在
 hosted fork job 執行。
 
 本次升級仍不涵蓋：

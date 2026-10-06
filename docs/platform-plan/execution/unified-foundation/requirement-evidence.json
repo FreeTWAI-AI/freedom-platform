@@ -3106,7 +3106,7 @@
           "evidence_id": "central-pin-d1c9",
           "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
-          "covered_part": "Central temporary bases with main's strict rules: a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, old-pin green runs were refused after the pin change, and a superseded head returned 409.",
+          "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
@@ -5420,7 +5420,7 @@
           "evidence_id": "central-pin-d1c9",
           "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
-          "covered_part": "Central temporary bases with main's strict rules: a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, old-pin green runs were refused after the pin change, and a superseded head returned 409.",
+          "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],

@@ -1,6 +1,6 @@
 {
   "schema": "freedom.central-workflow-pin-upgrade/v1",
-  "recorded_at": "2026-10-06T17:07:49.808289+00:00",
+  "recorded_at": "2026-10-06T17:54:39.771288+00:00",
   "organization": "FreeTWAI-AI",
   "repository": "FreeTWAI-AI/freedom-platform",
   "repository_id": 1378081342,
@@ -1139,6 +1139,28 @@
         ],
         "commit_statuses": [],
         "merge_attempted": false
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-positive-20261006.md",
+          "status": "added",
+          "additions": 5,
+          "deletions": 0
+        },
+        {
+          "path": "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "status": "modified",
+          "additions": 5,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-06T17:01:32.440Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-d1c9-main-probe-positive-20261006",
+        "ref_delete_exit": 0,
+        "ref_absent": true
       }
     },
     {
@@ -1236,6 +1258,22 @@
         ],
         "commit_statuses": [],
         "merge_attempted": true
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-negative-20261006.md",
+          "status": "added",
+          "additions": 5,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-06T17:01:32.440Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-d1c9-main-probe-negative-20261006",
+        "ref_delete_exit": 0,
+        "ref_absent": true
       }
     }
   ],
@@ -1420,7 +1458,9 @@
     {
       "at": "2026-10-06T16:40:44.189Z",
       "what": "A local dry run of the F2 probe script used the operator git credential and created platform branch ops/trust-pin-d1c9-fork-push-probe-20261006 pointing at the reviewed d1c9 main commit.",
-      "handling": "Deleted through the API immediately (readback 404); no workflow run or rule suite was created for it; it is not counted as evidence. Push-attempting probe code now runs only in the hosted fork job."
+      "delete_exit": 0,
+      "readback_message": "Not Found",
+      "handling": "Deleted through the API immediately (readback Not Found); no workflow run or rule suite was created for it; it is not counted as evidence. Push-attempting probe code now runs only in the hosted fork job."
     }
   ],
   "boundaries": {

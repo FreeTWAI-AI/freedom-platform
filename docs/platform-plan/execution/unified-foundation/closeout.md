@@ -163,10 +163,12 @@ Agent Kit candidate `ff273fce3b65f7ebda3e6f0918d58e8ede2520ca` 已有共用 comm
 中央 `24469536` 的 required workflow 已固定到 `d1c9e18f`（#167 合併後的 main），C1（#130）與 C6（#150）的
 selector／aggregate 現在由 installed pin 執行；C6 沒有另做 hosted 正反例。一次性 probes 實際驗到：換 pin 後舊綠燈被拒、
 close／reopen 重驗、base 前進後 strict freshness 拒絕、選中的 deploy-preflight 失敗被拒、竄改加偽造綠燈被拒、
-fork 竄改被拒，以及 hostile fork 沒有 secrets 或寫入權。以 main 為目標的正例 green，負例 merge 405。
+fork 竄改被拒；hostile fork 在執行 `test:governance` 的 jobs 只取得 Contents／Metadata 唯讀 token、Secret source None，
+列出的部署／R2／provider／signing／OIDC 變數都不存在，push 被拒；預設 `persist-credentials` 下候選程式仍讀得到該唯讀 token。以 main 為目標的正例 green，負例 merge 405。
 GOV-15 依此改為 `partial`；GOV-16／R2:D04／GOV-17／R2:D07 附加證據但不改狀態，accepted 仍是 3 列。
 候選 npm script 可讓選中的 suite 跑 0 tests 而 verify 仍成功（probe E），這個缺口未修。
 
-同一 d1c9 只部署到 staging：37／37 selected checks，migration 114–119 由 staging migrator 套用。
-production 仍是 10 月 6 日 hotfix `e07d61d2`；production rollout 與 `FREEDOM_SHOP_KEY_POLICY` 的值待 owner 決定。
+同一 d1c9 只部署到 staging：37 個 selected checks，migration 114–119 由 staging migrator 套用。
+staging 的 `FREEDOM_SHOP_KEY_POLICY` 為 `legacy-compatible`。production 仍是 10 月 6 日 hotfix `e07d61d2`；
+production rollout 與 production 的 `FREEDOM_SHOP_KEY_POLICY` 值待 owner 決定。
 細節見[現況快照](current-state.json)與[治理安裝紀錄](governance-installation-2026-10-04.md)。
