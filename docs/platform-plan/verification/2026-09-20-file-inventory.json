@@ -17749,8 +17749,8 @@
     },
     {
       "path": "tests/integration/migration-entrypoints-postgres.test.ts",
-      "bytes": 7780,
-      "sha256": "85f8ff4b2244d4fb8518617ca1ae266486d7a92710c9115ee83829b2d001cd5c"
+      "bytes": 7781,
+      "sha256": "3b57462677652730675c8d9fa706665428aea94dafccf859c70ff4058430ee0e"
     },
     {
       "path": "tests/integration/migration-plan-postgres.test.ts",
