@@ -175,3 +175,86 @@ test('the demo community keeps the legacy primary and secondary guild page', asy
     await session.context.close();
   }
 });
+
+test('admin category tools are reading-width cards and send the classification and switch writes', async ({page}) => {
+  test.setTimeout(120_000);
+  const csrf = 'synthetic-admin-csrf';
+  const tagged = {guild_key: 'guild_talent_direction', name: '人才方向公會', category: 'internal', category_review: 'approved', capability_tags: ['人才盤點', '職涯'], catalog_revision: '3'};
+  const catalog = {
+    catalog_revision: '3',
+    categories: [
+      {category: 'internal', label: '內政', section: '內政主力', items: [tagged]},
+      {category: 'external', label: '外交', section: '外交主力', items: [{guild_key: 'guild_opportunity_partnership', name: '機會合作公會', category: 'external', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
+      {category: 'professional_industry', label: '專業與產業', section: '專業與產業主力', items: [{guild_key: 'guild_member_operations', name: '會員經營公會', category: 'professional_industry', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
+    ],
+    pending: [{guild_key: 'guild_ai_vibe', name: 'AI 氛圍公會', category: null, category_review: 'pending', capability_tags: [], catalog_revision: '3'}],
+  };
+  let classification: {headers: Record<string, string>; body: {category: string; capability_tags: string[]; reason: string}} | undefined;
+  let switched: {body: {accept_blocked: boolean}} | undefined;
+  await page.setViewportSize({width: 1280, height: 900});
+  await page.route('**/admin/api/**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/admin/api', '');
+    if (path === '/bootstrap') return route.fulfill({json: {admin: {admin_id: 'synthetic-admin', display_name: '測試管理員', email: 'admin@example.test', role: 'super_admin', community_id: 'synthetic-community'}, csrf_token: csrf, summary: {members: 40, active_members: 40, pending_guild_applications: 0, guilds: 1, admins: 1}, available_skill_books: [], pending_guild_appointments: []}});
+    if (path === '/guild-categories') return route.fulfill({json: catalog});
+    if (path === '/guild-preferences/backfill') return route.fulfill({json: {dry_run: true, processed: 40, mapped: 37, blocked: 3, remaining: 40, remaining_blocked: 3}});
+    if (path === `/guilds/${tagged.guild_key}/classification`) {
+      classification = {headers: route.request().headers(), body: route.request().postDataJSON()};
+      return route.fulfill({json: {guild_key: tagged.guild_key, name: tagged.name, category: classification.body.category, category_review: 'approved', capability_tags: classification.body.capability_tags, active: true, catalog_revision: '4'}});
+    }
+    if (path === '/guild-preferences/switch') {
+      switched = {body: route.request().postDataJSON()};
+      return route.fulfill({json: {state: 'switched', aggregate_version: 2, blocked: 3, processed: 40, already_switched: false}});
+    }
+    return route.fulfill({json: {items: [], next_offset: null}});
+  });
+  await page.goto('/admin');
+  await page.getByRole('button', {name: '公會管理', exact: true}).click();
+  const classifyToggle = page.getByRole('button', {name: '分類與能力標籤', exact: true});
+  const switchToggle = page.getByRole('button', {name: '分類與主力切換', exact: true});
+  await expect(classifyToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(classifyToggle).toHaveAttribute('aria-controls', 'admin-guild-classification');
+  await classifyToggle.click();
+  await expect(classifyToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('heading', {name: '分類與能力標籤', exact: true})).toBeVisible();
+  await page.getByRole('combobox', {name: '公會', exact: true}).selectOption(tagged.guild_key);
+  await expect(page.getByRole('combobox', {name: '類別', exact: true})).toHaveValue('internal');
+  const tags = page.getByRole('textbox', {name: '能力標籤', exact: true});
+  await expect(tags).toHaveValue('人才盤點\n職涯');
+  await tags.fill('人才盤點, 新標籤');
+  await page.getByRole('textbox', {name: '調整理由', exact: true}).fill('補上瀏覽用的能力標籤');
+  await page.getByRole('button', {name: '儲存分類', exact: true}).click();
+  await expect(page.getByRole('status').filter({hasText: '已儲存人才方向公會的分類。'})).toBeVisible();
+  expect(classification?.headers['if-match']).toBe('"3"');
+  expect(classification?.headers['x-admin-csrf']).toBe(csrf);
+  expect(classification?.body).toEqual({category: 'internal', capability_tags: ['人才盤點', '新標籤'], reason: '補上瀏覽用的能力標籤'});
+  const card = page.locator('#admin-guild-classification');
+  const cardWidth = await card.evaluate(element => element.getBoundingClientRect().width);
+  const widthLimit = await page.evaluate(() => 40 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize) + 1);
+  expect(cardWidth).toBeLessThanOrEqual(widthLimit);
+  const cardColor = await card.evaluate(element => getComputedStyle(element).backgroundColor);
+  const reportColor = await page.locator('.guild-discovery-report').evaluate(element => getComputedStyle(element).backgroundColor);
+  expect(cardColor).toBe(reportColor);
+  await switchToggle.click();
+  await expect(switchToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(switchToggle).toHaveAttribute('aria-controls', 'admin-guild-switch');
+  await expect(classifyToggle).toHaveAttribute('aria-expanded', 'false');
+  const region = page.getByRole('region', {name: '分類與主力切換', exact: true});
+  await expect(region).toContainText('這一批檢視 40 位，可對照 37 位。全部尚餘 40 位，無法對照 3 位。');
+  const confirm = region.getByRole('button', {name: '確認切換', exact: true});
+  await expect(confirm).toBeDisabled();
+  await region.getByRole('checkbox', {name: /我確認仍要切換/}).check();
+  await confirm.click();
+  expect(switched?.body).toEqual({accept_blocked: true});
+  await expect(region.getByRole('status')).toHaveText('已切換。這次處理 40 位，無法對照 3 位。');
+  await page.setViewportSize({width: 320, height: 800});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+  await classifyToggle.click();
+  await expect(page.getByRole('heading', {name: '分類與能力標籤', exact: true})).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+  const heights = await page.locator('.admin-guild-category-tools button').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+  expect(heights.length).toBeGreaterThan(0);
+  for (const height of heights) expect(height).toBeGreaterThanOrEqual(44);
+  const saveWidth = await page.getByRole('button', {name: '儲存分類', exact: true}).evaluate(element => element.getBoundingClientRect().width);
+  const narrowCard = await page.locator('#admin-guild-classification').evaluate(element => element.getBoundingClientRect().width);
+  expect(saveWidth).toBeLessThan(narrowCard);
+});
