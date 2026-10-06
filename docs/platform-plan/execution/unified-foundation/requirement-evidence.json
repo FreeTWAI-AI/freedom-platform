@@ -24,8 +24,8 @@
       "AP": 70
     },
     "by_state": {
-      "partial": 54,
-      "implemented": 62,
+      "partial": 55,
+      "implemented": 61,
       "not_run": 48,
       "blocked": 1,
       "accepted": 3
@@ -879,6 +879,32 @@
         "scripts/run-e2e.mjs"
       ],
       "source_sha": "9f655b01d1b73738917fdae761f2ed960f68bf1a"
+    },
+    "central-pin-d1c9": {
+      "id": "central-pin-d1c9",
+      "kind": "committed_github_execution",
+      "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+      "references": [
+        "docs/platform-plan/verification/main-ruleset-2026-10-06.json",
+        "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md"
+      ],
+      "observations": [
+        "Formal main ruleset24469536 pins verify.yml d1c9; the readback changed only the workflow SHA, and review, App-bound checks, strict freshness and no bypass are retained.",
+        "Old-pin green runs were refused after the pin change (S, R); a new head, or close/reopen on the same head, produced a d1c9 run before merge.",
+        "A green same head after base advance was refused by strict freshness (N2); update-branch created a new integration candidate that ran under d1c9 and merged.",
+        "A failed selected deploy-preflight made the aggregate return selected_job_not_success and the merge was refused (P).",
+        "Generated contract/inventory tamper with forged statuses and a same-App candidate verify check was refused (H2); a merge naming the superseded head returned 409.",
+        "Fork selector/workflow/contract tamper was refused (F). A hostile fork found a read-only token, Secret source None, no deploy/R2/provider/signing/OIDC variables, and a denied push (F2).",
+        "On formal main, the positive probe ran green under d1c9 and was closed unmerged; the negative probe failed source integrity and its merge was refused with workflow, check and approval violations."
+      ],
+      "limitations": [
+        "A candidate-controlled npm script made a selected suite run zero tests while verify succeeded (probe E); the pin fixes selector/aggregate bytes, not the commands they wrap.",
+        "Selected skipped and cancelled hosted jobs were not exercised on d1c9; P covers a failed selected job only.",
+        "Temporary probe rulesets used zero approvals and no CodeQL; main-target probes were not merged.",
+        "F2 checked process environment and a push with the persisted read-only job token in the jobs that run test:governance; runner metadata, other workflows and every job were not probed.",
+        "Central main has no merge queue; durable App publisher not installed; full P2 incomplete."
+      ]
     }
   },
   "requirements": [
@@ -2933,7 +2959,7 @@
       "fc_gates": [
         "FC-05"
       ],
-      "state": "implemented",
+      "state": "partial",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -2947,13 +2973,22 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
+      "executed_evidence": [
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Actual hostile fork PR under the installed d1c9 pin: read-only Contents/Metadata token, Secret source None, no deploy/R2/provider/signing/OIDC variables in the candidate process, and a denied push with the persisted job token.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        }
+      ],
       "remaining": [
-        "Execute an actual hostile fork with attempts to read production R2/provider/signing credentials and record denial.",
-        "Prove fork code runs without privileged publish/deploy credentials; source permissions and absence of pull_request_target are only configuration evidence."
+        "Extend the hostile fork probe beyond process environment and a token push: every job and workflow that executes fork code, runner metadata and credential files.",
+        "Record a decision on persist-credentials for candidate checkouts; the read-only job token is currently readable by candidate code.",
+        "Source permissions and absence of pull_request_target remain configuration evidence; repeat the probe after any workflow or secret-scope change."
       ],
       "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
     },
     {
       "id": "GOV-16",
@@ -3002,12 +3037,19 @@
           "environment": "local Node tests; no hosted run",
           "covered_part": "Focused local aggregate regression for selected deployment preflight; installed hosted workflow source is not changed by these local tests.",
           "limitations_reference": "evidence_catalog.preflight-aggregate-candidate.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Run separate selected-job skipped, cancelled and failed hosted candidates and retain aggregate non-success and merge rejection for each.",
+        "Run selected-job skipped and cancelled hosted candidates on the installed d1c9 pin and retain aggregate non-success and merge rejection for each; P covered only the failed selected deploy-preflight case.",
         "Existing #115 failure/cancellation rejection is bounded; it does not isolate every selected-job skip case.",
-        "After review of the preflight fix, install the new immutable required-workflow SHA in the GitHub ruleset and read it back; merging the candidate alone does not update installed c3e enforcement. Then retain hosted selected-preflight skipped/cancelled/failure rejection on that exact pin."
+        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; selected-suite test-count integrity is not enforced by the pin."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -3059,11 +3101,18 @@
           "environment": "formal directory main merge_group, ruleset24523158 active with no bypass",
           "covered_part": "Formal main queue actually revalidated and merged the exact candidate with fixed source/runtime workflows.",
           "limitations_reference": "evidence_catalog.directory-main-queue-9729.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Central temporary bases with main's strict rules: a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, old-pin green runs were refused after the pin change, and a superseded head returned 409.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Preserve candidate freshness for central main and every applicable consumer; formal directory main success is only one repo.",
-        "Complete same-head/base-advance and superseded-candidate rejection outside the directory profile; fork credential isolation is tracked by GOV-15.",
+        "Central evidence used temporary probe bases with zero approvals; formal central main has no merge queue and relies on strict freshness plus update-branch.",
+        "Preserve candidate freshness for every applicable consumer; the directory main queue and central strict freshness cover two repositories only.",
         "Keep temporary incompatible-combination rejection distinct from formal-main positive queue rollout."
       ],
       "accepted": false,
@@ -5205,12 +5254,18 @@
           "environment": "local Node tests; no hosted run",
           "covered_part": "Focused local aggregate regression for selected deployment preflight; installed hosted workflow source is not changed by these local tests.",
           "limitations_reference": "evidence_catalog.preflight-aggregate-candidate.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "The source567/installed c3e aggregate omits selected deployment preflight from both verify.needs and result enforcement.",
-        "The local candidate fixes both omissions and has passing focused regressions; run selected cancelled/skipped hosted counterexamples with non-success verify.",
-        "After review of the preflight fix, install the new immutable required-workflow SHA in the GitHub ruleset and read it back; merging the candidate alone does not update installed c3e enforcement. Then retain hosted selected-preflight skipped/cancelled/failure rejection on that exact pin."
+        "Installed d1c9 includes selected deployment preflight in verify.needs and aggregate enforcement (hosted failure case P refused); run selected cancelled and skipped hosted counterexamples with non-success verify on this pin.",
+        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; this pin does not close that gap."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -5360,11 +5415,18 @@
           "environment": "formal directory main merge_group, ruleset24523158 active with no bypass",
           "covered_part": "Formal main queue actually revalidated and merged the exact candidate with fixed source/runtime workflows.",
           "limitations_reference": "evidence_catalog.directory-main-queue-9729.limitations"
+        },
+        {
+          "evidence_id": "central-pin-d1c9",
+          "source_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Central temporary bases with main's strict rules: a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, old-pin green runs were refused after the pin change, and a superseded head returned 409.",
+          "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
         }
       ],
       "remaining": [
-        "Preserve candidate freshness for central main and every applicable consumer; formal directory main success is only one repo.",
-        "Complete same-head/base-advance and superseded-candidate rejection outside the directory profile; fork credential isolation is tracked by GOV-15.",
+        "Central evidence used temporary probe bases with zero approvals; formal central main has no merge queue and relies on strict freshness plus update-branch.",
+        "Preserve candidate freshness for every applicable consumer; the directory main queue and central strict freshness cover two repositories only.",
         "Keep temporary incompatible-combination rejection distinct from formal-main positive queue rollout."
       ],
       "accepted": false,

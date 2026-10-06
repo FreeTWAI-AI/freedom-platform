@@ -1,6 +1,6 @@
 # 中央 main 與九個 consumer 的實際治理門檻（2026-10-04）
 
-這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
+這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-06 17:06 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `d1c9e18fffabebbdceaba233a34f3605220e2dd7`，review 與 App-bound checks 不變；見文末「10 月 6 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-06.json)。下一段的 c3e 為 10 月 5 日當時紀錄。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
 
 中央首次安裝的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交；九倉後續配置與驗證範圍見下節。安裝後另以 `freedom-agent-kit:main` 為目標，實際驗到正常 native job 成功及竄改／偽造綠燈的 merge 被新規則拒絕，main 未變。
 
@@ -261,3 +261,60 @@ main 維持e888；沒有 Pages 部署，也沒有替正式 main 啟用 queue。
 merge queue、fork／supersession、任意輸入、內部 library invocation 與獨立 App
 publisher 的 durable replay／unknown ACK 仍未驗收。合成 A 能通過有限案例也說明
 runtime profile 有明確輸入界線，不能把通過十個案例寫成任意行為均安全。
+
+## 10 月 6 日：中央 required workflow 升級至 d1c9（選中的部署 preflight）
+
+中央 ruleset **`24469536`** 於 2026-10-06 16:57:40 UTC 將 `.github/workflows/verify.yml`
+的固定 SHA 從 `c3e5a537a75303c4688e01b7f0d8477c3587a26f` 更新為
+**`d1c9e18fffabebbdceaba233a34f3605220e2dd7`**，即 [#167](https://github.com/FreeTWAI-AI/freedom-platform/pull/167)
+合併後的 main commit。PUT 前回讀與 10 月 5 日紀錄完全相同；fresh readback 確認唯一政策變更是
+`/rules/3/parameters/workflows/0/sha`。main 範圍、active、空 bypass、`verify@15368`／`CodeQL@57789`、
+strict freshness、一位 reviewer、last-push approval、stale review 失效與禁止刪除／force push 均保留。
+d1c9 帶入 [#130](https://github.com/FreeTWAI-AI/freedom-platform/pull/130)：選中的 `deploy-preflight`
+列入 `verify.needs` 並由 aggregate 強制；另含前端 leaf profiles，以及 preflight 對隔離 PostgreSQL
+執行兩個 migration 入口。完整非秘密配置、probe run／job、rule suite 與清理紀錄見
+[10 月 6 日 main ruleset 與 probes](../../verification/main-ruleset-2026-10-06.json)。
+
+切換 main 前，先在三個一次性 base（`ops/trust-pin-d1c9-base`／`-empty-base`／`-reopen-base`，
+後綴 `-20261006`）安裝臨時 org rules `24592769`／`24593147`。兩條規則與 main 的差別只有：只要求
+`verify@15368`、不要求 CodeQL，review count 為 0。兩者先固定 c3e，再只改 workflow SHA 為 d1c9。
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#168 S](https://github.com/FreeTWAI-AI/freedom-platform/pull/168) | c3e 下 run 成功後，臨時規則換成 d1c9；以舊綠燈 merge 回 405，rule suite `4389941231` 為 required workflow 未滿足。新 head 的 d1c9 run 成功後才 merge（`4389982354`）。 |
+| [#174 R](https://github.com/FreeTWAI-AI/freedom-platform/pull/174) | 同樣先有 c3e 綠燈，換 pin 後 merge 405（`4390093276`）。不 push，只 close／reopen，同一 head 取得 d1c9 新 run 後 merge（`4390128413`）。 |
+| [#173 N2](https://github.com/FreeTWAI-AI/freedom-platform/pull/173) | base 前進後，同一 head 雖有 d1c9 綠燈，strict freshness 仍回 405「Required status check "verify" is expected」，workflows rule 本身 pass（`4390372841`）。`update-branch` 產生新 integration candidate `da921194`，新 run 成功後才 merge（`4390428231`）。 |
+| [#170 H](https://github.com/FreeTWAI-AI/freedom-platform/pull/170) | H2 竄改生成 metadata／bundle／inventory，並加入 job 名為 `verify` 的候選 workflow。操作者另發布 `verify`／`CodeQL` success status，候選 workflow 也以同一 App `15368` 發布成功的 `verify` check。固定 workflow 在 `source-integrity` 失敗，merge 405（`4390392254`）；指名舊 H1 head 的 merge 回 409。 |
+| [#172 F](https://github.com/FreeTWAI-AI/freedom-platform/pull/172) | Fork 讓 selector 回 docs、把 `verify.yml` 換成 echo 並竄改契約；固定 workflow 仍完整執行並在 `source-integrity` 失敗，merge 405（`4390394090`）。 |
+| [#177 F2](https://github.com/FreeTWAI-AI/freedom-platform/pull/177) | Hostile fork 在 `test:governance` 開頭執行探測。抽出的 jobs 均只有 Contents／Metadata read token、Secret source None；候選程序環境沒有 Cloudflare、R2、AWS、OpenRouter、signing、`GITHUB_TOKEN`／`GH_TOKEN` 或 OIDC 變數。Checkout 保留唯讀 job token，用它 push 新分支被拒（permission denied），目標 ref 不存在。關閉且未 merge。 |
+| [#176 P](https://github.com/FreeTWAI-AI/freedom-platform/pull/176) | 只讓選中的 `deploy-preflight` 失敗，其餘 jobs 成功；aggregate 回 `selected_job_not_success`，merge 405（`4390704528`）。 |
+| [#171 E](https://github.com/FreeTWAI-AI/freedom-platform/pull/171) | 候選把 `test:governance` 改成不匹配任何檔案的 glob：`source-integrity` 與 `governance-consumers` 跑 0 tests，verify 仍 success，並實際 merge 到一次性 base（`4390406135`）。**這是已觀察的缺口，d1c9 沒有修正。** |
+| [#169 N1](https://github.com/FreeTWAI-AI/freedom-platform/pull/169) | 被合併衝突先擋下（405），遮蔽 strict freshness；不計入，N2 才是 freshness 案例。 |
+
+切換後再以 main 為目標：
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#178 MP](https://github.com/FreeTWAI-AI/freedom-platform/pull/178) | 合成文件加正確 inventory；[run 37499846392](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499846392) 由 d1c9 執行並成功，`verify@15368` 與 `CodeQL@57789` 均 success；0 approval，GitHub 回報 blocked。只驗 green，關閉且未 merge。 |
+| [#179 MN](https://github.com/FreeTWAI-AI/freedom-platform/pull/179) | 合成文件故意不更新 inventory；[run 37499843838](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37499843838) 在 `source-integrity` 失敗，aggregate 回 `source_integrity_not_success`。實際 merge 405，rule suite `4390763223` 同時列出 verify 失敗、required workflow 失敗與缺少非 last pusher 的 approval；main 維持 d1c9。 |
+
+所有 probe PR 已結束。兩條臨時規則先刪除並回讀 404，再刪除 12 個 probe refs（含 fork 的兩個分支）；
+main ruleset 在清理後回讀，與切換後完全相同。操作者私有 journal `freedom-trust-pin-d1c9-20261006`
+保存 API receipts、logs 與規則前後配置；公開 JSON 只含配置、run／job、rule suite、HTTP 結果與邊界。
+探測用 fork `teddashh/freedom-platform` 仍保留：操作者 token 沒有 `delete_repo` scope，需由擁有者手動刪除。
+
+過程中有一次操作失誤：本機試跑 F2 探測腳本時，腳本以操作者 git 憑證實際 push 了
+`ops/trust-pin-d1c9-fork-push-probe-20261006`，指向已審查的 d1c9 main commit。該 ref 立即經 API
+刪除並回讀 404，沒有產生 workflow run 或 rule suite，也不計入證據。此後會嘗試 push 的探測只在
+hosted fork job 執行。
+
+本次升級仍不涵蓋：
+
+- E 證明候選可控的 npm scripts 能讓選中的 suite 跑 0 tests，而 aggregate 仍成功。Pin 只固定
+  selector／aggregate 的位元組，不固定它們包住的指令；候選 checkout 的 suites 仍不是獨立可信 harness。
+- P 只驗到選中 job **失敗**；選中 job 被 skipped／cancelled 的 hosted 反例未在 d1c9 上單獨執行。
+- F2 只檢查程序環境變數，以及用保留的 job token push；未探測 runner metadata、其他 workflows
+  或每個 job。`persist-credentials` 維持預設時，唯讀 job token 仍可被候選程式讀到。
+- 臨時規則為 0 approval、無 CodeQL；main 仍要求一位 reviewer、last-push approval 與 `CodeQL@57789`。
+- 中央 main 沒有 merge queue，只靠 strict freshness 加 `update-branch`。durable App publisher 未安裝，
+  完整 P2 未完成。consumer rules `24473806`／`24476100`／`24516222` 與目錄站 queue 本次均未改動。
