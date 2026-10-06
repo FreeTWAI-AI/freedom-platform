@@ -39,7 +39,7 @@ import {publicAuthorClaimForBook} from '../../../modules/community/repo-author-c
 import {skillDiscovery} from '../../../modules/community/discovery.js';
 import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
-import {createGuildLaunchpadRoutes, createGuildLaunchpadUnavailableRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
+import {createGuildLaunchpadRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
 import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
@@ -182,7 +182,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community:communityCatalog}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true}));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
     c.header('X-Robots-Tag','noindex, nofollow');
@@ -265,8 +265,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(result);
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
-  if(runtime.guildLaunchpadEnabled)app.route('/',createPublicGuildLaunchpadRoutes(pool));
-  else app.route('/',createGuildLaunchpadUnavailableRoutes());
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -317,7 +316,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
-  if(runtime.guildLaunchpadEnabled)app.route('/api/v1',createGuildLaunchpadRoutes(pool));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/api/v1',createGuildLaunchpadRoutes(pool));
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));

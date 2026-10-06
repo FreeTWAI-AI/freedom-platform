@@ -6,8 +6,6 @@ import {moduleCommand, type PlatformEnv} from '../module-context.js';
 import {createDraft, grantDelegation, previewLaunchpad, publishLaunchpad, revertLaunchpad, revokeDelegation} from '../../../../modules/guild-workspace/launchpad-config.js';
 import {leaderLaunchpadConfig, memberLaunchpad, publicLaunchpad} from '../../../../modules/guild-workspace/launchpad-view.js';
 
-const NOT_FOUND = {type: 'about:blank', title: 'Not found', status: 404, code: 'not_found', detail: '此版本尚未提供這個 API。'};
-
 function validation(error: ConfigValidationError) {
   return {type: 'about:blank', title: 'Validation failed', status: 422, code: 'validation_failed', detail: '內容不符合啟動台配置規則。', errors: error.errors};
 }
@@ -21,19 +19,6 @@ async function readCommand(c: Parameters<typeof moduleCommand>[0]) {
 function privateHeaders(c: {header: (name: string, value: string) => void}) {
   c.header('Cache-Control', 'private, no-store');
   c.header('X-Robots-Tag', 'noindex');
-}
-
-/** Answers the new paths with the shared not-found problem when the feature flag is off. */
-export function createGuildLaunchpadUnavailableRoutes() {
-  const app = new Hono();
-  const missing = (c: {json: (body: unknown, status: 404) => Response}) => c.json(NOT_FOUND, 404);
-  app.all('/api/v1/public/guilds/:guild_key/launchpad', missing);
-  app.all('/api/v1/guilds/:guild_key/launchpad', missing);
-  app.all('/api/v1/guilds/:guild_key/launchpad-config', missing);
-  app.all('/api/v1/guilds/:guild_key/launchpad-config/*', missing);
-  app.all('/api/v1/guilds/:guild_key/launchpad-delegations', missing);
-  app.all('/api/v1/guilds/:guild_key/launchpad-delegations/*', missing);
-  return app;
 }
 
 export function createPublicGuildLaunchpadRoutes(pool: Pool) {
