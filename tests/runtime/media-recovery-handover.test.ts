@@ -178,7 +178,8 @@ serial('producer exit then a new process restores only the handed-over files',as
   const reported=JSON.parse(consumer.stdout);
   assert.deepEqual(reported,completed);
   const manifestPath=join(handoff,'sealed','recovery-sets',expectations.setId,'recovery-set.json');
-  const manifest=JSON.parse(await readFile(manifestPath,'utf8')) as {createdAt:string;setId:string};
+  const manifest=JSON.parse(await readFile(manifestPath,'utf8')) as {body:{createdAt:string;setId:string}};
+  assert.equal(manifest.body.setId,expectations.setId);
   assert.equal(createHash('sha256').update(await readFile(manifestPath)).digest('hex'),expectations.manifestSha256);
   const sealedEvidence=decodeEvidence(await readFile(join(handoff,'sealed',recoverySetKeys(expectations.setId).evidence)));
   const prints=(rows:{table:string;count:string;fingerprint:string}[])=>[...rows].sort((a,b)=>a.table<b.table?-1:a.table>b.table?1:0);
@@ -199,7 +200,7 @@ serial('producer exit then a new process restores only the handed-over files',as
   assert.equal(completed.secondOperatorAcceptance,'not_run');assert.equal(completed.externalRecoveryAuthority,'not_run');
   assert.equal(completed.oldExecutionTokenAcceptance,'not_run');assert.equal(completed.applicationInstalled,false);
   assert.equal(completed.dispatchStarted,false);assert.equal(completed.retentionExecuted,false);assert.equal(completed.sourcePins,'untouched');
-  assert.equal(completed.operatorSource,head);assert.equal(completed.sourceSetCreatedAt,manifest.createdAt);
+  assert.equal(completed.operatorSource,head);assert.equal(completed.sourceSetCreatedAt,manifest.body.createdAt);
   assert.equal(completed.status,'quarantine_restore_verified');assert.equal(inspectOne(completed.targetContainerId),undefined);
   assert.equal(await treeHash(handoff),beforeHash);
 },30*60*1000);
@@ -251,10 +252,11 @@ serial('corrupt, missing, wrong-identity and unsafe inputs fail before a target 
   await tamper(async(_copy,file)=>{await chmod(file,0o644);},'object mode');
   await tamper(async copy=>{await chmod(copy,0o755);},'directory mode');
   {
-    const copy=await copyBundle(),via=join(dirname(copy),'..',basename(dirname(copy)),basename(copy));
-    assert.notEqual(via,copy);
-    const run=await privateDir('fp-b3-via-'),before=ownedContainerIds();
+    const copy=await copyBundle();const run=await privateDir('fp-b3-via-'),before=ownedContainerIds();
     try{
+      // path.join would collapse "..". The reader compares this string with realpath.
+      const via=dirname(copy)+'/../'+basename(dirname(copy))+'/'+basename(copy);
+      assert.notEqual(via,copy);
       await assert.rejects(restoreRecoveryHandover({expected:identity(),operatorSource:head,bundleDirectory:via,runDirectory:run,targetDatabase:'fp_b3_restore',signal:AbortSignal.timeout(60000)}),(error:unknown)=>error instanceof RecoveryBundleError,'traversal path');
       await assert.rejects(access(join(run,'container-intent.json')));
       assert.deepEqual(ownedContainerIds(),before);
@@ -294,5 +296,12 @@ serial('non-empty target is refused before restore writes, and the foreign conta
     assert.deepEqual(ownedContainerIds(),before);
     const foreign=inspectOne(foreignId);
     assert.equal(foreign?.State?.Status,'created');assert.equal(foreign?.Config?.Labels?.['freedom.owner'],'grok-b3-other');
-  }finally{await rm(copy,{recursive:true,force:true});await releaseTree(run);await rm(run,{recursive:true,force:true});removeForeign();}
+  }finally{
+    let cleanup:unknown;
+    try{await releaseTree(run);}catch(error){cleanup=error;}
+    await rm(copy,{recursive:true,force:true}).catch(()=>{});
+    await rm(run,{recursive:true,force:true}).catch(()=>{});
+    try{removeForeign();}catch(error){cleanup??=error;}
+    if(cleanup)throw cleanup;
+  }
 },10*60*1000);
