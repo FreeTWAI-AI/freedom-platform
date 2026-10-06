@@ -1,0 +1,71 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "tenant-workspaces",
+  "owner_role": "platform",
+  "owned_paths": [
+    "modules/tenant-workspaces/**",
+    "contracts/guild-launchpad/**",
+    "apps/platform-api/src/routes/tenant-workspaces.ts",
+    "apps/portal-web/src/modules/TenantSelector.tsx",
+    "apps/portal-web/src/modules/TenantSettings.tsx",
+    "apps/portal-web/src/modules/tenant-workspaces.css",
+    "migrations/119_tenant_workspaces.sql",
+    "tests/runtime/tenant-authorization.test.ts",
+    "tests/runtime/tenant-ownership.test.ts",
+    "tests/e2e/tenant-workspaces.spec.ts"
+  ],
+  "public_exports": [
+    "modules/tenant-workspaces/service.ts",
+    "modules/tenant-workspaces/authorization.ts",
+    "contracts/guild-launchpad/v1/tenant.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "modules/tenant-workspaces/README.md"
+  ],
+  "invariants": [
+    "tenant-is-not-user-or-guild",
+    "last-active-owner",
+    "current-authority-before-replay",
+    "scope-is-not-domain-authority"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "tenant-http",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/tenant-workspaces.ts",
+      "operations": [
+        "tenant.create",
+        "tenant.edit",
+        "tenant.invite",
+        "tenant.invite.accept",
+        "tenant.invite.decline",
+        "tenant.invite.revoke",
+        "tenant.member.change",
+        "tenant.member.leave",
+        "tenant.workspace.create"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "tenant-business-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/TenantSettings.tsx",
+      "operations": [
+        "business"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}
