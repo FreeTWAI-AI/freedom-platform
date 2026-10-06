@@ -34,6 +34,7 @@
     "contracts/guild-launchpad/v1/tenant-leave-result.schema.json",
     "contracts/guild-launchpad/v1/tenant-page.schema.json",
     "contracts/guild-launchpad/v1/tenant-view.schema.json",
+    "contracts/guild-launchpad/v1/tenant-work.schema.json",
     "contracts/guild-launchpad/v1/validation-failed-problem.schema.json",
     "contracts/guild-launchpad/v1/workspace-create-input.schema.json",
     "contracts/guild-launchpad/v1/workspace-page.schema.json",
