@@ -71,6 +71,12 @@ function textProblem(value: string, kind: 'title' | 'objective'): string | null 
   if (CONTROL.test(value) || hasLoneSurrogate(value)) return '不能包含不允許的控制字元';
   return null;
 }
+function noteProblem(value: string): string | null {
+  if (value.trim().length === 0) return '不能是空白';
+  if (byteLength(value) > 262144) return '筆記超過 262144 位元組。';
+  if (CONTROL.test(value) || hasLoneSurrogate(value)) return '不能包含不允許的控制字元';
+  return null;
+}
 function displayNameProblem(value: string): string | null {
   if (value.length < 1 || value.length > 120 || byteLength(value) > 480) return '檔名需要 1 到 120 個字';
   if (DISPLAY_FORBIDDEN.test(value)) return '檔名不能包含斜線或控制字元';
@@ -114,6 +120,8 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const objectiveLabel = starter.objective_hint.trim() || '寫下這次工作的目標。';
   const noteLabel = starter.note_hint.trim() || '記下過程、來源與下一步。';
   const headingId = useId();
+  const createHeadingId = useId();
+  const openHeadingId = useId();
   const generation = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const keys = useRef(new Map<string, string>());
@@ -516,7 +524,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function beginNoteSave() {
     if (!work || busy || writeLocked || attempt) return;
-    const problem = textProblem(note, 'objective') ?? displayNameProblem(noteName);
+    const problem = noteProblem(note) ?? displayNameProblem(noteName);
     setNoteError(problem ?? '');
     if (problem || note.trim().length === 0) return;
     const bytes = new TextEncoder().encode(note);
@@ -678,7 +686,8 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </li>)}</ul>}
           {worksCursor && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void loadMoreWorks()}>載入更多</button>}
         </section>
-        <form className="stack" aria-label="建立工作" onSubmit={event => void createWork(event)}>
+        <h4 id={createHeadingId}>新增工作</h4>
+        <form className="stack" aria-labelledby={createHeadingId} onSubmit={event => void createWork(event)}>
           <label className="field" htmlFor="my-work-title">{titleLabel}
             <input id="my-work-title" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setDraftTitle(event.target.value)}/>
           </label>
@@ -696,7 +705,8 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           <button type="submit" className="btn btn-primary my-work-primary" disabled={busy || writeLocked}>建立</button>
         </form>
       </>}
-      {work && <section className="stack" aria-label="這份工作">
+      {work && <section className="stack my-work-open" aria-labelledby={openHeadingId}>
+        <h4 id={openHeadingId}>{work.title}</h4>
         <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
           <label className="field" htmlFor="my-work-edit-title">標題
             <input id="my-work-edit-title" aria-describedby={editError ? 'my-work-edit-error' : undefined} value={editTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setEditTitle(event.target.value)}/>
@@ -755,7 +765,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
             <p className="my-work-name">{result.display_name}</p>
             <p>第 {result.revision} 版 · <time dateTime={result.created_at}>{formatIsoLocal(result.created_at)}</time> · {result.byte_size} 位元組 · {result.sha256.slice(0, 12)}</p>
             <div className="my-work-actions">
-              <a href={`/api/v1/tenants/${tenantId}/works/${work.work_id}/results/${result.result_id}/content`} download={result.display_name}>下載</a>
+              <a className="btn btn-ghost" href={`/api/v1/tenants/${tenantId}/works/${work.work_id}/results/${result.result_id}/content`} download={result.display_name}>下載</a>
               <button type="button" className="btn btn-ghost" onClick={() => void showResult(result)}>查看內容</button>
             </div>
             {resultText?.id === result.result_id && <pre>{resultText.text}</pre>}
