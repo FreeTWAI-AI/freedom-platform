@@ -808,3 +808,155 @@ test('T-054 execute continues past a blocked member at the front of the batch', 
   assert.equal(await rows('guild_preference_invalidations', blocked), '0');
   assert.deepEqual(await audits(), written);
 });
+
+test('T-010 T-030 T-054 an old pending primary stays blocked through backfill and switch', async () => {
+  const pendingMember = await login(0);
+  const mappedMember = await login(1);
+  const pendingId = pendingMember.user.user_id;
+  const mappedId = mappedMember.user.user_id;
+  const ids = [pendingId, mappedId];
+  const privacy = JSON.stringify({
+    discord: {value: 'pa-privacy', audiences: ['guild']},
+    github: {value: '', audiences: []},
+    line: {value: '', audiences: []},
+    email: {audiences: []},
+  });
+  for (const id of ids) {
+    await pool.query(`INSERT INTO member_accounts(user_id, community_id, contacts, identity_label) VALUES ($1,$2,$3::jsonb,'alien')
+      ON CONFLICT (user_id) DO UPDATE SET contacts = EXCLUDED.contacts, identity_label = EXCLUDED.identity_label`, [id, DEMO_COMMUNITY, privacy]);
+  }
+  async function rows(sql: string, params: unknown[] = []) {
+    return (await pool.query(sql, params)).rows;
+  }
+  async function preserved() {
+    return {
+      legacy: await rows(`SELECT user_id, primary_guild_key, secondary_guild_keys FROM guild_member_preferences WHERE user_id = ANY($1::uuid[]) ORDER BY user_id`, [ids]),
+      memberships: await rows(`SELECT user_id, guild_key, state, member_tier FROM positioning_profession_memberships WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, guild_key`, [ids]),
+      grants: await rows(`SELECT user_id, guild_key, book_id FROM member_skill_book_grants WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, guild_key, book_id`, [ids]),
+      privacy: await rows(`SELECT user_id, contacts, identity_label FROM member_accounts WHERE user_id = ANY($1::uuid[]) ORDER BY user_id`, [ids]),
+      slots: await rows(`SELECT user_id, category::text AS category, guild_key FROM guild_category_preferences WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, category`, [ids]),
+      states: await rows(`SELECT user_id, migration_state FROM guild_preference_sets WHERE user_id = ANY($1::uuid[]) ORDER BY user_id`, [ids]),
+      audits: await rows(`SELECT user_id, legacy_primary, invalidation_reason FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, legacy_primary, invalidation_reason`, [ids]),
+      switch: await rows(`SELECT state FROM guild_preference_switch WHERE community_id = $1`, [DEMO_COMMUNITY]),
+      adminReceipts: (await pool.query(`SELECT count(*) FROM platform_admin_receipts`)).rows[0].count as string,
+      preferenceEvents: (await pool.query(`SELECT count(*) FROM outbox WHERE event_type = 'freedom.guild.preference.changed.v1'`)).rows[0].count as string,
+    };
+  }
+  function listed(report: {blocked_members: {user_id: string; reason: string}[]}, userId: string) {
+    return report.blocked_members.find(item => item.user_id === userId);
+  }
+
+  await join(pendingMember, 'guild_ai_vibe');
+  const pendingPrimary = await member(flagged, '/guilds/guild_ai_vibe/primary', pendingMember, {});
+  assert.equal(pendingPrimary.status, 200, JSON.stringify(pendingPrimary.data));
+  const repeated = await member(flagged, '/guilds/guild_ai_vibe/primary', pendingMember, {}, {version: String(pendingPrimary.data.aggregate_version)});
+  assert.equal(repeated.status, 200, JSON.stringify(repeated.data));
+  const afterPendingWrite = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+
+  await join(mappedMember, 'guild_talent_direction');
+  await join(mappedMember, 'guild_security');
+  const cleanPrimary = await member(flagged, '/guilds/guild_talent_direction/primary', mappedMember, {});
+  assert.equal(cleanPrimary.status, 200, JSON.stringify(cleanPrimary.data));
+  const mappedSet = (await pool.query(`SELECT migration_state FROM guild_preference_sets WHERE user_id = $1`, [mappedId])).rows[0];
+  const mappedSlots = (await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id = $1 ORDER BY guild_key`, [mappedId])).rows.map(row => row.guild_key);
+  const backfill = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
+  await join(mappedMember, 'guild_ai_vibe');
+  const legacyBeforeChange = await member(flagged, '/me/guild-preferences', mappedMember);
+  const changed = await member(flagged, '/guilds/guild_ai_vibe/primary', mappedMember, {}, {version: String(legacyBeforeChange.data.aggregate_version)});
+  assert.equal(changed.status, 200, JSON.stringify(changed.data));
+  const afterChange = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+  const beforeRefusal = await preserved();
+  const refused = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  const afterRefusal = await preserved();
+
+  const observed = {
+    after_pending_write: afterPendingWrite.data,
+    mapped_state_after_clean_primary: mappedSet?.migration_state ?? null,
+    mapped_slots_after_clean_primary: mappedSlots,
+    backfill_after_clean_primary: backfill.data,
+    after_pending_change: afterChange.data,
+    refused_status: refused.status,
+    refused_code: refused.data?.code ?? null,
+    before_refusal_states: beforeRefusal.states,
+    after_refusal_states: afterRefusal.states,
+    after_refusal_switch: afterRefusal.switch,
+    after_refusal_audits: afterRefusal.audits,
+  };
+  assert.equal(afterPendingWrite.status, 200, JSON.stringify(observed));
+  assert.equal(listed(afterPendingWrite.data, pendingId)?.reason, 'unknown_category', JSON.stringify(observed));
+  assert.equal(afterPendingWrite.data.blocked >= 1, true, JSON.stringify(observed));
+  assert.equal(afterPendingWrite.data.remaining_blocked, afterPendingWrite.data.blocked, JSON.stringify(observed));
+  assert.equal(mappedSet.migration_state, 'backfilled', JSON.stringify(observed));
+  assert.deepEqual(mappedSlots, ['guild_talent_direction'], JSON.stringify(observed));
+  assert.equal(backfill.status, 200, JSON.stringify(observed));
+  assert.equal(backfill.data.processed, 0, JSON.stringify(observed));
+  assert.equal(listed(afterChange.data, pendingId)?.reason, 'unknown_category', JSON.stringify(observed));
+  assert.equal(listed(afterChange.data, mappedId)?.reason, 'unknown_category', JSON.stringify(observed));
+  assert.equal(afterChange.data.blocked, 2, JSON.stringify(observed));
+  assert.equal(afterChange.data.remaining_blocked, 2, JSON.stringify(observed));
+  assert.equal(refused.status, 409, JSON.stringify(observed));
+  assert.equal(refused.data.code, 'preference_switch_blocked', JSON.stringify(observed));
+  assert.deepEqual(afterRefusal.switch, [], JSON.stringify(observed));
+  assert.deepEqual(afterRefusal.states.map(row => row.migration_state), ['legacy', 'legacy'], JSON.stringify(observed));
+  assert.equal(afterRefusal.states.some(row => row.migration_state === 'switched'), false);
+  assert.deepEqual(afterRefusal.slots, []);
+  assert.equal(afterRefusal.audits.some(row => row.legacy_primary === 'guild_ai_vibe' && row.invalidation_reason == null), false, JSON.stringify(afterRefusal.audits));
+  assert.equal(afterRefusal.audits.filter(row => row.user_id === pendingId).every(row => row.invalidation_reason === 'legacy_ambiguous'), true, JSON.stringify(afterRefusal.audits));
+  assert.deepEqual(afterRefusal.legacy, beforeRefusal.legacy);
+  assert.deepEqual(afterRefusal.memberships, beforeRefusal.memberships);
+  assert.deepEqual(afterRefusal.grants, beforeRefusal.grants);
+  assert.deepEqual(afterRefusal.privacy, beforeRefusal.privacy);
+  assert.equal(afterRefusal.adminReceipts, beforeRefusal.adminReceipts);
+  assert.equal(afterRefusal.preferenceEvents, beforeRefusal.preferenceEvents);
+  assert.deepEqual(afterRefusal.audits, beforeRefusal.audits);
+
+  const beforeAccept = await preserved();
+  const accepted = await admin(flagged, '/guild-preferences/switch', {accept_blocked: true});
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal(accepted.data.state, 'switched');
+  assert.equal(accepted.data.blocked, 2);
+  const afterAccept = await preserved();
+  assert.deepEqual(afterAccept.legacy, beforeAccept.legacy);
+  assert.deepEqual(afterAccept.memberships, beforeAccept.memberships);
+  assert.deepEqual(afterAccept.grants, beforeAccept.grants);
+  assert.deepEqual(afterAccept.privacy, beforeAccept.privacy);
+  assert.deepEqual(afterAccept.slots, []);
+  assert.deepEqual(afterAccept.switch, [{state: 'switched'}]);
+  assert.deepEqual(afterAccept.states.map(row => row.migration_state), ['switched', 'switched']);
+  const ambiguous = await rows(`SELECT user_id FROM guild_preference_invalidations WHERE user_id = ANY($1::uuid[]) AND reason = 'legacy_ambiguous' ORDER BY user_id`, [ids]);
+  assert.equal(ambiguous.some(row => row.user_id === pendingId), true);
+  assert.equal(ambiguous.some(row => row.user_id === mappedId), true);
+  const versions = await rows(`SELECT s.user_id, s.aggregate_version::text AS aggregate_version, i.new_version::text AS new_version
+    FROM guild_preference_sets s JOIN guild_preference_invalidations i USING (community_id, user_id)
+    WHERE s.user_id = ANY($1::uuid[]) AND i.reason = 'legacy_ambiguous'`, [ids]);
+  assert.equal(versions.length >= 2, true, JSON.stringify(versions));
+  assert.equal(versions.every(row => row.new_version === row.aggregate_version), true, JSON.stringify(versions));
+  assert.equal(afterAccept.preferenceEvents, beforeAccept.preferenceEvents);
+});
+
+test('T-030 a clean primary after an ambiguous recompute is mapped and can switch', async () => {
+  const memberSession = await login(0);
+  await join(memberSession, 'guild_ai_vibe');
+  await join(memberSession, 'guild_talent_direction');
+  const pendingPrimary = await member(flagged, '/guilds/guild_ai_vibe/primary', memberSession, {});
+  assert.equal(pendingPrimary.status, 200, JSON.stringify(pendingPrimary.data));
+  const blocked = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+  assert.equal(blocked.data.blocked_members.some((item: {user_id: string; reason: string}) => item.user_id === memberSession.user.user_id && item.reason === 'unknown_category'), true, JSON.stringify(blocked.data));
+  const current = await member(flagged, '/me/guild-preferences', memberSession);
+  const clean = await member(flagged, '/guilds/guild_talent_direction/primary', memberSession, {}, {version: String(current.data.aggregate_version)});
+  assert.equal(clean.status, 200, JSON.stringify(clean.data));
+  const state = (await pool.query(`SELECT migration_state FROM guild_preference_sets WHERE user_id = $1`, [memberSession.user.user_id])).rows[0].migration_state;
+  assert.equal(state, 'backfilled');
+  const slots = (await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id = $1 ORDER BY category`, [memberSession.user.user_id])).rows;
+  assert.deepEqual(slots, [{category: 'internal', guild_key: 'guild_talent_direction'}]);
+  const preview = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+  assert.equal(preview.data.blocked_members.some((item: {user_id: string}) => item.user_id === memberSession.user.user_id), false, JSON.stringify(preview.data));
+  assert.equal(preview.data.blocked, 0, JSON.stringify(preview.data));
+  const legacyBefore = (await pool.query(`SELECT primary_guild_key, secondary_guild_keys FROM guild_member_preferences WHERE user_id = $1`, [memberSession.user.user_id])).rows[0];
+  const switched = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(switched.status, 200, JSON.stringify(switched.data));
+  assert.equal(switched.data.blocked, 0);
+  const legacyAfter = (await pool.query(`SELECT primary_guild_key, secondary_guild_keys FROM guild_member_preferences WHERE user_id = $1`, [memberSession.user.user_id])).rows[0];
+  assert.deepEqual(legacyAfter, legacyBefore);
+  assert.deepEqual((await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id = $1 ORDER BY category`, [memberSession.user.user_id])).rows, slots);
+});

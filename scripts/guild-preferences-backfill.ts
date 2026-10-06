@@ -2,6 +2,7 @@ import {createPool} from '../packages/db/index.js';
 import {backfillGuildPreferences} from '../modules/positioning/guild-categories.js';
 
 // Restartable category-primary backfill. Defaults to a dry run. Pass --execute to write.
+// A preference set left in `legacy` by an ambiguous recompute stays a candidate until a clean plan moves it to `backfilled`.
 // Requires an explicit database URL and refuses production and the shared local database.
 if (process.env.NODE_ENV === 'production') throw new Error('Guild preference backfill cannot target production.');
 const args = process.argv.slice(2);

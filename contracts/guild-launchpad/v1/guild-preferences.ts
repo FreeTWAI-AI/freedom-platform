@@ -72,7 +72,7 @@ export const BackfillReport = z.object({
   blocked: z.number().int().nonnegative(),
   ambiguous: z.number().int().nonnegative(),
   remaining: z.number().int().nonnegative(),
-  /** Blocked members among every candidate still without a set. A dry run counts them before any write. */
+  /** Blocked candidates still awaiting a reconciled projection. A missing set and a `legacy` set are both candidates; `backfilled` and `switched` are not. */
   remaining_blocked: z.number().int().nonnegative(),
   blocked_members: z.array(z.object({
     user_id: z.string().uuid(),

@@ -197,3 +197,18 @@ Platform-admin routes, also flag-gated: `GET /admin/api/guild-categories`,
 `POST /admin/api/guild-preferences/switch`. Backfill and switch do not use
 If-Match. A missing classification row is 409 `guild_category_unresolved`;
 404 `guild_not_found` only when the catalog guild itself is absent.
+A member is a backfill or switch candidate when they have no preference set,
+or the set is still `legacy`. `backfilled` and `switched` are already
+reconciled and are not candidates. Before the switch, an old primary or
+secondary write recomputes that member under the member lock. An ambiguous
+plan (unknown category, left primary, inactive guild, or invalid secondary)
+leaves the set in `legacy`, with empty category slots and a
+`legacy_ambiguous` invalidation. That row does not count as mapped and does
+not drop the member out of `blocked` / `remaining_blocked`. A later clean
+plan moves the same set to `backfilled` and fills only the approved active
+primary. `accept_blocked: false` returns 409 `preference_switch_blocked`
+while any candidate is blocked; the refusal does not mark sets `switched`
+and does not record a clean migration audit for the ambiguous snapshot.
+Accepting the block still does not copy another guild into an empty slot
+or change the legacy primary, legacy secondary, membership tier, skill
+books, or contact visibility.

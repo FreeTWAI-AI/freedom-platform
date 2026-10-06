@@ -109,7 +109,7 @@ const candidateSql = `SELECT u.user_id, p.user_id IS NOT NULL AS has_legacy, p.p
   LEFT JOIN guild_member_preferences p ON p.community_id=u.community_id AND p.user_id=u.user_id
   LEFT JOIN positioning_profession_memberships m ON m.community_id=u.community_id AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key
   LEFT JOIN guild_catalog_categories c ON c.guild_key=p.primary_guild_key
-  WHERE u.community_id=$1 AND s.user_id IS NULL
+  WHERE u.community_id=$1 AND (s.user_id IS NULL OR s.migration_state='legacy')
     AND (p.user_id IS NOT NULL OR EXISTS (
       SELECT 1 FROM positioning_profession_memberships any_m WHERE any_m.community_id=u.community_id AND any_m.user_id=u.user_id))
   `;
@@ -147,17 +147,27 @@ async function auditExists(q: Queryable, member: MemberRef, plan: MemberPlan) {
   return hit.rowCount === 1;
 }
 
+function storedMigrationState(plan: MemberPlan, creatingState: 'backfilled' | 'switched') {
+  // A block reason is not a finished mapping. `legacy` stays in the candidate set until a later clean plan moves it to `backfilled`.
+  return plan.reason ? 'legacy' as const : creatingState;
+}
 async function writeProjection(q: PoolClient, member: MemberRef, plan: MemberPlan, runId: string, creatingState: 'backfilled' | 'switched') {
-  const existing = (await q.query(`SELECT aggregate_version FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2 FOR UPDATE`, [member.community_id, member.user_id])).rows[0];
-  if (existing && await slotsMatch(q, member, plan.slots) && await auditExists(q, member, plan)) return versionText(existing.aggregate_version)!;
+  const storedState = storedMigrationState(plan, creatingState);
+  const existing = (await q.query(`SELECT aggregate_version, migration_state FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2 FOR UPDATE`, [member.community_id, member.user_id])).rows[0] as {aggregate_version: string | number; migration_state: string} | undefined;
+  if (existing && await slotsMatch(q, member, plan.slots) && await auditExists(q, member, plan)) {
+    if (existing.migration_state !== 'switched' && existing.migration_state !== storedState) {
+      await q.query(`UPDATE guild_preference_sets SET migration_state=$3::guild_preference_migration_state, updated_at=now() WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id, storedState]);
+    }
+    return versionText(existing.aggregate_version)!;
+  }
   const saved = existing
     ? (await q.query(`UPDATE guild_preference_sets SET aggregate_version=aggregate_version+1, migrated_from_version=$3,
         migration_state=CASE WHEN migration_state='switched' THEN 'switched' ELSE $4::guild_preference_migration_state END, updated_at=now()
         WHERE community_id=$1 AND user_id=$2 RETURNING aggregate_version::text AS aggregate_version`,
-      [member.community_id, member.user_id, plan.legacy_version, creatingState])).rows[0]
+      [member.community_id, member.user_id, plan.legacy_version, storedState])).rows[0]
     : (await q.query(`INSERT INTO guild_preference_sets(community_id,user_id,aggregate_version,migration_state,migrated_from_version)
         VALUES ($1,$2,1,$3,$4) RETURNING aggregate_version::text AS aggregate_version`,
-      [member.community_id, member.user_id, creatingState, plan.legacy_version])).rows[0];
+      [member.community_id, member.user_id, storedState, plan.legacy_version])).rows[0];
   const version = String(saved.aggregate_version);
   await q.query(`DELETE FROM guild_category_preferences WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id]);
   for (const category of CATEGORY_ORDER) {
@@ -209,6 +219,7 @@ async function bumpSet(q: PoolClient, member: MemberRef) {
 export async function ensureRegisteredPreferenceSet(q: PoolClient, communityId: string, userId: string) {
   await lockGuildCatalogShared(q);
   const switched = await communitySwitched(q, communityId);
+  // Registration has no legacy primary. The empty set starts reconciled; a later old write recomputes it and can return an ambiguous plan to `legacy`.
   await q.query(`INSERT INTO guild_preference_sets(community_id,user_id,aggregate_version,migration_state) VALUES ($1,$2,1,$3)
     ON CONFLICT DO NOTHING`, [communityId, userId, switched ? 'switched' : 'backfilled']);
 }
@@ -357,6 +368,10 @@ function limitOf(value: number | undefined) {
 async function candidates(q: Queryable, communityId: string) {
   return (await q.query(`${candidateSql} ORDER BY u.user_id`, [communityId])).rows as LegacyRow[];
 }
+async function projectionReconciled(q: Queryable, member: MemberRef) {
+  const row = (await q.query(`SELECT migration_state FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id])).rows[0] as {migration_state: string} | undefined;
+  return !!row && row.migration_state !== 'legacy';
+}
 function blockedMembersOf(plans: MemberPlan[], limit: number) {
   return plans.filter(plan => plan.reason).slice(0, limit).map(plan => ({user_id: plan.user_id, reason: plan.reason!}));
 }
@@ -384,7 +399,7 @@ export async function backfillInTransaction(q: PoolClient, options: {communityId
   for (const initial of plans.filter(plan => !plan.reason).slice(0, limit)) {
     const member = {community_id: options.communityId, user_id: initial.user_id};
     await lockMember(q, member);
-    if ((await q.query(`SELECT 1 FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id])).rowCount) continue;
+    if (await projectionReconciled(q, member)) continue;
     const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, initial.user_id])).rows[0] as LegacyRow | undefined;
     if (!fresh) continue;
     const plan = planMember(fresh);
@@ -420,7 +435,7 @@ export async function switchInTransaction(q: PoolClient, options: {communityId: 
   for (const row of rows) {
     const member = {community_id: options.communityId, user_id: row.user_id};
     await lockMember(q, member);
-    if ((await q.query(`SELECT 1 FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id])).rowCount) continue;
+    if (await projectionReconciled(q, member)) continue;
     const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, row.user_id])).rows[0] as LegacyRow | undefined;
     if (!fresh) continue;
     ready.push({member, plan: planMember(fresh)});

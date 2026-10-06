@@ -17,7 +17,7 @@
 - 畫面分區與選擇：`apps/portal-web/src/modules/PositioningPanels.tsx`。
 - 等尺寸卡片、對話框及量測：`apps/portal-web/src/modules/GuildCard.tsx`、`GuildDesign.css`。
 - 兩區書架：`SkillsPanel.tsx`、`Community.tsx`、`SkillBookIntro.tsx`。
-- PostgreSQL：`migrations/027_secondary_guild_preferences.sql` 回填既有會員的有效前兩個次要，首次定位亦保存實際選擇。`guild_categories_preferences` 遷移加上三類分類與每類一個主力槽；切換前不改既有主次欄位。
+- PostgreSQL：`migrations/027_secondary_guild_preferences.sql` 回填既有會員的有效前兩個次要，首次定位亦保存實際選擇。`guild_categories_preferences` 遷移加上三類分類與每類一個主力槽；切換前不改既有主次欄位。舊主次寫入若對不出已核准分類，偏好集合留在 `legacy`，仍是待對照的候選，不能因為已經有一列集合就當成可切換。
 - 指令與投影：`modules/positioning/onboarding.ts`、`service.ts`、`guild-categories.ts`，API 見 [會員 API](member-api.md)。
 
 次要偏好與三類主力都只改顯示，不授予管理、Repo、聯絡方式或額外技能書存取權。社群切換前，會員名片最多兩個次要，其餘保留在 `joined_guilds`。切換後，名片改列三類主力，顯示用的單一主要公會依專業與產業、外交、內政的順序挑選，不把次要升格。工坊夥伴加入紀錄仍包含全部有效公會。

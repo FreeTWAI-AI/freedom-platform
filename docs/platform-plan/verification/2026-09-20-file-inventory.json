@@ -11499,8 +11499,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/guild-preferences.ts",
-      "bytes": 3683,
-      "sha256": "820894432f4621a7ab3f7547fee32911f61d93768901f11561833afa6aeb4eba"
+      "bytes": 3734,
+      "sha256": "e28fd1d392490e2bd5a32b7844431671be5bd1d0a2a0876dc7e0978f8185a743"
     },
     {
       "path": "contracts/preview/v1/bundle.json",
@@ -12319,8 +12319,8 @@
     },
     {
       "path": "docs/development/guild-library-layout.md",
-      "bytes": 3497,
-      "sha256": "090701f0e2d0135ce00640b2d482901a38722cb355fcfb535e5ea5e2a1f3d5a8"
+      "bytes": 3653,
+      "sha256": "ec2caa26ce07bf836ad41980081db64a996e511511b1f955732b6eebca5dc2f0"
     },
     {
       "path": "docs/development/integration-pr85-104-future108.md",
@@ -12349,8 +12349,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 14291,
-      "sha256": "92159fd4bf782a2bdbc5cf052c7fa1ae8a67cdc38e0a093815c42cb61323d7d7"
+      "bytes": 15339,
+      "sha256": "833b3886250c639a5a34f1a564f9c1295f07e2c82fe0d007215f2fd0c4abd522"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -15824,8 +15824,8 @@
     },
     {
       "path": "modules/positioning/guild-categories.ts",
-      "bytes": 35175,
-      "sha256": "5c77fe49ce66f1ff8b0491a489484bafb38de399a188a156774da3a13fd76349"
+      "bytes": 36258,
+      "sha256": "74a9a15a3eb550742cd4dcdac72ff0e876cfd194cc4ac738bdac945bf4840a04"
     },
     {
       "path": "modules/positioning/guild-questions.ts",
@@ -17169,8 +17169,8 @@
     },
     {
       "path": "scripts/guild-preferences-backfill.ts",
-      "bytes": 1630,
-      "sha256": "47409a6fb38209e9443ef1f7332471b64a9e763ef23369427dacbb62ec3b9197"
+      "bytes": 1756,
+      "sha256": "58a5f843111004e7be3e4e1aa2d244a6fcf7114ce4649592ccdab2d59726f782"
     },
     {
       "path": "scripts/import-ai-sister-guides.ts",
@@ -18414,8 +18414,8 @@
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",
-      "bytes": 61137,
-      "sha256": "d594b5ff9f95a7e395dcd3c639c8eb6bd0ff5d41f61e554dc5b1b8699038b7ac"
+      "bytes": 73022,
+      "sha256": "5fed624e8b9215a11e2d506efc00b7915e73ca0d34b42bd1ec43c443d5f2b38d"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
