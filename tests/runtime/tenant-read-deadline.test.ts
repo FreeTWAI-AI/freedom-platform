@@ -7,6 +7,9 @@ import { createPool } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_PASSWORD, DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { tokenHash, type Actor } from '../../modules/identity-membership/service.js';
+import { roleCapabilities } from '../../modules/tenant-workspaces/authorization.js';
+import { withTenantRead } from '../../packages/resource-scopes/index.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -272,4 +275,32 @@ test('the same private reads return their payload while the session is still cur
   const inbox = await request('/me/tenant-invitations?limit=20', guest.session);
   assert.equal(inbox.status, 200, JSON.stringify(inbox.data));
   assert.equal((inbox.data.items as { tenant_display_name: string }[])[0].tenant_display_name, '期限空間成功');
+});
+
+test('a database error inside a tenant read keeps its SQLSTATE', async () => {
+  const owner = await person('讀取錯誤庚');
+  const made = await createTenant(owner.session, '期限空間錯誤', '期限櫃檯錯誤');
+  const token = decodeURIComponent(owner.session.cookie.slice(owner.session.cookie.indexOf('=') + 1));
+  const user = (await pool.query<{ community_id: string; profession_membership_ref: string }>(
+    'SELECT community_id, profession_membership_ref FROM users WHERE user_id=$1', [owner.id])).rows[0];
+  const actor: Actor = {
+    user_id: owner.id,
+    community_id: user.community_id,
+    email: owner.email,
+    display_name: owner.name,
+    profession_membership_ref: user.profession_membership_ref,
+    session_hash: tokenHash(token),
+    csrf_token: owner.session.csrf,
+  };
+  await assert.rejects(
+    () => withTenantRead(pool, {
+      actor, tenantId: made.tenant.tenant_id, capabilitiesForRole: roleCapabilities,
+    }, async q => {
+      await q.query('SELECT 1/0');
+    }),
+    (error: { code?: string }) => {
+      assert.equal(error.code, '22012');
+      return true;
+    },
+  );
 });

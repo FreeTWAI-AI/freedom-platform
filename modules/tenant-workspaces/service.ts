@@ -201,26 +201,24 @@ export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: 
   const limit = limitOf(query.limit);
   return transaction(pool, async q => {
     await lockMemberSession(q, actor);
-    try {
-      const context = await mapPersonPrincipal(q, actor.user_id);
-      requireCondition(context.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
-      const after = readCursor(query.cursor, context.principal_id, 'tenants', null);
-      const rows = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
-        WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id > $3::uuid)
-        ORDER BY t.tenant_id LIMIT $4`, [context.principal_id, actor.community_id, after, limit + 1])).rows;
-      const page = rows.slice(0, limit);
-      const items = [];
-      for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
-      const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
-        FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
-        WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
-      return TenantPageSchema.parse({
-        items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'tenants', null, page[page.length - 1].tenant_id) : null,
-        source_version: versionOf(source === '0' ? '1' : source),
-      });
-    } finally {
-      await assertCurrentSessionClock(q, actor);
-    }
+    const context = await mapPersonPrincipal(q, actor.user_id);
+    requireCondition(context.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+    const after = readCursor(query.cursor, context.principal_id, 'tenants', null);
+    const rows = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
+      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id > $3::uuid)
+      ORDER BY t.tenant_id LIMIT $4`, [context.principal_id, actor.community_id, after, limit + 1])).rows;
+    const page = rows.slice(0, limit);
+    const items = [];
+    for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
+    const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
+      FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
+      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
+    const value = TenantPageSchema.parse({
+      items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'tenants', null, page[page.length - 1].tenant_id) : null,
+      source_version: versionOf(source === '0' ? '1' : source),
+    });
+    await assertCurrentSessionClock(q, actor);
+    return value;
   });
 }
 
@@ -349,22 +347,20 @@ export async function listMyInvitations(pool: Pool, actor: Actor, query: { curso
     WHERE invitee_principal_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [principalId]);
   return transaction(pool, async q => {
     await lockMemberSession(q, actor);
-    try {
-      const after = readCursor(query.cursor, principalId, 'my_invitations', null);
-      const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
-        AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
-      const page = rows.slice(0, limit);
-      const items = [];
-      for (const row of page) items.push(await invitationView(q, row.invitation_id));
-      const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
-        FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
-      return InvitationPageSchema.parse({
-        items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_invitations', null, page[page.length - 1].invitation_id) : null,
-        source_version: versionOf(source),
-      });
-    } finally {
-      await assertCurrentSessionClock(q, actor);
-    }
+    const after = readCursor(query.cursor, principalId, 'my_invitations', null);
+    const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
+      AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
+    const page = rows.slice(0, limit);
+    const items = [];
+    for (const row of page) items.push(await invitationView(q, row.invitation_id));
+    const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
+      FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
+    const value = InvitationPageSchema.parse({
+      items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_invitations', null, page[page.length - 1].invitation_id) : null,
+      source_version: versionOf(source),
+    });
+    await assertCurrentSessionClock(q, actor);
+    return value;
   });
 }
 
@@ -558,15 +554,13 @@ export async function resolveInviteCandidate(pool: Pool, actor: Actor, userId: s
   OpaqueId.parse(userId);
   return transaction(pool, async q => {
     await lockMemberSession(q, actor);
-    try {
-      const user = (await q.query<{ user_id: string; display_name: string }>(`SELECT user_id,display_name FROM users
-        WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`, [userId, actor.community_id])).rows[0];
-      requireCondition(user, 404, 'member_not_found', '找不到這位會員。');
-      const principal = await mapPersonPrincipal(q, user.user_id);
-      requireCondition(principal.kind === 'person' && principal.status === 'active', 404, 'member_not_found', '找不到這位會員。');
-      return InviteCandidateSchema.parse({ principal_id: principal.principal_id, display_name: user.display_name });
-    } finally {
-      await assertCurrentSessionClock(q, actor);
-    }
+    const user = (await q.query<{ user_id: string; display_name: string }>(`SELECT user_id,display_name FROM users
+      WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`, [userId, actor.community_id])).rows[0];
+    requireCondition(user, 404, 'member_not_found', '找不到這位會員。');
+    const principal = await mapPersonPrincipal(q, user.user_id);
+    requireCondition(principal.kind === 'person' && principal.status === 'active', 404, 'member_not_found', '找不到這位會員。');
+    const value = InviteCandidateSchema.parse({ principal_id: principal.principal_id, display_name: user.display_name });
+    await assertCurrentSessionClock(q, actor);
+    return value;
   });
 }
