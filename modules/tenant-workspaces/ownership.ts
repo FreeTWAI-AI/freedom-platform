@@ -185,9 +185,11 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
           tenant_authorization_revision::text AS tenant_authorization_revision, expires_at<=clock_timestamp() AS expired
         FROM tenant_ownership_transfers WHERE transfer_id=$1 AND tenant_id=$2 FOR UPDATE`, [transferId, tenantId])).rows[0];
       if (!transfer || transfer.to_principal_id !== context.subject_principal.principal_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
-      checkVersion(versionOf(transfer.version), expected);
+      // A past row is pre-expired and its version has already moved. Say so
+      // before If-Match, which would otherwise report a stale version.
       if (transfer.expired || transfer.state === 'expired') throw new Problem(409, 'transfer_expired', '移交已過期。');
       requireCondition(transfer.state === 'pending', 409, 'transfer_closed', '這份移交已結束。');
+      checkVersion(versionOf(transfer.version), expected);
       if (tenant.status === 'recovery_required') throw new Problem(409, 'tenant_recovery_required', '這個業務空間需要復原後才能變更。');
       requireMutableStatus(tenant.status);
       const proposer = (await q.query<{ ok: boolean }>(`SELECT (m.role='owner' AND m.status='active' AND p.status='active' AND u.active) AS ok

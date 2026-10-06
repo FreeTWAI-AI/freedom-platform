@@ -77,7 +77,7 @@ export async function persistTransferFailure(pool: Pool, transferId: string): Pr
     SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
     WHERE transfer_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId]);
   await pool.query(`UPDATE tenant_ownership_transfers t
-    SET state='invalidated', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+    SET state='invalidated', version=t.version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
     FROM tenants tn
     WHERE t.transfer_id=$1 AND t.tenant_id=tn.tenant_id AND t.state='pending'
       AND (tn.authorization_revision<>t.tenant_authorization_revision OR tn.status<>'active'

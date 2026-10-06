@@ -3,7 +3,7 @@ import { HighRiskVerificationInputSchema, HighRiskVerificationSchema } from '../
 import type { Actor } from '../identity-membership/service.js';
 import { tokenHash, verifyMemberPassword } from '../identity-membership/service.js';
 import { transaction } from '../../packages/db/transaction.js';
-import { lockMemberSession } from '../../packages/db/member-session.js';
+import { assertCurrentSessionClock, lockMemberSession } from '../../packages/db/member-session.js';
 import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { iso, NOT_FOUND } from './facts.js';
@@ -36,10 +36,11 @@ async function qualified(q: PoolClient, actor: Actor, principalId: string, tenan
   if ((recovery.rowCount ?? 0) < 1) throw new Problem(404, 'tenant_not_found', NOT_FOUND);
 }
 
-/** Password re-check. No receipt: the password must never enter a digest. */
+/** Password re-check. No receipt: the password must never enter a digest.
+ * Failure counts commit before the problem is raised, matching login(). */
 export async function createHighRiskVerification(pool: Pool, actor: Actor, body: unknown) {
   const input = HighRiskVerificationInputSchema.parse(body);
-  const created = await transaction(pool, async q => {
+  const outcome = await transaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active' && principal.kind === 'person', 403, 'principal_disabled', '這個身分目前無法使用。');
@@ -52,12 +53,18 @@ export async function createHighRiskVerification(pool: Pool, actor: Actor, body:
       await q.query(`UPDATE login_attempts SET failures=0, window_start=now() WHERE attempt_key=$1`, [attemptKey]);
       attempt.failures = 0;
     }
-    if (attempt.failures >= 10) throw new Problem(429, 'fresh_auth_rate_limited', '重新驗證次數過多，請稍後再試。', 900);
-    const policy = await loadActivePolicy(q);
+    if (attempt.failures >= 10) return { kind: 'blocked' as const };
+    let policy: { fresh_auth_ttl_seconds: number };
+    try {
+      policy = await loadActivePolicy(q);
+    } catch (error) {
+      if (error instanceof Problem && error.code === 'policy_unconfigured') return { kind: 'unconfigured' as const };
+      throw error;
+    }
     const valid = await verifyMemberPassword(q, actor.user_id, input.password);
     if (!valid) {
       await q.query(`UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1`, [attemptKey]);
-      throw new Problem(403, 'fresh_auth_required', '密碼不正確');
+      return { kind: 'invalid' as const };
     }
     await q.query(`UPDATE login_attempts SET failures=0 WHERE attempt_key=$1`, [attemptKey]);
     const row = (await q.query<{ verification_id: string; expires_at: Date }>(
@@ -65,17 +72,26 @@ export async function createHighRiskVerification(pool: Pool, actor: Actor, body:
        VALUES($1,$2,$3,$4,$5,clock_timestamp(),clock_timestamp()+make_interval(secs => $6))
        RETURNING verification_id, expires_at`,
       [actor.user_id, principal.principal_id, actor.session_hash, input.tenant_id, input.purpose, policy.fresh_auth_ttl_seconds])).rows[0];
-    return HighRiskVerificationSchema.parse({
-      verification_id: row.verification_id, purpose: input.purpose, tenant_id: input.tenant_id, expires_at: iso(row.expires_at),
-    });
+    return {
+      kind: 'created' as const,
+      body: HighRiskVerificationSchema.parse({
+        verification_id: row.verification_id, purpose: input.purpose, tenant_id: input.tenant_id, expires_at: iso(row.expires_at),
+      }),
+    };
   });
-  return created;
+  if (outcome.kind === 'blocked') throw new Problem(429, 'fresh_auth_rate_limited', '重新驗證次數過多，請稍後再試。', 900);
+  if (outcome.kind === 'unconfigured') throw new Problem(403, 'policy_unconfigured', '業務空間權限政策尚未設定。');
+  if (outcome.kind === 'invalid') throw new Problem(403, 'fresh_auth_required', '密碼不正確');
+  return outcome.body;
 }
 
 export async function requireFreshVerification(q: PoolClient, input: {
   userId: string; sessionHash: string; principalId: string; tenantId: string; purpose: Purpose;
   verificationId: string; namespaceDigest: string;
 }): Promise<void> {
+  // An expired session must win over a missing verification. authorize runs
+  // after the receipt lock, so a wait there can outlive the session.
+  await assertCurrentSessionClock(q, { user_id: input.userId, session_hash: input.sessionHash });
   const row = (await q.query<{ consumed_by: string | null }>(`SELECT v.consumed_by
     FROM tenant_high_risk_verifications v
     JOIN sessions s ON s.token_hash=v.session_hash
