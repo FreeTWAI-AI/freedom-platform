@@ -8,8 +8,10 @@ legacy manifest profile, keeps its `Promise<void>` API and delegates to the same
 
 This is a review candidate, not an update of the live private operator pipeline.
 Historical inspected restore/bootstrap wrappers imported a pinned repo
-`migrate()`; their old source paths have not been changed. Release compatibility
-still accepts only legacy ledgers. DAG installations additionally refuse any
+`migrate()`; their old source paths have not been changed. This operator and
+preflight still select the legacy scanner. The release-compatibility library
+also implements host profile v3 for exact digest sets; this entry does not
+select it. DAG installations additionally refuse any
 target whose database and schema do not start with `fp_`. This is a compatibility
 fence for isolated tests, not proof that a name or database is authorized.
 Formal DAG deployment requires the separately reviewed release-floor transition.
@@ -82,5 +84,6 @@ fails and preserves the socket/intent for reconciliation.
 
 These tests demonstrate two local entrances into one executor. They do not
 claim a live private helper upgrade, cloud migration, production rollback, or
-installed release-floor set semantics. UF:INT-23 still needs those applicable
-operator and release integration receipts before formal v2 naming opens.
+that host profile v3 is installed on this operator path. UF:INT-23 still needs
+those applicable operator and release integration receipts before formal v2
+naming opens.

@@ -12,6 +12,7 @@ import { scopedMemberCommand, scopedJournal } from '../../packages/scoped-comman
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
+import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from '../agent-execution/model-step-service.js';
 
 const keySchema = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$(?![\s\S])/);
 const versionSchema = ExecutionVersion.refine(v => BigInt(v) <= 9223372036854775807n);
@@ -184,14 +185,16 @@ export function createRuntimeRegistrations(pool: Pool, rawOptions: { environment
   async function revoke(actor: Actor, raw: RevokeRuntimeRegistrationInput): Promise<RuntimeRegistrationMetadata> {
     plainInput(raw);
     actor = Object.freeze({ ...actor }); const input = Object.freeze(revokeSchema.parse(raw)), operation = 'runtime.registration.revoke';
-    let current!: RegistrationRow;
+    let current!: RegistrationRow, machineSteps: readonly string[] = [];
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'runtime_registration', id: input.runtimeDeviceId }, expected: input.expectedVersion, body: { environment } },
-    async (q, context) => { await eligible(q, actor); await ownerLock(q, context); current = await ownedRegistration(q, context, actor, input.runtimeDeviceId); },
+    async (q, context) => { await eligible(q, actor); await ownerLock(q, context); current = await ownedRegistration(q, context, actor, input.runtimeDeviceId);
+      machineSteps = await lockConsumedMachineSteps(q, { runtimeDeviceId: input.runtimeDeviceId }); },
     async (q, context) => {
       checkVersion(current.aggregate_version, input.expectedVersion);
       if (current.state === 'revoked') unavailable();
       requireCondition(BigInt(current.aggregate_version) < 9223372036854775807n, 409, 'runtime_version_exhausted', '裝置登錄無法再更新。');
+      await applyConsumedMachineReconciliation(q, machineSteps, context);
       const now = await decisionClock(q, actor);
       const row = (await q.query<RegistrationRow>(`UPDATE runtime_registrations SET state='revoked',revoked_at=$3,aggregate_version=aggregate_version+1
         WHERE runtime_device_id=$1 AND aggregate_version=$2 RETURNING *,aggregate_version::text`, [input.runtimeDeviceId, input.expectedVersion, now])).rows[0];

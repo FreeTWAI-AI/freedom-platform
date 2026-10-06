@@ -166,7 +166,9 @@ export async function createTenant(pool: Pool, actor: Actor, body: unknown, key:
     actor, scope: 'personal', operation: 'tenant.create', key, body: input,
     target: { kind: 'tenant_collection', id: principalId },
   }, async () => {}, async (q, context) => {
-    await q.query(`SELECT principal_id FROM principals WHERE principal_id=$1 FOR UPDATE`, [context.subject_principal.principal_id]);
+    // Do not upgrade the principal row: lockMemberScope already holds it FOR SHARE,
+    // and two creates would deadlock on that upgrade. This lock queues them instead.
+    await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('tenant.create/v1/' || $1::text, 0))`, [context.subject_principal.principal_id]);
     const active = (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
       WHERE m.principal_id=$1 AND m.status='active' AND t.status='active'`, [context.subject_principal.principal_id])).rows[0].n;
     if (active >= MAX_ACTIVE_TENANTS_PER_PERSON) throw new Problem(429, 'quota_exceeded', '使用中的業務空間已達上限。', 60);
@@ -207,11 +209,12 @@ export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: 
     const page = rows.slice(0, limit);
     const items = [];
     for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
-    const source = (await q.query<{ version: string | null }>(`SELECT max(t.version)::text AS version FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
+    const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
+      FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
       WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
     return TenantPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'tenants', null, page[page.length - 1].tenant_id) : null,
-      source_version: versionOf(source ?? '1'),
+      source_version: versionOf(source === '0' ? '1' : source),
     });
   });
 }
@@ -350,9 +353,11 @@ export async function listMyInvitations(pool: Pool, actor: Actor, query: { curso
     const page = rows.slice(0, limit);
     const items = [];
     for (const row of page) items.push(await invitationView(q, row.invitation_id));
+    const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
+      FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
     return InvitationPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_invitations', null, page[page.length - 1].invitation_id) : null,
-      source_version: '1',
+      source_version: versionOf(source),
     });
   });
 }
@@ -469,8 +474,8 @@ export async function revokeInvitation(pool: Pool, actor: Actor, tenantId: strin
     actor, tenantId, operation: 'tenant.invite.revoke', key, body: input, expected,
     target: { kind: 'tenant_invitation', id: invitationId }, capabilitiesForRole: roleCapabilities,
   }, async (_q, context) => { requireMutable(context); }, async (q, context) => {
-    const invitation = (await q.query<{ created_by_principal_id: string; role: 'admin' | 'operator' | 'viewer'; state: string; version: string; expired: boolean }>(
-      `SELECT created_by_principal_id,role,state,version::text AS version,(state='pending' AND expires_at<=clock_timestamp()) AS expired
+    const invitation = (await q.query<{ invitee_principal_id: string; created_by_principal_id: string; role: 'admin' | 'operator' | 'viewer'; state: string; version: string; expired: boolean }>(
+      `SELECT invitee_principal_id,created_by_principal_id,role,state,version::text AS version,(state='pending' AND expires_at<=clock_timestamp()) AS expired
        FROM tenant_invitations WHERE invitation_id=$1 AND tenant_id=$2 FOR UPDATE`, [invitationId, tenantId])).rows[0];
     requireCondition(invitation, 404, 'invitation_not_found', INVITE_MISSING);
     requireCondition(context.role === 'owner' || invitation.created_by_principal_id === context.principal_id && canInviteRole(context.role, invitation.role),
@@ -479,7 +484,7 @@ export async function revokeInvitation(pool: Pool, actor: Actor, tenantId: strin
     requireCondition(invitation.state === 'pending', 409, 'invitation_closed', '這份邀請已結束。');
     checkVersion(versionOf(invitation.version), expected);
     await q.query(`UPDATE tenant_invitations SET state='revoked', revoked_reason=$2, version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId, input.reason]);
-    await audit(q, context.tenant_id, context.principal_id, 'tenant.invite.revoke', invitation.created_by_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.revoked');
+    await audit(q, context.tenant_id, context.principal_id, 'tenant.invite.revoke', invitation.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.revoked');
     return invitationView(q, invitationId);
   });
 }
@@ -495,6 +500,7 @@ export async function changeMember(pool: Pool, actor: Actor, tenantId: string, p
       `SELECT role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR UPDATE`, [tenantId, principalId])).rows[0];
     requireCondition(target, 404, 'member_not_found', MEMBER_MISSING);
     checkVersion(versionOf(target.version), expected);
+    if (target.status !== 'active') throw new Problem(409, 'member_not_active', '這位夥伴已不在業務空間，需要重新邀請並由對方接受。');
     if (target.role === 'owner') {
       const owners = await activeOwnerCount(q, tenantId);
       if (target.status === 'active' && owners <= 1) throw new Problem(409, 'last_owner_required', '業務空間至少要有一位使用中的擁有者。');
