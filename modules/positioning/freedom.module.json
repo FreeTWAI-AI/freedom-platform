@@ -4,7 +4,7 @@
   "owner_role": "foundation",
   "owned_paths": [
     "modules/positioning/**",
-    "migrations/119_guild_categories_preferences.sql",
+    "migrations/120_guild_categories_preferences.sql",
     "tests/runtime/guild-category-preferences.test.ts",
     "contracts/guild-launchpad/**",
     "scripts/guild-preferences-backfill.ts"
