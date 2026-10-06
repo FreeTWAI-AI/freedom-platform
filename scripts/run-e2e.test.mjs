@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { explicitFileArgs, planE2e, PRIVATE_AI_SPEC, runE2e } from './run-e2e.mjs';
+import { AVATAR_ASSET_SPEC, explicitFileArgs, planE2e, PRIVATE_AI_SPEC, runE2e } from './run-e2e.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runner = new URL('./run-e2e.mjs', import.meta.url).href;
@@ -24,17 +24,27 @@ test('flag values are not file filters and path filters are', () => {
   assert.deepEqual(explicitFileArgs(['private-work-ai']), ['private-work-ai']);
 });
 
-test('default plan runs the baseline before the focused private fixture', () => {
+test('default plan runs the baseline, private fixture, then avatar asset fixture', () => {
   const env = { FREEDOM_E2E_PORT: '4311' };
   const steps = planE2e(['--headed', '--workers', '1'], env);
-  assert.equal(steps.length, 2);
+  assert.equal(steps.length, 3);
   assert.deepEqual(steps[0].args, ['--headed', '--workers', '1']);
   assert.equal(steps[0].env, env);
   assert.equal(steps[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
+  assert.equal(steps[0].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
   assert.deepEqual(steps[1].args, ['--headed', '--workers', '1', PRIVATE_AI_SPEC]);
+  assert.notEqual(steps[1].env, env);
   assert.equal(steps[1].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, '1');
+  assert.equal(steps[1].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
   assert.equal(steps[1].env.FREEDOM_E2E_PORT, '4311');
+  assert.deepEqual(steps[2].args, ['--headed', '--workers', '1', AVATAR_ASSET_SPEC]);
+  assert.notEqual(steps[2].env, env);
+  assert.notEqual(steps[2].env, steps[1].env);
+  assert.equal(steps[2].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, '1');
+  assert.equal(steps[2].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
+  assert.equal(steps[2].env.FREEDOM_E2E_PORT, '4311');
   assert.equal(env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
+  assert.equal(env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
 });
 
 test('help and version stay one invocation', () => {
@@ -47,10 +57,18 @@ test('file arguments and an explicit fixture stay one invocation', () => {
   assert.equal(file.length, 1);
   assert.deepEqual(file[0].args, ['tests/e2e/newcomer-guides.spec.ts', '--headed']);
   assert.equal(file[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
+  assert.equal(file[0].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
   const fixture = planE2e(['--headed'], { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' });
   assert.equal(fixture.length, 1);
   assert.deepEqual(fixture[0].args, ['--headed']);
   assert.equal(fixture[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, '1');
+  assert.equal(fixture[0].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
+  const avatar = { FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1', FREEDOM_E2E_PORT: '4311' };
+  const avatarPlan = planE2e(['--headed'], avatar);
+  assert.equal(avatarPlan.length, 1);
+  assert.equal(avatarPlan[0].env, avatar);
+  assert.equal(avatarPlan[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
+  assert.equal(avatar.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, '1');
 });
 
 test('a baseline failure does not start the private fixture', async () => {
@@ -86,6 +104,36 @@ test('the private fixture failure is returned after a passing baseline', async (
   assert.equal(calls[1].fixture, '1');
   assert.deepEqual(calls[1].args, [PRIVATE_AI_SPEC]);
   assert.equal(calls[1].other, 'kept');
+});
+
+test('all three passes run when the earlier passes succeed', async () => {
+  const calls = [];
+  const result = await runE2e([], { OTHER: 'kept' }, async (args, env) => {
+    calls.push({ args, privateAi: env.FREEDOM_E2E_PRIVATE_AI_FIXTURE ?? null, avatar: env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE ?? null, other: env.OTHER });
+    return { code: 0, signal: null };
+  });
+  assert.equal(result.code, 0);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].privateAi, null);
+  assert.equal(calls[0].avatar, null);
+  assert.equal(calls[1].privateAi, '1');
+  assert.equal(calls[1].avatar, null);
+  assert.deepEqual(calls[1].args, [PRIVATE_AI_SPEC]);
+  assert.equal(calls[2].avatar, '1');
+  assert.equal(calls[2].privateAi, null);
+  assert.deepEqual(calls[2].args, [AVATAR_ASSET_SPEC]);
+  assert.equal(calls[2].other, 'kept');
+});
+
+test('the avatar fixture failure is returned after the earlier passes', async () => {
+  const calls = [];
+  const result = await runE2e([], {}, async (_args, env) => {
+    calls.push(env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE ?? null);
+    return calls.length < 3 ? { code: 0, signal: null } : { code: 4, signal: null };
+  });
+  assert.equal(result.code, 4);
+  assert.equal(result.signal, null);
+  assert.deepEqual(calls, [null, null, '1']);
 });
 
 test('package test:e2e delegates to this runner', async () => {

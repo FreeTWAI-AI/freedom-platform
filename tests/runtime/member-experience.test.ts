@@ -242,18 +242,61 @@ test('portrait poster stays portrait and a bounded event video supports range re
   assert.equal((await app.request(`${origin}/api/v1/events/${id}/video`)).status,401);
 });
 
-test('member card and private message peer show recent activity and last login',async()=>{
+test('member card and private message peer show recent activity and last activity',async()=>{
   const member=await signIn(),viewer=await signIn(DEMO_USERS[1].email);
   const id=member.user.user_id;
   const card=await request(`/members/${id}`,viewer);
-  assert.equal(card.status,200);assert.equal(card.data.is_online,true);assert.ok(Number.isFinite(Date.parse(card.data.last_login_at)));
+  assert.equal(card.status,200);assert.equal(card.data.is_online,true);assert.ok(Number.isFinite(Date.parse(card.data.last_seen_at)));
   const batch=await request(`/members/presence?ids=${id}`,viewer);
   assert.equal(batch.status,200);assert.equal(batch.data.items[0].is_online,true);
   const thread=await request(`/me/conversations/${id}/messages`,viewer);
   assert.equal(thread.status,200);assert.equal(thread.data.participant.is_online,true);
-  assert.equal(thread.data.participant.last_login_at,card.data.last_login_at);
+  assert.equal(thread.data.participant.last_seen_at,card.data.last_seen_at);
   assert.equal((await request('/auth/logout',member,{})).status,200);
   const offline=await request(`/members/${id}`,viewer);assert.equal(offline.data.is_online,false);
-  assert.equal(offline.data.last_login_at,card.data.last_login_at);
+  assert.equal(offline.data.last_seen_at,card.data.last_seen_at);
   assert.equal((await request(`/members/presence?ids=${id}`,viewer)).data.items[0].is_online,false);
+});
+
+test('member presence reports last activity from the session that was actually used',async()=>{
+  const iso=(value:Date|string)=>new Date(value).toISOString();
+  const member=await signIn(),viewer=await signIn(DEMO_USERS[1].email),id=member.user.user_id;
+  await pool.query("UPDATE sessions SET created_at=clock_timestamp()-interval '10 days', last_seen_at=clock_timestamp()-interval '5 minutes' WHERE user_id=$1",[id]);
+  const aged=(await pool.query('SELECT created_at,last_seen_at FROM sessions WHERE user_id=$1',[id])).rows[0];
+  const agedSeen=iso(aged.last_seen_at);
+  assert.notEqual(agedSeen,iso(aged.created_at));
+  const agedCard=await request(`/members/${id}`,viewer);
+  assert.equal(agedCard.status,200);assert.equal(agedCard.data.last_seen_at,agedSeen);assert.equal(agedCard.data.is_online,false);
+  const agedBatch=await request(`/members/presence?ids=${id}`,viewer);
+  assert.equal(agedBatch.data.items[0].last_seen_at,agedSeen);assert.equal(agedBatch.data.items[0].is_online,false);
+  const agedThread=await request(`/me/conversations/${id}/messages`,viewer);
+  assert.equal(agedThread.status,200);assert.equal(agedThread.data.participant.last_seen_at,agedSeen);assert.equal(agedThread.data.participant.is_online,false);
+  await signIn();
+  await pool.query(`WITH ranked AS (
+    SELECT token_hash, row_number() OVER (ORDER BY created_at, token_hash) AS n FROM sessions WHERE user_id=$1)
+    UPDATE sessions s SET
+      created_at=clock_timestamp()-CASE WHEN r.n=1 THEN interval '20 days' ELSE interval '1 day' END,
+      last_seen_at=clock_timestamp()-CASE WHEN r.n=1 THEN interval '5 minutes' ELSE interval '3 days' END
+    FROM ranked r WHERE s.token_hash=r.token_hash`,[id]);
+  const rows=(await pool.query('SELECT created_at,last_seen_at FROM sessions WHERE user_id=$1 ORDER BY created_at ASC',[id])).rows;
+  assert.equal(rows.length,2);
+  const latest=(await pool.query('SELECT max(coalesce(last_seen_at,created_at)) AS last_seen_at FROM sessions WHERE user_id=$1',[id])).rows[0].last_seen_at;
+  assert.equal(iso(latest),iso(rows[0].last_seen_at));
+  assert.ok(rows[0].created_at<rows[1].created_at);
+  assert.ok(rows[0].last_seen_at>rows[1].last_seen_at);
+  assert.notEqual(iso(latest),iso(rows[1].created_at));
+  for(const seen of [
+    (await request(`/members/${id}`,viewer)).data.last_seen_at,
+    (await request(`/members/presence?ids=${id}`,viewer)).data.items[0].last_seen_at,
+    (await request(`/me/conversations/${id}/messages`,viewer)).data.participant.last_seen_at,
+  ]) assert.equal(seen,iso(latest));
+  assert.equal((await request(`/members/${id}`,viewer)).data.is_online,false);
+  await pool.query(`DELETE FROM sessions WHERE user_id=$1 AND token_hash<>(
+    SELECT token_hash FROM sessions WHERE user_id=$1 ORDER BY created_at ASC LIMIT 1)`,[id]);
+  await pool.query('UPDATE sessions SET created_at=NULL, last_seen_at=NULL WHERE user_id=$1',[id]);
+  const legacy=(await pool.query('SELECT count(*)::int AS n, bool_and(created_at IS NULL AND last_seen_at IS NULL) AS blank FROM sessions WHERE user_id=$1',[id])).rows[0];
+  assert.equal(legacy.n,1);assert.equal(legacy.blank,true);
+  assert.equal((await request(`/members/${id}`,viewer)).data.last_seen_at,null);
+  assert.equal((await request(`/members/presence?ids=${id}`,viewer)).data.items[0].last_seen_at,null);
+  assert.equal((await request(`/me/conversations/${id}/messages`,viewer)).data.participant.last_seen_at,null);
 });

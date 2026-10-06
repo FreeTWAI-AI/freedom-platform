@@ -9,7 +9,7 @@ async function login(page:Page,email='maker@local.test'){
 }
 
 test('a resumed private conversation keeps older history and pages through every new-message gap in order',async({page})=>{
-  const participant={user_id:DEMO_USERS[1].user_id,display_name:'私訊測試夥伴',is_online:false,last_login_at:null};
+  const participant={user_id:DEMO_USERS[1].user_id,display_name:'私訊測試夥伴',is_online:false,last_seen_at:null};
   const item=(number:number)=>({message_id:`30000000-0000-4000-8000-${String(number).padStart(12,'0')}`,sender_ref:participant.user_id,recipient_ref:DEMO_USERS[0].user_id,body:`歷史訊息 ${String(number).padStart(3,'0')}`,created_at:new Date(Date.UTC(2026,9,1)+number*1000).toISOString(),read_at:null});
   let total=40;const offsets:number[]=[];
   await page.route(/\/api\/v1\/me\/conversations\?/,route=>route.fulfill({json:{items:[{participant,can_send:true,unread_count:0,last_message:item(total)}],unread_count:0,next_offset:null}}));
