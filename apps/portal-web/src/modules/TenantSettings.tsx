@@ -154,6 +154,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       if (!live()) { forgetUnresolved(attempt); return null; }
       forgetUnresolved(attempt);
       setPending(current => current?.key === attempt.key ? null : current);
+      setAlertText(current => current === UNRESOLVED_ALERT ? '' : current);
       return value;
     } catch (error) {
       if (!live()) {
