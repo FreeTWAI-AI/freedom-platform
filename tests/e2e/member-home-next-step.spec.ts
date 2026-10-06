@@ -15,7 +15,7 @@ const skillsMessage = '到技能書架選一本技能書閱讀，開始練習。
 // Synthetic card facts affect only this read. Real membership, grants and work records stay in the isolated fixture.
 function memberCard(overrides: Partial<MemberCardData> = {}): MemberCardData {
   return {
-    user_id: memberId, nickname: '首頁提示測試', last_login_at: null, is_online: false,
+    user_id: memberId, nickname: '首頁提示測試', last_seen_at: null, is_online: false,
     positioning_title: null, primary_guild: null, secondary_guilds: [], joined_guilds: [],
     capabilities: [], equipment: [], contacts: {}, is_self: true, friendship: { state: 'self' },
     ...overrides,

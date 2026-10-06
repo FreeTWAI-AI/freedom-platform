@@ -118,7 +118,7 @@ test('direct messages: compose with a ready member, trimmed plain text, idempote
   assert.equal(empty.data.participant.display_name,DEMO_USERS[1].display_name);
   assert.equal(empty.data.participant.avatar_url,null);
   assert.equal(empty.data.participant.is_online,true);
-  assert.ok(Number.isFinite(Date.parse(empty.data.participant.last_login_at)));
+  assert.ok(Number.isFinite(Date.parse(empty.data.participant.last_seen_at)));
   const key=randomUUID(),text='  <b>你好</b> [連結](https://example.invalid)\r\n第二行  ';
   const sent=await request(path,a,{body:text},{key});assert.equal(sent.status,201,JSON.stringify(sent.data));
   assert.deepEqual(Object.keys(sent.data).sort(),['body','created_at','message_id','read_at','recipient_ref','sender_ref']);
