@@ -14028,6 +14028,11 @@
       "sha256": "627c2e4b255b6eee54bab84ff62532c939b276d5add196c9cda05dc7f39955cb"
     },
     {
+      "path": "docs/releases/trust-pin-probe-n2-20261006.md",
+      "bytes": 459,
+      "sha256": "8976aa16b08ac5477e4fafb7ce0b14960dce7e59a0b4a65ef0c5cdf2482d9956"
+    },
+    {
       "path": "docs/skill-book-upstream-sync-2026-09-27.md",
       "bytes": 7396,
       "sha256": "4af37a49812c73bf8b5a8d67812bccefdc431a0fa1b967f19cfc1676203a0ca9"
