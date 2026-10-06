@@ -12,6 +12,7 @@ import { checkVersion } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { freezeTree, snapshotInput } from '../../packages/execution-state/decode.js';
 import { resolvePrivateWorkPersistencePolicy } from '../autopilot-work/policy.js';
+import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from './model-step-service.js';
 
 interface Owned { owner_user_id: string; owner_principal_id: string; scope_id: string }
 interface Runtime extends Owned { runtime_device_id: string; challenge_id: string; key_thumbprint: string; environment: string; state: string; aggregate_version: string }
@@ -169,14 +170,17 @@ export function createExecutionPrerequisites(pool: Pool, rawOptions: { environme
     });
   }
   async function revokeModel(actor: Actor, raw: contract.RevokeModelConnectionInput): Promise<contract.ModelConnectionMetadata> {
-    actor = Object.freeze({ ...actor }); const input = parse(contract.RevokeModelConnectionInputSchema, raw), operation = 'execution.model.revoke'; let current!: Model;
+    actor = Object.freeze({ ...actor }); const input = parse(contract.RevokeModelConnectionInputSchema, raw), operation = 'execution.model.revoke'; let current!: Model, machineSteps: readonly string[] = [];
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key,
       target: { kind: 'model_connection', id: input.modelConnectionId }, expected: input.expectedVersion, body: { environment, clientId } },
     async (q, context) => { await eligible(q, actor); await ownerLock(q, context); const first = await locateModel(q, actor, context, input.modelConnectionId);
-      await lockConnection(q, actor, context, first.connection_id); current = await locateModel(q, actor, context, input.modelConnectionId, true); },
+      // Work/run before the model row. Machine admission holds work and then wants this model.
+      await lockConnection(q, actor, context, first.connection_id); machineSteps = await lockConsumedMachineSteps(q, { modelConnectionId: input.modelConnectionId });
+      current = await locateModel(q, actor, context, input.modelConnectionId, true); },
     async (q, context) => {
       checkVersion(current.aggregate_version, input.expectedVersion); if (current.state === 'revoked') unavailable();
       requireCondition(BigInt(current.aggregate_version) < maximum, 409, 'execution_version_exhausted', '執行前置紀錄無法再更新。');
+      await applyConsumedMachineReconciliation(q, machineSteps, context);
       const time = await stamp(q, actor);
       const row = found((await q.query<Model>(`UPDATE model_connections SET state='revoked',revoked_at=$3,aggregate_version=aggregate_version+1
         WHERE model_connection_id=$1 AND aggregate_version=$2 RETURNING *,${versionColumns}`, [input.modelConnectionId, input.expectedVersion, time])).rows[0]);
@@ -225,14 +229,16 @@ export function createExecutionPrerequisites(pool: Pool, rawOptions: { environme
     });
   }
   async function revokeGrant(actor: Actor, raw: contract.RevokeExecutionGrantInput): Promise<contract.ExecutionGrantMetadata> {
-    actor = Object.freeze({ ...actor }); const input = parse(contract.RevokeExecutionGrantInputSchema, raw), operation = 'execution.grant.revoke'; let current!: Grant;
+    actor = Object.freeze({ ...actor }); const input = parse(contract.RevokeExecutionGrantInputSchema, raw), operation = 'execution.grant.revoke'; let current!: Grant, machineSteps: readonly string[] = [];
     return scopedMemberCommand(pool, { actor, scope: 'personal', operation, key: input.key, target: { kind: 'execution_grant', id: input.grantId },
       expected: input.expectedVersion, body: { environment, clientId } }, async (q, context) => {
       await eligible(q, actor); await ownerLock(q, context); const first = await locateGrant(q, actor, context, input.grantId);
-      await lockBinding(q, actor, context, first.run_id, first.connection_id, first.model_connection_id); current = await locateGrant(q, actor, context, input.grantId, true);
+      await lockBinding(q, actor, context, first.run_id, first.connection_id, first.model_connection_id);
+      machineSteps = await lockConsumedMachineSteps(q, { grantId: input.grantId }); current = await locateGrant(q, actor, context, input.grantId, true);
     }, async (q, context) => {
       checkVersion(current.aggregate_version, input.expectedVersion); if (current.state === 'revoked') unavailable();
       requireCondition(BigInt(current.aggregate_version) < maximum, 409, 'execution_version_exhausted', '執行前置紀錄無法再更新。');
+      await applyConsumedMachineReconciliation(q, machineSteps, context);
       const time = await stamp(q, actor);
       const row = found((await q.query<Grant>(`UPDATE execution_grants SET state='revoked',revoked_at=$3,aggregate_version=aggregate_version+1
         WHERE grant_id=$1 AND aggregate_version=$2 RETURNING *,${grantVersions}`, [input.grantId, input.expectedVersion, time])).rows[0]);

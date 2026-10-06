@@ -31,7 +31,11 @@
     "tests/runtime/media-backup-retention.test.ts",
     "tests/runtime/media-backup-evidence.test.ts",
     "tests/runtime/media-backup-archive.test.ts",
-    "tests/integration/media-backup-archive.test.ts"
+    "tests/integration/media-backup-archive.test.ts",
+    "scripts/media-recovery-restore.ts",
+    "tests/runtime/media-recovery-bundle.test.ts",
+    "tests/integration/media-recovery-handover.test.ts",
+    "tests/integration/media-recovery-handover-producer.ts"
   ],
   "public_exports": [
     "packages/media-migration/inventory.ts"
@@ -124,6 +128,15 @@
         "media.restore-drill"
       ],
       "auth_profile": "owned-isolated-test-container"
+    },
+    {
+      "surface_id": "operations.media-recovery-restore",
+      "kind": "cli",
+      "entry": "scripts/media-recovery-restore.ts",
+      "operations": [
+        "media.recovery-restore"
+      ],
+      "auth_profile": "operator-explicit-expected-identity"
     }
   ]
 }
