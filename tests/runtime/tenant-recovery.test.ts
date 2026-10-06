@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
@@ -11,7 +11,6 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 import { applyOwnerAccountStatus } from '../../modules/tenant-workspaces/security-path.js';
-import { revokeRecoveryCapability } from '../../modules/tenant-workspaces/recovery.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -794,12 +793,23 @@ async function secondOwner(tenantId: string, userId: string, actor: Session) {
   await pool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`, [tenantId, principalId]);
   return principalId;
 }
+async function revokeActiveCapability(client: PoolClient, adminId: string, capability: string): Promise<void> {
+  const locked = await client.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL
+    ORDER BY capability_id
+    FOR UPDATE`, [adminId, capability]);
+  assert.equal(locked.rowCount, 1);
+  const updated = await client.query(`UPDATE platform_admin_tenant_recovery_capabilities
+    SET revoked_at=clock_timestamp()
+    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL`, [adminId, capability]);
+  assert.equal(updated.rowCount, 1);
+}
 async function revokeCapability(adminId: string, capability: string) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const pid = (await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
-    await revokeRecoveryCapability(client, adminId, capability as 'tenant.recovery.open' | 'tenant.recovery.review' | 'tenant.recovery.execute');
+    await revokeActiveCapability(client, adminId, capability);
     return { client, pid, commit: () => client.query('COMMIT') };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -999,7 +1009,7 @@ test('T-055 replaying execute waits on an in-flight capability revocation', asyn
   try {
     await revoker.query('BEGIN');
     const pid = (await revoker.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
-    await revokeRecoveryCapability(revoker, admins.executor.id, 'tenant.recovery.execute');
+    await revokeActiveCapability(revoker, admins.executor.id, 'tenant.recovery.execute');
     let settled = false;
     const pending = adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3').then(value => { settled = true; return value; });
     let sawBlock = false;
@@ -1021,7 +1031,7 @@ test('T-055 replaying execute waits on an in-flight capability revocation', asyn
   assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), after);
 });
 
-test('T-055 open and approve refuse a capability revoked during their row wait', async () => {
+test('T-055 open refuses a capability revoked during its tenant-row wait', async () => {
   const owner = await person('擁有者');
   const recipient = await person('接收者');
   const tenant = await createTenant(owner.session);

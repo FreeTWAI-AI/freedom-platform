@@ -50,19 +50,6 @@ async function lockActiveCapability(q: PoolClient, adminId: string, capability: 
   requireCondition(current.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
 }
 
-/** The revocation takes FOR UPDATE so it conflicts with lockActiveCapability. */
-export async function revokeRecoveryCapability(q: PoolClient, adminId: string, capability: Capability): Promise<void> {
-  const locked = await q.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
-    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL
-    ORDER BY capability_id
-    FOR UPDATE`, [adminId, capability]);
-  requireCondition(locked.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
-  const updated = await q.query(`UPDATE platform_admin_tenant_recovery_capabilities
-    SET revoked_at=clock_timestamp()
-    WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL`, [adminId, capability]);
-  requireCondition(updated.rowCount === 1, 403, 'recovery_authority_required', '需要獨立的復原權限。');
-}
-
 function assertIndependent(admin: AdminActor, targetEmail: string, blockedAdminIds: Array<string | null>): void {
   requireCondition(admin.email !== targetEmail && blockedAdminIds.every(id => id !== admin.admin_id),
     403, 'recovery_authority_required', '復原的開啟、核准與執行必須由不同的人負責。');
