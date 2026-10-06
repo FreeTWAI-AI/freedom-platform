@@ -13759,8 +13759,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 20696,
-      "sha256": "404f720b46294e98465aa6c197abd631a14dde5fea3d71dff85cc3dc3c5c41f6"
+      "bytes": 22181,
+      "sha256": "b0dadc1062cb626fecde3db82016cc74188efd3b1d8ed780431fcb1f2daa4b70"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -13779,8 +13779,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 13529,
-      "sha256": "e260496e195964a88115a865a030440317a598a88f0f56492dec1381603ac547"
+      "bytes": 17710,
+      "sha256": "dd43dcf1ad3f53fb5b7adf17011110b5d10e77ad34a6c17a1356c0427702ddb0"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -13799,8 +13799,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
-      "bytes": 32394,
-      "sha256": "714ade34f19c881f8a9565f8f037bc02d020156f0e89175664b4166656ce716a"
+      "bytes": 39917,
+      "sha256": "96132f58b11e43f379631f363a1f6b59755d6dab3d664002cc7946ca49f31b2e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
@@ -13884,8 +13884,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 385948,
-      "sha256": "2fc49ef86aa9e26f0983a7face8e2af427e6659dfed12fa129e933ab7691068b"
+      "bytes": 391893,
+      "sha256": "ee695c38bb9520651b48e73859c78c857e150b39049870e7de091fced739c957"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -13981,6 +13981,11 @@
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-05.json",
       "bytes": 2201,
       "sha256": "45c37df1f702008a1f4fc7548e1c15c79bb544df18941a620ab9fd41ea5f7472"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-06.json",
+      "bytes": 54824,
+      "sha256": "da7034e2fe301dcdf0455a000e10396f0f2a07b40bd708696d19580867cb28ac"
     },
     {
       "path": "docs/platform-plan/verification/preflight-aggregate-2026-10-05.json",
