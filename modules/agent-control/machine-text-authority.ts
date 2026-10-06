@@ -7,7 +7,7 @@ import { MachineTextAccessClaimsSchema, MachineTextBindingSchema, MachineTextDev
   type MachineTextOperation } from '../../contracts/execution/v3/machine-text-execution.js';
 import { transaction } from '../../packages/db/transaction.js';
 import { freezeTree, snapshotInput } from '../../packages/execution-state/decode.js';
-import { requireCondition } from '../../packages/shared/problem.js';
+import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { ScopedFactContext, ExecutionFactBinding } from '../../packages/scoped-commands/command-context.js';
 import { parseBootstrapCompact } from './strict-jose-json.js';
 import { createMachineTextProofVerifier, machineTextHash, parseMachineTextHost, signMachineTextAccess } from './machine-text-proof.js';
@@ -18,14 +18,19 @@ const ActivationInput=ChallengeInput.extend({challengeId:OpaqueId,nonce:z.string
 const AccessInput=z.object({accessToken:Compact,proof:Compact,operation:z.enum(['execute','status','evidence']),requestSha256:Hash}).strict();
 type DeviceRow={binding:MachineTextDeviceBinding;expires_at:Date};
 interface AuthorizationRow { binding:MachineTextBinding;execute_jti:string;evidence_jti:string;issued_at:Date;expires_at:Date;evidence_expires_at:Date }
+declare const invocationBrand:unique symbol;
+export interface MachineModelSubject {readonly user_id:string;readonly [invocationBrand]:never}
+export interface MachineModelContext extends ScopedFactContext {readonly authn_kind:'execution_token';readonly ownerUserId:string}
 export interface MachineTextContext extends ScopedFactContext {
   readonly authn_kind:'execution_token';
   readonly ownerUserId:string;
   readonly binding:MachineTextBinding;
 }
-interface Admission {q:PoolClient;operation:MachineTextOperation;validUntilMs:number;validFromMs:number;monotonicDeadline:number}
+interface Admission {model?:boolean;q:PoolClient;operation:MachineTextOperation;validUntilMs:number;validFromMs:number;monotonicDeadline:number}
 const admissions=new WeakMap<MachineTextContext,Admission>();
-const deny=()=>requireCondition(false,401,'machine_text_unauthorized','機器執行授權無效或已失效。');
+const deny:()=>never=()=>{throw new Problem(401,'machine_text_unauthorized','機器執行授權無效或已失效。');};
+/** jti of a proof that pending()/authorizeAccess() has already verified. */
+const proofJti=(compact:string):string=>{const c=parseBootstrapCompact(compact).claims,jti=c&&typeof c==='object'?(c as {jti?:unknown}).jti:undefined;return typeof jti==='string'?jti:deny();};
 const parse=<T>(schema:z.ZodType<T>,raw:unknown):T=>freezeTree(schema.parse(snapshotInput(raw)));
 async function clock(q:PoolClient):Promise<number>{return Number((await q.query("SELECT floor(extract(epoch FROM clock_timestamp())*1000)::text ms")).rows[0].ms);}
 function wall(from:number,until:number){const t=Date.now();if(t<from||t>=until)deny();}
@@ -38,7 +43,8 @@ export function machineTextFactBinding(c:MachineTextContext):ExecutionFactBindin
 /** Current SQL and decision clock, not a client-created context or boolean. */
 export async function assertMachineTextCurrent(q:PoolClient,c:MachineTextContext):Promise<void>{
   const a=admissions.get(c);if(!a||a.q!==q||performance.now()>=a.monotonicDeadline)deny();wall(a!.validFromMs,a!.validUntilMs);
-  await q.query('SELECT check_machine_text_authorization(current_schema(),$1,$2)',[c.binding.authorizationId,a!.operation==='evidence']);
+  if(a!.model&&a!.operation==='execute')await q.query('SELECT check_machine_model_admission(current_schema(),$1)',[c.binding.authorizationId]);
+  else await q.query('SELECT check_machine_text_authorization(current_schema(),$1,$2)',[c.binding.authorizationId,a!.operation==='evidence'||a!.model===true]);
   const t=await clock(q);if(t<a!.validFromMs||t>=a!.validUntilMs||performance.now()>=a!.monotonicDeadline)deny();wall(a!.validFromMs,a!.validUntilMs);
 }
 export function forgetMachineTextContext(c:MachineTextContext):void{admissions.delete(c);}
@@ -55,7 +61,12 @@ const bindingColumns=`jsonb_build_object('ownerUserId',a.owner_user_id::text,'pr
  * Activation authorization attaches only to a genuine reserved model step;
  * its owning command creates that Step/Attempt in this SAME transaction.
  * No member Actor/session is fabricated and no private context is returned. */
-export function createMachineTextAuthority(pool:Pool,rawHost:MachineTextHost,signingKey:CryptoKey){
+export function createMachineTextAuthority(pool:Pool,rawHost:MachineTextHost,signingKey:CryptoKey){return machineTextAuthority(pool,rawHost,signingKey);}
+/** Main-side cryptographic/current SQL inspection has no token minting key. */
+export function createMachineTextInspection(pool:Pool,rawHost:MachineTextHost){
+  const {inspectActivation,inspectAccess}=machineTextAuthority(pool,rawHost);return Object.freeze({inspectActivation,inspectAccess});
+}
+function machineTextAuthority(pool:Pool,rawHost:MachineTextHost,signingKey?:CryptoKey){
   const host=parseMachineTextHost(rawHost),verifier=createMachineTextProofVerifier(host);
   async function lockDevice(q:PoolClient,connectionId:string,familyId:string):Promise<DeviceRow>{
     const first=(await q.query(`SELECT c.*,r.challenge_id,r.key_thumbprint FROM agent_connections c
@@ -105,7 +116,7 @@ export function createMachineTextAuthority(pool:Pool,rawHost:MachineTextHost,sig
     });
   }
   async function attach(q:PoolClient,raw:z.infer<typeof ActivationInput>,stepId:string){
-    const input=parse(ActivationInput,raw);OpaqueId.parse(stepId);
+    if(!signingKey)deny();const input=parse(ActivationInput,raw);OpaqueId.parse(stepId);
     const d=await lockDevice(q,input.connectionId,input.familyId),t=await clock(q);
     const challenge=(await q.query('SELECT * FROM execution_machine_challenges WHERE challenge_id=$1 FOR UPDATE',[input.challengeId])).rows[0];
     if(!challenge||challenge.connection_id!==input.connectionId||challenge.family_id!==input.familyId
@@ -142,7 +153,7 @@ export function createMachineTextAuthority(pool:Pool,rawHost:MachineTextHost,sig
     wall(proof!.validFromMs,Math.min(proof!.validUntilMs,expires,challenge.expires_at.getTime()));
     return freezeTree({binding,accessToken,evidenceToken,expiresAt:new Date(expires).toISOString(),evidenceExpiresAt:new Date(evidenceExpires).toISOString()});
   }
-  async function access(q:PoolClient,raw:z.infer<typeof AccessInput>):Promise<MachineTextContext>{
+  async function authorizeAccess(q:PoolClient,raw:z.infer<typeof AccessInput>,model=false,accepted:false|true|'inspect'=false):Promise<MachineTextContext>{
     const input=parse(AccessInput,raw);
     // Parsing provides only a bounded lookup ID; none of these claims are
     // trusted until SQL-derived equality AND both ES256 signatures pass.
@@ -165,13 +176,105 @@ export function createMachineTextAuthority(pool:Pool,rawHost:MachineTextHost,sig
     if(proof!.tokenId!==(evidence?a.evidence_jti:a.execute_jti)||claimed.iat!==Math.floor(a.issued_at.getTime()/1000)
       ||claimed.exp!==Math.floor(expires.getTime()/1000))deny();
     const until=Math.min(expires.getTime(),proof!.validUntilMs),c=context(binding);
-    admissions.set(c,{q,operation:input.operation,validFromMs:Math.max(a.issued_at.getTime(),proof!.validFromMs),validUntilMs:until,
+    admissions.set(c,{q,model,operation:input.operation,validFromMs:Math.max(a.issued_at.getTime(),proof!.validFromMs),validUntilMs:until,
       monotonicDeadline:clockStarted+Math.max(0,until-t)});
     try{await assertMachineTextCurrent(q,c);
-      await addProof(q,binding,input.operation,proof!.proofId,input.requestSha256,proof!.validFromMs,proof!.validUntilMs,null,binding.authorizationId);
+      if(!accepted)await addProof(q,binding,input.operation,proof!.proofId,input.requestSha256,proof!.validFromMs,proof!.validUntilMs,null,binding.authorizationId);
+      else if(accepted!=='inspect'){const prior=(await q.query(`SELECT 1 FROM execution_machine_proofs WHERE runtime_device_id=$1 AND proof_jti=$2 AND authorization_id=$3
+        AND operation=$4 AND request_sha256=$5 AND valid_until>clock_timestamp()`,[binding.runtimeDeviceId,proof!.proofId,binding.authorizationId,input.operation,input.requestSha256])).rowCount;if(prior!==1)deny();}
       await assertMachineTextCurrent(q,c);return c;
     }catch(error){admissions.delete(c);throw error;}
   }
-  return Object.freeze({challenge,attach,access});
+  function invocationPorts(){
+    type Pending={kind:'activate';input:z.infer<typeof ActivationInput>;approvalId:string;device:MachineTextDeviceBinding};
+    type Executing={kind:'execute'|'status'|'evidence';input:z.infer<typeof AccessInput>;binding:MachineTextBinding};
+    type Data=Pending|Executing;
+    const subjects=new WeakMap<MachineModelSubject,Data>();
+    const live=new WeakMap<MachineModelContext,{q:PoolClient;subject:MachineModelSubject;active?:MachineTextContext;pendingUntil?:number;pendingFrom?:number}>();
+    const transactions=new WeakMap<MachineModelSubject,Map<PoolClient,MachineModelContext>>();
+    const issued=new WeakMap<MachineModelSubject,Awaited<ReturnType<typeof attach>>>();
+    const get=(subject:MachineModelSubject)=>{const d=subjects.get(subject);if(!d)deny();return d!;};
+    function make(data:Data){const subject=Object.freeze({user_id:data.kind==='activate'?data.device.ownerUserId:data.binding.ownerUserId}) as MachineModelSubject;
+      subjects.set(subject,freezeTree(data));return subject;}
+    async function pending(q:PoolClient,input:z.infer<typeof ActivationInput>,approvalId:string,expected?:MachineTextDeviceBinding){
+      const d=await lockDevice(q,input.connectionId,input.familyId),t=await clock(q);
+      if(expected&&JSON.stringify(d.binding)!==JSON.stringify(expected))deny();
+      const row=(await q.query('SELECT * FROM execution_machine_challenges WHERE challenge_id=$1 FOR UPDATE',[input.challengeId])).rows[0];
+      if(!row||row.consumed_at||row.runtime_device_id!==d.binding.runtimeDeviceId||row.connection_id!==input.connectionId
+        ||row.family_id!==input.familyId||row.nonce_hash!==machineTextHash(input.nonce)||t<row.issued_at.getTime()||t>=row.expires_at.getTime())deny();
+      const proof=await verifier.device({...input,purpose:'activate',binding:d.binding,nowMs:t});if(!proof)deny();
+      const a=(await q.query(`SELECT a.*,g.runtime_device_id,g.connection_id,g.family_id,g.selection grant_selection
+        FROM model_export_approvals a JOIN execution_grants g USING(grant_id) WHERE a.approval_id=$1
+        AND a.owner_user_id=$2 AND a.owner_principal_id=$3 AND a.scope_id=$4 AND a.environment=$5 AND a.client_id=$6`,
+      [approvalId,d.binding.ownerUserId,d.binding.principalId,d.binding.scopeId,host.environment,host.clientId])).rows[0];
+      if(!a||a.runtime_device_id!==d.binding.runtimeDeviceId||a.connection_id!==input.connectionId||a.family_id!==input.familyId)deny();
+      // Native/official CLI is unavailable before the shared engine may load
+      // any private context or ask a host to verify a provider credential.
+      const selection=a.grant_selection;
+      requireCondition(selection.billingSource==='user_byok'&&selection.processingLocation==='provider_remote'
+        &&selection.credentialCustody==='platform_vault'&&selection.engineLocation==='platform'&&selection.artifactCustody==='platform_asset',
+      503,'machine_model_profile_unavailable','模型執行方式尚未提供。');
+      const from=Math.max(proof!.validFromMs,row.issued_at.getTime()),until=Math.min(proof!.validUntilMs,row.expires_at.getTime(),d.expires_at.getTime());
+      wall(from,until);return {device:d.binding,from,until};
+    }
+    async function activation(raw:z.infer<typeof ActivationInput>,approvalId:string):Promise<MachineModelSubject>{
+      const input=parse(ActivationInput,raw);OpaqueId.parse(approvalId);
+      return transaction(pool,async q=>make({kind:'activate',input,approvalId,device:(await pending(q,input,approvalId)).device}));
+    }
+    async function execution(raw:z.infer<typeof AccessInput>):Promise<MachineModelSubject>{
+      const input=parse(AccessInput,raw);
+      return transaction(pool,async q=>{const c=await authorizeAccess(q,input,true);try{return make({kind:input.operation,input,binding:c.binding});}finally{forgetMachineTextContext(c);}});
+    }
+    async function resume(q:PoolClient,subject:MachineModelSubject):Promise<MachineModelContext>{
+      const d=get(subject);let active:MachineTextContext|undefined,until:number|undefined,from:number|undefined;
+      if(d.kind==='activate'){const p=await pending(q,d.input,d.approvalId,d.device);until=p.until;from=p.from;}
+      else active=await authorizeAccess(q,d.input,true,true);
+      const b=d.kind==='activate'?d.device:d.binding;
+      const c=freezeTree({authn_kind:'execution_token' as const,ownerUserId:b.ownerUserId,
+        subject_principal:{principal_id:b.principalId,kind:'person' as const},scope:{scope_id:b.scopeId,kind:'personal' as const}});
+      live.set(c,{q,subject,active,pendingUntil:until,pendingFrom:from});
+      let map=transactions.get(subject);if(!map){map=new Map();transactions.set(subject,map);}if(map.has(q))deny();map.set(q,c);return c;
+    }
+    async function current(q:PoolClient,subject:MachineModelSubject){
+      get(subject);const c=transactions.get(subject)?.get(q),l=c&&live.get(c);if(!l||l.q!==q)deny();
+      if(l!.active)await assertMachineTextCurrent(q,l!.active);
+      else {wall(l!.pendingFrom!,l!.pendingUntil!);const d=get(subject);if(d.kind!=='activate')return deny();await pending(q,d.input,d.approvalId,d.device);wall(l!.pendingFrom!,l!.pendingUntil!);}
+    }
+    async function attachModel(q:PoolClient,subject:MachineModelSubject,c:MachineModelContext,stepId:string){
+      const d=get(subject),l=live.get(c);if(d.kind!=='activate'||!l||l.q!==q||l.subject!==subject||l.active||issued.has(subject))deny();
+      const value=await attach(q,(d as Pending).input,stepId),b=value.binding;
+      const s=(await q.query('SELECT evidence_origin,binding FROM model_text_steps WHERE step_id=$1',[stepId])).rows[0];
+      let credentialId:string|null=null,credentialGeneration:string|null=null;
+      {
+        const credential=(await q.query(`SELECT credential_id,generation::text FROM broker_model_credentials WHERE model_connection_id=$1
+          AND model_version=$2 AND owner_user_id=$3 AND owner_principal_id=$4 AND scope_id=$5 AND environment=$6 AND client_id=$7
+          AND runtime_device_id=$8 AND connection_id=$9 AND family_id=$10 AND state='active' AND issued_at<=clock_timestamp()
+          AND expires_at>clock_timestamp() AND recovery_generation=$11`,[s.binding.modelConnectionId,s.binding.modelVersion,b.ownerUserId,
+          b.principalId,b.scopeId,host.environment,host.clientId,b.runtimeDeviceId,b.connectionId,b.familyId,b.recoveryGeneration])).rows[0];
+        if(!credential&&s.evidence_origin!=='synthetic_local_fixture')deny();if(credential){credentialId=credential.credential_id;credentialGeneration=credential.generation;}
+      }
+      await q.query(`INSERT INTO execution_machine_model_pins(authorization_id,profile,evidence_origin,credential_id,credential_generation)
+        VALUES($1,'freedom.machine-model-pin/v1',$2,$3,$4)`,[b.authorizationId,s.evidence_origin,credentialId,credentialGeneration]);
+      const active=context(b),started=performance.now(),t=await clock(q),until=Math.min(l!.pendingUntil!,Date.parse(value.expiresAt));
+      admissions.set(active,{q,model:true,operation:'execute',validFromMs:l!.pendingFrom!,validUntilMs:until,monotonicDeadline:started+Math.max(0,until-t)});
+      l!.active=active;await assertMachineTextCurrent(q,active);issued.set(subject,value);
+    }
+    function fact(q:PoolClient,c:MachineModelContext):ExecutionFactBinding{const l=live.get(c);if(!l||l.q!==q||!l.active)deny();return machineTextFactBinding(l!.active!);}
+    function finish(q:PoolClient,c:MachineModelContext){const l=live.get(c);if(!l||l.q!==q)deny();if(l!.active)forgetMachineTextContext(l!.active);transactions.get(l!.subject)?.delete(q);live.delete(c);}
+    function takeIssued(subject:MachineModelSubject){get(subject);const value=issued.get(subject);issued.delete(subject);return value??null;}
+    function forget(subject:MachineModelSubject){subjects.delete(subject);issued.delete(subject);transactions.delete(subject);}
+    async function inspectActivation(q:PoolClient,raw:z.infer<typeof ActivationInput>,approvalId:string){
+      const input=parse(ActivationInput,raw);OpaqueId.parse(approvalId);const p=await pending(q,input,approvalId);
+      return freezeTree({...p,proofId:proofJti(input.proof)});
+    }
+    async function inspectAccess(q:PoolClient,raw:z.infer<typeof AccessInput>){
+      const input=parse(AccessInput,raw);if(input.operation!=='execute')deny();const c=await authorizeAccess(q,input,true,'inspect');
+      try{return freezeTree({binding:c.binding,proofId:proofJti(input.proof)});}finally{forgetMachineTextContext(c);}
+    }
+    return Object.freeze({inspectActivation,inspectAccess,activation,execution,resume,current,attachModel,fact,finish,takeIssued,forget,
+      snapshot:(subject:MachineModelSubject)=>{get(subject);return subject;},
+      describe:(subject:MachineModelSubject)=>{const d=get(subject);return freezeTree(d.kind==='activate'?{kind:d.kind,approvalId:d.approvalId,challengeId:d.input.challengeId,device:d.device}:{kind:d.kind,binding:d.binding});}});
+  }
+  return Object.freeze({challenge,attach,access:(q:PoolClient,raw:z.infer<typeof AccessInput>)=>authorizeAccess(q,raw),...invocationPorts()});
 }
 export type MachineTextAuthority=ReturnType<typeof createMachineTextAuthority>;

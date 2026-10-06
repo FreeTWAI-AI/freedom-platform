@@ -1,5 +1,5 @@
 @media (max-width: 720px) {
-  .tenant-workspace .tenant-create > .btn-primary,
+  .tenant-workspace .tenant-create .actions > .btn-primary,
   .tenant-workspace .tenant-authority-actions > .btn { width: 100%; }
 }
 

@@ -57,7 +57,15 @@
     "migrations/117_machine_text_execution.sql",
     "tests/runtime/machine-text-proof.test.ts",
     "tests/runtime/machine-text-authority.test.ts",
-    "tests/runtime/machine-text-fixtures.ts"
+    "tests/runtime/machine-text-fixtures.ts",
+    "contracts/execution/v3/machine-model-broker.ts",
+    "migrations/119_machine_model_invocations.sql",
+    "deploy/cloudflare/sql/20-runtime-grants.psql",
+    "apps/platform-api/src/machine-model-broker-client.ts",
+    "apps/platform-api/src/routes/machine-model-http.ts",
+    "tests/runtime/machine-model-http.test.ts",
+    "tests/runtime/machine-model-execution.test.ts",
+    "tests/runtime/machine-model-revocation.test.ts"
   ],
   "public_exports": [
     "packages/sdk/machine-device-client.mjs",

@@ -126,7 +126,7 @@ test('tenant scope backing accepts only tenant_ref, and the member resolver stil
   const owner = (await pool.query<{ principal_id: string }>(`INSERT INTO principals(user_ref) VALUES($1) RETURNING principal_id`, [ownerUser])).rows[0].principal_id;
   const other = (await pool.query<{ principal_id: string }>(`INSERT INTO principals(user_ref) VALUES($1) RETURNING principal_id`, [otherUser])).rows[0].principal_id;
   const tenantId = (await pool.query<{ tenant_id: string }>(`INSERT INTO tenants(community_id,display_name,status,created_by_principal_id)
-    VALUES($1,'形狀測試','archived',$2) RETURNING tenant_id`, [firstCommunity, owner])).rows[0].tenant_id;
+    VALUES($1,'形狀測試','recovery_required',$2) RETURNING tenant_id`, [firstCommunity, owner])).rows[0].tenant_id;
   const scope = await pool.query(`INSERT INTO resource_scopes(kind,tenant_ref) VALUES('tenant',$1) RETURNING scope_id`, [tenantId]);
   assert.equal(scope.rowCount, 1);
   await assert.rejects(pool.query(`INSERT INTO resource_scopes(kind,owner_principal_id,tenant_ref) VALUES('personal',$1,$2)`, [other, tenantId]), sqlCode('23514'));

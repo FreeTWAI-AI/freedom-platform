@@ -99,9 +99,9 @@ CREATE TRIGGER preserve_tenant_authority_audit
   BEFORE UPDATE OR DELETE ON tenant_authority_audit
   FOR EACH ROW EXECUTE FUNCTION preserve_tenant_authority_audit();
 
--- An active tenant always has at least one active owner. recovery_required,
--- suspended, and archived are the legal exceptions. Deferred so create can
--- insert the tenant and its owner in one transaction.
+-- Every tenant status except recovery_required needs at least one active
+-- owner. Deferred so create can insert the tenant and its owner together.
+-- The row lock serializes concurrent demotions.
 CREATE FUNCTION tenant_requires_active_owner() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   tid uuid;
@@ -112,7 +112,7 @@ BEGIN
   -- Lock the tenant before counting. Two READ COMMITTED demotions must not
   -- each observe the other owner and both commit.
   SELECT status INTO st FROM tenants WHERE tenant_id = tid FOR NO KEY UPDATE;
-  IF st = 'active' THEN
+  IF st IS DISTINCT FROM 'recovery_required' THEN
     SELECT count(*)::integer INTO owners FROM tenant_memberships
       WHERE tenant_id = tid AND role = 'owner' AND status = 'active';
     IF owners < 1 THEN

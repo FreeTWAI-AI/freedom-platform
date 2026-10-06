@@ -425,3 +425,102 @@ export function createBrokerCredentialStore(pool: Pool, options: {
   return Object.freeze({ prepareCreate: (actor: Actor, input: c.ModelCredentialCreate, guard?: CredentialWriteInvocationGuard) => prepare(actor,input,'create',guard),
     prepareRotate: (actor: Actor, input: c.ModelCredentialRotate, guard?: CredentialWriteInvocationGuard) => prepare(actor,input,'rotate',guard), commit, read, revoke, createResolver });
 }
+
+const machinePinSchema = z.object({
+  credentialId: c.ModelCredentialBindingSchema.shape.credentialId, expectedGeneration: c.ModelCredentialBindingSchema.shape.generation,
+  ownerUserId: c.ModelCredentialBindingSchema.shape.ownerUserId, ownerPrincipalId: c.ModelCredentialBindingSchema.shape.ownerPrincipalId,
+  scopeId: c.ModelCredentialBindingSchema.shape.scopeId, runtimeDeviceId: c.ModelCredentialBindingSchema.shape.runtimeDeviceId,
+  connectionId: c.ModelCredentialBindingSchema.shape.connectionId, familyId: c.ModelCredentialBindingSchema.shape.familyId,
+  modelConnectionId: c.ModelCredentialBindingSchema.shape.modelConnectionId, modelVersion: c.ModelCredentialBindingSchema.shape.modelVersion,
+  recoveryGeneration: c.ModelCredentialBindingSchema.shape.recoveryGeneration, environment: RuntimeEnvironmentSchema, clientId: BootstrapClientIdSchema,
+}).strict();
+/** Machine decrypt port. Pins come from the claimed SQL row, never from a
+ * transported Actor or a borrowed session. The member resolver above is unchanged. */
+export async function createMachineCredentialResolver(pool: Pool, raw: {
+  environment: z.infer<typeof RuntimeEnvironmentSchema>; clientId: string; vault: CredentialVault;
+  recover: () => Promise<RecoveryObservation>; pin: z.infer<typeof machinePinSchema>; assertMachine: () => Promise<void>;
+}) {
+  if (!raw || Object.getPrototypeOf(raw) !== Object.prototype) invalid();
+  const descriptors = Object.getOwnPropertyDescriptors(raw), names = ['environment', 'clientId', 'vault', 'recover', 'pin', 'assertMachine'];
+  if (Reflect.ownKeys(raw).length !== names.length || names.some(key => !descriptors[key]?.enumerable || !('value' in descriptors[key]))) invalid();
+  const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value), clientId = BootstrapClientIdSchema.parse(descriptors.clientId.value);
+  const vault = descriptors.vault.value as CredentialVault, recover = descriptors.recover.value as () => Promise<RecoveryObservation>;
+  const assertMachine = descriptors.assertMachine.value as () => Promise<void>, pin = parse(machinePinSchema, descriptors.pin.value);
+  if (!vault || typeof vault.open !== 'function' || typeof recover !== 'function' || typeof assertMachine !== 'function'
+    || pin.environment !== environment || pin.clientId !== clientId) invalid();
+  const recovery = async (checkBudget: () => void) => {
+    checkBudget(); const result = parse(recoverySchema, await recover()); checkBudget();
+    if (result.generation !== pin.recoveryGeneration || Date.parse(result.expiresAt) <= Date.now()) invalid();
+    return result;
+  };
+  interface Snapshot { binding: c.ModelCredentialBinding; envelope: c.BrokerCredentialEnvelope; now: Date; connection_expiry: Date; family_expiry: Date }
+  const observe = async (checkBudget: () => void): Promise<Snapshot> => {
+    checkBudget();
+    const row = (await pool.query<Snapshot>(`SELECT c.binding,v.envelope,clock_timestamp() now,a.expires_at connection_expiry,f.expires_at family_expiry
+      FROM broker_model_credentials c JOIN broker_credential_vault v USING(credential_id)
+      JOIN users u ON u.user_id=c.owner_user_id AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      JOIN principals p ON p.principal_id=c.owner_principal_id AND p.user_ref=u.user_id AND p.kind='person' AND p.status='active'
+      JOIN resource_scopes sc ON sc.scope_id=c.scope_id AND sc.owner_principal_id=p.principal_id AND sc.kind='personal' AND sc.status='active'
+      JOIN runtime_registrations r ON r.runtime_device_id=c.runtime_device_id AND r.owner_user_id=u.user_id
+        AND r.owner_principal_id=p.principal_id AND r.scope_id=sc.scope_id AND r.environment=c.environment AND r.state='enrolled'
+      JOIN agent_connections a ON a.connection_id=c.connection_id AND a.runtime_device_id=r.runtime_device_id
+        AND a.owner_user_id=u.user_id AND a.owner_principal_id=p.principal_id AND a.scope_id=sc.scope_id
+        AND a.environment=c.environment AND a.client_id=c.client_id AND a.state='active'
+      JOIN bootstrap_refresh_families f ON f.family_id=c.family_id AND f.connection_id=a.connection_id AND f.state='active'
+      JOIN model_connections m ON m.model_connection_id=c.model_connection_id AND m.aggregate_version=c.model_version
+        AND m.runtime_device_id=r.runtime_device_id AND m.connection_id=a.connection_id AND m.family_id=f.family_id
+        AND m.owner_user_id=u.user_id AND m.owner_principal_id=p.principal_id AND m.scope_id=sc.scope_id
+        AND m.environment=c.environment AND m.client_id=c.client_id AND m.selection=c.selection AND m.state='unverified'
+      WHERE c.credential_id=$1 AND c.generation=$2 AND c.owner_user_id=$3 AND c.owner_principal_id=$4 AND c.scope_id=$5
+        AND c.environment=$6 AND c.client_id=$7 AND c.runtime_device_id=$8 AND c.connection_id=$9 AND c.family_id=$10
+        AND c.model_connection_id=$11 AND c.model_version=$12 AND c.recovery_generation=$13 AND c.state='active'
+        AND c.issued_at<=clock_timestamp() AND r.enrolled_at<=clock_timestamp() AND a.issued_at<=clock_timestamp()
+        AND f.issued_at<=clock_timestamp() AND m.created_at<=clock_timestamp() AND c.expires_at>clock_timestamp()
+        AND a.expires_at>clock_timestamp() AND f.expires_at>clock_timestamp()`,
+    [pin.credentialId, pin.expectedGeneration, pin.ownerUserId, pin.ownerPrincipalId, pin.scopeId, environment, clientId,
+      pin.runtimeDeviceId, pin.connectionId, pin.familyId, pin.modelConnectionId, pin.modelVersion, pin.recoveryGeneration])).rows[0];
+    checkBudget();
+    if (!row) invalid();
+    row.binding = parse(c.ModelCredentialBindingSchema, row.binding);
+    row.envelope = parse(c.BrokerCredentialEnvelopeSchema, row.envelope);
+    const returnedAt = Date.now();
+    if (Date.parse(row.binding.expiresAt) <= row.now.getTime() || row.connection_expiry <= row.now || row.family_expiry <= row.now
+      || Date.parse(row.binding.expiresAt) <= returnedAt || row.connection_expiry.getTime() <= returnedAt || row.family_expiry.getTime() <= returnedAt
+      || row.binding.credentialId !== pin.credentialId || row.binding.generation !== pin.expectedGeneration
+      || row.binding.recoveryGeneration !== pin.recoveryGeneration) invalid();
+    return row;
+  };
+  const inspect = async (step: ModelStepBinding | undefined, checkBudget: () => void) => {
+    const before = await observe(checkBudget), r = await recovery(checkBudget), row = await observe(checkBudget), finalRecovery = await recovery(checkBudget);
+    if (!equal(before.binding, row.binding) || !equal(before.envelope, row.envelope) || finalRecovery.generation !== r.generation
+      || Date.parse(r.expiresAt) <= Date.now() || Date.parse(finalRecovery.expiresAt) <= Date.now()) invalid();
+    if (step) for (const key of ['modelConnectionId', 'modelVersion', 'ownerUserId', 'ownerPrincipalId', 'scopeId', 'environment', 'clientId', 'runtimeDeviceId', 'connectionId', 'familyId', 'selection'] as const)
+      if (!equal(row.binding[key], step[key])) invalid();
+    await assertMachine(); checkBudget();
+    const expiresAt = new Date(Math.min(Date.parse(row.binding.expiresAt), row.connection_expiry.getTime(), row.family_expiry.getTime(),
+      Date.parse(r.expiresAt), Date.parse(finalRecovery.expiresAt))).toISOString();
+    if (Date.parse(expiresAt) <= Date.now()) invalid();
+    return { binding: row.binding, envelope: row.envelope, expiresAt };
+  };
+  const resolverBudgetMs = 2500;
+  { const started = performance.now(); let cancelled = false;
+    const checkBudget = () => { if (cancelled || performance.now() - started >= resolverBudgetMs) invalid(); };
+    try { await port(() => inspect(undefined, checkBudget), undefined, resolverBudgetMs); } finally { cancelled = true; } }
+  return async (rawStep: ModelStepBinding): Promise<ResolvedModelCredential> => {
+    const started = performance.now(); let cancelled = false, key: Uint8Array | undefined;
+    const checkBudget = () => { if (cancelled || performance.now() - started >= resolverBudgetMs) invalid(); };
+    try {
+      return await port(async () => {
+        checkBudget(); const step = parseModelStepBinding(rawStep), before = await inspect(step, checkBudget);
+        const opened = await vault.open(before.binding, before.envelope);
+        if (cancelled || performance.now() - started >= resolverBudgetMs) { opened.fill(0); invalid(); }
+        key = opened;
+        const after = await inspect(step, checkBudget); checkBudget();
+        if (!equal(before.binding, after.binding) || !equal(before.envelope, after.envelope)) invalid();
+        const result = { key, expiresAt: new Date(Math.min(Date.parse(before.expiresAt), Date.parse(after.expiresAt))).toISOString() };
+        if (Date.parse(result.expiresAt) <= Date.now()) invalid();
+        checkBudget(); key = undefined; return result;
+      }, late => late.key.fill(0), resolverBudgetMs);
+    } finally { cancelled = true; key?.fill(0); }
+  };
+}

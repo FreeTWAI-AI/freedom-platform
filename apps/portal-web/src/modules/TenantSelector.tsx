@@ -12,11 +12,11 @@ export function TenantSelector({ tenants, selectedId, onSelect }: {
   selectedId: string | null;
   onSelect: (tenantId: string) => void;
 }) {
-  return <section className="stack" aria-label="我的業務空間">
+  return <section className="card stack" aria-label="我的業務空間">
     <h2>我的業務空間</h2>
     {tenants.length === 0
       ? <p className="field-hint">你還沒有業務空間。填寫名稱後即可建立。</p>
-      : <ul className="stack">
+      : <ul className="stack tenant-list">
         {tenants.map(tenant => <li key={tenant.tenant_id}>
           <button type="button" className={tenant.tenant_id === selectedId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={tenant.tenant_id === selectedId ? 'true' : undefined} onClick={() => onSelect(tenant.tenant_id)}>
             {tenant.display_name}・{roleLabel(tenant.my_membership.role)}

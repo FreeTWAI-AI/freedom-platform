@@ -80,7 +80,7 @@ test('MACHINE-SQL-05 valid tokens cannot accept wrong URI/method/hash/key/owner 
   const f=await ready(),g=await ready();
   for(const changes of [{htm:'GET'},{htu:f.host.audience+'/'+f.step.stepId+'/execute?x=1'},{environment:'next'},{client_id:'foreign'},
     {ath:'A'.repeat(43)},{connection_id:g.connection.connectionId},{family_id:g.family.familyId},{request_sha256:'f'.repeat(64)},
-    {iat:Math.floor(Date.now()/1000)-61},{iat:Math.floor(Date.now()/1000)+6},{extra:true}]){
+    {iat:Math.floor(Date.now()/1000)-61},{iat:Math.floor(Date.now()/1000)+30},{extra:true}]){
     await assert.rejects(transaction(app,async q=>f.authority.access(q,await f.access('execute',randomUUID(),changes))));
   }
   const foreign=await g.access();await assert.rejects(transaction(app,q=>f.authority.access(q,{...foreign,accessToken:f.issued.accessToken})));

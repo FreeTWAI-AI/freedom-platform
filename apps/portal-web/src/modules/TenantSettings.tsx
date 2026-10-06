@@ -279,7 +279,14 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function invite(person: DirectoryPerson) {
     if (!tenant) return;
-    const candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal: abortRef.current?.signal });
+    let candidate: { principal_id: string; display_name: string };
+    try {
+      candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal: abortRef.current?.signal });
+    } catch (error) {
+      if (abortRef.current?.signal.aborted) return;
+      setAlertText(error instanceof ApiError ? error.message : '需要處理');
+      return;
+    }
     const expires = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
     const saved = await run<InvitationView>({
       key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/invitations`,
@@ -466,42 +473,43 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   return <div className="module-panel stack tenant-workspace">
     <p role="status" aria-live="polite">{loading ? '結果確認中' : notice}</p>
     {alertText && <p className="banner" role="alert">{alertText}</p>}
-    {pending && <button type="button" className="btn btn-ghost" onClick={() => void confirmAgain()}>再確認一次</button>}
-    {alertText.includes('請重新載入') && <button type="button" className="btn btn-ghost" onClick={() => void loadMine(selectedId ?? undefined)}>重新載入</button>}
+    {pending && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void confirmAgain()}>再確認一次</button></div>}
+    {alertText.includes('請重新載入') && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void loadMine(selectedId ?? undefined)}>重新載入</button></div>}
 
-    <form className="stack tenant-create" onSubmit={event => void createTenant(event)}>
+    <form className="card stack tenant-create" onSubmit={event => void createTenant(event)}>
       <h2>建立業務空間</h2>
       <label className="field">業務空間名稱<input value={createName} maxLength={120} required onChange={event => setCreateName(event.target.value)}/></label>
       <label className="field">工作區名稱（可略過）<input value={createWorkspace} maxLength={120} onChange={event => setCreateWorkspace(event.target.value)}/></label>
-      <button className="btn btn-primary" type="submit">建立業務空間</button>
+      <div className="actions"><button className="btn btn-primary" type="submit">建立業務空間</button></div>
     </form>
 
     <TenantSelector tenants={tenants} selectedId={selectedId} onSelect={selectTenant}/>
 
-    {tenant && <section className="stack" aria-label="目前業務空間">
+    {tenant && <section className="card stack" aria-label="目前業務空間">
       <p><strong>{tenant.display_name}／{workspaceName || '工作區讀取中'}</strong></p>
       <p>我的角色：{roleLabel(tenant.my_membership.role)}</p>
       {recovering && <p className="banner" role="status">此業務空間目前沒有可登入的擁有者，正在等待受控復原；資料不會被刪除。</p>}
       {canEdit && <form className="stack" onSubmit={event => void saveTenant(event)}>
         <label className="field">顯示名稱<input value={editName} maxLength={120} required onChange={event => setEditName(event.target.value)}/></label>
         <label className="field">網址代號（可留空）<input value={slug} maxLength={64} onChange={event => setSlug(event.target.value)} spellCheck={false}/></label>
-        <button className="btn btn-ghost" type="submit">儲存</button>
+        <div className="actions"><button className="btn btn-ghost" type="submit">儲存</button></div>
       </form>}
       {canAddWorkspace && <form className="stack" onSubmit={event => void addWorkspace(event)}>
         <label className="field">新工作區名稱<input value={newWorkspace} maxLength={120} required onChange={event => setNewWorkspace(event.target.value)}/></label>
-        <button className="btn btn-ghost" type="submit">建立工作區</button>
+        <div className="actions"><button className="btn btn-ghost" type="submit">建立工作區</button></div>
       </form>}
       <section className="stack" aria-label="成員">
         <h2>成員</h2>
-        <ul className="stack">{members.map(member => <li key={member.principal_id} className="card">
+        <ul className="stack tenant-rows">{members.map(member => <li key={member.principal_id} className="tenant-row">
           <p>{member.display_name}・{roleLabel(member.role)}・{member.status === 'active' ? '使用中' : '已撤銷'}</p>
-          {canManage && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="stack">
-            <label className="field">角色<select value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
-              {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
-            </select></label>
-            {member.status === 'active'
-              ? <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
-              : <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'active')}>恢復</button>}
+          {canManage && member.status === 'active' && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="actions tenant-member-actions">
+            <div className="field tenant-member-role">
+              <label htmlFor={`tenant-member-role-${member.principal_id}`}>角色</label>
+              <select id={`tenant-member-role-${member.principal_id}`} value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
+                {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
+              </select>
+            </div>
+            <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
           </div>}
         </li>)}</ul>
       </section>
@@ -511,9 +519,9 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         <label className="field">邀請角色<select value={inviteRole} onChange={event => setInviteRole(event.target.value as (typeof INVITE_ROLES)[number])}>
           {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
         </select></label>
-        <button className="btn btn-ghost" type="submit">搜尋</button>
+        <div className="actions"><button className="btn btn-ghost" type="submit">搜尋</button></div>
         <ul className="stack">{people.map(person => <li key={person.user_id}>
-          <button type="button" className="btn btn-ghost" onClick={() => void invite(person)}>邀請{person.nickname}為{roleLabel(inviteRole)}</button>
+          <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void invite(person)}>邀請{person.nickname}為{roleLabel(inviteRole)}</button></div>
         </li>)}</ul>
       </form>}
       {canTransfer && <section className="stack" aria-label="移交擁有權">
@@ -546,20 +554,24 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         </section>}
       </section>}
       {!recovering && <section className="stack" aria-label="離開業務空間">
-        {lastOwner
-          ? <p className="field-hint">業務空間至少要有一位使用中的擁有者。請先完成所有權移交後再離開。</p>
-          : <button type="button" className="btn btn-ghost" onClick={() => void leave()}>離開這個業務空間</button>}
-        {lastOwner && <button type="button" className="btn btn-ghost" disabled>離開這個業務空間</button>}
+        {lastOwner && <p className="field-hint">你是唯一使用中的擁有者，目前不能離開這個業務空間。</p>}
+        <div className="actions">
+          {lastOwner
+            ? <button type="button" className="btn btn-ghost" disabled>離開這個業務空間</button>
+            : <button type="button" className="btn btn-ghost" onClick={() => void leave()}>離開這個業務空間</button>}
+        </div>
       </section>}
     </section>}
 
-    <section className="stack" aria-label="我的邀請">
+    <section className="card stack" aria-label="我的邀請">
       <h2>我的邀請</h2>
       {invitations.filter(item => item.state === 'pending').length === 0 && <p className="field-hint">目前沒有待回覆的邀請。</p>}
-      <ul className="stack">{invitations.filter(item => item.state === 'pending').map(invitation => <li key={invitation.invitation_id} className="card">
+      <ul className="stack tenant-rows">{invitations.filter(item => item.state === 'pending').map(invitation => <li key={invitation.invitation_id} className="tenant-row">
         <p>{invitation.tenant_display_name}・{roleLabel(invitation.role)}</p>
-        <button type="button" className="btn btn-primary" onClick={() => void respond(invitation, 'accept')}>接受{invitation.tenant_display_name}的邀請</button>
-        <button type="button" className="btn btn-ghost" onClick={() => void respond(invitation, 'decline')}>婉拒{invitation.tenant_display_name}的邀請</button>
+        <div className="actions">
+          <button type="button" className="btn btn-primary" onClick={() => void respond(invitation, 'accept')}>接受{invitation.tenant_display_name}的邀請</button>
+          <button type="button" className="btn btn-ghost" onClick={() => void respond(invitation, 'decline')}>婉拒{invitation.tenant_display_name}的邀請</button>
+        </div>
       </li>)}</ul>
     </section>
 
