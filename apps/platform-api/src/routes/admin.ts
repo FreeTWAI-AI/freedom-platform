@@ -10,14 +10,16 @@ import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.j
 import type {Pool} from 'pg';
 import {requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
-import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,classifyGuild,backfillGuildPreferencesAdmin,switchGuildPreferencesAdmin,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {listGuildCategories} from '../../../../modules/positioning/guild-categories.js';
+import {GuildKey} from '../../../../contracts/guild-launchpad/v1/guild-preferences.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
 import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'}){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'},guildLaunchpadEnabled=false){
   const app=new Hono<AdminEnv>();
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
@@ -91,6 +93,16 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
       WHERE e.community_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[admin.community_id]);
     return c.json({items:rows.rows});
   });
+  if(guildLaunchpadEnabled){
+    app.get('/guild-categories',async c=>c.json(await listGuildCategories(pool)));
+    app.post('/guilds/:key/classification',async c=>{
+      requireCondition(c.req.header('If-Match'),428,'version_required','請提供 If-Match 版本。');
+      const value=await classifyGuild(pool,await command(c),GuildKey.parse(c.req.param('key')));
+      c.header('ETag',`"${value.classification.catalog_revision}"`);return c.json(value);
+    });
+    app.post('/guild-preferences/backfill',async c=>c.json(await backfillGuildPreferencesAdmin(pool,await command(c))));
+    app.post('/guild-preferences/switch',async c=>c.json(await switchGuildPreferencesAdmin(pool,await command(c))));
+  }
   app.route('/',createRepoMaintainerAdminRoutes(pool));
   app.all('*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個管理 API。'},404));
   return app;

@@ -58,6 +58,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_PUBLIC_GUIDE_ENABLED?: string;
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
+  FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -170,6 +171,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
     // workerd rejects a bound global fetch, so the preview caller stays unbound.
     linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
+    guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
   };
 }
 

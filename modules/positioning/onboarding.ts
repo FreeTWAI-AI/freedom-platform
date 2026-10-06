@@ -9,6 +9,7 @@ import { avatarUrl } from '../identity-membership/avatars.js';
 import { skillBooksForGuild, officialGuildKeys, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
 import { ASSESSMENT_VERSION, ASSESSMENT_SHA256, assessmentQuestions, publicAssessmentDefinition, evaluateAssessment, guildTitles } from './assessment.js';
 import { assertGuildAnswers, entryQuestionsForGuild, presentGuildAnswers } from './guild-questions.js';
+import { assertLegacyPreferenceWritable, lockGuildCatalog, projectOnboardingGuild, recomputeLegacyProjection, switchedPositioningCard } from './guild-categories.js';
 
 type Queryable=Pick<Pool,'query'>;
 const Empty=z.object({}).strict();
@@ -99,13 +100,16 @@ const SecondaryInput=z.object({secondary_guild_keys:distinct(2)}).strict();
 export async function setSecondaryGuilds(pool:Pool,input:Command){
  const body=SecondaryInput.parse(input.body);
  return command(pool,input,async()=>{},async q=>{
+   await lockGuildCatalog(q);
    await lockMemberGuilds(q,input.actor);
+   await assertLegacyPreferenceWritable(q,input.actor.community_id);
    const current=await guildPreferenceState(q,input.actor);
    requireCondition(current.primary_guild_key,409,'primary_guild_required','請先設定主要公會。');
    checkVersion(current.aggregate_version!,input.expected);
    requireCondition(!body.secondary_guild_keys.includes(current.primary_guild_key!),422,'primary_guild_not_secondary','主要公會不能同時設為次要公會。');
    requireCondition(body.secondary_guild_keys.every(key=>current.active_guild_keys.includes(key)),409,'active_guild_required','請先加入公會，再設為次要。');
    await q.query('UPDATE guild_member_preferences SET secondary_guild_keys=$3,aggregate_version=aggregate_version+1,updated_at=now() WHERE community_id=$1 AND user_id=$2',[input.actor.community_id,input.actor.user_id,body.secondary_guild_keys]);
+   await recomputeLegacyProjection(q,input.actor);
    return guildPreferences(q,input.actor);
  });
 }
@@ -183,11 +187,13 @@ export async function completeOnboarding(pool:Pool,input:Command){
  const body=CompleteInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主力公會必須是你這次選擇加入的公會。');
  return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+   await lockGuildCatalog(q);
    const current=await currentAssessment(q,input);
    requireCondition(current.state==='evaluated'&&current.result,409,'assessment_not_evaluated','請先完成定位並查看公會建議。');
    requireCondition((await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=ANY($1::text[])',[body.guild_keys])).rowCount===body.guild_keys.length,422,'unknown_guild','請選擇目前已建立的公會。');
    for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
    await savePrimaryPreference(q,input.actor,body.primary_guild_key);
+   await projectOnboardingGuild(q,input.actor,body.primary_guild_key);
    await q.query("UPDATE onboarding_assessments SET state='completed',published_profile=jsonb_build_object('capabilities',capabilities,'equipment',equipment,'custom_capabilities',custom_capabilities,'custom_equipment',custom_equipment,'featured_capabilities',featured_capabilities),aggregate_version=aggregate_version+1,updated_at=now() WHERE assessment_id=$1",[current.assessment_id]);
    await q.query("UPDATE users SET onboarding_completed_at=COALESCE(onboarding_completed_at,now()),onboarding_entry_mode='assessment' WHERE user_id=$1 AND community_id=$2",[input.actor.user_id,input.actor.community_id]);
    await journal(q,input.actor,'member_onboarding',current.assessment_id,(BigInt(current.aggregate_version)+1n).toString(),'complete_onboarding',{assessment_version:ASSESSMENT_VERSION,primary_guild_key:body.primary_guild_key},'freedom.membership.onboarding.completed.v1');
@@ -198,6 +204,7 @@ export async function quickStartOnboarding(pool:Pool,input:Command){
  const body=QuickStartInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主要公會必須是你選擇加入的公會。');
  return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+   await lockGuildCatalog(q);
    await lockMemberGuilds(q,input.actor);
    const user=(await q.query('SELECT onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0];
    requireCondition(!user.onboarding_completed_at,409,'onboarding_already_completed','已完成加入，請到公會頁調整公會。');
@@ -206,6 +213,7 @@ export async function quickStartOnboarding(pool:Pool,input:Command){
    for(const key of body.guild_keys)await joinInTransaction(q,input.actor,key);
    await q.query(`INSERT INTO member_guild_answers(community_id,user_id,guild_key,question_set_version,question_set_sha256,answers) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[input.actor.community_id,input.actor.user_id,body.primary_guild_key,questionSet.version,questionSet.sha256,JSON.stringify(answers)]);
    await savePrimaryPreference(q,input.actor,body.primary_guild_key);
+   await projectOnboardingGuild(q,input.actor,body.primary_guild_key);
    // Preserve a partly completed assessment and its last-confirmed profile.
    await q.query("UPDATE users SET onboarding_completed_at=now(),onboarding_entry_mode='quick' WHERE user_id=$1 AND community_id=$2",[input.actor.user_id,input.actor.community_id]);
    // Answers stay in member_guild_answers. The journal records only the guild and question version.
@@ -242,12 +250,16 @@ export async function saveGuildAnswers(pool:Pool,input:Command,guildKey:string){
 export async function setPrimaryGuild(pool:Pool,input:Command,guildKey:string){
  Empty.parse(input.body);
  return command(pool,input,async()=>{},async q=>{
+   await lockGuildCatalog(q);
    await lockMemberGuilds(q,input.actor);
+   await assertLegacyPreferenceWritable(q,input.actor.community_id);
    const membership=(await q.query("SELECT membership_id FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
    requireCondition(membership,409,'active_guild_required','請先加入這個公會，再設為主力。');
    const current=await guildPreferences(q,input.actor);
    if(current.primary_guild_key)checkVersion(current.aggregate_version!,input.expected);else requireCondition(!input.expected,412,'version_conflict','主力公會已變更，請重新整理。');
-   return savePrimaryPreference(q,input.actor,guildKey);
+   const saved=await savePrimaryPreference(q,input.actor,guildKey);
+   await recomputeLegacyProjection(q,input.actor);
+   return saved;
  });
 }
 export async function guildDirectory(pool:Pool,actor:Actor){
@@ -289,6 +301,12 @@ function memberProfessionTitle(guild:{guild_key:string;profession_title?:string}
  return guildTitles[guild.guild_key]??((/^guild_custom_[0-9A-Fa-f]{32}$/.test(guild.guild_key)&&guild.profession_title)?guild.profession_title:'專業探索者');
 }
 export async function memberPositioningSummary(pool:Queryable,communityId:string,userId:string){
+ const switched=await switchedPositioningCard(pool,communityId,userId);
+ if(switched){
+  const row=(await pool.query("SELECT published_profile FROM onboarding_assessments WHERE community_id=$1 AND user_id=$2",[communityId,userId])).rows[0];
+  const profile=row?.published_profile;
+  return {positioning_title:switched.positioning_title,primary_guild:switched.primary_guild,secondary_guilds:switched.secondary_guilds,joined_guilds:switched.joined_guilds,category_primaries:switched.category_primaries,capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
+ }
  const membership=(await pool.query(`SELECT g.guild_key,g.name,g.alias,g.profession_title,m.joined_at,p.secondary_guild_keys,COALESCE(p.primary_guild_key=g.guild_key,false) AS is_primary FROM positioning_profession_memberships m
   JOIN positioning_guild_catalog g USING(guild_key) LEFT JOIN guild_member_preferences p ON p.community_id=m.community_id AND p.user_id=m.user_id
   WHERE m.community_id=$1 AND m.user_id=$2 AND m.state='active' ORDER BY g.guild_key`,[communityId,userId])).rows;
