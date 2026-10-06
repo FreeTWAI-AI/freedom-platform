@@ -26,7 +26,7 @@ import {recoverySessionFingerprint} from '../../packages/media-migration/recover
 import {withMemberScope} from '../../packages/resource-scopes/index.js';
 import {migrate} from '../../scripts/database.js';
 
-const DATABASE='fp_b3_source',SCHEMA='fp_b3_src';
+const DATABASE='fp_handover_source',SCHEMA='fp_handover_src';
 const note=(phase:string)=>process.stderr.write(`producer:${phase}\n`);
 function safe(error:unknown):string{
   const pg=error&&typeof error==='object'&&'code' in error?String((error as {code:unknown}).code):'';

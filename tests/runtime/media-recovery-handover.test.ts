@@ -17,7 +17,7 @@ import {runMediaRecoveryRestore} from '../../scripts/media-recovery-restore.js';
 import {decodeEvidence} from '../../packages/media-migration/backup-evidence.js';
 import {readbackRecoverySet,restoreRecoverySet,restoredReferenceAuthorization,recoverySetKeys,RecoveryArchiveError,type DatabaseRestoreWriter,type RecoverySetIdentity} from '../../packages/media-migration/backup-archive.js';
 import {MEDIA_ACL_SIGNATURES} from '../../packages/media-migration/restore-acl-lockdown.js';
-import {RECOVERY_OWNER,RECOVERY_POSTGRES_IMAGE,discardOwnedRecoveryContainer,removeOwnedRecoveryContainer,withOwnedRecoveryTarget,type OwnedRecoveryIdentity,type RecoveryContainerRole} from '../../packages/media-migration/owned-recovery-target.js';
+import {RECOVERY_OWNER,RECOVERY_POSTGRES_IMAGE,RECOVERY_TASK,discardOwnedRecoveryContainer,removeOwnedRecoveryContainer,withOwnedRecoveryTarget,type OwnedRecoveryIdentity,type RecoveryContainerRole} from '../../packages/media-migration/owned-recovery-target.js';
 import {openRecoveryBundle,RecoveryBundleError} from '../../packages/media-migration/recovery-bundle.js';
 import {restoreRecoveryHandover,RecoveryHandoverError} from '../../packages/media-migration/recovery-handover.js';
 import type {ObjectStore} from '../../packages/asset-storage/index.js';
@@ -55,7 +55,7 @@ async function tighten(path:string):Promise<void>{
   if(stat.isDirectory())for(const name of await readdir(path))await tighten(join(path,name));
 }
 async function copyBundle():Promise<string>{
-  assert(handoff);const dest=await privateDir('fp-b3-copy-');
+  assert(handoff);const dest=await privateDir('fp-media-handover-copy-');
   await cp(handoff,dest,{recursive:true,verbatimSymlinks:true});await tighten(dest);return dest;
 }
 async function treeHash(path:string):Promise<string>{
@@ -89,7 +89,7 @@ async function releaseIntent(dir:string):Promise<void>{
   const identity:OwnedRecoveryIdentity={containerId:typeof intent.containerId==='string'?intent.containerId:'',name:intent.name,run:intent.run,socket:intent.socket,role:intent.role as RecoveryContainerRole};
   discardOwnedRecoveryContainer(identity);
   const socketRoot=dirname(intent.socket);
-  if(intent.socket.startsWith('/tmp/fp-g-b3-')&&socketRoot.startsWith('/tmp/fp-g-b3-'))await rm(socketRoot,{recursive:true,force:true}).catch(()=>{});
+  if(intent.socket.startsWith('/tmp/fp-media-recovery-')&&socketRoot.startsWith('/tmp/fp-media-recovery-'))await rm(socketRoot,{recursive:true,force:true}).catch(()=>{});
 }
 async function releaseTree(dir:string):Promise<void>{
   let names:string[];try{names=await readdir(dir);}catch{return;}
@@ -100,7 +100,7 @@ function removeForeign():void{
   if(!foreignId)return;
   const item=inspectOne(foreignId);
   if(!item){foreignId='';return;}
-  if(item.Config?.Labels?.['freedom.owner']!=='grok-b3-other'||item.Name!=='/'+foreignName||item.Id!==foreignId)throw new Error('foreign_container_identity_mismatch');
+  if(item.Config?.Labels?.['freedom.owner']!=='media-recovery-handover-foreign-test'||item.Name!=='/'+foreignName||item.Id!==foreignId)throw new Error('foreign_container_identity_mismatch');
   dockerText(['rm',foreignId]);foreignId='';
 }
 let chain:Promise<void>=Promise.resolve();
@@ -136,7 +136,7 @@ serial('ambient database environment is refused before docker',async()=>{
   const previous=process.env.DATABASE_URL;const before=ownedContainerIds();
   process.env.DATABASE_URL='postgresql://postgres@127.0.0.1:54339/freedom';
   try{
-    const refused=await runMediaRecoveryRestore(['--execute-quarantine','--set-id',randomUUID(),'--manifest-sha256','a'.repeat(64),'--environment','local','--source-database','fp_b3_source','--schema','fp_b3_src','--source-release',head,'--operator-source',head,'--bundle-dir','/tmp/fp-b3-absent-bundle','--state-dir','/tmp/fp-b3-absent-state','--target-database','fp_b3_restore']);
+    const refused=await runMediaRecoveryRestore(['--execute-quarantine','--set-id',randomUUID(),'--manifest-sha256','a'.repeat(64),'--environment','local','--source-database','fp_handover_source','--schema','fp_handover_src','--source-release',head,'--operator-source',head,'--bundle-dir','/tmp/fp-media-handover-absent-bundle','--state-dir','/tmp/fp-media-handover-absent-state','--target-database','fp_handover_restore']);
     assert.equal(refused.exitCode,1);assert.equal(reportField(refused.report,'status'),'unavailable');
     assert.deepEqual(ownedContainerIds(),before);
   }finally{if(previous===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=previous;}
@@ -144,21 +144,21 @@ serial('ambient database environment is refused before docker',async()=>{
 
 serial('cleanup refuses a foreign container without removing it',async()=>{
   dockerText(['image','inspect','--format','{{.Id}}',RECOVERY_POSTGRES_IMAGE]);
-  foreignName='fp-g-b3-foreign-'+randomUUID();
+  foreignName='fp-media-handover-foreign-'+randomUUID();
   const run=randomUUID();
-  foreignId=dockerText(['create','--pull','never','--name',foreignName,'--network','none','--label','freedom.task=foundation-recovery-handover','--label','freedom.owner=grok-b3-other','--label','freedom.role=consumer','--label','freedom.run='+run,RECOVERY_POSTGRES_IMAGE]);
+  foreignId=dockerText(['create','--pull','never','--name',foreignName,'--network','none','--label','freedom.task='+RECOVERY_TASK,'--label','freedom.owner=media-recovery-handover-foreign-test','--label','freedom.role=consumer','--label','freedom.run='+run,RECOVERY_POSTGRES_IMAGE]);
   assert.match(foreignId,/^[0-9a-f]{64}$/);
-  const identity:OwnedRecoveryIdentity={containerId:foreignId,name:foreignName,run,socket:'/tmp/fp-g-b3-not-ours',role:'consumer'};
+  const identity:OwnedRecoveryIdentity={containerId:foreignId,name:foreignName,run,socket:'/tmp/fp-media-handover-not-ours',role:'consumer'};
   assert.throws(()=>removeOwnedRecoveryContainer(identity),(error:unknown)=>error instanceof Error&&error.message==='owned_recovery_target_unavailable');
   const item=inspectOne(foreignId);
-  assert.equal(item?.Id,foreignId);assert.equal(item?.State?.Status,'created');assert.equal(item?.Config?.Labels?.['freedom.owner'],'grok-b3-other');
+  assert.equal(item?.Id,foreignId);assert.equal(item?.State?.Status,'created');assert.equal(item?.Config?.Labels?.['freedom.owner'],'media-recovery-handover-foreign-test');
 });
 
 serial('producer exit then a new process restores only the handed-over files',async()=>{
   const porcelain=execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:repo,encoding:'utf8'});
   assert.equal(porcelain,'','CLI refuses a dirty operator source; commit before this test');
   dockerText(['image','inspect','--format','{{.Id}}',RECOVERY_POSTGRES_IMAGE]);
-  root=await privateDir('fp-b3-handover-');
+  root=await privateDir('fp-media-handover-handover-');
   handoff=join(root,'handoff');work=join(root,'work');state=join(root,'state');
   await mkdir(handoff,{mode:0o700});await mkdir(work,{mode:0o700});await mkdir(state,{mode:0o700});
   handoff=await realpath(handoff);work=await realpath(work);state=await realpath(state);
@@ -170,7 +170,7 @@ serial('producer exit then a new process restores only the handed-over files',as
   assert.equal(inspectOne(expectations.containerId),undefined,'producer container must be gone before the consumer starts');
   const beforeHash=await treeHash(handoff);
   assert.equal(dockerEnv().DATABASE_URL,undefined);assert.equal(dockerEnv().PGHOST,undefined);
-  const consumer=await spawnNode(['scripts/media-recovery-restore.ts','--execute-quarantine','--set-id',expectations.setId,'--manifest-sha256',expectations.manifestSha256,'--environment','local','--source-database',expectations.database,'--schema',expectations.schema,'--source-release',head,'--operator-source',head,'--bundle-dir',handoff,'--state-dir',state,'--target-database','fp_b3_restore'],12*60*1000);
+  const consumer=await spawnNode(['scripts/media-recovery-restore.ts','--execute-quarantine','--set-id',expectations.setId,'--manifest-sha256',expectations.manifestSha256,'--environment','local','--source-database',expectations.database,'--schema',expectations.schema,'--source-release',head,'--operator-source',head,'--bundle-dir',handoff,'--state-dir',state,'--target-database','fp_handover_restore'],12*60*1000);
   if(consumer.code!==0){await releaseTree(state);assert.fail(`consumer exit ${consumer.code} timedOut=${consumer.timedOut} stderr=${consumer.stderr.slice(-1500)} stdout=${consumer.stdout.slice(-1500)}`);}
   const runs=(await readdir(state)).filter(name=>name!=='.');
   assert.equal(runs.length,1);
@@ -210,21 +210,21 @@ serial('corrupt, missing, wrong-identity and unsafe inputs fail before a target 
   const identity=():RecoverySetIdentity=>({setId:expectations!.setId,manifestSha256:expectations!.manifestSha256,environment:'local',database:expectations!.database,schema:expectations!.schema,sourceRelease:head});
   const flipped=expectations.manifestSha256.slice(0,-1)+(expectations.manifestSha256.endsWith('0')?'1':'0');
   const cases:RecoverySetIdentity[]=[
-    {...identity(),manifestSha256:flipped},{...identity(),environment:'staging'},{...identity(),database:'fp_b3_other'},
-    {...identity(),schema:'fp_b3_other'},{...identity(),sourceRelease:head.startsWith('a')?'b'.repeat(40):'a'.repeat(40)},
+    {...identity(),manifestSha256:flipped},{...identity(),environment:'staging'},{...identity(),database:'fp_handover_other'},
+    {...identity(),schema:'fp_handover_other'},{...identity(),sourceRelease:head.startsWith('a')?'b'.repeat(40):'a'.repeat(40)},
   ];
   for(const expected of cases){
-    const run=await privateDir('fp-b3-run-'),before=ownedContainerIds();
+    const run=await privateDir('fp-media-handover-run-'),before=ownedContainerIds();
     try{
-      await assert.rejects(restoreRecoveryHandover({expected,operatorSource:head,bundleDirectory:handoff,runDirectory:run,targetDatabase:'fp_b3_restore',signal:AbortSignal.timeout(120000)}),
+      await assert.rejects(restoreRecoveryHandover({expected,operatorSource:head,bundleDirectory:handoff,runDirectory:run,targetDatabase:'fp_handover_restore',signal:AbortSignal.timeout(120000)}),
         (error:unknown)=>error instanceof RecoveryArchiveError&&error.code==='recovery_identity_mismatch');
       await assert.rejects(access(join(run,'container-intent.json')));
       assert.deepEqual(ownedContainerIds(),before);
     }finally{await rm(run,{recursive:true,force:true});}
   }
-  const missingDir=await privateDir('fp-b3-run-');
+  const missingDir=await privateDir('fp-media-handover-run-');
   try{
-    await assert.rejects(restoreRecoveryHandover({expected:{...identity(),setId:randomUUID()},operatorSource:head,bundleDirectory:handoff,runDirectory:missingDir,targetDatabase:'fp_b3_restore',signal:AbortSignal.timeout(60000)}),
+    await assert.rejects(restoreRecoveryHandover({expected:{...identity(),setId:randomUUID()},operatorSource:head,bundleDirectory:handoff,runDirectory:missingDir,targetDatabase:'fp_handover_restore',signal:AbortSignal.timeout(60000)}),
       (error:unknown)=>error instanceof RecoveryBundleError);
     await assert.rejects(access(join(missingDir,'container-intent.json')));
   }finally{await rm(missingDir,{recursive:true,force:true});}
@@ -232,11 +232,11 @@ serial('corrupt, missing, wrong-identity and unsafe inputs fail before a target 
   await assert.rejects(readbackRecoverySet({...opened,setId:expectations.setId,verifiedAt:new Date().toISOString(),expected:{...identity(),setId:randomUUID()}}),
     (error:unknown)=>error instanceof RecoveryArchiveError&&error.code==='recovery_identity_mismatch');
   async function tamper(mutate:(copy:string,objectFile:string)=>Promise<void>,label:string){
-    const copy=await copyBundle();const run=await privateDir('fp-b3-run-'),before=ownedContainerIds();
+    const copy=await copyBundle();const run=await privateDir('fp-media-handover-run-'),before=ownedContainerIds();
     try{
       const objectFile=join(copy,'objects',expectations!.objects[0]!.key.replaceAll('/','_')+'.json');
       await mutate(copy,objectFile);
-      await assert.rejects(restoreRecoveryHandover({expected:identity(),operatorSource:head,bundleDirectory:copy,runDirectory:run,targetDatabase:'fp_b3_restore',signal:AbortSignal.timeout(180000)}),refusal,label);
+      await assert.rejects(restoreRecoveryHandover({expected:identity(),operatorSource:head,bundleDirectory:copy,runDirectory:run,targetDatabase:'fp_handover_restore',signal:AbortSignal.timeout(180000)}),refusal,label);
       await assert.rejects(access(join(run,'container-intent.json')),label);
       assert.deepEqual(ownedContainerIds(),before,label);
     }finally{await rm(copy,{recursive:true,force:true});await rm(run,{recursive:true,force:true});}
@@ -252,12 +252,12 @@ serial('corrupt, missing, wrong-identity and unsafe inputs fail before a target 
   await tamper(async(_copy,file)=>{await chmod(file,0o644);},'object mode');
   await tamper(async copy=>{await chmod(copy,0o755);},'directory mode');
   {
-    const copy=await copyBundle();const run=await privateDir('fp-b3-via-'),before=ownedContainerIds();
+    const copy=await copyBundle();const run=await privateDir('fp-media-handover-via-'),before=ownedContainerIds();
     try{
       // path.join would collapse "..". The reader compares this string with realpath.
       const via=dirname(copy)+'/../'+basename(dirname(copy))+'/'+basename(copy);
       assert.notEqual(via,copy);
-      await assert.rejects(restoreRecoveryHandover({expected:identity(),operatorSource:head,bundleDirectory:via,runDirectory:run,targetDatabase:'fp_b3_restore',signal:AbortSignal.timeout(60000)}),(error:unknown)=>error instanceof RecoveryBundleError,'traversal path');
+      await assert.rejects(restoreRecoveryHandover({expected:identity(),operatorSource:head,bundleDirectory:via,runDirectory:run,targetDatabase:'fp_handover_restore',signal:AbortSignal.timeout(60000)}),(error:unknown)=>error instanceof RecoveryBundleError,'traversal path');
       await assert.rejects(access(join(run,'container-intent.json')));
       assert.deepEqual(ownedContainerIds(),before);
     }finally{await rm(copy,{recursive:true,force:true});await rm(run,{recursive:true,force:true});}
@@ -270,32 +270,32 @@ serial('corrupt, missing, wrong-identity and unsafe inputs fail before a target 
 
 serial('non-empty target is refused before restore writes, and the foreign container survives',async()=>{
   assert(expectations&&handoff&&foreignId);
-  const copy=await copyBundle();const run=await privateDir('fp-b3-nonempty-');
+  const copy=await copyBundle();const run=await privateDir('fp-media-handover-nonempty-');
   let sqlWrites=0,objectWrites=0,sentinel=-1,assets=-1;
   const before=ownedContainerIds();
   try{
     const bundle=await openRecoveryBundle(copy,expectations.setId);
     const expected:RecoverySetIdentity={setId:expectations.setId,manifestSha256:expectations.manifestSha256,environment:'local',database:expectations.database,schema:expectations.schema,sourceRelease:head};
-    await assert.rejects(withOwnedRecoveryTarget({runDirectory:run,database:'fp_b3_nonempty',schema:'fp_b3_src',signal:AbortSignal.timeout(180000)},async target=>{
-      await target.pool.query('CREATE SCHEMA fp_b3_src');
-      await target.pool.query('CREATE TABLE fp_b3_src.sentinel (id int)');
-      await target.pool.query('INSERT INTO fp_b3_src.sentinel VALUES (1)');
+    await assert.rejects(withOwnedRecoveryTarget({runDirectory:run,database:'fp_handover_nonempty',schema:'fp_handover_src',signal:AbortSignal.timeout(180000)},async target=>{
+      await target.pool.query('CREATE SCHEMA fp_handover_src');
+      await target.pool.query('CREATE TABLE fp_handover_src.sentinel (id int)');
+      await target.pool.query('INSERT INTO fp_handover_src.sentinel VALUES (1)');
       const database:DatabaseRestoreWriter={async restore(){sqlWrites++;throw new Error('writer_called');}};
       const destinationObjects:ObjectStore={
         async putImmutable(){objectWrites++;throw new Error('put_called');},
         async get(){throw new Error('get_called');},async head(){throw new Error('head_called');},async delete(){throw new Error('delete_called');},
       };
       try{await restoreRecoverySet({...bundle,setId:expectations!.setId,expected,destinationObjects,restoredPool:target.pool,restoredDatabase:target.databaseName,database,
-        objectAuthority:restoredReferenceAuthorization(target.pool,{database:target.databaseName,schema:'fp_b3_src',current:{mode:'quarantine'}})});}
+        objectAuthority:restoredReferenceAuthorization(target.pool,{database:target.databaseName,schema:'fp_handover_src',current:{mode:'quarantine'}})});}
       finally{
-        sentinel=(await target.pool.query('SELECT count(*)::int AS n FROM fp_b3_src.sentinel')).rows[0].n;
-        assets=(await target.pool.query("SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fp_b3_src' AND c.relname='assets'")).rows[0].n;
+        sentinel=(await target.pool.query('SELECT count(*)::int AS n FROM fp_handover_src.sentinel')).rows[0].n;
+        assets=(await target.pool.query("SELECT count(*)::int AS n FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='fp_handover_src' AND c.relname='assets'")).rows[0].n;
       }
     }),(error:unknown)=>error instanceof RecoveryArchiveError&&error.code==='restore_target_not_empty');
     assert.equal(sqlWrites,0);assert.equal(objectWrites,0);assert.equal(sentinel,1);assert.equal(assets,0);
     assert.deepEqual(ownedContainerIds(),before);
     const foreign=inspectOne(foreignId);
-    assert.equal(foreign?.State?.Status,'created');assert.equal(foreign?.Config?.Labels?.['freedom.owner'],'grok-b3-other');
+    assert.equal(foreign?.State?.Status,'created');assert.equal(foreign?.Config?.Labels?.['freedom.owner'],'media-recovery-handover-foreign-test');
   }finally{
     let cleanup:unknown;
     try{await releaseTree(run);}catch(error){cleanup=error;}

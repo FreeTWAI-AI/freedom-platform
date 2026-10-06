@@ -14,8 +14,8 @@ import {DUMP_MAX_BYTES,type DatabaseRestoreWriter} from './backup-archive.js';
 import {assertPrivateRecoveryDirectory} from './recovery-bundle.js';
 
 export const RECOVERY_POSTGRES_IMAGE='postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
-export const RECOVERY_TASK='foundation-recovery-handover';
-export const RECOVERY_OWNER='grok-b3-handover';
+export const RECOVERY_TASK='media-recovery-handover';
+export const RECOVERY_OWNER='media-recovery-restore';
 export type RecoveryContainerRole='producer'|'consumer';
 const DATABASE=/^fp_[a-z0-9_]{1,55}$/;
 const SCHEMA=/^fp_[a-z0-9_]{0,62}$/;
@@ -82,7 +82,7 @@ export async function openOwnedRecoveryDatabase(input:{runDirectory:string;datab
   await assertPrivateRecoveryDirectory(input.runDirectory);
   if(!DATABASE.test(input.database)||(input.searchPath!==undefined&&!SCHEMA.test(input.searchPath))||!(input.signal instanceof AbortSignal)
     ||(input.prepareSchema===true&&!input.searchPath)||(input.max!==undefined&&(!Number.isSafeInteger(input.max)||input.max<1||input.max>8)))fail();
-  const run=randomUUID(),name='fp-g-b3-'+run,signal=input.signal;
+  const run=randomUUID(),name='fp-media-recovery-'+run,signal=input.signal;
   let socketRoot:string|undefined,socket:string|undefined,containerId='',attempted=false,pool:Pool|undefined,closed=false;
   const identity=():OwnedRecoveryIdentity=>Object.freeze({containerId,name,run,socket:socket!,role:input.role});
   async function close(){
@@ -102,7 +102,7 @@ export async function openOwnedRecoveryDatabase(input:{runDirectory:string;datab
     if(failed)fail();
   }
   try{
-    signal.throwIfAborted();socketRoot=await realpath(await mkdtemp('/tmp/fp-g-b3-'));await chmod(socketRoot,0o700);
+    signal.throwIfAborted();socketRoot=await realpath(await mkdtemp('/tmp/fp-media-recovery-'));await chmod(socketRoot,0o700);
     await mkdir(join(socketRoot,'s'),{mode:0o777});await chmod(join(socketRoot,'s'),0o777);socket=await realpath(join(socketRoot,'s'));
     const planned=Object.freeze({name,run,socket,role:input.role,image:RECOVERY_POSTGRES_IMAGE,database:input.database});
     const intent=await open(join(input.runDirectory,'container-intent.json'),'wx',0o600);
