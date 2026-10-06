@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateDescriptor } from '../../packages/contribution-tools/context.mjs';
 import {
-  ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS,
+  ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS, FRONTEND_LEAF_PROFILES, FRONTEND_LEAF_JOBS,
   changesFromTrees, collectRepositoryDecision, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
   heavyJobCondition, isDocsAllowlisted, loadModuleDescriptors, parseLsTreeZ, parseNameStatusZ,
 } from './select-affected-jobs.mjs';
@@ -283,6 +283,10 @@ test('failed, cancelled, missing, and inconsistent dependencies never pass', () 
   const unavailable = needsFor(docsDecision, allResults('skipped'));
   delete unavailable['source-integrity'];
   assert.equal(evaluateVerifyAggregate(unavailable).reason, 'source_integrity_not_success');
+  for (const selection of [docsDecision, fullDecision]) for (const missingReason of [undefined, '']) {
+    const needs = needsFor(selection, allResults('success')); needs.select.outputs.reason = missingReason;
+    assert.equal(evaluateVerifyAggregate(needs).reason, 'decision_incomplete');
+  }
   const missingOutput = needsFor(fullDecision, allResults('success'));
   delete missingOutput.select.outputs.runtime_full;
   assert.equal(evaluateVerifyAggregate(missingOutput).reason, 'decision_incomplete');
@@ -292,47 +296,14 @@ test('failed, cancelled, missing, and inconsistent dependencies never pass', () 
   assert.equal(evaluateVerifyAggregate(null).reason, 'needs_missing');
 });
 
-test('checkout descriptors keep an ordinary development doc narrow and a claimed doc full', () => {
+test('real checkout descriptors parse without freezing live document ownership', () => {
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const loaded = loadModuleDescriptors(root, sha);
   assert.equal(loaded.ok, true);
+  assert.ok(loaded.descriptors.length > 0);
   assert.ok(loaded.descriptors.every(descriptor => validateDescriptor(descriptor)));
-  const ordinary = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/runtime-ci-postgres.md')],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(ordinary.mode, 'docs');
-  const withInventory = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/runtime-ci-postgres.md'), edited(GENERATED_INVENTORY_PATH)],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(withInventory.mode, 'docs');
-  assert.equal(withInventory.reason, 'docs_allowlist');
-  for (const id of SELECTABLE_JOBS) assert.equal(withInventory.jobs[id], false);
-  const inventoryOnly = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited(GENERATED_INVENTORY_PATH)],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(inventoryOnly.reason, 'governance_security_or_shared_runtime');
-  const claimed = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/worker-private-ai-bindings.md')],
-    baseline: loaded.descriptors, candidate: loaded.descriptors,
-  });
-  assert.equal(claimed.reason, 'baseline_candidate_union');
-  const candidate = loaded.descriptors.map(descriptor => ({
-    ...descriptor,
-    owned_paths: descriptor.owned_paths.filter(path => path !== 'docs/development/worker-private-ai-bindings.md'),
-  }));
-  const shrunk = decideAffectedJobs({
-    event: 'pull_request', diffComplete: true,
-    changes: [edited('docs/development/worker-private-ai-bindings.md')],
-    baseline: loaded.descriptors, candidate,
-  });
-  assert.equal(shrunk.reason, 'baseline_candidate_union');
+  // Ownership/union/shrink assertions use controlled fixtures above. A valid
+  // future module claiming an existing doc may legitimately select full CI.
 });
 
 test('repository tree diff narrows a docs edit and refuses a rename or merge_group input', async t => {
@@ -547,4 +518,148 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   }
   assert.match(jobBlock(text, 'select'), /--allow-fetch/);
   assert.match(jobBlock(text, 'deploy-preflight'), /node --test deploy\/cloudflare\/test\/\*\.test\.mjs/);
+});
+
+function leafDescriptors() {
+  return [
+    ...FRONTEND_LEAF_PROFILES.map(profile => moduleDescriptor(profile.module, [...profile.paths], { dependencies: [...profile.dependencies], tests: [...profile.tests] })),
+    moduleDescriptor('command-core', ['packages/command-core/**']),
+    moduleDescriptor('public-guide-assets', ['packages/public-guide-assets/**']),
+  ];
+}
+function leafDecision(paths = [FRONTEND_LEAF_PROFILES[0].paths[0]], extra = {}) {
+  return pull(paths.map(path => edited(path)), { baseline: leafDescriptors(), ...extra });
+}
+function assertLeaf(selection) {
+  assert.equal(selection.mode, 'affected');
+  assert.equal(selection.reason, 'frontend_leaf_profiles');
+  assert.deepEqual(selection.jobs, Object.fromEntries(SELECTABLE_JOBS.map(id => [id, FRONTEND_LEAF_JOBS.includes(id)])));
+}
+
+test('fixed frontend profiles retain complete runtime/browser/static jobs without adding a runner', () => {
+  const descriptors = leafDescriptors();
+  for (const profile of FRONTEND_LEAF_PROFILES) for (const path of profile.paths) {
+    assertLeaf(leafDecision([path], {baseline: descriptors, candidate: descriptors}));
+  }
+  assertLeaf(leafDecision(FRONTEND_LEAF_PROFILES.flatMap(profile => profile.paths)));
+  assertLeaf(leafDecision([FRONTEND_LEAF_PROFILES[0].paths[0], 'docs/development/ordinary.md', GENERATED_INVENTORY_PATH]));
+  assert.deepEqual(FRONTEND_LEAF_JOBS, ['runtime-full', 'runtime-aggregate', 'ui-e2e', 'static-worker']);
+  assert.equal(SELECTABLE_JOBS.length, 6);
+});
+
+test('leaf selection refuses new/unmapped/auth/contract/descriptor/runtime-text and destructive paths', () => {
+  const leaf = FRONTEND_LEAF_PROFILES[0].paths[0];
+  for (const path of ['apps/portal-web/src/modules/MemberShare.tsx', 'apps/portal-web/src/modules/PublicMemberPage.tsx',
+    'apps/portal-web/src/modules/MemberCardShareActions.tsx', 'apps/portal-web/src/modules/newcomer-guides/gate.ts',
+    'apps/portal-web/src/modules/newcomer-guides/release-pin.ts', 'apps/portal-web/src/modules/newcomer-guides/contracts.ts',
+    'apps/portal-web/src/modules/newcomer-guides/new-page.tsx', 'apps/portal-web/src/App.tsx',
+    'packages/command-core/README.md', 'contracts/common/v1/ArtifactRef.json', 'packages/shop-agent/common.md',
+    'apps/portal-web/src/modules/freedom.module.json', 'modules/identity-membership/member-sharing.ts',
+    'migrations/117_example.sql', 'deploy/cloudflare/migration-operator.mjs', 'scripts/database.ts']) {
+    assert.equal(leafDecision([leaf, path]).mode, 'full', path);
+  }
+  for (const status of ['A', 'D', 'T', 'R100']) {
+    assert.equal(pull([edited(leaf, status)], {baseline: leafDescriptors()}).mode, 'full', status);
+  }
+  for (const event of ['push', 'merge_group']) assert.equal(leafDecision([leaf], {event}).mode, 'full');
+});
+
+test('both descriptor graphs and their complete reverse dependencies must prove the fixed leaf profile', () => {
+  const path = FRONTEND_LEAF_PROFILES[0].paths[0], baseline = leafDescriptors();
+  const changed = transform => { const candidate = structuredClone(baseline); transform(candidate); return candidate; };
+  const candidates = [
+    changed(d => { d[0].owned_paths = ['modules/elsewhere/**']; }),
+    changed(d => { d[0].owner_role = 'changed-owner'; }),
+    changed(d => { d[0].tests = []; }),
+    changed(d => { d[0].tests.push('runtime.full'); }),
+    changed(d => { d[0].dependencies.push('public-guide-assets'); }),
+    changed(d => { d[1].dependencies.push('member-card'); }),
+    changed(d => { d.push(moduleDescriptor('new-consumer', ['modules/new-consumer/**'], { dependencies: ['member-card'] })); }),
+    changed(d => { d.shift(); }),
+  ];
+  for (const candidate of candidates) {
+    assert.equal(leafDecision([path], {baseline, candidate}).mode, 'full');
+    assert.equal(leafDecision([path], {baseline: candidate, candidate: baseline}).mode, 'full');
+  }
+  // Drift already present in both inputs must not expand host-approved ownership,
+  // tests/dependencies or admit an invalid graph, even without a reported edit.
+  for (const descriptors of [
+    changed(d => { d[0].tests = ['governance.unit']; }),
+    changed(d => { d[0].dependencies = []; }),
+    changed(d => { d[0].owner_role = 'changed-owner'; }),
+    changed(d => { d.push(moduleDescriptor('second-owner', [path])); }),
+    changed(d => { d.push(moduleDescriptor('new-consumer', ['modules/new-consumer/**'], {dependencies: ['member-card']})); }),
+    changed(d => { d[0].dependencies = ['absent-module']; }),
+    changed(d => { d[2].dependencies = ['member-card']; }),
+    changed(d => { d.push(structuredClone(d[0])); }),
+  ]) assert.equal(leafDecision([path], {baseline: descriptors, candidate: descriptors}).mode, 'full');
+  assert.equal(leafDecision([path], {baseline: [], candidate: []}).mode, 'full');
+  assert.equal(leafDecision([path], {descriptorsProven: false}).mode, 'full');
+});
+
+test('affected aggregate admits exactly the fixed job shape and rejects every omitted or bad result/output', () => {
+  const selection = leafDecision(), results = Object.fromEntries(SELECTABLE_JOBS.map(id => [id, selection.jobs[id] ? 'success' : 'skipped']));
+  assert.equal(evaluateVerifyAggregate(needsFor(selection, results)).reason, 'affected_selected_subset');
+  assert.equal(evaluateVerifyAggregate(needsFor(selection, allResults('success'))).ok, true);
+  for (const id of SELECTABLE_JOBS) for (const bad of [undefined, '', 'failure', 'cancelled', 'skipped']) {
+    const needs = needsFor(selection, results);
+    if (bad === undefined) delete needs[id]; else needs[id].result = bad;
+    assert.equal(evaluateVerifyAggregate(needs).ok, !selection.jobs[id] && bad === 'skipped', `${id}: ${bad}`);
+  }
+  for (const key of Object.values(JOB_OUTPUT_KEYS)) for (const bad of [undefined, '', 'TRUE', false]) {
+    const needs = needsFor(selection, results);
+    if (bad === undefined) delete needs.select.outputs[key]; else needs.select.outputs[key] = bad;
+    assert.equal(evaluateVerifyAggregate(needs).ok, false, key);
+  }
+  for (const key of ['mode', 'reason']) for (const bad of [undefined, '', 'invented_profile']) {
+    const needs = needsFor(selection, results);
+    if (bad === undefined) delete needs.select.outputs[key]; else needs.select.outputs[key] = bad;
+    assert.equal(evaluateVerifyAggregate(needs).ok, false, key);
+  }
+  for (let mask = 0; mask < 64; mask++) {
+    const needs = needsFor(selection, allResults('success'));
+    SELECTABLE_JOBS.forEach((id, index) => { needs.select.outputs[JOB_OUTPUT_KEYS[id]] = String(Boolean(mask & (1 << index))); });
+    assert.equal(evaluateVerifyAggregate(needs).ok, mask === 15, `affected shape ${mask}`);
+  }
+});
+
+test('actual Git leaf candidate and CLI narrow; co-edited safety, owner drift and new reverse consumers stay full', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-select-leaf-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const git = args => execFileSync('/usr/bin/git', ['-C', directory, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: {PATH: '/usr/bin:/bin', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'Selector Fixture', GIT_AUTHOR_EMAIL: 'selector@example.invalid', GIT_COMMITTER_NAME: 'Selector Fixture', GIT_COMMITTER_EMAIL: 'selector@example.invalid'},
+  }).trim();
+  const put = async (path, body) => { await mkdir(dirname(join(directory, path)), {recursive: true}); await writeFile(join(directory, path), body); };
+  const commit = message => { git(['add', '.']); git(['commit', '-qm', message]); return git(['rev-parse', 'HEAD']); };
+  const descriptorPath = id => `modules/${id}/freedom.module.json`;
+  git(['init', '-q', '-b', 'main']);
+  for (const descriptor of leafDescriptors()) await put(descriptorPath(descriptor.module_id), JSON.stringify(descriptor));
+  await put('governance/README.md', '# Synthetic module rules\n');
+  const leaf = FRONTEND_LEAF_PROFILES[0].paths[0]; await put(leaf, 'export const view = "before";\n');
+  const base = commit('base');
+  await put(leaf, 'export const view = "ordinary accessible redesign";\n');
+  const head = commit('frontend edit');
+  const observed = collectRepositoryDecision({repository: directory, event: 'pull_request', base, head}); assertLeaf(observed);
+  const output = join(directory, 'job-output');
+  const cli = spawnSync(process.execPath, [selector, '--event', 'pull_request', '--repository', directory, '--base', base, '--head', head, '--github-output', output], {encoding: 'utf8'});
+  assert.equal(cli.status, 0, cli.stderr); assertLeaf(JSON.parse(cli.stdout));
+  assert.equal(await readFile(output, 'utf8'), githubOutput(observed)); await rm(output);
+  const compare = current => collectRepositoryDecision({repository: directory, event: 'pull_request', base, head: current});
+  await put('packages/command-core/command.ts', 'export const unsafe = true;\n');
+  assert.equal(compare(commit('mixed safety edit')).mode, 'full');
+  git(['checkout', '-q', head]);
+  const owner = leafDescriptors()[0]; owner.owned_paths = ['modules/elsewhere/**'];
+  await put(descriptorPath(owner.module_id), JSON.stringify(owner));
+  assert.equal(compare(commit('shrink owner')).mode, 'full');
+  git(['checkout', '-q', head]);
+  await put(descriptorPath('new-consumer'), JSON.stringify(moduleDescriptor('new-consumer', ['modules/new-consumer/**'], {dependencies: ['member-card']})));
+  const dependentBase = commit('new reverse dependency');
+  assert.equal(compare(dependentBase).mode, 'full');
+  await put(leaf, 'export const view = "next leaf edit";\n');
+  const dependentHead = commit('edit leaf beneath unchanged reverse consumer');
+  const reverse = collectRepositoryDecision({repository: directory, event: 'pull_request', base: dependentBase, head: dependentHead});
+  assert.equal(reverse.mode, 'full'); assert.equal(reverse.reason, 'leaf_profile_unproven');
+  git(['checkout', '-q', head]); git(['mv', leaf, leaf + '.renamed']);
+  assert.equal(compare(commit('rename leaf')).mode, 'full');
 });

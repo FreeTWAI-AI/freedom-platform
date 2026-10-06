@@ -2,7 +2,7 @@
   "format": "freedom.module/v1",
   "module_id": "asset-lifecycle",
   "owner_role": "foundation",
-  "owned_paths": ["modules/assets/**", "migrations/079_asset_upload_lifecycle.sql", "migrations/080_avatar_asset_bridge.sql", "migrations/082_asset_maintenance.sql", "migrations/083_avatar_upload_policy.sql", "tests/runtime/asset-lifecycle.test.ts", "tests/runtime/asset-lifecycle-races.test.ts", "tests/runtime/asset-engine.test.ts", "tests/runtime/avatar-bridge.test.ts", "tests/runtime/avatar-upload.test.ts", "tests/runtime/asset-maintenance.test.ts"],
+  "owned_paths": ["modules/assets/**", "migrations/079_asset_upload_lifecycle.sql", "migrations/080_avatar_asset_bridge.sql", "migrations/082_asset_maintenance.sql", "migrations/083_avatar_upload_policy.sql", "tests/runtime/asset-lifecycle.test.ts", "tests/runtime/asset-lifecycle-races.test.ts", "tests/runtime/asset-engine.test.ts", "tests/runtime/avatar-bridge.test.ts", "tests/runtime/avatar-upload.test.ts", "tests/runtime/asset-maintenance.test.ts", "tests/runtime/asset-authority-compatibility.test.ts"],
   "public_exports": ["modules/assets/index.ts", "modules/assets/engine.ts", "modules/assets/avatar-read.ts", "modules/assets/avatar-upload.ts", "modules/assets/avatar-policy.ts", "modules/assets/maintenance.ts"],
   "dependencies": ["command-core", "resource-scopes", "scoped-commands", "asset-storage"],
   "contract_families": ["common"],

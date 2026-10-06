@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "jti": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "htu": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "client_id": {
+          "type": "string",
+          "const": "agent-kit"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "local",
+            "staging-next",
+            "next"
+          ]
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "family_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "request_sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]+$(?![\\s\\S])"
+        },
+        "purpose": {
+          "type": "string",
+          "const": "machine_text.challenge"
+        },
+        "htm": {
+          "type": "string",
+          "const": "POST"
+        }
+      },
+      "required": [
+        "jti",
+        "iat",
+        "htu",
+        "client_id",
+        "environment",
+        "connection_id",
+        "family_id",
+        "request_sha256",
+        "purpose",
+        "htm"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "jti": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$(?![\\s\\S])"
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "htu": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "client_id": {
+          "type": "string",
+          "const": "agent-kit"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "local",
+            "staging-next",
+            "next"
+          ]
+        },
+        "connection_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "family_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "request_sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]+$(?![\\s\\S])"
+        },
+        "purpose": {
+          "type": "string",
+          "const": "machine_text.activate"
+        },
+        "htm": {
+          "type": "string",
+          "const": "POST"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$(?![\\s\\S])"
+        },
+        "challenge_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "jti",
+        "iat",
+        "htu",
+        "client_id",
+        "environment",
+        "connection_id",
+        "family_id",
+        "request_sha256",
+        "purpose",
+        "htm",
+        "nonce",
+        "challenge_id"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$id": "https://freetwai.com/contracts/execution/v3/machine-text-proof",
+  "description": "Structural machine text data only. ES256 proof, pinned issuer and current SQL device/Grant/Attempt admission remain mandatory."
+}

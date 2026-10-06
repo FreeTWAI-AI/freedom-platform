@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "native-text.context/v1"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    }
+  },
+  "required": [
+    "schema",
+    "title",
+    "objective"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/execution/v3/native-text-context",
+  "description": "Structural native CLI data only. No device verification, current Grant/Attempt authority, provider attestation or private Result authority."
+}

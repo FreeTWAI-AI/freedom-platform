@@ -63,3 +63,14 @@ archive 是保留型終態，不是資料刪除：title/objective 仍留 SQL，�
 [人類命令測試](../../tests/runtime/private-work-commands.test.ts) 登記 `WORK-B-01`–`22`：真實 server create/update/archive、同 key 並行、不同 key CAS、archive/edit 競態、scope 撤銷、等 Work row/table lock 後 session 到期、Actor snapshot、三種 scoped fact 故障回滾、create/archive 收據故障不留半成品、政策拒絕／故障仍可 archive、正文不進 receipt/event、HTTP route absent，以及 075 → 081 原社群欄位不變。競態以 `pg_blocking_pids` 確認實際等待，不以 sleep 推定執行順序。
 
 另有中央 `OpaqueId` 驗證反例，命令 suite 合計 23 項；實跑結果由[交付紀錄](../../docs/platform-plan/execution/unified-foundation/implementation-status.md)記載，這些測試不是 production/staging 證據。[人工 Result 內部服務](../autopilot-work/README.md) 已透過[共用 Asset 引擎](../assets/engine.md)實作，084 schema／讀取／競態有獨立測試；不是模型產稿，也沒有私人 Result HTTP/UI。模型/Grant、發布確認、正式資料回填、正式 policy source、rollback floor、備份及完整 retention 仍未完成。無 feature activation wiring 的結構性封閉維持不變，不能因 read ACL 和內部命令已存在就註冊私人 HTTP 寫入。
+
+## Portal composition
+
+The workbench, showcase/opportunity and engagement cards/forms live in
+`apps/portal-web/src/modules/WorkbenchPanel.tsx`, `ShowcasePanel.tsx` and
+`EngagementPanel.tsx`. `App.tsx` selects these panels inside the existing member
+provider. Shared session/client types and error formatting live in
+`portal-session.tsx`; shared feedback components live in `portal-feedback.tsx`.
+These leaf modules never import `App.tsx` or create a second client/session.
+The shell retains the mutation lock, idempotency-key lifetime and session expiry
+callback. Feature extraction does not create a new authorization boundary.

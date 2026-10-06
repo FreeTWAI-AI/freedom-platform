@@ -228,6 +228,55 @@ test('social writer floor recognition does not grant schema or deployment approv
   assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
 });
 
+test('machine admission schema still requires independently approved release and ledger', () => {
+  const filename = '117_machine_text_execution.sql', f = fixture();
+  assert.equal(f.scan.ledger.filter(row => row.name === filename).length, 1);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible');
+  for (const field of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[field], false);
+  f.host.release_records[0].schema_ledger_digests = [prefix(f.scan, 116).ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const changed = fixture();
+  changed.scan.ledger.find(row => row.name === filename).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed = fixture();
+  renamed.scan.ledger.find(row => row.name === filename).name = '117_unreviewed.sql';
+  renamed.scan.ledger_digest = compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_unknown']);
+});
+
+test('site authority persistence fences old readers after creation is disabled', () => {
+  const shape = 'commerce.shop-service-authority.v1';
+  for (const source of ['enable_shapes', 'enabled_shapes', 'written_shapes', 'rollback_floor_shapes']) {
+    const f = fixture();
+    if (source === 'enable_shapes') f.input[source] = [shape];
+    else if (source === 'rollback_floor_shapes') f.host[source] = [shape];
+    else f.host.observation[source] = [shape];
+    assert(evaluate(f).issues.some(i => i.code === 'release_capability_missing' && i.capability === shape), source);
+    f.host.release_records[0].capabilities.push(shape);
+    const result = evaluate(f); assert.equal(result.status, 'compatible', JSON.stringify(result));
+    assert.equal(result.execution_authority, false); assert.equal(result.deployment_authority, false);
+    const old = {source_sha:'c'.repeat(40),artifact_sha256:'d'.repeat(64)};
+    f.host.observation.active_releases.push(old);
+    f.host.release_records.push({...structuredClone(f.host.release_records[0]),...old,capabilities:[...CAPABILITIES]});
+    assert(evaluate(f).issues.some(i => i.code === 'release_capability_missing' && i.source_sha === old.source_sha && i.capability === shape), source);
+  }
+});
+test('site authority shape requires schema118 and exact independently approved ledger', () => {
+  const f = fixture(), shape = 'commerce.shop-service-authority.v1', filename = '118_shop_service_identity.sql';
+  assert.equal(f.scan.ledger.filter(row => row.name === filename).length, 1);
+  f.host.release_records[0].schema_ledger_digests = [prefix(f.scan, 117).ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const changed = fixture(); changed.scan.ledger.find(row => row.name === filename).sha256 = 'd'.repeat(64);
+  changed.scan.ledger_digest = compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const old = fixture(); old.scan = prefix(old.scan, 117); old.input.enable_shapes = [shape];
+  old.host.observation.schema_ledger = old.scan.ledger; old.host.observation.schema_ledger_digest = old.scan.ledger_digest;
+  old.host.release_records[0].schema_ledger_digests = [old.scan.ledger_digest]; old.host.release_records[0].capabilities.push(shape);
+  assert(codes(evaluate(old)).includes('shape_schema_missing'));
+});
+
 test('schema extension is unavailable until its exact known migration rule is reviewed', () => {
   const f = fixture();
   const next = Number(f.scan.ledger.at(-1).name.slice(0, 3)) + 1;

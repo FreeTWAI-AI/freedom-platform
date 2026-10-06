@@ -1,0 +1,252 @@
+{
+  "format": "freedom.foundation-closeout-packet/v1",
+  "packet": "C4 directory semantic profile",
+  "source": "bf46d831ee0382c7e6370000a32e95025a7003db",
+  "candidate": "4921f8f025b09521cb267d814e862512112e44a7",
+  "branch": "fix/foundation-directory-semantics-20261005",
+  "status": "implemented_local_isolated_build_verified",
+  "closed_packet_gap": "Whole-page renderer byte equality prevented legitimate CSS/wrapper/accessibility changes. The candidate host now checks complete static HTML semantics and exact input/output filesystem boundaries, allowing those changes while retaining source-valid negative rejection.",
+  "changed_files": [
+    ".github/workflows/directory-runtime-profile.yml",
+    ".github/workflows/trusted-consumer-runtime.yml",
+    "packages/contribution-tools/behavior-supervisor.mjs",
+    "packages/contribution-tools/directory-build-archive.py",
+    "packages/contribution-tools/directory-build-fixture.mjs",
+    "packages/contribution-tools/directory-build-profile.md",
+    "packages/contribution-tools/directory-html-dependencies.mjs",
+    "packages/contribution-tools/directory-html-host/package-lock.json",
+    "packages/contribution-tools/directory-html-host/package.json",
+    "packages/contribution-tools/directory-html-profile.mjs",
+    "tests/integration/directory-html-semantics.test.mjs",
+    "tests/integration/directory-runtime.test.mjs"
+  ],
+  "commits": [
+    "f7b7f977acfa744db0c8cb3955d1852d637a44fb",
+    "c2511b79a9861956ad5f3aa9e7859decb12ea3eb",
+    "4921f8f025b09521cb267d814e862512112e44a7"
+  ],
+  "implementation": [
+    {
+      "path": "packages/contribution-tools/directory-html-profile.mjs:35",
+      "behavior": "Fixed HTML5 tree parsing, static elements/attributes, no-weaker CSP before styles, safe public links including hidden/URI-encoded controls, full per-project and bilingual privacy content; CSS/wrapper/ARIA variations permitted."
+    },
+    {
+      "path": "packages/contribution-tools/directory-build-fixture.mjs:51",
+      "behavior": "Every source and override hash, exact output/directory set and required exit status retained. Captured output bytes bind to archive digests and pass a bounded fixed Node parser subprocess; candidate stdout is never verdict input."
+    },
+    {
+      "path": "packages/contribution-tools/directory-build-archive.py:17",
+      "behavior": "No extraction; preserve bounds and regular-file/link/path checks. Explicit HTML mode exposes only two predetermined output paths."
+    },
+    {
+      "path": "packages/contribution-tools/directory-html-dependencies.mjs:13",
+      "behavior": "Host-relative parser dependency closure rejects missing/linked/changed files and matches approved complete byte-tree digest, not merely self-reported package versions."
+    },
+    {
+      "path": "packages/contribution-tools/behavior-supervisor.mjs:159",
+      "behavior": "Full new source closure and conditional parser byte identity in directory supervisor before/after execution; generic consumers do not install parser. Existing Docker isolation/exec identity/paused readback/cleanup remain."
+    },
+    {
+      "path": ".github/workflows/trusted-consumer-runtime.yml:43",
+      "behavior": "Candidate source gains only directory-repository host dependency installation with exact lock and disabled package scripts. No installed workflow ref or rule changed."
+    }
+  ],
+  "new_trust_material": {
+    "parser": "parse5@8.0.1",
+    "dependency": "entities@8.0.0",
+    "files": 91,
+    "bytes": 573101,
+    "installed_tree_sha256": "23432fe7cdf370e67a8289a1cce223d6c23cf2969550a7f9864c40b353caa9be",
+    "registry_integrities": "packages/contribution-tools/directory-html-host/package-lock.json",
+    "licenses": [
+      "MIT",
+      "BSD-2-Clause"
+    ],
+    "primary_sources": [
+      "https://parse5.js.org/interfaces/parse5.ParserOptions.html",
+      "https://registry.npmjs.org/parse5/8.0.1",
+      "https://registry.npmjs.org/entities/8.0.0"
+    ],
+    "product_dependencies_changed": false,
+    "candidate_node_modules_loaded": false
+  },
+  "bounds": {
+    "archive_bytes": 8388608,
+    "archive_entries": 1024,
+    "file_bytes": 2097152,
+    "total_file_bytes": 4194304,
+    "archive_summary_bytes": 6291456,
+    "parser_heap_mib": 128,
+    "parser_timeout_ms": 3000,
+    "parser_stdout_stderr_bytes": 65536,
+    "html_nodes": 20000,
+    "html_depth": 128,
+    "attributes_per_element": 32
+  },
+  "tests": [
+    {
+      "command": "node --test tests/integration/directory-html-semantics.test.mjs packages/contribution-tools/test/directory-build.test.mjs packages/contribution-tools/test/behavior-supervisor.test.mjs packages/contribution-tools/test/supervisor-create-lifecycle.test.mjs",
+      "pass": 19,
+      "fail": 0,
+      "skip": 0,
+      "log": "focused-final.log",
+      "tier": "local isolated focused tests; parser executes for real",
+      "log_sha256": "f212cd21aa0bf49d9dc9690008414ebe8ad4f2cf433ea876d4610f2cd2926603"
+    },
+    {
+      "command": "node --test packages/contribution-tools/test/trusted-ci.test.mjs packages/contribution-tools/test/github-trusted-adapter.test.mjs packages/contribution-tools/test/github-app-publisher.test.mjs packages/contribution-tools/test/github-behavior-host.test.mjs",
+      "log": "host-distribution-final.log",
+      "tier": "local isolated independent-host distribution/identity regression",
+      "pass": 47,
+      "fail": 0,
+      "skip": 0,
+      "log_sha256": "911621aebcab935bea63319f3db46ef1cf89b4a89b158278c3b54c6a9f5a8ca6"
+    },
+    {
+      "command": "FREEDOM_RUN_DIRECTORY_RUNTIME=1 FREEDOM_DIRECTORY_EVIDENCE=1 FREEDOM_DIRECTORY_ROOT=<owned-directory-clone> FREEDOM_CONSUMER_SOURCE_ROOT=<fixed-host-clone> FREEDOM_CONSUMER_WORKFLOW_SHA=4921f8f025b09521cb267d814e862512112e44a7 node --test --test-concurrency=1 tests/integration/directory-runtime.test.mjs",
+      "pass": 15,
+      "fail": 0,
+      "skip": 0,
+      "log": "directory-runtime-final.log",
+      "tier": "real isolated Docker build on local operator host with full Git clones; not hosted GitHub enforcement",
+      "log_sha256": "4b29e1f2a8b5ad3641bcb28c41c512d45a1008806fd7e44c1b9f34b65412720a"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "actual_build_evidence": {
+    "directory_baseline": "01b18397f9c5356a14e4cc66fa46f57216f11154",
+    "host_workflow_candidate": "4921f8f025b09521cb267d814e862512112e44a7",
+    "source_library_pin": "91b943ac61e132fbbce72ea066cb2301aa065600",
+    "positive_variants": 4,
+    "negative_variants": 11,
+    "observations": "directory-semantics-observations-2026-10-05.json",
+    "runtime_recipe": {
+      "recipe": "freedom.consumer-runtime-recipe/v1",
+      "image": {
+        "reference": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+        "local_id": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+        "manifest": "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+        "config": "sha256:160466e67bb85a4099d9d9c2356b4a6a64747b281a22c142efbd4539db1b8525",
+        "rootfs": "sha256:1d69a5fd31932841d7825ef4780c06f008eea65aaa9f3110fe09d5832ed5c7d8",
+        "platform": "linux/amd64"
+      },
+      "node": {
+        "executable": "/usr/bin/node",
+        "version": "v24.21.0",
+        "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
+      },
+      "host": {
+        "platform": "linux",
+        "architecture": "x64",
+        "glibc": "2.43",
+        "runner_image_version": null,
+        "hosted_os_checked": false
+      },
+      "candidate_userspace": "pinned-image-and-node-binary",
+      "host_os_approval": "unverified",
+      "publisher_trust": "unverified"
+    },
+    "all_cleanup_assertions_passed": true
+  },
+  "positive_cases": [
+    "reviewed real build",
+    "legitimate public data edit",
+    "real CSS redesign",
+    "real wrapper and accessibility markup redesign",
+    "all three positive input scenarios including random per-field escaping and empty directory",
+    "BR/block text boundaries and ASCII case-insensitive rel/referrer metadata",
+    "percent-encoded same-document fragment"
+  ],
+  "negative_cases": [
+    "constant renderer and fabricated passing stdout",
+    "missing HTML escaping",
+    "removed duplicate validation",
+    "write before validation leaving outputs",
+    "unexpected output/source modification",
+    "missing project scope",
+    "weakened CSP",
+    "hidden encoded unsafe URLs",
+    "broken privacy route",
+    "symlink artifact",
+    "hanging build",
+    "hidden required privacy link",
+    "URI-encoded control in data-derived mailto",
+    "bad fragments/ARIA references",
+    "wrong output base64/hash binding",
+    "tampered host parser bytes",
+    "malformed/deep/oversized HTML"
+  ],
+  "related_requirements": [
+    {
+      "id": "GOV-04",
+      "status": "related_only_original_row_unchanged",
+      "minimum_tier": "AST/build + negatives",
+      "packet_evidence": "Directory actual-build security/output boundary remains enforced while normal visual changes pass.",
+      "remaining": [
+        "Broader client/import/operation bypass requirements across consumers belong to C3."
+      ],
+      "owner": "C / integration"
+    },
+    {
+      "id": "GOV-06",
+      "status": "related_only_original_row_unchanged",
+      "minimum_tier": "HTTP behavior",
+      "packet_evidence": "This static directory build profile has independent behavior negatives but does not authenticate an API route.",
+      "remaining": [
+        "No claim that all real registered routes mount current auth."
+      ],
+      "owner": "C / integration"
+    },
+    {
+      "id": "GOV-20",
+      "status": "related_only_original_row_unchanged",
+      "minimum_tier": "semantic review + behavior",
+      "packet_evidence": "Independent semantic review and genuine build positives/negatives prove the directory profile no longer freezes renderer styling.",
+      "remaining": [
+        "The original contract-effect-to-publish semantic upgrade scenario is not replaced by this static-page case.",
+        "Independently reviewed hosted canary and installed source/ref upgrade remain required."
+      ],
+      "owner": "C / integration"
+    }
+  ],
+  "reviews": {
+    "sessions": 2,
+    "requested_model": "grok-4.7",
+    "reported_model": "grok-4.7-build",
+    "finals": "end_turn",
+    "adjudication": [
+      "Initial semantic review identified hidden required links and text/attribute normalization false rejections; reproduced and corrected before first implementation commit.",
+      "Semantic same-session rereview returned No blocking finding.",
+      "Host dependency/readback review reached its configured turn limit, then the same session produced a final No blocking finding without more tools.",
+      "Final URI-control hardening was independently reproduced by this agent and covered by focused and actual Docker tests; not claimed as separately rereviewed by Grok."
+    ],
+    "authority": "Read-only external model reviews are review input, not trusted merge approval.",
+    "raw_receipt_sha256": "905fcda56793e20bdeed990ce1df1f0d2db13bac463db71272240d7427bc97b8"
+  },
+  "limitations": [
+    "Current installed byte-equality profile, ruleset 24516222 and immutable publication ref remain untouched. This is a candidate semantic upgrade only.",
+    "DOM text/security/output semantics do not certify rendered visual quality or computed CSS visibility. CSP independently forbids external/resource loads.",
+    "Public text URL linkification contract is inherited from reviewed 01b source; no product linkifier rewrite performed.",
+    "As before, paused working-tree observation is not a trace of every transient scratch write.",
+    "No Pages publication, shared-library invocation acceptance, central API authority or whole FC completion claimed."
+  ],
+  "setup_notes": [
+    "Initial semantic negative changed only a nav lang attribute; fixture corrected to alter every English region.",
+    "Existing generic cache negative needs a root node_modules directory; the empty ignored directory was provisioned solely for that rejection precondition, not claimed as product dependency installation.",
+    "npm rejects using /dev/null as both global and user config; installation uses a separate empty global config.",
+    "Source clone succeeded before an initial checkout command ran in the wrong cwd; rerun checkout in the owned clone and exact final-source identity verified."
+  ],
+  "external_actions": {
+    "push": false,
+    "pr": false,
+    "deploy": false,
+    "installed_rule_or_pin_change": false,
+    "product_data_write": false
+  },
+  "worktree_ownership": "Frozen and transferred to root for review/publication. No further repository edits by child after 4921f8f0.",
+  "assurance_level": "local",
+  "accepted_original_rows": []
+}

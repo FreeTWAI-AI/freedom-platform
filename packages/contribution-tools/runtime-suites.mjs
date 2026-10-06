@@ -23,7 +23,7 @@ export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 newcomer-guides newcomer-guide-dialogue guide-anchors guide-pack-assets
 chat-content direct-message-receipts member-card-qr member-session-lifecycle
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
-agent-commerce agent-connections agent-connections-adversarial asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory avatar avatar-bridge
+agent-commerce agent-connections agent-connections-adversarial asset-authority-compatibility asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory avatar avatar-bridge
 avatar-command-compat avatar-upload benefits bootstrap-contracts bootstrap-http bootstrap-http-contracts bootstrap-issuer bootstrap-proof bootstrap-session-contracts bootstrap-session-proof bootstrap-sessions bootstrap-sessions-adversarial bootstrap-status bootstrap-status-adversarial client-connections co-creation
 command-core commerce credential-ingest-authorizations credential-ingest-broker credential-ingest-process credential-ingest-adversarial credential-broker-store credential-broker-crypto credential-broker-adversarial development-access-grant-race development-access development-map device-authorizations device-authorizations-adversarial device-pairing-contracts device-pairing-proof e2e-auth-isolation
 event-highlights events-past execution-authority-adversarial execution-prerequisites execution-runs execution-runs-adversarial execution-runs-grants execution-state execution-state-adversarial fixed-behavior-harness flows freedom_env game-console-feed game-console-routing game-console
@@ -35,6 +35,8 @@ model-broker-authorizations model-broker-bridge model-broker-client model-broker
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial
 member-model-settings member-model-settings-adversarial member-model-settings-process
 member-device-bootstrap-http member-device-bootstrap-adversarial member-device-browser member-device-client
+machine-text-proof machine-text-authority scoped-command-context private-ai-path
+agent-commerce-key-expiry shop-service-command shop-service-identity shop-key-exit
 model-adapter-common model-adapter-independent model-adapter-registry model-byok-adapter model-claude-adapter model-cli-probe model-codex-adapter
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
 page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials

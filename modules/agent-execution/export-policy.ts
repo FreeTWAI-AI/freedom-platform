@@ -14,12 +14,20 @@ export interface InferenceExportPolicy {
  * The snapshot alone is never a dispatch permit. Absent policy always denies. */
 export async function resolveInferenceExportPolicy(q: PoolClient, context: MemberScopeContext,
   environment: string, clientId: string, selection: ModelSelection): Promise<InferenceExportPolicy> {
+  const value=await readLockedInferenceExportPolicy(q,context.subject_principal.principal_id,context.scope.scope_id,environment,clientId,selection);
+  requireCondition(context.authn_kind==='member_session' && context.scope.kind==='personal',403,'model_export_policy_denied','目前政策不允許匯出模型輸入。');
+  return value;
+}
+
+/** Internal locked DB lookup. This snapshot never grants dispatch authority. */
+export async function readLockedInferenceExportPolicy(q:PoolClient,principalId:string,scopeId:string,
+  environment:string,clientId:string,selection:ModelSelection):Promise<InferenceExportPolicy>{
   const row = (await q.query<{ policy_id:string; revision:string; export_allowed:boolean; selection:ModelSelection;
     max_prompt_bytes:number; max_output_tokens:number }>(`SELECT policy_id,revision::text,export_allowed,selection,max_prompt_bytes,max_output_tokens
     FROM model_inference_export_policy WHERE scope_id=$1 AND owner_principal_id=$2 AND purpose='model.private-draft'
     AND environment=$3 AND client_id=$4 AND selection=$5::jsonb FOR SHARE`,
-  [context.scope.scope_id,context.subject_principal.principal_id,environment,clientId,JSON.stringify(selection)])).rows[0];
-  requireCondition(context.authn_kind==='member_session' && context.scope.kind==='personal' && row?.export_allowed===true
+  [scopeId,principalId,environment,clientId,JSON.stringify(selection)])).rows[0];
+  requireCondition(row?.export_allowed===true
     && MemberExecutionVersionSchema.safeParse(row.revision).success && ModelSelectionSchema.safeParse(row.selection).success
     && Number.isInteger(row.max_prompt_bytes) && row.max_prompt_bytes>=1 && row.max_prompt_bytes<=16384
     && Number.isInteger(row.max_output_tokens) && row.max_output_tokens>=1 && row.max_output_tokens<=4096,
