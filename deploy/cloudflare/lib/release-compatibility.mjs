@@ -92,6 +92,9 @@ const FOUNDATION_NAMES = [
   // Machine model pins, dispatch evidence and one-use broker authorization;
   // recognition does not install the broker or activate execution.
   '119_machine_model_invocations.sql',
+  // Tenant business spaces, memberships, invitations and authority audit; guild
+  // roles gain no business-space authority and recognition activates nothing.
+  '120_tenant_workspaces.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
