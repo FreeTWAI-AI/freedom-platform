@@ -1,0 +1,3 @@
+@media (max-width: 720px) {
+  .tenant-workspace .tenant-create > .btn-primary { width: 100%; }
+}
