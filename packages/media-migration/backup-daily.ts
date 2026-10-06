@@ -140,7 +140,9 @@ export async function runDailyBackup(raw: DailyBackupContext, adapter: DailyBack
     publication = Object.freeze({ mode: selected.mode, atomicCreateOnly: selected.atomicCreateOnly }) as typeof selected;
     const remote = Object.freeze({ archive: suppliedRemote.archive, backupObjects: suppliedRemote.backupObjects });
     if (remote.archive === archive || remote.backupObjects === backupObjects) fail('daily_backup_remote_mismatch');
-    await protectedPhase('readback'); readback = await readbackRecoverySet({ ...remote, setId: context.setId, verifiedAt: new Date().toISOString() });
+    const expected = Object.freeze({ setId: context.setId, manifestSha256: sealed.manifestSha256,
+      environment: context.environment, database: context.database, schema: context.schema, sourceRelease: context.sourceRelease });
+    await protectedPhase('readback'); readback = await readbackRecoverySet({ ...remote, expected, setId: context.setId, verifiedAt: new Date().toISOString() });
     if (readback.manifestSha256 !== sealed.manifestSha256 || readback.evidence.status !== 'captured'
       || readback.database !== context.database || readback.schema !== context.schema
       || readback.environment !== context.environment || readback.sourceRelease !== context.sourceRelease) fail('daily_backup_remote_mismatch');
@@ -150,7 +152,7 @@ export async function runDailyBackup(raw: DailyBackupContext, adapter: DailyBack
     // Different isolated servers may intentionally use the same logical name.
     // Physical isolation belongs to the trusted adapter's owned-container check.
     if (target.pool === pool) fail('daily_backup_restore_mismatch');
-    restored = await restoreRecoverySet({ ...remote, setId: context.setId, destinationObjects: target.objects,
+    restored = await restoreRecoverySet({ ...remote, expected, setId: context.setId, destinationObjects: target.objects,
       restoredPool: target.pool, restoredDatabase: target.databaseName, database: target.database,
       objectAuthority: restoredReferenceAuthorization(target.pool, { database: target.databaseName, schema: context.schema, current: { mode: 'quarantine' } }) });
     if (restored.manifestSha256 !== sealed.manifestSha256 || restored.evidence.status !== 'matched'

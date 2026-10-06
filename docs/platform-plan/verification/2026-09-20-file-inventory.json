@@ -12509,8 +12509,8 @@
     },
     {
       "path": "docs/development/seven-media-backup-restore.md",
-      "bytes": 7926,
-      "sha256": "452d79505b8c2a1bc109d85322c466a1b6ed5828f2f7ce4ad01e6a39e9c887e0"
+      "bytes": 10172,
+      "sha256": "8a5bd9ad0beb893bae0cf17761422ba4aec5d7a51e284700d1aed8dde5de4628"
     },
     {
       "path": "docs/development/share-promotion.md",
@@ -16624,8 +16624,8 @@
     },
     {
       "path": "packages/media-migration/backup-archive.ts",
-      "bytes": 33391,
-      "sha256": "ad173407a76c28c3956d54dcdea652fe0a9ca19a84c84bbf48c3bb8d3db550d8"
+      "bytes": 34942,
+      "sha256": "18fd0db00067e9e5a206c209ef0030912299eb841df6043134c901a6cdaeca6e"
     },
     {
       "path": "packages/media-migration/backup-coordinator.ts",
@@ -16634,8 +16634,8 @@
     },
     {
       "path": "packages/media-migration/backup-daily.ts",
-      "bytes": 14132,
-      "sha256": "4398d856cbaf8ac9231d8a6108cb65b40c15784404422562b7dae7ec40e0ea68"
+      "bytes": 14383,
+      "sha256": "f13c48ff3d36b9b36927ce805ffa608b967886a2520e9a606f9598d7926dccca"
     },
     {
       "path": "packages/media-migration/backup-evidence.ts",
@@ -16664,8 +16664,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4032,
-      "sha256": "cc0cc58ba921afc58a3c50e20ca7bf644395901824cd264a9a22cd32868b9688"
+      "bytes": 4509,
+      "sha256": "8a134bf192da879b8586da3e265a6ba7c73a2a07a9c24ccb43ab5f3a3d8b63fd"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -16683,9 +16683,24 @@
       "sha256": "cdc6e85517f446e3c93a4a943d996fc974057b3fe9bc0d96103d043e11bc33ee"
     },
     {
+      "path": "packages/media-migration/owned-recovery-target.ts",
+      "bytes": 13911,
+      "sha256": "74554988a41525be2a990dbf03a8e9a9001cc087b95d56f206c12d37bf84413b"
+    },
+    {
+      "path": "packages/media-migration/recovery-bundle.ts",
+      "bytes": 5187,
+      "sha256": "ac225e6df5f0b7bd77178a2635dac58c1035aec6ba70ed0bc4cfa0dca074f867"
+    },
+    {
+      "path": "packages/media-migration/recovery-handover.ts",
+      "bytes": 10099,
+      "sha256": "52cc7dd5f476bc69fc8710ec3882aebe43bbd51a1dd640e037dae2a6cecc6501"
+    },
+    {
       "path": "packages/media-migration/restore-acl-lockdown.ts",
-      "bytes": 10278,
-      "sha256": "6f7a604a6a543a404de289cd861f40de632ef013c3f27074e589302bbb72b441"
+      "bytes": 10506,
+      "sha256": "916ccd34a2f34af4706a2830c0984488b6e9f44e797cbc20b089978a1f7b8f69"
     },
     {
       "path": "packages/media-migration/verify.ts",
@@ -17156,6 +17171,11 @@
       "path": "scripts/media-inventory.ts",
       "bytes": 4446,
       "sha256": "0d25bd55f1195cdcecc3c7792b9fb2882b6caf1386a82a4fcfeeb4c6b7289606"
+    },
+    {
+      "path": "scripts/media-recovery-restore.ts",
+      "bytes": 6189,
+      "sha256": "3aac0a544bf969abd667835ea6d278152494a42fb48604e06f44613ea4c5a243"
     },
     {
       "path": "scripts/media-restore-acl.ts",
@@ -17803,6 +17823,16 @@
       "sha256": "f1afb2f9fafdf00c2e89636ddf160e6493b4d225d09dc3f98f8127ff58efa8f5"
     },
     {
+      "path": "tests/integration/media-recovery-handover-producer.ts",
+      "bytes": 11486,
+      "sha256": "eaa725a9c02593e369dc0124507049aa0b2491694a72da86068985cb48516922"
+    },
+    {
+      "path": "tests/integration/media-recovery-handover.test.ts",
+      "bytes": 23700,
+      "sha256": "4e691448b247508d8842314e0fb0cff2011b6cb4b7bedee76d77876d22d385cb"
+    },
+    {
       "path": "tests/integration/migration-entrypoints-postgres.test.ts",
       "bytes": 7781,
       "sha256": "3b57462677652730675c8d9fa706665428aea94dafccf859c70ff4058430ee0e"
@@ -18419,8 +18449,8 @@
     },
     {
       "path": "tests/runtime/media-backup-archive.test.ts",
-      "bytes": 19120,
-      "sha256": "bad027fbf029a82760dd5997ed327759abd9fc94b13e9f50619d615f76cbc84e"
+      "bytes": 22258,
+      "sha256": "b49c210c85003142adcd5dd8a295c3a1bc5ea96f2c4f0f0f3a5769a0eb0f7150"
     },
     {
       "path": "tests/runtime/media-backup-daily.test.ts",
@@ -18451,6 +18481,11 @@
       "path": "tests/runtime/media-inventory.test.ts",
       "bytes": 20556,
       "sha256": "8b330172a12a0bada78217fb3b33de6f914de5eeb42360bd4fba2ac9b40596a2"
+    },
+    {
+      "path": "tests/runtime/media-recovery-bundle.test.ts",
+      "bytes": 4835,
+      "sha256": "f0e51a896f64addf1d167897401f300fa4fc3031a2f733a14fe842bafa7f1af7"
     },
     {
       "path": "tests/runtime/media-session-recovery.test.ts",
