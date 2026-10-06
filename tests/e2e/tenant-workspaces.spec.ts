@@ -7,11 +7,15 @@ import { hashPassword } from '../../modules/identity-membership/service.js';
 
 type Person = { user_id: string; email: string; display_name: string };
 
-async function seed(db: import('pg').Pool, run: string): Promise<[Person, Person]> {
-  const people: [Person, Person] = [
-    { user_id: randomUUID(), email: `tenant-owner-${run}@example.test`, display_name: `品牌主人${run}` },
-    { user_id: randomUUID(), email: `tenant-guest-${run}@example.test`, display_name: `受邀夥伴${run}` },
-  ];
+async function seed(db: import('pg').Pool, run: string, count = 2): Promise<Person[]> {
+  const roster = [
+    ['owner', '品牌主人'],
+    ['guest', '受邀夥伴'],
+    ['other', '另一夥伴'],
+  ] as const;
+  const people = roster.slice(0, count).map(([kind, label]) => ({
+    user_id: randomUUID(), email: `tenant-${kind}-${run}@example.test`, display_name: `${label}${run}`,
+  }));
   for (const person of people) {
     await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
       VALUES($1,$2,$3,$4,$5,$6,false)`, [person.user_id, DEMO_COMMUNITY, person.email, person.display_name, hashPassword(DEMO_PASSWORD), randomUUID()]);
@@ -255,6 +259,360 @@ test('a lost workspace acknowledgement is resent with the original key and body'
   } finally {
     settle = true;
     for (const release of waiters) release();
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+const UNRESOLVED_BLOCK = '上一個操作的結果還在確認。請先按「再確認一次」，或重新送出原本的操作。';
+
+async function invitationEvidence(db: import('pg').Pool, displayName: string) {
+  const rows = await db.query<{ display_name: string; n: number }>(`SELECT u.display_name, count(*)::int AS n
+    FROM tenant_invitations i
+    JOIN tenants t ON t.tenant_id=i.tenant_id
+    JOIN principals p ON p.principal_id=i.invitee_principal_id
+    JOIN users u ON u.user_id=p.user_ref
+    WHERE t.display_name=$1 AND i.state='pending'
+    GROUP BY u.display_name ORDER BY u.display_name`, [displayName]);
+  return rows.rows;
+}
+
+test('an unknown workspace create is not evicted by a later unknown edit', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌櫃${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string; pathname: string }[] = [];
+  const edits: { key: string; body: string; method: string; pathname: string }[] = [];
+  let settle = false;
+  const waiters: Array<() => void> = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/workspaces$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    if (!settle) await new Promise<void>(resolve => { waiters.push(resolve); });
+    await route.continue().catch(() => undefined);
+  });
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/edit$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    edits.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    await route.fetch();
+    await route.abort('failed').catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`預設${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${tenantName}／預設${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('新工作區名稱', { exact: true }).fill('加開一');
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByLabel('顯示名稱', { exact: true }).fill(`${tenantName}改`);
+    await page.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect.poll(async () => {
+      const alerts = await page.locator('[role="alert"]').allTextContents();
+      if (alerts.includes(UNRESOLVED_BLOCK)) return 'blocked';
+      if (edits.length > 0 && alerts.includes('正在確認是否已儲存')) return 'evicted';
+      return 'pending';
+    }).not.toBe('pending');
+    const alertAfterSave = await page.locator('[role="alert"]').allTextContents();
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect.poll(() => posts.length).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => waiters.length).toBeGreaterThanOrEqual(1);
+    settle = true;
+    for (const release of waiters) release();
+    await expect.poll(async () => ({
+      edits, alertAfterSave,
+      keys: [...new Set(posts.map(item => item.key))],
+      bodies: [...new Set(posts.map(item => item.body))],
+      evidence: await workspaceEvidence(e2eAuthPool, tenantName),
+      renamed: await workspaceEvidence(e2eAuthPool, `${tenantName}改`),
+    })).toEqual({
+      edits: [],
+      alertAfterSave: [UNRESOLVED_BLOCK],
+      keys: [posts[0].key],
+      bodies: [JSON.stringify({ name: '加開一' })],
+      evidence: { names: ['加開一'], audit: 1, receipts: 1 },
+      renamed: { names: [], audit: 0, receipts: 0 },
+    });
+  } finally {
+    settle = true;
+    for (const release of waiters) release();
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+test('an unknown invitation is not replaced by a different invitee', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌邀${run}`;
+  const people = await seed(e2eAuthPool, run, 3);
+  const [owner, guest, other] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string; pathname: string }[] = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/invitations$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`預設${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${tenantName}／預設${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('搜尋夥伴', { exact: true }).fill(guest.display_name);
+    await page.getByRole('button', { name: '搜尋', exact: true }).click();
+    await page.getByRole('button', { name: `邀請${guest.display_name}為檢視者`, exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByLabel('搜尋夥伴', { exact: true }).fill(other.display_name);
+    await page.getByRole('button', { name: '搜尋', exact: true }).click();
+    await page.getByRole('button', { name: `邀請${other.display_name}為檢視者`, exact: true }).click();
+    await expect.poll(async () => ({
+      alerts: await page.locator('[role="alert"]').allTextContents(),
+      invitedOther: await page.getByText(`已邀請${other.display_name}。`, { exact: true }).count(),
+      posts,
+      pending: await invitationEvidence(e2eAuthPool, tenantName),
+    })).toEqual({
+      alerts: [UNRESOLVED_BLOCK],
+      invitedOther: 0,
+      posts: [posts[0]],
+      pending: [{ display_name: guest.display_name, n: 1 }],
+    });
+    await page.getByRole('button', { name: '再確認一次', exact: true }).click();
+    await expect.poll(() => posts.length).toBe(2);
+    expect(posts[1], JSON.stringify(posts)).toMatchObject({ key: posts[0].key, body: posts[0].body, method: 'POST' });
+    await expect(page.getByText(`已邀請${guest.display_name}。`, { exact: true })).toBeVisible();
+    await page.getByLabel('搜尋夥伴', { exact: true }).fill(other.display_name);
+    await page.getByRole('button', { name: '搜尋', exact: true }).click();
+    await page.getByRole('button', { name: `邀請${other.display_name}為檢視者`, exact: true }).click();
+    await expect(page.getByText(`已邀請${other.display_name}。`, { exact: true })).toBeVisible();
+    await expect.poll(() => posts.length).toBe(3);
+    const guestPrincipal = (await e2eAuthPool.query<{ principal_id: string }>('SELECT principal_id FROM principals WHERE user_ref=$1', [guest.user_id])).rows[0].principal_id;
+    const otherPrincipal = (await e2eAuthPool.query<{ principal_id: string }>('SELECT principal_id FROM principals WHERE user_ref=$1', [other.user_id])).rows[0].principal_id;
+    expect(JSON.parse(posts[0].body).invitee_principal_id, JSON.stringify(posts)).toBe(guestPrincipal);
+    expect(posts[2].key, JSON.stringify(posts)).not.toBe(posts[0].key);
+    expect(JSON.parse(posts[2].body).invitee_principal_id, JSON.stringify(posts)).toBe(otherPrincipal);
+    const expectedInvites = [
+      { display_name: other.display_name, n: 1 },
+      { display_name: guest.display_name, n: 1 },
+    ].sort((left, right) => left.display_name < right.display_name ? -1 : 1);
+    await expect.poll(async () => (await invitationEvidence(e2eAuthPool, tenantName))
+      .slice().sort((left, right) => left.display_name < right.display_name ? -1 : 1)).toEqual(expectedInvites);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+test('a different action is not sent while an attempt is still in flight', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌途${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string; pathname: string }[] = [];
+  const edits: { key: string; body: string; method: string; pathname: string }[] = [];
+  let openGate: () => void = () => undefined;
+  const gate = new Promise<void>(resolve => { openGate = resolve; });
+  let firstSettled = false;
+  let settle = false;
+  const waiters: Array<() => void> = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/workspaces$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await gate;
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      firstSettled = true;
+      return;
+    }
+    if (!settle) await new Promise<void>(resolve => { waiters.push(resolve); });
+    await route.continue().catch(() => undefined);
+  });
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/edit$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    edits.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    await route.fetch();
+    await route.abort('failed').catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`預設${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${tenantName}／預設${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('新工作區名稱', { exact: true }).fill('加開一');
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByLabel('顯示名稱', { exact: true }).fill(`${tenantName}改`);
+    await page.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect.poll(async () => {
+      const alerts = await page.locator('[role="alert"]').allTextContents();
+      if (alerts.includes(UNRESOLVED_BLOCK)) return 'blocked';
+      if (edits.length > 0 && alerts.includes('正在確認是否已儲存')) return 'evicted';
+      return 'pending';
+    }).not.toBe('pending');
+    const alertWhileInFlight = await page.locator('[role="alert"]').allTextContents();
+    openGate();
+    await expect.poll(() => firstSettled).toBe(true);
+    await expect.poll(async () => (await page.locator('[role="alert"]').allTextContents()).includes('正在確認是否已儲存')).toBe(true);
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect.poll(() => posts.length).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => waiters.length).toBeGreaterThanOrEqual(1);
+    settle = true;
+    for (const release of waiters) release();
+    await expect.poll(async () => ({
+      edits, alertWhileInFlight, count: posts.length,
+      keys: [...new Set(posts.map(item => item.key))],
+      bodies: [...new Set(posts.map(item => item.body))],
+      evidence: await workspaceEvidence(e2eAuthPool, tenantName),
+      renamed: await workspaceEvidence(e2eAuthPool, `${tenantName}改`),
+    })).toEqual({
+      edits: [],
+      alertWhileInFlight: [UNRESOLVED_BLOCK],
+      count: 2,
+      keys: [posts[0].key],
+      bodies: [JSON.stringify({ name: '加開一' })],
+      evidence: { names: ['加開一'], audit: 1, receipts: 1 },
+      renamed: { names: [], audit: 0, receipts: 0 },
+    });
+  } finally {
+    openGate();
+    settle = true;
+    for (const release of waiters) release();
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
+
+test('an in-flight attempt that succeeds clears the blocking alert and frees the slot', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(120_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌成${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1280, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string; pathname: string }[] = [];
+  const edits: { key: string; body: string; method: string; pathname: string }[] = [];
+  let openGate: () => void = () => undefined;
+  const gate = new Promise<void>(resolve => { openGate = resolve; });
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/workspaces$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await gate;
+      await route.continue().catch(() => undefined);
+      return;
+    }
+    await route.continue().catch(() => undefined);
+  });
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/edit$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    edits.push({
+      method: route.request().method(), pathname: new URL(route.request().url()).pathname,
+      key: route.request().headers()['idempotency-key'] ?? '', body: route.request().postData() ?? '',
+    });
+    await route.continue().catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`預設${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText(`${tenantName}／預設${run}`, { exact: true })).toBeVisible();
+    await page.getByLabel('新工作區名稱', { exact: true }).fill('加開一');
+    await page.getByRole('button', { name: '建立工作區', exact: true }).click();
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByLabel('顯示名稱', { exact: true }).fill(`${tenantName}改`);
+    await page.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect.poll(async () => {
+      const alerts = await page.locator('[role="alert"]').allTextContents();
+      if (alerts.includes(UNRESOLVED_BLOCK) && edits.length === 0) return 'blocked';
+      if (edits.length > 0) return 'sent';
+      return 'pending';
+    }).toBe('blocked');
+    openGate();
+    await expect(page.getByText('已建立工作區加開一。', { exact: true })).toBeVisible();
+    const alertsAfterSuccess = await page.locator('[role="alert"]').allTextContents();
+    expect(alertsAfterSuccess.filter(text => text.includes('上一個操作的結果還在確認')), JSON.stringify(alertsAfterSuccess)).toEqual([]);
+    await page.getByLabel('顯示名稱', { exact: true }).fill(`${tenantName}改`);
+    await page.getByRole('button', { name: '儲存', exact: true }).click();
+    await expect.poll(async () => ({
+      count: edits.length,
+      method: edits[0]?.method ?? '',
+      newKey: edits.length === 1 && edits[0].key !== '' && edits[0].key !== posts[0].key,
+      notice: await page.getByText('已儲存業務空間資料。', { exact: true }).isVisible(),
+      evidence: await workspaceEvidence(e2eAuthPool, `${tenantName}改`),
+    })).toEqual({
+      count: 1,
+      method: 'POST',
+      newKey: true,
+      notice: true,
+      evidence: { names: ['加開一'], audit: 1, receipts: 1 },
+    });
+  } finally {
+    openGate();
     await session.context.close();
     await cleanup(e2eAuthPool, people);
   }
