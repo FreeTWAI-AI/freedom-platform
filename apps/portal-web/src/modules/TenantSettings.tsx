@@ -60,7 +60,10 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('viewer');
 
   function rememberUnresolved(attempt: Attempt) {
-    unresolvedRef.current.set(attemptSlot(attempt.tenantId), attempt);
+    const slot = attemptSlot(attempt.tenantId);
+    // Occupied from the send until a definitive result. Same key stays; a different key is not replaced.
+    if (unresolvedRef.current.has(slot)) return;
+    unresolvedRef.current.set(slot, attempt);
   }
   function forgetUnresolved(attempt: Attempt) {
     const slot = attemptSlot(attempt.tenantId);
@@ -144,6 +147,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const signal = abortRef.current?.signal;
     const live = () => generation.current === ticket && !signal?.aborted;
     const unknown = (error: unknown) => signal?.aborted === true || (error instanceof ApiError && (error.network || (error.status ?? 0) >= 500));
+    rememberUnresolved(attempt);
     if (live()) { setAlertText(''); setNotice(''); }
     try {
       const value = await client.post<T>(attempt.path, attempt.body, { idempotencyKey: attempt.key, ifMatch: attempt.ifMatch, signal });
