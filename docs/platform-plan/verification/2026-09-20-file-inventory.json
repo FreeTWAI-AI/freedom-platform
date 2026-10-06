@@ -12593,6 +12593,11 @@
       "sha256": "6f5d4040b4a5e223fca101113c2b062f4fff58969bb85e6f1176531794fc1613"
     },
     {
+      "path": "docs/plans/trust-pin-probe-r-20261006.md",
+      "bytes": 380,
+      "sha256": "ae257d8084257189511e1d4793e5451bb90d572e8ff06dd179854e8d52cebdab"
+    },
+    {
       "path": "docs/plans/unified-foundation.md",
       "bytes": 101473,
       "sha256": "aca0218d1a76a52eadc4f023bb107c9695570b8b93a373139a535e3694ee2ab5"
