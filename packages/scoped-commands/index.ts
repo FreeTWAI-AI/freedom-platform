@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId, ResourceScopeRefSchema } from '../../contracts/common/v1/identity.js';
-import { lockMemberScope, type MemberScopeInput, type MemberScopeContext } from '../resource-scopes/index.js';
+import { lockMemberScope, lockTenantScope, type MemberScopeInput, type MemberScopeContext, type TenantScopeContext } from '../resource-scopes/index.js';
 import { requireCondition } from '../shared/problem.js';
 import { runCommandCore } from '../db/command-core.js';
 import { digest } from '../db/legacy-digest.js';
@@ -115,7 +115,8 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
   401, 'session_expired', '請重新登入。');
   const actor = Object.freeze({ ...input.actor });
   const scope = typeof input.scope === 'string' ? input.scope : Object.freeze(ResourceScopeRefSchema.parse(input.scope));
-  requireCondition(scope === 'personal' || scope === 'community' || typeof scope === 'object' && scope.kind !== 'site',
+  requireCondition(scope === 'personal' || scope === 'community'
+    || typeof scope === 'object' && (scope.kind === 'personal' || scope.kind === 'community'),
     403, 'scope_kind_unavailable', '這種資源範圍尚未開放。');
   const operation = input.operation, key = input.key, target = Object.freeze({ ...input.target }), expected = input.expected ?? null;
   const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value, lockUser = input.lockUser;
@@ -164,6 +165,97 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
       assertCurrentTime?.();
+      authorizeScopedCommand(context);
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+  } finally { if (context!) forgetScopedCommand(context); }
+}
+
+export interface ScopedTenantCommand {
+  actor: MemberScopeInput['actor'];
+  tenantId: string;
+  operation: string;
+  key: string;
+  body: unknown;
+  target: { kind: string; id: string };
+  expected?: string;
+  lockUser?: boolean;
+  capabilitiesForRole: (role: TenantScopeContext['role']) => readonly string[];
+}
+
+/** Tenant-scoped member command. Personal and community adapters are unchanged.
+ * Digest profile is freedom.scoped-tenant-command/v1. Authority is re-read
+ * after the receipt lock and after the receipt insert. */
+export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantCommand,
+  authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
+  run: (q: PoolClient, context: TenantScopeContext) => Promise<T>): Promise<T> {
+  requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
+    ['actor', 'tenantId', 'operation', 'key', 'body', 'target', 'expected', 'lockUser', 'capabilitiesForRole'].includes(key)),
+  400, 'invalid_scoped_command', '操作資料無效。');
+  requireCondition(typeof input.capabilitiesForRole === 'function', 400, 'invalid_scoped_command', '操作資料無效。');
+  requireCondition(typeof input.key === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(input.key)
+    && !/[\r\n]/.test(input.key), 400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
+  requireCondition(stableId(input.operation), 400, 'invalid_operation', '操作識別碼無效。');
+  requireCondition(input.target && Object.keys(input.target).length === 2 && stableId(input.target.kind) && uuid(input.target.id),
+    400, 'invalid_target', '目標識別碼無效。');
+  requireCondition(input.expected === undefined || validVersion(input.expected), 400, 'invalid_expected_version', '版本無效。');
+  requireCondition(input.lockUser === undefined || typeof input.lockUser === 'boolean', 400, 'invalid_scoped_command', '操作資料無效。');
+  requireCondition(input.actor && uuid(input.actor.user_id) && uuid(input.actor.community_id)
+    && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
+  401, 'session_expired', '請重新登入。');
+  requireCondition(uuid(input.tenantId), 404, 'tenant_not_found', '找不到這個業務空間。');
+  const actor = Object.freeze({ ...input.actor });
+  const operation = input.operation, key = input.key, target = Object.freeze({ ...input.target }), expected = input.expected ?? null;
+  const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value, lockUser = input.lockUser;
+  const capabilitiesForRole = input.capabilitiesForRole;
+  const tenantId = input.tenantId;
+  let context: TenantScopeContext;
+  const namespace = () => [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, operation, key];
+  // A command may update the tenant or membership it already holds FOR UPDATE.
+  // xmin matching this transaction is that own write, not a concurrent commit.
+  // PostgreSQL 18 rejects bigint::xid, so compare xmin with the low 32 bits.
+  const recheck = async (q: PoolClient) => {
+    await assertCurrentSessionClock(q, actor);
+    const row = (await q.query<{ status: string; authorization_revision: string; role: string; member_status: string; membership_version: string; self_updated: boolean }>(
+      `SELECT t.status, t.authorization_revision::text AS authorization_revision, m.role, m.status AS member_status, m.version::text AS membership_version,
+              (m.xmin::text::bigint = (txid_current() & 4294967295)
+               OR t.xmin::text::bigint = (txid_current() & 4294967295)) AS self_updated
+       FROM tenants t JOIN tenant_memberships m ON m.tenant_id=t.tenant_id AND m.principal_id=$2
+       WHERE t.tenant_id=$1`, [context.tenant_id, context.principal_id])).rows[0];
+    if (row?.self_updated === true) return;
+    requireCondition(row && row.member_status === 'active' && row.role === context.role
+      && row.status === context.tenant_status && row.authorization_revision === context.authorization_revision
+      && row.membership_version === context.membership_version,
+    403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
+  };
+  try {
+    return await runCommandCore(pool, {
+      async authenticateAndLock(q) {
+        context = await lockTenantScope(q, { actor, tenantId, forUpdate: true, lockUser, capabilitiesForRole });
+        await assertCurrentSessionClock(q, actor);
+        registerScopedCommand(context, q, operation);
+      },
+      async lockReceipt(q) {
+        await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+          [JSON.stringify(['freedom.scoped-tenant-command/v1', ...namespace()])]);
+      },
+      requestDigest: () => digest({ profile: 'freedom.scoped-tenant-command/v1', scope: context.scope, target, expected, body }),
+      async readReceipt(q) {
+        const prior = (await q.query(`SELECT request_sha256,response FROM scoped_command_receipts
+          WHERE principal_id=$1 AND authn_kind=$2 AND scope_id=$3 AND operation=$4 AND idempotency_key=$5`, namespace())).rows[0];
+        await recheck(q);
+        return prior ? { request_sha256: prior.request_sha256, response: jsonSnapshot(prior.response, MAX_JSON_BYTES).value as T } : null;
+      },
+      async writeReceipt(q, hash, response) {
+        const encoded = jsonSnapshot(response, MAX_JSON_BYTES);
+        await q.query(`INSERT INTO scoped_command_receipts(principal_id,authn_kind,scope_id,operation,idempotency_key,
+          principal_kind,scope_kind,target_kind,target_id,request_sha256,response)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [...namespace(), context.subject_principal.kind, context.scope.kind, target.kind, target.id, hash, encoded.json]);
+        await recheck(q);
+      },
+    }, async q => {
+      await authorize(q, context);
+      await assertCurrentSessionClock(q, actor);
       authorizeScopedCommand(context);
     }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
   } finally { if (context!) forgetScopedCommand(context); }
