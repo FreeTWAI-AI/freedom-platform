@@ -11514,8 +11514,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/config.ts",
-      "bytes": 11257,
-      "sha256": "93a35a83832648ecd49f47e7b4e613cdbb0bd9a650bf9955f29e0d4cf9301a76"
+      "bytes": 11080,
+      "sha256": "54196d77cf8db24a2b98e026e630a2a990c15ea7d3ec87e59199034029091dcc"
     },
     {
       "path": "contracts/preview/v1/bundle.json",
@@ -18404,8 +18404,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad.test.ts",
-      "bytes": 50346,
-      "sha256": "61647a6d4d9e8eb19ea07c6ac3b883034dca29a60f8abaabb2376d42ff525292"
+      "bytes": 50838,
+      "sha256": "c119c4417de79d09397fd9b620a5396219f662c9b997b686e455f33c49ae361c"
     },
     {
       "path": "tests/runtime/guild-member-tiers.test.ts",
