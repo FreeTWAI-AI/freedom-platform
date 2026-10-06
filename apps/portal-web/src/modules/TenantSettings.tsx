@@ -9,45 +9,23 @@ type Page<T> = { items: T[]; next_cursor: string | null; source_version: string 
 type Attempt = { key: string; path: string; body: unknown; ifMatch?: string };
 type DirectoryPerson = { user_id: string; nickname: string };
 type AfterRole = TransferView['from_role_after'];
-type Bag = { tenant_id?: string; workspace_id?: string; ownership_transfer_id?: string };
 const INVITE_ROLES = ['admin', 'operator', 'viewer'] as const;
 const AFTER_ROLES = ['admin', 'operator', 'viewer', 'revoked'] as const;
 const AFTER_LABEL: Record<AfterRole, string> = { admin: '管理員', operator: '操作者', viewer: '檢視者', revoked: '已撤銷' };
 const TRANSFER_HOURS = [1, 6, 24] as const;
 
 function storedKey(userId: string) { return `freedom-acting-tenant:${userId}`; }
-function readBag(userId: string): Bag {
-  try {
-    const parsed = JSON.parse(sessionStorage.getItem(storedKey(userId)) ?? '') as Record<string, unknown>;
-    return {
-      tenant_id: typeof parsed.tenant_id === 'string' ? parsed.tenant_id : undefined,
-      workspace_id: typeof parsed.workspace_id === 'string' ? parsed.workspace_id : undefined,
-      ownership_transfer_id: typeof parsed.ownership_transfer_id === 'string' ? parsed.ownership_transfer_id : undefined,
-    };
-  } catch { return {}; }
-}
-function writeBag(userId: string, bag: Bag) {
-  try { sessionStorage.setItem(storedKey(userId), JSON.stringify(bag)); } catch { /* The screen still shows the current choice. */ }
-}
 function readStored(userId: string): string | null {
-  return readBag(userId).tenant_id ?? null;
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(storedKey(userId)) ?? '') as { tenant_id?: unknown };
+    return typeof parsed.tenant_id === 'string' ? parsed.tenant_id : null;
+  } catch { return null; }
 }
 function remember(userId: string, tenantId: string, workspaceId: string) {
-  const previous = readBag(userId);
-  writeBag(userId, {
-    tenant_id: tenantId,
-    workspace_id: workspaceId,
-    ...(previous.tenant_id === tenantId && previous.ownership_transfer_id ? { ownership_transfer_id: previous.ownership_transfer_id } : {}),
-  });
+  try { sessionStorage.setItem(storedKey(userId), JSON.stringify({ tenant_id: tenantId, workspace_id: workspaceId })); } catch { /* The screen still shows the current choice. */ }
 }
-function rememberTransfer(userId: string, tenantId: string, transferId: string | null) {
-  const bag = readBag(userId);
-  if (bag.tenant_id !== tenantId) return;
-  writeBag(userId, {
-    tenant_id: bag.tenant_id,
-    workspace_id: bag.workspace_id,
-    ...(transferId ? { ownership_transfer_id: transferId } : {}),
-  });
+function absoluteWhen(value: string) {
+  return new Date(value).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 function allows(tenant: TenantView, key: string) {
   return tenant.capabilities.some(grant => grant.instance_id === null && grant.keys.includes(key));
@@ -79,6 +57,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const [incomingTransfers, setIncomingTransfers] = useState<TransferView[]>([]);
   const [recoveryCases, setRecoveryCases] = useState<RecoveryCaseView[]>([]);
   const [outgoing, setOutgoing] = useState<TransferView | null>(null);
+  const [outgoingReadError, setOutgoingReadError] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [alertText, setAlertText] = useState('');
@@ -114,27 +93,24 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   }
 
   async function loadOutgoing(view: TenantView, signal: AbortSignal, live: () => boolean) {
-    const transferId = view.my_membership.role === 'owner' ? readBag(userId).ownership_transfer_id : undefined;
-    const sameTenant = readBag(userId).tenant_id === view.tenant_id;
-    if (!transferId || !sameTenant || view.status !== 'active') {
-      if (live()) setOutgoing(null);
+    if (view.my_membership.role !== 'owner' || view.status !== 'active') {
+      if (live()) { setOutgoing(null); setOutgoingReadError(''); }
       return;
     }
     try {
-      const row = await client.get<TransferView>(`/tenants/${view.tenant_id}/ownership-transfers/${transferId}`, { signal });
+      const page = await client.get<Page<TransferView>>(`/tenants/${view.tenant_id}/ownership-transfers?limit=20`, { signal });
       if (!live()) return;
-      if (row.state === 'pending' && row.from_principal_id === view.my_membership.principal_id) setOutgoing(row);
-      else { setOutgoing(null); rememberTransfer(userId, view.tenant_id, null); }
-    } catch {
+      setOutgoing(page.items.find(item => item.state === 'pending' && item.from_principal_id === view.my_membership.principal_id) ?? null);
+      setOutgoingReadError('');
+    } catch (error) {
       if (!live()) return;
-      setOutgoing(null);
-      rememberTransfer(userId, view.tenant_id, null);
+      if (networkFailure(error)) setOutgoingReadError('暫時無法讀取移交。');
     }
   }
 
   async function loadMine(prefer?: string) {
     const { signal, live } = begin();
-    setLoading(true); setTenant(null); setMembers([]); setWorkspaceName(''); setPending(null); setOutgoing(null); setTransferPreview(null);
+    setLoading(true); setTenant(null); setMembers([]); setWorkspaceName(''); setPending(null); setTransferPreview(null);
     try {
       const [page, inbox, transfers, recoveries] = await Promise.all([
         client.get<Page<TenantView>>('/tenants?limit=100', { signal }),
@@ -146,6 +122,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       setTenants(page.items); setInvitations(inbox.items); setIncomingTransfers(transfers.items); setRecoveryCases(recoveries.items);
       const stored = prefer ?? readStored(userId);
       const next = page.items.find(item => item.tenant_id === stored)?.tenant_id ?? page.items[0]?.tenant_id ?? null;
+      if (next !== selectedId) { setOutgoing(null); setOutgoingReadError(''); }
       setSelectedId(next);
       if (next) await loadTenant(next, signal, live);
     } catch (error) {
@@ -191,7 +168,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     if (tenantId === selectedId && tenant) return;
     setNotice(''); setAlertText(''); setPending(null); setPeople([]); setRecipientPeople([]); setTransferPreview(null);
     const { signal, live } = begin();
-    setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setOutgoing(null); setLoading(true);
+    setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setOutgoing(null); setOutgoingReadError(''); setLoading(true);
     void loadTenant(tenantId, signal, live).catch(error => { if (live()) setAlertText(error instanceof ApiError ? error.message : '需要處理'); }).finally(() => { if (live()) setLoading(false); });
   }
 
@@ -219,7 +196,6 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     if (!attempt) return;
     const value = await run<{ tenant?: TenantView; tenant_id?: string; transfer_id?: string }>(attempt);
     if (!value) return;
-    if (value.transfer_id && value.tenant_id && attempt.path.endsWith('/ownership-transfers')) rememberTransfer(userId, value.tenant_id, value.transfer_id);
     await loadMine(attempt.path === '/tenants' ? value.tenant?.tenant_id : selectedId ?? undefined);
   }
 
@@ -400,7 +376,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       });
       if (!saved) return;
       setTransferPreview(null); setRecipient(null); setRecipientPeople([]); setTransferReason('');
-      setOutgoing(saved); rememberTransfer(userId, tenantId, saved.transfer_id);
+      setOutgoing(saved); setOutgoingReadError('');
       setNotice(`已提出移交給${saved.to_display_name}。對方接受前，擁有權不會改變。`);
       await loadMine(tenantId);
     });
@@ -414,7 +390,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       body: { reason: cancelReason.trim() },
     });
     if (!saved) return;
-    setOutgoing(null); rememberTransfer(userId, tenant.tenant_id, null);
+    setOutgoing(null); setOutgoingReadError('');
     setNotice('已取消移交。'); await loadMine(tenant.tenant_id);
   }
 
@@ -526,9 +502,14 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       </form>}
       {canTransfer && <section className="stack" aria-label="移交擁有權">
         <h2>移交擁有權</h2>
+        {outgoingReadError && <div className="actions">
+          <p className="banner" role="alert">{outgoingReadError}</p>
+          <button type="button" className="btn btn-ghost" onClick={() => { if (!tenant) return; const { signal, live } = begin(); void loadOutgoing(tenant, signal, live); }}>重試</button>
+        </div>}
         {outgoing?.state === 'pending'
           ? <form className="stack card" onSubmit={event => void cancelTransfer(event)}>
             <p>已提議將擁有權移交給{outgoing.to_display_name}。對方接受前，你仍是擁有者。接受後你的角色是{AFTER_LABEL[outgoing.from_role_after]}。</p>
+            <p>到期：{absoluteWhen(outgoing.expires_at)}</p>
             <label className="field">取消原因<input value={cancelReason} minLength={3} maxLength={1000} required onChange={event => setCancelReason(event.target.value)}/></label>
             <button className="btn btn-ghost" type="submit">取消移交</button>
           </form>
@@ -578,21 +559,25 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     <section className="stack" aria-label="待接受的擁有權移交">
       <h2>待接受的擁有權移交</h2>
       {incomingTransfers.length === 0 && <p className="field-hint">目前沒有待接受的擁有權移交。</p>}
-      <ul className="stack">{incomingTransfers.map(transfer => <li key={transfer.transfer_id} className="card">
+      <ul className="stack tenant-rows">{incomingTransfers.map(transfer => <li key={transfer.transfer_id} className="tenant-row">
         <p>{transfer.tenant_display_name}：{transfer.from_display_name}邀請你成為擁有者。接受後對方的角色是{AFTER_LABEL[transfer.from_role_after]}。</p>
-        <button type="button" className="btn btn-primary" onClick={event => startAcceptTransfer(event, transfer)}>接受{transfer.tenant_display_name}的擁有權移交</button>
-        <button type="button" className="btn btn-ghost" onClick={() => void declineTransfer(transfer)}>拒絕{transfer.tenant_display_name}的擁有權移交</button>
+        <p>到期：{absoluteWhen(transfer.expires_at)}</p>
+        <div className="actions">
+          <button type="button" className="btn btn-primary" onClick={event => startAcceptTransfer(event, transfer)}>接受{transfer.tenant_display_name}的擁有權移交</button>
+          <button type="button" className="btn btn-ghost" onClick={() => void declineTransfer(transfer)}>拒絕{transfer.tenant_display_name}的擁有權移交</button>
+        </div>
       </li>)}</ul>
     </section>
 
     <section className="stack" aria-label="待接受的復原">
       <h2>待接受的復原</h2>
       {recoveryCases.length === 0 && <p className="field-hint">目前沒有待接受的復原。</p>}
-      <ul className="stack">{recoveryCases.map(item => <li key={item.case_id} className="card">
+      <ul className="stack tenant-rows">{recoveryCases.map(item => <li key={item.case_id} className="tenant-row">
         <p>{item.tenant_display_name}請你成為受控復原後的擁有者。接受不會立刻變更擁有權，仍須由另一位管理員執行。</p>
+        {item.expires_at && <p>到期：{absoluteWhen(item.expires_at)}</p>}
         {item.recipient_accepted
           ? <p className="field-hint">已接受，等待執行。</p>
-          : <button type="button" className="btn btn-primary" onClick={event => startAcceptRecovery(event, item)}>接受{item.tenant_display_name}的復原</button>}
+          : <div className="actions"><button type="button" className="btn btn-primary" onClick={event => startAcceptRecovery(event, item)}>接受{item.tenant_display_name}的復原</button></div>}
       </li>)}</ul>
     </section>
 

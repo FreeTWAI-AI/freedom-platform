@@ -70,6 +70,11 @@ test('an owner proposes a transfer and the named recipient accepts it', async ({
     await ownerSession.page.keyboard.press('Enter');
     await expect(ownerSession.page.getByText(`已提出移交給${recipient.display_name}。對方接受前，擁有權不會改變。`)).toBeVisible();
     await expect(ownerSession.page.getByRole('button', { name: '取消移交', exact: true })).toBeVisible();
+    await ownerSession.page.evaluate(() => sessionStorage.clear());
+    await ownerSession.page.reload();
+    await navigate(ownerSession.page, '業務空間');
+    await expect(ownerSession.page.getByText(`已提議將擁有權移交給${recipient.display_name}`)).toBeVisible();
+    await expect(ownerSession.page.getByRole('button', { name: '取消移交', exact: true })).toBeVisible();
     await ownerSession.page.screenshot({ path: 'test-results/tenant-ownership-1440.png', fullPage: true });
 
     await navigate(recipientSession.page, '業務空間');
