@@ -386,8 +386,8 @@ jobs:
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
       - run: npm run test:contracts
       - run: npm run verify:inventory
-  # A selected preflight participates in verify. Installed workflow upgrades still
-  # require review; editing this candidate does not change the installed source.
+  # Selected preflight must succeed for verify. Enforcing this revision through
+  # an installed workflow pin still requires its reviewed ruleset upgrade.
   deploy-preflight:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
