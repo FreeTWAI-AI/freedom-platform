@@ -15644,18 +15644,18 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 1087,
-      "sha256": "5f7a0d7909966a3e92cdd58b49ee8edb68e78e09c2c573c6ad793bcdc29f9f0c"
+      "bytes": 1141,
+      "sha256": "31d51f3d2098161ebd4874d62c71379849cea182c11a7799520617a31020dfa5"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
-      "bytes": 32315,
-      "sha256": "4ab5037a988674beaef69af2433d06b07efd5d393010f240056ad21b89959e2e"
+      "bytes": 35139,
+      "sha256": "c1275437743cbc4da217eff822c60ced1f0663e6d1707c830fdd51e4b2466f14"
     },
     {
       "path": "modules/guild-workspace/launchpad-view.ts",
-      "bytes": 7658,
-      "sha256": "53f5192b9122d4f90a361c3ede954060b5be6f7e1fa82e4bad4d703098b7db33"
+      "bytes": 8240,
+      "sha256": "c56bf568a716ebe92696a931c6bec070aa40aec8b49e9445bd0f9e03ef82b8db"
     },
     {
       "path": "modules/guild-workspace/service.ts",
@@ -16314,8 +16314,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 5832,
-      "sha256": "1b31107300af92ad3fd06f5066b1927a1eae347288350f2c99a9b958c060f2a5"
+      "bytes": 5857,
+      "sha256": "33cdb93e89b24a65c8111582746948b789b5df51bee7656bc277e7b2e12a1e45"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -16544,8 +16544,8 @@
     },
     {
       "path": "packages/db/README.md",
-      "bytes": 12098,
-      "sha256": "647f2f1385bf1688e1a999f421a001ecb508ae911d71584a6f98a6e2bf84c73b"
+      "bytes": 12869,
+      "sha256": "34dc185d815d237721adb5b91387198154f11bd641e5a01f4f1acaa33aa99249"
     },
     {
       "path": "packages/db/command-core.ts",
@@ -16569,8 +16569,8 @@
     },
     {
       "path": "packages/db/member-command.ts",
-      "bytes": 2723,
-      "sha256": "ea5ddd10184e0c3c2f6b93d6ed140c2b81c69b32d373ddfbe09ab132b7cbc1f8"
+      "bytes": 3089,
+      "sha256": "b069285b187007d1b820920bcbdee7912f34fda17cf32fc6333b802b6a73df76"
     },
     {
       "path": "packages/db/member-session.ts",
@@ -18436,6 +18436,11 @@
       "path": "tests/runtime/guild-experts.test.ts",
       "bytes": 27883,
       "sha256": "b383c10885b2d24d8308c7b288e46447acb3d3efd593babc04bbdeccc8e722ad"
+    },
+    {
+      "path": "tests/runtime/guild-launchpad-deadline.test.ts",
+      "bytes": 27821,
+      "sha256": "743bb3f7482497594404effb21a142b3f3b6fe47ad63ce4383642a8271b74172"
     },
     {
       "path": "tests/runtime/guild-launchpad.test.ts",
