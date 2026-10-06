@@ -1,3 +1,6 @@
+import {createMachineModelHttpTransport} from './routes/machine-model-http.js';
+import type {MachineTextHost} from '../../../contracts/execution/v3/machine-text-execution.js';
+import {parseMachineTextHost} from '../../../modules/agent-control/machine-text-proof.js';
 import {classifyPrivateAiPath} from './private-ai-path.js';
 import type { Pool } from 'pg';
 import type { DeviceAuthorizationHost } from '../../../contracts/execution/v1/device-pairing.js';
@@ -35,11 +38,11 @@ function rejected(code:string,status:number) {
 export async function createPrivateAiProductTransport(pool: Pool, options: {
   origin: string; environment: RuntimeEnvironment; clientId: string; host?: ModelStepHost; broker?: ModelBrokerClient; store: ObjectStore;
   sourceNetwork?: (request: Request) => string; ingest?: CredentialIngestClient; settingsSelections?: readonly z.infer<typeof BrokerModelSelectionSchema>[];
-  bootstrap?: PrivateAiBootstrapInstallation;
+  bootstrap?: PrivateAiBootstrapInstallation; machine?:{host:MachineTextHost;signingKey:CryptoKey};
 }): Promise<PrivateAiProductTransport> {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype) throw new Error('invalid_private_ai_product_configuration');
   const descriptors = Object.getOwnPropertyDescriptors(options);
-  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest','settingsSelections','bootstrap'].includes(key))
+  if (Reflect.ownKeys(options).some(key => typeof key !== 'string' || !['origin','environment','clientId','host','broker','store','sourceNetwork','ingest','settingsSelections','bootstrap','machine'].includes(key))
     || Object.values(descriptors).some(value => !value.enumerable || !('value' in value))
     || ['origin','environment','clientId','store'].some(key => !descriptors[key]) || (!!descriptors.host === !!descriptors.broker)) throw new Error('invalid_private_ai_product_configuration');
   const environment = RuntimeEnvironmentSchema.parse(descriptors.environment.value);
@@ -66,6 +69,17 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
       throw new Error('invalid_private_ai_bootstrap_binding');
     bootstrap = await createBootstrapHttpTransport(pool,{host:bootstrapHost,signingKey:ports.signingKey.value as CryptoKey,...network});
   }
+  let machine:Awaited<ReturnType<typeof createMachineModelHttpTransport>>|undefined;
+  if(descriptors.machine){
+    const installation=descriptors.machine.value,d=installation&&Object.getOwnPropertyDescriptors(installation);
+    if(!installation||Object.getPrototypeOf(installation)!==Object.prototype||Reflect.ownKeys(installation).length!==2
+      ||!d?.host||!d.signingKey||Object.values(d).some(v=>!v.enumerable||!('value' in v))||!host||environment!=='local'
+      ||!(d.signingKey.value instanceof CryptoKey)||d.signingKey.value.type!=='private')
+      throw new Error('invalid_machine_model_installation');
+    const machineHost=parseMachineTextHost(d.host.value);
+    if(machineHost.environment!==environment||machineHost.clientId!==clientId||machineHost.origin!==origin)throw new Error('invalid_machine_model_binding');
+    machine=await createMachineModelHttpTransport(pool,{host:machineHost,signingKey:d.signingKey.value,modelHost:host,store,...network});
+  }
   const ingestClient = descriptors.ingest ? bindCredentialIngestClient(descriptors.ingest.value as CredentialIngestClient,pool,origin,environment,clientId) : undefined;
   const setupOrigin = ingestClient?.setupOrigin;
   // Each child owns its member boundary and original bounded request stream.
@@ -84,7 +98,8 @@ export async function createPrivateAiProductTransport(pool: Pool, options: {
     if(!classified||!classified.normalized)return rejected('not_found',404);
     if(url.origin!==origin||url.href!==request.url||url.hash||/[#%\\\x00-\x20\x7f-\uffff]/.test(path)
       ||(sentHost!==null&&sentHost!==new URL(origin).host))return rejected('host_rejected',403);
-    if (classified.purpose==='bootstrap'||classified.purpose==='machine-model')
+    if(classified.purpose==='machine-model')return machine?machine.fetch(request):rejected('machine_model_http_unavailable',503);
+    if (classified.purpose==='bootstrap')
       return bootstrap ? bootstrap.fetch(request) : rejected('bootstrap_http_unavailable',503);
     const read=['GET','HEAD'].includes(request.method),site=request.headers.get('Sec-Fetch-Site');
     if((sentOrigin!==null&&sentOrigin!==origin)||(!read&&sentOrigin!==origin)||(site!==null&&site!=='same-origin'))return rejected('origin_rejected',403);
