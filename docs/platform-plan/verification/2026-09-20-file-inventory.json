@@ -1744,13 +1744,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/TenantSelector.tsx",
-      "bytes": 1240,
-      "sha256": "d698557f00936bdd33fd6278c61a6e22da20e197139e790edd2b7b63318b8b6b"
+      "bytes": 1257,
+      "sha256": "37964caa851c32897e03ee67a8050edb04e925f34468bb054906c75228b29c76"
     },
     {
       "path": "apps/portal-web/src/modules/TenantSettings.tsx",
-      "bytes": 18246,
-      "sha256": "4c162c5768c3af4df0d37ea2c37f5dd6b852cc887bc0039724fb1e284eac5d80"
+      "bytes": 18643,
+      "sha256": "62ced197a59255fa5e13fd69cf9141254ddcb3c03f4553990b5b6ed9a1339f9f"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -2099,8 +2099,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
-      "bytes": 97,
-      "sha256": "7debd9a59c3b8e8a2b3f58ff02d7d0c0e0c80bf302892de2117559e43e0156af"
+      "bytes": 750,
+      "sha256": "3e52f2f9c0982b28b4fb63ab2900d87540675d7509068f65d79ca3ee319e8d80"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -17804,8 +17804,8 @@
     },
     {
       "path": "tests/e2e/tenant-workspaces.spec.ts",
-      "bytes": 6283,
-      "sha256": "49e2c69c47f83354d051ebd42475b88a2c6b0d1b6e1438fbe06312b93a3d312e"
+      "bytes": 7240,
+      "sha256": "75137fab32e5cc3db990c7030f704a9d98d55d15a51fc1a4f4c5d13367a2ce6d"
     },
     {
       "path": "tests/e2e/text-autospace.spec.ts",
