@@ -419,15 +419,11 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const tenantId = tenant.tenant_id;
     actionPurpose.current = 'tenant.ownership.propose';
     actionTenant.current = tenantId;
-    const key = crypto.randomUUID();
     openPassword(event, async verificationId => {
-      const saved = await run<TransferView>({
-        key, path: `/tenants/${tenantId}/ownership-transfers`, tenantId,
-        body: {
-          to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt,
-          reason, fresh_auth_verification_id: verificationId,
-        },
-      });
+      const saved = await run<TransferView>(attemptFor(tenantId, `/tenants/${tenantId}/ownership-transfers`, {
+        to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt,
+        reason, fresh_auth_verification_id: verificationId,
+      }));
       if (!saved) return;
       setTransferPreview(null); setRecipient(null); setRecipientPeople([]); setTransferReason('');
       setOutgoing(saved); setOutgoingReadError('');
@@ -439,10 +435,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   async function cancelTransfer(event: FormEvent) {
     event.preventDefault();
     if (!tenant || !outgoing) return;
-    const saved = await run<TransferView>({
-      key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/ownership-transfers/${outgoing.transfer_id}/cancel`,
-      tenantId: tenant.tenant_id, body: { reason: cancelReason.trim() },
-    });
+    const saved = await run<TransferView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/ownership-transfers/${outgoing.transfer_id}/cancel`, { reason: cancelReason.trim() }));
     if (!saved) return;
     setOutgoing(null); setOutgoingReadError('');
     setNotice('已取消移交。'); await loadMine(tenant.tenant_id);
@@ -451,12 +444,10 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   function startAcceptTransfer(event: MouseEvent<HTMLButtonElement>, transfer: TransferView) {
     actionPurpose.current = 'tenant.ownership.accept';
     actionTenant.current = transfer.tenant_id;
-    const key = crypto.randomUUID();
     openPassword(event, async verificationId => {
-      const saved = await run<{ tenant_id: string }>({
-        key, path: `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, ifMatch: transfer.version,
-        tenantId: null, body: { accept_scope: true, fresh_auth_verification_id: verificationId },
-      });
+      const saved = await run<{ tenant_id: string }>(attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, {
+        accept_scope: true, fresh_auth_verification_id: verificationId,
+      }, transfer.version));
       if (!saved) return;
       setNotice(`已接受${transfer.tenant_display_name}的擁有權。`);
       await loadMine(transfer.tenant_id);
@@ -464,10 +455,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   }
 
   async function declineTransfer(transfer: TransferView) {
-    const saved = await run<TransferView>({
-      key: crypto.randomUUID(), path: `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`,
-      tenantId: null, body: {},
-    });
+    const saved = await run<TransferView>(attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`, {}));
     if (!saved) return;
     setNotice(`已拒絕${transfer.tenant_display_name}的擁有權移交。`);
     await loadMine(selectedId ?? undefined);
@@ -476,12 +464,10 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   function startAcceptRecovery(event: MouseEvent<HTMLButtonElement>, item: RecoveryCaseView) {
     actionPurpose.current = 'tenant.recovery.accept';
     actionTenant.current = item.tenant_id;
-    const key = crypto.randomUUID();
     openPassword(event, async verificationId => {
-      const saved = await run<RecoveryCaseView>({
-        key, path: `/me/tenant-recovery-cases/${item.case_id}/accept`, ifMatch: item.version,
-        tenantId: null, body: { accept_scope: true, fresh_auth_verification_id: verificationId },
-      });
+      const saved = await run<RecoveryCaseView>(attemptFor(null, `/me/tenant-recovery-cases/${item.case_id}/accept`, {
+        accept_scope: true, fresh_auth_verification_id: verificationId,
+      }, item.version));
       if (!saved) return;
       setNotice(`已接受${item.tenant_display_name}的復原。擁有權要等管理員執行後才會變更。`);
       await loadMine(selectedId ?? undefined);

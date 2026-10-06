@@ -237,3 +237,74 @@ test('an owner proposes a transfer and the named recipient accepts it', async ({
     await cleanup(e2eAuthPool, people);
   }
 });
+
+async function transferEvidence(db: import('pg').Pool, displayName: string) {
+  const transfers = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_ownership_transfers tr
+    JOIN tenants t ON t.tenant_id=tr.tenant_id WHERE t.display_name=$1`, [displayName]);
+  const audit = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_authority_audit a
+    JOIN tenants t ON t.tenant_id=a.tenant_id WHERE t.display_name=$1 AND a.action='tenant.ownership.propose'`, [displayName]);
+  const receipts = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM scoped_command_receipts r
+    JOIN resource_scopes s ON s.scope_id=r.scope_id JOIN tenants t ON t.tenant_id=s.tenant_ref
+    WHERE t.display_name=$1 AND r.operation='tenant.ownership.propose'`, [displayName]);
+  return { transfers: transfers.rows[0].n, audit: audit.rows[0].n, receipts: receipts.rows[0].n };
+}
+
+test('a lost transfer acknowledgement is resent with the original key and body', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `品牌失${run}`;
+  const people = await seed(e2eAuthPool, run);
+  const [owner, recipient] = people;
+  const session = await open(browser, baseURL!, owner, { width: 1440, height: 900 });
+  const page = session.page;
+  const posts: { key: string; body: string; method: string }[] = [];
+  await page.route(url => /\/api\/v1\/tenants\/[^/]+\/ownership-transfers$/.test(url.pathname), async route => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    posts.push({
+      method: route.request().method(),
+      key: route.request().headers()['idempotency-key'] ?? '',
+      body: route.request().postData() ?? '',
+    });
+    if (posts.length === 1) {
+      await route.fetch();
+      await route.abort('failed').catch(() => undefined);
+      return;
+    }
+    await route.continue().catch(() => undefined);
+  });
+  try {
+    await navigate(page, '業務空間');
+    await page.getByLabel('業務空間名稱', { exact: true }).fill(tenantName);
+    await page.getByLabel('工作區名稱（可略過）', { exact: true }).fill(`櫃檯${run}`);
+    await page.getByRole('button', { name: '建立業務空間', exact: true }).click();
+    await expect(page.getByText('我的角色：擁有者', { exact: true })).toBeVisible();
+    await page.getByLabel('搜尋接收者', { exact: true }).fill(recipient.display_name);
+    await page.getByRole('button', { name: '搜尋接收者', exact: true }).click();
+    await page.getByRole('button', { name: `選擇${recipient.display_name}為接收者`, exact: true }).click();
+    await page.getByLabel('移交原因', { exact: true }).fill('交給下一位擁有者');
+    await page.getByRole('button', { name: '檢視移交內容', exact: true }).click();
+    await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+    const password = page.getByLabel('目前的密碼', { exact: true });
+    await expect(password).toBeFocused();
+    await password.pressSequentially(DEMO_PASSWORD);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toHaveText('正在確認是否已儲存');
+    await expect.poll(() => posts.length).toBe(1);
+    await page.getByRole('button', { name: '繼續，重新驗證密碼', exact: true }).click();
+    await expect(password).toBeFocused();
+    await password.pressSequentially(DEMO_PASSWORD);
+    await page.keyboard.press('Enter');
+    await expect.poll(() => posts.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(posts.map(item => item.key)).size, JSON.stringify(posts)).toBe(1);
+    expect(new Set(posts.map(item => item.body)).size, JSON.stringify(posts)).toBe(1);
+    expect(posts.every(item => item.method === 'POST')).toBe(true);
+    await expect(page.getByText(`已提議將擁有權移交給${recipient.display_name}`)).toBeVisible();
+    await expect.poll(async () => transferEvidence(e2eAuthPool, tenantName)).toEqual({ transfers: 1, audit: 1, receipts: 1 });
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, people);
+  }
+});
