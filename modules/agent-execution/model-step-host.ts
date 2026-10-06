@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { openRouterModelPath, readOpenRouterKey, assertOpenRouterModel } from './openrouter-profile.js';
 import { ModelStepBindingSchema, ModelStepContextSchema, ModelStepLimits, ModelStepUsageSchema,
   type ModelStepBinding, type ModelStepEvidenceOrigin, type ModelStepUsage } from '../../contracts/execution/v2/model-step.js';
+import type { RuntimeEnvironment } from '../../contracts/execution/v1/runtime-registration.js';
 import { MemberExecutionVersionSchema } from '../../contracts/execution/v1/member-execution.js';
 import { freezeTree, snapshotInput } from '../../packages/execution-state/decode.js';
 import { AdapterFault, copyModelBytes, parseModelJson } from './adapters/common.js';
@@ -302,6 +303,40 @@ function host(options: HostOptions, origin: ModelStepEvidenceOrigin, fixtureOrig
         reportedModelRef: decoded.reportedModelRef!, usage });
       const result = token<OpaqueModelObservation>(); observations.set(result, { data, capability: raw, verified: cap.verified }); return result;
     },
+  });
+  hostIdentities.set(result, identity); return result;
+}
+/** Admission proof only. It stamps the host-configured recovery floor and
+ * evidence origin, and it never resolves a credential or touches a network.
+ * Dispatch stays unavailable; the broker's own host verifies before a send.
+ * adapterProfile stays the literal domain value; this digest is not a provider observation. */
+export function createRecoveryPinnedModelStepHost(raw: { recover: () => Promise<RecoveryObservation>; evidenceOrigin: ModelStepEvidenceOrigin; environment: RuntimeEnvironment }): ModelStepHost {
+  if (!raw || Object.getPrototypeOf(raw) !== Object.prototype) fail('invalid_input');
+  const descriptors = Object.getOwnPropertyDescriptors(raw);
+  if (Reflect.ownKeys(raw).some(name => !['recover', 'evidenceOrigin', 'environment'].includes(String(name)))
+    || ['recover', 'evidenceOrigin', 'environment'].some(name => !descriptors[name] || !('value' in descriptors[name]) || !descriptors[name].enumerable)) fail('invalid_input');
+  const recoverFn = descriptors.recover.value as () => Promise<RecoveryObservation>;
+  const evidenceOrigin = descriptors.evidenceOrigin.value as ModelStepEvidenceOrigin;
+  const environment = descriptors.environment.value as RuntimeEnvironment;
+  if (typeof recoverFn !== 'function' || (evidenceOrigin !== 'provider_https' && evidenceOrigin !== 'synthetic_local_fixture')) fail('invalid_input');
+  if (evidenceOrigin === 'synthetic_local_fixture' && environment !== 'local') fail('invalid_input');
+  const identity = token<object>();
+  const result: ModelStepHost = Object.freeze({
+    async verify(rawBinding: ModelStepBinding) {
+      const binding = parseModelStepBinding(rawBinding);
+      if (binding.environment !== environment) fail('unsupported_selection');
+      if (evidenceOrigin === 'synthetic_local_fixture' && binding.environment !== 'local') fail('unsupported_selection');
+      supported(binding);
+      const observed = await recovery(recoverFn);
+      const expiresAt = new Date(Math.min(Date.now() + 90000, Date.parse(observed.expiresAt))).toISOString();
+      fresh(expiresAt);
+      const data: VerifiedModelBindingData = freezeTree({ binding, bindingId: randomUUID(), evidenceDigest: digest('freedom/machine-model-admission/v1'),
+        recoveryGeneration: observed.generation, expiresAt, evidenceOrigin, adapterProfile: 'byok-text/v1' });
+      const proof = token<OpaqueVerifiedModelBinding>();
+      verifiedBindings.set(proof, { data, host: identity, credentialDigest: digest('freedom/machine-model-admission/v1'), recover: recoverFn, resolve: async () => fail('authentication_unavailable') });
+      return proof;
+    },
+    async dispatch() { return fail('execution_authority_unavailable'); },
   });
   hostIdentities.set(result, identity); return result;
 }

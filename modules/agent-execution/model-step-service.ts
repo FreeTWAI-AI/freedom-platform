@@ -6,6 +6,8 @@ import type {ScopedFactContext} from '../../packages/scoped-commands/command-con
 import type {AuthorityOwner} from '../assets/lifecycle-authority.js';
 import {memberModelStepAuthority,type ModelStepAuthority} from './model-step-authority.js';
 import { checkVersion } from '../../packages/db/index.js';
+import { currentScopedCommand } from '../../packages/scoped-commands/command-context.js';
+import { scopedJournal } from '../../packages/scoped-commands/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { snapshotInput, freezeTree } from '../../packages/execution-state/decode.js';
 import { RuntimeEnvironmentSchema } from '../../contracts/execution/v1/runtime-registration.js';
@@ -45,6 +47,68 @@ const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const approvalMetadata=(a:Approval):c.ModelStepApprovalMetadata=>freezeTree(c.ModelStepApprovalMetadataSchema.parse({approvalId:a.approval_id,runId:a.run_id,workId:a.work_item_id,
   grantId:a.grant_id,inputWorkVersion:a.input_work_version,selection:a.selection,exportPolicyRevision:a.export_policy_revision,maxOutputTokens:a.max_output_tokens,
   contextSha256:a.context_sha256,inputByteSize:a.input_byte_size,aggregateVersion:a.aggregate_version,state:a.state,issuedAt:a.issued_at.toISOString(),expiresAt:a.expires_at.toISOString(),operational_authority:false}));
+/** Owner revoke of a consumed machine Step. Caller already holds the prefix through
+ * runtime (connection and family too, when that caller locks them). Continue here,
+ * re-locking rows already held, in this order only: connection, family, work, run,
+ * model, grant, approval, attempt, step, machine authorization. Do not take
+ * freedom.execution-prerequisites.owner/v1: family refresh and connection/device
+ * revoke already hold runtime-owner, and that advisory is taken earlier by machine
+ * admission. Hints are not authority. No provider call, new token, or budget release.
+ * Only a dispatched Step on a running Run becomes outcome_unknown/reconciling,
+ * advancing both fences the same way owner stop does. Reserved, awaiting_result
+ * and outcome_unknown stay put; unknown budget stays reserved. */
+const machineStepFilterSql={grantId:'g.grant_id',modelConnectionId:'g.model_connection_id',approvalId:'a.approval_id',runtimeDeviceId:'ma.runtime_device_id',connectionId:'ma.connection_id',familyId:'ma.family_id'} as const;
+const machineStepLockSql=[
+  ['agent_connections','connection_id','SELECT DISTINCT connection_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY connection_id'],
+  ['bootstrap_refresh_families','family_id','SELECT DISTINCT family_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY family_id'],
+  ['work_items','work_item_id','SELECT DISTINCT work_item_id AS id FROM model_text_steps WHERE step_id = ANY($1::uuid[]) ORDER BY work_item_id'],
+  ['execution_runs','run_id','SELECT DISTINCT run_id AS id FROM model_text_steps WHERE step_id = ANY($1::uuid[]) ORDER BY run_id'],
+  ['model_connections','model_connection_id','SELECT DISTINCT g.model_connection_id AS id FROM execution_machine_authorizations ma JOIN execution_grants g ON g.grant_id=ma.grant_id WHERE ma.step_id = ANY($1::uuid[]) ORDER BY id'],
+  ['execution_grants','grant_id','SELECT DISTINCT grant_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY grant_id'],
+  ['model_export_approvals','approval_id','SELECT DISTINCT approval_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY approval_id'],
+  ['execution_attempts','attempt_id','SELECT DISTINCT attempt_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY attempt_id'],
+  ['model_text_steps','step_id','SELECT step_id AS id FROM model_text_steps WHERE step_id = ANY($1::uuid[]) ORDER BY step_id'],
+  ['execution_machine_authorizations','authorization_id','SELECT authorization_id AS id FROM execution_machine_authorizations WHERE step_id = ANY($1::uuid[]) ORDER BY authorization_id'],
+] as const;
+export type ConsumedMachineStepFilter={readonly grantId:string}|{readonly modelConnectionId:string}|{readonly approvalId:string}|{readonly runtimeDeviceId:string}|{readonly connectionId:string}|{readonly familyId:string};
+function machineStepFilter(filter:ConsumedMachineStepFilter):[string,string]{
+  const keys=Object.keys(filter);requireCondition(keys.length===1 && keys[0] in machineStepFilterSql,500,'machine_reconciliation_filter','機器步驟對帳範圍無效。');
+  const key=keys[0] as keyof typeof machineStepFilterSql,id=(filter as Record<string,string>)[key];
+  requireCondition(typeof id==='string' && id.length>0,500,'machine_reconciliation_filter','機器步驟對帳範圍無效。');
+  return [machineStepFilterSql[key],id];
+}
+export async function lockConsumedMachineSteps(q:PoolClient,filter:ConsumedMachineStepFilter):Promise<readonly string[]>{
+  const [column,id]=machineStepFilter(filter);
+  const rows=await q.query<{step_id:string}>(`SELECT s.step_id FROM execution_machine_authorizations ma
+    JOIN model_text_steps s ON s.step_id=ma.step_id JOIN execution_grants g ON g.grant_id=ma.grant_id
+    JOIN model_export_approvals a ON a.approval_id=ma.approval_id
+    WHERE ${column}=$1 AND s.state IN ('reserved','dispatched','awaiting_result','outcome_unknown') ORDER BY s.step_id LIMIT 257`,[id]);
+  requireCondition(rows.rows.length<257,429,'machine_reconciliation_limit','機器步驟對帳數量已達上限。');
+  if(rows.rows.length===0)return Object.freeze([]);
+  const ids=rows.rows.map(row=>row.step_id);
+  for(const [table,lockColumn,sql] of machineStepLockSql){
+    for(const row of (await q.query<{id:string}>(sql,[ids])).rows){
+      requireCondition((await q.query(`SELECT ${lockColumn} FROM ${table} WHERE ${lockColumn}=$1 FOR UPDATE`,[row.id])).rowCount===1,409,'machine_reconciliation_conflict','機器步驟對帳與執行紀錄不一致。');
+    }
+  }
+  return Object.freeze(ids);
+}
+export async function applyConsumedMachineReconciliation(q:PoolClient,stepIds:readonly string[],context?:ScopedFactContext):Promise<void>{
+  for(const stepId of [...stepIds].sort()){
+    const row=(await q.query<{state:string;run_id:string;run_state:string}>(`SELECT s.state,s.run_id,r.state run_state FROM model_text_steps s
+      JOIN execution_runs r ON r.run_id=s.run_id WHERE s.step_id=$1`,[stepId])).rows[0];
+    if(!row||row.state!=='dispatched'||row.run_state!=='running')continue;
+    const updated=await q.query<{aggregate_version:string}>(`UPDATE model_text_steps SET state='outcome_unknown',aggregate_version=aggregate_version+1
+      WHERE step_id=$1 AND state='dispatched' RETURNING aggregate_version::text`,[stepId]);
+    requireCondition(updated.rowCount===1,409,'machine_reconciliation_conflict','機器步驟對帳與執行紀錄不一致。');
+    requireCondition((await q.query(`UPDATE execution_runs SET state='reconciling',aggregate_version=aggregate_version+1,task_lease_epoch=task_lease_epoch+1,control_epoch=control_epoch+1
+      WHERE run_id=$1 AND state='running'`,[row.run_id])).rowCount===1,409,'machine_reconciliation_conflict','機器步驟對帳與執行紀錄不一致。');
+    if(context?.authn_kind!=='member_session')continue;
+    const active=currentScopedCommand(q,context);
+    await scopedJournal(q,context,{aggregate_type:'model_text_step',id:stepId,version:updated.rows[0].aggregate_version,operation:active.operation,
+      data:{state:'outcome_unknown',operational_authority:false},eventType:'freedom.execution.model-step.recorded.v1'});
+  }
+}
 const metadata=(s:Step):c.ModelStepMetadata=>freezeTree(c.ModelStepMetadataSchema.parse({stepId:s.step_id,attemptId:s.attempt_id,attemptNumber:s.attempt_number,runId:s.run_id,
   workId:s.work_item_id,inputWorkVersion:s.binding.inputWorkVersion,approvalId:s.approval_id,state:s.state,aggregateVersion:s.aggregate_version,activatedRunVersion:s.activated_run_version,
   taskLeaseEpoch:s.task_lease_epoch,controlEpoch:s.control_epoch,selection:s.binding.selection,evidenceOrigin:s.evidence_origin,expiresAt:s.lease_expires_at.toISOString(),usageStatus:s.usage_status,costStatus:'unknown',operational_authority:false}));
@@ -152,10 +216,11 @@ export function createModelStepServiceWithAuthority<A extends AuthorityOwner,C e
   async function readApproval(actor:A,raw:c.ModelStepApprovalReadInput) {actor=authority.snapshot(actor);const input=parse(c.ApprovalReadSchema,raw);
     return authority.read(pool,{actor,scope:'personal'},async q=>eligible(q,actor),async(q,context)=>{const a=await approval(q,actor,context,input.approvalId),b=await lock(q,actor,context,a.grant_id,a.approval_id);
       await now(q,actor);return approvalMetadata(b.approval!);});}
-  async function revokeApproval(actor:A,raw:c.ModelStepApprovalRevokeInput) {actor=authority.snapshot(actor);const input=parse(c.ApprovalRevokeSchema,raw),operation='execution.export-approval.revoke';let b!:BindingRows;
+  async function revokeApproval(actor:A,raw:c.ModelStepApprovalRevokeInput) {actor=authority.snapshot(actor);const input=parse(c.ApprovalRevokeSchema,raw),operation='execution.export-approval.revoke';let b!:BindingRows,machineSteps:readonly string[]=[];
     return authority.command(pool,{actor,scope:'personal',operation,key:input.key,target:{kind:'model_export_approval',id:input.approvalId},expected:input.expectedVersion,body:{environment,clientId}},
-    async(q,context)=>{const a=await approval(q,actor,context,input.approvalId);b=await lock(q,actor,context,a.grant_id,a.approval_id);},async(q,context)=>{
+    async(q,context)=>{const a=await approval(q,actor,context,input.approvalId);b=await lock(q,actor,context,a.grant_id,a.approval_id);machineSteps=await lockConsumedMachineSteps(q,{approvalId:input.approvalId});},async(q,context)=>{
       checkVersion(b.approval!.aggregate_version,input.expectedVersion);requireCondition(b.approval!.state==='active',409,'model_export_approval_revoked','出口同意已撤銷。');
+      await applyConsumedMachineReconciliation(q,machineSteps,context);
       const t=await now(q,actor);const row=found((await q.query<Approval>(`UPDATE model_export_approvals SET state='revoked',aggregate_version=aggregate_version+1,revoked_at=$3
         WHERE approval_id=$1 AND aggregate_version=$2 RETURNING *,${approvalColumns}`,[input.approvalId,input.expectedVersion,t])).rows[0]);
       await journal(q,context,operation,'model_export_approval',row.approval_id,row.aggregate_version,row.state);return approvalMetadata(row);},async q=>{await now(q,actor);});}

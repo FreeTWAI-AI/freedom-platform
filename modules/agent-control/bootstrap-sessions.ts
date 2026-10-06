@@ -11,6 +11,7 @@ import { createBootstrapSessionProofVerifier, parseBootstrapSessionHost } from '
 import { BootstrapProofError } from './bootstrap-proof.js';
 import { createBootstrapTokenIssuer } from './bootstrap-issuer.js';
 import { insertRefreshGeneration, refreshHandleHash, refreshWireHash } from './bootstrap-session-store.js';
+import { applyConsumedMachineReconciliation, lockConsumedMachineSteps } from '../agent-execution/model-step-service.js';
 
 interface Connection {
   connection_id: string; runtime_device_id: string; owner_user_id: string; owner_principal_id: string; scope_id: string;
@@ -99,6 +100,8 @@ export async function createBootstrapSessions(pool: Pool, options: { host: Boots
       // This branch deliberately precedes all JTI and quota checks. A committed
       // response loss or equivalent valid ECDSA replay still revokes the family.
       if (generation.consumed_at !== null) {
+        const machineSteps = await lockConsumedMachineSteps(q, { familyId: family.family_id });
+        await applyConsumedMachineReconciliation(q, machineSteps);
         await q.query("UPDATE bootstrap_refresh_families SET state='revoked',revoked_at=$2,revocation_reason='refresh_reuse' WHERE family_id=$1", [family.family_id, fresh]);
         await q.query("UPDATE agent_connections SET state='revoked',revoked_at=$2,aggregate_version=aggregate_version+1 WHERE connection_id=$1", [connection.connection_id, fresh]);
         current(connection, await now(q), family, [proof]);
