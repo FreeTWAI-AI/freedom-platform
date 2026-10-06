@@ -1,0 +1,49 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "module-registry",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/module-registry/**",
+    "apps/platform-api/src/routes/module-registry.ts",
+    "migrations/120_tenant_manual_work.sql",
+    "tests/runtime/tenant-work.test.ts",
+    "tests/runtime/tenant-work-schema.test.ts"
+  ],
+  "public_exports": [
+    "modules/module-registry/service.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands",
+    "work"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "modules/module-registry/README.md",
+    "modules/module-registry/AGENTS.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "module.registry-http",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/module-registry.ts",
+      "operations": [
+        "manual.work.enable",
+        "module.instance.list",
+        "launchpad.context"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}
