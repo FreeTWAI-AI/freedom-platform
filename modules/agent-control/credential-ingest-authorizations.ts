@@ -97,7 +97,9 @@ export function createCredentialIngestAuthorizations(pool:Pool,options:Credentia
   }
   interface Authority {community_id:string;session_expiry:Date;connection_expiry:Date;family_expiry:Date;old_expiry:Date|null;now:Date}
   async function currentRow(q:PoolClient,row:Row,r:RecoveryObservation,expectedBinding?:ModelCredentialBinding):Promise<Authority> {
-    const result=(await q.query<Authority>(`SELECT u.community_id,s.expires_at session_expiry,ac.expires_at connection_expiry,
+    // Reuse the complex join's plan on this connection, never its result.
+    // Every invocation still reads current rows and clock_timestamp() below.
+    const result=(await q.query<Authority>({name:'credential-ingest-current-authority-v1',text:`SELECT u.community_id,s.expires_at session_expiry,ac.expires_at connection_expiry,
       f.expires_at family_expiry,old.expires_at old_expiry,clock_timestamp() now
       FROM credential_ingest_authorizations a
       JOIN users u ON u.user_id=a.owner_user_id AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
@@ -144,7 +146,7 @@ export function createCredentialIngestAuthorizations(pool:Pool,options:Credentia
             OR (old.state='rotated' AND old.aggregate_version=a.old_credential_version+1 AND old.replacement_credential_id=a.submitted_credential_id
               AND om.state='revoked' AND om.aggregate_version=a.old_model_version+1 AND existing.credential_id=a.submitted_credential_id
               AND existing.binding=a.submitted_binding))))`,
-      [row.authorization_id,row.original_session_hash,row.command_digest,row.nonce_hash,environment,clientId,r.generation,expectedBinding?JSON.stringify(expectedBinding):null])).rows[0];
+      values:[row.authorization_id,row.original_session_hash,row.command_digest,row.nonce_hash,environment,clientId,r.generation,expectedBinding?JSON.stringify(expectedBinding):null]})).rows[0];
     const expiry=Math.min(row.expires_at.getTime(),row.setup_expires_at?.getTime()??Infinity,row.write_expires_at?.getTime()??Infinity,
       result?.session_expiry.getTime()??0,result?.connection_expiry.getTime()??0,result?.family_expiry.getTime()??0,result?.old_expiry?.getTime()??Infinity,Date.parse(r.expiresAt));
     if(!result||r.generation!==row.recovery_generation||expiry<=Math.max(result.now.getTime(),Date.now()))invalid();return result;

@@ -6,13 +6,15 @@ import { TenantSelector, roleLabel } from './TenantSelector';
 import './tenant-workspaces.css';
 
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
-type Attempt = { key: string; path: string; body: unknown; ifMatch?: string };
+type Attempt = { key: string; path: string; body: unknown; ifMatch?: string; tenantId: string | null };
 type DirectoryPerson = { user_id: string; nickname: string };
 type AfterRole = TransferView['from_role_after'];
 const INVITE_ROLES = ['admin', 'operator', 'viewer'] as const;
 const AFTER_ROLES = ['admin', 'operator', 'viewer', 'revoked'] as const;
 const AFTER_LABEL: Record<AfterRole, string> = { admin: '管理員', operator: '操作者', viewer: '檢視者', revoked: '已撤銷' };
 const TRANSFER_HOURS = [1, 6, 24] as const;
+
+function attemptSlot(tenantId: string | null) { return tenantId ?? ''; }
 
 function storedKey(userId: string) { return `freedom-acting-tenant:${userId}`; }
 function readStored(userId: string): string | null {
@@ -48,6 +50,8 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const actionTenant = useRef<string | null>(null);
   const passwordAttempt = useRef(0);
   const dialogTitle = useId();
+  const unresolvedRef = useRef(new Map<string, Attempt>());
+  const workspaceLock = useRef(false);
   const [tenants, setTenants] = useState<TenantView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tenant, setTenant] = useState<TenantView | null>(null);
@@ -84,6 +88,20 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const [passwordError, setPasswordError] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [verifiedAction, setVerifiedAction] = useState<null | ((verificationId: string) => Promise<void>)>(null);
+
+  function rememberUnresolved(attempt: Attempt) {
+    unresolvedRef.current.set(attemptSlot(attempt.tenantId), attempt);
+  }
+  function forgetUnresolved(attempt: Attempt) {
+    const slot = attemptSlot(attempt.tenantId);
+    if (unresolvedRef.current.get(slot)?.key === attempt.key) unresolvedRef.current.delete(slot);
+  }
+  function attemptFor(tenantId: string | null, path: string, body: unknown, ifMatch?: string): Attempt {
+    const kept = unresolvedRef.current.get(attemptSlot(tenantId));
+    if (kept?.path === path) return kept;
+    if (pending?.tenantId === tenantId && pending.path === path) return pending;
+    return { key: crypto.randomUUID(), path, body, ifMatch, tenantId };
+  }
 
   function begin() {
     abortRef.current?.abort();
@@ -167,35 +185,57 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   function selectTenant(tenantId: string) {
     if (tenantId === selectedId && tenant) return;
-    setNotice(''); setAlertText(''); setPending(null); setPeople([]); setRecipientPeople([]); setTransferPreview(null);
+    setNotice(''); setAlertText(''); setPeople([]); setRecipientPeople([]); setTransferPreview(null);
+    setPending(unresolvedRef.current.get(tenantId) ?? unresolvedRef.current.get('') ?? null);
     const { signal, live } = begin();
     setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setOutgoing(null); setOutgoingReadError(''); setLoading(true);
     void loadTenant(tenantId, signal, live).catch(error => { if (live()) setAlertText(error instanceof ApiError ? error.message : '需要處理'); }).finally(() => { if (live()) setLoading(false); });
   }
 
   async function run<T>(attempt: Attempt): Promise<T | null> {
-    setAlertText(''); setNotice('');
+    // This attempt keeps the signal it started with. A later switch replaces abortRef.
+    const ticket = generation.current;
+    const signal = abortRef.current?.signal;
+    const live = () => generation.current === ticket && !signal?.aborted;
+    const unknown = (error: unknown) => signal?.aborted === true || (error instanceof ApiError && (error.network || (error.status ?? 0) >= 500));
+    if (live()) { setAlertText(''); setNotice(''); }
     try {
-      const value = await client.post<T>(attempt.path, attempt.body, { idempotencyKey: attempt.key, ifMatch: attempt.ifMatch, signal: abortRef.current?.signal });
-      setPending(null);
+      const value = await client.post<T>(attempt.path, attempt.body, { idempotencyKey: attempt.key, ifMatch: attempt.ifMatch, signal });
+      if (!live()) { forgetUnresolved(attempt); return null; }
+      forgetUnresolved(attempt);
+      setPending(current => current?.key === attempt.key ? null : current);
       return value;
     } catch (error) {
-      if (abortRef.current?.signal.aborted) return null;
+      if (!live()) {
+        if (unknown(error)) rememberUnresolved(attempt);
+        else forgetUnresolved(attempt);
+        return null;
+      }
       if (error instanceof ApiError && error.status === 412) {
-        setPending(null); setAlertText('資料已更新。請重新載入後比對再操作。'); return null;
+        forgetUnresolved(attempt);
+        setPending(current => current?.key === attempt.key ? null : current);
+        setAlertText('資料已更新。請重新載入後比對再操作。');
+        return null;
       }
       if (error instanceof ApiError && error.status === 401) return null;
-      if (networkFailure(error)) {
-        setPending(attempt); setAlertText('正在確認是否已儲存'); return null;
+      if (unknown(error)) {
+        rememberUnresolved(attempt);
+        setPending(attempt);
+        setAlertText('正在確認是否已儲存');
+        return null;
       }
-      setPending(null); setAlertText(error instanceof ApiError ? error.message : '需要處理'); return null;
+      forgetUnresolved(attempt);
+      setPending(current => current?.key === attempt.key ? null : current);
+      setAlertText(error instanceof ApiError ? error.message : '需要處理');
+      return null;
     }
   }
 
   async function confirmAgain() {
     const attempt = pending;
     if (!attempt) return;
-    const value = await run<{ tenant?: TenantView; tenant_id?: string; transfer_id?: string }>(attempt);
+    if (attempt.tenantId !== null && attempt.tenantId !== selectedId) return;
+    const value = await run<{ tenant?: TenantView }>(attempt);
     if (!value) return;
     await loadMine(attempt.path === '/tenants' ? value.tenant?.tenant_id : selectedId ?? undefined);
   }
@@ -204,7 +244,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     event.preventDefault();
     const body: { display_name: string; workspace_name?: string } = { display_name: createName.trim() };
     if (createWorkspace.trim()) body.workspace_name = createWorkspace.trim();
-    const created = await run<{ tenant: TenantView; workspace: WorkspaceView }>(pending?.path === '/tenants' ? pending : { key: crypto.randomUUID(), path: '/tenants', body });
+    const created = await run<{ tenant: TenantView; workspace: WorkspaceView }>(attemptFor(null, '/tenants', body));
     if (!created) return;
     setCreateName(''); setCreateWorkspace(''); setNotice(`已建立${created.tenant.display_name}。`);
     await loadMine(created.tenant.tenant_id);
@@ -213,30 +253,39 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   async function saveTenant(event: FormEvent) {
     event.preventDefault();
     if (!tenant) return;
-    const saved = await run<TenantView>({ key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/edit`, ifMatch: tenant.version, body: { display_name: editName.trim(), public_slug: slug.trim() || null } });
+    const saved = await run<TenantView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/edit`, { display_name: editName.trim(), public_slug: slug.trim() || null }, tenant.version));
     if (!saved) return;
     setNotice('已儲存業務空間資料。'); await loadMine(saved.tenant_id);
   }
 
   async function addWorkspace(event: FormEvent) {
     event.preventDefault();
-    if (!tenant) return;
-    const name = newWorkspace.trim();
-    const saved = await run<WorkspaceView>({ key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/workspaces`, body: { name } });
-    if (!saved) return;
-    setNewWorkspace(''); setNotice(`已建立工作區${saved.name}。`); await loadMine(tenant.tenant_id);
+    if (!tenant || workspaceLock.current) return;
+    // The ref closes the gap before the disabled render, so one double-click sends one key.
+    workspaceLock.current = true;
+    try {
+      const saved = await run<WorkspaceView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/workspaces`, { name: newWorkspace.trim() }));
+      if (!saved) return;
+      setNewWorkspace(''); setNotice(`已建立工作區${saved.name}。`); await loadMine(tenant.tenant_id);
+    } finally {
+      workspaceLock.current = false;
+    }
   }
 
   async function findPeople(event: FormEvent) {
     event.preventDefault();
     const term = search.trim();
     if (!term) return;
+    const ticket = generation.current;
+    const signal = abortRef.current?.signal;
+    const live = () => generation.current === ticket && !signal?.aborted;
     setPeople([]); setAlertText('');
     try {
-      const data = await client.get<{ items: DirectoryPerson[] }>(`/members?limit=20&sort=nickname&search=${encodeURIComponent(term)}`, { signal: abortRef.current?.signal });
+      const data = await client.get<{ items: DirectoryPerson[] }>(`/members?limit=20&sort=nickname&search=${encodeURIComponent(term)}`, { signal });
+      if (!live()) return;
       setPeople(data.items.filter(person => person.user_id !== userId).map(person => ({ user_id: person.user_id, nickname: person.nickname })));
     } catch (error) {
-      if (abortRef.current?.signal.aborted) return;
+      if (!live()) return;
       setAlertText(error instanceof ApiError ? error.message : '需要處理');
     }
   }
@@ -256,19 +305,21 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function invite(person: DirectoryPerson) {
     if (!tenant) return;
+    const ticket = generation.current;
+    const signal = abortRef.current?.signal;
+    const live = () => generation.current === ticket && !signal?.aborted;
+    const tenantId = tenant.tenant_id;
     let candidate: { principal_id: string; display_name: string };
     try {
-      candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal: abortRef.current?.signal });
+      candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal });
     } catch (error) {
-      if (abortRef.current?.signal.aborted) return;
+      if (!live()) return;
       setAlertText(error instanceof ApiError ? error.message : '需要處理');
       return;
     }
+    if (!live()) return;
     const expires = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
-    const saved = await run<InvitationView>({
-      key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/invitations`,
-      body: { invitee_principal_id: candidate.principal_id, role: inviteRole, instance_capabilities: [], expires_at: expires },
-    });
+    const saved = await run<InvitationView>(attemptFor(tenantId, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: inviteRole, instance_capabilities: [], expires_at: expires }));
     if (!saved) return;
     setNotice(`已邀請${candidate.display_name}。`); setPeople([]);
   }
@@ -276,8 +327,8 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   async function respond(invitation: InvitationView, action: 'accept' | 'decline') {
     const path = `/tenants/${invitation.tenant_id}/invitations/${invitation.invitation_id}/${action}`;
     const saved = await run<unknown>(action === 'accept'
-      ? { key: crypto.randomUUID(), path, ifMatch: invitation.version, body: {} }
-      : { key: crypto.randomUUID(), path, body: {} });
+      ? attemptFor(invitation.tenant_id, path, {}, invitation.version)
+      : attemptFor(invitation.tenant_id, path, {}));
     if (!saved) return;
     setNotice(action === 'accept' ? `已加入${invitation.tenant_display_name}。` : `已婉拒${invitation.tenant_display_name}。`);
     await loadMine(action === 'accept' ? invitation.tenant_id : selectedId ?? undefined);
@@ -285,10 +336,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function changeMember(member: MemberView, status: 'active' | 'revoked') {
     if (!tenant) return;
-    const saved = await run<MemberView>({
-      key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, ifMatch: member.version,
-      body: { role: member.role === 'owner' ? 'viewer' : member.role, status, instance_capabilities: [], reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' },
-    });
+    const saved = await run<MemberView>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, { role: member.role === 'owner' ? 'viewer' : member.role, status, instance_capabilities: [], reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' }, member.version));
     if (!saved) return;
     setNotice(status === 'revoked' ? `已撤銷${member.display_name}。` : `已更新${member.display_name}的角色。`);
     await loadMine(tenant.tenant_id);
@@ -300,7 +348,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function leave() {
     if (!tenant) return;
-    const saved = await run<{ status: 'revoked'; version: string }>({ key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/leave`, ifMatch: tenant.my_membership.version, body: {} });
+    const saved = await run<{ status: 'revoked'; version: string }>(attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/leave`, {}, tenant.my_membership.version));
     if (!saved) return;
     setNotice('已離開這個業務空間。'); await loadMine();
   }
@@ -374,7 +422,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     const key = crypto.randomUUID();
     openPassword(event, async verificationId => {
       const saved = await run<TransferView>({
-        key, path: `/tenants/${tenantId}/ownership-transfers`,
+        key, path: `/tenants/${tenantId}/ownership-transfers`, tenantId,
         body: {
           to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt,
           reason, fresh_auth_verification_id: verificationId,
@@ -393,7 +441,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     if (!tenant || !outgoing) return;
     const saved = await run<TransferView>({
       key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/ownership-transfers/${outgoing.transfer_id}/cancel`,
-      body: { reason: cancelReason.trim() },
+      tenantId: tenant.tenant_id, body: { reason: cancelReason.trim() },
     });
     if (!saved) return;
     setOutgoing(null); setOutgoingReadError('');
@@ -407,7 +455,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     openPassword(event, async verificationId => {
       const saved = await run<{ tenant_id: string }>({
         key, path: `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, ifMatch: transfer.version,
-        body: { accept_scope: true, fresh_auth_verification_id: verificationId },
+        tenantId: null, body: { accept_scope: true, fresh_auth_verification_id: verificationId },
       });
       if (!saved) return;
       setNotice(`已接受${transfer.tenant_display_name}的擁有權。`);
@@ -417,7 +465,8 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function declineTransfer(transfer: TransferView) {
     const saved = await run<TransferView>({
-      key: crypto.randomUUID(), path: `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`, body: {},
+      key: crypto.randomUUID(), path: `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`,
+      tenantId: null, body: {},
     });
     if (!saved) return;
     setNotice(`已拒絕${transfer.tenant_display_name}的擁有權移交。`);
@@ -431,7 +480,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     openPassword(event, async verificationId => {
       const saved = await run<RecoveryCaseView>({
         key, path: `/me/tenant-recovery-cases/${item.case_id}/accept`, ifMatch: item.version,
-        body: { accept_scope: true, fresh_auth_verification_id: verificationId },
+        tenantId: null, body: { accept_scope: true, fresh_auth_verification_id: verificationId },
       });
       if (!saved) return;
       setNotice(`已接受${item.tenant_display_name}的復原。擁有權要等管理員執行後才會變更。`);
@@ -455,7 +504,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   return <div className="module-panel stack tenant-workspace">
     <p role="status" aria-live="polite">{loading ? '結果確認中' : notice}</p>
     {alertText && <p className="banner" role="alert">{alertText}</p>}
-    {pending && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void confirmAgain()}>再確認一次</button></div>}
+    {pending && (pending.tenantId === null || pending.tenantId === selectedId) && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void confirmAgain()}>再確認一次</button></div>}
     {alertText.includes('請重新載入') && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void loadMine(selectedId ?? undefined)}>重新載入</button></div>}
 
     <form className="card stack tenant-create" onSubmit={event => void createTenant(event)}>

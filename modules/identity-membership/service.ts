@@ -31,6 +31,8 @@ async function matches(password: string, saved: string) {
 // Workers forbid random generation at module scope; it can never match (random key).
 let dummyHash: string | undefined;
 const unknownUserHash = () => dummyHash ??= `${randomBytes(16).toString('hex')}:${randomBytes(64).toString('hex')}`;
+// Absolute lifetime from login or registration; no sliding renewal (#107).
+export const SESSION_LIFETIME_SECONDS = 30*24*60*60;
 export async function login(pool: Pool, email: string, password: string) {
   const normalized = email.trim().toLowerCase();
   const attemptKey = tokenHash(normalized);
@@ -49,7 +51,7 @@ export async function login(pool: Pool, email: string, password: string) {
     }
     const token = randomBytes(32).toString('base64url');
     const csrf = randomBytes(32).toString('base64url');
-    await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+interval '8 hours',NULL)`,[tokenHash(token),user.user_id,csrf]);
+    await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
     await q.query('UPDATE login_attempts SET failures=0 WHERE attempt_key=$1',[attemptKey]);
     return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf} as Actor};
   });
@@ -63,7 +65,7 @@ export async function authenticate(pool: Pool, raw: string | undefined): Promise
     s.token_hash AS session_hash,s.csrf_token FROM sessions s JOIN users u USING(user_id)
     WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>now() AND u.active`,[tokenHash(raw)]);
   requireCondition(result.rowCount===1,401,'session_expired','登入已到期，請重新登入。');
-  // Presence is recent activity, not the full eight-hour cookie lifetime.
+  // Presence is recent activity, not the full cookie lifetime.
   await pool.query(`UPDATE sessions SET last_seen_at=now() WHERE token_hash=$1
     AND (last_seen_at IS NULL OR last_seen_at<now()-interval '1 minute')`,[tokenHash(raw)]);
   return result.rows[0];
