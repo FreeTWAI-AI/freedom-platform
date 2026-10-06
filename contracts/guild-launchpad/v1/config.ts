@@ -15,7 +15,21 @@ const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[
 export function hasLoneSurrogate(value: string): boolean {
   return LONE_SURROGATE.test(value);
 }
-const MAX_CONFIG_BYTES = 24000;
+const MAX_CONFIG_BYTES = 32768;
+const MAX_STORED_VERSION = 9223372036854775807n;
+
+/** Sorted-key JSON. This is the exact text digest() hashes. */
+function canonicalJson(value: unknown): string {
+  const stable = (current: unknown): unknown => {
+    if (Array.isArray(current)) return current.map(stable);
+    if (current && typeof current === 'object') {
+      const record = current as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(record).sort().map(key => [key, stable(record[key])]));
+    }
+    return current;
+  };
+  return JSON.stringify(stable(value));
+}
 
 export type FieldError = {code: string; path: string};
 export class ConfigValidationError extends Error {
@@ -24,6 +38,12 @@ export class ConfigValidationError extends Error {
     super('config_invalid');
     this.name = 'ConfigValidationError';
     this.errors = errors;
+  }
+}
+
+export function assertStoredVersion(value: unknown, path: 'revision' | 'to_revision'): void {
+  if (typeof value !== 'string' || !VERSION_PATTERN.test(value) || BigInt(value) > MAX_STORED_VERSION) {
+    throw new ConfigValidationError([{code: 'version_invalid', path}]);
   }
 }
 
@@ -123,20 +143,22 @@ function textIssue(ctx: {addIssue: (issue: {code: 'custom'; message: string; pat
   if (CONTROL.test(value)) { ctx.addIssue({code: 'custom', message: 'control_character', path}); return; }
   if (hasLoneSurrogate(value)) { ctx.addIssue({code: 'custom', message: 'lone_surrogate', path}); return; }
   const chars = [...value].length;
-  if (chars < limits.minChars || chars > limits.maxChars || new TextEncoder().encode(value).length > limits.maxBytes) ctx.addIssue({code: 'custom', message: 'too_long', path});
+  if (chars < limits.minChars) { ctx.addIssue({code: 'custom', message: 'too_short', path}); return; }
+  if (chars > limits.maxChars || new TextEncoder().encode(value).length > limits.maxBytes) ctx.addIssue({code: 'custom', message: 'too_long', path});
 }
 
 function httpsUrl(value: string): boolean {
   if (value.length > 2048 || CONTROL.test(value) || hasLoneSurrogate(value)) return false;
   const lower = value.toLowerCase();
   if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('file:') || lower.startsWith('http:')) return false;
+  if (!value.startsWith('https://')) return false;
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' && !url.username && !url.password;
+    return url.protocol === 'https:' && url.hostname.length > 0 && url.username === '' && url.password === '';
   } catch { return false; }
 }
 
-const KNOWN = new Set(['unknown_field','control_character','lone_surrogate','too_long','invalid_order','schema_version_invalid','config_too_large','block_set_invalid','block_kind_invalid','block_kind_duplicate','block_kind_missing','enabled_locked','application_release_unknown','unsupported_url','stable_key_invalid','guild_key_mismatch','capability_duplicate','capabilities_invalid']);
+const KNOWN = new Set(['unknown_field','control_character','lone_surrogate','too_short','too_long','invalid_order','schema_version_invalid','config_too_large','block_set_invalid','block_kind_invalid','block_kind_duplicate','block_kind_missing','enabled_locked','application_release_unknown','unsupported_url','stable_key_invalid','guild_key_mismatch','capability_duplicate','capabilities_invalid','version_invalid']);
 
 function mapIssues(issues: {code: string; message: string; path: PropertyKey[]; keys?: string[]}[]): FieldError[] {
   const errors: FieldError[] = [];
@@ -158,7 +180,7 @@ function mapIssues(issues: {code: string; message: string; path: PropertyKey[]; 
 /** Strict config parse. `guildKey` is the URL key the server already resolved. */
 export function parseConfig(input: unknown, guildKey: string): Config {
   if (input && typeof input === 'object') {
-    const size = new TextEncoder().encode(JSON.stringify(input)).length;
+    const size = new TextEncoder().encode(canonicalJson(input)).length;
     if (size > MAX_CONFIG_BYTES) throw new ConfigValidationError([{code: 'config_too_large', path: ''}]);
   }
   const parsed = configSchema.safeParse(input);
