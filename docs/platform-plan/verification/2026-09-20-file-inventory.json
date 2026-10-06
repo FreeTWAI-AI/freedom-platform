@@ -15304,8 +15304,8 @@
     },
     {
       "path": "modules/autopilot-work/tenant-results.ts",
-      "bytes": 24822,
-      "sha256": "72dac85baec399b197e212d4c5229b6ec59c5a706af6fd07bd74fddf2e746f4d"
+      "bytes": 24927,
+      "sha256": "cae91d1341b36f4537f0fface607c482c457145797465e87556582f8d901a8d1"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
@@ -15819,8 +15819,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 12949,
-      "sha256": "031325803c6ba89071d91c0e00cd3c795597f665817edbbbdad42a8bb5a9e4b2"
+      "bytes": 13048,
+      "sha256": "ef6b9d93f162bd2244f1f02bb43ccacf5a298920102b47350b6b1719d752bcbf"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -15869,8 +15869,8 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-work.ts",
-      "bytes": 7635,
-      "sha256": "0d62e095f5bb17af59230aca13ff518c54a1a246d083c54e7603f3977bc63bf4"
+      "bytes": 7203,
+      "sha256": "7eee5e81e6d45ab2feabd0cd416c4f3b978bcc1be457e12eb047153414c300cd"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -19284,8 +19284,8 @@
     },
     {
       "path": "tests/runtime/tenant-work-authority-races.test.ts",
-      "bytes": 30098,
-      "sha256": "8314aacc4fb5e5a9be0655903687739bb5a5003d6b213f26d16ca3a68ccc30f7"
+      "bytes": 30440,
+      "sha256": "6765fef2652a106ba2291c49941bd8ea2b5997412d7bb9dd098fe3b324c715c9"
     },
     {
       "path": "tests/runtime/tenant-work-schema.test.ts",
