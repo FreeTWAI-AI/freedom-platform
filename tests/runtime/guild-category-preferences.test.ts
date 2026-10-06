@@ -8,7 +8,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {createAdminAccessVerifier} from '../../modules/platform-admin/access.js';
-import {lockGuildCatalog, lockGuildCatalogShared} from '../../modules/positioning/guild-categories.js';
+import {backfillGuildPreferences, lockGuildCatalog, lockGuildCatalogShared} from '../../modules/positioning/guild-categories.js';
 import {lockMemberGuilds} from '../../modules/positioning/onboarding.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -747,4 +747,64 @@ test('T-040 member writes share the catalog fence and wait for an exclusive clas
     await holder.query('ROLLBACK').catch(() => undefined);
     holder.release();
   }
+});
+
+test('T-055 execute continues past a blocked member at the front of the batch', async () => {
+  const communityId = randomUUID();
+  const maker = DEMO_USERS[0].user_id;
+  const blocked = 'c0000000-0000-4000-8000-000000000001';
+  const firstClean = 'c0000000-0000-4000-8000-000000000002';
+  const secondClean = 'c0000000-0000-4000-8000-000000000003';
+  await pool.query('INSERT INTO communities(community_id, name) VALUES ($1,$2)', [communityId, '分批對照社群']);
+  async function person(id: string, guild: string) {
+    await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+      SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [id, communityId, `${id}@example.test`, id, randomUUID(), maker]);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier)
+      VALUES ($1,$2,$3,$4,'active','intern')`, [randomUUID(), communityId, id, guild]);
+    await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys)
+      VALUES ($1,$2,$3,NULL)`, [communityId, id, guild]);
+  }
+  await person(blocked, 'guild_ai_vibe');
+  await person(firstClean, 'guild_talent_direction');
+  await person(secondClean, 'guild_member_operations');
+  async function rows(table: string, userId: string) {
+    return (await pool.query(`SELECT count(*) FROM ${table} WHERE user_id = $1`, [userId])).rows[0].count as string;
+  }
+  async function audits() {
+    return (await pool.query(`SELECT user_id, count(*) FROM guild_preference_migration_audit WHERE community_id = $1 GROUP BY user_id ORDER BY user_id`, [communityId])).rows;
+  }
+
+  const dry = await backfillGuildPreferences(pool, {communityId, dryRun: true, limit: 1});
+  assert.equal(dry.dry_run, true);
+  assert.equal(dry.blocked, 1);
+  assert.equal(dry.remaining, 3);
+  assert.equal(dry.remaining_blocked, dry.blocked);
+  assert.equal(await rows('guild_preference_sets', blocked), '0');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_sets WHERE community_id = $1`, [communityId])).rows[0].count, '0');
+
+  const first = await backfillGuildPreferences(pool, {communityId, dryRun: false, limit: 1});
+  assert.equal(first.processed, 1);
+  assert.equal(await rows('guild_preference_sets', firstClean), '1');
+  assert.equal(await rows('guild_preference_sets', secondClean), '0');
+  assert.equal(await rows('guild_preference_sets', blocked), '0');
+  assert.equal(await rows('guild_category_preferences', blocked), '0');
+  assert.equal(await rows('guild_preference_invalidations', blocked), '0');
+
+  const second = await backfillGuildPreferences(pool, {communityId, dryRun: false, limit: 1});
+  assert.equal(second.processed, 1);
+  assert.equal(await rows('guild_preference_sets', secondClean), '1');
+  assert.equal(second.remaining, 1);
+  assert.equal(second.remaining_blocked, 1);
+  const written = await audits();
+  assert.deepEqual(written, [{user_id: firstClean, count: '1'}, {user_id: secondClean, count: '1'}]);
+
+  const third = await backfillGuildPreferences(pool, {communityId, dryRun: false, limit: 1});
+  assert.equal(third.processed, 0);
+  assert.equal(third.mapped, 0);
+  assert.equal(third.remaining, third.remaining_blocked);
+  assert.equal(third.remaining_blocked, 1);
+  assert.equal(await rows('guild_preference_sets', blocked), '0');
+  assert.equal(await rows('guild_category_preferences', blocked), '0');
+  assert.equal(await rows('guild_preference_invalidations', blocked), '0');
+  assert.deepEqual(await audits(), written);
 });
