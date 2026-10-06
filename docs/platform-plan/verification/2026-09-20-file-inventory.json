@@ -15924,8 +15924,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 7774,
-      "sha256": "fd70e6c15bd965f3200f5451dff9088b955a39118afeb22987ed4f0f0f303fa2"
+      "bytes": 7826,
+      "sha256": "3f3aab1899226fb05886dc45f59fd88bc646332ed9a6f0caddd9949579df80b0"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -17281,6 +17281,11 @@
       "path": "scripts/sync-admin-access.ts",
       "bytes": 1102,
       "sha256": "0d1c589f5849e1ab03befa6f0b53af8a0c395b3880a4cad25ee26b6f2f2f80a3"
+    },
+    {
+      "path": "scripts/trust-pin-fork-credential-probe.mjs",
+      "bytes": 2026,
+      "sha256": "f3e64ef4004ab429f84ecab152ecb5fae8c45975c6c7d0594156388dbe25d1be"
     },
     {
       "path": "scripts/update-inventory.py",
