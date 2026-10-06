@@ -92,11 +92,14 @@ export const WRITE_DESCRIPTIONS: Partial<Record<PhaseId, string>> = {
 /** Full lowercase commit SHA, exactly as the Worker adapter accepts and reports FREEDOM_RELEASE_SHA. */
 export const RELEASE_SHA = /^[0-9a-f]{40}$/;
 export const WORKER_RUNTIME = 'cloudflare-workers';
-/** Exact /api/v1/health keys per harness: the Worker adds runtime and release_sha; the local Node server does not. */
+/** Exact /api/v1/health keys per harness: the Worker adds runtime and release_sha; the local Node server does not.
+ * Both report the installed shop-key policy and its issuer profile. */
 export const HEALTH_FIELDS: Readonly<Record<Target['harness'], readonly string[]>> = Object.freeze({
-  cloud_candidate: Object.freeze(['mode', 'money_movement_enabled', 'official', 'release_sha', 'runtime', 'status', 'version']),
-  local_harness: Object.freeze(['mode', 'money_movement_enabled', 'official', 'status', 'version']),
+  cloud_candidate: Object.freeze(['mode', 'money_movement_enabled', 'official', 'release_sha', 'runtime', 'shop_key_issuer_profile', 'shop_key_policy', 'status', 'version']),
+  local_harness: Object.freeze(['mode', 'money_movement_enabled', 'official', 'shop_key_issuer_profile', 'shop_key_policy', 'status', 'version']),
 });
+export const SHOP_KEY_POLICIES = Object.freeze(['legacy-compatible', 'purpose-bound-only', 'unconfigured']);
+export const SHOP_KEY_ISSUER_PROFILE = 'freedom.shop-service-key/v1';
 const validReleaseSha = (value: unknown): value is string => typeof value === 'string' && RELEASE_SHA.test(value);
 
 export const LOAD_LIMITS = Object.freeze({
@@ -474,6 +477,10 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
       ctx.check('version_matches_expected', body.version === options.expectedVersion);
       ctx.check('money_movement_disabled', body.money_movement_enabled === false);
       ctx.check('not_official', body.official === false);
+      ctx.check('shop_key_policy_known', SHOP_KEY_POLICIES.includes(body.shop_key_policy));
+      ctx.check('shop_key_issuer_profile_matches', body.shop_key_issuer_profile === (body.shop_key_policy === 'unconfigured' ? null : SHOP_KEY_ISSUER_PROFILE));
+      // Reported only after validation, so it is always one of the known policies.
+      ctx.metric('shop_key_policy', body.shop_key_policy);
       if (target.harness === 'local_harness') { ctx.metric('provenance', 'not_asserted_local_node'); return; }
       ctx.check('runtime_cloudflare_workers', body.runtime === WORKER_RUNTIME);
       ctx.check('release_sha_matches_expected', validReleaseSha(body.release_sha) && body.release_sha === options.expectedReleaseSha);

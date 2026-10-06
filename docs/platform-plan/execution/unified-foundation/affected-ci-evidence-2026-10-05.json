@@ -1,0 +1,37 @@
+{
+  "format": "freedom.affected-ci-evidence/v1",
+  "implementation_source": "e10bf00b277ab6c583992b3aadfa785ead0d82eb",
+  "test_followup_source": "010628c560211280ac6be12960f6e3b888dacbab",
+  "root_review_source": "5b6555fcd67e192d1655cc71270c783e83ff77b2",
+  "scope": "Nine existing frontend files in two fixed profiles; no new job or reduced runtime/browser/static test set.",
+  "behavior": [
+    "Member-card/newcomer-guide leaf changes retain full runtime, runtime aggregate, browser and static-worker jobs; skip only unrelated consumer and deployment jobs.",
+    "Whole baseline/candidate descriptor graphs, reverse dependencies and fixed path ownership must agree; missing/changed/unknown/security/contract paths remain full.",
+    "Aggregate accepts only the exact affected job vector; missing, failed, cancelled or skipped selected jobs reject.",
+    "Source integrity, generated contracts, runtime Markdown and daily full inventory remain mandatory."
+  ],
+  "verification": {
+    "environment": "local Node plus actual synthetic Git trees/CLI; no hosted workflow",
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0,
+    "log": "affected-ci-review.log",
+    "sha256": "6e154491072446c496e87d27177e8627c2411f6692efc7e3a121abaae2a61de8",
+    "additional": "Root evaluated both fixed leaf edits against the actual complete5b6555 descriptor graph; each selected the four intended jobs. This graph probe does not execute a UI change."
+  },
+  "external_review": {
+    "model": "grok-4.7-build",
+    "session": "01a10e4a-a831-7400-82cc-2e3c10e7f1ae",
+    "source": "e10bf00b277ab6c583992b3aadfa785ead0d82eb",
+    "stop_reason": "end_turn",
+    "finding": "No fail-open observed in four-file static scope; found old test coupling to live document ownership.",
+    "followup": "010628 removes only that live ownership assumption; controlled union/shrink/actual Git tests retained,27pass. Followup independently reviewed by root."
+  },
+  "remaining": [
+    "No installed workflow upgrade or hosted cost saving claimed.",
+    "UF:INT-17 still requires trusted Command/ArtifactRef fixture and original TS/Rust conformance.",
+    "R2:D02/D03 still require their exact trusted docs/runtime Markdown fixtures.",
+    "Full daily inventory remains until release/archive replacement is validated."
+  ],
+  "original_requirements_accepted": []
+}

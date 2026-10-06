@@ -2,7 +2,7 @@
   "schema": "freedom.foundation.requirement-evidence/v1",
   "recorded_at": "2026-10-05",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
-  "scope": "Original168 requirements with exact candidate-bound evidence. GOV-07 accepted at its original context-tool tier and R2:M07 at its complete isolated DB/R2 restore tier; other complete requirements remain open.",
+  "scope": "Original168 requirements retain their exact original cases and minimum tiers. GOV-07 is accepted at its original context-tool tier, R2:M07 at its complete isolated DB/R2 restore tier and UF:INT-04 at its fixed candidate DB+HTTP tier; other full requirements remain open.",
   "source_documents": [
     {
       "path": "docs/platform-plan/execution/unified-foundation/acceptance.md",
@@ -25,10 +25,10 @@
     },
     "by_state": {
       "partial": 54,
-      "implemented": 63,
+      "implemented": 62,
       "not_run": 48,
       "blocked": 1,
-      "accepted": 2
+      "accepted": 3
     }
   },
   "state_definitions": {
@@ -621,6 +621,173 @@
         "No new row acceptance inferred from test totals.",
         "Full machine/private execution, target cloud, second operator and FC-07 remain open."
       ]
+    },
+    "migration-planner-7565": {
+      "environment": "isolated owned PostgreSQL18.6 plus local Node; synthetic SQL DAG only",
+      "id": "migration-planner-7565",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "current operator entrypoint installation/pin and shared runner integration",
+        "both real entrypoints replay synthetic DAGs",
+        "versioned release floor exact-set/dependency semantics and shape identities",
+        "actual private pipeline compatibility receipt before formal v2 naming"
+      ],
+      "observations": [
+        "Shared bounded planner preserves historical SQL digest and exact applied ledger; all three existing source paths use it.",
+        "Actual local SQL A→B, B→A and empty replay retain identical data/ledger; missing, altered and unknown applied entries reject.",
+        "Production DAG profile remains closed."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/migration-planner-evidence-2026-10-05.json",
+        "packages/db/migrations.md"
+      ],
+      "source_sha": "7565e1d643b91754cbc04a31dfd462773a8c147c"
+    },
+    "consumer-transition-a07": {
+      "environment": "local full Git clones; isolated Docker with fixed Node and synthetic HTTP transport, no product credentials",
+      "id": "consumer-transition-a07",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "No installed native workflow pin changed.",
+        "Old consumer workspace/CLI passes do not claim actual shared library invocation or device support.",
+        "Current device command invocation is bounded synthetic transport, not actual hosted TLS, auth DB or full private execution.",
+        "This finite support policy does not replace signed ReleaseSet provenance, revocation or independent host installation review."
+      ],
+      "observations": [
+        "Both supported consumer versions and ordinary previous-version edits pass actual native source entry.",
+        "Previous workspace/CLI and current device runtime pass; unknown/mixed tuple and new entry with old libraries fail."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/consumer-transition-evidence-2026-10-05.json"
+      ],
+      "source_sha": "a07a89b0f13d9586d1c42ae3f09f4db74d29aeb0"
+    },
+    "machine-admission-9a0": {
+      "environment": "owned isolated PostgreSQL18 network-none; genuine ES256 fixture device and existing member-approved SQL Step/Attempt; no product provider or cloud",
+      "id": "machine-admission-9a0",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Root runtime/preflight checks ran on the exact code and schema bytes later committed as registration_source; Git HEAD during those checks was implementation_source with the four registration changes.",
+        "Clean runtime partition identity checks were then run at registration_source.",
+        "No mounted machine activation/execute route or broker/Result flow exists in this stage.",
+        "Existing Step fixture is genuinely member-approved; it does not prove machine-created Grant/Attempt/Step.",
+        "No original full requirement accepted here; cloud/native/client reconnect/MV3/neo remain open."
+      ],
+      "observations": [
+        "Exact device/key/owner/connection/family/environment binding derived from locked SQL, not a synthetic member Actor.",
+        "Separate execute/evidence purposes, one-use proof/challenge, current decision clocks after receipt SELECT/INSERT waits.",
+        "Shared runCommandCore and transaction-owned scoped facts with composite execution references; original member receipt namespace/digest preserved.",
+        "Schema recognition and test deletion protection are explicit and do not activate HTTP or execution."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/machine-admission-evidence-2026-10-05.json"
+      ],
+      "source_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048"
+    },
+    "model-authority-8be": {
+      "environment": "owned isolated PostgreSQL18 with network disabled; synthetic object storage",
+      "id": "model-authority-8be",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Concrete machine adapter, broker dispatch and Result integration follow separately.",
+        "No original requirement is newly accepted by an internal extraction.",
+        "No cloud deployment, provider execution or installed trust change."
+      ],
+      "observations": [
+        "Public member constructors retain their fixed member authority and original shared transaction/journal.",
+        "Alternate Asset authority admits only work.model-result with the existing bounded profile.",
+        "Domain policy, revisions, Grant/Attempt and R2 finalization checks remain in the existing engines."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/model-authority-evidence-2026-10-05.json"
+      ],
+      "source_sha": "2d49c891431378962a984a1593c0aeb462c199ee"
+    },
+    "migration-entrypoints-795": {
+      "environment": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
+      "id": "migration-entrypoints-795",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "Current production/operator pending migration pipeline installation has not been changed or verified.",
+        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
+      ],
+      "observations": [
+        "Both real entrypoints apply A→B/B→A/empty catalogs to identical SQL/constraints/ledger; unknown/digest/target and host pin mismatch rejected.",
+        "Exact795 full legacy source115 files applied once via repository CLI and a preserved external reviewed operator wrapper; second replay applies zero.",
+        "Inputs are frozen before async import; exact independent host installation/source/profile pins remain required."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/migration-entrypoints-evidence-2026-10-05.json",
+        "deploy/cloudflare/migration-operator.md"
+      ],
+      "source_sha": "79579765079084b70f5d50c0331167e55c216661"
+    },
+    "affected-ci-e10": {
+      "environment": "local Node plus actual synthetic Git trees/CLI; no hosted workflow",
+      "id": "affected-ci-e10",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "No installed workflow upgrade or hosted cost saving claimed.",
+        "UF:INT-17 still requires trusted Command/ArtifactRef fixture and original TS/Rust conformance.",
+        "R2:D02/D03 still require their exact trusted docs/runtime Markdown fixtures.",
+        "Full daily inventory remains until release/archive replacement is validated."
+      ],
+      "observations": [
+        "Member-card/newcomer-guide leaf changes retain full runtime, runtime aggregate, browser and static-worker jobs; skip only unrelated consumer and deployment jobs.",
+        "Whole baseline/candidate descriptor graphs, reverse dependencies and fixed path ownership must agree; missing/changed/unknown/security/contract paths remain full.",
+        "Aggregate accepts only the exact affected job vector; missing, failed, cancelled or skipped selected jobs reject.",
+        "Source integrity, generated contracts, runtime Markdown and daily full inventory remain mandatory."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/affected-ci-evidence-2026-10-05.json",
+        "scripts/ci/affected-jobs.md"
+      ],
+      "source_sha": "5b6555fcd67e192d1655cc71270c783e83ff77b2"
+    },
+    "site-service-533": {
+      "environment": "owned isolated PostgreSQL18 and actual Hono HTTP handlers; synthetic object bytes, no cloud R2",
+      "id": "site-service-533",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "No live secrets/provider configuration, cloud DB, migration, key rotation, rollout, push or deployment used.",
+        "Existing create/order payment mutations preserve original dynamic dedupe/readback; their common scoped receipt/audit conversion is separate unfinished work.",
+        "Exit only observes operator-selected endpoints, not physical provider identity or global inventory; always legacy_exit:false and deployment_authority:false.",
+        "Context baseline union retains surface_unmapped; accurate new registrations are not executable runtime coverage.",
+        "Root owns inventory, manifest/release compatibility, public aggregate evidence and publication."
+      ],
+      "observations": [
+        "Valid own-site credential works; real service/site SQL identity cannot manufacture a member or another principal.",
+        "Another actual member private Result/Asset read/current/edit via mounted HTTP denied before object/provider access;11SQL tables and object counts unchanged; actual owner can read and edit.",
+        "Current scope/key clocks rechecked after waits and replay; common cancellation journal stays atomic.",
+        "Reader floor rejects mixed old releases; readonly exit tool never changes keys, data or policy."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/site-service-evidence-2026-10-05.json",
+        "modules/agent-commerce/README.md",
+        "packages/resource-scopes/README.md"
+      ],
+      "source_sha": "533523f3f608f549e43fe1d2c9b59c27e796c0ec"
+    },
+    "api-composition-5fbd": {
+      "environment": "owned isolated PostgreSQL18; actual existing Hono member-model/bootstrap handlers plus classifier cases",
+      "id": "api-composition-5fbd",
+      "kind": "local_candidate_execution",
+      "limitations": [
+        "Original full App/API responsibility and surface obligations require their complete cases; no full requirement accepted here.",
+        "No cloud, browser or machine broker acceptance.",
+        "Installed private execution profile and exact supported client scope remain separate work."
+      ],
+      "observations": [
+        "Private AI path families and terminal installation decision have one classifier.",
+        "Original request reaches its existing purpose-specific transport once; original method/body/auth boundaries remain downstream.",
+        "Missing required host installation stays unavailable; encoded reserved aliases terminate before generic body handling.",
+        "This change does not install machine model execution."
+      ],
+      "references": [
+        "docs/platform-plan/execution/unified-foundation/api-composition-evidence-2026-10-05.json"
+      ],
+      "source_sha": "c31f00d9fcfd7adff6edb3c6a7c2ca2d0e49e2fc"
     }
   },
   "requirements": [
@@ -819,7 +986,7 @@
       "fc_gates": [
         "FC-01"
       ],
-      "state": "implemented",
+      "state": "accepted",
       "source_inspection": {
         "source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
         "kind": "source_inspection_only",
@@ -842,13 +1009,18 @@
         "tests_executed_in_this_reconciliation": false,
         "specification_references": []
       },
-      "executed_evidence": [],
-      "remaining": [
-        "Exercise a genuine site credential supplying another principal/asset without delegation against the actual DB-backed HTTP boundary, and prove no fake member session or foreign asset access is created.",
-        "Bind the credential identity, denied operation and unchanged database facts to the tested source; reserved service/site enums alone do not exercise this case."
+      "executed_evidence": [
+        {
+          "covered_part": "Complete original site-key cross-principal/private-Asset DB＋HTTP rejection plus genuine positive controls.",
+          "environment": "owned isolated PostgreSQL18 and actual Hono HTTP handlers; synthetic object bytes, no cloud R2",
+          "evidence_id": "site-service-533",
+          "limitations_reference": "evidence_catalog.site-service-533.limitations",
+          "source_sha": "533523f3f608f549e43fe1d2c9b59c27e796c0ec"
+        }
       ],
-      "accepted": false,
-      "state_basis": "An applicable implementation or primitive is located at the inspected source; no row-level execution pass is claimed."
+      "remaining": [],
+      "accepted": true,
+      "state_basis": "Original DB＋HTTP case passed at fixed candidate: a valid site key specifying another member principal and existing private Asset is denied without delegation, while own-site and true-owner positive controls succeed. This accepts this original row at its specified isolated tier, not cloud rollout or the full service credential lifecycle."
     },
     {
       "id": "UF:INT-05",
@@ -1683,15 +1855,29 @@
           "environment": "staging backup restored to isolated PostgreSQL 18; remote database unchanged",
           "covered_part": "Real isolated backup upgrade through115; no reverse-independent-migration or dual-runner acceptance.",
           "limitations_reference": "evidence_catalog.migration-115-rehearsal.limitations"
+        },
+        {
+          "evidence_id": "migration-planner-7565",
+          "source_sha": "7565e1d643b91754cbc04a31dfd462773a8c147c",
+          "environment": "isolated owned PostgreSQL18.6 plus local Node; synthetic SQL DAG only",
+          "covered_part": "Bounded DAG planner and existing source path integration with real isolated SQL reverse/empty replay.",
+          "limitations_reference": "evidence_catalog.migration-planner-7565.limitations"
+        },
+        {
+          "evidence_id": "migration-entrypoints-795",
+          "source_sha": "79579765079084b70f5d50c0331167e55c216661",
+          "environment": "actual isolated PostgreSQL18.6 + real Git merges + real Node CLI/operator subprocesses",
+          "covered_part": "Both real entrypoints apply A→B/B→A/empty catalogs to identical SQL/constraints/ledger; unknown/digest/target and host pin mismatch rejected.",
+          "limitations_reference": "evidence_catalog.migration-entrypoints-795.limitations"
         }
       ],
       "remaining": [
-        "Implement migration v2 dependency/unique-identity ordering while preserving every already-applied SQL filename and digest.",
-        "Run two independent new SQL migrations merged in reverse order and empty-database replay through both the public runner and actual authorized private helper.",
-        "Prove a lower-numbered unapplied migration is not skipped merely because manifest.last or a latest ID is higher."
+        "Formal host-approved DAG profile and release-floor set semantics remain closed.",
+        "Current production/operator pending migration pipeline installation has not been changed or verified.",
+        "Root owns current integration schema117 and assigned118/119; source057 legacy last116 fixture is not a permanent frontier."
       ],
       "accepted": false,
-      "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
+      "state_basis": "Both actual local entrypoints now validated, including externally installed reviewed wrapper; formal DAG/release-floor/private pipeline transition remains open."
     },
     {
       "id": "UF:INT-24",
@@ -5716,11 +5902,18 @@
       },
       "executed_evidence": [
         {
-          "evidence_id": "machine-device-3bc3eb6",
-          "source_sha": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
-          "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
           "covered_part": "Actual bootstrap HTTP/DB rejects foreign signing key and expired proof. Audience/method/URI/replay matrix remains open.",
-          "limitations_reference": "evidence_catalog.machine-device-3bc3eb6.limitations"
+          "environment": "Real HTTP handlers, ephemeral device/issuer signatures, owned PostgreSQL18; actual native Fetch compression on owned loopback bridge",
+          "evidence_id": "machine-device-3bc3eb6",
+          "limitations_reference": "evidence_catalog.machine-device-3bc3eb6.limitations",
+          "source_sha": "3bc3eb6843d0e7112fc231212a1e7169094cad08"
+        },
+        {
+          "covered_part": "Machine proof/current SQL admission and replay/expiry negatives; no mounted machine HTTP endpoint acceptance.",
+          "environment": "owned isolated PostgreSQL18 network-none; genuine ES256 fixture device and existing member-approved SQL Step/Attempt; no product provider or cloud",
+          "evidence_id": "machine-admission-9a0",
+          "limitations_reference": "evidence_catalog.machine-admission-9a0.limitations",
+          "source_sha": "9a0d7b8a1665e30652e0a814688ac435635ca048"
         }
       ],
       "remaining": [
@@ -7916,7 +8109,7 @@
     "total": 168,
     "duplicate_ids": 0,
     "missing_repository_paths": 0,
-    "accepted_rows": 0,
+    "accepted_rows": 3,
     "validation_scope": "JSON structure, original ID set/text extraction and repository path existence only; no product runtime/test execution."
   },
   "current_state_ref": "docs/platform-plan/execution/unified-foundation/current-state.json"

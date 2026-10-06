@@ -1,0 +1,60 @@
+{
+  "format": "freedom.machine-admission-evidence/v1",
+  "implementation_source": "9a0d7b8a1665e30652e0a814688ac435635ca048",
+  "registration_source": "4bbb0be51ac79ebe59c26547bfc1f30a9502d7cc",
+  "migration": {
+    "path": "migrations/117_machine_text_execution.sql",
+    "sha256": "5579fe2cb4ae6d6c8450cd36446b1dbc5a708c028df9a08059742783fa7f387a",
+    "frozen": true
+  },
+  "environment": "owned isolated PostgreSQL18 network-none; genuine ES256 fixture device and existing member-approved SQL Step/Attempt; no product provider or cloud",
+  "implemented": [
+    "Exact device/key/owner/connection/family/environment binding derived from locked SQL, not a synthetic member Actor.",
+    "Separate execute/evidence purposes, one-use proof/challenge, current decision clocks after receipt SELECT/INSERT waits.",
+    "Shared runCommandCore and transaction-owned scoped facts with composite execution references; original member receipt namespace/digest preserved.",
+    "Schema recognition and test deletion protection are explicit and do not activate HTTP or execution."
+  ],
+  "verification": [
+    {
+      "log": "machine-admission-runtime.log",
+      "sha256": "de5bc6b2ff297c9253734d5cfdfa35b08d33a42887aa561f3e3383b9be81313d",
+      "passed": 116,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "machine-admission-registration.log",
+      "sha256": "fb8fda1474f8a5983b9025ffe495cea41f82b3de2b6ea265d62ac44fc158fa64",
+      "passed": 140,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "machine-admission-matrix-ready.log",
+      "sha256": "e4ddd2df019956abb7f1a718a554f57dc84aded8d3dcb58d7c1be617346c9240",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "regression_limits": [
+    "Root runtime/preflight checks ran on the exact code and schema bytes later committed as registration_source; Git HEAD during those checks was implementation_source with the four registration changes.",
+    "Clean runtime partition identity checks were then run at registration_source.",
+    "No mounted machine activation/execute route or broker/Result flow exists in this stage.",
+    "Existing Step fixture is genuinely member-approved; it does not prove machine-created Grant/Attempt/Step.",
+    "No original full requirement accepted here; cloud/native/client reconnect/MV3/neo remain open."
+  ],
+  "initial_attempts": [
+    "Runtime matrix correctly refused dirty source with runtime_source_changed; repeated the seven affected cases after committing unchanged registration bytes, all passed."
+  ],
+  "external_review": {
+    "grok": "Reported completed static review of earlier live draft, not atomic final commit; independent exact source review remains necessary.",
+    "opus": "CLI returned empty SUCCESS with zero usage, not a completed review."
+  },
+  "deployment": false,
+  "installed_pins_changed": false,
+  "additional_validation": [
+    "Typecheck and generated machine-text schema --check passed.",
+    "suite-runner cases passed in initial mixed run; runtime matrix failure above is retained rather than hidden."
+  ]
+}

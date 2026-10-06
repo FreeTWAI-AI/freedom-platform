@@ -13,7 +13,7 @@ assert(configured,'Explicit disposable TEST_DATABASE_URL required');
 const url=new URL(configured);assert.match(url.pathname,/^\/fp_[a-z0-9_]+$/);assert(['localhost','127.0.0.1','[::1]'].includes(url.hostname));
 const schema='fp_shop_key_'+randomUUID().replaceAll('-','');
 const admin=new Pool({connectionString:url.href}),pool=new Pool({connectionString:url.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
-const origin='http://127.0.0.1:4310',app=createApp(pool,origin);let created=false;
+const origin='http://127.0.0.1:4310',app=createApp(pool,origin,'local',{shopKeyPolicy:'legacy-compatible'});let created=false;
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);created=true;await migrate(pool);});
 after(async()=>{await pool.end();if(created)await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
 async function fixture(){
