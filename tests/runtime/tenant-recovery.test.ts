@@ -8,6 +8,7 @@ import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { hashPassword } from '../../modules/identity-membership/service.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 
 const origin = 'http://127.0.0.1:4310';
@@ -167,6 +168,34 @@ async function approve(who: Admin, caseId: string, version: string, expiresAt?: 
   }, version);
 }
 const laterVersion = (value: Reply) => value.data.version ?? value.data.case?.version ?? '';
+const marker = 'SYNTHETIC-MARKER-PASSWORD-pb2a';
+
+async function blockedBy(pid: number) {
+  for (let i = 0; i < 400; i++) {
+    const waiting = (await adminPool.query<{ n: number }>('SELECT count(*)::int AS n FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))', [pid])).rows[0].n;
+    if (waiting >= 1) return;
+    await delay(25);
+  }
+  assert.fail(`expected a waiter on ${pid}`);
+}
+async function footprint(tenantId: string) {
+  const memberships = (await pool.query(`SELECT principal_id, role, status, version::text AS version FROM tenant_memberships WHERE tenant_id=$1 ORDER BY principal_id`, [tenantId])).rows;
+  const tenant = (await pool.query<{ status: string; revision: string }>(`SELECT status, authorization_revision::text AS revision FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
+  const counts = (await pool.query<{ memberships: number; tenants: number; audit: number; admin_audit: number; outbox: number }>(`SELECT
+    (SELECT count(*)::int FROM tenant_memberships) AS memberships,
+    (SELECT count(*)::int FROM tenants) AS tenants,
+    (SELECT count(*)::int FROM tenant_authority_audit) AS audit,
+    (SELECT count(*)::int FROM platform_admin_audit) AS admin_audit,
+    (SELECT count(*)::int FROM scoped_outbox) AS outbox`)).rows[0];
+  return { memberships, tenant, counts };
+}
+async function caseRow(caseId: string) {
+  return (await pool.query<{ state: string; executed_by_admin_id: string | null; version: string }>(
+    `SELECT state, executed_by_admin_id, version::text AS version FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
+}
+async function finish<T>(pending: Promise<T>, label: string): Promise<T> {
+  return Promise.race([pending, delay(20000).then(() => { throw new Error(`${label} did not finish`); })]);
+}
 
 test('T-014 disabling the only loginable owner requires recovery and keeps the data', async () => {
   const owner = await person('擁有者');
@@ -302,7 +331,7 @@ test('T-014 recovery completes only after a separate open, approval, acceptance 
   assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenant.tenant_id, to])).rows[0].n, 0);
   const listed = await send('/me/tenant-recovery-cases', recipient.session);
   assert.equal(listed.status, 200, listed.text);
-  assert.equal(listed.data.source_version, '1');
+  assert.equal(listed.data.source_version, '4');
   assert.equal(Object.hasOwn(listed.data.items?.[0] ?? {}, 'evidence_ref'), false);
   const visible = await admin(admins.reviewer, `/tenant-recovery-cases/${caseId}`);
   assert.equal(visible.status, 200, visible.text);
@@ -319,7 +348,7 @@ test('T-014 recovery completes only after a separate open, approval, acceptance 
   assert.equal(owners.find(row => row.principal_id === to)?.active, true);
   assert.equal(owners.find(row => row.principal_id === to)?.status, 'active');
   assert.equal(owners.find(row => row.principal_id !== to)?.active, false);
-  assert.equal(owners.find(row => row.principal_id !== to)?.status, 'active');
+  assert.equal(owners.find(row => row.principal_id !== to)?.status, 'revoked');
   assert.equal((await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships m
     JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
     JOIN users u ON u.user_id=p.user_ref AND u.active
@@ -431,6 +460,261 @@ test('admin recovery routes stay hidden when the guild launchpad flag is off', a
   const data = await response.json() as { code?: string };
   assert.equal(response.status, 404);
   assert.equal(data.code, 'not_found');
+});
+
+test('execute rechecks independence after approval lands under the tenant lock', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  assert.equal(opened.status, 201, opened.text);
+  const caseId = opened.data.case_id as string;
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  const accepted = await send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"1"');
+  assert.equal(accepted.status, 200, accepted.text);
+  assert.equal(accepted.data.version, '2');
+  const holder = await pool.connect();
+  let pending: Promise<Reply> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    // FOR SHARE blocks execute's FOR UPDATE. Approve's audit insert takes FOR KEY SHARE
+    // on this tenant, which FOR UPDATE would also block, so the approval could not commit.
+    await holder.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR SHARE', [tenant.tenant_id]);
+    pending = admin(admins.reviewer, `/tenant-recovery-cases/${caseId}/execute`, {}, '2');
+    await blockedBy(pid);
+    const approved = await finish(approve(admins.reviewer, caseId, '2'), 'approve');
+    assert.equal(approved.status, 200, approved.text);
+    const before = await footprint(tenant.tenant_id);
+    const beforeCase = await caseRow(caseId);
+    assert.equal(beforeCase.state, 'approved');
+    assert.equal(beforeCase.executed_by_admin_id, null);
+    await holder.query('COMMIT');
+    const executed = await finish(pending, 'execute');
+    assert.equal(executed.status, 403, executed.text);
+    assert.equal(executed.data.code, 'recovery_authority_required');
+    assert.deepEqual(await footprint(tenant.tenant_id), before);
+    assert.deepEqual(await caseRow(caseId), beforeCase);
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    await pending?.catch(() => undefined);
+  }
+});
+
+test('recovery checks keep the approver and the executor distinct', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  const caseId = opened.data.case_id as string;
+  const approveSql = `UPDATE tenant_recovery_cases
+    SET state='approved', approved_by_admin_id=$2, approved_scope='["tenant.owner.restore"]'::jsonb,
+        expires_at=clock_timestamp()+interval '1 hour', version=version+1
+    WHERE case_id=$1`;
+  await assert.rejects(pool.query(approveSql, [caseId, admins.opener.id]), (error: unknown) => {
+    const pg = error as { code?: string; constraint?: string };
+    assert.equal(pg.code, '23514');
+    assert.equal(pg.constraint, 'tenant_recovery_cases_approver_distinct');
+    return true;
+  });
+  assert.equal((await caseRow(caseId)).state, 'evidence_required');
+  await pool.query(approveSql, [caseId, admins.reviewer.id]);
+  assert.equal((await caseRow(caseId)).state, 'approved');
+  const executeSql = `UPDATE tenant_recovery_cases SET state='executed', executed_by_admin_id=$2, version=version+1 WHERE case_id=$1 AND state='approved'`;
+  for (const adminId of [admins.reviewer.id, admins.opener.id]) {
+    await assert.rejects(pool.query(executeSql, [caseId, adminId]), (error: unknown) => {
+      const pg = error as { code?: string; constraint?: string };
+      assert.equal(pg.code, '23514');
+      assert.equal(pg.constraint, 'tenant_recovery_cases_executor_distinct');
+      return true;
+    });
+  }
+  assert.equal((await caseRow(caseId)).state, 'approved');
+  assert.equal((await caseRow(caseId)).executed_by_admin_id, null);
+  const allowed = await pool.query(executeSql + ' RETURNING state', [caseId, admins.executor.id]);
+  assert.equal(allowed.rows[0].state, 'executed');
+});
+
+test('execute revokes the disabled owner, and re-activating that account does not restore control', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  const caseId = opened.data.case_id as string;
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  assert.equal((await send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"1"')).status, 200);
+  assert.equal((await approve(admins.reviewer, caseId, '2')).status, 200);
+  const executed = await admin(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, {}, '3');
+  assert.equal(executed.status, 200, executed.text);
+  const memberships = (await pool.query<{ principal_id: string; role: string; status: string; version: string }>(
+    `SELECT m.principal_id, m.role, m.status, m.version::text AS version FROM tenant_memberships m WHERE m.tenant_id=$1 ORDER BY m.principal_id`,
+    [tenant.tenant_id])).rows;
+  const former = memberships.find(row => row.principal_id === tenant.my_membership.principal_id);
+  assert.equal(former?.role, 'owner');
+  assert.equal(former?.status, 'revoked');
+  assert.equal(memberships.find(row => row.principal_id === to)?.status, 'active');
+  assert.equal(memberships.filter(row => row.role === 'owner' && row.status === 'active').length, 1);
+  const restored = await enable(owner.id, '2');
+  assert.equal(restored.status, 200, restored.text);
+  assert.equal((await pool.query<{ active: boolean }>(`SELECT active FROM users WHERE user_id=$1`, [owner.id])).rows[0].active, true);
+  assert.equal((await pool.query<{ status: string }>(`SELECT status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenant.tenant_id, tenant.my_membership.principal_id])).rows[0].status, 'revoked');
+  assert.equal(await tenantStatus(tenant.tenant_id), 'active');
+  const again = await login(owner.email);
+  const read = await send(`/tenants/${tenant.tenant_id}`, again);
+  assert.equal(read.status, 404, read.text);
+  assert.equal(read.data.code, 'tenant_not_found');
+  const write = await send(`/tenants/${tenant.tenant_id}/leave`, again, {}, '"1"');
+  assert.equal(write.status, 404, write.text);
+  assert.equal(write.data.code, 'tenant_not_found');
+  const version = (await pool.query<{ version: string }>(`SELECT version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenant.tenant_id, tenant.my_membership.principal_id])).rows[0].version;
+  const changed = await send(`/tenants/${tenant.tenant_id}/members/${tenant.my_membership.principal_id}/change`, recipient.session, {
+    role: 'viewer', status: 'active', instance_capabilities: [], reason: '恢復已撤銷的成員',
+  }, `"${version}"`);
+  assert.equal(changed.status, 409, changed.text);
+  assert.equal(changed.data.code, 'member_not_active');
+});
+
+test('re-activating the owner while execute waits refuses the recovery and writes nothing', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  const caseId = opened.data.case_id as string;
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  assert.equal((await send(`/me/tenant-recovery-cases/${caseId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"1"')).status, 200);
+  assert.equal((await approve(admins.reviewer, caseId, '2')).status, 200);
+  const before = await footprint(tenant.tenant_id);
+  const beforeCase = await caseRow(caseId);
+  const holder = await pool.connect();
+  let pending: Promise<Reply> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await holder.query('SELECT user_id FROM users WHERE user_id=$1 FOR UPDATE', [owner.id]);
+    pending = admin(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, {}, '3');
+    await blockedBy(pid);
+    await holder.query('UPDATE users SET active=true WHERE user_id=$1', [owner.id]);
+    await holder.query('COMMIT');
+    const executed = await finish(pending, 'execute');
+    assert.equal(executed.status, 409, executed.text);
+    assert.equal(executed.data.code, 'recovery_not_required');
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    await pending?.catch(() => undefined);
+  }
+  assert.equal((await pool.query<{ active: boolean }>(`SELECT active FROM users WHERE user_id=$1`, [owner.id])).rows[0].active, true);
+  assert.deepEqual(await footprint(tenant.tenant_id), before);
+  assert.deepEqual(await caseRow(caseId), beforeCase);
+  assert.equal(beforeCase.state, 'approved');
+  assert.equal(beforeCase.executed_by_admin_id, null);
+});
+
+test('inbox source_version moves when a case appears, when a transfer read expires a row, and when a decision lands', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const sender = await person('寄件者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const from = await candidate(owner.session, sender.id);
+  await pool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'viewer','active',clock_timestamp())`, [tenant.tenant_id, from]);
+  const empty = await send('/me/tenant-recovery-cases', recipient.session);
+  assert.equal(empty.status, 200, empty.text);
+  assert.equal(empty.data.source_version, '1');
+  assert.equal((await disable(owner.id)).status, 200);
+  const opened = await open(admins.opener, tenant.tenant_id, to);
+  assert.equal(opened.status, 201, opened.text);
+  const appeared = await send('/me/tenant-recovery-cases', recipient.session);
+  assert.equal(appeared.data.source_version, '2');
+  assert.notEqual(appeared.data.source_version, empty.data.source_version);
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  assert.equal((await send(`/me/tenant-recovery-cases/${opened.data.case_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"1"')).status, 200);
+  const decided = await send('/me/tenant-recovery-cases', recipient.session);
+  assert.equal(decided.data.source_version, '3');
+  assert.notEqual(decided.data.source_version, appeared.data.source_version);
+
+  await pool.query(`INSERT INTO tenant_ownership_transfers(
+    tenant_id, from_principal_id, to_principal_id, from_role_after, state, expires_at, tenant_authorization_revision, reason)
+    VALUES ($1,$2,$3,'admin','pending',clock_timestamp()-interval '1 minute',1,'已過期的移交')`,
+  [tenant.tenant_id, from, to]);
+  const beforeSum = (await pool.query<{ version: string }>(`SELECT COALESCE(sum(version),0)::text AS version FROM tenant_ownership_transfers WHERE to_principal_id=$1`, [to])).rows[0].version;
+  const listed = await send('/me/tenant-ownership-transfers', recipient.session);
+  assert.equal(listed.status, 200, listed.text);
+  const afterSum = (await pool.query<{ version: string }>(`SELECT COALESCE(sum(version),0)::text AS version FROM tenant_ownership_transfers WHERE to_principal_id=$1`, [to])).rows[0].version;
+  assert.notEqual(afterSum, beforeSum);
+  assert.equal(listed.data.source_version, (BigInt(afterSum) + 1n).toString());
+  assert.notEqual(listed.data.source_version, (BigInt(beforeSum) + 1n).toString());
+  assert.equal((await pool.query<{ state: string }>(`SELECT state FROM tenant_ownership_transfers WHERE to_principal_id=$1`, [to])).rows[0].state, 'expired');
+});
+
+test('a marker password used for propose, accept and recovery accept is stored nowhere', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  await pool.query(`UPDATE users SET password_hash=$2 WHERE user_id=$1`, [owner.id, hashPassword(marker)]);
+  await pool.query(`UPDATE users SET password_hash=$2 WHERE user_id=$1`, [recipient.id, hashPassword(marker)]);
+  const bodies: string[] = [];
+  async function marked(session: Session, purpose: string) {
+    const response = await app.request(origin + '/api/v1/me/high-risk-verifications', {
+      method: 'POST',
+      headers: { Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: marker, purpose, tenant_id: tenant.tenant_id }),
+    });
+    const text = await response.text();
+    bodies.push(text);
+    assert.equal(response.status, 201, text);
+    return (JSON.parse(text) as { verification_id: string }).verification_id;
+  }
+  const proposed = await send(`/tenants/${tenant.tenant_id}/ownership-transfers`, owner.session, {
+    to_principal_id: to, from_role_after: 'admin', expires_at: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+    reason: '交給下一位擁有者', fresh_auth_verification_id: await marked(owner.session, 'tenant.ownership.propose'),
+  });
+  bodies.push(proposed.text);
+  assert.equal(proposed.status, 201, proposed.text);
+  const accepted = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${proposed.data.transfer_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: await marked(recipient.session, 'tenant.ownership.accept'),
+  }, `"${proposed.data.version}"`);
+  bodies.push(accepted.text);
+  assert.equal(accepted.status, 200, accepted.text);
+  const disabled = await disable(recipient.id);
+  bodies.push(disabled.text);
+  assert.equal(disabled.status, 200, disabled.text);
+  assert.equal(await tenantStatus(tenant.tenant_id), 'recovery_required');
+  const opened = await open(admins.opener, tenant.tenant_id, tenant.my_membership.principal_id);
+  bodies.push(opened.text);
+  assert.equal(opened.status, 201, opened.text);
+  const recovered = await send(`/me/tenant-recovery-cases/${opened.data.case_id}/accept`, owner.session, {
+    accept_scope: true, fresh_auth_verification_id: await marked(owner.session, 'tenant.recovery.accept'),
+  }, '"1"');
+  bodies.push(recovered.text);
+  assert.equal(recovered.status, 200, recovered.text);
+  for (const body of bodies) assert.equal(body.includes(marker), false);
+  const relations = (await pool.query<{ name: string }>(`SELECT quote_ident(relname) AS name FROM pg_class
+    WHERE relnamespace = current_schema()::regnamespace AND relkind IN ('r','p') ORDER BY relname`)).rows;
+  assert.ok(relations.length > 0);
+  for (const relation of relations) {
+    const found = (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${relation.name} AS t
+      WHERE t::text LIKE '%' || $1 || '%' OR t::text LIKE '%' || encode(convert_to($1, 'UTF8'), 'hex') || '%'`, [marker])).rows[0].n;
+    assert.equal(found, 0, relation.name);
+  }
 });
 
 test('T-016 guild join, leave and intern to full leave tenant status and roles unchanged', async () => {

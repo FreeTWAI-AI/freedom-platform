@@ -7,6 +7,10 @@ import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import type { Actor } from '../../modules/identity-membership/service.js';
+import { acceptTransfer } from '../../modules/tenant-workspaces/ownership.js';
+import { persistTransferFailure } from '../../modules/tenant-workspaces/facts.js';
+import { Problem } from '../../packages/shared/problem.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -108,6 +112,15 @@ async function blockedBy(pid: number, count = 1) {
     await delay(20);
   }
   assert.fail(`expected ${count} waiter(s) on ${pid}`);
+}
+async function bothWaiting(holderPid: number) {
+  for (let i = 0; i < 400; i++) {
+    const waiting = (await admin.query<{ n: number }>(`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE pid <> $1 AND pid <> pg_backend_pid() AND cardinality(pg_blocking_pids(pid)) > 0`, [holderPid])).rows[0].n;
+    if (waiting >= 2) return;
+    await delay(25);
+  }
+  assert.fail(`expected accept and cancel to both be waiting, holder ${holderPid}`);
 }
 async function sessionHash(userId: string) {
   return (await pool.query<{ token_hash: string }>('SELECT token_hash FROM sessions WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1', [userId])).rows[0].token_hash;
@@ -236,8 +249,7 @@ test('T-014 one of two racing accept and cancel calls wins', async () => {
       accept_scope: true, fresh_auth_verification_id: acceptVerification,
     }, `"${transfer.version}"`, acceptKey);
     const pendingCancel = send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/cancel`, owner.session, { reason: '取消這次擁有權移交' });
-    await blockedBy(pid, 1);
-    await delay(500);
+    await bothWaiting(pid);
     await holder.query('COMMIT');
     const [accepted, cancelled] = await Promise.race([
       Promise.all([pendingAccept, pendingCancel]),
@@ -347,4 +359,106 @@ test('T-014 a guild leader and a platform admin gain no tenant access from a pen
   const cancelled = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/cancel`, owner.session, { reason: '政策缺席仍可取消' });
   assert.equal(cancelled.status, 200, cancelled.text);
   assert.equal(cancelled.data.state, 'cancelled');
+});
+
+test('accept after a real member change answers transfer_authority_changed', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const member = await person('管理員');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const memberPrincipal = await candidate(owner.session, member.id);
+  const invited = await send(`/tenants/${tenant.tenant_id}/invitations`, owner.session, {
+    invitee_principal_id: memberPrincipal, role: 'admin', instance_capabilities: [], expires_at: later(),
+  });
+  assert.equal(invited.status, 201, invited.text);
+  const joined = await send(`/tenants/${tenant.tenant_id}/invitations/${invited.data.invitation_id}/accept`, member.session, {}, `"${invited.data.version}"`);
+  assert.equal(joined.status, 200, joined.text);
+  const transfer = await propose(owner.session, tenant.tenant_id, to);
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.ownership.accept');
+  const row = (await send(`/tenants/${tenant.tenant_id}/members?limit=100`, owner.session)).data.items.find((item: { principal_id: string }) => item.principal_id === memberPrincipal);
+  const changed = await send(`/tenants/${tenant.tenant_id}/members/${memberPrincipal}/change`, owner.session, {
+    role: 'viewer', status: 'active', instance_capabilities: [], reason: '調整成員角色',
+  }, `"${row.version}"`);
+  assert.equal(changed.status, 200, changed.text);
+  const denied = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, `"${transfer.version}"`);
+  assert.equal(denied.status, 409, denied.text);
+  assert.equal(denied.data.code, 'transfer_authority_changed');
+  assert.equal((await pool.query<{ state: string }>(`SELECT state FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0].state, 'invalidated');
+});
+
+test('the owner reads a pending transfer from a second session, and a non-owner matches the single-transfer refusal', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const member = await person('成員');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const memberPrincipal = await candidate(owner.session, member.id);
+  const invited = await send(`/tenants/${tenant.tenant_id}/invitations`, owner.session, {
+    invitee_principal_id: memberPrincipal, role: 'viewer', instance_capabilities: [], expires_at: later(),
+  });
+  assert.equal(invited.status, 201, invited.text);
+  assert.equal((await send(`/tenants/${tenant.tenant_id}/invitations/${invited.data.invitation_id}/accept`, member.session, {}, `"${invited.data.version}"`)).status, 200);
+  const transfer = await propose(owner.session, tenant.tenant_id, to);
+  const again = await login(owner.email);
+  const response = await app.request(origin + `/api/v1/tenants/${tenant.tenant_id}/ownership-transfers?limit=20`, {
+    headers: { Origin: origin, Cookie: again.cookie, 'X-CSRF-Token': again.csrf },
+  });
+  const text = await response.text();
+  const listed = text ? JSON.parse(text) : {};
+  assert.equal(response.status, 200, text);
+  assert.match(response.headers.get('cache-control') ?? '', /private/);
+  assert.match(response.headers.get('cache-control') ?? '', /no-store/);
+  assert.equal(listed.items.length, 1);
+  assert.equal(listed.items[0].transfer_id, transfer.transfer_id);
+  assert.equal(listed.source_version, '2');
+  const listDenied = await send(`/tenants/${tenant.tenant_id}/ownership-transfers`, member.session);
+  const oneDenied = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}`, member.session);
+  assert.equal(listDenied.status, oneDenied.status);
+  assert.equal(listDenied.data.code, oneDenied.data.code);
+  assert.equal(listDenied.status, 404);
+  assert.equal(listDenied.data.code, 'transfer_not_found');
+  const cancelled = await send(`/tenants/${tenant.tenant_id}/ownership-transfers/${transfer.transfer_id}/cancel`, again, { reason: '取消這次擁有權移交' });
+  assert.equal(cancelled.status, 200, cancelled.text);
+  assert.equal(cancelled.data.state, 'cancelled');
+  const dark = createApp(pool, origin, 'local');
+  const hidden = await dark.request(origin + `/api/v1/tenants/${tenant.tenant_id}/ownership-transfers`, {
+    headers: { Origin: origin, Cookie: again.cookie, 'X-CSRF-Token': again.csrf },
+  });
+  const hiddenBody = await hidden.json() as { code?: string };
+  assert.equal(hidden.status, 404);
+  assert.equal(hiddenBody.code, 'not_found');
+});
+
+test('an inactive recipient is rejected by the session lock, and persistTransferFailure invalidates the pending row', async () => {
+  const owner = await person('擁有者');
+  const recipient = await person('接收者');
+  const tenant = await createTenant(owner.session);
+  const to = await candidate(owner.session, recipient.id);
+  const transfer = await propose(owner.session, tenant.tenant_id, to);
+  await persistTransferFailure(pool, transfer.transfer_id);
+  const healthy = (await pool.query<{ state: string; version: string }>(`SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0];
+  assert.equal(healthy.state, 'pending');
+  assert.equal(healthy.version, transfer.version);
+  const row = (await pool.query<{ user_id: string; community_id: string; email: string; display_name: string; profession_membership_ref: string; session_hash: string; csrf_token: string }>(
+    `SELECT u.user_id, u.community_id, u.email, u.display_name, u.profession_membership_ref, s.token_hash AS session_hash, s.csrf_token
+     FROM users u JOIN sessions s ON s.user_id=u.user_id AND s.revoked_at IS NULL
+     WHERE u.user_id=$1 ORDER BY s.expires_at DESC LIMIT 1`, [recipient.id])).rows[0];
+  const actor: Actor = row;
+  await pool.query(`UPDATE users SET active=false WHERE user_id=$1`, [recipient.id]);
+  await assert.rejects(
+    () => acceptTransfer(pool, actor, tenant.tenant_id, transfer.transfer_id, {
+      accept_scope: true, fresh_auth_verification_id: randomUUID(),
+    }, randomUUID(), transfer.version),
+    (error: unknown) => error instanceof Problem && error.status === 401 && error.code === 'session_expired',
+  );
+  const still = (await pool.query<{ state: string; version: string }>(`SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0];
+  assert.equal(still.state, 'pending');
+  assert.equal(still.version, transfer.version);
+  await persistTransferFailure(pool, transfer.transfer_id);
+  const invalidated = (await pool.query<{ state: string; version: string }>(`SELECT state, version::text AS version FROM tenant_ownership_transfers WHERE transfer_id=$1`, [transfer.transfer_id])).rows[0];
+  assert.equal(invalidated.state, 'invalidated');
+  assert.equal(invalidated.version, String(Number(transfer.version) + 1));
 });
