@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
-import { login, sessionView, type Actor } from '../../../modules/identity-membership/service.js';
+import { login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
@@ -232,7 +232,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const result=await registerMember(pool,raw,{communityId:runtime.registrationCommunityId(),allowSingleCommunity:freedomEnv==='local',publicMode:freedomEnv==='public'});
     const old=getCookie(c,COOKIE);
     if(old) {const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]);}
-    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:8*60*60});
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor),201);
   });
   app.post('/api/v1/auth/login',async c=>{
@@ -243,7 +243,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
     const old=getCookie(c,COOKIE);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
-    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:8*60*60});
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor));
   });
   app.post('/api/v1/auth/reset/request',async c=>{
