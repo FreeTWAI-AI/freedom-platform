@@ -74,8 +74,8 @@
     },
     {
       "path": "apps/credential-broker/freedom.module.json",
-      "bytes": 2484,
-      "sha256": "4745ebbac7a36f4971bf6264c59e1c4101d66f19a027ef30b0f07284882ee2eb"
+      "bytes": 2871,
+      "sha256": "ade3dbd9ded8beba0556ed3feb34228a62263edb67afd735555bbb8bfc872700"
     },
     {
       "path": "apps/credential-broker/src/bridge.ts",
@@ -17258,6 +17258,11 @@
       "sha256": "1aa329bd5eea9cc84992797df9f87ac7da29d3a417551c5352470c82902681c7"
     },
     {
+      "path": "scripts/run-recovery-generation-drill.mjs",
+      "bytes": 5875,
+      "sha256": "bfc9ae62d9c3c84f68e381c4903cd257647cc61f51fe12c8a6477d2d974beb9a"
+    },
+    {
       "path": "scripts/runtime-aggregate.mjs",
       "bytes": 1326,
       "sha256": "506a65ddb4e1c30773ba2c4035229b6f69054511da987c6532e0c64be53961c8"
@@ -17856,6 +17861,11 @@
       "path": "tests/integration/native-consumer-runtime.test.ts",
       "bytes": 12233,
       "sha256": "2b76d3975d39798dde56f9cf68a2ac6748e0ad16c25463de92f3379bee093dd5"
+    },
+    {
+      "path": "tests/integration/recovery-generation-restore.test.ts",
+      "bytes": 66902,
+      "sha256": "7142a809b6b93d4494422209cc6a82a51579477a14869d2a3fbd6cfec09487cd"
     },
     {
       "path": "tests/integration/repositories.test.ts",
