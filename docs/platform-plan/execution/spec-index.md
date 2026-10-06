@@ -1,5 +1,9 @@
 # Execution spec index
 
+## 公會啟動台與可攜業務空間（2026-10-05 target）
+
+新增 [SP-00–SP-12 規格索引](guild-launchpad/README.md)，22決策、64需求及60待執行案例按原提供JSON追蹤。這組位於獨立目錄，未改下面既有package規格/里程碑與完成狀態；現行原碼、目標及未決政策分開記錄。
+
 2026-10-02 新增：[共同基礎開發規格](./unified-foundation/README.md)，將 R2、Autopilot 及跨 repo 治理 1.1 計畫轉成分批實作 spec。這組文件為 draft，未修改下列歷史 packages 的完成狀態；現況差異、過渡規則與 168 項待跑驗收另列於新規格。
 
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。

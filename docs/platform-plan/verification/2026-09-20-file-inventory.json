@@ -12479,8 +12479,8 @@
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
-      "bytes": 25295,
-      "sha256": "c554c2d6e84382e964495c9aee1deb063410865c09c23eb498ac8b9f2d797eed"
+      "bytes": 25898,
+      "sha256": "b6b7bc9fd79e96a06f6db41c548e0107d724b89190725e7abb3ab81bf2a7d2dc"
     },
     {
       "path": "docs/platform-plan/01-product-community-model.md",
@@ -12514,8 +12514,8 @@
     },
     {
       "path": "docs/platform-plan/07-decisions-risks-traceability.md",
-      "bytes": 104590,
-      "sha256": "9b150f5dba25eb27bcc7ef8ebf86e3b5a70e5364426921e9fc32a6bc19153b7b"
+      "bytes": 105145,
+      "sha256": "3b73f1f14b29ecb533f27b11f3e174ff54ae21c5e42525592c84e6679fea2698"
     },
     {
       "path": "docs/platform-plan/08-bootstrap-hosting-project-lifecycle.md",
@@ -12544,8 +12544,8 @@
     },
     {
       "path": "docs/platform-plan/README.md",
-      "bytes": 29460,
-      "sha256": "886752e9a26cf6bf206e69c4b51c8f67859c45f490e2b631476a7a3670efc1f6"
+      "bytes": 29822,
+      "sha256": "c6ee25a352ff4b1bf5ed8ba3c5cab81ad8fa1ec535e3e488f764a684f9790301"
     },
     {
       "path": "docs/platform-plan/contracts/README.md",
@@ -13333,6 +13333,121 @@
       "sha256": "596590345bd9f4e6c6c88f71bef4ea49da3e03b02c9b8dbe5564ccda16de70d5"
     },
     {
+      "path": "docs/platform-plan/execution/guild-launchpad/README.md",
+      "bytes": 4275,
+      "sha256": "bb6ea05cbdfd09b49a28f528c7bc226b4dc5c915866c318e8f1d181bf016249a"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
+      "bytes": 7439,
+      "sha256": "792ce684532c04630426f7b198ef8fe7435405ff492400bbb433cc3de67b93a7"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-01-guild-preferences.md",
+      "bytes": 25980,
+      "sha256": "0b63edd15dce698e53d541215eef73912c5f40337ef46cfe90ff9189494c3f83"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-02-tenant-authorization.md",
+      "bytes": 35659,
+      "sha256": "ca9e685158a5c50385385f5530fe5cc716193fb6cbd14654963959c340fe5f28"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-03-all-guild-launchpad.md",
+      "bytes": 30697,
+      "sha256": "e908c94e3ad56e438fd00e796c2909e8b28609ab19b9474af2bbc789b570087d"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-04-applications-instances.md",
+      "bytes": 37434,
+      "sha256": "090cc67550419bd414f58a94f892b58c9d694318fa3d35441dd116f6cc37b46a"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-05-module-interoperability.md",
+      "bytes": 38442,
+      "sha256": "f9a82ea5195bd486033e05ed5b16fb7a342f3d746b9123a30c3c4142e5c56218"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-06-isolation-recovery.md",
+      "bytes": 41352,
+      "sha256": "b0b05e17bcba9aeb15a92c8ddd9ca7e4c893be04e3acb823d9333cb8f5aedecb"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-07-portable-bundle.md",
+      "bytes": 34156,
+      "sha256": "7ec1272e8760d58828f67232d8fa2f20edd2dd82b08a9767444b7dd20eeab851"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-08-module-migration.md",
+      "bytes": 33776,
+      "sha256": "b9149714f7ffa864b5449c72d5efa8afc265ffc755a49ab03f3140d12488138d"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-09-external-connection-security.md",
+      "bytes": 40935,
+      "sha256": "da38dabe9a2a5fa6119fbaefa881b8fb7d9fc6540ae1f47f7a2c937d68c69470"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-10-domain-upstream-integration.md",
+      "bytes": 48783,
+      "sha256": "b5558aebea750471303f8dedb02bbf3657c459aafd54889052e8ce2a275dbdba"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-11-ai-usage-operations.md",
+      "bytes": 40939,
+      "sha256": "7851ce82a0634548b29bb0469120f14bb09b21bc1f2eb01963e4cbdc5846b330"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/SP-12-integration-release.md",
+      "bytes": 10317,
+      "sha256": "29a41a1ca70d99753d6df2f00882c372b440a8e7dae907503b101571c98ae85c"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/acceptance.md",
+      "bytes": 40550,
+      "sha256": "35764484e72637fe117ec2fbccd48df0bc146a53cb0026b3540778e4a217d884"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/contracts.md",
+      "bytes": 12597,
+      "sha256": "ec1bf856f02aafc5b5ac2a3e7810b7f565d47e5ec174c2ed43305d920747716c"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/data-responsibility.md",
+      "bytes": 10409,
+      "sha256": "801a4e5c8361899e13e7796ff18fdff160a6a27af720ae8145148fa456737082"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/decision-log.md",
+      "bytes": 5747,
+      "sha256": "8066233fe6b408649cb549b972885848ff21600d55b9191aeb7b9f1372056c27"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/repository-map.md",
+      "bytes": 8211,
+      "sha256": "d24fcf3e12b6a5660c898dee68a57e676dc9214eaaa3dda8eda1c0421d95981d"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/sources.md",
+      "bytes": 9083,
+      "sha256": "e48c7b6e0918a037255347eb67e111225332a62786f0a50c65f2bb881f4463e5"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/traceability.json",
+      "bytes": 272157,
+      "sha256": "171be6905252729899d5f051a7fc3b6612a626594d5405666160c40636f8f0e7"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py",
+      "bytes": 6189,
+      "sha256": "bccab3eeeda0c5448c976fe16cf35588b4ccffac788594a7b6e6d38a818b8ca7"
+    },
+    {
+      "path": "docs/platform-plan/execution/guild-launchpad/verification.md",
+      "bytes": 3687,
+      "sha256": "ac6a4009b817145d32f19ad999756bf2c15252ac39a30457b6054dab85fcd64f"
+    },
+    {
       "path": "docs/platform-plan/execution/human-foundation-plan.md",
       "bytes": 22961,
       "sha256": "ef24a61ff4f1106e6d1a89fb75017009fb4773750792c7f2bd256fd9125cbc27"
@@ -13354,8 +13469,8 @@
     },
     {
       "path": "docs/platform-plan/execution/spec-index.md",
-      "bytes": 23198,
-      "sha256": "604bfab0070d36c933fc8071e5308c05e28c693fd5fad17da30bdfb0557af520"
+      "bytes": 23530,
+      "sha256": "77dc1821b71cb110aa465632b93d0e178042d4ec76f4c3df5404a852bf573733"
     },
     {
       "path": "docs/platform-plan/execution/specs/AGT-01.md",
