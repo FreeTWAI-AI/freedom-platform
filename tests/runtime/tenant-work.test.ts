@@ -490,6 +490,19 @@ test('bad keys, versions, cursors, forged fields, and archive stay closed', asyn
   const forged = await post(`/tenants/${made.tenantId}/workspaces/${made.workspaceId}/works`, owner, { ...workBody('偽造'), tenant_id: made.tenantId, owner: owner.user.user_id });
   assert.equal(forged.status, 422);
   assert.equal(forged.data.code, 'validation_failed');
+  const carriageTitle = await post(`/tenants/${made.tenantId}/workspaces/${made.workspaceId}/works`, owner, workBody('標題\r換行'));
+  assert.equal(carriageTitle.status, 422, JSON.stringify(carriageTitle.data));
+  assert.equal(carriageTitle.data.code, 'validation_failed');
+  const carriageObjective = await post(`/tenants/${made.tenantId}/workspaces/${made.workspaceId}/works`, owner, workBody('乾淨標題', '目的\r換行'));
+  assert.equal(carriageObjective.status, 422, JSON.stringify(carriageObjective.data));
+  assert.equal(carriageObjective.data.code, 'validation_failed');
+  const carriagePatch = await patch(`/tenants/${made.tenantId}/works/${workId}`, owner, workBody('改\r標題', '改\r目的'), '"1"');
+  assert.equal(carriagePatch.status, 422, JSON.stringify(carriagePatch.data));
+  assert.equal(carriagePatch.data.code, 'validation_failed');
+  const kept = await call('GET', `/tenants/${made.tenantId}/works/${workId}`, owner);
+  assert.equal(kept.status, 200, JSON.stringify(kept.data));
+  assert.equal(kept.data.title, '第一個工作');
+  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM work_items WHERE position(chr(13) in title) > 0 OR position(chr(13) in objective) > 0`)).rows[0].n, 0);
   const slash = await post(`/tenants/${made.tenantId}/works/${workId}/results/uploads`, owner, {
     content_type: 'text/plain', byte_size: 3, sha256: ABC_SHA, display_name: 'a/b.txt', expected_work_version: '1',
   });

@@ -6,7 +6,7 @@ import { PageSchema, VersionSchema } from './tenant.js';
 export const DecimalSchema = z.string().regex(/^(0|[1-9][0-9]{0,18})$/);
 export const ProgressSchema = z.enum(['todo', 'in_progress', 'done']);
 export const GuildKeySchema = z.string().regex(/^[a-z][a-z0-9_]{0,80}$/);
-const control = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\uD800-\uDFFF]/u;
+const control = /[\u0000-\u0008\u000B\u000C\u000D\u000E-\u001F\u007F\uD800-\uDFFF]/u;
 
 export const WorkTitleSchema = z.string().min(1).max(120).refine(value => value.trim().length > 0
   && Buffer.byteLength(value) <= 480 && !control.test(value), '標題含有不允許的字元。');
