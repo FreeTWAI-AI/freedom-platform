@@ -37,3 +37,13 @@ Use `scripts/media-restore-acl.ts` from the reviewed source release. Its default
 7. Complete current external tombstone/revocation/floor reconciliation, fence imported sessions and unresolved effects, verify the restored media references/bytes and original authorization behavior, then perform the separately approved application installation/start. The local drill's new synthetic recovery sessions demonstrate its member-session boundary only. Full remote broker/device recovery and cloud installation remain `not_run`.
 
 The standard integration drill invokes both this reusable operation and its actual CLI execution against the owned synthetic database. It tests default-plan secret nonaccess, environment/URL/actual-database mismatch, ledger drift, unknown definer, a real connected application role, refusal rollback, and idempotent lockdown before applying canonical application grants. The original 120-second budget and two integration cases remain unchanged.
+
+## Portable recovery handover
+
+The handover drill starts its own producer and consumer containers, so it lives with the other owned-container drills under `tests/integration/` and is not part of `npm run test:media-restore`. The pure bundle and archive checks stay in `tests/runtime/`. Run the handover directly:
+
+```sh
+node --import tsx --test --test-concurrency=1 tests/integration/media-recovery-handover.test.ts
+```
+
+It needs Docker, the local pinned image `postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd`, and a committed clean tree. The pinned hosted `verify` workflow does not run it yet. Adding it there belongs to the separate reviewed workflow (trust-pin) upgrade.

@@ -162,7 +162,7 @@ serial('producer exit then a new process restores only the handed-over files',as
   handoff=join(root,'handoff');work=join(root,'work');state=join(root,'state');
   await mkdir(handoff,{mode:0o700});await mkdir(work,{mode:0o700});await mkdir(state,{mode:0o700});
   handoff=await realpath(handoff);work=await realpath(work);state=await realpath(state);
-  const producer=await spawnNode(['tests/runtime/media-recovery-handover-producer.ts',handoff,work,head],12*60*1000);
+  const producer=await spawnNode(['tests/integration/media-recovery-handover-producer.ts',handoff,work,head],12*60*1000);
   if(producer.code!==0){await releaseTree(work);assert.fail(`producer exit ${producer.code} timedOut=${producer.timedOut} stderr=${producer.stderr.slice(-1500)}`);}
   assert.equal(producer.timedOut,false);
   expectations=JSON.parse(await readFile(join(work,'expectations.json'),'utf8')) as Expectations;

@@ -34,8 +34,8 @@
     "tests/integration/media-backup-archive.test.ts",
     "scripts/media-recovery-restore.ts",
     "tests/runtime/media-recovery-bundle.test.ts",
-    "tests/runtime/media-recovery-handover.test.ts",
-    "tests/runtime/media-recovery-handover-producer.ts"
+    "tests/integration/media-recovery-handover.test.ts",
+    "tests/integration/media-recovery-handover-producer.ts"
   ],
   "public_exports": [
     "packages/media-migration/inventory.ts"
