@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-06T17:10:59.010172+00:00",
+  "recorded_at": "2026-10-06T21:33:25.653448+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -23,12 +23,12 @@
       "conclusion": "success",
       "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37486199100"
     },
-    "limitation": "This main commit is the staging release and the installed central workflow source. It is not evidence of a production deployment of main or of production migrations 114-119."
+    "limitation": "This main commit is the production and staging release (operator receipts 2026-10-06) and the installed central workflow source. main has since advanced to 8d2213d7 (#180, #182, #162); those commits are not deployed."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+      "observed_release_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
       "fresh_health": {
         "origin": "https://freetwai.com",
         "path": "/api/v1/health",
@@ -42,17 +42,19 @@
           "money_movement_enabled": false,
           "official": false,
           "runtime": "cloudflare-workers",
-          "release_sha": "e07d61d2f534df99069f8f6b414f3863d9db3711"
+          "release_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+          "shop_key_policy": "legacy-compatible",
+          "shop_key_issuer_profile": "freedom.shop-service-key/v1"
         },
-        "sha256": "0721469b2d5a39d6b7e56b2898d108ff852d3dfb610c5eef4065425780303468"
+        "sha256": "a48d6d7716e97d0f701ee9b822b5fd73b51d6e7913111873489c36e810415aa7"
       },
-      "observed_at": "2026-10-06T17:02:47.200041+00:00",
+      "observed_at": "2026-10-06T21:13:54.223412+00:00",
       "limitation": "Public health proves this endpoint/release identity, not every feature, private DB schema, or cloud private-AI acceptance."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
       "last_operator_release_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
-      "operator_observed_at": "2026-10-06T16:19:00+00:00",
+      "operator_observed_at": "2026-10-06T21:22:44Z",
       "fresh_http": {
         "origin": "https://staging.freetwai.com",
         "path": "/api/v1/health",
@@ -66,6 +68,67 @@
       "limitation": "Fresh Access 302 is not authenticated health; release identity comes from the operator live readback in the staging rollout receipt."
     },
     "last_operator_rollout": {
+      "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
+      "kind": "operator_observed_private_receipt",
+      "scope": "production; staging was already on the same SHA and was not changed",
+      "at": "2026-10-06T21:32:45.398935+00:00",
+      "receipt_sha256": "cc1786a4bc97c8504208c2cccbb3866a8676eb04429f7c5c3b7947a02491c2d6",
+      "previous_production_release": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+      "owner_approval": "Ted, 2026-10-06T20:34:59Z, \"please deploy\" in reply to the decision that listed production migrations 114-119 and the production FREEDOM_SHOP_KEY_POLICY value",
+      "selected_checks": {
+        "production": 22,
+        "staging_same_sha": 37
+      },
+      "production_health_samples": "5/5 d1c9e18f",
+      "worker_version": "20464e5c-0fae-4a63-ab00-d1c448e51aad",
+      "database_migrations_applied": {
+        "production": [
+          114,
+          115,
+          116,
+          117,
+          118,
+          119
+        ],
+        "staging": "already applied 2026-10-06T15:49:01Z"
+      },
+      "worker_config_change": "FREEDOM_SHOP_KEY_POLICY=legacy-compatible on production, the same value as staging. Unset makes shop routes 503; purpose-bound-only first needs the controlled legacy exit in modules/agent-commerce/README.md.",
+      "private_ai_enabled": false,
+      "backup_release_pins_updated": true,
+      "production_accounts_created": 0,
+      "cron_after_rollout": "Under d1c9 the 21:20Z and 21:30Z cron runs wrote to freedom_next: repository sync 21:22:22Z and 21:32:20Z, items 21:22:18Z, feed 21:21:15Z and 21:31:36Z, repository metrics 21:32:22Z (0 errors); sync last_error counts unchanged from before the deploy (48 none, 6 github_unavailable).",
+      "rollback": "Redeploy e07d61d2 (schema-compatible with 114-119) with pre-migration backup set d7f0bd5f-836b-4542-9e0e-eb5e6574583d as the data fallback.",
+      "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP, and the session/cookie behaviour was exercised on staging for the same SHA."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "at": "2026-10-06T21:32:45.398935+00:00"
+    },
+    "previous_production_rollout": {
+      "source": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+      "branch": "hotfix/member-session-30d-20261006",
+      "live_base_before": "fe93730d36805a5c25a5f381450980b2767efe29",
+      "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
+      "kind": "operator_observed_private_receipt",
+      "at": "2026-10-06T15:18:43.635119+00:00",
+      "receipt_sha256": "407c05b501e1438f327b504cfed71d9062737639e43769ec825dd93716486af5",
+      "owner_scope": "Owner-approved hotfix only: the reviewed #167 session patches on the live fe93730d; no main #128-#166 content and no migrations.",
+      "selected_checks": {
+        "staging": 34,
+        "production": 19
+      },
+      "production_health_samples": "5/5 e07d61d2",
+      "database_migrations_applied": false,
+      "backup_release_pins": {
+        "production": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+        "staging": "e07d61d2f534df99069f8f6b414f3863d9db3711"
+      },
+      "temporary_access_revoked": true,
+      "limitation": "This hotfix branch commit (not a main commit) was the live production release until main d1c9, which carries the same patches, replaced it on 2026-10-06T21:13Z."
+    },
+    "last_staging_rollout": {
       "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
       "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
       "kind": "operator_observed_private_receipt",
@@ -94,28 +157,6 @@
       "cron_after_rollout": "feed/sync/metrics/events/items advanced through the 16:00Z and 16:10Z runs; last_error counts unchanged",
       "rollback": "Redeploy e07d61d2 (schema-compatible with 114-119) with the pre-migration backup set as the data fallback.",
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance."
-    },
-    "last_production_rollout": {
-      "source": "e07d61d2f534df99069f8f6b414f3863d9db3711",
-      "branch": "hotfix/member-session-30d-20261006",
-      "live_base_before": "fe93730d36805a5c25a5f381450980b2767efe29",
-      "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
-      "kind": "operator_observed_private_receipt",
-      "at": "2026-10-06T15:18:43.635119+00:00",
-      "receipt_sha256": "407c05b501e1438f327b504cfed71d9062737639e43769ec825dd93716486af5",
-      "owner_scope": "Owner-approved hotfix only: the reviewed #167 session patches on the live fe93730d; no main #128-#166 content and no migrations.",
-      "selected_checks": {
-        "staging": 34,
-        "production": 19
-      },
-      "production_health_samples": "5/5 e07d61d2",
-      "database_migrations_applied": false,
-      "backup_release_pins": {
-        "production": "e07d61d2f534df99069f8f6b414f3863d9db3711",
-        "staging": "e07d61d2f534df99069f8f6b414f3863d9db3711"
-      },
-      "temporary_access_revoked": true,
-      "limitation": "The live production release is a hotfix branch commit, not a main commit; main d1c9 carries the same patches. Staging has since moved to d1c9."
     },
     "execution_mode": "Explicitly authorized private operator invocation for an exact source; no automatic GitHub Release trigger was verified.",
     "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
@@ -149,12 +190,31 @@
       "post_checks": "Runtime grants re-applied; read-only verification and runtime/backup login probes passed (backup unreadable objects 0).",
       "pre_migration_backup": "f5efc970-f63f-4624-8045-2c109a8204b6 (source e07d61d2; isolated restore and remote readback verified)"
     },
-    "production_last_reported": "The recorded 2026-10-05 fe93730d and 2026-10-06 e07d61d2 production rollouts applied no migrations; 114-119 are applied on staging only.",
+    "production_observed": {
+      "environment": "production",
+      "ledger_rows": 118,
+      "through_number": 119,
+      "applied": [
+        114,
+        115,
+        116,
+        117,
+        118,
+        119
+      ],
+      "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+      "at": "2026-10-06T21:12:53.437Z",
+      "kind": "operator_observed_private_receipt",
+      "role": "production migrator, one transaction under an advisory lock with known gap 22",
+      "post_checks": "Runtime grants re-applied; read-only verification and runtime/backup login probes passed (backup unreadable objects 0); the dedicated media operator role kept byte-identical privileges (before/after digest).",
+      "pre_migration_backup": "d7f0bd5f-836b-4542-9e0e-eb5e6574583d (source e07d61d2; isolated restore and remote readback verified). The first attempt a10e02d6-6d43-4778-b1de-eeb0c407b28a stopped at capture on one transient R2 object read and was re-run."
+    },
+    "production_last_reported": "Production migrations 114-119 were applied 2026-10-06T21:12:53Z (operator receipt); the earlier 2026-10-05 fe93730d and 2026-10-06 e07d61d2 production rollouts applied none.",
     "fresh_live_ledger_read": {
       "staging": "operator receipt 2026-10-06T15:49:01Z",
-      "production": "not_run"
+      "production": "operator receipt 2026-10-06T21:12:53.437Z"
     },
-    "limitation": "Health and the main manifest do not prove the current SQL ledger. Production was not re-read in this reconciliation; re-read exact names/digests/roles before the next production schema or recovery operation.",
+    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-06 operator receipts; re-read exact names/digests/roles before the next schema or recovery operation.",
     "declared_historical_number_gaps": [
       22
     ],
@@ -197,13 +257,39 @@
   "recovery": {
     "daily_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
     "last_rollout_backup_release_pins": {
-      "production": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+      "production": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
       "staging": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
-      "wrapper_sha256": "96acf5b7dbf5115228b29294186a92c333136513608b17b0d792b525688c2c7a",
-      "at": "2026-10-06T15:50:16.525605+00:00",
+      "wrapper_sha256": "534e6a0effc6fbf0ab1e268a7e82f3b1eba10e4f1f7f9948988f422c2a8c4164",
+      "at": "2026-10-06T21:13:23.411027+00:00",
       "operator_source_preserved": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
       "schedules_unchanged": true
     },
+    "production_rollout_backups": [
+      {
+        "label": "before-migration",
+        "set": "d7f0bd5f-836b-4542-9e0e-eb5e6574583d",
+        "source_release": "e07d61d2f534df99069f8f6b414f3863d9db3711",
+        "created_at": "2026-10-06T21:04:16.450Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      {
+        "label": "before-migration attempt 1 (failed)",
+        "set": "a10e02d6-6d43-4778-b1de-eeb0c407b28a",
+        "created_at": "2026-10-06T20:52:51.225Z",
+        "stage": "capture",
+        "code": "daily_backup_phase_failed",
+        "cleanup_verified": true
+      },
+      {
+        "label": "after-rollout",
+        "set": "d3d4da52-9da1-457d-ad6e-5af2bacc2edd",
+        "source_release": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+        "created_at": "2026-10-06T21:13:42.455Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      }
+    ],
     "staging_rollout_backups": [
       {
         "label": "before-migration",
