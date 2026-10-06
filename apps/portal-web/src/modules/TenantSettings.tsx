@@ -179,7 +179,14 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function invite(person: DirectoryPerson) {
     if (!tenant) return;
-    const candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal: abortRef.current?.signal });
+    let candidate: { principal_id: string; display_name: string };
+    try {
+      candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(person.user_id)}`, { signal: abortRef.current?.signal });
+    } catch (error) {
+      if (abortRef.current?.signal.aborted) return;
+      setAlertText(error instanceof ApiError ? error.message : '需要處理');
+      return;
+    }
     const expires = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
     const saved = await run<InvitationView>({
       key: crypto.randomUUID(), path: `/tenants/${tenant.tenant_id}/invitations`,
@@ -263,13 +270,11 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         <h2>成員</h2>
         <ul className="stack">{members.map(member => <li key={member.principal_id} className="card">
           <p>{member.display_name}・{roleLabel(member.role)}・{member.status === 'active' ? '使用中' : '已撤銷'}</p>
-          {canManage && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="stack">
+          {canManage && member.status === 'active' && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="stack">
             <label className="field">角色<select value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
               {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
             </select></label>
-            {member.status === 'active'
-              ? <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
-              : <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'active')}>恢復</button>}
+            <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
           </div>}
         </li>)}</ul>
       </section>
@@ -286,7 +291,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
       </form>}
       <section className="stack" aria-label="離開業務空間">
         {lastOwner
-          ? <p className="field-hint">業務空間至少要有一位使用中的擁有者。請先完成所有權移交後再離開。</p>
+          ? <p className="field-hint">你是唯一使用中的擁有者，目前不能離開這個業務空間。</p>
           : <button type="button" className="btn btn-ghost" onClick={() => void leave()}>離開這個業務空間</button>}
         {lastOwner && <button type="button" className="btn btn-ghost" disabled>離開這個業務空間</button>}
       </section>

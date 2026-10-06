@@ -53,7 +53,7 @@ test('two members create, invite, accept and switch tenants without sharing the 
     await ownerSession.page.getByRole('button', { name: '建立業務空間', exact: true }).click();
     await expect(ownerSession.page.getByText('品牌甲／櫃檯甲', { exact: true })).toBeVisible();
     await expect(ownerSession.page.getByText('我的角色：擁有者', { exact: true })).toBeVisible();
-    await expect(ownerSession.page.getByText('業務空間至少要有一位使用中的擁有者。請先完成所有權移交後再離開。')).toBeVisible();
+    await expect(ownerSession.page.getByText('你是唯一使用中的擁有者，目前不能離開這個業務空間。')).toBeVisible();
     await expect(ownerSession.page.getByRole('button', { name: '離開這個業務空間', exact: true })).toBeDisabled();
     await ownerSession.page.getByLabel('搜尋夥伴', { exact: true }).fill(guest.display_name);
     await ownerSession.page.getByRole('button', { name: '搜尋', exact: true }).click();
@@ -79,6 +79,11 @@ test('two members create, invite, accept and switch tenants without sharing the 
     await expect(ownerSession.page.getByRole('heading', { name: '業務空間', level: 1, exact: true })).toBeVisible();
     await noOverflow(ownerSession.page);
     await guestSession.page.setViewportSize({ width: 390, height: 844 });
+    await noOverflow(guestSession.page);
+    await ownerSession.page.setViewportSize({ width: 360, height: 800 });
+    await expect(ownerSession.page.getByRole('heading', { name: '業務空間', level: 1, exact: true })).toBeVisible();
+    await noOverflow(ownerSession.page);
+    await guestSession.page.setViewportSize({ width: 360, height: 800 });
     await noOverflow(guestSession.page);
   } finally {
     await ownerSession.context.close();
