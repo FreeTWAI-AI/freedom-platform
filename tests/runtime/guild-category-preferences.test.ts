@@ -8,6 +8,8 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {createAdminAccessVerifier} from '../../modules/platform-admin/access.js';
+import {lockGuildCatalog, lockGuildCatalogShared} from '../../modules/positioning/guild-categories.js';
+import {lockMemberGuilds} from '../../modules/positioning/onboarding.js';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -67,6 +69,8 @@ beforeEach(async () => {
     category_review = CASE WHEN guild_key = ANY($1::text[]) THEN 'approved'::guild_category_review ELSE 'pending'::guild_category_review END`, [approved]);
   await seedLocal(pool);
   await pool.query('INSERT INTO platform_admins(admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [adminId, DEMO_COMMUNITY, email, '分類管理員']);
+  await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+    SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, ['a0000000-0000-4000-8000-0000000000aa', DEMO_COMMUNITY, email, '分類管理員', randomUUID(), DEMO_USERS[0].user_id]);
   jwt = await sign(email);
   csrf = (await verifier(new Request(origin, {headers: {'Cf-Access-Jwt-Assertion': jwt}}))).csrfToken;
 });
@@ -320,16 +324,16 @@ test('T-010 backfill maps only the legacy primary and reruns without duplicating
   assert.equal(first.status, 200, JSON.stringify(first.data));
   assert.equal(first.data.processed, 1);
   assert.equal(first.data.remaining, 7);
-  let guard = 0;
-  let last = first.data;
-  while (last.remaining > 0 && guard < 10) {
-    last = (await admin(flagged, '/guild-preferences/backfill', {dry_run: false, limit: 1})).data;
-    guard += 1;
-  }
-  assert.equal(last.remaining, 0);
+  const rest = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
+  assert.equal(rest.status, 200, JSON.stringify(rest.data));
+  assert.equal(rest.data.processed, 3);
+  assert.equal(rest.data.blocked, 4);
+  assert.equal(rest.data.remaining, 4);
   const again = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
   assert.equal(again.data.processed, 0);
+  assert.equal(again.data.remaining, 4);
   const audit = (await pool.query(`SELECT count(*) FROM guild_preference_migration_audit`)).rows[0].count;
+  assert.equal(audit, '4');
   assert.equal((await admin(flagged, '/guild-preferences/backfill', {dry_run: false})).data.processed, 0);
   assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_migration_audit`)).rows[0].count, audit);
   async function only(id: string) {
@@ -345,15 +349,37 @@ test('T-010 backfill maps only the legacy primary and reruns without duplicating
   assert.deepEqual(await only(ids.inactive), []);
   const reasons = new Map((await pool.query(`SELECT user_id, invalidation_reason FROM guild_preference_migration_audit`)).rows.map(row => [row.user_id, row.invalidation_reason]));
   assert.equal(reasons.get(ids.mapped), null);
-  assert.equal(reasons.get(ids.pending), 'legacy_ambiguous');
-  assert.equal(reasons.get(ids.left), 'legacy_ambiguous');
-  assert.equal(reasons.get(ids.invalid), 'legacy_ambiguous');
-  assert.equal(reasons.get(ids.inactive), 'legacy_ambiguous');
+  assert.equal(reasons.get(ids.ordered), null);
+  assert.equal(reasons.get(ids.empty), null);
   assert.equal(reasons.get(ids.bare), null);
+  assert.equal(reasons.has(ids.pending), false);
+  assert.equal(reasons.has(ids.left), false);
+  assert.equal(reasons.has(ids.invalid), false);
+  assert.equal(reasons.has(ids.inactive), false);
+  async function secondary(id: string) {
+    return (await pool.query(`SELECT legacy_secondary IS NULL AS is_null, legacy_secondary::text AS raw FROM guild_preference_migration_audit WHERE user_id = $1`, [id])).rows[0] as {is_null: boolean; raw: string | null};
+  }
+  assert.equal((await secondary(ids.mapped)).is_null, true);
+  assert.equal((await secondary(ids.empty)).raw, '[]');
+  assert.deepEqual(JSON.parse((await secondary(ids.ordered)).raw!), ['guild_music_mv', 'guild_security']);
+  for (const id of [ids.pending, ids.left, ids.invalid, ids.inactive]) {
+    assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_sets WHERE user_id = $1`, [id])).rows[0].count, '0');
+    assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_invalidations WHERE user_id = $1`, [id])).rows[0].count, '0');
+  }
+  const denied = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(denied.status, 409);
+  assert.equal(denied.data.code, 'preference_switch_blocked');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_switch`)).rows[0].count, '0');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_migration_audit`)).rows[0].count, audit);
   const blocked = new Map((again.data.blocked_members ?? []).map((item: {user_id: string; reason: string}) => [item.user_id, item.reason]));
-  assert.equal(blocked.size, 0);
+  assert.equal(blocked.get(ids.pending), 'unknown_category');
+  assert.equal(blocked.get(ids.left), 'left_primary');
+  assert.equal(blocked.get(ids.invalid), 'invalid_secondary');
+  assert.equal(blocked.get(ids.inactive), 'inactive_guild');
   const listed = (await admin(flagged, '/guild-preferences/backfill', {dry_run: true})).data;
-  assert.equal(listed.processed, 0);
+  assert.equal(listed.blocked, 4);
+  assert.equal(listed.remaining, 4);
+  assert.equal(listed.processed, 4);
   assert.deepEqual(beforeUsers, (await pool.query(`SELECT user_id, email, display_name FROM users ORDER BY user_id`)).rows);
   assert.deepEqual(beforeMemberships, (await pool.query(`SELECT user_id, guild_key, state, member_tier FROM positioning_profession_memberships ORDER BY user_id, guild_key`)).rows);
   assert.deepEqual(beforeGrants, (await pool.query(`SELECT user_id, guild_key, book_id FROM member_skill_book_grants ORDER BY user_id, book_id`)).rows);
@@ -409,14 +435,16 @@ test('T-016 recategorize clears the slot, leave races do not keep a departed pri
 
   const kept = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: 'guild_member_operations', catalog_revision: await revision('guild_member_operations')}, {version: String((await member(flagged, '/me/guild-preferences/v2', s)).data.aggregate_version)});
   assert.equal(kept.status, 200, JSON.stringify(kept.data));
-  await pool.query(`UPDATE guild_catalog_categories SET active = false WHERE guild_key = 'guild_member_operations'`);
+  await join(s, 'guild_security');
+  await pool.query(`UPDATE guild_catalog_categories SET active = false WHERE guild_key = 'guild_security'`);
   try {
-    const inactive = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: 'guild_member_operations', catalog_revision: await revision('guild_member_operations')}, {version: String(kept.data.aggregate_version)});
+    const inactive = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'professional_industry', guild_key: 'guild_security', catalog_revision: await revision('guild_security')}, {version: String((await member(flagged, '/me/guild-preferences/v2', s)).data.aggregate_version)});
     assert.equal(inactive.status, 409);
     assert.equal(inactive.data.code, 'guild_inactive');
+    assert.equal((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id = $1 AND category = 'professional_industry'`, [s.user.user_id])).rows[0], undefined);
     assert.equal((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id = $1 AND category = 'internal'`, [s.user.user_id])).rows[0].guild_key, 'guild_member_operations');
   } finally {
-    await pool.query(`UPDATE guild_catalog_categories SET active = true WHERE guild_key = 'guild_member_operations'`);
+    await pool.query(`UPDATE guild_catalog_categories SET active = true WHERE guild_key = 'guild_security'`);
   }
   assert.equal(view.status, 200);
 });
@@ -455,24 +483,268 @@ test('T-030 legacy reads stay understandable and legacy writes stop only after t
   assert.equal(slot(view.data, 'external'), null);
   assert.equal(slot(view.data, 'professional_industry'), null);
   assert.equal((await pool.query(`SELECT primary_guild_key FROM guild_member_preferences WHERE user_id = $1`, [s.user.user_id])).rows[0].primary_guild_key, 'guild_talent_direction');
+  const directory = await member(flagged, '/guilds/directory', s);
+  const talentMembership = directory.data.items.find((item: {guild_key: string}) => item.guild_key === 'guild_talent_direction').membership;
+  const legacyLeave = await member(flagged, '/guilds/guild_talent_direction/leave', s, {}, {version: String(talentMembership.aggregate_version)});
+  assert.equal(legacyLeave.status, 409);
+  assert.equal(legacyLeave.data.code, 'primary_clear_required');
+  assert.equal((await pool.query(`SELECT state FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = 'guild_talent_direction'`, [s.user.user_id])).rows[0].state, 'active');
+  assert.equal((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id = $1 AND category = 'internal'`, [s.user.user_id])).rows[0].guild_key, 'guild_talent_direction');
 });
 
-test('T-054 dry-run writes nothing and a second execute is the crash-resume path', async () => {
-  const s = await login();
-  await join(s, 'guild_security');
-  assert.equal((await member(flagged, '/guilds/guild_security/primary', s, {})).status, 200);
+test('T-054 an interrupted backfill resumes without a second audit row', async () => {
+  const community = DEMO_COMMUNITY;
+  const maker = DEMO_USERS[0].user_id;
+  const ids = ['a0000000-0000-4000-8000-000000000031', 'a0000000-0000-4000-8000-000000000032', 'a0000000-0000-4000-8000-000000000033'];
+  const guilds = ['guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering'];
+  for (const [index, id] of ids.entries()) {
+    await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+      SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [id, community, `${id}@example.test`, `批次${index}`, randomUUID(), maker]);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,$4,'active','intern')`, [randomUUID(), community, id, guilds[index]]);
+    await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys) VALUES ($1,$2,$3,$4)`, [community, id, guilds[index], null]);
+  }
+  async function snapshot() {
+    const sets = (await pool.query(`SELECT user_id, aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id = ANY($1::uuid[]) ORDER BY user_id`, [ids])).rows;
+    const slots = (await pool.query(`SELECT user_id, category::text AS category, guild_key FROM guild_category_preferences WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, category`, [ids])).rows;
+    const audits = (await pool.query(`SELECT user_id, legacy_primary, legacy_secondary IS NULL AS legacy_secondary_null, new_snapshot, invalidation_reason FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[]) ORDER BY user_id, legacy_primary`, [ids])).rows;
+    return {sets, slots, audits};
+  }
   const dry = await admin(flagged, '/guild-preferences/backfill', {});
   assert.equal(dry.status, 200, JSON.stringify(dry.data));
   assert.equal(dry.data.dry_run, true);
-  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_sets WHERE user_id = $1`, [s.user.user_id])).rows[0].count, '1');
-  const version = (await pool.query(`SELECT aggregate_version FROM guild_preference_sets WHERE user_id = $1`, [s.user.user_id])).rows[0].aggregate_version;
-  const run = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
-  assert.equal(run.data.processed, 0);
-  assert.equal((await pool.query(`SELECT aggregate_version FROM guild_preference_sets WHERE user_id = $1`, [s.user.user_id])).rows[0].aggregate_version, version);
-  const blocked = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
-  assert.equal(blocked.status, 200, JSON.stringify(blocked.data));
-  const repeat = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
-  assert.equal(repeat.status, 200, JSON.stringify(repeat.data));
-  assert.equal(repeat.data.already_switched, true);
-  assert.equal(repeat.data.aggregate_version, blocked.data.aggregate_version);
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_sets WHERE user_id = ANY($1::uuid[])`, [ids])).rows[0].count, '0');
+  const partial = await admin(flagged, '/guild-preferences/backfill', {dry_run: false, limit: 1});
+  assert.equal(partial.data.processed, 1);
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[])`, [ids])).rows[0].count, '1');
+  const continued = await admin(flagged, '/guild-preferences/backfill', {dry_run: false, limit: 1});
+  assert.equal(continued.data.processed, 1);
+  const finished = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
+  assert.equal(finished.data.processed, 1);
+  assert.equal(finished.data.remaining, 0);
+  const interrupted = await snapshot();
+  assert.equal(interrupted.audits.length, 3);
+  assert.equal(new Set(interrupted.audits.map(row => row.user_id)).size, 3);
+  await pool.query(`DELETE FROM guild_preference_sets WHERE user_id = ANY($1::uuid[])`, [ids]);
+  await pool.query(`DELETE FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[])`, [ids]);
+  const once = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
+  assert.equal(once.data.processed, 3);
+  assert.deepEqual(await snapshot(), interrupted);
+  const repeat = await admin(flagged, '/guild-preferences/backfill', {dry_run: false});
+  assert.equal(repeat.data.processed, 0);
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_migration_audit WHERE user_id = ANY($1::uuid[])`, [ids])).rows[0].count, '3');
+});
+
+test('T-011 dry-run counts a blocked member past the first page and only an accepted switch stores it', async () => {
+  const community = DEMO_COMMUNITY;
+  const maker = DEMO_USERS[0].user_id;
+  const blockedId = 'b0000000-0000-4000-8000-000000000101';
+  for (let index = 1; index <= 101; index += 1) {
+    const id = `b0000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+    const blocked = index === 101;
+    await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+      SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [id, community, `${id}@example.test`, `候選${index}`, randomUUID(), maker]);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,$4,'active','intern')`, [randomUUID(), community, id, blocked ? 'guild_ai_vibe' : 'guild_talent_direction']);
+    await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys) VALUES ($1,$2,$3,NULL)`, [community, id, blocked ? 'guild_ai_vibe' : 'guild_talent_direction']);
+  }
+  const preview = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+  assert.equal(preview.status, 200, JSON.stringify(preview.data));
+  assert.equal(preview.data.processed, 100);
+  assert.equal(preview.data.remaining, 101);
+  assert.equal(preview.data.blocked, 1);
+  assert.equal(preview.data.blocked_members.length, 1);
+  assert.equal(preview.data.blocked_members[0].user_id, blockedId);
+  assert.equal(preview.data.blocked_members[0].reason, 'unknown_category');
+  const refused = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(refused.status, 409);
+  assert.equal(refused.data.code, 'preference_switch_blocked');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_sets WHERE user_id = $1`, [blockedId])).rows[0].count, '0');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_invalidations WHERE reason = 'legacy_ambiguous'`)).rows[0].count, '0');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_preference_switch`)).rows[0].count, '0');
+  const accepted = await admin(flagged, '/guild-preferences/switch', {accept_blocked: true});
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal(accepted.data.state, 'switched');
+  assert.equal(accepted.data.blocked, 1);
+  const ambiguous = (await pool.query(`SELECT user_id FROM guild_preference_invalidations WHERE reason = 'legacy_ambiguous'`)).rows;
+  assert.deepEqual(ambiguous.map(row => row.user_id), [blockedId]);
+  const versions = (await pool.query(`SELECT s.aggregate_version::text AS aggregate_version, i.new_version::text AS new_version
+    FROM guild_preference_sets s JOIN guild_preference_invalidations i USING (community_id, user_id)
+    WHERE s.user_id = $1 AND i.reason = 'legacy_ambiguous'`, [blockedId])).rows[0];
+  assert.equal(versions.new_version, versions.aggregate_version);
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_category_preferences WHERE user_id = $1`, [blockedId])).rows[0].count, '0');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_category_preferences WHERE guild_key = 'guild_talent_direction'`)).rows[0].count, '100');
+});
+
+test('T-017 classification journals one public event and refuses without an active member', async () => {
+  async function facts() {
+    return {
+      revision: await revision('guild_security'),
+      audit: (await pool.query(`SELECT count(*) FROM platform_admin_audit`)).rows[0].count as string,
+      outbox: (await pool.query(`SELECT count(*) FROM outbox WHERE event_type = 'freedom.guild.classification.changed.v1'`)).rows[0].count as string,
+      journal: (await pool.query(`SELECT count(*) FROM transition_journal WHERE command = 'classify_guild'`)).rows[0].count as string,
+    };
+  }
+  async function classifyAs(value: string, version: string) {
+    const token = await sign(value);
+    const tokenCsrf = (await verifier(new Request(origin, {headers: {'Cf-Access-Jwt-Assertion': token}}))).csrfToken;
+    const response = await flagged.request(origin + '/admin/api/guilds/guild_security/classification', {
+      method: 'POST',
+      headers: {Origin: origin, 'Cf-Access-Jwt-Assertion': token, 'X-Admin-CSRF': tokenCsrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(), 'If-Match': `"${version}"`},
+      body: JSON.stringify({category: 'external', capability_tags: [], reason: '沒有可用的會員帳號'}),
+    });
+    return {status: response.status, data: await read(response)};
+  }
+  const before = await facts();
+  await pool.query('INSERT INTO platform_admins(admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [randomUUID(), DEMO_COMMUNITY, 'category-orphan@example.test', '無會員管理員']);
+  const missing = await classifyAs('category-orphan@example.test', before.revision);
+  assert.equal(missing.status, 403);
+  assert.equal(missing.data.code, 'guild_classification_denied');
+  assert.equal(missing.data.detail, '分類需要以同社群的會員帳號留下事件紀錄，請先確認管理員信箱有對應的會員帳號。');
+  assert.deepEqual(await facts(), before);
+  await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref, active)
+    SELECT $1,$2,$3,$4,password_hash,$5,false FROM users WHERE user_id = $6`, [randomUUID(), DEMO_COMMUNITY, 'category-inactive@example.test', '停用會員', randomUUID(), DEMO_USERS[0].user_id]);
+  await pool.query('INSERT INTO platform_admins(admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [randomUUID(), DEMO_COMMUNITY, 'category-inactive@example.test', '停用管理員']);
+  const inactive = await classifyAs('category-inactive@example.test', before.revision);
+  assert.equal(inactive.status, 403);
+  assert.equal(inactive.data.code, 'guild_classification_denied');
+  assert.deepEqual(await facts(), before);
+  const saved = await admin(flagged, '/guilds/guild_security/classification', {category: 'external', capability_tags: ['守門'], reason: '改測公開事件'}, {version: await revision('guild_security')});
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  const events = (await pool.query(`SELECT payload FROM outbox WHERE event_type = 'freedom.guild.classification.changed.v1'`)).rows;
+  assert.equal(events.length, 1);
+  assert.deepEqual(Object.keys(events[0].payload.data).sort(), ['active', 'capability_tags', 'catalog_revision', 'category', 'category_review', 'guild_key']);
+  assert.equal(events[0].payload.data.guild_key, 'guild_security');
+  assert.equal(events[0].payload.data.category, 'external');
+  assert.equal(events[0].payload.data.reason, undefined);
+  assert.equal(JSON.stringify(events[0].payload).includes(email), false);
+  assert.equal(JSON.stringify(events[0].payload).includes('改測'), false);
+  assert.equal((await pool.query(`SELECT count(*) FROM transition_journal WHERE command = 'classify_guild'`)).rows[0].count, '1');
+});
+
+test('T-018 the same guild cannot stay a primary after it is left', async () => {
+  const s = await login();
+  const guild = 'guild_member_operations';
+  await join(s, 'guild_talent_direction');
+  await join(s, guild);
+  assert.equal((await admin(flagged, '/guild-preferences/switch', {accept_blocked: false})).status, 200);
+  async function race(clearPrimary: boolean) {
+    const membership = (await member(flagged, '/guilds/directory', s)).data.items.find((item: {guild_key: string}) => item.guild_key === guild).membership;
+    const view = await member(flagged, '/me/guild-preferences/v2', s);
+    assert.equal(view.status, 200, JSON.stringify(view.data));
+    const version = String(view.data.aggregate_version);
+    await Promise.all([
+      member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: guild, catalog_revision: await revision(guild)}, {version, key: randomUUID()}),
+      member(flagged, `/guilds/${guild}/leave-v2`, s, {clear_primary: clearPrimary}, {version: String(membership.aggregate_version), preferenceVersion: version, key: randomUUID()}),
+    ]);
+    const stuck = (await pool.query(`SELECT p.guild_key FROM guild_category_preferences p
+      JOIN positioning_profession_memberships m ON m.community_id = p.community_id AND m.user_id = p.user_id AND m.guild_key = p.guild_key
+      WHERE p.user_id = $1 AND m.state <> 'active'`, [s.user.user_id])).rows;
+    assert.deepEqual(stuck, []);
+    const state = (await pool.query(`SELECT state FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = $2`, [s.user.user_id, guild])).rows[0].state;
+    const slotted = (await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id = $1 AND guild_key = $2`, [s.user.user_id, guild])).rows[0]?.guild_key ?? null;
+    if (state === 'left') assert.equal(slotted, null);
+  }
+  await race(true);
+  const left = (await pool.query(`SELECT state, aggregate_version::text AS aggregate_version FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = $2`, [s.user.user_id, guild])).rows[0];
+  if (left.state === 'left') {
+    const rejoined = await member(flagged, `/guilds/${guild}/join`, s, {}, {version: left.aggregate_version});
+    assert.equal(rejoined.status, 200, JSON.stringify(rejoined.data));
+  }
+  await pool.query(`DELETE FROM guild_category_preferences WHERE user_id = $1 AND guild_key = $2`, [s.user.user_id, guild]);
+  await race(false);
+});
+
+test('T-019 raw membership and catalog updates cannot keep a stale slot', async () => {
+  const s = await login();
+  await join(s, 'guild_security');
+  await join(s, 'guild_talent_direction');
+  assert.equal((await admin(flagged, '/guild-preferences/switch', {accept_blocked: true})).status, 200);
+  const view = await member(flagged, '/me/guild-preferences/v2', s);
+  const set = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'professional_industry', guild_key: 'guild_security', catalog_revision: await revision('guild_security')}, {version: String(view.data.aggregate_version)});
+  assert.equal(set.status, 200, JSON.stringify(set.data));
+  const rejectCode = (error: {code?: string}) => error.code === '23514';
+  await assert.rejects(pool.query(`UPDATE positioning_profession_memberships SET state = 'left' WHERE community_id = $1 AND user_id = $2 AND guild_key = 'guild_security'`, [DEMO_COMMUNITY, s.user.user_id]), rejectCode);
+  await assert.rejects(pool.query(`UPDATE guild_catalog_categories SET category = 'external' WHERE guild_key = 'guild_security'`), rejectCode);
+  await assert.rejects(pool.query(`UPDATE guild_catalog_categories SET active = false WHERE guild_key = 'guild_security'`), rejectCode);
+  assert.equal((await pool.query(`SELECT state FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = 'guild_security'`, [s.user.user_id])).rows[0].state, 'active');
+  const catalog = (await pool.query(`SELECT category::text AS category, active FROM guild_catalog_categories WHERE guild_key = 'guild_security'`)).rows[0];
+  assert.equal(catalog.category, 'professional_industry');
+  assert.equal(catalog.active, true);
+  const membership = (await member(flagged, '/guilds/directory', s)).data.items.find((item: {guild_key: string}) => item.guild_key === 'guild_security').membership;
+  const current = await member(flagged, '/me/guild-preferences/v2', s);
+  const left = await member(flagged, '/guilds/guild_security/leave-v2', s, {clear_primary: true}, {version: String(membership.aggregate_version), preferenceVersion: String(current.data.aggregate_version)});
+  assert.equal(left.status, 200, JSON.stringify(left.data));
+  assert.equal((await pool.query(`SELECT state FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = 'guild_security'`, [s.user.user_id])).rows[0].state, 'left');
+  assert.equal((await pool.query(`SELECT count(*) FROM guild_category_preferences WHERE user_id = $1 AND guild_key = 'guild_security'`, [s.user.user_id])).rows[0].count, '0');
+  const moved = await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'external', capability_tags: [], reason: '服務路徑仍可改分類'}, {version: await revision('guild_talent_direction')});
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+});
+
+test('T-040 member writes share the catalog fence and wait for an exclusive classification lock', async () => {
+  const community = DEMO_COMMUNITY;
+  const maker = DEMO_USERS[0].user_id;
+  const first = 'a0000000-0000-4000-8000-000000000041';
+  const second = 'a0000000-0000-4000-8000-000000000042';
+  for (const id of [first, second]) {
+    await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+      SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [id, community, `${id}@example.test`, id, randomUUID(), maker]);
+    await pool.query(`INSERT INTO guild_preference_sets(community_id, user_id, aggregate_version, migration_state) VALUES ($1,$2,1,'backfilled')`, [community, id]);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,'guild_talent_direction','active','intern')`, [randomUUID(), community, id]);
+  }
+  const a = await pool.connect();
+  const b = await pool.connect();
+  try {
+    await a.query('BEGIN');
+    await b.query('BEGIN');
+    await b.query(`SET LOCAL lock_timeout = '400ms'`);
+    const pidA = Number((await a.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    const pidB = Number((await b.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    await lockGuildCatalogShared(a);
+    await lockMemberGuilds(a, {community_id: community, user_id: first});
+    await a.query(`SELECT aggregate_version FROM guild_preference_sets WHERE community_id = $1 AND user_id = $2 FOR UPDATE`, [community, first]);
+    await lockGuildCatalogShared(b);
+    await lockMemberGuilds(b, {community_id: community, user_id: second});
+    await b.query(`SELECT aggregate_version FROM guild_preference_sets WHERE community_id = $1 AND user_id = $2 FOR UPDATE`, [community, second]);
+    const locks = (await pool.query(`SELECT pid, mode, granted, pg_blocking_pids(pid) AS blockers FROM pg_locks WHERE locktype = 'advisory' AND pid = ANY($1::int[])`, [[pidA, pidB]])).rows as {pid: number; mode: string; granted: boolean; blockers: number[]}[];
+    assert.equal(locks.some(row => row.granted === false), false);
+    assert.ok(locks.some(row => Number(row.pid) === pidA && row.mode === 'ShareLock' && row.granted));
+    assert.ok(locks.some(row => Number(row.pid) === pidB && row.mode === 'ShareLock' && row.granted));
+    for (const row of locks) {
+      const blockers = (row.blockers ?? []).map(Number);
+      assert.equal(blockers.includes(pidA), false);
+      assert.equal(blockers.includes(pidB), false);
+    }
+  } finally {
+    await a.query('ROLLBACK').catch(() => undefined);
+    await b.query('ROLLBACK').catch(() => undefined);
+    a.release();
+    b.release();
+  }
+  const s = await login();
+  await join(s, 'guild_talent_direction');
+  await join(s, 'guild_member_operations');
+  assert.equal((await admin(flagged, '/guild-preferences/switch', {accept_blocked: false})).status, 200);
+  const view = await member(flagged, '/me/guild-preferences/v2', s);
+  const version = String(view.data.aggregate_version);
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    await lockGuildCatalog(holder);
+    const holderPid = Number((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    const writePromise = member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: 'guild_member_operations', catalog_revision: await revision('guild_member_operations')}, {version});
+    const deadline = Date.now() + 8000;
+    let waiting: {mode: string}[] = [];
+    while (Date.now() < deadline) {
+      waiting = (await pool.query(`SELECT mode FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND $1 = ANY(pg_blocking_pids(pid))`, [holderPid])).rows;
+      if (waiting.length) break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(waiting.some(row => row.mode === 'ShareLock'), JSON.stringify(waiting));
+    await holder.query('ROLLBACK');
+    const saved = await writePromise;
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    assert.equal(slot(saved.data, 'internal'), 'guild_member_operations');
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+  }
 });
