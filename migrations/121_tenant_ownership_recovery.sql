@@ -274,12 +274,14 @@ CREATE TRIGGER preserve_tenant_recovery_case
   FOR EACH ROW EXECUTE FUNCTION preserve_tenant_recovery_case();
 
 -- No API and no seed. Operators grant rows through the prod-admin procedure.
+-- capability_lock exists only so the runtime role can take FOR SHARE.
 CREATE TABLE platform_admin_tenant_recovery_capabilities (
   capability_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_id uuid NOT NULL REFERENCES platform_admins(admin_id),
   capability text NOT NULL CHECK (capability IN ('tenant.recovery.open','tenant.recovery.review','tenant.recovery.execute','tenant.recovery.read')),
   granted_at timestamptz NOT NULL DEFAULT now(),
-  revoked_at timestamptz
+  revoked_at timestamptz,
+  capability_lock integer GENERATED ALWAYS AS (0) STORED
 );
 CREATE UNIQUE INDEX platform_admin_tenant_recovery_capabilities_active
   ON platform_admin_tenant_recovery_capabilities (admin_id, capability) WHERE revoked_at IS NULL;

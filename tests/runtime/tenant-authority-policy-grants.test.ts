@@ -64,9 +64,44 @@ test('runtime can read tenant authority rows and lock policy_lock, and cannot wr
   });
 });
 
+test('runtime can lock a recovery capability and still cannot write it', async () => {
+  await transaction(async q => {
+    await q.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${runtime}`);
+    const adminId = '00000000-0000-4000-8000-0000000000a1';
+    await q.query(`INSERT INTO communities(community_id, name) VALUES ('00000000-0000-4000-8000-0000000000c1', '合成社區')`);
+    await q.query(`INSERT INTO platform_admins(admin_id, community_id, email, display_name) VALUES ($1, '00000000-0000-4000-8000-0000000000c1', 'recovery-lock@example.test', '復原鎖')`, [adminId]);
+    await q.query(`INSERT INTO platform_admin_tenant_recovery_capabilities(admin_id, capability) VALUES ($1, 'tenant.recovery.open')`, [adminId]);
+    await grant(q);
+    await grant(q);
+    await q.query(`SET LOCAL ROLE ${runtime}`);
+    const locked = await q.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+      WHERE admin_id=$1 AND capability=$2 AND revoked_at IS NULL
+      ORDER BY capability_id
+      FOR SHARE`, [adminId, 'tenant.recovery.open']);
+    assert.equal(locked.rowCount, 1);
+    await q.query('UPDATE platform_admin_tenant_recovery_capabilities SET capability_lock=DEFAULT');
+    for (const sql of [
+      `INSERT INTO platform_admin_tenant_recovery_capabilities(admin_id,capability) VALUES ('00000000-0000-4000-8000-000000000001','tenant.recovery.read')`,
+      `UPDATE platform_admin_tenant_recovery_capabilities SET revoked_at=now()`,
+      `DELETE FROM platform_admin_tenant_recovery_capabilities`,
+    ]) {
+      await q.query('SAVEPOINT denied');
+      await assert.rejects(q.query(sql), denied, sql);
+      await q.query('ROLLBACK TO SAVEPOINT denied');
+    }
+  });
+});
+
 test('a public column grant on the authority policy is rejected', async () => {
   await transaction(async q => {
     await q.query('GRANT UPDATE(revision) ON tenant_authority_policies TO PUBLIC');
+    await assert.rejects(grant(q), unsafe);
+  });
+});
+
+test('a public column grant on the recovery capability is rejected', async () => {
+  await transaction(async q => {
+    await q.query('GRANT UPDATE(revoked_at) ON platform_admin_tenant_recovery_capabilities TO PUBLIC');
     await assert.rejects(grant(q), unsafe);
   });
 });
