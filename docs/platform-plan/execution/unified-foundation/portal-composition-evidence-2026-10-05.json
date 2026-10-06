@@ -87,5 +87,13 @@
     "The complete platform/API responsibility split and surface audit remain unfinished.",
     "These ordinary member browser cases do not establish the full media/R2 or private execution target flow.",
     "No original requirement row newly accepted."
-  ]
+  ],
+  "adversarial_fixture_followup": {
+    "cause": "Full composed governance found two additional controls whose synthetic file inventory omitted the newly extracted declared pages.",
+    "fix": "Load real descriptor entry files while keeping unsupported-page and independent-parser blockers; no production validator changed.",
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "0cac3895840a3b713e1782940d0b262edcec41bee55bfc378a1419a68ded64cb"
+  }
 }
