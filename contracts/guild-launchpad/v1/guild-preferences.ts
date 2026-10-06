@@ -65,6 +65,21 @@ export const BackfillInput = z.object({
   limit: z.number().int().min(1).max(500).optional(),
 }).strict();
 
+export const BackfillReport = z.object({
+  dry_run: z.boolean(),
+  processed: z.number().int().nonnegative(),
+  mapped: z.number().int().nonnegative(),
+  blocked: z.number().int().nonnegative(),
+  ambiguous: z.number().int().nonnegative(),
+  remaining: z.number().int().nonnegative(),
+  /** Blocked members among every candidate still without a set. A dry run counts them before any write. */
+  remaining_blocked: z.number().int().nonnegative(),
+  blocked_members: z.array(z.object({
+    user_id: z.string().uuid(),
+    reason: z.enum(['unknown_category', 'left_primary', 'inactive_guild', 'invalid_secondary']),
+  }).strict()),
+}).strict();
+
 export const SwitchInput = z.object({
   accept_blocked: z.boolean(),
 }).strict();

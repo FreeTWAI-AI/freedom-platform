@@ -5,7 +5,7 @@ import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {guildTitles} from './assessment.js';
 import {
-  CATEGORY_LABELS, CATEGORY_ORDER, ClassificationInput, DISPLAY_PRECEDENCE, SECTION_LABELS, SetPreferenceInput,
+  BackfillReport, CATEGORY_LABELS, CATEGORY_ORDER, ClassificationInput, DISPLAY_PRECEDENCE, SECTION_LABELS, SetPreferenceInput,
 } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
 
 type Queryable = Pick<Pool | PoolClient, 'query'>;
@@ -368,36 +368,43 @@ export async function backfillInTransaction(q: PoolClient, options: {communityId
   const plans = rows.map(planMember);
   const blockedAll = plans.filter(plan => plan.reason);
   const page = plans.slice(0, limit);
-  if (dryRun) return {
+  if (dryRun) return BackfillReport.parse({
     dry_run: true,
     processed: page.length,
     mapped: page.filter(plan => !plan.reason && CATEGORY_ORDER.some(category => plan.slots[category])).length,
     blocked: blockedAll.length,
     ambiguous: blockedAll.length,
     remaining: rows.length,
+    remaining_blocked: blockedAll.length,
     blocked_members: blockedMembersOf(plans, limit),
-  };
+  });
   const runId = options.runId ?? randomUUID();
-  let processed = 0, mapped = 0, blocked = 0;
-  const blockedMembers: {user_id: string; reason: BlockReason}[] = [];
-  for (const row of rows.slice(0, limit)) {
-    const member = {community_id: options.communityId, user_id: row.user_id};
+  let processed = 0, mapped = 0;
+  const flipped: {user_id: string; reason: BlockReason}[] = [];
+  for (const initial of plans.filter(plan => !plan.reason).slice(0, limit)) {
+    const member = {community_id: options.communityId, user_id: initial.user_id};
     await lockMember(q, member);
     if ((await q.query(`SELECT 1 FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2`, [member.community_id, member.user_id])).rowCount) continue;
-    const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, row.user_id])).rows[0] as LegacyRow | undefined;
+    const fresh = (await q.query(`${candidateSql} AND u.user_id=$2`, [options.communityId, initial.user_id])).rows[0] as LegacyRow | undefined;
     if (!fresh) continue;
     const plan = planMember(fresh);
     if (plan.reason) {
-      blocked += 1;
-      blockedMembers.push({user_id: plan.user_id, reason: plan.reason});
+      flipped.push({user_id: plan.user_id, reason: plan.reason});
       continue;
     }
     await writeProjection(q, member, plan, runId, 'backfilled');
     processed += 1;
     if (CATEGORY_ORDER.some(category => plan.slots[category])) mapped += 1;
   }
-  const remaining = Number((await q.query(`SELECT count(*) FROM (${candidateSql}) c`, [options.communityId])).rows[0].count);
-  return {dry_run: false, processed, mapped, blocked, ambiguous: blocked, remaining, blocked_members: blockedMembers};
+  const blockedMembers = page.filter(plan => plan.reason).map(plan => ({user_id: plan.user_id, reason: plan.reason!}));
+  for (const item of flipped) {
+    if (!blockedMembers.some(member => member.user_id === item.user_id)) blockedMembers.push(item);
+  }
+  const left = (await candidates(q, options.communityId)).map(planMember);
+  return BackfillReport.parse({
+    dry_run: false, processed, mapped, blocked: blockedMembers.length, ambiguous: blockedMembers.length,
+    remaining: left.length, remaining_blocked: left.filter(plan => plan.reason).length, blocked_members: blockedMembers,
+  });
 }
 export function backfillGuildPreferences(pool: Pool, options: {communityId: string; limit?: number; dryRun?: boolean}) {
   return transaction(pool, q => backfillInTransaction(q, options));

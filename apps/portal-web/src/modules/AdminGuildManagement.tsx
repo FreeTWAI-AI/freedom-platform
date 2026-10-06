@@ -112,7 +112,7 @@ function ExpertRemoval({expert,busy,error,onSave,onCancel,onRefresh}:{expert:Gui
 type CategoryKey=typeof CATEGORY_ORDER[number];
 type ClassifiedGuild={guild_key:string;name:string;category:CategoryKey|null;category_review:'pending'|'approved'|string;capability_tags:string[];catalog_revision:string|null};
 type CategoryCatalog={catalog_revision:string;categories:{category:CategoryKey;label:string;section:string;items:ClassifiedGuild[]}[];pending:ClassifiedGuild[]};
-type BackfillReport={dry_run:boolean;processed:number;mapped:number;blocked:number;remaining:number};
+type BackfillReport={dry_run:boolean;processed:number;mapped:number;blocked:number;remaining:number;remaining_blocked:number};
 type SwitchReport={state:string;blocked:number;processed:number;already_switched:boolean};
 const tagList=(value:string)=>value.split(/[,\n]/).map(item=>item.trim()).filter(Boolean);
 function adminNote(cause:unknown){
@@ -177,6 +177,6 @@ function GuildCategoryTools({client,busy}:{client:Client;busy:boolean}){
       <label className="field">調整理由<textarea required minLength={3} maxLength={1000} rows={2} value={reason} onChange={event=>setReason(event.target.value)}/></label>
       {!selected?.catalog_revision&&guildKey&&<p className="field-hint">無法核對版本。</p>}
     </fieldset><div className="actions"><button className="btn btn-primary" disabled={pending||!selected?.catalog_revision||reason.trim().length<3}>{saving?'結果確認中':'儲存分類'}</button></div></form>}
-    {panel==='switch'&&<section className="stack" aria-label="分類與主力切換">{loading&&<p role="status">正在載入對照…</p>}{report&&<><p>預覽：這一批檢視 {report.processed} 位，可對照 {report.mapped} 位。全部尚餘 {report.remaining} 位，其中無法對照 {report.blocked} 位。</p>{report.blocked>0&&<label className="checkbox-row"><input type="checkbox" checked={accept} disabled={pending||!previewReady} onChange={event=>setAccept(event.target.checked)}/>我確認仍要切換。這會留下 {report.blocked} 位無法對照的會員，不自動補上主力。</label>}<div className="actions"><button type="button" className="btn btn-primary" disabled={pending||!previewReady||(report.blocked>0&&!accept)} onClick={()=>void confirmSwitch()}>{saving?'結果確認中':'確認切換'}</button></div></>}{switched&&<p role="status">{switched.already_switched?'這個社群已經切換。':`已切換。這次處理 ${switched.processed} 位，無法對照 ${switched.blocked} 位。`}</p>}</section>}
+    {panel==='switch'&&<section className="stack" aria-label="分類與主力切換">{loading&&<p role="status">正在載入對照…</p>}{report&&<><p>預覽：這一批檢視 {report.processed} 位，可對照 {report.mapped} 位。全部尚餘 {report.remaining} 位，無法對照 {report.remaining_blocked} 位。</p>{report.blocked>0&&<label className="checkbox-row"><input type="checkbox" checked={accept} disabled={pending||!previewReady} onChange={event=>setAccept(event.target.checked)}/>我確認仍要切換。這會留下 {report.blocked} 位無法對照的會員，不自動補上主力。</label>}<div className="actions"><button type="button" className="btn btn-primary" disabled={pending||!previewReady||(report.blocked>0&&!accept)} onClick={()=>void confirmSwitch()}>{saving?'結果確認中':'確認切換'}</button></div></>}{switched&&<p role="status">{switched.already_switched?'這個社群已經切換。':`已切換。這次處理 ${switched.processed} 位，無法對照 ${switched.blocked} 位。`}</p>}</section>}
   </div>;
 }
