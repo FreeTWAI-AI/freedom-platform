@@ -15930,12 +15930,12 @@
     {
       "path": "package-lock.json",
       "bytes": 126411,
-      "sha256": "3791efb358042c8506caec4327e08bc465b4fbb7c52c813301d50fda94396920"
+      "sha256": "80fe45227e863d1a7520af1296ca3d9061b5e831dd6907c8014663a0ae37ccf5"
     },
     {
       "path": "package.json",
-      "bytes": 7774,
-      "sha256": "fd70e6c15bd965f3200f5451dff9088b955a39118afeb22987ed4f0f0f303fa2"
+      "bytes": 7799,
+      "sha256": "1b04c6c7b6461c116599524316ada022df61344155c77c1ee62271a110385035"
     },
     {
       "path": "packages/asset-storage/README.md",
