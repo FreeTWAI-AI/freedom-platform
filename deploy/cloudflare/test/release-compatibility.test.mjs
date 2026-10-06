@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync, mkdirSync, readdirSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import { checkMigrations } from '../lib/migrations.mjs';
 import { loadManifest } from '../lib/manifest.mjs';
-import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
+import { evaluateReleaseCompatibility, compatibilityLedgerDigest, migrationShapeSatisfied, INTERNAL_V2_SHAPE } from '../lib/release-compatibility.mjs';
 import { run } from '../preflight.mjs';
+import { DAG_MIGRATIONS, LEGACY_MIGRATIONS, MIGRATION_V2_GUARD } from '../../../packages/db/migration-plan.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const NOW = 1790899200000;
@@ -554,3 +555,231 @@ test('114 fences generic ingest writers while schema alone does not assert OpenR
   f.input.enable_shapes = ['execution.model-credential-ingest.v1'];
   assert.equal(evaluate(f).status, 'compatible', 'original pre-114 ingest contract remains representable');
 });
+
+const FRONTIER_NAME = '118_shop_service_identity.sql';
+const NODE_A = 'v2_20261005T000000001Z_0000000000000001_alpha.sql';
+const NODE_B = 'v2_20261005T000000002Z_0000000000000002_beta.sql';
+const NODE_C = 'v2_20261005T000000000Z_0000000000000003_child.sql';
+const byFileName = (a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+function v2Sql(deps, body) {
+  return '-- freedom-migration: ' + JSON.stringify({ format: DAG_MIGRATIONS, depends_on: deps }) + '\n' + MIGRATION_V2_GUARD + body;
+}
+function sortedLedger(rows) {
+  const ledger = [...rows].sort(byFileName);
+  return { ledger, ledger_digest: compatibilityLedgerDigest(ledger) };
+}
+let dagCatalogs;
+function catalogs() {
+  if (dagCatalogs) return dagCatalogs;
+  const root = mkdtempSync(join(tmpdir(), 'fp-c5c-floor-'));
+  const legacyScan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
+  const profile = {
+    format: DAG_MIGRATIONS,
+    legacy: { format: LEGACY_MIGRATIONS, first: 1, last: 118, known_gaps: [22] },
+    legacy_ledger: legacyScan.ledger.map(({ name, sha256 }) => ({ name, sha256 })),
+  };
+  const files = {
+    [NODE_A]: v2Sql([FRONTIER_NAME], 'CREATE TABLE alpha_floor(id integer PRIMARY KEY);\n'),
+    [NODE_B]: v2Sql([FRONTIER_NAME], 'CREATE TABLE beta_floor(id integer PRIMARY KEY);\n'),
+    [NODE_C]: v2Sql([NODE_A], 'CREATE TABLE child_floor(id integer PRIMARY KEY);\n'),
+    [INTERNAL_V2_SHAPE.migration_name]: v2Sql([FRONTIER_NAME], 'CREATE TABLE shape_floor(id integer PRIMARY KEY);\n'),
+  };
+  const fill = (dir, names) => {
+    mkdirSync(dir, { recursive: true });
+    for (const name of readdirSync(join(ROOT, 'migrations'))) if (name.endsWith('.sql')) copyFileSync(join(ROOT, 'migrations', name), join(dir, name));
+    for (const name of names) writeFileSync(join(dir, name), files[name]);
+  };
+  const ab = join(root, 'ab'), ba = join(root, 'ba'), abc = join(root, 'abc'), shape = join(root, 'shape');
+  fill(ab, [NODE_A, NODE_B]); fill(ba, [NODE_B, NODE_A]); fill(abc, [NODE_A, NODE_B, NODE_C]); fill(shape, [INTERNAL_V2_SHAPE.migration_name]);
+  const expected = loadManifest().database_defaults.migrations;
+  const scan = (dir) => checkMigrations(dir, expected, profile);
+  dagCatalogs = { root, profile, legacyScan, ab: scan(ab), ba: scan(ba), abc: scan(abc), shape: scan(shape) };
+  return dagCatalogs;
+}
+after(() => { if (dagCatalogs) rmSync(dagCatalogs.root, { recursive: true, force: true }); });
+function v3Fixture(scan, observedRows, floorRows = scan.ledger.filter((row) => !row.name.startsWith('v2_'))) {
+  const catalog = catalogs();
+  const observed = sortedLedger(observedRows), floor = sortedLedger(floorRows), base = fixture();
+  base.scan = scan;
+  base.host.schema = 'freedom.release-compatibility-host/v3';
+  base.host.migration_profile = structuredClone(catalog.profile);
+  base.host.observation.schema_ledger = observed.ledger;
+  base.host.observation.schema_ledger_digest = observed.ledger_digest;
+  base.host.rollback_floor.schema_ledger = floor.ledger;
+  base.host.rollback_floor.schema_ledger_digest = floor.ledger_digest;
+  base.host.release_records[0].schema_ledger_digests = [...new Set([observed.ledger_digest, scan.ledger_digest])];
+  return base;
+}
+const legacyOf = (scan) => scan.ledger.filter((row) => !row.name.startsWith('v2_'));
+const rowNamed = (scan, name) => scan.ledger.find((row) => row.name === name);
+
+test('v3 legacy-only catalog keeps the v2 floor and still refuses deployment authority', () => {
+  const f = fixture();
+  f.host.schema = 'freedom.release-compatibility-host/v3';
+  f.host.migration_profile = structuredClone(catalogs().profile);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible', JSON.stringify(result));
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+});
+
+test('v3 accepts A→B and B→A as one canonical digest, including B-before-A observation order', () => {
+  const catalog = catalogs();
+  assert.equal(catalog.ab.ok, true, JSON.stringify(catalog.ab.problems));
+  assert.equal(catalog.ab.ledger_digest, catalog.ba.ledger_digest);
+  assert.deepEqual(catalog.ab.dependencies, catalog.ba.dependencies);
+  const legacy = legacyOf(catalog.ab), alpha = rowNamed(catalog.ab, NODE_A), beta = rowNamed(catalog.ab, NODE_B);
+  const forward = v3Fixture(catalog.ab, [...legacy, alpha]);
+  const reverse = v3Fixture(catalog.ba, [...legacy, alpha]);
+  const first = evaluate(forward), second = evaluate(reverse);
+  assert.equal(first.status, 'compatible', JSON.stringify(first));
+  assert.deepEqual(first.issues, second.issues);
+  assert.deepEqual(first.required_capabilities, second.required_capabilities);
+  for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(first[flag], false);
+  const unordered = [beta, alpha, ...legacy];
+  const applied = v3Fixture(catalog.ab, unordered, legacy);
+  applied.host.observation.schema_ledger = unordered;
+  applied.host.observation.schema_ledger_digest = catalog.ab.ledger_digest;
+  assert.equal(applied.host.observation.schema_ledger_digest, sortedLedger(unordered).ledger_digest);
+  assert.equal(evaluate(applied).status, 'compatible', JSON.stringify(evaluate(applied)));
+  applied.host.release_records[0].schema_ledger_digests = [compatibilityLedgerDigest(unordered)];
+  assert.notEqual(compatibilityLedgerDigest(unordered), catalog.ab.ledger_digest);
+  assert(codes(evaluate(applied)).includes('release_schema_unsupported'));
+});
+
+test('an earlier-sorting v2 node merged later stays pending and is not implied by a later applied node', () => {
+  const catalog = catalogs(), legacy = legacyOf(catalog.ab), beta = rowNamed(catalog.ab, NODE_B);
+  assert(NODE_A < NODE_B);
+  const f = v3Fixture(catalog.ab, [...legacy, beta]);
+  assert.equal(f.host.observation.schema_ledger.some((row) => row.name === NODE_A), false);
+  assert.equal(catalog.ab.ledger.some((row) => row.name === NODE_A), true);
+  assert.notEqual(f.host.observation.schema_ledger_digest, catalog.ab.ledger_digest);
+  const result = evaluate(f);
+  assert.equal(result.status, 'compatible', JSON.stringify(result));
+  f.host.release_records[0].schema_ledger_digests = [catalog.ab.ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+});
+
+test('v3 rejects a v2 node whose declared dependency is absent from observed or the retained floor', () => {
+  const catalog = catalogs(), legacy = legacyOf(catalog.abc), child = rowNamed(catalog.abc, NODE_C);
+  const observed = v3Fixture(catalog.abc, [...legacy, child]);
+  let result = evaluate(observed);
+  assert.equal(result.status, 'incompatible');
+  assert.deepEqual(result.issues.map((issue) => issue.ledger), ['observed']);
+  assert.equal(result.issues[0].code, 'schema_dependency_closure_invalid');
+  const floor = v3Fixture(catalog.abc, catalog.abc.ledger, [...legacy, child]);
+  result = evaluate(floor);
+  assert(result.issues.some((issue) => issue.code === 'schema_dependency_closure_invalid' && issue.ledger === 'rollback_floor'));
+  assert.equal(result.deployment_authority, false);
+});
+
+test('v3 rejects floor/observed set mismatches, unknown rows, digest changes and renamed identities', () => {
+  const catalog = catalogs(), legacy = legacyOf(catalog.ab), alpha = rowNamed(catalog.ab, NODE_A);
+  const floor = v3Fixture(catalog.ab, legacy, [...legacy, alpha]);
+  assert(codes(evaluate(floor)).includes('historical_schema_floor_mismatch'));
+  const unknown = { name: 'v2_20261005T000000003Z_0000000000000009_unknown.sql', sha256: 'ab'.repeat(32) };
+  assert.deepEqual(codes(evaluate(v3Fixture(catalog.ab, [...legacy, unknown]))), ['schema_ledger_mismatch']);
+  const changed = v3Fixture(catalog.ab, [...legacy, { ...alpha, sha256: 'cd'.repeat(32) }]);
+  assert.deepEqual(codes(evaluate(changed)), ['schema_ledger_mismatch']);
+  const renamed = v3Fixture(catalog.ab, [...legacy, { name: NODE_A.replace('alpha', 'renamed'), sha256: alpha.sha256 }]);
+  assert.deepEqual(codes(evaluate(renamed)), ['schema_identity_mismatch']);
+});
+
+test('v3 rejects a legacy frontier mismatch and a partial legacy set beside a v2 row', () => {
+  const catalog = catalogs(), legacy = legacyOf(catalog.ab), alpha = rowNamed(catalog.ab, NODE_A);
+  const frontier = v3Fixture(catalog.ab, legacy);
+  frontier.host.migration_profile.legacy_ledger[0].sha256 = 'ef'.repeat(32);
+  assert.deepEqual(codes(evaluate(frontier)), ['schema_legacy_frontier_mismatch']);
+  const partialLegacy = legacy.filter((row) => !row.name.startsWith('050_'));
+  assert.equal(partialLegacy.length, legacy.length - 1);
+  assert(codes(evaluate(v3Fixture(catalog.ab, [...partialLegacy, alpha]))).includes('schema_ledger_invalid'));
+});
+
+test('v3 rejects a malformed or unrequested host profile and candidate-supplied profile selection', () => {
+  const catalog = catalogs(), legacy = legacyOf(catalog.ab);
+  const unsupported = v3Fixture(catalog.ab, legacy);
+  unsupported.host.migration_profile.format = 'freedom.migrations/dag-v9';
+  assert.deepEqual(codes(evaluate(unsupported)), ['migration_profile_unsupported']);
+  const malformed = v3Fixture(catalog.ab, legacy);
+  malformed.host.migration_profile.legacy_ledger = [];
+  assert.deepEqual(codes(evaluate(malformed)), ['migration_profile_invalid']);
+  const unknownHost = fixture();
+  unknownHost.host.schema = 'freedom.release-compatibility-host/v4';
+  assert.deepEqual(codes(evaluate(unknownHost)), ['host_version_unsupported']);
+  const supplied = v3Fixture(catalog.ab, legacy);
+  supplied.input.migration_profile = supplied.host.migration_profile;
+  assert.deepEqual(codes(evaluate(supplied)), ['request_invalid']);
+  const v2Extra = fixture();
+  v2Extra.host.migration_profile = structuredClone(catalog.profile);
+  assert.deepEqual(codes(evaluate(v2Extra)), ['host_evidence_invalid']);
+  const stripped = v3Fixture(catalog.ab, legacy);
+  stripped.scan = { ...catalog.ab };
+  delete stripped.scan.dependencies;
+  assert.deepEqual(codes(evaluate(stripped)), ['schema_scan_failed']);
+});
+
+test('exact-name v2 shapes require the planned filename and digest; numeric shapes stay on the legacy number', () => {
+  const catalog = catalogs();
+  assert.equal(catalog.shape.ok, true, JSON.stringify(catalog.shape.problems));
+  const shape = rowNamed(catalog.shape, INTERNAL_V2_SHAPE.migration_name);
+  const digests = new Map(catalog.shape.ledger.map((row) => [row.name, row.sha256]));
+  assert.equal(migrationShapeSatisfied(INTERNAL_V2_SHAPE, catalog.shape.ledger, 118, digests), true);
+  assert.equal(migrationShapeSatisfied(INTERNAL_V2_SHAPE, catalog.shape.ledger.filter((row) => row.name !== shape.name), 118, digests), false);
+  assert.equal(migrationShapeSatisfied(INTERNAL_V2_SHAPE, catalog.shape.ledger.map((row) => row.name === shape.name ? { ...row, sha256: 'aa'.repeat(32) } : row), 118, digests), false);
+  assert.equal(migrationShapeSatisfied(INTERNAL_V2_SHAPE, catalog.shape.ledger.map((row) => row.name === shape.name ? { ...row, name: shape.name.replace('shape', 'other') } : row), 118, digests), false);
+  assert.equal(migrationShapeSatisfied({ migration: 118 }, catalog.shape.ledger, 118, digests), true);
+  assert.equal(migrationShapeSatisfied({ migration: 118 }, catalog.shape.ledger, 117, digests), false);
+  const legacy = legacyOf(catalog.ab), alpha = rowNamed(catalog.ab, NODE_A);
+  const enabled = v3Fixture(catalog.ab, [...legacy, alpha]);
+  enabled.input.enable_shapes = ['commerce.shop-service-authority.v1'];
+  enabled.host.release_records[0].capabilities.push('commerce.shop-service-authority.v1');
+  assert.equal(evaluate(enabled).status, 'compatible', JSON.stringify(evaluate(enabled)));
+  const older = v3Fixture(catalog.ab, prefix(catalog.ab, 117).ledger, prefix(catalog.legacyScan, 75).ledger);
+  older.host.observation.written_shapes = ['commerce.shop-service-authority.v1'];
+  older.host.release_records[0].capabilities.push('commerce.shop-service-authority.v1');
+  const numeric = evaluate(older);
+  assert(codes(numeric).includes('observed_shape_schema_missing'));
+  assert(!codes(numeric).includes('shape_schema_missing'));
+  enabled.input.enable_shapes = [INTERNAL_V2_SHAPE.shape];
+  assert.deepEqual(codes(evaluate(enabled)), ['request_invalid']);
+  const injected = v3Fixture(catalog.ab, [...legacy, alpha]);
+  injected.host.observation.written_shapes = [INTERNAL_V2_SHAPE.shape];
+  assert.deepEqual(codes(evaluate(injected)), ['host_evidence_invalid']);
+});
+
+for (const [name, mutate, code] of [
+  ['withdrawn', (f) => { f.host.release_records[0].status = 'withdrawn'; }, 'release_withdrawn'],
+  ['stale approval', (f) => { f.host.release_records[0].expires_at_ms = NOW; }, 'release_approval_stale'],
+  ['wrong environment', (f) => { f.host.release_records[0].environments = ['staging-next']; }, 'release_environment_mismatch'],
+  ['missing capability', (f) => { f.host.release_records[0].capabilities = f.host.release_records[0].capabilities.filter((item) => item !== 'work.explicit-wire.v1'); }, 'release_capability_missing'],
+]) {
+  test(`v3 release record still fails closed: ${name}`, () => {
+    const catalog = catalogs(), legacy = legacyOf(catalog.ab);
+    const f = v3Fixture(catalog.ab, [...legacy, rowNamed(catalog.ab, NODE_A)]);
+    mutate(f);
+    const result = evaluate(f);
+    assert.notEqual(result.status, 'compatible');
+    assert(codes(result).includes(code), JSON.stringify(result));
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  });
+}
+
+for (const target of ['planned', 'observation', 'floor']) {
+  test(`v2 host rejects a v2_ ledger row in ${target}`, () => {
+    const f = fixture();
+    const row = { name: NODE_A, sha256: 'ab'.repeat(32) };
+    if (target === 'planned') {
+      f.scan.ledger = [...f.scan.ledger, row];
+      f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
+    } else if (target === 'observation') {
+      f.host.observation.schema_ledger = [...f.host.observation.schema_ledger, row];
+      f.host.observation.schema_ledger_digest = compatibilityLedgerDigest(f.host.observation.schema_ledger);
+    } else {
+      f.host.rollback_floor.schema_ledger = [...f.host.rollback_floor.schema_ledger, row];
+      f.host.rollback_floor.schema_ledger_digest = compatibilityLedgerDigest(f.host.rollback_floor.schema_ledger);
+    }
+    const result = evaluate(f);
+    assert.notEqual(result.status, 'compatible');
+    assert.deepEqual(codes(result), [target === 'planned' ? 'request_invalid' : 'host_evidence_invalid']);
+    for (const flag of ['deployment_authority', 'execution_authority', 'restore_proof']) assert.equal(result[flag], false);
+  });
+}

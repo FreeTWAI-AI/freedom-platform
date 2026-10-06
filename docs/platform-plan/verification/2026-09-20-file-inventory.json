@@ -11529,8 +11529,8 @@
     },
     {
       "path": "deploy/cloudflare/README.md",
-      "bytes": 14570,
-      "sha256": "71b56da89f4b49d145fd94d1e007bf9fb8bd110ba7490c0d0bb63f1e2bc7f588"
+      "bytes": 14653,
+      "sha256": "5afa6ffae15c574394f02249c9c81290de6d7387fdea45ff99d553859e8f65de"
     },
     {
       "path": "deploy/cloudflare/broker-preflight.mjs",
@@ -11609,8 +11609,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/migrations.mjs",
-      "bytes": 4345,
-      "sha256": "1c53518967276aca0661f19aae4b7a719b5a8f2d08c9a759f9baffc3d2a98da6"
+      "bytes": 4762,
+      "sha256": "81b59ec95874542a2edfa50c57046f8874ebd0164a707836f50cad8105bd47d3"
     },
     {
       "path": "deploy/cloudflare/lib/oci.mjs",
@@ -11644,8 +11644,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 27976,
-      "sha256": "b2cbfb0199988af9063c4e46f09cf2fcdb0a4a4e0560c1b690afca18531c680c"
+      "bytes": 38963,
+      "sha256": "5f33f4624f770f2744041f94be33f53d745d89201a7e7a8c1b0725391f3813ee"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -11664,8 +11664,8 @@
     },
     {
       "path": "deploy/cloudflare/migration-operator.md",
-      "bytes": 172,
-      "sha256": "34d42076f5e0111da04b56280c2ccdf84ea859ba31b270adc7f6e83ef7df1688"
+      "bytes": 352,
+      "sha256": "ec3ac24634bc5a8c8a620c75c50002d4deec71be77c5165ceb1b7a460362c29b"
     },
     {
       "path": "deploy/cloudflare/migration-operator.mjs",
@@ -11679,8 +11679,8 @@
     },
     {
       "path": "deploy/cloudflare/release-compatibility.md",
-      "bytes": 26171,
-      "sha256": "85af5853251314371bbe73441c98030772fd9381a5f83e104adccd1746c09a0f"
+      "bytes": 29026,
+      "sha256": "68b10eb8b8a049228842468cc8d48cd203417f1452f699608497a21b586abaef"
     },
     {
       "path": "deploy/cloudflare/sql/10-create-roles.psql",
@@ -11754,8 +11754,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 10958,
-      "sha256": "5d0f61b557b5e6e2dc0f2dbab1963f7a5f7efc6f2c722bc5d856cf8cdca122f0"
+      "bytes": 12359,
+      "sha256": "588b94b259a630527bf2ba833b94c9536b8bf3b2d1378663db5aa21908d1da89"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -11789,8 +11789,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 37383,
-      "sha256": "9cc633f65cd6ef94f2bfc4b489e607ed381499695a985a861c919dd44bc1c1e7"
+      "bytes": 52231,
+      "sha256": "caeadf788c5fb79820c5eb31195eb4088ea0a20e8c41a02e4d6ddf2982926917"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -16499,8 +16499,8 @@
     },
     {
       "path": "packages/db/migration-operator.md",
-      "bytes": 4982,
-      "sha256": "ad0b4731ab934e1b1e431790b38c8b2e59ee284f97317e35419c2721452a3475"
+      "bytes": 5124,
+      "sha256": "83f54fe26e2d0da33feb88c57cca4823563d2beb384b3d1b62ddcc6c9330f2b6"
     },
     {
       "path": "packages/db/migration-plan.d.mts",
@@ -16524,8 +16524,8 @@
     },
     {
       "path": "packages/db/migrations.md",
-      "bytes": 6060,
-      "sha256": "158ec039ced8032ad364fb72633ae40e62e6f3e1c4af34a3ec3b959aa2d02720"
+      "bytes": 6843,
+      "sha256": "9ca2c47aa587a0a0f178ffce82164337a5165bc47ad032bea9c328e10fce14f5"
     },
     {
       "path": "packages/db/snapshot-evidence.ts",
@@ -17764,8 +17764,8 @@
     },
     {
       "path": "tests/integration/migration-entrypoints-postgres.test.ts",
-      "bytes": 7780,
-      "sha256": "85f8ff4b2244d4fb8518617ca1ae266486d7a92710c9115ee83829b2d001cd5c"
+      "bytes": 7781,
+      "sha256": "3b57462677652730675c8d9fa706665428aea94dafccf859c70ff4058430ee0e"
     },
     {
       "path": "tests/integration/migration-plan-postgres.test.ts",
