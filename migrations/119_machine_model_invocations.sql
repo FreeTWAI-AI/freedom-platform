@@ -49,7 +49,11 @@ BEGIN
   IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'Current machine export policy required' USING ERRCODE='23514'; END IF;
   IF pin.evidence_origin='synthetic_local_fixture' AND a.environment<>'local' THEN RAISE EXCEPTION 'Fixture origin is local only' USING ERRCODE='23514'; END IF;
   IF pin.credential_id IS NOT NULL THEN
-    EXECUTE format('SELECT * FROM %I.broker_model_credentials WHERE credential_id=$1 FOR SHARE',target_schema) INTO credential USING pin.credential_id;
+    -- Plain SELECT: the executor role is forbidden every credential column
+    -- UPDATE, so FOR SHARE cannot run as invoker. Callers that mutate a
+    -- credential already lock model_connections FOR UPDATE, and the machine
+    -- resolver repeats its pre/post decrypt checks outside that lock.
+    EXECUTE format('SELECT * FROM %I.broker_model_credentials WHERE credential_id=$1',target_schema) INTO credential USING pin.credential_id;
     IF credential.credential_id IS NULL OR credential.state IS DISTINCT FROM 'active' OR credential.generation IS DISTINCT FROM pin.credential_generation
       OR credential.recovery_generation IS DISTINCT FROM a.recovery_generation OR credential.issued_at>clock_timestamp() OR credential.expires_at<=clock_timestamp()
       OR ROW(credential.owner_user_id,credential.owner_principal_id,credential.scope_id,credential.environment,credential.client_id,credential.runtime_device_id,credential.connection_id,credential.family_id,credential.model_connection_id,credential.model_version,credential.selection)
@@ -136,3 +140,94 @@ BEGIN
   END IF;
   RETURN NEW;
 END; $$;
+
+-- One-use main-issued machine broker command. Digests only: no access token,
+-- DPoP, prompt, ciphertext or provider key. Consumed once by the broker.
+CREATE TABLE execution_machine_broker_authorizations (
+  authorization_id uuid PRIMARY KEY,
+  machine_authorization_id uuid NOT NULL UNIQUE REFERENCES execution_machine_authorizations(authorization_id),
+  owner_user_id uuid NOT NULL REFERENCES users(user_id),
+  owner_principal_id uuid NOT NULL REFERENCES principals(principal_id),
+  scope_id uuid NOT NULL REFERENCES resource_scopes(scope_id),
+  environment text NOT NULL CHECK(environment IN ('local','staging-next','next')),
+  client_id text NOT NULL CHECK(client_id='agent-kit'),
+  runtime_device_id uuid NOT NULL REFERENCES runtime_registrations(runtime_device_id),
+  connection_id uuid NOT NULL REFERENCES agent_connections(connection_id),
+  family_id uuid NOT NULL REFERENCES bootstrap_refresh_families(family_id),
+  grant_id uuid NOT NULL REFERENCES execution_grants(grant_id),
+  approval_id uuid NOT NULL REFERENCES model_export_approvals(approval_id),
+  step_id uuid NOT NULL UNIQUE REFERENCES model_text_steps(step_id),
+  attempt_id uuid NOT NULL REFERENCES execution_attempts(attempt_id),
+  credential_id uuid NOT NULL REFERENCES broker_model_credentials(credential_id),
+  credential_generation bigint NOT NULL CHECK(credential_generation>0),
+  model_connection_id uuid NOT NULL REFERENCES model_connections(model_connection_id),
+  model_version bigint NOT NULL CHECK(model_version>0),
+  recovery_generation bigint NOT NULL CHECK(recovery_generation>0),
+  command_key text NOT NULL CHECK(command_key ~ '^[A-Za-z0-9_-]{8,128}$'),
+  command jsonb NOT NULL CHECK(jsonb_typeof(command)='object' AND octet_length(command::text)<=2048),
+  command_digest text NOT NULL CHECK(command_digest ~ '^[0-9a-f]{64}$'),
+  proof_digest text NOT NULL CHECK(proof_digest ~ '^[0-9a-f]{64}$'),
+  access_token_digest text NOT NULL CHECK(access_token_digest ~ '^[0-9a-f]{64}$'),
+  expected_version bigint NOT NULL CHECK(expected_version>0),
+  nonce_hash text NOT NULL UNIQUE CHECK(nonce_hash ~ '^[0-9a-f]{64}$'),
+  assertion jsonb NOT NULL CHECK(jsonb_typeof(assertion)='object' AND octet_length(assertion::text)<=4096),
+  issued_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  CHECK(proof_digest<>access_token_digest),
+  CHECK(isfinite(issued_at) AND issued_at=date_trunc('milliseconds',issued_at)),
+  CHECK(isfinite(expires_at) AND expires_at=date_trunc('milliseconds',expires_at)
+    AND expires_at>issued_at AND expires_at<=issued_at+interval '60 seconds'),
+  CHECK(consumed_at IS NULL OR (isfinite(consumed_at) AND consumed_at=date_trunc('milliseconds',consumed_at)
+    AND consumed_at>=issued_at AND consumed_at<expires_at)),
+  UNIQUE(owner_principal_id,scope_id,environment,client_id,command_key)
+);
+REVOKE ALL ON execution_machine_broker_authorizations FROM PUBLIC;
+
+CREATE FUNCTION preserve_machine_broker_authorization() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE a record; s record; g record; pin record; credential record; expected_command jsonb;
+BEGIN
+  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Machine broker authorization history is retained' USING ERRCODE='23514'; END IF;
+  IF TG_OP='UPDATE' THEN
+    IF (to_jsonb(NEW)-'consumed_at') IS DISTINCT FROM (to_jsonb(OLD)-'consumed_at')
+      OR OLD.consumed_at IS NOT NULL OR NEW.consumed_at IS NULL OR NEW.consumed_at>clock_timestamp()
+      OR NEW.expires_at<=clock_timestamp() THEN
+      RAISE EXCEPTION 'Machine broker authorization is immutable and consumption one-use' USING ERRCODE='23514'; END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.issued_at>clock_timestamp() OR NEW.expires_at<=clock_timestamp() OR NEW.consumed_at IS NOT NULL THEN
+    RAISE EXCEPTION 'Current machine broker authorization required' USING ERRCODE='23514'; END IF;
+  PERFORM check_machine_model_admission(TG_TABLE_SCHEMA,NEW.machine_authorization_id);
+  EXECUTE format('SELECT * FROM %I.execution_machine_authorizations WHERE authorization_id=$1',TG_TABLE_SCHEMA) INTO a USING NEW.machine_authorization_id;
+  EXECUTE format('SELECT * FROM %I.model_text_steps WHERE step_id=$1',TG_TABLE_SCHEMA) INTO s USING NEW.step_id;
+  EXECUTE format('SELECT * FROM %I.execution_grants WHERE grant_id=$1',TG_TABLE_SCHEMA) INTO g USING NEW.grant_id;
+  EXECUTE format('SELECT * FROM %I.execution_machine_model_pins WHERE authorization_id=$1',TG_TABLE_SCHEMA) INTO pin USING NEW.machine_authorization_id;
+  EXECUTE format('SELECT * FROM %I.broker_model_credentials WHERE credential_id=$1',TG_TABLE_SCHEMA) INTO credential USING NEW.credential_id;
+  IF a.authorization_id IS NULL OR s.step_id IS NULL OR g.grant_id IS NULL OR pin.authorization_id IS NULL OR credential.credential_id IS NULL
+    OR s.state IS DISTINCT FROM 'reserved' OR s.aggregate_version IS DISTINCT FROM NEW.expected_version
+    OR pin.credential_id IS NULL OR pin.credential_id IS DISTINCT FROM NEW.credential_id
+    OR pin.credential_generation IS DISTINCT FROM NEW.credential_generation
+    OR credential.state IS DISTINCT FROM 'active' OR credential.generation IS DISTINCT FROM NEW.credential_generation
+    OR credential.recovery_generation IS DISTINCT FROM NEW.recovery_generation
+    OR g.model_connection_id IS DISTINCT FROM NEW.model_connection_id OR g.model_version IS DISTINCT FROM NEW.model_version
+    OR g.state IS DISTINCT FROM 'active'
+    OR ROW(a.owner_user_id,a.owner_principal_id,a.scope_id,a.environment,a.client_id,a.runtime_device_id,a.connection_id,a.family_id,
+        a.grant_id,a.approval_id,a.step_id,a.attempt_id,a.recovery_generation)
+      IS DISTINCT FROM ROW(NEW.owner_user_id,NEW.owner_principal_id,NEW.scope_id,NEW.environment,NEW.client_id,NEW.runtime_device_id,NEW.connection_id,NEW.family_id,
+        NEW.grant_id,NEW.approval_id,NEW.step_id,NEW.attempt_id,NEW.recovery_generation)
+    THEN RAISE EXCEPTION 'Exact current machine broker pins required' USING ERRCODE='23514'; END IF;
+  expected_command=jsonb_build_object('operation','execute','input',jsonb_build_object('key',NEW.command_key,'stepId',NEW.step_id::text,'expectedVersion',NEW.expected_version::text));
+  IF NEW.command IS DISTINCT FROM expected_command THEN RAISE EXCEPTION 'Exact typed machine broker command required' USING ERRCODE='23514'; END IF;
+  IF NEW.nonce_hash IS DISTINCT FROM encode(sha256(convert_to(NEW.assertion->>'nonce','UTF8')),'hex') THEN
+    RAISE EXCEPTION 'Exact machine broker nonce hash required' USING ERRCODE='23514'; END IF;
+  IF NEW.assertion-ARRAY['issuer','audience','nonce'] IS DISTINCT FROM jsonb_build_object(
+    'profile','machine-model-broker.assertion/v1','purpose','machine-model-broker.execute','operation','execute',
+    'environment',NEW.environment,'clientId',NEW.client_id,'authorizationRef',NEW.authorization_id::text,
+    'commandDigest',NEW.command_digest,'recoveryGeneration',NEW.recovery_generation::text,
+    'issuedAt',to_char(NEW.issued_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'expiresAt',to_char(NEW.expires_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) THEN
+    RAISE EXCEPTION 'Exact machine broker assertion binding required' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER preserve_machine_broker_authorization BEFORE INSERT OR UPDATE OR DELETE ON execution_machine_broker_authorizations
+  FOR EACH ROW EXECUTE FUNCTION preserve_machine_broker_authorization();

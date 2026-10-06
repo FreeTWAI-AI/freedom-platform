@@ -249,7 +249,7 @@ function machineTextAuthority(pool:Pool,rawHost:MachineTextHost,signingKey?:Cryp
         const credential=(await q.query(`SELECT credential_id,generation::text FROM broker_model_credentials WHERE model_connection_id=$1
           AND model_version=$2 AND owner_user_id=$3 AND owner_principal_id=$4 AND scope_id=$5 AND environment=$6 AND client_id=$7
           AND runtime_device_id=$8 AND connection_id=$9 AND family_id=$10 AND state='active' AND issued_at<=clock_timestamp()
-          AND expires_at>clock_timestamp() AND recovery_generation=$11 FOR SHARE`,[s.binding.modelConnectionId,s.binding.modelVersion,b.ownerUserId,
+          AND expires_at>clock_timestamp() AND recovery_generation=$11`,[s.binding.modelConnectionId,s.binding.modelVersion,b.ownerUserId,
           b.principalId,b.scopeId,host.environment,host.clientId,b.runtimeDeviceId,b.connectionId,b.familyId,b.recoveryGeneration])).rows[0];
         if(!credential&&s.evidence_origin!=='synthetic_local_fixture')deny();if(credential){credentialId=credential.credential_id;credentialGeneration=credential.generation;}
       }
