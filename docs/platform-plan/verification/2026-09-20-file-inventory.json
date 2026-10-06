@@ -14799,8 +14799,8 @@
     },
     {
       "path": "modules/agent-control/credential-ingest-authorizations.ts",
-      "bytes": 36118,
-      "sha256": "6c4bc94650332ae9d15566fd8b9b51fafb6d9179ff09e73fe075ae9084ac9587"
+      "bytes": 36331,
+      "sha256": "f45cc00b6882fecd3c02135b159909cddc69a7713d01ec2f1e2fe32e06285b36"
     },
     {
       "path": "modules/agent-control/device-authorizations.md",
@@ -18104,8 +18104,8 @@
     },
     {
       "path": "tests/runtime/credential-ingest-authorizations.test.ts",
-      "bytes": 33922,
-      "sha256": "961f4d355211fd7769d996c50af96c9e346519d5161b84a2122bcf9b88b77559"
+      "bytes": 35776,
+      "sha256": "443b82600cdfb26a87e9f94a21b27561599d0b09a1afedbda96a03deca94b7ad"
     },
     {
       "path": "tests/runtime/credential-ingest-broker.test.ts",
@@ -18559,8 +18559,8 @@
     },
     {
       "path": "tests/runtime/member-execution-http-adversarial.test.ts",
-      "bytes": 41367,
-      "sha256": "29a34b7c0fb299a11fca84152aec686da7532ae074e37341f0326897ed309f11"
+      "bytes": 41603,
+      "sha256": "694c16d3d04d85a986308809e3c9ed059a37d38b108da767213fd02e932c05c1"
     },
     {
       "path": "tests/runtime/member-execution-http-contracts.test.ts",
