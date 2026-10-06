@@ -66,6 +66,10 @@ test('two members create, invite, accept and switch tenants without sharing the 
       expect(box!.width).toBeLessThan(400);
     }
     await expect(ownerSession.page.getByRole('region', { name: '我的業務空間' }).locator('ul')).toHaveCSS('list-style-type', 'none');
+    const workspace = await ownerSession.page.locator('.tenant-workspace').boundingBox();
+    const rootFontSize = await ownerSession.page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(workspace).not.toBeNull();
+    expect(workspace!.width).toBeLessThanOrEqual(52 * rootFontSize + 1);
     await ownerSession.page.getByLabel('搜尋夥伴', { exact: true }).fill(guest.display_name);
     await ownerSession.page.getByRole('button', { name: '搜尋', exact: true }).click();
     await ownerSession.page.getByRole('button', { name: `邀請${guest.display_name}為檢視者`, exact: true }).click();
@@ -85,6 +89,12 @@ test('two members create, invite, accept and switch tenants without sharing the 
     await ownerSession.page.getByRole('button', { name: '品牌甲・擁有者', exact: true }).click();
     await expect(ownerSession.page.getByText('品牌甲／櫃檯甲', { exact: true })).toBeVisible();
     await expect(ownerSession.page.getByRole('region', { name: '成員' })).toContainText(guest.display_name);
+    const members = ownerSession.page.getByRole('region', { name: '成員' });
+    const revoke = await members.getByRole('button', { name: '撤銷', exact: true }).boundingBox();
+    const role = await members.getByLabel('角色', { exact: true }).boundingBox();
+    expect(revoke).not.toBeNull();
+    expect(role).not.toBeNull();
+    expect(Math.abs((revoke!.y + revoke!.height) - (role!.y + role!.height))).toBeLessThanOrEqual(2);
 
     await ownerSession.page.setViewportSize({ width: 390, height: 844 });
     await expect(ownerSession.page.getByRole('heading', { name: '業務空間', level: 1, exact: true })).toBeVisible();

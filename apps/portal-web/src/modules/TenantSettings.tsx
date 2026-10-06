@@ -270,10 +270,13 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         <h2>成員</h2>
         <ul className="stack tenant-rows">{members.map(member => <li key={member.principal_id} className="tenant-row">
           <p>{member.display_name}・{roleLabel(member.role)}・{member.status === 'active' ? '使用中' : '已撤銷'}</p>
-          {canManage && member.status === 'active' && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="actions">
-            <label className="field tenant-member-role">角色<select value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
-              {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
-            </select></label>
+          {canManage && member.status === 'active' && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="actions tenant-member-actions">
+            <div className="field tenant-member-role">
+              <label htmlFor={`tenant-member-role-${member.principal_id}`}>角色</label>
+              <select id={`tenant-member-role-${member.principal_id}`} value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
+                {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
+              </select>
+            </div>
             <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
           </div>}
         </li>)}</ul>
