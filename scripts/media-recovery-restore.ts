@@ -59,7 +59,9 @@ export async function runMediaRecoveryRestore(args:string[]){
   }finally{clearTimeout(timer);process.removeListener('SIGINT',abort);process.removeListener('SIGTERM',abort);}
  }catch(error){
   const message=error instanceof Error?error.message:'';
-  if(/^[a-z0-9_:.]+$/.test(message))process.stderr.write(message+'\n');
+  const pg=error&&typeof error==='object'&&'code' in error?String((error as {code:unknown}).code):'';
+  const safe=/^[a-z0-9_:.]+$/.test(message)?message:/^[0-9A-Z]{5}$/.test(pg)?pg:'';
+  if(safe)process.stderr.write(safe+'\n');
   const report={format:'freedom.recovery-handover/v1',status:'unavailable',code:'recovery_handover_unavailable',cleanupVerified:false,
    secondOperatorAcceptance:'not_run',externalRecoveryAuthority:'not_run',cutoverAuthorized:false};
   if(runDirectory)try{await record(join(runDirectory,'failed.json'),report);}catch{}
