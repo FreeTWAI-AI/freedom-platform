@@ -10,7 +10,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { readCapacityPolicy } from '../opportunity-project-work/tenant-capacity.js';
 import { assertGuildKey, loadOfferedDefinition } from './catalog.js';
 import { canonicalJson, digestOf } from './canonical.js';
-import { PLAN_TTL_MS, type ContractRef, type Requirement } from './definitions.js';
+import { MANUAL_WORKSPACE_RELEASE, PLAN_TTL_MS, type ContractRef, type Requirement } from './definitions.js';
 import { DependencySelectionRequired, InstanceSelectionRequired } from './problems.js';
 import type { ModuleProviderMap } from './providers.js';
 import { assertConfiguration, coversCapabilities, planStale, sameContract } from './validate.js';
@@ -113,6 +113,15 @@ function workCandidates(rows: CandidateRow[]): InstanceCandidate[] {
     created_at: row.created_at.toISOString(),
     bound_workspace_count: row.bound_workspace_count,
   }));
+}
+
+/** Facade choices use the same pinned requirement, definition, and usability filter as createPlan. */
+export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string): Promise<InstanceCandidate[]> {
+  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE);
+  const requirement = (application.module_requirements as Requirement[]).find(item => item.module_key === 'work');
+  requireCondition(requirement, 409, 'application_not_available', '這個應用目前無法啟動。');
+  const definition = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
+  return workCandidates(requirement.allow_reuse ? await candidatesFor(q, tenantId, requirement, definition) : []);
 }
 
 export async function createPlan(
