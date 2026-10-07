@@ -16064,13 +16064,13 @@
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
-      "bytes": 35803,
-      "sha256": "97c998e6a9e9dc779043286e069a420698171e6192af163ce573c1d61b6d996b"
+      "bytes": 35935,
+      "sha256": "bdb6e9b3b8da050bee74b9615ccbeffa893301663ff7eb160ae6a26000d91a97"
     },
     {
       "path": "modules/guild-workspace/launchpad-view.ts",
-      "bytes": 8280,
-      "sha256": "13e6b54a970ec211dff7a81940d8f98b6450c80d28fa437527a103e04f6c7bb4"
+      "bytes": 8293,
+      "sha256": "334664c3f77eca386288873f048d2842fa93ac4daa1e81a897f28f95fd5d44e2"
     },
     {
       "path": "modules/guild-workspace/service.ts",
@@ -16224,13 +16224,13 @@
     },
     {
       "path": "modules/module-registry/capacity.ts",
-      "bytes": 9370,
-      "sha256": "6f5e56cb543f3d36868f8764132f4bb8d6376aa8650caafbd92d7120dc6965f1"
+      "bytes": 9559,
+      "sha256": "4fa475f764ca89e416b5185e170982dbcf6ad674f7a47030d8ee9347d7eb31fc"
     },
     {
       "path": "modules/module-registry/catalog.ts",
-      "bytes": 20814,
-      "sha256": "0b42dbbf37e1e68896f379bfcaaff6ba3282a9da427653d475778f05168de1e0"
+      "bytes": 21894,
+      "sha256": "9a4371d7f694302e40c93ecffcf3d762feb5c41c4d57de6a3f2d26b7671533e3"
     },
     {
       "path": "modules/module-registry/definitions.ts",
@@ -16249,18 +16249,18 @@
     },
     {
       "path": "modules/module-registry/launch.ts",
-      "bytes": 20027,
-      "sha256": "9b8365115a7657a908af90f8f76761d924d236dd04fdc526bf4484baaeb10b81"
+      "bytes": 20713,
+      "sha256": "228049f99775cac6fac52ab5bb28241ae2bc8ddd7576e784e8b07c82d7507d1e"
     },
     {
       "path": "modules/module-registry/operations.ts",
-      "bytes": 35430,
-      "sha256": "a502795037f7f677934bec55f593399d6957199762d6fda75ca1207244db1b6d"
+      "bytes": 35508,
+      "sha256": "b6e5469e44219e286fa1843cf23983230c5cf7983c5eea00c79effb560186fed"
     },
     {
       "path": "modules/module-registry/plans.ts",
-      "bytes": 16907,
-      "sha256": "46ef19e1c12f128cb848c74440a35caf089670d0f00ce202013e69ac8f8fe037"
+      "bytes": 17179,
+      "sha256": "11c1a55fb2a9011714b4a28aba895c149e974f9cf405e59f2708fb0a817f9146"
     },
     {
       "path": "modules/module-registry/problems.ts",
@@ -16279,8 +16279,8 @@
     },
     {
       "path": "modules/module-registry/service.ts",
-      "bytes": 12948,
-      "sha256": "12df5cafe4a8d15d5d8c61f5c05244580f7e4f35642b8c6a1a0e9b0b0472cbfc"
+      "bytes": 12992,
+      "sha256": "3a1864661ec312a587043d3c390ce744faeec447ea5c1cdbf74976543c17fe6e"
     },
     {
       "path": "modules/module-registry/validate.ts",
@@ -19569,8 +19569,8 @@
     },
     {
       "path": "tests/runtime/module-capacity.test.ts",
-      "bytes": 10570,
-      "sha256": "3cc6afafe558d9ea3cc3a0045f60bef9dbe7446366cae37b1eff7c135cfc929d"
+      "bytes": 14686,
+      "sha256": "34c31db2da8e915fddfb452e3a2a71979cb1b30a25cb48ad02f0689b2e756516"
     },
     {
       "path": "tests/runtime/module-provisioning.test.ts",
@@ -19584,8 +19584,8 @@
     },
     {
       "path": "tests/runtime/module-registry-review.test.ts",
-      "bytes": 83375,
-      "sha256": "942fce2822ba47152b06a5cbc8768db8c09df69ff608aaed17239fd69332917a"
+      "bytes": 101343,
+      "sha256": "018414d617222c2b7fb82a920068cf5a90cb92566b9cc1f4fa28b4469c3ee754"
     },
     {
       "path": "tests/runtime/module-registry-rls-runtime-role.test.ts",
