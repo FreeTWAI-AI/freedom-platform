@@ -216,23 +216,23 @@ async function bumpOperationVersion(q: PoolClient, row: OperationRow) {
 
 /** The entry requirement is the one whose capabilities include `entry_capability`. */
 async function ensureEntryBinding(q: PoolClient, row: OperationRow): Promise<{ code: string; detail: string } | null> {
-  const requirement = (await q.query<{ module_key: string }>(
-    `SELECT req->>'module_key' AS module_key
+  const requirement = (await q.query<{ requirement_key: string }>(
+    `SELECT req->>'requirement_key' AS requirement_key
      FROM application_definitions d
-     CROSS JOIN LATERAL jsonb_array_elements(d.module_requirements) AS req
+     CROSS JOIN LATERAL jsonb_array_elements(d.module_requirements) WITH ORDINALITY AS requirements(req, ordinal)
      WHERE d.application_key=$1 AND d.release_ref=$2
        AND jsonb_typeof(req->'capabilities')='array'
        AND jsonb_exists(req->'capabilities', $3)
+     ORDER BY ordinal
      LIMIT 1`,
     [row.application_key, row.release_ref, row.entry_capability],
   )).rows[0];
-  if (!requirement?.module_key) return null;
+  if (!requirement?.requirement_key) return null;
   const instance = (await q.query<{ instance_id: string }>(
     `SELECT l.instance_id FROM application_module_links l
      JOIN module_instances i ON i.tenant_id=l.tenant_id AND i.instance_id=l.instance_id
-     WHERE l.tenant_id=$1 AND l.installation_id=$2 AND i.module_key=$3 AND i.status='active'
-     LIMIT 1`,
-    [row.tenant_id, row.installation_id, requirement.module_key],
+     WHERE l.tenant_id=$1 AND l.installation_id=$2 AND l.requirement_key=$3 AND i.status='active'`,
+    [row.tenant_id, row.installation_id, requirement.requirement_key],
   )).rows[0];
   if (!instance) return null;
   await lockWorkspace(q, row.tenant_id, row.workspace_id);

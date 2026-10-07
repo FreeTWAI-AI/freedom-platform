@@ -10,7 +10,7 @@ import { effectDigest } from '../../modules/module-registry/providers.js';
 import type { Command } from '../../packages/db/index.js';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { setSyntheticFault } from '../../packages/testing/synthetic-module-provider.js';
-import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
+import { WORK_CONTRACT, WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { consumeInstanceReservations } from '../../modules/module-registry/capacity.js';
 import type { ModuleProviderMap } from '../../modules/module-registry/providers.js';
 import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
@@ -1456,3 +1456,54 @@ test('r7 unchanged reuse_existing preserves the original operation and idempoten
   assert.equal(await h.count('module_instances', 'WHERE tenant_id=$1', [tenantId]), 1);
   assert.equal(await h.count('capacity_reservations', 'WHERE tenant_id=$1', [tenantId]), 3);
 });
+
+for (const entry of ['unique', 'multiple'] as const) {
+  test(`r7 async entry binding selects the requirement key with ${entry} entry capability`, async () => {
+    const { owner, actor, tenantId, workspaceId } = await prepared();
+    const first = await h.enable(owner, tenantId, workspaceId, 'guild_ai_field');
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    const other = await h.workspace(owner, tenantId, '第二個人工櫃');
+    const second = await h.enable(owner, tenantId, other, 'guild_ai_field', {kind: 'create_new'});
+    assert.equal(second.status, 200, JSON.stringify(second.data));
+    const target = await h.workspace(owner, tenantId, '合成入口櫃');
+    const key = `synthetic-entry-${entry}`;
+    const requirements = [
+      {requirement_key: 'a-work', module_key: 'work', module_release_ref: 'work@1.0.0', capabilities: [entry === 'unique' ? 'work:read' : 'work:create'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [WORK_CONTRACT]},
+      {requirement_key: 'b-work', module_key: 'work', module_release_ref: 'work@1.0.0', capabilities: ['work:create'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [WORK_CONTRACT]},
+      {requirement_key: 'storefront', module_key: 'synthetic-storefront', module_release_ref: 'synthetic-storefront@1.0.0', capabilities: ['storefront:sell'], required: true, cardinality: 'one', allow_reuse: false, compatible_contracts: [SYNTH]},
+    ];
+    await h.pool.query(`INSERT INTO application_definitions(
+        application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+      SELECT $1,$2,display_name,source_commit,artifact_digest,skill_book_refs,$3::jsonb,'work:create',runtime_profiles,
+        launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version
+      FROM application_definitions WHERE application_key='synthetic-storefront'`, [key, `${key}@1.0.0`, JSON.stringify(requirements)]);
+    await h.pool.query(`INSERT INTO guild_application_offerings(
+        offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+      VALUES($1,$2,'guild_ai_field',$3,$4,'offered',20,$5::jsonb,1)`,
+    [randomUUID(), DEMO_COMMUNITY, key, `${key}@1.0.0`, JSON.stringify({policy_key: 'synthetic-storefront.launch', version: '1'})]);
+    const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', target, key, `${key}@1.0.0`, {
+      dependencies: [
+        {requirement_key: 'a-work', choice: 'reuse', instance_id: first.data.instance_id, expected_version: first.data.version},
+        {requirement_key: 'b-work', choice: 'reuse', instance_id: second.data.instance_id, expected_version: second.data.version},
+      ],
+    }));
+    assert.equal(planned.status, 201, JSON.stringify(planned.data));
+    const launched = await launchApplication(h.pool, actor, tenantId, {
+      plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+    }, randomUUID(), h.providers);
+    await advanceOperation(h.pool, tenantId, launched.operation_id, {providers: h.providers, budget: 3000});
+    const operation = await h.call('GET', `/tenants/${tenantId}/operations/${launched.operation_id}`, owner);
+    assert.equal(operation.data.state, 'succeeded', JSON.stringify(operation.data));
+    const binding = (await h.pool.query(`SELECT instance_id FROM workspace_module_bindings
+      WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability='work:create'`, [tenantId, target])).rows[0];
+    const expected = entry === 'unique' ? second.data.instance_id : first.data.instance_id;
+    assert.equal(binding?.instance_id, expected);
+    const links = (await h.pool.query(`SELECT l.requirement_key,l.instance_id FROM application_module_links l
+      JOIN application_installations i ON i.installation_id=l.installation_id AND i.tenant_id=l.tenant_id
+      WHERE i.tenant_id=$1 AND i.workspace_id=$2 ORDER BY l.requirement_key`, [tenantId, target])).rows;
+    assert.equal(links.find(row => row.requirement_key === 'a-work').instance_id, first.data.instance_id);
+    assert.equal(links.find(row => row.requirement_key === 'b-work').instance_id, second.data.instance_id);
+    assert.equal(await h.count('module_instances', "WHERE tenant_id=$1 AND module_key='work'", [tenantId]), 2);
+  });
+}
