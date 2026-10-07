@@ -535,12 +535,12 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   for (const str of banned) assert.doesNotMatch(text, new RegExp(str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'u'));
 
   const runtimeFull = jobBlock(text, 'runtime-full');
-  assert.match(runtimeFull, /partition: \[0, 1, 2, 3\]/);
+  assert.match(runtimeFull, /partition: \[0, 1, 2, 3, 4, 5\]/);
   assert.match(runtimeFull, /fail-fast: false/);
-  assert.match(runtimeFull, /node \.freedom\/trusted\/scripts\/runtime-full\.mjs --partition-count 4 --partition-index/);
+  assert.match(runtimeFull, /node \.freedom\/trusted\/scripts\/runtime-full\.mjs --partition-count 6 --partition-index/);
 
   const runtimeAggregate = jobBlock(text, 'runtime-aggregate');
-  assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs/);
+  assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs --partition-count 6 --input-dir/);
 
   const staticWorker = jobBlock(text, 'static-worker');
   assert.match(staticWorker, /git diff --exit-code -- contracts\/preview\/v1 packages\/sdk/);

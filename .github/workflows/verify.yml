@@ -144,13 +144,13 @@ jobs:
     timeout-minutes: 40
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_full == 'true') }}
-    # Independent runners and PostgreSQL services: one sequential test process
-    # per 50-file partition (200 current runtime files), rather than four
-    # competing on the same host. Selection and aggregation remain dynamic.
+    # Independent runners and PostgreSQL services: six partitions, each one
+    # serial test process. Measured weights balance the partitions, and each
+    # keeps its own 900-second budget. Selection and aggregation stay dynamic.
     strategy:
       fail-fast: false
       matrix:
-        partition: [0, 1, 2, 3]
+        partition: [0, 1, 2, 3, 4, 5]
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -224,7 +224,7 @@ jobs:
       - name: Complete this runtime partition in its owned database
         run: |
           node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-sharding-integration
-          node .freedom/trusted/scripts/runtime-full.mjs --partition-count 4 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
+          node .freedom/trusted/scripts/runtime-full.mjs --partition-count 6 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
         env:
           # This job's synthetic PostgreSQL service uses loopback trust only.
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
@@ -261,14 +261,14 @@ jobs:
         run: |
           test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
           test -z "$(git -C .freedom/trusted status --porcelain)"
-      - name: Download only this run's four partition artifacts
+      - name: Download only this run's six partition artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: runtime-partition-*
           path: .freedom/reports/runtime-partitions
           merge-multiple: true
-      - name: Require exact complete union and original overall runtime deadline
-        run: node .freedom/trusted/scripts/runtime-aggregate.mjs --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
+      - name: Require exact complete union, per-partition deadlines and one run window
+        run: node .freedom/trusted/scripts/runtime-aggregate.mjs --partition-count 6 --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
       - name: Preserve aggregate diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

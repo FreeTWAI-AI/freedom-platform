@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24003,
-      "sha256": "31b933d012db4d83ef7909df314e610b9fe389729f37b1dfb2c966ab17c105c9"
+      "bytes": 24037,
+      "sha256": "1e63ba44ed8632c67acee9680035c4490147a001f27afbb5277d1eac861b8bb6"
     },
     {
       "path": ".gitignore",
@@ -12584,8 +12584,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 16468,
-      "sha256": "8958d391d0b93da9ea23336bd6bb96303dbf1be33cfec92e32c1e238e6984217"
+      "bytes": 16597,
+      "sha256": "2fcf5d731ab0f891ee4027ce1cf9b0235d1b87a1da08ae87b0f9d5252bbfb988"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -16499,8 +16499,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 10922,
-      "sha256": "36effd6620d7deb7b63f4e03503be9d56d3ff833729076421e202cda94cd9268"
+      "bytes": 10946,
+      "sha256": "d7b12dbe694fb3a518974b9e9edf1508967efc07e82f6ce45e1c8cb9c6b62382"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -16579,8 +16579,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 5314,
-      "sha256": "e48f08e542a68c28936ca0544b4faff9c102e2fb56bc9c4df427f1f04c1ed142"
+      "bytes": 5330,
+      "sha256": "495a42a5cd8d49cb77b84f36da8d4e5a9093da9e98a654410cf16bc6264d46f2"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -16593,14 +16593,24 @@
       "sha256": "842a20548e16f73541a7909248249c953f56f2d2f8cbba2cecd21222bbc249ef"
     },
     {
+      "path": "packages/contribution-tools/runtime-file-weights.mjs",
+      "bytes": 13236,
+      "sha256": "d276147e81ade1d546bf1efca7e0d3cbdd0b98cc5f958617924761d29f3954cd"
+    },
+    {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 3705,
-      "sha256": "c6968b0cd0691dd0b044265640f88ad9a0209bac8723f4be7f926a5b8358bd55"
+      "bytes": 4663,
+      "sha256": "f653f34ac500dc6d073928a2ec9d4ebbf2068e765cbdbf7016ec171d4997f8cc"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
       "bytes": 6082,
       "sha256": "b0a70d2e5fd8454a6e7da13681e761292ce18a17c739c4e02c7444c4e400e900"
+    },
+    {
+      "path": "packages/contribution-tools/runtime-weights.mjs",
+      "bytes": 3934,
+      "sha256": "8f974b6fd602b4f5240c2389b2f1a0097a933c451c9bafc5cf3acc6faaff986e"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -16609,8 +16619,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36752,
-      "sha256": "b0eb76dc8d4e17d52393e93e7d217af416263bcc8aa4d20839255975906585b2"
+      "bytes": 30886,
+      "sha256": "f6716df350f12c48bd66696dd1a474d01ac1fd39c3a033edbf7ea5fbbac3cc00"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16698,6 +16708,11 @@
       "sha256": "967c2008a19523584b4d27b13eb3c74f64c124df3af00403d2c143dcb61020a4"
     },
     {
+      "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
+      "bytes": 10636,
+      "sha256": "a57f70305d1ff8ab244e5d045f774052d8119349d2df22eb7bc3b857459d7c45"
+    },
+    {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
       "bytes": 10624,
       "sha256": "dc720b36fb02262b016dc5b192babbfa81fce650a770e3fd7731b233113d4fd6"
@@ -16764,13 +16779,18 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 8095,
-      "sha256": "884c705efa6738320a69108049f819faf103bfd83b4c7858faa8636e4f2c63cd"
+      "bytes": 12578,
+      "sha256": "e2ec4f77521f07002aef810416627e92bce98a07008fff971b14cc2d8c2979b0"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 3660,
-      "sha256": "9a2adf5d901d4d0929ea2aa1dc0bcde1350c99db0d995b376a1e6670facb543a"
+      "bytes": 5248,
+      "sha256": "56256b208302e1a654c0f6d390c36675e3f6476332039851d7ee68d29001b449"
+    },
+    {
+      "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
+      "bytes": 8689,
+      "sha256": "ed87d35bbcbc6ddf3a99371f6b63b036a64e9445a7edfeb9581e9a72ff71d10a"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -17398,6 +17418,11 @@
       "sha256": "aca287447e84e43417a7366f962acce7375bcb2d284708b2570088d4ce996a09"
     },
     {
+      "path": "scripts/ci/derive-runtime-weights.mjs",
+      "bytes": 3187,
+      "sha256": "22d11ea12748a6e70a15244faa85c4a5891139f4c8ee0a5a081fe44cae7c8dd4"
+    },
+    {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
       "bytes": 1545,
       "sha256": "82ffb3dab5201047160d5166eb056e10768deb6887c09eff6ef25aab9c248c94"
@@ -17434,8 +17459,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 46178,
-      "sha256": "ce02df4b3138189e6f1f2f27545b123bd44b08d2fd08d75ad8b691115b3bcd25"
+      "bytes": 46216,
+      "sha256": "27b7c8363ff8bf941e0b364eebdf7657e33e7659b823c8e3785a586a82959fb1"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -17619,13 +17644,13 @@
     },
     {
       "path": "scripts/runtime-aggregate.mjs",
-      "bytes": 1326,
-      "sha256": "506a65ddb4e1c30773ba2c4035229b6f69054511da987c6532e0c64be53961c8"
+      "bytes": 1520,
+      "sha256": "ec581798ca33990948a8bfb755f59326c9b145740f9934a1976a7bfecc285552"
     },
     {
       "path": "scripts/runtime-full.mjs",
-      "bytes": 1705,
-      "sha256": "766ea96727c2b7940abde299c8e4944d5fd16c621cf5a08a6c478728c9deb93e"
+      "bytes": 1770,
+      "sha256": "fd8e5836460c9839117892124def1280c9982907cb85d5d52ef03123ffd1793e"
     },
     {
       "path": "scripts/shop-key-legacy-exit.ts",

@@ -117,15 +117,17 @@ seconds. Credential-ingest adversarial and broker-bridge adversarial occupied
 867.483 seconds. The original 900-second deadline includes a 24-second cleanup
 reserve and remains unchanged.
 
-The existing selector now distributes six reviewed heavy files by static,
-rounded scheduling weights, with a default weight for every other/new file.
-Producer, aggregator and local full runner use the same candidate selector.
-Within-partition source order and the exact full manifest/file/case union remain
-required. A regression fixture records 210 completed-file progress deltas from
-that public run and marks the two unfinished files null. Replaying this observed
-work across all 212 selected files gives approximately 601/502/622/514 seconds;
-this excludes unknown unfinished costs and is neither a p95 estimate nor a new
-hosted pass. No test is removed, skipped, split or given a larger deadline.
+Once the central pin upgrade installs this workflow, CI runs six partitions.
+Each partition then returns to a 900 s budget (see the interim budget below),
+while the whole-run aggregate window is 1,800 s. The selector distributes files
+by static, rounded scheduling weights. Weights are the per-file minimum of
+completed-file progress deltas across hosted runs 37555767674, 37557794766,
+37559364439 and 37567098443 (2026-10-07), rounded up to whole seconds.
+Unmeasured files get the 10-second default. The earlier fixture from run
+37450880442 (210 completed-file deltas, two unfinished files recorded as null)
+remains a regression test. The local default stays four, with local shard counts
+1, 2 and 4. Within-partition source order and the exact full manifest/file/case
+union remain required. No test is removed, skipped or split.
 
 PR 117's PostgreSQL log also reports that three selected termination PIDs were
 no longer backends during cleanup. A real PostgreSQL regression reproduces the

@@ -13,7 +13,7 @@ behavior-supervisor checkout-repositories consumer-entry-coverage consumer-libra
 consumer-runtime-recipe consumer-source-profiles consumer-workspace context contracts
 directory-build export github-app-publisher github-behavior-host github-consumer-host
 github-consumer-profiles github-trusted-adapter io machine-device-cli pinned-suite runtime-matrix
-runtime-sharding suite-runner supervisor-create-lifecycle surface-adversarial surface-audit
+runtime-sharding runtime-weights suite-runner supervisor-create-lifecycle surface-adversarial surface-audit
 test-reporter-progress trusted-ci
 `);
 

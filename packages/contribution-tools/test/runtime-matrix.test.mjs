@@ -64,6 +64,18 @@ test('each partition has its own 1200-second bound inside one 1800-second run wi
   const wide=await fixtures();wide[3].started_at='2026-10-03T00:20:00.001Z';wide[3].ended_at='2026-10-03T00:30:00.001Z';
   assert.equal((await aggregateRuntimePartitions(root,wide)).reason,'runtime_full_window_exceeded');
 });
+test('valid runtime-full shapes reach the runner without database work',async t=>{
+  const env={...process.env};delete env.TEST_DATABASE_URL;
+  const dir=await mkdtemp(resolve(tmpdir(),'fp-runtime-full-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+  // The URL is rejected before provisioning; with nothing provisioned, cleanup stays
+  // unverified and the runner reports runtime_database_cleanup_failed. Bad argument shapes exit 2.
+  for(const [count,index] of [['4','3'],['6','5']]){
+    const run=spawnSync(process.execPath,['scripts/runtime-full.mjs','--partition-count',count,'--partition-index',index,'--output',resolve(dir,`p${index}.json`)],{cwd:root,env,encoding:'utf8'});
+    assert.equal(run.status,1);
+    assert.deepEqual(JSON.parse(run.stdout.trim().split('\n').at(-1)),{check_id:`runtime.partition.${index}`,status:'failed',
+      reason:'runtime_database_cleanup_failed',partition_index:Number(index),database_cleanup_verified:false});
+  }
+});
 test('partition admission forbids arbitrary selection/count/commands before DB',async()=>{
   for(const options of [{partitionCount:2,partitionIndex:0},{partitionCount:4,partitionIndex:4},{partitionCount:4,partitionIndex:0,files:['injected']},
     {partitionCount:4,partitionIndex:0,command:'injected'}])await assert.rejects(runRuntimePartition(root,options),/invalid_runtime_partition/);
@@ -81,6 +93,57 @@ test('CLI requires exact named artifacts, preserves failed inputs, rejects dupli
   const run=spawnSync(process.execPath,args,{cwd:root,encoding:'utf8'});assert.equal(run.status,1);
   assert.match(run.stdout,/runtime_partition_artifacts_unavailable/);
   assert.equal(spawnSync(process.execPath,['scripts/runtime-full.mjs','--partition-index','0'],{cwd:root}).status,2);
+});
+async function fixtures6() {
+  const source = await runtimeSourceManifest(root);
+  return partitionRuntimeFiles(source.full_source_manifest.map(file=>file.path),6).map((selected,index)=>{
+    const test_files=selected.map(path=>({path,counts:{tests:1,passed:1,failed:0,cancelled:0,skipped:0,todo:0},
+      cases:[{case_sha256:sha256(Buffer.from(path)),status:'passed'}],suite_events:[]}));
+    return {schema:'freedom.runtime-partition/v1',check_id:`runtime.partition.${index}`,partition_index:index,partition_count:6,
+      ...source,started_at:'2026-10-03T00:00:00.000Z',ended_at:'2026-10-03T00:14:59.000Z',database_cleanup_verified:true,
+      report:{check_id:`runtime.partition.${index}`,status:'passed',reason:'tests_executed',test_count:selected.length,
+        evidence_sha256:sha256(Buffer.from(`synthetic-6-${index}`)),selected_files:selected,test_files,database_cleanup_verified:true}};
+  });
+}
+
+test('six-partition cases', async t => {
+  const fragments = await fixtures6();
+  const result = await aggregateRuntimePartitions(root, fragments, { partitionCount: 6 });
+  assert.equal(result.status, 'passed');
+  assert.equal(result.partition_count, 6);
+  assert.equal(result.partition_evidence_sha256.length, 6);
+
+  assert.equal((await aggregateRuntimePartitions(root, fragments)).reason, 'runtime_partitions_missing');
+  const fragments4 = await fixtures();
+  assert.equal((await aggregateRuntimePartitions(root, fragments4, { partitionCount: 6 })).reason, 'runtime_partitions_missing');
+
+  const fBadId = structuredClone(fragments);
+  fBadId[0].partition_count = 4;
+  assert.equal((await aggregateRuntimePartitions(root, fBadId, { partitionCount: 6 })).reason, 'runtime_partition_identity');
+
+  const fBadIndex = structuredClone(fragments);
+  fBadIndex[5].partition_index = 6;
+  assert.equal((await aggregateRuntimePartitions(root, fBadIndex, { partitionCount: 6 })).reason, 'runtime_partition_identity');
+
+  assert.equal((await aggregateRuntimePartitions(root, fragments, { foo: 1 })).reason, 'runtime_partition_options_invalid');
+  assert.equal((await aggregateRuntimePartitions(root, fragments, { partitionCount: 5 })).reason, 'runtime_partition_options_invalid');
+
+  await assert.rejects(runRuntimePartition(root, { partitionCount: 6, partitionIndex: 6 }), /invalid_runtime_partition/);
+  await assert.rejects(runRuntimePartition(root, { partitionCount: 5, partitionIndex: 0 }), /invalid_runtime_partition/);
+
+  const dir = await mkdtemp(resolve(tmpdir(), 'fp-runtime-matrix-6-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const output = resolve(dir, 'aggregate.json');
+  for(let index=0;index<6;index++) await writeFile(resolve(dir,`runtime-partition-${index}.json`),JSON.stringify(fragments[index]));
+
+  const args6 = ['scripts/runtime-aggregate.mjs', '--partition-count', '6', '--input-dir', dir, '--output', output];
+  assert.equal(spawnSync(process.execPath, args6, { cwd: root, encoding: 'utf8' }).status, 0);
+
+  const args5 = ['scripts/runtime-aggregate.mjs', '--partition-count', '5', '--input-dir', dir, '--output', output];
+  assert.equal(spawnSync(process.execPath, args5, { cwd: root, encoding: 'utf8' }).status, 2);
+
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '6', '--partition-index', '6', '--output', output], { cwd: root }).status, 2);
+  assert.equal(spawnSync(process.execPath, ['scripts/runtime-full.mjs', '--partition-count', '5', '--partition-index', '0', '--output', output], { cwd: root }).status, 2);
 });
 
 test('tracked production/source edits invalidate identity while untracked build output is harmless',async t=>{

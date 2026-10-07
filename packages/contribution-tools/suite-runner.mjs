@@ -9,6 +9,7 @@ import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-datab
 import { verificationEnvironment } from './process-env.mjs';
 import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES, FIXED_NODE_SUITES } from './runtime-suites.mjs';
 import { PINNED_SUITES } from './pinned-suites.mjs';
+import { RUNTIME_FILE_WEIGHTS, DEFAULT_RUNTIME_FILE_WEIGHT } from './runtime-file-weights.mjs';
 
 import { createProgressDecoder } from './test-reporter.mjs';
 
@@ -166,132 +167,13 @@ async function runGroup(root, selections, runtime, options, cap = runtime ? 900_
   });
 }
 
-// Reviewed scheduling estimates only, never pass evidence or caller input.
-// The reviewed scheduling estimates come from hosted main run 37567098443 (57b610ab); files of at least 10 s are rounded up to 5 s; unmeasured or shorter files receive the 10 s default.
-// No candidate timing report is loaded by the selector or aggregate.
-const RUNTIME_FILE_WEIGHTS = Object.freeze({
-  'tests/runtime/admin-access-sync.test.ts': 15,
-  'tests/runtime/admin-guild-candidates.test.ts': 15,
-  'tests/runtime/agent-commerce-key-expiry.test.ts': 15,
-  'tests/runtime/agent-commerce.test.ts': 15,
-  'tests/runtime/agent-connections-adversarial.test.ts': 15,
-  'tests/runtime/agent-connections.test.ts': 20,
-  'tests/runtime/ai-sister-guides.test.ts': 50,
-  'tests/runtime/asset-engine.test.ts': 15,
-  'tests/runtime/asset-lifecycle-races.test.ts': 20,
-  'tests/runtime/asset-maintenance.test.ts': 20,
-  'tests/runtime/avatar-bridge.test.ts': 25,
-  'tests/runtime/avatar-command-compat.test.ts': 50,
-  'tests/runtime/avatar-upload.test.ts': 25,
-  'tests/runtime/avatar.test.ts': 15,
-  'tests/runtime/benefits.test.ts': 15,
-  'tests/runtime/bootstrap-http.test.ts': 20,
-  'tests/runtime/bootstrap-sessions-adversarial.test.ts': 40,
-  'tests/runtime/bootstrap-status-adversarial.test.ts': 15,
-  'tests/runtime/bootstrap-status.test.ts': 15,
-  'tests/runtime/client-connections.test.ts': 15,
-  'tests/runtime/co-creation.test.ts': 20,
-  'tests/runtime/command-core.test.ts': 15,
-  'tests/runtime/credential-broker-adversarial.test.ts': 25,
-  'tests/runtime/credential-broker-store.test.ts': 15,
-  'tests/runtime/credential-ingest-adversarial.test.ts': 125,
-  'tests/runtime/credential-ingest-authorizations.test.ts': 20,
-  'tests/runtime/credential-ingest-process.test.ts': 20,
-  'tests/runtime/credential-ingest-rate-budget.test.ts': 40,
-  'tests/runtime/development-access.test.ts': 15,
-  'tests/runtime/device-authorizations-adversarial.test.ts': 20,
-  'tests/runtime/device-authorizations.test.ts': 35,
-  'tests/runtime/domain-media-gc.test.ts': 20,
-  'tests/runtime/event-highlight-assets.test.ts': 25,
-  'tests/runtime/event-highlights.test.ts': 20,
-  'tests/runtime/event-video-assets.test.ts': 15,
-  'tests/runtime/execution-authority-adversarial.test.ts': 15,
-  'tests/runtime/execution-prerequisites.test.ts': 30,
-  'tests/runtime/execution-runs-adversarial.test.ts': 25,
-  'tests/runtime/execution-runs.test.ts': 15,
-  'tests/runtime/flows.test.ts': 25,
-  'tests/runtime/github-app-setup.test.ts': 15,
-  'tests/runtime/github-identity.test.ts': 15,
-  'tests/runtime/github-social.test.ts': 20,
-  'tests/runtime/github-sync.test.ts': 15,
-  'tests/runtime/guide-pack-assets.test.ts': 15,
-  'tests/runtime/guild-category-preferences.test.ts': 20,
-  'tests/runtime/guild-entry-questions.test.ts': 15,
-  'tests/runtime/guild-experts.test.ts': 20,
-  'tests/runtime/guild-launchpad-deadline.test.ts': 45,
-  'tests/runtime/guild-launchpad.test.ts': 20,
-  'tests/runtime/guild-preferences.test.ts': 20,
-  'tests/runtime/guild-workspace.test.ts': 20,
-  'tests/runtime/identity-member.test.ts': 25,
-  'tests/runtime/image-cloudflare.test.ts': 15,
-  'tests/runtime/image-runtime.test.ts': 15,
-  'tests/runtime/machine-device-client.test.ts': 65,
-  'tests/runtime/machine-model-broker.test.ts': 55,
-  'tests/runtime/machine-model-revocation.test.ts': 20,
-  'tests/runtime/machine-text-authority.test.ts': 15,
-  'tests/runtime/media-domain-bridge.test.ts': 20,
-  'tests/runtime/media-verify.test.ts': 20,
-  'tests/runtime/member-channel-access.test.ts': 15,
-  'tests/runtime/member-communications.test.ts': 20,
-  'tests/runtime/member-connections.test.ts': 15,
-  'tests/runtime/member-device-bootstrap-http.test.ts': 20,
-  'tests/runtime/member-device-browser.test.ts': 20,
-  'tests/runtime/member-execution-http-adversarial.test.ts': 20,
-  'tests/runtime/member-execution-http.test.ts': 15,
-  'tests/runtime/member-experience.test.ts': 20,
-  'tests/runtime/member-model-http-adversarial.test.ts': 20,
-  'tests/runtime/member-model-settings-adversarial.test.ts': 55,
-  'tests/runtime/member-model-settings-process.test.ts': 70,
-  'tests/runtime/member-session-lifecycle.test.ts': 15,
-  'tests/runtime/model-broker-authorizations.test.ts': 15,
-  'tests/runtime/model-broker-bridge-adversarial.test.ts': 110,
-  'tests/runtime/model-broker-client.test.ts': 60,
-  'tests/runtime/model-broker-process.test.ts': 15,
-  'tests/runtime/model-step-adversarial.test.ts': 25,
-  'tests/runtime/model-step-revocation-races.test.ts': 20,
-  'tests/runtime/model-step-service.test.ts': 15,
-  'tests/runtime/notification-events.test.ts': 15,
-  'tests/runtime/onboarding.test.ts': 20,
-  'tests/runtime/opensource-marketing.test.ts': 15,
-  'tests/runtime/operator-avatar-backfill.test.ts': 15,
-  'tests/runtime/operator-banner-social-backfill.test.ts': 25,
-  'tests/runtime/operator-event-video-backfill.test.ts': 20,
-  'tests/runtime/operator-media-backfill.test.ts': 15,
-  'tests/runtime/operator-skill-highlight-backfill.test.ts': 35,
-  'tests/runtime/platform-admin.test.ts': 25,
-  'tests/runtime/positioning.test.ts': 15,
-  'tests/runtime/private-result-schema.test.ts': 30,
-  'tests/runtime/private-results.test.ts': 35,
-  'tests/runtime/private-work-commands.test.ts': 30,
-  'tests/runtime/private-work-http-adversarial.test.ts': 20,
-  'tests/runtime/repo-maintainer-claims.test.ts': 20,
-  'tests/runtime/repo-maintainer-handoff.test.ts': 15,
-  'tests/runtime/resource-scopes.test.ts': 25,
-  'tests/runtime/runtime-registration.test.ts': 20,
-  'tests/runtime/scoped-member-command.test.ts': 25,
-  'tests/runtime/scoped-member-domain-revalidation.test.ts': 15,
-  'tests/runtime/share-promotion.test.ts': 15,
-  'tests/runtime/shop-key-exit.test.ts': 25,
-  'tests/runtime/shop-service-command.test.ts': 15,
-  'tests/runtime/skill-submission-upgrades.test.ts': 15,
-  'tests/runtime/skill-submissions.test.ts': 15,
-  'tests/runtime/social-preview-assets.test.ts': 15,
-  'tests/runtime/squad-invitations.test.ts': 20,
-  'tests/runtime/tenant-authorization.test.ts': 15,
-  'tests/runtime/tenant-membership-identity.test.ts': 15,
-  'tests/runtime/tenant-ownership.test.ts': 15,
-  'tests/runtime/tenant-read-deadline.test.ts': 20,
-  'tests/runtime/tenant-work-authority-races.test.ts': 40,
-  'tests/runtime/tenant-work.test.ts': 40,
-  'tests/runtime/work-privacy.test.ts': 20,
-});
 // Deterministic longest-estimated-first allocation, then original file order
 // within each serial process. Full local runner and matrix producer/aggregate
 // use this same function; no selected file is dropped or split.
 export function partitionRuntimeFiles(files, count) {
-  if (![1, 2, 4].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
+  if (![1, 2, 4, 6].includes(count) || files.length < count || new Set(files).size !== files.length) throw Error('invalid_runtime_partition');
   const loads = Array(count).fill(0), assignments = new Map();
-  const ordered = files.map((path, index) => ({path, index, weight: RUNTIME_FILE_WEIGHTS[path] ?? 10}))
+  const ordered = files.map((path, index) => ({path, index, weight: RUNTIME_FILE_WEIGHTS[path] ?? DEFAULT_RUNTIME_FILE_WEIGHT}))
     .sort((a, b) => b.weight - a.weight || a.index - b.index);
   for (const {path, weight} of ordered) {
     let target = 0;
@@ -510,12 +392,13 @@ export async function runtimeSourceManifest(root) {
 // A matrix fragment is never a runtime.full result. Own one fresh nonce DB and
 // one serial test process, including provisioning/cleanup inside PARTITION_BUDGET_MS.
 export async function runRuntimePartition(root, options = {}) {
-  partitionCheck(options.partitionCount === 4 && Number.isInteger(options.partitionIndex) &&
-    options.partitionIndex >= 0 && options.partitionIndex < 4, 'invalid_runtime_partition');
+  const count = options.partitionCount;
+  partitionCheck([4, 6].includes(count) && Number.isInteger(options.partitionIndex) &&
+    options.partitionIndex >= 0 && options.partitionIndex < count, 'invalid_runtime_partition');
   partitionCheck(Object.keys(options).every(key => ['partitionCount','partitionIndex','testDatabaseUrl','signal'].includes(key)), 'invalid_runtime_partition_options');
   const started_at = new Date().toISOString(), deadline = performance.now() + PARTITION_BUDGET_MS;
   const source = await runtimeSourceManifest(root);
-  const selected = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), 4)[options.partitionIndex];
+  const selected = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), count)[options.partitionIndex];
   const check_id = `runtime.partition.${options.partitionIndex}`;
   let databases, cleanup = false, report;
   try {
@@ -535,24 +418,26 @@ export async function runRuntimePartition(root, options = {}) {
   try { if (!identical(source, await runtimeSourceManifest(root))) report = {...report,status:'failed',reason:'runtime_source_changed'}; }
   catch { report = {...report,status:'failed',reason:'runtime_source_changed'}; }
   if (performance.now() > deadline) report = {...report,status:'failed',reason:'test_timeout'};
-  return { schema: PARTITION_SCHEMA, check_id, partition_index: options.partitionIndex, partition_count: 4,
+  return { schema: PARTITION_SCHEMA, check_id, partition_index: options.partitionIndex, partition_count: count,
     ...source, started_at, ended_at: new Date().toISOString(), database_cleanup_verified: cleanup, report };
 }
 
 /** Diagnostic candidate artifacts are untrusted. Recompute selection and reject
  * incomplete evidence; passing aggregation does not authenticate a host gate. */
-export async function aggregateRuntimePartitions(root, fragments) {
+export async function aggregateRuntimePartitions(root, fragments, options = {}) {
   const failure = reason => ({check_id:'runtime.full',status:'failed',reason,gate_enforced:false,merge_authorized:false});
   try {
-    partitionCheck(Array.isArray(fragments) && fragments.length === 4, 'runtime_partitions_missing');
+    partitionCheck(Object.keys(options).every(key => ['partitionCount'].includes(key)) && [4, 6].includes(options.partitionCount ?? 4), 'runtime_partition_options_invalid');
+    const numPartitions = options.partitionCount ?? 4;
+    partitionCheck(Array.isArray(fragments) && fragments.length === numPartitions, 'runtime_partitions_missing');
     const source = await runtimeSourceManifest(root);
-    const partitions = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), 4);
+    const partitions = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), numPartitions);
     const seen = new Set(), identities = new Set(); let started = Infinity, ended = -Infinity;
     const files = [], ordered = [];
     for (const fragment of fragments) {
       partitionCheck(strictKeys(fragment, ['schema','check_id','partition_index','partition_count','candidate_commit','full_source_manifest','manifest_sha256','started_at','ended_at','database_cleanup_verified','report']), 'runtime_partition_schema');
       const index = fragment.partition_index;
-      partitionCheck(fragment.schema === PARTITION_SCHEMA && fragment.partition_count === 4 && Number.isInteger(index) && index >= 0 && index < 4 && !seen.has(index), 'runtime_partition_identity');
+      partitionCheck(fragment.schema === PARTITION_SCHEMA && fragment.partition_count === numPartitions && Number.isInteger(index) && index >= 0 && index < numPartitions && !seen.has(index), 'runtime_partition_identity');
       seen.add(index);
       partitionCheck(fragment.check_id === `runtime.partition.${index}` && fragment.candidate_commit === source.candidate_commit &&
         fragment.manifest_sha256 === source.manifest_sha256 && identical(fragment.full_source_manifest, source.full_source_manifest), 'runtime_partition_source_mismatch');
@@ -594,7 +479,7 @@ export async function aggregateRuntimePartitions(root, fragments) {
     return {check_id:'runtime.full',status:'passed',reason:'tests_executed',gate_enforced:false,merge_authorized:false,
       ...source, started_at:new Date(started).toISOString(),ended_at:new Date(ended).toISOString(),
       selected_files:files.map(file => file.path),test_files:files,test_count:files.reduce((sum,file)=>sum+file.counts.tests,0),
-      database_cleanup_verified:true,partition_count:4,
+      database_cleanup_verified:true,partition_count:numPartitions,
       evidence_sha256:sha256(Buffer.from(JSON.stringify(ordered))),
       partition_evidence_sha256:ordered.map(fragment=>fragment.report.evidence_sha256)};
   } catch (error) { return failure(/^runtime_[a-z_]+$/.test(error?.message ?? '') ? error.message : 'runtime_partition_invalid'); }
