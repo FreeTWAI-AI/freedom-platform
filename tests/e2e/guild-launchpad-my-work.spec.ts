@@ -545,3 +545,156 @@ test('a lost finalize acknowledgement retries once and keeps a single result', a
     await cleanup(e2eAuthPool, member.userId);
   }
 });
+
+test('a 502 after a committed finalize keeps the save and retries once', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, '502f', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const title = `五零二工作${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: `五零二空間${run}`, workspace_name: '五零二區' });
+    const tenantId = made.tenant.tenant_id as string;
+    const workspaceId = made.workspace.workspace_id as string;
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('確認 502 保留 attempt');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible();
+
+    let intercepted = false;
+    await session.page.route(url => url.pathname.endsWith('/finalize'), async route => {
+      if (intercepted || route.request().method() !== 'POST') return route.fallback();
+      intercepted = true;
+      await route.fetch();
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Bad Gateway', status: 502, code: 'upstream_error', detail: 'synthetic' }),
+      });
+    });
+
+    const noteText = `重要筆記${run}`;
+    await session.page.getByLabel(starter.note_hint, { exact: true }).fill(noteText);
+    await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+
+    await expect(session.page.getByText('尚未確認是否儲存，請按重試（不會重複保存）', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.getByRole('button', { name: '重試', exact: true })).toBeVisible();
+    await expect(session.page.locator('#my-work-note')).toHaveValue(noteText);
+    await expect(session.page.getByRole('heading', { level: 4, name: title, exact: true })).toBeVisible();
+    await expect(session.page.getByText('這份工作已無法繼續保存。', { exact: false })).toHaveCount(0);
+
+    await session.page.getByRole('button', { name: '重試', exact: true }).click();
+    await expect(session.page.locator('.my-work-stage')).toContainText(/已儲存・第 1 版・/, { timeout: 20_000 });
+
+    const works = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
+    const workId = ((await works.json()) as { items: { work_id: string; title: string }[] }).items.find(item => item.title === title)?.work_id;
+    expect(workId).toBeTruthy();
+    const results = await session.page.request.get(`/api/v1/tenants/${tenantId}/works/${workId}/results?limit=20`);
+    const items = ((await results.json()) as { items: { revision: string }[] }).items;
+    expect(items).toHaveLength(1);
+    expect(items[0].revision).toBe('1');
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a definitive work_archived on finalize keeps the note readable', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'arch', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const title = `封存工作${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: `封存空間${run}`, workspace_name: '封存區' });
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('確認封存保留筆記');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible();
+
+    let intercepted = false;
+    await session.page.route(url => url.pathname.endsWith('/finalize'), async route => {
+      if (intercepted || route.request().method() !== 'POST') return route.fallback();
+      intercepted = true;
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Conflict', status: 409, code: 'work_archived', detail: '這份工作已封存。' }),
+      });
+    });
+
+    const noteText = `孤兒筆記${run}`;
+    await session.page.getByLabel(starter.note_hint, { exact: true }).fill(noteText);
+    await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+
+    await expect(session.page.getByText('這份工作已無法繼續保存。筆記還在這個畫面。', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.locator('#my-work-orphan-note')).toHaveValue(noteText);
+    await expect(session.page.getByRole('button', { name: '重試', exact: true })).toHaveCount(0);
+    await expect(session.page.locator('.my-work-stage')).not.toContainText('已儲存');
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a failed read after create does not make a second Work', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'readfail', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const title = `讀回失敗工作${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: `讀回空間${run}`, workspace_name: '讀回區' });
+    const tenantId = made.tenant.tenant_id as string;
+    const workspaceId = made.workspace.workspace_id as string;
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    const workPathPattern = new RegExp(`^/api/v1/tenants/${tenantId}/works/[^/]+$`);
+    let intercepted = false;
+    await session.page.route(url => Boolean(url.pathname.match(workPathPattern)), async route => {
+      if (intercepted || route.request().method() !== 'GET') return route.fallback();
+      intercepted = true;
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Bad Gateway', status: 502, code: 'upstream_error', detail: 'synthetic' }),
+      });
+    });
+
+    const CREATE_UNCONFIRMED = '工作已送出，但還沒確認。請再按一次「建立」繼續確認（不會重複建立）。';
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('讀回失敗重試建立');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+
+    await expect(session.page.getByText(CREATE_UNCONFIRMED, { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.locator('#my-work-title')).toHaveValue(title);
+
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible({ timeout: 20_000 });
+
+    const works = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
+    const items = ((await works.json()) as { items: { work_id: string; title: string }[] }).items.filter(item => item.title === title);
+    expect(items).toHaveLength(1);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
