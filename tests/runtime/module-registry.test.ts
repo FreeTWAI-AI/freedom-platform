@@ -212,7 +212,7 @@ test('eligibility follows full membership, tenant management, and a configured p
   await h.fullMember(memberOnly.id, guild);
   const noTenant = await h.call('GET', `/applications?guild_key=${guild}`, memberOnly.session);
   assert.deepEqual(noTenant.data.items[0].eligibility.reason_codes, ['tenant_manage_required']);
-  assert.equal(noTenant.data.items[0].eligibility.tenant_action, 'denied');
+  assert.equal(noTenant.data.items[0].eligibility.tenant_action, 'create');
 
   await h.pool.query(`DELETE FROM tenant_capacity_policies`);
   const noPolicy = await h.call('GET', `/applications?guild_key=${guild}`, full);

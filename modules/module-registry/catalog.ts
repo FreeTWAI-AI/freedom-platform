@@ -40,6 +40,18 @@ interface OfferingRow {
   offering_policy: { policy_key: string; version: string };
 }
 
+function eligibilityView(full: boolean, manages: boolean, policy: boolean, installed: boolean, policyRevision: string): Eligibility {
+  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
+  const tenantAction = !full ? 'denied' : !manages ? 'create' : !policy ? 'denied' : installed ? 'continue' : 'select';
+  return EligibilitySchema.parse({
+    can_launch: full && manages && policy,
+    reason_codes: reason ? [reason] : [],
+    required_guild_tier: 'full',
+    tenant_action: tenantAction,
+    policy_revision: policyRevision,
+  });
+}
+
 function encodeCursor(platform: boolean, order: number, id: string) {
   return Buffer.from(`${platform ? 0 : 1}\n${order}\n${id}`).toString('base64url');
 }
@@ -311,16 +323,7 @@ export async function eligibilityFor(q: PoolClient, actor: Actor, guildKey: stri
     }
     await bindPrincipalOnly(q, principalId);
   }
-  const canLaunch = full && manages && policy;
-  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
-  const tenantAction = !canLaunch ? 'denied' : installed ? 'continue' : manages ? 'select' : 'create';
-  const eligibility = EligibilitySchema.parse({
-    can_launch: canLaunch,
-    reason_codes: reason ? [reason] : [],
-    required_guild_tier: 'full',
-    tenant_action: tenantAction,
-    policy_revision: policyRevision,
-  });
+  const eligibility = eligibilityView(full, manages, policy, installed, policyRevision);
   await assertCurrentSessionClock(q, actor);
   return eligibility;
 }
@@ -420,22 +423,13 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
     }
   }
   if (principalId) await clearTenantContext(q);
-  const canLaunch = full && manages && policy;
-  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
   await assertCurrentSessionClock(q, actor);
   return rows.map(row => {
     const installed = installedKeys.has(`${row.application_key}|${row.release_ref}`);
-    const tenantAction = !canLaunch ? 'denied' : installed ? 'continue' : manages ? 'select' : 'create';
     return {
       application_key: row.application_key,
       release_ref: row.release_ref,
-      eligibility: EligibilitySchema.parse({
-        can_launch: canLaunch,
-        reason_codes: reason ? [reason] : [],
-        required_guild_tier: 'full',
-        tenant_action: tenantAction,
-        policy_revision: row.offering_policy.version,
-      }),
+      eligibility: eligibilityView(full, manages, policy, installed, row.offering_policy.version),
     };
   });
 }
