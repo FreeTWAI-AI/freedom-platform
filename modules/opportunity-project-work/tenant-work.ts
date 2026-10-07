@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
@@ -15,17 +16,22 @@ export interface TenantWorkRow {
 const FIELDS = `w.work_item_id, w.tenant_id, w.workspace_id, w.instance_id, w.title, w.objective, w.progress, w.state,
   w.aggregate_version::text AS aggregate_version, w.updated_at, w.created_at, t.result_id AS current_result_id`;
 
-export function encodeKeyset(at: string, id: string) {
-  return Buffer.from(`${at}\n${id}`).toString('base64url');
+type WorkCursorContext = { tenantId: string; workspaceId: string; callerId: string; filter: string };
+export function encodeKeyset(at: string, id: string, context: WorkCursorContext) {
+  return Buffer.from(JSON.stringify({ ...context, at, id })).toString('base64url');
 }
-export function decodeKeyset(raw?: string): { at: string; id: string } | null {
+export function decodeKeyset(raw: string | undefined, context: WorkCursorContext): { at: string; id: string } | null {
   if (!raw) return null;
-  const text = Buffer.from(raw, 'base64url').toString('utf8');
-  const split = text.indexOf('\n');
-  if (split < 1) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  const at = text.slice(0, split), id = text.slice(split + 1);
-  if (!OpaqueId.safeParse(id).success || Number.isNaN(Date.parse(at))) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  return { at, id };
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
+  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId,workspaceId'
+    || Object.entries(context).some(([key, value]) => parsed[key] !== value)
+    || typeof parsed.at !== 'string' || Number.isNaN(Date.parse(parsed.at)) || !OpaqueId.safeParse(parsed.id).success) {
+    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+  }
+  return { at: parsed.at, id: parsed.id as string };
 }
 export function likePattern(value: string) {
   return `%${value.replace(/[\\%_]/g, match => `\\${match}`)}%`;
@@ -83,7 +89,8 @@ async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: str
 export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, query: { q?: string; limit?: number; cursor?: string }) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
   const limit = query.limit ?? 20;
-  const cursor = decodeKeyset(query.cursor);
+  const cursorContext = { tenantId, workspaceId, callerId: actor.user_id, filter: createHash('sha256').update(query.q ?? '').digest('hex') };
+  const cursor = decodeKeyset(query.cursor, cursorContext);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
     requireTenantCapability(context, 'work:read', false);
     const source = await workspaceSource(q, tenantId, workspaceId);
@@ -99,7 +106,7 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
     const page = rows.slice(0, limit);
     return WorkPageSchema.parse({
       items: page.map(workView),
-      next_cursor: rows.length > limit ? encodeKeyset(page[page.length - 1].cursor_at, page[page.length - 1].work_item_id) : null,
+      next_cursor: rows.length > limit ? encodeKeyset(page[page.length - 1].cursor_at, page[page.length - 1].work_item_id, cursorContext) : null,
       source_version: source,
     });
   });
