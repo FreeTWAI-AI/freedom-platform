@@ -40,21 +40,36 @@ interface OfferingRow {
   offering_policy: { policy_key: string; version: string };
 }
 
-function encodeCursor(platform: boolean, order: number, id: string) {
-  return Buffer.from(`${platform ? 0 : 1}\n${order}\n${id}`).toString('base64url');
+function eligibilityView(full: boolean, manages: boolean, policy: boolean, installed: boolean, policyRevision: string): Eligibility {
+  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
+  const tenantAction = !full ? 'denied' : !manages ? 'create' : !policy ? 'denied' : installed ? 'continue' : 'select';
+  return EligibilitySchema.parse({
+    can_launch: full && manages && policy,
+    reason_codes: reason ? [reason] : [],
+    required_guild_tier: 'full',
+    tenant_action: tenantAction,
+    policy_revision: policyRevision,
+  });
 }
 
-function decodeCursor(raw?: string): { platform: number; order: number; id: string } | null {
+function encodeCursor(platform: boolean, order: number, id: string, guildKey: string | undefined) {
+  return Buffer.from(JSON.stringify({ guildKey: guildKey ?? null, platform: platform ? 0 : 1, order, id })).toString('base64url');
+}
+
+function decodeCursor(raw: string | undefined, guildKey: string | undefined): { platform: number; order: number; id: string } | null {
   if (!raw) return null;
-  let text = '';
-  try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch {
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
+  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'guildKey,id,order,platform'
+    || parsed.guildKey !== (guildKey ?? null)
+    || (parsed.platform !== 0 && parsed.platform !== 1)
+    || typeof parsed.order !== 'number' || !Number.isInteger(parsed.order) || parsed.order < 0 || parsed.order > 2147483647
+    || !OpaqueId.safeParse(parsed.id).success) {
     throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
   }
-  const [flag, order, id] = text.split('\n');
-  if ((flag !== '0' && flag !== '1') || !/^\d+$/.test(order ?? '') || !OpaqueId.safeParse(id).success) {
-    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  }
-  return { platform: Number(flag), order: Number(order), id };
+  return { platform: parsed.platform, order: parsed.order, id: parsed.id as string };
 }
 
 const SELECT_OFFERING = `SELECT o.offering_id, d.application_key, d.release_ref, d.display_name, d.module_requirements,
@@ -70,7 +85,7 @@ export async function assertGuildKey(q: PoolClient, guildKey: string) {
 export async function listApplications(q: PoolClient, query: CatalogQuery) {
   if (query.guildKey) await assertGuildKey(q, query.guildKey);
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor);
+  const cursor = decodeCursor(query.cursor, query.guildKey);
   const params: unknown[] = [];
   let guildParam = '';
   if (query.guildKey) {
@@ -100,7 +115,7 @@ export async function listApplications(q: PoolClient, query: CatalogQuery) {
   )).rows[0].v;
   return {
     items: page.map(row => applicationView(row)),
-    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id) : null,
+    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id, query.guildKey) : null,
     source_version: source && source !== '0' ? source : '1',
   };
 }
@@ -311,16 +326,7 @@ export async function eligibilityFor(q: PoolClient, actor: Actor, guildKey: stri
     }
     await bindPrincipalOnly(q, principalId);
   }
-  const canLaunch = full && manages && policy;
-  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
-  const tenantAction = !canLaunch ? 'denied' : installed ? 'continue' : manages ? 'select' : 'create';
-  const eligibility = EligibilitySchema.parse({
-    can_launch: canLaunch,
-    reason_codes: reason ? [reason] : [],
-    required_guild_tier: 'full',
-    tenant_action: tenantAction,
-    policy_revision: policyRevision,
-  });
+  const eligibility = eligibilityView(full, manages, policy, installed, policyRevision);
   await assertCurrentSessionClock(q, actor);
   return eligibility;
 }
@@ -420,22 +426,13 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
     }
   }
   if (principalId) await clearTenantContext(q);
-  const canLaunch = full && manages && policy;
-  const reason = !full ? 'guild_full_member_required' : !manages ? 'tenant_manage_required' : !policy ? 'policy_unconfigured' : null;
   await assertCurrentSessionClock(q, actor);
   return rows.map(row => {
     const installed = installedKeys.has(`${row.application_key}|${row.release_ref}`);
-    const tenantAction = !canLaunch ? 'denied' : installed ? 'continue' : manages ? 'select' : 'create';
     return {
       application_key: row.application_key,
       release_ref: row.release_ref,
-      eligibility: EligibilitySchema.parse({
-        can_launch: canLaunch,
-        reason_codes: reason ? [reason] : [],
-        required_guild_tier: 'full',
-        tenant_action: tenantAction,
-        policy_revision: row.offering_policy.version,
-      }),
+      eligibility: eligibilityView(full, manages, policy, installed, row.offering_policy.version),
     };
   });
 }

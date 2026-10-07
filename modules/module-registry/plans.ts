@@ -10,7 +10,7 @@ import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { readCapacityPolicy } from '../opportunity-project-work/tenant-capacity.js';
 import { assertGuildKey, loadOfferedDefinition } from './catalog.js';
 import { canonicalJson, digestOf } from './canonical.js';
-import { PLAN_TTL_MS, type ContractRef, type Requirement } from './definitions.js';
+import { MANUAL_WORKSPACE_RELEASE, PLAN_TTL_MS, type ContractRef, type Requirement } from './definitions.js';
 import { DependencySelectionRequired, InstanceSelectionRequired } from './problems.js';
 import type { ModuleProviderMap } from './providers.js';
 import { assertConfiguration, coversCapabilities, planStale, sameContract } from './validate.js';
@@ -72,7 +72,7 @@ async function workspaceStatus(q: PoolClient, tenantId: string, workspaceId: str
   requireCondition(row.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
 }
 
-async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: string | undefined): Promise<ModuleDefinitionRow> {
+export async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: string | undefined): Promise<ModuleDefinitionRow> {
   if (!releaseRef) throw new Problem(409, 'application_not_available', '這個應用目前無法啟動。');
   const row = (await q.query<ModuleDefinitionRow>(
     `SELECT release_ref, capabilities, contract_ref, data_schema_version, config_schema_ref, license_state, release_status
@@ -85,7 +85,7 @@ async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: st
   return row;
 }
 
-async function candidatesFor(q: PoolClient, tenantId: string, requirement: Requirement, definition: ModuleDefinitionRow): Promise<CandidateRow[]> {
+export async function candidatesFor(q: PoolClient, tenantId: string, requirement: Requirement, definition: ModuleDefinitionRow): Promise<CandidateRow[]> {
   const rows = (await q.query<CandidateRow>(
     `SELECT i.instance_id, i.version::text AS version, i.created_at, i.contract_ref, i.data_schema_version, i.module_release_ref,
        d.capabilities,
@@ -113,6 +113,15 @@ function workCandidates(rows: CandidateRow[]): InstanceCandidate[] {
     created_at: row.created_at.toISOString(),
     bound_workspace_count: row.bound_workspace_count,
   }));
+}
+
+/** Facade choices use the same pinned requirement, definition, and usability filter as createPlan. */
+export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string): Promise<InstanceCandidate[]> {
+  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE);
+  const requirement = (application.module_requirements as Requirement[]).find(item => item.module_key === 'work');
+  requireCondition(requirement, 409, 'application_not_available', '這個應用目前無法啟動。');
+  const definition = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
+  return workCandidates(requirement.allow_reuse ? await candidatesFor(q, tenantId, requirement, definition) : []);
 }
 
 export async function createPlan(

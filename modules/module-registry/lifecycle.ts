@@ -11,6 +11,9 @@ import { readCapacityPolicy, requirePolicy } from '../opportunity-project-work/t
 import { moduleRegistryCapabilities } from './capabilities.js';
 import { installationFingerprintLock } from './capacity.js';
 import { digestOf } from './canonical.js';
+import { instanceUsage } from './capacity.js';
+import { QuotaExceeded } from './problems.js';
+import { isMemberSuspension } from './read.js';
 import { journalCommand } from './events.js';
 import { requireRegistryCapability } from './operations.js';
 
@@ -18,8 +21,8 @@ type LifecycleKind = 'module.instance.suspend' | 'module.instance.resume' | 'mod
 
 /** Instance first, then its current deployment; no capacity advisory on either side. */
 async function lockInstance(q: PoolClient, tenantId: string, instanceId: string, expected: string) {
-  const row = (await q.query<{ status: string; version: string; binding_id: string; suspension_operation_id: string | null }>(
-    `SELECT status, version::text AS version, binding_id, suspension_operation_id
+  const row = (await q.query<{ status: string; version: string; binding_id: string; module_key: string; suspension_operation_id: string | null }>(
+    `SELECT status, version::text AS version, binding_id, module_key, suspension_operation_id
      FROM module_instances WHERE tenant_id=$1 AND instance_id=$2 FOR NO KEY UPDATE`,
     [tenantId, instanceId],
   )).rows[0];
@@ -122,10 +125,18 @@ async function transition(pool: Pool, actor: Actor, tenantId: string, instanceId
          WHERE tenant_id=$1 AND operation_id=$2 AND instance_id=$3 AND operation_kind='module.instance.suspend'`,
         [tenantId, instance.suspension_operation_id, instanceId],
       )).rows[0];
-      requireCondition(memberSuspension && binding?.state === 'suspended', 409, 'instance_security_hold', '這個模組實例由平台暫停，不能自行恢復。');
+      requireCondition(isMemberSuspension(memberSuspension, binding?.state), 409, 'instance_security_hold', '這個模組實例由平台暫停，不能自行恢復。');
       // Preserve the instance's uniform 404 and CAS/state errors even without
       // a policy; the policy snapshot was still read before either row lock.
-      requirePolicy(policy);
+      const currentPolicy = requirePolicy(policy);
+      // Suspended instances already count: equality is legal, but a lowered
+      // limit must refuse resume. These reads do not reserve additional usage.
+      if (await instanceUsage(q, tenantId) > BigInt(currentPolicy.max_active_instances)) {
+        throw new QuotaExceeded('module_instances');
+      }
+      if (await instanceUsage(q, tenantId, instance.module_key) > BigInt(currentPolicy.max_instances_per_module)) {
+        throw new QuotaExceeded(`module_instances.${instance.module_key}`);
+      }
     }
     const installations = archive ? await linkedLiveInstallations(q, tenantId, instanceId) : [];
     requireCondition(installations.every(row => fingerprints.has(fingerprintOf(row))),

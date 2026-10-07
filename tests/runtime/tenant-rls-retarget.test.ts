@@ -375,71 +375,154 @@ const DOCUMENTED_UNCOVERED_RLS_TABLES: Readonly<Record<string, string>> = Object
   tenant_recovery_cases: 'Active loginable A and B owners do not meet the recovery preconditions; the recovery suites cover it.',
 });
 
+function isRlsRejection(error: unknown): boolean {
+  const failure = error as { code?: string; message?: string };
+  return failure.code === '42501' && /new row violates row-level security policy/.test(failure.message ?? '');
+}
+
+type Policy = { policyname: string; cmd: string; permissive: string; qual: string | null; with_check: string | null };
+async function assertTenantWritePolicy(table: string, column: string) {
+  const policies = (await owner.query<Policy>(`SELECT policyname, cmd, permissive, qual, with_check FROM pg_policies
+    WHERE schemaname=current_schema() AND tablename=$1 AND cmd IN ('ALL','INSERT','UPDATE')
+      AND (roles @> ARRAY['public']::name[] OR roles @> ARRAY[$2]::name[]) ORDER BY policyname`, [table, runtimeRole])).rows;
+  const name = `${table}_${column === 'scope_id' ? 'tenant_scope' : 'tenant'}`;
+  const expected = column === 'scope_id'
+    ? "((scope_kind <> 'tenant'::text) OR (scope_id = freedom_ctx_tenant_scope()))"
+    : table === 'work_items'
+      ? '((tenant_id IS NULL) OR (tenant_id = freedom_ctx_tenant()))'
+      : '(tenant_id = freedom_ctx_tenant())';
+  const policy = policies.find(row => row.policyname === name);
+  assert.ok(policy, `${table}: missing tenant write policy ${name}`);
+  assert.equal(policy.cmd, 'ALL', `${table}: tenant policy must cover INSERT and UPDATE`);
+  assert.equal(policy.permissive, 'PERMISSIVE');
+  assert.equal(policy.qual, expected, `${table}: tenant USING predicate changed`);
+  assert.equal(policy.with_check ?? policy.qual, expected, `${table}: tenant WITH CHECK predicate changed`);
+  // Permissive policies combine with OR. Pin the additional write checks too, so a new
+  // policy or an unbound-principal exception cannot silently bypass the tenant check.
+  const exceptions: Record<string, string> = {
+    tenant_invitations_invitee_expire: "((freedom_ctx_tenant() IS NULL) AND (invitee_principal_id = freedom_ctx_principal()) AND (state = 'expired'::text))",
+    tenant_ownership_transfers_recipient_expire: "((freedom_ctx_tenant() IS NULL) AND (to_principal_id = freedom_ctx_principal()) AND (state = 'expired'::text))",
+    tenant_ownership_transfers_principal_invalidate: "((freedom_ctx_tenant() IS NULL) AND (freedom_ctx_principal() IS NOT NULL) AND (state = 'invalidated'::text) AND ((from_principal_id = freedom_ctx_principal()) OR (to_principal_id = freedom_ctx_principal())))",
+  };
+  for (const other of policies.filter(row => row !== policy)) {
+    assert.ok(exceptions[other.policyname], `${table}: unexpected write policy ${other.policyname}`);
+    assert.equal(other.with_check ?? other.qual, exceptions[other.policyname], `${table}: principal write exception changed`);
+  }
+  return policies.map(row => row.policyname);
+}
+
 test('8. Discovered RLS tables reject retarget and cross-tenant select', async () => {
   const { A, B } = fixture;
   const role = (await runtime.query(`SELECT current_user AS name, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user`)).rows[0];
   assert.equal(role.name, runtimeRole); assert.equal(role.rolsuper, false); assert.equal(role.rolbypassrls, false);
   const tables = (await owner.query<{ relname: string }>(`
-    SELECT c.relname
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
-    WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND c.relrowsecurity
-    ORDER BY c.relname;
+    SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND c.relrowsecurity ORDER BY c.relname;
   `)).rows;
   assert.ok(tables.length, 'No RLS tables discovered');
-  const record: { table: string; covered: boolean; outcome: string; select?: number; reason?: string }[] = [];
+  for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
+    assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
+  }
+  // Tenant commands deliberately omit some public events. Add one synthetic scoped
+  // outbox row per tenant, backed by an actual journal, to exercise its private scope.
+  for (const data of [A, B]) {
+    await owner.query(`INSERT INTO scoped_outbox(event_id,transition_id,scope_id,scope_kind,event_type,payload)
+      SELECT $1, transition_id, scope_id, scope_kind, 'synthetic.retarget.v1', '{}'::jsonb
+      FROM scoped_transition_journal WHERE scope_id=$2 AND scope_kind='tenant' ORDER BY transition_id LIMIT 1
+      ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
+  }
+  const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
+    update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];
   for (const { relname: table } of tables) {
     const quoted = identifier(table);
+    const columns = (await owner.query<{ attname: string; attgenerated: string }>(`SELECT a.attname, a.attgenerated FROM pg_attribute a
+      JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname=current_schema() AND c.relname=$1 AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, [table])).rows;
+    const scopeKeyed = !columns.some(row => row.attname === 'tenant_id') && columns.some(row => row.attname === 'scope_id');
+    const column = columns.some(row => row.attname === 'tenant_id') ? 'tenant_id' : scopeKeyed ? 'scope_id' : null;
+    if (!column) {
+      assert.ok(DOCUMENTED_UNCOVERED_RLS_TABLES[table], `${table}: RLS table has no supported tenant/scope key or documented reason`);
+      record.push({ table, mechanism: 'documented_exception', update_covered: false, outcome: 'uncovered', reason: DOCUMENTED_UNCOVERED_RLS_TABLES[table] });
+      continue;
+    }
+    const aKey = scopeKeyed ? A.scopeId : A.tenantId;
+    const bKey = scopeKeyed ? B.scopeId : B.tenantId;
+    const scopeFilter = scopeKeyed ? " AND scope_kind='tenant'" : '';
     const pk = (await owner.query<{ attname: string }>(`SELECT a.attname FROM pg_index i
       JOIN pg_class c ON c.oid=i.indrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       JOIN LATERAL unnest(i.indkey) WITH ORDINALITY k(attnum, ord) ON true
       JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum=k.attnum
       WHERE n.nspname=current_schema() AND c.relname=$1 AND i.indisprimary ORDER BY k.ord`, [table])).rows.map(r => r.attname);
     assert.ok(pk.length, `${table} has no primary key`);
-    const aRow = (await owner.query(`SELECT * FROM ${quoted} WHERE tenant_id=$1 ORDER BY ${pk.map(identifier).join(',')} LIMIT 1`, [A.tenantId])).rows[0];
-    const bRow = (await owner.query(`SELECT * FROM ${quoted} WHERE tenant_id=$1 ORDER BY ${pk.map(identifier).join(',')} LIMIT 1`, [B.tenantId])).rows[0];
+    const aRow = (await owner.query(`SELECT * FROM ${quoted} WHERE ${column}=$1${scopeFilter} ORDER BY ${pk.map(identifier).join(',')} LIMIT 1`, [aKey])).rows[0];
+    const bRow = (await owner.query(`SELECT * FROM ${quoted} WHERE ${column}=$1${scopeFilter} ORDER BY ${pk.map(identifier).join(',')} LIMIT 1`, [bKey])).rows[0];
     if (!aRow || !bRow) {
-      record.push({ table, covered: false, outcome: 'uncovered', reason: !aRow && !bRow ? 'No tenant-specific A or B fixture row' : `No ${aRow ? 'B' : 'A'} fixture row` });
+      assert.ok(DOCUMENTED_UNCOVERED_RLS_TABLES[table], `${table}: missing A/B fixture without documented reason`);
+      record.push({ table, mechanism: 'documented_exception', update_covered: false, outcome: 'uncovered', reason: DOCUMENTED_UNCOVERED_RLS_TABLES[table] });
       continue;
     }
-    const beforeB = (await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE tenant_id=$1`, [B.tenantId])).rows[0].n;
+    const beforeB = (await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE ${column}=$1${scopeFilter}`, [bKey])).rows[0].n;
     const where = (offset: number) => pk.map((col, index) => `${identifier(col)}=$${index + offset}`).join(' AND ');
     const aParams = pk.map(col => aRow[col]);
     const bParams = pk.map(col => bRow[col]);
     let outcome = '';
+    let updateCovered = false;
     try {
       const changed = await isolatedTransaction(runtime, async q => {
         await bindPrincipalContext(q, A.principalId);
         await bindTenantContext(q, { tenantId: A.tenantId, tenantScopeId: A.scopeId });
-        return q.query(`UPDATE ${quoted} SET tenant_id=$1 WHERE ${where(2)}`, [B.tenantId, ...aParams]);
+        return q.query(`UPDATE ${quoted} SET ${column}=$1 WHERE ${where(2)}`, [bKey, ...aParams]);
       });
       assert.equal(changed.rowCount, 0, `${table} allowed retarget of A to B`);
-      outcome = 'rowCount 0';
+      outcome = 'rowCount 0 (UPDATE did not exercise WITH CHECK)';
     } catch (error) {
       const code = (error as { code?: string }).code;
       assert.ok(code && ['42501', '23503', '23514', 'P0001', '23505'].includes(code), `${table}: unexpected SQLSTATE ${code}: ${String(error)}`);
-      outcome = code!;
+      updateCovered = isRlsRejection(error);
+      outcome = `${code}: ${(error as Error).message}`;
     }
-    const unchanged = (await owner.query(`SELECT tenant_id FROM ${quoted} WHERE ${where(1)}`, aParams)).rows[0];
-    assert.equal(unchanged?.tenant_id, A.tenantId, `${table} changed or lost A's row`);
-    assert.equal((await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE tenant_id=$1`, [B.tenantId])).rows[0].n, beforeB, `${table} changed B's count`);
+    let mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' = 'rls_update';
+    let policies: string[] | undefined;
+    if (!updateCovered) {
+      if (scopeKeyed) {
+        // These append-only tables have BEFORE UPDATE guards but no BEFORE INSERT
+        // guard. Clone a structurally valid B row so RLS runs before unique/FK checks.
+        const inserted = { ...bRow };
+        if (table === 'scoped_command_receipts') inserted.idempotency_key = randomUUID();
+        else inserted[pk[0]] = randomUUID();
+        const fields = columns.filter(row => !row.attgenerated).map(row => row.attname);
+        await assert.rejects(isolatedTransaction(runtime, async q => {
+          await bindPrincipalContext(q, A.principalId);
+          await bindTenantContext(q, { tenantId: A.tenantId, tenantScopeId: A.scopeId });
+          await q.query(`INSERT INTO ${quoted} (${fields.map(identifier).join(',')}) VALUES (${fields.map((_, i) => `$${i + 1}`).join(',')})`, fields.map(field => inserted[field]));
+        }), isRlsRejection, `${table}: INSERT must fail with the RLS 42501 message`);
+        mechanism = 'rls_insert';
+      } else {
+        policies = await assertTenantWritePolicy(table, column);
+        mechanism = 'policy_assertion';
+      }
+    }
+    const unchanged = (await owner.query(`SELECT ${column} AS key FROM ${quoted} WHERE ${where(1)}`, aParams)).rows[0];
+    assert.equal(unchanged?.key, aKey, `${table} changed or lost A's row`);
+    assert.equal((await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE ${column}=$1${scopeFilter}`, [bKey])).rows[0].n, beforeB, `${table} changed B's count`);
     const selected = await isolatedTransaction(runtime, async q => {
       await bindPrincipalContext(q, A.principalId);
       await bindTenantContext(q, { tenantId: A.tenantId, tenantScopeId: A.scopeId });
       return q.query(`SELECT 1 FROM ${quoted} WHERE ${where(1)}`, bParams);
     });
     assert.equal(selected.rowCount, 0, `${table} exposed B's row to A`);
-    record.push({ table, covered: outcome !== '23505', outcome, select: selected.rowCount!,
-      ...(outcome === '23505' ? { reason: 'Blocked by a unique key, not by row security; select isolation covered' } : {}) });
+    const own = await isolatedTransaction(runtime, async q => {
+      await bindPrincipalContext(q, B.principalId);
+      await bindTenantContext(q, { tenantId: B.tenantId, tenantScopeId: B.scopeId });
+      return q.query(`SELECT 1 FROM ${quoted} WHERE ${where(1)}`, bParams);
+    });
+    assert.equal(own.rowCount, 1, `${table}: positive SELECT control cannot see B's row`);
+    record.push({ table, mechanism, update_covered: updateCovered, outcome, select: selected.rowCount!, own_select: own.rowCount!, ...(policies ? { policies } : {}) });
   }
   assert.deepEqual(record.map(row => row.table), tables.map(row => row.relname));
-  assert.deepEqual(
-    record.filter(row => !row.covered).map(row => row.table).sort(),
-    Object.keys(DOCUMENTED_UNCOVERED_RLS_TABLES).sort(),
-    `Uncovered row-security tables must be covered by the A/B fixture or documented: ${JSON.stringify(record.filter(row => !row.covered))}`,
-  );
-  console.log(JSON.stringify({ item8: record, unique_key_blocks: record.filter(row => row.outcome === '23505').map(row => row.table) }));
+  assert.deepEqual(record.filter(row => row.mechanism === 'documented_exception').map(row => row.table).sort(),
+    Object.keys(DOCUMENTED_UNCOVERED_RLS_TABLES).sort(), 'Documented exceptions must exactly match uncovered tables');
+  console.log(JSON.stringify({ item8: record }));
 });
 
 test('9. An executor bound to A cannot claim or advance B; B can advance its own operation', async () => {
@@ -447,6 +530,23 @@ test('9. An executor bound to A cannot claim or advance B; B can advance its own
   const operation = (await owner.query('SELECT state FROM module_provision_operations WHERE operation_id=$1', [B.operationId])).rows[0];
   assert.ok(['requested', 'running', 'needs_reconciliation'].includes(operation.state));
   assert.ok((await owner.query('SELECT 1 FROM module_provision_steps WHERE operation_id=$1', [B.operationId])).rowCount);
+  const visibility: Record<string, { other: number; own: number }> = {};
+  for (const table of ['module_provision_operations', 'module_provision_steps']) {
+    async function select(bound: typeof A) {
+      return isolatedTransaction(runtime, async q => {
+        await bindPrincipalContext(q, bound.principalId);
+        await bindTenantContext(q, { tenantId: bound.tenantId, tenantScopeId: bound.scopeId });
+        // Deliberately no application tenant predicate: only RLS can hide B here.
+        return q.query(`SELECT operation_id FROM ${identifier(table)} WHERE operation_id=$1`, [B.operationId]);
+      });
+    }
+    const other = await select(A);
+    const own = await select(B);
+    assert.equal(other.rowCount, 0, `${table}: raw operation lookup exposed B to A`);
+    assert.ok(own.rowCount! > 0, `${table}: B cannot see its own pending operation`);
+    visibility[table] = { other: other.rowCount!, own: own.rowCount! };
+  }
+  console.log(JSON.stringify({ item9_raw_visibility: visibility }));
   async function snapshot() {
     const rows: Record<string, unknown> = {};
     for (const table of ['module_provision_operations', 'module_provision_steps', 'module_instances', 'application_installations', 'capacity_reservations', 'capacity_ledger']) {
