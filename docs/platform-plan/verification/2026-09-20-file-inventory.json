@@ -12749,8 +12749,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 17180,
-      "sha256": "d0102c8727ae2b6443e43b472858c889870698b2e1a3e5600f697a1b086e2081"
+      "bytes": 17542,
+      "sha256": "8e5b7de8a07428c09ef52f33e54db5ac8d4546355d49430b39a23ba7747d0970"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -14119,8 +14119,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 23589,
-      "sha256": "446f7c54879b9ea9aa3264d1b58199e7a159c41d0e35b31b076c233575370415"
+      "bytes": 25114,
+      "sha256": "025a071dad895b0979733920b3822bd78e0e60ca9f69d3853c028c7c84f8dc62"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -14139,8 +14139,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 26311,
-      "sha256": "4818f5f4642dd4bcf145cfee2405b077d13380cc20dcb6c006bebcc235b70a1a"
+      "bytes": 26615,
+      "sha256": "ae79b8ad0b50fd809b7bcdb7f5597290588e9cf94de1f0a3990e307d14efff5d"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -14159,8 +14159,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md",
-      "bytes": 39917,
-      "sha256": "96132f58b11e43f379631f363a1f6b59755d6dab3d664002cc7946ca49f31b2e"
+      "bytes": 48882,
+      "sha256": "d1fe358391b20d97ab67b3cf7bfd82fc08f98df445b6e03fbfb2bf760ce05e73"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md",
@@ -14244,8 +14244,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/requirement-evidence.json",
-      "bytes": 391893,
-      "sha256": "ee695c38bb9520651b48e73859c78c857e150b39049870e7de091fced739c957"
+      "bytes": 398112,
+      "sha256": "efddb5233d52a5f4bfcf852a40c87653030e1157218e8bd8f1c8dddd5969823a"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/retention-plan-evidence-2026-10-05.json",
@@ -14346,6 +14346,11 @@
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-06.json",
       "bytes": 54824,
       "sha256": "da7034e2fe301dcdf0455a000e10396f0f2a07b40bd708696d19580867cb28ac"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-07.json",
+      "bytes": 72317,
+      "sha256": "d54d4e84b1bceb21c32b72a8936716adc8df6c5db0cb2fd7cbac5acd604ea482"
     },
     {
       "path": "docs/platform-plan/verification/preflight-aggregate-2026-10-05.json",
