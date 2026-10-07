@@ -1,0 +1,36 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "module-data",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/module-data/**",
+    "tests/runtime/tenant-transaction.test.ts",
+    "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
+    "tests/runtime/tenant-data-catalog.test.ts",
+    "tests/runtime/tenant-data-isolation.test.ts",
+    "tests/runtime/tenant-rls-runtime-role.test.ts"
+  ],
+  "public_exports": [
+    "modules/module-data/catalog.ts",
+    "modules/module-data/catalog-check.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "modules/module-data/README.md",
+    "modules/module-data/AGENTS.md"
+  ],
+  "invariants": [
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

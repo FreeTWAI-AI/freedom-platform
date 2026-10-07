@@ -8,13 +8,13 @@ import {
 import type { Actor } from '../identity-membership/service.js';
 import { adminCommand, audit, type AdminActor, type AdminCommand } from '../platform-admin/service.js';
 import { checkVersion } from '../../packages/db/index.js';
-import { transaction } from '../../packages/db/transaction.js';
 import { lockMemberSession } from '../../packages/db/member-session.js';
 import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
+import { bindPlatformAdminContext, bindPrincipalContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { scopedMemberCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
-  auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, readCursor, RECOVERY_MISSING, versionOf, writeTenantControlEvent,
+  auditTenant, bindTenantScope, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, readCursor, RECOVERY_MISSING, versionOf, writeTenantControlEvent,
 } from './facts.js';
 import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
@@ -53,6 +53,15 @@ async function lockActiveCapability(q: PoolClient, adminId: string, capability: 
 function assertIndependent(admin: AdminActor, targetEmail: string, blockedAdminIds: Array<string | null>): void {
   requireCondition(admin.email !== targetEmail && blockedAdminIds.every(id => id !== admin.admin_id),
     403, 'recovery_authority_required', '復原的核准者不能是開啟者，執行者也不能是核准者。');
+}
+
+/** Capability is already checked. The admin setting only peeks the tenant; T/S then hides every other tenant. */
+async function bindRecoveryCase(q: PoolClient, adminId: string, caseId: string): Promise<void> {
+  await bindPlatformAdminContext(q, adminId);
+  const peek = (await q.query<{ tenant_id: string }>(
+    `SELECT tenant_id FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
+  if (!peek) throw new Problem(404, 'recovery_case_not_found', RECOVERY_MISSING);
+  if (!await bindTenantScope(q, peek.tenant_id)) throw new Problem(404, 'recovery_case_not_found', RECOVERY_MISSING);
 }
 
 async function loadCase(q: PoolClient, caseId: string, lock = false): Promise<CaseRow> {
@@ -98,6 +107,7 @@ export async function openRecoveryCase(pool: Pool, input: AdminCommand) {
     await requireCapability(q, input.admin.admin_id, 'tenant.recovery.open');
     await loadActivePolicy(q);
   }, async q => {
+    await bindTenantScope(q, body.tenant_id);
     const policy = await loadActivePolicy(q);
     const person = (await q.query<{ user_id: string; email: string; active: boolean; status: string; community_id: string }>(
       `SELECT u.user_id, lower(u.email) AS email, u.active, p.status, u.community_id
@@ -133,6 +143,7 @@ export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseI
     await requireCapability(q, input.admin.admin_id, 'tenant.recovery.review');
     await loadActivePolicy(q);
   }, async q => {
+    await bindRecoveryCase(q, input.admin.admin_id, caseId);
     const policy = await loadActivePolicy(q);
     const current = await loadCase(q, caseId, true);
     requireCondition(current.community_id === input.admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
@@ -160,6 +171,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
     await requireCapability(q, input.admin.admin_id, 'tenant.recovery.execute');
     await loadActivePolicy(q);
   }, async q => {
+    await bindRecoveryCase(q, input.admin.admin_id, caseId);
     await loadActivePolicy(q);
     const preview = await loadCase(q, caseId);
     requireCondition(preview.community_id === input.admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
@@ -259,6 +271,7 @@ export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId:
   return adminCommand(pool, input, async q => {
     await requireCapability(q, input.admin.admin_id, 'tenant.recovery.review');
   }, async q => {
+    await bindRecoveryCase(q, input.admin.admin_id, caseId);
     const current = await loadCase(q, caseId, true);
     requireCondition(current.community_id === input.admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
     if (terminal(current.state)) throw new Problem(409, 'recovery_case_terminal', '這份復原已結束，不能再變更。');
@@ -278,8 +291,9 @@ export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId:
 
 export async function getRecoveryCase(pool: Pool, admin: AdminActor, caseId: string) {
   OpaqueId.parse(caseId);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await requireCapability(q, admin.admin_id, 'tenant.recovery.read');
+    await bindRecoveryCase(q, admin.admin_id, caseId);
     const row = await loadCase(q, caseId);
     requireCondition(row.community_id === admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
     return adminView(row);
@@ -288,10 +302,11 @@ export async function getRecoveryCase(pool: Pool, admin: AdminActor, caseId: str
 
 export async function listMyRecoveryCases(pool: Pool, actor: Actor, query: { cursor?: string; limit?: string }) {
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+    await bindPrincipalContext(q, principal.principal_id);
     const after = readCursor(query.cursor, principal.principal_id, 'my_recovery_cases', null);
     const rows = (await q.query<CaseRow>(`SELECT c.case_id, c.tenant_id, t.display_name AS tenant_display_name, t.community_id,
         c.proposed_owner_principal_id, c.state, c.approved_scope, c.expires_at, c.recipient_accepted_at, c.version::text AS version,
@@ -321,9 +336,11 @@ export async function acceptRecoveryCase(pool: Pool, actor: Actor, caseId: strin
     actor, scope: 'personal', operation: 'tenant.recovery.accept', key, body: input, expected,
     target: { kind: 'tenant_recovery_case', id: caseId },
   }, async (q, context) => {
+    await bindPrincipalContext(q, context.subject_principal.principal_id);
     const visible = (await q.query<{ proposed_owner_principal_id: string; tenant_id: string }>(
       `SELECT proposed_owner_principal_id, tenant_id FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
     if (!visible || visible.proposed_owner_principal_id !== context.subject_principal.principal_id) throw new Problem(404, 'recovery_case_not_found', RECOVERY_MISSING);
+    await bindTenantScope(q, visible.tenant_id);
     const digest = receiptNamespaceDigest(MEMBER_PROFILE, [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, 'tenant.recovery.accept', key]);
     await requireFreshVerification(q, {
       userId: actor.user_id, sessionHash: actor.session_hash, principalId: context.subject_principal.principal_id,
@@ -359,5 +376,5 @@ export async function acceptRecoveryCase(pool: Pool, actor: Actor, caseId: strin
       JOIN users u ON u.user_id=p.user_ref
       WHERE c.case_id=$2`, [context.subject_principal.principal_id, caseId])).rows[0];
     requireCondition(account?.ok, 403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
-  });
+  }, undefined, isolatedTransaction);
 }

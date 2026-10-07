@@ -10,8 +10,8 @@ import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, rejectAtLimit, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
 import { scopedJournal, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
-import { transaction } from '../../packages/db/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
+import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { InstanceSelectionRequired } from './problems.js';
@@ -174,7 +174,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
   const limit = query.limit ?? 20;
   const cursor = decodeCursor(query.cursor);
   const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'instance.manage', false);
     const rows = (await q.query<{ instance_id: string; cursor_at: string }>(
@@ -201,7 +201,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
 
 export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: string, workspaceId: string) {
   const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'work:read', false);
     const row = await bindingOf(q, tenantId, workspaceId);
@@ -214,7 +214,7 @@ export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: s
 export async function launchpadContext(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, guildKey: string, workPage: unknown) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
   const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'work:read', false);
     const workspace = (await q.query<{ version: string; status: string }>(`SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`, [tenantId, workspaceId])).rows[0];
