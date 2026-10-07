@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { InvitationView, MemberView, TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
+import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import type { InvitationView, MemberView, RecoveryCaseView, TenantView, TransferView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
 import { ApiError, type PortalClient } from '../api';
 import type { SessionPayload } from '../types';
 import { TenantSelector, roleLabel } from './TenantSelector';
@@ -8,7 +8,11 @@ import './tenant-workspaces.css';
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
 type Attempt = { key: string; path: string; body: unknown; ifMatch?: string; tenantId: string | null; notice?: string };
 type DirectoryPerson = { user_id: string; nickname: string };
+type AfterRole = TransferView['from_role_after'];
 const INVITE_ROLES = ['admin', 'operator', 'viewer'] as const;
+const AFTER_ROLES = ['admin', 'operator', 'viewer', 'revoked'] as const;
+const AFTER_LABEL: Record<AfterRole, string> = { admin: '管理員', operator: '操作者', viewer: '檢視者', revoked: '已撤銷' };
+const TRANSFER_HOURS = [1, 6, 24] as const;
 const UNRESOLVED_ALERT = '上一個操作的結果還在確認。請先按「再確認一次」，或重新送出原本的操作。';
 
 function attemptSlot(tenantId: string | null) { return tenantId ?? ''; }
@@ -26,17 +30,30 @@ function readStored(userId: string): string | null {
 function remember(userId: string, tenantId: string, workspaceId: string) {
   try { sessionStorage.setItem(storedKey(userId), JSON.stringify({ tenant_id: tenantId, workspace_id: workspaceId })); } catch { /* The screen still shows the current choice. */ }
 }
+function absoluteWhen(value: string) {
+  return new Date(value).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 function allows(tenant: TenantView, key: string) {
   return tenant.capabilities.some(grant => grant.instance_id === null && grant.keys.includes(key));
 }
 function sameGeneration(ticket: number, generation: { current: number }, signal: AbortSignal) {
   return generation.current === ticket && !signal.aborted;
 }
+function networkFailure(error: unknown) {
+  return error instanceof ApiError && (error.network || (error.status ?? 0) >= 500);
+}
 
 export function TenantSettings({ client, session, enabled }: { client: PortalClient; session: SessionPayload; enabled: boolean | null }) {
   const userId = session.user.user_id;
   const generation = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const passwordInput = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const actionPurpose = useRef<'tenant.ownership.propose' | 'tenant.ownership.accept' | 'tenant.recovery.accept' | null>(null);
+  const actionTenant = useRef<string | null>(null);
+  const passwordAttempt = useRef(0);
+  const dialogTitle = useId();
   const unresolvedRef = useRef(new Map<string, Attempt>());
   const workspaceLock = useRef(false);
   const [tenants, setTenants] = useState<TenantView[]>([]);
@@ -46,6 +63,10 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const [members, setMembers] = useState<MemberView[]>([]);
   const [membersComplete, setMembersComplete] = useState(true);
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
+  const [incomingTransfers, setIncomingTransfers] = useState<TransferView[]>([]);
+  const [recoveryCases, setRecoveryCases] = useState<RecoveryCaseView[]>([]);
+  const [outgoing, setOutgoing] = useState<TransferView | null>(null);
+  const [outgoingReadError, setOutgoingReadError] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [alertText, setAlertText] = useState('');
@@ -58,6 +79,19 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const [search, setSearch] = useState('');
   const [people, setPeople] = useState<DirectoryPerson[]>([]);
   const [inviteRole, setInviteRole] = useState<(typeof INVITE_ROLES)[number]>('viewer');
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [recipientPeople, setRecipientPeople] = useState<DirectoryPerson[]>([]);
+  const [recipient, setRecipient] = useState<DirectoryPerson | null>(null);
+  const [afterRole, setAfterRole] = useState<AfterRole>('admin');
+  const [transferHours, setTransferHours] = useState<(typeof TRANSFER_HOURS)[number]>(24);
+  const [transferReason, setTransferReason] = useState('');
+  const [transferPreview, setTransferPreview] = useState<{ principalId: string; displayName: string; expiresAt: string } | null>(null);
+  const [cancelReason, setCancelReason] = useState('取消這次擁有權移交');
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [verifiedAction, setVerifiedAction] = useState<null | ((verificationId: string) => Promise<void>)>(null);
 
   function rememberUnresolved(attempt: Attempt) {
     const slot = attemptSlot(attempt.tenantId);
@@ -82,6 +116,20 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     return { key: crypto.randomUUID(), path, body, ifMatch, tenantId, notice };
   }
 
+  // The password dialog would mint a new verification id. A resend must keep the stored one.
+  function gateFreshAuth(tenantId: string | null, path: string, body: unknown, ifMatch?: string): Attempt | 'verify' | null {
+    const kept = unresolvedRef.current.get(attemptSlot(tenantId));
+    if (!kept) return 'verify';
+    const stored = kept.body;
+    const comparable = stored && typeof stored === 'object' && !Array.isArray(stored)
+      ? Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'fresh_auth_verification_id'))
+      : stored;
+    if (kept.path === path && kept.ifMatch === ifMatch && JSON.stringify(comparable) === JSON.stringify(body)) return kept;
+    setPending(kept);
+    setAlertText(UNRESOLVED_ALERT);
+    return null;
+  }
+
   function begin() {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -90,18 +138,37 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     return { signal: controller.signal, live: () => sameGeneration(ticket, generation, controller.signal) };
   }
 
+  async function loadOutgoing(view: TenantView, signal: AbortSignal, live: () => boolean) {
+    if (view.my_membership.role !== 'owner' || view.status !== 'active') {
+      if (live()) { setOutgoing(null); setOutgoingReadError(''); }
+      return;
+    }
+    try {
+      const page = await client.get<Page<TransferView>>(`/tenants/${view.tenant_id}/ownership-transfers?limit=20`, { signal });
+      if (!live()) return;
+      setOutgoing(page.items.find(item => item.state === 'pending' && item.from_principal_id === view.my_membership.principal_id) ?? null);
+      setOutgoingReadError('');
+    } catch (error) {
+      if (!live()) return;
+      if (networkFailure(error)) setOutgoingReadError('暫時無法讀取移交。');
+    }
+  }
+
   async function loadMine(prefer?: string) {
     const { signal, live } = begin();
-    setLoading(true); setTenant(null); setMembers([]); setWorkspaceName(''); setPending(null);
+    setLoading(true); setTenant(null); setMembers([]); setWorkspaceName(''); setPending(null); setTransferPreview(null);
     try {
-      const [page, inbox] = await Promise.all([
+      const [page, inbox, transfers, recoveries] = await Promise.all([
         client.get<Page<TenantView>>('/tenants?limit=100', { signal }),
         client.get<Page<InvitationView>>('/me/tenant-invitations?limit=100', { signal }),
+        client.get<Page<TransferView>>('/me/tenant-ownership-transfers?limit=100', { signal }),
+        client.get<Page<RecoveryCaseView>>('/me/tenant-recovery-cases?limit=100', { signal }),
       ]);
       if (!live()) return;
-      setTenants(page.items); setInvitations(inbox.items);
+      setTenants(page.items); setInvitations(inbox.items); setIncomingTransfers(transfers.items); setRecoveryCases(recoveries.items);
       const stored = prefer ?? readStored(userId);
       const next = page.items.find(item => item.tenant_id === stored)?.tenant_id ?? page.items[0]?.tenant_id ?? null;
+      if (next !== selectedId) { setOutgoing(null); setOutgoingReadError(''); }
       setSelectedId(next);
       if (next) await loadTenant(next, signal, live);
     } catch (error) {
@@ -122,6 +189,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     setWorkspaceName(space?.name ?? ''); setEditName(view.display_name); setSlug(view.public_slug ?? '');
     setSelectedId(view.tenant_id);
     if (space) remember(userId, view.tenant_id, space.workspace_id);
+    await loadOutgoing(view, signal, live);
   }
 
   useEffect(() => {
@@ -132,12 +200,22 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, userId]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (passwordOpen && !dialog.open) dialog.showModal();
+    if (!passwordOpen && dialog.open) dialog.close();
+    if (passwordOpen) passwordInput.current?.focus();
+  }, [passwordOpen]);
+
+  useEffect(() => () => { setPassword(''); }, []);
+
   function selectTenant(tenantId: string) {
     if (tenantId === selectedId && tenant) return;
-    setNotice(''); setAlertText(''); setPeople([]);
+    setNotice(''); setAlertText(''); setPeople([]); setRecipientPeople([]); setTransferPreview(null);
     setPending(unresolvedRef.current.get(tenantId) ?? unresolvedRef.current.get('') ?? null);
     const { signal, live } = begin();
-    setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setLoading(true);
+    setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setOutgoing(null); setOutgoingReadError(''); setLoading(true);
     void loadTenant(tenantId, signal, live).catch(error => { if (live()) setAlertText(error instanceof ApiError ? error.message : '需要處理'); }).finally(() => { if (live()) setLoading(false); });
   }
 
@@ -248,6 +326,19 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     }
   }
 
+  async function findRecipients() {
+    const term = recipientQuery.trim();
+    if (!term) return;
+    setRecipientPeople([]); setAlertText('');
+    try {
+      const data = await client.get<{ items: DirectoryPerson[] }>(`/members?limit=20&sort=nickname&search=${encodeURIComponent(term)}`, { signal: abortRef.current?.signal });
+      setRecipientPeople(data.items.filter(person => person.user_id !== userId).map(person => ({ user_id: person.user_id, nickname: person.nickname })));
+    } catch (error) {
+      if (abortRef.current?.signal.aborted) return;
+      setAlertText(error instanceof ApiError ? error.message : '需要處理');
+    }
+  }
+
   async function invite(person: DirectoryPerson) {
     if (!tenant) return;
     const ticket = generation.current;
@@ -306,13 +397,176 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     setNotice('已離開這個業務空間。'); await loadMine();
   }
 
+  function closePassword() {
+    passwordAttempt.current += 1;
+    actionPurpose.current = null;
+    actionTenant.current = null;
+    setPassword(''); setPasswordError(''); setPasswordOpen(false); setVerifiedAction(null);
+    returnFocus.current?.focus();
+  }
+
+  function openPassword(event: MouseEvent<HTMLButtonElement>, action: (verificationId: string) => Promise<void>) {
+    returnFocus.current = event.currentTarget;
+    setPassword(''); setPasswordError(''); setVerifiedAction(() => action); setPasswordOpen(true);
+  }
+
+  async function submitPassword(event: FormEvent) {
+    event.preventDefault();
+    if (!tenant && !verifiedAction) return;
+    const action = verifiedAction;
+    const secret = password;
+    if (!action || !secret) return;
+    const attempt = passwordAttempt.current;
+    const purpose = actionPurpose.current;
+    const tenantId = actionTenant.current;
+    if (!purpose || !tenantId) return;
+    setPassword(''); setPasswordBusy(true); setPasswordError('');
+    try {
+      const verified = await client.post<{ verification_id: string }>('/me/high-risk-verifications', {
+        password: secret, purpose, tenant_id: tenantId,
+      }, { signal: abortRef.current?.signal });
+      if (attempt !== passwordAttempt.current) return;
+      setPasswordOpen(false); setVerifiedAction(null);
+      await action(verified.verification_id);
+    } catch (error) {
+      if (attempt !== passwordAttempt.current || abortRef.current?.signal.aborted) return;
+      if (networkFailure(error)) {
+        setPasswordError('無法確認重新驗證，請再輸入一次密碼。');
+        return;
+      }
+      setPasswordError(error instanceof ApiError ? error.message : '需要處理');
+    } finally { setPasswordBusy(false); }
+  }
+
+  async function previewTransfer(event: FormEvent) {
+    event.preventDefault();
+    if (!tenant || !recipient) return;
+    setAlertText('');
+    try {
+      const candidate = await client.get<{ principal_id: string; display_name: string }>(`/tenants/invite-candidates?user_id=${encodeURIComponent(recipient.user_id)}`, { signal: abortRef.current?.signal });
+      setTransferPreview({
+        principalId: candidate.principal_id,
+        displayName: candidate.display_name,
+        expiresAt: new Date(Date.now() + transferHours * 60 * 60 * 1000).toISOString(),
+      });
+    } catch (error) {
+      if (abortRef.current?.signal.aborted) return;
+      setAlertText(error instanceof ApiError ? error.message : '需要處理');
+    }
+  }
+
+  function startPropose(event: MouseEvent<HTMLButtonElement>) {
+    if (!tenant || !transferPreview) return;
+    const preview = transferPreview;
+    const reason = transferReason.trim();
+    const role = afterRole;
+    const tenantId = tenant.tenant_id;
+    const path = `/tenants/${tenantId}/ownership-transfers`;
+    const body = { to_principal_id: preview.principalId, from_role_after: role, expires_at: preview.expiresAt, reason };
+    const notice = `已提出移交給${preview.displayName}。對方接受前，擁有權不會改變。`;
+    const gate = gateFreshAuth(tenantId, path, body);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
+      const saved = await run<TransferView>(attempt);
+      if (!saved) return;
+      setTransferPreview(null); setRecipient(null); setRecipientPeople([]); setTransferReason('');
+      setOutgoing(saved); setOutgoingReadError('');
+      setNotice(attempt.notice ?? notice);
+      await loadMine(tenantId);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
+    actionPurpose.current = 'tenant.ownership.propose';
+    actionTenant.current = tenantId;
+    openPassword(event, async verificationId => {
+      const attempt = attemptFor(tenantId, path, { ...body, fresh_auth_verification_id: verificationId }, undefined, notice);
+      if (!attempt) return;
+      await finish(attempt);
+    });
+  }
+
+  async function cancelTransfer(event: FormEvent) {
+    event.preventDefault();
+    if (!tenant || !outgoing) return;
+    const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/ownership-transfers/${outgoing.transfer_id}/cancel`, { reason: cancelReason.trim() });
+    if (!attempt) return;
+    const saved = await run<TransferView>(attempt);
+    if (!saved) return;
+    setOutgoing(null); setOutgoingReadError('');
+    setNotice('已取消移交。'); await loadMine(tenant.tenant_id);
+  }
+
+  function startAcceptTransfer(event: MouseEvent<HTMLButtonElement>, transfer: TransferView) {
+    const path = `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/accept`;
+    const body = { accept_scope: true };
+    const notice = `已接受${transfer.tenant_display_name}的擁有權。`;
+    const gate = gateFreshAuth(null, path, body, transfer.version);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
+      const saved = await run<{ tenant_id: string }>(attempt);
+      if (!saved) return;
+      setNotice(attempt.notice ?? notice);
+      await loadMine(transfer.tenant_id);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
+    actionPurpose.current = 'tenant.ownership.accept';
+    actionTenant.current = transfer.tenant_id;
+    openPassword(event, async verificationId => {
+      const attempt = attemptFor(null, path, { ...body, fresh_auth_verification_id: verificationId }, transfer.version, notice);
+      if (!attempt) return;
+      await finish(attempt);
+    });
+  }
+
+  async function declineTransfer(transfer: TransferView) {
+    const notice = `已拒絕${transfer.tenant_display_name}的擁有權移交。`;
+    const attempt = attemptFor(null, `/tenants/${transfer.tenant_id}/ownership-transfers/${transfer.transfer_id}/decline`, {}, undefined, notice);
+    if (!attempt) return;
+    const saved = await run<TransferView>(attempt);
+    if (!saved) return;
+    setNotice(attempt.notice ?? notice);
+    await loadMine(selectedId ?? undefined);
+  }
+
+  function startAcceptRecovery(event: MouseEvent<HTMLButtonElement>, item: RecoveryCaseView) {
+    const path = `/me/tenant-recovery-cases/${item.case_id}/accept`;
+    const body = { accept_scope: true };
+    const notice = `已接受${item.tenant_display_name}的復原。擁有權要等管理員執行後才會變更。`;
+    const gate = gateFreshAuth(null, path, body, item.version);
+    if (gate === null) return;
+    const finish = async (attempt: Attempt) => {
+      const saved = await run<RecoveryCaseView>(attempt);
+      if (!saved) return;
+      setNotice(attempt.notice ?? notice);
+      await loadMine(selectedId ?? undefined);
+    };
+    if (gate !== 'verify') {
+      void finish(gate);
+      return;
+    }
+    actionPurpose.current = 'tenant.recovery.accept';
+    actionTenant.current = item.tenant_id;
+    openPassword(event, async verificationId => {
+      const attempt = attemptFor(null, path, { ...body, fresh_auth_verification_id: verificationId }, item.version, notice);
+      if (!attempt) return;
+      await finish(attempt);
+    });
+  }
+
   if (enabled === null) return <p role="status">正在讀取這個頁面。</p>;
   if (enabled === false) return <p className="banner" role="status">這個頁面目前未開放。</p>;
 
-  const canEdit = tenant ? allows(tenant, 'tenant.metadata.edit') : false;
-  const canInvite = tenant ? allows(tenant, 'tenant.member.invite') : false;
-  const canManage = tenant ? allows(tenant, 'tenant.member.manage') : false;
-  const canAddWorkspace = tenant ? allows(tenant, 'tenant.workspace.create') : false;
+  const recovering = tenant?.status === 'recovery_required';
+  const canEdit = tenant && !recovering ? allows(tenant, 'tenant.metadata.edit') : false;
+  const canInvite = tenant && !recovering ? allows(tenant, 'tenant.member.invite') : false;
+  const canManage = tenant && !recovering ? allows(tenant, 'tenant.member.manage') : false;
+  const canAddWorkspace = tenant && !recovering ? allows(tenant, 'tenant.workspace.create') : false;
+  const canTransfer = tenant?.my_membership.role === 'owner' && tenant.status === 'active';
   const inviteChoices = tenant?.my_membership.role === 'owner' ? INVITE_ROLES : INVITE_ROLES.filter(role => role !== 'admin');
   const activeOwners = members.filter(member => member.role === 'owner' && member.status === 'active').length;
   const lastOwner = tenant?.my_membership.role === 'owner' && membersComplete && activeOwners <= 1;
@@ -335,6 +589,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     {tenant && <section className="card stack" aria-label="目前業務空間">
       <p><strong>{tenant.display_name}／{workspaceName || '工作區讀取中'}</strong></p>
       <p>我的角色：{roleLabel(tenant.my_membership.role)}</p>
+      {recovering && <p className="banner" role="status">此業務空間目前沒有可登入的擁有者，正在等待受控復原；資料不會被刪除。</p>}
       {canEdit && <form className="stack" onSubmit={event => void saveTenant(event)}>
         <label className="field">顯示名稱<input value={editName} maxLength={120} required onChange={event => setEditName(event.target.value)}/></label>
         <label className="field">網址代號（可留空）<input value={slug} maxLength={64} onChange={event => setSlug(event.target.value)} spellCheck={false}/></label>
@@ -370,14 +625,50 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
           <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => void invite(person)}>邀請{person.nickname}為{roleLabel(inviteRole)}</button></div>
         </li>)}</ul>
       </form>}
-      <section className="stack" aria-label="離開業務空間">
+      {canTransfer && <section className="stack" aria-label="移交擁有權">
+        <h2>移交擁有權</h2>
+        {outgoingReadError && <div className="actions">
+          <p className="banner" role="alert">{outgoingReadError}</p>
+          <button type="button" className="btn btn-ghost" onClick={() => { if (!tenant) return; const { signal, live } = begin(); void loadOutgoing(tenant, signal, live); }}>重試</button>
+        </div>}
+        {outgoing?.state === 'pending'
+          ? <form className="stack card" onSubmit={event => void cancelTransfer(event)}>
+            <p>已提議將擁有權移交給{outgoing.to_display_name}。對方接受前，你仍是擁有者。接受後你的角色是{AFTER_LABEL[outgoing.from_role_after]}。</p>
+            <p>到期：{absoluteWhen(outgoing.expires_at)}</p>
+            <label className="field">取消原因<input value={cancelReason} minLength={3} maxLength={1000} required onChange={event => setCancelReason(event.target.value)}/></label>
+            <div className="actions"><button className="btn btn-ghost" type="submit">取消移交</button></div>
+          </form>
+          : <form className="stack" onSubmit={event => void previewTransfer(event)}>
+            <label className="field">搜尋接收者<input type="search" value={recipientQuery} maxLength={80} onChange={event => setRecipientQuery(event.target.value)}/></label>
+            <div className="actions"><button className="btn btn-ghost" type="button" onClick={() => void findRecipients()}>搜尋接收者</button></div>
+            <ul className="stack">{recipientPeople.map(person => <li key={person.user_id}>
+              <button type="button" className={recipient?.user_id === person.user_id ? 'btn btn-primary' : 'btn btn-ghost'} aria-pressed={recipient?.user_id === person.user_id} onClick={() => setRecipient(person)}>選擇{person.nickname}為接收者</button>
+            </li>)}</ul>
+            <label className="field">移交後我的角色<select value={afterRole} onChange={event => setAfterRole(event.target.value as AfterRole)}>
+              {AFTER_ROLES.map(role => <option key={role} value={role}>{AFTER_LABEL[role]}</option>)}
+            </select></label>
+            <label className="field">移交期限<select value={transferHours} onChange={event => setTransferHours(Number(event.target.value) as (typeof TRANSFER_HOURS)[number])}>
+              {TRANSFER_HOURS.map(hours => <option key={hours} value={hours}>{hours} 小時</option>)}
+            </select></label>
+            <label className="field">移交原因<input value={transferReason} minLength={3} maxLength={1000} required onChange={event => setTransferReason(event.target.value)}/></label>
+            <div className="actions"><button className="btn btn-ghost" type="submit" disabled={!recipient}>檢視移交內容</button></div>
+          </form>}
+        {transferPreview && recipient && <section className="stack card" aria-label="確認移交">
+          <p>將把「{tenant.display_name}」的擁有權移交給{transferPreview.displayName}。對方接受後成為擁有者，你的角色會變成{AFTER_LABEL[afterRole]}。對方接受前，擁有權不會改變。</p>
+          <div className="actions">
+            <button type="button" className="btn btn-primary" onClick={startPropose}>繼續，重新驗證密碼</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setTransferPreview(null)}>返回修改</button>
+          </div>
+        </section>}
+      </section>}
+      {!recovering && <section className="stack" aria-label="離開業務空間">
         {lastOwner && <p className="field-hint">你是唯一使用中的擁有者，目前不能離開這個業務空間。</p>}
         <div className="actions">
           {lastOwner
             ? <button type="button" className="btn btn-ghost" disabled>離開這個業務空間</button>
             : <button type="button" className="btn btn-ghost" onClick={() => void leave()}>離開這個業務空間</button>}
         </div>
-      </section>
+      </section>}
     </section>}
 
     <section className="card stack" aria-label="我的邀請">
@@ -391,5 +682,43 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         </div>
       </li>)}</ul>
     </section>
+
+    <section className="stack" aria-label="待接受的擁有權移交">
+      <h2>待接受的擁有權移交</h2>
+      {incomingTransfers.length === 0 && <p className="field-hint">目前沒有待接受的擁有權移交。</p>}
+      <ul className="stack tenant-rows">{incomingTransfers.map(transfer => <li key={transfer.transfer_id} className="tenant-row">
+        <p>{transfer.tenant_display_name}：{transfer.from_display_name}邀請你成為擁有者。接受後對方的角色是{AFTER_LABEL[transfer.from_role_after]}。</p>
+        <p>到期：{absoluteWhen(transfer.expires_at)}</p>
+        <div className="actions">
+          <button type="button" className="btn btn-primary" onClick={event => startAcceptTransfer(event, transfer)}>接受{transfer.tenant_display_name}的擁有權移交</button>
+          <button type="button" className="btn btn-ghost" onClick={() => void declineTransfer(transfer)}>拒絕{transfer.tenant_display_name}的擁有權移交</button>
+        </div>
+      </li>)}</ul>
+    </section>
+
+    <section className="stack" aria-label="待接受的復原">
+      <h2>待接受的復原</h2>
+      {recoveryCases.length === 0 && <p className="field-hint">目前沒有待接受的復原。</p>}
+      <ul className="stack tenant-rows">{recoveryCases.map(item => <li key={item.case_id} className="tenant-row">
+        <p>{item.tenant_display_name}請你成為受控復原後的擁有者。接受不會立刻變更擁有權，仍須由另一位管理員執行。</p>
+        {item.expires_at && <p>到期：{absoluteWhen(item.expires_at)}</p>}
+        {item.recipient_accepted
+          ? <p className="field-hint">已接受，等待執行。</p>
+          : <div className="actions"><button type="button" className="btn btn-primary" onClick={event => startAcceptRecovery(event, item)}>接受{item.tenant_display_name}的復原</button></div>}
+      </li>)}</ul>
+    </section>
+
+    <dialog ref={dialogRef} className="tenant-authority-dialog" aria-labelledby={dialogTitle} aria-describedby={`${dialogTitle}-hint`} onCancel={event => { event.preventDefault(); closePassword(); }} onClose={() => { if (passwordOpen) closePassword(); }}>
+      <form className="stack" onSubmit={event => void submitPassword(event)}>
+        <h2 id={dialogTitle}>重新驗證</h2>
+        <p id={`${dialogTitle}-hint`}>這一步只核對你現在的密碼，不會把密碼保存起來。</p>
+        <label className="field">目前的密碼<input ref={passwordInput} type="password" autoComplete="current-password" value={password} required minLength={1} maxLength={1024} onChange={event => setPassword(event.target.value)} disabled={passwordBusy}/></label>
+        {passwordError && <p className="banner" role="alert">{passwordError}</p>}
+        <div className="actions tenant-authority-actions">
+          <button className="btn btn-primary" type="submit" disabled={passwordBusy}>確認密碼</button>
+          <button className="btn btn-ghost" type="button" onClick={closePassword}>取消</button>
+        </div>
+      </form>
+    </dialog>
   </div>;
 }

@@ -41,10 +41,15 @@
     "apps/platform-api/src/routes/guild-launchpad.ts",
     "apps/portal-web/src/modules/GuildLaunchpad.tsx",
     "apps/portal-web/src/modules/GuildLaunchpad.css",
+    "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+    "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
+    "apps/portal-web/src/modules/work-result-client.ts",
     "tests/runtime/guild-launchpad.test.ts",
     "tests/runtime/guild-launchpad-deadline.test.ts",
     "tests/runtime/guild-launchpad-contracts.test.ts",
-    "tests/e2e/guild-launchpad.spec.ts"
+    "tests/runtime/work-result-client.test.ts",
+    "tests/e2e/guild-launchpad.spec.ts",
+    "tests/e2e/guild-launchpad-my-work.spec.ts"
   ],
   "public_exports": [
     "modules/guild-workspace/launchpad-config.ts",

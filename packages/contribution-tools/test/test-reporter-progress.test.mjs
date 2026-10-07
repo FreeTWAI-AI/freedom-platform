@@ -37,8 +37,9 @@ test('invalid, duplicate, traversal and symlink progress selections produce no d
 });
 test('parent discards malformed, unexpected, duplicate, digest mismatch and unbounded records without forwarding raw bytes',()=>{
  const path='tests/one.test.mjs',digest='a'.repeat(64),start={schema:'freedom.test-file-progress/v1',event:'started',path,source_sha256:digest,elapsed_ms:1};
- const bad=[{...start,path:'tests/PRIVATE_UNKNOWN.test.mjs'},{...start,source_sha256:'b'.repeat(64)},{...start,PRIVATE_EXTRA:'postgres://PRIVATE_URL'},{...start,elapsed_ms:-1},{...start,event:'completed',counts:{tests:1,passed:0,failed:0,cancelled:0,skipped:0,todo:0,suites:0}}];
+ const bad=[{...start,path:'tests/PRIVATE_UNKNOWN.test.mjs'},{...start,source_sha256:'b'.repeat(64)},{...start,PRIVATE_EXTRA:'postgres://PRIVATE_URL'},{...start,elapsed_ms:-1},{...start,elapsed_ms:1_200_001},{...start,event:'completed',counts:{tests:1,passed:0,failed:0,cancelled:0,skipped:0,todo:0,suites:0}}];
  for(const r of bad){const out=[],d=createProgressDecoder([{path,source_sha256:digest}],r=>out.push(r));if(r.event==='completed')d.push(Buffer.from(JSON.stringify(start)+'\n'));d.push(Buffer.from(JSON.stringify(r)+'\n'));assert.equal(out.length,r.event==='completed'?1:0);assert.equal(d.finish().incomplete,true);}
+ const late=[],partition=createProgressDecoder([{path,source_sha256:digest}],r=>late.push(r));partition.push(Buffer.from(JSON.stringify({...start,elapsed_ms:1_200_000})+'\n'));assert.equal(late.length,1);
  const out=[],d=createProgressDecoder([{path,source_sha256:digest}],r=>out.push(r));const line=Buffer.from(JSON.stringify(start)+'\n');d.push(line.subarray(0,7));d.push(line.subarray(7));d.push(line);d.push(Buffer.from('PRIVATE_RAW_INVALID_JSON\n'));d.push(Buffer.alloc(1_048_577,65));assert.equal(out.length,1);assert.equal(d.finish().incomplete,true);assert.ok(!JSON.stringify(out).includes('PRIVATE_'));
 });
 test('actual host timeout keeps sanitized completion/active progress off the failed final verifier JSON',async t=>{

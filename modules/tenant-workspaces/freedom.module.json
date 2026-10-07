@@ -10,6 +10,7 @@
     "apps/portal-web/src/modules/TenantSettings.tsx",
     "apps/portal-web/src/modules/tenant-workspaces.css",
     "migrations/121_tenant_workspaces.sql",
+    "migrations/124_tenant_ownership_recovery.sql",
     "tests/runtime/tenant-authorization.test.ts",
     "tests/runtime/tenant-membership-identity.test.ts",
     "tests/runtime/tenant-ownership.test.ts",
@@ -19,6 +20,9 @@
   "public_exports": [
     "modules/tenant-workspaces/service.ts",
     "modules/tenant-workspaces/authorization.ts",
+    "modules/tenant-workspaces/ownership.ts",
+    "modules/tenant-workspaces/high-risk-verification.ts",
+    "modules/tenant-workspaces/recovery.ts",
     "contracts/guild-launchpad/v1/tenant.ts"
   ],
   "dependencies": [
@@ -56,7 +60,13 @@
         "tenant.invite.revoke",
         "tenant.member.change",
         "tenant.member.leave",
-        "tenant.workspace.create"
+        "tenant.workspace.create",
+        "tenant.ownership.propose",
+        "tenant.ownership.accept",
+        "tenant.ownership.cancel",
+        "tenant.ownership.decline",
+        "tenant.recovery.accept",
+        "tenant.high_risk_verification"
       ],
       "auth_profile": "member-session"
     },

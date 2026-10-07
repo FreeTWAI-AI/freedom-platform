@@ -1,9 +1,10 @@
-import {useEffect,useId,useRef,useState} from 'react';
+import {useCallback,useEffect,useId,useRef,useState} from 'react';
 import {hasLoneSurrogate, type Config, type ConfigView, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
+import {MyWorkPanel} from './GuildLaunchpadMyWork';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
@@ -148,13 +149,18 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, visitor, memberTier}: {
+function Reading({guild, config, announcements, skillBooks, visitor, memberTier, mode, client, guildKey, userId, registerLeave}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
   skillBooks: BookRef[];
   visitor: boolean;
   memberTier?: string;
+  mode: 'public' | 'member';
+  client: PortalClient;
+  guildKey: string;
+  userId?: string;
+  registerLeave: (guard: (() => boolean) | null) => void;
 }) {
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
   return <>
@@ -173,7 +179,11 @@ function Reading({guild, config, announcements, skillBooks, visitor, memberTier}
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
       {block.kind === 'applications' && <p>此公會目前沒有已核准的應用</p>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
-      {block.kind === 'my_work' && <MyWorkUnavailable visitor={visitor} starter={visitor ? null : config.starter}/>}
+      {block.kind === 'my_work' && (visitor || mode === 'public'
+        ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
+        : memberTier === 'full'
+          ? <MyWorkPanel client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave}/>
+          : <p className="field-hint" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>)}
       {block.kind === 'support' && <SupportLine support={config.support}/>}
     </section>)}
   </>;
@@ -192,8 +202,8 @@ export function PublicGuildLaunchpad({client, guildKey, onLogin}: {client: Porta
   </div>;
 }
 
-export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
-  client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void;
+export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}: {
+  client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void; userId?: string;
 }) {
   const [guild, setGuild] = useState<{name: string; purpose: string} | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRef[]>([]);
@@ -229,6 +239,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   const opener = useRef<HTMLButtonElement | null>(null);
   const keys = useRef(new Map<string, string>());
   const generation = useRef(0);
+  const leaveGuard = useRef<(() => boolean) | null>(null);
+  const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
@@ -419,7 +431,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={onBack}>返回公會列表</button></div>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (leaveGuard.current && !leaveGuard.current()) return; onBack?.(); }}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
@@ -427,7 +439,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin}: {
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}

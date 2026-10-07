@@ -87,10 +87,21 @@ passed. This evidence does not attest deployment, real object durability or
 trusted CI enforcement.
 
 `scopedTenantCommand` is the opt-in tenant adapter. Its digest profile is
-`freedom.scoped-tenant-command/v1`. It locks the tenant scope for update, then
+`freedom.scoped-tenant-command/v1`. Optional `tenantLock` is `update` or `share`;
+omitted, it is `update`. `update` locks the tenant and membership rows
+`FOR UPDATE`. `share` locks those rows `FOR SHARE` so two data commands can
+proceed together while a membership change still waits. The field is an
+allow-listed server input and is not part of the receipt digest. The adapter
 re-reads membership, role, tenant status, and authorization revision after the
 receipt read and after the receipt insert. A row this transaction itself updated
 is recognized by `xmin` compared with the low 32 bits of `txid_current()`
-(PostgreSQL 18 rejects `bigint::xid`). Personal and community adapters are
-unchanged. `tenant.create`, `tenant.invite.accept`, and `tenant.invite.decline`
-stay on `scopedMemberCommand` with the caller's personal scope.
+(PostgreSQL 18 rejects `bigint::xid`). Optional `revalidate(q, context)` and
+`assertCurrentTime()` are server-owned arguments, rejected unless they are
+functions, and they are not part of the receipt digest. When present they run
+immediately after that recheck on the receipt SELECT and again after the receipt
+INSERT. `revalidate` is followed by another session-clock check, then
+`assertCurrentTime`. A failure there rolls the domain write and the success
+receipt back together. Callers that omit both keep the previous behaviour.
+Personal and community adapters are unchanged. `tenant.create`,
+`tenant.invite.accept`, and `tenant.invite.decline` stay on `scopedMemberCommand`
+with the caller's personal scope.

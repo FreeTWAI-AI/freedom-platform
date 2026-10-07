@@ -101,6 +101,12 @@ const FOUNDATION_NAMES = [
   // Versioned guild launchpad config, pointers and expiring delegations; guild
   // roles gain no business-space or private-work authority.
   '122_guild_launchpad_config.sql',
+  // Tenant module instances, manual Work and human Results under a per-tenant capacity
+  // policy; no capacity policy is seeded and recognition activates nothing.
+  '123_tenant_manual_work.sql',
+  // Tenant ownership transfer, fresh verification and controlled recovery; no
+  // authority policy is seeded and recognition activates nothing.
+  '124_tenant_ownership_recovery.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
