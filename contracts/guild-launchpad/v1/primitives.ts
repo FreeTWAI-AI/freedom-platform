@@ -30,6 +30,21 @@ export const VERSION_PATTERN = new RegExp(signedDecimalPattern(MAX_STORED_VERSIO
 /** Positive decimal version. A JSON field literally named aggregate_version is a number, not this string. */
 export const Version = z.string().max(19).regex(VERSION_PATTERN);
 
+/**
+ * Decimal zero, or the positive range from {@link signedDecimalPattern}.
+ * The zero alternative is outside that helper so the digit bound is not written twice.
+ */
+export function nonNegativeDecimalPattern(max: string): string {
+  const signed = signedDecimalPattern(max);
+  const inner = signed.match(/^\^\(\?:(.+)\)\$\(\?!\[\\s\\S\]\)$/);
+  if (!inner) throw new Error('signedDecimalPattern shape is not a single non-capturing group');
+  return `^(?:0|${inner[1]})$(?![\\s\\S])`;
+}
+
+export const NON_NEGATIVE_DECIMAL_PATTERN = new RegExp(nonNegativeDecimalPattern(MAX_STORED_VERSION));
+/** Zero or a positive decimal inside the signed bigint range. */
+export const NonNegativeDecimal = z.string().max(19).regex(NON_NEGATIVE_DECIMAL_PATTERN);
+
 export const STABLE_KEY_PATTERN = /^[a-z][a-z0-9_.-]{0,159}$(?![\s\S])/;
 export const StableKey = z.string().max(160).regex(STABLE_KEY_PATTERN);
 

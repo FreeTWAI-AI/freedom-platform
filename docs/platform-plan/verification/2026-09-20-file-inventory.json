@@ -11559,8 +11559,8 @@
     },
     {
       "path": "contracts/guild-launchpad/README.md",
-      "bytes": 972,
-      "sha256": "dd6e9fd4362691f7ddce8111c64ddb20f2931ad6b4ffb89c638b69dcca0ead48"
+      "bytes": 1697,
+      "sha256": "cf8771568a96122e01bf2c2a7a786d63c768340c13ac35512ed5e93188401865"
     },
     {
       "path": "contracts/guild-launchpad/v1/classification-input.schema.json",
@@ -11659,8 +11659,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/primitives.ts",
-      "bytes": 2579,
-      "sha256": "1e0b79358cdc5e5f409822cb34a7c6f3c4771136c5a6f0d51831e1b7d625369a"
+      "bytes": 3330,
+      "sha256": "5f7fac81a4d880150a0f46b8aa89c7c7669410dc3894f4b97f3a891bc6fdd427"
     },
     {
       "path": "contracts/guild-launchpad/v1/problem.schema.json",
@@ -11708,9 +11708,14 @@
       "sha256": "db54b63963274ecb9f2b4f9aef2ae9820a09252f19e23b4cbcbb3b70b46ece53"
     },
     {
+      "path": "contracts/guild-launchpad/v1/tenant-work.schema.json",
+      "bytes": 53053,
+      "sha256": "8c121e2b2aa05a233f0402209ea75093252f383f337200a3d2707160a0278142"
+    },
+    {
       "path": "contracts/guild-launchpad/v1/tenant-work.ts",
-      "bytes": 6841,
-      "sha256": "45db5458ba8de0d013a9be61dd5b9829c00746838708db546805269371b8946f"
+      "bytes": 6569,
+      "sha256": "a5677d2667ebce4d3bc169ac71844bc144fa0c2998b17414646ef8b177e4ad4b"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant.ts",
@@ -16014,13 +16019,13 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 3563,
-      "sha256": "938063c57e622cd1afa3a6a1ed06b9898178ae2b4fce875c9764eb0a80bc23ef"
+      "bytes": 3623,
+      "sha256": "ae746fe2c8cdc89167f0389a640accf2d812297d886848dc19d75098a584ccdd"
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 4796,
-      "sha256": "89bd6e62f4adf4c565cf639f701a1ec0117f341508d13a7d9c57516a556b7a4d"
+      "bytes": 9026,
+      "sha256": "e8a97d60e71655efe9fda5d2a1b463a023d01a326abbf3dd79e2f630b0f1b2ef"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -19064,8 +19069,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
-      "bytes": 29416,
-      "sha256": "a150fa74e8535e1574e6a541df815254ea37d3f9e45c7a701ef19c0539fa8cae"
+      "bytes": 48628,
+      "sha256": "1199172856a0b748020a1ba948f30a621e88c7f3b0537c9d34f32b6ac5dd39b2"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -19894,8 +19899,8 @@
     },
     {
       "path": "tests/runtime/tenant-work.test.ts",
-      "bytes": 81673,
-      "sha256": "316324ca6b9db5221fc8b5e10c1c8b7fe0ca1e6ab18611f53f4ca346883fc5fa"
+      "bytes": 83676,
+      "sha256": "aa445a9e1df9b52ca881ed78e8d9039d6b54cf0fb580894d7be1ca53f5a9ed55"
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",
