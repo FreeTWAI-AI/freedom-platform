@@ -95,7 +95,7 @@ async function member() {
   await owner.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '1 hour')",[tokenHash(raw),user,csrf]);
   const actor:Actor={...row,session_hash:tokenHash(raw),csrf_token:csrf};
   await withMemberScope(app,{actor,scope:'personal'},async()=>{},async()=>{});
-  return {actor,raw,csrf,headers:{Cookie:'freedom_local_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
+  return {actor,raw,csrf,headers:{Cookie:'__Host-freedom_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
 }
 async function pollProof(f:{key:Device;authorization:Begin},overrides:Record<string,unknown>={}) {
   return signed(f.key.privateKey,{alg:'ES256',typ:'freedom-device-pairing+jwt',jwk:f.key.publicJwk},{purpose:'device_pairing_poll',client_id:host.clientId,

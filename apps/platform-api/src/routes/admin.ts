@@ -3,7 +3,7 @@ import {createGuildWorkspaceAdminRoutes} from './guild-workspace.js';
 import {createRepoMaintainerAdminRoutes} from './repo-maintainer.js';
 import {timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {getCookie} from 'hono/cookie';
+import {readSessionCookie} from '../session-cookie.js';
 import {authenticate} from '../../../../modules/identity-membership/service.js';
 import {linkNominatedMember,nominatedGuildAppointments} from '../../../../modules/platform-admin/leadership.js';
 import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.js';
@@ -51,7 +51,7 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     requireCondition(github.tokenKey,503,'github_setup_unavailable','GitHub 連結設定尚未啟用。');
     return c.json(await completeGitHubAppSetup(pool,c.get('admin'),body,github.tokenKey,{fetcher:github.fetcher}));
   });
-  app.post('/link-member',async c=>{const input=await command(c),member=await authenticate(pool,getCookie(c,'freedom_local_session'));return result(c,await linkNominatedMember(pool,input,member));});
+  app.post('/link-member',async c=>{const input=await command(c),member=await authenticate(pool,readSessionCookie(c.req.header('Cookie'),github.origin));return result(c,await linkNominatedMember(pool,input,member));});
   app.get('/members',async c=>{const {limit,offset}=paging(c),q=z.string().trim().max(100).parse(c.req.query('q')??''),includeTest=z.enum(['true','false']).default('false').parse(c.req.query('include_test'))==='true';return c.json(await adminMembers(pool,c.get('admin'),limit,offset,q,includeTest));});
   app.post('/members/:id/admin',async c=>result(c,await appointPlatformAdmin(pool,await command(c),c.req.param('id'))));
   app.post('/members/:id/status',async c=>result(c,await changeMemberStatus(pool,await command(c),c.req.param('id'))));

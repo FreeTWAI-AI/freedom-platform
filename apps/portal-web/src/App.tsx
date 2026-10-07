@@ -249,7 +249,7 @@ function MemberApp() {
           onLoggedIn={applySession}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
-          onPasswordReset={()=>{clearResetHash();setResetToken(null);toLogin('密碼已重設，請用新密碼登入。')}}
+          onPasswordReset={next=>{clearResetHash();setResetToken(null);applySession(next)}}
         />
       </div>
     )
@@ -300,7 +300,7 @@ function LoginView({
   onLoggedIn: (session: SessionPayload) => void
   resetToken:string|null
   onCancelReset:()=>void
-  onPasswordReset:()=>void
+  onPasswordReset:(session:SessionPayload)=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
   const activeMode=resetToken?'confirm-reset':mode
@@ -325,8 +325,9 @@ function LoginView({
       }
       if(activeMode==='confirm-reset'){
         if(password!==confirmPassword)throw new Error('兩次輸入的新密碼不一致。')
-        await client.post('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
-        onPasswordReset()
+        const session=await client.post<SessionPayload>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
+        if(!session?.user||!session.csrf_token)throw new Error('登入回應不完整')
+        onPasswordReset(session)
         return
       }
       const session = activeMode === 'register'
