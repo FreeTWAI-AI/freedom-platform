@@ -21,9 +21,16 @@ Binary uploads and signed machine transports retain their own bounded readers.
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from
   the login identity; its audience starts empty (private).
-- `POST /auth/login`: existing `{email,password}`. Email remains **unverified**;
-  there is no mail sender/reset/automatic provider linking. Slugs confer no
-  GitHub/Discord/LINE ownership or privileged action.
+- `POST /auth/login`: existing `{email,password}`. Password login does not verify
+  email or automatically link providers. Slugs confer no GitHub/Discord/LINE
+  ownership or privileged action.
+- `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
+  and returns the same result for existing and unknown accounts.
+- `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
+  changes the password, revokes old sessions, clears account lockout and issues a
+  new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
+  with the same session cookie/lifetime as login. Invalid, expired and inactive
+  proofs are rejected. See [password-recovery.md](password-recovery.md).
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
