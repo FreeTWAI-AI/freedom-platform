@@ -7,6 +7,7 @@ import { checkVersion, command, digest, journal, transaction, type Command } fro
 import { Problem,requireCondition } from '../../packages/shared/problem.js';
 import { text, isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
+import {authRateLimitInTransaction} from '../identity-membership/members.js';
 import { normalizeEventPoster } from '../skill-submissions/payload.js';
 import {notifyMember} from '../member-communications/notifications.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
@@ -376,6 +377,8 @@ export async function createEvent(pool:Pool,input:Command) {
     requireCondition(Date.parse(body.starts_at)>Date.now(),422,'event_in_past','活動開始時間須在未來。');
     if(body.guild_key)requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[body.guild_key])).rowCount===1,422,'unknown_guild','請選擇現有公會。');
     if(body.event_kind==='guild_skill_exchange'){const tier=await activeGuildTier(q,input.actor,body.guild_key);requireCondition(tier,403,'event_guild_required','只有主辦公會成員能提交公會技能交流。');requireFullGuildMember(tier);}
+    // The command has already checked receipts; replay never consumes this budget.
+    await authRateLimitInTransaction(q,'event-create-member',input.actor.user_id,5,3600);
     const id=randomUUID();
     const row=(await q.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,guild_key,title,description,starts_at,ends_at,mode,location,capacity,event_kind,topic,online_url,review_guild_key,visibility)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,[id,input.actor.community_id,input.actor.user_id,body.guild_key,body.title,body.description,body.starts_at,body.ends_at,body.mode,body.location,body.capacity,body.event_kind,body.topic,body.online_url,reviewGuildFor(body),body.visibility])).rows[0];
