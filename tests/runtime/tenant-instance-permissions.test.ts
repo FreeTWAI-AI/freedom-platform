@@ -75,7 +75,7 @@ async function call(method: string, path: string, session?: Session, body?: unkn
     ? JSON.parse(Buffer.from(bytes).toString()) : null;
   return { status: response.status, data, response, bytes };
 }
-const post = (path: string, session: Session | undefined, body: unknown, version?: string, key = randomUUID(), target = app) =>
+const post = (path: string, session: Session | undefined, body: unknown, version?: string, key: string = randomUUID(), target = app) =>
   call('POST', path, session, body, { 'Idempotency-Key': key, ...(version ? { 'If-Match': `"${version}"` } : {}) }, target);
 async function login(email = DEMO_USERS[0].email, target = app): Promise<Session> {
   const r = await post('/auth/login', undefined, { email, password: DEMO_PASSWORD }, undefined, randomUUID(), target);
@@ -843,3 +843,202 @@ test('oversized canonical invitation scope is rejected before INSERT even when c
   assert.equal(changed.status, 200, JSON.stringify(changed.data));
   assert.deepEqual(changed.data.instance_capabilities, entries);
 });
+
+async function registrySnapshot(t: Tenant) {
+  return (await pool.query(`SELECT
+    (SELECT jsonb_agg(to_jsonb(i) ORDER BY instance_id) FROM module_instances i WHERE tenant_id=$1) AS instances,
+    (SELECT jsonb_agg(to_jsonb(b) ORDER BY binding_id) FROM deployment_bindings b WHERE tenant_id=$1) AS bindings,
+    (SELECT jsonb_agg(to_jsonb(i) ORDER BY installation_id) FROM application_installations i WHERE tenant_id=$1) AS installations,
+    (SELECT jsonb_agg(to_jsonb(p) ORDER BY plan_id) FROM module_launch_plans p WHERE tenant_id=$1) AS plans,
+    (SELECT jsonb_agg(to_jsonb(c) ORDER BY plan_id) FROM module_launch_plan_consumptions c WHERE tenant_id=$1) AS consumptions,
+    (SELECT jsonb_agg(to_jsonb(o) ORDER BY operation_id) FROM module_provision_operations o WHERE tenant_id=$1) AS operations,
+    (SELECT jsonb_agg(to_jsonb(s) ORDER BY operation_id,step_key) FROM module_provision_steps s WHERE tenant_id=$1) AS steps,
+    (SELECT jsonb_agg(to_jsonb(r) ORDER BY reservation_id) FROM capacity_reservations r WHERE tenant_id=$1) AS reservations,
+    (SELECT jsonb_agg(to_jsonb(l) ORDER BY entry_id) FROM capacity_ledger l WHERE tenant_id=$1) AS ledger,
+    (SELECT jsonb_agg(to_jsonb(b) ORDER BY workspace_id,entry_capability) FROM workspace_module_bindings b WHERE tenant_id=$1) AS entry_bindings,
+    (SELECT jsonb_agg(to_jsonb(l) ORDER BY installation_id,requirement_key) FROM application_module_links l WHERE tenant_id=$1) AS links,
+    (SELECT jsonb_agg(to_jsonb(d) ORDER BY dependency_id) FROM module_dependencies d WHERE tenant_id=$1) AS dependencies,
+    (SELECT jsonb_agg(to_jsonb(w) ORDER BY work_item_id) FROM work_items w WHERE tenant_id=$1) AS works,
+    (SELECT jsonb_agg(to_jsonb(r) ORDER BY result_id) FROM tenant_work_results r WHERE tenant_id=$1) AS results`, [t.tenantId])).rows[0];
+}
+
+test('T-015 fully granted operator cannot manage instances, plan, launch or replay owner receipts', async () => {
+  const t = await openTenant();
+  const operator = await person('全權工作操作人');
+  await join(t, operator);
+  assert.deepEqual((await grantRows(t, operator))[0].capabilities, ALL_WORK);
+  const space = await secondWorkspace(t, false);
+  const planBody = { guild_key: t.guild, workspace_id: space.workspaceId, application_key: 'manual-workspace',
+    release_ref: 'manual-workspace@1.0.0', installation_choice: 'create_new',
+    dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: t.instanceId, expected_version: '1' }], configuration: {} };
+  const planKey = randomUUID(), launchKey = randomUUID(), suspendKey = randomUUID(), resumeKey = randomUUID();
+  const planned = await post(`/tenants/${t.tenantId}/application-launch-plans`, t.owner, planBody, undefined, planKey);
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const launchBody = { plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest };
+  const launched = await post(`/tenants/${t.tenantId}/application-installations`, t.owner, launchBody, undefined, launchKey);
+  assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  const instanceBase = `/tenants/${t.tenantId}/module-instances/${t.instanceId}`;
+  const suspendBody = { reason: '合成暫停原因' };
+  const suspended = await post(instanceBase + '/suspend', t.owner, suspendBody, '1', suspendKey);
+  assert.equal(suspended.status, 200, JSON.stringify(suspended.data));
+  const resumed = await post(instanceBase + '/resume', t.owner, {}, '2', resumeKey);
+  assert.equal(resumed.status, 200, JSON.stringify(resumed.data));
+  assert.equal((await pool.query(`SELECT 1 FROM scoped_command_receipts WHERE principal_id=$1 AND idempotency_key=ANY($2::text[])`,
+    [t.principalId, [planKey, launchKey, suspendKey, resumeKey]])).rowCount, 4);
+  const before = await snapshot(t), registry = await registrySnapshot(t);
+  const commands: [string, unknown, string | undefined, string | undefined][] = [
+    [instanceBase + '/suspend', suspendBody, '3', undefined],
+    [instanceBase + '/resume', {}, '3', undefined],
+    [instanceBase + '/archive', { reason: '合成封存原因' }, '3', undefined],
+    [`/tenants/${t.tenantId}/application-launch-plans`, planBody, undefined, undefined],
+    [`/tenants/${t.tenantId}/application-installations`, launchBody, undefined, undefined],
+    [instanceBase + '/suspend', suspendBody, '1', suspendKey],
+    [instanceBase + '/resume', {}, '2', resumeKey],
+    [`/tenants/${t.tenantId}/application-launch-plans`, planBody, undefined, planKey],
+    [`/tenants/${t.tenantId}/application-installations`, launchBody, undefined, launchKey],
+  ];
+  for (const [path, body, version, key] of commands) {
+    const denied = await post(path, operator.session, body, version, key);
+    assert.equal(denied.status, 403, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'capability_denied');
+    assert.deepEqual(await snapshot(t), before);
+    assert.deepEqual(await registrySnapshot(t), registry);
+  }
+  // Resume is refused even when the instance is in a legitimately resumable state.
+  assert.equal((await post(instanceBase + '/suspend', t.owner, suspendBody, '3')).status, 200);
+  const held = await snapshot(t), heldRegistry = await registrySnapshot(t);
+  const denied = await post(instanceBase + '/resume', operator.session, {}, '4');
+  assert.equal(denied.status, 403); assert.equal(denied.data.code, 'capability_denied');
+  assert.deepEqual(await snapshot(t), held); assert.deepEqual(await registrySnapshot(t), heldRegistry);
+});
+
+test('T-013 restricted runtime denies viewer Work writes and forged authority on member change and invite', async () => {
+  const t = await openTenant();
+  const viewer = await person('受限讀者');
+  const invitee = await person('合成受邀人');
+  await join(t, viewer, 'viewer', grant(t, ['work:read']));
+  const owned = await openTenant(viewer.session);
+  const { runtime, target } = restrictedRuntime();
+  try {
+    await createWork(owned, viewer.session, randomUUID(), target);
+    for (const current of [owned, t, owned, t]) {
+      const read = await call('GET', `/tenants/${current.tenantId}`, viewer.session, undefined, {}, target);
+      assert.equal(read.status, 200, JSON.stringify(read.data));
+      assert.equal(read.data.my_membership.role, current === owned ? 'owner' : 'viewer');
+    }
+    const before = await snapshot(t), registry = await registrySnapshot(t);
+    const denied = await post(`/tenants/${t.tenantId}/workspaces/${t.workspaceId}/works`, viewer.session, WORK_BODY, undefined, randomUUID(), target);
+    assert.equal(denied.status, 403, JSON.stringify(denied.data));
+    assert.equal(denied.data.code, 'capability_denied');
+    const inputs: [string, Record<string, unknown>, string | undefined][] = [
+      [`/tenants/${t.tenantId}/members/${viewer.principalId}/change`,
+        { role: 'viewer', status: 'active', instance_capabilities: grant(t, ['work:read']), reason: '合成變更原因' }, '1'],
+      [`/tenants/${t.tenantId}/invitations`,
+        { invitee_principal_id: invitee.principalId, role: 'viewer', instance_capabilities: grant(t, ['work:read']), expires_at: soon() }, undefined],
+    ];
+    for (const [path, input, version] of inputs) {
+      // role and instance_capabilities are legitimate *target* fields, but a
+      // forged owner role / caller-grant object and caller identity fields are not.
+      for (const forged of [
+        { role: 'owner' }, { instance_capabilities: { actor: t.principalId, capabilities: ALL_WORK } },
+        { actor: t.principalId }, { tenant_id: t.tenantId },
+        { role: 'owner', instance_capabilities: grant(t), actor: t.principalId, tenant_id: t.tenantId },
+      ]) {
+        for (const session of [t.owner, viewer.session]) {
+          const reply = await post(path, session, { ...input, ...forged }, version, randomUUID(), target);
+          assert.equal(reply.status, 422, JSON.stringify(reply.data));
+          assert.equal(reply.data.code, 'validation_failed');
+          assert.deepEqual(await snapshot(t), before);
+          assert.deepEqual(await registrySnapshot(t), registry);
+        }
+      }
+    }
+    const settings = (await runtime.query(`SELECT current_setting('freedom.tenant_id',true) AS tenant,
+      current_setting('freedom.principal_id',true) AS principal, current_setting('freedom.tenant_scope_id',true) AS scope`)).rows[0];
+    assert.ok(Object.values(settings).every(value => value === null || value === ''));
+    assert.equal((await runtime.query('SELECT * FROM tenant_module_permissions')).rowCount, 0);
+  } finally { await runtime.end(); }
+});
+
+function latch() {
+  let enter!: () => void, release!: () => void;
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const released = new Promise<void>(resolve => { release = resolve; });
+  return { entered, release, pause: async () => { enter(); await released; } };
+}
+
+async function unpublished(t: Tenant, workId: string, finalizeKey: string) {
+  assert.equal((await pool.query('SELECT 1 FROM tenant_work_results WHERE work_item_id=$1', [workId])).rowCount, 0);
+  assert.equal((await pool.query(`SELECT 1 FROM scoped_command_receipts WHERE idempotency_key=$1`, [finalizeKey])).rowCount, 0);
+  assert.equal((await pool.query(`SELECT 1 FROM scoped_transition_journal j JOIN resource_scopes s ON s.scope_id=j.scope_id
+    WHERE s.tenant_ref=$1 AND j.operation='work.tenant.finalize'`, [t.tenantId])).rowCount, 0);
+}
+
+for (const seam of ['before-finalize', 'finalize-object-read', 'after-object-write'] as const) {
+  test(`Result grant revoke at ${seam} prevents publication, finalize receipt and journal`, async () => {
+    const t = await openTenant();
+    const other = await secondWorkspace(t);
+    const operator = await person('成果競爭操作人');
+    await join(t, operator, 'operator', [...grant(t), ...grant(other)]);
+    const { workId } = await createWork(t, operator.session);
+    const gate = latch();
+    const seamStore = new FakeObjectStore();
+    const hookedPut = seamStore.putImmutable.bind(seamStore), hookedGet = seamStore.get.bind(seamStore);
+    let armed = false, reached = false;
+    seamStore.putImmutable = async (...args) => {
+      const result = await hookedPut(...args);
+      if (armed && seam === 'after-object-write') { reached = true; await gate.pause(); }
+      return result;
+    };
+    seamStore.get = async (...args) => {
+      const result = await hookedGet(...args);
+      if (armed && seam === 'finalize-object-read') { reached = true; await gate.pause(); }
+      return result;
+    };
+    const target = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: seamStore });
+    const prepared = await post(`/tenants/${t.tenantId}/works/${workId}/results/uploads`, operator.session, prepareBody('1'), undefined, randomUUID(), target);
+    assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+    const uploadId = prepared.data.resource_ref.resource_id as string;
+    const base = `/tenants/${t.tenantId}/works/${workId}/results/uploads/${uploadId}`;
+    const writeKey = randomUUID(), finalizeKey = randomUUID();
+    const write = () => call('PUT', base + '/content', operator.session, NOTE, { 'Idempotency-Key': writeKey, 'If-Match': '"1"' }, target);
+    const finalize = () => post(base + '/finalize', operator.session, { expected_work_version: '1' }, '2', finalizeKey, target);
+    let pending: Promise<Reply> | undefined;
+    try {
+      if (seam !== 'after-object-write') assert.equal((await write()).status, 200);
+      if (seam === 'before-finalize') {
+        assert.equal((await change(t, operator, grant(other))).status, 200);
+      } else {
+        armed = true;
+        pending = seam === 'after-object-write' ? write() : finalize();
+        await Promise.race([gate.entered, pending.then(reply => assert.fail(`Request returned before the storage seam: ${reply.status}`))]);
+        assert.equal(reached, true);
+        // Completing a real member command while storage I/O is paused also
+        // proves that no tenant authority locks span this external-I/O seam.
+        assert.equal((await change(t, operator, grant(other))).status, 200);
+      }
+      const before = await snapshot(t), registry = await registrySnapshot(t);
+      gate.release();
+      const denied = pending ? await pending : await finalize();
+      assert.equal(denied.status, 404, JSON.stringify(denied.data));
+      assert.equal(denied.data.code, 'not_found');
+      const missing = await post(`/tenants/${t.tenantId}/works/${workId}/results/uploads/${randomUUID()}/finalize`,
+        operator.session, { expected_work_version: '1' }, '2', randomUUID(), target);
+      // A post-I/O PUT fails in the engine's hidden Work lookup; finalize
+      // fails at the upload lookup and must match that route's missing reply.
+      if (seam !== 'after-object-write') assert.deepEqual(denied.bytes, missing.bytes);
+      assert.deepEqual(await snapshot(t), before);
+      assert.deepEqual(await registrySnapshot(t), registry);
+      await unpublished(t, workId, finalizeKey);
+      if (seam === 'after-object-write') {
+        assert.equal((await pool.query(`SELECT 1 FROM scoped_command_receipts WHERE idempotency_key=$1`, [writeKey])).rowCount, 0);
+        const refused = await finalize();
+        assert.equal(refused.status, 404); assert.deepEqual(refused.bytes, missing.bytes);
+        await unpublished(t, workId, finalizeKey);
+      }
+    } finally {
+      gate.release();
+      if (pending) await Promise.allSettled([pending]);
+    }
+  });
+}
