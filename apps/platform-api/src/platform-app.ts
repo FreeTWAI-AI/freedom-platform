@@ -273,8 +273,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'password-reset-confirm-global','global',500,3600);
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
     const result=await confirmPasswordReset(pool,body.token,body.password);
-    deleteCookie(c,COOKIE,{path:'/'});
-    return c.json(result);
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
+    return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
