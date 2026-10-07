@@ -811,7 +811,7 @@ test('a concurrent edit is not overwritten by stale fields after a save conflict
     await expect(session.page.getByRole('button', { name: '用最新版本再儲存一次', exact: true })).toBeVisible({ timeout: 20_000 });
 
     await session.page.getByRole('button', { name: '儲存變更', exact: true }).click();
-    await expect(session.page.getByText('這份工作剛剛被更新。', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.locator('.my-work-conflict').getByText('這份工作剛剛被更新。', { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(session.page.getByText(`伺服器的標題：${otherTitle}`, { exact: true })).toBeVisible();
 
     const checkRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/works/${workId}`);
