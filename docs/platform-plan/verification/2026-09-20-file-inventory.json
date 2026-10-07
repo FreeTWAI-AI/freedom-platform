@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 19513,
-      "sha256": "7a71369a4806084832581f1f05d595895b8f49d87033508fae2f8c08fb819e3a"
+      "bytes": 24003,
+      "sha256": "31b933d012db4d83ef7909df314e610b9fe389729f37b1dfb2c966ab17c105c9"
     },
     {
       "path": ".gitignore",
@@ -16699,8 +16699,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 10905,
-      "sha256": "e361a84ce42d2c42767b0f1d6051f9901f25ce1b0b5f0ec7dea9ab644131a352"
+      "bytes": 10922,
+      "sha256": "36effd6620d7deb7b63f4e03503be9d56d3ff833729076421e202cda94cd9268"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -16778,6 +16778,11 @@
       "sha256": "1127a18c1ad53bc5b03d4be5f7e671a770fd0e2713bd35fc9272b42244646092"
     },
     {
+      "path": "packages/contribution-tools/pinned-suites.mjs",
+      "bytes": 5314,
+      "sha256": "e48f08e542a68c28936ca0544b4faff9c102e2fb56bc9c4df427f1f04c1ed142"
+    },
+    {
       "path": "packages/contribution-tools/process-env.mjs",
       "bytes": 416,
       "sha256": "34feb71f312c4298a02e8c7911c260947221b6ff1e786ddd5e2d2aa65eec1d6f"
@@ -16804,8 +16809,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 32201,
-      "sha256": "2d3e0f55001985af059a0072e0792c56ca52a8bd7bed097560900e9c03035af2"
+      "bytes": 36752,
+      "sha256": "b0eb76dc8d4e17d52393e93e7d217af416263bcc8aa4d20839255975906585b2"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16953,6 +16958,11 @@
       "sha256": "a348b3a980628c38894aacb12eedc3f9b2e799934e7715de7fa72f91e66a4e4d"
     },
     {
+      "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
+      "bytes": 18354,
+      "sha256": "af35447a55f9b2e8e0a8ca4bb36d94c58daabcf15917455144108e4bbcec506d"
+    },
+    {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
       "bytes": 8095,
       "sha256": "884c705efa6738320a69108049f819faf103bfd83b4c7858faa8636e4f2c63cd"
@@ -17039,8 +17049,8 @@
     },
     {
       "path": "packages/db/freedom.module.json",
-      "bytes": 1529,
-      "sha256": "6ed3724557bc51e2a8043cb9a8aca2b39d0136c046ff79dd1eeed6fac0089f48"
+      "bytes": 1584,
+      "sha256": "a7fcb5e2d6931729042d8b87ff3bd46ec73a27dcd6bc5f10a4aa3d083aff35de"
     },
     {
       "path": "packages/db/index.ts",
@@ -17613,14 +17623,19 @@
       "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
     },
     {
+      "path": "scripts/ci/run-pinned-suite.mjs",
+      "bytes": 2958,
+      "sha256": "528e76d35188476b81fdcf240c1752fc345dc88393f8d4198dc5f91373e94c0c"
+    },
+    {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 25802,
-      "sha256": "99cfc8a3c2a3cb2946665ae4680e790413c05fdb2e947384aace5adcc30f5b19"
+      "bytes": 25961,
+      "sha256": "85dcb8370e2652d7600dd0f709234a11a573195647e802ef1b94c7d18afbcc94"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 43959,
-      "sha256": "d55228aa009ddc75337ad12664636c66496b416fbd26e7b6022313b7146d4617"
+      "bytes": 46178,
+      "sha256": "ce02df4b3138189e6f1f2f27545b123bd44b08d2fd08d75ad8b691115b3bcd25"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -18419,13 +18434,18 @@
     },
     {
       "path": "tests/integration/migration-entrypoints-postgres.test.ts",
-      "bytes": 7781,
-      "sha256": "3b57462677652730675c8d9fa706665428aea94dafccf859c70ff4058430ee0e"
+      "bytes": 7775,
+      "sha256": "f5814e1631a6b9eb46eaaee45929f8b1051a9d40111835b3c32c17169ff47916"
     },
     {
       "path": "tests/integration/migration-plan-postgres.test.ts",
-      "bytes": 16166,
-      "sha256": "1730bae5973d236d53595f010dc3a335288111809efe81c58f122ebe8633bfe5"
+      "bytes": 9012,
+      "sha256": "7ad3ee1a2937b68855abf30aa7ae820e813ada7923281d2d75746fddfecc27ed"
+    },
+    {
+      "path": "tests/integration/migration-postgres-fixture.ts",
+      "bytes": 7542,
+      "sha256": "558aa1d81620165c6231b8fdafed080638fe7dee3b45ca64f3cdcf7156b58d83"
     },
     {
       "path": "tests/integration/native-consumer-runtime.test.ts",
@@ -19849,8 +19869,8 @@
     },
     {
       "path": "tests/worker/fetch-redirect.test.ts",
-      "bytes": 7206,
-      "sha256": "e31fe8f3c2517e362ec9932038d26086564ab1ce94d91cd5694c6eb558d95e8b"
+      "bytes": 7391,
+      "sha256": "9293964553528b40b2f677a0381df3f5cb89a9eabd33f82392cba16ec5c1d8c0"
     },
     {
       "path": "tests/worker/github-sync-scheduled.test.ts",
@@ -19864,8 +19884,8 @@
     },
     {
       "path": "tests/worker/maintainer-scheduled.test.ts",
-      "bytes": 6884,
-      "sha256": "5ae288f8d77a75e2fcc4ba7b71544d2304ef8094c19b1d8bf92b53e4ea61ee83"
+      "bytes": 7063,
+      "sha256": "c945b732d627e5da1a8eea15e3523ae071a9a67ea6d99933284708babfbb0278"
     },
     {
       "path": "tests/worker/media-accepted-formats.test.ts",
@@ -20004,8 +20024,8 @@
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 22130,
-      "sha256": "8a746b88bd25bf0e8123bf70e8c346a93960e1f2f838f06b95588d7f69e266ed"
+      "bytes": 22341,
+      "sha256": "97aa529df7877e64b17d1471c27b432384fe3c6402d74eda5c477d97ea092250"
     },
     {
       "path": "tsconfig.json",
