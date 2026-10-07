@@ -1507,3 +1507,44 @@ for (const entry of ['unique', 'multiple'] as const) {
     assert.equal(await h.count('module_instances', "WHERE tenant_id=$1 AND module_key='work'", [tenantId]), 2);
   });
 }
+
+for (const hidden of ['draft', 'reviewed', 'retired', 'unresolved', 'blocked', 'unoffered', 'withdrawn'] as const) {
+  test(`r7 public release hides ${hidden} identically to a nonexistent release`, async () => {
+    const key = `synthetic-hidden-${hidden}`;
+    const status = ['draft', 'reviewed', 'retired'].includes(hidden) ? hidden : 'available';
+    const license = ['unresolved', 'blocked'].includes(hidden) ? hidden : 'reviewed';
+    await h.pool.query(`INSERT INTO application_definitions(
+        application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+      SELECT $1,$2,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,$3,$4,customization_schema_ref,license_review_ref,version
+      FROM application_definitions WHERE application_key='manual-workspace'`, [key, `${key}@1.0.0`, license, status]);
+    if (hidden !== 'unoffered') {
+      await h.pool.query(`INSERT INTO guild_application_offerings(
+          offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+        SELECT $1,NULL,NULL,$2,$3,$4,20,launch_policy_ref,1
+        FROM application_definitions WHERE application_key=$2`, [randomUUID(), key, `${key}@1.0.0`, hidden === 'withdrawn' ? 'withdrawn' : 'offered']);
+    }
+    const random = `synthetic-unknown-${randomUUID().replaceAll('-', '')}`;
+    const absent = await h.call('GET', `/applications/${random}/releases/${random}@1.0.0`);
+    assert.equal(absent.status, 404, JSON.stringify(absent.data));
+    const reply = await h.call('GET', `/applications/${key}/releases/${key}@1.0.0`);
+    assert.equal(reply.status, absent.status, JSON.stringify(reply.data));
+    assert.deepEqual(reply.data, absent.data);
+    for (const header of ['cache-control', 'vary', 'content-type']) {
+      assert.equal(reply.response.headers.get(header), absent.response.headers.get(header), header);
+    }
+    assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+    const catalog = await h.call('GET', '/applications');
+    assert.equal(catalog.data.items.some((item: {application_key: string}) => item.application_key === key), false);
+  });
+}
+
+test('r7 public release exposes an available reviewed guild offering without eligibility', async () => {
+  const reply = await h.call('GET', '/applications/synthetic-storefront/releases/synthetic-storefront@1.0.0');
+  assert.equal(reply.status, 200, JSON.stringify(reply.data));
+  assert.equal(reply.data.source_commit, WORK_CONTRACT_SOURCE_COMMIT);
+  assert.equal(reply.data.eligibility, undefined);
+  assert.equal(reply.response.headers.get('cache-control'), 'public, max-age=60');
+  assert.equal(reply.response.headers.get('vary'), 'Cookie');
+});

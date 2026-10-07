@@ -157,7 +157,12 @@ export async function loadRelease(q: PoolClient, applicationKey: string, release
        d.launch_policy_ref, d.license_state, d.release_status, d.version::text AS version, d.source_commit,
        d.artifact_digest, d.skill_book_refs, d.license_review_ref, d.customization_schema_ref, d.entry_capability,
        0 AS display_order, NULL::uuid AS offering_id, true AS platform
-     FROM application_definitions d WHERE d.application_key=$1 AND d.release_ref=$2`,
+     FROM application_definitions d WHERE d.application_key=$1 AND d.release_ref=$2
+       AND d.release_status='available' AND d.license_state='reviewed'
+       AND EXISTS (
+         SELECT 1 FROM guild_application_offerings o
+         WHERE o.application_key=d.application_key AND o.release_ref=d.release_ref AND o.status='offered'
+       )`,
     [applicationKey, releaseRef],
   )).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這個應用版本。');
