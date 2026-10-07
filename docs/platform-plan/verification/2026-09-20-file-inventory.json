@@ -1529,8 +1529,8 @@
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
-      "bytes": 4089,
-      "sha256": "6d10d308a3b985f475fe65345ebe1c17906ec169663a539e56c33318caf351ab"
+      "bytes": 3982,
+      "sha256": "c6817570ef41ae91fb319cf794713e3b516e236af562fde2c4f7e10cd5fa3519"
     },
     {
       "path": "apps/portal-web/src/AppInstall.tsx",
@@ -1679,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 46892,
-      "sha256": "2d6d748c5ae10e184e3f2d342b21571844f035a37253848cb017a7caa1b124a8"
+      "bytes": 50001,
+      "sha256": "63ea1822c1deb19ceb70467828d81e17684761b31b9966443ae0674c3d213ba8"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -2194,13 +2194,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
-      "bytes": 1905,
-      "sha256": "2162d3de1cfc2ccd4513fa1f3f0bd6be286fb5a467a4c294a77b00b0e2f9e536"
+      "bytes": 2116,
+      "sha256": "c07055b0eaba0034ac5344e63af7dfe860f7481c9c8ecd7e2c2658cd5f74f3b5"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.tsx",
-      "bytes": 4729,
-      "sha256": "480e24fe2ed95d37dd6614d1f4357386b189a5a30c73c80f5947a7678abc4498"
+      "bytes": 6392,
+      "sha256": "545c51ea8a48bd36add3e7b58ff156fa6b34ed62514fad7c3e7bf3b17961f287"
     },
     {
       "path": "apps/portal-web/src/modules/Onboarding.tsx",
@@ -2464,8 +2464,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/member-inbox.ts",
-      "bytes": 3277,
-      "sha256": "37602308ecf94858ab40db86cf09d359ef08abd87fd33cf131654bd53b4321ee"
+      "bytes": 3410,
+      "sha256": "cc78631bf52d60ff5926be084fbe51977c9ad65a30d50b5ca6708b1598fc7792"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
@@ -13429,8 +13429,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 26276,
-      "sha256": "1476f6b94be843bd4482430ffc0399ecd7cbef3a77c34ba27f8e2a08a2808db4"
+      "bytes": 29617,
+      "sha256": "820ed4602400cb9a6c7daf7e3b90f409c0052d63863a764037e80ccc157dcdaa"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -19026,6 +19026,11 @@
       "path": "tests/e2e/notification-bell-actions.spec.ts",
       "bytes": 2530,
       "sha256": "6871435a480149f629264202326e60342031d19513a6486cf88a9ab811b1e2d4"
+    },
+    {
+      "path": "tests/e2e/notification-bell-refresh.spec.ts",
+      "bytes": 11179,
+      "sha256": "a28dc102ef5a72e67e37c90573f8da7b850c9e197e75b32faabf9c86fa8ec9e9"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",

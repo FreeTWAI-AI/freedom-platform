@@ -13,15 +13,18 @@ export function useReadAllInbox(client:PortalClient){
   useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[]);
   async function markAll(){
     if(locked.current)return;
+    const session=client.sessionGeneration,valid=()=>alive.current&&session===client.sessionGeneration;
     locked.current=true;setBusy(true);setError('');key.current??=crypto.randomUUID();
     try{
       await client.post('/me/inbox/read-all',{},{idempotencyKey:key.current,suppressConsole:true});
+      if(!valid())return;
       key.current=null;
       window.dispatchEvent(new Event(INBOX_ALL_READ));announceInboxChange();
     }catch(cause){
+      if(!valid())return;
       if(cause instanceof ApiError&&!cause.network&&cause.status>0&&cause.status<500)key.current=null;
-      if(alive.current)setError('尚未確認全部已讀，請再按一次重試。');
-    }finally{locked.current=false;if(alive.current)setBusy(false)}
+      setError('尚未確認全部已讀，請再按一次重試。');
+    }finally{locked.current=false;if(valid())setBusy(false)}
   }
   return {busy,error,markAll};
 }

@@ -148,3 +148,24 @@ Code Cleanup 與 R&D 的原始失敗、正反例、來源／環境、學習與�
 在修正 commit `85701e8ebc2ad18572a7d566b9b8f97998cd8d13`／tree `f0ecd0d8cc83d011008346541eddfc7712e9b31a`，用固定 Node24.21 image、Git archive stream、無網路的自有 Linux 容器執行 **全部** `node --test deploy/cloudflare/test/*.test.mjs`，實際 **458 pass／0 fail／0 skip**。這是完整本機部署預檢；新 head 的 hosted 結果與人工 review 另行讀回。先前1951個受測 source blobs中僅此CI測試變更，其餘1950個相同；前端、API、catalog、96個壓縮資產及migration SQL都維持原結果的受測bytes，因此本次不重跑與此fixture無關的UI／API。
 
 失敗原因、原hosted收據、完整native log及修正後的Source／Cleanup／R&D紀錄保存在本專案私有`.freedom/`與`.rd/`；不做共享規則升級。本輪仍更新原Draft PR #193，不包含部署或合併。
+
+## 通知入口的回饋與查詢成本
+
+延續[多平台分享](social-cross-platform-sharing.md)的四個可選 Logo、亮燈、取消與草稿保留操作，這次改善共用通知入口：點開立即顯示局部載入狀態，失敗可按「再試一次」；Escape 關閉並回到鈴鐺，點面板外關閉。介面文字使用既有五語設定，會員通知標題與內容保留原文。320／390／820／1280px 面板維持在畫面內，操作目標至少 44px。
+
+只合併尚未結束的同身分、同 options 背景讀取；關閉不查詢，下一次點開仍向伺服器確認，沒有加入已完成回應快取、輪詢或第三方服務。標已讀收到確認後，由一個既有 inbox 事件刷新。單則與全部已讀的舊帳號回應必須先核對目前 session，才可更新本機、通知其他入口或導覽。
+
+| 受控本機量測 | 原 0120 版本 | 修正版本 |
+| --- | --- | --- |
+| 點開／關閉／focus／inbox 事件的重疊 GET | 4 次 | 1 次 |
+| 單則已讀確認後的通知刷新 | 2 次 | 1 次 |
+| 切換帳號後，舊單則／全部已讀 ACK 的 inbox 事件 | 各 1 次 | 各 0 次 |
+| 完整初始 JS 靜態依賴 closure gzip | 209,716 bytes | 210,838 bytes（+0.535%，低於本輪 1% 上限） |
+
+同一版測試 bytes 在原產品為 1 pass／4 fail，既有真實朋友通知為正控制。修正後 fresh typecheck／build 通過，54 項 native 通過；最後 66 項瀏覽器回歸為 66 pass／0 fail／0 skip，包含五語帳號、通知、分享、手機安裝與四平台操作。54 項 native 後只有兩個 CSS 變更，產品邏輯與 native evaluator bytes 相同。成功附件因僅使用 list reporter 未保留，再用相同 source／build／10 個測試與 JSON reporter 另跑 10 pass／0 fail，取得點擊至載入回饋下一幀 9.6ms 的單次本機樣本；不作正式 p95 或多出十項覆蓋宣稱。
+
+第一版修正的 12 pass／5 fail 保留：五語面板均量到 x=-37px 裁切。改為對齊整個帳號工具列並計入 padding，原斷言下五語乘四寬度的 20 組幾何檢查通過；實際載入、錯誤、西班牙文通知及登入／安裝截圖已檢視。早期測試曾使用錯誤行號，只跑正控制；跨帳號 helper 曾重新載入頁面而中斷舊 promise，及誤假設首頁 URL。這些量測失敗分開保存，修正測試後重新測原產品，沒有降低 assertion、提高 timeout 或跳過案例。
+
+原 head `0120c45` 的 hosted run `37624831193` 已結束為 failure：一般 UI 577 pass／1 fail／12 skip，西班牙文 320x844 的第一個 Email 欄位 bottom=855.5 超出 844；額外私人模型與 avatar fixture 階段未開始。實際 checkout 為合併後 `d2f37aaa154ec3a82659d795af9d8099c8d24e0e`，主線 `4b3180740524d4ff1fcc41a9971e5522fdca951f`、trusted evaluator `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`，不是單獨 PR head 執行。結構化失敗 summary 的 test_count=0 不能替代原 log 的實際數量。
+
+本輪縮小窄手機登入區塊間距，保留原品牌圖、文字、16px 輸入字體與 44px 控制項。本機五語原斷言通過，新 source 的 hosted Linux 結果仍待確認。全部 hosted、人工驗收、實體 iOS／Android 分享、正式負載與完整平台／競品比較保持待完成；這些局部改善不宣稱整平台完成。

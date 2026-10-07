@@ -2,6 +2,22 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
+  'notice.title':['通知','Notifications','通知','알림','Notificaciones'],
+  'notice.count':['通知，{count} 則未讀','Notifications, {count} unread','通知、未読{count}件','알림, 읽지 않은 알림 {count}개','Notificaciones, {count} sin leer'],
+  'notice.unknown':['通知，未讀數未確認','Notifications, unread count unconfirmed','通知、未読件数は未確認','알림, 읽지 않은 알림 수 미확인','Notificaciones, recuento sin confirmar'],
+  'notice.pending':['通知，正在確認未讀','Notifications, checking unread count','通知、未読件数を確認中','알림, 읽지 않은 알림 확인 중','Notificaciones, comprobando el recuento'],
+  'notice.recent':['最近通知','Recent notifications','最近の通知','최근 알림','Notificaciones recientes'],
+  'notice.markAll':['全部標為已讀','Mark all as read','すべて既読にする','모두 읽음으로 표시','Marcar todo como leído'],
+  'notice.marking':['標記中…','Marking…','更新中…','표시 중…','Marcando…'],
+  'notice.scope':['包含私訊與已加入聊天室的未讀提醒。','Includes unread direct messages and joined chat rooms.','ダイレクトメッセージと参加中のチャットの未読も含みます。','개인 메시지와 참여한 채팅방의 읽지 않은 메시지도 포함합니다.','Incluye mensajes directos y chats a los que te has unido.'],
+  'notice.loading':['正在更新通知…','Updating notifications…','通知を更新中…','알림 업데이트 중…','Actualizando notificaciones…'],
+  'notice.loadError':['通知暫時無法載入。','Notifications could not load.','通知を読み込めません。','알림을 불러올 수 없습니다.','No se pudieron cargar las notificaciones.'],
+  'notice.allError':['尚未確認全部已讀，請再按一次重試。','Marking all as read is unconfirmed. Try again.','すべて既読にできたか未確認です。もう一度お試しください。','모두 읽음으로 표시되었는지 확인하지 못했습니다. 다시 시도해 주세요.','No se ha confirmado que todo esté leído. Inténtalo de nuevo.'],
+  'notice.readError':['這則通知暫時無法標為已讀；你仍可在對應頁面處理。','This notification could not be marked as read. You can still open its page.','この通知を既読にできません。関連ページは開けます。','이 알림을 읽음으로 표시하지 못했습니다. 관련 페이지는 열 수 있습니다.','No se pudo marcar esta notificación como leída. Puedes abrir su página.'],
+  'notice.empty':['目前沒有通知。','No notifications yet.','通知はありません。','아직 알림이 없습니다.','Aún no hay notificaciones.'],
+  'notice.read':['已讀','Read','既読','읽음','Leído'],
+  'notice.unread':['未讀','Unread','未読','읽지 않음','Sin leer'],
+  'notice.seeAll':['查看所有通知與訊息','View all notifications and messages','すべての通知とメッセージを見る','모든 알림과 메시지 보기','Ver todas las notificaciones y mensajes'],
   'chat.short': ['訊息','Chat','チャット','채팅','Chat'],
   'chat.launch': ['開啟聊天室','Open chats','チャットを開く','채팅 열기','Abrir chats'],
   'chat.launchLoading': ['開啟聊天室，正在確認未讀','Open chats, checking unread messages','チャットを開く、未読を確認中','채팅 열기, 읽지 않은 메시지 확인 중','Abrir chats, comprobando mensajes sin leer'],

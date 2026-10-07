@@ -29,11 +29,8 @@ html[data-device-offline=true]{--chat-safe-top:0px}
   html .messages-hub .messages-thread[data-chat-open=true]>.messages-compose{padding-left:max(10px,var(--app-safe-left));padding-right:max(10px,var(--app-safe-right));padding-bottom:max(12px,var(--app-safe-bottom))}
 }
 @media(max-width:420px){
-  .login-layout:has(.login-entry-tools){row-gap:12px}
+  /* Leave room for different system-font wrapping while keeping artwork and 44px controls. */
+  .login-layout:has(.login-entry-tools){row-gap:4px}
   /* The select retains its accessible Language label while both entry tools fit one row. */
   .login-entry-tools .language-picker label>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-}
-@media(max-width:420px) and (max-height:740px){
-  /* Keep the first account field on short phones without shrinking the logo, copy or targets. */
-  .login-layout:has(.login-entry-tools){row-gap:8px}
 }
