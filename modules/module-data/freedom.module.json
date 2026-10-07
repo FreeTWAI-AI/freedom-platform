@@ -8,7 +8,8 @@
     "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
     "tests/runtime/tenant-data-catalog.test.ts",
     "tests/runtime/tenant-data-isolation.test.ts",
-    "tests/runtime/tenant-rls-runtime-role.test.ts"
+    "tests/runtime/tenant-rls-runtime-role.test.ts",
+    "tests/runtime/tenant-rls-b2a-runtime-role.test.ts"
   ],
   "public_exports": [
     "modules/module-data/catalog.ts",

@@ -15994,8 +15994,8 @@
     },
     {
       "path": "modules/module-data/freedom.module.json",
-      "bytes": 857,
-      "sha256": "b51d738d7fd8742c82e6bf011f8aba2c799362d3d40872ca399fdc94a047c94f"
+      "bytes": 914,
+      "sha256": "b8fdb3f6176ae2a7e2696ee686c0dcadce5197d3f8c11d7049bf3a7c50d02578"
     },
     {
       "path": "modules/module-registry/AGENTS.md",
