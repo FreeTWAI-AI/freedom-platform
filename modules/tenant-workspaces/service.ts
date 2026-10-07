@@ -3,7 +3,7 @@ import {
   AcceptResultSchema, CreateResultSchema, DisplayNameSchema, EmptyObjectSchema, InvitationPageSchema, InvitationRevokeInputSchema,
   InvitationViewSchema, InviteCandidateSchema, InviteInputSchema, LeaveResultSchema, MemberChangeInputSchema, MemberPageSchema,
   MemberViewSchema, TenantCreateInputSchema, TenantEditInputSchema, TenantPageSchema, TenantViewSchema,
-  VersionSchema, WorkspaceCreateInputSchema, WorkspacePageSchema, WorkspaceViewSchema,
+  WorkspaceCreateInputSchema, WorkspacePageSchema, WorkspaceViewSchema,
   type InvitationView, type MemberView, type TenantStatus, type TenantView, type WorkspaceView,
 } from '../../contracts/guild-launchpad/v1/tenant.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
@@ -18,21 +18,13 @@ import {
   MAX_ACTIVE_TENANTS_PER_PERSON, MAX_INVITATION_DAYS, MAX_PENDING_INVITATIONS_PER_TENANT, MAX_WORKSPACES_PER_TENANT,
   RESERVED_SLUGS, can, canInviteRole, canManageRole, roleCapabilities, type TenantCapability,
 } from './authorization.js';
+import { auditTenant, bumpAuthorizationRevision, iso, requireMutableStatus, versionOf } from './facts.js';
 
 const NOT_FOUND = '找不到這個業務空間。';
 const INVITE_MISSING = '找不到這份邀請。';
 const MEMBER_MISSING = '找不到這位成員。';
 const DENIED = '你目前沒有這項業務空間權限。';
 
-function versionOf(value: unknown): string {
-  const text = String(value);
-  return VersionSchema.parse(text);
-}
-function iso(value: unknown): string {
-  const date = value instanceof Date ? value : new Date(String(value));
-  requireCondition(!Number.isNaN(date.getTime()), 500, 'internal_error', '時間無法讀取。');
-  return date.toISOString();
-}
 function writeError(error: unknown): never {
   const pg = error as { code?: string; constraint?: string };
   if (pg.code === '23505' && pg.constraint === 'tenants_public_slug_unique') throw new Problem(409, 'slug_conflict', '這個網址代號已被使用。');
@@ -40,9 +32,7 @@ function writeError(error: unknown): never {
   throw error;
 }
 function requireMutable(context: TenantScopeContext): void {
-  if (context.tenant_status === 'suspended') throw new Problem(409, 'tenant_suspended', '這個業務空間已暫停。');
-  if (context.tenant_status === 'recovery_required') throw new Problem(409, 'tenant_recovery_required', '這個業務空間需要復原後才能變更。');
-  requireCondition(context.tenant_status === 'active', 409, 'tenant_capability_denied', '這個業務空間已封存，目前不能變更。');
+  requireMutableStatus(context.tenant_status);
 }
 function requireCap(context: TenantScopeContext, capability: TenantCapability): void {
   requireCondition(can(context.role, capability), 403, 'tenant_capability_denied', DENIED);
@@ -69,10 +59,7 @@ function limitOf(raw: string | undefined): number {
   return value;
 }
 
-async function audit(q: PoolClient, tenantId: string, actorPrincipalId: string, action: string, targetPrincipalId: string | null, oldRevision: string, newRevision: string, reason: string): Promise<void> {
-  await q.query(`INSERT INTO tenant_authority_audit(tenant_id,actor_principal_id,action,target_principal_id,old_revision,new_revision,reason_code)
-    VALUES($1,$2,$3,$4,$5,$6,$7)`, [tenantId, actorPrincipalId, action, targetPrincipalId, oldRevision, newRevision, reason]);
-}
+
 async function personName(q: PoolClient, principalId: string): Promise<string> {
   const row = (await q.query<{ display_name: string }>(`SELECT u.display_name FROM principals p JOIN users u ON u.user_id=p.user_ref WHERE p.principal_id=$1 AND p.kind='person'`, [principalId])).rows[0];
   requireCondition(row?.display_name, 500, 'internal_error', '成員名稱無法讀取。');
@@ -128,13 +115,7 @@ async function invitationView(q: PoolClient, invitationId: string): Promise<Invi
     expires_at: iso(row.expires_at), version: versionOf(row.version),
   });
 }
-async function bumpAuthority(q: PoolClient, tenantId: string): Promise<string> {
-  const row = (await q.query<{ authorization_revision: string }>(
-    `UPDATE tenants SET authorization_revision=authorization_revision+1, updated_at=clock_timestamp() WHERE tenant_id=$1 RETURNING authorization_revision::text`,
-    [tenantId])).rows[0];
-  requireCondition(row, 404, 'tenant_not_found', NOT_FOUND);
-  return versionOf(row.authorization_revision);
-}
+
 async function activeOwnerCount(q: PoolClient, tenantId: string): Promise<number> {
   return (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships WHERE tenant_id=$1 AND role='owner' AND status='active'`, [tenantId])).rows[0].n;
 }
@@ -179,7 +160,7 @@ export async function createTenant(pool: Pool, actor: Actor, body: unknown, key:
     await q.query(`INSERT INTO resource_scopes(kind,tenant_ref) VALUES('tenant',$1)`, [tenant.tenant_id]);
     await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`, [tenant.tenant_id, context.subject_principal.principal_id]);
     const workspace = (await q.query<{ workspace_id: string }>(`INSERT INTO workspaces(tenant_id,name,is_default) VALUES($1,$2,true) RETURNING workspace_id`, [tenant.tenant_id, workspaceName])).rows[0];
-    await audit(q, tenant.tenant_id, context.subject_principal.principal_id, 'tenant.create', context.subject_principal.principal_id, '1', '1', 'tenant.created');
+    await auditTenant(q, tenant.tenant_id, context.subject_principal.principal_id, 'tenant.create', context.subject_principal.principal_id, '1', '1', 'tenant.created');
     const view = await tenantView(q, tenant.tenant_id, context.subject_principal.principal_id);
     const space = await workspaceView(q, workspace.workspace_id);
     await scopedJournal(q, context, { aggregate_type: 'tenant', id: tenant.tenant_id, version: view.version, operation: 'tenant.create',
@@ -242,7 +223,7 @@ export async function editTenant(pool: Pool, actor: Actor, tenantId: string, bod
       requireCondition(current, 404, 'tenant_not_found', NOT_FOUND);
       checkVersion(versionOf(current.version), expected);
       await q.query(`UPDATE tenants SET display_name=$2, public_slug=$3, version=version+1, updated_at=clock_timestamp() WHERE tenant_id=$1`, [context.tenant_id, input.display_name, input.public_slug]);
-      await audit(q, context.tenant_id, context.principal_id, 'tenant.edit', null, context.authorization_revision, context.authorization_revision, 'tenant.edited');
+      await auditTenant(q, context.tenant_id, context.principal_id, 'tenant.edit', null, context.authorization_revision, context.authorization_revision, 'tenant.edited');
       return tenantView(q, context.tenant_id, context.principal_id);
     });
   } catch (error) { writeError(error); }
@@ -258,7 +239,7 @@ export async function createWorkspace(pool: Pool, actor: Actor, tenantId: string
     const count = (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM workspaces WHERE tenant_id=$1`, [context.tenant_id])).rows[0].n;
     if (count >= MAX_WORKSPACES_PER_TENANT) throw new Problem(429, 'quota_exceeded', '這個業務空間的工作區已達上限。', 60);
     const workspace = (await q.query<{ workspace_id: string }>(`INSERT INTO workspaces(tenant_id,name) VALUES($1,$2) RETURNING workspace_id`, [context.tenant_id, input.name])).rows[0];
-    await audit(q, context.tenant_id, context.principal_id, 'tenant.workspace.create', null, context.authorization_revision, context.authorization_revision, 'tenant.workspace.created');
+    await auditTenant(q, context.tenant_id, context.principal_id, 'tenant.workspace.create', null, context.authorization_revision, context.authorization_revision, 'tenant.workspace.created');
     return workspaceView(q, workspace.workspace_id);
   });
 }
@@ -334,7 +315,7 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
       const created = (await q.query<{ invitation_id: string }>(`INSERT INTO tenant_invitations(tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
         VALUES($1,$2,$3,'[]'::jsonb,$4::timestamptz,'pending',$5) RETURNING invitation_id`,
       [context.tenant_id, input.invitee_principal_id, input.role, input.expires_at, context.principal_id])).rows[0];
-      await audit(q, context.tenant_id, context.principal_id, 'tenant.invite', input.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.created');
+      await auditTenant(q, context.tenant_id, context.principal_id, 'tenant.invite', input.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.created');
       return invitationView(q, created.invitation_id);
     });
   } catch (error) { writeError(error); }
@@ -430,8 +411,8 @@ export async function acceptInvitation(pool: Pool, actor: Actor, tenantId: strin
       await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,$3,'active',clock_timestamp())`, [tenantId, context.subject_principal.principal_id, invitation.role]);
     }
     await q.query(`UPDATE tenant_invitations SET state='accepted', version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId]);
-    const revision = await bumpAuthority(q, tenantId);
-    await audit(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.accept', context.subject_principal.principal_id, tenant.authorization_revision, revision, 'tenant.invite.accepted');
+    const revision = await bumpAuthorizationRevision(q, tenantId);
+    await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.accept', context.subject_principal.principal_id, tenant.authorization_revision, revision, 'tenant.invite.accepted');
     await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: revision, operation: 'tenant.invite.accept',
       data: { tenant_id: tenantId, principal_id: context.subject_principal.principal_id, role: invitation.role, status: 'active', authorization_revision: revision },
       eventType: 'freedom.tenant.membership.changed.v1' });
@@ -463,7 +444,7 @@ export async function declineInvitation(pool: Pool, actor: Actor, tenantId: stri
     await q.query(`UPDATE tenant_invitations SET state='declined', version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId]);
     const tenant = (await q.query<{ authorization_revision: string }>(`SELECT authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
     requireCondition(tenant, 404, 'invitation_not_found', INVITE_MISSING);
-    await audit(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.decline', context.subject_principal.principal_id, tenant.authorization_revision, tenant.authorization_revision, 'tenant.invite.declined');
+    await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.decline', context.subject_principal.principal_id, tenant.authorization_revision, tenant.authorization_revision, 'tenant.invite.declined');
     return invitationView(q, invitationId);
   });
 }
@@ -486,7 +467,7 @@ export async function revokeInvitation(pool: Pool, actor: Actor, tenantId: strin
     requireCondition(invitation.state === 'pending', 409, 'invitation_closed', '這份邀請已結束。');
     checkVersion(versionOf(invitation.version), expected);
     await q.query(`UPDATE tenant_invitations SET state='revoked', revoked_reason=$2, version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId, input.reason]);
-    await audit(q, context.tenant_id, context.principal_id, 'tenant.invite.revoke', invitation.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.revoked');
+    await auditTenant(q, context.tenant_id, context.principal_id, 'tenant.invite.revoke', invitation.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.revoked');
     return invitationView(q, invitationId);
   });
 }
@@ -516,8 +497,8 @@ export async function changeMember(pool: Pool, actor: Actor, tenantId: string, p
       await q.query(`UPDATE tenant_memberships SET role=$3,status='revoked',version=version+1,revoked_at=clock_timestamp(),updated_at=clock_timestamp()
         WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId, input.role]);
     }
-    const revision = await bumpAuthority(q, tenantId);
-    await audit(q, tenantId, context.principal_id, 'tenant.member.change', principalId, context.authorization_revision, revision, 'tenant.member.changed');
+    const revision = await bumpAuthorizationRevision(q, tenantId);
+    await auditTenant(q, tenantId, context.principal_id, 'tenant.member.change', principalId, context.authorization_revision, revision, 'tenant.member.changed');
     await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: revision, operation: 'tenant.member.change',
       data: { tenant_id: tenantId, principal_id: principalId, role: input.role, status: input.status, authorization_revision: revision },
       eventType: 'freedom.tenant.membership.changed.v1' });
@@ -541,8 +522,8 @@ export async function leaveTenant(pool: Pool, actor: Actor, tenantId: string, bo
     const updated = (await q.query<{ version: string }>(`UPDATE tenant_memberships SET status='revoked', version=version+1, revoked_at=clock_timestamp(), updated_at=clock_timestamp()
       WHERE tenant_id=$1 AND principal_id=$2 RETURNING version::text`, [tenantId, context.principal_id])).rows[0];
     requireCondition(updated, 404, 'tenant_not_found', NOT_FOUND);
-    const revision = await bumpAuthority(q, tenantId);
-    await audit(q, tenantId, context.principal_id, 'tenant.member.leave', context.principal_id, context.authorization_revision, revision, 'tenant.member.left');
+    const revision = await bumpAuthorizationRevision(q, tenantId);
+    await auditTenant(q, tenantId, context.principal_id, 'tenant.member.leave', context.principal_id, context.authorization_revision, revision, 'tenant.member.left');
     await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: revision, operation: 'tenant.member.leave',
       data: { tenant_id: tenantId, principal_id: context.principal_id, role: mine.role, status: 'revoked', authorization_revision: revision },
       eventType: 'freedom.tenant.membership.changed.v1' });

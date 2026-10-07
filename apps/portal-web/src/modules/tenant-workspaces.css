@@ -47,3 +47,21 @@
 @media (max-width: 720px) {
   .tenant-workspace .tenant-create .actions > .btn-primary { width: 100%; }
 }
+
+.tenant-authority-dialog {
+  width: min(32rem, calc(100vw - 1.5rem));
+  margin: auto;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--ink);
+}
+
+.tenant-authority-dialog::backdrop { background: #11182799; }
+
+.tenant-authority-dialog .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+@media (max-width: 720px) {
+  .tenant-authority-dialog .tenant-authority-actions > .btn-primary { width: 100%; }
+}

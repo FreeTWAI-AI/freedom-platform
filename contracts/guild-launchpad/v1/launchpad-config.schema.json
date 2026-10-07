@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "guild-launchpad.config/v1"
+    },
+    "guild_key": {
+      "type": "string"
+    },
+    "mission_override": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blocks": {
+      "maxItems": 7,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mission",
+              "announcements",
+              "skill_books",
+              "applications",
+              "community_tasks",
+              "my_work",
+              "support"
+            ]
+          },
+          "order": {
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "order",
+          "enabled",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "application_refs": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "application_key": {
+            "type": "string"
+          },
+          "release_ref": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "application_key",
+          "release_ref",
+          "order"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "starter": {
+      "type": "object",
+      "properties": {
+        "title_label": {
+          "type": "string"
+        },
+        "objective_hint": {
+          "type": "string"
+        },
+        "note_hint": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title_label",
+        "objective_hint",
+        "note_hint"
+      ],
+      "additionalProperties": false
+    },
+    "support": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "platform_help",
+            "guild_public_contact"
+          ]
+        },
+        "public_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "public_url"
+      ],
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "guild_key",
+    "mission_override",
+    "blocks",
+    "application_refs",
+    "starter",
+    "support",
+    "extensions"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/launchpad-config",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: guild_key_pattern_and_bounds, text_control_surrogate_and_utf8_bounds, block_id_stable_key, block_kind_set_and_duplicates, block_order_range_and_uniqueness, mandatory_block_enabled, application_refs_rejected, public_url_https."
+}

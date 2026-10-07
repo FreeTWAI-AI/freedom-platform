@@ -1,12 +1,13 @@
 import { z } from 'zod';
+import { GuildKey, Version } from './primitives.js';
 
-/** Positive decimal version. On the wire, a field literally named aggregate_version is a JSON number. */
-export const Version = z.string().regex(/^[1-9][0-9]{0,18}$/);
-export const GuildKey = z.string().min(1).max(100).regex(/^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/);
+export { GuildKey, Version };
+
 export const Category = z.enum(['internal', 'external', 'professional_industry']);
 export const CategoryReview = z.enum(['pending', 'approved']);
 export const MigrationState = z.enum(['legacy', 'backfilled', 'switched']);
-const plainTag = z.string().trim().min(1).max(64).refine(value => !/[\u0000-\u001f\u007f<>]/.test(value), '請使用純文字標籤。');
+// Max is the raw length so generated maxLength matches what the server receives. Trim still applies inside that bound.
+const plainTag = z.string().max(64).trim().min(1).refine(value => !/[\u0000-\u001f\u007f<>]/.test(value), '請使用純文字標籤。');
 
 export const CapabilityTags = z.array(plainTag).max(20).refine(tags => new Set(tags).size === tags.length, '標籤不可重複。');
 
@@ -57,7 +58,7 @@ export const LeaveV2Input = z.object({
 export const ClassificationInput = z.object({
   category: Category,
   capability_tags: CapabilityTags,
-  reason: z.string().trim().min(3).max(1000),
+  reason: z.string().max(1000).trim().min(3),
 }).strict();
 
 export const BackfillInput = z.object({

@@ -8,7 +8,7 @@ import {authenticate} from '../../../../modules/identity-membership/service.js';
 import {linkNominatedMember,nominatedGuildAppointments} from '../../../../modules/platform-admin/leadership.js';
 import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.js';
 import type {Pool} from 'pg';
-import {requireCondition} from '../../../../packages/shared/problem.js';
+import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
 import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,classifyGuild,backfillGuildPreferencesAdmin,switchGuildPreferencesAdmin,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
 import {listGuildCategories} from '../../../../modules/positioning/guild-categories.js';
@@ -18,6 +18,7 @@ import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/commun
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
 import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
+import {approveRecoveryCase,closeRecoveryCase,executeRecoveryCase,getRecoveryCase,openRecoveryCase} from '../../../../modules/tenant-workspaces/recovery.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
 export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'},guildLaunchpadEnabled=false){
   const app=new Hono<AdminEnv>();
@@ -104,6 +105,25 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     app.post('/guild-preferences/switch',async c=>c.json(await switchGuildPreferencesAdmin(pool,await command(c))));
   }
   app.route('/',createRepoMaintainerAdminRoutes(pool));
+  if(guildLaunchpadEnabled){
+    const matched=async(c:Context<AdminEnv>)=>{
+      const version=c.req.header('If-Match');
+      if(version===undefined)throw new Problem(428,'version_required','請提供 If-Match 版本。');
+      requireCondition(/^"[1-9][0-9]{0,18}"$/.test(version)&&BigInt(version.slice(1,-1))<=9223372036854775807n,400,'invalid_version','If-Match 須為加引號的正整數版本。');
+      return command(c);
+    };
+    const recovery=(c:Context<AdminEnv>,value:{version?:string;case?:{version?:string}},status=200)=>{
+      const version=value.case?.version??value.version;
+      if(version)c.header('ETag',`"${version}"`);
+      c.header('Cache-Control','private, no-store');c.header('Vary','Cookie');
+      return c.json(value,status as 200);
+    };
+    app.post('/tenant-recovery-cases',async c=>recovery(c,await openRecoveryCase(pool,await command(c)),201));
+    app.get('/tenant-recovery-cases/:id',async c=>recovery(c,await getRecoveryCase(pool,c.get('admin'),z.uuid().parse(c.req.param('id')))));
+    app.post('/tenant-recovery-cases/:id/approve',async c=>recovery(c,await approveRecoveryCase(pool,await matched(c),z.uuid().parse(c.req.param('id')))));
+    app.post('/tenant-recovery-cases/:id/execute',async c=>recovery(c,await executeRecoveryCase(pool,await matched(c),z.uuid().parse(c.req.param('id')))));
+    app.post('/tenant-recovery-cases/:id/close',async c=>recovery(c,await closeRecoveryCase(pool,await matched(c),z.uuid().parse(c.req.param('id')))));
+  }
   app.all('*',c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'找不到這個管理 API。'},404));
   return app;
 }
