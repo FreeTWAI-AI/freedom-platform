@@ -1,0 +1,33 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "guild-workspace",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/guild-workspace/**",
+    "migrations/122_guild_launchpad_config.sql",
+    "contracts/guild-launchpad/v1/config.ts",
+    "apps/platform-api/src/routes/guild-launchpad.ts",
+    "apps/portal-web/src/modules/GuildLaunchpad.tsx",
+    "apps/portal-web/src/modules/GuildLaunchpad.css",
+    "tests/runtime/guild-launchpad.test.ts",
+    "tests/runtime/guild-launchpad-deadline.test.ts",
+    "tests/e2e/guild-launchpad.spec.ts"
+  ],
+  "public_exports": [
+    "modules/guild-workspace/launchpad-config.ts",
+    "modules/guild-workspace/launchpad-view.ts",
+    "apps/platform-api/src/routes/guild-launchpad.ts",
+    "contracts/guild-launchpad/v1/config.ts"
+  ],
+  "dependencies": ["command-core"],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "AGENTS.md",
+    "DESIGN.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": ["current-authority-before-replay", "public-launchpad-has-no-drafts"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

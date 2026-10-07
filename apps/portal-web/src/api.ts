@@ -18,6 +18,7 @@ export class ApiError extends Error {
   readonly accessExpired: boolean
   readonly cfRay?: string
   readonly requestId?: string
+  readonly errors?: {code: string; path: string}[]
 
   constructor(init: {
     message: string
@@ -31,6 +32,7 @@ export class ApiError extends Error {
     accessExpired?: boolean
     cfRay?: string
     requestId?: string
+    errors?: {code: string; path: string}[]
   }) {
     super(init.message)
     this.name = 'ApiError'
@@ -44,6 +46,7 @@ export class ApiError extends Error {
     this.accessExpired = init.accessExpired ?? false
     this.cfRay = init.cfRay
     this.requestId = init.requestId
+    this.errors = init.errors
     this.unauthorized = this.status === 401
     this.conflict = this.status === 409 || this.status === 412 || this.code === 'conflict'
   }
@@ -208,7 +211,7 @@ export class PortalClient {
     const onCallerAbort = () => controller.abort()
     if (options.signal) {
       if (options.signal.aborted) controller.abort()
-      else options.signal.addEventListener('abort', onCallerAbort)
+      else options.signal.addEventListener('abort', onCallerAbort, { once: true })
     }
     const currentAuthResponse = () => this.csrfToken === requestCsrfToken && !controller.signal.aborted
     let response: Response | undefined
@@ -270,6 +273,7 @@ export class PortalClient {
           title: serverFailure && !knownGitHub ? undefined : problem?.title,
           detail: serverFailure ? (knownGitHub ? safeDetail : undefined) : problem?.detail,
           code: serverFailure && !knownGitHub ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
+          errors: serverFailure && !knownGitHub ? undefined : fieldErrors(payload),
         })
       }
       return payload as T
@@ -277,7 +281,7 @@ export class PortalClient {
     try { return await Promise.race([operation(), timeout]) }
     catch (cause) {
       if (options.signal?.aborted) {
-        throw cause instanceof ApiError ? cause : new ApiError({ message: '已停止讀取。', status: response?.status, network: true })
+        throw new ApiError({ message: '已取消', code: 'aborted', status: 0, network: true })
       }
       const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
       if(!options.background&&!options.suppressConsole)logConsoleEvent({
@@ -305,6 +309,18 @@ async function readJson(response: Response): Promise<unknown> {
       status: response.status,
     })
   }
+}
+
+function fieldErrors(payload: unknown): {code: string; path: string}[] | undefined {
+  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as {errors?: unknown}).errors)) return undefined
+  const errors = (payload as {errors: unknown[]}).errors.flatMap(item => {
+    if (!item || typeof item !== 'object') return []
+    const code = (item as {code?: unknown}).code
+    const path = (item as {path?: unknown}).path
+    if (typeof code !== 'string' || typeof path !== 'string' || !/^[a-z0-9_]{1,80}$/.test(code) || path.length > 240) return []
+    return [{code, path}]
+  })
+  return errors.length ? errors : undefined
 }
 
 function isProblem(value: unknown): value is ProblemDetails {

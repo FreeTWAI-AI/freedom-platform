@@ -7,6 +7,7 @@ import { Onboarding, guildMasterLabel, type GuildSummary, type OnboardingView } 
 import { loadLabels, type MemberCardData } from './Membership';
 import './GuildDesign.css';
 import {GuildCard,useUniformGuildCards,type GuildCategorySlot} from './GuildCard';
+import {GuildLaunchpad,guildKeyFromHash} from './GuildLaunchpad';
 import {GuildAnswersSection} from './GuildQuestions';
 import {GuildTopicFilter} from './GuildFilters';
 import {formatIsoLocal} from '../format';
@@ -66,10 +67,11 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
   const [preferences,setPreferences]=useState<GuildPreferences|null>(null),[editing,setEditing]=useState(false),[secondaryDraft,setSecondaryDraft]=useState<string[]>([]);
   const [applications,setApplications]=useState<GuildApplication[]>([]),[showApply,setShowApply]=useState(false),[showAllApplications,setShowAllApplications]=useState(false);
   const [draft,setDraft]=useState({name:'',profession:'',reason:''}),[applicationSuccess,setApplicationSuccess]=useState(''),[focusDraft,setFocusDraft]=useState(false),[focusGuild,setFocusGuild]=useState<string|null>(null);
+  const launchpadEnabled=site?.guild_launchpad_enabled===true;
   const [board,setBoard]=useState<CategoryBoard|null>(null),[categoryBusy,setCategoryBusy]=useState(false),[categoryNote,setCategoryNote]=useState(''),[held,setHeld]=useState<PreferenceDraft|null>(null),[unknownDraft,setUnknownDraft]=useState<{draft:PreferenceDraft;version:number}|null>(null),[leaveDraft,setLeaveDraft]=useState<{guild:GuildSummary;section:string}|null>(null),[focusAction,setFocusAction]=useState<string|null>(null);
   const generation=useRef(0),successRef=useRef<HTMLParagraphElement>(null),nameRef=useRef<HTMLInputElement>(null),preferenceKeys=useRef(new Map<string,string>());
+  const [launchpadKey,setLaunchpadKey]=useState(()=>launchpadEnabled?guildKeyFromHash(window.location.hash):null);
   const {mutate,busy,error,setError}=useModuleMutation(client);
-  const launchpad=site?.guild_launchpad_enabled===true;
   // A roster change refreshes expert counts without unmounting the open members dialog.
   // The v2 read stays outside this Promise.all: a 503 must not fail the guild page.
   const load=useCallback(async(quiet=false)=>{
@@ -78,7 +80,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
       const [g,p,a]=await Promise.all([client.get<{items:GuildSummary[]}>('/guilds/directory'),client.get<GuildPreferences>('/me/guild-preferences'),client.get<{items:GuildApplication[]}>('/guild-applications')]);
       if(sequence!==generation.current)return;
       setGuilds(g.items);setPreferences(p);setApplications(a.items);if(quiet)setLoadError(null);
-      if(!launchpad){setBoard(null);return;}
+      if(!launchpadEnabled){setBoard(null);return;}
       try{
         const view=await client.get<PreferenceView>('/me/guild-preferences/v2',{background:true});
         if(sequence!==generation.current)return;
@@ -88,8 +90,9 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
       }catch{if(sequence===generation.current)setBoard(null);}
     }catch(e){if(sequence===generation.current)setLoadError(failure(e));}
     finally{if(sequence===generation.current)setLoading(false);}
-  },[client,launchpad,setError]);
-  useEffect(()=>{void load();return()=>{generation.current++;};},[load]);
+  },[client,launchpadEnabled,setError]);
+  useEffect(()=>{if(launchpadKey)return()=>{generation.current++;};void load();return()=>{generation.current++;};},[load,launchpadKey]);
+  useEffect(()=>{const sync=()=>setLaunchpadKey(launchpadEnabled?guildKeyFromHash(window.location.hash):null);sync();window.addEventListener('hashchange',sync);window.addEventListener('popstate',sync);return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync);};},[launchpadEnabled]);
   useEffect(()=>{if(applicationSuccess)successRef.current?.focus();},[applicationSuccess]);
   useEffect(()=>{if(showApply&&focusDraft){nameRef.current?.focus();setFocusDraft(false);}},[showApply,focusDraft]);
   useEffect(()=>{
@@ -221,6 +224,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version??undefined);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
+  if(launchpadKey)return <GuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" onBack={()=>{window.location.hash='guilds';}}/>;
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
       {!loading&&!loadError&&<p className="guild-overview" aria-label="我的公會概況"><span>已加入 <strong>{joinedCount}</strong> 個公會</span><span>共 {guilds.length} 個公會</span></p>}
@@ -256,13 +260,13 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
         const primary=board.view.primaries.find(item=>item.category===category);
         const guild=primary?.guild_key?guilds.find(item=>item.guild_key===primary.guild_key):undefined;
         const invalidated=board.view.invalidated.find(item=>item.category===category);
-        return <fieldset key={category}><legend>{SECTION_LABELS[category]}</legend>{guild?<GuildCard guild={guild} client={client} busy={busy||categoryBusy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>undefined} onMembership={()=>void change(guild)} categorySlot={categorySlot(guild)}/>:<p>尚未選擇</p>}{invalidated&&<p className="field-hint">先前的{SECTION_LABELS[category]}已失效，請重新選擇。</p>}</fieldset>;
+        return <fieldset key={category}><legend>{SECTION_LABELS[category]}</legend>{guild?<GuildCard guild={guild} client={client} busy={busy||categoryBusy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>undefined} onMembership={()=>void change(guild)} categorySlot={categorySlot(guild)} launchpadEnabled={launchpadEnabled} onLaunchpad={()=>{window.location.hash=`guilds/${guild.guild_key}`;}}/>:<p>尚未選擇</p>}{invalidated&&<p className="field-hint">先前的{SECTION_LABELS[category]}已失效，請重新選擇。</p>}</fieldset>;
       })}</div>}
       {categoryNote&&<div role="status" className="banner status-note"><p>{categoryNote}</p>{unknownDraft&&<button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void sendPreference(unknownDraft.draft,unknownDraft.version)}>再試一次</button>}{held&&board&&!unknownDraft&&<><p>草稿：{SECTION_LABELS[held.category]} · {held.guild_key?held.guildName:'清空'}</p><p>目前：{SECTION_LABELS[held.category]} · {guilds.find(item=>item.guild_key===board.view.primaries.find(slot=>slot.category===held.category)?.guild_key)?.name??'尚未選擇'}</p><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void load()}>讀取新版本</button><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>void submitFresh(held)}>用新版本送出草稿</button></>}</div>}
       {leaveDraft&&<div role="status" className="banner status-note"><p>退出{leaveDraft.guild.name}會清空{leaveDraft.section}。私人業務資料不會移動，也不會刪除。</p><div className="actions"><button type="button" className="btn btn-primary" disabled={categoryBusy} onClick={()=>void leaveV2(leaveDraft.guild,true,leaveDraft.section)}>確認退出</button><button type="button" className="btn btn-ghost" disabled={categoryBusy} onClick={()=>setLeaveDraft(null)}>取消</button></div></div>}
       {!board&&<div className="guild-secondary-toolbar"><button type="button" className="btn btn-ghost" aria-expanded={editing} aria-controls="secondary-guild-editor" disabled={busy} onClick={()=>{setSecondaryDraft(secondaryKeys);setEditing(!editing);}}>設定次要公會</button><span className="muted">主要 1 個・次要最多 2 個</span></div>}
       {!board&&editing&&<form id="secondary-guild-editor" className="card guild-secondary-editor" onSubmit={saveSecondary}><fieldset disabled={busy}><legend>選擇次要公會 · {secondaryDraft.length} / 2</legend><div className="guild-secondary-choices">{classified.filter(g=>g.membership?.state==='active'&&!g.is_primary).map(g=><label key={g.guild_key} className="checkbox-row"><input type="checkbox" checked={secondaryDraft.includes(g.guild_key)} disabled={!secondaryDraft.includes(g.guild_key)&&secondaryDraft.length>=2} onChange={event=>setSecondaryDraft(current=>event.target.checked?[...current,g.guild_key]:current.filter(key=>key!==g.guild_key))}/>{g.name}{secondaryDraft.includes(g.guild_key)&&<span className="muted">次要 {secondaryDraft.indexOf(g.guild_key)+1}</span>}</label>)}</div>{joinedCount<2&&<p>先加入另一個公會，再設為次要公會。</p>}</fieldset><div className="actions"><button className="btn btn-primary" disabled={busy}>儲存次要公會</button><button className="btn btn-ghost" type="button" disabled={busy} onClick={()=>setEditing(false)}>取消</button></div></form>}
-      <div ref={cardsRoot} className="guild-groups">{groups.filter(group=>scope==='all'||group.key!=='unjoined').map(group=><section key={group.key} className="guild-group" aria-label={group.title}><header className="guild-group-heading"><h2>{group.title}</h2><span className="muted">{group.items.length}</span></header>{group.items.length?<div className="card-grid guild-directory">{group.items.map(g=><GuildCard key={g.guild_key} guild={g} client={client} busy={busy||categoryBusy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>void primary(g)} onSecondary={board?undefined:()=>void toggleSecondary(g)} secondaryFull={secondaryKeys.length>=2} onMembership={()=>void change(g)} categorySlot={categorySlot(g)}/>)}</div>:<p className="muted">{search?'沒有符合的公會。':group.key==='featured'?'加入公會後，設定主要與次要公會。':group.key==='joined'?'沒有其他已加入公會。':'所有公會都已加入。'}</p>}</section>)}</div>
+      <div ref={cardsRoot} className="guild-groups">{groups.filter(group=>scope==='all'||group.key!=='unjoined').map(group=><section key={group.key} className="guild-group" aria-label={group.title}><header className="guild-group-heading"><h2>{group.title}</h2><span className="muted">{group.items.length}</span></header>{group.items.length?<div className="card-grid guild-directory">{group.items.map(g=><GuildCard key={g.guild_key} guild={g} client={client} busy={busy||categoryBusy} viewerId={session.user.user_id} onChanged={()=>void load(true)} onPrimary={()=>void primary(g)} onSecondary={board?undefined:()=>void toggleSecondary(g)} secondaryFull={secondaryKeys.length>=2} onMembership={()=>void change(g)} categorySlot={categorySlot(g)} launchpadEnabled={launchpadEnabled} onLaunchpad={()=>{window.location.hash=`guilds/${g.guild_key}`;}}/>)}</div>:<p className="muted">{search?'沒有符合的公會。':group.key==='featured'?'加入公會後，設定主要與次要公會。':group.key==='joined'?'沒有其他已加入公會。':'所有公會都已加入。'}</p>}</section>)}</div>
     </>}
   </section>;
 }

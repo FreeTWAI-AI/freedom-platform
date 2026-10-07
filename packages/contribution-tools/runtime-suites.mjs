@@ -35,7 +35,7 @@ command-core commerce credential-ingest-authorizations credential-ingest-broker 
 event-highlights events-past execution-authority-adversarial execution-prerequisites execution-runs execution-runs-adversarial execution-runs-grants execution-state execution-state-adversarial fixed-behavior-harness flows freedom_env game-console-feed game-console-routing game-console
 github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-category-preferences guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
-guild-workspace identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
+guild-workspace guild-launchpad guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
 model-broker-authorizations model-broker-bridge model-broker-client model-broker-process model-broker-bridge-adversarial
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial

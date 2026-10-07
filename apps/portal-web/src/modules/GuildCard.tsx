@@ -10,7 +10,7 @@ import {GuildTags} from './GuildFilters';
 import {openMemberChat} from './chat-entry';
 
 export type GuildCategorySlot={pending:boolean;selected:boolean;section:string;onToggle?:()=>void;actionId?:string};
-export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false,viewerId,onChanged,categorySlot}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean;viewerId?:string;onChanged?:()=>void;categorySlot?:GuildCategorySlot}) {
+export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false,viewerId,onChanged,categorySlot,launchpadEnabled=false,onLaunchpad}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean;viewerId?:string;onChanged?:()=>void;categorySlot?:GuildCategorySlot;launchpadEnabled?:boolean;onLaunchpad?:()=>void}) {
   const [panel,setPanel]=useState<'books'|'members'|'announcements'|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement|null>(null),titleId=useId();
   const active=g.membership?.state==='active',firstBook=g.skill_books[0],legacyPrimary=!categorySlot&&g.is_primary;
@@ -29,7 +29,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
     <div className="guild-card-controls">
       {active&&<div className="guild-first-step"><p className="multiline-text">{g.first_step}</p><button type="button" className="btn btn-ghost" onClick={()=>openMemberChat('guild',g.guild_key)}>進入公會聊天室</button></div>}
       <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('books',event.currentTarget)}>公會技能書庫 · {g.skill_books.length}</button>
-      <div className="guild-card-links"><button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('members',event.currentTarget)}>查看成員</button>{active&&<button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('announcements',event.currentTarget)}>公會公告</button>}</div>
+      <div className="guild-card-links"><button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('members',event.currentTarget)}>查看成員</button>{active&&<button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={event=>open('announcements',event.currentTarget)}>公會公告</button>}{launchpadEnabled&&<button type="button" className="btn btn-ghost" onClick={onLaunchpad}>啟動台</button>}</div>
       <div className="actions">{categorySlot&&active&&!categorySlot.pending&&categorySlot.onToggle&&<button type="button" className="btn btn-ghost" data-category-action={categorySlot.actionId} disabled={busy} onClick={categorySlot.onToggle}>{categorySlot.selected?'取消本類主力':'設為本類主力'}</button>}{!categorySlot&&active&&!g.is_primary&&<button className="btn btn-primary" disabled={busy} onClick={onPrimary}>設為主要公會</button>}{!categorySlot&&active&&!g.is_primary&&onSecondary&&<button type="button" className="btn btn-ghost" disabled={busy||(!g.is_secondary&&secondaryFull)} onClick={onSecondary}>{g.is_secondary?'取消次要公會':'設為次要公會'}</button>}<button type="button" className="btn btn-ghost" disabled={busy||legacyPrimary} onClick={onMembership}>{active?'退出':'加入'}{g.name}</button></div>
       {categorySlot?.pending&&<p className="field-hint">分類整理中，仍可使用公會工作區。</p>}
       {legacyPrimary&&<p className="field-hint">退出前，請先更換主要公會。</p>}

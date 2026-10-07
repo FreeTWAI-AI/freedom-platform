@@ -98,6 +98,9 @@ const FOUNDATION_NAMES = [
   // Tenant business spaces, memberships, invitations and authority audit; guild
   // roles gain no business-space authority and recognition activates nothing.
   '121_tenant_workspaces.sql',
+  // Versioned guild launchpad config, pointers and expiring delegations; guild
+  // roles gain no business-space or private-work authority.
+  '122_guild_launchpad_config.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -44,6 +44,7 @@ import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
+import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
 import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
 import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
 import { PrivateWorkAI } from './modules/PrivateWorkAI'
@@ -125,13 +126,16 @@ function MemberApp() {
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
+  const [locationHash,setLocationHash]=useState(() => window.location.hash)
+  const [siteLoaded,setSiteLoaded]=useState(false)
+  const [launchpadLoginRequested,setLaunchpadLoginRequested]=useState(false)
   const [sharedCardToken,setSharedCardToken]=useState(memberCardFromLocation)
   const [memberLoginRequested,setMemberLoginRequested]=useState(false)
   const returnToWorkshop=()=>{window.history.replaceState(null,'','/#home');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
-  useEffect(()=>{const changed=()=>{setPublicEventId(eventIdFromLocation());setEventLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
+  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -139,7 +143,7 @@ function MemberApp() {
     try { const value=await client.get<OnboardingView>('/me/onboarding');if(generation===sessionGeneration.current)setOnboarding(value) }
     catch (error) { if(generation===sessionGeneration.current)setGateError(describeError(error).message) }
   }, [])
-  useEffect(() => { void client.get<SiteConfig>('/site').then(setSite).catch(() => setSite(null)) }, [])
+  useEffect(() => { void client.get<SiteConfig>('/site').then(value => { setSite(value); setSiteLoaded(true) }).catch(() => { setSite(null); setSiteLoaded(true) }) }, [])
   useEffect(() => { if (session) void loadOnboarding(); else setOnboarding(null) }, [session, loadOnboarding])
 
   const applySession = useCallback((next: SessionPayload) => {
@@ -230,6 +234,9 @@ function MemberApp() {
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} onLogin={()=>setEventLoginRequested(true)}/>;
+    const launchpadKey=guildKeyFromHash(locationHash);
+    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/>;
+    if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
     return (
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
@@ -452,7 +459,8 @@ function Workspace({
     document.addEventListener('visibilitychange',heartbeat);
     return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',heartbeat)};
   },[session.user.user_id]);
-  const [tab, setTab] = useState<TabId>(() => tabFromHash())
+  const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
+  const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const menuToggle = useRef<HTMLButtonElement>(null)
@@ -482,11 +490,18 @@ function Workspace({
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
+  const launchpadEnabled = site?.guild_launchpad_enabled === true
   useEffect(() => {
-    const changed = () => setTab(tabFromHash())
+    setLocationHash(window.location.hash)
+    setTab(tabFromHash(launchpadEnabled))
+  }, [launchpadEnabled])
+  useEffect(() => {
+    const changed = () => { setLocationHash(window.location.hash); setTab(tabFromHash(launchpadEnabled)) }
     window.addEventListener('hashchange', changed)
-    return () => window.removeEventListener('hashchange', changed)
-  }, [])
+    window.addEventListener('popstate', changed)
+    return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
+  }, [launchpadEnabled])
+  const launchpadOpen = site?.guild_launchpad_enabled === true && tab === 'guilds' && guildKeyFromHash(locationHash) !== null
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<ActionError | null>(null)
   const keysRef = useRef(new Map<string, string>())
@@ -575,7 +590,7 @@ function Workspace({
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
               <div>
-                <h1 id="workspace-page-title">{tabTitle(tab)}</h1>
+                {launchpadOpen ? null : <h1 id="workspace-page-title">{tabTitle(tab)}</h1>}
               </div>
               <PageTools pageId={tab} client={client}/>
               <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
@@ -631,10 +646,11 @@ function tabTitle(tab: TabId): string {
   return TAB_TITLES[tab]
 }
 
-function tabFromHash(): TabId {
+function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
+  if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'

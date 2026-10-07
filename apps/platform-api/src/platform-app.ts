@@ -41,6 +41,7 @@ import {skillDiscovery} from '../../../modules/community/discovery.js';
 import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {createTenantWorkspaceRoutes} from './routes/tenant-workspaces.js';
+import {createGuildLaunchpadRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
 import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
@@ -267,6 +268,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(result);
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -317,6 +319,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/api/v1',createGuildLaunchpadRoutes(pool));
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));

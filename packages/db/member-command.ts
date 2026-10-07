@@ -12,11 +12,12 @@ export interface Command {
 }
 
 export async function memberCommand<T>(pool: Pool, input: Command,
-  authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
+  authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>,
+  revalidate?: (q: PoolClient) => Promise<void>): Promise<T> {
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   return runCommandCore(pool, {
     authenticateAndLock: q => lockMemberSession(q, input.actor, input.lockUser),
-    ...legacyMemberReceiptPorts<T>(input),
+    ...legacyMemberReceiptPorts<T>(input, revalidate),
   }, authorize, run);
 }
 
@@ -24,7 +25,7 @@ export async function memberCommand<T>(pool: Pool, input: Command,
  * receipt profile. Historical SQL, advisory key and digest are shared verbatim
  * with the narrowly reviewed avatar compatibility adapter. Not a public index
  * export; callers must authenticate and authorize through runCommandCore. */
-export function legacyMemberReceiptPorts<T>(input: Command): Omit<CommandPorts<T>, 'authenticateAndLock'> {
+export function legacyMemberReceiptPorts<T>(input: Command, revalidate?: (q: PoolClient) => Promise<void>): Omit<CommandPorts<T>, 'authenticateAndLock'> {
   return {
     async lockReceipt(q) {
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${input.actor.user_id}/${input.operation}/${input.key}`]);
@@ -35,12 +36,16 @@ export function legacyMemberReceiptPorts<T>(input: Command): Omit<CommandPorts<T
       // Receipt statements can themselves wait after current authorization.
       // Refresh on the same locked client before replay or a new domain effect.
       await assertCurrentSessionClock(q, input.actor);
+      // Domain deadlines are not the session clock. The optional check runs after
+      // this wait, including when SELECT finds no receipt, and before a replay returns.
+      if (revalidate) await revalidate(q);
       return prior.rowCount ? { request_sha256: prior.rows[0].request_sha256, response: prior.rows[0].response as T } : null;
     },
     async writeReceipt(q, hash, response) {
       await q.query('INSERT INTO command_receipts(user_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.actor.user_id,input.operation,input.key,hash,JSON.stringify(response)]);
       // Expiry during an INSERT wait rolls back the receipt and domain facts.
       await assertCurrentSessionClock(q, input.actor);
+      if (revalidate) await revalidate(q);
     },
   };
 }
