@@ -7,6 +7,8 @@ import { artifactPath, parseJson, readBounded, sha256 } from './io.mjs';
 
 const PROGRESS_SCHEMA = 'freedom.test-file-progress/v1';
 const PROGRESS_MAX_BYTES = 1_048_576, PROGRESS_MAX_LINE = 2048, PROGRESS_MAX_FILES = 512, PROGRESS_MAX_FAILURES = 64;
+// The longest test process is one hosted runtime partition (suite-runner PARTITION_BUDGET_MS).
+const PROGRESS_MAX_ELAPSED_MS = 1_200_000;
 const FAILURE_TYPES = ['testCodeFailure','hookFailed','testTimeoutFailure','cancelledByParent','testAborted','subtestsFailed','unknown'];
 const caseDigest = (d,file) => createHash('sha256').update(JSON.stringify([file,d.details.type,d.line,d.column,d.nesting,d.testNumber,d.testId,d.parentId])).digest('hex');
 const PROGRESS_COUNTS = ['tests','passed','failed','cancelled','skipped','todo','suites'];
@@ -27,7 +29,7 @@ export function createProgressDecoder(expectedSources, emit) {
       const failed=r.event==='failed_case';
       const keys=failed?['schema','event','path','source_sha256','elapsed_ms','case_sha256','failure_type',...(Object.hasOwn(r,'source_line')?['source_line']:[])]:r.event==='started'?['schema','event','path','source_sha256','elapsed_ms']:['schema','event','path','source_sha256','elapsed_ms','counts'];
       if(Object.keys(r).length!==keys.length||!keys.every(k=>Object.hasOwn(r,k))||r.schema!==PROGRESS_SCHEMA||!['started','completed','failed_case'].includes(r.event)
-        ||!expected.has(r.path)||expected.get(r.path).source_sha256!==r.source_sha256||!Number.isSafeInteger(r.elapsed_ms)||r.elapsed_ms<0||r.elapsed_ms>900_000
+        ||!expected.has(r.path)||expected.get(r.path).source_sha256!==r.source_sha256||!Number.isSafeInteger(r.elapsed_ms)||r.elapsed_ms<0||r.elapsed_ms>PROGRESS_MAX_ELAPSED_MS
         ||(r.event==='started'?started.has(r.path):!started.has(r.path)||completed.has(r.path)||(!failed&&!validCounts(r.counts)))
         ||(failed&&(!/^[a-f0-9]{64}$(?![\s\S])/.test(r.case_sha256)||failures.has(r.case_sha256)||failures.size>=PROGRESS_MAX_FAILURES||!FAILURE_TYPES.includes(r.failure_type)
           ||(Object.hasOwn(r,'source_line')&&(!Number.isSafeInteger(r.source_line)||r.source_line<1||expected.get(r.path).source_lines===undefined||r.source_line>expected.get(r.path).source_lines)))))throw Error();
@@ -71,7 +73,7 @@ async function fileProgress() {
     if(!failed)(start?started:completed).add(path);
     const type=d.details?.error?.failureType;
     const sourceLine=Number.isSafeInteger(d.line)&&d.line>=1&&d.line<=selected.get(path).lines?d.line:undefined;
-    const value={schema:PROGRESS_SCHEMA,event:failed?'failed_case':start?'started':'completed',path,source_sha256:selected.get(path).digest,elapsed_ms:Math.min(900_000,Math.max(0,Math.floor(performance.now()-epoch))),
+    const value={schema:PROGRESS_SCHEMA,event:failed?'failed_case':start?'started':'completed',path,source_sha256:selected.get(path).digest,elapsed_ms:Math.min(PROGRESS_MAX_ELAPSED_MS,Math.max(0,Math.floor(performance.now()-epoch))),
       ...(failed?{case_sha256:caseDigest(d,path),failure_type:FAILURE_TYPES.includes(type)?type:'unknown',...(sourceLine!==undefined?{source_line:sourceLine}:{})}:complete?{counts}:{})};
     const line=JSON.stringify(value)+'\n';total+=Buffer.byteLength(line);
     if(++records>PROGRESS_MAX_FILES*2+PROGRESS_MAX_FAILURES||total>PROGRESS_MAX_BYTES){disabled=true;return;}
