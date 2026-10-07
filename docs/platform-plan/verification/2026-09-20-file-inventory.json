@@ -12569,8 +12569,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 15138,
-      "sha256": "989539cd7b5f3873ee1100f28423f777eee2c61a0b2445b6d9a68b9ef188cd55"
+      "bytes": 16468,
+      "sha256": "8958d391d0b93da9ea23336bd6bb96303dbf1be33cfec92e32c1e238e6984217"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -16574,8 +16574,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 3461,
-      "sha256": "a491a2e9607603093dd604ea62f97e00552b03766dd088f2c3aa68283ed3983c"
+      "bytes": 3705,
+      "sha256": "c6968b0cd0691dd0b044265640f88ad9a0209bac8723f4be7f926a5b8358bd55"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -16589,8 +16589,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 31633,
-      "sha256": "f31545a3f0ff25e5cc571a58a63e793c3f1972a3bd582ba93fe8b5f3fbf2ea61"
+      "bytes": 32201,
+      "sha256": "2d3e0f55001985af059a0072e0792c56ca52a8bd7bed097560900e9c03035af2"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16739,8 +16739,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 7363,
-      "sha256": "58b9286502025d22b1ab77cdc6d13529e6b9f74473924ebc2ab7fd310bb63936"
+      "bytes": 8095,
+      "sha256": "884c705efa6738320a69108049f819faf103bfd83b4c7858faa8636e4f2c63cd"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -16769,8 +16769,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 26499,
-      "sha256": "2d7214f87ba11dce12ba5e4f3ed8d477a56e9a9383aacaa6a7edde289ee50363"
+      "bytes": 26736,
+      "sha256": "f818c77bb4e57896c0577a047a09f69b58f02d859304fb504d5b0856c5e0bc1b"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -16789,8 +16789,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9829,
-      "sha256": "90ceddbde2d45ee9fcc18db0a862d9a5c666f2daaa974d3f6462fb6567f68b03"
+      "bytes": 10000,
+      "sha256": "59d3759e78229c0266339faf93e6572e8b46308588310a7ddaaf54befe1bd804"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",

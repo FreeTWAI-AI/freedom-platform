@@ -48,12 +48,21 @@ test('failed/cancelled/incomplete files, counters, duplicate cases and cleanup d
     f=>f[0].report.test_files[0].path=f[1].report.test_files[0].path];
   for(const mutate of mutations){const fragments=structuredClone(original);mutate(fragments);assert.equal((await aggregateRuntimePartitions(root,fragments)).status,'failed');}
 });
-test('whole UTC window has one 900-second bound, not four separate allowances',async()=>{
-  const fragments=await fixtures();fragments[3].started_at='2026-10-03T00:14:00.000Z';fragments[3].ended_at='2026-10-03T00:28:00.000Z';
-  assert.equal((await aggregateRuntimePartitions(root,fragments)).reason,'runtime_full_window_exceeded');
+test('each partition has its own 1200-second bound inside one 1800-second run window',async()=>{
   for(const value of ['invalid','2026-10-03T00:00:00+00:00','2026-10-02T23:59:59.000Z']){
     const f=await fixtures();f[0].ended_at=value;assert.equal((await aggregateRuntimePartitions(root,f)).status,'failed');
   }
+  const full=await fixtures();full[0].ended_at='2026-10-03T00:20:00.000Z';
+  assert.equal((await aggregateRuntimePartitions(root,full)).status,'passed');
+  const long=await fixtures();long[0].ended_at='2026-10-03T00:20:00.001Z';
+  assert.equal((await aggregateRuntimePartitions(root,long)).reason,'runtime_partition_window_exceeded');
+  // Four 1100-second fragments starting 200 seconds apart span 1700 seconds.
+  const skewed=await fixtures();
+  skewed.forEach((fragment,index)=>{const start=Date.parse('2026-10-03T00:00:00.000Z')+index*200_000;
+    fragment.started_at=new Date(start).toISOString();fragment.ended_at=new Date(start+1_100_000).toISOString();});
+  assert.equal((await aggregateRuntimePartitions(root,skewed)).status,'passed');
+  const wide=await fixtures();wide[3].started_at='2026-10-03T00:20:00.001Z';wide[3].ended_at='2026-10-03T00:30:00.001Z';
+  assert.equal((await aggregateRuntimePartitions(root,wide)).reason,'runtime_full_window_exceeded');
 });
 test('partition admission forbids arbitrary selection/count/commands before DB',async()=>{
   for(const options of [{partitionCount:2,partitionIndex:0},{partitionCount:4,partitionIndex:4},{partitionCount:4,partitionIndex:0,files:['injected']},
