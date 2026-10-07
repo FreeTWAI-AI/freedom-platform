@@ -69,12 +69,19 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
   });
 }
 
+/** The operation query must match this instance's suspension pointer and kind. */
+export function isMemberSuspension(matchedOperation: unknown, currentBindingState: string | undefined): boolean {
+  return Boolean(matchedOperation) && currentBindingState === 'suspended';
+}
+
 export async function readInstance(pool: Pool, actor: Actor, tenantId: string, instanceId: string) {
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
     const row = (await q.query(
       `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id,
+         (SELECT d.state FROM deployment_bindings d WHERE d.tenant_id=module_instances.tenant_id
+            AND d.instance_id=module_instances.instance_id AND d.binding_id=module_instances.binding_id) AS current_binding_state,
          (SELECT jsonb_build_object('operation_id',o.operation_id,'suspended_at',o.accepted_at,'reason',o.reason)
           FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
             AND o.operation_id=module_instances.suspension_operation_id AND o.instance_id=module_instances.instance_id
@@ -82,7 +89,7 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
        FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`, [tenantId, instanceId],
     )).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
-    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, ...fields } = row;
+    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, current_binding_state: bindingState, ...fields } = row;
     const view = InstanceViewSchema.parse(fields);
     const dependencies = (await q.query(
       `SELECT requirement_key, provider_instance_id, version::text AS version
@@ -105,7 +112,7 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
       `SELECT DISTINCT workspace_id FROM workspace_module_bindings WHERE tenant_id=$1 AND instance_id=$2 ORDER BY workspace_id LIMIT 50`,
       [tenantId, instanceId],
     )).rows;
-    const suspension = view.status !== 'suspended' ? null : memberSuspension
+    const suspension = view.status !== 'suspended' ? null : isMemberSuspension(memberSuspension, bindingState)
       ? { kind: 'member', ...memberSuspension, suspended_at: new Date(memberSuspension.suspended_at).toISOString() }
       : { kind: 'platform', operation_id: null, suspended_at: null, reason: null };
     await assertCurrentSessionClock(q, actor);

@@ -33,7 +33,7 @@ export async function lockWorkspace(q: PoolClient, tenantId: string, workspaceId
   return row?.status;
 }
 
-async function instanceUsage(q: PoolClient, tenantId: string, moduleKey?: string): Promise<bigint> {
+export async function instanceUsage(q: PoolClient, tenantId: string, moduleKey?: string): Promise<bigint> {
   const row = (await q.query<{ n: string }>(
     `SELECT count(*)::text AS n FROM module_instances
      WHERE tenant_id=$1 AND status IN ('requested','provisioning','active','suspended')
