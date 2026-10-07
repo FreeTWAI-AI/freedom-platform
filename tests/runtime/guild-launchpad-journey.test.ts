@@ -85,7 +85,7 @@ async function applyGrants() {
     .replaceAll("n.nspname='public'", `n.nspname='${schema}'`)
     .replaceAll(':"runtime"', `"${runtimeRole}"`).replaceAll(":'runtime'", `'${runtimeRole}'`);
   const blocks = [...sql.matchAll(/^-- BEGIN (.+)\n([\s\S]*?)\n\\gexec\n-- END \1/gm)];
-  assert.equal(blocks.length, 9, 'all production grant blocks must be applied');
+  assert.equal(blocks.length, [...sql.matchAll(/^-- BEGIN /gm)].length, 'all production grant blocks must be applied');
   const q = await owner.connect();
   try {
     await q.query(sql.slice(0, sql.indexOf('-- BEGIN PRIVATE POLICY GRANTS')));
@@ -574,9 +574,8 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
     { method: 'POST', path: (space: Space) => `${workspacePath(space)}/manual-work`, body: { guild_key: guildKey }, version: undefined },
   ];
   for (const route of writes) {
-    const headers = jsonHeaders(randomUUID(), route.version);
-    const hidden = await call(route.method, route.path(spaceA), memberB, JSON.stringify(route.body), headers);
-    const missing = await call(route.method, route.path(randomSpace), memberB, JSON.stringify(route.body), headers);
+    const hidden = await call(route.method, route.path(spaceA), memberB, JSON.stringify(route.body), jsonHeaders(randomUUID(), route.version));
+    const missing = await call(route.method, route.path(randomSpace), memberB, JSON.stringify(route.body), jsonHeaders(randomUUID(), route.version));
     sameAsRandom(`${route.method} ${route.path(spaceA)}`, hidden, missing);
   }
   assert.deepEqual(await evidence(spaceA), before, 'foreign reads and writes must leave Work, Results, intents, pointers and objects unchanged');
