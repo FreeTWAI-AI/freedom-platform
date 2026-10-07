@@ -1,0 +1,1 @@
+Trust pin probe E0 (2026-10-07): benign full-selection control for d1c9e18f -> 6ffdf94a. Never merged into main.
