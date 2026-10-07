@@ -509,8 +509,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 22764,
-      "sha256": "21ab0c348cecadc020cc3793ea231696eb6c23174301443d8d198dc00b3f60b8"
+      "bytes": 24304,
+      "sha256": "521159c33fad06a5332181409db3cec471d7b7fea6fb71c4dc72e2f46f47522a"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -19899,8 +19899,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 35432,
-      "sha256": "28be4b5ce30c46dd3fcb664c000b8dc45f913ced88c807c6b04a205107b01fc9"
+      "bytes": 37218,
+      "sha256": "6a889c73bfd024b143d1dc283bd4743023994a861f02af5af91028903c30ad1d"
     },
     {
       "path": "tests/runtime/worker-private-ai-ingest.test.ts",
