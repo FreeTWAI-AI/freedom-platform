@@ -414,8 +414,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
-      "bytes": 10714,
-      "sha256": "02696e9db80d5759a457533743ba6ac51ce7aa5b9a9c6eaf0673bc6ac32cabac"
+      "bytes": 10915,
+      "sha256": "e6444e338cd0c9495678720a35dfc8ef8288467f31ad1032b9ba3440b9811766"
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
@@ -11724,8 +11724,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant.ts",
-      "bytes": 9992,
-      "sha256": "4bc74bd8ff6f9f84161109ba78a6a555e1f51302251637e60eef16041d9e1c02"
+      "bytes": 10131,
+      "sha256": "4af777464415f21587121a5e24991887537ff4bd6eaffe724bd1f5e8c35f4b81"
     },
     {
       "path": "contracts/guild-launchpad/v1/validation-failed-problem.schema.json",
@@ -16189,8 +16189,8 @@
     },
     {
       "path": "modules/module-registry/README.md",
-      "bytes": 17229,
-      "sha256": "67453c48603b84e53421d4c3e30b81babdd29b5d855b568148ffb5ed8ce4099e"
+      "bytes": 19192,
+      "sha256": "e2bc53949308191c2f783536a0685addaf2e5fe477d9a2578ee2c35e33d27786"
     },
     {
       "path": "modules/module-registry/canonical.ts",
@@ -16204,13 +16204,13 @@
     },
     {
       "path": "modules/module-registry/capacity.ts",
-      "bytes": 9561,
-      "sha256": "81fb2db9ec5e387c25bd2e4ce97b0278fa2474b9619ee263c04da6cb364ba3fa"
+      "bytes": 9417,
+      "sha256": "fbc0c607153f190e256ba63c8b671acca2ad099bec4823030629d567902184d5"
     },
     {
       "path": "modules/module-registry/catalog.ts",
-      "bytes": 21062,
-      "sha256": "ddf6cb2a6476933744859f2c99ea55db770e3d95f45d8e373a55c2f9ede57446"
+      "bytes": 21289,
+      "sha256": "c786fe52f97f30d53b876b3ecef7f289b89e589ae9f36c97eec6a2ba7682356c"
     },
     {
       "path": "modules/module-registry/definitions.ts",
@@ -16229,23 +16229,23 @@
     },
     {
       "path": "modules/module-registry/launch.ts",
-      "bytes": 20422,
-      "sha256": "6f4f8fdf0d8dd188ba5fba18c8b16cb5d211df9c985344ba026181c5f3a72608"
+      "bytes": 20027,
+      "sha256": "9b8365115a7657a908af90f8f76761d924d236dd04fdc526bf4484baaeb10b81"
     },
     {
       "path": "modules/module-registry/lifecycle.ts",
-      "bytes": 7185,
-      "sha256": "c15bd4ea757107b91f1bd3428c762b48e9b04d1369003c3d5b30810cd14f5de9"
+      "bytes": 7892,
+      "sha256": "e016f1c5fd61b6205a4ab787cbeea1bb0f48b39f625f3e1f0c9ac627fc92f52e"
     },
     {
       "path": "modules/module-registry/operations.ts",
-      "bytes": 34642,
-      "sha256": "0e5a12c30af7d82089d75e6e353d8f7a18eb9803ad6fef909af9941b109fe78e"
+      "bytes": 35625,
+      "sha256": "c7c8738affa0cf371e5eeab744043561bd126bc19da4877bff21323f8a50802a"
     },
     {
       "path": "modules/module-registry/plans.ts",
-      "bytes": 16087,
-      "sha256": "4d0b5a4472714f5991d56fb6bd61c287b78b9f03058924dad9992eab3fc15bd6"
+      "bytes": 16907,
+      "sha256": "46ef19e1c12f128cb848c74440a35caf089670d0f00ce202013e69ac8f8fe037"
     },
     {
       "path": "modules/module-registry/problems.ts",
@@ -16259,13 +16259,13 @@
     },
     {
       "path": "modules/module-registry/read.ts",
-      "bytes": 10625,
-      "sha256": "eb4acbef6c8c33f4bd4cbdd4db38bb70bf5ea752abb8bd6442544a917f7c2845"
+      "bytes": 12227,
+      "sha256": "de852b89b3f0c6ba0dd38aae77b6cc211482d0ca85ef6c744f92205c90c5a969"
     },
     {
       "path": "modules/module-registry/service.ts",
-      "bytes": 13794,
-      "sha256": "ac442aae9910b80d6f9f3840faeced74ebea512254b9c44d98b37fe6bcaa8620"
+      "bytes": 13014,
+      "sha256": "f95caf6fe3b13094003236566873c0e0a5173940b0e93b79445dc90d9782dc4a"
     },
     {
       "path": "modules/module-registry/validate.ts",
@@ -16334,8 +16334,8 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-work.ts",
-      "bytes": 7890,
-      "sha256": "d9a4caeddacbfa8e11b1112d1921e19cd36d69c0d11fcf392c9b9281d3a7a840"
+      "bytes": 7930,
+      "sha256": "68f083027fd23ecd600d09f2749f3f76d04c43b4479b2cb1cc57bd81d8280ad2"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -17571,6 +17571,11 @@
       "path": "packages/shared/image-webp.ts",
       "bytes": 3336,
       "sha256": "242ca460c31ecc65748344607dd6784cc38cd3ea3fd14d2692c9a67de5bad181"
+    },
+    {
+      "path": "packages/shared/keyset-timestamp.ts",
+      "bytes": 543,
+      "sha256": "492c23dd46af3258899fab00f6a9ef0f0b9d2bf74a0aada12d7e9814f052c2ae"
     },
     {
       "path": "packages/shared/member-service.ts",
@@ -19544,8 +19549,8 @@
     },
     {
       "path": "tests/runtime/module-instance-lifecycle.test.ts",
-      "bytes": 41414,
-      "sha256": "e89ff158191b8ac2ad5148aa677618218b4843ec9a5b77f33f4fb92387d7100f"
+      "bytes": 48372,
+      "sha256": "9b4d31c0171206ec14cb6e7889e586e45b36538abfdd55f7522aae5b633aa925"
     },
     {
       "path": "tests/runtime/module-provisioning.test.ts",
@@ -19559,8 +19564,8 @@
     },
     {
       "path": "tests/runtime/module-registry-review.test.ts",
-      "bytes": 42637,
-      "sha256": "a19d52b1612e389aa5cef13885fd053bb2252a491c57220a00f8169fee7c353e"
+      "bytes": 83375,
+      "sha256": "942fce2822ba47152b06a5cbc8768db8c09df69ff608aaed17239fd69332917a"
     },
     {
       "path": "tests/runtime/module-registry-rls-runtime-role.test.ts",
@@ -19575,7 +19580,7 @@
     {
       "path": "tests/runtime/module-registry.test.ts",
       "bytes": 20693,
-      "sha256": "238cdf0f62b8e97cd849d139803db2b9acf1243fd03db45f6b12e6c06d63e562"
+      "sha256": "7030bdcfda28ea966bc7f8eb0f8c3915b32b40eb1a2d4d7c38531fcaa652c5de"
     },
     {
       "path": "tests/runtime/native-text-invocation.test.ts",
@@ -19999,8 +20004,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 29143,
-      "sha256": "b2bb4886231108a075eef402a66a29d720e46ec91899bb22eca0f3de1f6c0e37"
+      "bytes": 36518,
+      "sha256": "a45c382f277955ce1f5e5bd5b5d8012476124d651807bd5f03201eac36010131"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
@@ -20009,8 +20014,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 64921,
-      "sha256": "c9c62f367b696ae516cfb510b879b748baa41fb84c9885f1d26b8f466e34836c"
+      "bytes": 73674,
+      "sha256": "02eb643e0473ef482e65a144df3b9a3f72681b81b9434fc4095b9a603b9f4282"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
