@@ -78,7 +78,7 @@ async function optionalActor(pool: Pool, cookie: string | undefined): Promise<Ac
   if (!cookie) return null;
   try { return await authenticate(pool, cookie); }
   catch (error) {
-    if (error instanceof Problem && error.code === 'login_required') return null;
+    if (error instanceof Problem && error.status === 401) return null;
     throw error;
   }
 }
@@ -87,18 +87,24 @@ async function optionalActor(pool: Pool, cookie: string | undefined): Promise<Ac
 export function createPublicModuleRegistryRoutes(pool: Pool) {
   const app = new Hono();
   app.get('/api/v1/applications', async c => {
+    c.header('Cache-Control', 'no-store');
+    c.header('Vary', 'Cookie');
     const query = CatalogQuerySchema.parse(singleQuery(c));
     const actor = await optionalActor(pool, getCookie(c, COOKIE));
     const member = Boolean(actor && query.guild_key);
     if (member) privateCache(c);
-    else publicCache(c);
-    return c.json(await browseApplications(pool, {
+    const result = await browseApplications(pool, {
       guildKey: query.guild_key, cursor: query.cursor, limit: query.limit,
-    }, member ? actor : null));
+    }, member ? actor : null);
+    if (!member) publicCache(c);
+    return c.json(result);
   });
   app.get('/api/v1/applications/:application_key/releases/:release_ref', async c => {
+    c.header('Cache-Control', 'no-store');
+    c.header('Vary', 'Cookie');
+    const result = await readPublicRelease(pool, c.req.param('application_key'), c.req.param('release_ref'));
     publicCache(c);
-    return c.json(await readPublicRelease(pool, c.req.param('application_key'), c.req.param('release_ref')));
+    return c.json(result);
   });
   return app;
 }

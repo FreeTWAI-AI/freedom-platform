@@ -165,6 +165,15 @@ async function retain(q: PoolClient, tenantId: string, installationId: string) {
 }
 
 async function finishOperation(q: PoolClient, row: OperationRow, state: OperationRow['state'], problem?: { code: string; detail: string }) {
+  if (row.cancel_requested_at && state !== 'cancelled' && problem?.code !== 'capability_denied'
+    && await settleCancellationIfReady(q, row, await stepsOf(q, row.operation_id, row.tenant_id))) return;
+  if (state === 'succeeded') {
+    const conflict = await ensureEntryBinding(q, row);
+    if (conflict) {
+      state = 'failed';
+      problem = conflict;
+    }
+  }
   const updated = (await q.query<OperationRow>(
     `UPDATE module_provision_operations
      SET state=$3, version=version+1, updated_at=clock_timestamp(), terminal_problem=$4::jsonb
@@ -183,7 +192,6 @@ async function finishOperation(q: PoolClient, row: OperationRow, state: Operatio
        WHERE tenant_id=$1 AND installation_id=$3 AND status IS DISTINCT FROM 'active'`,
       [row.tenant_id, row.operation_id, row.installation_id],
     );
-    await ensureEntryBinding(q, row);
   } else if (state === 'failed' || state === 'cancelled') {
     const kept = await retain(q, row.tenant_id, row.installation_id);
     await q.query(
@@ -207,7 +215,7 @@ async function bumpOperationVersion(q: PoolClient, row: OperationRow) {
 }
 
 /** The entry requirement is the one whose capabilities include `entry_capability`. */
-async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
+async function ensureEntryBinding(q: PoolClient, row: OperationRow): Promise<{ code: string; detail: string } | null> {
   const requirement = (await q.query<{ module_key: string }>(
     `SELECT req->>'module_key' AS module_key
      FROM application_definitions d
@@ -218,7 +226,7 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
      LIMIT 1`,
     [row.application_key, row.release_ref, row.entry_capability],
   )).rows[0];
-  if (!requirement?.module_key) return;
+  if (!requirement?.module_key) return null;
   const instance = (await q.query<{ instance_id: string }>(
     `SELECT l.instance_id FROM application_module_links l
      JOIN module_instances i ON i.tenant_id=l.tenant_id AND i.instance_id=l.instance_id
@@ -226,7 +234,7 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
      LIMIT 1`,
     [row.tenant_id, row.installation_id, requirement.module_key],
   )).rows[0];
-  if (!instance) return;
+  if (!instance) return null;
   await lockWorkspace(q, row.tenant_id, row.workspace_id);
   const existing = (await q.query<{ instance_id: string }>(
     `SELECT instance_id FROM workspace_module_bindings WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability=$3`,
@@ -234,14 +242,15 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
   )).rows[0];
   if (existing) {
     if (existing.instance_id !== instance.instance_id) {
-      await finishOperation(q, row, 'failed', { code: 'workspace_binding_conflict', detail: '這個工作區已經綁定另一個工作實例。' });
+      return { code: 'workspace_binding_conflict', detail: '這個工作區已經綁定另一個工作實例。' };
     }
-    return;
+    return null;
   }
   await q.query(
     `INSERT INTO workspace_module_bindings(tenant_id, workspace_id, entry_capability, instance_id) VALUES($1,$2,$3,$4)`,
     [row.tenant_id, row.workspace_id, row.entry_capability, instance.instance_id],
   );
+  return null;
 }
 
 async function closeUndispatched(q: PoolClient, row: OperationRow, steps: StepRow[], status: 'failed' | 'archived', problem: { code: string; detail: string }) {
@@ -261,6 +270,12 @@ async function closeUndispatched(q: PoolClient, row: OperationRow, steps: StepRo
 async function settleCancelled(q: PoolClient, row: OperationRow, steps: StepRow[]) {
   await closeUndispatched(q, row, steps, 'archived', { code: 'member_cancelled', detail: '這個操作已取消。' });
   await finishOperation(q, row, 'cancelled');
+}
+
+async function settleCancellationIfReady(q: PoolClient, row: OperationRow, steps: StepRow[]): Promise<boolean> {
+  if (!row.cancel_requested_at || steps.some(step => step.state === 'dispatched' || step.state === 'unknown')) return false;
+  await settleCancelled(q, row, steps);
+  return true;
 }
 
 export interface AdvanceOptions {
@@ -307,8 +322,8 @@ async function claimStep(q: PoolClient, tenantId: string, operationId: string, p
   )).rows[0];
   if (!peeked) return null;
   const gate = await actorState(q, peeked.tenant_id, peeked.actor_principal_id);
-  const row = await readOperationRow(q, operationId, peeked.tenant_id);
   await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [operationId]);
+  const row = await readOperationRow(q, operationId, peeked.tenant_id);
   if (!['requested', 'running', 'needs_reconciliation'].includes(row.state)) return { kind: 'stop' };
   const steps = await stepsOf(q, operationId, row.tenant_id);
   if (!gate.allowed) {
@@ -398,8 +413,8 @@ async function claimStep(q: PoolClient, tenantId: string, operationId: string, p
 
 async function recordOutcome(q: PoolClient, claimed: ClaimedApply, outcome: 'confirmed' | 'failed_known' | 'unknown', providers: ModuleProviderMap) {
   const gate = await actorState(q, claimed.operation.tenant_id, claimed.operation.actor_principal_id);
+  await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [claimed.operation.operation_id]);
   const row = await readOperationRow(q, claimed.operation.operation_id, claimed.operation.tenant_id);
-  await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [row.operation_id]);
   const updated = await q.query(
     `UPDATE module_provision_steps SET lease_fence=lease_fence WHERE operation_id=$1 AND step_key=$2 AND lease_fence=$3`,
     [row.operation_id, claimed.step.step_key, claimed.fence],
@@ -445,6 +460,7 @@ async function applyConfirmed(q: PoolClient, row: OperationRow, step: StepRow, d
     data: { instance_id: step.instance_id, module_key: step.module_key, binding_id: version.binding_id, authority_epoch: version.authority_epoch, version: version.version },
   });
   const rest = await stepsOf(q, row.operation_id, row.tenant_id);
+  if (await settleCancellationIfReady(q, row, rest)) return;
   if (rest.every(item => item.state === 'confirmed' || item.step_key === step.step_key)) {
     await finishOperation(q, row, 'succeeded');
   } else if (row.state === 'requested') {
@@ -458,6 +474,7 @@ async function settleKnownFailure(q: PoolClient, row: OperationRow, steps: StepR
     if (step.state === 'unknown' || (step.state === 'dispatched' && step.step_key !== failedKey)) continue;
     if (step.state === 'failed_known' || step.state === 'compensated' || step.state === 'compensating') continue;
     if (step.state === 'confirmed') {
+      if (row.cancel_requested_at) continue;
       const keep = await providers[step.module_key]?.hasMemberData(q, step.instance_id) ?? false;
       if (keep) continue;
       await q.query(
@@ -615,6 +632,9 @@ export async function reconcileOperation(pool: Pool, actor: Actor, tenantId: str
         }
       }
     }
+    if (!['succeeded', 'failed', 'cancelled'].includes(row.state)) {
+      await settleCancellationIfReady(q, row, await stepsOf(q, operationId, tenantId));
+    }
     return operationView(await readOperationRow(q, operationId, tenantId));
   });
 }
@@ -627,8 +647,8 @@ export async function cancelOperation(pool: Pool, actor: Actor, tenantId: string
   }, async (q, context) => {
     requireRegistryCapability(context, 'module.operation.reconcile', true);
   }, async q => {
+    await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 AND tenant_id=$2 FOR UPDATE`, [operationId, tenantId]);
     const row = await readOperationRow(q, operationId, tenantId);
-    await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [operationId]);
     checkVersion(row.version, expected);
     if (['succeeded', 'failed', 'cancelled'].includes(row.state)) throw NOT_CANCELLABLE();
     const steps = await stepsOf(q, operationId, tenantId);

@@ -126,16 +126,12 @@ async function ledger(q: PoolClient, tenantId: string, operationId: string, dime
 
 export async function consumeInstanceReservations(q: PoolClient, tenantId: string, operationId: string) {
   const rows = (await q.query<{ dimension: string; units: string }>(
-    `SELECT dimension, units::text AS units FROM capacity_reservations
-     WHERE operation_id=$1 AND tenant_id=$2 AND dimension <> 'concurrent_provisions' AND state IN ${HOLDING}`,
+    `UPDATE capacity_reservations SET state='consumed', version=version+1
+     WHERE operation_id=$1 AND tenant_id=$2 AND dimension <> 'concurrent_provisions' AND state IN ('reserved','unknown')
+     RETURNING dimension, units::text AS units`,
     [operationId, tenantId],
   )).rows;
   for (const row of rows) {
-    await q.query(
-      `UPDATE capacity_reservations SET state='consumed', version=version+1
-       WHERE operation_id=$1 AND tenant_id=$2 AND dimension=$3`,
-      [operationId, tenantId, row.dimension],
-    );
     await ledger(q, tenantId, operationId, row.dimension, BigInt(row.units), 'actual', `consume:${operationId}`);
   }
 }
