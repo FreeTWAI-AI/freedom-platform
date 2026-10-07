@@ -23,6 +23,7 @@ import { resolveProviders, type ModuleProviderMap } from './providers.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { ModuleInstanceViewSchema, type ModuleInstanceView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
+export { suspendInstance, resumeInstance } from './lifecycle.js';
 export { listInstances, readInstance, listInstallations, installationByOperation } from './read.js';
 export { advanceOperation, readOperation, reconcileOperation, cancelOperation, sweepDueOperations } from './operations.js';
 

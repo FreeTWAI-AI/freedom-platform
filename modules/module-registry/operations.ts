@@ -36,18 +36,19 @@ function sweepFailureName(error: unknown): string {
 interface OperationRow {
   operation_id: string;
   tenant_id: string;
-  installation_id: string;
+  operation_kind: string;
+  installation_id: string | null;
   actor_principal_id: string;
   state: RegistryOperation['state'];
   version: string;
   accepted_at: Date;
   cancel_requested_at: Date | null;
-  policy_revision: string;
+  policy_revision: string | null;
   terminal_problem: { code: string; detail: string } | null;
-  workspace_id: string;
-  application_key: string;
-  release_ref: string;
-  entry_capability: string;
+  workspace_id: string | null;
+  application_key: string | null;
+  release_ref: string | null;
+  entry_capability: string | null;
 }
 
 interface StepRow {
@@ -64,7 +65,7 @@ interface StepRow {
   authority_epoch: string;
 }
 
-function requireRegistryCapability(context: TenantScopeContext, capability: string, write: boolean) {
+export function requireRegistryCapability(context: TenantScopeContext, capability: string, write: boolean) {
   if (write && context.tenant_status !== 'active') throw new Problem(403, 'capability_denied', '目前無法使用這個業務空間。');
   requireCondition(context.capabilities.includes(capability), 403, 'capability_denied', '目前沒有這個操作的權限。');
 }
@@ -80,12 +81,12 @@ function operationView(row: OperationRow): RegistryOperation {
 
 async function readOperationRow(q: PoolClient, operationId: string, tenantId?: string): Promise<OperationRow> {
   const row = (await q.query<OperationRow>(
-    `SELECT o.operation_id, o.tenant_id, o.installation_id, o.actor_principal_id, o.state, o.version::text AS version,
+    `SELECT o.operation_id, o.tenant_id, o.operation_kind, o.installation_id, o.actor_principal_id, o.state, o.version::text AS version,
        o.accepted_at, o.cancel_requested_at, o.policy_revision::text AS policy_revision, o.terminal_problem,
        i.workspace_id, i.application_key, i.release_ref, d.entry_capability
      FROM module_provision_operations o
-     JOIN application_installations i ON i.tenant_id=o.tenant_id AND i.installation_id=o.installation_id
-     JOIN application_definitions d ON d.application_key=i.application_key AND d.release_ref=i.release_ref
+     LEFT JOIN application_installations i ON i.tenant_id=o.tenant_id AND i.installation_id=o.installation_id
+     LEFT JOIN application_definitions d ON d.application_key=i.application_key AND d.release_ref=i.release_ref
      WHERE o.operation_id=$1 AND ($2::uuid IS NULL OR o.tenant_id=$2)`,
     [operationId, tenantId ?? null],
   )).rows[0];
@@ -185,7 +186,7 @@ async function finishOperation(q: PoolClient, row: OperationRow, state: Operatio
     );
     await ensureEntryBinding(q, row);
   } else if (state === 'failed' || state === 'cancelled') {
-    const kept = await retain(q, row.tenant_id, row.installation_id);
+    const kept = await retain(q, row.tenant_id, row.installation_id!);
     await q.query(
       `UPDATE application_installations SET status=$3, retained_instance_ids=$4::jsonb, version=version+1
        WHERE tenant_id=$1 AND installation_id=$2`,
@@ -227,7 +228,7 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
     [row.tenant_id, row.installation_id, requirement.module_key],
   )).rows[0];
   if (!instance) return;
-  await lockWorkspace(q, row.tenant_id, row.workspace_id);
+  await lockWorkspace(q, row.tenant_id, row.workspace_id!);
   const existing = (await q.query<{ instance_id: string }>(
     `SELECT instance_id FROM workspace_module_bindings WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability=$3`,
     [row.tenant_id, row.workspace_id, row.entry_capability],
@@ -301,11 +302,11 @@ interface ClaimedApply {
 }
 
 async function claimStep(q: PoolClient, tenantId: string, operationId: string, providers: ModuleProviderMap, now: Date | null): Promise<{ kind: 'stop' } | { kind: 'local' } | ClaimedApply | null> {
-  const peeked = (await q.query<{ tenant_id: string; actor_principal_id: string }>(
-    `SELECT tenant_id, actor_principal_id FROM module_provision_operations WHERE operation_id=$1 AND tenant_id=$2`,
+  const peeked = (await q.query<{ tenant_id: string; actor_principal_id: string; operation_kind: string }>(
+    `SELECT tenant_id, actor_principal_id, operation_kind FROM module_provision_operations WHERE operation_id=$1 AND tenant_id=$2`,
     [operationId, tenantId],
   )).rows[0];
-  if (!peeked) return null;
+  if (!peeked || peeked.operation_kind !== 'application.launch') return null;
   const gate = await actorState(q, peeked.tenant_id, peeked.actor_principal_id);
   const row = await readOperationRow(q, operationId, peeked.tenant_id);
   await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [operationId]);

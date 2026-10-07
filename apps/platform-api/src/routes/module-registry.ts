@@ -4,7 +4,7 @@ import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import {
   CancelInputSchema, CatalogQuerySchema, InstallationQuerySchema, InstanceQuerySchema, LaunchInputSchema,
-  PlanInputSchema, ReconcileInputSchema,
+  PlanInputSchema, ReconcileInputSchema, ResumeInputSchema, SuspendInputSchema,
 } from '../../../../contracts/guild-launchpad/v1/module-registry.js';
 import { EnableManualWorkSchema, LaunchpadQuerySchema } from '../../../../contracts/guild-launchpad/v1/tenant-work.js';
 import { authenticate, type Actor } from '../../../../modules/identity-membership/service.js';
@@ -12,7 +12,7 @@ import { browseApplications, readPublicRelease } from '../../../../modules/modul
 import {
   advanceOperation, cancelOperation, enableManualWork, installationByOperation, launchApplication,
   launchpadContext, listInstallations, listInstances, planApplication, readInstance, readOperation,
-  reconcileOperation,
+  reconcileOperation, resumeInstance, suspendInstance,
 } from '../../../../modules/module-registry/service.js';
 import { resolveProviders, type ModuleProviderMap } from '../../../../modules/module-registry/providers.js';
 import { listTenantWork } from '../../../../modules/opportunity-project-work/tenant-work.js';
@@ -48,20 +48,24 @@ function singleQuery(c: Context<PlatformEnv> | { req: { queries: () => Record<st
   return result;
 }
 
-function commandHeaders(c: Context<PlatformEnv>) {
+function requiredKey(c: Context<PlatformEnv>) {
   const key = c.req.header('Idempotency-Key') ?? '';
-  const quoted = c.req.header('If-Match');
   if (!(key.length >= 8 && key.length <= 128 && /^[A-Za-z0-9_-]+$/.test(key) && !/[\r\n]/.test(key))) {
     throw new Problem(400, 'idempotency_required', '請提供有效的 Idempotency-Key。');
   }
-  if (quoted !== undefined) throw new Problem(400, 'invalid_version', '這個操作不使用 If-Match。');
+  return key;
+}
+
+function commandHeaders(c: Context<PlatformEnv>) {
+  const key = requiredKey(c);
+  if (c.req.header('If-Match') !== undefined) throw new Problem(400, 'invalid_version', '這個操作不使用 If-Match。');
   return key;
 }
 
 function matchVersion(c: Context<PlatformEnv>) {
   const quoted = c.req.header('If-Match');
   if (quoted === undefined) throw new Problem(428, 'version_required', '請提供 If-Match 版本。');
-  if (!/^"[1-9][0-9]{0,18}"$/.test(quoted)) throw new Problem(400, 'invalid_version', 'If-Match 須為加引號的整數版本。');
+  if (!/^"[1-9][0-9]{0,18}"$/.test(quoted) || BigInt(quoted.slice(1, -1)) > 9223372036854775807n) throw new Problem(400, 'invalid_version', 'If-Match 須為加引號的整數版本。');
   return quoted.slice(1, -1);
 }
 
@@ -121,6 +125,24 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
   });
   app.get('/tenants/:tenant_id/module-instances/:instance_id', async c => {
     return c.json(await readInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('instance_id'))));
+  });
+  app.post('/tenants/:tenant_id/module-instances/:instance_id/suspend', async c => {
+    const key = requiredKey(c);
+    const expected = matchVersion(c);
+    const body = SuspendInputSchema.parse(await c.req.json());
+    const operation = await suspendInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')),
+      OpaqueId.parse(c.req.param('instance_id')), expected, key, body);
+    etag(c, operation.version);
+    return c.json(operation, 200);
+  });
+  app.post('/tenants/:tenant_id/module-instances/:instance_id/resume', async c => {
+    const key = requiredKey(c);
+    const expected = matchVersion(c);
+    const body = ResumeInputSchema.parse(await c.req.json());
+    const operation = await resumeInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')),
+      OpaqueId.parse(c.req.param('instance_id')), expected, key, body);
+    etag(c, operation.version);
+    return c.json(operation, 200);
   });
   app.get('/tenants/:tenant_id/application-installations', async c => {
     const query = InstallationQuerySchema.parse(singleQuery(c));

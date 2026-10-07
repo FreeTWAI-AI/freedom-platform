@@ -46,7 +46,7 @@ async function instanceUsage(q: PoolClient, tenantId: string, moduleKey?: string
 async function concurrentUsage(q: PoolClient, tenantId: string, exceptOperationId?: string): Promise<bigint> {
   const row = (await q.query<{ n: string }>(
     `SELECT count(*)::text AS n FROM module_provision_operations
-     WHERE tenant_id=$1 AND state IN ('requested','running','needs_reconciliation')
+     WHERE tenant_id=$1 AND operation_kind='application.launch' AND state IN ('requested','running','needs_reconciliation')
        AND ($2::uuid IS NULL OR operation_id <> $2)`,
     [tenantId, exceptOperationId ?? null],
   )).rows[0];

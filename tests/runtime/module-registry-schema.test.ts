@@ -210,3 +210,106 @@ test('a restricted runtime role can launch and cannot edit definitions, and a ma
     await h.admin.query(`DROP ROLE ${runtimeRole}`);
   }
 });
+
+test('lifecycle kind, reason, shape and terminal-state checks reject invalid operations', async () => {
+  const { tenantId } = await enabled();
+  const instance = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].instance_id;
+  const launch = (await h.pool.query(`SELECT operation_id,plan_id FROM module_provision_operations WHERE tenant_id=$1`, [tenantId])).rows[0];
+  const suspendId = randomUUID(), resumeId = randomUUID();
+  for (const [id, kind, reason, policy] of [
+    [suspendId, 'module.instance.suspend', '會員暫停原因', null],
+    [resumeId, 'module.instance.resume', null, 1],
+  ]) {
+    await h.pool.query(`INSERT INTO module_provision_operations(operation_id,tenant_id,actor_principal_id,operation_kind,
+        state,request_digest,authorization_revision,policy_revision,instance_id,reason)
+      SELECT $1,tenant_id,actor_principal_id,$2,'succeeded',request_digest,authorization_revision,$3,$4,$5
+      FROM module_provision_operations WHERE operation_id=$6`, [id, kind, policy, instance, reason, launch.operation_id]);
+  }
+  const cases: [string, string, string][] = [
+    [launch.operation_id, "operation_kind='module.instance.archive'", 'kind_check'],
+    [launch.operation_id, 'installation_id=NULL', 'launch_shape_check'],
+    [launch.operation_id, 'policy_revision=NULL', 'launch_shape_check'],
+    [launch.operation_id, `instance_id='${instance}'`, 'launch_shape_check'],
+    [launch.operation_id, "reason='原因文字'", 'launch_shape_check'],
+    [suspendId, 'instance_id=NULL', 'suspend_shape_check'],
+    [suspendId, 'reason=NULL', 'suspend_shape_check'],
+    [suspendId, `installation_id=(SELECT installation_id FROM module_provision_operations WHERE operation_id='${launch.operation_id}')`, 'suspend_shape_check'],
+    [suspendId, `plan_id='${launch.plan_id}'`, 'suspend_shape_check'],
+    [resumeId, 'instance_id=NULL', 'resume_shape_check'],
+    [resumeId, 'policy_revision=NULL', 'resume_shape_check'],
+    [resumeId, `installation_id=(SELECT installation_id FROM module_provision_operations WHERE operation_id='${launch.operation_id}')`, 'resume_shape_check'],
+    [resumeId, `plan_id='${launch.plan_id}'`, 'resume_shape_check'],
+    [resumeId, "reason='原因文字'", 'resume_shape_check'],
+    [suspendId, "reason='短'", 'reason_check'],
+    [suspendId, "reason=repeat('長',1001)", 'reason_check'],
+  ];
+  for (const [id, set, constraint] of cases) {
+    await rejects(() => h.pool.query(`UPDATE module_provision_operations SET ${set} WHERE operation_id=$1`, [id]), '23514', constraint);
+  }
+  for (const id of [suspendId, resumeId]) {
+    for (const state of ['requested', 'running', 'needs_reconciliation', 'failed', 'cancelled']) {
+      await rejects(() => h.pool.query(`UPDATE module_provision_operations SET state=$2 WHERE operation_id=$1`, [id, state]), '23514', 'lifecycle_state_check');
+    }
+  }
+  await h.pool.query(`UPDATE module_instances SET status='suspended', suspension_operation_id=$2 WHERE instance_id=$1`, [instance, suspendId]);
+  await rejects(() => h.pool.query(`UPDATE module_instances SET status='active' WHERE instance_id=$1`, [instance]), '23514', 'suspension_status_check');
+  const index = (await h.pool.query(`SELECT indexdef FROM pg_indexes WHERE schemaname=$1 AND indexname='module_dependencies_provider'`, [h.schema])).rows[0];
+  assert.match(index.indexdef, /\(tenant_id, provider_instance_id\)/);
+});
+
+test('lifecycle instance and suspension-operation composite foreign keys reject cross-tenant and missing refs', async () => {
+  const first = await enabled();
+  const second = await h.createTenant(first.owner, '另一業務');
+  assert.equal((await h.enable(first.owner, second.tenantId, second.workspaceId, 'guild_ai_field')).status, 200);
+  const a = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [first.tenantId])).rows[0];
+  const b = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [second.tenantId])).rows[0];
+  const op = randomUUID();
+  await h.pool.query(`INSERT INTO module_provision_operations(operation_id,tenant_id,actor_principal_id,operation_kind,state,
+      request_digest,authorization_revision,instance_id,reason)
+    SELECT $1,tenant_id,actor_principal_id,'module.instance.suspend','succeeded',request_digest,authorization_revision,$2,'暫停原因'
+    FROM module_provision_operations WHERE tenant_id=$3 LIMIT 1`, [op, b.instance_id, second.tenantId]);
+  for (const instance of [a.instance_id, randomUUID()]) {
+    await rejects(() => h.pool.query(`UPDATE module_provision_operations SET instance_id=$2 WHERE operation_id=$1`, [op, instance]), '23503', 'instance_fkey');
+  }
+  await h.pool.query(`UPDATE module_instances SET status='suspended' WHERE instance_id=$1`, [a.instance_id]);
+  for (const operation of [op, randomUUID()]) {
+    await rejects(() => h.pool.query(`UPDATE module_instances SET suspension_operation_id=$2 WHERE instance_id=$1`, [a.instance_id, operation]), '23503', 'suspension_operation_fkey');
+  }
+});
+
+test('migration 127 preserves a launch row seeded under schema 126', async () => {
+  const schema = `fp_mrs_old_${process.pid}_${Date.now()}`;
+  await h.admin.query(`CREATE SCHEMA ${schema}`);
+  const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}` });
+  try {
+    const { readMigrationSources } = await import('../../packages/db/migration-files.mjs');
+    const { legacyMigrationProfile } = await import('../../packages/db/migration-plan.mjs');
+    const { runMigrationPlan } = await import('../../packages/db/migration-runner.mjs');
+    const { seedLocal } = await import('../../packages/testing/seed.js');
+    const { migrate } = await import('../../scripts/database.js');
+    const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
+      .filter(source => source.name !== '127_module_instance_lifecycle.sql');
+    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 126, known_gaps: [22] }) });
+    await seedLocal(pool);
+    await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
+      max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
+      SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
+        max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
+    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const owner = await h.signIn(DEMO_USERS[0].email, app);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+      VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
+    const tenant = await h.post('/tenants', owner, { display_name: '舊啟用紀錄' }, undefined, randomUUID(), app);
+    assert.equal(tenant.status, 201, JSON.stringify(tenant.data));
+    const enabled = await h.post(`/tenants/${tenant.data.tenant.tenant_id}/workspaces/${tenant.data.workspace.workspace_id}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
+    assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
+    const old = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o`)).rows[0].row;
+    assert.equal(old.operation_kind, 'application.launch');
+    await migrate(pool);
+    const current = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o`)).rows[0].row;
+    assert.deepEqual(current, { ...old, instance_id: null, reason: null });
+  } finally {
+    await pool.end();
+    await h.admin.query(`DROP SCHEMA ${schema} CASCADE`);
+  }
+});

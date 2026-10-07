@@ -31,9 +31,10 @@ function decodeCursor(raw?: string) {
   return { at, id };
 }
 
-const INSTANCE_SQL = `SELECT instance_id, tenant_id, module_key, application_release_ref, data_schema_version, contract_ref,
+const INSTANCE_COLUMNS = `instance_id, tenant_id, module_key, application_release_ref, data_schema_version, contract_ref,
   status, binding_id, authority_epoch::text AS authority_epoch, version::text AS version, configuration_revision::text AS configuration_revision
-  FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`;
+`;
+const INSTANCE_SQL = `SELECT ${INSTANCE_COLUMNS} FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`;
 
 export async function instanceView(q: PoolClient, tenantId: string, instanceId: string): Promise<InstanceView> {
   const row = (await q.query(INSTANCE_SQL, [tenantId, instanceId])).rows[0];
@@ -72,14 +73,44 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
-    const view = await instanceView(q, tenantId, instanceId);
+    const row = (await q.query(
+      `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id,
+         (SELECT jsonb_build_object('operation_id',o.operation_id,'suspended_at',o.accepted_at,'reason',o.reason)
+          FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
+            AND o.operation_id=module_instances.suspension_operation_id AND o.instance_id=module_instances.instance_id
+            AND o.operation_kind='module.instance.suspend') AS member_suspension
+       FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`, [tenantId, instanceId],
+    )).rows[0];
+    requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
+    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, ...fields } = row;
+    const view = InstanceViewSchema.parse(fields);
     const dependencies = (await q.query(
       `SELECT requirement_key, provider_instance_id, version::text AS version
        FROM module_dependencies WHERE tenant_id=$1 AND caller_instance_id=$2 ORDER BY requirement_key`,
       [tenantId, instanceId],
     )).rows;
+    const consumers = (await q.query(
+      `SELECT d.caller_instance_id, d.requirement_key, i.module_key, i.status
+       FROM module_dependencies d JOIN module_instances i
+         ON i.tenant_id=d.tenant_id AND i.instance_id=d.caller_instance_id
+       WHERE d.tenant_id=$1 AND d.provider_instance_id=$2
+       ORDER BY d.caller_instance_id, d.requirement_key, d.dependency_id LIMIT 50`, [tenantId, instanceId],
+    )).rows;
+    const counts = (await q.query<{ consumer_count: number; workspace_count: number }>(
+      `SELECT (SELECT count(*)::int FROM module_dependencies WHERE tenant_id=$1 AND provider_instance_id=$2) AS consumer_count,
+         (SELECT count(DISTINCT workspace_id)::int FROM workspace_module_bindings WHERE tenant_id=$1 AND instance_id=$2) AS workspace_count`,
+      [tenantId, instanceId],
+    )).rows[0];
+    const workspaces = (await q.query<{ workspace_id: string }>(
+      `SELECT DISTINCT workspace_id FROM workspace_module_bindings WHERE tenant_id=$1 AND instance_id=$2 ORDER BY workspace_id LIMIT 50`,
+      [tenantId, instanceId],
+    )).rows;
+    const suspension = view.status !== 'suspended' ? null : memberSuspension
+      ? { kind: 'member', ...memberSuspension, suspended_at: new Date(memberSuspension.suspended_at).toISOString() }
+      : { kind: 'platform', operation_id: null, suspended_at: null, reason: null };
     await assertCurrentSessionClock(q, actor);
-    return InstanceDetailSchema.parse({ ...view, dependencies });
+    return InstanceDetailSchema.parse({ ...view, dependencies,
+      impact: { ...counts, consumers, workspace_ids: workspaces.map(row => row.workspace_id) }, suspension });
   });
 }
 
@@ -129,7 +160,7 @@ export async function installationByOperation(pool: Pool, actor: Actor, tenantId
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
     const row = (await q.query<{ installation_id: string }>(
-      `SELECT installation_id FROM module_provision_operations WHERE tenant_id=$1 AND operation_id=$2`,
+      `SELECT installation_id FROM module_provision_operations WHERE tenant_id=$1 AND operation_id=$2 AND operation_kind='application.launch'`,
       [tenantId, operationId],
     )).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這個應用安裝。');

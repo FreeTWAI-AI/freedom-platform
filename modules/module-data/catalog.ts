@@ -881,6 +881,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "origin_guild_key",
             "created_at",
             "module_release_ref",
+            "suspension_operation_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -2561,6 +2562,8 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "updated_at",
             "cancel_requested_at",
             "terminal_problem",
+            "instance_id",
+            "reason",
           ],
           tenant_resolution: {
             kind: "direct" as const,
