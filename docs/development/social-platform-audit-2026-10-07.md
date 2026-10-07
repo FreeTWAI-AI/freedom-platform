@@ -5,6 +5,8 @@
 本輪由 Hao 明確要求查最新進度、比對其他人的 PR，並提交缺少的社群功能；Codex 協助程式、測試與盤點。
 同輪追加需求：保留功能但大改會員版面、首頁直接呈現社群動態、減少說明文字並突出重點，以及一次清除通知／聊天未讀提醒。此快照包含這些實作。
 
+Hao 後續要求以取代 Facebook 為長期目標。候選版尚無超越 Facebook 或最佳版面的證據；[下一階段產品方向](social-platform-product-direction-2026-10-07.md) 將日常交流、找夥伴、完成合作與回報分為可驗證的流程，未完成項目保持提案狀態。
+
 ## 已上線與已合併
 
 - 本輪正式站 `/api/v1/health` 回報 `8d2213d7f36fd9b0613d16fbf71858be5001a4ad`、Cloudflare Workers、`money_movement_enabled=false`。
@@ -61,7 +63,7 @@
 | PR | 工作 | 與本輪關係 |
 | --- | --- | --- |
 | #105 | 社群 ERP／CRM 公開範本入口 | 修改 `Community.tsx`；本輪不重建 ERP／CRM |
-| #175 | Tenant 經營權移交／再驗證／復原 | 功能不同；同時使用下一個 migration 124，manifest 與 migration-plan 測試也重疊，合併順序需協調 |
+| #175 | Tenant 經營權移交／再驗證／復原 | 功能不同；同時使用 migration 124，manifest、migration-plan、release-compatibility 的名稱登錄及 v3 catalog fixture 重疊，合併順序需協調 |
 | #187 | native 租約 fixture clock race | 不重複修補該測試 |
 | #188 | Guild Launchpad 契約 primitives／schema | 不另建相同契約 |
 | #189 | 固定可信 CI runner | 不改對方治理修補 |
@@ -75,6 +77,7 @@
 
 只增加 [124_social_feed_interactions.sql](../../migrations/124_social_feed_interactions.sql)，不改歷史 SQL；設定的 last 從 123 到 124，保留 gap 22。
 124 是此基底的下一個可用編號，**#175 同時提出 124**。若 #175 先合併，本輪須改為下一個可用編號、重算 manifest／inventory 並重跑驗證；不得把兩個 124 直接合在同一 catalog，也不得新增假 gap 略過別人的 migration。
+本輪亦將精確檔名登錄至 release-compatibility 的已知 schema 清單，並更新完整 v3 測試 catalog 的 frontier。名稱登錄不能供給 release／restore／execution 權限，既有 host、完整 digest 與獨立批准要求保持；未知或改名 migration 仍拒絕。
 Operator 應先做受控 migration／staging 驗收再部署對應程式；本輪沒有操作 staging／production DB、合併或部署。
 
 `freedom prepare` 對既有社群路徑仍回報 `surface_unmapped`，保守選取全模組；130 個 context chunks 已按索引載入，完整性檢查仍 `complete=false`。
@@ -97,6 +100,8 @@ node --import tsx --test --test-concurrency=1 tests/runtime/social-feed.test.ts 
 ```
 
 另跑 `node --test deploy/cloudflare/test/migration-plan.test.mjs deploy/cloudflare/test/migration-reviewed-privileges.test.mjs`：更新因新增 124 而失效的原完整 catalog 編號與 digest 斷言後，**21 項通過、0 失敗**。歷史 SQL 不變。
+
+#193 在候選 `ca40f860763f38f7a4a1f3847f343287a0e083f5` 的首次 CI 部署檢查為 180 pass／276 fail：新增 124 未被相容性清單識別，完整 v3 catalog fixture 也仍固定到 123。本輪補上精確登錄、fixture 及拒絕未知 schema／舊批准的反例；三檔相關測試 130 pass／0 fail。完整部署檢查與最終候選結果附 PR，不能由此局部結果推定 CI 全綠。
 
 Chromium 對改版後的 13 檔共 75 個案例執行驗證，涵蓋首頁直接看動態、發文視窗與關閉保留草稿、按讚／留言、丟失 ACK、貼圖、手機返回、導覽、三主題 320px、原分享／投稿入口及一鍵已讀：
 

@@ -43,6 +43,34 @@ test('RELEASE independent complete real ledger with synthetic host is diagnostic
   const result = run(fixture()); assert.equal(result.status, 'compatible', JSON.stringify(result)); assert.equal(result.checked_releases, 2);
   assert(result.required_capabilities.includes('work.private-human-result.v1'));
 });
+
+test('RELEASE recognized social-feed migration still needs exact independent schema approval', () => {
+  const f = fixture();
+  assert(f.scan.ledger.some(row => row.name === '124_social_feed_interactions.sql'));
+  assert.equal(run(f).status, 'compatible');
+  // A release approved before native posts existed cannot use that approval
+  // for the new schema, even with the same source/artifact identity.
+  const old = f.scan.ledger.filter(row => Number(row.name.slice(0, 3)) < 124);
+  f.host.release_records[1].schema_ledger_digests = [compatibilityLedgerDigest(old)];
+  const result = run(f);
+  assert.equal(result.status, 'incompatible');
+  assert(result.issues.some(issue => issue.code === 'release_schema_unsupported'));
+});
+
+test('RELEASE unknown migration names remain refused even with recomputed host digests', () => {
+  for (const mode of ['rename-known', 'append-unknown']) {
+    const f = fixture();
+    if (mode === 'rename-known') f.scan.ledger.at(-1).name = '124_unreviewed_social_feed.sql';
+    else f.scan.ledger.push({name: '125_unreviewed_future.sql', sha256: 'e'.repeat(64)});
+    f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
+    f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
+    f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
+    for (const record of f.host.release_records) record.schema_ledger_digests = [f.scan.ledger_digest];
+    const result = run(f);
+    assert.equal(result.status, 'unavailable');
+    assert(result.issues.some(issue => issue.code === 'schema_unknown'));
+  }
+});
 test('RELEASE candidate cannot manufacture host authority or self-approve capabilities', () => {
   reject(f => { delete f.host; }, 'trusted_host_required');
   reject(f => { f.input.candidate.capabilities = [...capabilities]; }, 'request_invalid');

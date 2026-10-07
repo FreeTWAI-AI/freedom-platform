@@ -11744,8 +11744,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 39903,
-      "sha256": "96450f6d649ac64824f17c286d62921fe1b3572282a440cf18cca340b3ce24e2"
+      "bytes": 40104,
+      "sha256": "9f11cb1c46c5f6b42a0543f6b32228704575f75400bce2aa7bc691945269ccb0"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -11884,13 +11884,13 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 9433,
-      "sha256": "97fc4b3a107213b54ea94c1d97b209f01f2c765789581cf6749adb5f025f5772"
+      "bytes": 10999,
+      "sha256": "eb7f1ee2d14986b96fa60d67e516f6f3342b1501cc3a42c159f3a3bf449282ee"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52228,
-      "sha256": "4b970da5365fe560f1197d7d3796f669be75a202bef49fb8d1c073d9af08daf5"
+      "bytes": 52234,
+      "sha256": "75f8fd86c314956383c682529022ab0ec76ae2c23f49e890049b7637b6272b28"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -12609,13 +12609,18 @@
     },
     {
       "path": "docs/development/social-platform-audit-2026-10-07.md",
-      "bytes": 13050,
-      "sha256": "1963a40ce22340fd48105dddbc1bb08e038f98aeab9cf839315b089b03437f95"
+      "bytes": 14098,
+      "sha256": "76c4fa13865ca4501990742a0a01a58025b0da266c0900da4b18f2167c0bb84e"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
       "bytes": 10672,
       "sha256": "e7edd008667ae4640d12df22d1355fa1362e58ca2b8adcef390bde531b842c7f"
+    },
+    {
+      "path": "docs/development/social-platform-product-direction-2026-10-07.md",
+      "bytes": 7016,
+      "sha256": "c0ddcecb8e1c112934997ffb83ce71e4311a1b1c0da572db65a1e231aa20d4a1"
     },
     {
       "path": "docs/development/social-preview-worker.md",
