@@ -6,6 +6,7 @@ import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
 import {markAllMemberChannelsRead} from './channels.js';
+import {MessageSearchQuery,messageSearchPattern,boundedMessageSearch,type MessageSearchPage} from './message-search.js';
 import {
   COMMUNICATION_PAGE_DEFAULT_LIMIT,COMMUNICATION_PAGE_MAX_LIMIT,DIRECT_MESSAGE_BODY_MAX,
   type ConversationActivity,type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
@@ -178,6 +179,26 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
       [actor.community_id,actor.user_id,id])).rows[0];
     return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready,
       last_outgoing:row.last_outgoing?{message_id:row.last_outgoing.message_id,read_at:iso(row.last_outgoing.read_at)}:null};
+  });
+}
+
+export async function searchConversationMessages(pool:Pool,actor:Actor,rawPeer:string,raw:unknown):Promise<MessageSearchPage<Message>>{
+  const {q:query,limit,cursor}=MessageSearchQuery.parse(raw),id=peerId(actor,rawPeer);
+  return snapshot(pool,actor,async q=>{
+    await resolvePeer(q,actor,id);
+    return boundedMessageSearch(q,async()=>{
+      // Resolve the cursor from this same pair, keeping PostgreSQL microseconds.
+      // A cursor from another conversation never provides a pagination boundary.
+      if(cursor)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
+        AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
+        [cursor,actor.community_id,actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
+      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages
+        WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
+          AND body ILIKE $4 AND ($5::uuid IS NULL OR (created_at,message_id)<(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$5))
+        ORDER BY created_at DESC,message_id DESC LIMIT $6`,[actor.community_id,actor.user_id,id,messageSearchPattern(query),cursor??null,limit+1])).rows;
+      const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'direct',actor.user_id);
+      return {items:shown.map((row,index)=>({...message(row),...contents[index]})),next_cursor:rows.length>limit?shown[shown.length-1].message_id:null};
+    });
   });
 }
 

@@ -69,6 +69,41 @@ const post=(session:Session,kind:string,key:string,body:string,options:{key?:str
 const read=(session:Session,kind:string,key:string,through:string,options:{key?:string}={})=>request(`/me/channels/${kind}/${key}/read`,session,{through_message_id:through},options);
 const messages=(session:Session,kind:string,key:string,query='')=>request(`/me/channels/${kind}/${key}/messages${query}`,session);
 
+test('channel text search pages older messages within one authorized room and leaves read watermarks alone',async()=>{
+  const [a,b]=await signInAll();await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');
+  const group=await squad(A,[B]);
+  for(const [kind,key] of [['guild','guild_ai_vibe'],['squad',group],['world','world']]){
+    assert.equal((await post(b,kind,key,'合成搜尋起點')).status,201);
+    const ids:string[]=[];
+    for(let i=0;i<24;i++){
+      const id=randomUUID();ids.push(id);
+      await pool.query(`INSERT INTO member_channel_messages(message_id,community_id,kind,channel_key,sequence,sender_ref,body,created_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,timestamptz '2026-09-01T00:00:00Z')`,[id,DEMO_COMMUNITY,kind,key,String(9007199254740991n+BigInt(i)),B,`合成 Search 100%_\\ ${i}`]);
+    }
+    await pool.query('UPDATE member_chat_channels SET last_sequence=$4 WHERE community_id=$1 AND kind=$2 AND channel_key=$3',[DEMO_COMMUNITY,kind,key,String(9007199254741014n)]);
+    const counts=await tableCounts(),path=`/me/channels/${kind}/${key}/messages/search`,query=new URLSearchParams({q:'100%_\\',limit:'10'});
+    const first=await request(`${path}?${query}`,a);assert.equal(first.status,200,JSON.stringify(first.data));
+    const all=[...first.data.items];let cursor=first.data.next_cursor;
+    while(cursor){query.set('cursor',cursor);const next=await request(`${path}?${query}`,a);assert.equal(next.status,200);all.push(...next.data.items);cursor=next.data.next_cursor;}
+    assert.deepEqual(all.map(item=>item.message_id),ids.reverse());assert.equal(new Set(all.map(item=>item.message_id)).size,24);
+    assert.equal((await request(`${path}?q=search`,a)).data.items.length,20);
+    assert.equal((await request(`${path}?q=不存在`,a)).data.items.length,0);
+    assert.deepEqual(await tableCounts(),counts);noPrivate(first.data);
+  }
+});
+
+test('channel search retains session, membership, community and cursor boundaries',async()=>{
+  const [a,b]=await signInAll();await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');await joinGuild(A,'guild_marketing');
+  const sent=await post(b,'guild','guild_ai_vibe','合成搜尋'),path='/me/channels/guild/guild_ai_vibe/messages/search?q=合成';
+  assert.equal((await request(path,a)).status,200);
+  assert.equal((await request(`/me/channels/guild/guild_marketing/messages/search?q=合成&cursor=${sent.data.message_id}`,a)).status,404);
+  const outsider=await extraMember('search-outsider');assert.equal((await request(path,await signIn(outsider.email))).status,404);
+  const foreign=await extraMember('search-other-community',randomUUID());assert.equal((await request(path,await signIn(foreign.email))).status,404);
+  await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');assert.equal((await request(path,a)).status,404);
+  for(const query of ['q=','q='+ 'x'.repeat(101),'q=a&limit=0','q=a&cursor=bad','q=a&offset=1'])assert.equal((await request(`/me/channels/world/world/messages/search?${query}`,a)).status,422,query);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);assert.equal((await request('/me/channels/world/world/messages/search?q=合成',a)).status,401);
+});
+
 test('world chat is community scoped and keeps sender identity and read receipts',async()=>{
   const [a,b]=await signInAll();
   const other=await extraMember('other-community',randomUUID());

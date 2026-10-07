@@ -42,6 +42,26 @@ test('stale preview cannot overwrite newly edited copy and model setup preserves
   await expect(dialog.getByRole('button',{name:'採用這版文案',exact:true})).toBeDisabled();
   await expect(dialog.getByRole('alert')).toContainText('原稿已更新');
 });
+
+test('copy edit paste keeps the handoff source across closing, while a fresh exported task can be adopted',async({page})=>{
+  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+  const dialog=await composer(page),source=dialog.getByLabel('貼文內容',{exact:true}),copy=dialog.getByRole('button',{name:'複製文案優化任務',exact:true});
+  const original='週一在台北舉辦工作坊。',updated='週二改到台中舉辦工作坊。';await source.fill(original);
+  await dialog.getByRole('button',{name:'✦ Social Post 優化',exact:true}).click();await dialog.getByRole('button',{name:'到自己的 AI 工具',exact:true}).click();
+  await copy.click();await expect(dialog.getByRole('status').filter({hasText:'任務已複製'})).toBeVisible();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(original);
+  await source.fill(updated);await dialog.getByRole('button',{name:'關閉發文',exact:true}).click();await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+  await dialog.getByRole('button',{name:'到自己的 AI 工具',exact:true}).click();
+  await dialog.getByLabel('貼回 AI 優化結果',{exact:true}).fill('週一，台北見！');
+  await expect(dialog.getByRole('alert')).toContainText('原稿已更新');await expect(dialog.getByRole('button',{name:'採用這版文案',exact:true})).toBeDisabled();await expect(source).toHaveValue(updated);
+  await copy.click();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(updated);
+  await expect(page.locator('.social-publish-dialog[open]')).toHaveAccessibleName('建立貼文');
+  await dialog.getByLabel('貼回 AI 優化結果',{exact:true}).fill('週二，台中見！');await expect(dialog.getByRole('button',{name:'採用這版文案',exact:true})).toBeEnabled();
+  await dialog.getByRole('button',{name:'採用這版文案',exact:true}).click();await expect(source).toHaveValue('週二，台中見！');
+  await source.fill('週三在高雄展出新作品。');
+  await dialog.getByLabel('貼回 AI 優化結果',{exact:true}).fill('週三，高雄的新作品等你來看。');
+  await expect(dialog.getByRole('button',{name:'採用這版文案',exact:true})).toBeEnabled();
+  await dialog.getByRole('button',{name:'採用這版文案',exact:true}).click();await expect(source).toHaveValue('週三，高雄的新作品等你來看。');
+});
 test('320px optimization stays within every theme and unresolved service never asks for raw keys in the post',async({page})=>{
   await page.setViewportSize({width:320,height:800});const dialog=await composer(page);
   await dialog.getByLabel('貼文內容',{exact:true}).fill('希望在社群找到合作夥伴。');

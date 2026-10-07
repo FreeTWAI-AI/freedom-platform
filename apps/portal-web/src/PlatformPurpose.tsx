@@ -1,5 +1,6 @@
 import type { TabId } from './types';
 import './PlatformPurpose.css';
+import {useLanguage} from './language';
 
 export type EntryIntent = 'supplier' | 'showcase' | 'tasks';
 const intentLabels: Record<EntryIntent, string> = {
@@ -42,18 +43,20 @@ const roles: {
 export function PlatformPurpose({ variant, onAction, disabled = false }: {
   variant: 'public' | 'member'; onAction: (target: TabId) => void; disabled?: boolean;
 }) {
-  return <section className={`platform-purpose platform-purpose--${variant}`} aria-label="商品、創作與開發合作入口">
+  const {t}=useLanguage();
+  const keys={supplier:'supplier',showcase:'creator',tasks:'developer'} as const;
+  return <section className={`platform-purpose platform-purpose--${variant}`} aria-label={t('purpose.entryGroup')}>
     {variant === 'member' && <h2>從你的專長開始</h2>}
     <div className="purpose-roles">
       {roles.map(role => variant === 'public'
-        ? <button key={role.name} type="button" className="purpose-entry" aria-label={role.entryLabel} disabled={disabled} onClick={() => onAction(role.target)}>
-          <strong>{role.name}</strong><span className="purpose-summary">{role.summary}</span><span className="purpose-mobile-summary" aria-hidden="true">{role.mobileSummary}</span><span className="purpose-arrow" aria-hidden="true">→</span>
+        ? <button key={role.name} type="button" className="purpose-entry" aria-label={t(`purpose.${keys[role.target]}Entry`)} disabled={disabled} onClick={() => onAction(role.target)}>
+          <strong>{t(`purpose.${keys[role.target]}`)}</strong><span className="purpose-summary">{t(`purpose.${keys[role.target]}Summary`)}</span><span className="purpose-mobile-summary" aria-hidden="true">{t(`purpose.${keys[role.target]}Short`)}</span><span className="purpose-arrow" aria-hidden="true">→</span>
         </button>
         : <article key={role.name} className="purpose-role">
           <h3>{role.name}</h3><p>{role.description}</p>
           <div className="purpose-actions">{role.actions.map(action => <button key={action.label} type="button" className="btn btn-ghost" onClick={() => onAction(action.target)}>{action.label}</button>)}</div>
         </article>)}
     </div>
-    <p className="purpose-terms">合作報酬與分潤條件，由合作雙方約定。</p>
+    <p className="purpose-terms">{t('purpose.terms')}</p>
   </section>;
 }

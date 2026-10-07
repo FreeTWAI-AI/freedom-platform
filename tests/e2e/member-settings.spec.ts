@@ -329,7 +329,7 @@ function thread(peer:string,count:number):Message[]{
 }
 
 // `gate` holds a full-page read *after* its snapshot is taken, like a slow server answer.
-async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];readOutcomes?:('500'|'ok')[];gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
+async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];readOutcomes?:('500'|'ok')[];readGate?:()=>Promise<void>;gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
   const store:Record<string,Message[]>={[peerA]:thread(peerA,25),[peerB]:[]};
   const sends:{peer:string;key:string;body:string}[]=[],reads:string[]=[],outcomes=[...options.outcomes??[]];
   const readOutcomes=[...options.readOutcomes??[]],readBoundaries:{peer:string;key:string;through:string}[]=[];
@@ -367,6 +367,7 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
     }
     if(parts[2]==='read'){
       reads.push(request.headers()['idempotency-key']);let updated=0;
+      await options.readGate?.();
       const boundary=store[peer].find(item=>item.message_id===request.postDataJSON().through_message_id)!;
       expect(boundary).toBeTruthy();expect(request.headers()['x-csrf-token']).toBeTruthy();
       const key=request.headers()['idempotency-key'];readBoundaries.push({peer,key,through:boundary.message_id});
@@ -395,6 +396,41 @@ test('an unknown private auto-read result never replays silently or consumes lat
   await expect.poll(()=>reads.length).toBe(3);expect(readBoundaries[1]).toEqual(readBoundaries[0]);
   expect(readBoundaries[2].through).toBe('a-after-ack');expect(reads[2]).not.toBe(reads[0]);
   await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');expect(store[peerB][0].read_at).toBeNull();
+});
+
+test('reopening the same private chat before a lost read ACK exposes recovery with the original boundary and key',async({page})=>{
+  await page.setViewportSize({width:390,height:900});
+  let release=()=>{};const gate=new Promise<void>(resolve=>{release=resolve});
+  const {reads,readBoundaries}=await direct(page,{readOutcomes:['500','ok'],readGate:()=>gate});
+  try{
+    await login(page,'#messages');const panel=page.locator('#messages-panel-direct'),region=panel.locator('.messages-thread');
+    const open=()=>panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:/合成夥伴甲/}).click();
+    await open();await expect.poll(()=>reads.length).toBe(1);
+    await region.locator('.chat-back').click();await open();await expect(region.getByRole('log')).toContainText('合成夥伴甲');
+    release();await expect(region.getByRole('alert')).toContainText('標為已讀未完成');
+    expect(reads).toHaveLength(1);await region.getByRole('button',{name:'重試標為已讀',exact:true}).click();
+    await expect.poll(()=>reads.length).toBe(2);expect(reads[1]).toBe(reads[0]);expect(readBoundaries[1]).toEqual(readBoundaries[0]);
+    await expect(region.getByRole('alert')).toHaveCount(0);
+  }finally{release();}
+});
+
+test('a late private read failure stays with its peer and does not appear in the other conversation',async({page})=>{
+  await page.setViewportSize({width:390,height:900});let release=()=>{};
+  const gate=new Promise<void>(resolve=>{release=resolve});
+  const {store,reads,readBoundaries}=await direct(page,{readOutcomes:['500','ok'],readGate:()=>gate});
+  store[peerB].unshift({message_id:'own-message-b',sender_ref:me,recipient_ref:peerB,body:'另一個對話',created_at:'2026-09-24T11:00:00Z',read_at:null});
+  try{
+    await login(page,'#messages');const panel=page.locator('#messages-panel-direct'),region=panel.locator('.messages-thread');
+    const list=panel.getByRole('list',{name:'對話列表'});
+    await list.getByRole('button',{name:/合成夥伴甲/}).click();await expect.poll(()=>reads.length).toBe(1);
+    await region.locator('.chat-back').click();await list.getByRole('button',{name:/合成夥伴乙/}).click();
+    await expect(region.getByRole('heading',{name:'與 合成夥伴乙 的對話',exact:true})).toBeVisible();
+    const failed=page.waitForResponse(response=>response.url().includes(`/conversations/${peerA}/read`)&&response.status()===500);
+    release();await failed;await expect(region.getByRole('alert')).toHaveCount(0);expect(reads).toHaveLength(1);
+    await region.locator('.chat-back').click();await list.getByRole('button',{name:/合成夥伴甲/}).click();
+    await expect(region.getByRole('alert')).toContainText('標為已讀未完成');await region.getByRole('button',{name:'重試標為已讀',exact:true}).click();
+    await expect.poll(()=>reads.length).toBe(2);expect(reads[1]).toBe(reads[0]);expect(readBoundaries[1]).toEqual(readBoundaries[0]);
+  }finally{release();}
 });
 
 test('direct messages auto-read on entry and retain paging plus idempotent send recovery',async({page})=>{

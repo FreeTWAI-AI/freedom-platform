@@ -25,6 +25,8 @@ export function SocialPostOptimizer({client,job,draft,disabled,onApply,onRecover
   const prompt=draft.trim()?socialPostTask(draft,goal):'';
   async function copyTask(){
     setNotice('');setError('');
+    // Capture before awaiting clipboard permission; the user may edit meanwhile.
+    job.rememberHandoff(draft);
     try {await navigator.clipboard.writeText(`${tool==='Codex'?'若已安裝 Social Post，使用 $social-post。\n':tool==='Claude Code'?'若已安裝 Social Post，使用 /social-post。\n':''}${prompt}`);setNotice(`任務已複製。到自己的 ${tool} 執行，再把結果貼回來。`);}
     catch {setError('無法自動複製。展開下方任務，手動複製到自己的 AI。');}
   }
@@ -45,8 +47,8 @@ export function SocialPostOptimizer({client,job,draft,disabled,onApply,onRecover
       <label className="field">我的 AI 工具<select value={tool} disabled={disabled||locked} onChange={event=>setTool(event.target.value)}>{['Codex','Claude Code','Grok','其他 LLM'].map(value=><option key={value}>{value}</option>)}</select></label>
       <p className="optimizer-fine-print">複製任務到你自己的工具執行，使用該工具的本人帳號或 API Key，再貼回結果。</p>
       <button type="button" className="btn btn-ghost" disabled={disabled||locked||!draft.trim()} onClick={()=>void copyTask()}>複製文案優化任務</button>
-      <details className="optimizer-export"><summary>查看／手動複製任務</summary><textarea aria-label="文案優化任務" readOnly value={prompt} rows={5} onFocus={event=>event.target.select()}/></details>
-      <label className="field">貼回 AI 優化結果<textarea rows={4} maxLength={2000} value={state.evidence==='manual_handoff'?state.result:''} disabled={disabled||locked} onChange={event=>job.manualResult(event.target.value,draft,tool)}/></label>
+      <details className="optimizer-export"><summary>查看／手動複製任務</summary><textarea aria-label="文案優化任務" readOnly value={prompt} rows={5} onFocus={event=>{job.rememberHandoff(draft);event.target.select();}} onCopy={()=>job.rememberHandoff(draft)}/></details>
+      <label className="field" htmlFor={`${id}-manual-result`}><span id={`${id}-manual-label`}>貼回 AI 優化結果</span><textarea id={`${id}-manual-result`} aria-labelledby={`${id}-manual-label`} rows={4} maxLength={2000} value={state.evidence==='manual_handoff'?state.result:''} disabled={disabled||locked} onChange={event=>job.manualResult(event.target.value,draft,tool)}/></label>
     </>}
     {state.message&&<p role="status">{state.message}</p>}
     {state.source&&state.source!==draft&&<button type="button" className="btn btn-ghost" disabled={disabled} onClick={()=>onRecoverDraft(state.source)}>取回這次優化的原稿</button>}

@@ -15,6 +15,7 @@ import type {MessageContent,MessageContentInput} from '../../../../modules/membe
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
 import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
 import {ChatInput,ChatTime,useChatViewport,usePhoneChatBounds,useVisibleChatRead} from './ChatWorkspace';
+import {ChatSearch} from './ChatSearch';
 import {WorkshopIcon} from '../WorkshopIcon';
 import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
 
@@ -199,6 +200,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
   const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
+  const [searchOpen,setSearchOpen]=useState(false);
   // Manual refreshes keep the loaded list/thread (and the focused button) on screen until the new page arrives.
   const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
   // The in-flight refs record the full read that is still out, so a confirmed write can supersede it.
@@ -343,7 +345,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   async function markRead(through?:string,retry=false){
     if(!peer||!thread||readLocks.current.has(peer))return;
     if(!retry&&readAttempts.current.has(peer))return;
-    const id=peer,current=threadGeneration.current,target=thread.items.find(item=>item.message_id===through);
+    const id=peer,target=thread.items.find(item=>item.message_id===through);
     const attempt=readAttempts.current.get(id)??(target?{through:target.message_id,key:crypto.randomUUID()}:null);
     if(!attempt)return;
     readAttempts.current.set(id,attempt);readLocks.current.add(id);readIssues.current.delete(id);setReading(true);setReadError('');
@@ -360,12 +362,13 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
     }catch(cause){
       if(!unconfirmed(cause))readAttempts.current.delete(id);
       const issue=`標為已讀未完成：${fail(cause,'請重試。')}`;readIssues.current.set(id,issue);
-      if(current===threadGeneration.current)setReadError(issue);
+      // A reopened copy of the same conversation still owns this keyed attempt.
+      if(alive.current&&currentPeer.current===id)setReadError(issue);
     }finally{readLocks.current.delete(id);if(alive.current&&currentPeer.current===id)setReading(false);}
   }
 
   useVisibleChatRead({active:active&&(!singlePane||!picking),identity:peer,through:thread?.items[0]?.message_id,unread:thread?.unread_count??0,
-    blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading,scroll,onRead:through=>void markRead(through)});
+    blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
   async function send(id:string){
     const previous=pending[id];
@@ -436,7 +439,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
         <div className="chat-header">{singlePane&&<button type="button" className="btn btn-ghost chat-back" aria-label={compact?'切換對象':'← 返回對話列表'} title="返回對話列表" aria-controls={`${uid}-picker`} onClick={switchPane}><span aria-hidden="true">‹</span></button>}{participant&&<MemberAvatar nickname={participant.display_name} avatarUrl={participant.avatar_url}/>}<div>
           <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?<><span className="chat-sr-only">與 </span>{participant.display_name}<span className="chat-sr-only"> 的對話</span></>:'讀取對話中'}</h2>
           {participant&&<MemberPresence online={participant.is_online} lastSeen={participant.last_seen_at}/>}
-        </div></div>
+        </div>{threadStatus==='ready'&&participant&&<ChatSearch key={peer} client={client} resource={`/me/conversations/${encodeURIComponent(peer)}/messages`} title={participant.display_name} me={session.user.user_id} active={active&&(!singlePane||!picking)} onOpenChange={setSearchOpen}/>}</div>
         {liveError&&<p className="messages-meta" role="status">{liveError}</p>}
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}

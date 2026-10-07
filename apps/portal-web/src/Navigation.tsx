@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { WorkshopIcon } from './WorkshopIcon';
 import type { TabId } from './types';
+import {useLanguage} from './language';
+import type {InterfaceMessage} from './interface-messages';
 
 export const TAB_TITLES: Record<TabId, string> = {
   'private-ai': '私人工作與 AI', home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
@@ -27,6 +29,8 @@ const groups: { label: string; pages: TabId[] }[] = [
 export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEnabled, mobileOpen }: {
   current: TabId; onSelect: (id: TabId) => void; canManageGuild: boolean; guildLaunchpadEnabled: boolean; mobileOpen: boolean;
 }) {
+  const {t}=useLanguage();
+  const groupKeys:Record<string,InterfaceMessage>={'社群參與':'nav.participation','認識夥伴':'nav.people','分享推廣':'nav.promotionGroup','創作與合作':'nav.creation','供貨與銷售':'nav.commerce','管理':'nav.management'};
   const [query,setQuery]=useState('');
   const [moreOpen, setMoreOpen] = useState(false);
   const nav = useRef<HTMLElement>(null), moreTrigger = useRef<HTMLElement>(null);
@@ -36,22 +40,22 @@ export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEn
   useEffect(() => { const close=(event:PointerEvent)=>{if(!nav.current?.contains(event.target as Node))setMoreOpen(false)};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close)},[]);
   const item = (id: TabId) => <button key={id} type="button" className={`nav-item${current === id ? ' is-active' : ''}`}
     aria-current={current === id ? 'page' : undefined} onClick={() => {setQuery('');onSelect(id)}}>
-    <WorkshopIcon name={id}/><span>{TAB_TITLES[id]}</span>
+    <WorkshopIcon name={id}/><span>{t(`nav.${id}`)}</span>
   </button>;
-  return <nav ref={nav} id="workspace-navigation" className={`nav workspace-navigation${mobileOpen ? ' is-open' : ''}`} aria-label="主要工作區" onKeyDown={event=>{if(event.key==='Escape'&&moreOpen){setMoreOpen(false);moreTrigger.current?.focus()}}}>
+  return <nav ref={nav} id="workspace-navigation" className={`nav workspace-navigation${mobileOpen ? ' is-open' : ''}`} aria-label={t('nav.main')} onKeyDown={event=>{if(event.key==='Escape'&&moreOpen){setMoreOpen(false);moreTrigger.current?.focus()}}}>
     <div className="nav-primary">{primary.map(item)}</div>
     <details className="nav-section nav-more" open={moreOpen}>
-      <summary ref={moreTrigger} onClick={event => { event.preventDefault(); setMoreOpen(value => !value); }}>更多功能<span aria-hidden="true">⌄</span></summary>
+      <summary ref={moreTrigger} onClick={event => { event.preventDefault(); setMoreOpen(value => !value); }}>{t('nav.more')}<span aria-hidden="true">⌄</span></summary>
       <div className="nav-more-content">
-    <label className="nav-search"><span className="sr-only">搜尋功能</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} maxLength={80} placeholder="找功能，例如：聊天室"/></label>
-    {query.trim()?<div className="nav-search-results" role="region" aria-label="功能搜尋結果">{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>(id!=='guild-workspace'||canManageGuild)&&(id!=='business'||guildLaunchpadEnabled)&&`${TAB_TITLES[id]} ${keywords[id]??''}`.includes(query.trim())).map(item)}<p className="field-hint">輸入其他關鍵字可換一組結果。</p></div>:<>
+    <label className="nav-search"><span className="sr-only">{t('nav.search')}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} maxLength={80} placeholder={t('nav.example')}/></label>
+    {query.trim()?<div className="nav-search-results" role="region" aria-label={t('nav.results')}>{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>(id!=='guild-workspace'||canManageGuild)&&(id!=='business'||guildLaunchpadEnabled)&&`${t(`nav.${id}`)} ${TAB_TITLES[id]} ${keywords[id]??''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(item)}<p className="field-hint">{t('nav.searchHint')}</p></div>:<>
     {groups.map(group => <details className="nav-section" key={group.label} open={expanded.includes(group.label)}>
       <summary onClick={event => { event.preventDefault(); setExpanded(value => value.includes(group.label) ? value.filter(label => label !== group.label) : [...value, group.label]); }}>
-        {group.label}<span aria-hidden="true">⌄</span>
+        {t(groupKeys[group.label])}<span aria-hidden="true">⌄</span>
       </summary>
       <div className="nav-section-items">
         {group.pages.filter(id => (id !== 'guild-workspace' || canManageGuild) && (id !== 'business' || guildLaunchpadEnabled)).map(item)}
-        {group.label === '管理' && <a className="nav-item" href="/admin">平台管理 <span aria-hidden="true">↗</span></a>}
+        {group.label === '管理' && <a className="nav-item" href="/admin">{t('nav.admin')} <span aria-hidden="true">↗</span></a>}
       </div>
     </details>)}
     <div className="nav-footer">{item('community')}</div>

@@ -37,6 +37,25 @@
 .chat-header h2{overflow-wrap:anywhere}
 .chat-header .member-presence>span:last-child{display:none}
 .chat-header .chat-back{flex:none;width:44px;min-height:44px;padding:0;font-size:30px;line-height:1}
+.chat-header:has(.chat-search-trigger){position:relative;padding-right:100px}
+.chat-header .chat-search-trigger{position:absolute;right:50px;top:0;display:grid;place-items:center;width:44px;min-height:44px;padding:0}
+.chat-search-trigger svg{width:22px;height:22px}
+.chat-search-dialog{width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-elev);color:var(--ink);overflow:hidden}
+.chat-search-dialog[open]{display:flex;flex-direction:column;gap:12px}
+.chat-search-dialog::backdrop{background:#11182788}
+.chat-search-dialog header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex:none}
+.chat-search-dialog header h2{margin:0;font-size:18px}
+.chat-search-dialog .btn{min-height:44px;padding:8px 12px}
+.chat-search-scope{margin:0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+.chat-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;flex:none}
+.chat-search-form .field{margin:0;min-width:0}
+.chat-search-form input{font-size:16px;min-height:44px;width:100%}
+.chat-search-results{min-height:0;overflow:auto;overscroll-behavior:contain}
+.chat-search-results ol{list-style:none;display:grid;gap:12px;margin:12px 0;padding:0}
+.chat-search-results li{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow-wrap:anywhere}
+.chat-search-results .messages-meta{font-size:14px}
+.chat-search-results .messages-body{font-size:16px;line-height:1.6}
+.chat-search-results mark{background:var(--green-soft);color:var(--ink);font-weight:700}
 .chat-workspace .messages-refresh{position:absolute;right:12px;top:14px}
 .chat-workspace .messages-refresh>.btn{width:44px;min-height:44px;padding:0;font-size:0}
 .chat-workspace .messages-refresh>.btn::before{content:'↻';font-size:22px}
@@ -105,6 +124,9 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
   .messages-hub .messages-thread[data-chat-open=true]>.chat-header>div:not(.member-avatar){flex:1;min-width:0}
   .messages-hub .messages-thread[data-chat-open=true] .chat-header h2{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:16px}
   .messages-hub .messages-thread[data-chat-open=true] .chat-header .member-avatar{width:36px;height:36px;min-width:36px;font-size:16px;box-shadow:none}
+  .messages-hub .messages-thread[data-chat-open=true]>.chat-header:has(.chat-search-trigger){padding-right:110px}
+  .messages-hub .messages-thread[data-chat-open=true] .chat-search-trigger{top:10px;right:60px}
+  .chat-search-dialog{inset:calc(var(--chat-viewport-offset,0px) + 12px) 0 auto;margin:0 auto;max-height:calc(var(--chat-viewport-height,100dvh) - 24px)}
   .messages-hub .messages-thread[data-chat-open=true] .messages-refresh{top:10px;right:10px}
   .messages-hub .messages-thread[data-chat-open=true]>.messages-scroll{flex:1;height:auto;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;padding:16px 12px;background:var(--bg)}
   .messages-hub .messages-thread[data-chat-open=true]>.messages-compose{padding:8px 10px max(12px,env(safe-area-inset-bottom));background:var(--bg-elev)}

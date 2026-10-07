@@ -88,6 +88,15 @@ test('unknown model and excess budget do not write, and adopting clears preview 
   h.job.manualResult('本人貼回的文案','原稿','Grok');assert.equal(h.job.snapshot().evidence,'manual_handoff');
   h.job.adopt();assert.equal(h.job.snapshot().result,'');assert.equal(h.writes.length,0);
 });
+
+test('manual exports retain their original facts; fresh adoption and a replaced session reset that binding',()=>{
+  const h=harness();h.job.rememberHandoff('週一台北');h.job.manualResult('週一台北見','週二台中','Codex');
+  assert.equal(h.job.snapshot().source,'週一台北');h.job.manualResult('再修一版','週二台中','Codex');assert.equal(h.job.snapshot().source,'週一台北');
+  h.job.rememberHandoff('週二台中');h.job.manualResult('週二台中見','週二台中','Claude Code');assert.equal(h.job.snapshot().source,'週二台中');
+  h.job.adopt();h.job.manualResult('週三高雄見','週三高雄','Grok');assert.equal(h.job.snapshot().source,'週三高雄');
+  h.job.rememberHandoff('上一個帳號');h.changeSession();h.job.manualResult('新帳號貼回的內容','新帳號原稿','Grok');assert.equal(h.job.snapshot().source,'新帳號原稿');
+  assert.equal(h.writes.length,0);
+});
 test('navigation reuses the same pending job, while a different session gets no prior draft or request',()=>{
   const h=harness(),first=socialPostJobForSession(h.client);
   first.manualResult('上一個工作區的文案','本人原稿','Codex');

@@ -271,6 +271,22 @@ test('a lost auto-read ACK preserves its boundary and key until explicit recover
   await expect(tab(page,'公會閒聊')).toContainText('2 則未讀');expect(server.get('guild','makers').read).toBe(0n);
 });
 
+test('reopening the same group before a lost read ACK exposes its original recovery',async({page})=>{
+  await page.setViewportSize({width:390,height:900});
+  const server=await channelServer(page,{guild:[['builders','合成公會甲',3]]}),gate=holder();let lost=false;
+  server.control.fail=what=>{if(what==='read'&&!lost){lost=true;return '500'}};
+  server.control.gate=what=>what==='read'?gate.wait():undefined;
+  try{
+    await open(page,server);await tab(page,'公會閒聊').click();const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread');
+    const select=()=>guild.getByRole('button',{name:'合成公會甲',exact:true}).click();
+    await select();await expect.poll(()=>server.log.reads.length).toBe(1);const original=server.log.reads[0];
+    await thread.locator('.chat-back').click();await select();await expect(thread.getByRole('log')).toContainText('合成公會甲');
+    gate.release();await expect(thread.getByRole('alert')).toContainText('標為已讀未完成');expect(server.log.reads).toHaveLength(1);
+    await thread.getByRole('button',{name:'重試標為已讀',exact:true}).click();await expect.poll(()=>server.log.reads.length).toBe(2);expect(server.log.reads[1]).toEqual(original);
+    await expect(thread.getByRole('alert')).toHaveCount(0);
+  }finally{gate.release();}
+});
+
 test('chat navigation defaults to private conversations and the bell explicitly opens notifications',async({page})=>{
   const server=await channelServer(page,{});await open(page,server);
   await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');

@@ -49,6 +49,8 @@ export class SocialPostOptimizationJob {
   private generation=0;
   private stage=0;
   private command:Command|null=null;
+  private handoff:null|{source:string;generation:number}=null;
+  private manualGeneration?:number;
   private input:null|{prompt:string;source:string;model:ModelConnectionMetadata;connectionVersion:string;maxTokens:number}=null;
   private work?:z.infer<typeof WorkReceipt>;
   private run?:z.infer<typeof MemberExecutionHttpRunMetadataSchema>;
@@ -60,14 +62,24 @@ export class SocialPostOptimizationJob {
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   private set(value:Partial<Snapshot>) {this.value=Object.freeze({...this.value,...value});for(const listener of this.listeners)listener();}
   private current() {if(this.client.sessionGeneration!==this.generation)throw new Error('session_changed');}
+  rememberHandoff(source:string) {
+    if(['busy','uncertain','waiting'].includes(this.value.phase))return;
+    this.handoff={source,generation:this.client.sessionGeneration};
+  }
   manualResult(result:string,source:string,model:string) {
     if(['busy','uncertain','waiting'].includes(this.value.phase))return;
+    if(this.handoff?.generation!==this.client.sessionGeneration)this.handoff=null;
+    // A copy/export binds its original facts even after the composer remounts.
+    // Direct paste without an export still works; later edits keep that first source.
+    const keepSource=this.value.phase==='ready'&&this.value.evidence==='manual_handoff'&&this.manualGeneration===this.client.sessionGeneration;
+    source=this.handoff?.source??(keepSource?this.value.source:source);
+    this.manualGeneration=this.client.sessionGeneration;
     this.set({phase:'ready',result,source,model,evidence:'manual_handoff',usage:undefined,message:'已貼回結果，尚未採用或發布。'});
   }
   adopt() {
     if(this.value.phase!=='ready')return;
-    this.input=null;this.command=null;
-    this.set({phase:'idle',result:'',source:'',message:'已採用到草稿，尚未發布。'});
+    this.input=null;this.command=null;this.handoff=null;this.manualGeneration=undefined;
+    this.set({phase:'idle',result:'',source:'',evidence:undefined,usage:undefined,message:'已採用到草稿，尚未發布。'});
   }
   async start(overview:MemberModelHttpOverview,modelId:string,source:string,goal:SocialPostGoal,maxTokens:number) {
     if(['busy','uncertain','waiting'].includes(this.value.phase))return;
@@ -75,6 +87,7 @@ export class SocialPostOptimizationJob {
     const policy=model&&overview.allowedSelections.find(value=>same(value.selection,model.selection));
     if(!model||!policy||!Number.isInteger(maxTokens)||maxTokens<1||maxTokens>policy.maxOutputTokens)throw new Error('請選取本人的模型與有效輸出上限。');
     const prompt=socialPostTask(source,goal);
+    this.handoff=null;this.manualGeneration=undefined;
     this.generation=this.client.sessionGeneration;
     this.input=structuredClone({prompt,source,model,connectionVersion:overview.connections.find(value=>value.connectionId===model.connectionId)!.aggregateVersion,maxTokens});
     this.stage=0;this.command=null;this.work=undefined;this.run=undefined;this.grant=undefined;this.approval=undefined;this.step=undefined;

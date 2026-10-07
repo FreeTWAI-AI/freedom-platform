@@ -9,6 +9,7 @@ import type {MessageContent,MessageContentInput} from '../../../../modules/membe
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
 import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
 import {ChatInput,ChatTime,useChatViewport,useVisibleChatRead} from './ChatWorkspace';
+import {ChatSearch} from './ChatSearch';
 import './MemberSettings.css';
 
 export type ChannelKind='guild'|'squad'|'world';
@@ -60,6 +61,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const readAttempts=useRef(new Map<string,{through:string;key:string}>()),readLocks=useRef(new Set<string>()),readIssues=useRef(new Map<string,string>());
   const heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
   const [roomQuery,setRoomQuery]=useState(''),[liveError,setLiveError]=useState(''),[hasNew,setHasNew]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
   const [picking,setPicking]=useState(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{top:number;height:number}|null>(null),polling=useRef(false),retryAt=useRef(0),failures=useRef(0);
   const snapshot=useRef({history,status,more,reading,active,sending:false});snapshot.current={history,status,more,reading,active:active&&(!singlePane||!picking),sending:pending[selected?.key??'']?.status==='sending'};
@@ -264,12 +266,12 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       if(!alive.current)return;
       if(revoked(cause)){revoke(key,since);return;}
       const issue=`標為已讀未完成：${fail(cause,'請重試。')}`;readIssues.current.set(key,issue);
-      if(generation===threadGeneration.current)setReadError(issue);
+      if(current.current===key)setReadError(issue);
     }finally{readLocks.current.delete(key);if(alive.current&&current.current===key)setReading(false);}
   }
 
   useVisibleChatRead({active:active&&(!singlePane||!picking),identity:selected?.key??null,through:history?.items[0]?.message_id,unread:history?.unread_count??0,
-    blocked:status!=='ready'||reading||Boolean(readError)||Boolean(countUnconfirmed)||more.loading,scroll,onRead:through=>void markRead(through)});
+    blocked:status!=='ready'||reading||Boolean(readError)||Boolean(countUnconfirmed)||more.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
   async function send(key:string){
     const previous=pending[key];
@@ -346,7 +348,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       </>}
       {selected&&status!=='gone'&&<>
         <div className="chat-header">{singlePane&&(kind!=='world'||onReturnToChats)&&<button type="button" className="btn btn-ghost chat-back" aria-label={backLabel} title={backLabel} onClick={kind==='world'?returnFromWorld:switchPane}><span aria-hidden="true">‹</span></button>}<div><h2 id={ids.title} ref={heading} tabIndex={-1} aria-label={kind==='world'?'世界聊天':`${history?.channel.name??selected.name}・${text.title}`}>{kind==='world'?'世界聊天':<>{history?.channel.name??selected.name}<span className="chat-sr-only">・{text.title}</span></>}</h2>
-        <span className="messages-meta">{kind==='world'?'所有會員可見':kind==='guild'?'公會成員':'群組成員'}{liveError?' · 更新暫停':''}</span></div></div>
+        <span className="messages-meta">{kind==='world'?'所有會員可見':kind==='guild'?'公會成員':'群組成員'}{liveError?' · 更新暫停':''}</span></div>{status==='ready'&&history&&<ChatSearch key={`${kind}:${selected.key}`} client={client} resource={`/me/channels/${kind}/${encodeURIComponent(selected.key)}/messages`} title={history.channel.name} me={me} active={active&&(!singlePane||!picking)} onOpenChange={setSearchOpen}/>}</div>
         {liveError&&<p role="status" className="messages-meta">{liveError}</p>}
         {status==='loading'&&<p role="status">正在讀取訊息…</p>}
         {status==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{error}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(selected.key)}>重新讀取訊息</button></div></div>}

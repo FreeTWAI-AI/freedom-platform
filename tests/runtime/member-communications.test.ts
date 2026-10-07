@@ -48,6 +48,39 @@ const notify=(input:NotifyMemberInput)=>transaction(pool,q=>notifyMember(q,input
 const count=async(sql:string,values:unknown[]=[])=>(await pool.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 const noPrivate=(data:unknown)=>{const text=JSON.stringify(data);for(const needle of ['@local.test','@example.invalid','password','csrf','token_hash','email'])assert.ok(!text.includes(needle),`leaked ${needle}: ${text}`);};
 
+test('conversation search finds older literal text with stable ties and never marks it read',async()=>{
+  const [a]=await signInAll(),ids:string[]=[];
+  for(let i=0;i<26;i++){
+    const id=randomUUID();ids.push(id);
+    await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      VALUES($1,$2,$3,$4,$5,timestamptz '2026-10-07T00:00:00.123456Z')`,[id,DEMO_COMMUNITY,B,A,`合成 Partner 100%_\\ 訊息 ${i}`]);
+  }
+  await pool.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body) VALUES($1,$2,$3,$4)',[DEMO_COMMUNITY,C,B,'其他人的 Partner 100%_\\']);
+  const path=`/me/conversations/${B}/messages/search`,query=new URLSearchParams({q:'100%_\\',limit:'10'});
+  const first=await request(`${path}?${query}`,a);assert.equal(first.status,200,JSON.stringify(first.data));
+  const expected=ids.sort().reverse();assert.deepEqual(first.data.items.map((item:any)=>item.message_id),expected.slice(0,10));
+  const newer=(await pool.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$2,$3,$4,timestamptz '2026-10-08T00:00:00Z') RETURNING message_id`,[DEMO_COMMUNITY,B,A,'較新的 Partner 100%_\\'])).rows[0].message_id;
+  const all=[...first.data.items];let cursor=first.data.next_cursor;
+  while(cursor){query.set('cursor',cursor);const next=await request(`${path}?${query}`,a);assert.equal(next.status,200);all.push(...next.data.items);cursor=next.data.next_cursor;}
+  assert.deepEqual(all.map(item=>item.message_id),expected);assert.equal(all.some(item=>item.message_id===newer),false);
+  assert.equal((await request(`${path}?q=partner`,a)).data.items.length,20);
+  assert.equal((await request(`${path}?q=其他人的`,a)).data.items.length,0);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);assert.equal(await count('command_receipts'),0);noPrivate(first.data);
+});
+
+test('conversation search rejects foreign cursors, unavailable identities and invalid queries',async()=>{
+  const [a]=await signInAll(),path=`/me/conversations/${B}/messages/search`;
+  const foreign=(await pool.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body) VALUES($1,$2,$3,$4) RETURNING message_id',[DEMO_COMMUNITY,B,C,'合成外部對話'])).rows[0].message_id;
+  assert.equal((await request(`${path}?q=合成&cursor=${foreign}`,a)).status,404);
+  for(const query of ['q=','q=%20','q='+ 'a'.repeat(101),'q=a&limit=51','q=a&cursor=bad','q=a&extra=1'])assert.equal((await request(`${path}?${query}`,a)).status,422,query);
+  assert.equal((await request(`${path}?q=合成`)).status,401);
+  const other=await extraMember('search-foreign',randomUUID());
+  assert.equal((await request(`/me/conversations/${other.id}/messages/search?q=合成`,a)).status,404);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);
+  assert.equal((await request(`${path}?q=合成`,a)).status,401);
+});
+
 test('one bulk inbox command clears all pages and incoming DMs while preserving history and other members',async()=>{
   const [a,b]=await signInAll();
   for(let n=0;n<27;n++)await notify(notice(A));

@@ -86,7 +86,11 @@ test('private chat checks cheaply while idle, receives within two seconds, and s
     const sendPeer=async(body:string)=>{const response=await peerContext.request.post(`/api/v1/me/conversations/${DEMO_USERS[0].user_id}/messages`,{headers:{Origin:origin,'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{body}});expect(response.status()).toBe(201)};
     await sendPeer('私訊起點');let historyReads=0,checks=0;
     page.on('request',request=>{if(request.method()==='GET'&&request.url().includes(`/me/conversations/${session.user.user_id}/messages?`))historyReads++;if(request.url().endsWith(`/me/conversations/${session.user.user_id}/activity`))checks++});
-    await login(page);await page.goto('/#messages');await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.getByRole('tabpanel',{name:/^私人訊息/});await panel.locator('[aria-label="對話列表"] button').first().click();const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('私訊起點');
+    await login(page);await page.goto('/#messages');await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
+    // Settle the initial auto-read and its authoritative history reconciliation
+    // before measuring additional full-history reads while the chat is idle.
+    const initialReadConfirmed=page.waitForResponse(async response=>response.request().method()==='GET'&&response.url().includes(`/me/conversations/${session.user.user_id}/messages?`)&&response.ok()&&(await response.json()).unread_count===0);
+    await panel.locator('[aria-label="對話列表"] button').first().click();const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('私訊起點');await initialReadConfirmed;
     const before=historyReads;await expect.poll(()=>checks).toBeGreaterThanOrEqual(3);expect(historyReads).toBe(before);
     await page.bringToFront();const start=Date.now();await sendPeer('每秒檢查收到的新私訊');await expect(thread.getByRole('log')).toContainText('每秒檢查收到的新私訊',{timeout:2000});const arrivalMs=Date.now()-start;expect(arrivalMs).toBeLessThan(2000);
     const gate=new Promise<void>(resolve=>{release=resolve;});
