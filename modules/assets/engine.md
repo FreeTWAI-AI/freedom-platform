@@ -18,7 +18,7 @@ supported manifest combinations are fixed: member.avatar/avatar (2 MiB input,
 UTF-8 text), and work.tenant-result/work.tenant-result/draft (256 KiB UTF-8
 text, tenant authority only). The private profile requires migration 084 and a
 separately reviewed domain adapter/policy; merely having the engine branch does
-not enable private writes. The tenant profile requires migration 120 and
+not enable private writes. The tenant profile requires migration 123 and
 `tenant-lifecycle-authority.ts`.
 
 The profile owns strict domain input parsing, representation processing,

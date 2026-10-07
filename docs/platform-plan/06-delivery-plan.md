@@ -566,6 +566,8 @@ GitHub／community／growth：
 
 #### 2026-09-24 公開會員 beta 對照
 
+> 2026-10-07 註：本節保留 2026-09-24 的歷史對照，不再代表目前部署。2026-10-07 時，正式站與 staging 都在 Cloudflare Workers 上執行（業務資料在 PostgreSQL、內容在各環境私有 R2）；部署版本、schema 與功能狀態以[現況快照](execution/unified-foundation/current-state.json)為準。本表的 package、milestone 與 acceptance 狀態不因此改變。
+
 Base `8338a42` 已部署為 `freetwai.com` 公開會員 beta（Castle Node＋PostgreSQL＋Tunnel，見 [公開站運行手冊](../development/public-operations.md)）；本輪文件修正尚未部署。它是下列 package 的局部 runtime 子集，不改任何 package、milestone 或 acceptance 狀態；逐項來源見 [2026-09-23 落差對照](../development/plan-drift-2026-09-23.md)。定位列的「新註冊必填」是該 base 當時的入口。2026-10-01 更新：新註冊改為先選主要公會，定位測驗可稍後補做。
 
 | 範圍（相關 package） | 目前 runtime | 仍未實作，不可推定完成 |

@@ -1,4 +1,4 @@
-"""Read-only planning-document checks; never executes or accepts product T cases."""
+"""Read-only planning-document checks plus the README glp-status line against unified-foundation current-state.json; never executes or accepts product T cases."""
 from pathlib import Path
 import hashlib
 import json
@@ -9,6 +9,96 @@ from urllib.parse import unquote
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 EXPECTED_BASELINE = "11183364845c0d46b29fa52f5cc25f5c3ebce43cc3ff33662ef37d880b583c69"
+
+CURRENT_STATE = ROOT / "docs/platform-plan/execution/unified-foundation/current-state.json"
+STATUS_LINE = re.compile(r"^<!-- glp-status: (.*) -->$", re.M)
+STATUS_SOURCES = {
+    "as_of": "features.guild_launchpad.at",
+    "release.production": "deployment.production.observed_release_sha",
+    "release.staging": "deployment.staging.last_operator_release_sha",
+    "flag.production": "features.guild_launchpad.last_operator_value.production",
+    "flag.staging": "features.guild_launchpad.last_operator_value.staging",
+    "max_migration": "schema.repository_max_migration",
+    "capacity_policy_rows": "features.guild_launchpad.policy_rows.capacity",
+    "authority_policy_rows": "features.guild_launchpad.policy_rows.authority"
+}
+STATUS_KEYS = (*STATUS_SOURCES, "accepted")
+
+
+def status_failures(readme, state, trace):
+    failures = []
+    expected_values = {}
+    lines = STATUS_LINE.findall(readme)
+    if len(lines) != 1:
+        return [f"README must contain exactly one glp-status line, found {len(lines)}"]
+    tokens = lines[0].split()
+    parsed_tokens = {}
+    for token in tokens:
+        if "=" not in token:
+            failures.append(f"README glp-status token '{token}' is not key=value")
+            continue
+        key, value = token.split("=", 1)
+        if not key or not value:
+            failures.append(f"README glp-status token '{token}' is not key=value")
+            continue
+        if key in parsed_tokens:
+            failures.append(f"README glp-status repeats key {key}")
+        elif key not in STATUS_KEYS:
+            failures.append(f"README glp-status has unknown key {key}")
+        else:
+            parsed_tokens[key] = value
+
+    for key in STATUS_KEYS:
+        if key not in parsed_tokens:
+            failures.append(f"README glp-status is missing key {key}")
+
+    for key, path in STATUS_SOURCES.items():
+        parts = path.split(".")
+        current = state
+        valid = True
+        for part in parts:
+            if not isinstance(current, dict) or part not in current:
+                valid = False
+                break
+            current = current[part]
+        if not valid or isinstance(current, bool) or not isinstance(current, (str, int)):
+            failures.append(f"current-state.json {path} is missing or not a string/integer")
+        else:
+            expected_values[key] = str(current)[:10] if key == "as_of" else str(current)
+
+    cases = trace.get("acceptance") if isinstance(trace, dict) else None
+    if not isinstance(cases, list):
+        cases = []
+    not_run_count = sum(1 for c in cases if isinstance(c, dict) and c.get("status") == "not_run")
+    expected_values["accepted"] = "false" if not_run_count > 0 else "true"
+
+    for key, parsed_val in parsed_tokens.items():
+        if key in expected_values:
+            expected = expected_values[key]
+            if parsed_val != expected:
+                source_str = f"current-state.json {STATUS_SOURCES[key]}" if key != "accepted" else f"traceability.json acceptance ({not_run_count} cases not_run)"
+                if key == "as_of":
+                    source_str = "current-state.json features.guild_launchpad.at[:10]"
+                failures.append(f"README glp-status {key}={parsed_val} but {source_str} is {expected}; update the README 目前狀態 section and its glp-status line together with current-state.json")
+
+    headings = re.findall(r"^## 目前狀態$", readme, re.M)
+    if len(headings) != 1:
+        failures.append(f"README must contain exactly one \"## 目前狀態\" heading, found {len(headings)}")
+    else:
+        match = re.search(r"^## 目前狀態$(.*?)(?=^## |\Z)", readme, re.M | re.S)
+        if match:
+            section_text = match.group(1)
+            if not STATUS_LINE.search(section_text):
+                failures.append("README glp-status line must be inside the 目前狀態 section")
+            else:
+                text_without_status = STATUS_LINE.sub("", section_text)
+                for key in ("release.production", "release.staging"):
+                    if key in expected_values:
+                        prefix = expected_values[key][:8]
+                        if prefix not in text_without_status:
+                            failures.append(f"README 目前狀態 section must name {prefix} (current-state.json {STATUS_SOURCES[key]}) outside the glp-status line")
+
+    return failures
 
 
 def validate():
@@ -98,10 +188,17 @@ def validate():
             links += 1
             if not (p.parent / unquote(target)).exists():
                 failures.append(f"{p.name}: missing local link {raw}")
+    readme_text = (HERE / "README.md").read_text(encoding="utf-8")
+    if CURRENT_STATE.is_file():
+        state_data = json.loads(CURRENT_STATE.read_text(encoding="utf-8"))
+        failures.extend(status_failures(readme_text, state_data, d))
+    else:
+        failures.append("missing docs/platform-plan/execution/unified-foundation/current-state.json")
     for failure in failures:
         print("FAIL:", failure)
     print(f"22 decisions; 64 requirements; 60 planned acceptances; 13 specs; {sum(len(r['acceptance_ids']) for r in d['requirements'])} R/T edges; {links} local links; {len(failures)} failures")
     print("Documentation only: no product acceptance, runtime, authorization, deployment or external-link verification is implied.")
+    print("README glp-status compared with unified-foundation/current-state.json only; that snapshot is the deployment record.")
     return bool(failures)
 
 
