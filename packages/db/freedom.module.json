@@ -11,6 +11,7 @@
     "deploy/cloudflare/migration-operator.md",
     "deploy/cloudflare/test/migration-operator.test.mjs",
     "deploy/cloudflare/test/migration-fixtures.mjs",
+    "tests/integration/migration-postgres-fixture.ts",
     "tests/integration/migration-plan-postgres.test.ts",
     "tests/integration/migration-entrypoints-postgres.test.ts",
     "tests/runtime/migration-runner-plan.test.ts"

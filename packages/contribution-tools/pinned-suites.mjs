@@ -1,0 +1,12 @@
+// Reviewed host data; candidate package scripts, globs and descriptors never add, remove or replace a pinned suite or its files.
+export const PINNED_SUITES = Object.freeze({
+  'ci.governance-unit': Object.freeze({ directory: 'packages/contribution-tools/test', pattern: /^[a-z][a-z0-9-]*\.test\.mjs$/, loader: 'node', database: false, timeoutMs: 300000, env: Object.freeze([]) }),
+  'ci.selector-unit': Object.freeze({ files: Object.freeze(['scripts/ci/select-affected-jobs.test.mjs']), loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
+  'ci.skill-client-unit': Object.freeze({ directory: 'packages/skill-upload-client/test', pattern: /^[a-z][a-z0-9_-]*\.test\.mjs$/, loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
+  'ci.worker-unit': Object.freeze({ directory: 'tests/worker', pattern: /^[a-z][a-z0-9_-]*\.test\.ts$/, loader: 'tsx', database: true, timeoutMs: 900000, env: Object.freeze(['HOME', 'FREEDOM_WORKERD_BUNDLE_DIR']) }),
+  'ci.deploy-preflight': Object.freeze({ directory: 'deploy/cloudflare/test', pattern: /^[a-z][a-z0-9_-]*\.test\.mjs$/, loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
+  'ci.migration-postgres': Object.freeze({ files: Object.freeze(['tests/integration/migration-plan-postgres.test.ts', 'tests/integration/migration-entrypoints-postgres.test.ts', 'tests/runtime/migration-runner-plan.test.ts']), loader: 'tsx', database: false, timeoutMs: 600000, env: Object.freeze(['HOME', 'DOCKER_HOST', 'DOCKER_CONFIG']) }),
+  'ci.consumer-repositories': Object.freeze({ files: Object.freeze(['tests/integration/repositories.test.ts', 'tests/integration/consumer-libraries.test.ts']), loader: 'tsx', database: true, timeoutMs: 600000, env: Object.freeze(['HOME', 'FREEDOM_REPOSITORIES_ROOT', 'FREEDOM_CONSUMER_SOURCE_COMMIT', 'FREEDOM_AGENT_KIT_ROOT', 'FREEDOM_STOREFRONT_ROOT', 'FREEDOM_SUPPLIER_CLIENT_ROOT', 'FREEDOM_SUPPLIER_SOURCE_COMMIT']) }),
+  'ci.runtime-union-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/runtime-union.integration.test.mjs']), loader: 'node', database: false, timeoutMs: 600000, env: Object.freeze([]) }),
+  'ci.runtime-sharding-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/runtime-sharding.integration.test.mjs']), loader: 'node', database: true, timeoutMs: 600000, env: Object.freeze([]) })
+});

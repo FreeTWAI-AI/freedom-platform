@@ -8,6 +8,7 @@ import { readBounded, parseJson, sha256 } from './io.mjs';
 import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-databases.mjs';
 import { verificationEnvironment } from './process-env.mjs';
 import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES, FIXED_NODE_SUITES } from './runtime-suites.mjs';
+import { PINNED_SUITES } from './pinned-suites.mjs';
 
 import { createProgressDecoder } from './test-reporter.mjs';
 
@@ -43,7 +44,7 @@ async function suiteFiles(root, id) {
 
 // No shell, package hooks, inherited NODE_OPTIONS, test context, credentials,
 // or default database URL. Kill the isolated process group on POSIX timeout.
-async function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
+async function execute(root, files, loader, extraEnv, timeoutMs, signal) {
   const diagnosticEpoch = performance.now();
   let sources = [], sourceBytes = 0;
   try {
@@ -54,14 +55,14 @@ async function execute(root, files, runtime, databaseUrl, timeoutMs, signal) {
     }
   } catch { sources = []; /* progress is optional, never final result evidence */ }
   return new Promise(done => {
-    let loader;
-    try { if (runtime) loader = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href; }
+    let loaderPath;
+    try { if (loader === 'tsx') loaderPath = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href; }
     catch { done({ reason: 'runtime_loader_unavailable' }); return; }
-    const args = [...(runtime ? ['--import', loader] : []), '--test', '--test-concurrency=1',
+    const args = [...(loader === 'tsx' ? ['--import', loaderPath] : []), '--test', '--test-concurrency=1',
       '--test-reporter=' + reporter, ...files];
     const env = verificationEnvironment();
+    if (extraEnv) Object.assign(env, extraEnv);
     if (sources.length === files.length) env.FREEDOM_TEST_PROGRESS_FILES = JSON.stringify(files);
-    if (runtime) env.TEST_DATABASE_URL = databaseUrl;
     const group = process.platform !== 'win32';
     const child = spawn(process.execPath, args, { cwd: root, env, detached: group, stdio: ['ignore', 'pipe', 'pipe', 'pipe', 'pipe'] });
     const diagnostic = record => { try { process.stderr.write('freedom.test-progress ' + JSON.stringify(record) + '\n'); } catch { /* diagnostics never affect admission */ } };
@@ -143,7 +144,7 @@ async function runGroup(root, selections, runtime, options) {
     return selections.map(({ id }) => result(id, 'not_run', 'invalid_runtime_shards'));
   }
   if (runtime && shardCount > 1) return runSharded(root, selections, files, options, timeout, shardCount);
-  const ran = await execute(root, files, runtime, options.testDatabaseUrl, timeout, options.signal);
+  const ran = await execute(root, files, runtime ? 'tsx' : 'node', runtime ? { TEST_DATABASE_URL: options.testDatabaseUrl } : {}, timeout, options.signal);
   const failure = reason => selections.map(({ id, files: selected_files }) => ({
     ...result(id, reason === 'runtime_loader_unavailable' ? 'not_run' : 'failed', reason), selected_files,
   }));
@@ -314,7 +315,7 @@ async function runSharded(root, selections, files, options, timeout, count) {
     const remaining = deadline - performance.now() - 24_000;
     if (remaining <= 0 || options.signal?.aborted) reason = options.signal?.aborted ? 'test_cancelled' : 'test_timeout';
     else shards = await Promise.all(partitions.map(async (selected, index) => {
-      const ran = await execute(root, selected, true, databases.urls[index], remaining, options.signal);
+      const ran = await execute(root, selected, 'tsx', { TEST_DATABASE_URL: databases.urls[index] }, remaining, options.signal);
       let raw, evidence;
       if (!ran.reason) try {
         raw = parseJson(ran.output, { maxBytes: MAX_OUTPUT, maxNodes: 500_000 });
@@ -373,6 +374,92 @@ export async function runLocalSuite(root, id, options = {}) {
   return (await runLocalSuites(root, [id], options))[0];
 }
 
+export async function runPinnedSuite(root, id, options = {}) {
+  const allowedKeys = ['testDatabaseUrl', 'env', 'timeoutMs', 'signal'];
+  for (const key of Object.keys(options)) {
+    if (!allowedKeys.includes(key)) return result(id, 'not_run', 'invalid_pinned_suite_options');
+  }
+
+  const suite = PINNED_SUITES[id];
+  if (!suite) return result(id, 'not_run', 'suite_adapter_unavailable');
+
+  let files = [];
+  if (suite.files) {
+    files = [...suite.files];
+  } else if (suite.directory && suite.pattern) {
+    try {
+      const found = await readdir(resolve(root, suite.directory));
+      files = found.filter(name => suite.pattern.test(name)).map(name => suite.directory + '/' + name);
+    } catch {
+      return result(id, 'not_run', 'suite_files_unavailable');
+    }
+  }
+
+  files = [...new Set(files)].sort();
+  if (files.length > MAX_FILES) return result(id, 'not_run', 'suite_files_unavailable');
+
+  try {
+    for (const path of files) {
+      await readBounded(root, path);
+    }
+  } catch {
+    return result(id, 'not_run', 'suite_files_unavailable');
+  }
+
+  if (files.length === 0) return { ...result(id, 'failed', 'empty_test_set'), test_count: 0, selected_files: files };
+
+  if (suite.database) {
+    if (!isDisposableDatabaseUrl(options.testDatabaseUrl)) {
+      return result(id, 'not_run', options.testDatabaseUrl === undefined ? 'test_database_required' : 'test_database_rejected');
+    }
+  }
+
+  const timeoutMs = options.timeoutMs !== undefined ? options.timeoutMs : suite.timeoutMs;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > suite.timeoutMs) {
+    return result(id, 'not_run', 'invalid_suite_timeout');
+  }
+
+  const extraEnv = {};
+  if (suite.database) {
+    extraEnv.TEST_DATABASE_URL = options.testDatabaseUrl;
+  }
+  if (suite.env && options.env) {
+    for (const name of suite.env) {
+      if (options.env[name] !== undefined) extraEnv[name] = options.env[name];
+    }
+  }
+
+  const ran = await execute(root, files, suite.loader, extraEnv, timeoutMs, options.signal);
+  const failure = reason => ({
+    ...result(id, reason === 'runtime_loader_unavailable' ? 'not_run' : 'failed', reason),
+    selected_files: files,
+  });
+  if (ran.reason) return { ...failure(ran.reason), evidence_sha256: sha256(ran.output ?? Buffer.alloc(0)) };
+
+  let raw, evidence;
+  try {
+    raw = parseJson(ran.output, { maxBytes: MAX_OUTPUT, maxNodes: 500_000 });
+    evidence = evidenceFor(raw, files);
+  } catch {
+    return failure('invalid_test_results');
+  }
+  if (!evidence) return failure('incomplete_test_results');
+
+  const evidence_sha256 = sha256(ran.output);
+  const test_count = evidence.reduce((count, item) => count + item.counts.tests, 0);
+
+  const passed = !ran.failed && raw.success && raw.files.every(file => file.success)
+      && evidence.every(file => file.counts.tests > 0 && file.counts.tests === file.counts.passed
+        && file.suite_events.every(event => event.status === 'passed'));
+
+  return {
+    ...result(id, passed ? 'passed' : 'failed', passed ? 'tests_executed' : ran.failed ? 'test_process_failed' : 'incomplete_test_results'),
+    test_count,
+    evidence_sha256,
+    selected_files: files,
+    test_files: evidence
+  };
+}
 
 const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
