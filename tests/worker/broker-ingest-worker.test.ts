@@ -137,7 +137,7 @@ test('actual broker Worker setup host: main-signed bootstrap, native secret body
       await owner.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) VALUES($1,$2,$3,'Synthetic ingest owner',$4,$5)`,[user,community,email,await hashPasswordAsync('synthetic-password-only'),randomUUID()]);
       const session=await login(app,email,'synthetic-password-only');const actor=await authenticate(app,session.token);
       await withMemberScope(app,{actor,scope:'personal'},async()=>{},async()=>{});
-      return {actor,token:session.token,headers:{Cookie:'freedom_local_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
+      return {actor,token:session.token,headers:{Cookie:'__Host-freedom_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
     }
     async function model(human:Awaited<ReturnType<typeof member>>){
       const issuer=await generateKeyPair('ES256'),device=await generateKeyPair('ES256'),publicJwk=parseRuntimePublicJwk(await exportJWK(device.publicKey));

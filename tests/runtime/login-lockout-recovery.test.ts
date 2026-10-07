@@ -13,16 +13,20 @@ const schema = `fp_login_recovery_${process.pid}_${Date.now()}`, admin = createP
 const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 8 });
 const delivered: string[] = [];
 const app = createApp(pool, origin, 'local', { passwordEmailSender: async (_to, url) => { delivered.push(url); } });
+const secureOrigin = 'https://recovery.example.test';
+const secureApp = createApp(pool, secureOrigin, 'staging', { passwordEmailSender: async (_to, url) => { delivered.push(url); } });
 const email = DEMO_USERS[0].email, newPassword = 'synthetic-recovered-password-2026';
 const outcome = z.object({ code: z.string().optional(), reset: z.boolean().optional(), csrf_token: z.string().optional(),
   user: z.object({ user_id: z.uuid() }).optional() });
 before(async () => { await admin.query(`CREATE SCHEMA ${schema}`); await migrate(pool); });
 after(async () => { await pool.end(); await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end(); });
 beforeEach(async () => { await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE'); await seedLocal(pool); delivered.length = 0; });
-async function post(path: string, body: unknown) {
-  const response = await app.request(origin + '/api/v1' + path, { method: 'POST',
-    headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return { status: response.status, data: outcome.parse(await response.json()), cookie: response.headers.get('set-cookie')?.split(';')[0] };
+async function post(path: string, body: unknown, secure = false) {
+  const at = secure ? secureOrigin : origin;
+  const response = await (secure ? secureApp : app).request(at + '/api/v1' + path, { method: 'POST',
+    headers: { Origin: at, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const raw = await response.json();
+  return { response, raw, status: response.status, data: outcome.parse(raw), cookie: response.headers.get('set-cookie')?.split(';')[0] };
 }
 async function lockAccount() {
   for (let i = 0; i < 10; i++) assert.equal((await post('/auth/login', { email, password: 'wrong-password' })).status, 401);
@@ -85,4 +89,33 @@ test('a late session failure leaves the old password, session, proof and lockout
   assert.equal((await pool.query('SELECT failures FROM login_attempts WHERE attempt_key=$1', [tokenHash(email)])).rows[0].failures, 10);
   assert.equal((await app.request(origin + '/api/v1/session', { headers: { Cookie: old.cookie } })).status, 200);
   assert.equal((await post('/auth/reset/confirm', { token, password: newPassword })).status, 200, 'the proof can be retried after rollback');
+});
+
+for (const secure of [true, false]) test(`${secure ? 'HTTPS' : 'HTTP loopback'} reset issues a fresh session view and revokes pre-reset sessions`, async () => {
+  const at = secure ? secureOrigin : origin, api = secure ? secureApp : app;
+  const first = await post('/auth/login', { email, password: DEMO_PASSWORD }, secure);
+  const second = await post('/auth/login', { email, password: DEMO_PASSWORD }, secure);
+  assert.ok(first.cookie); assert.ok(second.cookie);
+  assert.equal((await api.request(at + '/api/v1/session', { headers: { Cookie: first.cookie } })).status, 200);
+  assert.equal((await post('/auth/reset/request', { email }, secure)).status, 200);
+  const link = new URL(delivered.at(-1)!); assert.equal(link.origin, at);
+  const token = link.hash.slice('#reset-password/'.length);
+  const recovered = await post('/auth/reset/confirm', { token, password: newPassword }, secure);
+  assert.equal(recovered.status, 200); assert.ok(recovered.cookie); assert.ok(recovered.data.csrf_token);
+  assert.deepEqual(Object.keys(recovered.raw).sort(), ['csrf_token', 'expires_after_minutes', 'reset', 'user']);
+  assert.equal(recovered.raw.reset, true); assert.equal(recovered.raw.expires_after_minutes, 30);
+  assert.deepEqual(Object.keys(recovered.raw.user).sort(), ['display_name', 'email', 'profession_membership_ref', 'user_id']);
+  assert.equal(recovered.data.user?.user_id, DEMO_USERS[0].user_id);
+  const cookies = recovered.response.headers.getSetCookie(); assert.equal(cookies.length, 1);
+  assert.match(cookies[0], secure ? /^__Host-freedom_session=/ : /^freedom_local_session=/);
+  for (const attribute of ['HttpOnly', 'SameSite=Strict', 'Path=/', 'Max-Age=2592000']) assert.ok(cookies[0].split('; ').includes(attribute), attribute);
+  assert.equal(cookies[0].split('; ').includes('Secure'), secure); assert.doesNotMatch(cookies[0], /(?:^|;\s*)Domain=/i);
+  assert(!JSON.stringify(recovered.raw).includes(recovered.cookie.split('=')[1]));
+  for (const old of [first, second]) {
+    assert.notEqual(recovered.cookie, old.cookie);
+    assert.equal((await api.request(at + '/api/v1/session', { headers: { Cookie: old.cookie! } })).status, 401);
+    assert.ok((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1', [tokenHash(old.cookie!.split('=')[1])])).rows[0].revoked_at);
+  }
+  const active = await api.request(at + '/api/v1/session', { headers: { Cookie: recovered.cookie } });
+  assert.equal(active.status, 200); assert.deepEqual(await active.json(), { user: recovered.raw.user, csrf_token: recovered.data.csrf_token });
 });

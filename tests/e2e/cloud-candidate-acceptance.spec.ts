@@ -767,12 +767,19 @@ function rememberHeaders(seen:Set<string>,headers:Record<string,string|undefined
   remember(seen,headers['Idempotency-Key']??headers['idempotency-key']);
   remember(seen,headers['X-CSRF-Token']??headers['x-csrf-token']);
   const cookie=headers.Cookie??headers.cookie??'';
-  remember(seen,/(?:^|;\s*)freedom_local_session=([^;]+)/.exec(cookie)?.[1]);
-  for(const match of (headers['set-cookie']??'').matchAll(/freedom_local_session=([^;,\s]+)/g))remember(seen,match[1]);
+  for(const match of cookie.matchAll(/(?:^|;\s*)(?:__Host-freedom_session|freedom_local_session)=([^;]+)/g))remember(seen,match[1]);
+  for(const match of (headers['set-cookie']??'').matchAll(/(?:__Host-freedom_session|freedom_local_session)=([^;,\s]+)/g))remember(seen,match[1]);
 }
 function requestPath(url:string){
   try{const parsed=new URL(url);return parsed.pathname+parsed.search;}catch{return url;}
 }
+
+test('secret tracking records both session cookie names in requests and responses',()=>{
+  const seen=new Set<string>();
+  rememberHeaders(seen,{Cookie:'freedom_local_session=synthetic-local-request; __Host-freedom_session=synthetic-host-request',
+    'set-cookie':'__Host-freedom_session=synthetic-host-response; Path=/, freedom_local_session=synthetic-local-response; Path=/'});
+  expect([...seen].sort()).toEqual(['synthetic-host-request','synthetic-host-response','synthetic-local-request','synthetic-local-response']);
+});
 
 test('registration, messages and messages-mobile pass on the local harness and the report stays scrubbed',async({browser,e2eAuthPool})=>{
   test.setTimeout(240000);
@@ -782,7 +789,7 @@ test('registration, messages and messages-mobile pass on the local harness and t
     if(typeof request.body==='string'){try{rememberJson(seen,JSON.parse(request.body));}catch{/* non-JSON body */}}
     for(const id of request.url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])seen.add(id);
     const response=await fetchTransport(request);
-    for(const line of response.headers.getSetCookie())remember(seen,/^freedom_local_session=([^;]+)/.exec(line)?.[1]);
+    for(const line of response.headers.getSetCookie())remember(seen,/^(?:__Host-freedom_session|freedom_local_session)=([^;]+)/.exec(line)?.[1]);
     try{rememberJson(seen,JSON.parse(Buffer.from(response.body).toString('utf8')));}catch{/* image or empty */}
     return response;
   };
@@ -888,8 +895,8 @@ test('a failure after peer registration still revokes B and records the label',a
       registers++;
       if(registers===2){
         try{peerLabel=String((JSON.parse(String(request.body)) as {nickname?:unknown}).nickname??'');}catch{peerLabel='';}
-        const line=response.headers.getSetCookie().find(value=>value.startsWith('freedom_local_session='));
-        peerCookie=/^freedom_local_session=([^;]+)/.exec(line??'')?.[1]??'';
+        const line=response.headers.getSetCookie().find(value=>/^(?:__Host-freedom_session|freedom_local_session)=/.test(value));
+        peerCookie=/^(?:__Host-freedom_session|freedom_local_session)=([^;]+)/.exec(line??'')?.[1]??'';
       }
     }
     return response;
@@ -903,7 +910,7 @@ test('a failure after peer registration still revokes B and records the label',a
   expect(report.cleanup.items).toContainEqual({phase:'messages',item:`synthetic member ${peerLabel}: root deactivates this cand-reg member in the candidate database`,state:'cleanup_required'});
   expect(report.cleanup.items).toContainEqual({phase:'messages',item:`revoked sessions of synthetic member ${peerLabel}`,state:'restored'});
   expect(peerCookie.length).toBeGreaterThan(20);
-  const probe=await fetch(new URL('/api/v1/session',target.origin),{headers:{cookie:`freedom_local_session=${peerCookie}`,accept:'application/json'},redirect:'manual'});
+  const probe=await fetch(new URL('/api/v1/session',target.origin),{headers:{cookie:`${target.origin.startsWith('https:')?'__Host-freedom_session':'freedom_local_session'}=${peerCookie}`,accept:'application/json'},redirect:'manual'});
   expect(probe.status).toBe(401);
   expect(JSON.stringify(report)).not.toContain(peerCookie);
 });
