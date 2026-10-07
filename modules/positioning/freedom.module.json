@@ -6,7 +6,7 @@
     "modules/positioning/**",
     "migrations/120_guild_categories_preferences.sql",
     "tests/runtime/guild-category-preferences.test.ts",
-    "contracts/guild-launchpad/**",
+    "contracts/guild-launchpad/v1/guild-preferences.ts",
     "scripts/guild-preferences-backfill.ts"
   ],
   "public_exports": [

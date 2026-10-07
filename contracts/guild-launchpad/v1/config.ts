@@ -1,9 +1,7 @@
 import {z} from 'zod';
+import {GUILD_KEY_PATTERN, STABLE_KEY_PATTERN, VERSION_PATTERN, Version} from './primitives.js';
 
-/** Positive decimal version carried as a string so bigint values survive JSON. */
-export const VERSION_PATTERN = /^[1-9][0-9]{0,18}$/;
-export const STABLE_KEY_PATTERN = /^[a-z][a-z0-9_.-]{0,159}$/;
-export const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
+export {GUILD_KEY_PATTERN, STABLE_KEY_PATTERN, VERSION_PATTERN};
 export const BLOCK_KINDS = ['mission','announcements','skill_books','applications','community_tasks','my_work','support'] as const;
 export type BlockKind = typeof BLOCK_KINDS[number];
 export const OPTIONAL_BLOCK_KINDS = ['announcements','community_tasks','applications'] as const;
@@ -16,7 +14,6 @@ export function hasLoneSurrogate(value: string): boolean {
   return LONE_SURROGATE.test(value);
 }
 const MAX_CONFIG_BYTES = 32768;
-const MAX_STORED_VERSION = 9223372036854775807n;
 
 /** Sorted-key JSON. This is the exact text digest() hashes. */
 function canonicalJson(value: unknown): string {
@@ -42,9 +39,7 @@ export class ConfigValidationError extends Error {
 }
 
 export function assertStoredVersion(value: unknown, path: 'revision' | 'to_revision'): void {
-  if (typeof value !== 'string' || !VERSION_PATTERN.test(value) || BigInt(value) > MAX_STORED_VERSION) {
-    throw new ConfigValidationError([{code: 'version_invalid', path}]);
-  }
+  if (!Version.safeParse(value).success) throw new ConfigValidationError([{code: 'version_invalid', path}]);
 }
 
 export type LaunchpadBlock = {

@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "aggregate_version": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "primaries": {
+      "minItems": 3,
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "external",
+              "professional_industry"
+            ]
+          },
+          "guild_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^(?:guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$(?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "category",
+          "guild_key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "invalidated": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "guild_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$(?![\\s\\S])"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "external",
+              "professional_industry"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "guild_key",
+          "category",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "migration_state": {
+      "type": "string",
+      "enum": [
+        "legacy",
+        "backfilled",
+        "switched"
+      ]
+    },
+    "legacy": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "primary_guild_key": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^(?:guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$(?![\\s\\S])"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "secondary_guild_keys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^(?:guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$(?![\\s\\S])"
+              }
+            }
+          },
+          "required": [
+            "primary_guild_key",
+            "secondary_guild_keys"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compatibility": {
+      "type": "string",
+      "const": "legacy_projection"
+    }
+  },
+  "required": [
+    "aggregate_version",
+    "primaries",
+    "invalidated",
+    "migration_state",
+    "legacy"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/preference-view",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+}
