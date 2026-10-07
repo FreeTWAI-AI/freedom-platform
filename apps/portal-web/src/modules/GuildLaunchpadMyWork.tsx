@@ -18,6 +18,7 @@ const STORAGE = '儲存空間暫時無法使用，已保存的內容不受影響
 const UNCONFIRMED = '尚未確認是否儲存，請按重試（不會重複保存）';
 const WORK_GONE = '這份工作已無法繼續保存。筆記還在這個畫面。';
 const WORK_GONE_FILE = '這份工作已無法繼續保存。附件沒有送出。';
+const CREATE_UNCONFIRMED = '工作已送出，但還沒確認。請再按一次「建立」繼續確認（不會重複建立）。';
 const ENABLE_STALE = '工作空間的版本已更新，已重新載入。';
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000D\u000E-\u001F\u007F]/;
 const DISPLAY_FORBIDDEN = /[\\/\u0000-\u001f\u007f\uD800-\uDFFF]/;
@@ -386,12 +387,14 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     const key = keyFor(fingerprint);
     const call = currentCall();
     setBusy(true); setBanner('');
+    let posted = false;
     try {
       const operation = await client.post<Operation>(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, body, { idempotencyKey: key, signal: call.signal });
+      posted = true;
       if (!call.live()) return;
-      keys.current.delete(fingerprint);
       const created = await client.get<WorkView>(`/tenants/${tenantId}/works/${operation.resource_ref.resource_id}`, { signal: call.signal });
       if (!call.live()) return;
+      keys.current.delete(fingerprint);
       setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo');
       await loadContext(tenantId, workspaceId, call);
       if (!call.live()) return;
@@ -401,7 +404,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       showWork(created, true);
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
-      if (!(error instanceof ApiError) || !error.network) keys.current.delete(fingerprint);
+      if (!posted && (!(error instanceof ApiError) || !error.network)) keys.current.delete(fingerprint);
+      if (posted) {
+        if (error instanceof ApiError && [403, 404, 429].includes(error.status)) applyAccess(error);
+        else setBanner(CREATE_UNCONFIRMED);
+        return;
+      }
       if (error instanceof ApiError) applyAccess(error);
       else setBanner('工作沒有建立。');
     } finally { if (call.live()) setBusy(false); }
