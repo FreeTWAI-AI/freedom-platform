@@ -101,6 +101,8 @@ transaction as the event, bulletin, notifications and receipt; concurrent reques
 cannot exceed it, and failed commands do not consume it. At capacity, new
 submissions return `429 auth_rate_limited` without those side effects. Exact
 Idempotency-Key replays remain available without consuming another slot.
+Five per hour is a provisional value (#199); it is the named constant
+`eventCreateLimit` in `modules/community/events.ts`.
 
 ## Member avatars
 

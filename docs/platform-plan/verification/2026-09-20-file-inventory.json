@@ -12424,8 +12424,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 15339,
-      "sha256": "833b3886250c639a5a34f1a564f9c1295f07e2c82fe0d007215f2fd0c4abd522"
+      "bytes": 15950,
+      "sha256": "fe0e8597bb7c9aae648119d300763c2ed637d514841dd128d89dc559b236c55a"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -15524,8 +15524,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 48980,
-      "sha256": "5afa99dfd55b5e378f5112d5471dc9f4245a466f726d1be65f8eb41f1120c42b"
+      "bytes": 49407,
+      "sha256": "7cd403540493a9c69df0aa4975f9edc37adf5e5104fc3b92a66d3adf73fa0783"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -15894,8 +15894,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 31027,
-      "sha256": "f2525c697c56c712fd5240d0fa6ad9ec8ed449ce40b494578676b8a289e3dfde"
+      "bytes": 31207,
+      "sha256": "5875bce77136db84710e29d67343cbac40056ada8a3ab036b8e387dabd4a0d45"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -18633,6 +18633,11 @@
       "sha256": "0b6bc5ea9a8c8d00c7cf1bbfee684f2e9e9c0002308a4b1608a3339528d0539e"
     },
     {
+      "path": "tests/runtime/event-create-rate-limit.test.ts",
+      "bytes": 5698,
+      "sha256": "cdb712f34869a8e252a9d36e6e6ed27451d60bd09a16582738c1165caf3bfe38"
+    },
+    {
       "path": "tests/runtime/event-highlight-assets.test.ts",
       "bytes": 18317,
       "sha256": "d00abcf57b7f26ae9ed955c19e180a75191aa1fc54338241c0ec5c4235c09a3f"
@@ -19014,8 +19019,8 @@
     },
     {
       "path": "tests/runtime/member-experience.test.ts",
-      "bytes": 26648,
-      "sha256": "77cbacc548493cea96226c65b355cfd5d56d696ea9de1ef95d84421847be6430"
+      "bytes": 26665,
+      "sha256": "bfe5946707ad43ae2c16fafe22e34dcce3ea52044b50cda9b8290fa8bb87fe09"
     },
     {
       "path": "tests/runtime/member-model-http-adversarial.test.ts",

@@ -97,6 +97,8 @@ export async function listEventBulletins(pool:Pool,actor:Actor){
 }
 
 const pastEventLimit=100;
+// Provisional per-member submission budget for #199; adjust these two values only.
+const eventCreateLimit=5,eventCreateWindowSeconds=3600;
 // Current and own rows stay whole. Other ended published rows are the newest slice, so old history cannot crowd them out.
 function rankedEvents(visible:string,columns:string){
   return `WITH visible AS (${visible}), listed AS (
@@ -378,7 +380,7 @@ export async function createEvent(pool:Pool,input:Command) {
     if(body.guild_key)requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[body.guild_key])).rowCount===1,422,'unknown_guild','請選擇現有公會。');
     if(body.event_kind==='guild_skill_exchange'){const tier=await activeGuildTier(q,input.actor,body.guild_key);requireCondition(tier,403,'event_guild_required','只有主辦公會成員能提交公會技能交流。');requireFullGuildMember(tier);}
     // The command has already checked receipts; replay never consumes this budget.
-    await authRateLimitInTransaction(q,'event-create-member',input.actor.user_id,5,3600);
+    await authRateLimitInTransaction(q,'event-create-member',input.actor.user_id,eventCreateLimit,eventCreateWindowSeconds);
     const id=randomUUID();
     const row=(await q.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,guild_key,title,description,starts_at,ends_at,mode,location,capacity,event_kind,topic,online_url,review_guild_key,visibility)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,[id,input.actor.community_id,input.actor.user_id,body.guild_key,body.title,body.description,body.starts_at,body.ends_at,body.mode,body.location,body.capacity,body.event_kind,body.topic,body.online_url,reviewGuildFor(body),body.visibility])).rows[0];
