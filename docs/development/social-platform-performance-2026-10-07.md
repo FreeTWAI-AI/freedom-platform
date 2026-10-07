@@ -138,3 +138,13 @@ Code Cleanup 與 R&D 的原始失敗、正反例、來源／環境、學習與�
 獨立 Code Cleanup 與 typed R&D evidence 留於本專案私有 `.rd/`，保存 source／environment／hash、正反例、失敗分類與未驗項。Whole-project 既有 FAIL／REVIEW／NOT_CHECKED 不改成 PASS，不做 strict promotion。Context 工具對未知 root surfaces 回報 `surface_unmapped`，保留 fallback；已讀受影響及全部模組規則，未將工具結果改寫為 complete。
 
 本輪只更新原 Draft PR #193；新的 hosted CI 與人工 review 仍待外部 readback，未 merge／deploy。原 `fb10504` hosted 539 pass／3 fail／12 skip 保持 FAIL。完整平台目標 ACTIVE；正式效能、全站翻譯、實際手機安裝與競品驗收仍 open。
+
+## 貼圖交付後的完整部署預檢修正
+
+交付 `873b76424a8be066bd8833327d0b27e770d97f65` 後，GitHub run `37612706890` 的 deploy-preflight 為 **457 pass／1 fail／0 skip**。完整遷移清單的既有測試仍使用 `last:125` 與第125版 digest，所以拒絕新貼圖的第126版；先前118項 focused release compatibility 通過並未涵蓋這個完整清單案例。原失敗 log 保留，未將其改寫成成功。
+
+只更新 `deploy/cloudflare/test/migration-plan.test.mjs` 的完整清單 fixture 至 `last:126`，以及125個 canonical Git SQL blobs（含已知022空缺）的精確 ledger digest `c70269d381d1c8b9e43afa7abd5d95af4d31918125358c041b91d8d0046ae00c`。原有 `ok`、dependencies、特權 SQL、未知遷移及過期批准的拒絕 assertions 保留，沒有放寬部署條件或修改任何 migration SQL。
+
+在修正 commit `85701e8ebc2ad18572a7d566b9b8f97998cd8d13`／tree `f0ecd0d8cc83d011008346541eddfc7712e9b31a`，用固定 Node24.21 image、Git archive stream、無網路的自有 Linux 容器執行 **全部** `node --test deploy/cloudflare/test/*.test.mjs`，實際 **458 pass／0 fail／0 skip**。這是完整本機部署預檢；新 head 的 hosted 結果與人工 review 另行讀回。先前1951個受測 source blobs中僅此CI測試變更，其餘1950個相同；前端、API、catalog、96個壓縮資產及migration SQL都維持原結果的受測bytes，因此本次不重跑與此fixture無關的UI／API。
+
+失敗原因、原hosted收據、完整native log及修正後的Source／Cleanup／R&D紀錄保存在本專案私有`.freedom/`與`.rd/`；不做共享規則升級。本輪仍更新原Draft PR #193，不包含部署或合併。
