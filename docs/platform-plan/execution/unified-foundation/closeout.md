@@ -183,3 +183,46 @@ after-rollout 備份通過，部署後 cron 有寫入；兩個環境的 backup p
 所以這一輪沒有在 Hyperdrive 上驗到它。回滾是重新部署 `d1c9e18f`，不需要還原資料。
 改成 `purpose-bound-only` 前要先完成 agent-commerce 的 controlled legacy exit。
 細節見[現況快照](current-state.json)與[治理安裝紀錄](governance-installation-2026-10-04.md)。
+
+### 10 月 7 日：installed workflow pin 升級至 6ffdf94a
+
+中央 `24469536` 的 required workflow 於 11:15:36 UTC 改固定到 `6ffdf94a`（#195 合併後的 main；workflow 變更來自 #189 與 #195）。
+10 月 6 日 probe E 的缺口在 required suites 上已修正：node:test、pytest 與瀏覽器 suites 由固定 commit 的 runner 執行，
+對照審查過的基準清單，每個檔案、每個 case 都要有結果，候選的 test scripts 與 Playwright／pytest 篩選設定不再決定 suite 內容。
+一次性 probes 實際驗到：換 pin 後舊綠燈被拒、close／reopen 重驗；候選改掉 test scripts 並放入敵意 Playwright／pytest 設定時，
+每個 pinned suite 的數量仍與良性對照相同（e2e 516／89、contracts pytest 671／16、governance 439／33、runtime 3,212 tests）；
+刪除審查過的測試檔或加上 skip 時，各家族都失敗且 merge 405。以 main 為目標的正例 green，負例 merge 405。
+GOV-16／R2:D04／GOV-17／R2:D07 附加證據但不改狀態；GOV-15 仍只有 d1c9 的 fork 證據（這次沒有 fork 可測），accepted 仍是 3 列。
+build、typecheck、dry-run 與 `check:*` 腳本仍由候選定義，候選可以把它們改成空操作；候選程式也仍與 trusted runner 在同一台 runner 上執行。
+這次只改 CI 規則，沒有部署；當時 production 與 staging 仍是 `8d2213d7`。
+細節見[治理安裝紀錄](governance-installation-2026-10-04.md)與[本次證據](../../verification/main-ruleset-2026-10-07.json)。
+
+### 10 月 7 日：第三輪 staging／production rollout（main 687dee87）
+
+owner 於 12:38Z 回覆「1.2.3.4 都你決定就好 除非你覺得該我決定」，把這次發布交給整合 owner 決定；
+整合 owner 決定先 staging、再 production dark：套用 migration 120–124，兩邊都不設定 `FREEDOM_GUILD_LAUNCHPAD_ENABLED`。
+main `687dee87`（8d2213d7 之後合併的 21 個 PR，其中 #225 一起合併 #187／#203／#208／#210／#105）於 14:10Z 部署到 staging：
+migration 前的備份做過隔離還原與遠端 readback，migration 120–124 由 staging migrator 套用，43 個 selected checks 通過，部署後 cron 有寫入。
+14:25Z 再以同一份 dist 部署到 production：migration 前的備份同樣做過隔離還原與遠端 readback，120–124 由 production migrator 套用，
+27 個唯讀公開 checks 通過，5 次 fresh health 都是 687dee87，部署後 cron 有寫入；
+兩個環境的 after-rollout 備份都做過隔離還原與遠端 readback，backup pin 都改成 687dee87。同樣是 selected checks，不是 foundation acceptance。
+兩個 ledger 在 migration 後都確認 123 個 migration 檔全部套用到 124，沒有 pending 或 mismatch；capacity 與 authority policy 列都是 0，
+所以若開啟 flag，tenant 寫入會回 `policy_unconfigured`。`FREEDOM_SHOP_KEY_POLICY` 維持 `legacy-compatible`，Private AI 兩邊仍關閉。
+
+相容性：migration 前對兩個 live 資料庫做 precheck，12 項 constraint 檢查都是 0 筆違反，也沒有缺少的 drop target；
+在 scratch 資料庫比對 schema，47 個既有物件有變更，全部只是放寬：每項只加 tenant 分支或 8d2213d7 留 NULL 的欄位，
+新 foreign key 是 MATCH SIMPLE，新 trigger 只作用於 tenant_execution 列。
+回滾是把受影響的 Worker 重新部署成 `8d2213d7`，不需要還原 schema；若要還原資料，從 migration 前的備份開始（production `ce4913c6`、staging `723736c4`）。
+
+- staging：rollout 第 1 次因 prep.sh 缺唯讀 plan 步驟在部署前停止；acceptance 第 1 次 `guild_categories_unmounted` 失敗（flag 關閉時路由不存在，匿名 GET 回 401 `login_required` 而非預期的 404，檢查已修正），第 2 次因新的 Access service token 尚未生效失敗（改為先輪詢 readiness），第 3 次 43／43 通過。
+- production：第一次 migration 在 commit 120–124、runtime grants 與 30-verify-readonly 後停在 `operator_privileges_unchanged`（media operator 權限快照多出 8 筆 column 列，是 migration 123 在 assets、asset_upload_intents 新增的欄位經既有 table-level INSERT／SELECT grant 帶出；去掉即與 migration 前的 hash 相同，沒有 GRANT 變動），由 finish script 重跑唯讀驗證與 login probes 後寫出 receipt；public acceptance 第 1 次在部署後數秒 `presence_bundle_matches_build` 失敗，該檔隨後三次以 HTTP 200 回傳 build 的 sha256，第 2 次 27／27 通過。
+
+#198（JSON body 讀取沒有上限）由本輪的 #203 修正。staging 從外部看不到 Worker 是否提前停止讀取：
+Cloudflare 會保留未結束的 chunked request body，約 15 秒後 reset（fetch probe 15,192 ms 後 TypeError；raw TLS probe 送出 40,053 bytes，15,133 ms 後 ECONNRESET）。
+提前停止由 verify run 37630943060 的 `tests/runtime/platform-json-body.test.ts` 證明（未讀完就 cancel source；宣告超量的 body 不會被讀取），
+staging 的 `json_stream_limit_413` check 則證明有界路徑已上線。
+
+限制：guild launchpad 的表已建立，但 flag 不設定時不會使用，也沒有寫入任何 capacity／authority policy 列；
+#162 的具名 prepared statement 只在 Private AI 開啟（兩邊都關）或尚未部署的 credential broker 才會執行，這一輪仍沒有在 Hyperdrive 上驗到它；
+selected checks 不是完整 foundation acceptance，production checks 是唯讀 HTTP。
+細節見[現況快照](current-state.json)。

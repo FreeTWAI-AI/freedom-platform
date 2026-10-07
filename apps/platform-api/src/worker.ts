@@ -25,6 +25,7 @@ import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '..
 import { workerPrivateAiPorts,type WorkerPrivateAiBindings } from './worker-private-ai.js';
 import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
 import {sweepDueOperations} from '../../../modules/module-registry/operations.js';
+import { workerPreviewFetch } from './worker-preview-fetch.js';
 
 /**
  * Cloudflare Worker adapter. Bindings contract (see wrangler.jsonc):
@@ -170,8 +171,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
       :undefined,
     eventEmailSender:env.EMAIL?async(to,subject,text)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject,text});}:undefined,
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
-    // workerd rejects a bound global fetch, so the preview caller stays unbound.
-    linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
+    linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,

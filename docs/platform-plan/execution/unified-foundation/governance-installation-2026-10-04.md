@@ -1,6 +1,6 @@
 # 中央 main 與九個 consumer 的實際治理門檻（2026-10-04）
 
-這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-06 17:06 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `d1c9e18fffabebbdceaba233a34f3605220e2dd7`，review 與 App-bound checks 不變；見文末「10 月 6 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-06.json)。下一段的 c3e 為 10 月 5 日當時紀錄。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
+這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-07 11:20 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`，review 與 App-bound checks 不變；required 的 node:test、pytest 與瀏覽器 suites 改由固定 commit 的 runner 執行。見文末「10 月 7 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-07.json)；「10 月 6 日」一節的 d1c9 為當時紀錄。**2026-10-06 17:06 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `d1c9e18fffabebbdceaba233a34f3605220e2dd7`，review 與 App-bound checks 不變；見文末「10 月 6 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-06.json)。下一段的 c3e 為 10 月 5 日當時紀錄。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
 
 中央首次安裝的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交；九倉後續配置與驗證範圍見下節。安裝後另以 `freedom-agent-kit:main` 為目標，實際驗到正常 native job 成功及竄改／偽造綠燈的 merge 被新規則拒絕，main 未變。
 
@@ -318,3 +318,70 @@ hosted fork job 執行。
 - 臨時規則為 0 approval、無 CodeQL；main 仍要求一位 reviewer、last-push approval 與 `CodeQL@57789`。
 - 中央 main 沒有 merge queue，只靠 strict freshness 加 `update-branch`。durable App publisher 未安裝，
   完整 P2 未完成。consumer rules `24473806`／`24476100`／`24516222` 與目錄站 queue 本次均未改動。
+
+## 10 月 7 日：中央 required workflow 升級至 6ffdf94a（pinned suite runner）
+
+中央 ruleset **`24469536`** 於 2026-10-07 11:15:36 UTC 將 `.github/workflows/verify.yml`
+的固定 SHA 從 `d1c9e18fffabebbdceaba233a34f3605220e2dd7` 更新為
+**`6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`**，即 [#195](https://github.com/FreeTWAI-AI/freedom-platform/pull/195)
+合併後的 main commit。PUT 前回讀與 10 月 6 日紀錄完全相同；fresh readback 確認唯一政策變更是
+`/rules/3/parameters/workflows/0/sha`。main 範圍、active、空 bypass、`verify@15368`／`CodeQL@57789`、
+strict freshness、一位 reviewer、last-push approval、stale review 失效與禁止刪除／force push 均保留。
+PUT 時 main 已前進到 `5ccd76c3`（[#209](https://github.com/FreeTWAI-AI/freedom-platform/pull/209)），6ffdf94a 是它的祖先。
+完整非秘密配置、probe run／job、pinned 檢查摘要、rule suite 與清理紀錄見
+[10 月 7 日 main ruleset 與 probes](../../verification/main-ruleset-2026-10-07.json)。
+
+與 d1c9 相比，`verify.yml` 只被 [#189](https://github.com/FreeTWAI-AI/freedom-platform/pull/189) 與 #195 修改；固定 commit 的 runner 程式另含 #165、#180、#192、#194 的 runtime 權重、harness 與 reporter 調整。主要變更：
+
+- required 的 node:test、pytest 與瀏覽器 suites 改由固定 commit 的 runner（`.freedom/trusted`）執行。runner 從候選樹找出檔案，
+  對照審查過的基準清單；每個檔案、每個 case 都要有結果，缺少基準檔案或出現未預期的 skip 都會讓 suite 失敗。
+- 候選的 npm test scripts 不再決定 required suite。Playwright 只採用候選 config 的 `use`、`timeout`、`webServer`
+  與 chromium project 的 `use`，並加上 `--forbid-only`；pytest 以空的暫存 `[pytest]` 設定、`--noconftest`、
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` 與明確的檔案清單執行。
+- runtime 改成六個 partition，每個 900 秒；partition runner 與 aggregate 都來自固定 commit。
+- 新增的 7 個 trusted checkouts 都設 `persist-credentials: false`；8 個候選 checkouts 維持預設。
+
+切換 main 前，先在兩個一次性 base（`ops/trust-pin-6ffdf94a-base`／`-script-base`，後綴 `-20261007`）安裝臨時
+org rule `24643923`。它與 main 的差別只有：只要求 `verify@15368`、不要求 CodeQL、review count 為 0、沒有
+last-push approval。規則先固定 d1c9，再只改 workflow SHA 為 6ffdf94a。
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#211 S](https://github.com/FreeTWAI-AI/freedom-platform/pull/211) | 只改文件。d1c9 下 run 成功（docs 模式）後，臨時規則換成 6ffdf94a；以舊綠燈 merge 回 405，rule suite `4404820822` 為 required workflow 未滿足。不 push，只 close／reopen，同一 head 取得 6ffdf94a 新 run，成功後才 merge（`4405186801`）。 |
+| [#212 E0](https://github.com/FreeTWAI-AI/freedom-platform/pull/212) | 良性對照：在 `docs/development` 新增一個非 Markdown 檔，selector 選完整模式，全部 jobs 成功。pinned 數量：e2e 516 tests／89 files（三個 pass）、contracts pytest 671／16、governance 439／33、worker 92／35、deploy preflight 456／28、migration 12／3、runtime 六個 partition 共 3,212 tests。關閉且未 merge。 |
+| [#216 E1b](https://github.com/FreeTWAI-AI/freedom-platform/pull/216) | 候選把 `test:governance`／`test:contracts`／`test:worker` 改成 `node -e 0`；Playwright config 加上永遠不符合的 `grep`、忽略所有 spec 的 `testIgnore`、`forbidOnly: false`，`retries` 改成 3；根目錄 `pytest.ini` 加 `-k`；contracts 測試目錄放一個清空所有項目的 `conftest.py`。verify 成功，每個 pinned suite 的檢查項目與數量都和 E0 相同，merge 到一次性 base（`4405291402`）。`test:e2e` 沒改：審查過的 runtime 測試 `scripts/run-e2e.test.mjs` 釘住它的值，改了會依設計失敗。 |
+| [#214 E2](https://github.com/FreeTWAI-AI/freedom-platform/pull/214) | 每個家族各刪一個審查過的基準檔案：governance、worker、deploy 回 `suite_files_unavailable`，e2e 回 `e2e_files_unavailable`，runtime partitions 讀審查過的檔案集合時以 `artifact_missing` 結束，runtime aggregate 回 `runtime_partition_artifacts_unavailable`，verify aggregate 回 `source_integrity_not_success`；merge 405（`4404906777`）。 |
+| [#215 E3](https://github.com/FreeTWAI-AI/freedom-platform/pull/215) | 每個家族各在一個審查過的檔案加 skip：governance、worker、deploy 與 runtime partition 4 回 `incomplete_test_results`，e2e 回 `skipped_test_never_expected`，runtime aggregate 回 `runtime_partition_incomplete`；merge 405（`4405185922`）。 |
+| [#217 E2p](https://github.com/FreeTWAI-AI/freedom-platform/pull/217) | 只刪一個 contracts pytest 基準檔：審查過的 governance 測試「Real baselines are accurate」先失敗（`test_process_failed`），`ci.contracts-pytest` 沒跑到；merge 405（`4405289067`）。 |
+| [#218 E3p](https://github.com/FreeTWAI-AI/freedom-platform/pull/218) | 只在同一個 pytest 檔加 `@pytest.mark.skip`：`ci.contracts-pytest` 回 `incomplete_test_results`，其餘 suites 數量完整；aggregate 回 `selected_job_not_success`，merge 405（`4405290342`）。 |
+| [#213 E1](https://github.com/FreeTWAI-AI/freedom-platform/pull/213) | 探針本身做錯：插入的設定重複了既有的 `retries` key，候選 `npm run typecheck` 以 TS1117 失敗，pinned worker suite 沒跑到。已取消並關閉，由 E1b 取代，不計入。 |
+
+E2、E3 都沒有跑到 `ci.contracts-pytest`：同一個 job 裡第一個失敗的 pinned suite 會結束該 job，所以 pytest
+家族另以 E2p／E3p 驗證。
+
+切換後再以 main 為目標：
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#219 MP](https://github.com/FreeTWAI-AI/freedom-platform/pull/219) | 只新增一份合成文件並更新 inventory（`changed_files` 兩項）；[run 37612926123](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37612926123) 由 6ffdf94a 執行並成功，`verify@15368` 與 `CodeQL@57789` 均 success；0 approval，GitHub 回報 blocked。只驗 green，關閉且未 merge。 |
+| [#220 MN](https://github.com/FreeTWAI-AI/freedom-platform/pull/220) | 只新增一份合成文件，故意不更新 inventory（`changed_files` 一項）；[run 37612923182](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37612923182) 在 `source-integrity` 失敗，aggregate 回 `source_integrity_not_success`。實際 merge 405，rule suite `4405354409` 同時列出 verify 失敗、required workflow 失敗與缺少非 last pusher 的 approval；main 維持 `5ccd76c3`。 |
+
+所有 probe PR 已關閉：#219／#220 於 11:19 UTC 關閉且未 merge，並刪除 head refs（`main_probes[].closure`）；
+其餘八個列於 `cleanup.pull_requests`，其中只有 S 與 E1b merge 到一次性 base。臨時規則先刪除，回讀確認已不存在，
+再刪除 10 個 probe refs；main ruleset 在清理後回讀，與切換後完全相同。操作者私有 journal
+`freedom-trust-pin-20261007` 保存 API receipts、logs 與規則前後配置；公開 JSON 只含配置、run／job、
+pinned 檢查摘要、rule suite、HTTP 結果與邊界。
+
+本次升級仍不涵蓋：
+
+- 沒有 fork 探測（F／F2）：探測用 fork 已不存在。GOV-15 的已執行證據仍是 d1c9 的 F2。新增的 trusted checkouts
+  不保留 token，但候選 checkouts 維持預設 `persist-credentials`，唯讀 job token 仍可被候選程式讀到。
+- build、typecheck、dry-run、`check:*`、`verify:inventory` 與 `test:media-restore` 等步驟仍由候選定義。
+  候選程式（包括 pinned runner 執行的測試檔與 e2e web server）仍在同一個 runner 上執行，這不是對付惡意候選的沙箱。
+- 選中 job 被 skipped／cancelled 的 hosted 反例仍未在 6ffdf94a 上單獨執行。N2、H、F、P 沒有重做，
+  d1c9 的結果保留在 10 月 6 日證據。
+- 臨時規則為 0 approval、沒有 last-push approval 與 CodeQL；main 仍要求一位 reviewer、last-push approval 與 `CodeQL@57789`。
+- 中央 main 沒有 merge queue，只靠 strict freshness 加 `update-branch`。durable App publisher 未安裝，
+  完整 P2 未完成。consumer rules `24473806`／`24476100`／`24516222` 與目錄站 queue 本次均未改動。
+- 切換時仍開著、上一次 run 用 d1c9 的 main PR，需要新的 pull_request 事件（push 或 close／reopen）
+  才會取得 6ffdf94a 的 run。

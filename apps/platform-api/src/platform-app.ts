@@ -173,7 +173,19 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
       } else {
         requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
         requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
-        const raw=await c.req.text();requireCondition(Buffer.byteLength(raw)<=32768,413,'body_too_large','內容過長。');
+        if(c.req.raw.body) {
+          let size=0;
+          const body=c.req.raw.body.pipeThrough(new TransformStream<Uint8Array,Uint8Array>({
+            transform(chunk,controller) {
+              size+=chunk.byteLength;
+              requireCondition(size<=32768,413,'body_too_large','內容過長。');
+              controller.enqueue(chunk);
+            },
+          }));
+          // Hono caches body promises. Preserve the host Request and its cf metadata.
+          Object.assign(c.req.bodyCache,{text:new Response(body).text()});
+        }
+        const raw=await c.req.text();
         try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
       }
     }
