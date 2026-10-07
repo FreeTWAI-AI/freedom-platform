@@ -8,6 +8,11 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+Generic JSON mutations accept at most 32 KiB of UTF-8 body bytes. The limit is
+enforced while streaming, including requests without `Content-Length`; oversized
+streams are cancelled with `413 body_too_large` before their remainder is read.
+Binary uploads and signed machine transports retain their own bounded readers.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
