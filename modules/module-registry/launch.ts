@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
-import { readCapacityPolicy } from '../opportunity-project-work/tenant-capacity.js';
+import { lockCapacityPolicy, readCapacityPolicy, requirePolicy } from '../opportunity-project-work/tenant-capacity.js';
 import { loadOfferedDefinition } from './catalog.js';
 import { digestOf } from './canonical.js';
 import {
@@ -122,6 +122,12 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
   if (plan.installation_choice === 'reuse_existing' && (!live || live.installation_id !== plan.existing_installation_id)) throw planStale();
 
   if (plan.installation_choice === 'reuse_existing' && live) {
+    const lockedPolicy = requirePolicy(await lockCapacityPolicy(q, context.tenant_id));
+    if (lockedPolicy.revision !== plan.policy_revision) throw planStale();
+    await lockReusedInstances(q, context.tenant_id, choices, input.versionMismatch, input.operation === 'manual.work.enable' ? 'not_found' : 'instance_unavailable');
+    const workspaceStatus = await lockWorkspace(q, context.tenant_id, plan.workspace_id);
+    requireCondition(workspaceStatus, 404, 'not_found', '找不到這個工作區。');
+    requireCondition(workspaceStatus === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
     await assertMember(q, context, actorUserId, plan.guild_key, true);
     return reuseInstallation(q, context, plan, live, input.operation);
   }

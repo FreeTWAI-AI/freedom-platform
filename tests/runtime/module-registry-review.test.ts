@@ -1393,3 +1393,66 @@ test('r7 a community-wide offering applies to its own guilds and can launch', as
   assert.equal(reply.status, 200, JSON.stringify(reply.data));
   assert.equal(reply.data.state, 'succeeded');
 });
+
+async function r7LaunchWrites(tenantId: string) {
+  const snapshot: Record<string, unknown> = {...await domainCounts(tenantId)};
+  for (const table of ['application_module_links', 'module_launch_plan_consumptions', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox']) {
+    snapshot[table] = await h.count(table);
+  }
+  snapshot.installations = (await h.pool.query('SELECT installation_id,status,version::text,provision_operation_id FROM application_installations WHERE tenant_id=$1 ORDER BY installation_id', [tenantId])).rows;
+  snapshot.instances = (await h.pool.query('SELECT instance_id,status,version::text FROM module_instances WHERE tenant_id=$1 ORDER BY instance_id', [tenantId])).rows;
+  snapshot.bindings = (await h.pool.query('SELECT workspace_id,instance_id,version::text FROM workspace_module_bindings WHERE tenant_id=$1 ORDER BY workspace_id', [tenantId])).rows;
+  return snapshot;
+}
+
+for (const change of ['suspended', 'archived', 'version', 'deployment'] as const) {
+  test(`r7 reuse_existing revalidates a linked instance after ${change} changes`, async () => {
+    const { owner, tenantId, workspaceId } = await prepared();
+    const firstPlan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId));
+    assert.equal((await h.launch(owner, tenantId, firstPlan)).status, 200);
+    const installation = (await h.pool.query('SELECT installation_id FROM application_installations WHERE tenant_id=$1', [tenantId])).rows[0];
+    const instance = (await h.pool.query('SELECT instance_id,version::text FROM module_instances WHERE tenant_id=$1', [tenantId])).rows[0];
+    const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+      installation_choice: 'reuse_existing', existing_installation_id: installation.installation_id,
+      dependencies: [{requirement_key: 'work', choice: 'reuse', instance_id: instance.instance_id, expected_version: instance.version}],
+    }));
+    assert.equal(planned.status, 201, JSON.stringify(planned.data));
+    if (change === 'deployment') {
+      await h.pool.query("UPDATE deployment_bindings SET state='suspended',version=version+1 WHERE tenant_id=$1", [tenantId]);
+    } else if (change === 'version') {
+      await h.pool.query('UPDATE module_instances SET version=version+1 WHERE tenant_id=$1', [tenantId]);
+    } else {
+      await h.pool.query('UPDATE module_instances SET status=$2,version=version+1 WHERE tenant_id=$1', [tenantId, change]);
+    }
+    const before = await r7LaunchWrites(tenantId);
+    const reply = await h.launch(owner, tenantId, planned);
+    assert.equal(reply.status, 409, JSON.stringify(reply.data));
+    assert.equal(reply.data.code, change === 'version' ? 'plan_stale' : 'instance_unavailable');
+    assert.deepEqual(await r7LaunchWrites(tenantId), before);
+  });
+}
+
+test('r7 unchanged reuse_existing preserves the original operation and idempotent replay', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  const firstPlan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId));
+  const launched = await h.launch(owner, tenantId, firstPlan);
+  assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  const installation = (await h.pool.query('SELECT installation_id FROM application_installations WHERE tenant_id=$1', [tenantId])).rows[0];
+  const instance = (await h.pool.query('SELECT instance_id,version::text FROM module_instances WHERE tenant_id=$1', [tenantId])).rows[0];
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+    installation_choice: 'reuse_existing', existing_installation_id: installation.installation_id,
+    dependencies: [{requirement_key: 'work', choice: 'reuse', instance_id: instance.instance_id, expected_version: instance.version}],
+  }));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const key = randomUUID();
+  const reused = await h.launch(owner, tenantId, planned, key);
+  assert.equal(reused.status, 200, JSON.stringify(reused.data));
+  assert.equal(reused.data.operation_id, launched.data.operation_id);
+  const before = await r7LaunchWrites(tenantId);
+  const replay = await h.launch(owner, tenantId, planned, key);
+  assert.equal(replay.status, 200, JSON.stringify(replay.data));
+  assert.deepEqual(replay.data, reused.data);
+  assert.deepEqual(await r7LaunchWrites(tenantId), before);
+  assert.equal(await h.count('module_instances', 'WHERE tenant_id=$1', [tenantId]), 1);
+  assert.equal(await h.count('capacity_reservations', 'WHERE tenant_id=$1', [tenantId]), 3);
+});
