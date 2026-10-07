@@ -1404,8 +1404,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
-      "bytes": 46193,
-      "sha256": "9f9fcd8abb27250fd64fc703c73a6b53b07f7755f93d1b6dafa844c33eabd05e"
+      "bytes": 49124,
+      "sha256": "e7bd12a05afec8a1586e8deb82c65f5bbc6ec51916762f709809d6be7a5de952"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -2139,8 +2139,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/work-result-client.ts",
-      "bytes": 6092,
-      "sha256": "024b100a74bb2b125b3529e6b61e2d275ebc8876c019179c4083c91e20bc3636"
+      "bytes": 6976,
+      "sha256": "7e6fde748cf84767db55850e550d5ca07df29cb81691719ad7312c041102362d"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -15844,8 +15844,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 1367,
-      "sha256": "89abf41d2736e5e1879738b367abe87e14f03baf42a84353b5d9a7ea328357b3"
+      "bytes": 1415,
+      "sha256": "8b29b060adf8fed2968c4a517b6152de837b22349bab52993ab7510c7402a0a6"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -16594,8 +16594,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6063,
-      "sha256": "8165ecfdd5f3bc848a6dad8dafd6e35a8b466aea188bde7b7d092d9aaf2aa62d"
+      "bytes": 6082,
+      "sha256": "b0a70d2e5fd8454a6e7da13681e761292ce18a17c739c4e02c7444c4e400e900"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -17854,8 +17854,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
-      "bytes": 37286,
-      "sha256": "75fedcc9ee07247ce3d26ac8831a70478609132d0233b9a501b152704485e15f"
+      "bytes": 61136,
+      "sha256": "03671cf7a379f74a5e0c92bf94a0469d727470acd6b8bae18700bb23f8368ea1"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
@@ -19536,6 +19536,11 @@
       "path": "tests/runtime/work-privacy.test.ts",
       "bytes": 24575,
       "sha256": "7465423079bd020dfb0e918c5148079d35c6ab0c787f27cf23cd93061ae9a3b2"
+    },
+    {
+      "path": "tests/runtime/work-result-client.test.ts",
+      "bytes": 6702,
+      "sha256": "3211c70d98ddee13f39e88202b8d62ea01589ccf0dcbfb8b24352f8956dafb01"
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",

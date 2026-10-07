@@ -14,6 +14,7 @@
     "apps/portal-web/src/modules/work-result-client.ts",
     "tests/runtime/guild-launchpad.test.ts",
     "tests/runtime/guild-launchpad-deadline.test.ts",
+    "tests/runtime/work-result-client.test.ts",
     "tests/e2e/guild-launchpad.spec.ts",
     "tests/e2e/guild-launchpad-my-work.spec.ts"
   ],
