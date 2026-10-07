@@ -34,6 +34,21 @@ test('shared transport responses give each consumer an independent mutable JSON 
   assert.deepEqual(b,{items:[{name:'original'}]});
 });
 
+test('explicit receipt keys and CAS options keep independent GET transport semantics',async t=>{
+  let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+  const fetcher=t.mock.method(globalThis,'fetch',async()=>{await gate;return Response.json({ok:true});});
+  const client=new PortalClient();
+  const pending=[
+    client.get('/same',{coalesce:true,idempotencyKey:'first-receipt'}),
+    client.get('/same',{coalesce:true,idempotencyKey:'second-receipt'}),
+    client.get('/same',{coalesce:true,ifMatch:'7'}),
+    client.get('/same',{coalesce:true,ifMatch:'8'}),
+    client.get('/same',{coalesce:true,preferenceVersion:'1'}),
+    client.get('/same',{coalesce:true,preferenceVersion:'2'}),
+  ];
+  assert.equal(fetcher.mock.callCount(),6);release();await Promise.all(pending);
+});
+
 test('failed shared reads release their slot and never auto-retry; mutations are not coalesced',async t=>{
   const fetcher=t.mock.method(globalThis,'fetch',async()=>{throw new Error('controlled offline');});
   const client=new PortalClient();client.csrfToken='synthetic';

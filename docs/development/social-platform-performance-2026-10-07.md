@@ -21,7 +21,11 @@
 - 寫入前、寫入中、ACK 後的受控讀取需看到各自快照；撤權後的聊天室不得由遲到清單恢復。GET 比較維持相同 client／相同 options 的正反例：baseline 5 次，符合共用條件的 candidate 1 次；不宣稱所有讀取都合併。
 - QR 保留原模板、四格留白與 opt-in URL；真實名片連結建立、更新、撤銷、手機掃碼及 PNG 匯出需解碼正確。v6 的整數比例嘗試仍失敗；檢查原始截圖後發現碼的上半部被置頂導覽遮住，因此撤回比例修改，讓掃碼測試先將完整碼捲至畫面中央再解碼。不能以延長 assertion timeout 或移除掃碼 assertion 放行。
 
+整合後全量 E2E 的第一次 Windows 嘗試在裝置配對 fixture 失敗，於 140 項時停止並保存 log／trace。兩個 static fixture helper 的 bytes 與 baseline a10 相同；它們以 `root + '/'` 判斷邊界，對 Windows `\\` 路徑會拒絕自己的頁面與 JS。修正採 Node `path.sep`，保留相鄰目錄／父目錄越界拒絕；校準同時驗證 Windows／POSIX，不修改產品 ACL 或裝置 consent／CAS assertions。另將帶 receipt key 的 GET 保持獨立，補齊共用讀取的 options 反例。後續完整重跑會另記結果，不能把這次中止記作 PASS。
+
 ## 全目標待驗收矩陣
+
+本輪新增[分享／提交入口](social-sharing-entry.md)、供貨商／創作者／開發者的具體入口及 [Social Post 本人額度優化](social-post-optimization.md)。手機登入、密碼找回與長發文視窗也納入真實瀏覽器回歸；這些增量不代替下表的真人與正式站驗收。
 
 | 領域 | 需要證明的結果 | 現況／後續 |
 | --- | --- | --- |
@@ -38,10 +42,14 @@
 
 ## 本機已確認的結果
 
-- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；v8 candidate 572,186 bytes／gzip 177,671 bytes。gzip 降低 53.64%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。
+- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口與分享選單後 candidate 580,279 bytes／gzip 180,111 bytes。gzip 降低 53.00%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671 是歷史數字，不能代替目前建置。
 - 受控、明確允許共用的 5 個同時 GET：baseline 5 次 transport，candidate 1 次；settled 後下一次仍重新請求。預設新讀取、帳號切換、JSON 副本、獨立取消與 POST／DELETE 前後快照的反例一併驗證。
-- Client／build benchmark runtime tests：33 pass／0 fail／0 skip。型別檢查與 v8 建置通過；最後整合後仍會重查。
+- Client／build benchmark／Social Post／模型 service runtime tests：58 pass／0 fail／0 skip。最後分享入口的型別檢查與建置通過；整套 runtime CI 尚未在新 head 執行。
 - v4 的 85 項瀏覽器回歸通過。完整 hosted a10 UI CI 揭露 15 項失敗；v5 擴大範圍為 58 pass／7 fail／10 fixture skip，v6 為 7 pass／2 fail。沒有將這些版本放行。修正後 v8 的 9 項針對性反例／瀏覽器檢查全部通過，涵蓋撤權清單、名片 QR／PNG、名片配色、導覽與原素材載入；全量三階段 E2E 仍待本輪最終執行。
 - Hosted a10 的四個 runtime partition、runtime aggregate、static worker、governance 與 deploy preflight 已通過；a10 的 UI／verify 仍失敗。這些結果不能當作新 head 的 CI。
+
+- 角色、發文、本人優化、手機登入錯誤、原生 feed、shell 與密碼找回的針對性瀏覽器檢查：26 pass／0 fail。先前候選有 7 fail／19 pass：手機寬度規則把收合工具當成三欄整列，撐出登入標題；鍵盤序列也需包含新增的工具入口。修正實際 CSS 寬度及導覽序列後，未移除寬度、觸控或焦點 assertions。320px／390px 原生截圖已檢視。
+- Model fixture 修正後 2 pass／0 fail：正常執行及 ACK 遺失均只有一次 Execute／一次私人成果；不呼叫真實 provider、不消耗真人額度。修正前的失敗、clock 控制反例及拒絕版本留在本機，不能記作成功。
+- 新分享入口與既有作品投稿／shell 的針對性回歸：18 pass／0 fail，含桌面與 320px 真實作品提交、五個實際控制項、單次寫入、三主題與失敗恢復。完整三階段 E2E（一般頁面、私人模型 fixture、avatar asset fixture）仍待最終執行。
 
 以上是載入量、可共用請求成本與特定流程的證據；正式站延遲、負載、全部按鈕真人操作及競品比較仍保留在原目標矩陣中。

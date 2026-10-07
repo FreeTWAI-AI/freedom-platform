@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useId, useRef, useState, type FormEvent} from 'react';
+import {useCallback, useEffect, useId, useRef, useState,useSyncExternalStore, type FormEvent} from 'react';
 import {accessAwareFetch} from '../access-fetch';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -7,6 +7,9 @@ import {MemberAvatar} from './MemberAvatar';
 import {PromotionShare} from './PromotionShare';
 import {SocialInteractions} from './SocialInteractions';
 import './SocialZone.css';
+import {socialPostJobForSession} from '../social-post-task';
+import {SocialPostOptimizer} from './SocialPostOptimizer';
+import './SocialPostOptimizer.css';
 
 export type SocialPost = {
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
@@ -66,6 +69,10 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   const [text, setText] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
+  const [optimizerEnabled,setOptimizerEnabled]=useState(false);
+  const [optimizationJob]=useState(()=>socialPostJobForSession(client));
+  const optimization=useSyncExternalStore(optimizationJob.subscribe,optimizationJob.snapshot,optimizationJob.snapshot);
+  const [originalDraft,setOriginalDraft]=useState<{before:string;after:string}|null>(null);
   const pending = useRef<{text: string; key: string} | null>(null);
   const loadSequence = useRef(0);
   const newPosts = useRef<Post[]>([]);
@@ -104,7 +111,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
       newPosts.current = [created, ...newPosts.current.filter(post => post.post_id !== created.post_id)];
       setItems(current => [created, ...current.filter(post => post.post_id !== created.post_id)]);
       if (platform !== '' && platform !== 'note') setPlatform('note');
-      pending.current = null; setText(''); setNotice('貼文已發布。'); closeComposer();
+      pending.current = null; setText(''); setOriginalDraft(null);setNotice('貼文已發布。'); closeComposer();
     } catch (cause) {
       if (cause instanceof ApiError && !cause.network) pending.current = null;
       setPublishError(cause instanceof Error ? cause.message : '尚未確認發布結果，請重試。');
@@ -201,6 +208,8 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
         <p className="social-publish-identity"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/><span>{viewer?.name ?? '我'}<small>社群會員可見</small></span></p>
         <form className="social-native-composer stack" onSubmit={event => void publish(event)} aria-busy={publishing}>
           <label className="field"><span className="sr-only">貼文內容</span><textarea aria-label="貼文內容" autoFocus required rows={6} maxLength={2000} placeholder="分享近況、作品，或找夥伴一起做點事…" value={text} disabled={publishing || !!pending.current} onChange={event => setText(event.target.value)}/></label>
+          <div className="social-composer-tools"><button type="button" className="btn btn-ghost" aria-pressed={optimizerEnabled} aria-expanded={optimizerEnabled} aria-controls={`${composerId}-optimizer`} disabled={publishing||!!pending.current||optimization.phase==='busy'} onClick={()=>setOptimizerEnabled(value=>!value)}>✦ Social Post 優化</button>{originalDraft&&<button type="button" className="btn btn-ghost" disabled={publishing||!!pending.current||text!==originalDraft.after} onClick={()=>{setText(originalDraft.before);setOriginalDraft(null);}}>復原原稿</button>}</div>
+          {optimizerEnabled&&<div id={`${composerId}-optimizer`}><SocialPostOptimizer client={client} job={optimizationJob} draft={text} disabled={publishing||!!pending.current} onRecoverDraft={draft=>{setOriginalDraft({before:text,after:draft});setText(draft);}} onApply={result=>{setOriginalDraft({before:text,after:result});setText(result);optimizationJob.adopt();}}/></div>}
           <div className="social-composer-footer"><span className="muted">{text.length}/2000</span><button className="btn btn-primary" disabled={publishing || !text.trim()}>{publishing ? '發布中…' : pending.current ? '重試發布' : '發布貼文'}</button></div>
           {publishError && <p className="banner banner-error" role="alert">{publishError}</p>}
         </form>

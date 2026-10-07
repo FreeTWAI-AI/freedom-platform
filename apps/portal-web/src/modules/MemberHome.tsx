@@ -12,6 +12,7 @@ import {MemberRecommendations} from './MemberRecommendations';
 import {SkillBookIntro, type IntroBook} from './SkillBookIntro';
 import {openMemberChat} from './chat-entry';
 import {SocialZone} from './SocialZone';
+import {PlatformPurpose} from '../PlatformPurpose';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'social', title: '看社群動態' },
@@ -136,6 +137,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     </div>
     <aside className="home-context" aria-label="我的工坊">
     <div className="home-support">
+    <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>

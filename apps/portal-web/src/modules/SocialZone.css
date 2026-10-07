@@ -44,7 +44,7 @@
 .social-composer-start>.social-composer>summary{padding:.6rem 0;color:var(--muted);font-size:.875rem}
 .social-publish-dialog{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);overflow:auto;padding:1.25rem;border:1px solid var(--line);border-radius:16px;background:var(--bg-elev);color:var(--ink);box-sizing:border-box}
 .social-publish-dialog::backdrop{background:#0006}
-.social-publish-head{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:.75rem}
+.social-publish-head{display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:-1.25rem;z-index:2;background:var(--bg-elev);border-bottom:1px solid var(--line);margin-top:-1.25rem;padding-block:1.25rem .75rem}
 .social-publish-head h2{margin:0;font-size:1.125rem}
 .social-publish-head .btn{width:auto;min-height:44px}
 .social-publish-identity{display:flex;align-items:center;gap:.75rem;margin:0}

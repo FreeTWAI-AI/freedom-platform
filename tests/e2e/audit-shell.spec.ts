@@ -46,7 +46,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const viewport of VIEWPORTS) {
-  test(`sign-in keeps the whole logo, reaches the form first on phones and is keyboard operable (${viewport.name})`, async ({ page }) => {
+  test(`sign-in keeps the whole logo, introduces collaboration before the phone form and is keyboard operable (${viewport.name})`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
@@ -57,7 +57,7 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator('h1')).toHaveCount(1);
     // One concrete sentence under the logo; no English eyebrow, journey list or duplicate brand subheading.
     const purpose = page.getByRole('heading', { level: 1 });
-    await expect(purpose).toHaveText('加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。');
+    await expect(purpose).toHaveText('讓你的商品、作品和技術，找到合作夥伴。');
     await expect(purpose).toBeVisible();
     expect(await purpose.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(16);
     await expect(page.locator('.login-layout')).not.toContainText(/BUILD WITHOUT LIMITS|DISCOVER|BELONG|CREATE|FREEDOM WORKSHOP/);
@@ -69,9 +69,9 @@ for (const viewport of VIEWPORTS) {
     const story = await page.locator('.login-story-copy').boundingBox();
     const poster = await page.locator('.login-story .brand-poster').boundingBox();
     if (viewport.width <= 860) {
-      // Returning members see the logo, then the form, before the pitch copy.
+      // The role entry is the requested public introduction, followed by the form.
       expect(poster!.y).toBeLessThan(form!.y);
-      expect(form!.y).toBeLessThan(story!.y);
+      expect(story!.y).toBeLessThan(form!.y);
       const email = await page.getByLabel('電子郵件', { exact: true }).boundingBox();
       expect(email!.y + email!.height).toBeLessThanOrEqual(viewport.height);
     } else {
@@ -85,7 +85,7 @@ for (const viewport of VIEWPORTS) {
     await expect(switcher.getByRole('button', { name: '會員登入', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(switcher.getByRole('button', { name: '建立帳號', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
-    // Page tools precede account controls; the theme menu lives in the signed-in profile.
+    // Secondary tools have one keyboard stop; account controls keep their order.
     const seen:string[]=[];
     for (let index=0;index<16;index++) {
       await page.keyboard.press('Tab');
@@ -123,7 +123,9 @@ test('registration mode switches by keyboard, keeps one email field and states t
     await expect(page.locator('.login-card input')).toHaveCount(3);
     await expect(page.locator('.login-card input[type=email]')).toHaveCount(1);
     await expectTouchTargets(page, '.login-card button, .login-card input', `${viewport.name} registration controls`);
-    // Keyboard reaches the two required fields before the optional nickname.
+    // The collapsed tools remain reachable, then required fields precede optional nickname.
+    await page.keyboard.press('Tab');
+    await expect(page.getByLabel('頁面工具',{exact:true})).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByLabel('電子郵件', { exact: true })).toBeFocused();
     await page.keyboard.press('Tab');

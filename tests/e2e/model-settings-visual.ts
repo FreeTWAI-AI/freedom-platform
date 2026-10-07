@@ -2,7 +2,7 @@
 // authority, database or capture readiness is represented by these records.
 import { createServer } from 'node:https';
 import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { resolve, extname, join } from 'node:path';
+import { resolve, extname, join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import type { Page } from '@playwright/test';
@@ -48,7 +48,7 @@ createRoot(document.getElementById('root')).render(React.createElement(Fixture))
     execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',join(directory,'key.pem'),'-out',join(directory,'cert.pem'),'-days','1','-subj','/CN=127.0.0.1'],{stdio:'ignore'});
     const server=createServer({key:await readFile(join(directory,'key.pem')),cert:await readFile(join(directory,'cert.pem'))},async(req,res)=>{
       try {const path=resolve(root,'.'+new URL(req.url!,'https://local.test').pathname);
-        if(path!==root&&!path.startsWith(root+'/')){res.writeHead(404);res.end();return;}
+        if(path!==root&&!path.startsWith(root+sep)){res.writeHead(404);res.end();return;}
         const actual=extname(path)?path:join(root,'index.html'),bytes=await readFile(actual);
         res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.webp':'image/webp'} as Record<string,string>)[extname(actual)]??'application/octet-stream');
         // This fixture policy sends only the origin. Actual platform HTML policy

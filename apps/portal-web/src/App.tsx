@@ -16,6 +16,7 @@ import { AuthorClaimProvider } from './modules/AuthorClaim'
 import { SettingsMenu } from './modules/SettingsMenu'
 import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import './SocialLayout.css'
+import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -24,6 +25,7 @@ import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
+import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
 
 const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
@@ -138,6 +140,7 @@ function MemberApp() {
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
   const [locationHash,setLocationHash]=useState(() => window.location.hash)
+  const [entryIntent,setEntryIntent]=useState<EntryIntent|null>(entryIntentFromHash)
   const [siteLoaded,setSiteLoaded]=useState(false)
   const [launchpadLoginRequested,setLaunchpadLoginRequested]=useState(false)
   const [sharedCardToken,setSharedCardToken]=useState(memberCardFromLocation)
@@ -146,7 +149,7 @@ function MemberApp() {
   const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
-  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
+  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -156,6 +159,13 @@ function MemberApp() {
   }, [])
   useEffect(() => { void client.get<SiteConfig>('/site').then(value => { setSite(value); setSiteLoaded(true) }).catch(() => { setSite(null); setSiteLoaded(true) }) }, [])
   useEffect(() => { if (session) void loadOnboarding(); else setOnboarding(null) }, [session, loadOnboarding])
+  useEffect(() => {
+    if (!session || !onboarding || onboarding.required && !onboarding.completed || !entryIntent) return
+    // Only a chosen entry is forwarded, after the server confirms that the joining gate is complete.
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${entryIntent}`)
+    setEntryIntent(null)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }, [session, onboarding, entryIntent])
 
   const applySession = useCallback((next: SessionPayload) => {
     sessionGeneration.current += 1
@@ -258,6 +268,8 @@ function MemberApp() {
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
           onLoggedIn={applySession}
+          entryIntent={entryIntent}
+          onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
           onPasswordReset={()=>{clearResetHash();setResetToken(null);toLogin('密碼已重設，請用新密碼登入。')}}
@@ -270,8 +282,8 @@ function MemberApp() {
     <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
-      ? <WelcomePreview client={client} name={session.user.display_name} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
-      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?entryIntentLabel(entryIntent):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent)window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
@@ -300,6 +312,8 @@ function LoginView({
   bootError,
   onRetrySession,
   onLoggedIn,
+  entryIntent,
+  onChooseEntry,
   resetToken,
   onCancelReset,
   onPasswordReset,
@@ -309,6 +323,8 @@ function LoginView({
   bootError: ActionError | null
   onRetrySession: () => void
   onLoggedIn: (session: SessionPayload) => void
+  entryIntent: EntryIntent | null
+  onChooseEntry: (intent: EntryIntent) => void
   resetToken:string|null
   onCancelReset:()=>void
   onPasswordReset:()=>void
@@ -322,6 +338,7 @@ function LoginView({
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<ActionError | null>(null)
+  const emailInput = useRef<HTMLInputElement>(null)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -357,12 +374,16 @@ function LoginView({
   const accessExpired = Boolean(bootError?.accessExpired || error?.accessExpired)
   return (
     <main className="login-layout">
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1><EntryResources client={client}/></div></section>
+      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>讓你的商品、作品和技術，找到合作夥伴。</h1><p className="login-purpose-intro">自由工坊，來自萬人社群的共創平台。</p><PlatformPurpose variant="public" disabled={pending||accessExpired||activeMode==='confirm-reset'} onAction={target=>{
+        if(target!=='supplier'&&target!=='showcase'&&target!=='tasks')return
+        onChooseEntry(target);setMode(site?.registration_enabled?'register':'login');setError(null);setResetNotice('')
+        requestAnimationFrame(()=>emailInput.current?.focus())
+      }}/></div></section>
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
-        <div className="login-page-tools"><PageTools pageId="registration"/></div>
         {!accessExpired && activeMode!=='confirm-reset'&&<div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={activeMode==='login'?'selected':''} aria-pressed={activeMode==='login'} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={activeMode==='register'?'selected':''} aria-pressed={activeMode==='register'} onClick={()=>{setMode('register');setError(null);setResetNotice('')}}>建立帳號</button>}</div>}
-        <h2 id="login-heading">{accessExpired ? '網站登入已過期' : activeMode==='register'?'加入自由工坊':activeMode==='request-reset'?'忘記密碼':activeMode==='confirm-reset'?'設定新密碼':'登入'}</h2>
+        <header className="login-card-heading"><h2 id="login-heading">{accessExpired ? '網站登入已過期' : activeMode==='register'?'加入自由工坊':activeMode==='request-reset'?'忘記密碼':activeMode==='confirm-reset'?'設定新密碼':'登入'}</h2><PageTools pageId="registration" compact/></header>
+        {entryIntent&&!accessExpired&&activeMode!=='confirm-reset'&&activeMode!=='request-reset'&&<p className="purpose-next-destination" role="status">{activeMode==='register'?'加入':'登入'}後前往：{entryIntentLabel(entryIntent)}。</p>}
         {notice && !accessExpired && (
           <p className="banner banner-info" role="status">
             {notice}
@@ -378,6 +399,7 @@ function LoginView({
           {activeMode!=='confirm-reset'&&<label className="field">
             <span className="field-label">電子郵件</span>
             <input
+              ref={emailInput}
               name="email"
               type="email"
               autoComplete="username"
@@ -408,9 +430,11 @@ function LoginView({
             {pending ? '處理中…' : activeMode==='register'?'建立帳號，先逛工坊':activeMode==='request-reset'?'寄送重設連結':activeMode==='confirm-reset'?'儲存新密碼':'登入'}
           </button>
         </form>}
-        {!accessExpired&&site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>忘記密碼？</button>}
-        {!accessExpired&&activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>返回登入</button>}
-        {!accessExpired&&activeMode==='confirm-reset'&&<button type="button" className="btn btn-ghost" onClick={onCancelReset}>返回登入</button>}
+        {!accessExpired&&<div className="login-secondary-actions">
+          {site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>忘記密碼？</button>}
+          {activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>返回登入</button>}
+          {activeMode==='confirm-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancelReset}>返回登入</button>}
+        </div>}
         {!accessExpired && site?.demo_accounts_enabled&&activeMode==='login'&&<aside className="help-box" aria-label="示範帳號">
           <p>
             示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
@@ -434,6 +458,7 @@ function LoginView({
           </div>
         </aside>}
       </section></div>
+      <div className="login-public-resources"><EntryResources client={client}/></div>
       <CommunityLinks/>
     </main>
   )
@@ -474,6 +499,9 @@ function Workspace({
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
+  const [shareEntry,setShareEntry]=useState<{target:ShareTarget;tab:TabId;sequence:number}|null>(null)
+  const [shareNotice,setShareNotice]=useState('')
+  const shareSequence=useRef(0)
   const menuToggle = useRef<HTMLButtonElement>(null)
   const mainContent = useRef<HTMLElement>(null)
   const workspaceTopbar = useRef<HTMLElement>(null)
@@ -496,6 +524,35 @@ function Workspace({
     }
     else window.location.hash = next
   }, [])
+  function chooseShare(target:ShareTarget){
+    const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
+    setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination)
+  }
+  useEffect(()=>{
+    if(!shareEntry)return
+    if(tab!==shareEntry.tab){setShareEntry(null);return}
+    const root=mainContent.current;if(!root)return
+    let done=false
+    const definition=SHARE_TARGETS[shareEntry.target]
+    const settle=()=>{
+      if(done)return
+      const target=root.querySelector<HTMLElement>(definition.selector)
+      if(target&&!target.matches(':disabled')){
+        done=true;observer.disconnect()
+        if(definition.activate)target.click()
+        else{target.scrollIntoView({block:'center',behavior:'instant'});target.focus({preventScroll:true})}
+        setShareEntry(current=>current?.sequence===shareEntry.sequence?null:current)
+      }else if(root.querySelector('[role="alert"]')){
+        done=true;observer.disconnect();setShareNotice('分享入口暫時無法載入，請使用頁面的重新載入。')
+        setShareEntry(current=>current?.sequence===shareEntry.sequence?null:current)
+      }
+    }
+    // The existing lazy page and data load own their requests. Only move focus
+    // after the chosen real control mounts; never submit a form or upload here.
+    const observer=new MutationObserver(settle)
+    observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});settle()
+    return()=>{done=true;observer.disconnect()}
+  },[shareEntry,tab])
   const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
   useEffect(()=>{
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
@@ -607,11 +664,13 @@ function Workspace({
                 {launchpadOpen ? null : <h1 id="workspace-page-title">{tabTitle(tab)}</h1>}
               </div>
               <PageTools pageId={tab} client={client} compact/>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
                 memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (tab !== 'business' || site?.guild_launchpad_enabled === true)}/>
               <main ref={mainContent} className="workspace-page" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
+            {(shareEntry||shareNotice)&&<p className="share-entry-status" role="status">{shareEntry?`正在開啟${SHARE_TARGETS[shareEntry.target].label}…`:shareNotice}</p>}
             {error && (
               <ErrorPanel
                 error={error}

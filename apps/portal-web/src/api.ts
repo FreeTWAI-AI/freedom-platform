@@ -144,6 +144,8 @@ export class PortalClient {
   private authGeneration = 0
   private readonly reads = new Map<string, Promise<unknown>>()
   get csrfToken(): string | null { return this.token }
+  /** A non-secret lifetime fence for approved multi-request member workflows. */
+  get sessionGeneration(): number { return this.authGeneration }
   set csrfToken(value: string | null) {
     if (this.token !== value) { this.authGeneration++; this.reads.clear() }
     this.token = value
@@ -167,7 +169,7 @@ export class PortalClient {
     // Freshness-sensitive reads remain independent unless the caller opts in.
     // Share only concurrent identical reads, never retained data or writes.
     // A caller-owned abort signal must retain its independent lifetime.
-    if (options.coalesce !== true || options.signal || options.ifMatch !== undefined || options.preferenceVersion !== undefined) return this.request<T>('GET', path, options)
+    if (options.coalesce !== true || options.signal || options.idempotencyKey !== undefined || options.ifMatch !== undefined || options.preferenceVersion !== undefined) return this.request<T>('GET', path, options)
     const key = JSON.stringify([this.authGeneration, path, !!options.skipAuthHandler, !!options.background, !!options.suppressConsole])
     const existing = this.reads.get(key)
     if (existing) return existing.then(value => structuredClone(value) as T)

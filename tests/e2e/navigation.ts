@@ -1,9 +1,9 @@
 import { expect, type Page } from './fixtures.js';
 
 /** Member tools are secondary; open their visible disclosure before choosing one.
- * Sign-in and management retain their inline tools. */
+ * Sign-in uses the same disclosure; management may retain inline tools. */
 export async function openPageTools(page:Page){
-  const menu=page.locator('.topbar .page-tools-menu');
+  const menu=page.locator('.page-tools-menu');
   if(await menu.count()&&!await menu.evaluate(element=>(element as HTMLDetailsElement).open))await menu.locator(':scope > summary').click();
 }
 
