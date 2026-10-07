@@ -856,6 +856,139 @@ test('4. Body, header and query substitution', async () => {
   console.log(JSON.stringify({ item4: outcomes }));
 });
 
+function changedCursor(raw: string, changes: Record<string, unknown>) {
+  const decoded = Buffer.from(raw, 'base64url').toString('utf8');
+  return Buffer.from(JSON.stringify({ ...JSON.parse(decoded), ...changes })).toString('base64url');
+}
+
+async function invalidCursor(path: string, cursor: string, actor?: Session) {
+  const separator = path.includes('?') ? '&' : '?';
+  const url = `${origin}/api/v1${path}${separator}cursor=${encodeURIComponent(cursor)}`;
+  const response = await app.request(url, { headers: actor ? { Cookie: actor.cookie } : {} });
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const reply: Reply = { status: response.status, data: JSON.parse(Buffer.from(bytes).toString('utf8')), response, bytes, headers: response.headers };
+  await quiet();
+  console.log(JSON.stringify({ cursor_rejection: path.split('?')[0], status: reply.status, code: reply.data?.code }));
+  assert.equal(reply.status, 422, `${path}: ${JSON.stringify(describe(reply))}`);
+  assert.equal(reply.data.code, 'invalid_cursor');
+  if (path.startsWith('/tenants/')) verifyHeaders(reply, 'GET', path);
+}
+
+async function cursorPage(path: string, actor?: Session) {
+  const response = await app.request(`${origin}/api/v1${path}`, { headers: actor ? { Cookie: actor.cookie } : {} });
+  const data = await response.json() as any;
+  assert.equal(response.status, 200, JSON.stringify(data));
+  await quiet();
+  return data;
+}
+
+async function walkPages(path: string, actor: Session | undefined, id: string) {
+  const separator = path.includes('?') ? '&' : '?';
+  const expected = await cursorPage(`${path}${separator}limit=50`, actor);
+  assert.equal(expected.next_cursor, null, `${path}: fixture exceeds the reference page`);
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await cursorPage(`${path}${separator}limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, actor);
+    seen.push(...page.items.map((item: any) => item[id]));
+    assert.equal(new Set(seen).size, seen.length, `${path} repeated a row`);
+    assert.ok(seen.length <= expected.items.length, `${path} never ended`);
+    cursor = page.next_cursor;
+  } while (cursor);
+  assert.deepEqual(seen, expected.items.map((item: any) => item[id]), `${path} omitted or reordered a row`);
+}
+
+test('4a. Same admin cursors reject tenant, workspace, caller and registry filter changes', async t => {
+  const { A, B, people: { W, N } } = fixture;
+  const workspace = await post(`/tenants/${A.tenantId}/workspaces`, W, { name: '游標工作區' });
+  assert.equal(workspace.status, 201);
+  const extra = await post(`/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`, W, { title: '分頁工作', objective: 'O', progress: 'todo' });
+  assert.equal(extra.status, 201);
+  await secondResult(B, N);
+  for (const [label, pathA, pathB, filters, id] of [
+    ['Work', `/tenants/${A.tenantId}/workspaces/${A.workspaceId}/works`, `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`, [], 'work_id'],
+    ['Result', `/tenants/${A.tenantId}/works/${A.workId}/results`, `/tenants/${B.tenantId}/works/${B.workId}/results`, [], 'result_id'],
+    ['instances', `/tenants/${A.tenantId}/module-instances`, `/tenants/${B.tenantId}/module-instances`, ['module_key=work', 'status=active'], 'instance_id'],
+    ['installations', `/tenants/${A.tenantId}/application-installations`, `/tenants/${B.tenantId}/application-installations`, ['application_key=manual-workspace', `workspace_id=${B.workspaceId}`], 'installation_id'],
+  ] as const) {
+    const page = await cursorPage(`${pathB}?limit=1`, W);
+    assert.ok(page.next_cursor, `${label} did not mint a cursor`);
+    await t.test(`${label}: same admin across tenants`, () => invalidCursor(pathA, page.next_cursor, W));
+    if (label === 'instances' || label === 'installations') {
+      await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, changedCursor(page.next_cursor, { unexpected: true }), W));
+      const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
+      delete missing.filter;
+      await t.test(`${label}: missing cursor field`, () => invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W));
+      await t.test(`${label}: different caller`, () => invalidCursor(pathB, page.next_cursor, N));
+      for (const filter of filters) {
+        await walkPages(`${pathB}?${filter}`, W, id);
+        await t.test(`${label}: changed ${filter.split('=')[0]}`, () => invalidCursor(`${pathB}?${filter}`, page.next_cursor, W));
+      }
+    }
+    await walkPages(pathB, W, id);
+  }
+  const path = `/tenants/${A.tenantId}/workspaces/${A.workspaceId}/works`;
+  // A fixture has one Work until item 6; add one so a real A cursor is available independently.
+  const created = await post(path, W, { title: '工作區游標', objective: 'O', progress: 'todo' });
+  assert.equal(created.status, 201);
+  const page = await cursorPage(`${path}?limit=1`, W);
+  assert.ok(page.next_cursor);
+  await t.test('Work: same admin across workspaces of one tenant', () =>
+    invalidCursor(`/tenants/${A.tenantId}/workspaces/${workspace.data.workspace_id}/works`, page.next_cursor, W));
+});
+
+test('4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow', async t => {
+  // A second platform offering makes both public result sets issue real cursors.
+  await owner.query(`INSERT INTO application_definitions(
+    application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
+    module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
+    release_status, customization_schema_ref, license_review_ref, version)
+    SELECT 'synthetic-public', 'synthetic-public@1.0.0', display_name, source_commit, artifact_digest, skill_book_refs,
+      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
+      release_status, customization_schema_ref, license_review_ref, version
+    FROM application_definitions WHERE application_key='manual-workspace'`);
+  await owner.query(`INSERT INTO guild_application_offerings(offering_id, application_key, release_ref, status, display_order, launch_policy_ref, version)
+    SELECT $1, application_key, release_ref, 'offered', 20, launch_policy_ref, 1
+    FROM application_definitions WHERE application_key='synthetic-public'`, [randomUUID()]);
+  const plain = await cursorPage('/applications?limit=1');
+  const guild = await cursorPage('/applications?guild_key=guild_ai_field&limit=1');
+  assert.ok(plain.next_cursor && guild.next_cursor);
+  await t.test('catalog: no guild to guild', () => invalidCursor('/applications?guild_key=guild_ai_field', plain.next_cursor));
+  await t.test('catalog: guild to no guild', () => invalidCursor('/applications', guild.next_cursor));
+  await t.test('catalog: unexpected cursor field', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { unexpected: true })));
+  await t.test('catalog: oversized order', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { order: 99999999999 })));
+  await walkPages('/applications', undefined, 'release_ref');
+  // Walk the guild-filtered list with its unchanged filter.
+  const all = await cursorPage('/applications?guild_key=guild_ai_field&limit=50');
+  let cursor: string | null = null;
+  const seen: string[] = [];
+  do {
+    const page = await cursorPage(`/applications?guild_key=guild_ai_field&limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+    seen.push(...page.items.map((item: any) => item.release_ref));
+    assert.equal(new Set(seen).size, seen.length);
+    assert.ok(seen.length <= all.items.length);
+    cursor = page.next_cursor;
+  } while (cursor);
+  assert.deepEqual(seen, all.items.map((item: any) => item.release_ref));
+});
+
+test('4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
+  const { B, people: { W } } = fixture;
+  for (const path of [
+    `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`,
+    `/tenants/${B.tenantId}/module-instances`,
+    `/tenants/${B.tenantId}/application-installations`,
+  ]) {
+    const page = await cursorPage(`${path}?limit=1`, W);
+    assert.ok(page.next_cursor);
+    await t.test(`${path.split('/').at(-1)}: valid leap day and microseconds`, () =>
+      cursorPage(`${path}?cursor=${changedCursor(page.next_cursor, { at: '2024-02-29T12:00:00.123456Z' })}`, W));
+    for (const at of ['1', '0000-01-01T00:00:00.000000Z', '2026-02-30T12:00:00.000000Z', '2026-01-01T24:00:00.000000Z', '2026-01-01T00:00:00.000Z']) {
+      await t.test(`${path.split('/').at(-1)}: ${at}`, () => invalidCursor(path, changedCursor(page.next_cursor, { at }), W));
+    }
+  }
+});
+
 test('6. Idempotency across tenants', async () => {
   const { A, B, people: { W } } = fixture;
   // Use new Works with equal versions so both requests send exactly the same upload body.

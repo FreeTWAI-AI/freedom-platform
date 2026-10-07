@@ -10,7 +10,9 @@ export const TenantStatusSchema = z.enum(['active', 'suspended', 'recovery_requi
 export const DisplayNameSchema = z.string().min(1).max(120).refine(value => new TextEncoder().encode(value).length <= 480 && !/[\u0000-\u001f\u007f]/.test(value), '名稱含有不允許的字元。');
 export const PersonNameSchema = z.string().min(1).max(240);
 export const PublicSlugSchema = z.string().max(64).regex(/^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])$(?![\s\S])/);
-export const ReasonSchema = z.string().min(3).max(1000).refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
+export const ReasonSchema = z.string().min(3).max(1000)
+  .refine(value => { const length = [...value].length; return length >= 3 && length <= 1000; }, '原因需有 3 至 1000 個字元。')
+  .refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
 export const IsoTimeSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\s\S])/);
 
 // This slice has no module instances. Inputs must send an empty list so the

@@ -33,7 +33,7 @@ export async function lockWorkspace(q: PoolClient, tenantId: string, workspaceId
   return row?.status;
 }
 
-async function instanceUsage(q: PoolClient, tenantId: string, moduleKey?: string): Promise<bigint> {
+export async function instanceUsage(q: PoolClient, tenantId: string, moduleKey?: string): Promise<bigint> {
   const row = (await q.query<{ n: string }>(
     `SELECT count(*)::text AS n FROM module_instances
      WHERE tenant_id=$1 AND status IN ('requested','provisioning','active','suspended')
@@ -126,16 +126,12 @@ async function ledger(q: PoolClient, tenantId: string, operationId: string, dime
 
 export async function consumeInstanceReservations(q: PoolClient, tenantId: string, operationId: string) {
   const rows = (await q.query<{ dimension: string; units: string }>(
-    `SELECT dimension, units::text AS units FROM capacity_reservations
-     WHERE operation_id=$1 AND tenant_id=$2 AND dimension <> 'concurrent_provisions' AND state IN ${HOLDING}`,
+    `UPDATE capacity_reservations SET state='consumed', version=version+1
+     WHERE operation_id=$1 AND tenant_id=$2 AND dimension <> 'concurrent_provisions' AND state IN ('reserved','unknown')
+     RETURNING dimension, units::text AS units`,
     [operationId, tenantId],
   )).rows;
   for (const row of rows) {
-    await q.query(
-      `UPDATE capacity_reservations SET state='consumed', version=version+1
-       WHERE operation_id=$1 AND tenant_id=$2 AND dimension=$3`,
-      [operationId, tenantId, row.dimension],
-    );
     await ledger(q, tenantId, operationId, row.dimension, BigInt(row.units), 'actual', `consume:${operationId}`);
   }
 }
