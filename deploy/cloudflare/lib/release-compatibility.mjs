@@ -110,6 +110,8 @@ const FOUNDATION_NAMES = [
   // Transaction-local tenant context and row security without FORCE. The runtime
   // role is not the table owner, so ENABLE already applies to it.
   '125_tenant_row_security.sql',
+  // Retained session markers and FK lookup indexes for context-free pruning under RLS.
+  '126_auth_prune_retained_sessions.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

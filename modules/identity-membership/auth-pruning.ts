@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { transaction } from '../../packages/db/transaction.js';
 
 // Login-path tables grew without bound since 30-day sessions landed (#107):
 // the newest session per user is preserved so members.ts last-seen stays correct.
@@ -22,11 +23,39 @@ export async function pruneExpiredAuthRecords(pool:Pool,{batch=500,sessionRefere
   const la=(await pool.query(`DELETE FROM login_attempts WHERE attempt_key IN (SELECT attempt_key FROM login_attempts WHERE window_start < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED) AND window_start < now() - interval '1 day'`,[batch])).rowCount??0;
   const prt=(await pool.query(`DELETE FROM password_reset_tokens WHERE token_hash IN (SELECT token_hash FROM password_reset_tokens WHERE expires_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,[batch])).rowCount??0;
   // token_hash breaks ties (equal or missing timestamps) so exactly one newest row per user survives.
-  const s=(await pool.query(`DELETE FROM sessions WHERE token_hash IN (
-      SELECT token_hash FROM sessions s WHERE (expires_at < now() - interval '1 day' OR revoked_at < now() - interval '1 day')
+  const s=await transaction(pool,async q=>{
+    const hashes=(await q.query<{token_hash:string}>(`SELECT s.token_hash FROM sessions s
+      WHERE (s.expires_at < now() - interval '1 day' OR s.revoked_at < now() - interval '1 day')
         AND EXISTS(SELECT 1 FROM sessions n WHERE n.user_id=s.user_id AND (coalesce(n.last_seen_at,n.created_at,'-infinity'),n.token_hash)>(coalesce(s.last_seen_at,s.created_at,'-infinity'),s.token_hash))
         ${unreferenced}
-      LIMIT $1 FOR UPDATE OF s SKIP LOCKED
-    )`,[batch])).rowCount??0;
+        AND (s.prune_retained_at IS NULL OR s.prune_retained_at < now() - interval '30 days')
+      LIMIT $1 FOR UPDATE OF s SKIP LOCKED`,[batch])).rows.map(r=>r.token_hash);
+    if(!hashes.length)return 0;
+    // RLS can hide references; the FK is the authority when the batch fails.
+    await q.query('SAVEPOINT auth_prune_batch');
+    try {
+      const deleted=(await q.query('DELETE FROM sessions WHERE token_hash = ANY($1::text[])',[hashes])).rowCount??0;
+      await q.query('RELEASE SAVEPOINT auth_prune_batch');
+      return deleted;
+    } catch(error) {
+      if((error as {code?:string}).code!=='23503')throw error;
+      await q.query('ROLLBACK TO SAVEPOINT auth_prune_batch');
+      await q.query('RELEASE SAVEPOINT auth_prune_batch');
+    }
+    let deleted=0;
+    for(const hash of hashes){
+      await q.query('SAVEPOINT auth_prune_session');
+      try {
+        deleted+=(await q.query('DELETE FROM sessions WHERE token_hash = $1',[hash])).rowCount??0;
+      } catch(error) {
+        if((error as {code?:string}).code!=='23503')throw error;
+        await q.query('ROLLBACK TO SAVEPOINT auth_prune_session');
+        // Recheck later so retained sessions cannot fill every subsequent batch.
+        await q.query('UPDATE sessions SET prune_retained_at = now() WHERE token_hash = $1',[hash]);
+      }
+      await q.query('RELEASE SAVEPOINT auth_prune_session');
+    }
+    return deleted;
+  });
   return {sessions:s,login_attempts:la,auth_rate_limits:arl,password_reset_tokens:prt};
 }

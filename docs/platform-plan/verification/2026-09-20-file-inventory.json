@@ -11855,7 +11855,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "c534b33e18630eb32336c69de55bf9ba645390c89d7aa48084215cc6c80fcaa6"
+      "sha256": "b67ca3e82390ab87eb69a15cfc45f75af4e4e7f2c4eb20f8967983f32b312614"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -11934,8 +11934,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 40270,
-      "sha256": "fdbc19715f4b8fb91ec5032a6baa92f764d887b870258d92cf43145aa23301bf"
+      "bytes": 40400,
+      "sha256": "4c9735afd48cfa46ca2a130b7dd11ca304877c8b03c84f6d42280fc19d1b0c24"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12045,7 +12045,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "27a63f66c24e57df3f7d7cdfa4d624500b6c111a80a01b52fb185b758e8ad5ad"
+      "sha256": "d6cb0b9cce3fe8c7f396b19b104fcd631ae178ac4393d3b55ad3c3c0a826a6a2"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12079,8 +12079,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52229,
-      "sha256": "b5e7aaa0ecfb16ead58be9f75d4532ac33e54cbd1fae836f37caaa371652279b"
+      "bytes": 52238,
+      "sha256": "2cbb2cd1cc4f854ad6f818f5e90c0e01cdda424e645f2edc8264bec0b3bd2b20"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -15103,6 +15103,11 @@
       "sha256": "251f7fa1e19fc46dcdbc107d4ab7d05bd9f623f437d409b471c4f181ce9f4a79"
     },
     {
+      "path": "migrations/126_auth_prune_retained_sessions.sql",
+      "bytes": 636,
+      "sha256": "11baf56d8145676431822298af333a5f449b551530dc6bb596d4492c0801ec1e"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 5367,
       "sha256": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755"
@@ -16069,8 +16074,8 @@
     },
     {
       "path": "modules/identity-membership/auth-pruning.ts",
-      "bytes": 3347,
-      "sha256": "7a864e6537f6826101fb11a970e1cc5adbc0b620d305c89366743f68ceada19d"
+      "bytes": 4777,
+      "sha256": "420fbcf6bcf41da1a44a9ae5862f19dbc9386daf5f958305692b27a032ae8638"
     },
     {
       "path": "modules/identity-membership/avatar-bridge.md",
@@ -18719,8 +18724,8 @@
     },
     {
       "path": "tests/runtime/auth-pruning.test.ts",
-      "bytes": 7951,
-      "sha256": "6494805aa10f277c4e85ef4bccc3bbc75cfaf991e27267fdc9063e096bb289db"
+      "bytes": 32420,
+      "sha256": "e1cdc82dde9fb5461d449bb6810be7c08010ca1d5cce85967eafbae7b9365221"
     },
     {
       "path": "tests/runtime/avatar-bridge.test.ts",
