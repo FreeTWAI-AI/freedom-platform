@@ -49,7 +49,8 @@ export async function authRateLimit(pool:Pool,scope:string,network:string,limit:
 /** Domain commands charge only new effects and roll the budget back on failure. */
 export async function authRateLimitInTransaction(q:PoolClient,scope:string,network:string,limit:number,seconds=900) {
   const bucket=tokenHash(`${scope}/${network}`);
-  await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT DO NOTHING',[bucket]);
+  // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+  await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
   const row=(await q.query('SELECT * FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket])).rows[0];
   const expired=Date.now()-new Date(row.window_start).getTime()>=seconds*1000;
   requireCondition(expired||row.attempts<limit,429,'auth_rate_limited','操作次數過多，請稍後再試。');
