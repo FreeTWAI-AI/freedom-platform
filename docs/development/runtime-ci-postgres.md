@@ -168,6 +168,13 @@ fragment's span against that budget (`runtime_partition_window_exceeded`) and
 the whole run against a 1,800-second window (`runtime_full_window_exceeded`).
 Local runtime suites keep their 900-second cap, and caller options cannot raise
 it. Progress records accept elapsed times up to 1,200 seconds instead of
-clamping at 900. No test, file, case, count or cleanup requirement changes. The
-budget returns to 900 seconds once six partitions run under the upgraded central
-pin.
+clamping at 900. No test, file, case, count or cleanup requirement changes.
+
+The budget follows the partition count: four partitions keep the interim 1,200
+seconds and six partitions get 900. The upgraded central pin runs six partitions
+with the runner from the pinned commit, not the candidate's, so the 900-second
+budget must already be in that commit; a later change to the candidate's runner
+would not reach CI without another pin upgrade. The first six-partition hosted
+runs (stacked-PR previews 37592381527 and 37592437953 on 2026-10-07, twelve
+fragments) took 391 to 592 seconds per fragment, including provisioning and
+cleanup.

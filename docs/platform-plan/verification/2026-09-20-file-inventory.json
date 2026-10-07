@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24037,
-      "sha256": "1e63ba44ed8632c67acee9680035c4490147a001f27afbb5277d1eac861b8bb6"
+      "bytes": 24803,
+      "sha256": "5263f89ff2115c765a0301221e16f114bd17bc133ae8a9ae9b1e10f8a007b028"
     },
     {
       "path": ".gitignore",
@@ -12584,8 +12584,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 16710,
-      "sha256": "7ab3b510f47e5c8610d080c4a6f7c889e10858409591994bdfe51c1b4e01656a"
+      "bytes": 17180,
+      "sha256": "d0102c8727ae2b6443e43b472858c889870698b2e1a3e5600f697a1b086e2081"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -13449,8 +13449,8 @@
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_five_clock_invariants.py",
-      "bytes": 18999,
-      "sha256": "7ee4cdf0e26f4370cadb0d873e2cb09b54b12ad86d908e49df40e4dd106a90d2"
+      "bytes": 19006,
+      "sha256": "781ec678c23e01fb587aec2e156aaf55fcc7738605a57aaf67a69431595c3a0b"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_github_mock_semantics.py",
@@ -16578,9 +16578,14 @@
       "sha256": "1127a18c1ad53bc5b03d4be5f7e671a770fd0e2713bd35fc9272b42244646092"
     },
     {
+      "path": "packages/contribution-tools/pinned-e2e.mjs",
+      "bytes": 9220,
+      "sha256": "38f3b0997430b27ddf5eb6a0ab307ce5f70edd6df0d1b859928cf5015df787ea"
+    },
+    {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 5330,
-      "sha256": "495a42a5cd8d49cb77b84f36da8d4e5a9093da9e98a654410cf16bc6264d46f2"
+      "bytes": 6533,
+      "sha256": "fcb5e7f12a6896a8eff9abef7e35ea26d75fbdb2f773f7ed260cb28162cb4244"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -16599,8 +16604,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 4529,
-      "sha256": "3b46092c6613a4d5ce8ca8bade8e6f9e4da043ab8ca22b4efcbdc4955f8dc3fc"
+      "bytes": 4700,
+      "sha256": "2db58b560bda2464014bbb7fd35b5c8c1835f4e028940416bb8aeec010180e7c"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -16619,8 +16624,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 30886,
-      "sha256": "f6716df350f12c48bd66696dd1a474d01ac1fd39c3a033edbf7ea5fbbac3cc00"
+      "bytes": 36386,
+      "sha256": "14f5d0ea481139805d6e07433c8268825b862eadcc2b9347b300127b45d11ec9"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16773,14 +16778,19 @@
       "sha256": "a348b3a980628c38894aacb12eedc3f9b2e799934e7715de7fa72f91e66a4e4d"
     },
     {
+      "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
+      "bytes": 18174,
+      "sha256": "9769843f292536cfcd4b4c911d4d65b4a21c0fa8e4c18c9db6c1755fe22cfee5"
+    },
+    {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
-      "bytes": 18354,
-      "sha256": "af35447a55f9b2e8e0a8ca4bb36d94c58daabcf15917455144108e4bbcec506d"
+      "bytes": 23074,
+      "sha256": "759473ccbec8d29e9e96429d705d597c547d0b603e9e729417905ccc88b44240"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 12578,
-      "sha256": "e2ec4f77521f07002aef810416627e92bce98a07008fff971b14cc2d8c2979b0"
+      "bytes": 13070,
+      "sha256": "a845f11c7f7705aaa26f3cbc1c40e4cf93fe549025f92930c878d53f7175611d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -16834,8 +16844,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 10000,
-      "sha256": "59d3759e78229c0266339faf93e6572e8b46308588310a7ddaaf54befe1bd804"
+      "bytes": 10014,
+      "sha256": "1571f8aedc564315273d24372bf81ec49381e262cf5ec211c3d3223538097e28"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -17438,6 +17448,16 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/pinned-playwright.config.mjs",
+      "bytes": 2019,
+      "sha256": "bc0a7a07169577a32f16eb77610b6cf89d76a9592528cef9b2ad4e09ba6e9e29"
+    },
+    {
+      "path": "scripts/ci/pinned_pytest_evidence.py",
+      "bytes": 3905,
+      "sha256": "37188c20f56b997ba21aeb08c700e014f82d51aa69ba27ceff1525fa477aac11"
+    },
+    {
       "path": "scripts/ci/release-inventory.md",
       "bytes": 5505,
       "sha256": "8a7701f1fee75450647d241280f0fbfc66c91aabfd7794431382c1177cfb9576"
@@ -17446,6 +17466,11 @@
       "path": "scripts/ci/render-bwrap-deleted-compat.py",
       "bytes": 1436,
       "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
+    },
+    {
+      "path": "scripts/ci/run-pinned-e2e.mjs",
+      "bytes": 7021,
+      "sha256": "a6c572c8de3c987ce113284c9b11087ea2c0c24b20d1d955f609fe32eb0d2013"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -17459,8 +17484,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 46216,
-      "sha256": "27b7c8363ff8bf941e0b364eebdf7657e33e7659b823c8e3785a586a82959fb1"
+      "bytes": 46564,
+      "sha256": "2ee31928ce3adb844803aeff72c95cb19c50995a004dd907c17528a3230f3074"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -17706,6 +17731,11 @@
       "path": "scripts/verify-staging.mjs",
       "bytes": 14543,
       "sha256": "443cda1175c1d54480377d7534fab57427d2f1e6b9b9aacebb5e34d43f2abfbe"
+    },
+    {
+      "path": "tests/contribution-tools/pinned-pytest.integration.test.mjs",
+      "bytes": 6785,
+      "sha256": "ebe0c6e5383616a89fe559d6edf27ab746e887cd4c31355aa46c20535a6cebb8"
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",

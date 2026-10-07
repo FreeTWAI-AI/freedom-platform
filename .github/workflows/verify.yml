@@ -18,10 +18,10 @@ on:
 # qualifying edits and is not itself allowlisted. No other docs/platform-plan path is exempt.
 # Push, merge queue, rename, delete, unknown, governance, security, and
 # shared-runtime changes keep the full set.
-# The selector, the verify aggregate, the runtime partition runner, the runtime aggregate and every node:test suite runner come from job.workflow_sha, checked out at .freedom/trusted.
+# The selector, the verify aggregate, the runtime partition runner, the runtime aggregate and every node:test, pytest and browser suite runner come from job.workflow_sha, checked out at .freedom/trusted.
 # The pinned runner derives each file set from the candidate tree and requires complete per-file and per-case evidence.
-# Candidate package scripts, globs and runner files do not define a required node:test suite.
-# ui-e2e (npm run test:e2e), the contracts pytest run, and the build, typecheck, dry-run and check scripts stay candidate-defined.
+# Candidate package scripts, globs and runner files do not define a required test suite.
+# The build, typecheck, dry-run and check scripts stay candidate-defined.
 # Candidate code still executes on the same runner, so this is not a sandbox against a hostile candidate.
 concurrency:
   group: verify-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
@@ -311,7 +311,21 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run contracts:build
       - run: npm run build
-      - run: npm run test:e2e
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root .
   static-worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -454,12 +468,13 @@ jobs:
       - name: Verify complete runtime selection union
         run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-union-integration
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.pinned-pytest-integration
       - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.consumer-repositories
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
-      - run: npm run test:contracts
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.contracts-pytest
       - run: npm run verify:inventory
   # Selected preflight must succeed for verify. Enforcing this revision through
   # an installed workflow pin still requires its reviewed ruleset upgrade.

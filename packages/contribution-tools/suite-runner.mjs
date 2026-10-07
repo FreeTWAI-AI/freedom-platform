@@ -1,8 +1,9 @@
 import { createFailureDiagnosticDecoder } from './test-failure-diagnostic.mjs';
 import { spawn, spawnSync } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
+import { readdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-databases.mjs';
@@ -256,6 +257,78 @@ export async function runLocalSuite(root, id, options = {}) {
 
 const PINNED_OPTION_KEYS = Object.freeze(['testDatabaseUrl', 'env', 'timeoutMs', 'signal']);
 
+async function runPytestSuiteDefinition(root, id, files, suite, extraEnv, timeoutMs, options) {
+  const deadline = performance.now() + timeoutMs;
+  const failure = (reason, evidence_reason) => ({ ...result(id, 'failed', reason),
+    selected_files: files, test_count: 0, ...(evidence_reason ? { evidence_reason } : {}) });
+  let temp;
+  try {
+    temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
+    const junit = join(temp, 'junit.xml'), expected = join(temp, 'expected.json');
+    await writeFile(expected, JSON.stringify(files));
+    const config = join(temp, 'pytest.ini');
+    await writeFile(config, '[pytest]\n');
+    const args = ['-I', '-B', '-m', 'pytest', '-q', '-c', config, '--rootdir', resolve(root), '--noconftest',
+      '-p', 'no:cacheprovider', '-o', 'junit_family=xunit1', '--junitxml', junit, ...files];
+    // The environment allowlist already excludes PYTEST_ADDOPTS and PYTEST_PLUGINS.
+    const env = { ...verificationEnvironment(), ...extraEnv, PYTHONDONTWRITEBYTECODE: '1', PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1' };
+    if (options.signal?.aborted) return failure('test_cancelled');
+    if (performance.now() >= deadline) return failure('test_timeout');
+    const ran = await new Promise(done => {
+      const group = process.platform !== 'win32';
+      const child = spawn('python3', args, { cwd: root, env, detached: group, stdio: 'ignore' });
+      let reason;
+      const stop = code => {
+        reason ??= code;
+        try { if (group && child.pid) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { /* already exited */ }
+      };
+      const abort = () => stop('test_cancelled');
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (options.signal?.aborted) abort();
+      const timer = setTimeout(() => stop('test_timeout'), Math.max(1, deadline - performance.now()));
+      child.once('error', () => { reason ??= 'test_process_failed'; });
+      child.once('close', (code, terminationSignal) => {
+        clearTimeout(timer);
+        options.signal?.removeEventListener('abort', abort);
+        done({ reason, failed: code !== 0 || terminationSignal !== null });
+      });
+    });
+    if (ran.reason || ran.failed) return failure(ran.reason ?? 'test_process_failed');
+    if (options.signal?.aborted) return failure('test_cancelled');
+    if (performance.now() >= deadline) return failure('test_timeout');
+    const helperPath = fileURLToPath(new URL('../../scripts/ci/pinned_pytest_evidence.py', import.meta.url));
+    const helper = spawnSync('python3', ['-I', helperPath, '--junit', junit, '--expected', expected],
+      { cwd: root, env: verificationEnvironment(), encoding: 'utf8',
+        timeout: Math.max(1, Math.min(30000, Math.floor(deadline - performance.now()))), maxBuffer: MAX_OUTPUT });
+    if (performance.now() >= deadline) return failure('test_timeout');
+    let parsed;
+    try { parsed = parseJson(Buffer.from(helper.stdout ?? ''), { maxBytes: MAX_OUTPUT, maxNodes: 500_000 }); }
+    catch { return failure('invalid_test_results'); }
+    if (parsed.ok === false) return failure('incomplete_test_results',
+      typeof parsed.reason === 'string' && /^[a-z_]+$/.test(parsed.reason) ? parsed.reason : 'invalid_evidence_reason');
+    if (helper.status !== 0 || parsed.ok !== true || !Array.isArray(parsed.files)
+      || !Number.isSafeInteger(parsed.total) || parsed.total < 1) return failure('incomplete_test_results');
+    const test_files = parsed.files.map(file => ({ path: file.path,
+      counts: { tests: file.tests, passed: file.passed, failed: 0, cancelled: 0, skipped: 0, todo: 0 },
+      cases: file.cases, suite_events: [] }));
+    const ids = new Set();
+    if (JSON.stringify(test_files.map(file => file.path)) !== JSON.stringify(files)
+      || test_files.some(file => !Number.isSafeInteger(file.counts.tests) || file.counts.tests < 1
+        || file.counts.tests !== file.counts.passed || !Array.isArray(file.cases)
+        || file.cases.length !== file.counts.tests || file.cases.some(entry => {
+          if (!entry || entry.status !== 'passed' || !/^[a-f0-9]{64}$/.test(entry.case_sha256) || ids.has(entry.case_sha256)) return true;
+          ids.add(entry.case_sha256); return false;
+        })) || parsed.total !== ids.size) return failure('incomplete_test_results');
+    return { ...result(id, 'passed', 'tests_executed'), test_count: parsed.total,
+      evidence_sha256: sha256(Buffer.from(helper.stdout)), selected_files: files, test_files };
+  } catch {
+    return failure('incomplete_test_results');
+  } finally {
+    if (temp) try { await rm(temp, { recursive: true, force: true }); }
+    catch { return failure('incomplete_test_results'); }
+  }
+}
+
 export async function runPinnedSuiteDefinition(root, id, suite, options = {}) {
   for (const key of Object.keys(options)) {
     if (!PINNED_OPTION_KEYS.includes(key)) return result(id, 'not_run', 'invalid_pinned_suite_options');
@@ -265,24 +338,29 @@ export async function runPinnedSuiteDefinition(root, id, suite, options = {}) {
     return result(id, 'not_run', 'suite_adapter_unavailable');
   }
 
-  const allowedSuiteKeys = ['files', 'directory', 'pattern', 'baseline', 'loader', 'database', 'timeoutMs', 'env'];
+  const allowedSuiteKeys = ['files', 'directory', 'directories', 'pattern', 'baseline', 'loader', 'database', 'timeoutMs', 'env'];
   for (const key of Object.keys(suite)) {
     if (!allowedSuiteKeys.includes(key)) return result(id, 'not_run', 'suite_adapter_unavailable');
   }
 
-  const directoryKeys = ['directory', 'pattern', 'baseline'].filter(key => Object.hasOwn(suite, key));
+  const directoryKeys = ['directory', 'directories', 'pattern', 'baseline'].filter(key => Object.hasOwn(suite, key));
   const validShape = Object.hasOwn(suite, 'files')
     ? directoryKeys.length === 0 && Array.isArray(suite.files)
-    : directoryKeys.length === 3 && typeof suite.directory === 'string' && suite.pattern instanceof RegExp && Array.isArray(suite.baseline);
+    : (directoryKeys.length === 3 && typeof suite.directory === 'string' && suite.pattern instanceof RegExp && Array.isArray(suite.baseline)) ||
+      (directoryKeys.length === 3 && Array.isArray(suite.directories) && suite.directories.length > 0 && suite.directories.every(d => typeof d === 'string') && suite.pattern instanceof RegExp && Array.isArray(suite.baseline) && suite.baseline.every(f => suite.directories.some(d => f.startsWith(d + '/'))));
   if (!validShape) return result(id, 'not_run', 'suite_adapter_unavailable');
 
   let files = [];
   if (suite.files) {
     files = [...suite.files];
   } else {
+    const dirs = suite.directories || [suite.directory];
     try {
-      const found = await readdir(resolve(root, suite.directory));
-      const foundFiles = found.filter(name => suite.pattern.test(name)).map(name => suite.directory + '/' + name);
+      const foundFiles = [];
+      for (const dir of dirs) {
+        const found = await readdir(resolve(root, dir));
+        foundFiles.push(...found.filter(name => suite.pattern.test(name)).map(name => dir + '/' + name));
+      }
       files = [...new Set([...suite.baseline, ...foundFiles])].sort();
     } catch {
       return result(id, 'not_run', 'suite_files_unavailable');
@@ -321,6 +399,10 @@ export async function runPinnedSuiteDefinition(root, id, suite, options = {}) {
     for (const name of suite.env) {
       if (options.env[name] !== undefined) extraEnv[name] = options.env[name];
     }
+  }
+
+  if (suite.loader === 'pytest') {
+    return runPytestSuiteDefinition(root, id, files, suite, extraEnv, timeoutMs, options);
   }
 
   const ran = await execute(root, files, suite.loader, extraEnv, timeoutMs, options.signal);
@@ -367,10 +449,11 @@ export async function runPinnedSuite(root, id, options = {}) {
 }
 
 const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
-// Interim: the ruleset-pinned workflow still runs four partitions, and four 900 s
-// partitions no longer fit the runtime suite on slower hosted runners. Return this
-// to 900_000 once six partitions run under the upgraded central pin.
-const PARTITION_BUDGET_MS = 1_200_000;
+// Per-partition budget by partition count. The ruleset-pinned d1c9 workflow runs four
+// partitions with the candidate's runner, and four 900 s partitions no longer fit the
+// runtime suite on slower hosted runners, so four keep the interim 1,200 s. Six
+// partitions, which the upgraded central pin runs from its trusted runner, get 900 s.
+const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 900_000 });
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
@@ -390,13 +473,14 @@ export async function runtimeSourceManifest(root) {
 }
 
 // A matrix fragment is never a runtime.full result. Own one fresh nonce DB and
-// one serial test process, including provisioning/cleanup inside PARTITION_BUDGET_MS.
+// one serial test process, including provisioning/cleanup inside its partition budget.
 export async function runRuntimePartition(root, options = {}) {
   const count = options.partitionCount;
   partitionCheck([4, 6].includes(count) && Number.isInteger(options.partitionIndex) &&
     options.partitionIndex >= 0 && options.partitionIndex < count, 'invalid_runtime_partition');
   partitionCheck(Object.keys(options).every(key => ['partitionCount','partitionIndex','testDatabaseUrl','signal'].includes(key)), 'invalid_runtime_partition_options');
-  const started_at = new Date().toISOString(), deadline = performance.now() + PARTITION_BUDGET_MS;
+  const budget = PARTITION_BUDGET_MS[count];
+  const started_at = new Date().toISOString(), deadline = performance.now() + budget;
   const source = await runtimeSourceManifest(root);
   const selected = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), count)[options.partitionIndex];
   const check_id = `runtime.partition.${options.partitionIndex}`;
@@ -407,7 +491,7 @@ export async function runRuntimePartition(root, options = {}) {
     const remaining = Math.floor(deadline - performance.now() - 24_000);
     if (remaining <= 0) throw Error('test_timeout');
     [report] = await runGroup(root, [{id: check_id, files: selected}], true,
-      {testDatabaseUrl: databases.urls[0], timeoutMs: remaining, runtimeShards: 1, signal: options.signal}, PARTITION_BUDGET_MS);
+      {testDatabaseUrl: databases.urls[0], timeoutMs: remaining, runtimeShards: 1, signal: options.signal}, budget);
   } catch (error) {
     cleanup = error.cleanupVerified === true;
     const allowed = ['test_database_rejected','test_timeout'];
@@ -449,7 +533,7 @@ export async function aggregateRuntimePartitions(root, fragments, options = {}) 
       const fragStarted = Date.parse(fragment.started_at);
       const fragEnded = Date.parse(fragment.ended_at);
       partitionCheck(fragEnded >= fragStarted, 'runtime_partition_clock');
-      partitionCheck(fragEnded - fragStarted <= PARTITION_BUDGET_MS, 'runtime_partition_window_exceeded');
+      partitionCheck(fragEnded - fragStarted <= PARTITION_BUDGET_MS[numPartitions], 'runtime_partition_window_exceeded');
       const report = fragment.report;
       partitionCheck(strictKeys(report, ['check_id','status','reason','test_count','evidence_sha256','selected_files','test_files','database_cleanup_verified']) &&
         report.check_id === fragment.check_id && report.status === 'passed' && report.reason === 'tests_executed' &&

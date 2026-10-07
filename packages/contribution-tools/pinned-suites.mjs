@@ -12,7 +12,7 @@ agent-kit-device-fixture agent-kit-device-profile behavior-harness-adversarial b
 behavior-supervisor checkout-repositories consumer-entry-coverage consumer-libraries
 consumer-runtime-recipe consumer-source-profiles consumer-workspace context contracts
 directory-build export github-app-publisher github-behavior-host github-consumer-host
-github-consumer-profiles github-trusted-adapter io machine-device-cli pinned-suite runtime-matrix
+github-consumer-profiles github-trusted-adapter io machine-device-cli pinned-e2e pinned-suite runtime-matrix
 runtime-sharding runtime-weights suite-runner supervisor-create-lifecycle surface-adversarial surface-audit
 test-reporter-progress trusted-ci
 `);
@@ -44,6 +44,19 @@ release-member-prerequisites release-model-result release-model-step release-run
 shop-key-policy
 `);
 
+const CONTRACTS_PYTEST_BASELINE = Object.freeze([
+  ...paths('docs/platform-plan/contracts/tests', '.py', `
+test_client_credential_manifest test_domain_skill_overlay_contract test_five_clock_invariants
+test_github_mock_semantics test_low_ops_contracts test_membership_submission_contract
+test_portable_bundle_boundaries test_repository_manifest_identity test_retract_contract_parity
+test_retracted_receipt_replay test_reviewer_appointment_entitlement test_settlement_execution_modes
+test_work_reviewer_capacity test_xp_projection_rebuild
+  `),
+  ...paths('docs/platform-plan/execution/tools/tests', '.py', `
+test_check_package_dag test_check_specs
+  `)
+].sort());
+
 export const PINNED_SUITES = Object.freeze({
   'ci.governance-unit': Object.freeze({ directory: 'packages/contribution-tools/test', pattern: /^[a-z][a-z0-9-]*\.test\.mjs$/, baseline: GOVERNANCE_BASELINE, loader: 'node', database: false, timeoutMs: 300000, env: Object.freeze([]) }),
   'ci.selector-unit': Object.freeze({ files: Object.freeze(['scripts/ci/select-affected-jobs.test.mjs']), loader: 'node', database: false, timeoutMs: 180000, env: Object.freeze([]) }),
@@ -53,5 +66,7 @@ export const PINNED_SUITES = Object.freeze({
   'ci.migration-postgres': Object.freeze({ files: Object.freeze(['tests/integration/migration-plan-postgres.test.ts', 'tests/integration/migration-entrypoints-postgres.test.ts', 'tests/runtime/migration-runner-plan.test.ts']), loader: 'tsx', database: false, timeoutMs: 600000, env: Object.freeze(['HOME', 'DOCKER_HOST', 'DOCKER_CONFIG']) }),
   'ci.consumer-repositories': Object.freeze({ files: Object.freeze(['tests/integration/repositories.test.ts', 'tests/integration/consumer-libraries.test.ts']), loader: 'tsx', database: true, timeoutMs: 600000, env: Object.freeze(['HOME', 'FREEDOM_REPOSITORIES_ROOT', 'FREEDOM_CONSUMER_SOURCE_COMMIT', 'FREEDOM_AGENT_KIT_ROOT', 'FREEDOM_STOREFRONT_ROOT', 'FREEDOM_SUPPLIER_CLIENT_ROOT', 'FREEDOM_SUPPLIER_SOURCE_COMMIT']) }),
   'ci.runtime-union-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/runtime-union.integration.test.mjs']), loader: 'node', database: false, timeoutMs: 600000, env: Object.freeze([]) }),
-  'ci.runtime-sharding-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/runtime-sharding.integration.test.mjs']), loader: 'node', database: true, timeoutMs: 600000, env: Object.freeze([]) })
+  'ci.runtime-sharding-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/runtime-sharding.integration.test.mjs']), loader: 'node', database: true, timeoutMs: 600000, env: Object.freeze([]) }),
+  'ci.contracts-pytest': Object.freeze({ directories: Object.freeze(['docs/platform-plan/contracts/tests', 'docs/platform-plan/execution/tools/tests']), pattern: /^test_[a-z0-9_]+\.py$/, baseline: CONTRACTS_PYTEST_BASELINE, loader: 'pytest', database: false, timeoutMs: 300000, env: Object.freeze(['HOME']) }),
+  'ci.pinned-pytest-integration': Object.freeze({ files: Object.freeze(['tests/contribution-tools/pinned-pytest.integration.test.mjs']), loader: 'node', database: false, timeoutMs: 300000, env: Object.freeze([]) })
 });
