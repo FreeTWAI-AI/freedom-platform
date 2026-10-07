@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { InstanceDetailSchema, RegistryOperationSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
+import { ReasonSchema } from '../../contracts/guild-launchpad/v1/tenant.js';
 import { LaunchpadContextSchema, ManualWorkBindingSchema } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { advanceOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
 import { digestOf } from '../../modules/module-registry/canonical.js';
@@ -83,6 +84,74 @@ async function capacity(ctx: { tenantId: string }) {
     (SELECT jsonb_agg(to_jsonb(r) ORDER BY reservation_id) FROM capacity_reservations r WHERE tenant_id=$1) AS reservations,
     (SELECT jsonb_agg(to_jsonb(l) ORDER BY entry_id) FROM capacity_ledger l WHERE tenant_id=$1) AS ledger`, [ctx.tenantId])).rows[0];
 }
+
+async function lifecycleSnapshot(ctx: { tenantId: string; instanceId: string }) {
+  return { instance: await physical(ctx), capacity: await capacity(ctx), counts: {
+    ...await workCounts(), operations: await h.count('module_provision_operations'),
+  } };
+}
+
+for (const [dimension, totalLimit, moduleLimit] of [
+  ['module_instances', 2, 3], ['module_instances.work', 3, 2],
+  ['module_instances', 0, 3], ['module_instances.work', 3, 0],
+] as const) {
+  test(`resume refuses lowered ${dimension} limit ${dimension === 'module_instances' ? totalLimit : moduleLimit} without writes`, async t => {
+    const ctx = await ready();
+    for (let n = 0; n < 2; n += 1) {
+      const workspace = await h.workspace(ctx.owner, ctx.tenantId, `額外工作區${n}`);
+      const plan = await h.plan(ctx.owner, ctx.tenantId, h.planBody(guild, workspace, 'manual-workspace', 'manual-workspace@1.0.0', {
+        dependencies: [{ requirement_key: 'work', choice: 'create', configuration: {} }],
+      }));
+      assert.equal(plan.status, 201, JSON.stringify(plan.data));
+      assert.equal((await h.launch(ctx.owner, ctx.tenantId, plan)).status, 200);
+    }
+    assert.equal((await capacity(ctx)).usage, 3);
+    assert.equal((await suspend(ctx)).status, 200);
+    await h.pool.query(`UPDATE tenant_capacity_policies SET max_active_instances=$1,max_instances_per_module=$2`, [totalLimit, moduleLimit]);
+    const before = await lifecycleSnapshot(ctx);
+    const refused = await resume(ctx);
+    const after = await lifecycleSnapshot(ctx);
+    t.diagnostic(JSON.stringify({ status: refused.status, code: refused.data.code ?? null, dimension: refused.data.dimension ?? null,
+      before: before.counts, after: after.counts, instance: after.instance }));
+    error(refused, 429, 'quota_exceeded');
+    assert.equal(refused.data.dimension, dimension);
+    assert.deepEqual(after, before);
+  });
+}
+
+test('detail classifies a retired member binding as platform hold and restores the member reason when suspended', async t => {
+  const ctx = await ready();
+  assert.equal((await suspend(ctx)).status, 200);
+  const member = (await detail(ctx)).suspension;
+  assert.equal(member?.kind, 'member');
+  await h.pool.query(`UPDATE deployment_bindings SET state='retired' WHERE instance_id=$1`, [ctx.instanceId]);
+  const before = await lifecycleSnapshot(ctx);
+  const held = await detail(ctx), refused = await resume(ctx);
+  t.diagnostic(JSON.stringify({ suspension: held.suspension, status: refused.status, code: refused.data.code, counts: before.counts }));
+  error(refused, 409, 'instance_security_hold');
+  assert.deepEqual(await lifecycleSnapshot(ctx), before);
+  assert.deepEqual(held.suspension, { kind: 'platform', operation_id: null, suspended_at: null, reason: null });
+  await h.pool.query(`UPDATE deployment_bindings SET state='suspended' WHERE instance_id=$1`, [ctx.instanceId]);
+  assert.deepEqual((await detail(ctx)).suspension, member);
+  assert.equal((await detail(ctx)).suspension?.reason, reason);
+});
+
+test('two emoji reason is rejected by validation without lifecycle writes', async t => {
+  const ctx = await ready(), before = await lifecycleSnapshot(ctx);
+  const refused = await post(`${path(ctx.tenantId, ctx.instanceId)}/suspend`, ctx.owner, { reason: '😀😀' }, `"${before.instance.version}"`);
+  const after = await lifecycleSnapshot(ctx);
+  t.diagnostic(JSON.stringify({ status: refused.status, code: refused.data.code, detail: refused.data.detail, before: before.counts, after: after.counts }));
+  error(refused, 422, 'validation_failed');
+  assert.deepEqual(after, before);
+  assert.equal(ReasonSchema.safeParse('😀😀').success, false, 'shared schema must reject fewer than three code points');
+});
+
+test('three emoji reason suspends successfully and round trips through detail', async () => {
+  const ctx = await ready(), version = (await detail(ctx)).version;
+  const accepted = await post(`${path(ctx.tenantId, ctx.instanceId)}/suspend`, ctx.owner, { reason: '😀😀😀' }, `"${version}"`);
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal((await detail(ctx)).suspension?.reason, '😀😀😀');
+});
 
 test('T-016 owner suspends and resumes with durable operations, exact facts, versions and retained installation', async () => {
   const ctx = await ready();
@@ -404,6 +473,44 @@ async function waitBlocked(pid: number, parts: string[]) {
     await nextTurn();
   }
   assert.fail(`no blocked statement matching ${parts.join(',')}: ${JSON.stringify(rows)}`);
+}
+
+for (const winner of ['suspend', 'resume'] as const) {
+  test(`lifecycle race: ${winner} holds the instance first and the competing suspend loses CAS`, { timeout: 30_000 }, async t => {
+    const ctx = await ready();
+    // Resume is valid on a suspended instance. Its instance lock is held while
+    // waiting on the binding, so the competing suspend reaches CAS after resume.
+    if (winner === 'resume') assert.equal((await suspend(ctx)).status, 200);
+    const before = await lifecycleSnapshot(ctx), firstKey = randomUUID(), secondKey = randomUUID();
+    const gate = await holder(`SELECT binding_id FROM deployment_bindings WHERE binding_id=$1 FOR SHARE`, [before.instance.binding_id]);
+    let first: Promise<Reply> | undefined, second: Promise<Reply> | undefined;
+    try {
+      first = winner === 'suspend' ? suspend(ctx, firstKey, before.instance.version) : resume(ctx, firstKey, before.instance.version);
+      const blocked = await waitBlocked(gate.pid, ['deployment_bindings', 'FOR NO KEY UPDATE']);
+      second = suspend(ctx, secondKey, before.instance.version);
+      await waitBlocked(blocked.pid, ['module_instances', 'FOR NO KEY UPDATE']);
+      await gate.commit();
+      const [accepted, refused] = await Promise.all([first, second]);
+      t.diagnostic(JSON.stringify({ statuses: [accepted.status, refused.status], loser_code: refused.data.code }));
+      assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+      error(refused, 412, 'version_conflict');
+      const after = await lifecycleSnapshot(ctx), status = winner === 'suspend' ? 'suspended' : 'active';
+      assert.deepEqual(after.instance, { ...before.instance, status, binding_state: status,
+        version: String(BigInt(before.instance.version) + 1n), binding_version: String(BigInt(before.instance.binding_version) + 1n),
+        suspension_operation_id: winner === 'suspend' ? accepted.data.operation_id : null });
+      assert.deepEqual(after.capacity, before.capacity);
+      for (const table of ['operations', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox'] as const) {
+        assert.equal(after.counts[table], before.counts[table] + 1, table);
+      }
+      assert.equal(await h.count('module_provision_operations', 'WHERE tenant_id=$1 AND operation_kind=$2', [ctx.tenantId, `module.instance.${winner}`]), 1);
+      assert.equal((await facts(ctx, `module.instance.${winner}`)).length, 1);
+      assert.equal(await h.count('scoped_command_receipts', 'WHERE idempotency_key=$1', [secondKey]), 0);
+      assert.equal((await detail(ctx)).status, status);
+    } finally {
+      await gate.release();
+      await Promise.allSettled([first, second].filter(Boolean) as Promise<Reply>[]);
+    }
+  });
 }
 
 for (const first of ['work', 'suspend'] as const) {
