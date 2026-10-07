@@ -11,6 +11,7 @@ import { ExecutionInputError, freezeTree, snapshotInput } from '../../../../pack
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { chargeBootstrapHttp } from '../../../../modules/agent-control/bootstrap-http-limits.js';
 import { memberBoundary } from '../member-boundary.js';
+import { readSessionCookie } from '../session-cookie.js';
 import { SHARED_NETWORK_KEY } from '../runtime.js';
 import type { PlatformEnv } from '../module-context.js';
 
@@ -53,7 +54,7 @@ export async function createMemberModelSettingsHttpTransport(pool: Pool, raw: {
     if (setup.state === 'installed' && new URL(setup.setupOrigin).hostname === main.hostname) throw new Error();
     freezeTree(setup);
   } catch { throw new Error('invalid_member_model_settings_http_configuration'); }
-  const settings = createMemberModelSettings(pool,{environment,clientId,selections}), boundary = memberBoundary(pool), app = new Hono<PlatformEnv>();
+  const settings = createMemberModelSettings(pool,{environment,clientId,selections}), boundary = memberBoundary(pool,origin), app = new Hono<PlatformEnv>();
   app.onError((error,c) => {
     security(c); let code = 'internal_error', status = 500;
     if (error instanceof z.ZodError || error instanceof ExecutionInputError) { code = 'validation_failed'; status = 400; }
@@ -75,8 +76,7 @@ export async function createMemberModelSettingsHttpTransport(pool: Pool, raw: {
     const sentOrigin = c.req.header('Origin'), site = c.req.header('Sec-Fetch-Site');
     requireCondition((sentOrigin === undefined || sentOrigin === origin) && (site === undefined || site === 'same-origin'),403,'origin_rejected','Origin rejected.');
     requireCondition(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].every(h => c.req.header(h) === undefined),403,'credential_kind_rejected','Credential rejected.');
-    requireCondition((c.req.header('Cookie') ?? '').split(';').filter(v => v.includes('=') && v.slice(0,v.indexOf('=')).trim() === 'freedom_local_session').length <= 1,
-      403,'credential_kind_rejected','Credential rejected.');
+    readSessionCookie(c.req.header('Cookie'),origin);
     requireCondition(c.req.header('Content-Encoding') === undefined,415,'encoding_rejected','Encoding unsupported.');
     requireCondition(c.req.raw.body === null && ['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range',
       'Idempotency-Key','If-Match','Content-Length','Transfer-Encoding'].every(h => c.req.header(h) === undefined),400,'read_headers_rejected','Read headers rejected.');

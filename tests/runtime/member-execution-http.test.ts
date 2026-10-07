@@ -57,7 +57,7 @@ async function member() {
   const context=await withMemberScope(app,{actor,scope:'personal'},async()=>{},async(_q,c)=>c);
   await owner.query(`INSERT INTO private_work_persistence_policy(scope_id,purpose,owner_principal_id,revision,persistence_allowed,retained_byte_limit)
     VALUES($1,'work.private-draft',$2,1,true,10485760)`,[context.scope.scope_id,context.subject_principal.principal_id]);
-  return {actor,context,headers:{Cookie:'freedom_local_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
+  return {actor,context,headers:{Cookie:'__Host-freedom_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
 }
 type Member=Awaited<ReturnType<typeof member>>;
 async function fixture() {

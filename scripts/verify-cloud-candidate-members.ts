@@ -5,6 +5,7 @@
 // for root cleanup; emails, passwords, ids, cookies, CSRF and message bodies
 // are added to the run's secret list and must not be copied into the report.
 import { randomBytes, randomUUID } from 'node:crypto';
+import { sessionCookieName } from '../apps/platform-api/src/session-cookie.js';
 
 const SESSION_PATH = '/api/v1/session';
 const BUILTIN_GUILD = /^guild_[a-z_]+$/;
@@ -207,12 +208,12 @@ export async function runRegistrationPhase(deps: MemberPhaseDeps) {
     // A rejected origin must not have created the account: login still fails closed.
     const absent = await deps.openClient().request('POST', '/api/v1/auth/login', { json: { email: who.email, password: who.password }, csrf: null, session: false });
     seal(secrets, absent.json());
-    ctx.check('register_origin_rejection_creates_no_account', absent.status === 401 && absent.json()?.code === 'invalid_credentials' && !absent.setCookies().some(cookie => cookie.name === 'freedom_local_session' && cookie.value), problem(absent));
+    ctx.check('register_origin_rejection_creates_no_account', absent.status === 401 && absent.json()?.code === 'invalid_credentials' && !absent.setCookies().some(cookie => cookie.name === sessionCookieName(deps.target.origin) && cookie.value), problem(absent));
 
     const registered = await client.request('POST', '/api/v1/auth/register', { json: { email: who.email, password: who.password, nickname: who.nickname }, csrf: null });
     created = registered.status === 201;
     const body = rememberSession(secrets, client, registered);
-    const cookie = registered.setCookies().find(value => value.name === 'freedom_local_session') ?? null;
+    const cookie = registered.setCookies().find(value => value.name === sessionCookieName(deps.target.origin)) ?? null;
     const flags = deps.cookieChecks(cookie, deps.target);
     const cookieOk = flags.present && flags.secure && flags.http_only && flags.same_site_strict && flags.path_root && flags.host_only;
     uncaptured = created && !client.hasSession();
@@ -220,7 +221,7 @@ export async function runRegistrationPhase(deps: MemberPhaseDeps) {
 
     const duplicate = await deps.openClient().request('POST', '/api/v1/auth/register', { json: { email: who.email, password: who.password, nickname: who.nickname }, csrf: null, session: false });
     seal(secrets, duplicate.json());
-    ctx.check('register_duplicate_rejected', duplicate.status === 409 && duplicate.json()?.code === 'account_unavailable' && !duplicate.setCookies().some(item => item.name === 'freedom_local_session' && item.value), problem(duplicate));
+    ctx.check('register_duplicate_rejected', duplicate.status === 409 && duplicate.json()?.code === 'account_unavailable' && !duplicate.setCookies().some(item => item.name === sessionCookieName(deps.target.origin) && item.value), problem(duplicate));
 
     const first = await client.request('GET', SESSION_PATH), second = await client.request('GET', SESSION_PATH);
     const id1 = payload(secrets, first)?.user?.user_id, id2 = payload(secrets, second)?.user?.user_id;
@@ -610,6 +611,6 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   await page.getByRole('menuitem', { name: '登出', exact: true }).click();
   await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   const cookies = await context.cookies(origin);
-  ctx.check('ui_logout_clears_cookie', !cookies.some((cookie: { name?: string; value?: string }) => cookie.name === 'freedom_local_session' && cookie.value));
+  ctx.check('ui_logout_clears_cookie', !cookies.some((cookie: { name?: string; value?: string }) => cookie.name === sessionCookieName(origin) && cookie.value));
   return true;
 }
