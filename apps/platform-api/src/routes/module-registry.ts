@@ -12,7 +12,7 @@ import { browseApplications, readPublicRelease } from '../../../../modules/modul
 import {
   advanceOperation, archiveInstance, cancelOperation, enableManualWork, installationByOperation, launchApplication,
   launchpadContext, listInstallations, listInstances, planApplication, readInstance, readOperation,
-  reconcileOperation, resumeInstance, suspendInstance,
+  readWorkspaceModuleBinding, reconcileOperation, resumeInstance, suspendInstance,
 } from '../../../../modules/module-registry/service.js';
 import { resolveProviders, type ModuleProviderMap } from '../../../../modules/module-registry/providers.js';
 import { listTenantWork } from '../../../../modules/opportunity-project-work/tenant-work.js';
@@ -207,6 +207,9 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
     const operation = await cancelOperation(pool, c.get('actor'), tenantId, operationId, expected, key, body.reason);
     etag(c, operation.version);
     return c.json(operation, operation.state === 'cancelled' ? 200 : 202);
+  });
+  app.get('/tenants/:tenant_id/workspaces/:workspace_id/module-binding', async c => {
+    return c.json(await readWorkspaceModuleBinding(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('workspace_id'))));
   });
   app.get('/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context', async c => {
     const tenantId = OpaqueId.parse(c.req.param('tenant_id'));

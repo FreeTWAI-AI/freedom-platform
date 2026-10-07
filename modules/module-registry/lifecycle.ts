@@ -13,6 +13,7 @@ import { installationFingerprintLock } from './capacity.js';
 import { digestOf } from './canonical.js';
 import { instanceUsage } from './capacity.js';
 import { QuotaExceeded } from './problems.js';
+import { BLOCKING_CONSUMER_SQL } from './validate.js';
 import { isMemberSuspension } from './read.js';
 import { journalCommand } from './events.js';
 import { requireRegistryCapability } from './operations.js';
@@ -116,7 +117,7 @@ async function transition(pool: Pool, actor: Actor, tenantId: string, instanceId
         `SELECT EXISTS (SELECT 1 FROM module_dependencies d JOIN module_instances i
            ON i.tenant_id=d.tenant_id AND i.instance_id=d.caller_instance_id
          WHERE d.tenant_id=$1 AND d.provider_instance_id=$2
-           AND i.status IN ('requested','provisioning','active','suspended')) AS live`, [tenantId, instanceId],
+           AND ${BLOCKING_CONSUMER_SQL}) AS live`, [tenantId, instanceId],
       )).rows[0].live;
       requireCondition(!consumers, 409, 'instance_has_consumers', '還有其他模組實例依賴這個模組實例，請先處理它們。');
     } else {

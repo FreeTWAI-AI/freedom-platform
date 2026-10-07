@@ -6,7 +6,7 @@ import { withTenantRead, type TenantScopeInput } from '../../packages/resource-s
 import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from './tenant-capabilities.js';
+import { isWorkInstanceWritable, requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from './tenant-capabilities.js';
 
 export interface TenantWorkRow {
   work_item_id: string; tenant_id: string; workspace_id: string; instance_id: string;
@@ -71,7 +71,7 @@ export async function lockWritableInstance(q: PoolClient, tenantId: string, inst
   const deployment = instance ? (await q.query<{ state: string }>(
     `SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND binding_id=$2 AND instance_id=$3 FOR SHARE`,
     [tenantId, instance.binding_id, instanceId])).rows[0] : undefined;
-  requireCondition(instance?.status === 'active' && deployment?.state === 'active', 409, 'work_instance_unavailable', '這個工作實例目前無法接受新的寫入。');
+  requireCondition(isWorkInstanceWritable(instance?.status, deployment?.state), 409, 'work_instance_unavailable', '這個工作實例目前無法接受新的寫入。');
 }
 
 async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: string) {

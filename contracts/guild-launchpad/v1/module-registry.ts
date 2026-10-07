@@ -75,6 +75,16 @@ export const ApplicationReleaseViewSchema = ApplicationViewSchema.omit({ eligibi
 }).strict();
 
 export const InstanceStatusSchema = z.enum(['requested', 'provisioning', 'active', 'failed', 'suspended', 'archived']);
+export const WorkspaceModuleBindingViewSchema = z.object({
+  tenant_id: OpaqueId,
+  workspace_id: OpaqueId,
+  binding: z.object({
+    entry_capability: z.literal('work:create'),
+    instance_id: OpaqueId,
+    instance_status: InstanceStatusSchema,
+    writable: z.boolean(),
+  }).strict().nullable(),
+}).strict();
 export const InstanceViewSchema = z.object({
   instance_id: OpaqueId,
   tenant_id: OpaqueId,
@@ -95,6 +105,7 @@ export const InstanceDependencySchema = z.object({
 }).strict();
 export const InstanceImpactSchema = z.object({
   consumer_count: z.number().int().nonnegative(),
+  blocking_consumer_count: z.number().int().nonnegative(),
   consumers: z.array(z.object({
     caller_instance_id: OpaqueId,
     requirement_key: StableKey,
@@ -113,6 +124,9 @@ export const InstanceSuspensionSchema = z.discriminatedUnion('kind', [
   }).strict(),
 ]);
 export const InstanceArchiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('launch'), operation_id: OpaqueId, archived_at: IsoTimeSchema.nullable(), reason: ReasonSchema.nullable(),
+  }).strict(),
   z.object({
     kind: z.literal('member'), operation_id: OpaqueId, archived_at: IsoTimeSchema, reason: ReasonSchema,
   }).strict(),
@@ -220,6 +234,7 @@ export const InstancePageSchema = page(InstanceViewSchema);
 export const InstallationPageSchema = page(InstallationViewSchema);
 
 export type ApplicationView = z.infer<typeof ApplicationViewSchema>;
+export type WorkspaceModuleBindingView = z.infer<typeof WorkspaceModuleBindingViewSchema>;
 export type InstanceView = z.infer<typeof InstanceViewSchema>;
 export type InstallationView = z.infer<typeof InstallationViewSchema>;
 export type LaunchPlan = z.infer<typeof LaunchPlanSchema>;

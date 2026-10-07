@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { hasLoneSurrogate, type Config } from '../../../../contracts/guild-launchpad/v1/config';
 import type { TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
-import type { Operation, ResultView, UploadView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
+import type { WorkspaceModuleBindingView } from '../../../../contracts/guild-launchpad/v1/module-registry';
+import type { LaunchpadContext, Operation, ResultView, UploadView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
 import { ApiError, type InstanceSelectionCandidate, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { TenantSelector } from './TenantSelector';
@@ -25,14 +26,6 @@ const DISPLAY_FORBIDDEN = /[\\/\u0000-\u001f\u007f\uD800-\uDFFF]/;
 const PROGRESS_LABEL = { todo: '待辦', in_progress: '進行中', done: '完成' } as const;
 type Progress = keyof typeof PROGRESS_LABEL;
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
-type LaunchpadContext = {
-  tenant_id: string;
-  workspace_id: string;
-  source_version: string;
-  work_page: Page<WorkView>;
-  capacity_summary: { policy_revision: string | null; used: string; reserved: string; limit: string | null };
-  connection_summary: { instance_id: string; status: 'hosted_active' }[];
-};
 type Choice = { kind: 'create_new' } | { kind: 'reuse'; instance_id: string; expected_version: string };
 type SavePhase = 'prepare' | 'put' | 'finalize' | 'confirm';
 type SaveAttempt = {
@@ -157,7 +150,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [heldVersion, setHeldVersion] = useState('');
   const [results, setResults] = useState<ResultView[]>([]);
   const [resultsCursor, setResultsCursor] = useState<string | null>(null);
-  const [bound, setBound] = useState(false);
+  const [workspaceBinding, setWorkspaceBinding] = useState<WorkspaceModuleBindingView['binding']>(null);
+  const bound = workspaceBinding !== null;
+  const writable = workspaceBinding?.writable === true;
   const [policyOff, setPolicyOff] = useState(false);
   const [inactive, setInactive] = useState(false);
   const [capabilityDenied, setCapabilityDenied] = useState(false);
@@ -193,7 +188,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const editDirty = Boolean(editBase && (editTitle !== editBase.title || editObjective !== editBase.objective || editProgress !== editBase.progress));
   draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, createDirty, editDirty, editBase };
   const workspace = workspaces.find(item => item.workspace_id === workspaceId) ?? null;
-  const writeLocked = policyOff || inactive || capabilityDenied || quotaHit || upgrade;
+  const writeLocked = (bound && !writable) || policyOff || inactive || capabilityDenied || quotaHit || upgrade;
 
   function nextGen(): Call {
     abortRef.current?.abort();
@@ -234,7 +229,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     setEditTitle(''); setEditObjective(''); setEditProgress('todo'); setEditBase(null); setEditError('');
     setOrphanNote(null);
     setWorks([]); setWorksCursor(null); setWork(null); setHeldVersion(''); setResults([]); setResultsCursor(null);
-    setBound(false); setPolicyOff(false); setCapabilityDenied(false); setUpgrade(false); setQuotaHit(false);
+    setWorkspaceBinding(null); setPolicyOff(false); setCapabilityDenied(false); setUpgrade(false); setQuotaHit(false);
     setStorageDown(false); setBanner(''); setCandidates(null); setArchiveOpen(false); setBusy(false);
   }
   function applyAccess(error: ApiError) {
@@ -318,20 +313,33 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function loadContext(nextTenantId: string, nextWorkspaceId: string, call: Call) {
     try {
-      const context = await client.get<LaunchpadContext>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/launchpad-context?guild_key=${encodeURIComponent(guildKey)}`, { signal: call.signal });
-      if (!call.live() || context.tenant_id !== nextTenantId || context.workspace_id !== nextWorkspaceId) return;
+      const [context, bindingView] = await Promise.all([
+        client.get<LaunchpadContext>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/launchpad-context?guild_key=${encodeURIComponent(guildKey)}`, { signal: call.signal }),
+        client.get<WorkspaceModuleBindingView>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/module-binding`, { signal: call.signal }),
+      ]);
+      if (!call.live() || context.tenant_id !== nextTenantId || context.workspace_id !== nextWorkspaceId
+        || bindingView.tenant_id !== nextTenantId || bindingView.workspace_id !== nextWorkspaceId) return;
       setWorks(context.work_page.items);
       setWorksCursor(context.work_page.next_cursor);
-      setBound(context.connection_summary.length > 0);
+      setWorkspaceBinding(bindingView.binding);
       setPolicyOff(context.capacity_summary.policy_revision === null);
       setCapabilityDenied(false); setUpgrade(false);
       if (context.capacity_summary.policy_revision === null) setBanner(POLICY);
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
-      setWorks([]); setWorksCursor(null); setBound(false);
+      setWorks([]); setWorksCursor(null); setWorkspaceBinding(null);
       if (error instanceof ApiError) applyAccess(error);
       else setBanner('工作暫時無法載入。');
     }
+  }
+  async function reloadUnavailableInstance(error: unknown, call: Call): Promise<boolean> {
+    if (!(error instanceof ApiError) || error.status !== 409 || error.code !== 'work_instance_unavailable') return false;
+    if (draft.current.note !== draft.current.saved) setOrphanNote(draft.current.note);
+    setAttempt(null); setAwaitingAck(false); setResave(null); setStage('尚未儲存'); setBanner('');
+    if (place.current.tenantId && place.current.workspaceId) {
+      await loadContext(place.current.tenantId, place.current.workspaceId, call);
+    }
+    return true;
   }
   function selectTenant(next: string) {
     if (next === tenantId) return;
@@ -415,6 +423,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       showWork(created, true);
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (await reloadUnavailableInstance(error, call)) return;
       if (!posted && (!(error instanceof ApiError) || !error.network)) keys.current.delete(fingerprint);
       if (posted) {
         if (error instanceof ApiError && [403, 404, 429].includes(error.status)) applyAccess(error);
@@ -517,6 +526,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       setWorks(current => current.map(item => item.work_id === fresh.work_id ? fresh : item));
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (await reloadUnavailableInstance(error, call)) return;
       if (error instanceof ApiError && error.status === 412) {
         keys.current.delete(fingerprint);
         try {
@@ -657,6 +667,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       }
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (await reloadUnavailableInstance(error, call)) return;
       if (!(error instanceof ApiError)) { setAwaitingAck(true); setStage(UNCONFIRMED); return; }
       if (error.status === 503) { setStorageDown(true); setBanner(STORAGE); setStage('尚未儲存'); return; }
       if (current.phase === 'finalize' && workUnavailable(error)) {
@@ -731,7 +742,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     </fieldset>}
     {tenant && workspace && <h3 id={headingId}>{tenant.display_name}／{workspace.name}</h3>}
     {tenant && workspace && !capabilityDenied && !upgrade && <>
-      {bound ? <p className="my-work-status">繼續工作</p> : <button type="button" className="btn btn-primary my-work-primary" disabled={busy || writeLocked} onClick={event => void enable(undefined, event.currentTarget)}>啟用手動工作</button>}
+      {bound ? <p className="my-work-status" role="status">{writable ? '繼續工作'
+        : workspaceBinding?.instance_status === 'suspended' ? '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。'
+        : workspaceBinding?.instance_status === 'archived' ? '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。'
+        : '這個工作區的模組目前無法寫入，舊的工作仍可查看。'}</p> : <button type="button" className="btn btn-primary my-work-primary" disabled={busy || writeLocked} onClick={event => void enable(undefined, event.currentTarget)}>啟用手動工作</button>}
       {bound && <>
         <section aria-label="工作">
           {works.length === 0 ? <p>這個工作區還沒有工作。</p> : <ul>{works.map(item => <li key={item.work_id}>
@@ -740,6 +754,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </li>)}</ul>}
           {worksCursor && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void loadMoreWorks()}>載入更多</button>}
         </section>
+        {writable && <>
         <h4 id={createHeadingId}>新增工作</h4>
         <form className="stack" aria-labelledby={createHeadingId} onSubmit={event => void createWork(event)}>
           <label className="field" htmlFor="my-work-title">{titleLabel}
@@ -758,9 +773,15 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           {createError && <p id="my-work-create-error" className="banner banner-error" role="alert">{createError}</p>}
           <button type="submit" className="btn btn-primary my-work-primary" disabled={busy || writeLocked}>建立</button>
         </form>
+        </>}
       </>}
       {work && <section className="stack my-work-open" aria-labelledby={openHeadingId}>
         <h4 id={openHeadingId}>{work.title}</h4>
+        {!writable && <dl className="detail-list">
+          <div><dt>目標</dt><dd>{work.objective}</dd></div>
+          <div><dt>進度</dt><dd>{PROGRESS_LABEL[work.progress]}</dd></div>
+        </dl>}
+        {writable && <>
         <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
           <label className="field" htmlFor="my-work-edit-title">標題
             <input id="my-work-edit-title" aria-describedby={editError ? 'my-work-edit-error' : undefined} value={editTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setEditTitle(event.target.value)}/>
@@ -814,8 +835,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         <p className="my-work-stage" aria-live="polite">{stage}</p>
         {(awaitingAck || (storageDown && attempt)) && <button type="button" className="btn btn-ghost" disabled={busy || !attempt} onClick={() => { if (attempt) void runSave(attempt, currentCall()); }}>重試</button>}
         {resave && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveAgain()}>用最新版本再儲存一次</button>}
+        </>}
         <section aria-label="成果">
-          {results.length === 0 ? <p>還沒有成果。寫下筆記或附上檔案後按儲存。</p> : <ul>{results.map(result => <li key={result.result_id} className="my-work-result">
+          {results.length === 0 ? <p>{writable ? '還沒有成果。寫下筆記或附上檔案後按儲存。' : '還沒有成果。'}</p> : <ul>{results.map(result => <li key={result.result_id} className="my-work-result">
             <p className="my-work-name">{result.display_name}</p>
             <p>第 {result.revision} 版 · <time dateTime={result.created_at}>{formatIsoLocal(result.created_at)}</time> · {result.byte_size} 位元組 · {result.sha256.slice(0, 12)}</p>
             <div className="my-work-actions">

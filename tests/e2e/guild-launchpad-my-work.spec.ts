@@ -1035,3 +1035,99 @@ test('a failed open of another Work closes the open Work instead of leaving a de
     await cleanup(e2eAuthPool, member.userId);
   }
 });
+
+for (const lifecycle of ['archive', 'suspend'] as const) {
+  test(`a workspace whose bound instance is ${lifecycle === 'archive' ? 'archived' : 'suspended'} keeps paginated Work and Results readable in light and RPG`, async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+    test.setTimeout(180_000);
+    const [guild] = await guildsByCategory(e2eAuthPool);
+    const member = await person(e2eAuthPool, lifecycle, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
+    const session = await login(browser, baseURL!, member.email);
+    await session.page.emulateMedia({ reducedMotion: 'reduce' });
+    const title = `保留工作${randomUUID().slice(0, 8)}`;
+    try {
+      const made = await postJson(session.page, '/tenants', { display_name: '保留工作業務', workspace_name: '歷史工作區' });
+      const tenantId = made.tenant.tenant_id as string, workspaceId = made.workspace.workspace_id as string;
+      await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, { guild_key: guild.guild_key }, 200);
+      await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/works`, { title, objective: '保留工作目標', progress: 'todo' });
+      await openGuild(session.page, guild.guild_key, guild.name);
+      await session.page.getByRole('button', { name: title, exact: true }).click();
+      await session.page.locator('#my-work-note').fill('封存或暫停前保存的成果');
+      await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+      await expect(session.page.locator('.my-work-stage')).toContainText('已儲存');
+      for (let i = 0; i < 21; i++) await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/works`, { title: `其他工作${i}`, objective: '歷史資料', progress: 'todo' });
+      for (const width of [1440, 390]) {
+        await session.page.setViewportSize({ width, height: 900 });
+        await session.page.screenshot({ path: testInfo.outputPath(`before-${lifecycle}-${width}.png`), fullPage: true });
+      }
+      await changeBoundInstance(session.page, tenantId, workspaceId, guild.guild_key, lifecycle);
+      const bindingRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/module-binding`));
+      await session.page.reload();
+      expect((await bindingRead).status()).toBe(200);
+      const message = lifecycle === 'archive'
+        ? '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。'
+        : '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。';
+      await expect(session.page.getByText(message, { exact: true })).toBeVisible();
+      await expect(session.page.locator('#my-work-title')).toHaveCount(0);
+      await expect(session.page.getByRole('button', { name: '啟用手動工作', exact: true })).toHaveCount(0);
+      await session.page.locator('.my-work').getByRole('button', { name: '載入更多', exact: true }).click();
+      await session.page.getByRole('button', { name: title, exact: true }).click();
+      await expect(session.page.getByText('保留工作目標', { exact: true })).toBeVisible();
+      for (const name of ['儲存變更', '封存', '儲存筆記', '儲存附件']) await expect(session.page.locator('.my-work').getByRole('button', { name, exact: true })).toHaveCount(0);
+      await session.page.getByRole('button', { name: '查看內容', exact: true }).click();
+      await expect(session.page.locator('.my-work-result pre')).toHaveText('封存或暫停前保存的成果');
+      await expect(session.page.locator('.my-work-result').getByRole('link', { name: '下載' })).toBeVisible();
+      for (const id of ['light', 'dark'] as const) {
+        await theme(session.page, id);
+        for (const width of [1440, 768, 360]) {
+          await session.page.setViewportSize({ width, height: 900 });
+          await noOverflow(session.page);
+          await session.page.screenshot({ path: testInfo.outputPath(`readonly-${lifecycle}-${id}-${width}.png`), fullPage: true });
+        }
+      }
+    } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+  });
+}
+
+async function changeBoundInstance(page: Page, tenantId: string, workspaceId: string, guildKey: string, lifecycle: 'archive' | 'suspend') {
+  const context = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/launchpad-context?guild_key=${guildKey}`)).json();
+  // Use the unchanged health summary as well so this regression can run on the unfixed API.
+  const instanceId = context.connection_summary[0].instance_id as string;
+  const detail = await (await page.request.get(`/api/v1/tenants/${tenantId}/module-instances/${instanceId}`)).json();
+  const csrf = ((await (await page.request.get('/api/v1/session')).json()) as { csrf_token: string }).csrf_token;
+  const response = await page.request.post(`/api/v1/tenants/${tenantId}/module-instances/${instanceId}/${lifecycle}`, {
+    data: { reason: '保留歷史工作資料' }, headers: { Origin: new URL(page.url()).origin, 'X-CSRF-Token': csrf, 'Idempotency-Key': randomUUID(), 'If-Match': `"${detail.version}"` },
+  });
+  expect(response.status(), await response.text()).toBe(200);
+}
+
+for (const write of ['create', 'edit', 'result'] as const) {
+  test(`${{ create: 'creating Work', edit: 'editing Work', result: 'saving a Result' }[write]} while the instance is suspended reloads the read-only context`, async ({ browser, baseURL, e2eAuthPool }) => {
+    test.setTimeout(120_000);
+    const [guild] = await guildsByCategory(e2eAuthPool);
+    const member = await person(e2eAuthPool, `race-${write}`, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
+    const session = await login(browser, baseURL!, member.email);
+    try {
+      const made = await postJson(session.page, '/tenants', { display_name: '競態工作業務', workspace_name: '競態工作區' });
+      const tenantId = made.tenant.tenant_id as string, workspaceId = made.workspace.workspace_id as string;
+      await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, { guild_key: guild.guild_key }, 200);
+      await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/works`, { title: '競態前工作', objective: '保留目標', progress: 'todo' });
+      await openGuild(session.page, guild.guild_key, guild.name);
+      await expect(session.page.locator('#my-work-title')).toBeVisible();
+      if (write !== 'create') await session.page.getByRole('button', { name: '競態前工作', exact: true }).click();
+      if (write === 'create') { await session.page.locator('#my-work-title').fill('競態新工作'); await session.page.locator('#my-work-objective').fill('競態目標'); }
+      if (write === 'edit') await session.page.locator('#my-work-edit-objective').fill('競態修改');
+      if (write === 'result') await session.page.locator('#my-work-note').fill('未送出的筆記');
+      await changeBoundInstance(session.page, tenantId, workspaceId, guild.guild_key, 'suspend');
+      const bindingRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/module-binding`));
+      const contextRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/launchpad-context`));
+      await session.page.getByRole('button', { name: { create: '建立', edit: '儲存變更', result: '儲存筆記' }[write], exact: true }).click();
+      expect((await bindingRead).status()).toBe(200);
+      expect((await contextRead).status()).toBe(200);
+      await expect(session.page.getByText('這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。', { exact: true })).toBeVisible();
+      await expect(session.page.locator('#my-work-title')).toHaveCount(0);
+      await expect(session.page.locator('#my-work-edit-title')).toHaveCount(0);
+      await expect(session.page.getByRole('button', { name: '競態前工作', exact: true })).toBeVisible();
+      if (write === 'result') await expect(session.page.locator('#my-work-orphan-note')).toHaveValue('未送出的筆記');
+    } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+  });
+}

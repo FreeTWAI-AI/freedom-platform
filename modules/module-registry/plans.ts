@@ -254,6 +254,7 @@ export async function createPlan(
       requireCondition(choice?.choice === 'reuse' && choice.instance_id === link.instance_id, 409, 'installation_selection_required', '這個工作區已經有這個應用，請改為沿用現有安裝。');
     }
   }
+  await assertEntryBindingCompatible(q, context.tenant_id, input.workspace_id, definition.entry_capability, requirements, choices);
   const creates = choices.filter(choice => choice.choice === 'create');
   const capacityDelta = [];
   if (creates.length) {
@@ -302,4 +303,20 @@ export async function createPlan(
     warnings,
     configuration_digest: { algorithm: 'sha256', value: configurationDigest },
   });
+}
+
+
+/** Bindings are retained forever. A new entry instance cannot replace an existing one. */
+export async function assertEntryBindingCompatible(q: PoolClient, tenantId: string, workspaceId: string,
+  entryCapability: string, requirements: readonly Requirement[], choices: readonly StoredChoice[]) {
+  const entry = requirements.find(requirement => requirement.capabilities.includes(entryCapability));
+  if (!entry) return;
+  const choice = choices.find(item => item.requirement_key === entry.requirement_key);
+  if (!choice) return;
+  const binding = (await q.query<{ instance_id: string }>(
+    `SELECT instance_id FROM workspace_module_bindings WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability=$3`,
+    [tenantId, workspaceId, entryCapability],
+  )).rows[0];
+  requireCondition(!binding || (choice.choice === 'reuse' && binding.instance_id === choice.instance_id),
+    409, 'workspace_binding_conflict', '這個工作區已經綁定另一個工作實例。');
 }

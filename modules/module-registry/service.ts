@@ -4,9 +4,9 @@ import {
   EnableManualWorkSchema, LaunchpadContextSchema, ManualWorkBindingSchema,
   type ManualWorkBinding,
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
-import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput } from '../../contracts/guild-launchpad/v1/module-registry.js';
+import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput, WorkspaceModuleBindingViewSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
+import { isWorkInstanceWritable, requireTenantCapability, requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
 import { readCapacityPolicy, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { scopedTenantCommand } from '../../packages/scoped-commands/index.js';
@@ -176,21 +176,43 @@ export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: s
   });
 }
 
+async function workspaceWorkReadContext(q: PoolClient, actor: Actor, tenantId: string, workspaceId: string) {
+  const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
+  await requireWorkCapability(q, context, 'work:read', false);
+  const workspace = (await q.query<{ version: string; status: string }>(
+    `SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`,
+    [tenantId, workspaceId],
+  )).rows[0];
+  requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
+  requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
+  const binding = await entryBinding(q, tenantId, workspaceId);
+  if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
+  else requireCondition(context.role === 'owner' || context.role === 'admin', 403, 'capability_denied', '目前沒有這個操作的權限。');
+  return { context, workspace, binding };
+}
+
+export async function readWorkspaceModuleBinding(pool: Pool, actor: Actor, tenantId: string, workspaceId: string) {
+  OpaqueId.parse(tenantId);
+  OpaqueId.parse(workspaceId);
+  return isolatedTransaction(pool, async q => {
+    const { binding } = await workspaceWorkReadContext(q, actor, tenantId, workspaceId);
+    const view = WorkspaceModuleBindingViewSchema.parse({
+      tenant_id: tenantId, workspace_id: workspaceId,
+      binding: binding ? {
+        entry_capability: 'work:create', instance_id: binding.instance_id, instance_status: binding.instance_status,
+        writable: isWorkInstanceWritable(binding.instance_status, binding.deployment_state ?? undefined),
+      } : null,
+    });
+    await assertCurrentSessionClock(q, actor);
+    return view;
+  });
+}
+
 export async function launchpadContext(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, guildKey: string, workPage: unknown) {
   OpaqueId.parse(tenantId);
   OpaqueId.parse(workspaceId);
   return isolatedTransaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    await requireWorkCapability(q, context, 'work:read', false);
-    const workspace = (await q.query<{ version: string; status: string }>(
-      `SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`,
-      [tenantId, workspaceId],
-    )).rows[0];
-    requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
-    requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
-    const binding = await entryBinding(q, tenantId, workspaceId);
-    if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
-    else requireCondition(context.role === 'owner' || context.role === 'admin', 403, 'capability_denied', '目前沒有這個操作的權限。');
+    const { context, workspace, binding } = await workspaceWorkReadContext(q, actor, tenantId, workspaceId);
     const catalog = await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey]);
     requireCondition(catalog.rowCount === 1, 404, 'guild_not_found', '找不到這個公會。');
     const instances = (await q.query<{ instance_id: string }>(

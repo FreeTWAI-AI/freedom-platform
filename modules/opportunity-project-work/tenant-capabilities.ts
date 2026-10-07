@@ -42,3 +42,8 @@ export async function requireWorkInstance(q: PoolClient, context: TenantScopeCon
   if (missingMessage) requireCondition(await hasInstanceWorkCapability(q, context, instanceId, 'work:read'), 404, 'not_found', missingMessage);
   requireCondition(await hasInstanceWorkCapability(q, context, instanceId, capability), 403, 'capability_denied', '目前沒有這個操作的權限。');
 }
+
+/** New Work/Result writes require the instance and its current deployment to be active. */
+export function isWorkInstanceWritable(instanceStatus: string | undefined, deploymentState: string | undefined): boolean {
+  return instanceStatus === 'active' && deploymentState === 'active';
+}
