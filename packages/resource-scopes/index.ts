@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../../modules/identity-membership/service.js';
 import { OpaqueId, PrincipalRefSchema, ResourceScopeRefSchema, type PrincipalRef, type ResourceScopeRef } from '../../contracts/common/v1/identity.js';
 import { transaction } from '../db/transaction.js';
+import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from './tenant-transaction.js';
 import { assertCurrentSessionClock, lockMemberSession } from '../db/member-session.js';
 import { requireCondition } from '../shared/problem.js';
 
@@ -163,32 +164,41 @@ export async function lockTenantScope(q: PoolClient, input: TenantScopeInput): P
   const lock = input.forUpdate ? 'FOR UPDATE' : 'FOR SHARE';
   const scope = (await q.query<{ scope_id: string; kind: string; status: 'active' | 'disabled' }>(`SELECT scope_id,kind,status FROM resource_scopes WHERE tenant_ref=$1 FOR SHARE`, [input.tenantId])).rows[0];
   requireCondition(scope?.kind === 'tenant', 404, 'tenant_not_found', '找不到這個業務空間。');
-  requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
-  const tenant = (await q.query<{ tenant_id: string; community_id: string; status: TenantLifecycle; authorization_revision: string }>(
-    `SELECT tenant_id,community_id,status,authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1 ${lock}`,
-    [input.tenantId])).rows[0];
-  requireCondition(tenant, 404, 'tenant_not_found', '找不到這個業務空間。');
-  const membership = (await q.query<{ role: TenantAccessRole; status: string; version: string }>(
-    `SELECT role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 ${lock}`,
-    [input.tenantId, principal.principal_id])).rows[0];
-  requireCondition(membership?.status === 'active', 404, 'tenant_not_found', '找不到這個業務空間。');
-  requireCondition(tenant.community_id === input.actor.community_id, 404, 'tenant_not_found', '找不到這個業務空間。');
-  const role = membership.role;
-  requireCondition(role === 'owner' || role === 'admin' || role === 'operator' || role === 'viewer', 404, 'tenant_not_found', '找不到這個業務空間。');
-  const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: 'tenant' });
-  return Object.freeze({
-    authn_kind: 'member_session' as const,
-    subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: 'person' as const })),
-    scope: Object.freeze(ref),
-    tenant_id: tenant.tenant_id,
-    community_id: tenant.community_id,
-    role,
-    capabilities: Object.freeze([...input.capabilitiesForRole(role)]),
-    authorization_revision: tenant.authorization_revision,
-    tenant_status: tenant.status,
-    principal_id: principal.principal_id,
-    membership_version: membership.version,
-  });
+  await bindPrincipalContext(q, principal.principal_id);
+  await bindTenantContext(q, { tenantId: input.tenantId, tenantScopeId: scope.scope_id });
+  try {
+    requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
+    const tenant = (await q.query<{ tenant_id: string; community_id: string; status: TenantLifecycle; authorization_revision: string }>(
+      `SELECT tenant_id,community_id,status,authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1 ${lock}`,
+      [input.tenantId])).rows[0];
+    requireCondition(tenant, 404, 'tenant_not_found', '找不到這個業務空間。');
+    const membership = (await q.query<{ role: TenantAccessRole; status: string; version: string }>(
+      `SELECT role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 ${lock}`,
+      [input.tenantId, principal.principal_id])).rows[0];
+    requireCondition(membership?.status === 'active', 404, 'tenant_not_found', '找不到這個業務空間。');
+    requireCondition(tenant.community_id === input.actor.community_id, 404, 'tenant_not_found', '找不到這個業務空間。');
+    const role = membership.role;
+    requireCondition(role === 'owner' || role === 'admin' || role === 'operator' || role === 'viewer', 404, 'tenant_not_found', '找不到這個業務空間。');
+    const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: 'tenant' });
+    return Object.freeze({
+      authn_kind: 'member_session' as const,
+      subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: 'person' as const })),
+      scope: Object.freeze(ref),
+      tenant_id: tenant.tenant_id,
+      community_id: tenant.community_id,
+      role,
+      capabilities: Object.freeze([...input.capabilitiesForRole(role)]),
+      authorization_revision: tenant.authorization_revision,
+      tenant_status: tenant.status,
+      principal_id: principal.principal_id,
+      membership_version: membership.version,
+    });
+  } catch (error) {
+    try { await clearTenantContext(q); } catch (clearError) {
+      if (error instanceof Error && error.cause === undefined) error.cause = clearError;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -203,7 +213,7 @@ export async function withTenantRead<T>(
   input: TenantScopeInput,
   read: (q: PoolClient, context: TenantScopeContext) => Promise<T>,
 ): Promise<T> {
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, input);
     const value = await read(q, context);
     await assertCurrentSessionClock(q, input.actor);
