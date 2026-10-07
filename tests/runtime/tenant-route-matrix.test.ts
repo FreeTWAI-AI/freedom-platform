@@ -9,8 +9,6 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
-import { syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
-import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -37,10 +35,9 @@ const runtime = new Pool({
 });
 for (const pool of [admin, owner, runtime]) pool.on('error', () => undefined);
 const store = new FakeObjectStore();
-const providers = syntheticModuleProviders(runtime);
 const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-matrix.cloudflareaccess.com', audience: 'tenant-route-matrix',
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, adminVerifier });
 
 let created = false;
 type Session = { cookie: string; csrf: string; user: { user_id: string; email: string } };
@@ -95,8 +92,6 @@ before(async () => {
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
   const authority = template.split('-- BEGIN TENANT AUTHORITY POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
-  const registry = template.split('-- BEGIN MODULE REGISTRY DEFINITION GRANTS\n')[1].split('\n\\gexec')[0]
-    .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
 
   const q = await owner.connect();
   try {
@@ -105,8 +100,6 @@ before(async () => {
     await q.query(Object.values(statements.rows[0])[0] as string);
     const authorityStatements = await q.query(authority);
     for (const statement of authorityStatements.rows) await q.query(Object.values(statement)[0] as string);
-    const registryStatements = await q.query(registry);
-    for (const statement of registryStatements.rows) await q.query(Object.values(statement)[0] as string);
     await q.query('COMMIT');
   } catch (error) {
     try { await q.query('ROLLBACK'); } catch {}
@@ -122,7 +115,6 @@ before(async () => {
       max_concurrent_provisions, max_work_items, max_retained_bytes, max_concurrent_jobs, max_model_budget, status)
     SELECT $1, 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1', 10, 3, 2, 1000, 104857600, 4, NULL, 'active'
     WHERE NOT EXISTS (SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`, [randomUUID()]);
-  await installSyntheticCatalog();
   fixture = await buildFixture();
 });
 
@@ -135,45 +127,6 @@ after(async () => {
 });
 
 
-const synthContract = { family: 'guild-launchpad.synthetic', version: '1', source_commit: WORK_CONTRACT_SOURCE_COMMIT, artifact_sha256: '0'.repeat(64), behavior_profile: 'freedom.synthetic/v1' };
-async function installSyntheticCatalog() {
-  const policy = JSON.stringify({ policy_key: 'synthetic-storefront.launch', version: '1' });
-  const inventoryReq = {
-    requirement_key: 'inventory', module_key: 'synthetic-inventory', module_release_ref: 'synthetic-inventory@1.0.0',
-    capabilities: ['inventory:read'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [synthContract],
-  };
-  const storefrontReq = {
-    requirement_key: 'storefront', module_key: 'synthetic-storefront', module_release_ref: 'synthetic-storefront@1.0.0',
-    capabilities: ['storefront:sell'], required: true, cardinality: 'one', allow_reuse: false, compatible_contracts: [synthContract],
-  };
-  for (const moduleKey of ['synthetic-inventory', 'synthetic-storefront']) {
-    const capability = moduleKey === 'synthetic-inventory' ? 'inventory:read' : 'storefront:sell';
-    await owner.query(`INSERT INTO module_definitions(
-        module_key, release_ref, capabilities, data_catalog_ref, contract_ref, data_schema_version,
-        portable_profile_ref, runtime_profiles, config_schema_ref, supported_upgrade_paths,
-        license_review_ref, license_state, release_status, version)
-      VALUES($1,$2,$3::jsonb,'synthetic.tenant/v1',$4::jsonb,'1',NULL,'["hosted-shared"]'::jsonb,$5,'[]'::jsonb,NULL,'reviewed','available',1)
-      ON CONFLICT DO NOTHING`,
-    [moduleKey, `${moduleKey}@1.0.0`, JSON.stringify([capability]), JSON.stringify(synthContract), `${moduleKey}.config/v1`]);
-  }
-  await owner.query(`INSERT INTO application_definitions(
-      application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
-      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
-      release_status, customization_schema_ref, license_review_ref, version)
-    VALUES('synthetic-storefront','synthetic-storefront@1.0.0','合成店面',$1,$2::jsonb,'[]'::jsonb,$3::jsonb,
-      'storefront:sell','["hosted-reviewed"]'::jsonb,$4::jsonb,'reviewed','available','synthetic-storefront.config/v1',NULL,1)
-    ON CONFLICT DO NOTHING`,
-  [WORK_CONTRACT_SOURCE_COMMIT, JSON.stringify({ algorithm: 'sha256', value: '0'.repeat(64) }),
-    JSON.stringify([inventoryReq, storefrontReq]), policy]);
-  await owner.query(`INSERT INTO guild_application_offerings(
-      offering_id, community_id, guild_key, application_key, release_ref, status, display_order, launch_policy_ref, version)
-    SELECT $1,$2,'guild_ai_field','synthetic-storefront','synthetic-storefront@1.0.0','offered',10,$3::jsonb,1
-    WHERE NOT EXISTS (
-      SELECT 1 FROM guild_application_offerings
-      WHERE community_id=$2 AND guild_key='guild_ai_field' AND release_ref='synthetic-storefront@1.0.0')`,
-  [randomUUID(), DEMO_COMMUNITY, policy]);
-}
-
 const routeTable: Record<string, string> = {
   'GET /admin/api/guild-applications': 'admin',
   'POST /admin/api/guild-applications/:id/review': 'admin',
@@ -183,8 +136,6 @@ const routeTable: Record<string, string> = {
   'POST /admin/api/tenant-recovery-cases/:id/execute': 'admin',
   'POST /admin/api/tenant-recovery-cases/:id/close': 'admin',
   'GET /api/v1/public/guilds/:guild_key/launchpad': 'guild',
-  'GET /api/v1/applications': 'global',
-  'GET /api/v1/applications/:application_key/releases/:release_ref': 'global',
   'GET /api/v1/guild-workspace': 'principal',
   'GET /api/v1/guilds/:guild_key/launchpad': 'guild',
   'GET /api/v1/guilds/:guild_key/launchpad-config': 'guild',
@@ -222,14 +173,6 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/ownership-transfers/:id/decline': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/manual-work': 'tenant',
   'GET /api/v1/tenants/:tenant_id/module-instances': 'tenant',
-  'GET /api/v1/tenants/:tenant_id/module-instances/:instance_id': 'tenant',
-  'GET /api/v1/tenants/:tenant_id/application-installations': 'tenant',
-  'GET /api/v1/tenants/:tenant_id/application-installations/by-operation/:operation_id': 'tenant',
-  'POST /api/v1/tenants/:tenant_id/application-launch-plans': 'tenant',
-  'POST /api/v1/tenants/:tenant_id/application-installations': 'tenant',
-  'GET /api/v1/tenants/:tenant_id/operations/:operation_id': 'tenant',
-  'POST /api/v1/tenants/:tenant_id/operations/:operation_id/reconcile': 'tenant',
-  'POST /api/v1/tenants/:tenant_id/operations/:operation_id/cancel': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
@@ -314,6 +257,13 @@ async function buildFixture() {
     const mw = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, session, { guild_key: guild });
     assert.equal(mw.status, 200, `enable manual work: ${JSON.stringify(mw.data)}`);
 
+    const extraWorkspace = await post(`/tenants/${tenantId}/workspaces`, session, { name: '主工作區' });
+    assert.equal(extraWorkspace.status, 201, JSON.stringify(extraWorkspace.data));
+    const extraInstance = await post(`/tenants/${tenantId}/workspaces/${extraWorkspace.data.workspace_id}/manual-work`, session,
+      { guild_key: guild, choice: { kind: 'create_new' } });
+    assert.equal(extraInstance.status, 200, JSON.stringify(extraInstance.data));
+    assert.notEqual(extraInstance.data.instance_id, mw.data.instance_id);
+
     // Work
     const w = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, session, { title: '同名工作', objective: 'O', progress: 'todo' });
     assert.equal(w.status, 201, `create work: ${JSON.stringify(w.data)}`);
@@ -356,23 +306,8 @@ async function buildFixture() {
     const invitationId = inv.data.invitation_id as string;
     assert.ok(invitationId, 'invitationId is empty');
 
-    // Launch plan, installation, operation
-    const plan = await post(`/tenants/${tenantId}/application-launch-plans`, session, { guild_key: guild, workspace_id: workspaceId, application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} });
-    assert.equal(plan.status, 201, `create plan: ${JSON.stringify(plan.data)}`);
-    const planId = plan.data.plan_id as string;
-    const planVersion = plan.data.version as string;
-    const planDigest = plan.data.configuration_digest;
-    assert.ok(planId, 'planId is empty');
-
-    const inst = await post(`/tenants/${tenantId}/application-installations`, session, { plan_id: planId, expected_plan_version: planVersion, configuration_digest: planDigest });
-    assert.equal(inst.status, 202, `create installation: ${JSON.stringify(inst.data)}`);
-    const operationId = inst.data.operation_id as string;
-    assert.ok(operationId, 'operationId is empty');
     const instanceId = mw.data.instance_id as string;
     assert.ok(instanceId, 'manual-work instanceId is empty');
-    const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
-    assert.equal(installation.status, 200, JSON.stringify(installation.data));
-    const dependencyId = installation.data.modules.find((m: any) => m.requirement_key === 'inventory').instance_id as string;
     const scopeId = (await owner.query("SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1", [tenantId])).rows[0].scope_id as string;
     const resourceIds = new Set<string>();
     const collectIds = (value: unknown, key = '') => {
@@ -381,13 +316,13 @@ async function buildFixture() {
       else if (Array.isArray(value)) value.forEach(child => collectIds(child));
       else if (value && typeof value === 'object') Object.entries(value).forEach(([childKey, child]) => collectIds(child, childKey));
     };
-    for (const reply of [mw, w, u1, putRes, f1, u2, inv, plan, inst, installation]) collectIds(reply.data);
-    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, scopeId, dependencyId, installation.data.installation_id]) assert.match(id, /^[0-9a-f-]{36}$/);
-    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag'), plan.response.headers.get('etag'), inst.response.headers.get('etag')].filter(Boolean) as string[];
+    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv]) collectIds(reply.data);
+    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
+    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, planId, scopeId, dependencyId, installationId: installation.data.installation_id as string, planDigest, workVersion: updatedWorkVersion, uploadVersion,
-      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
+      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version].filter(Boolean) as string[],
       noteBytes, resourceIds: [...resourceIds]
     };
   }
@@ -425,9 +360,15 @@ async function buildFixture() {
 
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
-test('1. Route inventory guard', () => {
+test('T-022 1. Route inventory guard', () => {
   const relevantPaths = /(tenants|tenant-|module-instances|application-|operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
   const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
+  const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
+    all[kind] = (all[kind] ?? 0) + 1;
+    return all;
+  }, {});
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 2, tenant: 33 });
+  assert.equal(selectedRoutes.length, 59);
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
     assert.ok(routeTable[key], `Missing route classification for ${key}`);
@@ -475,14 +416,6 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/ownership-transfers/:id/decline', body: {} },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/manual-work', body: { guild_key: 'guild_ai_field' } },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances' },
-  { method: 'GET', path: '/tenants/:tenant_id/module-instances/:instance_id' },
-  { method: 'GET', path: '/tenants/:tenant_id/application-installations' },
-  { method: 'GET', path: '/tenants/:tenant_id/application-installations/by-operation/:operation_id' },
-  { method: 'POST', path: '/tenants/:tenant_id/application-launch-plans', body: { guild_key: 'guild_ai_field', workspace_id: ':workspace_id', application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} } },
-  { method: 'POST', path: '/tenants/:tenant_id/application-installations', body: { plan_id: ':plan_id', expected_plan_version: '1', configuration_digest: { algorithm: 'sha256', value: 'ab'.repeat(32) } } },
-  { method: 'GET', path: '/tenants/:tenant_id/operations/:operation_id' },
-  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/reconcile', body: {}, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/cancel', body: { reason: 'member_cancelled' }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context?guild_key=guild_ai_field' },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/works', body: { title: 'T', objective: 'O', progress: 'todo' } },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/works' },
@@ -504,7 +437,7 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/leave', body: {}, version: '"1"' },
 ];
 
-test('Matrix route matching routeTable', () => {
+test('T-022 Matrix route matching routeTable', () => {
   assert.deepEqual(routes.map(r => `${r.method} /api/v1${r.path.split('?')[0]}`).sort(),
     Object.entries(routeTable).filter(([, kind]) => kind === 'tenant').map(([key]) => key).sort());
 });
@@ -513,7 +446,7 @@ type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
-    principal_id: data.principalId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
+    principal_id: data.principalId,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
 async function verify(session: Session, tenantId: string, purpose: string) {
@@ -575,13 +508,12 @@ function verifyHeaders(reply: Reply, method: string, path: string) {
 function scanForLeaks(reply: Reply, context: string, other: TenantData, extra: string[] = []) {
   const raw = Buffer.from(reply.bytes).toString('utf8') + JSON.stringify(Object.fromEntries(reply.headers));
   const targets = [other.tenantId, other.workspaceId, other.instanceId, other.workId, other.resultId, other.uploadId,
-    other.unfinalizedUploadId, other.invitationId, other.transferId, other.operationId, other.planId, other.installationId,
-    other.dependencyId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
+    other.unfinalizedUploadId, other.invitationId, other.transferId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
     Buffer.from(other.noteBytes).toString('base64'), Buffer.from(other.noteBytes).toString('hex'), ...other.resourceIds, ...extra];
   for (const target of targets.filter(Boolean)) assert.equal(raw.includes(target), false, `${context}: leaked ${target}; ${JSON.stringify(describe(reply))}`);
 }
 
-test('3a. Other tenant in the path', async () => {
+test('T-022 3a. Other tenant in the path', async () => {
   for (const route of routes) {
     for (const name of ['O', 'M', 'F', 'I', 'N'] as const) {
       const data = name === 'N' ? fixture.A : fixture.B;
@@ -596,7 +528,7 @@ test('3a. Other tenant in the path', async () => {
   }
 });
 
-test('3b. Own tenant in path, other tenant resource', async () => {
+test('T-022 3b. Own tenant in path, other tenant resource', async () => {
   for (const route of routes) {
     const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id');
     for (const position of positions) {
@@ -613,7 +545,7 @@ test('3b. Own tenant in path, other tenant resource', async () => {
   }
 });
 
-test('3c. P as viewer of B', async () => {
+test('T-022 3c. P as viewer of B', async () => {
   const selfService = /\/leave$|\/invitations\/:id\/(accept|decline)$|\/ownership-transfers\/:id\/(accept|decline)$/;
   for (const route of routes) {
     if (selfService.test(route.path)) continue;
@@ -681,11 +613,11 @@ function nonTenantRoute(key: string): Route {
   }
   return { method, path: path === '/tenants/invite-candidates' ? `${path}?user_id=${fixture.people.M.user.user_id}` : path, body, version };
 }
-test('3d. Anonymous', async () => {
+test('T-022 3d. Anonymous', async () => {
   for (const [key, kind] of Object.entries(routeTable)) {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
-    const realIds = { ...ids(fixture.A, route), config_id: fixture.A.planId, delegation_id: fixture.A.invitationId };
+    const realIds = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
     const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
@@ -716,7 +648,7 @@ async function secondResult(data: TenantData, actor: Session) {
   data.workVersion = current.data.version;
 }
 
-test('4. Body, header and query substitution', async () => {
+test('T-022 4. Body, header and query substitution', async () => {
   const { A, B, people: { P, N } } = fixture;
   const routerMissing = await call('GET', '/surely-not-a-route', P);
   const outcomes: Record<string, any> = {};
@@ -735,17 +667,6 @@ test('4. Body, header and query substitution', async () => {
   const manual = { ...routes.find(r => r.path.endsWith('/manual-work'))!, path: `/tenants/:tenant_id/workspaces/${freshWorkspace.data.workspace_id}/manual-work` };
   await compare('manual reuse', manual, { guild_key: 'guild_ai_field', choice: { kind: 'reuse', instance_id: B.instanceId, expected_version: '1' } },
     { guild_key: 'guild_ai_field', choice: { kind: 'reuse', instance_id: randomUUID(), expected_version: '1' } });
-  const plan = routes.find(r => r.path.endsWith('/application-launch-plans'))!;
-  const planBody = { ...plan.body, workspace_id: A.workspaceId };
-  await compare('plan workspace', plan, { ...planBody, workspace_id: B.workspaceId }, { ...planBody, workspace_id: randomUUID() });
-  await compare('plan dependency', plan, { ...planBody, workspace_id: freshWorkspace.data.workspace_id, dependencies: [{ requirement_key: 'inventory', choice: 'reuse', instance_id: B.dependencyId, expected_version: '1' }] },
-    { ...planBody, workspace_id: freshWorkspace.data.workspace_id, dependencies: [{ requirement_key: 'inventory', choice: 'reuse', instance_id: randomUUID(), expected_version: '1' }] });
-  await compare('existing installation', plan, { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: B.installationId },
-    { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: randomUUID() });
-  const installation = routes.find(r => r.method === 'POST' && r.path.endsWith('/application-installations'))!;
-  await compare('installation plan', installation, { ...installation.body, plan_id: B.planId, configuration_digest: B.planDigest },
-    { ...installation.body, plan_id: randomUUID(), configuration_digest: B.planDigest });
-
   // Principal ids are platform-wide. A real B owner may be invited into A, but an unknown person may not.
   const invited = await post(`/tenants/${A.tenantId}/invitations`, P, { invitee_principal_id: B.principalId, role: 'viewer', instance_capabilities: [], expires_at: new Date(Date.now() + 60000).toISOString() });
   assert.equal(invited.status, 201, JSON.stringify(describe(invited)));
@@ -841,11 +762,8 @@ test('4. Body, header and query substitution', async () => {
     assert.equal(launchpad.status, 200, JSON.stringify(describe(launchpad)));
     const other = actor === N ? A : B;
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
-    for (const entry of launchpad.data.applications) {
-      assert.ok(entry.eligibility);
-      assert.equal(entry.eligibility.can_launch, actor === P || actor === N);
-      if (actor === fixture.people.O || actor === fixture.people.M) assert.ok(entry.eligibility.reason_codes.includes('tenant_manage_required'));
-    }
+    // Main has no application catalog; P-D1 adds application eligibility assertions.
+    assert.deepEqual(launchpad.data.applications, []);
   }
   console.log(JSON.stringify({ item4: outcomes }));
 });
@@ -892,7 +810,7 @@ async function walkPages(path: string, actor: Session | undefined, id: string) {
   assert.deepEqual(seen, expected.items.map((item: any) => item[id]), `${path} omitted or reordered a row`);
 }
 
-test('4a. Same admin cursors reject tenant, workspace, caller and registry filter changes', async t => {
+test('T-022 4a. Same admin cursors reject tenant, workspace, caller and registry filter changes', async t => {
   const { A, B, people: { W, N } } = fixture;
   const workspace = await post(`/tenants/${A.tenantId}/workspaces`, W, { name: '游標工作區' });
   assert.equal(workspace.status, 201);
@@ -903,17 +821,30 @@ test('4a. Same admin cursors reject tenant, workspace, caller and registry filte
     ['Work', `/tenants/${A.tenantId}/workspaces/${A.workspaceId}/works`, `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`, [], 'work_id'],
     ['Result', `/tenants/${A.tenantId}/works/${A.workId}/results`, `/tenants/${B.tenantId}/works/${B.workId}/results`, [], 'result_id'],
     ['instances', `/tenants/${A.tenantId}/module-instances`, `/tenants/${B.tenantId}/module-instances`, ['module_key=work', 'status=active'], 'instance_id'],
-    ['installations', `/tenants/${A.tenantId}/application-installations`, `/tenants/${B.tenantId}/application-installations`, ['application_key=manual-workspace', `workspace_id=${B.workspaceId}`], 'installation_id'],
   ] as const) {
     const page = await cursorPage(`${pathB}?limit=1`, W);
     assert.ok(page.next_cursor, `${label} did not mint a cursor`);
     await t.test(`${label}: same admin across tenants`, () => invalidCursor(pathA, page.next_cursor, W));
-    if (label === 'instances' || label === 'installations') {
+    if (label === 'instances') {
       await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, changedCursor(page.next_cursor, { unexpected: true }), W));
-      const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
-      delete missing.filter;
-      await t.test(`${label}: missing cursor field`, () => invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W));
+      await t.test(`${label}: missing cursor field`, async () => {
+        const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
+        delete missing.filter;
+        await invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W);
+      });
       await t.test(`${label}: different caller`, () => invalidCursor(pathB, page.next_cursor, N));
+      await t.test(`${label}: authorization precedes cursor validation`, async () => {
+        for (const [actor, status, code] of [
+          [fixture.people.O, 403, 'capability_denied'],
+          [fixture.people.F, 404, 'tenant_not_found'],
+        ] as const) {
+          const reply = await call('GET', `${pathA}?cursor=invalid`, actor);
+          assert.equal(reply.status, status, JSON.stringify(describe(reply)));
+          assert.equal(reply.data.code, code);
+          scanForLeaks(reply, '4a cursor authorization', B);
+        }
+      });
+
       for (const filter of filters) {
         await walkPages(`${pathB}?${filter}`, W, id);
         await t.test(`${label}: changed ${filter.split('=')[0]}`, () => invalidCursor(`${pathB}?${filter}`, page.next_cursor, W));
@@ -931,47 +862,13 @@ test('4a. Same admin cursors reject tenant, workspace, caller and registry filte
     invalidCursor(`/tenants/${A.tenantId}/workspaces/${workspace.data.workspace_id}/works`, page.next_cursor, W));
 });
 
-test('4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow', async t => {
-  // A second platform offering makes both public result sets issue real cursors.
-  await owner.query(`INSERT INTO application_definitions(
-    application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
-    module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
-    release_status, customization_schema_ref, license_review_ref, version)
-    SELECT 'synthetic-public', 'synthetic-public@1.0.0', display_name, source_commit, artifact_digest, skill_book_refs,
-      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
-      release_status, customization_schema_ref, license_review_ref, version
-    FROM application_definitions WHERE application_key='manual-workspace'`);
-  await owner.query(`INSERT INTO guild_application_offerings(offering_id, application_key, release_ref, status, display_order, launch_policy_ref, version)
-    SELECT $1, application_key, release_ref, 'offered', 20, launch_policy_ref, 1
-    FROM application_definitions WHERE application_key='synthetic-public'`, [randomUUID()]);
-  const plain = await cursorPage('/applications?limit=1');
-  const guild = await cursorPage('/applications?guild_key=guild_ai_field&limit=1');
-  assert.ok(plain.next_cursor && guild.next_cursor);
-  await t.test('catalog: no guild to guild', () => invalidCursor('/applications?guild_key=guild_ai_field', plain.next_cursor));
-  await t.test('catalog: guild to no guild', () => invalidCursor('/applications', guild.next_cursor));
-  await t.test('catalog: unexpected cursor field', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { unexpected: true })));
-  await t.test('catalog: oversized order', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { order: 99999999999 })));
-  await walkPages('/applications', undefined, 'release_ref');
-  // Walk the guild-filtered list with its unchanged filter.
-  const all = await cursorPage('/applications?guild_key=guild_ai_field&limit=50');
-  let cursor: string | null = null;
-  const seen: string[] = [];
-  do {
-    const page = await cursorPage(`/applications?guild_key=guild_ai_field&limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
-    seen.push(...page.items.map((item: any) => item.release_ref));
-    assert.equal(new Set(seen).size, seen.length);
-    assert.ok(seen.length <= all.items.length);
-    cursor = page.next_cursor;
-  } while (cursor);
-  assert.deepEqual(seen, all.items.map((item: any) => item.release_ref));
-});
+// P-D1 adds test 4b for public application catalog cursors back here.
 
-test('4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
+test('T-022 4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
   const { B, people: { W } } = fixture;
   for (const path of [
     `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`,
     `/tenants/${B.tenantId}/module-instances`,
-    `/tenants/${B.tenantId}/application-installations`,
   ]) {
     const page = await cursorPage(`${path}?limit=1`, W);
     assert.ok(page.next_cursor);
@@ -983,7 +880,7 @@ test('4c. Work and registry cursors reject noncanonical and impossible timestamp
   }
 });
 
-test('6. Idempotency across tenants', async () => {
+test('T-022 6. Idempotency across tenants', async () => {
   const { A, B, people: { W } } = fixture;
   // Use new Works with equal versions so both requests send exactly the same upload body.
   const workIds: string[] = [];
@@ -1038,7 +935,7 @@ test('6. Idempotency across tenants', async () => {
   console.log(JSON.stringify({ item6: outcomes }));
 });
 
-test('7. Successful private reads and attachment headers', async () => {
+test('T-022 7. Successful private reads and attachment headers', async () => {
   for (const [data, actor, other] of [[fixture.A, fixture.people.P, fixture.B], [fixture.B, fixture.people.N, fixture.A]] as const) {
     for (const route of routes.filter(r => r.method === 'GET')) {
       const reply = await execute(route, actor, ids(data, route));
