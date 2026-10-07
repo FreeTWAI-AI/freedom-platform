@@ -189,7 +189,7 @@ function atomAllows(tokens: SqlToken[], bindings: Readonly<Record<string, string
   const index = tokens.findIndex(token => {
     if (token === '(' || token === '[') depth++;
     if (token === ')' || token === ']') depth--;
-    return depth === 0 && ['=', '<>', '!=', 'IN', 'NOT'].includes(token.toUpperCase());
+    return depth === 0 && ['=', '<>', '!=', 'IN', 'NOT', 'IS'].includes(token.toUpperCase());
   });
   if (index < 0) return undefined;
   const left = unwrapped(tokens.slice(0, index));
@@ -198,6 +198,11 @@ function atomAllows(tokens: SqlToken[], bindings: Readonly<Record<string, string
   if (!Object.hasOwn(bindings, column)) return undefined;
   let operator = tokens[index].toUpperCase();
   let right = unwrapped(tokens.slice(index + 1));
+  if (operator === 'IS') {
+    if (right.length === 1 && right[0].toUpperCase() === 'NULL') return false;
+    if (right.length === 2 && right[0].toUpperCase() === 'NOT' && right[1].toUpperCase() === 'NULL') return true;
+    return undefined;
+  }
   if (operator === 'NOT' && right[0]?.toUpperCase() === 'IN') {
     operator = 'NOT IN';
     right = unwrapped(right.slice(1));
@@ -249,6 +254,11 @@ export function admitsTenantScopeKind(definition: string): boolean {
   const tokens = tokensOf(definition);
   if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"')) return false;
   return mayAllow(parseCheck(tokens), { scope_kind: 'tenant' });
+}
+
+/** A tenant row must satisfy every scope CHECK; no CHECK is not scope evidence. */
+export function admitsTenantScopeKindAll(definitions: readonly string[]): boolean {
+  return definitions.length > 0 && definitions.every(admitsTenantScopeKind);
 }
 
 function sameSet(left: readonly string[], right: readonly string[]): boolean {
@@ -407,13 +417,15 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
     table.tenant_evidence.direct_columns.push(...table.columns.filter(column => column === 'tenant_id' || column === 'tenant_ref' || column.endsWith('_tenant_id')));
     if (table.tenant_evidence.direct_columns.length > 0) detected.add(table.name);
   }
-  const scopeKindTables = new Set<string>();
-  for (const check of checks) {
-    if (admitsTenantScopeKind(check.definition) && tables.get(check.table)?.columns.includes('scope_kind')) scopeKindTables.add(check.table);
-  }
-  for (const name of scopeKindTables) {
-    detected.add(name);
-    tables.get(name)!.tenant_evidence.scope_kind_columns.push('scope_kind');
+  for (const table of tables.values()) {
+    if (!table.columns.includes('scope_kind')) continue;
+    const definitions = checks.filter(check => check.table === table.name
+      && tokensOf(check.definition).some(token => token === 'scope_kind' || token === '"scope_kind"'))
+      .map(check => check.definition);
+    if (admitsTenantScopeKindAll(definitions)) {
+      detected.add(table.name);
+      table.tenant_evidence.scope_kind_columns.push('scope_kind');
+    }
   }
 
   const purposes = new Set<string>();

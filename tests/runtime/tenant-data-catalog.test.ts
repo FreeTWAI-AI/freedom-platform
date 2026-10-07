@@ -6,7 +6,7 @@ import { Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { TENANT_DATA_CATALOG } from '../../modules/module-data/catalog.js';
 import {
-  admitsTenantScopeKind, checkTenantCatalog, introspectTenantSchema, tenantIsolationImportFindings, tenantPurposesFromConstraint,
+  admitsTenantScopeKind, admitsTenantScopeKindAll, checkTenantCatalog, introspectTenantSchema, tenantIsolationImportFindings, tenantPurposesFromConstraint,
   type CatalogFinding, type TableLocation, type TenantDataCatalog, type TenantSchemaSnapshot,
 } from '../../modules/module-data/catalog-check.js';
 
@@ -112,6 +112,42 @@ test('T-021 CHECK parser evaluates tenant scope without a tenant literal', () =>
   }
 });
 
+test('T-021 CHECK parser evaluates null tests on bound columns only', () => {
+  for (const [definition, admits] of [
+    ["CHECK (((scope_kind IS NULL) OR (scope_kind = ANY (ARRAY['module'::text, 'skill_book'::text]))))", false],
+    ["CHECK (((skill_book_id IS NULL) OR (scope_kind = 'skill_book'::text)))", true],
+    ["CHECK ((scope_kind IS NOT NULL))", true],
+    ["CHECK (((scope_kind IS NULL) OR (scope_kind = 'tenant'::text)))", true],
+    ["CHECK (((scope_kind IS NOT NULL) AND (scope_kind <> 'tenant'::text)))", false],
+    ['check ((("scope_kind")::text is null))', false],
+    ['check ((("scope_kind")::text is not null))', true],
+    ["CHECK (((skill_book_id IS NOT NULL) OR (scope_kind = 'skill_book'::text)))", true],
+    ["CHECK ((scope_kind IS DISTINCT FROM 'tenant'::text))", true],
+  ] as const) {
+    assert.equal(admitsTenantScopeKind(definition), admits, definition);
+    assert.deepEqual(tenantPurposesFromConstraint(`${definition.slice(0, -1)} AND purpose = 'tenant.crm-note')`),
+      admits ? ['tenant.crm-note'] : [], definition);
+  }
+  for (const [predicate, purposes] of [
+    ['purpose IS NULL', []],
+    ['purpose IS NOT NULL', ['tenant.crm-note']],
+    ['(("purpose")::text is null)', []],
+    ['(("purpose")::text is not null)', ['tenant.crm-note']],
+  ] as const) {
+    assert.deepEqual(tenantPurposesFromConstraint(`CHECK (scope_kind = 'tenant' AND ${predicate} AND purpose = 'tenant.crm-note')`), purposes);
+  }
+});
+
+test('T-021 tenant scope evidence requires every scope CHECK and a nonempty list', () => {
+  const scopeCheck = "CHECK (((scope_kind IS NULL) OR (scope_kind = ANY (ARRAY['module'::text, 'skill_book'::text]))))";
+  const skillBookCheck = "CHECK (((skill_book_id IS NULL) OR (scope_kind = 'skill_book'::text)))";
+  assert.equal(admitsTenantScopeKindAll([scopeCheck, skillBookCheck]), false);
+  assert.equal(admitsTenantScopeKindAll([skillBookCheck, scopeCheck]), false);
+  assert.equal(admitsTenantScopeKindAll([skillBookCheck]), true);
+  assert.equal(admitsTenantScopeKindAll([]), false);
+  assert.equal(admitsTenantScopeKindAll([skillBookCheck, "CHECK ((scope_kind LIKE 'tenant'::text))"]), true);
+});
+
 test('T-021 purpose checks without a tenant literal exclude personal and community branches', () => {
   assert.deepEqual(tenantPurposesFromConstraint("CHECK ((((scope_kind <> ALL (ARRAY['personal'::text, 'community'::text])) AND (purpose = ANY (ARRAY['work.tenant-result'::text, 'tenant.crm-note'::text]))) OR ((scope_kind = 'personal'::text) AND (purpose = 'member.avatar'::text)) OR ((scope_kind = 'community'::text) AND (purpose = 'community.event-poster'::text))))"),
     ['tenant.crm-note', 'work.tenant-result']);
@@ -126,6 +162,29 @@ test('T-021 PostgreSQL scope checks without a tenant literal expose an unregiste
     assert.ok(snapshot.detected.includes('private_cache'));
     return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
   }), [{ code: 'unregistered_table', subject: 'private_cache' }]);
+});
+
+test('T-021 PostgreSQL tenant detection evaluates every scope CHECK on the table', async () => {
+  await rolled(async q => {
+    await q.query(`CREATE TABLE private_cache (
+      cache_id uuid PRIMARY KEY, scope_kind text, skill_book_id uuid,
+      CONSTRAINT private_cache_scope_check CHECK (scope_kind IS NULL OR scope_kind IN ('module', 'skill_book')),
+      CHECK (skill_book_id IS NULL OR scope_kind = 'skill_book')
+    )`);
+    const before = await liveSnapshot(q);
+    assert.equal(before.detected.includes('private_cache'), false);
+    assert.deepEqual(before.tables.find(table => table.name === 'private_cache')?.tenant_evidence.scope_kind_columns, []);
+    assert.deepEqual(checkTenantCatalog(before, TENANT_DATA_CATALOG), []);
+    await q.query('ALTER TABLE private_cache DROP CONSTRAINT private_cache_scope_check');
+    const after = await liveSnapshot(q);
+    assert.ok(after.detected.includes('private_cache'));
+    assert.deepEqual(after.tables.find(table => table.name === 'private_cache')?.tenant_evidence.scope_kind_columns, ['scope_kind']);
+    assert.deepEqual(checkTenantCatalog(after, TENANT_DATA_CATALOG), [{ code: 'unregistered_table', subject: 'private_cache' }]);
+    await q.query('ALTER TABLE private_cache DROP CONSTRAINT private_cache_check');
+    const unchecked = await liveSnapshot(q);
+    assert.equal(unchecked.detected.includes('private_cache'), false);
+    assert.deepEqual(checkTenantCatalog(unchecked, TENANT_DATA_CATALOG), []);
+  });
 });
 
 test('T-021 PostgreSQL IN scope checks expose an unregistered tenant table', async () => {
