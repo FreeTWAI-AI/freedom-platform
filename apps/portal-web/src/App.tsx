@@ -15,6 +15,7 @@ import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { AuthorClaimProvider } from './modules/AuthorClaim'
 import { SettingsMenu } from './modules/SettingsMenu'
 import {NotificationBell,type BellAction} from './modules/NotificationBell'
+import {FloatingMessages} from './modules/FloatingMessages'
 import './SocialLayout.css'
 import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
@@ -29,6 +30,7 @@ import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
 import {LanguageProvider,LanguagePicker,useLanguage} from './language'
 import {authErrorMessage} from './auth-messages'
+import {AppInstallProvider,InstallAppButton} from './AppInstall'
 
 const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
 const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
@@ -108,7 +110,7 @@ export function App() {
   const page = new URLSearchParams(window.location.search).get('game-console')==='popout' ? <GameConsolePopout client={client}/>
     : window.location.pathname==='/github/callback' ? <GitHubCallback/>
     : window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
-  return <LanguageProvider><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></LanguageProvider>
+  return <LanguageProvider><AppInstallProvider><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></AppInstallProvider></LanguageProvider>
 }
 
 const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null
@@ -380,7 +382,7 @@ function LoginView({
   const accessExpired = Boolean(bootError?.accessExpired || errorDetails?.accessExpired)
   return (
     <main className="login-layout">
-      <LanguagePicker className="login-language-row"/>
+      <div className="login-entry-tools"><LanguagePicker className="login-language-row"/><InstallAppButton/></div>
       <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>{t('auth.headline')}</h1><p className="login-purpose-intro">{t('auth.intro')}</p><PlatformPurpose variant="public" disabled={pending||accessExpired||activeMode==='confirm-reset'} onAction={target=>{
         if(target!=='supplier'&&target!=='showcase'&&target!=='tasks')return
         onChooseEntry(target);setMode(site?.registration_enabled?'register':'login');setError(null);setResetNotice('')
@@ -734,6 +736,7 @@ function Workspace({
           </section>
         </div>
       </div>
+      {tab!=='messages'&&!mobileOpen&&!error?.accessExpired&&<FloatingMessages client={client} onOpen={()=>selectTab('messages')}/>}
     </PortalContext.Provider>
   )
 }

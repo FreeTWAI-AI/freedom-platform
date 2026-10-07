@@ -61,7 +61,7 @@ async function direct(page:Page,account:Account){
   await panel.getByRole('button',{name:`傳訊給 ${account.name}`,exact:true}).click();await expect(panel.locator('.messages-compose')).toBeVisible();return panel;
 }
 async function choose(panel:Locator,label:string){
-  await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByRole('button',{name:`選用貼圖：${label}`,exact:true}).click();
+  await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByRole('button',{name:'工坊夥伴',exact:true}).click();await panel.getByRole('button',{name:`選用貼圖：${label}`,exact:true}).click();
   await expect(panel.getByLabel('待送出的貼圖')).toBeVisible();
 }
 async function post(page:Page,path:string,data:unknown){
@@ -89,12 +89,39 @@ for(const [outgoing,incoming] of [[25,0],[1,21]]){
   });
 }
 
+test('supplied pack loads thumbnails only in the picker, preserves a text draft, and new guild and private sticker replies persist and reload',async({browser,baseURL})=>{
+  const sender=await member(browser,baseURL!,0,320),receiver=await member(browser,baseURL!,1,390),a=await group(sender),b=await group(receiver);
+  const assets=()=>sender.evaluate(()=>performance.getEntriesByType('resource').map(item=>item.name).filter(name=>name.includes('/art/chat/freetwai-v2/')));
+  expect(await assets()).toEqual([]);await a.locator('textarea').fill('選貼圖仍保留的文字草稿');
+  const parent=await post(receiver,`/me/channels/guild/${guild}/messages`,{body:'謝謝一起完成作品'});const original=a.locator(`[data-message-id="${parent.message_id}"]`);await expect(original).toBeVisible();await original.getByRole('button',{name:`回覆${accounts[1].name}的訊息`,exact:true}).click();
+  await a.getByRole('button',{name:'選擇貼圖',exact:true}).click();await expect(a.getByRole('button',{name:'自由工坊',exact:true})).toHaveAttribute('aria-pressed','true');await expect(a.locator('.chat-sticker-choice')).toHaveCount(48);
+  await expect.poll(async()=>(await assets()).some(url=>url.includes('-thumbnail-'))).toBe(true);expect((await assets()).some(url=>url.includes('-image-'))).toBe(false);
+  const search=a.getByLabel('搜尋貼圖',{exact:true});await search.fill('感謝');await a.getByRole('button',{name:'選用貼圖：謝謝',exact:true}).click();await expect(a.locator('[aria-label="待送出的貼圖"] [data-sticker-id="freetwai-v2-thanks"] img')).toHaveJSProperty('naturalWidth',512);
+  await a.getByRole('button',{name:'送出',exact:true}).click();await expect(b.locator('.messages-bubbles [data-sticker-id="freetwai-v2-thanks"]')).toHaveCount(1);await expect(a.locator('textarea')).toHaveValue('選貼圖仍保留的文字草稿');
+  const reply=b.locator('.messages-bubbles>li').filter({has:receiver.locator('[data-sticker-id="freetwai-v2-thanks"]')});await expect(reply.getByLabel('回覆的訊息')).toContainText('謝謝一起完成作品');
+  await receiver.reload();const restored=await group(receiver);await expect(restored.locator('.messages-bubbles [data-sticker-id="freetwai-v2-thanks"] img')).toHaveJSProperty('naturalWidth',512);
+  const directA=await direct(sender,accounts[1]),directB=await direct(receiver,accounts[0]);await directA.getByRole('button',{name:'選擇貼圖',exact:true}).click();await directA.getByLabel('搜尋貼圖',{exact:true}).fill('相信');await directA.getByRole('button',{name:'選用貼圖：我信',exact:true}).click();await directA.getByRole('button',{name:'送出',exact:true}).click();await expect(directB.locator('.messages-bubbles [data-sticker-id="freetwai-v2-trust"]')).toHaveCount(1);
+  await receiver.reload();await direct(receiver,accounts[0]);await expect(receiver.locator('.messages-bubbles [data-sticker-id="freetwai-v2-trust"]')).toHaveCount(1);
+});
+
+test('supplied sticker picker scrolls at 320px in every base theme and falls back to its text label when an image fails',async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0,320);
+  for(const [name,theme] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
+    await returnToList(page);await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitemradio',{name,exact:true}).click();await page.keyboard.press('Escape');await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+    const panel=await group(page);await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await expect(panel.locator('.chat-sticker-choice')).toHaveCount(48);
+    const grid=panel.locator('.chat-sticker-grid');expect(await grid.evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await panel.getByLabel('搜尋貼圖',{exact:true}).fill('人工智慧');const choice=panel.getByRole('button',{name:'選用貼圖：AI 不是這樣用的吧',exact:true});await expect(choice).toBeVisible();expect((await choice.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({path:`test-results/social-chat/freetwai-picker-${theme}-320.png`});await panel.getByLabel('搜尋貼圖',{exact:true}).press('Escape');await expect(panel.getByRole('button',{name:'選擇貼圖',exact:true})).toBeFocused();
+  }
+  await page.route('**/art/chat/freetwai-v2/*-image-*.webp',route=>route.abort());const panel=page.locator('#messages-panel-guild');await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByLabel('搜尋貼圖',{exact:true}).fill('哭');await panel.getByRole('button',{name:'選用貼圖：哭了',exact:true}).click();await expect(panel.getByLabel('待送出的貼圖')).toContainText('[貼圖] 哭了');await panel.getByRole('button',{name:'改寫文字',exact:true}).click();await expect(panel.locator('textarea')).toBeVisible();
+});
+
 test('mobile guild sticker replies are received and reload from the real database; picker is searchable and keyboard friendly',async({browser,baseURL})=>{
   const sender=await member(browser,baseURL!,0),receiver=await member(browser,baseURL!,1,390),a=await group(sender),b=await group(receiver);
   const parent=await post(sender,`/me/channels/guild/${guild}/messages`,{body:'一起完成第一個作品？'});
   const original=b.locator(`[data-message-id="${parent.message_id}"]`);await expect(original).toBeVisible();
   await original.getByRole('button',{name:`回覆${accounts[0].name}的訊息`,exact:true}).click();
-  await b.getByRole('button',{name:'選擇貼圖',exact:true}).click();const search=b.getByLabel('搜尋貼圖',{exact:true});await expect(search).toBeFocused();
+  await b.getByRole('button',{name:'選擇貼圖',exact:true}).click();const search=b.getByLabel('搜尋貼圖',{exact:true});await expect(search).toBeFocused();await b.getByRole('button',{name:'工坊夥伴',exact:true}).click();
   await search.fill('合作');await search.press('Enter');await expect(b.getByRole('button',{name:'選用貼圖：一起共創'})).toBeVisible();
   expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1',[accounts[1].id])).rows[0].n).toBe(0);
   await search.press('Escape');await expect(b.getByRole('button',{name:'選擇貼圖',exact:true})).toBeFocused();

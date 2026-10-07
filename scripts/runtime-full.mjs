@@ -8,11 +8,11 @@ for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => controlle
 const args = process.argv.slice(2);
 let report, output;
 if (args.length) {
-  if (args.length !== 6 || args[0] !== '--partition-count' || args[1] !== '4' ||
-    args[2] !== '--partition-index' || !/^[0-3]$/.test(args[3]) || args[4] !== '--output' || !args[5]) {
+  if (args.length !== 6 || args[0] !== '--partition-count' || !['4','6'].includes(args[1]) ||
+    args[2] !== '--partition-index' || !/^[0-9]$/.test(args[3]) || Number(args[3]) >= Number(args[1]) || args[4] !== '--output' || !args[5]) {
     console.error('invalid_runtime_partition_arguments'); process.exit(2);
   }
-  report = await runRuntimePartition(process.cwd(), { partitionCount:4,partitionIndex:Number(args[3]),
+  report = await runRuntimePartition(process.cwd(), { partitionCount:Number(args[1]),partitionIndex:Number(args[3]),
     testDatabaseUrl:process.env.TEST_DATABASE_URL,signal:controller.signal });
   output = resolve(args[5]);
 } else {

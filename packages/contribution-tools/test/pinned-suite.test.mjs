@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFile, symlink, mkdir, stat, rm } from 'node:fs/promises';
+import { readFile, symlink, mkdir, stat, rm, mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { fixtureRoot, put } from './fixtures.mjs';
@@ -91,13 +92,15 @@ test('Directory suites do not shrink', async (t) => {
 });
 
 test('Real baselines are accurate', async () => {
-  for (const id of ['ci.governance-unit', 'ci.skill-client-unit', 'ci.worker-unit', 'ci.deploy-preflight']) {
+  for (const id of ['ci.governance-unit', 'ci.skill-client-unit', 'ci.worker-unit', 'ci.deploy-preflight', 'ci.contracts-pytest']) {
     const suite = PINNED_SUITES[id];
     const seen = new Set();
     let prev = '';
     for (const file of suite.baseline) {
-      assert.ok(file.startsWith(suite.directory + '/'));
-      const name = file.slice(suite.directory.length + 1);
+      const directory = (suite.directories ?? [suite.directory]).find(d => file.startsWith(d + '/'));
+      assert.ok(directory);
+      const name = file.slice(directory.length + 1);
+      assert.ok(!name.includes('/'));
       assert.ok(suite.pattern.test(name));
       assert.ok(!seen.has(file));
       seen.add(file);
@@ -435,4 +438,89 @@ test('The suite table is deep-frozen', () => {
       assert.ok(Object.isFrozen(entry.baseline));
     }
   }
+});
+
+async function pinnedFixtureRoot(t) {
+  const root = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  return root;
+}
+
+test('Contracts pytest fixture without full baseline fails', async (t) => {
+  const root = await pinnedFixtureRoot(t);
+  const suite = PINNED_SUITES['ci.contracts-pytest'];
+  for (let i = 0; i < suite.baseline.length - 1; i++) {
+    await put(root, suite.baseline[i], "def test_a(): pass\n");
+  }
+
+  const result = await runPinnedSuite(root, 'ci.contracts-pytest');
+  assert.equal(result.status, 'not_run');
+  assert.equal(result.reason, 'suite_files_unavailable');
+});
+
+test('Corrupt JUnit XML', async (t) => {
+  const root = await pinnedFixtureRoot(t);
+  const xmlFile = join(root, 'junit.xml');
+  const expFile = join(root, 'expected.json');
+  await put(root, 'junit.xml', "<testsuites><testsuite"); // corrupt
+  await put(root, 'expected.json', JSON.stringify(['a.py']));
+
+  const helperPath = join(repoRoot, 'scripts/ci/pinned_pytest_evidence.py');
+  const cp = spawnSync('python3', ['-I', helperPath, '--junit', xmlFile, '--expected', expFile], { encoding: 'utf8' });
+  assert.equal(cp.status, 1);
+  const res = JSON.parse(cp.stdout);
+  assert.equal(res.ok, false);
+});
+
+test('Unexpected file in JUnit XML', async (t) => {
+  const root = await pinnedFixtureRoot(t);
+  const xmlFile = join(root, 'junit.xml');
+  const expFile = join(root, 'expected.json');
+  await put(root, 'junit.xml', `<testsuites><testsuite tests="2"><testcase classname="test_b" name="test" file="expected.py" /><testcase classname="test_a" name="test" file="unexpected.py" /></testsuite></testsuites>`);
+  await put(root, 'expected.json', JSON.stringify(['expected.py']));
+
+  const helperPath = join(repoRoot, 'scripts/ci/pinned_pytest_evidence.py');
+  const cp = spawnSync('python3', ['-I', helperPath, '--junit', xmlFile, '--expected', expFile], { encoding: 'utf8' });
+  assert.equal(cp.status, 1);
+  const res = JSON.parse(cp.stdout);
+  assert.equal(res.ok, false);
+  assert.match(res.reason, /unexpected_file/);
+});
+
+
+test('Pytest JUnit evidence rejects incomplete totals, skips, duplicate identities and unsafe paths', async t => {
+  const root = await pinnedFixtureRoot(t);
+  const helperPath = join(repoRoot, 'scripts/ci/pinned_pytest_evidence.py');
+  const expectedFile = join(root, 'expected.json'), junit = join(root, 'junit.xml');
+  const tc = (file = 'a.py', name = 'test_ok', children = '') => `<testcase file="${file}" classname="a" name="${name}">${children}</testcase>`;
+  const xml = (cases, attrs = '') => `<testsuites><testsuite tests="${cases.length}" ${attrs}>${cases.join('')}</testsuite></testsuites>`;
+  const cases = [
+    [xml([tc(), tc('a.py', 'test_skip', '<skipped/>')]), ['a.py'], 'testcase_not_passed'],
+    [xml([tc('a.py', 'test_fail', '<failure/>')]), ['a.py'], 'testcase_not_passed'],
+    [xml([tc('a.py', 'test_error', '<error/>')]), ['a.py'], 'testcase_not_passed'],
+    [xml([tc(), tc()]), ['a.py'], 'duplicate_case_identity'],
+    [xml([tc()]).replace('tests="1"', 'tests="2"'), ['a.py'], 'invalid_suite_totals'],
+    ...['errors', 'failures', 'skipped'].map(key => [xml([tc()], `${key}="1"`), ['a.py'], 'invalid_suite_totals']),
+    ...['../a.py', '/a.py', 'x/../a.py', 'C:/a.py', 'C:\\a.py'].map(path => [xml([tc(path)]), ['a.py'], 'invalid_file_attribute']),
+    ...['a.py', { file: 'a.py' }, [42], null].map(expected => [xml([tc()]), expected, 'invalid_expected_files'])
+  ];
+  for (const [source, expected, reason] of cases) {
+    await put(root, 'junit.xml', source);
+    await put(root, 'expected.json', JSON.stringify(expected));
+    const child = spawnSync('python3', ['-I', helperPath, '--junit', junit, '--expected', expectedFile], { encoding: 'utf8' });
+    assert.equal(child.status, 1, reason);
+    const result = JSON.parse(child.stdout);
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, reason);
+    assert.match(result.reason, /^[a-z_]+$/);
+  }
+  // Normalization is POSIX and relative; it never accepts traversal or absolute paths.
+  await put(root, 'junit.xml', xml([tc('./dir\\a.py')]));
+  await put(root, 'expected.json', JSON.stringify(['dir/a.py']));
+  const child = spawnSync('python3', ['-I', helperPath, '--junit', junit, '--expected', expectedFile], { encoding: 'utf8' });
+  assert.equal(child.status, 0);
+  const result = JSON.parse(child.stdout);
+  assert.equal(result.files[0].path, 'dir/a.py');
+  assert.equal(result.total, 1);
+  assert.match(result.files[0].cases[0].case_sha256, /^[a-f0-9]{64}$/);
 });

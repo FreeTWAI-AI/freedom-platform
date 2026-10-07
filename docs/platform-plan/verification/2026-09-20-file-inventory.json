@@ -29,8 +29,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24003,
-      "sha256": "31b933d012db4d83ef7909df314e610b9fe389729f37b1dfb2c966ab17c105c9"
+      "bytes": 24803,
+      "sha256": "5263f89ff2115c765a0301221e16f114bd17bc133ae8a9ae9b1e10f8a007b028"
     },
     {
       "path": ".gitignore",
@@ -504,8 +504,488 @@
     },
     {
       "path": "apps/portal-web/index.html",
-      "bytes": 699,
-      "sha256": "ae689996bd200145695dc8ad5ecfe77f38a734a5200dbbe6431ede063a1cf435"
+      "bytes": 1026,
+      "sha256": "e16e7fbe74d75823e052fb4080dda9ceecb4cb408881c4cf8a179c2bc135e660"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-afternoon-image-a34781b71733.webp",
+      "bytes": 58424,
+      "sha256": "a34781b717339768870d88bac887393429fc63ed71e408d5a989ef09edc5a72d"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-afternoon-thumbnail-e702aa030cbf.webp",
+      "bytes": 7352,
+      "sha256": "e702aa030cbf7898ed931467a80374023258ed46723c11cb7d091d0f2059a61f"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ai-use-image-c6587b38d70e.webp",
+      "bytes": 62990,
+      "sha256": "c6587b38d70efeb39b6ac305bb82fd97d5d5436bb054da7b10c7893894ceb75b"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ai-use-thumbnail-8a34c94db689.webp",
+      "bytes": 7896,
+      "sha256": "8a34c94db68934c3692e02f8b4bc04d446690cf01e44b39a68eeacffd44ce303"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-angry-image-fc0153944884.webp",
+      "bytes": 61716,
+      "sha256": "fc015394488479de2865fbc8c88f27cab690c7f48b348ff62a95cbfa195db218"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-angry-thumbnail-dbd07ad5ec66.webp",
+      "bytes": 7294,
+      "sha256": "dbd07ad5ec66768e7604a2bbaa20a42467604affae156b68dd6165f784f520a1"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-awesome-image-18216700c334.webp",
+      "bytes": 59170,
+      "sha256": "18216700c33430ae3b92c339e91549e918b10c77b6cbc2c8cba5c3b764ace0a1"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-awesome-thumbnail-224e3d84d47a.webp",
+      "bytes": 7040,
+      "sha256": "224e3d84d47ac521569d195b2b5c614ef6648ef7f0be6bed036c5b02f08c38ee"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-bigshot-image-dbd9745fa8ce.webp",
+      "bytes": 66348,
+      "sha256": "dbd9745fa8ce4100627bf34f47829acbf3ce9934d08602ab0024a4388d23ed2e"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-bigshot-thumbnail-6e4959d22777.webp",
+      "bytes": 7542,
+      "sha256": "6e4959d22777ec277110f92b59dfcd951e5fe7e22cf4a2b561c8cd545a801208"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-cheer-image-85c2d0bc3852.webp",
+      "bytes": 57496,
+      "sha256": "85c2d0bc3852c7b9338e1d07c46af39495bb11e467bc44596db490d09e88c900"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-cheer-thumbnail-60bad922d0ed.webp",
+      "bytes": 7254,
+      "sha256": "60bad922d0ed674ac1c6bb22bd603f1d6e2d59a04ea911cbb3950e98c0e60437"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-confused-image-e047b0f19d0d.webp",
+      "bytes": 70092,
+      "sha256": "e047b0f19d0dd6056cbdb4df4f82401e8277b6b718aa51962ddc4821205bb263"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-confused-thumbnail-6572289f70c7.webp",
+      "bytes": 8218,
+      "sha256": "6572289f70c7d7f9ecbbb26b841d08e098e561b367d342161ae11461a8235829"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-cry-image-7510b67bb904.webp",
+      "bytes": 61588,
+      "sha256": "7510b67bb904ac8f6a538f6d6019059bee9c0da296f7099d79808497d3731df0"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-cry-thumbnail-e45bb349a48c.webp",
+      "bytes": 7546,
+      "sha256": "e45bb349a48c4f3e76ed1f0c747526ccb1bfc6ccdb6fa892829e39993df279d7"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-follow-image-a50b7d1d7154.webp",
+      "bytes": 60674,
+      "sha256": "a50b7d1d7154c804ec4721a41aeacf6441c85d21d83da49a84ce46873dec6f03"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-follow-thumbnail-5e1872327911.webp",
+      "bytes": 7398,
+      "sha256": "5e1872327911e103685e2694d1c82774e5b322d17bafe31ffbe77185e7c69a5e"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-go-image-288235b64a32.webp",
+      "bytes": 66322,
+      "sha256": "288235b64a327809112f58f159aca03b972b3b784726e47245a864db2772e316"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-go-thumbnail-9643a3fee12d.webp",
+      "bytes": 7766,
+      "sha256": "9643a3fee12d68c5d7df4845c613c7973d2bdae79d7a2092c4030ed77e863776"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-gone-image-8a573351722a.webp",
+      "bytes": 57768,
+      "sha256": "8a573351722acc59cd41f8c690c98612be332249f6eea1e1e971188cf197beb0"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-gone-thumbnail-309e9e52696a.webp",
+      "bytes": 6920,
+      "sha256": "309e9e52696a2cd828b159343810379ee7b371b845bbeaebc1345dfcb4dfaa7b"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-great-image-23f86dd30eb2.webp",
+      "bytes": 60780,
+      "sha256": "23f86dd30eb2df8f3f1ae23284505fedb321676d61b273f66ea2e463ba3e0557"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-great-thumbnail-44eb6bf7cf5a.webp",
+      "bytes": 7508,
+      "sha256": "44eb6bf7cf5a2792e3df343f090fb12560b0f21da1bf306480d9205a5418a677"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-hahaha-image-7fcb352eb34e.webp",
+      "bytes": 61474,
+      "sha256": "7fcb352eb34eff3f5d34c59f9d64605568f647f22333b398e7ff7202d3b4681f"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-hahaha-thumbnail-6fbbf0f03134.webp",
+      "bytes": 7406,
+      "sha256": "6fbbf0f031349e93d06c701c46c6f1605ee3500c8d4dd84a1b890a8fda72a2d9"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-hello-image-71a0812b7dd0.webp",
+      "bytes": 56544,
+      "sha256": "71a0812b7dd0658d27cf61866cc5eb33d29ed0b7b914780704030e9548fb97a3"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-hello-thumbnail-7a4311ac0743.webp",
+      "bytes": 7378,
+      "sha256": "7a4311ac0743a849bbf9d0c39b6209681e3b0e1ddbbb47416bcd5f5c65155d1a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-huh-image-876a20766911.webp",
+      "bytes": 56162,
+      "sha256": "876a20766911bd3fd59e398de98f99a5a9cd34d398842a675abf05f4b0415070"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-huh-thumbnail-20ccc1c2077a.webp",
+      "bytes": 7030,
+      "sha256": "20ccc1c2077a17150cd750d81e94910cb121952fef873ca2dd41a5260db581a0"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-impossible-image-7b25490b54c6.webp",
+      "bytes": 59808,
+      "sha256": "7b25490b54c6f8588666660b5c7c3408958b162d9a882bd8de08ecad6883668b"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-impossible-thumbnail-8585fd0ecf82.webp",
+      "bytes": 7382,
+      "sha256": "8585fd0ecf826b13497ebf663f0823e4dc5d70b0f842589a3903badd0b689b29"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-lol-image-99611cbee7e6.webp",
+      "bytes": 58754,
+      "sha256": "99611cbee7e6f0f5fbbb68881e37b82df096d2f0a935fc176fea32a9898d3e44"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-lol-thumbnail-1d9f8f118792.webp",
+      "bytes": 7328,
+      "sha256": "1d9f8f118792189f81c20b39c2213dec86ed1357c70bafc4cfc9d4e936541dd2"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-love-image-a99620146975.webp",
+      "bytes": 52292,
+      "sha256": "a99620146975c2d21d6458f7486e7062a96e69a4399ff747e63cfb7bb0e3528f"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-love-thumbnail-735afc38cb79.webp",
+      "bytes": 6390,
+      "sha256": "735afc38cb7971604db9fb166959b05b4ae44e227b1dadd8587ab00479276a07"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-master-image-a13bf8f3263e.webp",
+      "bytes": 61518,
+      "sha256": "a13bf8f3263e338530ad9e5e520d17ebe1a6a6894db0331e5e72dbb43b401c75"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-master-thumbnail-a01010b077cc.webp",
+      "bytes": 7244,
+      "sha256": "a01010b077cc70cbb4bd4acc03094053f390fc1811ef2236c48382667571dfe3"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-money-image-d31ac9109d56.webp",
+      "bytes": 63062,
+      "sha256": "d31ac9109d5617d44c11918d598f4291c73a32bf26ade3c035698aa20725e408"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-money-thumbnail-b5e1c8579ea8.webp",
+      "bytes": 7438,
+      "sha256": "b5e1c8579ea89ee3217f1b1204b16c0f8f02b0c2b3e9421648e7c82e6c0c27d6"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-morning-image-e097117c6b21.webp",
+      "bytes": 53792,
+      "sha256": "e097117c6b214cde9f669d1fea3b9113406d0db59fef2846c38b0e7a8d41a644"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-morning-thumbnail-6391ad5ca900.webp",
+      "bytes": 7002,
+      "sha256": "6391ad5ca90084adf5e2084bc6aebde1ec259f58e94a985af1d72b51e790da7d"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-newbie-image-f721b93025ab.webp",
+      "bytes": 59362,
+      "sha256": "f721b93025abfdec6f383cb2989c600b669653228b6c7ba0e5f744f42af84005"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-newbie-thumbnail-add7b946e34b.webp",
+      "bytes": 7366,
+      "sha256": "add7b946e34bffb82902463d7d43bb11a465a1a379fceb69cd02b384f98fd978"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-night-image-0198e0b8ab81.webp",
+      "bytes": 56578,
+      "sha256": "0198e0b8ab81cad9ceae46703b3b3fb1b27e92fa6ac6c9b7439841fb4394e419"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-night-thumbnail-37c864ee88ec.webp",
+      "bytes": 7186,
+      "sha256": "37c864ee88ece8749abd303e4664e30988d0732a9f624eaeb9f305adc5d10322"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-nope-image-143bd97a376b.webp",
+      "bytes": 54690,
+      "sha256": "143bd97a376bfbf9ead665f38181fb6965e5c7c62778e7a3de7e2aeacd224e8f"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-nope-thumbnail-5ecdb5c1c074.webp",
+      "bytes": 6774,
+      "sha256": "5ecdb5c1c074d8d4d93529447767aaa40fd7b2a53a3cf2180e6361656beb0b20"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ok-image-c93341d4669a.webp",
+      "bytes": 61594,
+      "sha256": "c93341d4669a17a0e8ea3a8b9ff97b3ea104c30fe2b52e2e5c8b76508e5b8f69"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ok-thumbnail-f9514c86d4b3.webp",
+      "bytes": 7346,
+      "sha256": "f9514c86d4b3cade537ccbdfaf4556324338d6364320daf3005f091b7d597c07"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-omg-image-7dda0efdf688.webp",
+      "bytes": 62106,
+      "sha256": "7dda0efdf688e590d2a84a6dcbfd83565e5fabdcaf973ed5f6e170d2ada66e0a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-omg-thumbnail-3bd3cd5861bf.webp",
+      "bytes": 7686,
+      "sha256": "3bd3cd5861bfe31f48348978b0caca559867ae04492a416353f474fbf6e4511e"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-opensource-image-b1aa70e7834b.webp",
+      "bytes": 65992,
+      "sha256": "b1aa70e7834b03744770b1b81c6928ca04e0d3906942e9c65cc91d421744dc3b"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-opensource-thumbnail-8c971397c735.webp",
+      "bytes": 8136,
+      "sha256": "8c971397c7355e056a3d410dcf18cb3a4ff95f7ca7ebc4247b54c9d47ee568cb"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-overkill-image-0c5888d914d3.webp",
+      "bytes": 61198,
+      "sha256": "0c5888d914d3e28f72d84a89d7ace9a1bcbdf281453f23bc0f8972602f9f07c9"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-overkill-thumbnail-cd3c168ea9d1.webp",
+      "bytes": 7462,
+      "sha256": "cd3c168ea9d176c56bde71989a1a9ef736341170c6931e4dec52359dfd7ec64a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-playful-image-f610e48dbf9c.webp",
+      "bytes": 59910,
+      "sha256": "f610e48dbf9c96febdccb48630a99fc1a2e94e4ada65c5f3e3192932db57ce24"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-playful-thumbnail-fc86ea9a0b61.webp",
+      "bytes": 7140,
+      "sha256": "fc86ea9a0b614a9a7624f272dc18c1f7612cb9f5c293d49812b5537183837257"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-please-image-ead46d6e6934.webp",
+      "bytes": 61614,
+      "sha256": "ead46d6e6934bd7d67bae3d2eca73c80a08b8a055668c7b72f6eb3e5fccd2cb9"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-please-thumbnail-c437714cd90e.webp",
+      "bytes": 7652,
+      "sha256": "c437714cd90ebb523c903701d2b4e5bf5c0e1633da2b681021b409b033344ccd"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ponder-image-8cda6e314edc.webp",
+      "bytes": 60818,
+      "sha256": "8cda6e314edc763f76966f9bcb08fa052c5a7924a15fd4e947ea7498dc5e61a1"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-ponder-thumbnail-f634ef40c239.webp",
+      "bytes": 7596,
+      "sha256": "f634ef40c239e13b41f318d2f63446d2d0d0379f7baf1aea2bc42e22387fe221"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-question-image-278a78a4024e.webp",
+      "bytes": 65086,
+      "sha256": "278a78a4024eaf0b0ae602f428087c609e27b526bee481f3439e08115bf4eb4a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-question-thumbnail-85dfd7ffd97c.webp",
+      "bytes": 7502,
+      "sha256": "85dfd7ffd97c249c04dbf3e3cca7ec1cd1490b545c189694bba292c20c8b3d18"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-received-image-73321d85361d.webp",
+      "bytes": 57352,
+      "sha256": "73321d85361d40ccac6948fa8d958686f6817a20c125fd0641955281af520c98"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-received-thumbnail-18ad37a45942.webp",
+      "bytes": 7226,
+      "sha256": "18ad37a459429d60b064520d6bcb482e1f36219177ba4589b5a08bd9316fa03c"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-remember-image-a7e101945164.webp",
+      "bytes": 60004,
+      "sha256": "a7e1019451640f6107601f2987ad922a4b958ce19aa8f442b13979fd60948d65"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-remember-thumbnail-661db74df576.webp",
+      "bytes": 7584,
+      "sha256": "661db74df576df88f1bf23e56482d3a69bdfb30ee706bab706a5817d13f96953"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-sad-image-4658efce766f.webp",
+      "bytes": 56482,
+      "sha256": "4658efce766fa629b7996e1ffa1f6c04f9c11798a2abeb87a449e944a8f7846a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-sad-thumbnail-c1f2038f9f1f.webp",
+      "bytes": 7314,
+      "sha256": "c1f2038f9f1f60a7904a425723e7630e830a7d19086b627357e9525ba78d8dc1"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-stuck-image-28474ce43f9c.webp",
+      "bytes": 60222,
+      "sha256": "28474ce43f9c079ee6c7e3b4a7753009e4ecebeb03f8bf779e61926f44cff934"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-stuck-thumbnail-adf4199e59ff.webp",
+      "bytes": 7096,
+      "sha256": "adf4199e59ffd8b561975d377b96a534a6f8486544f837d8ac800bfdc0883bac"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-surprised-image-85f11b667580.webp",
+      "bytes": 63792,
+      "sha256": "85f11b66758041550436af745784d3ae3f4e36d6dc8fcdd1cde5819ca6cb2bb4"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-surprised-thumbnail-32dd7186f24d.webp",
+      "bytes": 7914,
+      "sha256": "32dd7186f24d45d80f27bb67ac44a88777e4a30bc1285833c8e5b5f6528f8b3e"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-thanks-image-134583382590.webp",
+      "bytes": 51214,
+      "sha256": "1345833825908264d28748c81b21cff79d30890241d752d6986cb059151380f8"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-thanks-thumbnail-350864b9f5ba.webp",
+      "bytes": 6480,
+      "sha256": "350864b9f5ba34212a00de6df1e52fdcf4b3b00213f8a30930393e9825cae76a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-thinking-image-44a4e6f5e06a.webp",
+      "bytes": 58640,
+      "sha256": "44a4e6f5e06aaf76d2832aeea9c3afb87209ac81c12141f69f71c0fdc63c42c4"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-thinking-thumbnail-eb43830939c8.webp",
+      "bytes": 7490,
+      "sha256": "eb43830939c8b21662d07b69b56daea76b827b6bb57e2e104743e7fea4ff88fc"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-trust-image-3e10cc5ebbbf.webp",
+      "bytes": 60398,
+      "sha256": "3e10cc5ebbbf4e4a6840754d1e38bc69dbc8d3194086c13ca1cb765f1eeab3f7"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-trust-thumbnail-5a3d7e6bd701.webp",
+      "bytes": 7586,
+      "sha256": "5a3d7e6bd701d4b5560bd987970d09d027c90c7ff7bc3b4131ee839d0ec59600"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-unboxing-image-ad0b4993d315.webp",
+      "bytes": 67776,
+      "sha256": "ad0b4993d3152265695fbabf8ef88488388942351d85a6ac015b77734dbc193d"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-unboxing-thumbnail-89367ea60d4f.webp",
+      "bytes": 7988,
+      "sha256": "89367ea60d4f22bc0b94cdbcd3b0a29a2e589f1a86e3b3441c121dd5bd64b341"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-useful-image-2730c8e2cf58.webp",
+      "bytes": 62990,
+      "sha256": "2730c8e2cf58cc168d14f5878f774fdc9487f230a55a49659acce01dd75a01fc"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-useful-thumbnail-29fbf774c57a.webp",
+      "bytes": 7774,
+      "sha256": "29fbf774c57aa0ba0388aa8a495d54f5e8be0257c6902e0de8de36eb42573e21"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-wake-image-4c3fd3bab958.webp",
+      "bytes": 58672,
+      "sha256": "4c3fd3bab95805ef22af30d99ba7d4b32e8d22399fa04ab48bc3fd057e117a29"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-wake-thumbnail-4a0853a94b4e.webp",
+      "bytes": 7244,
+      "sha256": "4a0853a94b4e09e625c992f8fbeba30f29241ee96ece46a198e980e3925cde33"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-welcome-image-798f1ee55b46.webp",
+      "bytes": 57278,
+      "sha256": "798f1ee55b460dfb305524e47feab3083d53734fcb98b0a95286e6fc334a14fc"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-welcome-thumbnail-9c78a08c24c0.webp",
+      "bytes": 7108,
+      "sha256": "9c78a08c24c06041bc2e43d1df89f4c37a4ed1cd0974b636d60f5bd97698a42d"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-what-image-ea5187b5c531.webp",
+      "bytes": 61730,
+      "sha256": "ea5187b5c53127bbbf8008cfbac86866998ebece96f9d97e219e1c0db1e6e4a7"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-what-thumbnail-8136d4ab1cad.webp",
+      "bytes": 7552,
+      "sha256": "8136d4ab1cad715fb43ddafc6b82090b05e3c01a5fa07c94e89b17089a3ff129"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-wild-image-8a4df98b7e05.webp",
+      "bytes": 62018,
+      "sha256": "8a4df98b7e057b18fe02883b438c9d9874be70bec36eb8034c534f59d5e93c1a"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-wild-thumbnail-35ef48d1f511.webp",
+      "bytes": 7668,
+      "sha256": "35ef48d1f5113f6f4773d9d898399b8f129bc0f018ce339e7a98fbea1a8f4d86"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-yes-image-6df8b9cd9713.webp",
+      "bytes": 59312,
+      "sha256": "6df8b9cd9713517976367f3c0e460a75d2ca84ba616215d9d0ef3a4132551733"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-yes-thumbnail-cc27f9b5dc47.webp",
+      "bytes": 7454,
+      "sha256": "cc27f9b5dc47ac69af99bda922454898fbc010706e678d6560718fac1f34fccc"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-zen-image-1f522b620310.webp",
+      "bytes": 58494,
+      "sha256": "1f522b620310acc4b818efdf010542ba61fcfad87d31ca1f3774004604d63800"
+    },
+    {
+      "path": "apps/portal-web/public/art/chat/freetwai-v2/freetwai-v2-zen-thumbnail-36642e0b07c2.webp",
+      "bytes": 7046,
+      "sha256": "36642e0b07c2c92c3a00ebf285d25de94a7d50796f76de66e252d94b1c3d89b5"
     },
     {
       "path": "apps/portal-web/public/art/chat/workshop-v1.png",
@@ -778,6 +1258,21 @@
       "sha256": "7094bb797f5dc890e470f47e1f905f42b45f09ce471ce3e01d1654b1f7bd69fc"
     },
     {
+      "path": "apps/portal-web/public/brand/app-icon-180.png",
+      "bytes": 26302,
+      "sha256": "8fce6fe3381dc87d2a7f0c2701ce0e09cabe828bb625728ec6d9a5aecd86fa6f"
+    },
+    {
+      "path": "apps/portal-web/public/brand/app-icon-192.png",
+      "bytes": 29810,
+      "sha256": "ccb9cc1740f02f9262b812c6f06754c57c6fcc38ab5d85523be193eb6f41c275"
+    },
+    {
+      "path": "apps/portal-web/public/brand/app-icon-512.png",
+      "bytes": 184471,
+      "sha256": "00a3c23ccba96ddcec4190a4a3360f7aaf39684d137f7b3225d60bad6fefea6f"
+    },
+    {
       "path": "apps/portal-web/public/brand/freedom-workshop.webp",
       "bytes": 206390,
       "sha256": "c16f55770f067d0dcaaa6d17793360e4aceb6318b738631a81e9d78e28ff492f"
@@ -1018,14 +1513,29 @@
       "sha256": "2d8b7eca509ca9b9ec58de98f5a38ba657a31442059a6ff355f7c26ff2695384"
     },
     {
+      "path": "apps/portal-web/public/manifest.webmanifest",
+      "bytes": 694,
+      "sha256": "ca0f30d933c286665c3a1bd4157c4ef7f1394e19ed256c66867f58dd53ac3da8"
+    },
+    {
       "path": "apps/portal-web/public/services.css",
       "bytes": 3858,
       "sha256": "4869b36f36b7bd8e77864a4f5ec699afda6aac5a1fb59d67c661fe640b01c31a"
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 46469,
-      "sha256": "4d43e06a1f09fb1b2a5d64138655012b6644948f5c8a5374a9d8f05d3753ec20"
+      "bytes": 46828,
+      "sha256": "29eeeac2f155b88f826e1e3d997296ae23f660b1935e0f10c34e74151099baf8"
+    },
+    {
+      "path": "apps/portal-web/src/AppInstall.css",
+      "bytes": 3372,
+      "sha256": "8f18424309c79bafe43180a826d39241f632c50fb52210620aef89d6589f88aa"
+    },
+    {
+      "path": "apps/portal-web/src/AppInstall.tsx",
+      "bytes": 6401,
+      "sha256": "eaa0bda39fe65de13c36f1a3ae0086a75cb3a94548cdd3325b7fc441db91a7c7"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -1169,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 39482,
-      "sha256": "a230de24315a00c05ee2edd316d2b703d71f0dafb8a2ccb9e58923f84c48e43a"
+      "bytes": 46892,
+      "sha256": "2d6d748c5ae10e184e3f2d342b21571844f035a37253848cb017a7caa1b124a8"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -1284,13 +1794,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/ChatContent.css",
-      "bytes": 2065,
-      "sha256": "b1f882b1eb4d2736fe8e7319f16cbf87cb61485033514f7bd5996b08832c571d"
+      "bytes": 2450,
+      "sha256": "58821e4009cf6dc50a24f235cb153f62698ef1185918954d6925bb46952199f5"
     },
     {
       "path": "apps/portal-web/src/modules/ChatContent.tsx",
-      "bytes": 5592,
-      "sha256": "347e709345649c76cf514b22fae8b93bc410cb8e1417c015ff057fc9e1a617f0"
+      "bytes": 6295,
+      "sha256": "9c4a79ca2dbf91e7d6f8d27df6c8ca58052cedec336f82a8d80dae30384fed79"
     },
     {
       "path": "apps/portal-web/src/modules/ChatSearch.tsx",
@@ -1406,6 +1916,16 @@
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
       "bytes": 9076,
       "sha256": "b1778c531121ac565ddda41cd2e84a3a99b041841889869cbd13ea1d4726d9f0"
+    },
+    {
+      "path": "apps/portal-web/src/modules/FloatingMessages.css",
+      "bytes": 1156,
+      "sha256": "88a00395ea222bae3ff00cb4f4b615cacf33f13ada72df24cb5325ed8664dcd2"
+    },
+    {
+      "path": "apps/portal-web/src/modules/FloatingMessages.tsx",
+      "bytes": 1221,
+      "sha256": "316e2aedc2839bb415412d46176ea6becc7ce550556fa49c53804af7a6256236"
     },
     {
       "path": "apps/portal-web/src/modules/FriendsPanel.tsx",
@@ -1749,8 +2269,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SettingsMenu.tsx",
-      "bytes": 6162,
-      "sha256": "f84ad6e436eb7df4256e6acc2e9f5340736fff9008dd9300b3147a97ef420760"
+      "bytes": 6604,
+      "sha256": "8f7dbaf85cddd3f0d2b7b6fb6ef305253300b1c07987a3fde57af527eccdf69e"
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
@@ -1934,8 +2454,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/member-inbox.ts",
-      "bytes": 3058,
-      "sha256": "166596f0ab42c8b956bff3d5b184e2c4fdec0493887f4932e5b6ab3c9dc88db7"
+      "bytes": 3277,
+      "sha256": "37602308ecf94858ab40db86cf09d359ef08abd87fd33cf131654bd53b4321ee"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
@@ -11915,7 +12435,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "c534b33e18630eb32336c69de55bf9ba645390c89d7aa48084215cc6c80fcaa6"
+      "sha256": "b67ca3e82390ab87eb69a15cfc45f75af4e4e7f2c4eb20f8967983f32b312614"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -11994,8 +12514,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 40289,
-      "sha256": "d7ff864470dfda8852b2528c4279b5f98e7b4bb26690f5da7ee1d2a8d1f4c287"
+      "bytes": 40324,
+      "sha256": "7a2cb41bd5f89654916efb85a6830afb727b76f2f74f863932b6c7c089e08f75"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12134,13 +12654,13 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 10999,
-      "sha256": "f8ff0224f448694e4989f658ac24a03f6d24ddeffd82af85c32aad951a1f5afb"
+      "bytes": 11079,
+      "sha256": "1fdacc4ca545ff3322b2953d29b2ce45ac2002900e5d9e9b8f2b1146bfaaf931"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52234,
-      "sha256": "182cb233347ec20a1d1d38742dec9b242b54ef14bfe734e72e4c34da9c4e5a4a"
+      "bytes": 52231,
+      "sha256": "c34aab6747b8d1e8c10e5672c1ad860fcb15973e81fface52748bd479833cd25"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -12281,6 +12801,11 @@
       "path": "docs/design/community-skill-art-manifest.json",
       "bytes": 4241,
       "sha256": "c9e7698b3925905e18f4023edc69dc2ef5775b54521fff995c4855d5f96528ea"
+    },
+    {
+      "path": "docs/design/freetwai-stickers-v2.json",
+      "bytes": 42438,
+      "sha256": "dc89b7b5023cc3312e676c2bc49117c6fcb2f42fc7c858745dc49825b916af6c"
     },
     {
       "path": "docs/design/member-connections/calm-chat-390.png",
@@ -12829,8 +13354,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 16468,
-      "sha256": "8958d391d0b93da9ea23336bd6bb96303dbf1be33cfec92e32c1e238e6984217"
+      "bytes": 17180,
+      "sha256": "d0102c8727ae2b6443e43b472858c889870698b2e1a3e5600f697a1b086e2081"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -12864,8 +13389,13 @@
     },
     {
       "path": "docs/development/social-chat-experience.md",
-      "bytes": 7219,
-      "sha256": "eee54644baa46b398e57d7a8db58c4bbe7a1e5c533c4225e3fc3a5fab7b04117"
+      "bytes": 9230,
+      "sha256": "670415ec73a676f2a024e8707e932600b24b2b102be72f5385bceda1e62f3fe5"
+    },
+    {
+      "path": "docs/development/social-mobile-install.md",
+      "bytes": 1395,
+      "sha256": "942d7b4ac1f34883bc0015e109afbefea4b98ed39638b51e2c1b2d2b971a87db"
     },
     {
       "path": "docs/development/social-platform-audit-2026-10-07.md",
@@ -12874,13 +13404,13 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 21288,
-      "sha256": "5441c3f46062149f231b3afc817e68a461f1b9589f70d781cb0f5d2bbf2bcd5b"
+      "bytes": 24579,
+      "sha256": "6b3b35c4a8c6242a38dcd78d21250df5792bae44d6652c129192de9522e4efc3"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
-      "bytes": 89542,
-      "sha256": "4c0d1cacd5a72e87d5cd26b901d0cd39bf528c0b7781d66d20a35737a7cb9974"
+      "bytes": 88966,
+      "sha256": "82dfe4ba181be88461c5d565e0a4bbbd9ce79d6dd16116ce8ba49ebdc1ee65e3"
     },
     {
       "path": "docs/development/social-platform-product-direction-2026-10-07.md",
@@ -13734,8 +14264,8 @@
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_five_clock_invariants.py",
-      "bytes": 18999,
-      "sha256": "7ee4cdf0e26f4370cadb0d873e2cb09b54b12ad86d908e49df40e4dd106a90d2"
+      "bytes": 19006,
+      "sha256": "781ec678c23e01fb587aec2e156aaf55fcc7738605a57aaf67a69431595c3a0b"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_github_mock_semantics.py",
@@ -15198,6 +15728,11 @@
       "sha256": "a83c85857da30915e691cebaac4f1e16daf3faa8caf872c93e3c3a282cea4ded"
     },
     {
+      "path": "migrations/126_workshop_sticker_pack.sql",
+      "bytes": 2970,
+      "sha256": "2b4041fed205e694d65b09f51efed7e8f2285ebfde3f813b24fd9d44234e871d"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 5367,
       "sha256": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755"
@@ -16243,6 +16778,11 @@
       "sha256": "29e71c9c28d8e9d40e5c0b3381a43d78eb5deaf4ef904312daf098f139df2958"
     },
     {
+      "path": "modules/member-communications/freetwai-stickers.ts",
+      "bytes": 14315,
+      "sha256": "a10dadf62134c67e57e509830fe8aad6d71c0e48a114c6ff7d86afaa84ba5d75"
+    },
+    {
       "path": "modules/member-communications/message-search.ts",
       "bytes": 1207,
       "sha256": "d2f8d444659f559308d4df383ddc221e61e1c8065e88e345c60d3abe9de04446"
@@ -16259,8 +16799,8 @@
     },
     {
       "path": "modules/member-communications/stickers.ts",
-      "bytes": 800,
-      "sha256": "d823bccd9464dadcc185eec3955d01dedbdaf922041d7870b28dbdf230ef6368"
+      "bytes": 1019,
+      "sha256": "a2c18d270383875fc57beb92ae837088c3db78a49da581187e09ebc58c9b22fe"
     },
     {
       "path": "modules/member-communications/types.ts",
@@ -16834,8 +17374,8 @@
     },
     {
       "path": "packages/contribution-tools/export.mjs",
-      "bytes": 10922,
-      "sha256": "36effd6620d7deb7b63f4e03503be9d56d3ff833729076421e202cda94cd9268"
+      "bytes": 10946,
+      "sha256": "d7b12dbe694fb3a518974b9e9edf1508967efc07e82f6ce45e1c8cb9c6b62382"
     },
     {
       "path": "packages/contribution-tools/formats.mjs",
@@ -16913,9 +17453,14 @@
       "sha256": "1127a18c1ad53bc5b03d4be5f7e671a770fd0e2713bd35fc9272b42244646092"
     },
     {
+      "path": "packages/contribution-tools/pinned-e2e.mjs",
+      "bytes": 9245,
+      "sha256": "508eaf2ae7af93959b384303519eda9bbcb4ed1bb8fc4d13542d5c017b118f54"
+    },
+    {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 5314,
-      "sha256": "e48f08e542a68c28936ca0544b4faff9c102e2fb56bc9c4df427f1f04c1ed142"
+      "bytes": 6533,
+      "sha256": "fcb5e7f12a6896a8eff9abef7e35ea26d75fbdb2f773f7ed260cb28162cb4244"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -16928,14 +17473,24 @@
       "sha256": "842a20548e16f73541a7909248249c953f56f2d2f8cbba2cecd21222bbc249ef"
     },
     {
+      "path": "packages/contribution-tools/runtime-file-weights.mjs",
+      "bytes": 13236,
+      "sha256": "d276147e81ade1d546bf1efca7e0d3cbdd0b98cc5f958617924761d29f3954cd"
+    },
+    {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 3705,
-      "sha256": "c6968b0cd0691dd0b044265640f88ad9a0209bac8723f4be7f926a5b8358bd55"
+      "bytes": 4700,
+      "sha256": "2db58b560bda2464014bbb7fd35b5c8c1835f4e028940416bb8aeec010180e7c"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
       "bytes": 6211,
       "sha256": "35c3d845917a25307b03586d83b2343b8ad7764311a817b8d3ab8260c8fe4e9e"
+    },
+    {
+      "path": "packages/contribution-tools/runtime-weights.mjs",
+      "bytes": 3934,
+      "sha256": "8f974b6fd602b4f5240c2389b2f1a0097a933c451c9bafc5cf3acc6faaff986e"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -16944,8 +17499,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36752,
-      "sha256": "b0eb76dc8d4e17d52393e93e7d217af416263bcc8aa4d20839255975906585b2"
+      "bytes": 36386,
+      "sha256": "14f5d0ea481139805d6e07433c8268825b862eadcc2b9347b300127b45d11ec9"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16969,8 +17524,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 10000,
-      "sha256": "59d3759e78229c0266339faf93e6572e8b46308588310a7ddaaf54befe1bd804"
+      "bytes": 10014,
+      "sha256": "1571f8aedc564315273d24372bf81ec49381e262cf5ec211c3d3223538097e28"
     },
     {
       "path": "packages/contribution-tools/test/agent-kit-device-fixture.test.mjs",
@@ -17053,6 +17608,11 @@
       "sha256": "af8090248c18b785b7c9a9e44d37bcffe79d27bdab00a36830727fdb81e9a6fb"
     },
     {
+      "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
+      "bytes": 10636,
+      "sha256": "a57f70305d1ff8ab244e5d045f774052d8119349d2df22eb7bc3b857459d7c45"
+    },
+    {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
       "bytes": 10624,
       "sha256": "dc720b36fb02262b016dc5b192babbfa81fce650a770e3fd7731b233113d4fd6"
@@ -17108,19 +17668,29 @@
       "sha256": "a348b3a980628c38894aacb12eedc3f9b2e799934e7715de7fa72f91e66a4e4d"
     },
     {
+      "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
+      "bytes": 18731,
+      "sha256": "63a50627ba8638316271f74b8ec02c28a5fb5295df308c56a0393847f6b6fdfe"
+    },
+    {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
-      "bytes": 18354,
-      "sha256": "af35447a55f9b2e8e0a8ca4bb36d94c58daabcf15917455144108e4bbcec506d"
+      "bytes": 23074,
+      "sha256": "759473ccbec8d29e9e96429d705d597c547d0b603e9e729417905ccc88b44240"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 8095,
-      "sha256": "884c705efa6738320a69108049f819faf103bfd83b4c7858faa8636e4f2c63cd"
+      "bytes": 13070,
+      "sha256": "a845f11c7f7705aaa26f3cbc1c40e4cf93fe549025f92930c878d53f7175611d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 3660,
-      "sha256": "9a2adf5d901d4d0929ea2aa1dc0bcde1350c99db0d995b376a1e6670facb543a"
+      "bytes": 5469,
+      "sha256": "5c182a62c80242ceae93881fdab3cdb945ef57e3eb278fdc6519858831b92e25"
+    },
+    {
+      "path": "packages/contribution-tools/test/runtime-weights.test.mjs",
+      "bytes": 8689,
+      "sha256": "ed87d35bbcbc6ddf3a99371f6b63b036a64e9445a7edfeb9581e9a72ff71d10a"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
@@ -17743,6 +18313,11 @@
       "sha256": "aca287447e84e43417a7366f962acce7375bcb2d284708b2570088d4ce996a09"
     },
     {
+      "path": "scripts/ci/derive-runtime-weights.mjs",
+      "bytes": 3187,
+      "sha256": "22d11ea12748a6e70a15244faa85c4a5891139f4c8ee0a5a081fe44cae7c8dd4"
+    },
+    {
       "path": "scripts/ci/native-cli-audit-readback.mjs",
       "bytes": 1545,
       "sha256": "82ffb3dab5201047160d5166eb056e10768deb6887c09eff6ef25aab9c248c94"
@@ -17758,6 +18333,16 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/pinned-playwright.config.mjs",
+      "bytes": 2180,
+      "sha256": "96db598b34a7ecf5287261070e3a420c40918d5edc057140dc6528f7b9d5e947"
+    },
+    {
+      "path": "scripts/ci/pinned_pytest_evidence.py",
+      "bytes": 3905,
+      "sha256": "37188c20f56b997ba21aeb08c700e014f82d51aa69ba27ceff1525fa477aac11"
+    },
+    {
       "path": "scripts/ci/release-inventory.md",
       "bytes": 5505,
       "sha256": "8a7701f1fee75450647d241280f0fbfc66c91aabfd7794431382c1177cfb9576"
@@ -17766,6 +18351,11 @@
       "path": "scripts/ci/render-bwrap-deleted-compat.py",
       "bytes": 1436,
       "sha256": "4b3ea7018bed2c44b988ab0d8ec23f0d9f422c0552e19532b113cb225a93d102"
+    },
+    {
+      "path": "scripts/ci/run-pinned-e2e.mjs",
+      "bytes": 7021,
+      "sha256": "a6c572c8de3c987ce113284c9b11087ea2c0c24b20d1d955f609fe32eb0d2013"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -17779,8 +18369,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 46178,
-      "sha256": "ce02df4b3138189e6f1f2f27545b123bd44b08d2fd08d75ad8b691115b3bcd25"
+      "bytes": 46564,
+      "sha256": "2ee31928ce3adb844803aeff72c95cb19c50995a004dd907c17528a3230f3074"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -17796,6 +18386,11 @@
       "path": "scripts/ci/verify-runtime-postgres.sh",
       "bytes": 2264,
       "sha256": "f0d369c2fd3886bc6c4f5193524f0d3dfc9d275831eb0df6f05553913be2d258"
+    },
+    {
+      "path": "scripts/compress-chat-stickers.py",
+      "bytes": 4340,
+      "sha256": "5dee94c88560bf587ed51dc4552bd00e999e0c1e4f4ac546715e63b29eb8dc7d"
     },
     {
       "path": "scripts/database.ts",
@@ -17816,6 +18411,11 @@
       "path": "scripts/freedom.mjs",
       "bytes": 198,
       "sha256": "286b978e5d17b46a01e57fb52b5cfc5aae03b30b54759b4e800c32e9deaad1fb"
+    },
+    {
+      "path": "scripts/generate-app-icons.mjs",
+      "bytes": 1354,
+      "sha256": "1cf59b4550858368e3a042ade8e901a016f0b1da95a9af4e658bc947c0fa9658"
     },
     {
       "path": "scripts/generate-guide-contract.ts",
@@ -17964,13 +18564,13 @@
     },
     {
       "path": "scripts/runtime-aggregate.mjs",
-      "bytes": 1326,
-      "sha256": "506a65ddb4e1c30773ba2c4035229b6f69054511da987c6532e0c64be53961c8"
+      "bytes": 1520,
+      "sha256": "ec581798ca33990948a8bfb755f59326c9b145740f9934a1976a7bfecc285552"
     },
     {
       "path": "scripts/runtime-full.mjs",
-      "bytes": 1705,
-      "sha256": "766ea96727c2b7940abde299c8e4944d5fd16c621cf5a08a6c478728c9deb93e"
+      "bytes": 1770,
+      "sha256": "fd8e5836460c9839117892124def1280c9982907cb85d5d52ef03123ffd1793e"
     },
     {
       "path": "scripts/shop-key-legacy-exit.ts",
@@ -18026,6 +18626,11 @@
       "path": "scripts/verify-staging.mjs",
       "bytes": 14543,
       "sha256": "443cda1175c1d54480377d7534fab57427d2f1e6b9b9aacebb5e34d43f2abfbe"
+    },
+    {
+      "path": "tests/contribution-tools/pinned-pytest.integration.test.mjs",
+      "bytes": 6785,
+      "sha256": "ebe0c6e5383616a89fe559d6edf27ab746e887cd4c31355aa46c20535a6cebb8"
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
@@ -18124,8 +18729,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 23072,
-      "sha256": "506aa35f93845b39d4b90566b7a5d31b938c1667ddf618e707bf8dcdcfded8d0"
+      "bytes": 28269,
+      "sha256": "8e6b6329ffcb7cf0f42bac5eccee503ddeef8cd79bfbdbb17e9566bb145034fb"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -18186,6 +18791,11 @@
       "path": "tests/e2e/fixtures.ts",
       "bytes": 1625,
       "sha256": "5758148b88fedba9bacb71cfeb51cc724b3548db7c63c478c26596eb75119d2c"
+    },
+    {
+      "path": "tests/e2e/floating-messages.spec.ts",
+      "bytes": 4969,
+      "sha256": "3b4cabb0c7b544e2fa75e9a24f8346bc5aaae1363bf0ec5d0e4fae7acddf3902"
     },
     {
       "path": "tests/e2e/freedom.module.json",
@@ -18339,8 +18949,8 @@
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",
-      "bytes": 48942,
-      "sha256": "8b1ec2b9d370ce62b9aa01e89f7bc3f4ffdb1cae04bed0541008176046211aaf"
+      "bytes": 49309,
+      "sha256": "8fd4c690a8ed1afca1c182fcb3cff39f2d92e4e52ee31e3b0bf4f29ccfafcbed"
     },
     {
       "path": "tests/e2e/member-todos-real.spec.ts",
@@ -18351,6 +18961,11 @@
       "path": "tests/e2e/member-todos.spec.ts",
       "bytes": 17114,
       "sha256": "1135d465f4b91562d9cd4da05a3374c0f1a898cedeb009bbac2ef23d78794c5c"
+    },
+    {
+      "path": "tests/e2e/mobile-install.spec.ts",
+      "bytes": 10733,
+      "sha256": "32e38a19f72269d725ce5e7686110363f6ac417c969bb1baeedfe323fb417f7b"
     },
     {
       "path": "tests/e2e/model-settings-visual.ts",
@@ -18854,8 +19469,8 @@
     },
     {
       "path": "tests/runtime/chat-content.test.ts",
-      "bytes": 12420,
-      "sha256": "54f63ab87a2ae548b7a8043d047201b9e357e414bccd58e0b3085916bf9efb39"
+      "bytes": 15046,
+      "sha256": "3ba295ab7f2c7cea8e6ef72287a7f56a25a11eb35d0483f0b4d78986dbf2cce2"
     },
     {
       "path": "tests/runtime/client-connections.test.ts",

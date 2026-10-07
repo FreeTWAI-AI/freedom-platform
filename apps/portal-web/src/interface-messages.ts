@@ -2,6 +2,11 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
+  'chat.short': ['訊息','Chat','チャット','채팅','Chat'],
+  'chat.launch': ['開啟聊天室','Open chats','チャットを開く','채팅 열기','Abrir chats'],
+  'chat.launchLoading': ['開啟聊天室，正在確認未讀','Open chats, checking unread messages','チャットを開く、未読を確認中','채팅 열기, 읽지 않은 메시지 확인 중','Abrir chats, comprobando mensajes sin leer'],
+  'chat.launchUnknown': ['開啟聊天室，未讀數尚未確認','Open chats, unread count unconfirmed','チャットを開く、未読件数は未確認','채팅 열기, 읽지 않은 메시지 수 미확인','Abrir chats, recuento sin confirmar'],
+  'chat.launchUnread': ['開啟聊天室，{count} 則未讀','Open chats, {count} unread','チャットを開く、未読{count}件','채팅 열기, 읽지 않은 메시지 {count}개','Abrir chats, {count} sin leer'],
   'language.auto': ['跟隨瀏覽器', 'Browser default', 'ブラウザー設定', '브라우저 언어 사용', 'Del navegador'],
   'language.scope': ['帳號入口與基本導覽支援五種語言；部分功能與社群內容仍保留原文。', 'Account pages and basic navigation support five languages. Some features and community content remain in their original language.', 'アカウント画面と基本ナビゲーションは5言語に対応しています。一部の機能やコミュニティの内容は原文で表示されます。', '계정 화면과 기본 탐색은 5개 언어를 지원합니다. 일부 기능과 커뮤니티 콘텐츠는 원문으로 표시됩니다.', 'Las páginas de cuenta y la navegación básica admiten cinco idiomas. Algunas funciones y el contenido de la comunidad se muestran en su idioma original.'],
   'auth.headline': ['讓你的商品、作品和技術，找到合作夥伴。', 'Find collaborators for your products, creations and skills.', '商品・作品・技術を通じて、協力する仲間と出会おう。', '상품, 작품, 기술로 협업할 파트너를 만나세요.', 'Encuentra colaboradores para tus productos, creaciones y habilidades.'],
@@ -176,6 +181,23 @@ export const interfaceMessages = {
   'nav.admin': ['平台管理', 'Platform administration', 'プラットフォーム管理', '플랫폼 관리', 'Administración'],
   'nav.openMenu': ['開啟選單', 'Open menu', 'メニューを開く', '메뉴 열기', 'Abrir menú'],
   'nav.closeMenu': ['關閉選單', 'Close menu', 'メニューを閉じる', '메뉴 닫기', 'Cerrar menú'],
+  "install.title": ["加入主畫面", "Add to home screen", "ホーム画面に追加", "홈 화면에 추가", "Añadir a la pantalla de inicio"],
+  "install.close": ["關閉安裝說明", "Close installation guide", "インストール案内を閉じる", "설치 안내 닫기", "Cerrar guía de instalación"],
+  "install.intro": ["下次點自由工坊圖示，就能回來聊天、發文與合作。", "Tap the Freedom Workshop icon to return to messages, posts and collaboration.", "自由工坊のアイコンから、チャット・投稿・コラボにすぐ戻れます。", "자유공방 아이콘을 눌러 채팅, 게시물, 협업으로 돌아오세요.", "Vuelve a tus mensajes, publicaciones y proyectos desde el icono de Freedom Workshop."],
+  "install.confirm": ["安裝自由工坊", "Install Freedom Workshop", "自由工坊をインストール", "자유공방 설치", "Instalar Freedom Workshop"],
+  "install.pending": ["請在瀏覽器視窗確認…", "Confirm in the browser window…", "ブラウザーの画面で確認してください…", "브라우저 창에서 확인해 주세요…", "Confirma en la ventana del navegador…"],
+  "install.accepted": ["請依系統提示完成安裝，再從主畫面開啟。", "Complete the system steps, then open the app from your home screen.", "システムの案内でインストールを完了し、ホーム画面から開いてください。", "시스템 안내에 따라 설치를 완료한 뒤 홈 화면에서 열어 주세요.", "Completa los pasos del sistema y abre la app desde tu pantalla de inicio."],
+  "install.dismissed": ["已取消安裝，你可以繼續使用網頁。", "Installation cancelled. You can keep using the website.", "インストールをキャンセルしました。ウェブサイトは引き続き使えます。", "설치를 취소했습니다. 웹사이트는 계속 사용할 수 있어요.", "Instalación cancelada. Puedes seguir usando la web."],
+  "install.failed": ["安裝視窗無法開啟，請使用下方的瀏覽器步驟。", "The installation window could not open. Use the browser steps below.", "インストール画面を開けません。下のブラウザー手順を使ってください。", "설치 창을 열 수 없습니다. 아래 브라우저 안내를 이용해 주세요.", "No se pudo abrir la instalación. Sigue los pasos del navegador que aparecen abajo."],
+  "install.appleShare": ["用 Safari 開啟自由工坊，點「分享」或選單。", "Open Freedom Workshop in Safari and tap Share or the menu.", "Safariで自由工坊を開き、「共有」またはメニューをタップ。", "Safari에서 자유공방을 열고 공유 또는 메뉴를 눌러 주세요.", "Abre Freedom Workshop en Safari y toca Compartir o el menú."],
+  "install.appleAdd": ["選「加入主畫面」，若有「打開為網頁 App」就開啟。", "Choose Add to Home Screen and enable Open as Web App if offered.", "「ホーム画面に追加」を選び、表示される場合はウェブアプリとして開く設定を有効に。", "홈 화면에 추가를 선택하고 웹 앱으로 열기 옵션이 있으면 켜 주세요.", "Elige Añadir a la pantalla de inicio y activa Abrir como app web si aparece."],
+  "install.appleOpen": ["點「加入」，完成後點主畫面的自由工坊圖示。", "Tap Add, then open the Freedom Workshop icon on your home screen.", "「追加」をタップし、ホーム画面の自由工坊アイコンを開きます。", "추가를 누른 뒤 홈 화면의 자유공방 아이콘을 열어 주세요.", "Toca Añadir y abre el icono de Freedom Workshop en tu pantalla de inicio."],
+  "install.browserMenu": ["用 Chrome、Edge 或裝置瀏覽器開啟右上角選單。", "Open the menu in Chrome, Edge or your device browser.", "Chrome、Edge、または端末のブラウザーでメニューを開きます。", "Chrome, Edge 또는 기기의 브라우저 메뉴를 열어 주세요.", "Abre el menú de Chrome, Edge o el navegador de tu dispositivo."],
+  "install.browserAdd": ["選「安裝應用程式」或「加入主畫面」（各瀏覽器名稱不同）。", "Choose Install app or Add to home screen; the wording varies by browser.", "「アプリをインストール」または「ホーム画面に追加」を選びます（名前はブラウザーによります）。", "앱 설치 또는 홈 화면에 추가를 선택해 주세요. 브라우저마다 이름이 다를 수 있어요.", "Elige Instalar aplicación o Añadir a la pantalla de inicio; el nombre varía según el navegador."],
+  "install.browserOpen": ["確認加入；若沒有這個選項，可以先用網頁或改用支援的瀏覽器。", "Confirm. If the option is unavailable, use the website or try a supported browser.", "追加を確認します。選択肢がない場合はウェブサイトを使うか、対応ブラウザーを試してください。", "확인해 주세요. 옵션이 없으면 웹사이트를 사용하거나 지원하는 브라우저를 이용해 주세요.", "Confirma. Si la opción no aparece, usa la web o prueba un navegador compatible."],
+  "install.online": ["聊天、發文需要網路。主畫面版可能需要重新登入；請使用原帳號。", "Messages and posts need internet. You may need to sign in again from the home screen; use your existing account.", "チャットと投稿にはネット接続が必要です。ホーム画面版では、同じアカウントで再ログインが必要な場合があります。", "채팅과 게시물에는 인터넷이 필요합니다. 홈 화면에서 열면 기존 계정으로 다시 로그인해야 할 수 있어요.", "Los mensajes y las publicaciones necesitan internet. Al abrir desde el inicio, puede que debas volver a entrar con tu cuenta habitual."],
+  "install.later": ["先繼續使用網頁", "Continue on the website", "ウェブサイトを使い続ける", "웹사이트 계속 사용", "Seguir usando la web"],
+  "install.offline": ["裝置目前離線。此頁草稿保留，連線後請再送出。", "Your device is offline. Drafts stay on this page; send when reconnected.", "端末はオフラインです。このページの下書きを保ち、接続後に送信してください。", "기기가 오프라인입니다. 이 페이지의 초안은 유지됩니다. 연결 후 다시 보내 주세요.", "Tu dispositivo está sin conexión. El borrador se mantiene en esta página; envíalo cuando vuelvas a conectarte."],
 } as const satisfies Record<string, readonly [string,string,string,string,string]>;
 
 export type InterfaceMessage = keyof typeof interfaceMessages;

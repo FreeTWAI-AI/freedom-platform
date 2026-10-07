@@ -122,3 +122,19 @@ Hosted run `37598716550` 在原 `fb10504` 的 UI 結果為 539 pass／3 fail／1
 主線後續合併 #188／#189／#191，已同步到 `9674dedfd9f83f47e0352f2497485a9c45753e13`；#191 只改測試收尾與 inventory，產品／build bytes 不變。最新盤點另外 10 個 open PR，核對 frozen base／head、完整檔案與精確 diff digest。#195 CI 分區／runner、#209 tenant-work 共用契約不重做；#205 密碼重設 callback 的 SessionPayload／applySession 是另一份未合併 PR，語言修改維持目前主線流程並記錄未來整合界線。完整 [PR 比對紀錄](social-platform-pr-overlap-2026-10-07.json) 保留歷史快照。
 
 Code Cleanup 與 R&D 的原始失敗、正反例、來源／環境、學習與未驗證範圍保存在專案私有 `.rd/`，不將此 source-only 修改聲稱為全平台安全認證、安裝包或部署。
+
+
+## 手機安裝、訊息入口與 48 張貼圖的交付候選
+
+沿用 Hao 已授權的 PR 修正與增量需求，同步已合併主線 #195 至 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`；查看另外 11 個 open PR 的 frozen base／head、完整 files 及 diff。#209 契約工作維持獨立，#210 的 favicon／OG metadata 與本輪 PWA 共用 index.html，涉及不同功能；未採用尚未合併素材。比對收據保留先前快照。
+
+- [手機安裝](social-mobile-install.md)提供 manifest／品牌圖示、登入／設定入口、五語說明、離線提示與安全邊界。六個案例包含真實 Chromium installability 和斷線；系統 prompt／standalone／瀏海屬模擬，手機真人安裝未驗。
+- [聊天室入口和貼圖](social-chat-experience.md)加入右下角 60px 訊息按鈕，以及 Hao 提供的 48 張。96 個 WebP 的解碼、雜湊及尺寸全數核對；512 圖 2,892,096 bytes＋144 縮圖 354,702 bytes，合計較 16,262,574 bytes 原 JPEG 少 80.035%。手機選單可捲動，先取縮圖、選取後才取聊天圖；原 4 個 ID 保留。
+- Fresh Node24 typecheck／build 通過；完整初始 JS closure 為 671,388 raw／209,711 gzip bytes，baseline 1,361,771／383,241，gzip 少 45.28%，通過原 70% 門檻。這不代替操作延遲、真人體驗、正式負載或競品比較。
+- 隔離 PostgreSQL 最新 3 檔 runtime 為 46 pass／0 fail／0 skip，包含 37 項會員通訊／搜尋及 9 項貼圖內容。新 48 個 ID 通過私訊／群聊資料庫限制；原 4 張、API 保存、未知 ID、回覆範圍、CSRF 與 rate limit 均回歸。Social Post unit 10 pass；release compatibility 118 pass，保留未知 migration 及過期批准的拒絕。
+- 畫面主組合 114 pass／0 fail，另原簡化社群 4 項單獨重跑 4 pass／0 fail；合計 118 項、兩次執行，前端及測試 source blobs 一致。其後只移除 migration126 末尾多餘空白，另重跑 9 項內容 runtime 及 118 項相容性；不以空白格式變更推定新產品行為。包含先前 3 個 hosted 失敗案例、2 項 P2、五語 9、搜尋 3、PWA 6 及 4 項新貼圖／訊息入口。
+- 首次貼圖 run 因 126 未列 frontier 而 0 tests；11／1 的 focused UI 使用錯誤世界聊天按鈕名稱。API fixture 的 45／1 失敗是 48 則「新」raw fixture 觸發既有 20-per-minute 限制，改為較早歷史資料後 46 全綠；原 rate-limit 斷言保留。主組合漏寫簡化社群檔名，4 案例另跑並區分兩次 run。早期 PWA 111／3、其他失敗及 trace 保留，未提高 timeout 或 skip 案例。
+
+獨立 Code Cleanup 與 typed R&D evidence 留於本專案私有 `.rd/`，保存 source／environment／hash、正反例、失敗分類與未驗項。Whole-project 既有 FAIL／REVIEW／NOT_CHECKED 不改成 PASS，不做 strict promotion。Context 工具對未知 root surfaces 回報 `surface_unmapped`，保留 fallback；已讀受影響及全部模組規則，未將工具結果改寫為 complete。
+
+本輪只更新原 Draft PR #193；新的 hosted CI 與人工 review 仍待外部 readback，未 merge／deploy。原 `fb10504` hosted 539 pass／3 fail／12 skip 保持 FAIL。完整平台目標 ACTIVE；正式效能、全站翻譯、實際手機安裝與競品驗收仍 open。

@@ -33,22 +33,24 @@ export type InboxUnread=number|null|undefined;
 // do not create notifications, so they never double count. Each is a one-item list read: no
 // history is opened here, and one failed source makes the whole total unconfirmed.
 const SOURCES=['/me/notifications?limit=1&offset=0','/me/conversations?limit=1&offset=0','/me/channels?kind=guild&limit=1&offset=0','/me/channels?kind=squad&limit=1&offset=0'];
-export function useInboxUnread(client:PortalClient){
+const CHAT_SOURCES=[...SOURCES.slice(1),'/me/channels?kind=world&limit=1&offset=0'];
+export function useInboxUnread(client:PortalClient,scope:'inbox'|'messages'='inbox'){
   const [total,setTotal]=useState<InboxUnread>(undefined);
   const generation=useRef(0);
   const refresh=useCallback(async()=>{
     const current=++generation.current;
     try{
-      const pages=await Promise.all(SOURCES.map(path=>client.get<{unread_count:number}>(path,{skipAuthHandler:true,background:true,coalesce:true})));
+      const pages=await Promise.all((scope==='messages'?CHAT_SOURCES:SOURCES).map(path=>client.get<{unread_count:number}>(path,{skipAuthHandler:true,background:true,coalesce:true})));
       if(current!==generation.current)return;
-      setTotal(pages.every(page=>Number.isSafeInteger(page.unread_count)&&page.unread_count>=0)?pages.reduce((sum,page)=>sum+page.unread_count,0):null);
+      const sum=pages.reduce((value,page)=>value+page.unread_count,0);
+      setTotal(pages.every(page=>Number.isSafeInteger(page.unread_count)&&page.unread_count>=0)&&Number.isSafeInteger(sum)?sum:null);
     }catch{if(current===generation.current)setTotal(null);}
-  },[client]);
+  },[client,scope]);
   useEffect(()=>{
     const update=()=>void refresh();
     update();
     // No polling: the window regaining focus, a confirmed write or a membership change re-reads.
-    const events=['focus',INBOX_UPDATED,'freedom-profile-updated'];
+    const events=['focus','online',INBOX_UPDATED,'freedom-profile-updated'];
     for(const name of events)window.addEventListener(name,update);
     return()=>{generation.current++;for(const name of events)window.removeEventListener(name,update);};
   },[refresh]);

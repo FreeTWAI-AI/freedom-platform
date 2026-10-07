@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "自由工坊 Freedom Workshop",
+  "short_name": "自由工坊",
+  "description": "認識夥伴、分享作品，一起創作與合作。",
+  "lang": "zh-Hant",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
+  "icons": [
+    {"src": "/brand/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/brand/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {"name": "最新動態", "url": "/#home"},
+    {"name": "我的訊息", "url": "/#messages"}
+  ],
+  "prefer_related_applications": false
+}

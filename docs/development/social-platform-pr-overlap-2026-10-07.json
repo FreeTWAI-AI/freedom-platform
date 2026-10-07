@@ -1,13 +1,42 @@
 {
   "method": "Full paginated GitHub REST file lists; exact frozen base...head compare patch hashes after LF normalization; product-adjacent contract/auth/UI hunks inspected",
-  "source_base": "9674dedfd9f83f47e0352f2497485a9c45753e13",
+  "source_base": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
   "format": "freedom.social-pr-overlap-audit/v1",
   "repository": "FreeTWAI-AI/freedom-platform",
   "prs": [
     {
+      "number": 211,
+      "head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+      "base": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+      "title": "test(governance): trust-pin probe s — never target main",
+      "state": "OPEN",
+      "files": [
+        "docs/development/trust-pin-probe-s-20261007.md",
+        "docs/platform-plan/verification/2026-09-20-file-inventory.json"
+      ],
+      "diff_sha256_lf": "6d1f988fc9a2ed0e31c40467ddc9b18918027e2c7f884578b5161f329d7a80a9",
+      "diff_method": "GitHub compare exact frozen base...head; original source patch retained privately",
+      "integration_note": "Documentation-only temporary upstream trust-pin probe; generated inventory is regenerated here, without adopting an experimental central pin."
+    },
+    {
+      "number": 210,
+      "head": "7c7bb1ff65aac325eecb90e68116d05bca1d384c",
+      "base": "9674dedfd9f83f47e0352f2497485a9c45753e13",
+      "title": "feat(portal-web): 新增 favicon.ico、OG/Twitter 標籤與分享圖",
+      "state": "OPEN",
+      "files": [
+        "apps/portal-web/index.html",
+        "apps/portal-web/public/brand/og-image.jpg",
+        "apps/portal-web/public/favicon.ico"
+      ],
+      "diff_sha256_lf": "846ebc878db66e852425a20b51aadf5c99a475eef69973d7012f005b1331ad16",
+      "diff_method": "GitHub compare exact frozen base...head; original source patch retained privately",
+      "integration_note": "PWA manifest/viewport touches index.html; PR210 owns favicon and OG/Twitter image metadata. Different hunks: preserve both when that work is accepted; do not duplicate or adopt unmerged assets."
+    },
+    {
       "number": 209,
-      "head": "9978207dc67497f232ed7d45d0e1680f949b999b",
-      "base": "4d6d82a5086efb0d319c0f97d107abe3cc87edd7",
+      "head": "d17241c3aa47c14ae8cd349903144a4a247efad5",
+      "base": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
       "title": "feat(guild-launchpad): tenant-work 契約收斂成單一 JSON Schema bundle（P-K2／SP-12）",
       "state": "OPEN",
       "files": [
@@ -21,9 +50,9 @@
         "tests/runtime/guild-launchpad-contracts.test.ts",
         "tests/runtime/tenant-work.test.ts"
       ],
-      "diff_sha256_lf": "f34dae13602d1a742030b4638582cb51fa26500d4f2c5c53c5934c0e62eacf1e",
+      "diff_sha256_lf": "9c8b224a9c4be6aefbb53d3178030c51215e0147cc8af0bba8e2d308dd4e6113",
       "diff_method": "GitHub compare exact frozen base...head; original source patch retained privately",
-      "integration_note": "Tenant-work adopts shared GuildKey/Version/page/NonNegativeDecimal primitives and generated schemas in this PR; read contracts/generator/manifest hunks, do not duplicate or adopt unmerged bytes."
+      "integration_note": "Shared guild-launchpad contract and schema work remains owned by PR209; no duplicate implementation or adoption of unmerged code."
     },
     {
       "number": 208,
@@ -197,44 +226,6 @@
       "integration_note": "Streaming JSON size limits remain in that PR; this increment adds only bounded search GETs."
     },
     {
-      "number": 195,
-      "head": "ad6549228dabf74b0f41f49ebc059bf36f012095",
-      "base": "9674dedfd9f83f47e0352f2497485a9c45753e13",
-      "title": "fix(ci): six runtime partitions, pinned e2e and pytest, per-count budgets",
-      "state": "OPEN",
-      "files": [
-        ".github/workflows/verify.yml",
-        "docs/development/runtime-ci-postgres.md",
-        "docs/platform-plan/contracts/tests/test_five_clock_invariants.py",
-        "docs/platform-plan/verification/2026-09-20-file-inventory.json",
-        "packages/contribution-tools/export.mjs",
-        "packages/contribution-tools/pinned-e2e.mjs",
-        "packages/contribution-tools/pinned-suites.mjs",
-        "packages/contribution-tools/runtime-file-weights.mjs",
-        "packages/contribution-tools/runtime-matrix.md",
-        "packages/contribution-tools/runtime-weights.mjs",
-        "packages/contribution-tools/suite-runner.mjs",
-        "packages/contribution-tools/test-reporter.mjs",
-        "packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json",
-        "packages/contribution-tools/test/pinned-e2e.test.mjs",
-        "packages/contribution-tools/test/pinned-suite.test.mjs",
-        "packages/contribution-tools/test/runtime-matrix.test.mjs",
-        "packages/contribution-tools/test/runtime-sharding.test.mjs",
-        "packages/contribution-tools/test/runtime-weights.test.mjs",
-        "scripts/ci/derive-runtime-weights.mjs",
-        "scripts/ci/pinned-playwright.config.mjs",
-        "scripts/ci/pinned_pytest_evidence.py",
-        "scripts/ci/run-pinned-e2e.mjs",
-        "scripts/ci/select-affected-jobs.test.mjs",
-        "scripts/runtime-aggregate.mjs",
-        "scripts/runtime-full.mjs",
-        "tests/contribution-tools/pinned-pytest.integration.test.mjs"
-      ],
-      "diff_sha256_lf": "d0a406acf8a8e5a6f47ddfab85f0c694191a08fd51e7b943c484a69ef5629d52",
-      "diff_method": "GitHub compare exact frozen base...head; original source patch retained privately",
-      "integration_note": "Six runtime partitions, pinned e2e/pytest and per-count budgets stay in PR #195; read exact changed runner/workflow hunks, no duplication."
-    },
-    {
       "number": 187,
       "head": "9b147f0214667d57c6f7c308a5cb2b9798a643ea",
       "base": "93e1470bcdb2d74145a50bcb400d74b19d67b18e",
@@ -264,7 +255,7 @@
       "integration_note": "ERP/CRM resources remain in that PR; translated public resource controls retain original book metadata."
     }
   ],
-  "observed_at": "2026-10-07T10:17:55.386632+00:00",
+  "observed_at": "2026-10-07T10:56:28.468713+00:00",
   "previous_observation": {
     "source_base": "57b610abe0277e4b0fda711f45dd063540252ad0",
     "observed_at": "2026-10-07T04:42:14.077963+00:00",
@@ -1639,5 +1630,6 @@
         }
       ]
     }
-  ]
+  ],
+  "current_other_open_pr_count": 11
 }
