@@ -123,6 +123,7 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
       await page.setViewportSize({ width, height });
       await page.evaluate(() => scrollTo(0, 0));
+      await openPageTools(page);
       for (const name of ['提出想法', '頁面說明', '參與編修']) await expect(page.getByRole('group', { name: '私人工作與 AI頁面工具', exact: true }).getByRole('button', { name, exact: true })).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`private-ai-${width}.png`), fullPage: true });

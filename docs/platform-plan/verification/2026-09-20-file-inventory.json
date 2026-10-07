@@ -13454,8 +13454,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 34168,
-      "sha256": "e9b527c25ddbb442181c7375cfb659466e5feb5136aafac6c65af53c260cabba"
+      "bytes": 35419,
+      "sha256": "26f21fee90674328c893c6a3d8ccc828fd1f44a8c469f6cf6a4aa6869dbc3442"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -19119,8 +19119,8 @@
     },
     {
       "path": "tests/e2e/private-work-ai.spec.ts",
-      "bytes": 33473,
-      "sha256": "5e7e01c83678b4c51eb7ae38d8d8fe4d91e7e3de17f78c4bfbc28d6162afee43"
+      "bytes": 33506,
+      "sha256": "995f65feab7083d611ec54269152a6fd969c29dbcf1dbacc72e59e5b2506fdd0"
     },
     {
       "path": "tests/e2e/quick-join.ts",

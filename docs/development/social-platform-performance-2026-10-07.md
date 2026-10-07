@@ -191,3 +191,9 @@ Fresh typecheck／build 通過。原 66 項瀏覽器案例加上主線 ERP 入�
 同一個初始 JS closure 量尺從 211,390 → 211,898 gzip bytes，增加 508 bytes／0.240%，低於修正前設定的 1% 上限；這不是正式負載或 p95 改善宣稱。API transport、帳號邊界與資料庫 schema 沒有修改，四平台 Logo 選取、原始媒體、取消與剪貼簿失敗保留草稿，以及登出清理私人分享資料均再次通過。
 
 前一版 `c52e48b4` 的 hosted run `37636146302` 已確認六分組共 3,282 項原生測試通過，包含上述 13 項 Linux 隔離用例；實際 merged checkout 為 `86c0b65a140e9c45290e51c44f0fab78388d4376`，主線為 `687dee8739d9a8fc65a78fcb093347833cc004e8`、trusted evaluator 為 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`。截至這份紀錄該 run 的完整 UI 仍在執行；前一版原生結果不替代本輪新 source 的 hosted CI。全平台完成、人工驗收、實體手機、正式負載與競品比較繼續保留未驗狀態，這一批只完成共用提示與離線版型的修正。
+
+### 前一版完整 CI 的後續回讀與工具選單測試
+
+14:51 UTC 該 run 的終態為 failure：一般 UI 階段 **589 pass／0 fail／12 skip**，私人 AI 合成環境階段 **11 pass／1 fail／1 skip**；後續 avatar fixture 未執行。失敗是私人工作頁的響應式工具列檢查：關閉說明視窗和操作工作表單後，三個次要工具依既有規則收在「⋯」選單內，測試卻沒有先點開它。用本機相同案例重現為 **0 pass／1 fail**，截圖與 trace 保留；不把舊 CI 結果改寫成成功。
+
+只在原有 1440／768／390px 檢查前呼叫既有 `openPageTools`，維持三個按鈕的原 `toBeInViewport`、單次同意與執行、資料保存、來源、撤銷、未知 ACK 及 reload 斷言；沒有改產品選單收合行為、timeout 或 retry。相同私人合成 fixture **12 pass／0 fail／1 skip**；該 skip 是相反的「服務未設定」情境，另以預設環境單獨驗證 **1 pass／0 fail／0 skip**。這是兩次執行的 13 個不同案例。實際 390px 與 1440px 選單畫面已檢視。前述 111 項 UI、34 項原生與完整建置的產品／量尺 bytes 相同，只增加這個測試操作及本段文件；新 commit 的 hosted CI 仍需另外回讀。
