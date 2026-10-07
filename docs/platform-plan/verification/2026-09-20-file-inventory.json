@@ -15654,8 +15654,8 @@
     },
     {
       "path": "modules/autopilot-work/tenant-results.ts",
-      "bytes": 25037,
-      "sha256": "2faa46d005089bcc0be5e4d8d18242096c384f54ca3e3d6ed1d497bfe09c2add"
+      "bytes": 25572,
+      "sha256": "be4bfc9d7516c92c639151426fa3182d77ee35fe9532d976aac3d87928f2d81a"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
@@ -16174,8 +16174,8 @@
     },
     {
       "path": "modules/module-data/freedom.module.json",
-      "bytes": 914,
-      "sha256": "b8fdb3f6176ae2a7e2696ee686c0dcadce5197d3f8c11d7049bf3a7c50d02578"
+      "bytes": 1012,
+      "sha256": "797d6eea10118899d1536b922bdc5d911308db769bebeeea25114e1f6a54f3d9"
     },
     {
       "path": "modules/module-registry/AGENTS.md",
@@ -16324,8 +16324,8 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-work.ts",
-      "bytes": 7203,
-      "sha256": "7eee5e81e6d45ab2feabd0cd416c4f3b978bcc1be457e12eb047153414c300cd"
+      "bytes": 7890,
+      "sha256": "d9a4caeddacbfa8e11b1112d1921e19cd36d69c0d11fcf392c9b9281d3a7a840"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -16914,8 +16914,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6484,
-      "sha256": "5ea4fa9b383747f79190aab83ed7a8515e25f71a26f99e6afb653830852a0cfa"
+      "bytes": 6524,
+      "sha256": "f78dfa3d09ca3d51d13092d7415abc8ae8273522cdb68e063145b455f4700fb7"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19983,9 +19983,19 @@
       "sha256": "9aa877eacd0c0043adf1d037e4a7eef2d82fe4f4d923012141c9b0e161495820"
     },
     {
+      "path": "tests/runtime/tenant-rls-retarget.test.ts",
+      "bytes": 29143,
+      "sha256": "b2bb4886231108a075eef402a66a29d720e46ec91899bb22eca0f3de1f6c0e37"
+    },
+    {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
       "bytes": 17582,
       "sha256": "d9adbefa7f6f2159354c6c2c886f22c5b8091f7dc698df9c7d350e3cd3074b5a"
+    },
+    {
+      "path": "tests/runtime/tenant-route-matrix.test.ts",
+      "bytes": 64494,
+      "sha256": "a6b5844803b4ab7b23b75517e1c0bdb39e50f5f67f658745819765bbc3c90132"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
