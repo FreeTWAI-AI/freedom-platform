@@ -1162,3 +1162,98 @@ test('T-010 status refuses --execute and --limit before connecting', () => {
     assert.equal(result.stdout, '');
   }
 });
+
+async function assertCatalogLockFree() {
+  const countRes = await pool.query(`
+    SELECT count(*)::int AS count
+    FROM pg_locks l CROSS JOIN (SELECT hashtextextended('guild-catalog-revision', 0) AS k) h
+    WHERE l.locktype = 'advisory'
+      AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+      AND l.objsubid = 1
+      AND l.classid::bigint = ((h.k >> 32) & 4294967295)
+      AND l.objid::bigint = (h.k & 4294967295)
+  `);
+  assert.equal(countRes.rows[0].count, 0);
+
+  const fresh = await database.connect();
+  try {
+    const lockRes = await fresh.query(`SELECT pg_try_advisory_lock(hashtextextended('guild-catalog-revision',0)) AS ok`);
+    assert.equal(lockRes.rows[0].ok, true);
+    const unlockRes = await fresh.query(`SELECT pg_advisory_unlock(hashtextextended('guild-catalog-revision',0)) AS ok`);
+    assert.equal(unlockRes.rows[0].ok, true);
+  } finally {
+    fresh.release(true);
+  }
+}
+
+test('T-010 status waits for the catalog lock and reports a write committed while it waited', async () => {
+  const communityId = randomUUID();
+  await pool.query(`INSERT INTO communities(community_id, name) VALUES ($1, 'Status Lock Test')`, [communityId]);
+  const userId = 'e0000000-0000-4000-8000-000000000001';
+  await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+    SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [userId, communityId, `${userId}@example.test`, 'Test User', randomUUID(), DEMO_USERS[0].user_id]);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,$4,$5,$6)`, [randomUUID(), communityId, userId, 'guild_member_operations', 'active', 'intern']);
+  await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys) VALUES ($1,$2,$3,$4)`, [communityId, userId, 'guild_member_operations', null]);
+
+  const preStatus = await guildPreferenceStatus(pool, {communityId});
+  assert.equal(preStatus.communities[0].state, 'legacy');
+  assert.equal(preStatus.communities[0].remaining, 1);
+  assert.equal(preStatus.communities[0].remaining_blocked, 0);
+  assert.deepEqual(preStatus.communities[0].preference_sets, {legacy: 0, backfilled: 0, switched: 0});
+
+  const w = await pool.connect();
+  let settled = false;
+  let statusPromise: ReturnType<typeof guildPreferenceStatus> | undefined;
+  try {
+    await w.query('BEGIN');
+    const pid = (await w.query('SELECT pg_backend_pid()')).rows[0].pg_backend_pid;
+    await lockGuildCatalogShared(w);
+    await recomputeLegacyProjection(w, {community_id: communityId, user_id: userId});
+
+    statusPromise = guildPreferenceStatus(pool).finally(() => { settled = true; });
+
+    const deadline = Date.now() + 8000;
+    let waiting = false;
+    while (Date.now() < deadline) {
+      const locks = await pool.query(`SELECT mode FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND $1 = ANY(pg_blocking_pids(pid))`, [pid]);
+      if (locks.rows.some(r => r.mode === 'ExclusiveLock')) {
+        waiting = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 20));
+    }
+    assert.equal(waiting, true);
+
+    await new Promise(r => setTimeout(r, 300));
+    assert.equal(settled, false);
+
+    await w.query('COMMIT');
+
+    const status = await statusPromise;
+    const entry = status!.communities.find(c => c.community_id === communityId);
+    assert.deepEqual(entry, {
+      community_id: communityId,
+      state: 'backfilled',
+      switched_at: null,
+      remaining: 0,
+      remaining_blocked: 0,
+      blocking_reasons: {},
+      blocking_reasons_complete: true,
+      preference_sets: {legacy: 0, backfilled: 1, switched: 0}
+    });
+  } finally {
+    await w.query('ROLLBACK').catch(() => undefined);
+    w.release();
+    await statusPromise?.catch(() => undefined);
+  }
+});
+
+test('T-010 status releases the catalog lock after a report', async () => {
+  await guildPreferenceStatus(pool);
+  await assertCatalogLockFree();
+});
+
+test('T-010 status releases the catalog lock after an error', async () => {
+  await assert.rejects(() => guildPreferenceStatus(pool, {communityId: randomUUID()}), /No community matches --community-id/);
+  await assertCatalogLockFree();
+});

@@ -227,9 +227,12 @@ and `--community-id` when the database has more than one community. The script
 refuses `NODE_ENV=production`, port 54339 and a database named `freedom_local`,
 and never reads `DATABASE_URL`.
 
-Pass `--status` for a read-only snapshot. It runs in one `READ ONLY` transaction
-that is rolled back, taking the same catalog lock as the dry run so preference
-writes wait briefly. It refuses `--execute` and `--limit`. It prints JSON with
+Pass `--status` for a read-only snapshot. It first takes the guild catalog
+lock at session level. Then it opens one `REPEATABLE READ READ ONLY`
+transaction, so the snapshot includes every catalog-locked write committed
+before the lock was granted. Preference writes wait while it runs. The
+transaction is rolled back and the lock released even on error. It refuses
+`--execute` and `--limit`. It prints JSON with
 `totals` and one entry per community (or only the `--community-id` one). Entry
 fields are `remaining`, `remaining_blocked`, `blocking_reasons` (the dry-run
 reason codes), `blocking_reasons_complete`, `preference_sets` and

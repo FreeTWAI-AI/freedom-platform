@@ -6,6 +6,8 @@ import {
   backfillGuildPreferences,
   backfillInTransaction,
   communitySwitched,
+  lockGuildCatalogSession,
+  unlockGuildCatalogSession,
 } from '../modules/positioning/guild-categories.js';
 
 // Restartable category-primary backfill. Defaults to a dry run. Pass --execute to write.
@@ -36,7 +38,11 @@ export type GuildPreferenceStatus = {
 
 export async function guildPreferenceStatus(pool: Pool, options: {communityId?: string} = {}): Promise<GuildPreferenceStatus> {
   const client = await pool.connect();
+  let locked = false;
   try {
+    // Lock before BEGIN so the snapshot includes writes that committed while this waited.
+    await lockGuildCatalogSession(client);
+    locked = true;
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     const communityId = options.communityId;
     const rows = (communityId
@@ -114,7 +120,15 @@ export async function guildPreferenceStatus(pool: Pool, options: {communityId?: 
     return {totals, communities};
   } finally {
     await client.query('ROLLBACK').catch(() => undefined);
-    client.release();
+    let unlockSuccess = false;
+    if (locked) {
+      unlockSuccess = await unlockGuildCatalogSession(client).catch(() => false);
+    }
+    if (locked && !unlockSuccess) {
+      client.release(true);
+    } else {
+      client.release();
+    }
   }
 }
 
