@@ -165,6 +165,13 @@ async function retain(q: PoolClient, tenantId: string, installationId: string) {
 }
 
 async function finishOperation(q: PoolClient, row: OperationRow, state: OperationRow['state'], problem?: { code: string; detail: string }) {
+  if (state === 'succeeded') {
+    const conflict = await ensureEntryBinding(q, row);
+    if (conflict) {
+      state = 'failed';
+      problem = conflict;
+    }
+  }
   const updated = (await q.query<OperationRow>(
     `UPDATE module_provision_operations
      SET state=$3, version=version+1, updated_at=clock_timestamp(), terminal_problem=$4::jsonb
@@ -183,7 +190,6 @@ async function finishOperation(q: PoolClient, row: OperationRow, state: Operatio
        WHERE tenant_id=$1 AND installation_id=$3 AND status IS DISTINCT FROM 'active'`,
       [row.tenant_id, row.operation_id, row.installation_id],
     );
-    await ensureEntryBinding(q, row);
   } else if (state === 'failed' || state === 'cancelled') {
     const kept = await retain(q, row.tenant_id, row.installation_id);
     await q.query(
@@ -207,7 +213,7 @@ async function bumpOperationVersion(q: PoolClient, row: OperationRow) {
 }
 
 /** The entry requirement is the one whose capabilities include `entry_capability`. */
-async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
+async function ensureEntryBinding(q: PoolClient, row: OperationRow): Promise<{ code: string; detail: string } | null> {
   const requirement = (await q.query<{ module_key: string }>(
     `SELECT req->>'module_key' AS module_key
      FROM application_definitions d
@@ -218,7 +224,7 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
      LIMIT 1`,
     [row.application_key, row.release_ref, row.entry_capability],
   )).rows[0];
-  if (!requirement?.module_key) return;
+  if (!requirement?.module_key) return null;
   const instance = (await q.query<{ instance_id: string }>(
     `SELECT l.instance_id FROM application_module_links l
      JOIN module_instances i ON i.tenant_id=l.tenant_id AND i.instance_id=l.instance_id
@@ -226,7 +232,7 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
      LIMIT 1`,
     [row.tenant_id, row.installation_id, requirement.module_key],
   )).rows[0];
-  if (!instance) return;
+  if (!instance) return null;
   await lockWorkspace(q, row.tenant_id, row.workspace_id);
   const existing = (await q.query<{ instance_id: string }>(
     `SELECT instance_id FROM workspace_module_bindings WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability=$3`,
@@ -234,14 +240,15 @@ async function ensureEntryBinding(q: PoolClient, row: OperationRow) {
   )).rows[0];
   if (existing) {
     if (existing.instance_id !== instance.instance_id) {
-      await finishOperation(q, row, 'failed', { code: 'workspace_binding_conflict', detail: '這個工作區已經綁定另一個工作實例。' });
+      return { code: 'workspace_binding_conflict', detail: '這個工作區已經綁定另一個工作實例。' };
     }
-    return;
+    return null;
   }
   await q.query(
     `INSERT INTO workspace_module_bindings(tenant_id, workspace_id, entry_capability, instance_id) VALUES($1,$2,$3,$4)`,
     [row.tenant_id, row.workspace_id, row.entry_capability, instance.instance_id],
   );
+  return null;
 }
 
 async function closeUndispatched(q: PoolClient, row: OperationRow, steps: StepRow[], status: 'failed' | 'archived', problem: { code: string; detail: string }) {
