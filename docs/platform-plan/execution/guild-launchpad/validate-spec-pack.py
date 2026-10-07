@@ -1,4 +1,5 @@
-"""Read-only planning-document checks plus the README glp-status line against unified-foundation current-state.json; never executes or accepts product T cases."""
+"""Planning-document checks and the README status line generated from code (migrations), operator observations (current-state.json) and the progress index; never executes product T cases."""
+from datetime import date, datetime
 from pathlib import Path
 import hashlib
 import json
@@ -11,6 +12,11 @@ ROOT = HERE.parents[3]
 EXPECTED_BASELINE = "11183364845c0d46b29fa52f5cc25f5c3ebce43cc3ff33662ef37d880b583c69"
 
 CURRENT_STATE = ROOT / "docs/platform-plan/execution/unified-foundation/current-state.json"
+PROGRESS = HERE / "acceptance-progress.json"
+MIGRATIONS = ROOT / "migrations"
+PROGRESS_STATUSES = ("not_run", "passed", "failed", "partial", "blocked")
+EVIDENCE_ENVIRONMENTS = ("local", "ci", "staging", "production")
+ACCEPTANCE_ENVIRONMENTS = ("ci", "staging", "production")
 STATUS_LINE = re.compile(r"^<!-- glp-status: (.*) -->$", re.M)
 STATUS_SOURCES = {
     "as_of": "features.guild_launchpad.at",
@@ -18,19 +24,181 @@ STATUS_SOURCES = {
     "release.staging": "deployment.staging.last_operator_release_sha",
     "flag.production": "features.guild_launchpad.last_operator_value.production",
     "flag.staging": "features.guild_launchpad.last_operator_value.staging",
-    "max_migration": "schema.repository_max_migration",
+    "applied_migration.production": "schema.production_observed.through_number",
+    "applied_migration.staging": "schema.staging_observed.through_number",
     "capacity_policy_rows": "features.guild_launchpad.policy_rows.capacity",
     "authority_policy_rows": "features.guild_launchpad.policy_rows.authority"
 }
-STATUS_KEYS = (*STATUS_SOURCES, "accepted")
+STATUS_KEYS = (
+    "as_of", "release.production", "release.staging", "flag.production", "flag.staging",
+    "repo_max_migration", "applied_migration.production", "applied_migration.staging",
+    "capacity_policy_rows", "authority_policy_rows", "accepted_m1", "accepted_full"
+)
 
 
-def status_failures(readme, state, trace):
+def repository_max_migration(migrations_dir):
+    numbers = [int(match.group(1)) for path in Path(migrations_dir).iterdir()
+               if path.is_file() and (match := re.fullmatch(r"(\d{3})_[a-z0-9_]+\.sql", path.name))]
+    if not numbers:
+        raise ValueError("migrations/ (code) has no matching migration files")
+    return max(numbers)
+
+
+def valid_recorded_at(value):
+    if not isinstance(value, str):
+        return False
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            date.fromisoformat(value)
+        elif re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:\d{2})?", value):
+            datetime.fromisoformat(value)
+        else:
+            return False
+    except ValueError:
+        return False
+    return True
+
+
+def progress_failures(progress, trace):
     failures = []
-    expected_values = {}
+    canonical = set()
+    baseline = trace.get("acceptance") if isinstance(trace, dict) else None
+    if not isinstance(baseline, list) or not baseline:
+        failures.append("traceability.json acceptance must be a non-empty list")
+    else:
+        for case in baseline:
+            case_id = case.get("id") if isinstance(case, dict) else None
+            if not isinstance(case_id, str) or not case_id or case_id in canonical:
+                failures.append("traceability.json acceptance has invalid or duplicate IDs")
+            else:
+                canonical.add(case_id)
+
+    progress = progress if isinstance(progress, dict) else {}
+    cases = progress.get("cases")
+    if not isinstance(cases, list):
+        failures.append("acceptance-progress.json cases must be a list")
+        cases = []
+    by_id = {}
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            failures.append(f"acceptance-progress.json cases[{index}] must be an object")
+            continue
+        case_id = case.get("id")
+        label = f"acceptance-progress.json cases[{index}] ({case_id})"
+        if not isinstance(case_id, str) or case_id not in canonical:
+            failures.append(f"{label}: unknown ID")
+        elif case_id in by_id:
+            failures.append(f"{label}: duplicate ID")
+        else:
+            by_id[case_id] = case
+        status = case.get("status")
+        if status not in PROGRESS_STATUSES:
+            failures.append(f"{label}: unknown status {status}")
+        evidence = case.get("evidence")
+        if not isinstance(evidence, list):
+            failures.append(f"{label}: evidence must be a list")
+            evidence = []
+        if status == "not_run" and evidence:
+            failures.append(f"{label}: not_run requires empty evidence")
+        passing = False
+        for entry_index, entry in enumerate(evidence):
+            errors = []
+            if not isinstance(entry, dict):
+                errors.append("must be an object")
+            else:
+                for key in ("test", "command", "ref"):
+                    if not isinstance(entry.get(key), str) or not entry[key].strip():
+                        errors.append(f"{key} must be a non-empty string")
+                sha = entry.get("source_sha")
+                if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+                    errors.append("source_sha must be 40 lowercase hex characters")
+                if entry.get("environment") not in EVIDENCE_ENVIRONMENTS:
+                    errors.append("environment is invalid")
+                if not valid_recorded_at(entry.get("recorded_at")):
+                    errors.append("recorded_at must be YYYY-MM-DD or an ISO-8601 timestamp")
+                if entry.get("result") not in PROGRESS_STATUSES[1:]:
+                    errors.append("result is invalid")
+            if errors:
+                failures.append(f"{label}: evidence[{entry_index}] " + "; ".join(errors))
+            elif entry["result"] == "passed" and entry["environment"] in ACCEPTANCE_ENVIRONMENTS:
+                passing = True
+        if status == "passed" and not passing:
+            failures.append(f"{label}: passed requires valid passing evidence from ci, staging or production")
+    for case_id in sorted(canonical - by_id.keys()):
+        failures.append(f"acceptance-progress.json missing ID {case_id}")
+
+    milestones = progress.get("milestones")
+    if not isinstance(milestones, dict) or set(milestones) != {"M1", "full"}:
+        failures.append("acceptance-progress.json milestones must contain exactly M1 and full")
+    milestones = milestones if isinstance(milestones, dict) else {}
+    m1 = milestones.get("M1")
+    m1_cases = m1.get("cases") if isinstance(m1, dict) else None
+    m1_ids = set()
+    if not isinstance(m1_cases, list) or not m1_cases:
+        failures.append("acceptance-progress.json M1.cases must be a non-empty list")
+    else:
+        for case_id in m1_cases:
+            if not isinstance(case_id, str) or case_id not in canonical:
+                failures.append(f"acceptance-progress.json M1.cases unknown ID {case_id}")
+            elif case_id in m1_ids:
+                failures.append(f"acceptance-progress.json M1.cases duplicate ID {case_id}")
+            else:
+                m1_ids.add(case_id)
+    full = milestones.get("full")
+    if not isinstance(full, dict) or full.get("cases") != "all":
+        failures.append('acceptance-progress.json full.cases must be "all"')
+    accepted = {key: not failures and all(by_id[case_id].get("status") == "passed" for case_id in ids)
+                for key, ids in (("M1", m1_ids), ("full", canonical))}
+    return failures, accepted
+
+
+def status_values(state, trace, progress, migrations_dir):
+    failures, accepted = progress_failures(progress, trace)
+    values, sources = {}, {}
+    for key, path in STATUS_SOURCES.items():
+        current = state
+        for part in path.split("."):
+            current = current.get(part) if isinstance(current, dict) else None
+        if isinstance(current, bool) or not isinstance(current, (str, int)):
+            failures.append(f"current-state.json {path} is missing or not a string/integer")
+        else:
+            values[key] = str(current)[:10] if key == "as_of" else str(current)
+        sources[key] = f"current-state.json {path}" + ("[:10]" if key == "as_of" else "")
+    try:
+        values["repo_max_migration"] = str(repository_max_migration(migrations_dir))
+    except (OSError, ValueError) as error:
+        failures.append(f"migrations/ (code): {error}")
+    sources["repo_max_migration"] = "migrations/ (code)"
+    cases = progress.get("cases", []) if isinstance(progress, dict) else []
+    cases = cases if isinstance(cases, list) else []
+    passed_ids = {case.get("id") for case in cases if isinstance(case, dict)
+                  and isinstance(case.get("id"), str) and case.get("status") == "passed"}
+    milestones = progress.get("milestones", {}) if isinstance(progress, dict) else {}
+    milestones = milestones if isinstance(milestones, dict) else {}
+    m1 = milestones.get("M1", {})
+    m1_cases = m1.get("cases", []) if isinstance(m1, dict) else []
+    m1_cases = m1_cases if isinstance(m1_cases, list) else []
+    baseline = trace.get("acceptance", []) if isinstance(trace, dict) else []
+    full_cases = [case["id"] for case in baseline if isinstance(case, dict) and isinstance(case.get("id"), str)] if isinstance(baseline, list) else []
+    for key, milestone, ids in (("accepted_m1", "M1", m1_cases), ("accepted_full", "full", full_cases)):
+        values[key] = str(accepted[milestone]).lower()
+        count = sum(isinstance(case_id, str) and case_id in passed_ids for case_id in ids)
+        sources[key] = f"acceptance-progress.json ({count} of {len(ids)} {milestone} cases passed)"
+    return values, sources, failures
+
+
+def render_status_line(state, trace, progress, migrations_dir=MIGRATIONS):
+    values, sources, failures = status_values(state, trace, progress, migrations_dir)
+    if failures:
+        raise ValueError("; ".join(failures))
+    return "<!-- glp-status: " + " ".join(f"{key}={values[key]}" for key in STATUS_KEYS) + " -->"
+
+
+def status_failures(readme, state, trace, progress, migrations_dir=MIGRATIONS):
+    expected_values, sources, failures = status_values(state, trace, progress, migrations_dir)
     lines = STATUS_LINE.findall(readme)
     if len(lines) != 1:
-        return [f"README must contain exactly one glp-status line, found {len(lines)}"]
+        return failures + [f"README must contain exactly one glp-status line, found {len(lines)}"]
     tokens = lines[0].split()
     parsed_tokens = {}
     for token in tokens:
@@ -52,34 +220,12 @@ def status_failures(readme, state, trace):
         if key not in parsed_tokens:
             failures.append(f"README glp-status is missing key {key}")
 
-    for key, path in STATUS_SOURCES.items():
-        parts = path.split(".")
-        current = state
-        valid = True
-        for part in parts:
-            if not isinstance(current, dict) or part not in current:
-                valid = False
-                break
-            current = current[part]
-        if not valid or isinstance(current, bool) or not isinstance(current, (str, int)):
-            failures.append(f"current-state.json {path} is missing or not a string/integer")
-        else:
-            expected_values[key] = str(current)[:10] if key == "as_of" else str(current)
-
-    cases = trace.get("acceptance") if isinstance(trace, dict) else None
-    if not isinstance(cases, list):
-        cases = []
-    not_run_count = sum(1 for c in cases if isinstance(c, dict) and c.get("status") == "not_run")
-    expected_values["accepted"] = "false" if not_run_count > 0 else "true"
-
     for key, parsed_val in parsed_tokens.items():
         if key in expected_values:
             expected = expected_values[key]
             if parsed_val != expected:
-                source_str = f"current-state.json {STATUS_SOURCES[key]}" if key != "accepted" else f"traceability.json acceptance ({not_run_count} cases not_run)"
-                if key == "as_of":
-                    source_str = "current-state.json features.guild_launchpad.at[:10]"
-                failures.append(f"README glp-status {key}={parsed_val} but {source_str} is {expected}; update the README 目前狀態 section and its glp-status line together with current-state.json")
+                source_str = sources[key]
+                failures.append(f"README glp-status {key}={parsed_val} but {source_str} is {expected}; update the README 目前狀態 section and its glp-status line together with its sources")
 
     headings = re.findall(r"^## 目前狀態$", readme, re.M)
     if len(headings) != 1:
@@ -189,18 +335,49 @@ def validate():
             if not (p.parent / unquote(target)).exists():
                 failures.append(f"{p.name}: missing local link {raw}")
     readme_text = (HERE / "README.md").read_text(encoding="utf-8")
+    progress_data = {}
+    if PROGRESS.is_file():
+        try:
+            progress_data = json.loads(PROGRESS.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeError):
+            failures.append("invalid acceptance-progress.json")
+    else:
+        failures.append("missing acceptance-progress.json")
     if CURRENT_STATE.is_file():
         state_data = json.loads(CURRENT_STATE.read_text(encoding="utf-8"))
-        failures.extend(status_failures(readme_text, state_data, d))
+        failures.extend(status_failures(readme_text, state_data, d, progress_data))
     else:
         failures.append("missing docs/platform-plan/execution/unified-foundation/current-state.json")
     for failure in failures:
         print("FAIL:", failure)
     print(f"22 decisions; 64 requirements; 60 planned acceptances; 13 specs; {sum(len(r['acceptance_ids']) for r in d['requirements'])} R/T edges; {links} local links; {len(failures)} failures")
     print("Documentation only: no product acceptance, runtime, authorization, deployment or external-link verification is implied.")
-    print("README glp-status compared with unified-foundation/current-state.json only; that snapshot is the deployment record.")
+    print("README glp-status compared with migrations/ (code), unified-foundation/current-state.json (operator observations, the deployment record) and acceptance-progress.json.")
     return bool(failures)
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--write-status"]:
+        readme_path = HERE / "README.md"
+        readme = readme_path.read_text(encoding="utf-8")
+        if len(STATUS_LINE.findall(readme)) != 1:
+            print("FAIL: README must contain exactly one glp-status line")
+            sys.exit(1)
+        try:
+            line = render_status_line(
+                json.loads(CURRENT_STATE.read_text(encoding="utf-8")),
+                json.loads((HERE / "traceability.json").read_text(encoding="utf-8")),
+                json.loads(PROGRESS.read_text(encoding="utf-8"))
+            )
+        except (OSError, ValueError) as error:
+            print("FAIL:", error)
+            sys.exit(1)
+        updated = STATUS_LINE.sub(lambda match: line, readme)
+        if updated != readme:
+            readme_path.write_text(updated, encoding="utf-8")
+        print(line)
+        sys.exit(0)
+    if sys.argv[1:]:
+        print("Usage: validate-spec-pack.py [--write-status]")
+        sys.exit(1)
     sys.exit(validate())

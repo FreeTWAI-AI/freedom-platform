@@ -6,9 +6,11 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-07 release.production=687dee8739d9a8fc65a78fcb093347833cc004e8 release.staging=687dee8739d9a8fc65a78fcb093347833cc004e8 flag.production=absent flag.staging=absent max_migration=125 capacity_policy_rows=0 authority_policy_rows=0 accepted=false -->
+<!-- glp-status: as_of=2026-10-07 release.production=687dee8739d9a8fc65a78fcb093347833cc004e8 release.staging=687dee8739d9a8fc65a78fcb093347833cc004e8 flag.production=absent flag.staging=absent repo_max_migration=125 applied_migration.production=124 applied_migration.staging=124 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第三輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照現況快照檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第三輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 有 migration 125，兩個環境都只套用到 124。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 - 部署：main `687dee87` 自 2026-10-07 14:10Z 在 staging、14:25Z 在 production 執行；migration 120–124 兩邊都已套用。 repository 目前最新的 migration 是 125（#206，`70fb6ae7`），尚未在任何環境套用。
 - 啟用：`FREEDOM_GUILD_LAUNCHPAD_ENABLED` 在 staging 與 production 都沒有設定（停用），啟動台相關路由不會掛載。
@@ -34,10 +36,10 @@ M0 規格包（SP-00–SP-12）由 #153（merge `c6f4a2cf`）合併。M1 各部�
 3. 缺口：兩邊的 `tenant_authority_policies` 都是 0 列，所以經營權移交與復原會回 403 `policy_unconfigured`。這需要 owner 選定的政策值（[決策待辦](decision-log.md)的 OPEN-02／03），以及類似 #227 的 operator 工具。OPEN-04／13 的 staging 暫時容量值已於 2026-10-07 選定；OPEN-07 保留期也已於當天決定（見決策待辦），但備份到期清除尚未實作。
 4. 只在 staging 的啟用試驗，搭配有界的暫時 capacity policy。
 5. 在 staging 以真實 R2 做 guild-work 驗收；verifier 製作中。
-6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已於 2026-10-07 合併（merge `70fb6ae7`）。現況快照記錄的兩邊版本 `687dee87` 不含 migration 125，所以尚未部署。owner 於 2026-10-07 選定備份路徑（備份角色取得 BYPASSRLS，當天已授予並驗證）。接著是 P-D1（migration 126）與 P-E2；production 啟用會使用 P-E2 之後切出、附 gate 證據的候選版本。
+6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已於 2026-10-07 合併（merge `70fb6ae7`）。現況快照記錄的兩邊版本 `687dee87` 不含 migration 125，所以尚未部署。owner 於 2026-10-07 選定備份路徑（備份角色取得 BYPASSRLS，當天已授予並驗證）。接著是 P-E2（不含 P-D1 的部分）；M1 候選版本在它合併後切出，P-D1（#239，migration 126）在候選版本切出之後才合併。production 啟用會使用附 gate 證據的候選版本。
 7. production 啟用由 owner 決定。
 
-本目錄其他文件是 2026-10-05 以 `567ae8d3` 為基線的規格紀錄，文中的「目前／現行」指當時。`traceability.json` 的 `planning_only` 與各需求的 `planned` 是當時的規劃追蹤，保留不改；60 項驗收至今仍是 `not_run`。SP-01–SP-04 與 SP-06 的狀態行保留原文，另加 2026-10-07 註記指回本節。
+本目錄其他文件是 2026-10-05 以 `567ae8d3` 為基線的規格紀錄，文中的「目前／現行」指當時。`traceability.json` 的 `planning_only` 與各需求的 `planned` 是當時的規劃追蹤，保留不改；60 項驗收至今仍是 `not_run`，進度記在 `acceptance-progress.json`，不記在 `traceability.json`。SP-01–SP-04 與 SP-06 的狀態行保留原文，另加 2026-10-07 註記指回本節。
 
 ## 先讀
 

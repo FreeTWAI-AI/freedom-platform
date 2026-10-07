@@ -1,0 +1,347 @@
+{
+  "format": "freedom.guild-launchpad.acceptance-progress/v1",
+  "baseline": "traceability.json is the frozen planning baseline; record acceptance progress only here.",
+  "milestones": {
+    "M1": {
+      "title": "全公會基本可用公版",
+      "basis": "SP-01–SP-03 與 SP-06 的 M1 案例（不含外移後殘留 T-025），加上手動工作用到的 SP-04（T-008、T-017、T-018）、離會停權 T-016、無模型人工工作 T-051、舊偏好轉換 T-054，以及 SP-12 的狀態誠實 T-057 與容量隔離 T-058；依據 README 的 M1 各部分、SP-12「M1全公會基本可用不依賴ERP完整/付款/AI」與 2026-10-07 owner 方向。",
+      "cases": [
+        "T-001",
+        "T-002",
+        "T-003",
+        "T-004",
+        "T-005",
+        "T-006",
+        "T-007",
+        "T-008",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-013",
+        "T-014",
+        "T-015",
+        "T-016",
+        "T-017",
+        "T-018",
+        "T-021",
+        "T-022",
+        "T-023",
+        "T-024",
+        "T-046",
+        "T-047",
+        "T-051",
+        "T-054",
+        "T-055",
+        "T-057",
+        "T-058"
+      ]
+    },
+    "full": {
+      "title": "完整規格（M1–M4）",
+      "basis": "All 60 cases in traceability.json.",
+      "cases": "all"
+    }
+  },
+  "cases": [
+    {
+      "id": "T-001",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-002",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-003",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-004",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-005",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-006",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-007",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-008",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-009",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-010",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-011",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-012",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-013",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-014",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-015",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-016",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-017",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-018",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-019",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-020",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-021",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-022",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-023",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-024",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-025",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-026",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-027",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-028",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-029",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-030",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-031",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-032",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-033",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-034",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-035",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-036",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-037",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-038",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-039",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-040",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-041",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-042",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-043",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-044",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-045",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-046",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-047",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-048",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-049",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-050",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-051",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-052",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-053",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-054",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-055",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-056",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-057",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-058",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-059",
+      "status": "not_run",
+      "evidence": []
+    },
+    {
+      "id": "T-060",
+      "status": "not_run",
+      "evidence": []
+    }
+  ]
+}

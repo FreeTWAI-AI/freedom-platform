@@ -13724,8 +13724,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 9686,
-      "sha256": "937565c8f7d4eb260f744fce811a83301c409f2647e695efcda221031159632e"
+      "bytes": 10474,
+      "sha256": "d21884ed491e241beef726fc5fc6dd4ca2183f60bb4c50ae6cff624627c290fb"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -13793,6 +13793,11 @@
       "sha256": "29a41a1ca70d99753d6df2f00882c372b440a8e7dae907503b101571c98ae85c"
     },
     {
+      "path": "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json",
+      "bytes": 6248,
+      "sha256": "69bc826911cd5899f9c6f79aa60c74c2704c7f6b5616b75d67a2df4f94bbca43"
+    },
+    {
       "path": "docs/platform-plan/execution/guild-launchpad/acceptance.md",
       "bytes": 40550,
       "sha256": "35764484e72637fe117ec2fbccd48df0bc146a53cb0026b3540778e4a217d884"
@@ -13829,8 +13834,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py",
-      "bytes": 11128,
-      "sha256": "d1e7e28f9360215052752e73b80ba61ff85309c47583c06a17c5b423f15e9f55"
+      "bytes": 20180,
+      "sha256": "f623ad35d464865a89a9c9be9ebb096b84a57cae319835cfe7efa28b79e52271"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/verification.md",
@@ -13989,8 +13994,8 @@
     },
     {
       "path": "docs/platform-plan/execution/tools/tests/test_guild_launchpad_status.py",
-      "bytes": 7789,
-      "sha256": "4bd1405f484fbfcb88b73e2a5753a93a80cedcb31bf06e63878eb3f5560bc2f2"
+      "bytes": 21495,
+      "sha256": "aaf9892fbff3c570123407ff9406c0ebd8f885f17f29d2bcdae2202faeae0a93"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
@@ -14164,8 +14169,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 36676,
-      "sha256": "3e9f730e2556422ca5d0592cd683c69cbbc865f9dc0b1e9b7747f41eac0b9084"
+      "bytes": 36639,
+      "sha256": "bafea8bbc3b1bfe9d78f7852ce705fb35429536a457961aa11370ecb9362195b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
