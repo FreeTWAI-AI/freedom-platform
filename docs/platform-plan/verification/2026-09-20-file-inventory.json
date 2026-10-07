@@ -18414,13 +18414,13 @@
     },
     {
       "path": "tests/integration/media-backup-archive.test.ts",
-      "bytes": 36063,
-      "sha256": "732026fc1f86b725a8ed12f4d5838347cd16e35d6bf5be109ecd2ad8fdbae6c5"
+      "bytes": 36575,
+      "sha256": "1c41e78058d7ac6d4b17320808f12ac63c3f1677121f7668cb085e1cc01e2f0f"
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 25570,
-      "sha256": "f1afb2f9fafdf00c2e89636ddf160e6493b4d225d09dc3f98f8127ff58efa8f5"
+      "bytes": 26274,
+      "sha256": "d2a5421c15a0f60c4f51e80c90fcf58365ff6e889a7529c2fb42454096add1ea"
     },
     {
       "path": "tests/integration/media-recovery-handover-producer.ts",
@@ -19814,8 +19814,8 @@
     },
     {
       "path": "tests/worker/avatar-assets.test.ts",
-      "bytes": 22529,
-      "sha256": "a01a966b02cdd1a2be4cc6bdb1f395ed0c041d6ccd91f0b8058941236a9fa8c7"
+      "bytes": 22914,
+      "sha256": "605bdc58b6254f1d4a3b40522911bae03fe0b97aac233649f287b49435683fcc"
     },
     {
       "path": "tests/worker/broker-fixtures/bundle-modules.ts",
@@ -19854,18 +19854,18 @@
     },
     {
       "path": "tests/worker/event-banner-assets.test.ts",
-      "bytes": 11999,
-      "sha256": "bf71edcc649064dc92fdb1cb1728e1d223307a2bd4e863cefb7c52c0b1c022b6"
+      "bytes": 12396,
+      "sha256": "199400f2a7275f10c24e73360e4c535262ea545d4ee9ad1f3fe4ea215a05bce2"
     },
     {
       "path": "tests/worker/event-highlight-assets.test.ts",
-      "bytes": 15729,
-      "sha256": "c7dedc87a43ed2849f33ab7a0908117e11a0eef94aa648f81c1839f39ce46712"
+      "bytes": 16126,
+      "sha256": "0313e4f590dece9a041a99507b42b25039f4f3f1dd6f5a2ac49b26a1bcfc6ebd"
     },
     {
       "path": "tests/worker/event-video-assets.test.ts",
-      "bytes": 11888,
-      "sha256": "679eed3262683d7c1f4767696097d44ff5235397d1e847fe31bbf9d5fbeb4142"
+      "bytes": 12285,
+      "sha256": "a94e406c5aafe27c6d97db4f7f5097e755b8f62b3faede5538523962d0758475"
     },
     {
       "path": "tests/worker/fetch-redirect.test.ts",
@@ -19884,13 +19884,13 @@
     },
     {
       "path": "tests/worker/maintainer-scheduled.test.ts",
-      "bytes": 7063,
-      "sha256": "c945b732d627e5da1a8eea15e3523ae071a9a67ea6d99933284708babfbb0278"
+      "bytes": 7446,
+      "sha256": "c51e493aec7596d1875515164c7a170bf71b56d42b1e2174f8b29e30b9123fa5"
     },
     {
       "path": "tests/worker/media-accepted-formats.test.ts",
-      "bytes": 27294,
-      "sha256": "0ce461f5c65599c8ac31bf308a048af7544d863bd886d9ae3668ddc0fa03f725"
+      "bytes": 27712,
+      "sha256": "0f888491c9fbe84d0b15c7947ea3bb98c67cd49158b40a3b3f3eb972a39af702"
     },
     {
       "path": "tests/worker/media-object-fixtures/io.ts",
@@ -19944,8 +19944,8 @@
     },
     {
       "path": "tests/worker/private-ai-composition.test.ts",
-      "bytes": 14994,
-      "sha256": "71e8a69a1c71d9ba61780c7c50cc38c15fc731a9b1684c59952b11fe268f2a35"
+      "bytes": 15391,
+      "sha256": "67e984eb8df0809071904070df31ac00a8f232a32fd07b589483d9913cf22e6a"
     },
     {
       "path": "tests/worker/private-ai-fixtures/ingest-composition.ts",
@@ -19999,8 +19999,8 @@
     },
     {
       "path": "tests/worker/service-cover-assets.test.ts",
-      "bytes": 11632,
-      "sha256": "663e8324691543ea78f5973dd2f58bd71a828f8c6ad94084a5269393e0b91498"
+      "bytes": 12029,
+      "sha256": "6b95772cf555ebb9a81f7aa8b5a0c2b7940dd1b0a7adb58efaafbe799e83ce92"
     },
     {
       "path": "tests/worker/share-go.test.ts",
@@ -20009,8 +20009,8 @@
     },
     {
       "path": "tests/worker/skill-image-assets.test.ts",
-      "bytes": 18497,
-      "sha256": "32ea7173d860f6cc6b381122329041aa69ab83699228227272edab59dfbf5f5c"
+      "bytes": 18894,
+      "sha256": "99ebac6026a2975747302d1e6a3f3ca78f474f58dff8b79929157454155c4fd8"
     },
     {
       "path": "tests/worker/social-preview-assets.test.ts",
@@ -20019,13 +20019,13 @@
     },
     {
       "path": "tests/worker/social-thumbnail-assets.test.ts",
-      "bytes": 13035,
-      "sha256": "13b93aedad87b82f6bb2af99179cf296fc79df0c4a05a2f7236b28f3e52f7a5c"
+      "bytes": 13432,
+      "sha256": "00523003d4a0a683544fa44388b16ad85da20251373f68e1e337825938751041"
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 22341,
-      "sha256": "97aa529df7877e64b17d1471c27b432384fe3c6402d74eda5c477d97ea092250"
+      "bytes": 22722,
+      "sha256": "12b069b5f57266c2d3d6dd9aa85288a4effe06b9e962eecd0029f2e192b021e5"
     },
     {
       "path": "tsconfig.json",
