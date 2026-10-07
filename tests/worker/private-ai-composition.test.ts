@@ -23,6 +23,10 @@ const database=`fp_worker_ai_${process.pid}_${Date.now()}`,migrator=database+'_o
 const admin=new Pool({connectionString:rawUrl});
 function roleUrl(role:string){const url=new URL(rawUrl!);url.pathname='/'+database;url.username=role;url.password=rolePassword;return url.href;}
 const owner=new Pool({connectionString:roleUrl(migrator)}),app=new Pool({connectionString:roleUrl(runtime)});
+// Pool.end() resolves after removing clients, before their sockets necessarily close.
+// Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+const closedClients:Promise<void>[]=[];
+for(const pool of [owner,app])pool.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
 const sockets=new Set<Socket>(),proxy=socketDirectory?createServer(client=>{const upstream=createConnection(join(socketDirectory!,'.s.PGSQL.5432'));
   for(const socket of [client,upstream]){sockets.add(socket);socket.on('close',()=>sockets.delete(socket));socket.on('error',()=>{client.destroy();upstream.destroy();});}client.pipe(upstream).pipe(client);}):undefined;
 let created=false,mf:Miniflare,directory:string;
@@ -64,7 +68,7 @@ before(async()=>{
     ...['broker-unavailable','state-unavailable','floor-unavailable'].map(name=>({name,modules:true,script:unavailable,compatibilityDate:'2026-09-21'}))]}));await mf.ready;
 });
 after(async()=>{await mf?.dispose();for(const socket of sockets)socket.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));
-  await app.end();await owner.end();try{if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${runtime},${migrator}`);}}finally{await admin.end();}
+  await app.end();await owner.end();await Promise.all(closedClients);try{if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${runtime},${migrator}`);}}finally{await admin.end();}
   if(directory)await rm(directory,{recursive:true,force:true});});
 const call=async(path:string,init?:RequestInit)=>{const requestHeaders=new Headers(init?.headers);requestHeaders.set('Host',new URL(origin).host);if(requestHeaders.has('Origin')){requestHeaders.set('X-Synthetic-Origin',requestHeaders.get('Origin')!);requestHeaders.delete('Origin');}const worker=await mf.getWorker('synthetic-ingress');return worker.fetch(origin+path,{...init,headers:requestHeaders} as never) as unknown as Promise<Response>;};
 const post=(path:string,body:unknown,h:Record<string,string>)=>call(path,{method:'POST',headers:h,body:JSON.stringify(body)});

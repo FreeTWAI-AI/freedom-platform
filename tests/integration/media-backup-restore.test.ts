@@ -43,6 +43,9 @@ const admin=new Pool({connectionString:url.href,max:2});
 const pool=new Pool({connectionString:url.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
 const restoredUrl=new URL(url);restoredUrl.pathname='/'+restoredDatabase;
 const runtime=new Pool({connectionString:runtimeUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:6});
+// Pool.end() resolves after removing clients, before their sockets necessarily close.
+// Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+const closedClients:Promise<void>[]=[];
 let restoredRuntime:Pool|undefined,createdRole=false;
 let restored:Pool|undefined,mf:Miniflare|undefined,createdSchema=false,createdDatabase=false;
 let source:ObjectStore,backup:ObjectStore,destination:ObjectStore,outboundCalls=0;
@@ -50,8 +53,8 @@ before(async()=>{
   await admin.query(`CREATE ROLE ${runtimeRole} LOGIN PASSWORD '${runtimePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);createdRole=true;
   await admin.query(`CREATE SCHEMA ${schema}`);createdSchema=true;await migrate(pool);await grantRuntime(pool);
   await admin.query(`CREATE DATABASE ${restoredDatabase}`);createdDatabase=true;
-  restored=new Pool({connectionString:restoredUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
-  const restoredRuntimeUrl=new URL(runtimeUrl);restoredRuntimeUrl.pathname='/'+restoredDatabase;restoredRuntime=new Pool({connectionString:restoredRuntimeUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
+  restored=new Pool({connectionString:restoredUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});restored.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
+  const restoredRuntimeUrl=new URL(runtimeUrl);restoredRuntimeUrl.pathname='/'+restoredDatabase;restoredRuntime=new Pool({connectionString:restoredRuntimeUrl.href,options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});restoredRuntime.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
   mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'synthetic-media-restore',modules:true,
     script:'export default {fetch(){return new Response(null,{status:503})}}',
     compatibilityDate:'2026-09-21',r2Buckets:['SOURCE','BACKUP','RESTORED','INCOMPLETE'],outboundService:()=>{outboundCalls++;return new Response(null,{status:503});}}]}));
@@ -63,7 +66,7 @@ before(async()=>{
     retired_retention_seconds=1,delete_lease_seconds=30,capture_seconds=60,pin_seconds=60,max_capture_objects=10`);
 });
 after(async()=>{
-  await mf?.dispose();await restoredRuntime?.end();await restored?.end();await runtime.end();await pool.end();
+  await mf?.dispose();await restoredRuntime?.end();await restored?.end();await runtime.end();await pool.end();await Promise.all(closedClients);
   try{if(createdDatabase)await admin.query(`DROP DATABASE ${restoredDatabase} WITH (FORCE)`);
     if(createdSchema)await admin.query(`DROP SCHEMA ${schema} CASCADE`);if(createdRole)await admin.query(`DROP ROLE ${runtimeRole}`);
   }finally{await admin.end();}assert.equal(outboundCalls,0);
@@ -155,13 +158,13 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
   try{await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='ledger_mismatch');}finally{await restored!.query("UPDATE schema_migrations SET sha256=$1 WHERE name='107_operator_event_video_backfill.sql'",[originalHash]);}
   await restored!.query("CREATE FUNCTION fp_unknown_restore_port() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1';REVOKE ALL ON FUNCTION fp_unknown_restore_port() FROM PUBLIC");
   try{await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='function_shape_mismatch');}finally{await restored!.query('DROP FUNCTION fp_unknown_restore_port()');}
-  const currentApp=new Pool({connectionString:runtimeConnection(restoredDatabase),max:1});
+  const currentApp=new Pool({connectionString:runtimeConnection(restoredDatabase),max:1});currentApp.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
   try{await currentApp.query('SELECT 1');await assert.rejects(lockdownRestoredMediaAcl(restored!,aclOptions),(e:any)=>e.code==='runtime_active');}finally{await currentApp.end();}
   assert((await functionPrivileges()).rows.every(r=>r.allowed===true),'Every refused operation rolls back without masking unsafe restored defaults.');
   const locked=await runMediaRestoreAcl([...aclArgs,'--execute-lockdown'],{FREEDOM_MEDIA_DATABASE_URL:restoredUrl.href});assert.equal(locked.exitCode,0,JSON.stringify(locked.report));assert.equal((locked.report as {functionsRevoked:number}).functionsRevoked,24);assert.equal((locked.report as {applicationInstalled:boolean}).applicationInstalled,false);
   assert.equal((await lockdownRestoredMediaAcl(restored!,aclOptions)).functionsRevoked,24,'Lockdown can be safely rerun before installation.');
   await grantRuntime(restored!);const closedFunctions=(await functionPrivileges()).rows;assert.equal(closedFunctions.length,24);assert(closedFunctions.every(r=>r.allowed===false));
-  restoredRuntime=new Pool({connectionString:runtimeConnection(restoredDatabase),options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});
+  restoredRuntime=new Pool({connectionString:runtimeConnection(restoredDatabase),options:`-c search_path=${schema} -c statement_timeout=10000`,max:4});restoredRuntime.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
   await assert.rejects(restoredRuntime!.query("UPDATE domain_media_storage_policy SET persistence_allowed=true"),(e:any)=>e.code==='42501');
   await assert.rejects(restoredRuntime!.query("UPDATE schema_migrations SET sha256=sha256"),(e:any)=>e.code==='42501');
   // Restoring a DB alone also rewinds revocation. Fence all dispatch and apply

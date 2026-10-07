@@ -30,12 +30,16 @@ const compatibilityDate = '2026-09-21';
 
 const server = createPool(serverUrl.href);
 let mf: Miniflare, db: Pool;
+const closedClients: Promise<void>[] = [];
 before(async () => {
   await mkdir(resolve(assetsDir, 'assets'), { recursive: true });
   await writeFile(resolve(assetsDir, 'index.html'), SHELL);
   await writeFile(resolve(assetsDir, 'assets/app.js'), 'console.log("asset")');
   await server.query(`CREATE DATABASE ${database}`);
   db = new Pool({ connectionString: databaseUrl, max: 2 });
+  // Pool.end() resolves after removing clients, before their sockets necessarily close.
+  // Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+  db.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
   await migrate(db); await seedLocal(db);
   mf = new Miniflare(convertV4MiniflareOptions({ workers: [{
     name: 'freedom-platform-workerd-test', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
@@ -48,7 +52,7 @@ before(async () => {
 });
 after(async () => {
   // Each step runs even if workerd failed to start or an earlier step threw.
-  await mf?.dispose().catch(() => undefined); await db?.end().catch(() => undefined);
+  await mf?.dispose().catch(() => undefined); await db?.end().catch(() => undefined); await Promise.all(closedClients);
   try { await server.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`); }
   finally { await server.end(); await rm(assetsDir, { recursive: true, force: true }); }
 });

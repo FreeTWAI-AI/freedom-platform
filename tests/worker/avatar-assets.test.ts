@@ -35,6 +35,7 @@ const origin = 'http://127.0.0.1:8787', compatibilityDate = '2026-09-21';
 const admin = new Pool({ connectionString: serverUrl.href, max: 2 });
 const sockets = new Set<Socket>(), runtimes: Miniflare[] = [];
 let db: Pool, proxy: Server | undefined, created = false, assetsDir: string | undefined;
+const closedClients: Promise<void>[] = [];
 let hyperdriveUrl: string, mf: Miniflare, png: Buffer, otherPng: Buffer;
 let community: string, outboundCalls = 0;
 
@@ -45,7 +46,11 @@ before(async () => {
   assert(!/node_modules\/sharp\/|@img\/sharp-/.test(bundle));
   assert.match(database, /^fp_worker_avatar_[0-9]+_[0-9]+$/);
   await admin.query(`CREATE DATABASE ${database}`); created = true;
-  db = new Pool({ connectionString: databaseUrl.href, max: 6 }); await migrate(db);
+  db = new Pool({ connectionString: databaseUrl.href, max: 6 });
+  // Pool.end() resolves after removing clients, before their sockets necessarily close.
+  // Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+  db.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
+  await migrate(db);
   assetsDir = await mkdtemp(join(tmpdir(), 'fp-worker-avatar-assets-'));
   await writeFile(join(assetsDir, 'index.html'), '<!doctype html><title>Synthetic media fixture</title>');
   const workerDatabase = new URL(databaseUrl);
@@ -107,6 +112,7 @@ after(async () => {
   // the parent disposable PostgreSQL server or someone else's proxy.
   for (const instance of runtimes.splice(0)) await instance.dispose().catch(() => undefined);
   await db?.end().catch(() => undefined);
+  await Promise.all(closedClients);
   try { if (created) await admin.query(`DROP DATABASE ${database} WITH (FORCE)`); }
   finally {
     await admin.end();
