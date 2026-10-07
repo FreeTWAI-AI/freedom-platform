@@ -45,7 +45,7 @@ type Fixture=Awaited<ReturnType<typeof fixture>>;
 
 async function request(path:string,opts:{app?:ReturnType<typeof createApp>;origin?:string;token?:string;session?:string;body?:unknown;key?:string;headers?:Record<string,string>}={}){
  const at=opts.origin??origin,response=await (opts.app??app).request(at+path,{method:opts.body===undefined?'GET':'POST',headers:{
-  ...(opts.token?{Authorization:'Bearer '+opts.token}:{}),...(opts.session?{Cookie:'freedom_local_session='+opts.session,'X-CSRF-Token':'synthetic',Origin:at}:{}),
+  ...(opts.token?{Authorization:'Bearer '+opts.token}:{}),...(opts.session?{Cookie:(at.startsWith('https:')?'__Host-freedom_session=':'freedom_local_session=')+opts.session,'X-CSRF-Token':'synthetic',Origin:at}:{}),
   ...(opts.body===undefined?{}:{'Content-Type':'application/json','Idempotency-Key':opts.key??randomUUID()}),...opts.headers},
   ...(opts.body===undefined?{}:{body:JSON.stringify(opts.body)})});
  const text=await response.text();return {status:response.status,data:JSON.parse(text),text};

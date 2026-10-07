@@ -2,6 +2,8 @@
 
 版本 0.1，target design。`tenant_id` 是存取/可攜責任，不宣稱對客戶或共同作者資料有無限制法律所有權。現行程式還沒有 tenant aggregate；下表區分現存資料與新 target，沒有以文件改變正式資料歸屬。
 
+> 2026-10-07 註：上段是 2026-10-05 的描述，保留不改。之後 P-B1（#164，merge `93e1470b`）以 migration 121 新增 `tenants` 等業務空間資料表，P-C2（#181，merge `57b610ab`）以 migration 123 新增 tenant Work 與人工 Result 的資料表與欄位；部署、啟用與驗收的目前狀態見 [README「目前狀態」](README.md#目前狀態)。
+
 ## 1. 模組邊界與資料目錄
 
 每個實作 PR 必須把實際新增/讀寫的 SQL table、R2 purpose、索引、queue body、通知、cache、模型 trace 對到以下 dataset ID。未知資料集不能進可攜發布，不能由 glob 全表匯出補洞。`W` 是唯一 domain writer，`R` 是經 ACL 的 reader，`X` 是具專門 export 能力的人或 bounded job。tenant 角色不是全欄位/全模組通行證。
