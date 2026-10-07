@@ -1089,8 +1089,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 17013,
-      "sha256": "cf4f405cde8c3efc5e21b84385440281092d200e5ec8ec4de07cd57219aa5e76"
+      "bytes": 18840,
+      "sha256": "098ae9300e69271b3001bebf91039d22d1714dda364bc510f6a905abb0f52d9c"
     },
     {
       "path": "apps/portal-web/src/dragon-theme.css",
@@ -1394,8 +1394,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 37617,
-      "sha256": "be3b2336b83f1166f580077367bac07951c716d32e587497d0b3d501873dd025"
+      "bytes": 38732,
+      "sha256": "465b74372452eee31b34a1979cacb22a148b98035abf177fff9e2f3f3d050213"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
+      "bytes": 1716,
+      "sha256": "8385c49046d46fb3eb5c814a8aedb95183113e04381609c4884b830749d5b5cd"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+      "bytes": 46193,
+      "sha256": "9f9fcd8abb27250fd64fc703c73a6b53b07f7755f93d1b6dafa844c33eabd05e"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -1624,8 +1634,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 33522,
-      "sha256": "b47863943022248a774167c2bca520a022366be7b3ea71d444fb1fd4f2aa6053"
+      "bytes": 33552,
+      "sha256": "29ad36ca7c45b7341a5a9eef30af77efe012fa5d9f1256aba29874d8f7c9af12"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -2126,6 +2136,11 @@
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
       "bytes": 834,
       "sha256": "4aeb0fa021e38f5933ddbf142936eb71630409f9f6b8a9b464a2bcfed49eff5a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/work-result-client.ts",
+      "bytes": 6092,
+      "sha256": "024b100a74bb2b125b3529e6b61e2d275ebc8876c019179c4083c91e20bc3636"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -15829,8 +15844,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 1141,
-      "sha256": "10cf72383a300593b86c0f2980e83d7a2e0e8d24efd521f81e62710cfe5e5d4f"
+      "bytes": 1367,
+      "sha256": "89abf41d2736e5e1879738b367abe87e14f03baf42a84353b5d9a7ea328357b3"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -17838,9 +17853,14 @@
       "sha256": "48912a58397926313cd09cc840427d38aefdf12e08cdbbf211d7c2c804bf13ee"
     },
     {
+      "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
+      "bytes": 37286,
+      "sha256": "75fedcc9ee07247ce3d26ac8831a70478609132d0233b9a501b152704485e15f"
+    },
+    {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 14793,
-      "sha256": "9e426a36c2f4abaf08b2e83a63b376fb88a02b2df139378af2ad048988504b51"
+      "bytes": 14811,
+      "sha256": "178ac1cf91386ef1b9a3b38a4125760783cc242e42ecba596eb3de605d16255f"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
