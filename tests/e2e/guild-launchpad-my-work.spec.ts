@@ -89,6 +89,16 @@ async function postJson(page: Page, path: string, data: unknown, status = 201) {
   expect(response.status(), JSON.stringify(body)).toBe(status);
   return body as Record<string, any>;
 }
+async function patchJson(page: Page, path: string, data: unknown, ifMatch: string, status = 200) {
+  const session = await page.request.get('/api/v1/session');
+  expect(session.ok()).toBeTruthy();
+  const csrf = ((await session.json()) as { csrf_token: string }).csrf_token;
+  const matchHeader = ifMatch.startsWith('"') ? ifMatch : `"${ifMatch}"`;
+  const response = await page.request.patch(`/api/v1${path}`, { data, headers: { Origin: new URL(page.url()).origin, 'X-CSRF-Token': csrf, 'Idempotency-Key': randomUUID(), 'If-Match': matchHeader } });
+  const body = await response.json();
+  expect(response.status(), JSON.stringify(body)).toBe(status);
+  return body as Record<string, any>;
+}
 async function chooseWorkspace(page: Page, tenantName: string, workspaceName: string) {
   const heading = page.getByRole('heading', { level: 3, name: `${tenantName}／${workspaceName}`, exact: true });
   if (await heading.count()) return;
@@ -693,6 +703,242 @@ test('a failed read after create does not make a second Work', async ({ browser,
     const works = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
     const items = ((await works.json()) as { items: { work_id: string; title: string }[] }).items.filter(item => item.title === title);
     expect(items).toHaveLength(1);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a save started in one tenant does not continue after switching tenant', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'tntscope', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const tenantNameA = `空間甲${run}`;
+  const tenantNameB = `空間乙${run}`;
+  const titleA = `工作甲${run}`;
+  try {
+    await postJson(session.page, '/tenants', { display_name: tenantNameA, workspace_name: '預設工作區' });
+    await postJson(session.page, '/tenants', { display_name: tenantNameB, workspace_name: '預設工作區' });
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(titleA);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('測試跨tenant儲存隔離');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: titleA, exact: true })).toBeVisible();
+
+    await session.page.locator('#my-work-note').fill('即將跨空間儲存的筆記');
+
+    await session.page.evaluate(() => {
+      const original = crypto.subtle.digest.bind(crypto.subtle);
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      (window as any).__releaseDigest = () => release();
+      (crypto.subtle as any).digest = async (...args: [AlgorithmIdentifier, BufferSource]) => { await gate; return original(...args); };
+    });
+
+    let uploadRequestsCount = 0;
+    session.page.on('request', request => {
+      if (new URL(request.url()).pathname.endsWith('/results/uploads')) {
+        uploadRequestsCount++;
+      }
+    });
+
+    await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+
+    session.page.once('dialog', dialog => {
+      expect(dialog.message()).toBe(LEAVE);
+      void dialog.accept();
+    });
+    await session.page.getByRole('button', { name: `${tenantNameB}・擁有者`, exact: true }).click();
+    await expect(session.page.getByRole('heading', { level: 3, name: `${tenantNameB}／預設工作區`, exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await session.page.evaluate(() => {
+      (window as any).__releaseDigest();
+    });
+    await session.page.waitForTimeout(1000);
+
+    expect(uploadRequestsCount).toBe(0);
+    await expect(session.page.getByRole('button', { name: titleA, exact: true })).toHaveCount(0);
+    await expect(session.page.locator('.my-work').getByText('已儲存', { exact: false })).toHaveCount(0);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a concurrent edit is not overwritten by stale fields after a save conflict', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'editconflict', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `空間${run}`;
+  const title = `初始工作${run}`;
+  const otherTitle = `其他編輯者標題${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: tenantName, workspace_name: '預設工作區' });
+    const tenantId = made.tenant.tenant_id as string;
+    const workspaceId = made.workspace.workspace_id as string;
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('初始目標');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible();
+
+    const listRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
+    const list = await listRes.json();
+    const workItem = list.items.find((item: any) => item.title === title);
+    expect(workItem).toBeDefined();
+    const workId = workItem.work_id;
+    const v1 = workItem.version;
+
+    await session.page.locator('#my-work-edit-objective').fill('我的未保存修改');
+
+    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle }, v1);
+
+    await session.page.locator('#my-work-note').fill('衝突觸發筆記');
+    await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: '用最新版本再儲存一次', exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await session.page.getByRole('button', { name: '儲存變更', exact: true }).click();
+    await expect(session.page.getByText('這份工作剛剛被更新。', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.getByText(`伺服器的標題：${otherTitle}`, { exact: true })).toBeVisible();
+
+    const checkRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/works/${workId}`);
+    const checkWork = await checkRes.json();
+    expect(checkWork.title).toBe(otherTitle);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a clean edit form follows the newer version after a save conflict', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'editclean', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `空間${run}`;
+  const title = `初始工作${run}`;
+  const otherTitle = `其他編輯者標題${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: tenantName, workspace_name: '預設工作區' });
+    const tenantId = made.tenant.tenant_id as string;
+    const workspaceId = made.workspace.workspace_id as string;
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('初始目標');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title, exact: true })).toBeVisible();
+
+    const listRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
+    const list = await listRes.json();
+    const workItem = list.items.find((item: any) => item.title === title);
+    expect(workItem).toBeDefined();
+    const workId = workItem.work_id;
+    const v1 = workItem.version;
+
+    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle }, v1);
+
+    await session.page.locator('#my-work-note').fill('衝突觸發筆記');
+    await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: '用最新版本再儲存一次', exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await expect(session.page.locator('#my-work-edit-title')).toHaveValue(otherTitle);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('create and edit drafts ask before leaving and do not follow into another tenant', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'draftguard', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const tenantNameA = `空間甲${run}`;
+  const tenantNameB = `空間乙${run}`;
+  const draftTitle = `機密新標題${run}`;
+  const draftObjective = `機密新目標${run}`;
+  const workTitle1 = `工作壹${run}`;
+  const workTitle2 = `工作貳${run}`;
+  try {
+    await postJson(session.page, '/tenants', { display_name: tenantNameA, workspace_name: '預設工作區' });
+    await postJson(session.page, '/tenants', { display_name: tenantNameB, workspace_name: '預設工作區' });
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+
+    await session.page.getByRole('button', { name: `${tenantNameB}・擁有者`, exact: true }).click();
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    await session.page.getByRole('button', { name: `${tenantNameA}・擁有者`, exact: true }).click();
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    await session.page.locator('#my-work-title').fill(draftTitle);
+    await session.page.locator('#my-work-objective').fill(draftObjective);
+
+    session.page.once('dialog', dialog => {
+      expect(dialog.message()).toBe(LEAVE);
+      void dialog.dismiss();
+    });
+    await session.page.getByRole('button', { name: `${tenantNameB}・擁有者`, exact: true }).click();
+    await expect(session.page.getByRole('heading', { level: 3, name: `${tenantNameA}／預設工作區`, exact: true })).toBeVisible();
+    await expect(session.page.locator('#my-work-title')).toHaveValue(draftTitle);
+    await expect(session.page.locator('#my-work-objective')).toHaveValue(draftObjective);
+
+    session.page.once('dialog', dialog => {
+      expect(dialog.message()).toBe(LEAVE);
+      void dialog.accept();
+    });
+    await session.page.getByRole('button', { name: `${tenantNameB}・擁有者`, exact: true }).click();
+    await expect(session.page.getByRole('heading', { level: 3, name: `${tenantNameB}／預設工作區`, exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(session.page.locator('#my-work-title')).toHaveValue('');
+    await expect(session.page.locator('#my-work-objective')).toHaveValue('');
+
+    await session.page.getByRole('button', { name: `${tenantNameA}・擁有者`, exact: true }).click();
+    await expect(session.page.getByRole('heading', { level: 3, name: `${tenantNameA}／預設工作區`, exact: true })).toBeVisible({ timeout: 20_000 });
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(workTitle1);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('目標一');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: workTitle1, exact: true })).toBeVisible();
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(workTitle2);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('目標二');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: workTitle2, exact: true })).toBeVisible();
+
+    await session.page.getByRole('button', { name: workTitle1, exact: true }).click();
+    await expect(session.page.locator('#my-work-edit-title')).toHaveValue(workTitle1);
+    const editedObjective = '未保存的目標編輯';
+    await session.page.locator('#my-work-edit-objective').fill(editedObjective);
+
+    session.page.once('dialog', dialog => {
+      expect(dialog.message()).toBe(LEAVE);
+      void dialog.dismiss();
+    });
+    await session.page.getByRole('button', { name: workTitle2, exact: true }).click();
+    await expect(session.page.locator('#my-work-edit-objective')).toHaveValue(editedObjective);
   } finally {
     await session.context.close();
     await cleanup(e2eAuthPool, member.userId);
