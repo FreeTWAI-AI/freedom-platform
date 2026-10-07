@@ -6,6 +6,8 @@
 
 目前實際 authoring 在 `contracts/common/v1/identity.ts`、`contracts/preview/v1/definition.mjs` 及 domain 的既有 Zod schema。執行時的 `ResourceScopeRef` 只可解析 personal/community；service/site wire shape 只是預留。`tenant`、外部 module service、tenant Work、inventory port 均為**新增/擴充提案**，不得把 schema parsing 當可用權限。
 
+> 2026-10-07 註：上段是 2026-10-05 的描述，保留不改。之後 P-B1（#164，merge `93e1470b`）把 `ResourceScopeRef` 的 kind 擴充為含 `tenant`，並新增 tenant scope 的解析；P-C2（#181，merge `57b610ab`）新增 tenant Work。部署、啟用與驗收的目前狀態見 [README「目前狀態」](README.md#目前狀態)。
+
 後续實作先在既有契約責任下新增一個有明確版本的 tenant/module authoring entry（實際路徑由該 domain PR 選定並登記 descriptor），由它生成 JSON Schema、OpenAPI、SDK types/validators/vectors。不得手改 generated files，不另發一套 demo DTO。`docs/platform-plan/contracts/` 的 scaffold 不得直接成為 production pin；本文件亦不得當任意 consumer 的執行信任根。
 
 舊 preview v1、member command receipt/digest、`fw_read_` GET-only、shop key、personal Work/Asset 不原地擴權。新 profile 以版本協商加入；舊 read adapter 可保留，缺少新 tenant/epoch 必要語意的舊 write 明確回 upgrade-required。Guild/tenant/module target shape 在規格先對齊，schema freeze/materialization 才由共同 owner 更新 canonical bytes。
