@@ -19,13 +19,13 @@
     },
     {
       "path": ".github/workflows/trusted-consumer-libraries.yml",
-      "bytes": 2523,
-      "sha256": "0e780c58833bf5db26675d61a9288ec5340898adca254d17098cb4507b71d0eb"
+      "bytes": 2816,
+      "sha256": "f99dd5f238b39a25f095d01a8cb1fc50658cbb974099574ad8faf25f2f487862"
     },
     {
       "path": ".github/workflows/trusted-consumer-runtime.yml",
-      "bytes": 3204,
-      "sha256": "17fd17d035de87aa9ca2111df75bee36dca40c4dbd2c1f6429b0f18e283720fc"
+      "bytes": 3497,
+      "sha256": "7a3fd1008284a7cbeff2fa22cf4024e5bfec9bf6d9794be3e06e792af5fac668"
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -54,8 +54,8 @@
     },
     {
       "path": "CONTRIBUTING.md",
-      "bytes": 3582,
-      "sha256": "900826f44255258a13dc659da14916d4677edd7c5ef8261fa63e0976c33d7b1c"
+      "bytes": 3739,
+      "sha256": "016fa05c575a365c9b0c7ae7cf8998602b698ff953ee6cbd65f0be071f02ec66"
     },
     {
       "path": "DESIGN.md",
@@ -16789,8 +16789,8 @@
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.md",
-      "bytes": 10452,
-      "sha256": "485ecb93400c9b273a620ab939bd8bb9856be45de656c8c29138a5ae1ecb633c"
+      "bytes": 10734,
+      "sha256": "0dd918e60660d96cfb0987c7cb1136880fe94732a888b9a0d61f62329a6ab8c2"
     },
     {
       "path": "packages/contribution-tools/github-consumer-host.mjs",
@@ -17009,8 +17009,8 @@
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-host.test.mjs",
-      "bytes": 15574,
-      "sha256": "5af0e03c444b341c4a8698d89a0f8c3574c90d34d672e0775ecddbd8b3663bd9"
+      "bytes": 17563,
+      "sha256": "370b077956022c186bccaa762e3e167605732ef0cd1199d810a0c5b503cc8602"
     },
     {
       "path": "packages/contribution-tools/test/github-consumer-profiles.test.mjs",
