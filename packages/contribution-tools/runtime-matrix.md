@@ -4,7 +4,6 @@ Six separate CI hosts can each run one deterministic partition against their own
 
 ```sh
 node scripts/runtime-full.mjs --partition-count 6 --partition-index 0 --output .freedom/reports/runtime-partition-0.json
-node scripts/runtime-aggregate.mjs --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
 node scripts/runtime-aggregate.mjs --partition-count 6 --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
 ```
 

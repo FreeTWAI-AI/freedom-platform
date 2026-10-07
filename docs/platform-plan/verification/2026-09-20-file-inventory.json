@@ -12584,8 +12584,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 16597,
-      "sha256": "2fcf5d731ab0f891ee4027ce1cf9b0235d1b87a1da08ae87b0f9d5252bbfb988"
+      "bytes": 16710,
+      "sha256": "7ab3b510f47e5c8610d080c4a6f7c889e10858409591994bdfe51c1b4e01656a"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -16599,8 +16599,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 4663,
-      "sha256": "f653f34ac500dc6d073928a2ec9d4ebbf2068e765cbdbf7016ec171d4997f8cc"
+      "bytes": 4529,
+      "sha256": "3b46092c6613a4d5ce8ca8bade8e6f9e4da043ab8ca22b4efcbdc4955f8dc3fc"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -16784,8 +16784,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
-      "bytes": 5248,
-      "sha256": "56256b208302e1a654c0f6d390c36675e3f6476332039851d7ee68d29001b449"
+      "bytes": 5469,
+      "sha256": "5c182a62c80242ceae93881fdab3cdb945ef57e3eb278fdc6519858831b92e25"
     },
     {
       "path": "packages/contribution-tools/test/runtime-weights.test.mjs",

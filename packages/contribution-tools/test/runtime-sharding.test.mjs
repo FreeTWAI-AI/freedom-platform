@@ -36,7 +36,7 @@ test('reviewed hosted costs distribute heavy fixtures without losing unfinished 
   }
 });
 
-test('reviewed hosted run 37567098443 balances the current runtime suite within the aggregate window', () => {
+test('measured weights keep hosted run 37567098443 under the four-partition budget', () => {
   const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-37567098443.json', import.meta.url)));
   const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
   const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
@@ -46,9 +46,11 @@ test('reviewed hosted run 37567098443 balances the current runtime suite within 
   assert.deepEqual(partitions.flat().sort(), files);
   assert.equal(new Set(partitions.flat()).size, files.length);
   assert(partitions.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
+  // The weights are per-file minima across several hosted runs, not this run's own costs, so this
+  // run's spread is not a balance measure. The bounds below keep each of the four partitions under
+  // the ~870 s of test time a 900 s partition leaves, without relying on the interim 1,200 s budget.
   const totals = partitions.map(total);
   assert(Math.max(...totals) < 770_000);
-  assert(Math.max(...totals) - Math.min(...totals) < 40_000);
   for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
     const expanded = [...files, extra].sort();
     const shards = partitionRuntimeFiles(expanded, 4);

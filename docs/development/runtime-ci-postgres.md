@@ -123,11 +123,13 @@ while the whole-run aggregate window is 1,800 s. The selector distributes files
 by static, rounded scheduling weights. Weights are the per-file minimum of
 completed-file progress deltas across hosted runs 37555767674, 37557794766,
 37559364439 and 37567098443 (2026-10-07), rounded up to whole seconds.
-Unmeasured files get the 10-second default. The earlier fixture from run
-37450880442 (210 completed-file deltas, two unfinished files recorded as null)
-remains a regression test. The local default stays four, with local shard counts
-1, 2 and 4. Within-partition source order and the exact full manifest/file/case
-union remain required. No test is removed, skipped or split.
+Unmeasured files get the 10-second default. Two single-run fixtures remain
+regression tests: PR 117 run 37249458229 (210 completed-file deltas, two
+unfinished files recorded as null) and main run 37567098443 (247 files), whose
+four-partition maximum must stay under 770 s with these weights. The local
+default stays four, with local shard counts 1, 2 and 4. Within-partition source
+order and the exact full manifest/file/case union remain required. No test is
+removed, skipped or split.
 
 PR 117's PostgreSQL log also reports that three selected termination PIDs were
 no longer backends during cleanup. A real PostgreSQL regression reproduces the
