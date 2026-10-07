@@ -28,11 +28,12 @@ export async function runDailyBackupCli(args: string[]) {
     const values: Record<string, string> = {};
     for (let index = 0; index < args.length; index += 2) {
       const key = args[index]?.replace(/^--/, '');
-      if (!args[index]?.startsWith('--') || !allowed.includes(key) || Object.hasOwn(values, key)
+      if (!args[index]?.startsWith('--') || !(allowed.includes(key) || key === 'gc-safety') || Object.hasOwn(values, key)
         || !args[index + 1] || args[index + 1].startsWith('--')) invalid();
       values[key] = args[index + 1];
     }
-    if (Object.keys(values).length !== allowed.length || !['production', 'staging'].includes(values.environment)
+    if (!allowed.every(key => Object.hasOwn(values, key)) || !['production', 'staging'].includes(values.environment)
+      || !(values['gc-safety'] === undefined || ['disabled', 'snapshot-pins'].includes(values['gc-safety']))
       || ![values.database, values.schema].every(v => /^[a-z_][a-z0-9_]{0,62}$/.test(v))
       || ![values.release, values['operator-source']].every(v => /^[a-f0-9]{40}$/.test(v))
       || !/^[a-f0-9]{64}$/.test(values['adapter-sha256']) || !isAbsolute(values.adapter)) invalid();
@@ -54,10 +55,11 @@ export async function runDailyBackupCli(args: string[]) {
     runDirectory = join(values['state-dir'], setId); await mkdir(runDirectory, { mode: 0o700 });
     const context: DailyBackupContext = Object.freeze({ environment: values.environment as 'production' | 'staging',
       database: values.database, schema: values.schema, sourceRelease: values.release, operatorSource: values['operator-source'],
-      setId, createdAt, runDirectory, signal: controller.signal });
+      setId, createdAt, runDirectory, signal: controller.signal,
+      ...(values['gc-safety'] === undefined ? {} : { gcSafety: values['gc-safety'] as 'disabled' | 'snapshot-pins' }) });
     const identity = { format: 'freedom.daily-recovery-run/v1', environment: context.environment, database: context.database,
       schema: context.schema, sourceRelease: context.sourceRelease, operatorSource: context.operatorSource,
-      adapterSha256: values['adapter-sha256'], setId, createdAt };
+      adapterSha256: values['adapter-sha256'], gcSafety: context.gcSafety ?? 'disabled', setId, createdAt };
     await record(join(runDirectory, 'started.json'), identity);
     const abort = () => controller.abort();
     process.once('SIGINT', abort); process.once('SIGTERM', abort);

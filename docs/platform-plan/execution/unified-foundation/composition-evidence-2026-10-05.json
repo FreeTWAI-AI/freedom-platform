@@ -1,0 +1,129 @@
+{
+  "format": "freedom.foundation-composition-evidence/v1",
+  "library_producer": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+  "kit_candidate": "ff273fce3b65f7ebda3e6f0918d58e8ede2520ca",
+  "runtime_source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+  "browser_source": "de4bbee05baa893314f44839f82b75aad7f43cd9",
+  "composition": [
+    "receipt deadline",
+    "social R2 writer fence and schema116",
+    "bounded context chunks",
+    "device SDK and canonical command",
+    "explicit source profiles and real Kit CLI host",
+    "directory semantic profile",
+    "retention unknown-reference refusal",
+    "daily snapshot pins",
+    "native boundary and preclaim clock",
+    "shop key expiry",
+    "portal business extraction at browser source only"
+  ],
+  "executed": [
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-governance.log",
+      "log_sha256": "7f869127e55970d99c867aab9319f43e9763c7baa536e2319fca711f5ec0be99",
+      "passed": 379,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "local Node governance"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-runtime.log",
+      "log_sha256": "dea9245e243dbac0dfd79fa0b3ba2ca91235f5cd53631b35f0921c7a0c285a08",
+      "passed": 151,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "real mounted HTTP/owned PostgreSQL18/native sandbox synthetic fixtures"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-archive.log",
+      "log_sha256": "e78c729069439ad42315a783b149d239bb61cced35888c54ef7f805df7f2544e",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "owned PostgreSQL/native local R2 archive"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-restore.log",
+      "log_sha256": "ab4467e5de286386985baee9a93dffc28d17d7481eeb7819e4625fc70d1801a7",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "complete seven-purpose PostgreSQL/native local R2 restore"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-directory-semantics.log",
+      "log_sha256": "102bb3242df1844e9a42f103fc6e7279e9b4c0584c343792f9fe7e15853ea282",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "real bounded HTML parser semantics"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-kit-runtime-ready.log",
+      "log_sha256": "99bed4e91a2beffc521d2d14632f57ac19fbe2e852d9599288a59d2d0f716eaa",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "actual Kit CLI in isolated Docker with synthetic transport"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-directory-runtime-ready.log",
+      "log_sha256": "33e4ee39f17c3b976e8ec7c7241a9b6335d388ba14f1e111c892d6150416d114",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "actual directory builds in isolated Docker"
+    },
+    {
+      "source": "697a995dc8f9ff15c77af62e3146d0721e67b550",
+      "log": "composed-backup-evidence-ready.log",
+      "log_sha256": "eba02a2aabed6f54df7721ce663fcce8d0bb530e697f981e45c8da4f3921c38c",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "owned PostgreSQL schema evidence"
+    },
+    {
+      "source": "de4bbee05baa893314f44839f82b75aad7f43cd9",
+      "log": "composed-browser.log",
+      "log_sha256": "52a253a17d54c839e46822bf865c76295e6ee08b8613e15d24c4a829b69e9765",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "tier": "real Chromium, local synthetic member API and owned PostgreSQL18"
+    }
+  ],
+  "additional_validation": [
+    "typecheck and native-text generated schema passed at697a995d",
+    "Browser source adds only portal extraction/descriptor/README to runtime source; its build and13browser checks passed. These are exact separate source observations, not a claim all suites ran at the later documentation head."
+  ],
+  "initial_attempts": [
+    {
+      "kind": "fixture setup rejected",
+      "logs": [
+        "composed-kit-runtime.log",
+        "composed-directory-runtime.log"
+      ],
+      "cause": "Source clone used Git alternates (--shared); fixed host correctly refused host_git_graph_override before any candidate execution. Replaced it with a complete --no-hardlinks clone; all25 cases then passed. No guard was weakened."
+    },
+    {
+      "kind": "missing explicit disposable DB",
+      "log": "composed-preflight-backup.log",
+      "result": "102 CI/release/daily/retention cases passed; media-backup-evidence file refused setup without TEST_DATABASE_URL. Reran its4 cases through owned PG launcher; all passed."
+    }
+  ],
+  "limitations": [
+    "Local operator-observed evidence, not independent hosted publisher approval.",
+    "No new cloud deployment, installed workflow pin, feature activation, GC or retention executor.",
+    "No complete actual owner native inference, full machine Grant/Attempt/private Result, packaged handoff or second-operator recovery.",
+    "FC-07 remains incomplete; ordinary browser journeys are not the full Asset/R2 controlled target flow.",
+    "Original row acceptances are stated in requirement-evidence.json by their own minimum tiers; test totals do not close the sprint."
+  ]
+}

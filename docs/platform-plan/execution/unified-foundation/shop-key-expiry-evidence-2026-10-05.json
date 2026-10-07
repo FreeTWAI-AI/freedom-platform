@@ -1,0 +1,112 @@
+{
+  "format": "freedom.closeout-local-evidence/v1",
+  "packet": "A2a-shop-key-expiry",
+  "recorded_at": "2026-10-05T22:00:58.873007+00:00",
+  "source_base": "44435955dbe7ae2f854fbb47daf3ec1f50fc5fba",
+  "candidate": "fb15140b1857686b42a929927f452a4bddcc61bc",
+  "branch": "fix/foundation-shop-key-expiry-20261005",
+  "files": {
+    "modules/agent-commerce/orders.ts": "90a5fa951c102bb494e0048bed881bfb769beb26fc1464fdbdcc1315587f4700",
+    "tests/runtime/agent-commerce-key-expiry.test.ts": "b6d8060d1e97b9857c587f72a8b3ee1a0564678288108b4174c77af4a446b64f"
+  },
+  "environment": {
+    "kind": "local-isolated-HTTP-and-PostgreSQL",
+    "database": "fp_shop_key_expiry",
+    "image": "postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd",
+    "transport": "private Unix socket; Docker network none; no published ports",
+    "fixtures": "random fp_* schema; synthetic member/shop/order/token; no application DB fallback",
+    "cleanup": "test pool/schema dropped; launcher exit 0 after identity-checked container and owned socket cleanup"
+  },
+  "executed": [
+    {
+      "command": "Owned network-none PostgreSQL18 launcher: new regression test only",
+      "source": "base 44435955 plus exact new regression test (same test bytes as candidate)",
+      "result": {
+        "tests": 10,
+        "pass": 4,
+        "fail": 6,
+        "skipped": 0,
+        "exit_code": 1
+      },
+      "artifact": "repro-before.tap",
+      "artifact_sha256": "9975436e41c188ed6de63cdd81e5b8f6dde52a93115d7136ce9e131879023eac",
+      "failure": "All six elapsed-key cases returned 200 rather than expected 401; four valid controls passed."
+    },
+    {
+      "command": "Owned network-none PostgreSQL18 launcher: new regression and existing agent-commerce suites",
+      "source": "candidate tracked bytes, subsequently committed unchanged as fb15140b1857686b42a929927f452a4bddcc61bc",
+      "result": {
+        "tests": 23,
+        "pass": 23,
+        "fail": 0,
+        "skipped": 0,
+        "exit_code": 0
+      },
+      "artifact": "fix-after.tap",
+      "artifact_sha256": "640b7d8629a838a97f18d464ffa6fb6b3dfc8bbc7511cb39c25d6993d8e4bd8c",
+      "files": [
+        "tests/runtime/agent-commerce-key-expiry.test.ts",
+        "tests/runtime/agent-commerce.test.ts"
+      ]
+    },
+    {
+      "command": "npm run typecheck",
+      "source": "candidate bytes",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "source": "candidate bytes",
+      "exit_code": 0
+    }
+  ],
+  "barriers": [
+    "owner row FOR UPDATE",
+    "shop key row FOR UPDATE",
+    "actual commerce-orders/community advisory lock",
+    "commerce_orders SHARE table lock after real commerce_items reservation decrement; pg_locks proves domain write phase"
+  ],
+  "new_case_coverage": [
+    "valid/expired pair at each of four barriers",
+    "successful cancellation replay with valid key retains response",
+    "expired successful cancellation replay denied without new effects",
+    "expired connection read denied",
+    "expired domain-write callback rolls back order and reservation; original request digest/payment events unchanged"
+  ],
+  "mechanism": "Same existing transaction and held owner/key share locks. Initial credential lookup and rechecks after community wait and after domain callback use DB clock_timestamp(), exact shop/hash and current revoke. No token format, operation, receipt key, request digest, commerce mode, order/payment behavior or migration change.",
+  "model_review": {
+    "requested_model": "grok-4.7",
+    "reported_model": "grok-4.7-build",
+    "session_id": "01a10e0f-700b-7d20-a168-a244eb47b054",
+    "stop_reason": "end_turn",
+    "turns": 4,
+    "result": "completed static review: no material blocker",
+    "review": "patch-review.review.txt",
+    "scope": [
+      "modules/agent-commerce/orders.ts",
+      "tests/runtime/agent-commerce-key-expiry.test.ts",
+      "packages/db/command-core.ts"
+    ],
+    "limits": "No model-executed tests; transaction.ts not read by model. Codex independently read existing transaction implementation and executed the isolated tests."
+  },
+  "context": {
+    "prepare_result": "context_size_limit",
+    "manual_rules": "Relevant root/package/spec instructions read; no assertion full generated context succeeded."
+  },
+  "requirements": {
+    "gate": "FC-01",
+    "supporting_rows": [
+      "UF:INT-04",
+      "GOV-25"
+    ],
+    "acceptance": "No original service/site requirement promoted to accepted; this closes a confirmed legacy shop bearer deadline regression only."
+  },
+  "limitations": [
+    "No real site/service common principal or scope implemented by A2a.",
+    "No key purpose/issuer/audience/environment binding or legacy key exit implemented by this patch; A2 design remains separate.",
+    "Pre-commit authorization decision; not a claim the key remains valid through commit/response delivery.",
+    "Local evidence only; no hosted CI, deployment, production DB, secret discovery, live key change, provider call or money operation."
+  ],
+  "launcher_sha256": "889182080e9103293c974e625899dfa5852f83a1450451f780b2dea20685eae9",
+  "publication": "Sanitized operator-observed local test receipt; raw logs and launcher remain private."
+}

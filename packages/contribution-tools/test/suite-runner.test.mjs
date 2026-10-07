@@ -169,6 +169,37 @@ test('parent',{timeout:20},async t=>{await t.test('pending',()=>new Promise(reso
   assert.equal(result.test_files[0].cases.filter(item => item.status === 'cancelled').length, 3);
 });
 
+test('e2e harness adapter selects only its fixed baseline and drops the database URL', async t => {
+  const root = await fixtureRoot(t);
+  await put(root, 'scripts/run-e2e.test.mjs', `import {test} from 'node:test'; import assert from 'node:assert/strict';
+test('clean', () => { for (const name of ['TEST_DATABASE_URL','NODE_OPTIONS','GITHUB_TOKEN','DATABASE_URL','PGPASSWORD']) assert.equal(process.env[name], undefined); });`);
+  await put(root, 'scripts/other.test.mjs', simple);
+  await put(root, 'package.json', JSON.stringify({ scripts: { pretest: 'exit 99', test: 'exit 99' } }));
+  const result = await runLocalSuite(root, 'e2e.harness', runtimeOptions);
+  assert.equal(result.status, 'passed');
+  assert.equal(result.test_count, 1);
+  assert.deepEqual(result.selected_files, ['scripts/run-e2e.test.mjs']);
+  assert(!JSON.stringify(result).includes(database));
+});
+
+test('e2e harness missing baseline does not pass', async t => {
+  const root = await fixtureRoot(t);
+  const missing = await runLocalSuite(root, 'e2e.harness');
+  assert.notEqual(missing.status, 'passed');
+  assert.equal(missing.reason, 'suite_files_unavailable');
+});
+
+test('e2e harness zero-test and skipped runs do not pass', async t => {
+  const root = await fixtureRoot(t);
+  await put(root, 'scripts/run-e2e.test.mjs', '');
+  const empty = await runLocalSuite(root, 'e2e.harness');
+  assert.equal(empty.status, 'failed');
+  await put(root, 'scripts/run-e2e.test.mjs', "import {test} from 'node:test'; test.skip('not_run', () => {});");
+  const skipped = await runLocalSuite(root, 'e2e.harness');
+  assert.equal(skipped.status, 'failed');
+  assert.notEqual(skipped.test_count, skipped.test_files?.[0]?.counts?.passed);
+});
+
 test('inconsistent Node abort file/global counts fail closed instead of inventing totals', async t => {
   const root = await runtimeFixture(t, 'runtime.command-core', `import {test} from 'node:test';
 test('aborted',{signal:AbortSignal.abort()},()=>{});`);

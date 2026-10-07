@@ -12,7 +12,7 @@ import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
 
 const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_agent_commerce_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
-const app=createApp(pool,origin);
+const app=createApp(pool,origin,'local',{shopKeyPolicy:'legacy-compatible'});
 type Session={cookie:string;csrf:string};
 before(async()=>{await admin.query(`CREATE SCHEMA ${schema}`);await migrate(pool);});
 after(async()=>{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});

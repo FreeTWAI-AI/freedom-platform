@@ -6,7 +6,7 @@ import { readBounded, parseJson, sha256, artifactPath, uniquePaths } from './io.
 import { validateFormat } from './formats.mjs';
 import { requireCondition as check } from './errors.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { CONSUMER_LIBRARIES, LIBRARY_LOCK, LIBRARY_PREFIX, sourceGit, verifyConsumerLibraries } from './consumer-libraries.mjs';
+import { CONSUMER_LIBRARIES, LEGACY_LIBRARY_PROFILE, consumerLibraryProfile, LIBRARY_LOCK, LIBRARY_PREFIX, sourceGit, verifyConsumerLibraries } from './consumer-libraries.mjs';
 
 export const PORTABLE_TOOL_FILES = [
   ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
@@ -57,6 +57,7 @@ export async function exportConsumerLibraries(destinations, {
   for (const destination of destinations) {
     const target = resolve(destination.root), repository = destination.repository;
     check(Object.hasOwn(CONSUMER_LIBRARIES, repository) && !names.has(repository), 'unsupported_library_consumer');
+    const profile = consumerLibraryProfile(repository, destination.expectedLibraryProfile);
     names.add(repository);
     for (const previous of roots) for (const [parent, child] of [[previous, target], [target, previous]]) {
       const rel = relative(parent, child);
@@ -71,8 +72,12 @@ export async function exportConsumerLibraries(destinations, {
     check(pinned && sourceGit(target, ['rev-parse', 'HEAD']).toString().trim() === consumerCommit, 'consumer_base_mismatch');
     check(sourceGit(target, ['status', '--porcelain', '--untracked-files=all']).length === 0, 'consumer_worktree_dirty');
     if (upgrade) {
-      // The caller selects both old pins. Never derive authorization from the candidate lock.
-      await verifyConsumerLibraries(target, { repository, expectedSourceCommit: upgrade.sourceCommit, sourceRoot: root });
+      // The caller selects the previous profile and both pins. Never use the lock as authority.
+      const previousProfile = consumerLibraryProfile(repository, upgrade.expectedLibraryProfile);
+      await verifyConsumerLibraries(target, { repository, expectedSourceCommit: upgrade.sourceCommit,
+        expectedLibraryProfile: previousProfile.id, sourceRoot: root });
+      // This exporter adds/updates exact artifacts; it does not silently leave retired files.
+      check(previousProfile.paths.every(path => profile.paths.includes(path)), 'library_profile_removal_unsupported');
       // Refuse to overwrite locally maintained changes to previously exported tooling too.
       for (const { source, target: path } of libraryToolMappings) {
         check((await readBounded(target, path)).equals(sourceGit(root, ['show', `${upgrade.sourceCommit}:${source}`])),
@@ -85,17 +90,19 @@ export async function exportConsumerLibraries(destinations, {
       check(!previous, 'explicit_library_upgrade_required');
     }
     const files = [], output = [];
-    for (const source_path of CONSUMER_LIBRARIES[repository]) {
+    for (const source_path of profile.paths) {
       const bytes = await committed(source_path), path = LIBRARY_PREFIX + source_path;
       files.push({ source_path, path, sha256: sha256(bytes), bytes: bytes.length });
       output.push({ path, bytes });
     }
+    for (const { source, target: path } of profile.entrypoints ?? []) output.push({ path, bytes: await committed(source) });
     for (const { source, target: path } of libraryToolMappings) output.push({ path, bytes: await committed(source) });
     output.push({ path: LIBRARY_LOCK, bytes: Buffer.from(JSON.stringify({
-      format: 'freedom.consumer-libraries/v1', repository, consumer_base_commit: consumerCommit,
+      format: profile.format, ...(profile.id === LEGACY_LIBRARY_PROFILE ? {} : { profile: profile.id }),
+      repository, consumer_base_commit: consumerCommit,
       source_repository: 'FreeTWAI-AI/freedom-platform', source_commit: commit, files,
     }, null, 2) + '\n') });
-    prepared.push({ target, repository, consumerCommit, output });
+    prepared.push({ target, repository, profile, consumerCommit, output });
   }
   // Preflight the entire batch before the first write. Locks are always written last.
   for (const { target, output } of prepared) for (const file of output) await checkDestination(target, file.path);
@@ -109,7 +116,8 @@ export async function exportConsumerLibraries(destinations, {
     await checkDestination(target, file.path);
     await writeFile(resolve(target, file.path), file.bytes);
   }
-  return { source_commit: commit, consumers: prepared.map(({ repository, output }) => ({ repository, files_exported: output.length })),
+  return { source_commit: commit, consumers: prepared.map(({ repository, profile, output }) => ({
+    repository, library_profile: profile.id, files_exported: output.length })),
     verification: 'export_only', library_usage: 'not_checked', publisher_trust: 'unverified' };
 }
 

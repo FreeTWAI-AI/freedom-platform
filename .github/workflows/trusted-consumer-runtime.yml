@@ -12,8 +12,7 @@ jobs:
     if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      FREEDOM_LIBRARY_SOURCE_SHA: 91b943ac61e132fbbce72ea066cb2301aa065600
+    # Source/profile tuples are fixed by the reviewed host source, per repository.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -40,7 +39,13 @@ jobs:
       - name: Install fixed directory source manifest dependency
         if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
         run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
-      # No npm install, candidate imports, uploaded reports or private registry.
+      - name: Install fixed host-only directory HTML parser
+        if: ${{ github.repository == 'FreeTWAI-AI/FreeTWAI-AI.github.io' }}
+        run: |
+          empty_npm_config=$(mktemp)
+          npm ci --prefix "$GITHUB_WORKSPACE/trusted-source/packages/contribution-tools/directory-html-host" --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org --userconfig /dev/null --globalconfig "$empty_npm_config"
+          rm "$empty_npm_config"
+      # No candidate dependency install/import, uploaded reports or private registry.
       # Explicit anonymous pull of the fixed public amd64 manifest; validate
       # manifest/config/rootfs and exact official Node binary before execution.
       - name: Prepare fixed consumer runtime recipe

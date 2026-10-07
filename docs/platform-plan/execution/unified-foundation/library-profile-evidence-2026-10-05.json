@@ -1,0 +1,143 @@
+{
+  "task": "C3 explicit versioned consumer library profiles",
+  "base_source": "bf46d831ee0382c7e6370000a32e95025a7003db",
+  "candidate_commit": "bb046a36afb3d12eb5e8c40289f3edc7641af8b4",
+  "scope": "Local source/exporter/host code only; no installed workflow or ruleset mutation",
+  "requirements": {
+    "source": "docs/platform-plan/execution/unified-foundation/acceptance.md",
+    "FC-04/FC-05": "Local source-profile upgrade mechanics and host trust prerequisite, no row acceptance claimed",
+    "GOV-01": "New-profile vendor byte+digest forgery rejected locally. Original specific DTO/local+trusted-CI requirement not newly completed by these synthetic library cases.",
+    "GOV-03": "No actual build-resolution evidence in this packet; source profile file-set check is not build resolution.",
+    "GOV-04": "Actual library invocation/import bypass remains not_checked; source byte match is not the required AST/build behavior.",
+    "GOV-18": "Legacy library distribution profile remains supported in local source tests; mixed-client runtime/unsupported-operation rejection still separate.",
+    "GOV-02/GOV-17": "No new trusted-publisher/CI or real GitHub candidate evidence in this packet."
+  },
+  "files": {
+    "packages/contribution-tools/consumer-libraries.mjs": "663a4d5ac0570ecb3594a9e0d4b450a30873f9de4891247893d95a627ec9085d",
+    "packages/contribution-tools/export.mjs": "c8e256e2381d459dc8ce950dd5372230f71da1d691dc8c36cb439f67a1d61ee0",
+    "packages/contribution-tools/github-consumer-host.md": "485ecb93400c9b273a620ab939bd8bb9856be45de656c8c29138a5ae1ecb633c",
+    "packages/contribution-tools/github-consumer-host.mjs": "1b6fdd5c98344c9a1166d5b463f8ef752a93b00cc5ba7e3beec68c5b13173b68",
+    "packages/contribution-tools/github-consumer-runtime-host.mjs": "2b782df5040cb4c270544a9afbaa538990e847fe2dee66cd664832d39bfe86ca",
+    "packages/contribution-tools/test/consumer-libraries.test.mjs": "2bc7552277da28914b56e0dfb17f1e46189d21ca042e2f3facd8e2b710217a3e",
+    "packages/contribution-tools/test/github-consumer-host.test.mjs": "56fda4ef29ff06d6f121ad3855b843a94e5517aa4cdb2e91d3529285e9f43cfa",
+    "scripts/repository-bootstrap/consumer-libraries.md": "367d48640085311cca8957760e09a0d596e3579bef8616f0ee3810010dbe60cc",
+    "scripts/repository-bootstrap/verify-consumer-libraries.mjs": "8c42aeeb86d933dd31406f500e337f118177e61224cbe62fe1897386889f968b"
+  },
+  "executed": [
+    {
+      "command": "node --test packages/contribution-tools/test/consumer-libraries.test.mjs packages/contribution-tools/test/github-consumer-host.test.mjs packages/contribution-tools/test/github-consumer-profiles.test.mjs",
+      "result": "28 passed, 0 failed, 0 skipped",
+      "log": "tests-first.tap"
+    },
+    {
+      "command": "node --test packages/contribution-tools/test/export.test.mjs packages/contribution-tools/test/consumer-libraries.test.mjs packages/contribution-tools/test/consumer-workspace.test.mjs packages/contribution-tools/test/github-consumer-host.test.mjs packages/contribution-tools/test/github-consumer-profiles.test.mjs packages/contribution-tools/test/consumer-entry-coverage.test.mjs",
+      "result": "40 passed, 0 failed, 0 skipped",
+      "log": "tests-final.tap"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "node scripts/freedom.mjs prepare --base-ref bf46d831ee0382c7e6370000a32e95025a7003db --paths packages/contribution-tools/consumer-libraries.mjs,packages/contribution-tools/export.mjs,packages/contribution-tools/github-consumer-host.mjs,packages/contribution-tools/github-consumer-runtime-host.mjs,scripts/repository-bootstrap/verify-consumer-libraries.mjs",
+      "result": "passed on candidate bb046a36",
+      "log": "context-final.stdout"
+    }
+  ],
+  "environment": "Local Node, temporary real Git repositories, synthetic canonical library fixtures; remote-source test uses injected synthetic fetcher, no internet call. Python jsonschema for six source profiles. No DB or production credentials.",
+  "limits": [
+    "Device SDK implementation and true device invocation not exercised by this source-profile packet.",
+    "Existing Docker runtime profiles unchanged; new-profile mismatch only is tested as fail-before-runtime source prerequisite.",
+    "Current installed pinned hosts and global library source SHA remain unchanged and reject the new profile until separately reviewed rollout.",
+    "No candidate-selected source/profile, transition allowlist, arbitrary file profile, signature/ReleaseSet acceptance, or source pin mutation introduced.",
+    "Exporter does not delete retired files and rejects narrowing profiles; host exact Git inventory rejects extra/missing vendored artifacts."
+  ],
+  "models": [
+    {
+      "name": "design",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "completion": "end_turn",
+      "session_id": "01a10dd9-738c-7b62-80d8-f26dc8d6aeb1",
+      "num_turns": 9,
+      "tools_allowed": [
+        "read_file",
+        "list_dir",
+        "grep"
+      ],
+      "tools_observed": [
+        "grep",
+        "list_dir",
+        "read_file"
+      ],
+      "tool_calls": 21,
+      "scope": "Source-only review; no test execution by model",
+      "limitations": "Design/trust overlapped edits and include stale baseline reads; final patch review inspected stable source."
+    },
+    {
+      "name": "trust",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "completion": "end_turn",
+      "session_id": "01a10dd9-7811-7b30-b09e-ddfe0ac18163",
+      "num_turns": 10,
+      "tools_allowed": [
+        "read_file",
+        "list_dir",
+        "grep"
+      ],
+      "tools_observed": [
+        "grep",
+        "list_dir",
+        "read_file"
+      ],
+      "tool_calls": 22,
+      "scope": "Source-only review; no test execution by model",
+      "limitations": "Design/trust overlapped edits and include stale baseline reads; final patch review inspected stable source."
+    },
+    {
+      "name": "patch",
+      "requested_model": "grok-4.7",
+      "reported_models": [
+        "grok-4.7-build"
+      ],
+      "completion": "end_turn",
+      "session_id": "01a10ddd-df37-7fb2-95d8-adc64d7dee89",
+      "num_turns": 10,
+      "tools_allowed": [
+        "read_file",
+        "list_dir",
+        "grep"
+      ],
+      "tools_observed": [
+        "grep",
+        "list_dir",
+        "read_file"
+      ],
+      "tool_calls": 27,
+      "scope": "Source-only review; no test execution by model",
+      "limitations": "No material defects found. SDK not present in this packet; installed pin/true invocation not verified."
+    }
+  ],
+  "review_triage": [
+    "Initial design note that bootstrap CLI lacked --profile was from an earlier read; committed script supports it and actual exported CLI test passed.",
+    "No change of installed pinned host follows from local CLI profile selection.",
+    "Standalone verifier checks declared profile artifacts; native host separately rejects extra vendor files.",
+    "Final Grok patch review found no material defects; independent owner read and 40 local tests are the executable evidence."
+  ],
+  "git_worktree_status": "clean",
+  "schema": "freedom.foundation-patch-evidence/v1",
+  "accepted_original_rows": [],
+  "assurance_level": "local_source_distribution",
+  "integrated_followup": {
+    "candidate": "3bc3eb6843d0e7112fc231212a1e7169094cad08",
+    "command": "npm run test:governance",
+    "pass": 367,
+    "fail": 0,
+    "log_sha256": "c257fc3fdd1d0f16a8bc1205ea8c642fa638ee5de037cd38616b1f383961f5b1"
+  }
+}

@@ -62,3 +62,26 @@ test('an aborted daily run does no capture but still reconciles, and CLI refuses
   assert.equal((await runDailyBackupCli([])).exitCode, 1);
   assert.equal((await runDailyBackupCli(['--adapter', 'relative.mjs'])).exitCode, 1);
 });
+test('snapshot-pins is explicit and requires complete enabled policy identity before capture',async()=>{
+  await assert.rejects(runDailyBackup({...context(),gcSafety:'automatic' as never},fixture().adapter),{code:'invalid_daily_backup_input'});
+  const pinned=(after=false)=>({...gc(after),maintenanceEnabled:true,policySha256:'c'.repeat(64)});
+  for(const changed of [{policySha256:undefined},{policySha256:'caller-label'},{policyRevision:null},{maintenanceEnabled:false},
+    {domainMaintenanceEnabled:undefined},{observedAt:'not-a-clock'}]){
+    const {calls,adapter}=fixture();adapter.preflight=async()=>({...pinned(),...changed} as MediaGcObservation);
+    adapter.cleanup=async()=>({gc:pinned(true),ownedResourcesRemaining:0});
+    const result=await runDailyBackup({...context(),gcSafety:'snapshot-pins'},adapter);
+    assert.equal(result.status,'failed');assert.equal(result.stage,'preflight');assert.deepEqual(calls,[]);
+    assert.equal(result.sourceProtection.status,'not_verified');assert.equal(result.sourceProtection.checks,0);
+  }
+});
+test('snapshot-pins cleanup preserves exact policy even when the revision label is unchanged',async()=>{
+  const pinned=(after=false)=>({...gc(after),maintenanceEnabled:true,policySha256:'c'.repeat(64)});
+  for(const changed of [{policySha256:'d'.repeat(64)},{policyRevision:'another-policy'},{domainMaintenanceEnabled:true},
+    {observedAt:gc().observedAt}]){
+    const {adapter}=fixture();adapter.preflight=async()=>pinned();
+    adapter.cleanup=async()=>({gc:{...pinned(true),...changed},ownedResourcesRemaining:0});
+    const result=await runDailyBackup({...context(),gcSafety:'snapshot-pins'},adapter);
+    assert.equal(result.status,'failed');assert.equal(result.cleanupVerified,false);assert.equal(result.code,'daily_backup_cleanup_failed');
+    assert.equal(result.sourceProtection.status,'not_verified');assert.equal(result.retentionExecuted,false);
+  }
+});

@@ -32,7 +32,8 @@ function mock(handler:(request:TransportRequest)=>Reply|Promise<Reply>){
 }
 // Synthetic release SHA; mocks use the Worker health shape from apps/platform-api/src/worker.ts.
 const sha='0123456789abcdef0123456789abcdef01234567';
-const health=(overrides={})=>({status:'ok',mode:'staging',version:'1.2.3',money_movement_enabled:false,official:false,runtime:'cloudflare-workers',release_sha:sha,...overrides});
+const health=(overrides={})=>({status:'ok',mode:'staging',version:'1.2.3',money_movement_enabled:false,official:false,runtime:'cloudflare-workers',release_sha:sha,
+  shop_key_policy:'purpose-bound-only',shop_key_issuer_profile:'freedom.shop-service-key/v1',...overrides});
 const base=(phases:PhaseId[],extra={})=>({target:staging,run:'execute' as const,phases:selectPhases(phases),expectedVersion:'1.2.3',expectedReleaseSha:sha,contract:metadata,...extra});
 
 test('import, parse and plan make no network request and report every remote phase not_run',async()=>{
@@ -229,10 +230,14 @@ test('client refuses other origins before sending and never follows redirects or
 
 test('mode, version, Worker runtime and release SHA mismatches fail health and block every dependent phase',async()=>{
   const {runtime:_runtime,release_sha:_release,...legacyNode}=health(),{release_sha:_missing,...noSha}=health();
+  const {shop_key_policy:_policy,shop_key_issuer_profile:_profile,...noShopPolicy}=health();
   for(const [body,check] of [[health({mode:'public'}),'mode_matches_target'],[health({version:'1.2.4'}),'version_matches_expected'],[health({official:true}),'not_official'],[health({commit_sha:'x'}),'exact_fields'],
     [legacyNode,'exact_fields'],[noSha,'exact_fields'],[health({runtime:'node'}),'runtime_cloudflare_workers'],[health({runtime:null}),'runtime_cloudflare_workers'],
     [health({release_sha:'fedcba9876543210fedcba9876543210fedcba98'}),'release_sha_matches_expected'],[health({release_sha:sha.toUpperCase()}),'release_sha_matches_expected'],
-    [health({release_sha:sha.slice(0,7)}),'release_sha_matches_expected'],[health({release_sha:null}),'release_sha_matches_expected']] as const){
+    [health({release_sha:sha.slice(0,7)}),'release_sha_matches_expected'],[health({release_sha:null}),'release_sha_matches_expected'],
+    [noShopPolicy,'exact_fields'],[health({shop_key_policy:'legacy'}),'shop_key_policy_known'],[health({shop_key_policy:null}),'shop_key_policy_known'],
+    [health({shop_key_issuer_profile:null}),'shop_key_issuer_profile_matches'],[health({shop_key_policy:'unconfigured'}),'shop_key_issuer_profile_matches'],
+    [health({shop_key_policy:'legacy-compatible',shop_key_issuer_profile:'freedom.shop-service-key/v2'}),'shop_key_issuer_profile_matches']] as const){
     const {transport,calls}=mock(()=>({status:200,json:body}));
     const report=await runCandidate({...base(['health','guild-cache']),transport,account});
     expect(report.phases.find(p=>p.id==='health')).toMatchObject({status:'fail',reason:check});

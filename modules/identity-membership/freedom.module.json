@@ -9,7 +9,9 @@
     "apps/portal-web/src/modules/MemberAvatar.tsx",
     "apps/portal-web/src/modules/MemberAvatar.css",
     "apps/portal-web/src/modules/avatar-client.ts",
-    "tests/runtime/avatar.test.ts"
+    "tests/runtime/avatar.test.ts",
+    "packages/testing/e2e-avatar-asset-fixture.ts",
+    "tests/e2e/member-avatar-asset.spec.ts"
   ],
   "public_exports": [
     "modules/identity-membership/avatars.ts",

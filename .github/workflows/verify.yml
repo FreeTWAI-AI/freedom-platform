@@ -9,10 +9,13 @@ on:
 # Only superseded PR runs are cancelled; queued merge candidates run independently.
 # verify always runs. source-integrity always runs inventory, the canonical preview
 # rebuild and diff, runtime-text drift, and the governance/publisher unit tests.
-# A pull request skips heavy jobs only when scripts/ci/select-affected-jobs.mjs proves
-# every changed path is on the docs allowlist. The exact generated manifest
-# docs/platform-plan/verification/2026-09-20-file-inventory.json may accompany those
-# docs and is not itself allowlisted. No other docs/platform-plan path is exempt.
+# A pull request skips all heavy jobs only when the pinned selector proves a
+# docs-only change. Fixed frontend leaf profiles retain every runtime, browser
+# and static job, skipping only unrelated consumer/deployment checks. Unknown
+# paths or descriptor/owner/dependency drift retain full selection.
+# The exact generated manifest
+# docs/platform-plan/verification/2026-09-20-file-inventory.json may accompany
+# qualifying edits and is not itself allowlisted. No other docs/platform-plan path is exempt.
 # Push, merge queue, rename, delete, unknown, governance, security, and
 # shared-runtime changes keep the full set.
 # The selector and aggregate script come from job.workflow_sha. Checks still
@@ -101,7 +104,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers]
+    needs: [select, source-integrity, runtime-full, runtime-aggregate, ui-e2e, static-worker, governance-consumers, deploy-preflight]
     if: ${{ always() }}
     steps:
       - name: Checkout the pinned aggregate script
@@ -383,7 +386,8 @@ jobs:
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
       - run: npm run test:contracts
       - run: npm run verify:inventory
-  # Separate diagnostic; enforcement depends on actual branch/ruleset settings.
+  # Selected preflight must succeed for verify. Enforcing this revision through
+  # an installed workflow pin still requires its reviewed ruleset upgrade.
   deploy-preflight:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -395,3 +399,8 @@ jobs:
         with:
           node-version: '24'
       - run: node --test deploy/cloudflare/test/*.test.mjs
+      - run: npm ci --ignore-scripts
+      - name: Fetch the immutable isolated migration database image
+        run: docker pull postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
+      - name: Verify both migration entrypoints against isolated PostgreSQL
+        run: node --import tsx --test tests/integration/migration-plan-postgres.test.ts tests/integration/migration-entrypoints-postgres.test.ts tests/runtime/migration-runner-plan.test.ts

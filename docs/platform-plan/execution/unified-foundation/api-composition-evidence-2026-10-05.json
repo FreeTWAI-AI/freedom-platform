@@ -1,0 +1,28 @@
+{
+  "format": "freedom.api-composition-evidence/v1",
+  "implementation_source": "5fbd3549d32bd52557232b49bb200fb5be6d8252",
+  "root_tested_source": "c31f00d9fcfd7adff6edb3c6a7c2ca2d0e49e2fc",
+  "behavior": [
+    "Private AI path families and terminal installation decision have one classifier.",
+    "Original request reaches its existing purpose-specific transport once; original method/body/auth boundaries remain downstream.",
+    "Missing required host installation stays unavailable; encoded reserved aliases terminate before generic body handling.",
+    "This change does not install machine model execution."
+  ],
+  "root_verification": {
+    "source": "c31f00d9fcfd7adff6edb3c6a7c2ca2d0e49e2fc",
+    "environment": "owned isolated PostgreSQL18; actual existing Hono member-model/bootstrap handlers plus classifier cases",
+    "passed": 65,
+    "failed": 0,
+    "skipped": 0,
+    "log": "api-composition-runtime.log",
+    "sha256": "0997daa44affa0a5b3e8c9d0c1685dd181797d3a84bab15eb59d1294c049de78",
+    "typecheck_exit": 0
+  },
+  "source_binding": "After tests, branch was rebased onto a documentation-only parent correction. Classifier/application/test runtime bytes are unchanged.",
+  "agent_verification_limit": "Earlier62 regression cases ran in an agent worktree containing uncommitted machine119 work. They are retained privately and not substituted for the root pure committed-source run.",
+  "remaining": [
+    "Original full App/API responsibility and surface obligations require their complete cases; no full requirement accepted here.",
+    "No cloud, browser or machine broker acceptance.",
+    "Installed private execution profile and exact supported client scope remain separate work."
+  ]
+}

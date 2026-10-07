@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readBounded, parseJson, sha256 } from './io.mjs';
 import { createRuntimeDatabases, isDisposableDatabaseUrl } from './runtime-databases.mjs';
 import { verificationEnvironment } from './process-env.mjs';
-import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES } from './runtime-suites.mjs';
+import { RUNTIME_SUITES, FULL_RUNTIME_BASELINE, NODE_CONSUMER_SUITES, FIXED_NODE_SUITES } from './runtime-suites.mjs';
 
 import { createProgressDecoder } from './test-reporter.mjs';
 
@@ -29,6 +29,8 @@ async function suiteFiles(root, id) {
     const found = (await readdir(resolve(root, directory)))
       .filter(name => /^[a-z][a-z0-9_-]*\.test\.mjs$/.test(name)).map(name => directory + '/' + name);
     files = [...new Set([...baseline, ...found])].sort();
+  } else if (Object.hasOwn(FIXED_NODE_SUITES, id)) {
+    files = [...FIXED_NODE_SUITES[id]];
   } else if (id === 'runtime.full') {
     const found = (await readdir(resolve(root, 'tests/runtime')))
       .filter(name => /^[a-z][a-z0-9_-]*\.test\.ts$/.test(name)).map(name => 'tests/runtime/' + name);
@@ -164,16 +166,125 @@ async function runGroup(root, selections, runtime, options) {
 }
 
 // Reviewed scheduling estimates only, never pass evidence or caller input.
-// Hosted run 37249458229 concentrated 134s ingest + 109s bridge on one shard.
-// Round its six >30s files up to 5s; unmeasured files receive the 10s default.
+// The reviewed scheduling estimates come from hosted main run 37450880442 (e8484245); files of at least 10 s are rounded up to 5 s; unmeasured or shorter files receive the 10 s default.
 // No candidate timing report is loaded by the selector or aggregate.
 const RUNTIME_FILE_WEIGHTS = Object.freeze({
-  'tests/runtime/credential-ingest-adversarial.test.ts': 135,
-  'tests/runtime/model-broker-bridge-adversarial.test.ts': 110,
+  'tests/runtime/admin-access-sync.test.ts': 25,
+  'tests/runtime/admin-appointments.test.ts': 15,
+  'tests/runtime/agent-commerce-key-expiry.test.ts': 15,
+  'tests/runtime/agent-commerce.test.ts': 20,
+  'tests/runtime/agent-connections-adversarial.test.ts': 15,
+  'tests/runtime/agent-connections.test.ts': 20,
+  'tests/runtime/ai-sister-guides.test.ts': 40,
+  'tests/runtime/asset-engine.test.ts': 15,
+  'tests/runtime/asset-lifecycle-races.test.ts': 20,
+  'tests/runtime/asset-lifecycle.test.ts': 20,
+  'tests/runtime/asset-maintenance.test.ts': 30,
+  'tests/runtime/avatar-bridge.test.ts': 25,
+  'tests/runtime/avatar-command-compat.test.ts': 70,
+  'tests/runtime/avatar-upload.test.ts': 20,
+  'tests/runtime/avatar.test.ts': 15,
+  'tests/runtime/bootstrap-http.test.ts': 20,
   'tests/runtime/bootstrap-sessions-adversarial.test.ts': 55,
-  'tests/runtime/model-broker-client.test.ts': 55,
-  'tests/runtime/member-model-settings-adversarial.test.ts': 50,
+  'tests/runtime/bootstrap-status-adversarial.test.ts': 20,
+  'tests/runtime/bootstrap-status.test.ts': 20,
+  'tests/runtime/chat-content.test.ts': 15,
+  'tests/runtime/client-connections.test.ts': 15,
+  'tests/runtime/co-creation.test.ts': 20,
+  'tests/runtime/command-core.test.ts': 15,
+  'tests/runtime/commerce.test.ts': 15,
+  'tests/runtime/credential-broker-adversarial.test.ts': 30,
+  'tests/runtime/credential-broker-store.test.ts': 15,
+  'tests/runtime/credential-ingest-adversarial.test.ts': 135,
+  'tests/runtime/credential-ingest-authorizations.test.ts': 40,
+  'tests/runtime/credential-ingest-process.test.ts': 25,
+  'tests/runtime/credential-ingest-rate-budget.test.ts': 65,
+  'tests/runtime/development-access.test.ts': 15,
+  'tests/runtime/device-authorizations-adversarial.test.ts': 20,
   'tests/runtime/device-authorizations.test.ts': 45,
+  'tests/runtime/domain-media-gc.test.ts': 25,
+  'tests/runtime/event-highlight-assets.test.ts': 25,
+  'tests/runtime/event-highlights.test.ts': 25,
+  'tests/runtime/event-video-assets.test.ts': 15,
+  'tests/runtime/execution-authority-adversarial.test.ts': 20,
+  'tests/runtime/execution-prerequisites.test.ts': 30,
+  'tests/runtime/execution-runs-adversarial.test.ts': 30,
+  'tests/runtime/execution-runs.test.ts': 20,
+  'tests/runtime/flows.test.ts': 25,
+  'tests/runtime/github-app-setup.test.ts': 25,
+  'tests/runtime/github-identity.test.ts': 15,
+  'tests/runtime/github-social-routes.test.ts': 15,
+  'tests/runtime/github-social.test.ts': 15,
+  'tests/runtime/github-sync.test.ts': 15,
+  'tests/runtime/guide-pack-assets.test.ts': 15,
+  'tests/runtime/guild-experts.test.ts': 20,
+  'tests/runtime/guild-member-tiers.test.ts': 15,
+  'tests/runtime/guild-preferences.test.ts': 15,
+  'tests/runtime/guild-workspace.test.ts': 20,
+  'tests/runtime/identity-member.test.ts': 25,
+  'tests/runtime/image-cloudflare.test.ts': 15,
+  'tests/runtime/image-runtime.test.ts': 15,
+  'tests/runtime/machine-device-client.test.ts': 65,
+  'tests/runtime/machine-model-broker.test.ts': 65,
+  'tests/runtime/machine-model-http.test.ts': 15,
+  'tests/runtime/machine-model-revocation.test.ts': 20,
+  'tests/runtime/machine-text-authority.test.ts': 20,
+  'tests/runtime/media-domain-bridge.test.ts': 20,
+  'tests/runtime/media-verify.test.ts': 20,
+  'tests/runtime/member-channel-access.test.ts': 20,
+  'tests/runtime/member-channels-core.test.ts': 20,
+  'tests/runtime/member-communications.test.ts': 15,
+  'tests/runtime/member-connections.test.ts': 15,
+  'tests/runtime/member-device-bootstrap-http.test.ts': 20,
+  'tests/runtime/member-device-browser.test.ts': 20,
+  'tests/runtime/member-directory.test.ts': 15,
+  'tests/runtime/member-ecard.test.ts': 15,
+  'tests/runtime/member-execution-http-adversarial.test.ts': 25,
+  'tests/runtime/member-execution-http.test.ts': 15,
+  'tests/runtime/member-experience.test.ts': 15,
+  'tests/runtime/member-model-http-adversarial.test.ts': 20,
+  'tests/runtime/member-model-http.test.ts': 15,
+  'tests/runtime/member-model-settings-adversarial.test.ts': 50,
+  'tests/runtime/member-model-settings-process.test.ts': 100,
+  'tests/runtime/member-services.test.ts': 15,
+  'tests/runtime/model-broker-authorizations.test.ts': 20,
+  'tests/runtime/model-broker-bridge-adversarial.test.ts': 130,
+  'tests/runtime/model-broker-client.test.ts': 60,
+  'tests/runtime/model-broker-process.test.ts': 15,
+  'tests/runtime/model-step-adversarial.test.ts': 20,
+  'tests/runtime/model-step-revocation-races.test.ts': 20,
+  'tests/runtime/model-step-service.test.ts': 20,
+  'tests/runtime/onboarding.test.ts': 30,
+  'tests/runtime/opensource-marketing.test.ts': 15,
+  'tests/runtime/operator-avatar-backfill.test.ts': 20,
+  'tests/runtime/operator-banner-social-backfill.test.ts': 25,
+  'tests/runtime/operator-event-video-backfill.test.ts': 20,
+  'tests/runtime/operator-media-backfill.test.ts': 15,
+  'tests/runtime/operator-skill-highlight-backfill.test.ts': 35,
+  'tests/runtime/platform-admin.test.ts': 20,
+  'tests/runtime/private-result-schema.test.ts': 30,
+  'tests/runtime/private-results.test.ts': 35,
+  'tests/runtime/private-work-commands.test.ts': 30,
+  'tests/runtime/private-work-http-adversarial.test.ts': 20,
+  'tests/runtime/private-work-policy-adversarial.test.ts': 15,
+  'tests/runtime/repo-author-claims.test.ts': 20,
+  'tests/runtime/repo-maintainer-claims.test.ts': 15,
+  'tests/runtime/repo-maintainer-handoff.test.ts': 15,
+  'tests/runtime/repo-maintainer-sync.test.ts': 15,
+  'tests/runtime/resource-scopes.test.ts': 30,
+  'tests/runtime/runtime-registration-adversarial.test.ts': 15,
+  'tests/runtime/runtime-registration.test.ts': 20,
+  'tests/runtime/scoped-member-command.test.ts': 20,
+  'tests/runtime/scoped-member-domain-revalidation.test.ts': 15,
+  'tests/runtime/share-promotion.test.ts': 25,
+  'tests/runtime/shop-key-exit.test.ts': 25,
+  'tests/runtime/shop-service-command.test.ts': 15,
+  'tests/runtime/shop-service-identity.test.ts': 15,
+  'tests/runtime/skill-submissions.test.ts': 20,
+  'tests/runtime/social-preview-assets.test.ts': 20,
+  'tests/runtime/social-thumbnail-assets.test.ts': 15,
+  'tests/runtime/squad-invitations.test.ts': 20,
+  'tests/runtime/work-privacy.test.ts': 20,
 });
 // Deterministic longest-estimated-first allocation, then original file order
 // within each serial process. Full local runner and matrix producer/aggregate
@@ -236,10 +347,11 @@ async function runSharded(root, selections, files, options, timeout, count) {
 }
 
 export async function runLocalSuites(root, ids, options = {}) {
-  const results = new Map(), governance = [], runtime = [];
+  const results = new Map(), governance = [], fixedNode = [], runtime = [];
   for (const id of [...new Set(ids)].sort()) {
     const isRuntime = id === 'runtime.full' || Object.hasOwn(RUNTIME_SUITES, id);
-    if (id !== 'governance.unit' && !isRuntime && !Object.hasOwn(NODE_CONSUMER_SUITES, id)) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
+    const isFixedNode = Object.hasOwn(FIXED_NODE_SUITES, id);
+    if (id !== 'governance.unit' && !isRuntime && !Object.hasOwn(NODE_CONSUMER_SUITES, id) && !isFixedNode) { results.set(id, result(id, 'not_run', 'suite_adapter_unavailable')); continue; }
     if (isRuntime && !isDisposableDatabaseUrl(options.testDatabaseUrl)) {
       results.set(id, result(id, 'not_run', options.testDatabaseUrl === undefined ? 'test_database_required' : 'test_database_rejected')); continue;
     }
@@ -247,9 +359,11 @@ export async function runLocalSuites(root, ids, options = {}) {
     try { files = await suiteFiles(root, id); }
     catch { results.set(id, result(id, 'not_run', 'suite_files_unavailable')); continue; }
     if (!files.length) { results.set(id, { ...result(id, 'failed', 'empty_test_set'), test_count: 0 }); continue; }
-    (isRuntime ? runtime : governance).push({ id, files });
+    (isRuntime ? runtime : isFixedNode ? fixedNode : governance).push({ id, files });
   }
-  for (const [selected, isRuntime] of [[governance, false], [runtime, true]]) {
+  // Fixed-file suites stay in their own non-runtime group so they keep the
+  // 60-second budget and a planner failure does not fail governance.unit.
+  for (const [selected, isRuntime] of [[governance, false], [fixedNode, false], [runtime, true]]) {
     if (selected.length) for (const item of await runGroup(root, selected, isRuntime, isRuntime ? options : { ...options, runtimeShards: 1 })) results.set(item.check_id, item);
   }
   return [...results.values()].sort((a, b) => a.check_id.localeCompare(b.check_id));

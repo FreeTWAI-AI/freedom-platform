@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
-/* GC precondition for the CURRENT daily method: pg_dump first, then copy the
- * then-current immutable R2 objects (a post-dump superset). That archive is
+/* GC precondition for legacy operator paths that pg_dump first, then copy the
+ * then-current immutable R2 objects (a post-dump superset). Such an archive is
  * restorable only if no object referenced by the dump could have been deleted
  * between the dump and the end of the copy. Deletion requires a permanent
  * tombstone, which the database only admits while maintenance GC is enabled.
@@ -9,8 +9,10 @@ import type { Pool, PoolClient } from 'pg';
  * tombstone set did not change. This read-only check observes; it never
  * enables/disables GC, releases pins or deletes anything.
  *
- * The same-exported-snapshot coordinator path does not need GC OFF: its pins
- * protect the captured set. This guard is for the superset path only. */
+ * The daily runner now uses the same-exported-snapshot coordinator. Its
+ * explicit snapshot-pins mode checks the exact persistent capture instead;
+ * the default disabled mode retains this conservative window check. This
+ * assessor describes the superset guard, not the global daily architecture. */
 
 export interface MediaGcObservation {
   readonly observedAt: string;
@@ -19,6 +21,9 @@ export interface MediaGcObservation {
   readonly maintenanceEnabled: boolean;
   readonly domainMaintenanceEnabled: boolean;
   readonly policyRevision: string | null;
+  /** Exact configured policy, excluding only the capture gate's changing generation.
+   * Optional for legacy adapters; snapshot-pins admission requires this readback. */
+  readonly policySha256?: string;
   readonly deletionFences: number;
   readonly tombstones: number;
   /** Digest of the ordered tombstone asset ids; detects replace-in-place. */
@@ -40,6 +45,8 @@ export async function observeMediaGcState(db: Pool | PoolClient): Promise<MediaG
         COALESCE((SELECT bool_or(enabled) FROM asset_maintenance_policy),false) AS enabled,
         COALESCE((SELECT bool_or(domain_media_enabled) FROM asset_maintenance_policy),false) AS domain_enabled,
         (SELECT min(revision) FROM asset_maintenance_policy) AS revision,
+        (SELECT encode(pg_catalog.sha256(convert_to((to_jsonb(p)-'generation')::text,'UTF8')),'hex')
+           FROM asset_maintenance_policy p) AS policy_sha256,
         (SELECT count(*)::int FROM assets WHERE deletion_fence<>0) AS fences,
         (SELECT count(*)::int FROM asset_deletion_tombstones) AS tombstones,
         (SELECT encode(pg_catalog.sha256(convert_to(COALESCE(string_agg(asset_id::text,',' ORDER BY asset_id),''),'UTF8')),'hex')
@@ -49,11 +56,12 @@ export async function observeMediaGcState(db: Pool | PoolClient): Promise<MediaG
   const int = (v: unknown) => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : NaN);
   if (!row || row.policies !== 1 || typeof row.observed_at !== 'string' || typeof row.database !== 'string' || typeof row.schema !== 'string'
     || typeof row.enabled !== 'boolean' || typeof row.domain_enabled !== 'boolean'
-    || !(row.revision === null || typeof row.revision === 'string') || typeof row.tombstone_digest !== 'string'
+    || !(row.revision === null || typeof row.revision === 'string') || typeof row.policy_sha256 !== 'string'
+    || !/^[0-9a-f]{64}$/.test(row.policy_sha256) || typeof row.tombstone_digest !== 'string'
     || !/^[0-9a-f]{64}$/.test(row.tombstone_digest) || [row.fences, row.tombstones, row.open_captures].some(v => Number.isNaN(int(v))))
     throw new GcPreconditionError('gc_observation_unavailable');
   return Object.freeze({ observedAt: row.observed_at, database: row.database, schema: row.schema, maintenanceEnabled: row.enabled,
-    domainMaintenanceEnabled: row.domain_enabled, policyRevision: row.revision as string | null, deletionFences: row.fences as number,
+    domainMaintenanceEnabled: row.domain_enabled, policyRevision: row.revision as string | null, policySha256: row.policy_sha256, deletionFences: row.fences as number,
     tombstones: row.tombstones as number, tombstoneDigest: row.tombstone_digest, openCaptures: row.open_captures as number });
 }
 

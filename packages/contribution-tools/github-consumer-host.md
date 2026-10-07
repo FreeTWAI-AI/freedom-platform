@@ -122,3 +122,33 @@ this registration boundary belongs to the native host with its independently
 selected baseline and complete Git inventory. The six-profile helper also compares
 root package metadata, but cannot claim complete inventory coverage by itself.
 No installed workflow/rule or external acceptance follows from this local change.
+
+## Versioned library selection
+
+`verifyNativeConsumerSource` accepts an optional host-owned `expectedLibraryProfile`.
+Omission preserves `legacy-v1` and all current library sets, v1 locks and six
+non-library source profiles. The only additional library profile is
+`agent-kit-device-v1` for agent-kit: exactly `member-workspace.mjs` and
+`machine-device-client.mjs` under `packages/sdk/`. Its v2 lock must declare that
+same profile; its files must match the separately selected `expectedSourceCommit`.
+Unknown profiles, use by another repository, mismatched lock versions/profiles,
+extra/missing vendor artifacts and self-hashed replacements fail closed. The six
+non-library profiles reject a library-profile option as inapplicable.
+
+The source and runtime CLI hosts optionally read `FREEDOM_LIBRARY_PROFILE` from
+the fixed workflow configuration. A rollout must select the exact profile/source
+tuple for the intended repository in independently reviewed workflow code. Do not
+derive either value from the candidate lock, candidate inputs or repository variables,
+and do not set the Kit profile globally for the other consumers. The existing
+workflow YAML, library source pins and installed rules are unchanged here. Merging
+this implementation or passing a local CLI flag does not upgrade a deployed pinned
+host; rollout still requires a reviewed workflow revision, installed-pin readback
+and real positive/negative candidate evidence.
+
+The runtime host forwards this selection only to its source prerequisite. It
+continues to test its existing workspace/CLI profiles; this does not add a device
+runtime profile or prove the new SDK is called. Source reports identify
+`library_profile`, while `library_usage` and `library_invocation` remain
+`not_checked` in their respective reports. See
+[export and upgrade instructions](../../scripts/repository-bootstrap/consumer-libraries.md#explicit-library-profiles)
+for old/new profile selection and exact previous-source verification.

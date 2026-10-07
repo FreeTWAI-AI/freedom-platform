@@ -1,5 +1,9 @@
 # Freedom Platform
 
+共同基礎收尾從 [Foundation Complete](docs/platform-plan/execution/unified-foundation/closeout.md) 開始；
+[現況快照](docs/platform-plan/execution/unified-foundation/current-state.json)區分已合併、已部署與實際驗收，
+[原需求證據](docs/platform-plan/execution/unified-foundation/requirement-evidence.json)是逐項狀態的唯一索引。
+
 <!-- freedom-repository-guide:start -->
 ## 在自由工坊的位置
 
@@ -30,11 +34,13 @@
 
 前版 0.9.7 修正 GitHub Star 權限錯誤提示，App 建立流程明確申請 Metadata 讀取，後台提供權限與 Repo 安裝入口。既有 App 仍需在 GitHub 補齊設定；站內連結成功不代表每個按星請求都已獲 GitHub 允許。
 
-公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。兩者都由 Cloudflare Worker 提供。2026-10-04 的現行資料庫與部署證據見 [實際移植報告](./docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md)；[遷移手冊 §14](./docs/development/cloudflare-migration.md#14-切換後現況2026-09-25) 保留初次切換歷史。本輪行為與邊界見 [會員入口設計](./docs/development/member-onboarding-release.md)。
-
-Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 完成新 PostgreSQL 移植後，兩站主 Worker 已部署 #110 的 `d269a8d7`，現存 26 個頭像與 1 張活動海報已使用 R2，新上傳不再寫入 DB 媒體欄位。DB＋R2 恢復及每日異地備份已實跑，兩個舊資料庫已核對後退役；舊媒體副本仍留在新庫、GC 關閉。五類空媒體用途、強制治理與私人 AI 尚未全部驗收。現行版本、恢復限制與操作證據見 [R2／恢復／退役報告](./docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md)與[現行交接](./docs/platform-plan/execution/unified-foundation/handoff-2026-10-04.md)。
-
-移植後的優先次序、現成程式入口、完成標準及恢復限制見[後續執行計畫](docs/platform-plan/execution/unified-foundation/post-migration-plan-2026-10-04.md)。
+公開會員入口：<https://freetwai.com>；內部入口：<https://staging.freetwai.com>（Cloudflare Access 限定名單）。
+部署 source、schema 的最近觀察、功能狀態、R2／恢復限制及治理 pins 統一見上方現況快照。
+[首次 Cloudflare 切換](docs/development/cloudflare-migration.md#14-切換後現況2026-09-25)、
+[PostgreSQL 移植](docs/platform-plan/execution/unified-foundation/actual-migration-2026-10-04.md)及
+[R2／恢復操作](docs/platform-plan/execution/unified-foundation/r2-recovery-retirement-2026-10-04.md)
+保留各次有日期的歷史證據。下面的功能敘述說明實作範圍，不另作部署或完整驗收聲明。
+目前工作順序以 Foundation Complete 收尾入口為準。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
@@ -44,7 +50,7 @@ Cloudflare Workers＋PlanetScale 於 2026-09-25 首次切換；2026-10-04 完成
 
 本分支新增工坊原創圖片貼圖與指定訊息回覆，公會、小隊、世界與私訊均可使用；重新載入後仍能讀取，未知傳送結果可用同一筆 key 重試。舊社群專案的採用對照、資料邊界、素材來源及部署步驟見 [社群設計與聊天升級](./docs/development/social-project-upgrade.md)。這是本分支提交範圍，尚未宣稱已部署。
 
-本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP（512 KiB 以下），影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次登入時間；舊 session 的登入時間不推測。這些是本分支實作，並非已部署聲明。
+本分支的社群活動支援每場專頁與會員專屬分享連結、分享報名統計、未來活動行事曆，以及公會限定／工坊會員／推薦連結公開／完全公開四種參與範圍。推薦連結公開活動在報名後才提供線上連結，並寄送參與資料到填寫的 Email；公開訪客報名需要可用的 `EMAIL` binding（Node 本機可注入 `eventEmailSender`）。活動海報支援直式與橫式 PNG／JPEG／WebP（512 KiB 以下），影片支援 MP4／WebM（20 MiB 以下）。會員名冊與私訊依最近兩分鐘的有效 session 活動顯示在線狀態，並列出可確認的上次上線時間（最近一次 session 活動）；沒有活動紀錄的舊 session 不推測。這些是本分支實作，並非已部署聲明。
 
 登入後的全站 Game Console 以底欄、展開面板與獨立視窗呈現系統提示、AI 工作說明、會員聊天與發布動態；資料來源和更新間隔見 [會員 Game Console](./docs/development/game-console.md)。
 

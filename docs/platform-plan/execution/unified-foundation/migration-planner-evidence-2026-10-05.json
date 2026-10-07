@@ -1,0 +1,169 @@
+{
+  "packet": "C5a",
+  "base": "057201218b6d4ae3e96b4ab838677f2b484b55fa",
+  "candidate": "7565e1d643b91754cbc04a31dfd462773a8c147c",
+  "status": "review_candidate",
+  "requirements": [
+    {
+      "id": "UF:INT-23",
+      "status": "partial",
+      "minimum_tier": "two real migration entrypoints, reverse-merge SQL and empty replay",
+      "closed": false,
+      "implemented": [
+        "bounded shared pure DAG planner",
+        "legacy runner/scanner/supervisor source closure",
+        "exact applied-ledger consistency"
+      ],
+      "evidence_tiers": [
+        "local unit",
+        "owned isolated PostgreSQL18.6 with synthetic SQL"
+      ],
+      "remaining": [
+        "current operator entrypoint installation/pin and shared runner integration",
+        "both real entrypoints replay synthetic DAGs",
+        "versioned release floor exact-set/dependency semantics and shape identities",
+        "actual private pipeline compatibility receipt before formal v2 naming"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "command": "node --test deploy/cloudflare/test/migration-plan.test.mjs deploy/cloudflare/test/migration-reviewed-privileges.test.mjs deploy/cloudflare/test/preflight.test.mjs deploy/cloudflare/test/release-*.test.mjs",
+      "passed": 388,
+      "failed": 0,
+      "skipped": 0,
+      "log": "planner-release-final.log"
+    },
+    {
+      "command": "node --import tsx --test tests/integration/migration-plan-postgres.test.ts tests/runtime/migration-runner-plan.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "actual_pg_cases": 5,
+      "unit_port_cases": 3,
+      "log": "postgres-final.log"
+    },
+    {
+      "command": "node --test packages/contribution-tools/test/trusted-ci.test.mjs packages/contribution-tools/test/github-trusted-adapter.test.mjs packages/contribution-tools/test/behavior-supervisor.test.mjs",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "log": "host-distribution.log"
+    },
+    {
+      "command": "npm run typecheck",
+      "exit_code": 0,
+      "log": "typecheck-final.log"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "database": {
+    "image": "sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd",
+    "database": "fp_c5_migrations",
+    "version": "18.6",
+    "network": "none",
+    "owner": "this test only",
+    "cleanup": "container and socket removed; each owned schema dropped",
+    "private_config_read": false
+  },
+  "historical_source_ledger": {
+    "count": 115,
+    "through": 116,
+    "sha256": "8b4a69b5bcc32eed9eb17d95c9901b6e987ca76af3370996d45f4a32023e7121",
+    "not_permanent_frontier": true
+  },
+  "boundaries": {
+    "v2_formal_profile": "closed",
+    "formal_sql_added": false,
+    "historic_sql_changed": false,
+    "deployed": false,
+    "live_database_changed": false,
+    "installed_pins_changed": false,
+    "release_floor_changed": false,
+    "inventory_updated": false,
+    "inventory_owner": "root"
+  },
+  "review": {
+    "design_model": "grok-4.7-build",
+    "design_session": "01a10e19-7770-7622-b656-4a68a7ce34b6",
+    "design_stop": "end_turn",
+    "patch_review": {
+      "session": "01a10e26-8a56-7963-a76d-8343038d1da7",
+      "model": "grok-4.7-build",
+      "stop_reason": "end_turn",
+      "source": "3645a982fe9d3d1e13e8595dc240f8e25362a1e1",
+      "read_files": [
+        "packages/db/migration-plan.mjs",
+        "packages/db/migration-files.mjs",
+        "scripts/database.ts",
+        "deploy/cloudflare/lib/migrations.mjs",
+        "tests/integration/migration-plan-postgres.test.ts"
+      ],
+      "finding": "No production correctness/safety regression observed in bounded read scope; no commands run",
+      "followup": "7565 rejects directory symlinks; 0a42 root-reviewed cleanup intent; focused13/13 directory tests"
+    },
+    "external_private_code": false
+  },
+  "cleanup_followup": {
+    "reviewer": "root",
+    "shared_existing_lifecycle": true,
+    "durable_intent": true,
+    "unknown_create_preserves_socket": true,
+    "owned_pg_passed": 5,
+    "lifecycle_passed": 4,
+    "typecheck_exit": 0,
+    "logs": [
+      "postgres-cleanup-final.log",
+      "cleanup-lifecycle.log",
+      "typecheck-cleanup-final.log"
+    ]
+  },
+  "final_followup": {
+    "directory_symlink_refused": true,
+    "focused_planner_passed": 13,
+    "log": "planner-directory-final.log"
+  },
+  "format": "freedom.foundation-migration-planner-evidence/v1",
+  "operator_discovery": {
+    "current_pending_helper_verified": false,
+    "historical_wrappers": "Located wrappers import and call pinned central migrate(pool); no separate SQL engine demonstrated.",
+    "live_config_read": false
+  },
+  "logs": [
+    {
+      "log": "planner-release-final.log",
+      "sha256": "fdd8d8bacf6daca89feb73b706cafa56d62c16c0775655437fbc01d023c49b49"
+    },
+    {
+      "log": "postgres-final.log",
+      "sha256": "ce1899709efd70cec9ab26e8f669060c14c7fe574da236f90649c9ec4526f4d4"
+    },
+    {
+      "log": "host-distribution.log",
+      "sha256": "27438021fe988aa3e85266d01bf79832fa34569456364f341525ad17c81ff6c0"
+    },
+    {
+      "log": "typecheck-final.log",
+      "sha256": "e152ef3960657c5382e16b6f913fc21c66775ffe601b470949e573c10a75222d"
+    },
+    {
+      "log": "postgres-cleanup-final.log",
+      "sha256": "de37f35701a21a306f98105eb990f18327097e9d348d5ce5d2583135c929a729"
+    },
+    {
+      "log": "cleanup-lifecycle.log",
+      "sha256": "4322b344c27ddbc6e80c52c19ffc70ee892d966c24b2634fc9278f1c3b7d0081"
+    },
+    {
+      "log": "typecheck-cleanup-final.log",
+      "sha256": "e152ef3960657c5382e16b6f913fc21c66775ffe601b470949e573c10a75222d"
+    },
+    {
+      "log": "planner-directory-final.log",
+      "sha256": "3f94d6962754892c0fbfdb0ad215c049615ca19c48702788a47a38876fb14f70"
+    }
+  ]
+}

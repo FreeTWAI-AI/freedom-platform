@@ -71,8 +71,9 @@ test('friendship guidance points to the list rather than another member’s cont
 });
 
 test('permission and data dependent targets remain attached to the existing conditional UI', () => {
-  const app = readFileSync(path.join(portal, 'App.tsx'), 'utf8');
-  assert.match(app, /<section[^>]*data-guide-anchor=\{guideAnchor\}/);
+  // The shared Section wrapper moved out of App composition with its markup unchanged.
+  const section = readFileSync(path.join(portal, 'portal-feedback.tsx'), 'utf8');
+  assert.match(section, /<section[^>]*data-guide-anchor=\{guideAnchor\}/);
   const workspace = readFileSync(path.join(moduleRoot, 'GuildWorkspace.tsx'), 'utf8');
   assert.match(workspace, /available\.length>0&&<nav[^>]*data-guide-anchor="guild-workspace:management"/);
   const positioning = readFileSync(path.join(moduleRoot, 'PositioningPanels.tsx'), 'utf8');

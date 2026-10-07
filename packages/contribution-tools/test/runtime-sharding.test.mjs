@@ -37,3 +37,26 @@ test('reviewed hosted costs distribute heavy fixtures without losing unfinished 
     assert.equal(shards.length, count);
   }
 });
+
+test('reviewed hosted run 37450880442 balances the current runtime suite within the aggregate window', () => {
+  const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-37450880442.json', import.meta.url)));
+  const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
+  const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
+  const total = shard => shard.reduce((sum, path) => sum + cost(path), 0);
+  const partitions = partitionRuntimeFiles(files, 4);
+  assert.equal(files.length, 236);
+  assert.deepEqual(partitions.flat().sort(), files);
+  assert.equal(new Set(partitions.flat()).size, files.length);
+  assert(partitions.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
+  const totals = partitions.map(total);
+  assert(Math.max(...totals) < 770_000);
+  assert(Math.max(...totals) - Math.min(...totals) < 30_000);
+  for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
+    const expanded = [...files, extra].sort();
+    const shards = partitionRuntimeFiles(expanded, 4);
+    assert.deepEqual(shards.flat().sort(), expanded);
+    assert.equal(new Set(shards.flat()).size, expanded.length);
+    const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
+    assert(Math.max(...shards.map(withExtra)) < 780_000);
+  }
+});

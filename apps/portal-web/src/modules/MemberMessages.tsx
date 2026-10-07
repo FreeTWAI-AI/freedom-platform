@@ -21,7 +21,7 @@ type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events'
 type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
-type Participant={user_id:string;display_name:string;avatar_url:string|null;last_login_at:string|null;is_online:boolean};
+type Participant={user_id:string;display_name:string;avatar_url:string|null;last_seen_at:string|null;is_online:boolean};
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null}&MessageContent;
 const newestMessages=(items:Message[])=>[...items].sort((a,b)=>b.created_at.localeCompare(a.created_at));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
@@ -390,7 +390,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
           {conversations.map(item=><li key={item.participant.user_id} className={item.unread_count?'is-unread':undefined}>
             <button type="button" className="messages-peer" aria-current={peer===item.participant.user_id?'true':undefined} onClick={()=>select(item.participant.user_id,true)}>
               <MemberAvatar nickname={item.participant.display_name} avatarUrl={item.participant.avatar_url}/>
-              <span className="chat-peer-copy"><strong>{item.participant.display_name}</strong><MemberPresence online={item.participant.is_online} lastLogin={item.participant.last_login_at}/><span className="chat-peer-preview">{item.last_message.sender_ref===me?'你：':''}{item.last_message.body.slice(0,40)}</span></span>
+              <span className="chat-peer-copy"><strong>{item.participant.display_name}</strong><MemberPresence online={item.participant.is_online} lastSeen={item.participant.last_seen_at}/><span className="chat-peer-preview">{item.last_message.sender_ref===me?'你：':''}{item.last_message.body.slice(0,40)}</span></span>
               <span className="chat-peer-tail"><ChatTime value={item.last_message.created_at}/>{item.unread_count>0&&<span className="messages-count">{item.unread_count} 則未讀</span>}</span>
             </button>
           </li>)}
@@ -404,7 +404,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
       {peer&&<>
         <div className="chat-header">{participant&&<MemberAvatar nickname={participant.display_name} avatarUrl={participant.avatar_url}/>}<div>
           <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?`與 ${participant.display_name} 的對話`:'讀取對話中'}</h2>
-          {participant&&<MemberPresence online={participant.is_online} lastLogin={participant.last_login_at}/>}
+          {participant&&<MemberPresence online={participant.is_online} lastSeen={participant.last_seen_at}/>}
         </div></div>
         {liveError&&<p className="messages-meta" role="status">{liveError}</p>}
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}

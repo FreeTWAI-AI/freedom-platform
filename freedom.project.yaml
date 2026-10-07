@@ -16,10 +16,11 @@
     "capabilities": [
       "Persist member and module state in the central PostgreSQL database",
       "Provide authenticated versioned module commands",
-      "Run the access-controlled Castle staging application"
+      "Serve the member portal on Cloudflare Workers with PostgreSQL business records and private R2 media"
     ],
     "limitations": [
-      "Castle staging is not a managed-cloud or production deployment",
+      "Deployment observations, schema evidence and feature acceptance are recorded in docs/platform-plan/execution/unified-foundation/current-state.json; merged source is not deployed-source evidence",
+      "Production trigger describes release policy; the observed rollout is an explicitly authorized operator invocation, not an automatic GitHub Release deployment",
       "Demo identities and internal commerce confirmations do not establish real sales or payment evidence",
       "Quality and release fields declare intended policy; they do not attest an enforced ruleset or a signed release",
       "NOASSERTION means licensing remains undecided; this metadata grants no additional reuse rights"
@@ -63,9 +64,9 @@
     "publication": "platform_only",
     "requested_trust_label": "incubating",
     "source": "generated",
-    "canonical_platform_url": "https://staging.freetwai.com/",
+    "canonical_platform_url": "https://freetwai.com/",
     "github_pages_url": null,
-    "exception_reason": "Internal staging entry only; no separate public project page is deployed.",
+    "exception_reason": "The member portal is the canonical platform entry; this repository has no separate public project page.",
     "required_sections": [
       "identity_and_status",
       "problem_and_audience",
@@ -110,7 +111,7 @@
     "commercial_terms_url": null
   },
   "deployment": {
-    "runtime": "external",
+    "runtime": "cloudflare_workers",
     "environments": {
       "preview": {
         "provider": "none",
@@ -121,16 +122,16 @@
         "external_fork_preview_exception": "trusted_manual_two_stage_static_only"
       },
       "staging": {
-        "provider": "external",
+        "provider": "cloudflare_workers",
         "trigger": "manual",
         "url": "https://staging.freetwai.com/",
         "requires_human_approval": false
       },
       "production": {
-        "provider": "none",
-        "trigger": "none",
-        "url": null,
-        "requires_human_approval": false
+        "provider": "cloudflare_workers",
+        "trigger": "published_release",
+        "url": "https://freetwai.com/",
+        "requires_human_approval": true
       }
     },
     "database_migration_strategy": "expand_backfill_switch_contract"
@@ -185,7 +186,7 @@
   },
   "links": {
     "documentation": "https://github.com/FreeTWAI-AI/freedom-platform/blob/main/README.md",
-    "demo": "https://staging.freetwai.com/",
+    "demo": "https://freetwai.com/",
     "support": "https://github.com/FreeTWAI-AI/freedom-platform/issues",
     "issues": "https://github.com/FreeTWAI-AI/freedom-platform/issues"
   }
