@@ -374,22 +374,36 @@ export async function runLocalSuite(root, id, options = {}) {
   return (await runLocalSuites(root, [id], options))[0];
 }
 
-export async function runPinnedSuite(root, id, options = {}) {
-  const allowedKeys = ['testDatabaseUrl', 'env', 'timeoutMs', 'signal'];
+const PINNED_OPTION_KEYS = Object.freeze(['testDatabaseUrl', 'env', 'timeoutMs', 'signal']);
+
+export async function runPinnedSuiteDefinition(root, id, suite, options = {}) {
   for (const key of Object.keys(options)) {
-    if (!allowedKeys.includes(key)) return result(id, 'not_run', 'invalid_pinned_suite_options');
+    if (!PINNED_OPTION_KEYS.includes(key)) return result(id, 'not_run', 'invalid_pinned_suite_options');
   }
 
-  const suite = PINNED_SUITES[id];
-  if (!suite) return result(id, 'not_run', 'suite_adapter_unavailable');
+  if (!suite || typeof suite !== 'object' || !Object.isFrozen(suite)) {
+    return result(id, 'not_run', 'suite_adapter_unavailable');
+  }
+
+  const allowedSuiteKeys = ['files', 'directory', 'pattern', 'baseline', 'loader', 'database', 'timeoutMs', 'env'];
+  for (const key of Object.keys(suite)) {
+    if (!allowedSuiteKeys.includes(key)) return result(id, 'not_run', 'suite_adapter_unavailable');
+  }
+
+  const directoryKeys = ['directory', 'pattern', 'baseline'].filter(key => Object.hasOwn(suite, key));
+  const validShape = Object.hasOwn(suite, 'files')
+    ? directoryKeys.length === 0 && Array.isArray(suite.files)
+    : directoryKeys.length === 3 && typeof suite.directory === 'string' && suite.pattern instanceof RegExp && Array.isArray(suite.baseline);
+  if (!validShape) return result(id, 'not_run', 'suite_adapter_unavailable');
 
   let files = [];
   if (suite.files) {
     files = [...suite.files];
-  } else if (suite.directory && suite.pattern) {
+  } else {
     try {
       const found = await readdir(resolve(root, suite.directory));
-      files = found.filter(name => suite.pattern.test(name)).map(name => suite.directory + '/' + name);
+      const foundFiles = found.filter(name => suite.pattern.test(name)).map(name => suite.directory + '/' + name);
+      files = [...new Set([...suite.baseline, ...foundFiles])].sort();
     } catch {
       return result(id, 'not_run', 'suite_files_unavailable');
     }
@@ -459,6 +473,17 @@ export async function runPinnedSuite(root, id, options = {}) {
     selected_files: files,
     test_files: evidence
   };
+}
+
+export async function runPinnedSuite(root, id, options = {}) {
+  for (const key of Object.keys(options)) {
+    if (!PINNED_OPTION_KEYS.includes(key)) return result(id, 'not_run', 'invalid_pinned_suite_options');
+  }
+
+  const suite = PINNED_SUITES[id];
+  if (!suite) return result(id, 'not_run', 'suite_adapter_unavailable');
+
+  return runPinnedSuiteDefinition(root, id, suite, options);
 }
 
 const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';

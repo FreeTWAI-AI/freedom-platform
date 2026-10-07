@@ -16484,8 +16484,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
-      "bytes": 2402,
-      "sha256": "ee9b8bffeaa1192a2622b751e77f7bc170a033258a77a77766eec9e506af6667"
+      "bytes": 5314,
+      "sha256": "e48f08e542a68c28936ca0544b4faff9c102e2fb56bc9c4df427f1f04c1ed142"
     },
     {
       "path": "packages/contribution-tools/process-env.mjs",
@@ -16514,8 +16514,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 35058,
-      "sha256": "92def460135d9aa79c0993ba4ebce158df41698f9f0531706c9657f57a68a714"
+      "bytes": 36268,
+      "sha256": "3f78d0e9715e67fcc70989c85108c83d25eb40374f031cb26c12e3cc02f8f5dc"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16664,8 +16664,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
-      "bytes": 11891,
-      "sha256": "81092d831778915e8a484a8c700c7fd88fe6e99673524e134ed532eadb031d94"
+      "bytes": 18354,
+      "sha256": "af35447a55f9b2e8e0a8ca4bb36d94c58daabcf15917455144108e4bbcec506d"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
