@@ -12829,8 +12829,8 @@
     },
     {
       "path": "docs/development/tenant-capacity-policy.md",
-      "bytes": 4324,
-      "sha256": "aeeb4b5cbef48f03a1e70adb86787165c20ad329e86f61bf3299a2f765e5dc9c"
+      "bytes": 5496,
+      "sha256": "a412c4a4ce80b563fdf99b16d6ba7e10d94cb737e5cf436175d28eb39f5f6d08"
     },
     {
       "path": "docs/development/worker-private-ai-bindings.md",
@@ -17924,8 +17924,8 @@
     },
     {
       "path": "scripts/tenant-policy.ts",
-      "bytes": 11853,
-      "sha256": "f9a3dcb09c2410818b6d87bb8e69f1a356b565d3ac7a016adff8e4af49d1bb7a"
+      "bytes": 12654,
+      "sha256": "ec9e67835aef83cf0a903c86988b78035e747e47606e447b70f68af2e48e03a1"
     },
     {
       "path": "scripts/update-inventory.py",
@@ -19864,8 +19864,8 @@
     },
     {
       "path": "tests/runtime/tenant-policy-operator.test.ts",
-      "bytes": 19927,
-      "sha256": "9dc0ccacdc11bf39c13da323010d9f5ae2b138c6d3f83354969bb7110494d9b2"
+      "bytes": 25465,
+      "sha256": "3db1bc75ba1cae10609968c41043af8457bc33d5b6f6ce3d6fa77f79785967cf"
     },
     {
       "path": "tests/runtime/tenant-read-deadline.test.ts",

@@ -2,20 +2,23 @@
 
 [Migration 123](../../migrations/123_tenant_manual_work.sql) creates the policy table without a seed. Until an active default or tenant override exists, tenant writes fail with `policy_unconfigured`. The [module registry](../../modules/module-registry/README.md) owns the table; product code has no policy inserter.
 
-An operator runs [tenant-policy.ts](../../scripts/tenant-policy.ts) with the table owner (migrator) connection passed explicitly through `--database-url`. The runtime role cannot write policy rows. The tool never reads `DATABASE_URL`, refuses `NODE_ENV=production`, and refuses the shared local database (port `54339` or database name `freedom_local`). Set `OPERATOR_DATABASE_URL` privately; keep it out of version control and shared logs. Reports identify the connected database and role without printing the connection string.
+An operator runs [tenant-policy.ts](../../scripts/tenant-policy.ts) with the table owner (migrator) connection passed explicitly through `--database-url`. The runtime role cannot write policy rows. The tool never reads `DATABASE_URL` and refuses the shared local database (port `54339` or database name `freedom_local`). The `NODE_ENV=production` refusal is a client-process guard: it refuses running inside a production-configured process; it does not identify or refuse a database. The database target guard is `--expect-database`. Set `OPERATOR_DATABASE_URL` privately; keep it out of version control and shared logs. Successful reports identify the connected database and role without printing the connection string.
+
+Every command requires `--expect-database <name>`, the database the operator intends to act on. The name is validated before connecting (`^[a-z_][a-z0-9_]{0,62}$`). The first query of the transaction compares it with `current_database()`. On a mismatch the tool rolls back and refuses with `database_mismatch` before taking any lock or reading or writing any policy or tenant row. Set `EXPECTED_DATABASE` from the target environment's reviewed configuration, not by copying it out of the URL being used: it is an independent statement of the intended target.
 
 ## Commands
 
 `status` reads the active default, active overrides ordered by tenant, the newest 20 retired rows, and the total retired count:
 
 ```sh
-npx tsx scripts/tenant-policy.ts status --database-url "$OPERATOR_DATABASE_URL"
+npx tsx scripts/tenant-policy.ts status --database-url "$OPERATOR_DATABASE_URL" --expect-database "$EXPECTED_DATABASE"
 ```
 
 `plan` requires every limit and writes nothing. It shows the active row to retire and the proposed insert. Add `--tenant <uuid>` for a tenant override; the tenant must exist. Revisions advance from the maximum across all active and retired rows of that scope.
 
 ```sh
 npx tsx scripts/tenant-policy.ts plan --database-url "$OPERATOR_DATABASE_URL" \
+  --expect-database "$EXPECTED_DATABASE" \
   --plan-ref interim-default-20261007 \
   --max-active-instances 10 --max-instances-per-module 3 \
   --max-concurrent-provisions 2 --max-work-items 1000 \
@@ -26,6 +29,7 @@ npx tsx scripts/tenant-policy.ts plan --database-url "$OPERATOR_DATABASE_URL" \
 
 ```sh
 npx tsx scripts/tenant-policy.ts apply --database-url "$OPERATOR_DATABASE_URL" \
+  --expect-database "$EXPECTED_DATABASE" \
   --plan-ref interim-default-20261007 \
   --max-active-instances 10 --max-instances-per-module 3 \
   --max-concurrent-provisions 2 --max-work-items 1000 \
@@ -56,4 +60,4 @@ Same-scope applies serialize on a transaction advisory lock. A tenant apply shar
 
 For the default scope, in-flight writes finish under the old row. A write whose policy read races the commit may fail once with `policy_unconfigured` and can be retried. The default lock does not take every tenant's advisory lock. `lock_timeout` is 10 s; a `lock_timeout` failure rolls back with nothing written and is safe to retry.
 
-Each invocation emits one JSON line: success on stdout, refusal or failure on stderr. Bigint fields are decimal strings and timestamps are ISO strings. Exit codes are `0` for success, `2` for validation/safety refusals or a missing tenant, and `1` for database or verification failure. SQLSTATE `42501` reports `operator_privilege_required`: use the table owner (migrator) connection. A failed scope verification rolls back the replacement.
+Each invocation emits one JSON line: success on stdout, refusal or failure on stderr. Bigint fields are decimal strings and timestamps are ISO strings. Exit codes are `0` for success, `2` for validation/safety refusals or a missing tenant, and `1` for database or verification failure. `database_mismatch` exits `2` and names `expected` and `connected` in the report; no policy or tenant row was locked, read or written, and no advisory lock was taken. `invalid_expected_database` exits `2`, refused before connecting; a missing `--expect-database` is refused with `missing_flag`. SQLSTATE `42501` reports `operator_privilege_required`: use the table owner (migrator) connection. A failed scope verification rolls back the replacement.

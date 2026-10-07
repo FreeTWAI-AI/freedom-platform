@@ -10,6 +10,9 @@ import { lockCapacityPolicy, readCapacityPolicy } from '../../modules/opportunit
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('tenant-policy-operator tests require an explicit TEST_DATABASE_URL for a private test database.');
+const expectedDatabase = new URL(databaseUrl).pathname.slice(1);
+const refusalUrl = 'postgresql://x@192.0.2.1:5432/fp_refusal';
+const wrongDatabase = 'fp_tpo_not_this_database';
 const schema = `fp_tpo_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString: databaseUrl });
 const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 8 });
@@ -22,10 +25,28 @@ const defaults = {
 };
 const flagFor = (key: string) => `--${key.replaceAll('_', '-')}`;
 function args(command: 'plan' | 'apply', changes: Record<string, string> = {}, extra: string[] = []) {
-  return [command, '--database-url', toolUrl.href,
+  return [command, '--database-url', toolUrl.href, '--expect-database', expectedDatabase,
     ...Object.entries({ ...defaults, ...changes }).flatMap(([key, value]) => [flagFor(key), value]), ...extra];
 }
 const run = (argv: string[]) => runTenantPolicy(argv, {});
+function beforeConnecting(argv: string[]) {
+  const result = [...argv];
+  const index = result.indexOf('--database-url') + 1;
+  if (index > 0 && result[index] !== undefined && !result[index].startsWith('--')) result[index] = refusalUrl;
+  return result;
+}
+function expectDatabase(argv: string[], expected: string) {
+  const result = [...argv];
+  result[result.indexOf('--expect-database') + 1] = expected;
+  return result;
+}
+function mismatch(result: Awaited<ReturnType<typeof runTenantPolicy>>, expected = wrongDatabase) {
+  assert.notEqual(expected, expectedDatabase);
+  assert.deepEqual(result, { exitCode: 2, report: {
+    format: 'freedom.tenant-capacity-policy/v1', status: 'refused', code: 'database_mismatch',
+    expected, connected: expectedDatabase,
+  } });
+}
 function refused(result: Awaited<ReturnType<typeof runTenantPolicy>>, code: string, flag?: string) {
   assert.equal(result.exitCode, 2);
   assert.ok('status' in result.report);
@@ -78,26 +99,26 @@ after(async () => {
   try { await admin.query(`DROP SCHEMA ${schema} CASCADE`); } finally { await admin.end(); }
 });
 
-test('unsafe targets are refused before a connection and DATABASE_URL is ignored', async () => {
-  refused(await runTenantPolicy(['status'], { DATABASE_URL: toolUrl.href }), 'database_url_required');
-  refused(await runTenantPolicy(['status', '--database-url', toolUrl.href], { NODE_ENV: 'production' }), 'production_refused');
+test('unsafe targets are refused before a connection and DATABASE_URL is ignored', { timeout: 15000 }, async () => {
+  refused(await runTenantPolicy(['status', '--expect-database', expectedDatabase], { DATABASE_URL: refusalUrl }), 'database_url_required');
+  refused(await runTenantPolicy(['status', '--database-url', refusalUrl, '--expect-database', expectedDatabase], { NODE_ENV: 'production' }), 'production_refused');
   for (const url of [
     'postgresql://x@192.0.2.1:54339/fp_refusal', 'postgresql://x@192.0.2.1:054339/fp_refusal',
     'postgresql://x@192.0.2.1:5432/fp_refusal?port=54339', 'postgresql://x@192.0.2.1:5432/freedom_local',
   ]) {
-    const result = await run(['status', '--database-url', url]);
+    const result = await run(['status', '--database-url', url, '--expect-database', expectedDatabase]);
     refused(result, 'shared_local_database_refused');
     assert.ok(!JSON.stringify(result.report).includes('192.0.2.1'));
   }
   for (const url of ['https://192.0.2.1/fp_refusal', 'not a URL']) {
-    refused(await run(['status', '--database-url', url]), 'invalid_database_url');
+    refused(await run(['status', '--database-url', url, '--expect-database', expectedDatabase]), 'invalid_database_url');
   }
 });
 
 for (const command of ['plan', 'apply'] as const) {
   for (const key of Object.keys(defaults)) {
-    test(`${command} requires ${flagFor(key)}`, async () => {
-      const argv = args(command), index = argv.indexOf(flagFor(key));
+    test(`${command} requires ${flagFor(key)}`, { timeout: 15000 }, async () => {
+      const argv = beforeConnecting(args(command)), index = argv.indexOf(flagFor(key));
       argv.splice(index, 2);
       refused(await run(argv), 'missing_flag', flagFor(key));
     });
@@ -110,44 +131,124 @@ test('reviewed ceilings remain fixed', () => {
   });
 });
 for (const [key, ceiling] of Object.entries(CEILINGS)) {
-  test(`${key} admits its ceiling and rejects larger or noncanonical integers`, async () => {
-    const over = await run(args('plan', { [key]: String(ceiling + 1) }));
+  test(`${key} admits its ceiling and rejects larger or noncanonical integers`, { timeout: 15000 }, async () => {
+    const over = await run(beforeConnecting(args('plan', { [key]: String(ceiling + 1) })));
     refused(over, 'over_ceiling', flagFor(key));
     assert.ok('ceiling' in over.report); assert.equal(over.report.ceiling, ceiling);
     const accepted = await plan('plan', { [key]: String(ceiling) });
     assert.equal(accepted.insert[key as keyof typeof CEILINGS], key === 'max_retained_bytes' ? String(ceiling) : ceiling);
     for (const value of ['-1', '1.5', '1e3', '01', '', 'abc', ' 5', '5\n']) {
-      refused(await run(args('plan', { [key]: value })), 'invalid_integer', flagFor(key));
+      refused(await run(beforeConnecting(args('plan', { [key]: value }))), 'invalid_integer', flagFor(key));
     }
     await plan('plan', { [key]: '0' });
   });
 }
-test('model budgets must be exactly zero, and stored zero is not NULL', async () => {
+test('model budgets must be exactly zero, and stored zero is not NULL', { timeout: 15000 }, async () => {
   for (const value of ['NULL', 'null', 'unlimited', '1', '']) {
-    refused(await run(args('plan', { max_model_budget: value })), 'model_budget_must_be_zero');
+    refused(await run(beforeConnecting(args('plan', { max_model_budget: value }))), 'model_budget_must_be_zero');
   }
   assert.equal((await plan()).insert.max_model_budget, '0');
   assert.equal((await apply()).inserted.max_model_budget, '0');
   assert.equal((await pool.query('SELECT max_model_budget FROM tenant_capacity_policies')).rows[0].max_model_budget, '0');
 });
-test('plan_ref uses Unicode code points and bounds 1 through 120', async () => {
-  for (const value of ['', 'x'.repeat(121)]) refused(await run(args('plan', { plan_ref: value })), 'invalid_plan_ref');
+test('plan_ref uses Unicode code points and bounds 1 through 120', { timeout: 15000 }, async () => {
+  for (const value of ['', 'x'.repeat(121)]) refused(await run(beforeConnecting(args('plan', { plan_ref: value }))), 'invalid_plan_ref');
   for (const value of ['x'.repeat(120), '容'.repeat(120), '😀'.repeat(120)]) {
     assert.equal((await plan('plan', { plan_ref: value })).insert.plan_ref, value);
     assert.equal((await apply({ plan_ref: value })).inserted.plan_ref, value);
   }
 });
-test('argument grammar rejects unknown, duplicate, misplaced and missing tokens', async () => {
+test('argument grammar rejects unknown, duplicate, misplaced and missing tokens', { timeout: 15000 }, async () => {
   const invalid = [
     [], ['unknown'], [...args('plan'), '--unknown', 'x'], [...args('plan'), '--plan-ref', 'x'],
     [...args('plan'), '--execute'], ['status', '--database-url', toolUrl.href, '--plan-ref', 'x'],
     ['status', '--execute'], ['status', '--database-url'], [...args('plan'), '--tenant', '--execute'],
     [...args('plan'), 'extra'], [...args('apply'), '--execute', '--execute'],
     ['status', '--database-url', toolUrl.href, '--tenant', randomUUID()],
+    [...args('plan'), '--expect-database', expectedDatabase],
+    [...args('apply').slice(0, 3), '--expect-database', '--execute'],
   ];
-  for (const argv of invalid) refused(await run(argv), 'invalid_arguments');
+  for (const argv of invalid) refused(await run(argv.includes('--database-url') ? beforeConnecting(argv) : argv), 'invalid_arguments');
   for (const id of ['bad', randomUUID().toUpperCase(), `${randomUUID()}\n`]) {
-    refused(await run(args('plan', {}, ['--tenant', id])), 'invalid_tenant_id');
+    refused(await run(beforeConnecting(args('plan', {}, ['--tenant', id]))), 'invalid_tenant_id');
+  }
+});
+
+for (const [name, argv] of [
+  ['status', ['status', '--database-url', refusalUrl, '--expect-database', expectedDatabase]],
+  ['plan', beforeConnecting(args('plan'))],
+  ['apply', beforeConnecting(args('apply'))],
+  ['apply --execute', beforeConnecting(args('apply', {}, ['--execute']))],
+] as const) {
+  test(`${name} requires an expected database before connecting`, { timeout: 15000 }, async () => {
+    const withoutExpected = [...argv], index = withoutExpected.indexOf('--expect-database');
+    withoutExpected.splice(index, 2);
+    refused(await run(withoutExpected), 'missing_flag', '--expect-database');
+  });
+}
+for (const command of ['status', 'apply'] as const) {
+  for (const expected of ['', 'Fp_upper', 'fp-hyphen', '1digit_first', 'fp name', 'fp_name\n', 'a'.repeat(64), '"fp"', refusalUrl]) {
+    test(`${command} rejects expected database ${JSON.stringify(expected)} before connecting`, { timeout: 15000 }, async () => {
+      const argv = command === 'status'
+        ? ['status', '--database-url', refusalUrl, '--expect-database', expected]
+        : expectDatabase(beforeConnecting(args('apply', {}, ['--execute'])), expected);
+      const result = await run(argv);
+      refused(result, 'invalid_expected_database');
+      assert.deepEqual(result.report, { format: 'freedom.tenant-capacity-policy/v1', status: 'refused', code: 'invalid_expected_database' });
+      if (expected === refusalUrl) assert.ok(!JSON.stringify(result.report).includes('192.0.2.1'));
+    });
+  }
+}
+test('mismatched executed applies preserve default and tenant policies', async () => {
+  await apply();
+  const t = await tenant();
+  await apply({}, ['--tenant', t]);
+  const before = await snapshot();
+  for (const extra of [['--execute'], ['--tenant', t, '--execute']]) {
+    mismatch(await run(expectDatabase(args('apply', {}, extra), wrongDatabase)));
+    assert.deepEqual(await snapshot(), before);
+  }
+});
+test('database mismatch precedes the missing tenant check', async () => {
+  const missing = randomUUID();
+  assert.equal((await pool.query('SELECT 1 FROM tenants WHERE tenant_id=$1', [missing])).rowCount, 0);
+  const before = await snapshot();
+  for (const argv of [args('plan', {}, ['--tenant', missing]), args('apply', {}, ['--tenant', missing, '--execute'])]) {
+    mismatch(await run(expectDatabase(argv, wrongDatabase)));
+    assert.deepEqual(await snapshot(), before);
+  }
+});
+test('database mismatch refuses before waiting for the policy advisory lock', { timeout: 15000 }, async () => {
+  await apply();
+  const before = await snapshot();
+  const holder = await openHolder(client => client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [policyLockKey(null)]));
+  try {
+    mismatch(await run(expectDatabase(args('apply', {}, ['--execute']), wrongDatabase)));
+    assert.deepEqual(await snapshot(), before);
+  } finally { await holder.release(); }
+});
+test('read-only commands refuse mismatched databases and accept boundary name syntax', async () => {
+  await apply();
+  const before = await snapshot();
+  for (const expected of [wrongDatabase, 'a'.repeat(63), '_x']) {
+    for (const argv of [
+      ['status', '--database-url', toolUrl.href, '--expect-database', expected],
+      expectDatabase(args('plan'), expected), expectDatabase(args('apply'), expected),
+    ]) {
+      mismatch(await run(argv), expected);
+      assert.deepEqual(await snapshot(), before);
+    }
+  }
+});
+test('matching database works for status, plan, and both apply modes', async () => {
+  for (const argv of [
+    ['status', '--database-url', toolUrl.href, '--expect-database', expectedDatabase],
+    args('plan'), args('apply'), args('apply', {}, ['--execute']),
+  ]) {
+    const result = await run(argv);
+    assert.equal(result.exitCode, 0, JSON.stringify(result.report));
+    assert.ok('target' in result.report);
+    assert.equal(result.report.target.database, expectedDatabase);
   }
 });
 
@@ -164,7 +265,7 @@ test('status, plan and unexecuted apply preserve every row and report the reques
   await apply({}, ['--tenant', t1]); await apply({}, ['--tenant', t2]);
   const before = await snapshot();
   await plan(); await plan('apply'); await plan('plan', {}, ['--tenant', t1]); await plan('apply', {}, ['--tenant', t1]);
-  const status = await run(['status', '--database-url', toolUrl.href]);
+  const status = await run(['status', '--database-url', toolUrl.href, '--expect-database', expectedDatabase]);
   assert.equal(status.exitCode, 0);
   assert.ok('command' in status.report && status.report.command === 'status');
   assert.equal(status.report.executed, false);
@@ -204,7 +305,7 @@ test('status limits retired history to the newest 20 rows while reporting the fu
   for (let i = 0; i < 23; i += 1) await apply({ plan_ref: `history-${i}` });
   // Pin the revision tiebreaker independently of timestamp precision.
   await pool.query("UPDATE tenant_capacity_policies SET created_at='2026-10-07T00:00:00Z' WHERE status='retired'");
-  const result = await run(['status', '--database-url', toolUrl.href]);
+  const result = await run(['status', '--database-url', toolUrl.href, '--expect-database', expectedDatabase]);
   assert.equal(result.exitCode, 0);
   assert.ok('command' in result.report && result.report.command === 'status');
   assert.equal(result.report.retired_total, 22); assert.equal(result.report.retired.length, 20);

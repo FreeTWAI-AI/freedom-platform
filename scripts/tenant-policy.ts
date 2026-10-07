@@ -4,7 +4,8 @@ import type { PoolClient } from 'pg';
 import { createPool } from '../packages/db/index.js';
 
 // Bounded operator policy replacement. Defaults to a read-only plan; --execute writes.
-// Requires an explicit database URL and refuses production and the shared local database.
+// Requires an explicit database URL and expected name, checked against current_database()
+// before any other query. Refuses a NODE_ENV=production process and the shared local database.
 // Raising a ceiling needs a reviewed change.
 export const CEILINGS = Object.freeze({
   max_active_instances: 50,
@@ -36,7 +37,7 @@ export type PolicyRow = Limits & {
 type Target = { database: string; role: string };
 type Scope = { kind: 'default' | 'tenant'; tenant_id: string | null };
 type Report =
-  | { format: typeof FORMAT; status: 'refused'; code: string; flag?: string; ceiling?: number }
+  | { format: typeof FORMAT; status: 'refused'; code: string; flag?: string; ceiling?: number; expected?: string; connected?: string }
   | { format: typeof FORMAT; status: 'failed'; code: string; sqlstate?: string }
   | { format: typeof FORMAT; command: 'status'; executed: false; target: Target;
       default: PolicyRow | null; overrides: PolicyRow[]; retired: PolicyRow[]; retired_total: number }
@@ -47,14 +48,14 @@ type Report =
 type Result = { exitCode: 0 | 1 | 2; report: Report };
 
 class Refusal extends Error {
-  constructor(readonly code: string, readonly details: { flag?: string; ceiling?: number } = {}) { super(code); }
+  constructor(readonly code: string, readonly details: { flag?: string; ceiling?: number; expected?: string; connected?: string } = {}) { super(code); }
 }
 class ScopeVerificationFailure extends Error {}
 
 const limitFlags = Object.keys(CEILINGS).map(key => `--${key.replaceAll('_', '-')}`);
 const requiredFlags = ['--plan-ref', ...limitFlags, '--max-model-budget'];
 function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
-  command: 'status' | 'plan' | 'apply'; databaseUrl: string; execute: boolean;
+  command: 'status' | 'plan' | 'apply'; databaseUrl: string; expectedDatabase: string; execute: boolean;
   tenantId: string | null; policy: (Limits & { plan_ref: string }) | null;
 } {
   const command = argv[0];
@@ -68,8 +69,8 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
       execute = true;
       continue;
     }
-    if (!['--database-url', '--tenant', ...requiredFlags].includes(flag) || values.has(flag)
-      || (command === 'status' && flag !== '--database-url')
+    if (!['--database-url', '--expect-database', '--tenant', ...requiredFlags].includes(flag) || values.has(flag)
+      || (command === 'status' && !['--database-url', '--expect-database'].includes(flag))
       || argv[i + 1] === undefined || argv[i + 1].startsWith('--')) throw new Refusal('invalid_arguments');
     values.set(flag, argv[++i]);
   }
@@ -86,7 +87,12 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   // pg also accepts a query-string port override; neither spelling may reach the shared port.
   if (Number(url.port) === 54339 || url.searchParams.getAll('port').some(port => parseInt(port, 10) === 54339)
     || database === 'freedom_local') throw new Refusal('shared_local_database_refused');
-  if (command === 'status') return { command, databaseUrl, execute, tenantId: null, policy: null };
+  if (!values.has('--expect-database')) throw new Refusal('missing_flag', { flag: '--expect-database' });
+  const expectedDatabase = values.get('--expect-database')!;
+  if (!/^[a-z_][a-z0-9_]{0,62}$/.test(expectedDatabase) || expectedDatabase.trim() !== expectedDatabase) {
+    throw new Refusal('invalid_expected_database');
+  }
+  if (command === 'status') return { command, databaseUrl, expectedDatabase, execute, tenantId: null, policy: null };
   for (const flag of requiredFlags) if (!values.has(flag)) throw new Refusal('missing_flag', { flag });
   const planRef = values.get('--plan-ref')!;
   if ([...planRef].length < 1 || [...planRef].length > 120) throw new Refusal('invalid_plan_ref');
@@ -104,7 +110,7 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   if (tenantId !== null && (tenantId.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(tenantId))) {
     throw new Refusal('invalid_tenant_id');
   }
-  return { command, databaseUrl, execute, tenantId, policy: { ...limits, plan_ref: planRef } };
+  return { command, databaseUrl, expectedDatabase, execute, tenantId, policy: { ...limits, plan_ref: planRef } };
 }
 
 const ROW_COLUMNS = `policy_id, revision::text AS revision, tenant_id, plan_ref,
@@ -126,11 +132,14 @@ export async function runTenantPolicy(argv: readonly string[], env: NodeJS.Proce
       try {
         const write = input.command === 'apply' && input.execute;
         await client.query(write ? 'BEGIN' : 'BEGIN READ ONLY');
+        const target = (await client.query<Target>('SELECT current_database() AS database, current_user AS role')).rows[0];
+        if (target.database !== input.expectedDatabase) {
+          throw new Refusal('database_mismatch', { expected: input.expectedDatabase, connected: target.database });
+        }
         if (write) {
           await client.query("SET LOCAL lock_timeout = '10s'");
           await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [policyLockKey(input.tenantId)]);
         }
-        const target = (await client.query<Target>('SELECT current_database() AS database, current_user AS role')).rows[0];
         let report: Report;
         if (input.command === 'status') {
           report = { format: FORMAT, command: 'status', executed: false, target,
