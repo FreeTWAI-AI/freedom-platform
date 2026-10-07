@@ -1245,3 +1245,63 @@ for (const branch of ['intern', 'no_tenant', 'no_policy', 'select', 'continue'] 
     });
   }
 }
+
+test('r6 public catalog error on invalid cursor returns 422 with no-store and vary cookie', async () => {
+  const invalidCursor = Buffer.from('not-a-valid-cursor').toString('base64url');
+  const reply = await h.call('GET', `/applications?cursor=${invalidCursor}`);
+  assert.equal(reply.status, 422, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'invalid_cursor');
+  assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+  assert.ok(reply.response.headers.get('vary')?.includes('Cookie'));
+});
+
+test('r6 public catalog error on unknown query param returns 422 validation_failed with no-store and vary cookie', async () => {
+  const reply = await h.call('GET', '/applications?unknown_param=1');
+  assert.equal(reply.status, 422, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'validation_failed');
+  assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+  assert.ok(reply.response.headers.get('vary')?.includes('Cookie'));
+});
+
+test('r6 public catalog error on nonexistent guild_key returns 404 guild_not_found with no-store and vary cookie', async () => {
+  const reply = await h.call('GET', '/applications?guild_key=guild_nonexistent');
+  assert.equal(reply.status, 404, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'guild_not_found');
+  assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+  assert.ok(reply.response.headers.get('vary')?.includes('Cookie'));
+});
+
+test('r6 public catalog error on unknown release returns 404 not_found with no-store and vary cookie', async () => {
+  const reply = await h.call('GET', '/applications/unknown-app/releases/unknown-app@1.0.0');
+  assert.equal(reply.status, 404, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'not_found');
+  assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+  assert.ok(reply.response.headers.get('vary')?.includes('Cookie'));
+});
+
+test('r6 public catalog error for member with nonexistent guild_key returns 404 with private no-store and vary cookie', async () => {
+  const { owner } = await prepared();
+  const reply = await h.call('GET', '/applications?guild_key=guild_nonexistent', owner);
+  assert.equal(reply.status, 404, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'guild_not_found');
+  assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+  assert.ok(reply.response.headers.get('vary')?.includes('Cookie'));
+});
+
+test('r6 public catalog success responses retain expected cache headers', async () => {
+  const anonList = await h.call('GET', '/applications');
+  assert.equal(anonList.status, 200, JSON.stringify(anonList.data));
+  assert.equal(anonList.response.headers.get('cache-control'), 'public, max-age=60');
+  assert.ok(anonList.response.headers.get('vary')?.includes('Cookie'));
+
+  const anonDetail = await h.call('GET', '/applications/manual-workspace/releases/manual-workspace@1.0.0');
+  assert.equal(anonDetail.status, 200, JSON.stringify(anonDetail.data));
+  assert.equal(anonDetail.response.headers.get('cache-control'), 'public, max-age=60');
+  assert.ok(anonDetail.response.headers.get('vary')?.includes('Cookie'));
+
+  const { owner } = await prepared();
+  const memberList = await h.call('GET', '/applications?guild_key=guild_ai_field', owner);
+  assert.equal(memberList.status, 200, JSON.stringify(memberList.data));
+  assert.equal(memberList.response.headers.get('cache-control'), 'private, no-store');
+  assert.ok(memberList.response.headers.get('vary')?.includes('Cookie'));
+});
