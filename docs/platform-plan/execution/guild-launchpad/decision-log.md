@@ -10,7 +10,7 @@
 | OPEN-04 / SP-04 | 多module instances資料模型允許；方案未設值不解讀無限。初始launch重用相容依賴或明示新建 | 正式max instances/storage/jobs與補助範圍需可維運成本資料；quota race需原子reserve | catalog/profile/可取消provision fixture |
 | OPEN-05 / SP-05/09 | timeout/retry/receipt/offline窗口連動；合成profile建議request10s、≤12次/24h、offline≤7d、full receipt/inbox30d | 數值僅測試起點；replay horizon須小於完整去重可判定期。payload到期留下最小key/digest tombstone至namespace退役，或可證明等效策略；不能讓過期key再產effect | outbox/inbox、反例、未知ACK狀態 |
 | OPEN-06 / SP-05/09 | 支援明列當前+前一個相容tuple作測試；正式退場窗口/通知節奏待policy | 簽章/semver不能取代behavior fixtures；高風險撤銷優先，保留local/read/export可用能力 | mixed-version fixture、SDK generation |
-| OPEN-07 / SP-06/08 | 分資料類別的保留/備份/匯出下載期限待明定；清理先quarantine+可核對副本清單，不立即全域purge | 必須說清CRM原副本、order合法snapshot、dedup marker、recovery/tombstone與hist backup各期限；不能承諾即時所有副本消失 | scoped export/還原fixtures、allowlist掃描 |
+| OPEN-07 / SP-06/08 | 分資料類別的保留/備份/匯出下載期限待明定；清理先quarantine+可核對副本清單，不立即全域purge。**2026-10-07 owner決定**：備份30天；刪除後的衍生副本（搜尋、縮圖、摘要、cache）先隱藏、7天內清除；匯出下載連結7天；tombstone／撤權紀錄至少保留45天（長於備份）。備份到期清除尚未實作 | 必須說清CRM原副本、order合法snapshot、dedup marker、recovery/tombstone與hist backup各期限；不能承諾即時所有副本消失 | scoped export/還原fixtures、allowlist掃描 |
 | OPEN-08 / SP-07/10 | 首個可重現profile優先PG18及R2-compatible ObjectStore；確切OS/Node/lock/adapter版本於app release pin | 不保證任意DB互轉或所有object store等價；需乾淨環境從app+data+interop包啟動且無隱藏中央資源 | manifest/schema與streaming格式設計 |
 | OPEN-09 / SP-08 | v1只停遷移module寫入，無零停機/通用CDC承諾；停寫上限依資料量與restore量測告知 | drain超時與未知effects先reconcile；不能用拍腦袋時間直接kill並宣稱成功 | shell、離線restore、cutoff/fencing反例 |
 | OPEN-10 / SP-09 | 使用既有purpose-separated credential/Grant核心；具體sender-binding、有效TTL、rotation overlap依已驗adapter收斂 | 不自行創密碼協定、不把裝置bootstrap能力挪作module service；需audience/environment/replay/撤銷race實證 | endpoint/contract驗證、配對fixture |

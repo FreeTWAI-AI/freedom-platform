@@ -11,6 +11,7 @@ import { ExecutionInputError } from '../../../../packages/execution-state/decode
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
 import { chargeBootstrapHttp } from '../../../../modules/agent-control/bootstrap-http-limits.js';
 import { memberBoundary } from '../member-boundary.js';
+import { readSessionCookie } from '../session-cookie.js';
 import { SHARED_NETWORK_KEY } from '../runtime.js';
 import type { PlatformEnv } from '../module-context.js';
 
@@ -43,7 +44,7 @@ export async function createMemberCredentialIngestHttpTransport(pool:Pool,raw:{o
     clientId=BootstrapClientIdSchema.parse(ds.clientId.value),sourceNetwork=ds.sourceNetwork?.value as ((request:Request)=>string)|undefined;
   if(typeof origin!=='string'||u.protocol!=='https:'||u.origin!==origin||u.username||u.password
     ||/[?#%\\\x00-\x20\x7f-\uffff]/.test(origin)||(sourceNetwork!==undefined&&typeof sourceNetwork!=='function'))throw new Error('invalid_credential_ingest_http_configuration');
-  const ingest=bindCredentialIngestClient(ds.ingest.value as CredentialIngestClient,pool,origin,environment,clientId),boundary=memberBoundary(pool),app=new Hono<PlatformEnv>();
+  const ingest=bindCredentialIngestClient(ds.ingest.value as CredentialIngestClient,pool,origin,environment,clientId),boundary=memberBoundary(pool,origin),app=new Hono<PlatformEnv>();
   app.onError((error,c)=>{
     security(c);let code='internal_error',status=500;
     if(error instanceof z.ZodError||error instanceof ExecutionInputError){code='validation_failed';status=400;}
@@ -65,8 +66,7 @@ export async function createMemberCredentialIngestHttpTransport(pool:Pool,raw:{o
     requireCondition(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].every(h=>c.req.header(h)===undefined),403,'credential_kind_rejected','Credential rejected.');
     requireCondition(c.req.header('Content-Encoding')===undefined,415,'encoding_rejected','Encoding unsupported.');
     requireCondition(['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range'].every(h=>c.req.header(h)===undefined),400,'read_headers_rejected','Conditional headers unsupported.');
-    const cookie=c.req.header('Cookie')??'';
-    requireCondition(cookie.split(';').filter(v=>v.includes('=')&&v.slice(0,v.indexOf('=')).trim()==='freedom_local_session').length<=1,403,'credential_kind_rejected','Credential rejected.');
+    readSessionCookie(c.req.header('Cookie'),origin);
     if(method==='GET')requireCondition(c.req.raw.body===null&&['Idempotency-Key','If-Match','Content-Length','Transfer-Encoding'].every(h=>c.req.header(h)===undefined),400,'read_headers_rejected','Read headers rejected.');
     else{key(c);version(c);}
     let network=SHARED_NETWORK_KEY;
