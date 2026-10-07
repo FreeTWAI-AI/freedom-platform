@@ -19129,8 +19129,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad-journey.test.ts",
-      "bytes": 37620,
-      "sha256": "92d1460f520c766e7da51785b13353bbc91e05ddda29fef5bc4f54c67212a3cc"
+      "bytes": 56842,
+      "sha256": "43fca73bd25b0d0d7b9cd04802b6838702f136527443fa76cf6f782585cb9751"
     },
     {
       "path": "tests/runtime/guild-launchpad.test.ts",
