@@ -18769,8 +18769,8 @@
     },
     {
       "path": "tests/runtime/native-text-process.test.ts",
-      "bytes": 16260,
-      "sha256": "c921dd40138fac395dc5ee7da1f54024fa1d9e6ff1179bf9bdb42a38734fde36"
+      "bytes": 16625,
+      "sha256": "4b90f1fa6255ed7c52d909c8e84ba9c1c96243d013b14896c61dff4005417fc1"
     },
     {
       "path": "tests/runtime/newcomer-guide-dialogue.test.ts",
