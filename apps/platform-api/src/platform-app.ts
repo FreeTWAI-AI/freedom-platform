@@ -12,10 +12,13 @@ import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../m
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
+import { AssetStorageError } from '../../../packages/asset-storage/index.js';
+import { InstanceSelectionRequired } from '../../../modules/module-registry/problems.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
 import { createPositioningRoutes } from './routes/positioning.js';
+import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
 import { createCommerceRoutes } from './routes/commerce.js';
 import { createMemberRoutes } from './routes/members.js';
 import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './routes/avatars.js';
@@ -40,6 +43,9 @@ import {skillDiscovery} from '../../../modules/community/discovery.js';
 import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {createTenantWorkspaceRoutes} from './routes/tenant-workspaces.js';
+import {createGuildLaunchpadRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
+import {createModuleRegistryRoutes} from './routes/module-registry.js';
+import {checkTenantResultContentHeaders,createTenantWorkRoutes,isTenantResultContentUpload} from './routes/tenant-work.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
 import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
@@ -101,6 +107,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const app=new Hono<{Variables:{actor:Actor}}>();
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
+    if(err instanceof InstanceSelectionRequired) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,candidates:err.candidates},409);
+    if(err instanceof AssetStorageError && err.code==='object_unavailable') return c.json({type:'about:blank',title:'object_unavailable',status:503,code:'object_unavailable',detail:'內容儲存目前無法使用。'},503);
     if(err instanceof Problem) {
       const retry=err.retryAfterSeconds;
       if(typeof retry==='number'&&Number.isFinite(retry)&&retry>=0&&retry<=86400)c.header('Retry-After',String(Math.ceil(retry)));
@@ -157,6 +165,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         checkHighlightPhotoUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isHighlightPosterUpload(c.req.method,c.req.path)) {
         checkHighlightPosterUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isTenantResultContentUpload(c.req.method,c.req.path)) {
+        // The route reads a capped byte stream after the session check. Do not parse JSON.
+        checkTenantResultContentHeaders(c.req.header('Content-Length'));
       } else {
         requireCondition(c.req.header('Content-Type')?.split(';')[0]==='application/json',415,'json_required','操作需要 JSON。');
         requireCondition(Number(c.req.header('Content-Length')??0)<=32768,413,'body_too_large','內容過長。');
@@ -183,6 +194,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
   app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true}));
+  if(runtime.guildLaunchpadEnabled===true)app.get('/api/v1/guild-categories',async c=>c.json(await listGuildCategories(pool)));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
     c.header('X-Robots-Tag','noindex, nofollow');
@@ -265,6 +277,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.json(result);
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -315,11 +328,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));
   app.route('/api/v1',createGuildWorkspaceRoutes(pool));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/api/v1',createGuildLaunchpadRoutes(pool));
   app.route('/api/v1',createRepoMaintainerMemberRoutes(pool));
   app.route('/api/v1',createAvatarRoutes(pool,runtime.avatarAssetStore));
   app.route('/api/v1',createClientConnectionRoutes(pool));
   app.route('/api/v1',createSkillSubmissionRoutes(pool,origin,runtime.githubMetricsToken,runtime));
-  app.route('/api/v1',createPositioningRoutes(pool));
+  app.route('/api/v1',createPositioningRoutes(pool,{guildLaunchpadEnabled:runtime.guildLaunchpadEnabled===true}));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin,shopHost));
   app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
@@ -327,6 +341,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createBenefitRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/api/v1',createTenantWorkspaceRoutes(pool));
+    app.route('/api/v1',createModuleRegistryRoutes(pool));
+    app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));

@@ -10,7 +10,9 @@ import {setGuildExpert} from '../../../../modules/platform-admin/guild-experts.j
 import type {Pool} from 'pg';
 import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
 import {verifyAdminAccess,type AdminAccessVerifier} from '../../../../modules/platform-admin/access.js';
-import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {authenticateAdmin,adminBootstrap,adminMembers,changeMemberStatus,adminApplications,reviewGuildApplication,adminGuilds,adminGuildMasterCandidates,appointGuildMaster,updateGuildProfile,adminNominees,adminAudit,appointPlatformAdmin,changePlatformAdminStatus,classifyGuild,backfillGuildPreferencesAdmin,switchGuildPreferencesAdmin,type AdminActor,type AdminCommand} from '../../../../modules/platform-admin/service.js';
+import {listGuildCategories} from '../../../../modules/positioning/guild-categories.js';
+import {GuildKey} from '../../../../contracts/guild-launchpad/v1/guild-preferences.js';
 import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '../../../../modules/github-social/setup.js';
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
@@ -92,6 +94,16 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
       WHERE e.community_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[admin.community_id]);
     return c.json({items:rows.rows});
   });
+  if(guildLaunchpadEnabled){
+    app.get('/guild-categories',async c=>c.json(await listGuildCategories(pool)));
+    app.post('/guilds/:key/classification',async c=>{
+      requireCondition(c.req.header('If-Match'),428,'version_required','請提供 If-Match 版本。');
+      const value=await classifyGuild(pool,await command(c),GuildKey.parse(c.req.param('key')));
+      c.header('ETag',`"${value.classification.catalog_revision}"`);return c.json(value);
+    });
+    app.post('/guild-preferences/backfill',async c=>c.json(await backfillGuildPreferencesAdmin(pool,await command(c))));
+    app.post('/guild-preferences/switch',async c=>c.json(await switchGuildPreferencesAdmin(pool,await command(c))));
+  }
   app.route('/',createRepoMaintainerAdminRoutes(pool));
   if(guildLaunchpadEnabled){
     const matched=async(c:Context<AdminEnv>)=>{

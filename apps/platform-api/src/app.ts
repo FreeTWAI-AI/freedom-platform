@@ -14,7 +14,7 @@ import { bindPrivateAiProductTransport, bindPrivateAiProductBrowserPolicy, type 
 
 type NodeAppOptions = {shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
   eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];eventHighlightAssets?:PlatformRuntime['eventHighlightAssets'];eventHighlightAssetStore?:PlatformRuntime['eventHighlightAssetStore'];
-  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;guildLaunchpadEnabled?:boolean};
+  linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;guildLaunchpadEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
 
 // Node host adapter. The Worker bundle never imports this module, so the
 // socket-based address below is only ever read from a real Node server.
@@ -46,6 +46,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     now:options.now,
     linkPreviewFetch:options.linkPreviewFetch??((input,init)=>globalThis.fetch(input,init)),
     guildLaunchpadEnabled:options.guildLaunchpadEnabled===true,
+    tenantWorkAssetStore:options.tenantWorkAssetStore,
   };
 }
 
