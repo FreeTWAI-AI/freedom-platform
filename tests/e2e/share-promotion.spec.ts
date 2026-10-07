@@ -151,7 +151,7 @@ test('sharing the workshop from home and the leaderboard uses one personal link'
   await expect(page).toHaveURL(url => url.pathname === '/' && url.search === '');
   await navigate(page, '推廣排行榜');
   await expect(board(page, '平台推廣排行榜')).toContainText(`我的名次：第 1 名・${weekBefore + 1} 分`);
-  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const again = page.getByRole('dialog', { name: '分享「自由工坊」', exact: true });
   await expect(again.locator('.skill-share-url')).toHaveText(platformGo);
   await again.getByRole('button', { name: '關閉分享', exact: true }).click();
@@ -264,7 +264,7 @@ test('social cards keep a 16:9 thumbnail, a small byline and actions on one row'
   expect(Math.abs(open!.y - share!.y)).toBeLessThanOrEqual(1);
 
   await navigate(page, '推廣排行榜');
-  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '分享「自由工坊」' });
   await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
   const go = (await dialog.locator('.skill-share-url').innerText()).trim();
@@ -396,7 +396,7 @@ test('screenshots cover the boards, social zone, dialogs and interstitial', asyn
       await noOverflow(page);
     }
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+    await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '分享「自由工坊」' });
     await expect(dialog.locator('.skill-share-url')).toBeVisible();
     await dialog.screenshot({ path: `${SHOTS}/share-dialog-${theme}-1280.png` });

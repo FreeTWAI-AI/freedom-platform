@@ -1529,8 +1529,8 @@
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
-      "bytes": 3372,
-      "sha256": "8f18424309c79bafe43180a826d39241f632c50fb52210620aef89d6589f88aa"
+      "bytes": 4089,
+      "sha256": "6d10d308a3b985f475fe65345ebe1c17906ec169663a539e56c33318caf351ab"
     },
     {
       "path": "apps/portal-web/src/AppInstall.tsx",
@@ -13414,8 +13414,8 @@
     },
     {
       "path": "docs/development/social-cross-platform-sharing.md",
-      "bytes": 8403,
-      "sha256": "64236201624ed007a429ea4674eb18f981b7ef5854a174af46f31d9f98336d03"
+      "bytes": 11165,
+      "sha256": "645c115255b433adbcd0304cb88f2fe98ffded49fa4ce9eb465195b5ffdd9419"
     },
     {
       "path": "docs/development/social-mobile-install.md",
@@ -18669,8 +18669,8 @@
     },
     {
       "path": "tests/e2e/account-language.spec.ts",
-      "bytes": 12205,
-      "sha256": "c9a5bdb7721bb48dc9e5e3d34f91b180dec1d74cd5e1e722321747825ebaf705"
+      "bytes": 13213,
+      "sha256": "9b6328857dacefe17e59cf72c2cc3bb6f574de417b352d70dc28849010d8f9f6"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
@@ -18764,8 +18764,8 @@
     },
     {
       "path": "tests/e2e/cloud-candidate-acceptance.spec.ts",
-      "bytes": 75335,
-      "sha256": "8236ce14fa32e1d490a40593ee9025ace0a6808c5a9112d9804aa94246dc5f7a"
+      "bytes": 75935,
+      "sha256": "abdc9f223a84ea2a7035b71277b85e6ffa87ffc053c559fe896b4e6079e866f6"
     },
     {
       "path": "tests/e2e/co-creation.spec.ts",
@@ -18969,8 +18969,8 @@
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
-      "bytes": 17532,
-      "sha256": "0277395a7773b8c7c594793a2bcb57a8efee822c4f5dc03fe7ed440c64e32570"
+      "bytes": 17550,
+      "sha256": "54a033b4fb752b7499985f1e237102b4ffc4d3ae503cee3b84c581336f571a1e"
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",
@@ -19099,8 +19099,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 26587,
-      "sha256": "e0d3bac2039bd6ae99a3bef3d01f551c18984d9a02f9d2f380537581bfc41888"
+      "bytes": 26491,
+      "sha256": "79fee816797341bfa7eaca8e0ab37597292abc38df49401332ba2719a72c2fb0"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",

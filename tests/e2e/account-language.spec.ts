@@ -16,6 +16,16 @@ for(const language of cases)test(`${language.id}: browser language, real invalid
     const page=await context.newPage();await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('lang',language.id);
     await expect(page.getByRole('combobox',{name:'Language',exact:true})).toHaveValue('auto');
+    for(const width of [320,390]){
+      await page.setViewportSize({width,height:844});
+      const picker=(await page.getByRole('combobox',{name:'Language',exact:true}).boundingBox())!,install=(await page.locator('.login-entry-tools .app-install-trigger').boundingBox())!;
+      expect(picker.x+picker.width,`${language.id} ${width} entry tools do not overlap`).toBeLessThanOrEqual(install.x);
+      expect(Math.max(picker.y,install.y),`${language.id} ${width} entry tools share a row`).toBeLessThan(Math.min(picker.y+picker.height,install.y+install.height));
+      for(const box of [picker,install]){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+      const email=(await page.locator('.login-card form [name=email]').boundingBox())!;
+      expect(email.y+email.height,`${language.id} ${width} email is on the initial screen`).toBeLessThanOrEqual(844);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
     const resourceToggle=page.locator('.entry-resources > details > summary');await resourceToggle.click();await expect(page.locator('.entry-resource-list article')).toHaveCount(3);await resourceToggle.click();
     const form=page.locator('.login-card form');
     await form.locator('[name=email]').fill(`absent-${randomUUID()}@example.test`);

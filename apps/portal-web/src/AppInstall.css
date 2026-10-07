@@ -3,7 +3,7 @@ html[data-device-offline=true]{--chat-safe-top:0px}
 .app-install-trigger{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;font-size:14px;white-space:normal}
 .app-install-trigger svg{flex:none}
 .login-entry-tools{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
-.login-entry-tools .login-language-row{margin:0}
+.login-entry-tools .login-language-row{margin:0;width:auto;flex:1;min-width:0}
 .app-install-dialog{width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 24px - var(--app-safe-top) - var(--app-safe-bottom));padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--bg-elev);color:var(--ink);overflow:auto;overscroll-behavior:contain}
 .app-install-dialog[open]{display:grid;gap:14px}
 .app-install-dialog::backdrop{background:#11182788}
@@ -17,7 +17,9 @@ html[data-device-offline=true]{--chat-safe-top:0px}
 .app-connection-status{position:sticky;top:0;z-index:70;padding:calc(8px + var(--app-safe-top)) max(12px,var(--app-safe-right)) 8px max(12px,var(--app-safe-left));background:var(--info-bg);color:var(--ink);font-size:14px;line-height:1.5;border-bottom:1px solid var(--line);text-align:center}
 .app-frame.social-layout .community-header{top:var(--connection-status-height,0px)}
 @media(max-width:760px){
-  .login-entry-tools{gap:8px}.login-entry-tools .app-install-trigger{max-width:calc(100% - 178px);padding:8px}
+  .login-entry-tools{gap:8px}.login-entry-tools .app-install-trigger{flex:none;max-width:45%;padding:8px}
+  .login-entry-tools .language-picker label{flex-wrap:nowrap}
+  .login-entry-tools .language-picker select{flex:1;min-width:0;width:100%;font-size:16px;padding-right:16px}
   html .app-frame.social-layout .community-header{padding-top:calc(10px + var(--chat-safe-top));padding-left:max(12px,var(--app-safe-left));padding-right:max(12px,var(--app-safe-right))}
   html .app-frame.social-layout:has(.messages-hub>[role=tabpanel]:not([hidden]) .messages-thread[data-chat-open=true]){top:calc(var(--chat-viewport-offset,0px) + var(--connection-status-height,0px));height:calc(var(--chat-viewport-height,100dvh) - var(--connection-status-height,0px))}
   html .messages-hub .messages-thread[data-chat-open=true]>.chat-header{padding-top:calc(10px + var(--chat-safe-top));padding-left:max(8px,var(--app-safe-left));padding-right:calc(60px + var(--app-safe-right))}
@@ -25,4 +27,13 @@ html[data-device-offline=true]{--chat-safe-top:0px}
   html .messages-hub .messages-thread[data-chat-open=true] .chat-search-trigger{top:calc(10px + var(--chat-safe-top));right:calc(60px + var(--app-safe-right))}
   html .messages-hub .messages-thread[data-chat-open=true] .messages-refresh{top:calc(10px + var(--chat-safe-top));right:calc(10px + var(--app-safe-right))}
   html .messages-hub .messages-thread[data-chat-open=true]>.messages-compose{padding-left:max(10px,var(--app-safe-left));padding-right:max(10px,var(--app-safe-right));padding-bottom:max(12px,var(--app-safe-bottom))}
+}
+@media(max-width:420px){
+  .login-layout:has(.login-entry-tools){row-gap:12px}
+  /* The select retains its accessible Language label while both entry tools fit one row. */
+  .login-entry-tools .language-picker label>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+}
+@media(max-width:420px) and (max-height:740px){
+  /* Keep the first account field on short phones without shrinking the logo, copy or targets. */
+  .login-layout:has(.login-entry-tools){row-gap:8px}
 }

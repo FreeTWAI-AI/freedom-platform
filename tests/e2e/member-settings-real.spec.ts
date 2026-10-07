@@ -103,7 +103,7 @@ test('two synthetic members exchange a private message and a friend notification
     await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
     await expect(settings(r).locator('.settings-dot')).toHaveCount(0);await expect(settings(r)).toHaveAccessibleName('設定');
     await settings(r).click();
-    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','登出']);
+    await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','加入主畫面','登出']);
     await noOverflow(r);await shot(r,'settings-320');
     await settings(r).click();await openMessages(r);await expect(r.locator('#main-content')).toBeFocused();
     await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');

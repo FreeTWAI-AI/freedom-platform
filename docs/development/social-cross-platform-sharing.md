@@ -56,3 +56,17 @@ Facebook 的 Web Share Dialog 以連結分享為主，URL 流程需要 `app_id`�
 首次瀏覽器組合為 33 pass／2 fail，保留原失敗：Windows 剪貼簿讀回 CRLF 的測試可攜性問題，以及瀏覽器快取失敗模組造成原重試無法恢復的產品問題。前者只正規化測試讀回換行，後者修復上述受限的明確重試；未放寬原稿、選取、發布狀態或恢復斷言。
 
 先前 source `ea0f687` 的 hosted run `37614196445` 仍有 UI job 逾時及 8 個已出現的失敗案例，沒有完整 UI 結果；不得以這 35 項本機通過替代整套 hosted CI。該 run 的 runtime partition 5 登出文字 fixture 已在本版更新為既有翻譯呼叫，原結構斷言保留並本機通過。人工 review、實體手機交接、正式負載與全平台 UX／效能驗收仍未完成。
+
+## 2026-10-07：登入與既有完整流程修正
+
+在 `ecb5b288` 重跑先前失敗所屬的原 22 項流程，得到 14 pass／8 fail／0 skip。320×640 的登入頁電子郵件欄底部原為 745.34px，超過初始畫面；語言與安裝入口原本換成兩排。現在兩個入口保持同排，窄螢幕調整區塊間距，保留原 Logo、文字大小及至少 44px 的觸控範圍。五種語言在 320／390×844 都檢查首個欄位初始可見、同排且不互相遮擋；短螢幕的原 320×640 檢查也通過。
+
+其餘失敗包含既有測試導航與選單資料落後：排行榜已直接顯示分享按鈕，測試卻尋找首頁的展開區塊；會員設定選單漏列「加入主畫面」；本機驗收工具尚未識別聊天捷徑的摘要請求。修正導航與精確選單資料後，保留原本的個人分享連結、訪客計分與去重、16:9 圖片比例、三主題可讀性、鍵盤操作、本人刪文及真實合成帳號私訊／通知斷言。
+
+本機驗收工具只允許現有畫面的明確 GET 請求：通知的 1／6／20 筆首頁（未讀摘要、通知鈴、RPG 動態），以及對話與公會／小隊／世界頻道的 1 筆摘要，均為 offset 0。測試仍攔截所有收件匣請求，收到的私人回應必須為零；不接受其他參數、歷史頁面或寫入操作，保留登入撤銷、權限新鮮度、頭像恢復與合成帳號資料清理檢查。
+
+最後 fresh build 與 typecheck 通過，原 22 項加上語言與安裝流程，共 **37 pass／0 fail／0 skip**：帳號語言 9、入口與導覽 9、本機完整驗收工具 1、真實私訊與好友通知 1、手機安裝 6、分享推廣 11。命令：`npm run test:e2e -- tests/e2e/audit-shell.spec.ts tests/e2e/cloud-candidate-acceptance.spec.ts:689 tests/e2e/member-settings-real.spec.ts tests/e2e/share-promotion.spec.ts tests/e2e/account-language.spec.ts tests/e2e/mobile-install.spec.ts`。未增加 timeout 或關閉原斷言。
+
+中間兩次候選為 35 pass／2 fail 與 36 pass／1 fail，失敗紀錄保留。第一輪額外發現西班牙文長文字在 320×844 把欄位推到 859.19px，依原門檻修正間距；另外兩項為通知鈴 6 筆及既有 RPG 動態 20 筆請求未列入驗證規則，依實際來源與 trace 修正。
+
+先前 `ecb5b288` 的 [hosted run 37621269051](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37621269051) 已有 runtime aggregate 回報 3,274 pass；同 source 的部署預檢為 458 pass、PostgreSQL 為 12 pass，31 個測試檔來源 hash 與完整檔案計數已核對。這些是先前 source 的證據，不能代替此修正 source 的整套 hosted UI 或人工審查。實體 iOS／Android 分享、正式負載與全平台驗收仍待完成。
