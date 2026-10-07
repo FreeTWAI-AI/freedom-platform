@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-07T11:23:10.003869+00:00",
+  "recorded_at": "2026-10-07T14:57:52.186188+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,21 +14,21 @@
   },
   "merged_source": {
     "repository": "FreeTWAI-AI/freedom-platform",
-    "sha": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-    "tree": "30ef00e980c79a3fb431e934c1baf3d9619fa3b2",
-    "pull_request": 162,
-    "merge_at": "2026-10-06T20:24:30Z",
+    "sha": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+    "tree": "d5812b56f6896c07fdc82d054756172f1f1ce73e",
+    "pull_request": 225,
+    "merge_at": "2026-10-07T13:44:36Z",
     "verify": {
-      "run": 37526211480,
+      "run": 37630943060,
       "conclusion": "success",
-      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37526211480"
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37630943060"
     },
-    "limitation": "This main commit is the production and staging release (operator receipts 2026-10-06, round 2). The installed central workflow source is 6ffdf94a since 2026-10-07 11:15Z (governance_pins); that is a CI pin, not a deployment. Later main commits are not deployed."
+    "limitation": "This main commit is the production and staging release (operator receipts 2026-10-07, round 3); #225 merged the approved heads of #187, #203, #208, #210 and #105 as one batch. The installed central workflow source stays 6ffdf94a (governance_pins). Later main commits are not deployed."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
+      "observed_release_sha": "687dee8739d9a8fc65a78fcb093347833cc004e8",
       "fresh_health": {
         "origin": "https://freetwai.com",
         "path": "/api/v1/health",
@@ -42,19 +42,19 @@
           "money_movement_enabled": false,
           "official": false,
           "runtime": "cloudflare-workers",
-          "release_sha": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
+          "release_sha": "687dee8739d9a8fc65a78fcb093347833cc004e8",
           "shop_key_policy": "legacy-compatible",
           "shop_key_issuer_profile": "freedom.shop-service-key/v1"
         },
-        "sha256": "72005ea416b48caa1a16c34f85577a03f6d6749c21871e36c670106b35da52eb"
+        "sha256": "88eda360036c26fd35e48b4168ea826e240a80b8b5750c8626780ee854cab4ea"
       },
-      "observed_at": "2026-10-06T22:12:53.711344+00:00",
+      "observed_at": "2026-10-07T14:26:13.138827+00:00",
       "limitation": "Public health proves this endpoint/release identity, not every feature, private DB schema, or cloud private-AI acceptance."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "last_operator_release_sha": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-      "operator_observed_at": "2026-10-06T22:13:09Z",
+      "last_operator_release_sha": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "operator_observed_at": "2026-10-07T14:13:35.922Z",
       "fresh_http": {
         "origin": "https://staging.freetwai.com",
         "path": "/api/v1/health",
@@ -68,6 +68,97 @@
       "limitation": "Fresh Access 302 is not authenticated health; release identity comes from the operator live readback in the staging rollout receipt."
     },
     "last_operator_rollout": {
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "prs": [
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/184",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/183",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/186",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/185",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/165",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/153",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/163",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/164",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/160",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/181",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/192",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/190",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/194",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/175",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/188",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/189",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/191",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/195",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/209",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/221",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/225"
+      ],
+      "batch_components": {
+        "pull_request": 225,
+        "prs": [
+          "https://github.com/FreeTWAI-AI/freedom-platform/pull/187",
+          "https://github.com/FreeTWAI-AI/freedom-platform/pull/203",
+          "https://github.com/FreeTWAI-AI/freedom-platform/pull/208",
+          "https://github.com/FreeTWAI-AI/freedom-platform/pull/210",
+          "https://github.com/FreeTWAI-AI/freedom-platform/pull/105"
+        ]
+      },
+      "kind": "operator_observed_private_receipt",
+      "scope": "staging, then production (same SHA and dist)",
+      "at": "2026-10-07T14:44:12.302980+00:00",
+      "receipt_sha256": "f0f01a9bc725554205de9c6fc0877c743b89f6971b52e42253e4000b2e50ef82",
+      "previous_release": {
+        "production": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
+        "staging": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad"
+      },
+      "owner_approval": "Ted, 2026-10-07T12:38:23Z, \"1.2.3.4 都你決定就好 除非你覺得該我決定\" in reply to report items 1-4 (item 3: \"#184、#185 的部署。\"); it delegated the release decision to the integration owner, who decided: staging, then production dark, with migrations 120-124 and FREEDOM_GUILD_LAUNCHPAD_ENABLED absent",
+      "selected_checks": {
+        "staging": 43,
+        "production": 27
+      },
+      "production_health_samples": "5/5 687dee87",
+      "worker_versions": {
+        "staging": "2a5a3a1c-e064-45c2-aca2-bed360e11698",
+        "production": "667383d3-2651-4889-9ad4-ddab8158be52"
+      },
+      "database_migrations_applied": {
+        "production": [
+          120,
+          121,
+          122,
+          123,
+          124
+        ],
+        "staging": [
+          120,
+          121,
+          122,
+          123,
+          124
+        ]
+      },
+      "ledger_check": "after migrating, staging at 2026-10-07T14:08:55.451Z and production at 2026-10-07T14:24:17.311Z: 123 migration files through 124_tenant_ownership_recovery.sql, all applied, nothing pending or mismatched; 0 capacity and 0 authority policy rows on both",
+      "schema_compatibility": "Before migrating, the live precheck found 0 violating rows across 12 constraint checks and no missing drop target on both databases (precheck-constraints.json); the scratch-database diff lists 47 changed existing objects (compat-schema-diff.json). See rollback.",
+      "worker_config_change": "None besides FREEDOM_RELEASE_SHA; FREEDOM_GUILD_LAUNCHPAD_ENABLED stays absent and FREEDOM_SHOP_KEY_POLICY stays legacy-compatible on both.",
+      "private_ai_enabled": false,
+      "backup_release_pins_updated": true,
+      "production_accounts_created": 0,
+      "staging_cron_before_production": "Under 687dee87 the staging cron wrote to freedom_staging_next after the deploy: sync 2026-10-07T14:11:48.851Z, feed 2026-10-07T14:11:29.887Z, metrics 2026-10-07T14:11:53.805Z; last_error counts sync 8->8, feed 0->0, metrics 0->0",
+      "cron_after_rollout": "Under 687dee87 the cron wrote to freedom_next after the deploy: repository sync 2026-10-07T14:31:29.568Z, feed 2026-10-07T14:31:02.761Z, repository metrics 2026-10-07T14:31:32.798Z; last_error counts sync 6->6, feed 0->0, metrics 0->0 (before: 55 none, 6 github_unavailable; after: 55 none, 6 github_unavailable).",
+      "issue_198_early_stop": "#198 is fixed by #203 in this release. Staging could not show the early stop from outside: Cloudflare holds an unterminated chunked request body and resets it after about 15 s (fetch probe TypeError after 15192 ms; raw TLS chunked probe ECONNRESET after 15133 ms and 40053 bytes sent). The early stop is proven by tests/runtime/platform-json-body.test.ts (source cancelled before draining; declared oversize never pulled) in verify run 37630943060, and the staging json_stream_limit_413 check proves the bounded path is live.",
+      "rollback": "Redeploy 8d2213d7 to the affected Worker(s); no schema restore is needed. Migrations 120-124 add new tables (seeding rows into two of them), and 121/123 also change existing objects: nullable columns, foreign keys and uniques on resource_scopes, work_items, assets and asset_upload_intents; a widened scope_kind expression on work_items; widened CHECKs on those tables and on scoped_command_receipts, scoped_transition_journal, scoped_outbox and asset_objects; and three trigger functions that now also guard the new columns. Each change only adds a tenant branch or a column that 8d2213d7 leaves NULL, the new foreign keys are MATCH SIMPLE, and the new trigger acts only on tenant_execution rows (diffed in a scratch database: compat-schema-diff.json; live rows checked before migrating: precheck-constraints.json). A data restore would start from the before-migration backup set (production ce4913c6-413a-4d60-ad06-89bab1381e27, staging 723736c4-918c-4708-8e65-f76c36a838ee).",
+      "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP. #162 names one prepared statement in credential-ingest-authorizations; it only runs with FREEDOM_PRIVATE_AI_ENABLED=true (off on both) or in the undeployed credential broker, so neither environment exercised it through Hyperdrive. The guild launchpad tables exist but stay unused while FREEDOM_GUILD_LAUNCHPAD_ENABLED is absent; no capacity or authority policy row was written."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:44:12.302980+00:00"
+    },
+    "last_staging_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:44:12.302980+00:00"
+    },
+    "previous_production_rollout": {
       "source": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
       "prs": [
         "https://github.com/FreeTWAI-AI/freedom-platform/pull/180",
@@ -106,17 +197,12 @@
       "rollback": "Redeploy d1c9e18f to the affected Worker(s). No schema or data change in this round, so no restore is needed.",
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance. #162 names one prepared statement in credential-ingest-authorizations; it only runs with FREEDOM_PRIVATE_AI_ENABLED=true (off on both) or in the undeployed credential broker, so neither environment exercised it through Hyperdrive."
     },
-    "last_production_rollout": {
-      "same_as": "last_operator_rollout",
+    "previous_staging_rollout": {
+      "same_as": "previous_production_rollout",
       "source": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
       "at": "2026-10-06T22:32:44.798029+00:00"
     },
-    "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-      "at": "2026-10-06T22:32:44.798029+00:00"
-    },
-    "previous_production_rollout": {
+    "earlier_production_rollout": {
       "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
       "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
       "kind": "operator_observed_private_receipt",
@@ -150,7 +236,7 @@
       "rollback": "Redeploy e07d61d2 (schema-compatible with 114-119) with pre-migration backup set d7f0bd5f-836b-4542-9e0e-eb5e6574583d as the data fallback.",
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP, and the session/cookie behaviour was exercised on staging for the same SHA."
     },
-    "previous_staging_rollout": {
+    "earlier_staging_rollout": {
       "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
       "pr": "https://github.com/FreeTWAI-AI/freedom-platform/pull/167",
       "kind": "operator_observed_private_receipt",
@@ -180,7 +266,7 @@
       "rollback": "Redeploy e07d61d2 (schema-compatible with 114-119) with the pre-migration backup set as the data fallback.",
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance."
     },
-    "earlier_production_rollout": {
+    "earliest_production_rollout": {
       "source": "e07d61d2f534df99069f8f6b414f3863d9db3711",
       "branch": "hotfix/member-session-30d-20261006",
       "live_base_before": "fe93730d36805a5c25a5f381450980b2767efe29",
@@ -206,7 +292,7 @@
     "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
   },
   "schema": {
-    "repository_max_migration": 119,
+    "repository_max_migration": 124,
     "last_observed_live": {
       "ledger_rows": 112,
       "through_number": 113,
@@ -217,48 +303,49 @@
     },
     "staging_observed": {
       "environment": "staging",
-      "ledger_rows": 118,
-      "through_number": 119,
+      "ledger_rows": 123,
+      "through_number": 124,
       "applied": [
-        114,
-        115,
-        116,
-        117,
-        118,
-        119
+        120,
+        121,
+        122,
+        123,
+        124
       ],
-      "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
-      "at": "2026-10-06T15:49:01.295Z",
+      "pending": [],
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:08:43.903Z",
       "kind": "operator_observed_private_receipt",
-      "role": "staging migrator, one transaction under an advisory lock with known gap 22",
-      "post_checks": "Runtime grants re-applied; read-only verification and runtime/backup login probes passed (backup unreadable objects 0).",
-      "pre_migration_backup": "f5efc970-f63f-4624-8045-2c109a8204b6 (source e07d61d2; isolated restore and remote readback verified)"
+      "role": "staging migrator",
+      "post_checks": "Read-only verification and runtime/backup login probes passed (runtime reads the 25 new tables; backup unreadable objects 0; no row-security tables). No executor or operator role exists in this staging database, so the operator grant check does not apply.",
+      "pre_migration_backup": "723736c4-918c-4708-8e65-f76c36a838ee (source 8d2213d7; isolated restore and remote readback verified)"
     },
     "production_observed": {
       "environment": "production",
-      "ledger_rows": 118,
-      "through_number": 119,
+      "ledger_rows": 123,
+      "through_number": 124,
       "applied": [
-        114,
-        115,
-        116,
-        117,
-        118,
-        119
+        120,
+        121,
+        122,
+        123,
+        124
       ],
-      "source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
-      "at": "2026-10-06T21:12:53.437Z",
+      "pending": [],
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:24:14.781Z",
       "kind": "operator_observed_private_receipt",
-      "role": "production migrator, one transaction under an advisory lock with known gap 22",
-      "post_checks": "Runtime grants re-applied; read-only verification and runtime/backup login probes passed (backup unreadable objects 0); the dedicated media operator role kept byte-identical privileges (before/after digest).",
-      "pre_migration_backup": "d7f0bd5f-836b-4542-9e0e-eb5e6574583d (source e07d61d2; isolated restore and remote readback verified). The first attempt a10e02d6-6d43-4778-b1de-eeb0c407b28a stopped at capture on one transient R2 object read and was re-run."
+      "role": "production migrator",
+      "post_checks": "The first run committed 120-124, the runtime grants and 30-verify-readonly, then stopped at operator_privileges_unchanged: the media operator role's privilege snapshot now lists 8 column rows for the columns migration 123 added to assets and asset_upload_intents, reached through its existing table-level INSERT/SELECT grants; without them the hash equals the pre-migration hash, and no GRANT or REVOKE ran for that role. A finish run re-ran the read-only verification and the runtime/backup login probes (runtime reads the 25 new tables; backup unreadable objects 0; no row-security tables).",
+      "pre_migration_backup": "ce4913c6-413a-4d60-ad06-89bab1381e27 (source 8d2213d7; isolated restore and remote readback verified)"
     },
-    "production_last_reported": "Production migrations 114-119 were applied 2026-10-06T21:12:53Z (operator receipt); the 2026-10-05 fe93730d, 2026-10-06 e07d61d2 and 2026-10-06 round-2 8d2213d7 production rollouts applied none.",
+    "production_last_reported": "Production migrations 120-124 were applied 2026-10-07T14:24:14.781Z and 114-119 on 2026-10-06T21:12:53Z (operator receipts); the 2026-10-05 fe93730d, 2026-10-06 e07d61d2 and 2026-10-06 round-2 8d2213d7 production rollouts applied none.",
     "fresh_live_ledger_read": {
-      "staging": "operator read-only ledger check 2026-10-06T21:51:00.626Z (118 rows through 119_machine_model_invocations.sql, nothing pending, no digest mismatch)",
-      "production": "operator read-only ledger check 2026-10-06T21:51:00.626Z (118 rows through 119_machine_model_invocations.sql, nothing pending, no digest mismatch)"
+      "staging": "operator ledger check 2026-10-07T14:08:55.451Z after migrating (123 rows through 124_tenant_ownership_recovery.sql, nothing pending or mismatched)",
+      "production": "operator ledger check 2026-10-07T14:24:17.311Z after migrating (123 rows through 124_tenant_ownership_recovery.sql, nothing pending or mismatched)"
     },
-    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-06 operator receipts (round-2 read-only check); re-read exact names/digests/roles before the next schema or recovery operation.",
+    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-07 round-3 operator receipts (ledger check after migrating); re-read exact names/digests/roles before the next schema or recovery operation.",
+    "row_security_observed": "Round-3 receipt, both databases: no superuser or BYPASSRLS role listed; all 199 tables owned by the migrator; row security enabled on 0 tables, forced on 0.",
     "declared_historical_number_gaps": [
       22
     ],
@@ -296,17 +383,37 @@
       "reason": "Cloud/client/official CLI and end-to-end acceptance incomplete; OFF does not close requirements.",
       "local_openrouter_evidence": "docs/platform-plan/verification/private-ai-openrouter-2026-10-05.json"
     },
-    "limitation": "No fresh authenticated feature/DB/R2 inspection in this research."
+    "guild_launchpad": {
+      "flag": "FREEDOM_GUILD_LAUNCHPAD_ENABLED",
+      "last_operator_value": {
+        "production": "absent",
+        "staging": "absent"
+      },
+      "observed": "Routes unmounted; /api/v1/site reports guild_launchpad_enabled=false (selected checks site_guild_launchpad_disabled and guild_categories_unmounted passed on both).",
+      "policy_rows": {
+        "capacity": 0,
+        "authority": 0
+      },
+      "if_enabled": "No tenant_capacity_policies or tenant_authority_policies row exists, so tenant writes would return policy_unconfigured (reads keep working).",
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:44:12.302980+00:00",
+      "evidence": [
+        "modules/module-registry/README.md",
+        "modules/tenant-workspaces/README.md"
+      ],
+      "limitation": "The guild launchpad tables exist but stay unused while FREEDOM_GUILD_LAUNCHPAD_ENABLED is absent; no capacity or authority policy row was written."
+    },
+    "limitation": "No fresh authenticated feature/DB/R2 inspection in this research; the guild_launchpad entry comes from the 2026-10-07 round-3 operator receipt."
   },
   "recovery": {
     "daily_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
     "last_rollout_backup_release_pins": {
-      "production": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-      "staging": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-      "wrapper_sha256": "f5db24192e9086150851b10ec45d2fffa702f7847323c2892ffd2e37f19fb36f",
-      "at": "2026-10-06T22:12:37.049919+00:00",
+      "production": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "staging": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "wrapper_sha256": "5e0910f886c2d487532bd39df5e6355433bccb3ab43914fefb68225344953a0a",
+      "at": "2026-10-07T14:25:17.103108+00:00",
       "operator_source_preserved": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
-      "schedules_unchanged": true
+      "schedules_unchanged": "not stated in the round-3 rollout receipt"
     },
     "production_rollout_backups": [
       {
@@ -340,6 +447,22 @@
         "created_at": "2026-10-06T22:13:00.968Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
+      },
+      {
+        "label": "before-migration (round 3)",
+        "set": "ce4913c6-413a-4d60-ad06-89bab1381e27",
+        "source_release": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
+        "created_at": "2026-10-07T14:14:01.839Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      {
+        "label": "after-rollout (round 3)",
+        "set": "5fb35331-dff7-43b3-9cf1-6874574bd3d3",
+        "source_release": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+        "created_at": "2026-10-07T14:34:12.080Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
       }
     ],
     "staging_rollout_backups": [
@@ -364,6 +487,22 @@
         "set": "a169cef5-4ef5-4ff7-9f40-eff790c7d256",
         "source_release": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
         "created_at": "2026-10-06T21:52:56.181Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      {
+        "label": "before-migration (round 3)",
+        "set": "723736c4-918c-4708-8e65-f76c36a838ee",
+        "source_release": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
+        "created_at": "2026-10-07T13:45:01.192Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      {
+        "label": "after-rollout (round 3)",
+        "set": "371bcd51-f255-46e3-8c13-1c8f7d0d3526",
+        "source_release": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+        "created_at": "2026-10-07T14:26:22.301Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
       }
