@@ -8,6 +8,7 @@ import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-ap
 import {notifyGuildApplicationReview,notifyGuildMasterChange} from '../member-communications/events.js';
 import {BackfillInput,ClassificationInput,SwitchInput} from '../../contracts/guild-launchpad/v1/guild-preferences.js';
 import {backfillInTransaction,classifyInTransaction,seedPendingClassification,switchInTransaction} from '../positioning/guild-categories.js';
+import {applyOwnerAccountStatus} from '../tenant-workspaces/security-path.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -27,7 +28,7 @@ export async function authenticateAdmin(q:Pool|PoolClient,identity:VerifiedAdmin
   return {...row,subject:identity.subject};
 }
 function publicAdmin(admin:AdminActor){return {admin_id:admin.admin_id,community_id:admin.community_id,email:admin.email,display_name:admin.display_name,role:admin.role};}
-export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false):Promise<T>{
+export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false,revalidate?:(q:PoolClient)=>Promise<unknown>):Promise<T>{
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   return transaction(pool,async q=>{
     // Role mutations and Access synchronization serialize before locking the
@@ -37,8 +38,15 @@ export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`admin-command/${input.admin.admin_id}/${input.operation}/${input.key}`]);
     await authorize(q);
     const hash=digest({body:input.body,expected:input.expected??null}),prior=(await q.query('SELECT * FROM platform_admin_receipts WHERE admin_id=$1 AND operation=$2 AND idempotency_key=$3',[input.admin.admin_id,input.operation,input.key])).rows[0];
-    if(prior){requireCondition(prior.request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');return prior.response as T;}
-    const result=await run(q);await q.query('INSERT INTO platform_admin_receipts(admin_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.admin.admin_id,input.operation,input.key,hash,JSON.stringify(result)]);return result;
+    if(prior){
+      requireCondition(prior.request_sha256===hash,409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');
+      if(revalidate)await revalidate(q);
+      return prior.response as T;
+    }
+    const result=await run(q);
+    await q.query('INSERT INTO platform_admin_receipts(admin_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.admin.admin_id,input.operation,input.key,hash,JSON.stringify(result)]);
+    if(revalidate)await revalidate(q);
+    return result;
   });
 }
 export async function audit(q:PoolClient,admin:AdminActor,action:string,type:string,ref:string,why:string,before:unknown,after:unknown){
@@ -74,6 +82,7 @@ export async function changeMemberStatus(pool:Pool,input:AdminCommand,id:string)
     const prior=await scopedUser(q,input.admin,id,true);checkVersion(prior.aggregate_version,input.expected);
     const updated=(await q.query(`UPDATE users SET active=$2,admin_status_version=admin_status_version+1 WHERE user_id=$1 RETURNING ${administrativeMember}`,[id,body.active])).rows[0];
     if(!body.active){await q.query('UPDATE sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1',[id]);await q.query('UPDATE member_client_connections SET revoked_at=COALESCE(revoked_at,now()),aggregate_version=aggregate_version+1 WHERE user_id=$1 AND revoked_at IS NULL',[id]);}
+    await applyOwnerAccountStatus(q,id,body.active);
     await audit(q,input.admin,'member_status','member',id,body.reason,{active:prior.active,aggregate_version:prior.aggregate_version},{active:updated.active,aggregate_version:updated.aggregate_version});return updated;
   });
 }
