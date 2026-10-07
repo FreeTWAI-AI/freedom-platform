@@ -1593,6 +1593,11 @@
       "sha256": "fdd595add5362c24f8e03cb4f5ebb4d0cdbf4e38bb332e49fe9a2db5b8096d0a"
     },
     {
+      "path": "apps/portal-web/src/LocalAction.css",
+      "bytes": 173,
+      "sha256": "1298c01be89032cacf4b47be19ca1b67fb3ea9e210711a8936d18e47c0018ed9"
+    },
+    {
       "path": "apps/portal-web/src/Navigation.tsx",
       "bytes": 5819,
       "sha256": "21cde2eeff95321152d09843731ad677858964892e2ab67ecc63388375f37de4"
@@ -1604,8 +1609,8 @@
     },
     {
       "path": "apps/portal-web/src/PageTools.tsx",
-      "bytes": 28915,
-      "sha256": "b8f16e00373a4e33a371f81adc4f0e5b180077ac9f0346cb69845815894e7202"
+      "bytes": 31041,
+      "sha256": "25d0a71b14b5851158b5711bbaa072e3528ebd7ceae9cd980bdae5a067924cdc"
     },
     {
       "path": "apps/portal-web/src/PlatformPurpose.css",
@@ -1699,8 +1704,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 51650,
-      "sha256": "4d594cdc7d5eaa22b10f6d9968b43af175cb5d3240aa0840e6e65c363251e89c"
+      "bytes": 51847,
+      "sha256": "1e10074b3e227e386caf3fbf5f8fe93b078eed3ff9aaec7a6473eec3517ac2e6"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -2109,13 +2114,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberECard.css",
-      "bytes": 10960,
-      "sha256": "4e354b7c27b2f26b5eefdc216e54d9f0e0760211664f54166fc34ebda6a49b19"
+      "bytes": 11325,
+      "sha256": "439ab39d21fb4e386fb27bbc47a29e5ba4326402861acd4479f4099fcc8a291f"
     },
     {
       "path": "apps/portal-web/src/modules/MemberECard.tsx",
-      "bytes": 7957,
-      "sha256": "ffda992b56c57993c582375b888c0c0dd46f43f39cc9f2833293d99150d3870d"
+      "bytes": 8736,
+      "sha256": "a05227ebe75d0e927486dbeecb18a372fc887561408fddd8f4dcc20adce13ea1"
     },
     {
       "path": "apps/portal-web/src/modules/MemberEditorialCard.css",
@@ -2264,8 +2269,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionShare.tsx",
-      "bytes": 5133,
-      "sha256": "05b902133942e2696ba8bffb6e88eb6bf1401b1939f7cefe03f7f768c64ea95d"
+      "bytes": 5415,
+      "sha256": "928b6c5c116e560fd8f04bbf34faa560eaad04df966a3297439cbf3b047fab98"
     },
     {
       "path": "apps/portal-web/src/modules/PublicEventPage.css",
@@ -2334,8 +2339,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SkillShare.tsx",
-      "bytes": 12183,
-      "sha256": "243f058916ced4dd5462eb6cc38ba7f5787691c48307c2169cf40bac5137691a"
+      "bytes": 12265,
+      "sha256": "c8032792df0f9646ba96ac810e5924d4cabadd76db3f3e2f36fa9fadbb8fe84f"
     },
     {
       "path": "apps/portal-web/src/modules/SkillUpload.css",
@@ -2374,8 +2379,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialPostOptimizer.tsx",
-      "bytes": 8778,
-      "sha256": "d869c2f63fa2013f2b6b1de94e1e849f5309c014f56af81787fb283861d8ca8d"
+      "bytes": 9187,
+      "sha256": "f55fc66349ee1546990054a63dfb601a123fe2bcbf96127761ae3951ee726d72"
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.css",
@@ -2821,6 +2826,11 @@
       "path": "apps/portal-web/src/types.ts",
       "bytes": 4135,
       "sha256": "4de363cf71b65c21bf1cc7e3abda1c97ca9fb4cb1fc9df1f020c5ecdcea82c99"
+    },
+    {
+      "path": "apps/portal-web/src/useLocalAction.ts",
+      "bytes": 1486,
+      "sha256": "abfa2f38ebe8f6745de17b85c33210fb4077537655f8c2b3e792ce7077f28f83"
     },
     {
       "path": "apps/portal-web/src/versefolk-theme.css",
@@ -13454,8 +13464,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 35419,
-      "sha256": "26f21fee90674328c893c6a3d8ccc828fd1f44a8c469f6cf6a4aa6869dbc3442"
+      "bytes": 38929,
+      "sha256": "09aa30d1d6b5deae297bdaa594da05cab958a2933b55e1ec45860187909f1924"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -18946,6 +18956,11 @@
       "path": "tests/e2e/journeys.spec.ts",
       "bytes": 8600,
       "sha256": "f3269bd9a0dce3234542c1f59b96599196aa47f8a50980f564c851c4bf5f9021"
+    },
+    {
+      "path": "tests/e2e/local-action-feedback.spec.ts",
+      "bytes": 16442,
+      "sha256": "d389dba585085719853516f0f9145dea1f0387004138d748ad2d64028c7cd187"
     },
     {
       "path": "tests/e2e/member-avatar-asset.spec.ts",

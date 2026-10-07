@@ -1,0 +1,1 @@
+html :is(.skill-share-actions,.social-post-optimizer,.page-tools-agent,.page-tools-submit-row,.page-tools-claim-actions) button[aria-busy="true"]{opacity:1;cursor:progress}

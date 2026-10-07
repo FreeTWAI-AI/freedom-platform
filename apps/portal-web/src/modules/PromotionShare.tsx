@@ -1,5 +1,7 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import type {PortalClient} from '../api';
+import {useLanguage} from '../language';
+import {useLocalAction} from '../useLocalAction';
 import './SkillDiscovery.css';
 
 type LinkView = {path: string; points: {week: number; all: number}};
@@ -18,6 +20,7 @@ export function PromotionShare({client, kind, target, title, text, label = '分�
   const trigger = useRef<HTMLButtonElement>(null);
   const manualField = useRef<HTMLTextAreaElement>(null);
   const generation = useRef(0);
+  const {t}=useLanguage(),action=useLocalAction([client,kind,target,title,text,open,link?.path]);
   useEffect(() => { if (open && !dialog.current?.open) dialog.current?.showModal(); else if (!open && dialog.current?.open) dialog.current?.close(); }, [open]);
   useEffect(() => { if (manual && open) { manualField.current?.focus(); manualField.current?.select(); } }, [manual, open]);
   const url = link ? `${window.location.origin}${link.path}` : '';
@@ -35,20 +38,18 @@ export function PromotionShare({client, kind, target, title, text, label = '分�
   function openDialog() { const run = ++generation.current; setOpen(true); setLink(null); void load(run); }
   async function copy() {
     const run = generation.current;
-    if (!navigator.clipboard?.writeText) { setManual(true); setStatus('無法自動複製，請選取並複製下方內容'); return; }
-    try { await navigator.clipboard.writeText(copyText); if (run === generation.current) setStatus('已複製連結'); }
-    catch { if (run === generation.current) { setManual(true); setStatus('無法自動複製，請選取並複製下方內容'); } }
+    const result=await action.run('copy',()=>{setStatus('');setManual(false);return navigator.clipboard.writeText(copyText);});
+    if(run!==generation.current)return;
+    if(result.status==='done')setStatus('已複製連結');
+    else if(result.status==='failed'){setManual(true);setStatus('無法自動複製，請選取並複製下方內容');}
   }
   async function send() {
-    const run = generation.current; setStatus(''); setManual(false); setBusy(true);
-    try {
-      if (typeof navigator.share === 'function') {
-        try { await navigator.share(text ? {title, text, url} : {title, url}); if (run === generation.current) setStatus('分享已送出'); }
-        catch (cause) { if (run !== generation.current || (cause as {name?: string} | null)?.name === 'AbortError') return; setManual(true); setStatus('系統分享沒有完成，請選取並複製下方內容'); }
-        return;
-      }
-      await copy();
-    } finally { if (run === generation.current) setBusy(false); }
+    if(typeof navigator.share!=='function'){await copy();return;}
+    const run=generation.current;
+    const result=await action.run('share',()=>{setStatus('');setManual(false);return navigator.share(text?{title,text,url}:{title,url});});
+    if(run!==generation.current)return;
+    if(result.status==='done')setStatus('分享已送出');
+    else if(result.status==='failed'&&(result.error as {name?:string}|null)?.name!=='AbortError'){setManual(true);setStatus('系統分享沒有完成，請選取並複製下方內容');}
   }
   return <div className="skill-share promotion-share">
     <button ref={trigger} type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={openDialog}>{label}</button>
@@ -60,8 +61,8 @@ export function PromotionShare({client, kind, target, title, text, label = '分�
         <p className="skill-share-url">{link ? url : busy ? '正在準備分享連結…' : ''}</p>
         {link && <p className="promotion-share-points">這個連結：本週 {link.points.week} 分・累計 {link.points.all} 分</p>}
         <div className="skill-share-actions">
-          <button type="button" className="btn btn-primary" disabled={busy || !link} onClick={() => void send()}>分享</button>
-          <button type="button" className="btn btn-ghost" disabled={busy || !link} onClick={() => void copy()}>複製連結</button>
+          <button type="button" className="btn btn-primary" aria-busy={action.pending==='share'} disabled={busy || !link || action.pending!==null} onClick={() => void send()}>{action.pending==='share'?t('action.sharing'):'分享'}</button>
+          <button type="button" className="btn btn-ghost" aria-busy={action.pending==='copy'} disabled={busy || !link || action.pending!==null} onClick={() => void copy()}>{action.pending==='copy'?t('action.copying'):'複製連結'}</button>
         </div>
         <p className="promotion-share-rule">訪客每天點開算 1 分，自己點不算。</p>
         {status && <p className="skill-share-status" role="status">{status}</p>}

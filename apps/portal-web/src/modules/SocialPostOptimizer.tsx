@@ -1,5 +1,7 @@
 import {useEffect,useId,useState} from 'react';
 import type {PortalClient} from '../api';
+import {useLanguage} from '../language';
+import {useLocalAction} from '../useLocalAction';
 import {MemberModelHttpOverviewSchema,type MemberModelHttpOverview} from '../../../../contracts/execution/v2/member-model-http';
 import {SOCIAL_POST_GOALS,ownSocialPostModels,socialModelLabel,socialPostTask,type SocialPostGoal,type SocialPostOptimizationJob} from '../social-post-task';
 import './SocialPostOptimizer.css';
@@ -9,6 +11,7 @@ export function SocialPostOptimizer({client,job,draft,disabled,onApply,onRecover
   const [overview,setOverview]=useState<MemberModelHttpOverview|null>(null),[loading,setLoading]=useState(true),[revision,setRevision]=useState(0);
   const [mode,setMode]=useState<'connected'|'handoff'>('connected'),[modelId,setModelId]=useState(''),[tool,setTool]=useState('Codex');
   const [goal,setGoal]=useState<SocialPostGoal>('clear'),[tokens,setTokens]=useState('512'),[notice,setNotice]=useState(''),[error,setError]=useState('');
+  const {t}=useLanguage(),copyAction=useLocalAction([client,job,draft,goal,tool,mode,disabled]);
   // Parent subscribes to this same job, preserving an approved operation when the dialog closes.
   const state=job.snapshot(),locked=['busy','uncertain','waiting'].includes(state.phase);
   useEffect(()=>{
@@ -24,11 +27,14 @@ export function SocialPostOptimizer({client,job,draft,disabled,onApply,onRecover
   const ready=state.phase==='ready'&&Boolean(state.result.trim()),stale=ready&&state.source!==draft;
   const prompt=draft.trim()?socialPostTask(draft,goal):'';
   async function copyTask(){
-    setNotice('');setError('');
-    // Capture before awaiting clipboard permission; the user may edit meanwhile.
-    job.rememberHandoff(draft);
-    try {await navigator.clipboard.writeText(`${tool==='Codex'?'若已安裝 Social Post，使用 $social-post。\n':tool==='Claude Code'?'若已安裝 Social Post，使用 /social-post。\n':''}${prompt}`);setNotice(`任務已複製。到自己的 ${tool} 執行，再把結果貼回來。`);}
-    catch {setError('無法自動複製。展開下方任務，手動複製到自己的 AI。');}
+    const result=await copyAction.run('copy',()=>{
+      setNotice('');setError('');
+      // Capture only an accepted copy, before awaiting permission or editing.
+      job.rememberHandoff(draft);
+      return navigator.clipboard.writeText(`${tool==='Codex'?'若已安裝 Social Post，使用 $social-post。\n':tool==='Claude Code'?'若已安裝 Social Post，使用 /social-post。\n':''}${prompt}`);
+    });
+    if(result.status==='done')setNotice(`任務已複製。到自己的 ${tool} 執行，再把結果貼回來。`);
+    else if(result.status==='failed')setError('無法自動複製。展開下方任務，手動複製到自己的 AI。');
   }
   return <section className="social-post-optimizer" aria-labelledby={id}>
     <header><h3 id={id}>Social Post 文案優化</h3><p>使用你自己的 AI 額度。優化後先預覽，再決定是否採用。</p></header>
@@ -46,7 +52,7 @@ export function SocialPostOptimizer({client,job,draft,disabled,onApply,onRecover
     </>:<>
       <label className="field">我的 AI 工具<select value={tool} disabled={disabled||locked} onChange={event=>setTool(event.target.value)}>{['Codex','Claude Code','Grok','其他 LLM'].map(value=><option key={value}>{value}</option>)}</select></label>
       <p className="optimizer-fine-print">複製任務到你自己的工具執行，使用該工具的本人帳號或 API Key，再貼回結果。</p>
-      <button type="button" className="btn btn-ghost" disabled={disabled||locked||!draft.trim()} onClick={()=>void copyTask()}>複製文案優化任務</button>
+      <button type="button" className="btn btn-ghost" aria-busy={copyAction.pending!==null} disabled={disabled||locked||!draft.trim()||copyAction.pending!==null} onClick={()=>void copyTask()}>{copyAction.pending?t('action.copying'):'複製文案優化任務'}</button>
       <details className="optimizer-export"><summary>查看／手動複製任務</summary><textarea aria-label="文案優化任務" readOnly value={prompt} rows={5} onFocus={event=>{job.rememberHandoff(draft);event.target.select();}} onCopy={()=>job.rememberHandoff(draft)}/></details>
       <label className="field" htmlFor={`${id}-manual-result`}><span id={`${id}-manual-label`}>貼回 AI 優化結果</span><textarea id={`${id}-manual-result`} aria-labelledby={`${id}-manual-label`} rows={4} maxLength={2000} value={state.evidence==='manual_handoff'?state.result:''} disabled={disabled||locked} onChange={event=>job.manualResult(event.target.value,draft,tool)}/></label>
     </>}

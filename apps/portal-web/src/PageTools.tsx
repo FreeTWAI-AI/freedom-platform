@@ -5,6 +5,8 @@ import {ApiError,type PortalClient} from './api';
 import {pageHelp} from './page-help';
 import {DevelopmentEntry} from './modules/DevelopmentAccess';
 import {GITHUB_CONNECT_AGENT_INSTRUCTION} from './modules/github-connect-help';
+import {useLanguage} from './language';
+import {useLocalAction} from './useLocalAction';
 import './PageTools.css';
 
 type Tool='idea'|'help'|'edit';
@@ -33,6 +35,11 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
   const [githubConnected,setGithubConnected]=useState(false),[githubConfigured,setGithubConfigured]=useState(false),[githubLoaded,setGithubLoaded]=useState(false),[githubCheckError,setGithubCheckError]=useState(false),[connectCopied,setConnectCopied]=useState(false),[posting,setPosting]=useState(false),[postError,setPostError]=useState(''),[postedUrl,setPostedUrl]=useState(''),[ownIssues,setOwnIssues]=useState<OwnIssue[]>([]);
   const [screenshot,setScreenshot]=useState<File|null>(null),[screenshotError,setScreenshotError]=useState(''),[screenshotHelp,setScreenshotHelp]=useState('');
   const [ownClaims,setOwnClaims]=useState<OwnClaim[]>([]),[claimIssue,setClaimIssue]=useState<number|null>(null),[claimMessage,setClaimMessage]=useState(designClaim),[claimError,setClaimError]=useState(''),[claimPosting,setClaimPosting]=useState(false);
+  const [copyError,setCopyError]=useState(''),[claimManual,setClaimManual]=useState(''),[connectManual,setConnectManual]=useState(false);
+  const {t}=useLanguage(),action=useLocalAction([pageId,client,tool,title,body,claimIssue,claimMessage]);
+  useEffect(()=>{setCopied(false);setCopyError('');},[pageId,tool,title,body]);
+  useEffect(()=>{setClaimCopied(null);setClaimManual('');},[pageId,tool,claimIssue,claimMessage]);
+  useEffect(()=>{setConnectCopied(false);setConnectManual(false);},[pageId,tool,client]);
   const dialog=useRef<HTMLDialogElement>(null);
   const toolsMenu=useRef<HTMLDetailsElement>(null);
   const toolsTrigger=useRef<HTMLElement>(null);
@@ -78,8 +85,24 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
   for(const item of activity?.items??[])issueMap.set(item.number,item);
   for(const item of ownIssues)if(item.state==='confirmed'&&item.issue_number&&item.issue_url&&!issueMap.has(item.issue_number))issueMap.set(item.issue_number,{number:item.issue_number,title:item.title??`Issue #${item.issue_number}`,url:item.issue_url,author:'你 · 狀態請到 GitHub 確認',created_at:item.created_at,state:'open',kind:'issue',pages:[page.id]});
   const issueItems=[...issueMap.values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)||b.number-a.number);
-  const copy=async()=>{if(!tool)return;try{await navigator.clipboard.writeText(promptFor(tool,page,draft));setCopied(true)}catch{setCopied(false)}};
-  const copyClaim=async(number:number)=>{const message=claimMessage.trim();if(message.length<10||message.length>700){setClaimError('請填寫 10–700 字的認領內容。');return}try{await navigator.clipboard.writeText(`請先查看 ${PLATFORM_REPOSITORY}/issues/${number} 的最新討論，確認仍開啟且沒有重複認領。使用我已授權的 GitHub 帳號在這則 Issue 送出以下留言，不要只回傳草稿；若沒有 GitHub 寫入權，請提供可手動送出的連結與內容。送出後回報真實留言網址。\n\n${message}\n\n<!-- freedom-design-claim -->`);setClaimCopied(number)}catch{setClaimCopied(null);setClaimError('無法複製 Agent 指令。')}};
+  const copy=async()=>{
+    if(!tool)return;
+    const result=await action.run('instruction',()=>{setCopied(false);setCopyError('');return navigator.clipboard.writeText(promptFor(tool,page,draft));});
+    if(result.status==='done')setCopied(true);
+    else if(result.status==='failed')setCopyError('無法自動複製，請選取下方指令手動複製。');
+  };
+  const copyClaim=async(number:number)=>{
+    const message=claimMessage.trim();if(message.length<10||message.length>700){setClaimError('請填寫 10–700 字的認領內容。');return;}
+    const instruction=`請先查看 ${PLATFORM_REPOSITORY}/issues/${number} 的最新討論，確認仍開啟且沒有重複認領。使用我已授權的 GitHub 帳號在這則 Issue 送出以下留言，不要只回傳草稿；若沒有 GitHub 寫入權，請提供可手動送出的連結與內容。送出後回報真實留言網址。\n\n${message}\n\n<!-- freedom-design-claim -->`;
+    const result=await action.run('claim',()=>{setClaimCopied(null);setClaimError('');setClaimManual('');return navigator.clipboard.writeText(instruction);});
+    if(result.status==='done')setClaimCopied(number);
+    else if(result.status==='failed'){setClaimError('無法自動複製，請手動複製下方 Agent 指令。');setClaimManual(instruction);}
+  };
+  const copyConnectGuide=async()=>{
+    const result=await action.run('connect',()=>{setConnectCopied(false);setConnectManual(false);setPostError('');return navigator.clipboard.writeText(GITHUB_CONNECT_AGENT_INSTRUCTION);});
+    if(result.status==='done')setConnectCopied(true);
+    else if(result.status==='failed'){setPostError('無法自動複製，請手動複製下方 AI 指引。');setConnectManual(true);}
+  };
   const chooseScreenshot=(file:File|null)=>{setScreenshotError('');setScreenshotHelp('');if(!file){setScreenshot(null);if(screenshotInput.current)screenshotInput.current.value='';return;}
     if(!['image/png','image/jpeg','image/gif'].includes(file.type)||file.size===0||file.size>10*1024*1024){setScreenshot(null);if(screenshotInput.current)screenshotInput.current.value='';setScreenshotError('請選擇 10 MB 以下的 PNG、JPG 或 GIF 圖片。');return;}
     setScreenshot(file);
@@ -149,13 +172,13 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
             const claim=ownClaims.find(value=>value.issue_number===item.number&&value.state!=='denied');
             return <li key={item.number}><a href={item.url} target="_blank" rel="noopener noreferrer">#{item.number} {item.title} ↗</a><span>由 {item.author} 提出</span>
               {claim?.state==='confirmed'&&claim.comment_url?<a className="page-tools-claim-status" href={claim.comment_url} target="_blank" rel="noopener noreferrer">已送出認領留言 ↗</a>:claim?.state==='pending'?<span role="status">認領結果待確認，請到 GitHub 查看。</span>:<button type="button" onClick={()=>{setClaimIssue(claimIssue===item.number?null:item.number);setClaimMessage(designClaim);setClaimError('');setClaimCopied(null);claimKey.current=null}} aria-expanded={claimIssue===item.number}>{claimIssue===item.number?'收起回覆':'回覆這則 Issue'}</button>}
-              {claimIssue===item.number&&!claim&&<div className="page-tools-claim-editor"><label htmlFor={`design-claim-${item.number}`}>設計認領留言</label><textarea id={`design-claim-${item.number}`} maxLength={700} rows={3} value={claimMessage} onChange={event=>{setClaimMessage(event.target.value);setClaimError('')}}/><div className="page-tools-claim-actions">{client&&githubConnected?<button type="button" className="page-tools-primary" disabled={claimPosting} onClick={()=>void postClaim(item.number)}>{claimPosting?'正在送出…':'送出認領留言'}</button>:client&&githubConfigured?<button type="button" onClick={()=>void connectGitHub('claim')}>連結 GitHub 帳號</button>:null}<button type="button" onClick={()=>void copyClaim(item.number)}>{claimCopied===item.number?'已複製 Agent 指令':'交給 Agent 送出'}</button></div>{claimError&&<p role="alert" className="page-tools-error">{claimError}</p>}</div>}
+              {claimIssue===item.number&&!claim&&<div className="page-tools-claim-editor"><label htmlFor={`design-claim-${item.number}`}>設計認領留言</label><textarea id={`design-claim-${item.number}`} maxLength={700} rows={3} value={claimMessage} onChange={event=>{setClaimMessage(event.target.value);setClaimError('')}}/><div className="page-tools-claim-actions">{client&&githubConnected?<button type="button" className="page-tools-primary" disabled={claimPosting} onClick={()=>void postClaim(item.number)}>{claimPosting?'正在送出…':'送出認領留言'}</button>:client&&githubConfigured?<button type="button" onClick={()=>void connectGitHub('claim')}>連結 GitHub 帳號</button>:null}<button type="button" aria-busy={action.pending==='claim'} disabled={action.pending!==null} onClick={()=>void copyClaim(item.number)}>{action.pending==='claim'?t('action.copying'):claimCopied===item.number?'已複製 Agent 指令':'交給 Agent 送出'}</button></div>{claimError&&<p role="alert" className="page-tools-error">{claimError}</p>}{claimManual&&<textarea aria-label="設計認領 Agent 指令" value={claimManual} readOnly rows={4} autoFocus onFocus={event=>event.currentTarget.select()}/>}</div>}
             </li>;
           })}</ul>{!loading&&!error&&!activity?.partial&&!activity?.stale&&!issueItems.length&&<p className="page-tools-empty">目前沒有標記這頁且仍開啟的 Issue。</p>}{activity?.partial&&<p role="status" className="page-tools-note">GitHub 清單暫時無法完整更新；已確認發布的 Issue 仍會顯示，也可到 GitHub 查看。</p>}{activity?.stale&&!activity?.partial&&<p role="status" className="page-tools-note">目前顯示上次同步的資料，請稍後重新同步。</p>}{activity?.truncated&&<p className="page-tools-note">GitHub 清單已達 100 筆上限；<a href={`${PLATFORM_REPOSITORY}/issues`} target="_blank" rel="noopener noreferrer">到 GitHub 查看完整清單 ↗</a></p>}
           <p className="page-tools-note">設計認領會以你的 GitHub 帳號留言；世界頻道在 GitHub 確認後公告「表示願意接手」，實際分工仍由維護者確認。</p>
           <form className="page-tools-form" onSubmit={issueSubmit}><h3>提出你的想法</h3><p>站內發布會使用你的 GitHub 帳號，並帶上這頁的標記。送出後請到 GitHub 確認 Issue 和右側的頁面標籤；也可以先到 GitHub 檢查內容再親自送出。</p>
-            {client&&githubLoaded&&!githubConnected&&<div className="page-tools-connect-guide"><strong>{githubCheckError?'暫時無法確認 GitHub 連結狀態':'站內發布前，先連結 GitHub'}</strong><p>{githubCheckError?'請稍後重新開啟這個工具，或到 GitHub 網頁登入後發布。':githubConfigured?'點「連結 GitHub 帳號」，在 GitHub 親自確認授權，回到這裡即可直接發布。':'站內連結目前無法使用；你仍可在 GitHub 網頁登入後發布。'}也可到「待辦清單」查看步驟。</p><div className="page-tools-submit-row">{githubConfigured&&!githubCheckError&&<button type="button" onClick={()=>void connectGitHub()}>連結 GitHub 帳號</button>}<button type="button" onClick={()=>void navigator.clipboard.writeText(GITHUB_CONNECT_AGENT_INSTRUCTION).then(()=>setConnectCopied(true)).catch(()=>setPostError('無法複製 AI 指引，請稍後重試。'))}>{connectCopied?'已複製 AI 指引':'複製給 AI 的連結指引'}</button></div></div>}
-            <label>標題<input required minLength={3} maxLength={120} value={title} onChange={event=>{setTitle(event.target.value);setPostedUrl('');setPostError('')}} placeholder="你想改善什麼？"/></label><label>想法與期待<textarea required minLength={10} maxLength={700} rows={4} value={body} onPaste={pasteScreenshot} onChange={event=>{setBody(event.target.value);setPostedUrl('');setPostError('')}} placeholder="目前遇到的情況、希望如何改進…；可在此貼上截圖"/></label>
+            {client&&githubLoaded&&!githubConnected&&<div className="page-tools-connect-guide"><strong>{githubCheckError?'暫時無法確認 GitHub 連結狀態':'站內發布前，先連結 GitHub'}</strong><p>{githubCheckError?'請稍後重新開啟這個工具，或到 GitHub 網頁登入後發布。':githubConfigured?'點「連結 GitHub 帳號」，在 GitHub 親自確認授權，回到這裡即可直接發布。':'站內連結目前無法使用；你仍可在 GitHub 網頁登入後發布。'}也可到「待辦清單」查看步驟。</p><div className="page-tools-submit-row">{githubConfigured&&!githubCheckError&&<button type="button" onClick={()=>void connectGitHub()}>連結 GitHub 帳號</button>}<button type="button" aria-busy={action.pending==='connect'} disabled={action.pending!==null} onClick={()=>void copyConnectGuide()}>{action.pending==='connect'?t('action.copying'):connectCopied?'已複製 AI 指引':'複製給 AI 的連結指引'}</button></div></div>}
+            {connectManual&&<label>給 AI 的連結指引<textarea value={GITHUB_CONNECT_AGENT_INSTRUCTION} readOnly rows={4} autoFocus onFocus={event=>event.currentTarget.select()}/></label>}<label>標題<input required minLength={3} maxLength={120} value={title} onChange={event=>{setTitle(event.target.value);setPostedUrl('');setPostError('')}} placeholder="你想改善什麼？"/></label><label>想法與期待<textarea required minLength={10} maxLength={700} rows={4} value={body} onPaste={pasteScreenshot} onChange={event=>{setBody(event.target.value);setPostedUrl('');setPostError('')}} placeholder="目前遇到的情況、希望如何改進…；可在此貼上截圖"/></label>
             <label>截圖（選填）<input ref={screenshotInput} type="file" accept="image/png,image/jpeg,image/gif" onChange={event=>chooseScreenshot(event.target.files?.[0]??null)}/></label>
             {screenshot&&<div className="page-tools-screenshot"><canvas ref={screenshotCanvas} role="img" aria-label="待附上的 Issue 截圖預覽"/><div><strong>{screenshot.name}</strong><p>截圖留在你的裝置；開啟 GitHub 後請再貼上或選取一次。公開 Issue 的附件可被所有人查看，送出前請檢查私人資訊。</p><button type="button" onClick={()=>chooseScreenshot(null)}>移除截圖</button></div></div>}
             {screenshotError&&<p role="alert" className="page-tools-error">{screenshotError}</p>}
@@ -163,7 +186,7 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
         </>}
         {tool==='help'&&help&&<><h3>這一頁是什麼</h3><p className="page-tools-lead">{help.summary}</p><h3>你可以怎麼使用</h3><ol className="page-tools-help-steps">{help.steps.map(step=><li key={step}>{step}</li>)}</ol>{help.note&&<p className="page-tools-note">{help.note}</p>}</>}
         {tool==='edit'&&<><p className="page-tools-lead">先確認要改的功能及現有 Issue，再從自己的 Fork 建立分支，完成修改與測試後送出 PR。</p><DevelopmentEntry kind="platform" target={page.id} label="啟用這一頁的開發"/><ol><li><a href={`${PLATFORM_REPOSITORY}/issues`} target="_blank" rel="noopener noreferrer">查看現有 Issue ↗</a>，確認範圍和避免重複。</li><li><a href={`${PLATFORM_REPOSITORY}/fork`} target="_blank" rel="noopener noreferrer">Fork 平台 Repo ↗</a>，讀 README 和貢獻指引，建立自己的工作分支。</li><li>修改並執行相關測試：{page.checks.slice(0,2).map(command=><code key={command}>{command}</code>)}。</li><li>推送分支，再向上游預設分支<a href={`${PLATFORM_REPOSITORY}/compare`} target="_blank" rel="noopener noreferrer">提出 PR ↗</a>；說明修改、測試與頁面標記 <code>{pageTag(page.id)}</code>，並在 PR 說明保留 <code>{marker(page.id)}</code>。</li></ol><nav className="page-tools-guide-links" aria-label="開發與 Agent 指引"><a href={`/development/${page.id}`} target="_blank" rel="noopener noreferrer">查看這一頁的開發指引 ↗</a><a href={`/development/${page.id}.md`} target="_blank" rel="noopener noreferrer">給 Agent 的文字版 ↗</a><a href={`/development/${page.id}/SKILL.md`} target="_blank" rel="noopener noreferrer">閱讀這頁的完整 Agent 開發指引 ↗</a></nav></>}
-        <section className="page-tools-agent"><div><h3>交給你的 AI Agent</h3><button type="button" onClick={()=>void copy()}>{copied?'已複製':'複製指令'}</button></div><p>Agent 會依目前頁面讀取 Repo；請在授權範圍內確認任何對外發布操作。</p><pre>{promptFor(tool,page,draft)}</pre></section>
+        <section className="page-tools-agent"><div><h3>交給你的 AI Agent</h3><button type="button" aria-busy={action.pending==='instruction'} disabled={action.pending!==null} onClick={()=>void copy()}>{action.pending==='instruction'?t('action.copying'):copied?'已複製':'複製指令'}</button></div><p>Agent 會依目前頁面讀取 Repo；請在授權範圍內確認任何對外發布操作。</p>{copyError&&<p role="alert" className="page-tools-error">{copyError}</p>}<pre tabIndex={0}>{promptFor(tool,page,draft)}</pre></section>
       </div>
     </dialog>}
   </>;

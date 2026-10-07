@@ -1,4 +1,6 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {useLanguage} from '../language';
+import {useLocalAction} from '../useLocalAction';
 import {MemberCardQr} from './MemberCardQr';
 import {MemberAvatar} from './MemberAvatar';
 import {BrandIcon,brandForUrl,brandPlatform} from './BrandIcon';
@@ -30,21 +32,22 @@ export function linkDomain(url:string){try{return new URL(url).hostname.replace(
 function copyName(platform:string){return platform==='discord'?'複製 Discord 帳號':platform==='line'?'複製 LINE ID':`複製${platform}`;}
 function fallbackName(platform:string){return platform==='discord'?'Discord 帳號':platform==='line'?'LINE ID':'帳號';}
 
-function LinkBody({platform,label,handle}:{platform:string;label:string;handle:string|null}){
-  return <><BrandIcon platform={platform}/><span className="ecard-link-text"><span>{label}</span>{handle?<small>{handle}</small>:null}</span></>;
+function LinkBody({platform,label,handle,feedback=''}:{platform:string;label:string;handle:string|null;feedback?:string}){
+  return <><BrandIcon platform={platform}/><span className="ecard-link-text"><span className={feedback?'ecard-link-feedback-row':undefined}>{feedback?<><span className="ecard-link-label">{label}</span><small className="ecard-copy-visible" aria-hidden="true">{feedback}</small></>:label}</span>{handle?<small>{handle}</small>:null}</span></>;
 }
 function CopyLink({platform,label,handle}:{platform:string;label:string;handle:string}){
   const [copied,setCopied]=useState(''),[manual,setManual]=useState(false);
+  const {t}=useLanguage(),action=useLocalAction([platform,handle]),field=useRef<HTMLInputElement>(null);
+  useEffect(()=>{setCopied('');setManual(false);},[platform,handle]);
+  useEffect(()=>{if(manual){field.current?.focus();field.current?.select();}},[manual]);
   async function copy(){
-    try{
-      if(!navigator.clipboard?.writeText)throw new Error('missing');
-      await navigator.clipboard.writeText(handle);
-      setCopied('已複製');setManual(false);
-    }catch{setCopied('');setManual(true);}
+    const result=await action.run('copy',()=>{setCopied('');setManual(false);return navigator.clipboard.writeText(handle);});
+    if(result.status==='done')setCopied('已複製');
+    else if(result.status==='failed')setManual(true);
   }
-  return <><button type="button" className="ecard-link" aria-label={copyName(platform)} onClick={()=>void copy()}><LinkBody platform={platform} label={label} handle={handle}/></button>
-    {manual&&<input className="ecard-copy-fallback" readOnly value={handle} aria-label={fallbackName(platform)}/>}
-    <span className="ecard-copy-status" role="status" aria-live="polite">{copied}</span></>;
+  return <><button type="button" className="ecard-link" aria-label={copyName(platform)} aria-busy={action.pending!==null} disabled={action.pending!==null} onClick={()=>void copy()}><LinkBody platform={platform} label={label} handle={handle} feedback={action.pending?t('action.copying'):copied}/></button>
+    {manual&&<input ref={field} className="ecard-copy-fallback" readOnly value={handle} aria-label={fallbackName(platform)}/>}
+    <span className="ecard-copy-status" role="status" aria-live="polite">{action.pending?t('action.copying'):copied}</span></>;
 }
 function cardLinkHref(url:string|null):string|null{
   if(!url)return null;

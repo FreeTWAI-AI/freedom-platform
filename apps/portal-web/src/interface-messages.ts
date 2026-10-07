@@ -2,6 +2,8 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
+  'action.copying':['複製中…','Copying…','コピー中…','복사 중…','Copiando…'],
+  'action.sharing':['分享中…','Sharing…','共有中…','공유 중…','Compartiendo…'],
   'request.working':['正在處理…','Working…','処理中…','처리 중…','Procesando…'],
   'request.reading':['正在讀取…','Loading…','読み込み中…','불러오는 중…','Cargando…'],
   'request.offline':['目前離線，連線恢復後再試。','You are offline. Try again when connected.','オフラインです。接続が戻ってからお試しください。','오프라인입니다. 연결이 복구되면 다시 시도해 주세요.','Sin conexión. Inténtalo de nuevo cuando se restablezca.'],
