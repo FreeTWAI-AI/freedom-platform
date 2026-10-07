@@ -133,7 +133,15 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const opener = useRef<HTMLButtonElement | null>(null);
   const place = useRef({ tenantId: '', workspaceId: '' });
   const inactiveRef = useRef(false);
-  const draft = useRef({ note: '', saved: '', file: false, pending: false });
+  const [editBase, setEditBase] = useState<{ version: string; title: string; objective: string; progress: Progress } | null>(null);
+  const draft = useRef<{
+    note: string;
+    saved: string;
+    file: boolean;
+    pending: boolean;
+    editDirty: boolean;
+    editBase: { version: string; title: string; objective: string; progress: Progress } | null;
+  }>({ note: '', saved: '', file: false, pending: false, editDirty: false, editBase: null });
   const [unavailable, setUnavailable] = useState(false);
   const [orphanNote, setOrphanNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -180,7 +188,8 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [resave, setResave] = useState<SaveAttempt | null>(null);
   const [resultText, setResultText] = useState<{ id: string; text: string } | null>(null);
   const [resultError, setResultError] = useState('');
-  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck };
+  const editDirty = Boolean(editBase && (editTitle !== editBase.title || editObjective !== editBase.objective || editProgress !== editBase.progress));
+  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, editDirty, editBase };
   const workspace = workspaces.find(item => item.workspace_id === workspaceId) ?? null;
   const writeLocked = policyOff || inactive || capabilityDenied || quotaHit || upgrade;
 
@@ -213,6 +222,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (fileRef.current) fileRef.current.value = '';
     setStage('尚未儲存'); setAttempt(null); setAwaitingAck(false); setResave(null);
     setResultText(null); setResultError(''); setConflict(null); setEditError('');
+    setEditBase(null);
   }
   function clearPrivate() {
     clearDraft();
@@ -416,7 +426,23 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   function showWork(value: WorkView, replaceForm: boolean) {
     setWork(value); setHeldVersion(value.version); setConflict(null);
-    if (replaceForm) { setEditTitle(value.title); setEditObjective(value.objective); setEditProgress(value.progress); }
+    if (replaceForm) {
+      setEditTitle(value.title); setEditObjective(value.objective); setEditProgress(value.progress);
+      setEditBase({ version: value.version, title: value.title, objective: value.objective, progress: value.progress });
+    }
+  }
+  function refreshWork(fresh: WorkView) {
+    const isDirty = draft.current.editDirty;
+    const base = draft.current.editBase;
+    if (!isDirty || !base) {
+      showWork(fresh, true);
+      return;
+    }
+    setWork(fresh);
+    setHeldVersion(fresh.version);
+    if (fresh.title === base.title && fresh.objective === base.objective && fresh.progress === base.progress) {
+      setEditBase({ version: fresh.version, title: fresh.title, objective: fresh.objective, progress: fresh.progress });
+    }
   }
   async function openWork(workId: string) {
     if (!tenantId || work?.work_id === workId) return;
@@ -468,18 +494,18 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     } finally { if (call.live()) setBusy(false); }
   }
   async function saveEdits() {
-    if (!tenantId || !work || busy || writeLocked || conflict) return;
+    if (!tenantId || !work || !editBase || busy || writeLocked || conflict) return;
     const titleError = textProblem(editTitle, 'title');
     const objectiveError = textProblem(editObjective, 'objective');
     setEditError(titleError ?? objectiveError ?? '');
     if (titleError || objectiveError) return;
     const body = { title: editTitle, objective: editObjective, progress: editProgress };
-    const fingerprint = `edit:${work.work_id}:${heldVersion}:${JSON.stringify(body)}`;
+    const fingerprint = `edit:${work.work_id}:${editBase.version}:${JSON.stringify(body)}`;
     const key = keyFor(fingerprint);
     const call = currentCall();
     setBusy(true); setBanner('');
     try {
-      await client.patch<Operation>(`/tenants/${tenantId}/works/${work.work_id}`, body, { idempotencyKey: key, ifMatch: heldVersion, signal: call.signal });
+      await client.patch<Operation>(`/tenants/${tenantId}/works/${work.work_id}`, body, { idempotencyKey: key, ifMatch: editBase.version, signal: call.signal });
       if (!call.live()) return;
       keys.current.delete(fingerprint);
       const fresh = await client.get<WorkView>(`/tenants/${tenantId}/works/${work.work_id}`, { signal: call.signal });
@@ -508,6 +534,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (!conflict) return;
     setHeldVersion(conflict.version);
     setWork(current => current ? { ...current, version: conflict.version } : current);
+    setEditBase({ version: conflict.version, title: conflict.title, objective: conflict.objective, progress: conflict.progress });
     setConflict(null); setBanner('');
   }
   function takeServer() {
@@ -617,7 +644,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           client.get<Page<ResultView>>(`/tenants/${tenantId}/works/${workId}/results?limit=20`, { signal: call.signal }),
         ]);
         if (!call.live()) return;
-        showWork(fresh, false);
+        refreshWork(fresh);
         setWorks(items => items.map(item => item.work_id === fresh.work_id ? fresh : item));
         setResults(page.items); setResultsCursor(page.next_cursor);
         if (current.sourceText !== null) setSavedNote(current.sourceText);
@@ -641,7 +668,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         try {
           const fresh = await client.get<WorkView>(`/tenants/${tenantId}/works/${workId}`, { signal: call.signal });
           if (!call.live()) return;
-          showWork(fresh, false);
+          refreshWork(fresh);
         } catch { /* The resave button stays until a later reload. */ }
         return;
       }
