@@ -17979,8 +17979,8 @@
     },
     {
       "path": "scripts/verify-guild-work.mjs",
-      "bytes": 26326,
-      "sha256": "6c2404af3b71dd4162b6c0387d1b8303133a917781af6a270a86f28e51e46de1"
+      "bytes": 28434,
+      "sha256": "e991db315a9391892350232a82d71f3a95d27b8e78cb8c93f248b9993946b474"
     },
     {
       "path": "scripts/verify-member-settings.mjs",
@@ -19959,8 +19959,8 @@
     },
     {
       "path": "tests/runtime/verify-guild-work.test.ts",
-      "bytes": 14626,
-      "sha256": "15b9a38e71da1630e933a31468610febd9f22b4662ff53076d04690b779f77dd"
+      "bytes": 20840,
+      "sha256": "18a24de3be9892b05ce8ab0f418adef465378373771edc007bbe88de26a6d6c9"
     },
     {
       "path": "tests/runtime/work-privacy.test.ts",

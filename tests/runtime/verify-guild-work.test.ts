@@ -11,7 +11,7 @@ import { Pool } from 'pg';
 import { LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 // @ts-expect-error The operator CLI is an ESM JavaScript module without declarations.
-import { parseArgs, main, writeReceipt } from '../../scripts/verify-guild-work.mjs';
+import { parseArgs, main, writeReceipt, refusalProblem } from '../../scripts/verify-guild-work.mjs';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { nodeRuntime } from '../../apps/platform-api/src/app.js';
@@ -25,6 +25,8 @@ interface Receipt {
   versions: { work: string; note: string; result: string };
   ids: { A: { asset: string } };
   resumed_from?: string;
+  run_id: string;
+  note_run_id?: string;
 }
 
 const SHA = '687dee8739d9a8fc65a78fcb093347833cc004e8';
@@ -71,6 +73,68 @@ test('offline refusal: resume origin or SHA differs before opening any request c
     assert.deepEqual(lines, [`FAIL arguments ${code}`]);
   }
 });
+const privateId = 'a1234567-1234-1234-1234-123456789abc';
+const privateDigest = 'abc12345'.repeat(8);
+const privateTitle = 'Work private fixture';
+const markers = new Set([privateId, privateDigest, privateTitle, 'private-note.md', 'private note\n', Buffer.from('saved content prefix')]);
+const problemBody = (status: number, code: string) => ({ type: 'about:blank', title: code, status, code, detail: 'Request refused.' });
+for (const [status, code] of [[401, 'login_required'], [401, 'session_expired'], [404, 'not_found'],
+  [404, 'tenant_not_found'], [405, 'method_not_allowed']] as const) {
+  test(`offline refusal body: clean ${status} ${code}`, () => {
+    assert.equal(refusalProblem(status, status, { 'content-type': 'application/json' }, Buffer.from(JSON.stringify(problemBody(status, code))), markers), null);
+  });
+}
+const clean = problemBody(404, 'not_found');
+for (const [name, body, headers, method, expected, failure] of [
+  ['extra title key', { ...clean, work_title: 'Unseeded work title' }, {}, 'GET', 404, 'refusal_mismatch'],
+  ['private title', { ...clean, title: privateTitle }, {}, 'GET', 404, 'bytes_leaked'],
+  ['sha256 field', { ...clean, sha256: privateDigest }, {}, 'GET', 404, 'bytes_leaked'],
+  ['ID in message', { ...clean, message: `Missing ${privateId}` }, {}, 'GET', 404, 'bytes_leaked'],
+  ['ID in detail', { ...clean, detail: `Missing ${privateId}` }, {}, 'GET', 404, 'bytes_leaked'],
+  ['digest ETag', clean, { ETag: `"${privateDigest}"` }, 'GET', 404, 'bytes_leaked'],
+  ['HEAD digest ETag', '', { ETag: `"${privateDigest}"` }, 'HEAD', 404, 'bytes_leaked'],
+  ['HEAD filename header', '', { 'Content-Disposition': 'attachment; filename="private-note.md"' }, 'HEAD', 404, 'bytes_leaked'],
+  ['escaped note in detail', { ...clean, detail: 'private note\n' }, {}, 'GET', 404, 'bytes_leaked'],
+  ['content prefix', 'saved content prefix with more bytes', {}, 'GET', 404, 'bytes_leaked'],
+  ['wrong code', { ...clean, title: 'unexpected', code: 'unexpected' }, {}, 'GET', 404, 'refusal_mismatch'],
+  ['wrong HTTP status', clean, {}, 'GET', 401, 'refusal_mismatch'],
+  ['wrong body status', { ...clean, status: 401 }, {}, 'GET', 404, 'refusal_mismatch'],
+  ['missing field', { type: clean.type, title: clean.title, status: clean.status, code: clean.code }, {}, 'GET', 404, 'refusal_mismatch'],
+  ['non-string detail', { ...clean, detail: {} }, {}, 'GET', 404, 'refusal_mismatch'],
+  ['array body', [clean], {}, 'GET', 404, 'refusal_mismatch'],
+  ['null body', null, {}, 'GET', 404, 'refusal_mismatch'],
+] as const) {
+  test(`offline refusal body: ${name}`, () => {
+    const bytes = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    assert.equal(refusalProblem(404, expected, headers, bytes, markers, method), failure);
+  });
+}
+test('offline refusal body: clean HEAD has no JSON body', () => {
+  assert.equal(refusalProblem(404, 404, {}, Buffer.alloc(0), markers, 'HEAD'), null);
+});
+for (const [name, checks, accepted] of [
+  ['creation shape', ['preconditions', 'A creates', 'A logs out and back in', 'B and anonymous are refused'].map(name => ({ name, result: 'pass' })), true],
+  ['resume shape', ['preconditions', 'A resumes', 'B and anonymous are refused'].map(name => ({ name, result: 'pass' })), true],
+  ['wrong names', ['preconditions', 'A creates', 'B and anonymous are refused'].map(name => ({ name, result: 'pass' })), false],
+  ['failed check', ['preconditions', 'A resumes', 'B and anonymous are refused'].map(name => ({ name, result: name === 'A resumes' ? 'fail' : 'pass' })), false],
+  ['wrong order', ['A resumes', 'preconditions', 'B and anonymous are refused'].map(name => ({ name, result: 'pass' })), false],
+  ['extra check', ['preconditions', 'A creates', 'A logs out and back in', 'B and anonymous are refused', 'extra'].map(name => ({ name, result: 'pass' })), false],
+] as const) {
+  test(`offline resume validation: ${name}`, async () => {
+    const path = join(scratch, randomUUID() + '.json');
+    await writeFile(path, JSON.stringify({
+      format: 'freedom.staging-guild-work/v1', origin: 'https://staging.freetwai.com', expected_sha: SHA, served_sha: SHA,
+      run_id: '20261007T123456000Z-abcdef01', note_run_id: '20261006T123456000Z-abcdef02', checks,
+      ids: { A: Object.fromEntries(['tenant', 'workspace', 'work', 'note', 'result', 'note_asset', 'asset', 'original_note', 'original_note_asset', 'upload'].map(key => [key, randomUUID()])) },
+      versions: Object.fromEntries(['tenant', 'workspace', 'work', 'note', 'result', 'note_work', 'result_work', 'original_note'].map(key => [key, '1'])),
+      digests: { attachment: privateDigest, note: privateDigest, original_note: privateDigest, attachment_bytes: 65536 },
+    }));
+    const lines: string[] = [];
+    // With no token file, an accepted receipt reaches the next argument gate, never a request context.
+    assert.equal(await main([...args, '--resume', path], {}, (line: string) => lines.push(line)), 2);
+    assert.deepEqual(lines, [`FAIL arguments ${accepted ? 'access_token_unavailable' : 'resume_invalid'}`]);
+  });
+}
 test('receipt details discard cookies, unlabelled tokens and query strings; private modes', async () => {
   const receipt = { run_id: '20261007T123456000Z-abcdef01', checks: [{ name: 'redaction', result: 'fail', ms: 1, detail: {
     cookie: 'private-cookie', token: 'private-token', headers: { 'CF-Access-Client-Secret': 'private-access' },
@@ -185,6 +249,22 @@ test('local real product routes, PostgreSQL and native local R2: create, resume 
     assert.deepEqual(resumed.versions, receipt.versions);
     assert.deepEqual(resumed.digests, receipt.digests);
     assert.equal(resumed.resumed_from, file);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results')).rows[0].n, 3);
+    const third = await execute([...args, '--origin', origin, '--resume', join(evidence, resumeFile)], evidence);
+    assert.equal(third.code, 0, JSON.stringify(third));
+    assert.equal(third.stderr, '');
+    const thirdFile = (await readdir(evidence)).find(name => name !== file && name !== resumeFile);
+    assert.ok(thirdFile);
+    const resumedAgain: Receipt = JSON.parse(await readFile(join(evidence, thirdFile), 'utf8'));
+    assert.deepEqual(resumedAgain.checks.map(check => [check.name, check.result]), [
+      ['preconditions', 'pass'], ['A resumes', 'pass'], ['B and anonymous are refused', 'pass'],
+    ]);
+    assert.deepEqual(resumedAgain.ids.A, receipt.ids.A);
+    assert.deepEqual(resumedAgain.versions, receipt.versions);
+    assert.deepEqual(resumedAgain.digests, receipt.digests);
+    assert.equal(resumedAgain.resumed_from, resumeFile);
+    assert.equal(resumed.note_run_id, receipt.run_id);
+    assert.equal(resumedAgain.note_run_id, receipt.run_id);
     assert.equal((await pool.query('SELECT count(*)::int AS n FROM tenant_work_results')).rows[0].n, 3);
     // A corrupt native object makes the real product content reader refuse resume.
     await bucket.put(asset.key, Buffer.from('corrupt object'), { httpMetadata: asset.httpMetadata, customMetadata: asset.customMetadata });

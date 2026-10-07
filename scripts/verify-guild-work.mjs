@@ -29,6 +29,27 @@ function requireThat(ok, code, detail = {}, exitCode = 1) { if (!ok) throw new F
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const increment = value => String(BigInt(value) + 1n);
 
+// The platform Problem handler emits exactly these five fields; HEAD has no body.
+export function refusalProblem(status, expected, headers, bytes, markers, method = 'GET') {
+  const values = [...markers];
+  const leaks = value => {
+    if (typeof value === 'string' || Buffer.isBuffer(value)) return values.some(marker => Buffer.from(value).includes(marker));
+    return value && typeof value === 'object' && Object.values(value).some(leaks);
+  };
+  if (leaks(bytes) || leaks(headers) || values.includes(hash(bytes))) return 'bytes_leaked';
+  if (status !== expected) return 'refusal_mismatch';
+  if (method === 'HEAD') return null;
+  let body; try { body = JSON.parse(bytes.toString('utf8')); } catch { return 'refusal_mismatch'; }
+  if (leaks(body)) return 'bytes_leaked';
+  const codes = expected === 405 ? ['method_not_allowed'] : expected === 404 ? ['tenant_not_found', 'not_found']
+    : expected === 401 ? ['login_required', 'session_expired'] : [];
+  if (!body || Array.isArray(body) || typeof body !== 'object'
+    || Object.keys(body).sort().join(',') !== 'code,detail,status,title,type'
+    || !['type', 'title', 'code', 'detail'].every(key => typeof body[key] === 'string')
+    || body.type !== 'about:blank' || body.title !== body.code || body.status !== status || !codes.includes(body.code)) return 'refusal_mismatch';
+  return null;
+}
+
 export function parseArgs(argv) {
   const values = new Map();
   for (let i = 0; i < argv.length; i += 2) {
@@ -89,8 +110,13 @@ async function previousReceipt(path, cli) {
   } catch { throw new Failure('resume_invalid', {}, 2); }
   requireThat(previous.origin === cli.origin, 'resume_origin_mismatch', {}, 2);
   requireThat(previous.expected_sha === cli.expectedSha && previous.served_sha === cli.expectedSha, 'resume_sha_mismatch', {}, 2);
+  const checkShapes = [
+    ['preconditions', 'A creates', 'A logs out and back in', 'B and anonymous are refused'],
+    ['preconditions', 'A resumes', 'B and anonymous are refused'],
+  ];
   requireThat(previous.format === FORMAT && RUN.test(previous.run_id) && RUN.test(previous.note_run_id ?? previous.run_id)
-    && previous.checks?.length >= 4 && previous.checks.every(check => check.result === 'pass'), 'resume_invalid', {}, 2);
+    && Array.isArray(previous.checks) && checkShapes.some(names => previous.checks.length === names.length
+      && names.every((name, index) => previous.checks[index]?.name === name && previous.checks[index]?.result === 'pass')), 'resume_invalid', {}, 2);
   const a = previous.ids?.A, versions = previous.versions, digests = previous.digests;
   requireThat(a && ['tenant', 'workspace', 'work', 'note', 'result', 'note_asset', 'asset', 'original_note', 'original_note_asset', 'upload'].every(key => UUID.test(a[key]))
     && versions && ['tenant', 'workspace', 'work', 'note', 'result', 'note_work', 'result_work', 'original_note'].every(key => VERSION.test(versions[key]))
@@ -126,6 +152,22 @@ export async function main(argv, env = process.env, log = line => console.log(li
     coverage: { 'T-005': 'not_run', 'T-023': { permission: 'not_run', export_restore: `not_run (no export route at ${cli.expectedSha})` } },
     ...(previous ? { resumed_from: `guild-work-${previous.run_id}.json`, note_run_id: previous.note_run_id ?? previous.run_id } : {}),
   };
+  const privateMarkers = new Set();
+  const remember = value => {
+    if (typeof value === 'string' || Buffer.isBuffer(value)) privateMarkers.add(value);
+    else if (value && typeof value === 'object') Object.values(value).forEach(remember);
+    return value;
+  };
+  remember(runId);
+  const noteRunId = remember(receipt.note_run_id ?? runId);
+  // Generic values (progress, MIME types, the public guild key) are not markers: any response may carry them.
+  const privateData = remember({
+    email: 'maker@local.test', password: 'freedom-local-demo',
+    tenantName: `A ${noteRunId}`, defaultWorkspaceName: `Default ${noteRunId}`, workspaceName: `Workspace ${noteRunId}`,
+    title: `Work ${noteRunId}`, objective: `Manual work ${noteRunId}`,
+    noteName: `note-${noteRunId}.md`, attachmentName: `attachment-${noteRunId}.txt`,
+    note: `Guild work note ${noteRunId}\n`, editedNote: `Guild work note ${noteRunId} continued after login\n`,
+  });
   const contexts = [];
   const open = async (access = true) => {
     const context = await request.newContext({ timeout: 30000 }); contexts.push(context);
@@ -152,7 +194,7 @@ export async function main(argv, env = process.env, log = line => console.log(li
   };
   const login = async email => {
     const actor = await open();
-    const body = await json(actor, 'POST', '/api/v1/auth/login', { email, password: 'freedom-local-demo' });
+    const body = await json(actor, 'POST', '/api/v1/auth/login', { email, password: privateData.password });
     requireThat(typeof body.csrf_token === 'string' && body.csrf_token.length > 0 && body.user?.email === email, 'response_invalid');
     actor.csrf = body.csrf_token; return actor;
   };
@@ -171,13 +213,13 @@ export async function main(argv, env = process.env, log = line => console.log(li
     }
   };
   const id = value => { requireThat(UUID.test(value), 'response_invalid'); return value; };
+  const privateId = value => remember(id(value));
   const version = value => { requireThat(VERSION.test(value), 'response_invalid'); return value; };
   const tenantPath = () => `/api/v1/tenants/${receipt.ids.A.tenant}`;
   const workPath = () => `${tenantPath()}/works/${receipt.ids.A.work}`;
   const resultPath = result => `${workPath()}/results/${result}`;
-  const noteText = edited => `Guild work note ${receipt.note_run_id ?? runId}${edited ? ' continued after login' : ''}\n`;
+  const noteText = edited => edited ? privateData.editedNote : privateData.note;
   const receivedContent = new Set();
-  const privatePrefixes = new Map();
   const discover = value => {
     if (!value || typeof value !== 'object') return;
     for (const [key, item] of Object.entries(value)) {
@@ -193,7 +235,8 @@ export async function main(argv, env = process.env, log = line => console.log(li
     const path = `${resultPath(result)}/content`; receivedContent.add(path);
     const response = await send(a, 'GET', path), bytes = await response.body();
     requireThat(response.status() === 200 && bytes.length === size && hash(bytes) === digest, 'readback_mismatch', { path });
-    privatePrefixes.set(path, bytes.subarray(0, Math.min(16, bytes.length)));
+    remember(bytes.subarray(0, Math.min(16, bytes.length)));
+    remember(digest);
     return bytes;
   };
   const saveResult = async (bytes, name, contentType) => {
@@ -201,7 +244,7 @@ export async function main(argv, env = process.env, log = line => console.log(li
     const prepared = await json(a, 'POST', `${workPath()}/results/uploads`, {
       content_type: contentType, byte_size: bytes.length, sha256: hash(bytes), display_name: name, expected_work_version: work.version,
     }, undefined, 201);
-    const uploadId = id(prepared.resource_ref?.resource_id), uploadPath = `${workPath()}/results/uploads/${uploadId}`;
+    const uploadId = privateId(prepared.resource_ref?.resource_id), uploadPath = `${workPath()}/results/uploads/${uploadId}`;
     const upload = await readJson(uploadPath);
     requireThat(upload.upload_id === uploadId && upload.work_id === receipt.ids.A.work && upload.sha256 === hash(bytes)
       && upload.byte_size === bytes.length && upload.display_name === name, 'readback_mismatch');
@@ -210,14 +253,14 @@ export async function main(argv, env = process.env, log = line => console.log(li
     const stored = await readJson(uploadPath);
     requireThat(stored.phase === 'stored' && stored.version === written.version && stored.asset_id === upload.asset_id, 'readback_mismatch');
     const finalized = await json(a, 'POST', uploadPath + '/finalize', { expected_work_version: work.version }, written.version);
-    const resultId = id(finalized.resource_ref?.resource_id), result = await readJson(resultPath(resultId));
+    const resultId = privateId(finalized.resource_ref?.resource_id), result = await readJson(resultPath(resultId));
     const after = await readJson(workPath()), finished = await readJson(uploadPath);
     requireThat(result.result_id === resultId && result.work_id === work.work_id && result.asset_id === upload.asset_id
       && result.sha256 === hash(bytes) && result.byte_size === bytes.length && result.provenance === 'human'
       && result.work_version === increment(work.version) && after.version === result.work_version
       && after.current_result_id === resultId && finished.phase === 'finalized', 'readback_mismatch');
     await content(resultId, hash(bytes), bytes.length);
-    return { resultId, assetId: id(result.asset_id), uploadId, revision: version(result.revision), workVersion: version(after.version) };
+    return { resultId, assetId: privateId(result.asset_id), uploadId, revision: version(result.revision), workVersion: version(after.version) };
   };
   const readBack = async () => {
     const ids = receipt.ids.A, v = receipt.versions, d = receipt.digests;
@@ -263,35 +306,35 @@ export async function main(argv, env = process.env, log = line => console.log(li
     });
     if (previous) {
       await check('A resumes', async () => {
-        receipt.ids.A = Object.fromEntries(['tenant', 'workspace', 'work', 'note', 'result', 'note_asset', 'asset', 'original_note', 'original_note_asset', 'upload'].map(key => [key, previous.ids.A[key]]));
+        receipt.ids.A = remember(Object.fromEntries(['tenant', 'workspace', 'work', 'note', 'result', 'note_asset', 'asset', 'original_note', 'original_note_asset', 'upload'].map(key => [key, previous.ids.A[key]])));
         receipt.versions = Object.fromEntries(['tenant', 'workspace', 'work', 'note', 'result', 'note_work', 'result_work', 'original_note'].map(key => [key, previous.versions[key]]));
-        receipt.digests = Object.fromEntries(['attachment', 'note', 'original_note', 'attachment_bytes'].map(key => [key, previous.digests[key]]));
-        a = await login('maker@local.test'); await readBack();
+        receipt.digests = remember(Object.fromEntries(['attachment', 'note', 'original_note', 'attachment_bytes'].map(key => [key, previous.digests[key]])));
+        a = await login(privateData.email); await readBack();
         receipt.coverage['T-005'] = 'pass (resume: persisted IDs, versions and byte digests; original receipt covers creation/edit)';
         return {};
       });
     } else {
       await check('A creates', async () => {
-        a = await login('maker@local.test');
+        a = await login(privateData.email);
         const guilds = await readJson('/api/v1/guilds/directory');
         const guild = guilds.items.find(item => item.membership?.state === 'active' && item.membership.member_tier === 'full');
         requireThat(guild, 'guild_full_member_required');
-        const made = await json(a, 'POST', '/api/v1/tenants', { display_name: `A ${runId}`, workspace_name: `Default ${runId}` }, undefined, 201);
+        const made = await json(a, 'POST', '/api/v1/tenants', { display_name: privateData.tenantName, workspace_name: privateData.defaultWorkspaceName }, undefined, 201);
         const ids = receipt.ids.A, v = receipt.versions;
-        ids.tenant = id(made.tenant.tenant_id); v.tenant = version(made.tenant.version);
-        const workspace = await json(a, 'POST', tenantPath() + '/workspaces', { name: `Workspace ${runId}` }, undefined, 201);
-        ids.workspace = id(workspace.workspace_id); v.workspace = version(workspace.version);
+        ids.tenant = privateId(made.tenant.tenant_id); v.tenant = version(made.tenant.version);
+        const workspace = await json(a, 'POST', tenantPath() + '/workspaces', { name: privateData.workspaceName }, undefined, 201);
+        ids.workspace = privateId(workspace.workspace_id); v.workspace = version(workspace.version);
         await json(a, 'POST', `${tenantPath()}/workspaces/${ids.workspace}/manual-work`, { guild_key: guild.guild_key });
         const created = await json(a, 'POST', `${tenantPath()}/workspaces/${ids.workspace}/works`, {
-          title: `Work ${runId}`, objective: `Manual work ${runId}`, progress: 'todo',
+          title: privateData.title, objective: privateData.objective, progress: 'todo',
         }, undefined, 201);
-        ids.work = id(created.resource_ref?.resource_id);
-        const note = await saveResult(Buffer.from(noteText(false)), `note-${runId}.md`, 'text/markdown');
+        ids.work = privateId(created.resource_ref?.resource_id);
+        const note = await saveResult(Buffer.from(noteText(false)), privateData.noteName, 'text/markdown');
         ids.note = note.resultId; ids.original_note = note.resultId; ids.original_note_asset = note.assetId; ids.note_asset = note.assetId;
         v.original_note = note.revision; receipt.digests.original_note = hash(Buffer.from(noteText(false)));
         // Uniformly random printable bytes: the product accepts UTF-8 text, not arbitrary binary.
         const bytes = randomBytes(65536).map(byte => 0x20 + (byte & 0x3f));
-        const file = await saveResult(bytes, `attachment-${runId}.txt`, 'text/plain');
+        const file = await saveResult(bytes, privateData.attachmentName, 'text/plain');
         ids.result = file.resultId; ids.asset = file.assetId; ids.upload = file.uploadId;
         v.work = file.workVersion; v.result = file.revision; v.result_work = file.workVersion;
         receipt.digests.attachment = hash(bytes); receipt.digests.attachment_bytes = bytes.length;
@@ -307,12 +350,12 @@ export async function main(argv, env = process.env, log = line => console.log(li
         await json(a, 'POST', '/api/v1/auth/logout', {});
         requireThat((await send(stale, 'GET', '/api/v1/session')).status() === 401
           && (await send(a, 'GET', '/api/v1/session')).status() === 401, 'logout_failed');
-        a = await login('maker@local.test');
+        a = await login(privateData.email);
         const work = await readJson(workPath());
         requireThat(work.version === receipt.versions.work && work.work_id === receipt.ids.A.work, 'readback_mismatch');
         await content(receipt.ids.A.original_note, receipt.digests.original_note, Buffer.byteLength(noteText(false)));
         await content(receipt.ids.A.result, receipt.digests.attachment, 65536);
-        const edited = await saveResult(Buffer.from(noteText(true)), `note-${runId}.md`, 'text/markdown');
+        const edited = await saveResult(Buffer.from(noteText(true)), privateData.noteName, 'text/markdown');
         requireThat(edited.workVersion === increment(work.version) && BigInt(edited.revision) > BigInt(receipt.versions.original_note), 'readback_mismatch');
         receipt.ids.A.note = edited.resultId; receipt.ids.A.note_asset = edited.assetId;
         receipt.versions.work = edited.workVersion; receipt.versions.note = edited.revision; receipt.versions.note_work = edited.workVersion;
@@ -353,14 +396,8 @@ export async function main(argv, env = process.env, log = line => console.log(li
             const isContent = contentPaths.includes(path);
             const expected = actorName === 'anonymous' ? 401 : isContent && (method === 'HEAD' || range) ? 405 : 404;
             statuses.push({ actor: actorName, path, method, status: response.status(), expected_status: expected, range });
-            const prefixes = [...privatePrefixes.values()];
-            requireThat(!prefixes.some(prefix => bytes.includes(prefix)) && hash(bytes) !== receipt.digests.attachment, 'bytes_leaked', { requests: statuses });
-            requireThat(response.status() === expected, 'refusal_mismatch', { requests: statuses });
-            if (method !== 'HEAD') {
-              let body; try { body = JSON.parse(bytes.toString('utf8')); } catch { throw new Failure('refusal_mismatch', { requests: statuses }); }
-              const codes = expected === 405 ? ['method_not_allowed'] : expected === 404 ? ['tenant_not_found', 'not_found'] : ['login_required', 'session_expired'];
-              requireThat(codes.includes(body.code), 'refusal_mismatch', { requests: statuses });
-            }
+            const problem = refusalProblem(response.status(), expected, response.headers(), bytes, privateMarkers, method);
+            requireThat(problem === null, problem, { requests: statuses });
           }
         }
       }
