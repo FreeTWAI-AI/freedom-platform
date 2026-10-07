@@ -117,6 +117,16 @@ export class GitHubSocial {
       return {...await this.provider.developmentAccess(target,working,this.config!.appId!,token),github_user_id:identity.id};
     });
   }
+  async repositoryManager(q:PoolClient,actor:Actor,repository:string,repositoryId:string):Promise<boolean>{
+    await lockGitHubSocialMember(q,actor.user_id);
+    const connection=await this.connection(q,actor);
+    if(!this.config||!connection)return false;
+    return this.withToken(q,actor,connection,async token=>{
+      const identity=await this.provider.identity(token);
+      requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+      return this.provider.repositoryManager(repository,repositoryId,token);
+    });
+  }
   async start(actor:Actor,returnTo='#guilds'){
     const config=this.configured();
     requireCondition(/^#[a-z][a-z0-9_-]{0,63}$/.test(returnTo)||communityCatalog.skill_books.some(book=>returnTo==='/development/skills/'+book.id),422,'github_return_to_invalid','請從工坊頁面重新連接 GitHub。');

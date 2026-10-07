@@ -2,7 +2,7 @@
   "openapi": "3.1.1",
   "info": {
     "title": "Freedom implemented member module API subset",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Member-session module API subset. Registration/onboarding and scoped read-connections have separate interface documents. Public checkout, production OAuth and leased executors are not implemented by this bundle."
   },
   "servers": [
@@ -1552,6 +1552,88 @@
         "x-concurrency": "required"
       }
     },
+    "/opensource/projects/{id}/edit-access": {
+      "post": {
+        "operationId": "checkProjectEditing",
+        "summary": "checkProjectEditing",
+        "security": [
+          {
+            "MemberSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,128}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Implemented preview response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectEditAccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured problem; conflict is never automatically retried",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-idempotent-command": true,
+        "x-concurrency": "none"
+      }
+    },
     "/marketing/campaigns": {
       "get": {
         "operationId": "listCampaigns",
@@ -2882,6 +2964,18 @@
           "current_version"
         ],
         "additionalProperties": true
+      },
+      "ProjectEditAccess": {
+        "type": "object",
+        "properties": {
+          "can_edit": {
+            "const": true
+          }
+        },
+        "required": [
+          "can_edit"
+        ],
+        "additionalProperties": false
       },
       "CampaignInput": {
         "type": "object",
