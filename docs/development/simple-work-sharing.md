@@ -43,7 +43,7 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 
 - `POST /api/v1/opensource/projects/:id/edit-access`：需會員 session、Origin／CSRF、Idempotency-Key；僅核對當次編輯權。
 - `POST /api/v1/opensource/projects/:id:revise`、`:refresh`：每次獨立核對編輯權，保留 If-Match／交易／稽核；權限只適用同社群可見作品。
-- `migrations/125_project_public_metadata.sql`：新增公開介紹已修訂標記；尚未修訂的既有投稿繼續呈現原投稿內容。
+- `migrations/126_project_public_metadata.sql`：新增公開介紹已修訂標記；尚未修訂的既有投稿繼續呈現原投稿內容。
 - Preview 契約更新為 `freedom.preview/v1` revision `0.4.0`，新增 `checkProjectEditing` 並同步 SDK／bundle；外倉由其維護者更新自己的來源 pins。
 
 本次本機驗證使用隔離 PostgreSQL schema 與明示的合成 GitHub OAuth／組織 Repo 回應；瀏覽器實跑管理者核對、儲存、書架與公開介紹頁同步，390px 書架無水平溢出。未使用真實組織憑證，未部署正式站。

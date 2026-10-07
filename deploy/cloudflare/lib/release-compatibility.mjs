@@ -107,8 +107,11 @@ const FOUNDATION_NAMES = [
   // Tenant ownership transfer, fresh verification and controlled recovery; no
   // authority policy is seeded and recognition activates nothing.
   '124_tenant_ownership_recovery.sql',
+  // Transaction-local tenant context and row security without FORCE. The runtime
+  // role is not the table owner, so ENABLE already applies to it.
+  '125_tenant_row_security.sql',
   // Additive public project metadata marker; submission snapshots stay intact.
-  '125_project_public_metadata.sql',
+  '126_project_public_metadata.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

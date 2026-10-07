@@ -71,6 +71,21 @@ must consume the entire digest-checked stream with `pg_restore --single-transact
 the two environment jobs with one host-owned lock: both databases share the same
 connection-limited cluster.
 
+## Row security from migration 125
+
+[Migration 125](../../migrations/125_tenant_row_security.sql) enables row security
+on the tenant tables without forcing it. `pg_dump` sets `row_security = off` by
+default and fails for a dump role that is neither a superuser, a role with
+`BYPASSRLS`, nor the table owner. `--enable-row-security` dumps only the rows
+visible to that role; without a tenant context this is not a full-data backup.
+
+Before migration 125 is applied to an environment, the operator must confirm
+that the reviewed full-data backup path for that environment can read every row
+of the row-security tables. Keep the dump role's attribute readback and, after
+the first backup that includes migration 125, per-table row counts from that
+backup compared with counts taken by the table owner. The backup role and
+adapter remain operator-managed outside this repository.
+
 ## Invoke and independently accept
 
 Install a reviewed private wrapper at
