@@ -9,3 +9,22 @@ export class InstanceSelectionRequired extends Problem {
     this.candidates = candidates;
   }
 }
+
+/** The failing dimension is copied onto the JSON body. Quota is not a rate, so there is no Retry-After. */
+export class QuotaExceeded extends Problem {
+  readonly dimension: string;
+  constructor(dimension: string) {
+    super(429, 'quota_exceeded', `已達到這個業務空間的容量上限。（${dimension}）`);
+    this.dimension = dimension;
+  }
+}
+
+export type DependencyCandidate = { requirement_key: string; instance_id: string; version: string; created_at: string };
+
+export class DependencySelectionRequired extends Problem {
+  readonly candidates: readonly DependencyCandidate[];
+  constructor(candidates: readonly DependencyCandidate[]) {
+    super(409, 'dependency_selection_required', '這個應用要先選擇要沿用的模組實例。');
+    this.candidates = candidates;
+  }
+}

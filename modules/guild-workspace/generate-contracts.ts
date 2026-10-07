@@ -23,7 +23,7 @@ const reason = ['reason_control_character'] as const;
 const launchpad = [
   'guild_key_pattern_and_bounds', 'text_control_surrogate_and_utf8_bounds', 'block_id_stable_key',
   'block_kind_set_and_duplicates', 'block_order_range_and_uniqueness', 'mandatory_block_enabled',
-  'application_refs_rejected', 'public_url_https',
+  'application_duplicate', 'public_url_https',
 ] as const;
 
 function description(rules: readonly string[]): string {

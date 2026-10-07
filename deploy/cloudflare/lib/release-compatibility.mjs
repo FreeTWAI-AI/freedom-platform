@@ -110,6 +110,9 @@ const FOUNDATION_NAMES = [
   // Transaction-local tenant context and row security without FORCE. The runtime
   // role is not the table owner, so ENABLE already applies to it.
   '125_tenant_row_security.sql',
+  // Application catalog, module releases, launch plans and provision operations.
+  // Manual-work enablement stays a facade over the same launch core.
+  '126_module_registry.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -130,8 +130,8 @@ async function fullMember(userId: string, guildKey: string) {
   await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
     VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, userId, guildKey]);
 }
-async function enable(session: Session, tenantId: string, workspaceId: string, guildKey: string, key = randomUUID()) {
-  return post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, session, { guild_key: guildKey }, undefined, key);
+async function enable(session: Session, tenantId: string, workspaceId: string, guildKey: string, key = randomUUID(), body: Record<string, unknown> = {}) {
+  return post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, session, { guild_key: guildKey, ...body }, undefined, key);
 }
 const workBody = (title: string) => ({ title, objective: '把這件事做完', progress: 'todo' as const });
 async function createWork(session: Session, tenantId: string, workspaceId: string, title: string) {
@@ -157,10 +157,23 @@ async function openHolder(lockSql: string, params: unknown[]) {
   await client.query(`SET search_path TO ${schema}`);
   await client.query('BEGIN');
   const pid = Number((await client.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
-  await client.query(lockSql, params);
+  const locked = await client.query(lockSql, params);
+  assert.equal(locked.rowCount, 1, lockSql);
   let closed = false;
   return {
     pid,
+    commit: async () => {
+      if (closed) return;
+      closed = true;
+      try {
+        await client.query('COMMIT');
+        client.release();
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release(error instanceof Error ? error : new Error('holder commit failed'));
+        throw error;
+      }
+    },
     release: async () => {
       if (closed) return;
       closed = true;
@@ -182,6 +195,45 @@ async function waitForBlockedQuery(holderPid: number, parts: string[]) {
   }
   const seen = await blockedQueries(holderPid);
   assert.fail(`no backend blocked by ${holderPid} matching ${parts.join(' & ')}; saw ${JSON.stringify(seen)}`);
+}
+async function waitForBlockedBy(holderPids: number[]) {
+  let seen: { holderPid: number; waiting: { pid: number; query: string }[] }[] = [];
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    seen = [];
+    for (const holderPid of holderPids) {
+      const waiting = await blockedQueries(holderPid);
+      seen.push({ holderPid, waiting });
+      if (waiting.length > 0) return { holderPid, waiting: waiting[0] };
+    }
+    await delay(40);
+  }
+  assert.fail(`no backend blocked by ${holderPids.join(' or ')}; saw ${JSON.stringify(seen)}`);
+}
+async function waitForReturnOrBlocked(pending: Promise<Reply>, blockerPid: number) {
+  let settled = false;
+  let result: Reply | undefined;
+  let failure: unknown;
+  pending.then(value => { result = value; settled = true; }, error => { failure = error; settled = true; });
+  let waiting: { pid: number; query: string }[] = [];
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (settled) {
+      if (failure !== undefined) throw failure;
+      return { returned: true as const, result: result! };
+    }
+    waiting = await blockedQueries(blockerPid);
+    if (waiting.length > 0) return { returned: false as const, waiting: waiting[0] };
+    await delay(40);
+  }
+  assert.fail(`request neither returned nor blocked on ${blockerPid}; saw ${JSON.stringify(waiting)}`);
+}
+async function waitForBlockedCount(holderPid: number, parts: string[], count: number) {
+  let hits: { pid: number; query: string }[] = [];
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    hits = (await blockedQueries(holderPid)).filter(row => parts.every(part => row.query.includes(part)));
+    if (hits.length >= count) return hits;
+    await delay(40);
+  }
+  assert.fail(`expected ${count} backends blocked by ${holderPid} matching ${parts.join(' & ')}; saw ${JSON.stringify(hits)}`);
 }
 /** A held FOR UPDATE lives in the tuple header. pg_locks shows that row only while some other backend waits. */
 async function holdsWorkUpdate(workId: string) {
@@ -273,8 +325,8 @@ test('demotion committed while enable waits on the workspace leaves no instance'
   const key = randomUUID();
   const pending = enable(owner, made.tenantId, made.workspaceId, guild, key);
   try {
-    const waiting = await waitForBlockedQuery(holder.pid, ['workspaces', 'FOR UPDATE']);
-    assert.equal(waiting.query.includes('FOR UPDATE'), true);
+    const waiting = await waitForBlockedQuery(holder.pid, ['INSERT INTO module_launch_plans']);
+    assert.equal(waiting.query.includes('INSERT INTO module_launch_plans'), true);
     const demoted = await Promise.race([
       demote(master.session, guild, owner.user.user_id),
       delay(8_000).then(() => ({ status: 0, data: { code: 'demotion_blocked' }, bytes: new Uint8Array(), response: new Response() })),
@@ -530,4 +582,244 @@ test('a session that expires while result metadata waits on the tenant row retur
   assert.equal(finished.status, 200, JSON.stringify(finished.data));
   const resultId = finished.data.resource_ref.resource_id as string;
   await expireWhileWaiting(`/tenants/${ready.tenantId}/works/${workId}/results/${resultId}`, owner, name);
+});
+
+function definedOutcome(result: Reply) {
+  assert.notEqual(result.status, 500, JSON.stringify(result.data));
+  assert.notEqual(result.data?.code, 'internal_error');
+  assert.notEqual(result.data?.state, 'failed');
+}
+
+async function capacityReusePlan(owner: Session, ready: { tenantId: string; workspaceId: string; guild: string; instanceId: string }, label: string) {
+  const work = await createWork(owner, ready.tenantId, ready.workspaceId, label);
+  assert.equal(work.status, 201, JSON.stringify(work.data));
+  const version = (await pool.query<{ version: string }>(
+    'SELECT version::text AS version FROM module_instances WHERE instance_id=$1',
+    [ready.instanceId],
+  )).rows[0].version;
+  const other = await post(`/tenants/${ready.tenantId}/workspaces`, owner, { name: `${label}櫃` });
+  assert.equal(other.status, 201, JSON.stringify(other.data));
+  const planned = await post(`/tenants/${ready.tenantId}/application-launch-plans`, owner, {
+    guild_key: ready.guild,
+    workspace_id: other.data.workspace_id,
+    application_key: 'manual-workspace',
+    release_ref: 'manual-workspace@1.0.0',
+    installation_choice: 'create_new',
+    dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: ready.instanceId, expected_version: version }],
+    configuration: {},
+  });
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  return {
+    workId: work.data.resource_ref.resource_id as string,
+    launch: () => post(`/tenants/${ready.tenantId}/application-installations`, owner, {
+      plan_id: planned.data.plan_id,
+      expected_plan_version: planned.data.version,
+      configuration_digest: planned.data.configuration_digest,
+    }),
+  };
+}
+
+test('upload prepare and a capacity-reserving launch do not deadlock when prepare arrives first', { timeout: 45_000 }, async () => {
+  const owner = await signIn(DEMO_USERS[0].email);
+  const ready = await workspaceReady(owner);
+  const planned = await capacityReusePlan(owner, ready, '準備先到');
+  const holder = await openHolder(
+    'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+    [`tenant.capacity/v1/${ready.tenantId}/policy`],
+  );
+  const pending: Promise<Reply>[] = [];
+  try {
+    const preparing = prepareUpload(owner, ready.tenantId, planned.workId, 'prepare-first.txt', ABC, '1');
+    pending.push(preparing);
+    await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock']);
+    const launching = planned.launch();
+    pending.push(launching);
+    const waiting = await waitForBlockedCount(holder.pid, ['pg_advisory_xact_lock'], 2);
+    assert.equal(waiting.length, 2);
+    await holder.release();
+    const prepared = await preparing;
+    const launched = await launching;
+    definedOutcome(prepared);
+    definedOutcome(launched);
+    assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+    assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  } finally {
+    await holder.release();
+    await Promise.allSettled(pending);
+  }
+});
+
+test('upload prepare and a capacity-reserving launch do not deadlock when launch arrives first', { timeout: 45_000 }, async () => {
+  const owner = await signIn(DEMO_USERS[0].email);
+  const ready = await workspaceReady(owner);
+  const planned = await capacityReusePlan(owner, ready, '啟動先到');
+  const holder = await openHolder(
+    'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+    [`tenant.capacity/v1/${ready.tenantId}/policy`],
+  );
+  const pending: Promise<Reply>[] = [];
+  try {
+    const launching = planned.launch();
+    pending.push(launching);
+    await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock']);
+    const preparing = prepareUpload(owner, ready.tenantId, planned.workId, 'launch-first.txt', ABC, '1');
+    pending.push(preparing);
+    const waiting = await waitForBlockedCount(holder.pid, ['pg_advisory_xact_lock'], 2);
+    assert.equal(waiting.length, 2);
+    await holder.release();
+    const launched = await launching;
+    const prepared = await preparing;
+    definedOutcome(launched);
+    definedOutcome(prepared);
+    assert.equal(launched.status, 200, JSON.stringify(launched.data));
+    assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+  } finally {
+    await holder.release();
+    await Promise.allSettled(pending);
+  }
+});
+
+type DbFault = { code: string; message: string; detail: string; pid: number | null; query: string };
+const dbFaults: DbFault[] = [];
+let captureDbFaults = false;
+const watchedClients = new WeakSet<PoolClient>();
+
+function watchClient(client: PoolClient) {
+  if (watchedClients.has(client)) return;
+  watchedClients.add(client);
+  const run = client.query.bind(client) as (...args: unknown[]) => unknown;
+  client.query = ((...args: unknown[]) => {
+    const pending = run(...args);
+    if (typeof pending === 'object' && pending !== null && typeof (pending as { then?: unknown }).then === 'function') {
+      return (pending as Promise<unknown>).catch((error: unknown) => {
+        if (captureDbFaults && typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string') {
+          const fault = error as { code: string; message?: string; detail?: string };
+          const first = args[0];
+          const text = typeof first === 'string'
+            ? first
+            : first && typeof first === 'object' && 'text' in first && typeof first.text === 'string' ? first.text : '';
+          const pid = (client as { processID?: unknown }).processID;
+          dbFaults.push({
+            code: fault.code,
+            message: fault.message ?? '',
+            detail: fault.detail ?? '',
+            pid: typeof pid === 'number' ? pid : null,
+            query: text.replace(/\s+/g, ' ').slice(0, 220),
+          });
+        }
+        throw error;
+      });
+    }
+    return pending;
+  }) as PoolClient['query'];
+}
+
+async function databaseDeadlocks() {
+  const row = (await admin.query<{ deadlocks: string | number }>(
+    'SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()',
+  )).rows[0];
+  return Number(row.deadlocks);
+}
+
+async function enableRaceRows() {
+  return (await pool.query<{
+    instances: number; installations: number; plans: number; consumptions: number;
+    enable_facts: number; works: number; bindings: number;
+  }>(`SELECT
+    (SELECT count(*)::int FROM module_instances) AS instances,
+    (SELECT count(*)::int FROM application_installations) AS installations,
+    (SELECT count(*)::int FROM module_launch_plans) AS plans,
+    (SELECT count(*)::int FROM module_launch_plan_consumptions) AS consumptions,
+    (SELECT count(*)::int FROM scoped_transition_journal WHERE operation='manual.work.enable') AS enable_facts,
+    (SELECT count(*)::int FROM work_items) AS works,
+    (SELECT count(*)::int FROM workspace_module_bindings) AS bindings
+  `)).rows[0];
+}
+
+test('manual enable and Work create on one workspace do not deadlock when a binding commits during the enable', { timeout: 45_000 }, async () => {
+  const owner = await signIn(DEMO_USERS[0].email);
+  const ready = await workspaceReady(owner);
+  const second = await post(`/tenants/${ready.tenantId}/workspaces`, owner, { name: '未綁定櫃' });
+  assert.equal(second.status, 201, JSON.stringify(second.data));
+  const workspaceId = second.data.workspace_id as string;
+  const before = await enableRaceRows();
+  const deadlocksBefore = await databaseDeadlocks();
+  const onAcquire = (client: PoolClient) => { watchClient(client); };
+  pool.on('acquire', onAcquire);
+  dbFaults.length = 0;
+  captureDbFaults = true;
+  // Plan insert FK (application_key, release_ref) references this definition row.
+  // migrations/126_module_registry.sql. Work create does not reference it.
+  const h2 = await openHolder(
+    `SELECT application_key FROM application_definitions
+     WHERE application_key = 'manual-workspace' AND release_ref = 'manual-workspace@1.0.0'
+     FOR UPDATE`,
+    [],
+  );
+  // Stands in for a work:create binder outside this enable's installation fingerprint.
+  const h1 = await openHolder(
+    `INSERT INTO workspace_module_bindings(tenant_id, workspace_id, entry_capability, instance_id)
+     VALUES ($1, $2, 'work:create', $3)`,
+    [ready.tenantId, workspaceId, ready.instanceId],
+  );
+  const pending: Promise<Reply>[] = [];
+  const key = randomUUID();
+  try {
+    const enabling = enable(owner, ready.tenantId, workspaceId, ready.guild, key, { choice: { kind: 'create_new' } });
+    pending.push(enabling);
+    const first = await waitForBlockedBy([h1.pid, h2.pid]);
+    const enablePid = first.waiting.pid;
+    await h1.commit();
+    const onPlan = await waitForBlockedQuery(h2.pid, ['module_launch_plans']);
+    assert.equal(onPlan.pid, enablePid, JSON.stringify({ first, onPlan }));
+    const creating = createWork(owner, ready.tenantId, workspaceId, '綁定期間的工作');
+    pending.push(creating);
+    const workWait = await waitForReturnOrBlocked(creating, enablePid);
+    await h2.commit();
+    const enabled = await enabling;
+    const created = workWait.returned ? workWait.result : await creating;
+    const after = await enableRaceRows();
+    const enableReceipts = Number((await pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM scoped_command_receipts WHERE idempotency_key=$1',
+      [key],
+    )).rows[0].n);
+    const deadlockDelta = (await databaseDeadlocks()) - deadlocksBefore;
+    const observed = {
+      firstHolder: first.holderPid,
+      firstQuery: first.waiting.query,
+      enablePid,
+      workWait: workWait.returned
+        ? { returned: true, status: workWait.result.status, code: workWait.result.data?.code ?? null }
+        : { returned: false, pid: workWait.waiting.pid, query: workWait.waiting.query },
+      enable: { status: enabled.status, code: enabled.data?.code ?? null, state: enabled.data?.state ?? null },
+      created: { status: created.status, code: created.data?.code ?? null, state: created.data?.state ?? null },
+      dbFaults: dbFaults.map(fault => ({ ...fault })),
+      deadlockDelta,
+      enableReceipts,
+      before,
+      after,
+    };
+    const snapshot = JSON.stringify(observed);
+    assert.equal(deadlockDelta, 0, snapshot);
+    assert.equal(dbFaults.some(fault => fault.code === '40P01'), false, snapshot);
+    definedOutcome(enabled);
+    definedOutcome(created);
+    assert.equal(created.status, 201, snapshot);
+    assert.equal(enabled.status, 409, snapshot);
+    assert.equal(enabled.data.code, 'workspace_binding_conflict', snapshot);
+    assert.equal(after.instances, before.instances, snapshot);
+    assert.equal(after.installations, before.installations, snapshot);
+    assert.equal(after.plans, before.plans, snapshot);
+    assert.equal(after.consumptions, before.consumptions, snapshot);
+    assert.equal(after.enable_facts, before.enable_facts, snapshot);
+    assert.equal(enableReceipts, 0, snapshot);
+    assert.equal(after.works, before.works + 1, snapshot);
+    assert.equal(after.bindings, before.bindings + 1, snapshot);
+  } finally {
+    captureDbFaults = false;
+    pool.off('acquire', onAcquire);
+    await h1.release();
+    await h2.release();
+    await Promise.allSettled(pending);
+  }
 });

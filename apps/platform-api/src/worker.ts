@@ -24,6 +24,7 @@ import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../.
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
 import { workerPrivateAiPorts,type WorkerPrivateAiBindings } from './worker-private-ai.js';
 import {guildReviewerFromBindings,type GuildReviewBindings} from './guild-review.js';
+import {sweepDueOperations} from '../../../modules/module-registry/operations.js';
 
 /**
  * Cloudflare Worker adapter. Bindings contract (see wrangler.jsonc):
@@ -171,6 +172,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
     // workerd rejects a bound global fetch, so the preview caller stays unbound.
     linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
+    moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
@@ -305,6 +307,10 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           if(env.FREEDOM_REGISTRATION_COMMUNITY_ID){
             try{await (deps.guildDiscovery??refreshGuildDiscoveryReports)(pool,{communityId:env.FREEDOM_REGISTRATION_COMMUNITY_ID,reviewer:guildReviewerFromBindings(env)});}
             catch{console.error('guild_discovery_failed');}
+          }
+          if(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true'){
+            try{await sweepDueOperations(pool);}
+            catch{console.error('module_provision_sweep_failed');}
           }
         } catch (error) {
           const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9_]*$/.test(error.name) ? error.name : 'unknown';

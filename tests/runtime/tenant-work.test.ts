@@ -7,6 +7,7 @@ import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { WORK_CONTRACT } from '../../modules/module-registry/definitions.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import type { AssetObjectKey, ObjectRange, ObjectStore, PreparedRepresentation } from '../../packages/asset-storage/index.js';
 
@@ -334,7 +335,7 @@ test('three catalog guilds can enable manual work, and a human note plus text at
   assert.equal(listed.data.items[0].application_release_ref, 'manual-workspace@1.0.0');
   assert.equal(listed.data.items[0].data_schema_version, '1');
   assert.equal(listed.data.items[0].status, 'active');
-  assert.equal(Object.hasOwn(listed.data.items[0], 'contract_ref'), false);
+  assert.deepEqual(listed.data.items[0].contract_ref, WORK_CONTRACT);
   const created = await createWork(owner, made.tenantId, made.workspaceId, 'WorkTitleTokenZed');
   assert.equal(created.status, 201, JSON.stringify(created.data));
   assert.equal(created.data.state, 'succeeded');

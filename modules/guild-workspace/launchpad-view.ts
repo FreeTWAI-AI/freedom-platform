@@ -5,6 +5,7 @@ import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild, type SkillBook} from '../community/catalog.js';
 import {ConfigValidationError, assertStoredVersion, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
+import {applicationsForGuild, availableReleaseRefs} from '../module-registry/catalog.js';
 import {
   activeMember, assertDelegatedViewerDeadline, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
   readPointerVersion, readSolePublicRevision, readStoredRevision, refreshDelegateAccess, requireGuildMember, resolvePublishedView,
@@ -61,9 +62,10 @@ export async function publicLaunchpad(pool: Pool, guildKey: string) {
       : {view: platformDefaultView(guild, '1'), problem: null as ConfigProblem};
     const view = resolved.view;
     const communityId = stored && view.source === 'guild_editor' ? stored.community_id : null;
+    const allowed = await availableReleaseRefs(q, guildKey);
     return {
       guild: publicGuildDto(guild),
-      config: {revision: view.revision, body: publicSafeConfig(view.body)},
+      config: {revision: view.revision, body: publicSafeConfig(view.body, allowed)},
       config_problem: resolved.problem,
       announcements: [] as AnnouncementRef[],
       skill_books: await bookRefs(q, guildKey, communityId),
@@ -84,8 +86,9 @@ export async function memberLaunchpad(pool: Pool, actor: Actor, guildKey: string
     const resolved = await resolvePublishedView(q, guild, actor.community_id, pointerVersion);
     const announcementRows = await announcements(q, actor.community_id, guildKey);
     const books = await bookRefs(q, guildKey, actor.community_id);
-    await assertCurrentSessionClock(q, actor);
+    const applications = await applicationsForGuild(q, actor, guildKey);
     const fresh = await refreshDelegateAccess(q, actor, guildKey, access);
+    await assertCurrentSessionClock(q, actor);
     return {
       guild: memberGuildDto(guild),
       config: resolved.view,
@@ -93,7 +96,7 @@ export async function memberLaunchpad(pool: Pool, actor: Actor, guildKey: string
       membership: {state: membership.state as string, member_tier: membership.member_tier as string},
       announcements: announcementRows,
       skill_books: books,
-      applications: [] as {application_key: string; release_ref: string; eligibility: {can_launch: false; reason_codes: string[]; required_guild_tier: 'full'; tenant_action: 'denied'; policy_revision: string}}[],
+      applications,
       community_tasks: [] as {work_item_id: string; title: string; state: string}[],
       viewer_can_edit_config: fresh.edit,
       viewer_can_preview_config: fresh.preview,

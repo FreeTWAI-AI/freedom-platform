@@ -94,6 +94,60 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         },
         {
           kind: "table" as const,
+          table: "application_installations",
+          columns: [
+            "installation_id",
+            "tenant_id",
+            "workspace_id",
+            "application_key",
+            "release_ref",
+            "configuration",
+            "configuration_digest",
+            "configuration_revision",
+            "status",
+            "version",
+            "created_by_principal_id",
+            "created_by_principal_kind",
+            "origin_guild_key",
+            "provision_operation_id",
+            "retained_instance_ids",
+            "created_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "application_installations_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "application_module_links",
+          columns: [
+            "installation_id",
+            "requirement_key",
+            "tenant_id",
+            "instance_id",
+            "binding_selection",
+            "version",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "application_module_links_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
           table: "bootstrap_nonces",
           columns: [
             "nonce_id",
@@ -261,6 +315,56 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             rls: "exempt" as const,
             reason_code: "fk_chain_not_tenant_private",
             reason: "Detected only because a foreign key reaches a tenant-bearing or mixed table. The row is not tenant-private. Row security stays off so platform, personal and machine flows are not filtered.",
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "capacity_ledger",
+          columns: [
+            "entry_id",
+            "tenant_id",
+            "operation_id",
+            "dimension",
+            "delta",
+            "kind",
+            "source_ref",
+            "created_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "capacity_ledger_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "capacity_reservations",
+          columns: [
+            "reservation_id",
+            "tenant_id",
+            "operation_id",
+            "dimension",
+            "units",
+            "policy_revision",
+            "state",
+            "expires_at",
+            "version",
+            "created_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "capacity_reservations_tenant",
+            ],
           },
         },
         {
@@ -733,6 +837,31 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         },
         {
           kind: "table" as const,
+          table: "module_dependencies",
+          columns: [
+            "dependency_id",
+            "tenant_id",
+            "caller_instance_id",
+            "requirement_key",
+            "capability",
+            "provider_instance_id",
+            "sharing_policy_ref",
+            "version",
+            "created_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "module_dependencies_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
           table: "module_instances",
           columns: [
             "instance_id",
@@ -751,6 +880,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "created_by_principal_kind",
             "origin_guild_key",
             "created_at",
+            "module_release_ref",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -760,6 +890,62 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             rls: "enabled" as const,
             policies: [
               "module_instances_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "module_launch_plan_consumptions",
+          columns: [
+            "tenant_id",
+            "plan_id",
+            "operation_id",
+            "consumed_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "module_launch_plan_consumptions_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "module_launch_plans",
+          columns: [
+            "plan_id",
+            "tenant_id",
+            "actor_principal_id",
+            "actor_principal_kind",
+            "guild_key",
+            "application_key",
+            "release_ref",
+            "workspace_id",
+            "installation_choice",
+            "existing_installation_id",
+            "configuration",
+            "configuration_digest",
+            "selection_digest",
+            "dependency_versions",
+            "warnings",
+            "capacity_delta",
+            "policy_revision",
+            "expires_at",
+            "version",
+            "created_at",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "module_launch_plans_tenant",
             ],
           },
         },
@@ -1169,7 +1355,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       ],
       classification: "tenant-control-plane",
       authoritative_module: "tenant-workspaces",
-      tenant_resolution: "direct tenant_id on tenant, membership, invitation, workspace, audit, instance, binding, capacity, verification, ownership-transfer and recovery rows; resource_scopes uses tenant_ref",
+      tenant_resolution: "direct tenant_id on tenant, membership, invitation, workspace, audit, instance, binding, capacity, verification, ownership-transfer, recovery, installation, module-link, dependency, launch-plan, plan-consumption, capacity-reservation and capacity-ledger rows; resource_scopes uses tenant_ref",
       identity_keys: [
         "tenant_id",
         "workspace_id",
@@ -1186,7 +1372,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       ],
       writable_by: [
         "tenant owner for authority changes",
-        "module-registry for instance and binding rows",
+        "module-registry for instance, binding, installation, link, dependency, launch-plan, plan-consumption and capacity rows",
         "invitee for accept or decline of own invitation",
         "transfer recipient for expiry of own overdue pending transfer when no tenant is bound",
         "the bound principal for invalidation of own pending transfers when no tenant is bound",
@@ -2357,6 +2543,69 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       physical_locations: [
         {
           kind: "table" as const,
+          table: "module_provision_operations",
+          columns: [
+            "operation_id",
+            "tenant_id",
+            "installation_id",
+            "actor_principal_id",
+            "actor_principal_kind",
+            "operation_kind",
+            "state",
+            "request_digest",
+            "plan_id",
+            "authorization_revision",
+            "policy_revision",
+            "version",
+            "accepted_at",
+            "updated_at",
+            "cancel_requested_at",
+            "terminal_problem",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "module_provision_operations_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "module_provision_steps",
+          columns: [
+            "operation_id",
+            "step_key",
+            "ordinal",
+            "instance_id",
+            "tenant_id",
+            "provider_effect_key",
+            "state",
+            "attempt_count",
+            "next_attempt_at",
+            "lease_fence",
+            "lease_expires_at",
+            "evidence_ref",
+            "result_digest",
+            "expected_authority_epoch",
+            "problem",
+          ],
+          tenant_resolution: {
+            kind: "direct" as const,
+            column: "tenant_id",
+          },
+          isolation: {
+            rls: "enabled" as const,
+            policies: [
+              "module_provision_steps_tenant",
+            ],
+          },
+        },
+        {
+          kind: "table" as const,
           table: "scoped_command_receipts",
           columns: [
             "principal_id",
@@ -2454,7 +2703,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       ],
       classification: "operation-record",
       authoritative_module: "scoped-commands",
-      tenant_resolution: "scope_kind tenant plus scope_id; personal, community and site rows stay visible",
+      tenant_resolution: "direct tenant_id on module provision operations and steps; scope_kind tenant plus scope_id on receipts, journal and outbox; personal, community and site rows stay visible",
       identity_keys: [
         "principal_id",
         "authn_kind",
@@ -2462,21 +2711,25 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         "operation",
         "idempotency_key",
         "transition_id",
+        "operation_id",
       ],
       readable_by: [
         "the same target read right that applied when the operation was admitted",
+        "a tenant member with module.operation.read for that tenant's provision operations and steps",
       ],
       writable_by: [
         "the scoped command adapter inside the admitting transaction",
+        "the module-registry executor for provision operations and steps of the bound tenant",
       ],
       export_scope: "Admitted operation and receipt summary, plus unsent outbox continuation. The idempotency key is not a login credential.",
       dependency_refs: [
         "tenant-workspaces",
         "work",
         "command-core",
+        "module-registry",
       ],
-      sensitivity: "tenant-private when scope_kind is tenant; other scope kinds are not tenant data",
-      sharing_purpose: "Replay an admitted command and continue an unsent event for the same scope.",
+      sensitivity: "tenant-private when scope_kind is tenant; provision operations and steps are tenant-private; other scope kinds are not tenant data",
+      sharing_purpose: "Replay an admitted command, continue an unsent event for the same scope, and settle an admitted module provision.",
       field_allowlist: {
         state: "undecided" as const,
         decision_refs: [

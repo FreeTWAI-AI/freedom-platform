@@ -13,7 +13,7 @@ import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
-import { InstanceSelectionRequired } from '../../../modules/module-registry/problems.js';
+import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
@@ -44,7 +44,7 @@ import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {createTenantWorkspaceRoutes} from './routes/tenant-workspaces.js';
 import {createGuildLaunchpadRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
-import {createModuleRegistryRoutes} from './routes/module-registry.js';
+import {createModuleRegistryRoutes, createPublicModuleRegistryRoutes} from './routes/module-registry.js';
 import {checkTenantResultContentHeaders,createTenantWorkRoutes,isTenantResultContentUpload} from './routes/tenant-work.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
@@ -108,6 +108,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
     if(err instanceof InstanceSelectionRequired) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,candidates:err.candidates},409);
+    if(err instanceof DependencySelectionRequired) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,candidates:err.candidates},409);
+    if(err instanceof QuotaExceeded) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,dimension:err.dimension},429);
     if(err instanceof AssetStorageError && err.code==='object_unavailable') return c.json({type:'about:blank',title:'object_unavailable',status:503,code:'object_unavailable',detail:'內容儲存目前無法使用。'},503);
     if(err instanceof Problem) {
       const retry=err.retryAfterSeconds;
@@ -278,6 +280,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool));
   app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -341,7 +344,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createBenefitRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/api/v1',createTenantWorkspaceRoutes(pool));
-    app.route('/api/v1',createModuleRegistryRoutes(pool));
+    app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
