@@ -804,7 +804,7 @@ test('a concurrent edit is not overwritten by stale fields after a save conflict
 
     await session.page.locator('#my-work-edit-objective').fill('我的未保存修改');
 
-    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle }, v1);
+    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle, objective: '初始目標', progress: 'todo' }, v1);
 
     await session.page.locator('#my-work-note').fill('衝突觸發筆記');
     await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
@@ -854,7 +854,7 @@ test('a clean edit form follows the newer version after a save conflict', async 
     const workId = workItem.work_id;
     const v1 = workItem.version;
 
-    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle }, v1);
+    await patchJson(session.page, `/tenants/${tenantId}/works/${workId}`, { title: otherTitle, objective: '初始目標', progress: 'todo' }, v1);
 
     await session.page.locator('#my-work-note').fill('衝突觸發筆記');
     await session.page.getByRole('button', { name: '儲存筆記', exact: true }).click();
