@@ -12,6 +12,7 @@ import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { setSyntheticFault } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { consumeInstanceReservations } from '../../modules/module-registry/capacity.js';
+import type { ModuleProviderMap } from '../../modules/module-registry/providers.js';
 import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
 
 let h: RegistryHarness;
@@ -791,6 +792,147 @@ async function assertCapacitySettlement(tenantId: string, operationId: string) {
   }
 }
 
+async function assertCancelledSettlement(tenantId: string, workspaceId: string, operationId: string, active: string[]) {
+  const operation = (await h.pool.query(`SELECT state,terminal_problem FROM module_provision_operations WHERE operation_id=$1`, [operationId])).rows[0];
+  assert.equal(operation.state, 'cancelled');
+  assert.equal(operation.terminal_problem, null);
+  const terminal = (await h.pool.query(`SELECT new_state,old_version::text,new_version::text FROM review_transition_history
+    WHERE aggregate='operation' AND id=$1 AND new_state IN ('succeeded','failed','cancelled')`, [operationId])).rows;
+  assert.equal(terminal.length, 1, JSON.stringify(terminal));
+  assert.equal(terminal[0].new_state, 'cancelled');
+  assert.equal(BigInt(terminal[0].new_version) - BigInt(terminal[0].old_version), 1n);
+  const installation = (await h.pool.query(`SELECT installation_id,status,retained_instance_ids FROM application_installations
+    WHERE tenant_id=$1 AND provision_operation_id=$2`, [tenantId, operationId])).rows[0];
+  assert.equal(installation.status, active.length ? 'failed' : 'archived');
+  assert.deepEqual(installation.retained_instance_ids, [...active].sort());
+  assert.equal(await h.count('review_transition_history', `WHERE aggregate='installation' AND id=$1 AND new_state='active'`, [installation.installation_id]), 0);
+  assert.equal(await h.count('workspace_module_bindings', 'WHERE tenant_id=$1 AND workspace_id=$2', [tenantId, workspaceId]), 0);
+  const instances = (await h.pool.query(`SELECT instance_id,status FROM module_instances WHERE tenant_id=$1 AND provision_operation_id=$2`, [tenantId, operationId])).rows;
+  for (const instance of instances) assert.equal(instance.status, active.includes(instance.instance_id) ? 'active' : 'archived');
+  const reservations = (await h.pool.query(`SELECT dimension,state FROM capacity_reservations WHERE tenant_id=$1 AND operation_id=$2`, [tenantId, operationId])).rows;
+  assert.equal(reservations.find(row => row.dimension === 'concurrent_provisions').state, 'released');
+  await assertCapacitySettlement(tenantId, operationId);
+}
+
+for (const resolution of ['found', 'absent'] as const) {
+  test(`r5 cancelled reconcile ${resolution} settles the last open step once`, async () => {
+    const { owner, actor, tenantId, workspaceId } = await prepared('取消核對');
+    await setSyntheticFault(h.pool, 'synthetic-storefront', resolution === 'found' ? 'ack_lost' : 'timeout');
+    const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+    const launched = await h.launch(owner, tenantId, planned);
+    assert.equal(launched.status, 202, JSON.stringify(launched.data));
+    const operationId = launched.data.operation_id;
+    const steps = (await h.pool.query(`SELECT instance_id,state FROM module_provision_steps WHERE operation_id=$1 ORDER BY ordinal`, [operationId])).rows;
+    assert.deepEqual(steps.map(row => row.state), ['confirmed', 'unknown']);
+    await observeTerminalTransitions();
+    const cancelled = await h.post(`/tenants/${tenantId}/operations/${operationId}/cancel`, owner, { reason: 'member_cancelled' }, `"${launched.data.version}"`);
+    assert.equal(cancelled.status, 202, JSON.stringify(cancelled.data));
+    assert.equal(await h.count('capacity_reservations', `WHERE operation_id=$1 AND state='released'`, [operationId]), 0);
+    const reconciled = await reconcileOperation(h.pool, actor, tenantId, operationId, cancelled.data.version, randomUUID(), h.providers!);
+    assert.equal(reconciled.state, 'cancelled');
+    await advanceOperation(h.pool, tenantId, operationId, { providers: h.providers });
+    await assertCancelledSettlement(tenantId, workspaceId, operationId, resolution === 'found' ? steps.map(row => row.instance_id) : [steps[0].instance_id]);
+  });
+}
+
+for (const outcome of ['confirmed', 'failed_known'] as const) {
+  for (const memberData of outcome === 'failed_known' ? [false, true] : [false]) {
+    test(`r5 cancelled executor ${outcome} retains confirmed instances with member data ${memberData}`, async () => {
+      const { owner, actor, tenantId, workspaceId } = await prepared('取消派送');
+      const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+      const provider = h.providers!['synthetic-storefront'];
+      if (provider.kind !== 'async') throw new Error('async provider required');
+      let entered!: () => void;
+      let release!: () => void;
+      const applying = new Promise<void>(resolve => { entered = resolve; });
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const providers: ModuleProviderMap = { ...h.providers, 'synthetic-storefront': { ...provider,
+        async apply() { entered(); await gate; return outcome; },
+        async hasMemberData() { return memberData; },
+      } };
+      const launched = await launchApplication(h.pool, actor, tenantId, {
+        plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+      }, randomUUID(), providers);
+      await observeTerminalTransitions();
+      const advancing = advanceOperation(h.pool, tenantId, launched.operation_id, { providers });
+      try {
+        await applying;
+        const current = await h.call('GET', `/tenants/${tenantId}/operations/${launched.operation_id}`, owner);
+        const cancelled = await h.post(`/tenants/${tenantId}/operations/${launched.operation_id}/cancel`, owner, { reason: 'member_cancelled' }, `"${current.data.version}"`);
+        assert.equal(cancelled.status, 202, JSON.stringify(cancelled.data));
+      } finally { release(); await advancing; }
+      const steps = (await h.pool.query(`SELECT instance_id,state FROM module_provision_steps WHERE operation_id=$1 ORDER BY ordinal`, [launched.operation_id])).rows;
+      assert.equal(steps[0].state, 'confirmed');
+      assert.equal(steps[1].state, outcome);
+      await advanceOperation(h.pool, tenantId, launched.operation_id, { providers });
+      await assertCancelledSettlement(tenantId, workspaceId, launched.operation_id,
+        outcome === 'confirmed' || memberData ? steps.map(row => row.instance_id) : [steps[0].instance_id]);
+    });
+  }
+}
+
+for (const state of ['pending', 'retired'] as const) {
+  for (const surface of ['plan', 'facade'] as const) {
+    test(`r5 default create through ${surface} excludes a ${state} deployment at launch`, async () => {
+      const { owner, tenantId, workspaceId } = await prepared('平台暫停');
+      const existing = await h.enable(owner, tenantId, workspaceId, 'guild_ai_field');
+      assert.equal(existing.status, 200, JSON.stringify(existing.data));
+      await h.pool.query(`UPDATE deployment_bindings SET state=$3 WHERE tenant_id=$1 AND instance_id=$2`, [tenantId, existing.data.instance_id, state]);
+      const target = await h.workspace(owner, tenantId, '新工作區');
+      if (surface === 'plan') {
+        const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', target));
+        assert.equal(planned.status, 201, JSON.stringify(planned.data));
+        assert.deepEqual(planned.data.choices, [{ requirement_key: 'work', choice: 'create', configuration: {} }]);
+        const launched = await h.launch(owner, tenantId, planned);
+        assert.equal(launched.status, 200, JSON.stringify(launched.data));
+        assert.equal(launched.data.state, 'succeeded');
+      } else {
+        const enabled = await h.enable(owner, tenantId, target, 'guild_ai_field');
+        assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
+        assert.notEqual(enabled.data.instance_id, existing.data.instance_id);
+      }
+      assert.equal(await h.count('module_instances', 'WHERE tenant_id=$1', [tenantId]), 2);
+      assert.equal(await h.count('workspace_module_bindings', 'WHERE tenant_id=$1 AND workspace_id=$2 AND instance_id<>$3', [tenantId, target, existing.data.instance_id]), 1);
+    });
+  }
+}
+
+test('r5 default create is plan_stale when a usable candidate appears after planning', async () => {
+  const { owner, tenantId, workspaceId } = await prepared('新增候選');
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const other = await h.workspace(owner, tenantId, '另一工作區');
+  assert.equal((await h.enable(owner, tenantId, other, 'guild_ai_field')).status, 200);
+  const before = await domainCounts(tenantId);
+  const launched = await h.launch(owner, tenantId, planned);
+  assert.equal(launched.status, 409, JSON.stringify(launched.data));
+  assert.equal(launched.data.code, 'plan_stale');
+  assert.deepEqual(await domainCounts(tenantId), before);
+});
+
+test('r5 authorization gate failure keeps precedence over accepted cancel', async () => {
+  const { owner, actor, tenantId, workspaceId } = await prepared('撤銷優先');
+  const transactional = { kind: 'transactional' as const, async initialise() {}, async hasMemberData() { return false; } };
+  const providers = { ...h.providers, 'synthetic-inventory': transactional };
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+  const launched = await launchApplication(h.pool, actor, tenantId, {
+    plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+  }, randomUUID(), providers);
+  const current = await h.call('GET', `/tenants/${tenantId}/operations/${launched.operation_id}`, owner);
+  const cancelled = await h.post(`/tenants/${tenantId}/operations/${launched.operation_id}/cancel`, owner, { reason: 'member_cancelled' }, `"${current.data.version}"`);
+  assert.equal(cancelled.status, 202, JSON.stringify(cancelled.data));
+  const demoted = await h.pool.query(`UPDATE tenant_memberships SET role='viewer' WHERE tenant_id=$1
+    AND principal_id=(SELECT actor_principal_id FROM module_provision_operations WHERE operation_id=$2)`, [tenantId, launched.operation_id]);
+  assert.equal(demoted.rowCount, 1);
+  await observeTerminalTransitions();
+  await advanceOperation(h.pool, tenantId, launched.operation_id, { providers });
+  const settled = (await h.pool.query(`SELECT state,terminal_problem FROM module_provision_operations WHERE operation_id=$1`, [launched.operation_id])).rows[0];
+  assert.equal(settled.state, 'failed');
+  assert.equal(settled.terminal_problem.code, 'capability_denied');
+  assert.equal(await h.count('review_transition_history', `WHERE aggregate='operation' AND id=$1 AND new_state='cancelled'`, [launched.operation_id]), 0);
+  await assertCapacitySettlement(tenantId, launched.operation_id);
+});
+
 test('r4 executor binding conflict makes one terminal transition and consumes capacity once', async () => {
   const { owner, actor, tenantId, workspaceId } = await prepared('入口衝突');
   const other = await h.workspace(owner, tenantId, '既有櫃');
@@ -915,6 +1057,69 @@ test('r4 two cancels with the same If-Match accept one request and settle once',
   }, randomUUID(), h.providers);
   // Claim only the first step: leave one unknown effect and one undispatched step for cancellation settlement.
   await advanceOperation(h.pool, tenantId, acceptedLaunch.operation_id, { providers: h.providers, budget: 0 });
+  const launched = await h.call('GET', `/tenants/${tenantId}/operations/${acceptedLaunch.operation_id}`, owner);
+  assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  assert.equal(launched.data.state, 'needs_reconciliation');
+  const path = `/tenants/${tenantId}/operations/${launched.data.operation_id}/cancel`;
+  await observeTerminalTransitions();
+  const holder = await connect();
+  const pending: Promise<unknown>[] = [];
+  try {
+    await holder.query('BEGIN');
+    await holder.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [launched.data.operation_id]);
+    const pid = Number((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+    const first = h.post(path, owner, { reason: 'member_cancelled' }, `"${launched.data.version}"`, randomUUID());
+    pending.push(first);
+    await waitForBlocked(pid, ['module_provision_operations', 'FOR UPDATE']);
+    const second = h.post(path, owner, { reason: 'member_cancelled' }, `"${launched.data.version}"`, randomUUID());
+    pending.push(second);
+    // The second row-lock waiter can be blocked by the first waiter; follow the lock chain.
+    await until(async () => Number((await h.pool.query(`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE datname=current_database() AND query LIKE '%SELECT operation_id FROM module_provision_operations%FOR UPDATE%'
+        AND cardinality(pg_blocking_pids(pid)) > 0`)).rows[0].n) === 2, 'both cancels did not reach the operation lock');
+    await holder.query('COMMIT');
+    const results = await Promise.all([first, second]);
+    assert.deepEqual(results.map(reply => reply.status).sort(), [202, 412], JSON.stringify(results.map(reply => reply.data)));
+    assert.equal(results.find(reply => reply.status === 412)!.data.code, 'version_conflict');
+    const accepted = results.find(reply => reply.status === 202)!;
+    assert.equal(BigInt(accepted.data.version), BigInt(launched.data.version) + 1n);
+    assert.equal(await receiptCount(tenantId, 'module.provision.cancel'), 1);
+    assert.equal(await h.count('review_transition_history', `WHERE aggregate='operation' AND id=$1 AND new_version=old_version+1`, [launched.data.operation_id]), 1);
+    const cancellation = (await h.pool.query(`SELECT cancel_requested_at FROM module_provision_operations WHERE operation_id=$1`, [launched.data.operation_id])).rows[0];
+    assert.ok(cancellation.cancel_requested_at);
+    // A confirmed lookup resolves the original unknown effect, then the executor settles cancellation.
+    const inventory = h.providers!['synthetic-inventory'];
+    if (inventory.kind !== 'async') throw new Error('async provider required');
+    const original = inventory.lookup;
+    const step = (await h.pool.query(`SELECT instance_id,provider_effect_key FROM module_provision_steps WHERE operation_id=$1 AND step_key='step-0'`, [launched.data.operation_id])).rows[0];
+    inventory.lookup = async () => ({ status: 'found', owner_tenant_id: tenantId,
+      effect_digest: effectDigest({ effect_key: step.provider_effect_key, tenant_id: tenantId, instance_id: step.instance_id, module_key: 'synthetic-inventory' }) });
+    try {
+      await reconcileOperation(h.pool, await actorOf(owner), tenantId, launched.data.operation_id, accepted.data.version, randomUUID(), h.providers!);
+    } finally { inventory.lookup = original; }
+    await advanceOperation(h.pool, tenantId, launched.data.operation_id, { providers: h.providers });
+    await advanceOperation(h.pool, tenantId, launched.data.operation_id, { providers: h.providers });
+    const settled = (await h.pool.query(`SELECT state,cancel_requested_at FROM module_provision_operations WHERE operation_id=$1`, [launched.data.operation_id])).rows[0];
+    assert.equal(settled.state, 'cancelled');
+    assert.equal(settled.cancel_requested_at.toISOString(), cancellation.cancel_requested_at.toISOString());
+    assert.equal(await h.count('review_transition_history', `WHERE aggregate='operation' AND id=$1 AND new_state='cancelled'`, [launched.data.operation_id]), 1);
+    await assertCapacitySettlement(tenantId, launched.data.operation_id);
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    await Promise.allSettled(pending);
+  }
+});
+
+test('r5 two cancels settle once with the default executor budget', { timeout: 20_000 }, async () => {
+  const { owner, actor, tenantId, workspaceId } = await prepared('取消競態');
+  await setSyntheticFault(h.pool, 'synthetic-inventory', 'timeout');
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+  const acceptedLaunch = await launchApplication(h.pool, actor, tenantId, {
+    plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+  }, randomUUID(), h.providers);
+  // The default budget also confirms the second step before cancellation.
+  await advanceOperation(h.pool, tenantId, acceptedLaunch.operation_id, { providers: h.providers });
   const launched = await h.call('GET', `/tenants/${tenantId}/operations/${acceptedLaunch.operation_id}`, owner);
   assert.equal(launched.status, 200, JSON.stringify(launched.data));
   assert.equal(launched.data.state, 'needs_reconciliation');
