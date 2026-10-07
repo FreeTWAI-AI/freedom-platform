@@ -258,7 +258,11 @@ export async function createPlan(
   const capacityDelta = [];
   if (creates.length) {
     capacityDelta.push({ dimension: 'module_instances', units: String(creates.length) });
-    for (const choice of creates) capacityDelta.push({ dimension: `module_instances.${choice.module_key}`, units: '1' });
+    const createsByModule = new Map<string, number>();
+    for (const choice of creates) {
+      createsByModule.set(choice.module_key, (createsByModule.get(choice.module_key) ?? 0) + 1);
+    }
+    for (const [moduleKey, count] of createsByModule) capacityDelta.push({ dimension: `module_instances.${moduleKey}`, units: String(count) });
   }
   if (input.installation_choice === 'create_new') capacityDelta.push({ dimension: 'concurrent_provisions', units: '1' });
   const warnings = choices.map(choice => ({
