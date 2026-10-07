@@ -398,8 +398,7 @@
       "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
       "at": "2026-10-07T14:44:12.302980+00:00",
       "evidence": [
-        "modules/module-registry/README.md",
-        "modules/tenant-workspaces/README.md"
+        "docs/platform-plan/execution/unified-foundation/closeout.md"
       ],
       "limitation": "The guild launchpad tables exist but stay unused while FREEDOM_GUILD_LAUNCHPAD_ENABLED is absent; no capacity or authority policy row was written."
     },
@@ -413,7 +412,7 @@
       "wrapper_sha256": "5e0910f886c2d487532bd39df5e6355433bccb3ab43914fefb68225344953a0a",
       "at": "2026-10-07T14:25:17.103108+00:00",
       "operator_source_preserved": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
-      "schedules_unchanged": "not stated in the round-3 rollout receipt"
+      "schedules_unchanged": true
     },
     "production_rollout_backups": [
       {
