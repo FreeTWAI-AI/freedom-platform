@@ -498,26 +498,75 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.doesNotMatch(integrity, /\n {4}needs:/u);
   assert.doesNotMatch(integrity, /\n {4}if:/u);
   for (const command of ALWAYS_ON_INTEGRITY_COMMANDS) assert.ok(integrity.includes(command), command);
-  assert.match(integrity, /node --test --test-concurrency=1 scripts\/ci\/select-affected-jobs\.test\.mjs/u);
   for (const key of Object.values(JOB_OUTPUT_KEYS)) {
     assert.ok(text.includes(heavyJobCondition(key)), key);
   }
-  const runtime = jobBlock(text, 'runtime-full');
-  assert.match(runtime, /partition: \[0, 1, 2, 3\]/);
-  assert.match(runtime, /fail-fast: false/);
-  assert.match(runtime, /node scripts\/runtime-full\.mjs --partition-count 4 --partition-index/);
-  assert.match(jobBlock(text, 'runtime-aggregate'), /node scripts\/runtime-aggregate\.mjs/);
-  assert.match(jobBlock(text, 'ui-e2e'), /npm run test:e2e/);
-  const worker = jobBlock(text, 'static-worker');
-  assert.match(worker, /git diff --exit-code -- contracts\/preview\/v1 packages\/sdk/);
-  assert.match(worker, /npm run test:worker/);
-  assert.match(worker, /npm run check:common-contracts/);
-  const governance = jobBlock(text, 'governance-consumers');
-  for (const command of ['npm run verify:inventory', 'npm run test:governance', 'npm run test:contracts', 'npm run test:repos']) {
-    assert.ok(governance.includes(command), command);
+
+  for (const id of ['source-integrity', 'runtime-full', 'runtime-aggregate', 'static-worker', 'governance-consumers', 'ui-e2e', 'deploy-preflight']) {
+    const trusted = jobBlock(text, id);
+    assert.match(trusted, /repository: \$\{\{ job\.workflow_repository \}\}/u);
+    assert.match(trusted, /ref: \$\{\{ job\.workflow_sha \}\}/u);
+    assert.match(trusted, /path: \.freedom\/trusted/u);
+    assert.match(trusted, /persist-credentials: false/u);
+    assert.match(trusted, /test "\$\(git -C \.freedom\/trusted rev-parse HEAD\)" = "\$PINNED_SHA"/u);
+
+    const checkout = trusted.indexOf('path: .freedom/trusted');
+    assert.ok(checkout > 0, `Missing checkout in ${id}`);
+    const first = trusted.indexOf('node .freedom/trusted/');
+    const last = trusted.lastIndexOf('node .freedom/trusted/');
+    assert.ok(first > checkout, `Trusted execution must come after checkout in ${id}`);
+    assert.ok(trusted.lastIndexOf('npm ci') < checkout, `Last npm ci must come before checkout in ${id}`);
+    assert.doesNotMatch(trusted.slice(checkout, last), /(?:^|\s)(?:npm|npx|node scripts\/|bash scripts\/)/mu, `No candidate command may run between checkout and last trusted command in ${id}`);
   }
-  assert.match(jobBlock(text, 'select'), /--allow-fetch/);
-  assert.match(jobBlock(text, 'deploy-preflight'), /node --test deploy\/cloudflare\/test\/\*\.test\.mjs/);
+
+  const e2e = jobBlock(text, 'ui-e2e');
+  assert.match(e2e, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-e2e\.mjs --root \./);
+
+  const banned = [
+    'npm run test:e2e',
+    'npm run test:contracts',
+    'npm run test:governance',
+    'npm run test:worker',
+    'npm run test:skill-client',
+    'npm run test:repos',
+    'node --test deploy/cloudflare/test/',
+    'node scripts/runtime-full.mjs',
+    'node scripts/runtime-aggregate.mjs',
+    'node --test --test-concurrency=1 tests/contribution-tools/',
+    'node --test --test-concurrency=1 scripts/ci/select-affected-jobs.test.mjs'
+  ];
+  for (const str of banned) assert.doesNotMatch(text, new RegExp(str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'u'));
+
+  const runtimeFull = jobBlock(text, 'runtime-full');
+  assert.match(runtimeFull, /partition: \[0, 1, 2, 3, 4, 5\]/);
+  assert.match(runtimeFull, /fail-fast: false/);
+  assert.match(runtimeFull, /node \.freedom\/trusted\/scripts\/runtime-full\.mjs --partition-count 6 --partition-index/);
+
+  const runtimeAggregate = jobBlock(text, 'runtime-aggregate');
+  assert.match(runtimeAggregate, /node \.freedom\/trusted\/scripts\/runtime-aggregate\.mjs --partition-count 6 --input-dir/);
+
+  const staticWorker = jobBlock(text, 'static-worker');
+  assert.match(staticWorker, /git diff --exit-code -- contracts\/preview\/v1 packages\/sdk/);
+  assert.match(staticWorker, /npm run check:common-contracts/);
+
+  const select = jobBlock(text, 'select');
+  assert.match(select, /--allow-fetch/);
+
+  const consumers = jobBlock(text, 'governance-consumers');
+  assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.contracts-pytest/);
+  assert.match(consumers, /node \.freedom\/trusted\/scripts\/ci\/run-pinned-suite\.mjs --root \. --suite ci\.pinned-pytest-integration/);
+  assert.match(consumers, /npm run verify:inventory/);
+
+  assert.match(integrity, /--suite ci\.selector-unit/);
+  assert.match(integrity, /--suite ci\.governance-unit/);
+  assert.match(jobBlock(text, 'runtime-full'), /--suite ci\.runtime-sharding-integration/);
+  assert.match(jobBlock(text, 'static-worker'), /--suite ci\.worker-unit/);
+  assert.match(consumers, /--suite ci\.skill-client-unit/);
+  assert.match(consumers, /--suite ci\.runtime-union-integration/);
+  assert.match(consumers, /--suite ci\.governance-unit/);
+  assert.match(consumers, /--suite ci\.consumer-repositories/);
+  assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.deploy-preflight/);
+  assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.migration-postgres/);
 });
 
 function leafDescriptors() {

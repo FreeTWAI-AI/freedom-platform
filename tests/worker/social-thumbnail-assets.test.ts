@@ -15,6 +15,10 @@ assert.match(adminUrl.pathname,/^\/fp_[a-z0-9_]+$/);assert(['127.0.0.1','localho
 const database=`fp_worker_social_${process.pid}_${Date.now()}`,migrator=database+'_owner',runtimeRole=database+'_app',password=randomBytes(24).toString('hex');
 function roleUrl(role:string){const url=new URL(raw!);url.pathname='/'+database;url.username=role;url.password=password;return url.href;}
 const admin=new Pool({connectionString:raw}),owner=new Pool({connectionString:roleUrl(migrator)}),app=new Pool({connectionString:roleUrl(runtimeRole)});
+// Pool.end() resolves after removing clients, before their sockets necessarily close.
+// Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+const closedClients:Promise<void>[]=[];
+for(const pool of [owner,app])pool.on('connect',client=>closedClients.push(new Promise<void>(resolve=>client.once('end',resolve))));
 const sockets=new Set<Socket>(),proxy=socket?createServer(client=>{const upstream=createConnection(join(socket,'.s.PGSQL.5432'));for(const channel of [client,upstream]){sockets.add(channel);channel.on('close',()=>sockets.delete(channel));channel.on('error',()=>{client.destroy();upstream.destroy();});}client.pipe(upstream).pipe(client);}):undefined;
 const origin='http://127.0.0.1:8787',community=randomUUID(),instances:Miniflare[]=[];let directory:string,tcp:string,png:Buffer,created=false,outboundCalls=0;
 before(async()=>{
@@ -27,7 +31,7 @@ before(async()=>{
   directory=await mkdtemp(resolve('.wrangler/native-social-'));await mkdir(join(directory,'assets'));await writeFile(join(directory,'assets/index.html'),'<!doctype html><title>Native social fixture</title>');
   png=await sharp({create:{width:30,height:40,channels:3,background:'#337788'}}).png().toBuffer();
 });
-after(async()=>{for(const instance of instances)await instance.dispose();for(const channel of sockets)channel.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));await Promise.all([owner.end(),app.end()]);try{if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${migrator},${runtimeRole}`);}}finally{await admin.end();}if(directory)await rm(directory,{recursive:true,force:true});assert.equal(outboundCalls,0);});
+after(async()=>{for(const instance of instances)await instance.dispose();for(const channel of sockets)channel.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));await Promise.all([owner.end(),app.end()]);await Promise.all(closedClients);try{if(created){await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);await admin.query(`DROP ROLE ${migrator},${runtimeRole}`);}}finally{await admin.end();}if(directory)await rm(directory,{recursive:true,force:true});assert.equal(outboundCalls,0);});
 async function worker(options:{enabled?:string;media?:boolean;images?:boolean}={}){
   const instance=new Miniflare(convertV4MiniflareOptions({workers:[{name:'native-social-'+randomUUID(),modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings:{FREEDOM_ENV:'local',APP_ORIGIN:origin,FREEDOM_REGISTRATION_COMMUNITY_ID:community,...(options.enabled===undefined?{}:{FREEDOM_SOCIAL_THUMBNAIL_ENABLED:options.enabled})},hyperdrives:{HYPERDRIVE:tcp},...(options.media===false?{}:{r2Buckets:['MEDIA']}),...(options.images===false?{}:{images:{binding:'IMAGES'}}),assets:{directory:join(directory,'assets'),binding:'ASSETS',routerConfig:{has_user_worker:true,invoke_user_worker_ahead_of_assets:true},assetConfig:{not_found_handling:'none'}},outboundService:async()=>{outboundCalls++;return new Response(null,{status:503});}}]}));instances.push(instance);await instance.ready;return instance;
 }
