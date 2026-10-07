@@ -78,7 +78,7 @@ async function optionalActor(pool: Pool, cookie: string | undefined): Promise<Ac
   if (!cookie) return null;
   try { return await authenticate(pool, cookie); }
   catch (error) {
-    if (error instanceof Problem && error.code === 'login_required') return null;
+    if (error instanceof Problem && error.status === 401) return null;
     throw error;
   }
 }
