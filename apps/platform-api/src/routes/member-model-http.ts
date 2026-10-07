@@ -92,7 +92,7 @@ export async function createMemberModelHttpTransport(pool: Pool, options: Member
     if (sourceNetwork !== undefined && typeof sourceNetwork !== 'function') throw new Error();
     if (!store || typeof store !== 'object' || ['get','head','putImmutable','delete'].some(k => typeof (store as unknown as Record<string,unknown>)[k] !== 'function') || typeof resolvePolicy !== 'function') throw new Error();
   } catch { throw new Error('invalid_member_model_http_configuration'); }
-  const requestHost = new URL(origin).host, boundary = memberBoundary(pool);
+  const requestHost = new URL(origin).host, boundary = memberBoundary(pool,origin);
   const steps = createModelStepService(pool,{environment,clientId,host});
   const finalizer = broker ? undefined : createPrivateModelResultService(pool,{steps,host,store,resolvePolicy});
   const runner = broker ? undefined : createModelStepRunner({service:steps,host,resultFinalizer:finalizer!});

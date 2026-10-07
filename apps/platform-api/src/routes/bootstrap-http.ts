@@ -15,6 +15,7 @@ import { createBootstrapStatus } from '../../../../modules/agent-control/bootstr
 import { createAgentConnections } from '../../../../modules/agent-control/agent-connections.js';
 import { chargeBootstrapHttp, type BootstrapHttpOperation } from '../../../../modules/agent-control/bootstrap-http-limits.js';
 import { memberBoundary } from '../member-boundary.js';
+import { readSessionCookie } from '../session-cookie.js';
 import { SHARED_NETWORK_KEY } from '../runtime.js';
 import type { PlatformEnv } from '../module-context.js';
 
@@ -90,7 +91,7 @@ export async function createBootstrapHttpTransport(pool: Pool, options: {
   const sessions = await createBootstrapSessions(pool,{host:{...cryptoHost,issuerKid,refreshUri:host.pollUri,nonceUri:origin+paths.nonce},signingKey});
   const status = createBootstrapStatus(pool,cryptoHost);
   const connections = createAgentConnections(pool,{environment:host.environment,clientId:host.clientId});
-  const boundary = memberBoundary(pool), app = new Hono<PlatformEnv>();
+  const boundary = memberBoundary(pool,origin), app = new Hono<PlatformEnv>();
   app.onError((error,c) => {
     security(c); let code = 'internal_error', httpStatus = 500;
     if (error instanceof z.ZodError || error instanceof ExecutionInputError) { code = 'validation_failed'; httpStatus = 400; }
@@ -116,9 +117,7 @@ export async function createBootstrapHttpTransport(pool: Pool, options: {
     if (entry.member) {
       requireCondition(['Authorization','DPoP','X-Freedom-Connection','X-Freedom-Nonce'].every(h => c.req.header(h) === undefined),
         403,'credential_kind_rejected','Credential kind rejected.');
-      requireCondition((c.req.header('Cookie') ?? '').split(';').filter(v => v.includes('=')
-        && v.slice(0,v.indexOf('=')).trim() === 'freedom_local_session').length <= 1,
-        403,'credential_kind_rejected','Credential kind rejected.');
+      readSessionCookie(c.req.header('Cookie'),origin);
       requireCondition(['If-None-Match','If-Modified-Since','If-Unmodified-Since','If-Range','Range'].every(h => c.req.header(h) === undefined),
         400,'read_headers_rejected','Conditional headers unsupported.');
       if (entry.id) OpaqueId.parse(entry.id);

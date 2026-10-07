@@ -82,7 +82,7 @@ async function member() {
   const row = (await owner.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
     VALUES($1,$2,$3,'Synthetic settings owner',$4,$5) RETURNING *`,[user,community,user+'@example.invalid',hashPassword('settings-fixture-password'),randomUUID()])).rows[0];
   const signed = await login(app,row.email,'settings-fixture-password'), actor = await authenticate(app,signed.token);
-  return {actor,cookie:'freedom_local_session='+signed.token};
+  return {actor,cookie:'__Host-freedom_session='+signed.token};
 }
 async function fixture() {
   const f = await member(), pair = await generateKeyPair('ES256',{extractable:true});
@@ -256,7 +256,7 @@ test('SETTINGS-07 configuration and Actor accessors never execute, origins stay 
 test('SETTINGS-08 original local HTTP loopback metadata remains available with unavailable setup and closed origin boundaries',async()=>{
   const f = await member(), localOrigin = 'http://127.0.0.1:7331';
   const local = await createMemberModelSettingsHttpTransport(app,{...configuration,origin:localOrigin,selections:[selection]});
-  const overview = MemberModelSettingsOverviewSchema.parse(await(await response(await local.request(localOrigin+'/api/v1/me/model-settings',{headers:{Cookie:f.cookie}}),200)).json());
+  const overview = MemberModelSettingsOverviewSchema.parse(await(await response(await local.request(localOrigin+'/api/v1/me/model-settings',{headers:{Cookie:f.cookie.replace('__Host-freedom_session=','freedom_local_session=')}}),200)).json());
   assert.deepEqual(overview.setup,{state:'unavailable'});
   for (const invalid of [{origin:'http://member.example.invalid'},{origin:localOrigin,environment:'staging-next' as const},
     {origin:localOrigin,setupOrigin},{origin:'http://localhost:7331.evil.invalid'}])

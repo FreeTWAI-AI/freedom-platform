@@ -8,6 +8,17 @@ POSTs require CSRF and Idempotency-Key; updates to an existing version require
 `If-Match: "<aggregate_version>"`. Authentication/register is the exception and
 uses persisted rate limits instead. IDs are UUIDs.
 
+HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
+`SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
+HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names
+come from trusted configured origin, not forwarding headers. HTTPS readers do
+not accept the old name: existing HTTPS sessions must log in again after this
+cutover. The member boundary, administrative member-linking and promotion
+click attribution all use this policy. Duplicate selected session cookies,
+including whitespace around names or identical values, return
+`403 credential_kind_rejected`; the platform rejects them before reading a
+mutation body or creating, replacing or revoking sessions.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
