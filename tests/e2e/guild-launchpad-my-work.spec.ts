@@ -642,7 +642,8 @@ test('a definitive work_archived on finalize keeps the note readable', async ({ 
     await expect(session.page.getByText('這份工作已無法繼續保存。筆記還在這個畫面。', { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(session.page.locator('#my-work-orphan-note')).toHaveValue(noteText);
     await expect(session.page.getByRole('button', { name: '重試', exact: true })).toHaveCount(0);
-    await expect(session.page.locator('.my-work-stage')).not.toContainText('已儲存');
+    await expect(session.page.locator('.my-work-stage')).toHaveCount(0);
+    await expect(session.page.locator('.my-work').getByText('已儲存', { exact: false })).toHaveCount(0);
   } finally {
     await session.context.close();
     await cleanup(e2eAuthPool, member.userId);

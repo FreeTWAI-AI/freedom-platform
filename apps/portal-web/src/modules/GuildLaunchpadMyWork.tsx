@@ -17,6 +17,7 @@ const QUOTA = '已達容量上限。仍可閱讀與下載已保存的成果。';
 const STORAGE = '儲存空間暫時無法使用，已保存的內容不受影響';
 const UNCONFIRMED = '尚未確認是否儲存，請按重試（不會重複保存）';
 const WORK_GONE = '這份工作已無法繼續保存。筆記還在這個畫面。';
+const WORK_GONE_FILE = '這份工作已無法繼續保存。附件沒有送出。';
 const ENABLE_STALE = '工作空間的版本已更新，已重新載入。';
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000D\u000E-\u001F\u007F]/;
 const DISPLAY_FORBIDDEN = /[\\/\u0000-\u001f\u007f\uD800-\uDFFF]/;
@@ -106,7 +107,7 @@ function unconfirmed(error: ApiError) {
   return error.timedOut || error.status === 0;
 }
 function workUnavailable(error: ApiError) {
-  return error.status === 404 || (error.status === 409 && error.code === 'work_archived') || (error.status >= 500 && error.status !== 503);
+  return error.status === 404 || (error.status === 409 && error.code === 'work_archived');
 }
 
 export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }: {
@@ -133,6 +134,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const inactiveRef = useRef(false);
   const draft = useRef({ note: '', saved: '', file: false, pending: false });
   const [unavailable, setUnavailable] = useState(false);
+  const [orphanNote, setOrphanNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState<TenantView[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -213,6 +215,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   function clearPrivate() {
     clearDraft();
+    setOrphanNote(null);
     setWorks([]); setWorksCursor(null); setWork(null); setHeldVersion(''); setResults([]); setResultsCursor(null);
     setBound(false); setPolicyOff(false); setCapabilityDenied(false); setUpgrade(false); setQuotaHit(false);
     setStorageDown(false); setBanner(''); setCandidates(null); setArchiveOpen(false); setBusy(false);
@@ -393,6 +396,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       await loadContext(tenantId, workspaceId, call);
       if (!call.live()) return;
       clearDraft();
+      setOrphanNote(null);
       setResults([]); setResultsCursor(null);
       showWork(created, true);
     } catch (error) {
@@ -410,6 +414,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (!tenantId || work?.work_id === workId) return;
     if (!leaveOk()) return;
     clearDraft();
+    setOrphanNote(null);
     const call = nextGen();
     setBusy(true);
     try {
@@ -610,7 +615,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       if (!(error instanceof ApiError)) { setAwaitingAck(true); setStage(UNCONFIRMED); return; }
       if (error.status === 503) { setStorageDown(true); setBanner(STORAGE); setStage('尚未儲存'); return; }
       if (current.phase === 'finalize' && workUnavailable(error)) {
-        setAttempt(null); setAwaitingAck(false); setWork(null); setResults([]); setStage('尚未儲存'); setBanner(WORK_GONE);
+        if (current.sourceText !== null) setOrphanNote(current.sourceText);
+        setAttempt(null); setAwaitingAck(false); setWork(null); setResults([]); setStage('尚未儲存');
+        setBanner(current.sourceText !== null ? WORK_GONE : WORK_GONE_FILE);
         if (place.current.tenantId && place.current.workspaceId) await loadContext(place.current.tenantId, place.current.workspaceId, call);
         return;
       }
@@ -670,6 +677,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
 
   return <div className="my-work">
     {banner && <p className={banner === POLICY || banner === QUOTA || banner === STORAGE || banner === ENABLE_STALE ? 'banner' : 'banner banner-error'} role={banner === POLICY || banner === QUOTA || banner === STORAGE || banner === ENABLE_STALE ? 'status' : 'alert'}>{banner}</p>}
+    {orphanNote !== null && <section className="stack" aria-label="未送出的筆記"><label className="field" htmlFor="my-work-orphan-note">未送出的筆記<textarea id="my-work-orphan-note" readOnly value={orphanNote}/></label></section>}
     {tenants.length > 0 && <TenantSelector tenants={tenants} selectedId={tenantId} onSelect={selectTenant}/>}
     {workspaces.length > 1 && <fieldset className="fieldset">
       <legend>工作區</legend>
