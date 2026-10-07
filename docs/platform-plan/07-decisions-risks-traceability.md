@@ -1,5 +1,7 @@
 # 決策、風險與需求追溯
 
+> **2026-10-05 新決策承接**：公會啟動台/可攜業務空間的 D-01–D-22、R-001–R-064、T-001–T-060 是獨立命名空間，見 [新增規格](execution/guild-launchpad/README.md)及[逐項追蹤](execution/guild-launchpad/traceability.json)。本頁 RQ-ID、ADR、既有驗收狀態不重編。新目標明確取代一主兩次偏好和私有業務永遠中央的規劃範圍，現行程式相容期及安全/正式發布門檻保留；[優先序與過渡](execution/guild-launchpad/SP-00-baseline-traceability.md)不宣稱已遷移。
+
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
 日期：2026-09-17
