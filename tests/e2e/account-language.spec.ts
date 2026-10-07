@@ -16,6 +16,7 @@ for(const language of cases)test(`${language.id}: browser language, real invalid
     const page=await context.newPage();await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('lang',language.id);
     await expect(page.getByRole('combobox',{name:'Language',exact:true})).toHaveValue('auto');
+    const resourceToggle=page.locator('.entry-resources > details > summary');await resourceToggle.click();await expect(page.locator('.entry-resource-list article')).toHaveCount(3);await resourceToggle.click();
     const form=page.locator('.login-card form');
     await form.locator('[name=email]').fill(`absent-${randomUUID()}@example.test`);
     await form.locator('[name=password]').fill('invalid-language-password');
@@ -99,4 +100,26 @@ test('unsupported browser language and unavailable preference storage keep accou
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','en');
   }finally{await context.close();}
+});
+
+test('all five reset forms preserve validation, translate mismatch feedback and return to sign-in',async({browser})=>{
+  const resetCopy=[
+    {locale:'zh-TW',save:'儲存新密碼',mismatch:'兩次輸入的新密碼不一致。',back:'返回登入'},
+    {locale:'en-US',save:'Save new password',mismatch:'The new passwords do not match.',back:'Back to sign in'},
+    {locale:'ja-JP',save:'新しいパスワードを保存',mismatch:'新しいパスワードが一致しません。',back:'ログインに戻る'},
+    {locale:'ko-KR',save:'새 비밀번호 저장',mismatch:'새 비밀번호가 일치하지 않습니다.',back:'로그인으로 돌아가기'},
+    {locale:'es-ES',save:'Guardar nueva contraseña',mismatch:'Las nuevas contraseñas no coinciden.',back:'Volver al inicio de sesión'},
+  ];
+  for(const copy of resetCopy){
+    const context=await browser.newContext({locale:copy.locale,viewport:{width:320,height:844}});
+    try{
+      const page=await context.newPage();let writes=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().includes('/auth/reset/confirm'))writes++;});
+      await page.goto(`/#reset-password/${'a'.repeat(43)}`);const fields=page.locator('.login-card form input');await expect(fields).toHaveCount(2);
+      for(const field of await fields.all()){await expect(field).toHaveAttribute('minlength','12');await expect(field).toHaveAttribute('maxlength','128');}
+      await fields.first().fill('first-password-2026');await fields.last().fill('different-password-2026');
+      await page.getByRole('button',{name:copy.save,exact:true}).click();await expect(page.getByRole('alert')).toContainText(copy.mismatch);expect(writes).toBe(0);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.getByRole('button',{name:copy.back,exact:true}).click();await expect(page.locator('.login-card form [name=email]')).toBeVisible();expect(new URL(page.url()).hash).toBe('');
+    }finally{await context.close();}
+  }
 });

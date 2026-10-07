@@ -7,6 +7,7 @@ const codes:Record<string,InterfaceMessage>={
   session_expired:'error.expired',login_required:'error.expired',
   reset_link_invalid:'error.resetLink',password_length:'error.validation',
   validation_error:'error.validation',email_exists:'error.emailUsed',email_taken:'error.emailUsed',
+  account_unavailable:'error.registerUnavailable',
 };
 /** Presentation only: keep the API error, status and authority decisions intact. */
 export function authErrorMessage(cause:unknown,language:InterfaceLanguage):string{
@@ -26,7 +27,7 @@ export function authErrorMessage(cause:unknown,language:InterfaceLanguage):strin
     else if(cause.status===401)key='error.expired';
     else if(cause.status===403)key='error.notAllowed';
     else if(cause.status===422)key='error.validation';
-    else if(cause.status===429)key='error.loginLimit';
+    else if(cause.status===429)key='error.rateLimit';
   }else if((cause as {accessExpired?:boolean})?.accessExpired)key='error.access';
   else if((cause as {network?:boolean})?.network)key='error.network';
   return interfaceText(language,key);

@@ -2,7 +2,7 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
-  'language.auto': ['跟隨瀏覽器', 'Use browser language', 'ブラウザーに合わせる', '브라우저 언어 사용', 'Usar idioma del navegador'],
+  'language.auto': ['跟隨瀏覽器', 'Browser default', 'ブラウザー設定', '브라우저 언어 사용', 'Del navegador'],
   'language.scope': ['帳號入口與基本導覽支援五種語言；部分功能與社群內容仍保留原文。', 'Account pages and basic navigation support five languages. Some features and community content remain in their original language.', 'アカウント画面と基本ナビゲーションは5言語に対応しています。一部の機能やコミュニティの内容は原文で表示されます。', '계정 화면과 기본 탐색은 5개 언어를 지원합니다. 일부 기능과 커뮤니티 콘텐츠는 원문으로 표시됩니다.', 'Las páginas de cuenta y la navegación básica admiten cinco idiomas. Algunas funciones y el contenido de la comunidad se muestran en su idioma original.'],
   'auth.headline': ['讓你的商品、作品和技術，找到合作夥伴。', 'Find collaborators for your products, creations and skills.', '商品・作品・技術を通じて、協力する仲間と出会おう。', '상품, 작품, 기술로 협업할 파트너를 만나세요.', 'Encuentra colaboradores para tus productos, creaciones y habilidades.'],
   'auth.intro': ['自由工坊，來自萬人社群的共創平台。', 'Freedom Workshop: a co-creation platform born from a community of over 10,000 people.', '自由工坊は、1万人以上のコミュニティから生まれた共創プラットフォームです。', '자유공방은 1만 명 이상의 커뮤니티에서 시작한 공동 창작 플랫폼입니다.', 'Freedom Workshop: una plataforma de cocreación nacida de una comunidad de más de 10.000 personas.'],
@@ -43,6 +43,8 @@ export const interfaceMessages = {
   'auth.demoBanner': ['這是內部示範工作區。紀錄保存在示範資料庫，沒有實際轉帳或銀行核對。示範帳號為虛構身分，不是真實人士。', 'This is an internal demo workspace. Records stay in the demo database; no real transfers or bank verification occur. Demo accounts are fictional.', '内部デモ環境です。記録はデモ用データベースに保存され、実際の送金や銀行照合は行われません。デモアカウントは架空のものです。', '내부 데모 공간입니다. 기록은 데모 데이터베이스에 저장되며 실제 송금이나 은행 확인은 이루어지지 않습니다. 데모 계정은 가상입니다.', 'Este es un espacio de demostración interno. Los registros se guardan en la base de datos de demostración; no hay transferencias reales ni comprobaciones bancarias. Las cuentas son ficticias.'],
   'error.credentials': ['帳號或密碼不正確。', 'Email or password is incorrect.', 'メールアドレスまたはパスワードが正しくありません。', '이메일 또는 비밀번호가 올바르지 않습니다.', 'El correo o la contraseña no son correctos.'],
   'error.loginLimit': ['登入嘗試過多，請稍後再試。', 'Too many sign-in attempts. Please try again later.', 'ログイン試行が多すぎます。時間をおいて再試行してください。', '로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.', 'Demasiados intentos de inicio de sesión. Inténtalo más tarde.'],
+  'error.rateLimit': ['操作過於頻繁，請稍後再試。', 'Too many requests. Please try again later.', '操作が多すぎます。時間をおいて再試行してください。', '요청이 너무 많습니다. 잠시 후 다시 시도하세요.', 'Demasiadas solicitudes. Inténtalo más tarde.'],
+  'error.registerUnavailable': ['無法使用這個註冊資料；已有帳號請登入。', 'Unable to create an account with these details. If you already have an account, sign in.', 'この情報ではアカウントを作成できません。アカウントをお持ちの場合はログインしてください。', '이 정보로 계정을 만들 수 없습니다. 계정이 있다면 로그인하세요.', 'No se puede crear una cuenta con estos datos. Si ya tienes una cuenta, inicia sesión.'],
   'error.expired': ['登入已過期，請重新登入。', 'Your session has expired. Please sign in again.', 'セッションの期限が切れました。もう一度ログインしてください。', '세션이 만료되었습니다. 다시 로그인하세요.', 'Tu sesión ha caducado. Vuelve a iniciar sesión.'],
   'error.access': ['網站登入已過期，請重新載入頁面。', 'Site access has expired. Reload the page to sign in again.', 'サイトへのアクセス期限が切れました。ページを再読み込みしてください。', '사이트 접속 인증이 만료되었습니다. 페이지를 새로고침하세요.', 'El acceso al sitio ha caducado. Recarga la página para volver a iniciar sesión.'],
   'error.network': ['連線暫時無法完成，請檢查網路後再試一次。', 'Unable to connect. Check your connection and try again.', '接続できません。通信環境を確認して再試行してください。', '연결할 수 없습니다. 네트워크를 확인하고 다시 시도하세요.', 'No se pudo conectar. Comprueba tu conexión e inténtalo de nuevo.'],
@@ -79,6 +81,15 @@ export const interfaceMessages = {
   'intent.tasks': ['社群專案與任務', 'Community projects and tasks', 'コミュニティの案件と仕事', '커뮤니티 프로젝트와 일감', 'Proyectos y tareas de la comunidad'],
   'auth.resetDone': ['密碼已重設，請用新密碼登入。', 'Password reset. Sign in with your new password.', 'パスワードを再設定しました。新しいパスワードでログインしてください。', '비밀번호가 재설정되었습니다. 새 비밀번호로 로그인하세요.', 'Contraseña restablecida. Inicia sesión con tu nueva contraseña.'],
   'welcome.next': ['帳號已建立 · 下一步', 'Account created · Next step', 'アカウント作成完了 · 次のステップ', '계정 생성 완료 · 다음 단계', 'Cuenta creada · Siguiente paso'],
+  'resources.intro': ['把你的專長與資源，變成夥伴能一起完成的作品。', 'Bring your skills and resources together to create with others.', 'スキルと資源を持ち寄り、仲間と作品を作ろう。', '각자의 기술과 자원을 모아 함께 작품을 만드세요.', 'Reúne tus habilidades y recursos para crear con otras personas.'],
+  'resources.learning': ['免費學習資源', 'Free learning resources', '無料の学習教材', '무료 학습 자료', 'Recursos gratuitos'],
+  'resources.partners': ['同領域夥伴', 'People who share your interests', '同じ分野の仲間', '관심 분야가 같은 사람들', 'Personas con tus mismos intereses'],
+  'resources.opportunities': ['真實合作機會', 'Collaboration opportunities', 'コラボの機会', '협업 기회', 'Oportunidades de colaboración'],
+  'resources.open': ['先看免費資源，不用註冊', 'Explore free resources without signing up', '登録せずに無料教材を見る', '가입 없이 무료 자료 둘러보기', 'Explora recursos gratuitos sin registrarte'],
+  'resources.preview': ['免費預覽', 'Free preview', '無料プレビュー', '무료 미리보기', 'Vista previa gratuita'],
+  'resources.loading': ['正在整理可預覽的資源…', 'Preparing resources to preview…', 'プレビュー用の教材を準備中…', '미리 볼 자료를 준비 중…', 'Preparando recursos para la vista previa…'],
+  'resources.error': ['資源暫時無法載入。', 'Resources could not be loaded.', '教材を読み込めませんでした。', '자료를 불러올 수 없습니다.', 'No se pudieron cargar los recursos.'],
+  'resources.retry': ['重新讀取資源', 'Reload resources', '教材を再読み込み', '자료 다시 불러오기', 'Recargar recursos'],
   'welcome.title': ['{name}，歡迎來到自由工坊。', 'Welcome to Freedom Workshop, {name}.', '{name}さん、自由工坊へようこそ。', '{name}님, 자유공방에 오신 것을 환영합니다.', 'Te damos la bienvenida a Freedom Workshop, {name}.'],
   'welcome.intro': ['選一個感興趣的公會，就能開始閱讀免費技能書、與夥伴交流和參與工作。公會可以隨時再換或增加。', 'Choose a guild to explore free resources, meet people and join projects. You can change or add guilds later.', '興味のあるギルドを選ぶと、無料教材を読み、仲間と交流し、案件に参加できます。ギルドは後から変更・追加できます。', '관심 있는 길드를 선택하면 무료 자료를 읽고, 사람들과 교류하고, 프로젝트에 참여할 수 있습니다. 길드는 나중에 변경하거나 추가할 수 있습니다.', 'Elige un gremio para descubrir recursos gratuitos, conocer personas y participar en proyectos. Puedes cambiar o añadir gremios después.'],
   'welcome.destination': ['完成加入後，直接前往「{destination}」。', 'After joining, continue to {destination}.', '参加後は「{destination}」へ進みます。', '가입 후 {destination}(으)로 이동합니다.', 'Tras unirte, continúa a {destination}.'],

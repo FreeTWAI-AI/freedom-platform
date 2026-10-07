@@ -466,7 +466,7 @@ function LoginView({
         </aside>}
       </section></div>
       <p className="login-language-scope field-hint">{t('language.scope')}</p>
-      <div className="login-public-resources" lang="zh-Hant"><EntryResources client={client}/></div>
+      <div className="login-public-resources"><EntryResources client={client}/></div>
       <CommunityLinks/>
     </main>
   )

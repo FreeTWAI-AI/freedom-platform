@@ -1,6 +1,14 @@
 # Member accounts, privacy and small teams
 
 These APIs extend the current server; they are not yet in the pinned preview SDK.
+Chat history search adds `GET /me/conversations/:userId/messages/search` and
+`GET /me/channels/:kind/:key/messages/search`. Both require the existing session
+and current conversation/channel access. Parameters are `q` (trimmed, 1–100
+characters), `limit` (1–50, default 20) and an optional message UUID `cursor`.
+They return `items` and `next_cursor`; cursor membership is checked against the
+same community and conversation. Wildcards are treated literally, results are
+newest first, and searching writes no read receipts. A 1500ms SQL timeout returns
+`503 message_search_busy`. See [chat experience](social-chat-experience.md).
 Notification, direct-message and owner-initiated squad invitation endpoints are
 documented in [member settings and messages](member-settings-messages.md).
 Requests use the existing session cookie and same-origin JSON. All authenticated

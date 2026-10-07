@@ -6,6 +6,8 @@ The full production planning contracts remain authored once in `docs/platform-pl
 
 The local foundation [common identity references](common/README.md) have a separate Zod/TypeScript authoring source and generated JSON Schemas. They are not yet published in a ReleaseSet or preview SDK bundle; reserved service/site shapes do not enable those identities at runtime.
 
+The guild launchpad family (`guild-launchpad/v1`) has a separate Zod authoring source and generated JSON Schemas. `npm run contracts:guild-launchpad` regenerates them and `npm run check:guild-launchpad-contracts` checks the bytes. They are not yet published in a ReleaseSet or the preview bundle and grant no authority.
+
 Consumers pin a full `freedom-platform` commit and bundle SHA-256 in `contracts.lock.json`. The copied verifier checks every artifact locally and, with `--remote`, against that exact GitHub source. This proves byte identity, not official approval or release status. A contract change requires deliberate regeneration, review, updated pins and producer/consumer tests.
 
 New exports use a thin entrypoint backed by the shared contribution-tools implementation. Existing v1 pins and preview bytes remain valid; v2 ReleaseSet verification requires independently supplied publisher approval. The [governance implementation](../governance/README.md) documents the exact-byte signature profile and evidence limits. Adding governance schemas does not publish a production contract or require existing consumers to upgrade immediately.
