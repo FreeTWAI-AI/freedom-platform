@@ -724,6 +724,8 @@ test('a save started in one tenant does not continue after switching tenant', as
     await postJson(session.page, '/tenants', { display_name: tenantNameB, workspace_name: '預設工作區' });
     const starter = await starterOf(session.page, guild.guild_key);
     await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: `${tenantNameA}・擁有者`, exact: true }).click();
+    await expect(session.page.getByRole('heading', { level: 3, name: `${tenantNameA}／預設工作區`, exact: true })).toBeVisible({ timeout: 20_000 });
     await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
     await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
     await session.page.getByLabel(starter.title_label, { exact: true }).fill(titleA);
