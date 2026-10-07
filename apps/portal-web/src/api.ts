@@ -20,6 +20,8 @@ export class ApiError extends Error {
   readonly cfRay?: string
   readonly requestId?: string
   readonly errors?: {code: string; path: string}[]
+  /** Present when a 409 problem includes a well-shaped instance candidate list. */
+  readonly candidates?: InstanceSelectionCandidate[]
 
   constructor(init: {
     message: string
@@ -34,6 +36,7 @@ export class ApiError extends Error {
     cfRay?: string
     requestId?: string
     errors?: {code: string; path: string}[]
+    candidates?: InstanceSelectionCandidate[]
   }) {
     super(init.message)
     this.name = 'ApiError'
@@ -48,9 +51,17 @@ export class ApiError extends Error {
     this.cfRay = init.cfRay
     this.requestId = init.requestId
     this.errors = init.errors
+    this.candidates = init.candidates
     this.unauthorized = this.status === 401
     this.conflict = this.status === 409 || this.status === 412 || this.code === 'conflict'
   }
+}
+
+export type InstanceSelectionCandidate = {
+  instance_id: string
+  version: string
+  created_at: string
+  bound_workspace_count: number
 }
 
 export type RequestOptions = {
@@ -193,6 +204,12 @@ export class PortalClient {
     finally { this.reads.clear() }
   }
 
+  async patch<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+    this.reads.clear()
+    try { return await this.request<T>('PATCH', path, { ...options, body }) }
+    finally { this.reads.clear() }
+  }
+
   async getSession(): Promise<SessionPayload> {
     return this.get<SessionPayload>('/session', { skipAuthHandler: true })
   }
@@ -308,6 +325,7 @@ export class PortalClient {
           detail: serverFailure ? (knownGitHub ? safeDetail : undefined) : problem?.detail,
           code: serverFailure && !knownGitHub ? undefined : problem?.code, network: serverFailure && method !== 'GET' && !knownGitHub,
           errors: serverFailure && !knownGitHub ? undefined : fieldErrors(payload),
+          candidates: serverFailure && !knownGitHub ? undefined : instanceCandidates(payload),
         })
       }
       return payload as T
@@ -344,6 +362,22 @@ async function readJson(response: Response): Promise<unknown> {
       status: response.status,
     })
   }
+}
+
+function instanceCandidates(payload: unknown): InstanceSelectionCandidate[] | undefined {
+  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as {candidates?: unknown}).candidates)) return undefined
+  const version = /^(0|[1-9][0-9]{0,18})$/
+  const id = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  const items = (payload as {candidates: unknown[]}).candidates.flatMap(item => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as {instance_id?: unknown; version?: unknown; created_at?: unknown; bound_workspace_count?: unknown}
+    if (typeof row.instance_id !== 'string' || !id.test(row.instance_id)) return []
+    if (typeof row.version !== 'string' || !version.test(row.version)) return []
+    if (typeof row.created_at !== 'string' || row.created_at.length > 80) return []
+    if (typeof row.bound_workspace_count !== 'number' || !Number.isInteger(row.bound_workspace_count) || row.bound_workspace_count < 0) return []
+    return [{instance_id: row.instance_id, version: row.version, created_at: row.created_at, bound_workspace_count: row.bound_workspace_count}]
+  })
+  return items.length ? items : undefined
 }
 
 function fieldErrors(payload: unknown): {code: string; path: string}[] | undefined {

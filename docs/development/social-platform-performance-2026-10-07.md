@@ -35,6 +35,10 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 
 型別檢查與 fresh build 已通過；手機主牆、外部分享、本人優化、配色與 guides 的完整針對性回歸正在執行，結果待回填。前一次全量的中止或前版通過不能代替這個新主牆。
 
+新的針對性第一次 run 在 37 項後停止（34 pass／3 fail），三項失敗均是外部分享測試用部分名稱「連結」，同時找到新 dialog 和實際 input。保留三項 trace，改為 exact 欄位名稱，維持同一縮圖、分享、版面及配色 assertions；未提高 timeout 或改產品 accessible name。
+
+測試期間重新查主線，#190 已合併至 `31df6ddb4e9356715b26d292bb5ab7869d365f36`。同步它的「我的工作」、成果提交／驗收與 DTO，沿用它的 runtime 登錄；只替新 PATCH method 補上本輪 opt-in GET 索引的寫入前／後隔離，同一受控反例也涵蓋 PATCH。#194 更新後維持 local runner 900 秒、只有 hosted partition 1,200 秒，本輪未複製或修改其 runner 工作。
+
 ## 全目標待驗收矩陣
 
 本輪新增[分享／提交入口](social-sharing-entry.md)、供貨商／創作者／開發者的具體入口及 [Social Post 本人額度優化](social-post-optimization.md)。手機登入、密碼找回與長發文視窗也納入真實瀏覽器回歸；這些增量不代替下表的真人與正式站驗收。

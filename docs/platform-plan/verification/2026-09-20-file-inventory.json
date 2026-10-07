@@ -1129,8 +1129,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 19157,
-      "sha256": "41867d0926f86a929ec48c8c061e6191c2ff39752c38963692e75b376f7a408e"
+      "bytes": 21056,
+      "sha256": "87b97667c3b9ce6f514fc700daec8f50f00030687b669b70781520f18f1bbf64"
     },
     {
       "path": "apps/portal-web/src/dragon-theme.css",
@@ -1434,8 +1434,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 37617,
-      "sha256": "be3b2336b83f1166f580077367bac07951c716d32e587497d0b3d501873dd025"
+      "bytes": 38732,
+      "sha256": "465b74372452eee31b34a1979cacb22a148b98035abf177fff9e2f3f3d050213"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
+      "bytes": 1716,
+      "sha256": "8385c49046d46fb3eb5c814a8aedb95183113e04381609c4884b830749d5b5cd"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+      "bytes": 49313,
+      "sha256": "de59be34a0ba4f23ee6a193c9a7d92d3d98154a3fb404f316aef5c257de247fc"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -1664,8 +1674,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 33522,
-      "sha256": "b47863943022248a774167c2bca520a022366be7b3ea71d444fb1fd4f2aa6053"
+      "bytes": 33552,
+      "sha256": "29ad36ca7c45b7341a5a9eef30af77efe012fa5d9f1256aba29874d8f7c9af12"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -2181,6 +2191,11 @@
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
       "bytes": 834,
       "sha256": "4aeb0fa021e38f5933ddbf142936eb71630409f9f6b8a9b464a2bcfed49eff5a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/work-result-client.ts",
+      "bytes": 6976,
+      "sha256": "7e6fde748cf84767db55850e550d5ca07df29cb81691719ad7312c041102362d"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -12669,8 +12684,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 11507,
-      "sha256": "b431eb71794c3d9df29adce939833103de6dfba17852526f5e57ff743fe1bb89"
+      "bytes": 12275,
+      "sha256": "4a6e8cd0037514e6cbc4521ddf47184efc845a0c9ed189263b550dec092e5508"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -15929,8 +15944,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 1141,
-      "sha256": "10cf72383a300593b86c0f2980e83d7a2e0e8d24efd521f81e62710cfe5e5d4f"
+      "bytes": 1415,
+      "sha256": "8b29b060adf8fed2968c4a517b6152de837b22349bab52993ab7510c7402a0a6"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -16679,8 +16694,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6063,
-      "sha256": "8165ecfdd5f3bc848a6dad8dafd6e35a8b466aea188bde7b7d092d9aaf2aa62d"
+      "bytes": 6082,
+      "sha256": "b0a70d2e5fd8454a6e7da13681e761292ce18a17c739c4e02c7444c4e400e900"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -17948,9 +17963,14 @@
       "sha256": "48912a58397926313cd09cc840427d38aefdf12e08cdbbf211d7c2c804bf13ee"
     },
     {
+      "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
+      "bytes": 66392,
+      "sha256": "a3f5d831ee95a1ec8b15d37089d115197ccddfd2f3e65133f5d835dc9beca0f1"
+    },
+    {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 14793,
-      "sha256": "9e426a36c2f4abaf08b2e83a63b376fb88a02b2df139378af2ad048988504b51"
+      "bytes": 14811,
+      "sha256": "178ac1cf91386ef1b9a3b38a4125760783cc242e42ecba596eb3de605d16255f"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
@@ -19364,8 +19384,8 @@
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
-      "bytes": 23832,
-      "sha256": "f870b4d210f8dbafd04f06fccb79e1c2e16b7c6bddc76c8e759e67e0fa5f91c9"
+      "bytes": 23847,
+      "sha256": "c5c845599e9876105f33c243828ad0b0292e7ab4caed7e6938333b62145bde36"
     },
     {
       "path": "tests/runtime/positioning.test.ts",
@@ -19671,6 +19691,11 @@
       "path": "tests/runtime/work-privacy.test.ts",
       "bytes": 24575,
       "sha256": "7465423079bd020dfb0e918c5148079d35c6ab0c787f27cf23cd93061ae9a3b2"
+    },
+    {
+      "path": "tests/runtime/work-result-client.test.ts",
+      "bytes": 6702,
+      "sha256": "3211c70d98ddee13f39e88202b8d62ea01589ccf0dcbfb8b24352f8956dafb01"
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",

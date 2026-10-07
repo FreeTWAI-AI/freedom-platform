@@ -79,8 +79,8 @@ test('fresh reads remain independent by default and an explicit opt-out bypasses
   assert.equal(fetcher.mock.callCount(),4);release();await Promise.all(pending);
 });
 
-test('POST and DELETE separate shared read snapshots before, during and after the write',async t=>{
-  for(const method of ['post','delete'] as const){
+test('POST, DELETE and PATCH separate shared read snapshots before, during and after the write',async t=>{
+  for(const method of ['post','delete','patch'] as const){
     let version=0,finishWrite!:()=>void;
     const replies:{version:number;resolve:(response:Response)=>void}[]=[];
     const fetcher=t.mock.method(globalThis,'fetch',async(_url:unknown,options?:RequestInit)=>{
