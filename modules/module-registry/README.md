@@ -1,6 +1,6 @@
 # Module registry
 
-Tenant manual Work is enabled here. The registry owns `module_instances`, `deployment_bindings`, `workspace_module_bindings`, and the operator-owned `tenant_capacity_policies` table. It does not own Work rows or Result bytes.
+This module enables tenant manual Work for a workspace (`enableManualWork`, below). That is a command, not a deployment state: the tenant routes mount only when `FREEDOM_GUILD_LAUNCHPAD_ENABLED` is `true`, and on 2026-10-07 the flag was absent in staging and production (see `features.guild_launchpad` in the [current state](../../docs/platform-plan/execution/unified-foundation/current-state.json)). The registry owns `module_instances`, `deployment_bindings`, `workspace_module_bindings`, and the operator-owned `tenant_capacity_policies` table. It does not own Work rows or Result bytes.
 
 `enableManualWork` binds a workspace to one `work` instance at `work:create`. An existing binding is returned unchanged. A reuse choice that names a different instance is a conflict. When the tenant already has active `work` instances and the caller sends no choice, the command fails with `instance_selection_required` and does not store a receipt. `{kind:'create_new'}` still creates an instance, under the capacity policy. `{kind:'reuse', instance_id, expected_version}` binds that active `work` instance when the version matches.
 

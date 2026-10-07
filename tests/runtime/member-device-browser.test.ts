@@ -116,7 +116,7 @@ async function trustedRequest(input:string|Request,init?:RequestInit):Promise<Re
 }
 async function browserPage(human:Awaited<ReturnType<typeof member>>) {
   const context=await browser.newContext();contexts.push(context);
-  await context.addCookies([{name:'freedom_local_session',value:human.raw,url:origin,secure:true,httpOnly:true,sameSite:'Strict'}]);
+  await context.addCookies([{name:'__Host-freedom_session',value:human.raw,url:origin,secure:true,httpOnly:true,sameSite:'Strict'}]);
   await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
   const page=await context.newPage(),logs:string[]=[],errors:string[]=[];clientLogs.set(page,logs);pageErrors.set(page,errors);
   page.on('console',message=>logs.push(message.text()));page.on('pageerror',error=>errors.push(error.message));
@@ -156,7 +156,7 @@ async function member() {
   await owner.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '1 hour')",[tokenHash(raw),user,csrf]);
   const actor:Actor={...row,session_hash:tokenHash(raw),csrf_token:csrf};
   await withMemberScope(app,{actor,scope:'personal'},async()=>{},async()=>{});
-  return {actor,raw,csrf,headers:{Cookie:'freedom_local_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
+  return {actor,raw,csrf,headers:{Cookie:'__Host-freedom_session='+raw,'X-CSRF-Token':csrf,Origin:origin}};
 }
 async function pollProof(f:{key:Device;authorization:Begin},overrides:Record<string,unknown>={}) {
   return signed(f.key.privateKey,{alg:'ES256',typ:'freedom-device-pairing+jwt',jwk:f.key.publicJwk},{purpose:'device_pairing_poll',client_id:host.clientId,

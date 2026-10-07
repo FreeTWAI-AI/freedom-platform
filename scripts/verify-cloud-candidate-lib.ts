@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { crc32, deflateSync } from 'node:zlib';
 import { guildChannelsRealHistoryGuarded, runMessagesMobile, runMessagesPhase, runRegistrationPhase, type MemberRunState } from './verify-cloud-candidate-members.js';
+import { sessionCookieName } from '../apps/platform-api/src/session-cookie.js';
 export { guildChannelsRealHistoryGuarded };
 
 export const TOOL_VERSION = 'cloud-candidate-acceptance/1';
@@ -112,7 +113,6 @@ export type LoadOptions = { requests: number; concurrency: number; rps: number; 
 export const LOAD_PATHS = Object.freeze(['/api/v1/health', '/brand/freedom-workshop.webp', '/art/rpg/workshop-hub.webp']);
 export const ASSET_PATHS = Object.freeze(['/brand/freedom-workshop.webp', ...['workshop-hub', 'skill-codex', 'cooperation-forge', 'market-network'].map(name => `/art/rpg/${name}.webp`)]);
 export const DEVELOPMENT_GUILDS = Object.freeze(['guild_ai_vibe', 'guild_ai_field']);
-const SESSION_COOKIE = 'freedom_local_session';
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 export function loadOptions(raw: Partial<Record<keyof LoadOptions, number>> = {}): LoadOptions {
@@ -186,7 +186,7 @@ export function parseSetCookie(line: string): SetCookie | null {
 export function sessionCookieChecks(cookie: SetCookie | null, target: Target) {
   const https = new URL(target.origin).protocol === 'https:';
   return {
-    present: Boolean(cookie?.value),
+    present: Boolean(cookie?.value&&cookie.name===sessionCookieName(target.origin)),
     secure: https ? cookie?.secure === true : true,
     http_only: cookie?.httpOnly === true,
     same_site_strict: cookie?.sameSite === 'strict',
@@ -236,7 +236,7 @@ export class CandidateClient {
   async request(method: string, path: string, options: RequestOptions = {}): Promise<Reply> {
     const url = this.url(path), headers: Record<string, string> = { Accept: 'application/json, image/*;q=0.9, */*;q=0.1' };
     if (options.access !== false && this.access) { headers['CF-Access-Client-Id'] = this.access.clientId; headers['CF-Access-Client-Secret'] = this.access.clientSecret; }
-    if (options.session !== false && this.session) headers.Cookie = `${SESSION_COOKIE}=${this.session}`;
+    if (options.session !== false && this.session) headers.Cookie = `${sessionCookieName(this.target.origin)}=${this.session}`;
     const origin = options.origin ?? (method === 'GET' || method === 'HEAD' ? 'none' : 'same');
     if (origin === 'same') headers.Origin = this.target.origin; else if (origin !== 'none') headers.Origin = origin;
     const csrf = options.csrf === undefined ? this.csrf : options.csrf;
@@ -257,7 +257,7 @@ export class CandidateClient {
     const setCookies = () => response.headers.getSetCookie().map(parseSetCookie).filter((cookie): cookie is SetCookie => cookie !== null);
     for (const cookie of setCookies()) {
       this.secrets.add(cookie.value);
-      if (cookie.name !== SESSION_COOKIE) continue; // Only the product session is kept.
+      if (cookie.name !== sessionCookieName(this.target.origin)) continue; // Only the product session is kept.
       const cleared = !cookie.value || (cookie.maxAge !== null && cookie.maxAge <= 0) || (cookie.expires !== null && Date.parse(cookie.expires) <= Date.now());
       this.session = cleared ? null : cookie.value;
       if (cleared) this.csrf = null;
@@ -523,7 +523,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
         ctx.check(`${path}:401`, reply.status === 401, `status ${reply.status}`);
         ctx.check(`${path}:login_required`, reply.json()?.code === 'login_required');
         ctx.check(`${path}:no_store`, noStore(reply));
-        ctx.check(`${path}:no_cookie_set`, !reply.setCookies().some(cookie => cookie.name === SESSION_COOKIE && cookie.value));
+        ctx.check(`${path}:no_cookie_set`, !reply.setCookies().some(cookie => cookie.name === sessionCookieName(target.origin) && cookie.value));
       }
       // Origin enforcement is checked on login before any credential is sent.
       // A listed origin that is the target would make the check meaningless, so it fails closed.
@@ -535,7 +535,7 @@ export async function runCandidate(options: RunOptions): Promise<Report> {
     },
     async session(ctx) {
       const { reply } = await login(client).catch(error => { throw error instanceof CheckFailed ? error : new CheckFailed(`login_${describeError(error)}`); });
-      const cookie = reply.setCookies().find(value => value.name === SESSION_COOKIE) ?? null;
+      const cookie = reply.setCookies().find(value => value.name === sessionCookieName(target.origin)) ?? null;
       for (const [id, ok] of Object.entries(sessionCookieChecks(cookie, target))) ctx.check(`cookie_${id}`, ok);
       ctx.check('login_no_store', noStore(reply));
       const first = await client.request('GET', '/api/v1/session'), second = await client.request('GET', '/api/v1/session');
@@ -847,7 +847,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   const handle = async (route: any) => {
     const url = new URL(route.request().url());
     const requestHeaders = route.request().headers() as Record<string, string>;
-    const sessionValue = /(?:^|;\s*)freedom_local_session=([^;]+)/.exec(requestHeaders.cookie ?? '')?.[1];
+    const sessionValue = /(?:^|;\s*)(?:__Host-freedom_session|freedom_local_session)=([^;]+)/.exec(requestHeaders.cookie ?? '')?.[1];
     if (sessionValue) secrets.add(sessionValue);
     if (requestHeaders['x-csrf-token']) secrets.add(requestHeaders['x-csrf-token']);
     if (requestHeaders['idempotency-key']) secrets.add(requestHeaders['idempotency-key']);
@@ -897,13 +897,13 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
       // The profile menu (設定) is only present when the member workspace is signed in; 登出 is inside it.
       const profileMenu = page.getByRole('button', { name: '設定', exact: true });
       await profileMenu.waitFor({ state: 'visible', timeout: 20000 });
-      const cookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE);
+      const cookie = (await context.cookies(target.origin)).find((value: {name:string}) => value.name === sessionCookieName(target.origin));
       secrets.add(cookie?.value);
       const https = target.origin.startsWith('https:');
       ctx.check('browser_cookie_secure', https ? cookie?.secure === true : !!cookie);
       ctx.check('browser_cookie_http_only', cookie?.httpOnly === true);
       ctx.check('browser_cookie_same_site_strict', cookie?.sameSite === 'Strict');
-      ctx.check('browser_cookie_script_invisible', !(await page.evaluate(() => document.cookie)).includes(SESSION_COOKIE));
+      ctx.check('browser_cookie_script_invisible', !(await page.evaluate(() => document.cookie)).includes(sessionCookieName(target.origin)));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await profileMenu.waitFor({ state: 'visible', timeout: 20000 });
       ctx.check('reload_keeps_session', true);
@@ -911,7 +911,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
       await page.getByRole('menuitem', { name: '登出', exact: true }).click();
       await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
       ctx.check('logout_returns_to_login', true);
-      const cleared = !(await context.cookies(target.origin)).some((value: any) => value.name === SESSION_COOKIE && value.value);
+      const cleared = !(await context.cookies(target.origin)).some((value: {name:string;value:string}) => value.name === sessionCookieName(target.origin) && value.value);
       ctx.check('browser_cookie_cleared', cleared);
       loggedOut = true;
     }
@@ -932,7 +932,7 @@ async function browserPhase(ctx: PhaseContext, options: RunOptions, target: Targ
   closing = true;
   const teardown: Record<string, unknown> = {};
   if (!loggedOut) {
-    try { sessionCookie = (await context.cookies(target.origin)).find((value: any) => value.name === SESSION_COOKIE && value.value)?.value ?? null; secrets.add(sessionCookie); }
+    try { sessionCookie = (await context.cookies(target.origin)).find((value: {name:string;value:string}) => value.name === sessionCookieName(target.origin) && value.value)?.value ?? null; secrets.add(sessionCookie); }
     catch (error) { teardown.cookie_read = describeError(error); }
   }
   let pages: any[] = [];
