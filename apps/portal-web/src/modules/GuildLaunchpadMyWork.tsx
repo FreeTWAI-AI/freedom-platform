@@ -139,9 +139,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     saved: string;
     file: boolean;
     pending: boolean;
+    createDirty: boolean;
     editDirty: boolean;
     editBase: { version: string; title: string; objective: string; progress: Progress } | null;
-  }>({ note: '', saved: '', file: false, pending: false, editDirty: false, editBase: null });
+  }>({ note: '', saved: '', file: false, pending: false, createDirty: false, editDirty: false, editBase: null });
   const [unavailable, setUnavailable] = useState(false);
   const [orphanNote, setOrphanNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,8 +189,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [resave, setResave] = useState<SaveAttempt | null>(null);
   const [resultText, setResultText] = useState<{ id: string; text: string } | null>(null);
   const [resultError, setResultError] = useState('');
+  const createDirty = draftTitle !== '' || draftObjective !== '' || draftProgress !== 'todo';
   const editDirty = Boolean(editBase && (editTitle !== editBase.title || editObjective !== editBase.objective || editProgress !== editBase.progress));
-  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, editDirty, editBase };
+  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, createDirty, editDirty, editBase };
   const workspace = workspaces.find(item => item.workspace_id === workspaceId) ?? null;
   const writeLocked = policyOff || inactive || capabilityDenied || quotaHit || upgrade;
 
@@ -204,11 +206,13 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     const ticket = generation.current;
     return { signal: abortRef.current?.signal, live: () => generation.current === ticket };
   }
-  function leaveOk() {
+  function leaveOk(includeCreate = true) {
     const now = draft.current;
-    if (now.note === now.saved && !now.file && !now.pending) return true;
+    if (now.note === now.saved && !now.file && !now.pending && !now.editDirty && (!includeCreate || !now.createDirty)) return true;
     return window.confirm(LEAVE);
   }
+  const leaveOkRef = useRef(leaveOk);
+  leaveOkRef.current = leaveOk;
   function keyFor(fingerprint: string) {
     const existing = keys.current.get(fingerprint);
     if (existing) return existing;
@@ -226,11 +230,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   function clearPrivate() {
     clearDraft();
+    setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo'); setCreateError('');
+    setEditTitle(''); setEditObjective(''); setEditProgress('todo'); setEditBase(null); setEditError('');
     setOrphanNote(null);
     setWorks([]); setWorksCursor(null); setWork(null); setHeldVersion(''); setResults([]); setResultsCursor(null);
     setBound(false); setPolicyOff(false); setCapabilityDenied(false); setUpgrade(false); setQuotaHit(false);
     setStorageDown(false); setBanner(''); setCandidates(null); setArchiveOpen(false); setBusy(false);
-    setCreateError('');
   }
   function applyAccess(error: ApiError) {
     const detail = `${error.detail ?? ''}\n${error.message}`;
@@ -245,11 +250,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
 
   useEffect(() => {
-    registerLeave(() => {
-      const now = draft.current;
-      if (now.note === now.saved && !now.file && !now.pending) return true;
-      return window.confirm(LEAVE);
-    });
+    registerLeave(() => leaveOkRef.current());
     return () => registerLeave(null);
   }, [registerLeave]);
 
@@ -387,7 +388,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   async function createWork(event: FormEvent) {
     event.preventDefault();
     if (!tenantId || !workspaceId || !bound || busy || writeLocked) return;
-    if (work && !leaveOk()) return;
+    if (work && !leaveOk(false)) return;
     const titleError = textProblem(draftTitle, 'title');
     const objectiveError = textProblem(draftObjective, 'objective');
     setCreateError(titleError ?? objectiveError ?? '');
@@ -446,7 +447,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function openWork(workId: string) {
     if (!tenantId || work?.work_id === workId) return;
-    if (!leaveOk()) return;
+    if (!leaveOk(false)) return;
     clearDraft();
     setOrphanNote(null);
     const call = nextGen();
@@ -788,7 +789,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </div>}
           <div className="my-work-actions">
             <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || Boolean(conflict)}>儲存變更</button>
-            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk()) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
           </div>
         </form>
         <form className="stack" aria-label="筆記" onSubmit={event => { event.preventDefault(); void beginNoteSave(); }}>
