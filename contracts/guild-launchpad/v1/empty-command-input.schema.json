@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/empty-command-input",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+}
