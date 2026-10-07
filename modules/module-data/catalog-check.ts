@@ -71,6 +71,11 @@ export type SchemaTable = {
   readonly relrowsecurity: boolean;
   readonly relforcerowsecurity: boolean;
   readonly policies: readonly string[];
+  readonly tenant_evidence: {
+    readonly direct_columns: readonly string[];
+    readonly scope_kind_columns: readonly string[];
+    readonly asset_purposes: readonly string[];
+  };
 };
 
 export type TenantSchemaSnapshot = {
@@ -78,6 +83,7 @@ export type TenantSchemaSnapshot = {
   readonly tables: readonly SchemaTable[];
   readonly detected: readonly string[];
   readonly asset_purposes: readonly string[];
+  readonly foreign_keys: readonly { readonly table: string; readonly referenced: string }[];
 };
 
 export type CatalogFindingCode =
@@ -89,6 +95,7 @@ export type CatalogFindingCode =
   | 'policy_mismatch'
   | 'force_rls_set'
   | 'unregistered_asset_purpose'
+  | 'tenant_resolution_mismatch'
   | 'retention_unbounded';
 
 export type CatalogFinding = { readonly code: CatalogFindingCode; readonly subject: string };
@@ -263,21 +270,56 @@ function retentionUnbounded(value: DatasetEntry['central_retention']): boolean {
   return UNBOUNDED.has(value.state);
 }
 
+function independentlyTenantBearing(table: SchemaTable): boolean {
+  const evidence = table.tenant_evidence;
+  return evidence.direct_columns.length > 0 || evidence.scope_kind_columns.length > 0 || evidence.asset_purposes.length > 0;
+}
+
+function resolutionMatches(location: TableLocation, tables: ReadonlyMap<string, SchemaTable>, edges: ReadonlySet<string>): boolean {
+  const live = tables.get(location.table);
+  if (!live) return false;
+  const resolution = location.tenant_resolution;
+  switch (resolution.kind) {
+    case 'direct':
+      return live.columns.includes(resolution.column) && live.tenant_evidence.direct_columns.includes(resolution.column);
+    case 'scope':
+      return live.columns.includes(resolution.scope_kind_column) && live.columns.includes(resolution.scope_id_column)
+        && live.tenant_evidence.scope_kind_columns.includes(resolution.scope_kind_column);
+    case 'asset_purpose':
+      return resolution.purposes.length > 0 && resolution.purposes.every(purpose => live.tenant_evidence.asset_purposes.includes(purpose));
+    case 'fk_chain': {
+      if (resolution.via.length === 0) return false;
+      let prior = location.table;
+      for (const next of resolution.via) {
+        if (!tables.has(next) || !edges.has(`${prior}/${next}`)) return false;
+        prior = next;
+      }
+      return independentlyTenantBearing(tables.get(prior)!);
+    }
+  }
+}
+
 export function checkTenantCatalog(snapshot: TenantSchemaSnapshot, catalog: TenantDataCatalog): CatalogFinding[] {
   const findings: CatalogFinding[] = [];
   const byName = new Map(snapshot.tables.map(table => [table.name, table]));
+  const edges = new Set(snapshot.foreign_keys.map(edge => `${edge.table}/${edge.referenced}`));
+  const detected = new Set(snapshot.detected);
   const located = new Map<string, TableLocation>();
   for (const location of tableLocations(catalog)) {
     if (located.has(location.table)) findings.push({ code: 'stale_location', subject: location.table });
     located.set(location.table, location);
   }
-  for (const name of snapshot.detected) {
+  // Catalogued locations stay subject to drift checks even if losing their only
+  // tenant edge also removed them from the detector's transitive closure.
+  const checked = new Set([...snapshot.detected, ...[...located.keys()].filter(name => byName.has(name))]);
+  for (const name of checked) {
     const location = located.get(name);
     const live = byName.get(name);
     if (!location || !live) {
       findings.push({ code: 'unregistered_table', subject: name });
       continue;
     }
+    if (!detected.has(name) || !resolutionMatches(location, byName, edges)) findings.push({ code: 'tenant_resolution_mismatch', subject: name });
     const liveColumns = new Set(live.columns);
     const catalogColumns = new Set(location.columns);
     for (const column of live.columns) if (!catalogColumns.has(column)) findings.push({ code: 'unregistered_column', subject: `${name}.${column}` });
@@ -303,7 +345,10 @@ export function checkTenantCatalog(snapshot: TenantSchemaSnapshot, catalog: Tena
   return findings.sort((left, right) => left.code < right.code ? -1 : left.code > right.code ? 1 : left.subject < right.subject ? -1 : left.subject > right.subject ? 1 : 0);
 }
 
-type RawTable = { name: string; columns: string[]; relrowsecurity: boolean; relforcerowsecurity: boolean; policies: string[] };
+type RawTable = {
+  name: string; columns: string[]; relrowsecurity: boolean; relforcerowsecurity: boolean; policies: string[];
+  tenant_evidence: { direct_columns: string[]; scope_kind_columns: string[]; asset_purposes: string[] };
+};
 
 export async function introspectTenantSchema(q: PoolClient, schema: string): Promise<TenantSchemaSnapshot> {
   if (!IDENT.test(schema)) throw new Error('tenant_schema_invalid');
@@ -334,7 +379,8 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
        JOIN pg_catalog.pg_namespace ns ON ns.oid = src.relnamespace
        JOIN pg_catalog.pg_class dst ON dst.oid = co.confrelid
        JOIN pg_catalog.pg_namespace nd ON nd.oid = dst.relnamespace
-      WHERE co.contype = 'f' AND ns.nspname = $1 AND nd.nspname = $1 AND src.relkind = 'r'`, [schema])).rows;
+      WHERE co.contype = 'f' AND ns.nspname = $1 AND nd.nspname = $1 AND src.relkind = 'r'
+      ORDER BY src.relname, dst.relname`, [schema])).rows;
   const checks = (await q.query<{ table: string; name: string; definition: string }>(
     `SELECT c.relname AS table, co.conname AS name, pg_catalog.pg_get_constraintdef(co.oid) AS definition
        FROM pg_catalog.pg_constraint co
@@ -350,6 +396,7 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
       relrowsecurity: relation.relrowsecurity,
       relforcerowsecurity: relation.relforcerowsecurity,
       policies: [],
+      tenant_evidence: { direct_columns: [], scope_kind_columns: [], asset_purposes: [] },
     });
   }
   for (const column of columns) tables.get(column.table)?.columns.push(column.column);
@@ -357,20 +404,27 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
 
   const detected = new Set<string>();
   for (const table of tables.values()) {
-    if (table.columns.some(column => column === 'tenant_id' || column === 'tenant_ref' || column.endsWith('_tenant_id'))) detected.add(table.name);
+    table.tenant_evidence.direct_columns.push(...table.columns.filter(column => column === 'tenant_id' || column === 'tenant_ref' || column.endsWith('_tenant_id')));
+    if (table.tenant_evidence.direct_columns.length > 0) detected.add(table.name);
   }
   const scopeKindTables = new Set<string>();
   for (const check of checks) {
     if (admitsTenantScopeKind(check.definition) && tables.get(check.table)?.columns.includes('scope_kind')) scopeKindTables.add(check.table);
   }
-  for (const name of scopeKindTables) detected.add(name);
+  for (const name of scopeKindTables) {
+    detected.add(name);
+    tables.get(name)!.tenant_evidence.scope_kind_columns.push('scope_kind');
+  }
 
   const purposes = new Set<string>();
   for (const check of checks) {
     if (check.name !== 'asset_scope_purpose') continue;
     for (const purpose of tenantPurposesFromConstraint(check.definition)) purposes.add(purpose);
   }
-  if (purposes.size > 0 && tables.has('asset_objects')) detected.add('asset_objects');
+  if (purposes.size > 0 && tables.has('asset_objects')) {
+    detected.add('asset_objects');
+    tables.get('asset_objects')!.tenant_evidence.asset_purposes.push(...[...purposes].sort());
+  }
 
   let grew = true;
   while (grew) {
@@ -388,6 +442,7 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
     tables: [...tables.values()].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0),
     detected: [...detected].sort(),
     asset_purposes: [...purposes].sort(),
+    foreign_keys: foreignKeys,
   };
 }
 

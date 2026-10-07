@@ -7,7 +7,7 @@ import { migrate } from '../../scripts/database.js';
 import { TENANT_DATA_CATALOG } from '../../modules/module-data/catalog.js';
 import {
   admitsTenantScopeKind, checkTenantCatalog, introspectTenantSchema, tenantIsolationImportFindings, tenantPurposesFromConstraint,
-  type TenantDataCatalog, type TenantSchemaSnapshot,
+  type CatalogFinding, type TableLocation, type TenantDataCatalog, type TenantSchemaSnapshot,
 } from '../../modules/module-data/catalog-check.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -190,15 +190,166 @@ test('T-021 catalog checker rejects unregistered columns, tables, policy drift, 
     assert.deepEqual(checkTenantCatalog(await liveSnapshot(q), forever), [{ code: 'retention_unbounded', subject: 'DC-14' }]);
     const snapshot = await liveSnapshot(q);
     const missing: TenantSchemaSnapshot = {
-      schema: snapshot.schema,
+      ...snapshot,
       tables: snapshot.tables.filter(table => table.name !== 'agent_connections'),
       detected: snapshot.detected.filter(name => name !== 'agent_connections'),
       asset_purposes: snapshot.asset_purposes,
     };
-    assert.deepEqual(checkTenantCatalog(missing, TENANT_DATA_CATALOG), [{ code: 'stale_location', subject: 'agent_connections' }]);
+    assert.deepEqual(checkTenantCatalog(missing, TENANT_DATA_CATALOG), [
+      { code: 'stale_location', subject: 'agent_connections' },
+      ...[
+        'bootstrap_refresh_families', 'bootstrap_refresh_generations', 'bootstrap_session_proofs',
+        'broker_credential_vault', 'broker_model_credentials', 'execution_machine_challenges',
+        'execution_machine_proofs', 'model_connections',
+      ].map(subject => ({ code: 'tenant_resolution_mismatch', subject })),
+    ]);
   } finally {
     q.release();
   }
+});
+
+function catalogWith(...locations: TableLocation[]): TenantDataCatalog {
+  return {
+    ...TENANT_DATA_CATALOG,
+    datasets: TENANT_DATA_CATALOG.datasets.map(dataset => dataset.dataset_key === 'DC-04'
+      ? { ...dataset, physical_locations: [...dataset.physical_locations, ...locations] }
+      : dataset),
+  };
+}
+
+async function resolutionShadow(q: PoolClient, direct = false): Promise<TenantDataCatalog> {
+  await q.query(direct
+    ? 'CREATE TABLE resolution_shadow (shadow_id uuid PRIMARY KEY, tenant_id uuid)'
+    : 'CREATE TABLE resolution_shadow (shadow_id uuid PRIMARY KEY, parent_id uuid REFERENCES workspaces(workspace_id))');
+  await q.query('ALTER TABLE resolution_shadow ENABLE ROW LEVEL SECURITY');
+  await q.query('CREATE POLICY resolution_shadow_tenant ON resolution_shadow USING (true) WITH CHECK (true)');
+  return catalogWith({
+    kind: 'table', table: 'resolution_shadow', columns: ['shadow_id', direct ? 'tenant_id' : 'parent_id'],
+    tenant_resolution: direct ? { kind: 'direct', column: 'tenant_id' } : { kind: 'fk_chain', via: ['workspaces'] },
+    isolation: { rls: 'enabled', policies: ['resolution_shadow_tenant'] },
+  });
+}
+
+test('T-021 catalogued FK resolutions reject a dropped or repointed tenant edge', async () => {
+  for (const repoint of [false, true]) {
+    assert.deepEqual(await rolled(async q => {
+      const catalog = await resolutionShadow(q);
+      const before = await liveSnapshot(q);
+      assert.deepEqual(checkTenantCatalog(before, catalog), []);
+      assert.ok(before.foreign_keys.some(edge => edge.table === 'resolution_shadow' && edge.referenced === 'workspaces'));
+      await q.query('ALTER TABLE resolution_shadow DROP CONSTRAINT resolution_shadow_parent_id_fkey');
+      if (repoint) await q.query('ALTER TABLE resolution_shadow ADD FOREIGN KEY (parent_id) REFERENCES communities(community_id)');
+      const after = await liveSnapshot(q);
+      assert.equal(after.detected.includes('resolution_shadow'), false);
+      return checkTenantCatalog(after, catalog);
+    }), [{ code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' }]);
+  }
+});
+
+test('T-021 catalogued tables retain column and isolation checks with or without a tenant FK', async () => {
+  const changes: Array<{ sql: string; finding: CatalogFinding }> = [
+    { sql: 'ALTER TABLE resolution_shadow ADD COLUMN crm_note text', finding: { code: 'unregistered_column', subject: 'resolution_shadow.crm_note' } },
+    { sql: 'ALTER TABLE resolution_shadow DROP COLUMN parent_id', finding: { code: 'stale_column', subject: 'resolution_shadow.parent_id' } },
+    { sql: 'ALTER TABLE resolution_shadow DISABLE ROW LEVEL SECURITY', finding: { code: 'rls_mismatch', subject: 'resolution_shadow' } },
+    { sql: 'DROP POLICY resolution_shadow_tenant ON resolution_shadow', finding: { code: 'policy_mismatch', subject: 'resolution_shadow' } },
+    { sql: 'ALTER TABLE resolution_shadow FORCE ROW LEVEL SECURITY', finding: { code: 'force_rls_set', subject: 'resolution_shadow' } },
+  ];
+  for (const detach of [false, true]) {
+    for (const change of changes) {
+      const findings = await rolled(async q => {
+        const catalog = await resolutionShadow(q);
+        if (detach) await q.query('ALTER TABLE resolution_shadow DROP CONSTRAINT resolution_shadow_parent_id_fkey');
+        await q.query(change.sql);
+        return checkTenantCatalog(await liveSnapshot(q), catalog);
+      });
+      const losesResolution = detach || change.finding.code === 'stale_column';
+      assert.deepEqual(findings, [...(losesResolution ? [{ code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' }] : []), change.finding]
+        .sort((left, right) => left.code.localeCompare(right.code)), `${detach}: ${change.sql}`);
+    }
+  }
+});
+
+test('T-021 direct resolution requires a live recognised tenant column', async () => {
+  assert.deepEqual(await rolled(async q => {
+    const catalog = await resolutionShadow(q, true);
+    const before = await liveSnapshot(q);
+    assert.deepEqual(before.tables.find(table => table.name === 'resolution_shadow')?.tenant_evidence.direct_columns, ['tenant_id']);
+    assert.deepEqual(checkTenantCatalog(before, catalog), []);
+    await q.query('ALTER TABLE resolution_shadow DROP COLUMN tenant_id');
+    assert.equal((await liveSnapshot(q)).detected.includes('resolution_shadow'), false);
+    return checkTenantCatalog(await liveSnapshot(q), catalog);
+  }), [
+    { code: 'stale_column', subject: 'resolution_shadow.tenant_id' },
+    { code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' },
+  ]);
+  assert.deepEqual(await rolled(async q => {
+    const catalog = await resolutionShadow(q);
+    const invalid: TenantDataCatalog = {
+      ...catalog,
+      datasets: catalog.datasets.map(dataset => ({ ...dataset, physical_locations: dataset.physical_locations.map(location =>
+        location.kind === 'table' && location.table === 'resolution_shadow'
+          ? { ...location, tenant_resolution: { kind: 'direct' as const, column: 'parent_id' } } : location) })),
+    };
+    return checkTenantCatalog(await liveSnapshot(q), invalid);
+  }), [{ code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' }]);
+});
+
+test('T-021 FK chains verify every hop and require independent tenant evidence at the endpoint', async () => {
+  assert.deepEqual(await rolled(async q => {
+    await q.query('CREATE TABLE resolution_mid (id uuid PRIMARY KEY, workspace_ref uuid REFERENCES workspaces(workspace_id))');
+    const catalog = await resolutionShadow(q);
+    await q.query('ALTER TABLE resolution_shadow DROP CONSTRAINT resolution_shadow_parent_id_fkey');
+    await q.query('ALTER TABLE resolution_shadow ADD FOREIGN KEY (parent_id) REFERENCES resolution_mid(id)');
+    const mid: TableLocation = {
+      kind: 'table', table: 'resolution_mid', columns: ['id', 'workspace_ref'],
+      tenant_resolution: { kind: 'fk_chain', via: ['workspaces'] },
+      isolation: { rls: 'exempt', reason_code: 'synthetic', reason: 'Disposable resolution metadata fixture.' },
+    };
+    const shadow = catalog.datasets.flatMap(dataset => dataset.physical_locations).find(location => location.kind === 'table' && location.table === 'resolution_shadow') as TableLocation;
+    const snapshot = await liveSnapshot(q);
+    assert.deepEqual(checkTenantCatalog(snapshot, catalogWith(mid, { ...shadow, tenant_resolution: { kind: 'fk_chain', via: ['resolution_mid', 'workspaces'] } })), []);
+    const truncated = catalogWith(mid, { ...shadow, tenant_resolution: { kind: 'fk_chain', via: ['resolution_mid'] } });
+    assert.deepEqual(checkTenantCatalog(snapshot, truncated), [{ code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' }]);
+    await q.query('ALTER TABLE resolution_mid DROP CONSTRAINT resolution_mid_workspace_ref_fkey');
+    return checkTenantCatalog(await liveSnapshot(q), catalogWith(mid, { ...shadow, tenant_resolution: { kind: 'fk_chain', via: ['resolution_mid', 'workspaces'] } }));
+  }), [
+    { code: 'tenant_resolution_mismatch', subject: 'resolution_mid' },
+    { code: 'tenant_resolution_mismatch', subject: 'resolution_shadow' },
+  ]);
+});
+
+test('T-021 scope resolution requires both columns and a live CHECK admitting tenant', async () => {
+  for (const change of [
+    'ALTER TABLE scope_shadow DROP COLUMN scope_id',
+    'ALTER TABLE scope_shadow DROP CONSTRAINT scope_shadow_scope_kind_check',
+    "ALTER TABLE scope_shadow DROP CONSTRAINT scope_shadow_scope_kind_check, ADD CHECK (scope_kind <> 'tenant')",
+  ]) {
+    await rolled(async q => {
+      await q.query("CREATE TABLE scope_shadow (scope_kind text CHECK (scope_kind IN ('personal','tenant')), scope_id uuid)");
+      const catalog = catalogWith({ kind: 'table', table: 'scope_shadow', columns: ['scope_kind', 'scope_id'],
+        tenant_resolution: { kind: 'scope', scope_kind_column: 'scope_kind', scope_id_column: 'scope_id' },
+        isolation: { rls: 'exempt', reason_code: 'synthetic', reason: 'Disposable resolution metadata fixture.' } });
+      assert.deepEqual(checkTenantCatalog(await liveSnapshot(q), catalog), []);
+      await q.query(change);
+      assert.deepEqual(checkTenantCatalog(await liveSnapshot(q), catalog), [
+        ...(change.endsWith('scope_id') ? [{ code: 'stale_column', subject: 'scope_shadow.scope_id' }] : []),
+        { code: 'tenant_resolution_mismatch', subject: 'scope_shadow' },
+      ]);
+    });
+  }
+});
+
+test('T-021 asset-purpose resolution requires every declared live tenant purpose', async () => {
+  await rolled(async q => {
+    const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='assets'::regclass AND conname='asset_scope_purpose'`)).rows[0].definition;
+    const changed = definition.replace("scope_kind = 'tenant'::text", "scope_kind <> 'tenant'::text");
+    assert.notEqual(changed, definition);
+    await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
+    await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${changed}`);
+    const snapshot = await liveSnapshot(q);
+    assert.deepEqual(snapshot.asset_purposes, []);
+    assert.ok(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG).some(finding => finding.code === 'tenant_resolution_mismatch' && finding.subject === 'asset_objects'));
+  });
 });
 
 test('T-021 tenant modules do not import the legacy transaction helper or call pool.query', async () => {
