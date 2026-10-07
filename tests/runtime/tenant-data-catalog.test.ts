@@ -97,6 +97,37 @@ test('T-021 CHECK parser excludes negative tenant branches and fails closed on u
   assert.equal(admitsTenantScopeKind("CHECK ((scope_kind = 'personal'::text))"), false);
 });
 
+test('T-021 CHECK parser evaluates tenant scope without a tenant literal', () => {
+  for (const [definition, admits] of [
+    ["CHECK ((scope_kind <> 'personal'::text))", true],
+    ["CHECK ((scope_kind <> ALL (ARRAY['personal'::text, 'community'::text])))", true],
+    ["CHECK (scope_kind NOT IN ('personal'))", true],
+    ["CHECK ((scope_kind = ANY (ARRAY['personal'::text, 'community'::text])))", false],
+    ["CHECK ((scope_kind = 'personal'::text))", false],
+    ["CHECK ((purpose = 'tenant.crm-note'::text))", false],
+  ] as const) {
+    assert.equal(admitsTenantScopeKind(definition), admits, definition);
+    assert.deepEqual(tenantPurposesFromConstraint(`${definition.slice(0, -1)} AND purpose = 'tenant.crm-note')`),
+      admits ? ['tenant.crm-note'] : [], definition);
+  }
+});
+
+test('T-021 purpose checks without a tenant literal exclude personal and community branches', () => {
+  assert.deepEqual(tenantPurposesFromConstraint("CHECK ((((scope_kind <> ALL (ARRAY['personal'::text, 'community'::text])) AND (purpose = ANY (ARRAY['work.tenant-result'::text, 'tenant.crm-note'::text]))) OR ((scope_kind = 'personal'::text) AND (purpose = 'member.avatar'::text)) OR ((scope_kind = 'community'::text) AND (purpose = 'community.event-poster'::text))))"),
+    ['tenant.crm-note', 'work.tenant-result']);
+});
+
+test('T-021 PostgreSQL scope checks without a tenant literal expose an unregistered tenant table', async () => {
+  assert.deepEqual(await rolled(async q => {
+    await q.query("CREATE TABLE private_cache (cache_id uuid PRIMARY KEY, scope_kind text CHECK (scope_kind <> 'personal'))");
+    const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='private_cache'::regclass AND contype='c'`)).rows[0].definition;
+    assert.equal(definition, "CHECK ((scope_kind <> 'personal'::text))");
+    const snapshot = await liveSnapshot(q);
+    assert.ok(snapshot.detected.includes('private_cache'));
+    return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
+  }), [{ code: 'unregistered_table', subject: 'private_cache' }]);
+});
+
 test('T-021 PostgreSQL IN scope checks expose an unregistered tenant table', async () => {
   assert.deepEqual(await rolled(async q => {
     await q.query("CREATE TABLE private_cache (cache_id uuid PRIMARY KEY, scope_kind text CHECK (scope_kind IN ('personal', 'tenant')))");

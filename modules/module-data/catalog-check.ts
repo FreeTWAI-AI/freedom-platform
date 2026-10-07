@@ -241,13 +241,13 @@ export function tenantPurposesFromConstraint(definition: string): string[] {
     }
   }
   visit(expression);
-  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"') || !tokens.includes("'tenant'")) return [];
+  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"')) return [];
   return [...candidates].filter(purpose => mayAllow(expression, { scope_kind: 'tenant', purpose })).sort();
 }
 
 export function admitsTenantScopeKind(definition: string): boolean {
   const tokens = tokensOf(definition);
-  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"') || !tokens.includes("'tenant'")) return false;
+  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"')) return false;
   return mayAllow(parseCheck(tokens), { scope_kind: 'tenant' });
 }
 
