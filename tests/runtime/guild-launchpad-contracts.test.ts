@@ -527,7 +527,7 @@ function launchpadDocument(max: boolean) {
   return {
     tenant_id: id, workspace_id: id, source_version: max ? MAX_VERSION : '1',
     instances: max ? [instanceDocument(true)] : [], work_page: paged(workDocument(max), max),
-    capacity_summary: capacityDocument(max), connection_summary: max ? [{ instance_id: id, status: 'hosted_active' }] : [],
+    capacity_summary: capacityDocument(max), workspace_binding: max ? { instance_id: id, instance_status: 'active', writable: true } : null, connection_summary: max ? [{ instance_id: id, status: 'hosted_active' }] : [],
   };
 }
 

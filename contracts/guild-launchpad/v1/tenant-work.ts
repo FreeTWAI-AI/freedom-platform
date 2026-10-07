@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { GuildKey, NonNegativeDecimal, OpaqueId, Version, page } from './primitives.js';
+import { InstanceStatusSchema } from './module-registry.js';
 import { IsoTimeSchema } from './tenant.js';
 
 export const ProgressSchema = z.enum(['todo', 'in_progress', 'done']);
@@ -138,6 +139,11 @@ export const LaunchpadContextSchema = z.object({
   instances: z.array(ModuleInstanceViewSchema).max(100),
   work_page: WorkPageSchema,
   capacity_summary: CapacitySummarySchema,
+  workspace_binding: z.object({
+    instance_id: OpaqueId,
+    instance_status: InstanceStatusSchema,
+    writable: z.boolean(),
+  }).strict().nullable(),
   connection_summary: z.array(z.object({
     instance_id: OpaqueId,
     status: z.literal('hosted_active'),
@@ -177,3 +183,5 @@ export type ResultView = z.infer<typeof ResultSchema>;
 export type ModuleInstanceView = z.infer<typeof ModuleInstanceViewSchema>;
 export type ManualWorkBinding = z.infer<typeof ManualWorkBindingSchema>;
 export type InstanceCandidate = z.infer<typeof InstanceCandidateSchema>;
+
+export type LaunchpadContext = z.infer<typeof LaunchpadContextSchema>;

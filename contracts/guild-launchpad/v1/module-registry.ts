@@ -96,6 +96,7 @@ export const InstanceDependencySchema = z.object({
 }).strict();
 export const InstanceImpactSchema = z.object({
   consumer_count: z.number().int().nonnegative(),
+  blocking_consumer_count: z.number().int().nonnegative(),
   consumers: z.array(z.object({
     caller_instance_id: OpaqueId,
     requirement_key: StableKey,
@@ -114,6 +115,9 @@ export const InstanceSuspensionSchema = z.discriminatedUnion('kind', [
   }).strict(),
 ]);
 export const InstanceArchiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('launch'), operation_id: OpaqueId, archived_at: IsoTimeSchema.nullable(), reason: ReasonSchema.nullable(),
+  }).strict(),
   z.object({
     kind: z.literal('member'), operation_id: OpaqueId, archived_at: IsoTimeSchema, reason: ReasonSchema,
   }).strict(),

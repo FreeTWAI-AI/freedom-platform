@@ -1163,6 +1163,44 @@
           ],
           "additionalProperties": false
         },
+        "workspace_binding": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "instance_id": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36,
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "instance_status": {
+                  "type": "string",
+                  "enum": [
+                    "requested",
+                    "provisioning",
+                    "active",
+                    "failed",
+                    "suspended",
+                    "archived"
+                  ]
+                },
+                "writable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "instance_id",
+                "instance_status",
+                "writable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "connection_summary": {
           "maxItems": 20,
           "type": "array",
@@ -1195,6 +1233,7 @@
         "instances",
         "work_page",
         "capacity_summary",
+        "workspace_binding",
         "connection_summary"
       ],
       "additionalProperties": false,

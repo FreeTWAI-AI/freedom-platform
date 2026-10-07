@@ -185,7 +185,7 @@ test('T-016 owner suspends and resumes with durable operations, exact facts, ver
   const heldDetail = await detail(ctx);
   assert.deepEqual(heldDetail.suspension, { kind: 'member', operation_id: accepted.data.operation_id,
     reason, suspended_at: operation.accepted_at.toISOString() });
-  assert.deepEqual(heldDetail.impact, { consumer_count: 0, consumers: [], workspace_count: 1, workspace_ids: [ctx.workspaceId] });
+  assert.deepEqual(heldDetail.impact, { consumer_count: 0, blocking_consumer_count: 0, consumers: [], workspace_count: 1, workspace_ids: [ctx.workspaceId] });
   assert.deepEqual((await get(`/tenants/${ctx.tenantId}/operations/${accepted.data.operation_id}`, ctx.owner)).data, accepted.data);
   await h.pool.query(`UPDATE tenant_capacity_policies SET revision=2 WHERE tenant_id IS NULL`);
   const continued = await resume(ctx);

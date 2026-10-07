@@ -6,7 +6,7 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
+import { isWorkInstanceWritable, requireTenantCapability, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
 import { readCapacityPolicy, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { scopedTenantCommand } from '../../packages/scoped-commands/index.js';
@@ -209,6 +209,10 @@ export async function launchpadContext(pool: Pool, actor: Actor, tenantId: strin
     const body = LaunchpadContextSchema.parse({
       tenant_id: tenantId, workspace_id: workspaceId, source_version: source, instances: views, work_page: workPage,
       capacity_summary,
+      workspace_binding: binding ? {
+        instance_id: binding.instance_id, instance_status: binding.instance_status,
+        writable: isWorkInstanceWritable(binding.instance_status, binding.deployment_state ?? undefined),
+      } : null,
       connection_summary: binding && hosted ? [{ instance_id: binding.instance_id, status: 'hosted_active' }] : [],
     });
     await assertCurrentSessionClock(q, actor);

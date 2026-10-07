@@ -7,8 +7,9 @@ import { setImmediate as nextTurn } from 'node:timers/promises';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { InstanceDetailSchema, RegistryOperationSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import { LaunchpadContextSchema, ManualWorkBindingSchema } from '../../contracts/guild-launchpad/v1/tenant-work.js';
-import { advanceOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
+import { launchApplication, advanceOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
 import { bindTenantContext } from '../../packages/resource-scopes/tenant-transaction.js';
+import { authenticate } from '../../modules/identity-membership/service.js';
 import { digestOf } from '../../modules/module-registry/canonical.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { DEMO_USERS } from '../../packages/testing/seed.js';
@@ -301,6 +302,7 @@ test('archived bound workspace still returns strict launchpad context and an ide
   const body = LaunchpadContextSchema.parse(context.data);
   assert.equal(body.instances.find(instance => instance.instance_id === ctx.instanceId)?.status, 'archived');
   assert.deepEqual(body.connection_summary, []);
+  assert.deepEqual(context.data.workspace_binding, { instance_id: ctx.instanceId, instance_status: 'archived', writable: false });
   const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild);
   assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
   const binding = ManualWorkBindingSchema.parse(enabled.data);
@@ -341,7 +343,7 @@ test('owner archives active manual work with exact operation, versions, retained
   const view = await detail(ctx);
   assert.deepEqual(view.archive, { kind: 'member', operation_id: accepted.data.operation_id, reason, archived_at: operation.accepted_at.toISOString() });
   assert.equal(view.suspension, null);
-  assert.deepEqual(view.impact, { consumer_count: 0, consumers: [], workspace_count: 1, workspace_ids: [ctx.workspaceId] });
+  assert.deepEqual(view.impact, { consumer_count: 0, blocking_consumer_count: 0, consumers: [], workspace_count: 1, workspace_ids: [ctx.workspaceId] });
   const recorded = await facts(ctx, 'module.instance.archive');
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0].aggregate_type, 'module_instance_status');
@@ -515,6 +517,7 @@ test('live consumers block provider archive; caller archive retains providers, l
   assert.equal((await installations(ctx.tenantId))[0].status, 'archived');
   const after = await snapshot(ctx);
   for (const table of ['application_module_links','module_dependencies','workspace_module_bindings']) assert.deepEqual(after[table], before[table]);
+  assert.equal((await detail(ctx)).impact.blocking_consumer_count, 0);
   assert.equal((await archive(ctx)).status, 200);
   assert.equal((await detail(ctx)).impact.consumers[0].status, 'archived');
 });
@@ -738,4 +741,166 @@ test('restricted runtime role archives and a max-1 pool alternating tenants expo
     await h.admin.query(`DROP OWNED BY ${role}`);
     await h.admin.query(`DROP ROLE ${role}`);
   }
+});
+
+
+test('workspace binding reports unbound, active, suspended and inactive current deployment independently of connections', async () => {
+  const ctx = await ready();
+  const read = async (workspace = ctx.workspaceId) => {
+    const reply = await get(`/tenants/${ctx.tenantId}/workspaces/${workspace}/launchpad-context?guild_key=${guild}`, ctx.owner);
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    return reply.data;
+  };
+  const unbound = await h.workspace(ctx.owner, ctx.tenantId, '未綁定工作區');
+  assert.equal((await read(unbound)).workspace_binding, null);
+  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'active', writable: true });
+  await h.pool.query(`UPDATE deployment_bindings SET state='suspended' WHERE instance_id=$1`, [ctx.instanceId]);
+  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'active', writable: false });
+  await h.pool.query(`UPDATE deployment_bindings SET state='active' WHERE instance_id=$1`, [ctx.instanceId]);
+  assert.equal((await suspend(ctx)).status, 200);
+  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'suspended', writable: false });
+  assert.deepEqual((await read()).connection_summary, []);
+});
+
+for (const refused of ['plan', 'launch'] as const) {
+test(`async relaunch ${refused} refuses conflicting entry before plan or launch writes, including a pre-archive plan`, async () => {
+  const owner = await h.signIn(DEMO_USERS[0].email);
+  await h.fullMember(owner.user.user_id, guild);
+  const made = await h.createTenant(owner, '重啟入口');
+  const body = h.planBody(guild, made.workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0');
+  const early = await h.plan(owner, made.tenantId, body);
+  const first = await h.plan(owner, made.tenantId, body);
+  assert.equal(early.status, 201); assert.equal(first.status, 201);
+  assert.equal((await h.launch(owner, made.tenantId, first)).status, 200);
+  const instanceId = (await h.pool.query(`SELECT instance_id FROM workspace_module_bindings WHERE tenant_id=$1 AND workspace_id=$2`, [made.tenantId, made.workspaceId])).rows[0].instance_id;
+  const ctx = { owner, ...made, instanceId };
+  assert.equal((await archive(ctx)).status, 200);
+  const before = await snapshot(ctx), plans = await h.count('module_launch_plans');
+  if (refused === 'plan') error(await h.plan(owner, made.tenantId, body), 409, 'workspace_binding_conflict');
+  assert.equal(await h.count('module_launch_plans'), plans);
+  assert.deepEqual(await snapshot(ctx), before);
+  if (refused === 'launch') error(await h.launch(owner, made.tenantId, early), 409, 'workspace_binding_conflict');
+  assert.deepEqual(await snapshot(ctx), before);
+  assert.equal(await h.count('module_launch_plan_consumptions', 'WHERE plan_id=$1', [early.data.plan_id]), 0);
+});
+
+}
+
+test('reusing the entry-bound instance itself succeeds without new capacity rows', async () => {
+  const ctx = await ready();
+  await h.pool.query(`UPDATE application_installations SET status='archived' WHERE tenant_id=$1`, [ctx.tenantId]);
+  const before = await capacity(ctx);
+  const plan = await h.plan(ctx.owner, ctx.tenantId, h.planBody(guild, ctx.workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+    dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: ctx.instanceId, expected_version: (await detail(ctx)).version }],
+  }));
+  assert.equal(plan.status, 201, JSON.stringify(plan.data));
+  assert.equal((await h.launch(ctx.owner, ctx.tenantId, plan)).status, 200);
+  const after = await capacity(ctx);
+  assert.equal(after.usage, before.usage);
+  assert.equal(after.reservations.filter((r: any) => r.dimension.startsWith('module_instances')).length,
+    before.reservations.filter((r: any) => r.dimension.startsWith('module_instances')).length);
+});
+
+async function duplicateDependencies(ctx: Awaited<ReturnType<typeof ready>>, count: number) {
+  await h.pool.query(`INSERT INTO module_dependencies(dependency_id,tenant_id,caller_instance_id,requirement_key,provider_instance_id,capability)
+    SELECT gen_random_uuid(),d.tenant_id,d.caller_instance_id,d.requirement_key,d.provider_instance_id,d.capability
+    FROM module_dependencies d CROSS JOIN generate_series(1,$2) WHERE d.tenant_id=$1 LIMIT $2`, [ctx.tenantId, count]);
+}
+
+test('impact counts only blocking consumers while retaining archived and failed references', async () => {
+  const ctx = await ready(true);
+  const caller = (await h.pool.query(`SELECT caller_instance_id FROM module_dependencies WHERE tenant_id=$1`, [ctx.tenantId])).rows[0].caller_instance_id;
+  for (const status of ['archived', 'failed']) {
+    await h.pool.query(`UPDATE module_instances SET status=$2 WHERE instance_id=$1`, [caller, status]);
+    const view = await detail(ctx);
+    assert.equal(view.impact.consumer_count, 1);
+    assert.equal(view.impact.blocking_consumer_count, 0);
+  }
+  assert.equal((await archive(ctx)).status, 200);
+});
+
+test('impact puts a live caller before more than fifty nonblocking dependency rows', async () => {
+  const ctx = await ready(true);
+  const live = (await h.pool.query(`SELECT caller_instance_id FROM module_dependencies WHERE tenant_id=$1`, [ctx.tenantId])).rows[0].caller_instance_id;
+  const oldCaller = '00000000-0000-4000-8000-000000000001', bindingId = randomUUID();
+  const q = await h.pool.connect();
+  try {
+    await q.query('BEGIN');
+    await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,module_release_ref,data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+      SELECT $2,tenant_id,module_key,application_release_ref,module_release_ref,data_schema_version,contract_ref,'archived',$3,created_by_principal_id,origin_guild_key
+      FROM module_instances WHERE instance_id=$1`, [live, oldCaller, bindingId]);
+    await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,contract_ref,state)
+      SELECT $2,tenant_id,$3,mode,environment,contract_ref,'retired' FROM deployment_bindings WHERE instance_id=$1`, [live, bindingId, oldCaller]);
+    await q.query(`INSERT INTO module_dependencies(dependency_id,tenant_id,caller_instance_id,requirement_key,provider_instance_id,capability)
+      SELECT gen_random_uuid(),d.tenant_id,$2,d.requirement_key,d.provider_instance_id,d.capability
+      FROM module_dependencies d CROSS JOIN generate_series(1,51) WHERE d.tenant_id=$1`, [ctx.tenantId, oldCaller]);
+    await q.query('COMMIT');
+  } finally { await q.query('ROLLBACK'); q.release(); }
+  const view = await detail(ctx);
+  assert.equal(view.impact.consumer_count, 52);
+  assert.equal(view.impact.blocking_consumer_count, 1);
+  assert.equal(view.impact.consumers.length, 50);
+  assert.equal(view.impact.consumers[0].caller_instance_id, live);
+  error(await archive(ctx), 409, 'instance_has_consumers');
+});
+
+test('instance detail bounds fifty-one dependencies deterministically instead of returning 500', async () => {
+  const ctx = await ready(true);
+  await duplicateDependencies(ctx, 50);
+  const caller = (await h.pool.query(`SELECT caller_instance_id FROM module_dependencies WHERE tenant_id=$1`, [ctx.tenantId])).rows[0].caller_instance_id;
+  const first = await detail({ ...ctx, instanceId: caller });
+  assert.equal(first.dependencies.length, 50);
+  assert.deepEqual((await detail({ ...ctx, instanceId: caller })).dependencies, first.dependencies);
+});
+
+for (const mode of ['cancel', 'compensation'] as const) {
+  test(`${mode}-archived instance identifies its launch operation`, async () => {
+    const owner = await h.signIn(DEMO_USERS[0].email);
+    await h.fullMember(owner.user.user_id, guild);
+    const made = await h.createTenant(owner, '啟用封存來源');
+    const plan = await h.plan(owner, made.tenantId, h.planBody(guild, made.workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+    let operationId: string;
+    if (mode === 'cancel') {
+      const actor = await authenticate(h.pool, owner.cookie.split('=')[1]);
+      const launched = await launchApplication(h.pool, actor, made.tenantId, {
+        plan_id: plan.data.plan_id, expected_plan_version: plan.data.version, configuration_digest: plan.data.configuration_digest,
+      }, randomUUID(), h.providers);
+      operationId = launched.operation_id;
+      const op = await get(`/tenants/${made.tenantId}/operations/${operationId}`, owner);
+      const cancelled = await post(`/tenants/${made.tenantId}/operations/${operationId}/cancel`, owner, { reason: 'member_cancelled' }, `"${op.data.version}"`);
+      assert.equal(cancelled.status, 200); assert.equal(cancelled.data.state, 'cancelled');
+    } else {
+      await setSyntheticFault(h.pool, 'synthetic-storefront', 'fail_known');
+      const launched = await h.launch(owner, made.tenantId, plan);
+      operationId = launched.data.operation_id;
+      assert.equal(launched.data.state, 'failed');
+    }
+    const archived = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND status='archived'`, [made.tenantId])).rows;
+    assert.equal(archived.length, 2);
+    for (const row of archived) {
+      const view = await detail({ owner, ...made, instanceId: row.instance_id });
+      assert.deepEqual(view.archive, { kind: 'launch', operation_id: operationId, archived_at: null, reason: null });
+    }
+  });
+}
+
+test('SQL archive with no cleanup operation remains a platform archive', async () => {
+  const ctx = await ready();
+  await h.pool.query(`UPDATE module_instances SET status='archived' WHERE instance_id=$1`, [ctx.instanceId]);
+  assert.deepEqual((await detail(ctx)).archive, { kind: 'platform', operation_id: null, archived_at: null, reason: null });
+});
+
+
+test('plan refuses a different reused entry instance in an archived bound workspace', async () => {
+  const ctx = await ready();
+  assert.equal((await archive(ctx)).status, 200);
+  const ws = await h.workspace(ctx.owner, ctx.tenantId, '其他綁定');
+  const enabled = await h.enable(ctx.owner, ctx.tenantId, ws, guild, { kind: 'create_new' });
+  assert.equal(enabled.status, 200);
+  const before = await snapshot(ctx), plans = await h.count('module_launch_plans');
+  error(await h.plan(ctx.owner, ctx.tenantId, h.planBody(guild, ctx.workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+    dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: enabled.data.instance_id, expected_version: enabled.data.version }],
+  })), 409, 'workspace_binding_conflict');
+  assert.equal(await h.count('module_launch_plans'), plans);
+  assert.deepEqual(await snapshot(ctx), before);
 });
