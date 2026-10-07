@@ -715,9 +715,9 @@ def test_every_invalid_sql_filename_is_reported(tmp_path, with_valid_file):
     assert any(str(error.value) in failure for failure in failures)
 
 
+# full is the original requirement set; its scope is rejected in test_full_scope_is_forbidden.
 @pytest.mark.parametrize("milestone,scope", [
-    ("M1", {}), ("M1", {"T-015": "Restricted operator variant"}),
-    ("full", {}), ("full", {"T-060": "Full case scope"})
+    ("M1", {}), ("M1", {"T-015": "Restricted operator variant"})
 ])
 def test_valid_milestone_scope(milestone, scope):
     progress = passed_progress()
@@ -751,3 +751,125 @@ def test_repository_candidates_remain_unselected_and_m1_variants_match_owner_dec
         "T-015 與 T-023 依 2026-10-07 owner 決定以 M1 變體驗收（見 scope）。"
     )
     assert vsp.progress_failures(PROGRESS, TRACE) == ([], {"M1": False, "full": False})
+
+
+def m1_variant_progress():
+    progress = passed_progress()
+    for case in progress["cases"]:
+        if case["id"] in ("T-015", "T-023"):
+            case.update(status="partial", evidence=[{
+                **passing_evidence(), "result": "partial",
+                "limits": "Only owner-approved M1 variant exercised; export/restore deferred"
+            }], variants={"M1": {"status": "passed", "evidence": [passing_evidence()]}})
+    return progress
+
+
+def test_m1_variants_pass_without_passing_the_original_full_cases():
+    progress = m1_variant_progress()
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": False})
+    assert all(case["status"] == "partial" for case in progress["cases"]
+               if case["id"] in ("T-015", "T-023"))
+
+
+def test_full_pass_covers_m1_without_variant_records():
+    progress = passed_progress()
+    assert all("variants" not in case for case in progress["cases"])
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+def test_variant_pass_at_another_sha_does_not_accept_m1_or_fall_back_to_case():
+    progress = passed_progress()
+    progress["cases"][14]["variants"] = {"M1": {
+        "status": "passed", "evidence": [{**passing_evidence(), "source_sha": "b" * 40}]
+    }}
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": False, "full": True})
+
+
+@pytest.mark.parametrize("mutation,error", [
+    ("local", "passed requires valid passing evidence from ci, staging or production"),
+    ("later_failed", "passed is contradicted by a later failed result"),
+    ("not_run", "not_run requires empty evidence"),
+    ("unknown_key", "unknown key unexpected_field"),
+    ("unknown_status", "unknown status accepted"),
+    ("missing_status", "unknown status None"),
+    ("missing_evidence", "evidence must be a list"),
+    ("bad_evidence", "source_sha must be 40 lowercase hex characters"),
+    ("not_object", "must be an object")
+])
+def test_invalid_variant_records_fail_with_case_and_variant_label(mutation, error):
+    progress = m1_variant_progress()
+    variants = progress["cases"][14]["variants"]
+    record = variants["M1"]
+    if mutation == "local":
+        record["evidence"][0]["environment"] = "local"
+    elif mutation == "later_failed":
+        record["evidence"].append({
+            **passing_evidence(), "result": "failed", "recorded_at": "2026-10-07T14:01:00Z"
+        })
+    elif mutation == "not_run":
+        record["status"] = "not_run"
+    elif mutation == "unknown_key":
+        record["unexpected_field"] = "fixture"
+    elif mutation == "unknown_status":
+        record["status"] = "accepted"
+    elif mutation == "missing_status":
+        del record["status"]
+    elif mutation == "missing_evidence":
+        del record["evidence"]
+    elif mutation == "bad_evidence":
+        record["evidence"][0]["source_sha"] = "invalid"
+    elif mutation == "not_object":
+        variants["M1"] = []
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("cases[14] (T-015) variants.M1:" in failure and error in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("index,key", [(0, "M1"), (14, "full"), (14, "unknown")])
+def test_variant_key_requires_milestone_scope_for_the_case(index, key):
+    progress = passed_progress()
+    case = progress["cases"][index]
+    case["variants"] = {key: {"status": "passed", "evidence": [passing_evidence()]}}
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"cases[{index}] ({case['id']}) variants.{key}: requires a scope entry" in failure
+               for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("variants", [None, [], "M1"])
+def test_variants_must_be_an_object(variants):
+    progress = passed_progress()
+    progress["cases"][14]["variants"] = variants
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("cases[14] (T-015): variants must be an object" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("scope", [{}, {"T-015": "Full case scope"}, {"T-060": "Full case scope"}])
+def test_full_scope_is_forbidden(scope):
+    progress = passed_progress()
+    progress["milestones"]["full"]["scope"] = scope
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("full.scope is not allowed" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("status", ["not_run", "partial", "failed", "blocked"])
+def test_nonpassing_variant_contradicts_full_case_pass(status):
+    progress = passed_progress()
+    progress["cases"][14]["variants"] = {"M1": {"status": status, "evidence": []}}
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"variants.M1 status {status} contradicts case status passed" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+def test_status_source_counts_variant_status_only_for_m1():
+    progress = copy.deepcopy(PROGRESS)
+    for case in progress["cases"]:
+        if case["id"] in ("T-015", "T-023"):
+            case["variants"] = {"M1": {"status": "passed", "evidence": [passing_evidence()]}}
+    values, sources, failures = vsp.status_values(STATE, TRACE, progress, vsp.MIGRATIONS)
+    assert failures == []
+    assert sources["accepted_m1"] == "acceptance-progress.json (2 of 28 M1 cases passed)"
+    assert sources["accepted_full"] == "acceptance-progress.json (0 of 60 full cases passed)"
+    assert values["accepted_m1"] == values["accepted_full"] == "false"

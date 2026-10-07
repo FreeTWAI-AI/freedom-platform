@@ -13724,8 +13724,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 10925,
-      "sha256": "0ea9d33b3593be7a1308c94a9df01247be7360a11b830ae6e54a3ecec5b461a0"
+      "bytes": 11118,
+      "sha256": "62da187746f1265a3e0ebad49c2acf9d3f784636d78521e07c1f1339b1551a59"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -13834,8 +13834,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py",
-      "bytes": 25527,
-      "sha256": "f91c13f906194e99966207cd1448b3660b9c4d521b13fecf0c293f133f1d1ccc"
+      "bytes": 27795,
+      "sha256": "80375e1d83cc40092e8b9da95fdf83960aa43b1a151da6cdd7e00c913347d2a7"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/verification.md",
@@ -13994,8 +13994,8 @@
     },
     {
       "path": "docs/platform-plan/execution/tools/tests/test_guild_launchpad_status.py",
-      "bytes": 34967,
-      "sha256": "3266c8331c3d8ca24407be157f3153dfd69a26370966a54d361fc99d84a1e5af"
+      "bytes": 40682,
+      "sha256": "9a784e44366d76380243ffc0f71bed2e20317f2af3ef652153c5db5e9cf0b2ec"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
