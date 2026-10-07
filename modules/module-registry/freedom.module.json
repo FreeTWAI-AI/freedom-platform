@@ -8,7 +8,9 @@
     "migrations/123_tenant_manual_work.sql",
     "tests/runtime/tenant-work.test.ts",
     "tests/runtime/tenant-work-schema.test.ts",
-    "tests/runtime/tenant-work-authority-races.test.ts"
+    "tests/runtime/tenant-work-authority-races.test.ts",
+    "scripts/tenant-policy.ts",
+    "tests/runtime/tenant-policy-operator.test.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts"

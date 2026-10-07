@@ -12828,6 +12828,11 @@
       "sha256": "14cb5c15b7f148e153d7fd9b397308112389430c3c182f47ce0e103f21f4f82d"
     },
     {
+      "path": "docs/development/tenant-capacity-policy.md",
+      "bytes": 4324,
+      "sha256": "aeeb4b5cbef48f03a1e70adb86787165c20ad329e86f61bf3299a2f765e5dc9c"
+    },
+    {
       "path": "docs/development/worker-private-ai-bindings.md",
       "bytes": 22399,
       "sha256": "47eb1103668fd27d6f32e165378cff1d996e1fda075585856e47bd19dbaaedba"
@@ -16174,8 +16179,8 @@
     },
     {
       "path": "modules/module-registry/freedom.module.json",
-      "bytes": 1201,
-      "sha256": "548d84a1bcb8c3c657529eec99bce9023a582d85da3de0b4e7fd59e916286edc"
+      "bytes": 1285,
+      "sha256": "dadef30ed18826d5a953d20d7b33f3626430e96c13400ab355a82ba2ea42095c"
     },
     {
       "path": "modules/module-registry/problems.ts",
@@ -16839,8 +16844,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6211,
-      "sha256": "35c3d845917a25307b03586d83b2343b8ad7764311a817b8d3ab8260c8fe4e9e"
+      "bytes": 6234,
+      "sha256": "40a5c1c4f55c642ef402e8f3dd7057d95289517d2bf5d5593cb8ed454b60b8b9"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -17916,6 +17921,11 @@
       "path": "scripts/sync-admin-access.ts",
       "bytes": 1102,
       "sha256": "0d1c589f5849e1ab03befa6f0b53af8a0c395b3880a4cad25ee26b6f2f2f80a3"
+    },
+    {
+      "path": "scripts/tenant-policy.ts",
+      "bytes": 11853,
+      "sha256": "f9a3dcb09c2410818b6d87bb8e69f1a356b565d3ac7a016adff8e4af49d1bb7a"
     },
     {
       "path": "scripts/update-inventory.py",
@@ -19851,6 +19861,11 @@
       "path": "tests/runtime/tenant-ownership.test.ts",
       "bytes": 30588,
       "sha256": "094ea7a6c2d37be09e142b9e6866e2ac91a9072d53f5d2d9626142cb49b744b2"
+    },
+    {
+      "path": "tests/runtime/tenant-policy-operator.test.ts",
+      "bytes": 19927,
+      "sha256": "9dc0ccacdc11bf39c13da323010d9f5ae2b138c6d3f83354969bb7110494d9b2"
     },
     {
       "path": "tests/runtime/tenant-read-deadline.test.ts",
