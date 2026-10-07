@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { hasLoneSurrogate, type Config } from '../../../../contracts/guild-launchpad/v1/config';
 import type { TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
+import type { WorkspaceModuleBindingView } from '../../../../contracts/guild-launchpad/v1/module-registry';
 import type { LaunchpadContext, Operation, ResultView, UploadView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
 import { ApiError, type InstanceSelectionCandidate, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
@@ -149,7 +150,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [heldVersion, setHeldVersion] = useState('');
   const [results, setResults] = useState<ResultView[]>([]);
   const [resultsCursor, setResultsCursor] = useState<string | null>(null);
-  const [workspaceBinding, setWorkspaceBinding] = useState<LaunchpadContext['workspace_binding']>(null);
+  const [workspaceBinding, setWorkspaceBinding] = useState<WorkspaceModuleBindingView['binding']>(null);
   const bound = workspaceBinding !== null;
   const writable = workspaceBinding?.writable === true;
   const [policyOff, setPolicyOff] = useState(false);
@@ -312,11 +313,15 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function loadContext(nextTenantId: string, nextWorkspaceId: string, call: Call) {
     try {
-      const context = await client.get<LaunchpadContext>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/launchpad-context?guild_key=${encodeURIComponent(guildKey)}`, { signal: call.signal });
-      if (!call.live() || context.tenant_id !== nextTenantId || context.workspace_id !== nextWorkspaceId) return;
+      const [context, bindingView] = await Promise.all([
+        client.get<LaunchpadContext>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/launchpad-context?guild_key=${encodeURIComponent(guildKey)}`, { signal: call.signal }),
+        client.get<WorkspaceModuleBindingView>(`/tenants/${nextTenantId}/workspaces/${nextWorkspaceId}/module-binding`, { signal: call.signal }),
+      ]);
+      if (!call.live() || context.tenant_id !== nextTenantId || context.workspace_id !== nextWorkspaceId
+        || bindingView.tenant_id !== nextTenantId || bindingView.workspace_id !== nextWorkspaceId) return;
       setWorks(context.work_page.items);
       setWorksCursor(context.work_page.next_cursor);
-      setWorkspaceBinding(context.workspace_binding);
+      setWorkspaceBinding(bindingView.binding);
       setPolicyOff(context.capacity_summary.policy_revision === null);
       setCapabilityDenied(false); setUpgrade(false);
       if (context.capacity_summary.policy_revision === null) setBanner(POLICY);
