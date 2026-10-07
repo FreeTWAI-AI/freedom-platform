@@ -87,23 +87,22 @@ async function fetchChecked(fetcher: PreviewFetch, start: string, deadline: numb
     current = guard.url;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), remaining);
-    let response: Response;
     try {
-      response = await fetcher(current, { redirect: 'manual', signal: controller.signal, headers: { 'User-Agent': PREVIEW_USER_AGENT, Accept: accept } });
+      const response = await fetcher(current, { redirect: 'manual', signal: controller.signal, headers: { 'User-Agent': PREVIEW_USER_AGENT, Accept: accept } });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        await response.body?.cancel().catch(() => {});
+        if (hop === 3) return null;
+        const location = response.headers.get('location');
+        if (!location) return null;
+        try { current = new URL(location, current).href; } catch { return null; }
+        continue;
+      }
+      if (response.status !== 200) { await response.body?.cancel().catch(() => {}); return null; }
+      const body = await readBounded(response, max);
+      if (!body) return null;
+      return { url: current, type: (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), body };
     } catch { return null; }
-    finally { clearTimeout(timer); }
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      await response.body?.cancel().catch(() => {});
-      if (hop === 3) return null;
-      const location = response.headers.get('location');
-      if (!location) return null;
-      try { current = new URL(location, current).href; } catch { return null; }
-      continue;
-    }
-    if (response.status !== 200) { await response.body?.cancel().catch(() => {}); return null; }
-    const body = await readBounded(response, max);
-    if (!body) return null;
-    return { url: current, type: (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), body };
+    finally { clearTimeout(timer); controller.abort(); }
   }
   return null;
 }
