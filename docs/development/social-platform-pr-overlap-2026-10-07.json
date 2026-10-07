@@ -1,29 +1,12 @@
 {
   "method": "Full GitHub REST changed-file lists; fetched textual PR diffs hashed after LF normalization; overlapping PortalClient hunk inspected",
-  "source_base": "57b610abe0277e4b0fda711f45dd063540252ad0",
+  "source_base": "0fdda4a104fb3f36eda4dcf6ce60dbd547333082",
   "format": "freedom.social-pr-overlap-audit/v1",
   "repository": "FreeTWAI-AI/freedom-platform",
   "prs": [
     {
-      "number": 192,
-      "head": "de1053e7b4877a386900f86fabcc632542082c37",
-      "files": [
-        "docs/platform-plan/verification/2026-09-20-file-inventory.json",
-        "packages/contribution-tools/runtime-matrix.md",
-        "packages/contribution-tools/suite-runner.mjs",
-        "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37450880442.json",
-        "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
-        "packages/contribution-tools/test/runtime-sharding.test.mjs"
-      ],
-      "diff_sha256_lf": "c24c0d9b31455bc3fa6b1ee25f49ec36d6252a18e6c2aac7d9482443d2487fe9",
-      "title": "fix(ci): refresh runtime scheduling weights from hosted main run 37567098443",
-      "updated_at": "2026-10-07T04:40:29Z"
-    },
-    {
-      "updated_at": "2026-10-07T04:07:10Z",
-      "diff_sha256_lf": "ba454532103e42d1b0ae277d156de6543dc6a8add27e24712c7d6b72dc96ebaf",
-      "head": "acbc2c1c98113daf2f3d8303d2ec098c913ad76f",
       "number": 191,
+      "head": "acbc2c1c98113daf2f3d8303d2ec098c913ad76f",
       "files": [
         "docs/platform-plan/verification/2026-09-20-file-inventory.json",
         "tests/integration/media-backup-archive.test.ts",
@@ -40,10 +23,13 @@
         "tests/worker/social-thumbnail-assets.test.ts",
         "tests/worker/workerd.test.ts"
       ],
-      "title": "test: wait for SQL clients to close before forced database drops"
+      "diff_sha256_lf": "ba454532103e42d1b0ae277d156de6543dc6a8add27e24712c7d6b72dc96ebaf",
+      "title": "test: wait for SQL clients to close before forced database drops",
+      "updated_at": "2026-10-07T05:47:33Z"
     },
     {
-      "title": "P-C2-UI：公會啟動台的「我的工作」畫面（SP-03 畫面；Refs #153）",
+      "number": 190,
+      "head": "8367c1d62b9a7740c55e2ab0568addb23879d244",
       "files": [
         "apps/portal-web/src/api.ts",
         "apps/portal-web/src/modules/GuildLaunchpad.tsx",
@@ -53,13 +39,14 @@
         "apps/portal-web/src/modules/work-result-client.ts",
         "docs/platform-plan/verification/2026-09-20-file-inventory.json",
         "modules/guild-workspace/freedom.module.json",
+        "packages/contribution-tools/runtime-suites.mjs",
         "tests/e2e/guild-launchpad-my-work.spec.ts",
-        "tests/e2e/guild-launchpad.spec.ts"
+        "tests/e2e/guild-launchpad.spec.ts",
+        "tests/runtime/work-result-client.test.ts"
       ],
-      "diff_sha256_lf": "1fb0dbdd08edd175cdc3af7f5f82ca4a0267eb7f6c32cebf01187f455d2a58ed",
-      "head": "8c0a4b5b4070af363ffff0ec43ba8bd9b9bcf39b",
-      "updated_at": "2026-10-07T04:10:32Z",
-      "number": 190
+      "diff_sha256_lf": "f30e701a7b3c9d7e95738a92d23d4c2826a03325b6e990ad3b6d85f8d6661064",
+      "title": "P-C2-UI：公會啟動台的「我的工作」畫面（SP-03 畫面；Refs #153）",
+      "updated_at": "2026-10-07T06:00:06Z"
     },
     {
       "number": 189,
@@ -84,10 +71,11 @@
       ],
       "diff_sha256_lf": "48d3ffc08ef96feb9b03b5646e6da4d309e818e6704af1354a14e0450aac0cf9",
       "title": "fix(ci): run required node suites through the pinned runner",
-      "updated_at": "2026-10-07T04:19:05Z"
+      "updated_at": "2026-10-07T05:47:26Z"
     },
     {
-      "title": "feat(guild-launchpad): 啟動台契約家族的共用 primitives、JSON Schema 產生器與 parity 測試（P-K／SP-12）",
+      "number": 188,
+      "head": "74cc28b52e79559d6211f159a3a20c1ef4ae2658",
       "files": [
         "contracts/README.md",
         "contracts/guild-launchpad/README.md",
@@ -136,23 +124,23 @@
         "tests/runtime/guild-launchpad-contracts.test.ts"
       ],
       "diff_sha256_lf": "7c2812d2f9f09617cac069966867c7e4e3a4d27673bab22c66473fb4139ee154",
-      "head": "74cc28b52e79559d6211f159a3a20c1ef4ae2658",
-      "updated_at": "2026-10-07T03:29:11Z",
-      "number": 188
+      "title": "feat(guild-launchpad): 啟動台契約家族的共用 primitives、JSON Schema 產生器與 parity 測試（P-K／SP-12）",
+      "updated_at": "2026-10-07T03:29:11Z"
     },
     {
-      "title": "test(native): 消除有效租約 fixture 的 1 ms clock race",
+      "number": 187,
+      "head": "9b147f0214667d57c6f7c308a5cb2b9798a643ea",
       "files": [
         "docs/platform-plan/verification/2026-09-20-file-inventory.json",
         "tests/runtime/native-text-process.test.ts"
       ],
       "diff_sha256_lf": "aa0a0d289733dde86d0b27e1f15efe0c35990282e54999806a5a025f7f342ebf",
-      "head": "9b147f0214667d57c6f7c308a5cb2b9798a643ea",
-      "updated_at": "2026-10-07T02:50:34Z",
-      "number": 187
+      "title": "test(native): 消除有效租約 fixture 的 1 ms clock race",
+      "updated_at": "2026-10-07T02:50:34Z"
     },
     {
-      "title": "feat(guild-launchpad): 業務空間經營權移交、再驗證與受控復原（P-B2a／SP-02）",
+      "number": 175,
+      "head": "35b1c4838413dbb2582554812625916813611227",
       "files": [
         "apps/platform-api/src/routes/admin.ts",
         "apps/platform-api/src/routes/tenant-workspaces.ts",
@@ -186,23 +174,246 @@
         "tests/runtime/tenant-ownership-transfer.test.ts",
         "tests/runtime/tenant-recovery.test.ts"
       ],
-      "diff_sha256_lf": "6d706e3bd551f641b8e71e975ddffffdca425487d45371493bd44224c93eae8b",
-      "head": "0cfdc3b7d36bb6069eb1252db32798d59ad2d342",
-      "updated_at": "2026-10-07T03:53:53Z",
-      "number": 175
+      "diff_sha256_lf": "c38118ac6c327a0b4fdb4b6107dd70a4b72e34a971a1202ccfd65667a145de8d",
+      "title": "feat(guild-launchpad): 業務空間經營權移交、再驗證與受控復原（P-B2a／SP-02）",
+      "updated_at": "2026-10-07T05:47:09Z"
     },
     {
-      "title": "feat(community): 新增個人開源 ERP／CRM 產業範本試用入口",
+      "number": 105,
+      "head": "c1606a068c3c0b79e5a653f80f2169a214b92b74",
       "files": [
         "apps/portal-web/src/modules/Community.tsx",
         "docs/platform-plan/verification/2026-09-20-file-inventory.json",
         "tests/e2e/community-erp-demo.spec.ts"
       ],
       "diff_sha256_lf": "99463c348986e0f59b25870a381af5f078d373cc23ac0f88a6c4559d129976bf",
-      "head": "c1606a068c3c0b79e5a653f80f2169a214b92b74",
-      "updated_at": "2026-10-07T01:28:48Z",
-      "number": 105
+      "title": "feat(community): 新增個人開源 ERP／CRM 產業範本試用入口",
+      "updated_at": "2026-10-07T01:28:48Z"
     }
   ],
-  "observed_at": "2026-10-07T04:42:14.077963+00:00"
+  "observed_at": "2026-10-07T06:05:14Z",
+  "previous_observation": {
+    "source_base": "57b610abe0277e4b0fda711f45dd063540252ad0",
+    "observed_at": "2026-10-07T04:42:14.077963+00:00",
+    "prs": [
+      {
+        "number": 192,
+        "head": "de1053e7b4877a386900f86fabcc632542082c37",
+        "files": [
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "packages/contribution-tools/runtime-matrix.md",
+          "packages/contribution-tools/suite-runner.mjs",
+          "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37450880442.json",
+          "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
+          "packages/contribution-tools/test/runtime-sharding.test.mjs"
+        ],
+        "diff_sha256_lf": "c24c0d9b31455bc3fa6b1ee25f49ec36d6252a18e6c2aac7d9482443d2487fe9",
+        "title": "fix(ci): refresh runtime scheduling weights from hosted main run 37567098443",
+        "updated_at": "2026-10-07T04:40:29Z"
+      },
+      {
+        "updated_at": "2026-10-07T04:07:10Z",
+        "diff_sha256_lf": "ba454532103e42d1b0ae277d156de6543dc6a8add27e24712c7d6b72dc96ebaf",
+        "head": "acbc2c1c98113daf2f3d8303d2ec098c913ad76f",
+        "number": 191,
+        "files": [
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "tests/integration/media-backup-archive.test.ts",
+          "tests/integration/media-backup-restore.test.ts",
+          "tests/worker/avatar-assets.test.ts",
+          "tests/worker/event-banner-assets.test.ts",
+          "tests/worker/event-highlight-assets.test.ts",
+          "tests/worker/event-video-assets.test.ts",
+          "tests/worker/maintainer-scheduled.test.ts",
+          "tests/worker/media-accepted-formats.test.ts",
+          "tests/worker/private-ai-composition.test.ts",
+          "tests/worker/service-cover-assets.test.ts",
+          "tests/worker/skill-image-assets.test.ts",
+          "tests/worker/social-thumbnail-assets.test.ts",
+          "tests/worker/workerd.test.ts"
+        ],
+        "title": "test: wait for SQL clients to close before forced database drops"
+      },
+      {
+        "title": "P-C2-UI：公會啟動台的「我的工作」畫面（SP-03 畫面；Refs #153）",
+        "files": [
+          "apps/portal-web/src/api.ts",
+          "apps/portal-web/src/modules/GuildLaunchpad.tsx",
+          "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
+          "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+          "apps/portal-web/src/modules/PositioningPanels.tsx",
+          "apps/portal-web/src/modules/work-result-client.ts",
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "modules/guild-workspace/freedom.module.json",
+          "tests/e2e/guild-launchpad-my-work.spec.ts",
+          "tests/e2e/guild-launchpad.spec.ts"
+        ],
+        "diff_sha256_lf": "1fb0dbdd08edd175cdc3af7f5f82ca4a0267eb7f6c32cebf01187f455d2a58ed",
+        "head": "8c0a4b5b4070af363ffff0ec43ba8bd9b9bcf39b",
+        "updated_at": "2026-10-07T04:10:32Z",
+        "number": 190
+      },
+      {
+        "number": 189,
+        "head": "e67d231cd8065aa5df03082f10486c2f71096a65",
+        "files": [
+          ".github/workflows/verify.yml",
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "packages/contribution-tools/export.mjs",
+          "packages/contribution-tools/pinned-suites.mjs",
+          "packages/contribution-tools/suite-runner.mjs",
+          "packages/contribution-tools/test/pinned-suite.test.mjs",
+          "packages/db/freedom.module.json",
+          "scripts/ci/run-pinned-suite.mjs",
+          "scripts/ci/select-affected-jobs.mjs",
+          "scripts/ci/select-affected-jobs.test.mjs",
+          "tests/integration/migration-entrypoints-postgres.test.ts",
+          "tests/integration/migration-plan-postgres.test.ts",
+          "tests/integration/migration-postgres-fixture.ts",
+          "tests/worker/fetch-redirect.test.ts",
+          "tests/worker/maintainer-scheduled.test.ts",
+          "tests/worker/workerd.test.ts"
+        ],
+        "diff_sha256_lf": "48d3ffc08ef96feb9b03b5646e6da4d309e818e6704af1354a14e0450aac0cf9",
+        "title": "fix(ci): run required node suites through the pinned runner",
+        "updated_at": "2026-10-07T04:19:05Z"
+      },
+      {
+        "title": "feat(guild-launchpad): 啟動台契約家族的共用 primitives、JSON Schema 產生器與 parity 測試（P-K／SP-12）",
+        "files": [
+          "contracts/README.md",
+          "contracts/guild-launchpad/README.md",
+          "contracts/guild-launchpad/v1/classification-input.schema.json",
+          "contracts/guild-launchpad/v1/config.ts",
+          "contracts/guild-launchpad/v1/empty-command-input.schema.json",
+          "contracts/guild-launchpad/v1/guild-classification.schema.json",
+          "contracts/guild-launchpad/v1/guild-preferences.ts",
+          "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
+          "contracts/guild-launchpad/v1/invitation-page.schema.json",
+          "contracts/guild-launchpad/v1/invitation-revoke-input.schema.json",
+          "contracts/guild-launchpad/v1/invitation-view.schema.json",
+          "contracts/guild-launchpad/v1/invite-candidate.schema.json",
+          "contracts/guild-launchpad/v1/launchpad-config.schema.json",
+          "contracts/guild-launchpad/v1/leave-v2-input.schema.json",
+          "contracts/guild-launchpad/v1/member-change-input.schema.json",
+          "contracts/guild-launchpad/v1/member-page.schema.json",
+          "contracts/guild-launchpad/v1/member-view.schema.json",
+          "contracts/guild-launchpad/v1/preference-backfill-input.schema.json",
+          "contracts/guild-launchpad/v1/preference-backfill-report.schema.json",
+          "contracts/guild-launchpad/v1/preference-switch-input.schema.json",
+          "contracts/guild-launchpad/v1/preference-view.schema.json",
+          "contracts/guild-launchpad/v1/primitives.ts",
+          "contracts/guild-launchpad/v1/problem.schema.json",
+          "contracts/guild-launchpad/v1/set-preference-input.schema.json",
+          "contracts/guild-launchpad/v1/tenant-create-input.schema.json",
+          "contracts/guild-launchpad/v1/tenant-create-result.schema.json",
+          "contracts/guild-launchpad/v1/tenant-edit-input.schema.json",
+          "contracts/guild-launchpad/v1/tenant-invite-input.schema.json",
+          "contracts/guild-launchpad/v1/tenant-leave-result.schema.json",
+          "contracts/guild-launchpad/v1/tenant-page.schema.json",
+          "contracts/guild-launchpad/v1/tenant-view.schema.json",
+          "contracts/guild-launchpad/v1/tenant.ts",
+          "contracts/guild-launchpad/v1/validation-failed-problem.schema.json",
+          "contracts/guild-launchpad/v1/workspace-create-input.schema.json",
+          "contracts/guild-launchpad/v1/workspace-page.schema.json",
+          "contracts/guild-launchpad/v1/workspace-view.schema.json",
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "modules/guild-workspace/freedom.module.json",
+          "modules/guild-workspace/generate-contracts.ts",
+          "modules/positioning/freedom.module.json",
+          "modules/tenant-workspaces/freedom.module.json",
+          "package.json",
+          "packages/contribution-tools/runtime-suites.mjs",
+          "tests/runtime/guild-category-preferences.test.ts",
+          "tests/runtime/guild-launchpad-contracts.test.ts"
+        ],
+        "diff_sha256_lf": "7c2812d2f9f09617cac069966867c7e4e3a4d27673bab22c66473fb4139ee154",
+        "head": "74cc28b52e79559d6211f159a3a20c1ef4ae2658",
+        "updated_at": "2026-10-07T03:29:11Z",
+        "number": 188
+      },
+      {
+        "title": "test(native): 消除有效租約 fixture 的 1 ms clock race",
+        "files": [
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "tests/runtime/native-text-process.test.ts"
+        ],
+        "diff_sha256_lf": "aa0a0d289733dde86d0b27e1f15efe0c35990282e54999806a5a025f7f342ebf",
+        "head": "9b147f0214667d57c6f7c308a5cb2b9798a643ea",
+        "updated_at": "2026-10-07T02:50:34Z",
+        "number": 187
+      },
+      {
+        "title": "feat(guild-launchpad): 業務空間經營權移交、再驗證與受控復原（P-B2a／SP-02）",
+        "files": [
+          "apps/platform-api/src/routes/admin.ts",
+          "apps/platform-api/src/routes/tenant-workspaces.ts",
+          "apps/portal-web/src/modules/TenantSettings.tsx",
+          "apps/portal-web/src/modules/tenant-workspaces.css",
+          "contracts/guild-launchpad/v1/tenant.ts",
+          "deploy/cloudflare/environments.json",
+          "deploy/cloudflare/lib/release-compatibility.mjs",
+          "deploy/cloudflare/sql/20-runtime-grants.psql",
+          "deploy/cloudflare/test/migration-plan.test.mjs",
+          "deploy/cloudflare/test/release-compatibility.test.mjs",
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "migrations/124_tenant_ownership_recovery.sql",
+          "modules/development/pages.ts",
+          "modules/identity-membership/service.ts",
+          "modules/platform-admin/service.ts",
+          "modules/tenant-workspaces/README.md",
+          "modules/tenant-workspaces/facts.ts",
+          "modules/tenant-workspaces/freedom.module.json",
+          "modules/tenant-workspaces/high-risk-verification.ts",
+          "modules/tenant-workspaces/ownership.ts",
+          "modules/tenant-workspaces/policy.ts",
+          "modules/tenant-workspaces/recovery.ts",
+          "modules/tenant-workspaces/security-path.ts",
+          "modules/tenant-workspaces/service.ts",
+          "packages/contribution-tools/runtime-suites.mjs",
+          "scripts/e2e-server.ts",
+          "tests/e2e/tenant-ownership.spec.ts",
+          "tests/runtime/tenant-authority-policy-grants.test.ts",
+          "tests/runtime/tenant-high-risk-verification.test.ts",
+          "tests/runtime/tenant-ownership-transfer.test.ts",
+          "tests/runtime/tenant-recovery.test.ts"
+        ],
+        "diff_sha256_lf": "6d706e3bd551f641b8e71e975ddffffdca425487d45371493bd44224c93eae8b",
+        "head": "0cfdc3b7d36bb6069eb1252db32798d59ad2d342",
+        "updated_at": "2026-10-07T03:53:53Z",
+        "number": 175
+      },
+      {
+        "title": "feat(community): 新增個人開源 ERP／CRM 產業範本試用入口",
+        "files": [
+          "apps/portal-web/src/modules/Community.tsx",
+          "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "tests/e2e/community-erp-demo.spec.ts"
+        ],
+        "diff_sha256_lf": "99463c348986e0f59b25870a381af5f078d373cc23ac0f88a6c4559d129976bf",
+        "head": "c1606a068c3c0b79e5a653f80f2169a214b92b74",
+        "updated_at": "2026-10-07T01:28:48Z",
+        "number": 105
+      }
+    ]
+  },
+  "upstream_integrations": [
+    {
+      "number": 192,
+      "state": "MERGED",
+      "merge_commit": "0fdda4a104fb3f36eda4dcf6ce60dbd547333082",
+      "merged_at": "2026-10-07T05:45:37Z",
+      "scope": "runtime scheduling and cost fixture; no social feature reimplementation"
+    }
+  ],
+  "integration_notes": [
+    {
+      "number": 175,
+      "note": "Both PRs use migration 124; coordinate order and exact release catalog registration."
+    },
+    {
+      "number": 190,
+      "note": "Retain its PATCH and validated candidate DTO together with our DELETE and auth guards. Every new mutation method must invalidate opted-in reads before and after the write."
+    }
+  ]
 }

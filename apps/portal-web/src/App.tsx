@@ -1,42 +1,21 @@
 import { client, PortalContext, describeError, isOwnRef, type ActionError, type PortalContextValue } from './portal-session'
 import { ErrorPanel } from './portal-feedback'
-import { WorkbenchPanel } from './modules/WorkbenchPanel'
-import { ShowcasePanel } from './modules/ShowcasePanel'
-import { EngagementPanel } from './modules/EngagementPanel'
 import { Navigation, TAB_TITLES } from './Navigation'
-import { SkillsPanel } from './modules/SkillsPanel'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PageLoadBoundary } from './LazyPage'
+import { RequestFeedback } from './RequestFeedback'
 import { MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { ApiError } from './api'
-import { MemberHome } from './modules/MemberHome'
 import {EntryResources} from './modules/EntryResources'
 import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
-import {FriendsPanel} from './modules/FriendsPanel'
-import {PublicMemberPage} from './modules/PublicMemberPage'
-import { Onboarding, type OnboardingView } from './modules/Onboarding'
-import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
+import type { OnboardingView } from './modules/Onboarding'
+import type { MemberCardData } from './modules/Membership'
 import { MemberAvatar } from './modules/MemberAvatar'
-import { SquadsPanel } from './modules/Squads'
-import { CoCreationPanel } from './modules/CoCreationPanel'
-import { AdminPanel } from './modules/AdminPanel'
-import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { AuthorClaimProvider } from './modules/AuthorClaim'
 import { SettingsMenu } from './modules/SettingsMenu'
 import {NotificationBell,type BellAction} from './modules/NotificationBell'
-import { MemberTasks } from './modules/MemberTasks'
-import { MemberMessages } from './modules/MemberMessages'
-import { EventsPanel } from './modules/EventsPanel'
-import { SocialZone } from './modules/SocialZone'
 import './SocialLayout.css'
-import { MemberServices } from './modules/MemberServices'
-import { PromotionBoards } from './modules/PromotionBoards'
-import { EventHighlights } from './modules/EventHighlights'
-import {PublicEventPage} from './modules/PublicEventPage'
-import { TaskBoardPanel } from './modules/TaskBoardPanel'
-import { WelcomePreview } from './modules/WelcomePreview'
-import {MemberGuildWorkspace} from './modules/GuildWorkspace'
-import {TenantSettings} from './modules/TenantSettings'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -44,12 +23,42 @@ import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
-import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
-import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
-import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
-import { PrivateWorkAI } from './modules/PrivateWorkAI'
 import type { SessionPayload, TabId } from './types'
+
+const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
+const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
+const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m => ({default: m.EngagementPanel})))
+const SkillsPanel = lazy(() => import('./modules/SkillsPanel').then(m => ({default: m.SkillsPanel})))
+const MemberHome = lazy(() => import('./modules/MemberHome').then(m => ({default: m.MemberHome})))
+const FriendsPanel = lazy(() => import('./modules/FriendsPanel').then(m => ({default: m.FriendsPanel})))
+const PublicMemberPage = lazy(() => import('./modules/PublicMemberPage').then(m => ({default: m.PublicMemberPage})))
+const Onboarding = lazy(() => import('./modules/Onboarding').then(m => ({default: m.Onboarding})))
+const AccountPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.AccountPanel})))
+const MembersPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.MembersPanel})))
+const SquadsPanel = lazy(() => import('./modules/Squads').then(m => ({default: m.SquadsPanel})))
+const CoCreationPanel = lazy(() => import('./modules/CoCreationPanel').then(m => ({default: m.CoCreationPanel})))
+const AdminPanel = lazy(() => import('./modules/AdminPanel').then(m => ({default: m.AdminPanel})))
+const GitHubCallback = lazy(() => import('./modules/GitHubCallback').then(m => ({default: m.GitHubCallback})))
+const MemberTasks = lazy(() => import('./modules/MemberTasks').then(m => ({default: m.MemberTasks})))
+const MemberMessages = lazy(() => import('./modules/MemberMessages').then(m => ({default: m.MemberMessages})))
+const EventsPanel = lazy(() => import('./modules/EventsPanel').then(m => ({default: m.EventsPanel})))
+const SocialZone = lazy(() => import('./modules/SocialZone').then(m => ({default: m.SocialZone})))
+const MemberServices = lazy(() => import('./modules/MemberServices').then(m => ({default: m.MemberServices})))
+const PromotionBoards = lazy(() => import('./modules/PromotionBoards').then(m => ({default: m.PromotionBoards})))
+const EventHighlights = lazy(() => import('./modules/EventHighlights').then(m => ({default: m.EventHighlights})))
+const PublicEventPage = lazy(() => import('./modules/PublicEventPage').then(m => ({default: m.PublicEventPage})))
+const TaskBoardPanel = lazy(() => import('./modules/TaskBoardPanel').then(m => ({default: m.TaskBoardPanel})))
+const WelcomePreview = lazy(() => import('./modules/WelcomePreview').then(m => ({default: m.WelcomePreview})))
+const MemberGuildWorkspace = lazy(() => import('./modules/GuildWorkspace').then(m => ({default: m.MemberGuildWorkspace})))
+const TenantSettings = lazy(() => import('./modules/TenantSettings').then(m => ({default: m.TenantSettings})))
+const PositioningPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.PositioningPanel})))
+const GuildsPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.GuildsPanel})))
+const SupplierPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.SupplierPanel})))
+const RetailPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.RetailPanel})))
+const OpenSourcePanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.OpenSourcePanel})))
+const MarketingPanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.MarketingPanel})))
+const PrivateWorkAI = lazy(() => import('./modules/PrivateWorkAI').then(m => ({default: m.PrivateWorkAI})))
 
 const DEMO_ACCOUNTS = [
   { email: 'maker@local.test', label: '作者示範帳號' },
@@ -92,9 +101,10 @@ const TAB_GUIDANCE: Record<TabId, string> = {
 }
 
 export function App() {
-  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsolePopout client={client}/>
-  if(window.location.pathname==='/github/callback')return <GitHubCallback/>
-  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+  const page = new URLSearchParams(window.location.search).get('game-console')==='popout' ? <GameConsolePopout client={client}/>
+    : window.location.pathname==='/github/callback' ? <GitHubCallback/>
+    : window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+  return <><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></>
 }
 
 const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null
@@ -608,6 +618,7 @@ function Workspace({
                 onReload={() => window.location.reload()}
               />
             )}
+            <PageLoadBoundary label={tabTitle(tab)} resetKey={tab}>
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
             {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
@@ -636,6 +647,7 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
+            </PageLoadBoundary>
               </main>
             </div>
           </section>

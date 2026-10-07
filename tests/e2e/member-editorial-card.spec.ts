@@ -8,6 +8,11 @@ import {quickJoin} from './quick-join.js';
 const SHOTS=process.env.AUDIT_EVIDENCE_DIR??'test-results/member-editorial-card';
 mkdirSync(SHOTS,{recursive:true});
 async function decode(bytes:Buffer){const {data,info}=await sharp(bytes).ensureAlpha().raw().toBuffer({resolveWithObject:true});return jsQR(new Uint8ClampedArray(data),info.width,info.height)?.data;}
+async function scanQr(svg:Locator){
+  // The sticky community header can cover a code that a locator screenshot scrolls to the top.
+  await svg.evaluate(element=>element.scrollIntoView({block:'center'}));
+  return decode(await svg.screenshot());
+}
 async function shareUrl(settings:Locator){const link=settings.getByRole('link',{name:'開啟名片',exact:true});await expect(link).toHaveAttribute('href',/\/member-cards\//);return (await link.getAttribute('href'))!;}
 async function signup(page:Page){
   await page.goto('/');await page.getByRole('button',{name:'建立帳號',exact:true}).click();
@@ -34,14 +39,14 @@ test('real profile fills the template, opt-in QR and downloaded image follow rot
   await settings.getByLabel('連結名稱',{exact:true}).fill('探索我的作品');await settings.getByLabel('連結網址',{exact:true}).fill('https://example.com/portfolio');await settings.getByRole('button',{name:'加入連結',exact:true}).click();
   await settings.getByRole('button',{name:'建立分享連結',exact:true}).click();
   const first=await shareUrl(settings);await expect(preview.getByRole('img',{name:'這張名片的專屬 QR Code'})).toBeVisible();
-  expect(await decode(await preview.locator('.ecard-qr svg').screenshot())).toBe(first);
+  expect(await scanQr(preview.locator('.ecard-qr svg'))).toBe(first);
   const guestContext=await browser.newContext(),guest=await guestContext.newPage();
   try{
     await guest.goto(first);await expect(guest.locator('.ecard')).toHaveAttribute('data-design','editorial');await expect(guest.getByRole('img',{name:'Hao的頭像'})).toBeVisible();
     const publicData=await (await guest.request.get('/api/v1/public'+new URL(first).pathname)).json();
     for(const privateValue of [account.user_id,account.login_email,'不公開職業','私人答案','私人設備'])expect(JSON.stringify(publicData)).not.toContain(privateValue);
     await guest.setViewportSize({width:1280,height:980});await expect(guest.locator('.ecard-editorial .member-avatar')).toHaveCSS('width','120px');await expect(guest.locator('.ecard-editorial .member-avatar')).toHaveCSS('height','144px');await guest.screenshot({path:`${SHOTS}/public-desktop.png`,fullPage:true});await guest.locator('.ecard').screenshot({path:`${SHOTS}/template.png`});
-    for(const width of [390,320]){await guest.setViewportSize({width,height:920});const portrait=await guest.locator('.ecard-editorial .member-avatar').evaluate(element=>({width:parseFloat(getComputedStyle(element).width),height:parseFloat(getComputedStyle(element).height)}));expect(portrait.width).toBeCloseTo(76.8,1);expect(portrait.height).toBeCloseTo(97.6,1);expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await decode(await guest.locator('.ecard-qr svg').screenshot())).toBe(first);await guest.screenshot({path:`${SHOTS}/public-${width}.png`,fullPage:true});}
+    for(const width of [390,320]){await guest.setViewportSize({width,height:920});const portrait=await guest.locator('.ecard-editorial .member-avatar').evaluate(element=>({width:parseFloat(getComputedStyle(element).width),height:parseFloat(getComputedStyle(element).height)}));expect(portrait.width).toBeCloseTo(76.8,1);expect(portrait.height).toBeCloseTo(97.6,1);expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await scanQr(guest.locator('.ecard-qr svg'))).toBe(first);await guest.screenshot({path:`${SHOTS}/public-${width}.png`,fullPage:true});}
     const downloading=guest.waitForEvent('download');await guest.getByRole('button',{name:'下載名片 PNG',exact:true}).click();const downloaded=await downloading;
     expect(downloaded.suggestedFilename()).toBe('freedom-workshop-card.png');const image=readFileSync((await downloaded.path())!);expect(await decode(image)).toBe(first);
     await downloaded.saveAs(`${SHOTS}/downloaded-card.png`);
@@ -56,7 +61,7 @@ test('real profile fills the template, opt-in QR and downloaded image follow rot
     await expect(settings.locator('.ecard-save-status')).toContainText('已自動儲存，分享頁就是這個樣子。');await expect(preview.getByRole('button',{name:'下載名片 PNG',exact:true})).toBeEnabled();
     const oldImage=await guest.getByRole('img',{name:'Hao的頭像'}).getAttribute('src');
     await settings.getByRole('button',{name:'更新連結',exact:true}).click();await expect(settings.getByRole('link',{name:'開啟名片',exact:true})).not.toHaveAttribute('href',first);const second=await shareUrl(settings);
-    expect(await decode(await preview.locator('.ecard-qr svg').screenshot())).toBe(second);expect((await guest.request.get(oldImage!)).status()).toBe(404);
+    expect(await scanQr(preview.locator('.ecard-qr svg'))).toBe(second);expect((await guest.request.get(oldImage!)).status()).toBe(404);
     await guest.reload();await expect(guest.getByRole('heading',{name:'暫時無法開啟這張名片'})).toBeVisible();await expect(guest.locator('.ecard-qr')).toHaveCount(0);
     await guest.goto(second);await settings.getByRole('button',{name:'停用分享',exact:true}).click();await expect(preview.locator('.ecard-qr')).toHaveCount(0);await expect(preview.getByRole('button',{name:'下載名片 PNG',exact:true})).toHaveCount(0);
     await guest.reload();await expect(guest.getByRole('heading',{name:'暫時無法開啟這張名片'})).toBeVisible();
@@ -77,7 +82,7 @@ test('long names, absent avatar and empty optional fields fit mobile; profile ed
   const context=await browser.newContext(),guest=await context.newPage();try{
     for(const width of [1280,820,390,320]){
       await guest.setViewportSize({width,height:900});await guest.goto(url);await expect(guest.locator('.ecard-name')).toHaveText(longName);await expect(guest.locator('.editorial-empty')).toHaveText('專長探索中');await expect(guest.locator('.ecard-headline')).toHaveCount(0);await expect(guest.locator('.ecard-links')).toHaveCount(0);await expect(guest.locator('.member-avatar img')).toHaveCount(0);
-      expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await decode(await guest.locator('.ecard-qr svg').screenshot())).toBe(url);
+      expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await scanQr(guest.locator('.ecard-qr svg'))).toBe(url);
     }
     for(const theme of ['light','dark','versefolk']){await guest.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await expect(guest.locator('.ecard-name')).toHaveCSS('color','rgb(8, 9, 11)');await expect(guest.locator('.editorial-portrait')).toHaveCSS('background-color','rgb(196, 255, 32)');}
     await guest.locator('.ecard-qr').focus();await expect(guest.locator('.ecard-qr')).toBeFocused();await expect(guest.locator('.ecard-qr')).toHaveCSS('outline-style','solid');

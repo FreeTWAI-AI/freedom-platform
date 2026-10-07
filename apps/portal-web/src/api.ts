@@ -2,6 +2,7 @@ import { accessAwareFetch, expiredAccessStatus, isExpiredAccessResponse, MEMBER_
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import type { ProblemDetails, SessionPayload } from './types'
+import { beginRequest } from './request-activity'
 
 const API_BASE = '/api/v1'
 
@@ -62,6 +63,8 @@ export type RequestOptions = {
   background?: boolean
   suppressConsole?: boolean
   signal?: AbortSignal
+  /** Opt in only for reads whose callers permit the same in-flight snapshot. */
+  coalesce?: boolean
 }
 
 function quoteEtag(version: number | string): string {
@@ -137,7 +140,14 @@ function requestId(response?: Response): string | undefined {
 }
 
 export class PortalClient {
-  csrfToken: string | null = null
+  private token: string | null = null
+  private authGeneration = 0
+  private readonly reads = new Map<string, Promise<unknown>>()
+  get csrfToken(): string | null { return this.token }
+  set csrfToken(value: string | null) {
+    if (this.token !== value) { this.authGeneration++; this.reads.clear() }
+    this.token = value
+  }
   onUnauthorized: (() => void) | null = null
   /** Set for the current response before onUnauthorized, so the app can offer a page reload instead of the member login form. */
   accessExpired = false
@@ -153,16 +163,32 @@ export class PortalClient {
     void fetch(`${API_BASE}/me/client-errors`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({action:safeAction,error_code:code,...(httpStatus!==undefined?{http_status:httpStatus}:{})})}).catch(()=>{})
   }
 
-  async get<T>(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
-    return this.request<T>('GET', path, options)
+  get<T>(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+    // Freshness-sensitive reads remain independent unless the caller opts in.
+    // Share only concurrent identical reads, never retained data or writes.
+    // A caller-owned abort signal must retain its independent lifetime.
+    if (options.coalesce !== true || options.signal || options.ifMatch !== undefined || options.preferenceVersion !== undefined) return this.request<T>('GET', path, options)
+    const key = JSON.stringify([this.authGeneration, path, !!options.skipAuthHandler, !!options.background, !!options.suppressConsole])
+    const existing = this.reads.get(key)
+    if (existing) return existing.then(value => structuredClone(value) as T)
+    const operation = this.request<T>('GET', path, options)
+    this.reads.set(key, operation)
+    const finish = () => { if (this.reads.get(key) === operation) this.reads.delete(key) }
+    void operation.then(finish, finish)
+    // Each subscriber owns its JSON view; sorting/editing one cannot mutate another.
+    return operation.then(value => structuredClone(value))
   }
 
   async post<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
-    return this.request<T>('POST', path, { ...options, body })
+    this.reads.clear()
+    try { return await this.request<T>('POST', path, { ...options, body }) }
+    finally { this.reads.clear() }
   }
 
   async delete<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
-    return this.request<T>('DELETE', path, { ...options, body })
+    this.reads.clear()
+    try { return await this.request<T>('DELETE', path, { ...options, body }) }
+    finally { this.reads.clear() }
   }
 
   async getSession(): Promise<SessionPayload> {
@@ -189,6 +215,7 @@ export class PortalClient {
     // Requests can outlive logout/re-login. Their auth failures belong only to
     // the session that dispatched them, never a later member session.
     const requestCsrfToken = this.csrfToken
+    const requestAuthGeneration = this.authGeneration
     const headers: Record<string, string> = { Accept: 'application/json' }
     const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
     const needsCsrf = method !== 'GET' && !publicAuth
@@ -217,7 +244,8 @@ export class PortalClient {
       if (options.signal.aborted) controller.abort()
       else options.signal.addEventListener('abort', onCallerAbort, { once: true })
     }
-    const currentAuthResponse = () => this.csrfToken === requestCsrfToken && !controller.signal.aborted
+    const currentAuthResponse = () => this.authGeneration === requestAuthGeneration && this.csrfToken === requestCsrfToken && !controller.signal.aborted
+    const finishActivity = options.background ? undefined : beginRequest(method !== 'GET')
     let response: Response | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
@@ -295,6 +323,7 @@ export class PortalClient {
       if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
       throw failure
     } finally {
+      finishActivity?.()
       clearTimeout(timer)
       options.signal?.removeEventListener('abort', onCallerAbort)
     }

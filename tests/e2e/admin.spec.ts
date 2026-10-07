@@ -1,4 +1,5 @@
 import {test,expect} from './fixtures.js';
+import {openFeatureSearch} from './navigation.js';
 
 // The real-database admin test creates fp_admin_browser_*. A timed-out body never reaches its finally.
 let dropAdminBrowserSchema:(()=>Promise<void>)|undefined;
@@ -12,6 +13,7 @@ test('admin entry never grants access through a member login or onboarding',asyn
   const anonymous=await page.request.get('/admin/api/bootstrap');expect([401,403,503]).toContain(anonymous.status());
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.locator('.shell')).toBeVisible();
+  await openFeatureSearch(page);
   await page.getByRole('navigation',{name:'主要工作區'}).locator('details > summary').filter({hasText:/^管理/}).click();
   await page.getByRole('link',{name:/^平台管理/}).click();
   await expect(page).toHaveURL(/\/admin$/);

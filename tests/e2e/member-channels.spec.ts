@@ -540,9 +540,9 @@ test('light and versefolk selection uses the workshop green palette',async({page
   const channelCount=`${channel} .messages-count`;
   const tabCount=`${selectedTab} .messages-count`;
   for(const [label,theme,navBg,navText,navBar,tabBg,tabText,tabBorder,tabRing,mark,countBg,countText] of [
-    ['自由工坊－明亮','light','rgb(240, 243, 247)','rgb(20, 32, 51)','none','rgb(238, 246, 216)','rgb(60, 101, 0)','rgb(154, 191, 78)','60, 101, 0','60, 101, 0','rgb(238, 246, 216)','rgb(60, 101, 0)'],
-    ['自由工坊－夜航','dark','rgb(34, 40, 32)','rgb(213, 255, 130)','196, 255, 32','','rgb(208, 255, 83)','','208, 255, 83','196, 255, 32','rgb(39, 53, 21)','rgb(210, 255, 103)'],
-    ['自由工坊－敘生','versefolk','rgb(237, 243, 219)','rgb(56, 76, 37)','none','rgb(237, 243, 219)','rgb(56, 76, 37)','rgb(155, 179, 120)','56, 76, 37','56, 76, 37','rgb(237, 243, 219)','rgb(56, 76, 37)'],
+    ['自由工坊－明亮','light','rgb(242, 248, 220)','rgb(28, 38, 54)','none','rgb(238, 246, 216)','rgb(60, 101, 0)','rgb(154, 191, 78)','60, 101, 0','60, 101, 0','rgb(238, 246, 216)','rgb(60, 101, 0)'],
+    ['自由工坊－夜航','dark','rgb(34, 44, 18)','rgb(244, 246, 239)','none','','rgb(208, 255, 83)','','208, 255, 83','196, 255, 32','rgb(39, 53, 21)','rgb(210, 255, 103)'],
+    ['自由工坊－敘生','versefolk','rgb(237, 243, 219)','rgb(57, 47, 44)','none','rgb(237, 243, 219)','rgb(56, 76, 37)','rgb(155, 179, 120)','56, 76, 37','56, 76, 37','rgb(237, 243, 219)','rgb(56, 76, 37)'],
   ] as const){
     const settings=page.getByRole('button',{name:'設定',exact:true});
     if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
@@ -556,8 +556,7 @@ test('light and versefolk selection uses the workshop green palette',async({page
       if(width===390&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
       await settle(page);
       const active=await paintOf(page,nav);
-      const phoneDark=theme==='dark'&&width===390;
-      expect(active.background,`${theme} ${width} nav`).toBe(phoneDark?'rgb(36, 46, 24)':navBg);
+      expect(active.background,`${theme} ${width} nav`).toBe(navBg);
       expect(active.color,`${theme} nav text`).toBe(navText);
       expect(active.shadow,`${theme} nav bar`).toContain(navBar);
       expect(active.text,`${theme} nav contrast`).toBeGreaterThanOrEqual(4.5);

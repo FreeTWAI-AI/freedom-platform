@@ -60,6 +60,8 @@ Hao 後續要求以取代 Facebook 為長期目標。候選版尚無超越 Faceb
 具體 SHA、全部變更路徑與正規化 diff digest 見
 [PR 比對快照](social-platform-pr-overlap-2026-10-07.json)。這是路徑／功能的比對，沒有冒充對其他人的完整安全審查。
 
+2026-10-07 06:05 UTC 再查：#192 已在 05:45 UTC 合併至 `0fdda4a104fb3f36eda4dcf6ce60dbd547333082`；其餘 7 份 open PR 中，#175／#190 有新增提交，已再讀差異並保存最新 head／路徑／diff digest。起始 8 份快照保留作歷史，沒有以舊 head 代替最新檢查。
+
 | PR | 工作 | 與本輪關係 |
 | --- | --- | --- |
 | #105 | 社群 ERP／CRM 公開範本入口 | 修改 `Community.tsx`；本輪不重建 ERP／CRM |
@@ -67,9 +69,9 @@ Hao 後續要求以取代 Facebook 為長期目標。候選版尚無超越 Faceb
 | #187 | native 租約 fixture clock race | 不重複修補該測試 |
 | #188 | Guild Launchpad 契約 primitives／schema | 不另建相同契約 |
 | #189 | 固定可信 CI runner | 不改對方治理修補 |
-| #190 | Guild Launchpad「我的工作」畫面 | 共用 `api.ts`；已讀該 hunk，對方加 PATCH／candidate error，本輪加 DELETE，沒有相同業務實作 |
+| #190 | Guild Launchpad「我的工作」畫面 | 共用 `api.ts`；更新後的 PATCH／validated candidate error 與本輪 DELETE／auth guards 都需保留；整合新 mutation 方法時須在寫入前後清除可共用 GET 索引 |
 | #191 | 測試 teardown 等待 SQL clients 關閉 | 測試基礎設施修補；本輪不複製該改動 |
-| #192 | 更新 runtime 分流的排程權重與 hosted costs fixture | 測試排程調整，沒有相同社群功能；沿用主線，不複製 |
+| #192 | 更新 runtime 分流的排程權重與 hosted costs fixture | 已合併至主線；測試排程調整，沒有相同社群功能；直接同步主線 |
 
 所有日常 PR 都會更新全倉 inventory；這是機械性合併重疊，應在整合後依最終 Git bytes 重算。
 

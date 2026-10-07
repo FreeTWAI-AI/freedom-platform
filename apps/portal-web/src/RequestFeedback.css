@@ -1,0 +1,11 @@
+.request-feedback{position:fixed;right:16px;bottom:64px;z-index:1100;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev);color:var(--ink);font-size:.875rem;box-shadow:var(--shadow);pointer-events:none}
+.request-feedback-progress{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:request-turn .8s linear infinite;flex-shrink:0}
+.request-feedback.is-offline{border-color:var(--danger)}
+.page-loading{min-height:180px;display:grid;align-content:start;gap:16px;padding:20px 0}
+.page-loading p{display:flex;gap:10px;align-items:center;margin:0;font-weight:600}
+.page-loading-placeholder{height:20px;max-width:560px;border-radius:8px;background:var(--line);opacity:.45}
+.page-loading-placeholder:last-child{max-width:340px}
+button:not(:disabled):not([aria-disabled="true"]):active,summary:active,a.btn:active{translate:0 1px;filter:brightness(.94)}
+button[aria-busy="true"]{cursor:progress}
+@keyframes request-turn{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.request-feedback-progress{animation:none}button:not(:disabled):active,summary:active,a.btn:active{translate:none}}

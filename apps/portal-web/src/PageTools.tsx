@@ -40,6 +40,12 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
   const screenshotCanvas=useRef<HTMLCanvasElement>(null);
   const issueKey=useRef<{draft:string;key:string}|null>(null);
   const claimKey=useRef<{draft:string;key:string}|null>(null);
+  const closeTool=()=>{
+    dialog.current?.close();
+    // Restore focus before unmounting the native dialog: its close event is asynchronous.
+    if(compact&&toolsMenu.current){toolsMenu.current.open=false;toolsTrigger.current?.focus()}
+    setTool(null);
+  };
   useEffect(()=>{if(tool)dialog.current?.showModal();else dialog.current?.close()},[tool]);
   useEffect(()=>{if(toolsMenu.current)toolsMenu.current.open=false},[pageId]);
   useEffect(()=>{
@@ -132,8 +138,8 @@ export function PageTools({pageId,client,compact=false}:{pageId:string;client?:P
         <div className="page-tools-menu-items">{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</div>
       </details>:<>{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} aria-label={names[item]} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</>}
     </div>
-    {tool&&<dialog ref={dialog} className="page-tools-dialog" aria-label={`${page.title}：${names[tool]}`} onClose={()=>{setTool(null);if(compact&&toolsMenu.current){toolsMenu.current.open=false;toolsTrigger.current?.focus()}}}>
-      <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={()=>{dialog.current?.close();setTool(null)}}>×</button></header>
+    {tool&&<dialog ref={dialog} className="page-tools-dialog" aria-label={`${page.title}：${names[tool]}`} onCancel={event=>{event.preventDefault();closeTool()}} onClose={closeTool}>
+      <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={closeTool}>×</button></header>
       <div className="page-tools-body">
         {tool==='idea'&&<>
           <div className="page-tools-issue-heading"><p>這頁的 GitHub 提案列在下方；有相同想法可直接參與討論。你已確認發布的紀錄也會保留在清單中。</p><button type="button" onClick={()=>setRefreshTick(value=>value+1)} disabled={loading}>重新同步</button></div>

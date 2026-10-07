@@ -92,7 +92,7 @@
 .app-frame.social-layout .workspace-topbar h1{white-space:normal;overflow-wrap:normal}
 .app-frame.social-layout .social-note.is-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
 .app-frame.social-layout .social-read-more{border:0;background:transparent;padding:4px 0;min-height:44px;font-size:.875rem;font-weight:650;color:var(--blue-ink);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.app-frame.social-layout :is(h1,h2,h3){color:var(--ink);font-weight:700;line-height:1.4}
+.app-frame.social-layout :is(h1,h2,h3):not(.ecard-name){color:var(--ink);font-weight:700;line-height:1.4}
 .app-frame.social-layout .home-feed-title{font-size:1rem;font-weight:700;color:var(--ink)}
 .app-frame.social-layout .social-byline span{font-weight:700}
 .app-frame.social-layout .nav-primary .is-active{font-weight:700}

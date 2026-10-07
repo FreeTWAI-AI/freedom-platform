@@ -1,6 +1,6 @@
 import { test, expect, type Page } from './fixtures.js';
 import { Pool } from 'pg';
-import { navigate } from './navigation.js';
+import { navigate,openPageTools } from './navigation.js';
 
 const fixtureEnabled = process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1';
 async function login(page: Page) {
@@ -12,6 +12,7 @@ async function login(page: Page) {
   await navigate(page, '私人工作與 AI');
   await expect(page.getByRole('heading', { level: 1, name: '私人工作與 AI' })).toBeVisible();
   const tools = page.getByRole('group', { name: '私人工作與 AI頁面工具', exact: true });
+  await openPageTools(page);
   await expect(tools.getByRole('button')).toHaveCount(3);
   for (const name of ['提出想法', '頁面說明', '參與編修']) await expect(tools.getByRole('button', { name, exact: true })).toBeVisible();
 }

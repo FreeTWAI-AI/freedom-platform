@@ -210,15 +210,18 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   // Skill labels only decorate the card; their failure never adds an alert.
   await page.route('**/api/v1/assessment-definition', route => route.fulfill({ status: 503, body: '' }));
   await page.reload();
-  const summary = page.getByRole('region', { name: '我的會員摘要', exact: true });
+  const summary = page.getByRole('region', { name: '我的會員摘要', exact: true, includeHidden: true });
   const alert = page.getByRole('alert');
   await expect(alert).toHaveCount(1);
   await expect(alert).toContainText('名片暫時無法載入');
   await expect(alert).not.toContainText('重新整理');
   await expect(summary).toContainText('名片重試');
+  await expect(summary).not.toBeVisible();
   await expect(summary).not.toContainText('主要公會');
   await expect(page.locator('.member-featured')).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(4);
+  const shortcuts = page.getByRole('navigation', { name: '常用入口', exact: true });
+  await expect(shortcuts.getByRole('button')).toHaveCount(3);
+  for (const name of ['看社群動態', '開始聊天', '找夥伴']) await expect(shortcuts.getByRole('button', {name, exact: true})).toBeVisible();
   await pageFits(page, 'phone home error');
   await page.screenshot({ path: `${shots}/phone-home-card-error.png`, fullPage: true });
   const retry = alert.getByRole('button', { name: '重新載入名片', exact: true });
@@ -237,6 +240,7 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await expect.poll(() => requests).toBe(base + 2);
   mode = 'pass'; release();
   await expect(summary).toContainText('主要公會 ·');
+  await expect(summary).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(summary).toBeFocused();
   expect(requests).toBe(base + 2);

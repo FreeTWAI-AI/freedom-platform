@@ -39,7 +39,7 @@ export function useInboxUnread(client:PortalClient){
   const refresh=useCallback(async()=>{
     const current=++generation.current;
     try{
-      const pages=await Promise.all(SOURCES.map(path=>client.get<{unread_count:number}>(path,{skipAuthHandler:true})));
+      const pages=await Promise.all(SOURCES.map(path=>client.get<{unread_count:number}>(path,{skipAuthHandler:true,background:true,coalesce:true})));
       if(current!==generation.current)return;
       setTotal(pages.every(page=>Number.isSafeInteger(page.unread_count)&&page.unread_count>=0)?pages.reduce((sum,page)=>sum+page.unread_count,0):null);
     }catch{if(current===generation.current)setTotal(null);}
