@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/workspace-create-input",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: display_name_control_character."
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "clear_primary": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "clear_primary"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/leave-v2-input",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+}

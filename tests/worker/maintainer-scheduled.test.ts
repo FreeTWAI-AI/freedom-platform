@@ -16,6 +16,10 @@ const bundlePath = '.wrangler/dry-run/maintainer-local/maintainer-worker.js';
 const serverUrl = new URL(process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL);
 const database = `fp_workerd_maintainer_${process.pid}_${Date.now()}`;
 const databaseUrl = Object.assign(new URL(serverUrl), { pathname: '/' + database }).href;
+
+// Required by Miniflare even when the database uses local trust auth.
+const workerDatabase = new URL(databaseUrl);
+workerDatabase.password ||= 'synthetic-workerd-only';
 const compatibilityDate = '2026-09-21';
 const APP_ID = '12345';
 const pair = await generateKeyPair('RS256', { modulusLength: 2048, extractable: true });
@@ -48,7 +52,7 @@ before(async () => {
       ],
       compatibilityDate, compatibilityFlags: ['nodejs_compat'],
       bindings: { GITHUB_MAINTAINER_APP_ID: APP_ID, GITHUB_MAINTAINER_ORG: 'FreeTWAI-AI', GITHUB_MAINTAINER_PRIVATE_KEY: privateKey },
-      hyperdrives: { HYPERDRIVE: databaseUrl },
+      hyperdrives: { HYPERDRIVE: workerDatabase.href },
       outboundService: async (request: Request) => {
         const url = new URL(request.url);
         const body = request.method === 'POST' ? await request.json() : null;

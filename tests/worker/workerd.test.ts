@@ -23,6 +23,10 @@ const assetsDir = resolve(`.wrangler/test-assets-${process.pid}`);
 const serverUrl = new URL(process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL);
 const database = `fp_workerd_${process.pid}_${Date.now()}`;
 const databaseUrl = Object.assign(new URL(serverUrl), { pathname: '/' + database }).href;
+
+// Required by Miniflare even when the database uses local trust auth.
+const workerDatabase = new URL(databaseUrl);
+workerDatabase.password ||= 'synthetic-workerd-only';
 const origin = 'http://127.0.0.1:8787';
 const SHELL = '<!doctype html><title>workerd shell</title>';
 // Same date as wrangler.jsonc: the newest the pinned workerd 1.20260921.1 supports.
@@ -45,7 +49,7 @@ before(async () => {
     name: 'freedom-platform-workerd-test', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
     compatibilityDate, compatibilityFlags: ['nodejs_compat'],
     bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin },
-    hyperdrives: { HYPERDRIVE: databaseUrl },
+    hyperdrives: { HYPERDRIVE: workerDatabase.href },
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
   }] }));
   await mf.ready;
@@ -177,7 +181,7 @@ test('workerd: with a local IMAGES binding the default scope stores a re-encoded
     name: 'freedom-platform-workerd-images', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
     compatibilityDate, compatibilityFlags: ['nodejs_compat'],
     bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin },
-    hyperdrives: { HYPERDRIVE: databaseUrl }, images: { binding: 'IMAGES' },
+    hyperdrives: { HYPERDRIVE: workerDatabase.href }, images: { binding: 'IMAGES' },
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
   }] } as any));
   try {
@@ -207,7 +211,7 @@ test('workerd: skill-book metrics are read from PostgreSQL and do not call GitHu
     name: 'freedom-platform-workerd-github', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
     compatibilityDate, compatibilityFlags: ['nodejs_compat'],
     bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_METRICS_TOKEN: 'github_pat_workerd_synthetic' },
-    hyperdrives: { HYPERDRIVE: databaseUrl },
+    hyperdrives: { HYPERDRIVE: workerDatabase.href },
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
     outboundService: async (request: Request) => {
       const url = new URL(request.url);
@@ -249,7 +253,7 @@ test('workerd scheduled sync refreshes book metrics through native fetch', async
     name: 'freedom-platform-workerd-sync-metrics', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
     compatibilityDate, compatibilityFlags: ['nodejs_compat'],
     bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_METRICS_TOKEN: 'synthetic-metrics-token' },
-    hyperdrives: { HYPERDRIVE: databaseUrl },
+    hyperdrives: { HYPERDRIVE: workerDatabase.href },
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
     outboundService: async (request: Request) => {
       const url = new URL(request.url);
@@ -290,7 +294,7 @@ test('workerd: the maintainer webhook is 503 without a secret and 401 for a bad 
     name: 'freedom-platform-workerd-maintainer-webhook', modules: true, scriptPath: resolve(bundleDir, 'worker.js'),
     compatibilityDate, compatibilityFlags: ['nodejs_compat'],
     bindings: { FREEDOM_ENV: 'local', APP_ORIGIN: origin, GITHUB_MAINTAINER_WEBHOOK_SECRET: secret },
-    hyperdrives: { HYPERDRIVE: databaseUrl },
+    hyperdrives: { HYPERDRIVE: workerDatabase.href },
     assets: { directory: assetsDir, binding: 'ASSETS', routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true }, assetConfig: { html_handling: 'auto-trailing-slash', not_found_handling: 'none' } },
   }] } as any));
   try {

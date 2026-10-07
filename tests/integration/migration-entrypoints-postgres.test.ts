@@ -1,5 +1,5 @@
-// Importing the owned fixture also executes its legacy/DAG baseline cases.
-import { isolated } from './migration-plan-postgres.test.js';
+// Owned fixture provides isolated PostgreSQL for the entrypoint tests.
+import { isolated } from './migration-postgres-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

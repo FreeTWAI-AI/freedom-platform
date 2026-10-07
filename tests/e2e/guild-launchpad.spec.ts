@@ -130,7 +130,7 @@ test('a non-primary guild leader edits, publishes, and reverts the launchpad', a
     const backBox = await back.boundingBox();
     expect(backBox).not.toBeNull();
     expect(backBox!.width).toBeLessThan(400);
-    await expect(session.page.locator('.guild-launchpad dl.detail-list')).toBeVisible();
+    await expect(session.page.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
     await expect(session.page.getByText('目前沒有授權。', {exact: true})).toBeVisible();
     await expect(session.page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveClass(/btn-ghost/);
     await expect(session.page.getByRole('button', {name: '發布', exact: true})).toHaveClass(/btn-primary/);

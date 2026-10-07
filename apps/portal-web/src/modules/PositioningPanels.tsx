@@ -224,7 +224,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version??undefined);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  if(launchpadKey)return <GuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" onBack={()=>{window.location.hash='guilds';}}/>;
+  if(launchpadKey)return <GuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" userId={session.user.user_id} onBack={()=>{window.location.hash='guilds';}}/>;
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
       {!loading&&!loadError&&<p className="guild-overview" aria-label="我的公會概況"><span>已加入 <strong>{joinedCount}</strong> 個公會</span><span>共 {guilds.length} 個公會</span></p>}

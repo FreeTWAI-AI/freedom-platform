@@ -36,7 +36,8 @@ export const ALWAYS_ON_INTEGRITY_COMMANDS = Object.freeze([
   'git diff --exit-code -- contracts/preview/v1 packages/sdk',
   'npm run check:runtime-text',
   'npm run verify:inventory',
-  'npm run test:governance',
+  'node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.selector-unit',
+  'node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit',
 ]);
 export const DOCS_ALLOWLIST_PREFIXES = Object.freeze([
   'docs/development/', 'docs/design/', 'docs/plans/', 'docs/releases/',

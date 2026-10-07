@@ -145,3 +145,25 @@ lost acknowledgements, foreign ownership and both backend-race outcomes. An
 earlier run on the separate disk-backed 55442 fixture failed five provisioning/
 cleanup cases (three passed); that failed attempt is retained and is not replaced
 by the tmpfs result. Neither local run is actual hosted full-product acceptance.
+
+## Interim four-partition budget (2026-10-07)
+
+The ruleset-pinned workflow (d1c9e18f) runs four runtime partitions, each with
+the candidate's own runner. Each 900-second partition leaves about 870 seconds
+of test time after database setup and the 24-second cleanup reserve, so four
+partitions hold about 3,480 seconds at best. Hosted main run 37567098443
+recorded 2,894 seconds of completed-file progress deltas for its 247 files, and
+runner speed varied by up to about 1.5x between partitions of one run. PR 175
+run 37577982373 failed `test_timeout` on both attempts after the PR 192 weight
+refresh: two partitions in the first attempt (59 of 62 and 62 of 64 files) and
+one in the second (61 of 64).
+
+Each partition now has an interim 1,200-second budget, including provisioning
+and the unchanged 24-second cleanup reserve. The aggregate rechecks every
+fragment's span against that budget (`runtime_partition_window_exceeded`) and
+the whole run against a 1,800-second window (`runtime_full_window_exceeded`).
+Local runtime suites keep their 900-second cap, and caller options cannot raise
+it. Progress records accept elapsed times up to 1,200 seconds instead of
+clamping at 900. No test, file, case, count or cleanup requirement changes. The
+budget returns to 900 seconds once six partitions run under the upgraded central
+pin.
