@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Pool, type PoolClient } from 'pg';
+import { Client, Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { CEILINGS, policyLockKey, runTenantPolicy } from '../../scripts/tenant-policy.js';
@@ -10,6 +10,11 @@ import { lockCapacityPolicy, readCapacityPolicy } from '../../modules/opportunit
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error('tenant-policy-operator tests require an explicit TEST_DATABASE_URL for a private test database.');
+const testUrl = new URL(databaseUrl);
+if (!testUrl.hostname || testUrl.hostname.includes('%') || !testUrl.port || Number(testUrl.port) < 1
+  || !decodeURIComponent(testUrl.username) || !decodeURIComponent(testUrl.pathname.slice(1)) || testUrl.searchParams.has('host')) {
+  throw new Error('tenant-policy-operator TEST_DATABASE_URL must explicitly name user, host, port and database, without a socket host or host query parameter.');
+}
 const expectedDatabase = new URL(databaseUrl).pathname.slice(1);
 const refusalUrl = 'postgresql://x@192.0.2.1:5432/fp_refusal';
 const wrongDatabase = 'fp_tpo_not_this_database';
@@ -114,6 +119,114 @@ test('unsafe targets are refused before a connection and DATABASE_URL is ignored
     refused(await run(['status', '--database-url', url, '--expect-database', expectedDatabase]), 'invalid_database_url');
   }
 });
+
+for (const [name, url, values, code] of [
+  ['omitted port with PGPORT', 'postgresql://x@192.0.2.1/fp_refusal', { PGPORT: '54339' }, 'invalid_database_url'],
+  ['omitted database with PGDATABASE', 'postgresql://x@192.0.2.1:5432', { PGDATABASE: 'freedom_local' }, 'invalid_database_url'],
+  ['omitted database with shared username', 'postgresql://freedom_local@192.0.2.1:5432', {}, 'invalid_database_url'],
+  ['empty database with shared username', 'postgresql://freedom_local@192.0.2.1:5432/', {}, 'invalid_database_url'],
+  ['explicit shared port with PGPORT', 'postgresql://x@192.0.2.1:54339/fp_refusal', { PGPORT: '5432' }, 'shared_local_database_refused'],
+] as const) {
+  test(`${name} is refused for status and executed apply before connecting`, { timeout: 15000 }, async () => {
+    const prior = new Map(Object.keys(values).map(name => [name, process.env[name]]));
+    try {
+      Object.assign(process.env, values);
+      for (const argv of [
+        ['status', '--database-url', url, '--expect-database', 'fp_refusal'],
+        expectDatabase(beforeConnecting(args('apply', {}, ['--execute'])), 'fp_refusal'),
+      ]) {
+        argv[argv.indexOf('--database-url') + 1] = url;
+        const result = await runTenantPolicy(argv, {});
+        refused(result, code);
+        assert.deepEqual(result.report, { format: 'freedom.tenant-capacity-policy/v1', status: 'refused', code });
+        assert.ok(!JSON.stringify(result.report).includes('192.0.2.1'));
+      }
+    } finally {
+      for (const [name, value] of prior) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+    }
+  });
+}
+for (const url of [
+  'postgresql://x@192.0.2.1:0/fp_refusal', 'postgresql://192.0.2.1:5432/fp_refusal',
+  'postgresql:///fp_refusal', 'postgresql://x@%2Ftmp:5432/fp_refusal',
+  ...['host=/tmp', 'host=192.0.2.9', 'user=freedom_local', 'database=freedom_local', 'port=5432',
+    'sslmode=require', 'sslmode=no-verify', 'ssl=false', 'options=', 'options=a&options=b',
+    'sslmode=disable&sslmode=verify-full'].map(query => `${refusalUrl}?${query}`),
+  `${refusalUrl}#fragment`, 'postgresql://x@192.0.2.1:5432/fp/refusal',
+  'postgresql://x@192.0.2.1:5432/%E0%A4%A',
+]) {
+  test(`implicit or ambiguous URL ${url} is refused before connecting`, { timeout: 15000 }, async () => {
+    const result = await runTenantPolicy(['status', '--database-url', url, '--expect-database', 'fp_refusal'], {});
+    refused(result, 'invalid_database_url');
+    assert.deepEqual(result.report, { format: 'freedom.tenant-capacity-policy/v1', status: 'refused', code: 'invalid_database_url' });
+    assert.ok(!JSON.stringify(result.report).includes('192.0.2.1'));
+  });
+}
+test('explicit connection does not inherit ambient PG target, TLS, password or SQL options', async () => {
+  const values = { PGHOST: 'not-a-target.example.invalid', PGPORT: '9', PGUSER: 'not_the_role', PGDATABASE: wrongDatabase,
+    PGSSLMODE: 'require', PGSSLNEGOTIATION: 'direct', PGOPTIONS: '-c default_transaction_read_only=on',
+    PGPASSWORD: 'not-an-approved-secret', PGPASSFILE: '/nonexistent/synthetic-pgpass' };
+  const prior = new Map(Object.keys(values).map(name => [name, process.env[name]]));
+  const planRef = 'ambient-pg-apply';
+  try {
+    Object.assign(process.env, values);
+    for (const argv of [
+      ['status', '--database-url', toolUrl.href, '--expect-database', expectedDatabase],
+      args('plan'), args('apply', { plan_ref: planRef }, ['--execute']),
+    ]) {
+      const result = await runTenantPolicy(argv, {});
+      assert.equal(result.exitCode, 0, JSON.stringify(result.report));
+      assert.ok('target' in result.report);
+      assert.deepEqual(result.report.target, { database: expectedDatabase, role: decodeURIComponent(testUrl.username) });
+    }
+  } finally {
+    for (const [name, value] of prior) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+  }
+  const saved = await snapshot();
+  assert.equal(saved.count, 1);
+  assert.equal(saved.rows[0].status, 'active');
+  assert.equal(saved.rows[0].tenant_id, null);
+  assert.equal(saved.rows[0].plan_ref, planRef);
+});
+for (const [name, url, ssl, options, password] of [
+  ['without password or query', refusalUrl, false, '-c application_name=freedom-tenant-policy', ''],
+  ['with password, TLS and options', 'postgresql://x:synthetic-secret@192.0.2.1:5432/fp_refusal?sslmode=verify-full&options=-c%20search_path%3Dfp_tpo_capture',
+    { rejectUnauthorized: true }, '-c search_path=fp_tpo_capture', 'synthetic-secret'],
+] as const) {
+  test(`pg resolves only explicit URL values ${name} without a network connection`, { timeout: 15000 }, async () => {
+    const values = { PGHOST: 'not-a-target.example.invalid', PGPORT: '54339', PGUSER: 'freedom_local', PGDATABASE: 'freedom_local',
+      PGOPTIONS: '-c search_path=not_the_schema', PGSSLMODE: 'no-verify', PGSSLNEGOTIATION: 'direct',
+      PGPASSWORD: 'not-an-approved-secret', PGPASSFILE: '/nonexistent/synthetic-pgpass', PGAPPNAME: 'not-the-tool', PGCLIENT_ENCODING: 'LATIN1' };
+    const prior = new Map(Object.keys(values).map(name => [name, process.env[name]]));
+    const original = Pool.prototype.connect, captured: Client[] = [];
+    try {
+      Object.assign(process.env, values);
+      Pool.prototype.connect = function () {
+        captured.push(new Client(this.options));
+        return Promise.reject(new Error('synthetic connection capture'));
+      };
+      const argv = expectDatabase(beforeConnecting(args('apply', {}, ['--execute'])), 'fp_refusal');
+      argv[argv.indexOf('--database-url') + 1] = url;
+      const result = await runTenantPolicy(argv, {});
+      assert.deepEqual(result, { exitCode: 1, report: { format: 'freedom.tenant-capacity-policy/v1', status: 'failed', code: 'database_error' } });
+      assert.ok(!JSON.stringify(result.report).includes('synthetic-secret'));
+      assert.ok(!JSON.stringify(result.report).includes('192.0.2.1'));
+    } finally {
+      Pool.prototype.connect = original;
+      for (const [name, value] of prior) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
+    }
+    assert.equal(captured.length, 1);
+    // pg exposes these resolved fields at runtime but omits them from its public Client type.
+    const client = captured[0] as unknown as { connectionParameters: Record<string, unknown>; password: () => string | Promise<string> };
+    const parameters = client.connectionParameters;
+    for (const [key, value] of Object.entries({ host: '192.0.2.1', port: 5432, database: 'fp_refusal', user: 'x', ssl,
+      sslnegotiation: 'postgres', options, application_name: 'freedom-tenant-policy', client_encoding: 'UTF8' })) {
+      assert.deepEqual(parameters[key], value, key);
+    }
+    assert.equal(typeof client.password, 'function');
+    assert.equal(await client.password(), password);
+  });
+}
 
 for (const command of ['plan', 'apply'] as const) {
   for (const key of Object.keys(defaults)) {

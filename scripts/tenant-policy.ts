@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import type { PoolClient } from 'pg';
-import { createPool } from '../packages/db/index.js';
+import { Pool, type PoolClient, type PoolConfig } from 'pg';
 
 // Bounded operator policy replacement. Defaults to a read-only plan; --execute writes.
-// Requires an explicit database URL and expected name, checked against current_database()
-// before any other query. Refuses a NODE_ENV=production process and the shared local database.
+// Requires a URL with user, host, port and database (no PG* or .pgpass fallback), plus an
+// expected name checked against current_database() before any other query; refuses shared local targets on connected values.
+// Refuses a NODE_ENV=production process: a client-process guard, not server-environment detection.
 // Raising a ceiling needs a reviewed change.
 export const CEILINGS = Object.freeze({
   max_active_instances: 50,
@@ -54,8 +54,38 @@ class ScopeVerificationFailure extends Error {}
 
 const limitFlags = Object.keys(CEILINGS).map(key => `--${key.replaceAll('_', '-')}`);
 const requiredFlags = ['--plan-ref', ...limitFlags, '--max-model-budget'];
+function databaseConfig(databaseUrl: string): PoolConfig {
+  let url: URL;
+  let database: string, user: string, password: string;
+  try {
+    url = new URL(databaseUrl);
+    user = decodeURIComponent(url.username);
+    password = decodeURIComponent(url.password);
+    database = decodeURIComponent(url.pathname.slice(1));
+  } catch { throw new Refusal('invalid_database_url'); }
+  if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Refusal('invalid_database_url');
+  const port = Number(url.port);
+  // Preserve the shared-port refusal even for a query override that is otherwise invalid.
+  if (port === 54339 || url.searchParams.getAll('port').some(port => parseInt(port, 10) === 54339)
+    || database === 'freedom_local') throw new Refusal('shared_local_database_refused');
+  const keys = [...url.searchParams.keys()];
+  const sslmode = url.searchParams.get('sslmode'), options = url.searchParams.get('options');
+  if (!url.hostname || url.hostname.includes('%') || !url.port || !Number.isInteger(port) || port < 1 || port > 65535
+    || !user || !database || database.includes('/') || url.hash
+    || keys.some(key => !['sslmode', 'options'].includes(key) || url.searchParams.getAll(key).length !== 1)
+    || (sslmode !== null && !['verify-full', 'disable'].includes(sslmode)) || options === '') {
+    throw new Refusal('invalid_database_url');
+  }
+  return {
+    host: url.hostname.replace(/^\[|\]$/g, ''), port, database, user, password: () => password,
+    ssl: sslmode === 'verify-full' ? { rejectUnauthorized: true } : false,
+    sslnegotiation: 'postgres', client_encoding: 'UTF8', application_name: 'freedom-tenant-policy',
+    // A truthy default blocks PGOPTIONS (including search_path) and only repeats the application name.
+    options: options ?? '-c application_name=freedom-tenant-policy', max: 1, connectionTimeoutMillis: 5000,
+  };
+}
 function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
-  command: 'status' | 'plan' | 'apply'; databaseUrl: string; expectedDatabase: string; execute: boolean;
+  command: 'status' | 'plan' | 'apply'; config: PoolConfig; expectedDatabase: string; execute: boolean;
   tenantId: string | null; policy: (Limits & { plan_ref: string }) | null;
 } {
   const command = argv[0];
@@ -77,22 +107,13 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   if (env.NODE_ENV === 'production') throw new Refusal('production_refused');
   const databaseUrl = values.get('--database-url');
   if (!databaseUrl) throw new Refusal('database_url_required');
-  let url: URL;
-  let database: string;
-  try {
-    url = new URL(databaseUrl);
-    database = decodeURIComponent(url.pathname.slice(1));
-  } catch { throw new Refusal('invalid_database_url'); }
-  if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Refusal('invalid_database_url');
-  // pg also accepts a query-string port override; neither spelling may reach the shared port.
-  if (Number(url.port) === 54339 || url.searchParams.getAll('port').some(port => parseInt(port, 10) === 54339)
-    || database === 'freedom_local') throw new Refusal('shared_local_database_refused');
+  const config = databaseConfig(databaseUrl);
   if (!values.has('--expect-database')) throw new Refusal('missing_flag', { flag: '--expect-database' });
   const expectedDatabase = values.get('--expect-database')!;
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(expectedDatabase) || expectedDatabase.trim() !== expectedDatabase) {
     throw new Refusal('invalid_expected_database');
   }
-  if (command === 'status') return { command, databaseUrl, expectedDatabase, execute, tenantId: null, policy: null };
+  if (command === 'status') return { command, config, expectedDatabase, execute, tenantId: null, policy: null };
   for (const flag of requiredFlags) if (!values.has(flag)) throw new Refusal('missing_flag', { flag });
   const planRef = values.get('--plan-ref')!;
   if ([...planRef].length < 1 || [...planRef].length > 120) throw new Refusal('invalid_plan_ref');
@@ -110,7 +131,7 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   if (tenantId !== null && (tenantId.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(tenantId))) {
     throw new Refusal('invalid_tenant_id');
   }
-  return { command, databaseUrl, expectedDatabase, execute, tenantId, policy: { ...limits, plan_ref: planRef } };
+  return { command, config, expectedDatabase, execute, tenantId, policy: { ...limits, plan_ref: planRef } };
 }
 
 const ROW_COLUMNS = `policy_id, revision::text AS revision, tenant_id, plan_ref,
@@ -126,7 +147,7 @@ async function rows(client: PoolClient, suffix: string, params: unknown[] = []):
 export async function runTenantPolicy(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): Promise<Result> {
   try {
     const input = validate(argv, env);
-    const pool = createPool(input.databaseUrl);
+    const pool = new Pool(input.config);
     try {
       const client = await pool.connect();
       try {
