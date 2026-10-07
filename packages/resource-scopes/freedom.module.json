@@ -9,12 +9,14 @@
     "migrations/076_principal_resource_scopes.sql",
     "tests/runtime/resource-scopes.test.ts",
     "migrations/118_shop_service_identity.sql",
-    "tests/runtime/shop-service-identity.test.ts"
+    "tests/runtime/shop-service-identity.test.ts",
+    "migrations/125_tenant_row_security.sql"
   ],
   "public_exports": [
     "packages/resource-scopes/index.ts",
     "contracts/common/v1/identity.ts",
-    "packages/resource-scopes/shop-service.ts"
+    "packages/resource-scopes/shop-service.ts",
+    "packages/resource-scopes/tenant-transaction.ts"
   ],
   "dependencies": [
     "command-core"

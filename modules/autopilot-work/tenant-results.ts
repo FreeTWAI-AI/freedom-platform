@@ -225,8 +225,10 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
         const bound = actorOf(actor, tenantId);
         const lease = await engine.resumeUpload(bound, { key: resumeKey, intentId: uploadId });
         if (lease.state === 'finalized') {
-          const existing = (await pool.query<{ result_id: string; work_version: string }>(
-            `SELECT result_id, work_version::text AS work_version FROM tenant_work_results WHERE intent_id=$1`, [uploadId])).rows[0];
+          const existing = await withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async q => {
+            return (await q.query<{ result_id: string; work_version: string }>(
+              `SELECT result_id, work_version::text AS work_version FROM tenant_work_results WHERE intent_id=$1`, [uploadId])).rows[0];
+          });
           requireCondition(existing, 404, 'not_found', '找不到這個成果。');
           journal.record = false;
           return wire(tenantId, instanceId, 'work.result', existing.result_id, key, 'work.tenant.finalize');
