@@ -36,6 +36,10 @@ The input `Actor` must originate from the server's member authentication. The he
 
 Selected-scope status is local to that scope: a disabled community scope does not disable the person's independent personal scope. A disabled principal blocks both. Neither status is wired into old member routes in this batch; it does not claim global account revocation. Existing active-user/session checks still govern those routes.
 
+## Tenant transaction context
+
+The bind helpers are the only writers of `freedom.principal_id`, `freedom.tenant_id`, `freedom.tenant_scope_id` and `freedom.platform_admin_id`. They use `set_config(name, value, true)` and read the values back. `isolatedTransaction` is the transaction those helpers run in for tenant member and tenant read paths. The settings are not authentication. `lockTenantScope` binds the first three after the tenant scope row is confirmed, then clears all four before rethrowing a later authorization failure in that same transaction. `bindPlatformAdminContext` writes the admin setting only after a recovery capability check. `clearTenantContext` clears all four.
+
 ## Lock order and revocation
 
 At PostgreSQL READ COMMITTED: BEGIN → active user (`FOR SHARE`, or `FOR UPDATE` from the outset if `lockUser`) → current session (`FOR SHARE`) → principal (`FOR SHARE`) → selected scope (`FOR SHARE`) → domain authorize → callback → COMMIT. Auth predicates are shared with the legacy member adapter through `lockMemberSession`; the legacy command order/digest are unchanged.
@@ -64,4 +68,4 @@ See the [local delivery record](../../docs/platform-plan/execution/unified-found
 
 `lockTenantScope` resolves an authenticated person plus a server-checked tenant id. Lock order is session, person principal, the existing tenant `resource_scopes` row, the tenant row, then the actor's membership. It never inserts a tenant scope. `withMemberScope` and `lockMemberScope` still accept only `personal` and `community`; a `tenant` or `site` reference is rejected before a transaction starts. Missing tenant, scope, or active membership is the same 404 as a missing tenant. Suspended, recovery, and archived tenants still return context to an active member, with `tenant_status` set, so the domain can allow metadata reads.
 
-`withTenantRead` is the private-read wrapper later tenant endpoints should call. It opens one transaction, calls `lockTenantScope`, runs the read, and on success calls `assertCurrentSessionClock` before the value leaves the transaction. A read that throws is not followed by that query, so the original error, including its SQLSTATE, reaches the caller. It is not a command and writes no receipt. `lockTenantScope` itself stays the command lock; commands already recheck the session clock in the scoped command core.
+`withTenantRead` is the private-read wrapper later tenant endpoints should call. It opens one `isolatedTransaction`, calls `lockTenantScope`, runs the read, and on success calls `assertCurrentSessionClock` before the value leaves the transaction. A read that throws is not followed by that query, so the original error, including its SQLSTATE, reaches the caller. It is not a command and writes no receipt. `lockTenantScope` itself stays the command lock; commands already recheck the session clock in the scoped command core.
