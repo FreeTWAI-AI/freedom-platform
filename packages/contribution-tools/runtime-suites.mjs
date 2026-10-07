@@ -35,7 +35,7 @@ command-core commerce credential-ingest-authorizations credential-ingest-broker 
 event-highlights events-past execution-authority-adversarial execution-prerequisites execution-runs execution-runs-adversarial execution-runs-grants execution-state execution-state-adversarial fixed-behavior-harness flows freedom_env game-console-feed game-console-routing game-console
 github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-category-preferences guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
-guild-workspace guild-launchpad guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
+guild-workspace guild-launchpad guild-launchpad-contracts guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
 model-broker-authorizations model-broker-bridge model-broker-client model-broker-process model-broker-bridge-adversarial
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial
@@ -51,5 +51,5 @@ portal-client-recovery positioning preview-protocol private-policy-grants privat
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions
-skill-upload-chat skill-upload-client social-links squad-invitations tenant-authorization tenant-membership-identity tenant-ownership tenant-read-deadline tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy work-result-client worker-adapter
+skill-upload-chat skill-upload-client social-links squad-invitations tenant-authority-policy-grants tenant-authorization tenant-high-risk-verification tenant-membership-identity tenant-ownership tenant-ownership-transfer tenant-read-deadline tenant-recovery tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy work-result-client worker-adapter
 `.trim().split(/\s+/)).sort());
