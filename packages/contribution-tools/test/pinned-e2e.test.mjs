@@ -45,7 +45,7 @@ function reject(mutator, reason) {
 }
 
 test('Real baselines are accurate', async () => {
-  assert.equal(E2E_BASELINE.length, 88);
+  assert.equal(E2E_BASELINE.length, 89);
   assert.deepEqual(E2E_BASELINE, [...new Set(E2E_BASELINE)].sort());
   for (const file of E2E_BASELINE) {
     assert.ok(file.startsWith('tests/e2e/'));
@@ -206,8 +206,8 @@ test('CLI trusted selection ignores candidate filters and includes a new spec', 
     assert.equal(child.status, 0, child.stdout + child.stderr);
     const result = JSON.parse(await readFile(output, 'utf8'));
     assert.equal(result.status, 'passed');
-    assert.equal(result.test_count, 178);
-    assert.equal(result.test_files.length, 89);
+    assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1));
+    assert.equal(result.test_files.length, E2E_BASELINE.length + 1);
     assert.ok(result.test_files.every(file => file.counts.tests === 2 && file.counts.passed === 2));
     assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0]);
   });

@@ -33,8 +33,8 @@ page-tools.spec.ts password-recovery.spec.ts positioning-modules.spec.ts private
 repo-author-claims.spec.ts session-recovery.spec.ts share-promotion.spec.ts sidebar-refine.spec.ts
 simple-work-sharing.spec.ts skill-book-library.spec.ts skill-book-upgrade.spec.ts
 skill-editor-guild-access.spec.ts skill-sharing.spec.ts skill-upload.spec.ts social-links.spec.ts
-squad-invitations.spec.ts squad-types-channel.spec.ts tenant-workspaces.spec.ts text-autospace.spec.ts
-typed-line-breaks.spec.ts workshop-design.spec.ts
+squad-invitations.spec.ts squad-types-channel.spec.ts tenant-ownership.spec.ts
+tenant-workspaces.spec.ts text-autospace.spec.ts typed-line-breaks.spec.ts workshop-design.spec.ts
 `.trim().split(/\s+/).map(n => `tests/e2e/${n}`).sort());
 
 export const E2E_PLAN = Object.freeze([
