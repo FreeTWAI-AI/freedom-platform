@@ -53,9 +53,12 @@ export type RequestOptions = {
   body?: unknown
   idempotencyKey?: string
   ifMatch?: number | string
+  /** Unquoted positive decimal version for leave-v2 when the guild is a category primary. */
+  preferenceVersion?: string
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
+  signal?: AbortSignal
 }
 
 function quoteEtag(version: number | string): string {
@@ -147,7 +150,7 @@ export class PortalClient {
     void fetch(`${API_BASE}/me/client-errors`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({action:safeAction,error_code:code,...(httpStatus!==undefined?{http_status:httpStatus}:{})})}).catch(()=>{})
   }
 
-  async get<T>(path: string, options: { skipAuthHandler?: boolean; background?: boolean } = {}): Promise<T> {
+  async get<T>(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
     return this.request<T>('GET', path, options)
   }
 
@@ -197,8 +200,16 @@ export class PortalClient {
     if (options.ifMatch !== undefined) {
       headers['If-Match'] = quoteEtag(options.ifMatch)
     }
+    if (options.preferenceVersion !== undefined) {
+      headers['X-Preference-Version'] = options.preferenceVersion
+    }
 
     const controller = new AbortController()
+    const onCallerAbort = () => controller.abort()
+    if (options.signal) {
+      if (options.signal.aborted) controller.abort()
+      else options.signal.addEventListener('abort', onCallerAbort)
+    }
     const currentAuthResponse = () => this.csrfToken === requestCsrfToken && !controller.signal.aborted
     let response: Response | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -265,6 +276,9 @@ export class PortalClient {
     }
     try { return await Promise.race([operation(), timeout]) }
     catch (cause) {
+      if (options.signal?.aborted) {
+        throw cause instanceof ApiError ? cause : new ApiError({ message: '已停止讀取。', status: response?.status, network: true })
+      }
       const failure = cause instanceof ApiError ? cause : new ApiError({message:'無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: response?.status, cfRay:cloudflareRay(response), requestId:requestId(response), network:true})
       if(!options.background&&!options.suppressConsole)logConsoleEvent({
         channel:consoleChannel('system_api_error'), level:failure.status>=500||failure.network?'error':'warning', kind:'status', source:'介面錯誤', message:failure.message,
@@ -272,7 +286,10 @@ export class PortalClient {
       })
       if(!options.background&&path!=='/me/client-errors'&&!failure.accessExpired&&failure.status!==401)this.reportError(`${method} ${path}`,failure.code??(failure.network?'network_error':`http_${failure.status}`),failure.status)
       throw failure
-    } finally { clearTimeout(timer) }
+    } finally {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', onCallerAbort)
+    }
   }
 
 }

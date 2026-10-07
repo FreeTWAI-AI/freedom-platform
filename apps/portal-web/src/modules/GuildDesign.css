@@ -284,7 +284,18 @@ html[data-theme="dark"] .guilds-panel .guild-application-status.is-declined { ba
   .guild-scope .btn { flex: 1; }
 }
 
-/* One primary and two secondary guilds; other memberships stay distinct. */
+/* One primary and two secondary guilds until the community switches; then three category slots. */
+.guild-category-board { display: grid; align-items: start; gap: 12px; margin-bottom: 16px; }
+.guild-category-board fieldset { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.guild-category-board legend { padding: 0 6px; }
+.guild-category-board .guild-card { min-height: 0; }
+.member-category-primaries { display: grid; gap: 6px; margin: 8px 0; }
+.member-category-primaries div { display: flex; flex-wrap: wrap; gap: 8px; }
+.member-category-primaries dt { font-weight: 650; }
+.member-category-primaries dd { margin: 0; overflow-wrap: anywhere; }
+@media (min-width: 761px) {
+  .guild-category-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .guild-groups { display: grid; gap: 28px; min-width: 0; }
 .guild-group { min-width: 0; }
 .guild-group-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }

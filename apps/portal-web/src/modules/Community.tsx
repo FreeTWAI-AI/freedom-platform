@@ -5,7 +5,7 @@ import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery,type SkillDiscoveryBook} from './skill-discovery-client';
 
-export type SiteConfig = { registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean };
+export type SiteConfig = { registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
   return <div className={`brand-poster brand-poster-original${compact ? ' brand-poster-compact' : ''}`}><img src="/brand/freedom-workshop.webp" alt="自由工坊 — 自由創作，一起實現" width="1280" height="720" fetchPriority={compact ? 'auto' : 'high'}/></div>;
 }

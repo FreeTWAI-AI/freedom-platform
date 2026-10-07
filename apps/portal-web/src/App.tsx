@@ -35,6 +35,7 @@ import {PublicEventPage} from './modules/PublicEventPage'
 import { TaskBoardPanel } from './modules/TaskBoardPanel'
 import { WelcomePreview } from './modules/WelcomePreview'
 import {MemberGuildWorkspace} from './modules/GuildWorkspace'
+import {TenantSettings} from './modules/TenantSettings'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -76,6 +77,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   retail: '挑商品、下載 MD，讓 AI 製作公開商店。',
   marketing: '撰寫介紹草稿並記錄分享成果。',
   'guild-workspace': '管理你有權負責的公會資訊與技能書。',
+  business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
@@ -568,7 +570,7 @@ function Workspace({
               </div>
             </div>
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{mobileOpen ? '關閉選單' : '開啟選單'}</button></div>
-            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} mobileOpen={mobileOpen}/>
+            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
@@ -580,7 +582,7 @@ function Workspace({
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
-                memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild)}/>
+                memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (tab !== 'business' || site?.guild_launchpad_enabled === true)}/>
               <main ref={mainContent} className="workspace-page" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
             {error && (
               <ErrorPanel
@@ -609,8 +611,9 @@ function Workspace({
             {tab === 'engagement' && <EngagementPanel />}
             {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
+            {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
