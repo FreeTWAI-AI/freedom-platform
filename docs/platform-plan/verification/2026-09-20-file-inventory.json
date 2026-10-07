@@ -19104,8 +19104,8 @@
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",
-      "bytes": 87289,
-      "sha256": "2fe0f57a03772f1b95519c2529b93b1020943d0a3296d03c455bdb19c2cea7fa"
+      "bytes": 103944,
+      "sha256": "45b08e43f43033bc09aad575fca2e8b9e4c9b32637fe18e677195f6690039380"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
