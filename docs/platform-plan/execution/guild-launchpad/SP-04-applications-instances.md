@@ -3,6 +3,7 @@
 ## 1. 文件 ID、版本、狀態、來源 commit、對應 D／R／T ID 與範圍
 
 - ID：SP-04；版本：0.1.0；日期：2026-10-05；狀態：**target specification，未實作／未部署**。
+- 2026-10-07 註：上一行是 2026-10-05 規格草案的狀態，保留不改。之後 P-C2（#181，merge `57b610ab`，migration 123）已實作本規格的一部分並合併到 main；部署、啟用與驗收的目前狀態只記在 [README「目前狀態」](README.md#目前狀態)。
 - 計畫v1.0第2、4、7、9、10、11、18、19–24章；基線 `FreeTWAI-AI/freedom-platform@567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9`。application/module/instance registry是新增領域，不將既有module descriptor或guild.module_key誤認為已可配置實例。
 - 決策：D-07、D-08、D-09、D-10、D-12、D-13、D-14、D-15、D-16、D-20、D-22。主要需求R-008、R-017、R-018、R-019、R-020、R-052；共同R-003、R-009、R-016、R-031、R-032、R-034、R-036、R-053、R-055、R-059、R-062。
 - 驗收T-003、T-008、T-009、T-016、T-017、T-018、T-019、T-020、T-027、T-031、T-032、T-034、T-036、T-041、T-051、T-058。

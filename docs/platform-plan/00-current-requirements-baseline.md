@@ -2,6 +2,8 @@
 
 > **2026-10-05 target amendment（規格草案，未實作）**：本輪已確認三類公會各最多一主力、全部有效公會可保存再開啟的公版、tenant私有資料歸屬、單模組可攜/混合託管及最小中央留存。完整技術承接見 [SP-00–SP-12](execution/guild-launchpad/README.md)。它前向取代舊的一主兩次偏好及「所有私有業務永久中央」的目標語意；現行程式、會員關係、權限、原始驗收及發布授權不因此改變。明確相容與權威移交見 [衝突表](execution/guild-launchpad/SP-00-baseline-traceability.md)。
 
+> **2026-10-07 註**：上段的「規格草案，未實作」是 2026-10-05 的狀態。之後 M1 已有部分實作合併並部署到 staging 與 production，但功能未啟用、也沒有產品驗收；見公會啟動台 README 的[目前狀態](execution/guild-launchpad/README.md#目前狀態)與[現況快照](execution/unified-foundation/current-state.json)。
+
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
 > 2026-09-23 會員入口修訂：Ted 明示新註冊會員必須完成重新設計的定位，再選主力公會、領技能書、進入平台。這項指示取代本 planning baseline 對新會員的 optional assessment／可略過入口；保留本人選擇公會、無診斷／資格推定、平台不過手錢等邊界。實作與其餘本輪決定見 [會員入口修訂](../development/member-onboarding-release.md)。

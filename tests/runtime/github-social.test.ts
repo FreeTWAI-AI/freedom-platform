@@ -5,7 +5,7 @@ import {Pool} from 'pg';
 import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {GitHubSocial,type GitHubSocialConfig} from '../../modules/github-social/service.js';
-import {GitHubSocialProvider} from '../../modules/github-social/provider.js';
+import {GitHubSocialProvider,type GitHubDenialDiagnostic} from '../../modules/github-social/provider.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 
 const databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_github_social_${process.pid}_${Date.now()}`;
@@ -155,13 +155,50 @@ test('provider aborts requests at the deadline and limits simultaneous outbound 
 });
 
 test('GitHub permission denial directs administrators to permissions, while rate limits remain retryable',async()=>{
-  const forbidden:typeof fetch=async()=>Response.json({message:'Resource not accessible by integration',secret:'must-not-leak'},{status:403,headers:{'x-accepted-github-permissions':'starring=write,metadata=read','x-ratelimit-remaining':'100'}});
-  await assert.rejects(()=>new GitHubSocialProvider(forbidden).star(repository,'ghu_synthetic',true),error=>{
-    assert.ok(errorCode('github_permission_required')(error));
+  const forbiddenEntries:GitHubDenialDiagnostic[]=[];
+  const forbidden:typeof fetch=async()=>Response.json({message:'Resource not accessible by integration',secret:'must-not-leak'},{status:403,headers:{'x-accepted-github-permissions':'starring=write,metadata=read','x-ratelimit-remaining':'100','x-github-request-id':'C7A2:3F1B:1A2B3C:1B2C3D:670ABCDE'}});
+  await assert.rejects(()=>new GitHubSocialProvider(forbidden,entry=>forbiddenEntries.push(entry)).star(repository,'ghu_synthetic',true),error=>{
+    assert.ok(errorCode('github_permission_required')(error));assert.equal((error as {status?:number}).status,403);
     assert.match(String(error),/存取權限不足.*管理員/);assert.doesNotMatch(String(error),/暫時|稍後|must-not-leak/);return true;
   });
+  assert.deepEqual(forbiddenEntries,[{event:'github_provider_denied',status:403,route:'PUT /user/starred/{repository}',reason:'not_accessible_by_integration',accepted_permissions:'starring=write,metadata=read',github_request_id:'C7A2:3F1B:1A2B3C:1B2C3D:670ABCDE',sso_required:false}]);
+  assert.doesNotMatch(JSON.stringify(forbiddenEntries),/must-not-leak|ghu_synthetic|Resource not accessible|Hao0321\//);
+  const limitedEntries:GitHubDenialDiagnostic[]=[];
   const limited:typeof fetch=async()=>Response.json({message:'synthetic secondary rate limit'},{status:403,headers:{'retry-after':'60'}});
-  await assert.rejects(()=>new GitHubSocialProvider(limited).star(repository,'ghu_synthetic',true),errorCode('github_rate_limited'));
+  await assert.rejects(()=>new GitHubSocialProvider(limited,entry=>limitedEntries.push(entry)).star(repository,'ghu_synthetic',true),errorCode('github_rate_limited'));
+  assert.deepEqual(limitedEntries,[]);
+});
+
+test('GitHub denial diagnostics keep only allow-listed values and never break the denial',async()=>{
+  const ssoEntries:GitHubDenialDiagnostic[]=[];
+  const sso:typeof fetch=async()=>Response.json({message:'Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization.'},{status:403,headers:{'x-github-sso':'required; url=https://github.com/orgs/synthetic/sso?authorization_request=must-not-leak','x-accepted-github-permissions':'starring=write; <script>','x-github-request-id':'A'.repeat(65),'x-ratelimit-remaining':'100'}});
+  await assert.rejects(()=>new GitHubSocialProvider(sso,entry=>ssoEntries.push(entry)).star(repository,'ghu_synthetic',true),errorCode('github_permission_required'));
+  assert.deepEqual(ssoEntries,[{event:'github_provider_denied',status:403,route:'PUT /user/starred/{repository}',reason:'sso_required',accepted_permissions:null,github_request_id:null,sso_required:true}]);
+  const serialized=JSON.stringify(ssoEntries);assert.doesNotMatch(serialized,/must-not-leak|authorization_request|SAML/);
+  const oversizeEntries:GitHubDenialDiagnostic[]=[];
+  const oversize:typeof fetch=async()=>new Response(`{"message":"Resource not accessible by integration","pad":"${'x'.repeat(1_000_000)}"}`,{status:403,headers:{'x-ratelimit-remaining':'100'}});
+  await assert.rejects(()=>new GitHubSocialProvider(oversize,entry=>oversizeEntries.push(entry)).star(repository,'ghu_synthetic',true),errorCode('github_permission_required'));
+  assert.deepEqual(oversizeEntries,[{event:'github_provider_denied',status:403,route:'PUT /user/starred/{repository}',reason:'unknown',accepted_permissions:null,github_request_id:null,sso_required:false}]);
+  const metricsEntries:GitHubDenialDiagnostic[]=[];
+  const metricsForbidden:typeof fetch=async()=>Response.json({message:'Resource not accessible by integration'},{status:403,headers:{'x-ratelimit-remaining':'100'}});
+  await assert.rejects(()=>new GitHubSocialProvider(metricsForbidden,entry=>metricsEntries.push(entry)).metrics(repository,'ghu_synthetic'),errorCode('github_permission_required'));
+  assert.deepEqual(metricsEntries,[{event:'github_provider_denied',status:403,route:`GET /repos/{repository}`,reason:'not_accessible_by_integration',accepted_permissions:null,github_request_id:null,sso_required:false}]);
+  const sinkDown:typeof fetch=async()=>Response.json({message:'Resource not accessible by integration'},{status:403,headers:{'x-ratelimit-remaining':'100'}});
+  await assert.rejects(()=>new GitHubSocialProvider(sinkDown,()=>{throw new Error('log sink down');}).star(repository,'ghu_synthetic',true),errorCode('github_permission_required'));
+  const tabbed:typeof fetch=async()=>Response.json({},{status:403,headers:{'x-accepted-github-permissions':'starring=write,\tmetadata=read','x-ratelimit-remaining':'100'}});
+  const tabbedEntries:GitHubDenialDiagnostic[]=[];
+  await assert.rejects(()=>new GitHubSocialProvider(tabbed,entry=>tabbedEntries.push(entry)).star(repository,'ghu_synthetic',true),errorCode('github_permission_required'));
+  assert.equal(tabbedEntries[0]?.accepted_permissions,null);
+});
+
+test('a stalled denial body ends at the request deadline instead of holding the request',async context=>{
+  context.mock.timers.enable({apis:['setTimeout']});
+  const entries:GitHubDenialDiagnostic[]=[];
+  const stalled:typeof fetch=async()=>new Response(new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('{"message":"Resource not'));}}),{status:403,headers:{'x-ratelimit-remaining':'100'}});
+  const denied=assert.rejects(()=>new GitHubSocialProvider(stalled,entry=>entries.push(entry)).star(repository,'ghu_synthetic',true),errorCode('github_permission_required'));
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(entries.length,0);
+  context.mock.timers.tick(8000);await denied;context.mock.timers.reset();
+  assert.equal(entries.length,1);assert.equal(entries[0].reason,'unknown');
 });
 
 test('issue permission denial identifies an App that is registered but not installed',async()=>{
