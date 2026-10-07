@@ -462,6 +462,8 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       setResults(page.items); setResultsCursor(page.next_cursor); setStage('尚未儲存');
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      setWork(null); setHeldVersion(''); setResults([]); setResultsCursor(null);
+      setEditTitle(''); setEditObjective(''); setEditProgress('todo'); setEditBase(null); setEditError('');
       if (error instanceof ApiError) applyAccess(error);
       else setBanner('這份工作暫時無法開啟。');
     } finally { if (call.live()) setBusy(false); }
