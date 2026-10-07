@@ -249,7 +249,11 @@ function casesFor(profile: Profile, document: Json): Case[] {
       for (const value of GOOD_VERSIONS) cases.push({ name: `valid version ${label} ${value}`, value: patch(profile.maximal, hit.path, value), valid: true });
       for (const value of BAD_VERSIONS) cases.push({ name: `invalid version ${label} ${JSON.stringify(value)}`, value: patch(profile.maximal, hit.path, value), valid: false });
     }
-    if (hit.kind === 'iso') cases.push({ name: `fraction over ${label}`, value: patch(profile.maximal, hit.path, '2026-10-06T00:00:00.0000000000Z'), valid: false });
+    if (hit.kind === 'iso') {
+      cases.push({ name: `fraction over ${label}`, value: patch(profile.maximal, hit.path, '2026-10-06T00:00:00.0000000000Z'), valid: false });
+      cases.push({ name: `Arabic-Indic digits ${label}`, value: patch(profile.maximal, hit.path, '٢٠٢٦-١٠-٠٦T٠٠:٠٠:٠٠Z'), valid: false });
+      cases.push({ name: `full-width digits ${label}`, value: patch(profile.maximal, hit.path, '２０２６-１０-０６T００:００:００Z'), valid: false });
+    }
     if (hit.kind === 'newline') {
       const current = at(profile.maximal, hit.path);
       const source = typeof current === 'string' ? current : String(at(profile.minimal, hit.path) ?? '');
