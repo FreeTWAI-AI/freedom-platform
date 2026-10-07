@@ -18,8 +18,10 @@ Configuration 必須是有界、嚴格的 own data properties；來源、environ
 
 已辨識入口先驗精確 URL authority／Host、method、來源、credential kind 與
 標頭，再提交獨立限流 charge；真人 session、CSRF 及 onboarding 檢查通過後
-才讀 JSON body。既有 `memberBoundary` 從真實 `freedom_local_session` cookie
-取 Actor，覆蓋預注入資料。服務仍在同一 DB transaction 重驗 user/session、
+才讀 JSON body。`memberBoundary` 依可信 origin 選擇真實的
+`__Host-freedom_session`（HTTPS）或 `freedom_local_session`（local loopback HTTP），
+拒絕同名重複 Cookie，再取 Actor 並覆蓋預注入資料。HTTPS 不接受舊名稱。
+服務仍在同一 DB transaction 重驗 user/session、
 person、personal scope、ownership 與目前 backing；HTTP 驗證不取代 domain
 checks。Bearer、DPoP 及 bootstrap token 不能當真人憑證，與 cookie 混用亦拒絕。
 

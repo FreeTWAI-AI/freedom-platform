@@ -24,7 +24,7 @@ test('INGEST-PROCESS actual Chromium cross-site HTTPS setup stores an encrypted 
   for(const forbidden of ['secret','kekBytes','cipherUrl','providerOrigin','responsePrivateJwk'])assert(!main.configKeys.includes(forbidden));
   const entry=await readFile(new URL('./credential-ingest-fixtures/main-child.ts',import.meta.url),'utf8');assert(!entry.includes(f.secret));assert(!entry.includes('SYNTHETIC_DIRECT_INGEST_KEY'));assert(!entry.includes('/vault.js'));
   assert(!JSON.stringify(main).includes(f.secret));assert(!f.main.logs().includes(f.secret));
-  assert(broker.requests.every((r:any)=>!r.cookie?.includes('freedom_local_session')));
+  assert(broker.requests.every((r:{cookie:string|null})=>!r.cookie?.includes('__Host-freedom_session')));
   const bootstrap=broker.requests.find((r:any)=>r.path==='/credential-setup'&&r.method==='POST');assert(bootstrap);assert.equal(bootstrap.cookie,null);assert.equal(bootstrap.origin,f.mainOrigin);assert.equal(bootstrap.mode,'navigate');assert.equal(bootstrap.site,'cross-site');
   assert(broker.requests.some((r:any)=>r.path==='/credential-setup/prepare'&&r.cookie?.includes('__Host-fp_broker_setup=')));
   assert.equal(broker.reads.length,1);assert(broker.reads.every((r:any)=>r.cleared));assert.equal(broker.storePuts,1);
