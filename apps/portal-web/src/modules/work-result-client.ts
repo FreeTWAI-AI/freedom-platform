@@ -30,24 +30,35 @@ export async function putWorkResultContent(client: PortalClient, path: string, b
 
 /** Read result bytes as text. This route is not JSON, so PortalClient.get cannot be used. */
 export async function getWorkResultText(client: PortalClient, path: string, signal?: AbortSignal): Promise<string> {
-  const response = await send(client, path, { method: 'GET', headers: { Accept: 'text/plain, text/markdown;q=0.9' }, signal });
-  if (!response.ok) throw await problemFrom(response, 'GET');
-  return response.text();
+  return request(client, path, { method: 'GET', headers: { Accept: 'text/plain, text/markdown;q=0.9' }, signal }, async (response) => {
+    if (!response.ok) throw await problemFrom(response, 'GET');
+    try {
+      return await response.text();
+    } catch {
+      throw new ApiError({ message: '回應未完整收到，請稍後重試。', status: 0, network: true });
+    }
+  });
 }
 
 async function exchange(client: PortalClient, path: string, init: { method: string; body?: Uint8Array; headers: Record<string, string>; signal?: AbortSignal }): Promise<unknown> {
-  const response = await send(client, path, init);
-  let payload: unknown;
-  try { payload = await response.json(); }
-  catch {
-    if (!response.ok) throw await problemFrom(response, init.method, true);
-    throw new ApiError({ message: '回應未完整收到，尚未確認結果。請稍後重試。', status: response.status, network: true });
-  }
-  if (!response.ok) throw problem(response, payload, init.method);
-  return payload;
+  return request(client, path, init, async (response) => {
+    let payload: unknown;
+    try { payload = await response.json(); }
+    catch {
+      if (!response.ok) throw await problemFrom(response, init.method, true);
+      throw new ApiError({ message: '回應未完整收到，尚未確認結果。請稍後重試。', status: response.status, network: true });
+    }
+    if (!response.ok) throw problem(response, payload, init.method);
+    return payload;
+  });
 }
 
-async function send(client: PortalClient, path: string, init: { method: string; body?: Uint8Array; headers: Record<string, string>; signal?: AbortSignal }): Promise<Response> {
+async function request<T>(
+  client: PortalClient,
+  path: string,
+  init: { method: string; body?: Uint8Array; headers: Record<string, string>; signal?: AbortSignal },
+  read: (response: Response) => Promise<T>,
+): Promise<T> {
   if (init.method !== 'GET' && !client.csrfToken) throw new ApiError({ message: '缺少安全權杖，請重新載入後再試', status: 400 });
   const requestCsrf = client.csrfToken;
   const headers = new Headers(init.headers);
@@ -60,31 +71,52 @@ async function send(client: PortalClient, path: string, init: { method: string; 
   }
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, TIMEOUT_MS);
-  let response: Response;
+
+  const abortPromise = new Promise<never>((_, reject) => {
+    if (controller.signal.aborted) {
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    } else {
+      controller.signal.addEventListener('abort', () => {
+        reject(new DOMException('The operation was aborted.', 'AbortError'));
+      }, { once: true });
+    }
+  });
+  abortPromise.catch(() => {});
+
+  let stage: 'fetch' | 'read' = 'fetch';
   try {
-    response = await accessAwareFetch(path, { method: init.method, credentials: 'same-origin', headers, body: init.body ? new Uint8Array(init.body) : undefined, signal: controller.signal });
-  } catch {
+    const response = await accessAwareFetch(path, {
+      method: init.method,
+      credentials: 'same-origin',
+      headers,
+      body: init.body ? new Uint8Array(init.body) : undefined,
+      signal: controller.signal,
+    });
+    if (await isExpiredAccessResponse(response)) {
+      const status = expiredAccessStatus(response);
+      if (client.csrfToken === requestCsrf) {
+        client.accessExpired = true;
+        if (status === 401 || status === 403) client.csrfToken = null;
+        client.onUnauthorized?.();
+      }
+      throw new ApiError({ message: MEMBER_ACCESS_EXPIRED_MESSAGE, status, accessExpired: true });
+    }
+    if (client.csrfToken === requestCsrf) {
+      client.accessExpired = false;
+      if (response.status === 401) { client.csrfToken = null; client.onUnauthorized?.(); }
+    }
+    stage = 'read';
+    return await Promise.race([read(response), abortPromise]);
+  } catch (error) {
     if (init.signal?.aborted) throw new ApiError({ message: '已取消', code: 'aborted', status: 0, network: true });
     if (timedOut) throw new ApiError({ message: '連線等候過久，尚未確認結果。請稍後重試。', status: 0, network: true, timedOut: true });
-    throw new ApiError({ message: '無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: 0, network: true });
+    if (error instanceof ApiError) throw error;
+    if (stage === 'fetch') throw new ApiError({ message: '無法連線到伺服器，尚未確認結果。請確認網路後重試。', status: 0, network: true });
+    throw error;
   } finally {
     clearTimeout(timer);
     init.signal?.removeEventListener('abort', onAbort);
   }
-  if (await isExpiredAccessResponse(response)) {
-    const status = expiredAccessStatus(response);
-    if (client.csrfToken === requestCsrf) {
-      client.accessExpired = true;
-      if (status === 401 || status === 403) client.csrfToken = null;
-      client.onUnauthorized?.();
-    }
-    throw new ApiError({ message: MEMBER_ACCESS_EXPIRED_MESSAGE, status, accessExpired: true });
-  }
-  if (client.csrfToken === requestCsrf) {
-    client.accessExpired = false;
-    if (response.status === 401) { client.csrfToken = null; client.onUnauthorized?.(); }
-  }
-  return response;
 }
 
 function quote(version: string): string {
