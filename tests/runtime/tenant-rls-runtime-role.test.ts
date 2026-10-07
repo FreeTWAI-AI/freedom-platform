@@ -268,4 +268,3 @@ test('T-024 the non-owner runtime role serves tenant work and returns the same 4
   const archived = await post(`/tenants/${tenantId}/works/${workId}/archive`, maker, {}, `"${current.data.version}"`);
   assert.equal(archived.status, 200, JSON.stringify(archived.data));
 });
-
