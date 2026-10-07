@@ -19624,8 +19624,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
-      "bytes": 17583,
-      "sha256": "6245cff9bafb2b5f4a996ec37468dca2853035c2bd14b37f478fd1516c0b2c5c"
+      "bytes": 17582,
+      "sha256": "d9adbefa7f6f2159354c6c2c886f22c5b8091f7dc698df9c7d350e3cd3074b5a"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
