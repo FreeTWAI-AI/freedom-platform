@@ -1042,6 +1042,7 @@ for (const lifecycle of ['archive', 'suspend'] as const) {
     const [guild] = await guildsByCategory(e2eAuthPool);
     const member = await person(e2eAuthPool, lifecycle, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
     const session = await login(browser, baseURL!, member.email);
+    await session.page.emulateMedia({ reducedMotion: 'reduce' });
     const title = `保留工作${randomUUID().slice(0, 8)}`;
     try {
       const made = await postJson(session.page, '/tenants', { display_name: '保留工作業務', workspace_name: '歷史工作區' });
