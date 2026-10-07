@@ -9,7 +9,10 @@ jobs:
   consumer-library-source:
     # This central workflow is installed as a native required workflow for the
     # nine approved consumers. It is not the central platform verification job.
-    if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
+    # Forks skip: their job.workflow_sha is not in the central repository, so the
+    # trusted-source checkout cannot fetch it. Every FreeTWAI-AI repository runs the
+    # job; the host refuses repositories outside its approved set (fails closed).
+    if: ${{ github.repository_owner == 'FreeTWAI-AI' && github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The reviewed host owns per-repository source/profile tuples. Installation

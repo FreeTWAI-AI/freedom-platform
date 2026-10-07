@@ -33,6 +33,12 @@ let dummyHash: string | undefined;
 const unknownUserHash = () => dummyHash ??= `${randomBytes(16).toString('hex')}:${randomBytes(64).toString('hex')}`;
 // Absolute lifetime from login or registration; no sliding renewal (#107).
 export const SESSION_LIFETIME_SECONDS = 30*24*60*60;
+/** Used only after a password check or a locked, valid one-use mailbox proof. */
+export async function createMemberSession(q:PoolClient,user:Omit<Actor,'session_hash'|'csrf_token'>) {
+  const token=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');
+  await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
+  return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf}};
+}
 export async function login(pool: Pool, email: string, password: string) {
   const normalized = email.trim().toLowerCase();
   const attemptKey = tokenHash(normalized);
@@ -50,11 +56,9 @@ export async function login(pool: Pool, email: string, password: string) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1',[attemptKey]);
       return {invalid:true} as const;
     }
-    const token = randomBytes(32).toString('base64url');
-    const csrf = randomBytes(32).toString('base64url');
-    await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
+    const session=await createMemberSession(q,user);
     await q.query('UPDATE login_attempts SET failures=0 WHERE attempt_key=$1',[attemptKey]);
-    return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf} as Actor};
+    return session;
   });
   if ('blocked' in result) throw new Problem(429,'login_rate_limited','登入嘗試過多，請稍後再試。');
   if ('invalid' in result) throw new Problem(401,'invalid_credentials','帳號或密碼不正確。');
