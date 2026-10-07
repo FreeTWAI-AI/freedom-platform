@@ -5,7 +5,6 @@
   "owned_paths": [
     "modules/module-registry/**",
     "apps/platform-api/src/routes/module-registry.ts",
-    "contracts/guild-launchpad/v1/tenant-work.ts",
     "migrations/123_tenant_manual_work.sql",
     "tests/runtime/tenant-work.test.ts",
     "tests/runtime/tenant-work-schema.test.ts",

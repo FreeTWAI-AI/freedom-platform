@@ -16144,8 +16144,8 @@
     },
     {
       "path": "modules/module-registry/freedom.module.json",
-      "bytes": 1252,
-      "sha256": "c37748f2c314d393a00e2a44e059a75f2fc1d3d73de34ebd0447d1b1b7032e4d"
+      "bytes": 1201,
+      "sha256": "548d84a1bcb8c3c657529eec99bce9023a582d85da3de0b4e7fd59e916286edc"
     },
     {
       "path": "modules/module-registry/problems.ts",
@@ -16179,8 +16179,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4348,
-      "sha256": "8ef00757cd950f77c98ea561489a04465ef05f8c8c108bb0554cf857e7b6c1a9"
+      "bytes": 4399,
+      "sha256": "eed07dfa89b6dda9e75e83b21e5e040b9493ef70d2418d36e644ed569769d32b"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
