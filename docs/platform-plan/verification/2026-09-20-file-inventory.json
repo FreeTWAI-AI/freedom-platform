@@ -2333,6 +2333,16 @@
       "sha256": "f877e3a584698f09ed5decf41a584161afeff884f9483a3e00c080833de6df9f"
     },
     {
+      "path": "apps/portal-web/src/modules/SocialCrossPlatformShare.css",
+      "bytes": 6124,
+      "sha256": "ceac30febe8ab30ae2f8e8b9bdaef79b9396bfdadf65e1a0ab340c6351e13063"
+    },
+    {
+      "path": "apps/portal-web/src/modules/SocialCrossPlatformShare.tsx",
+      "bytes": 28301,
+      "sha256": "1713c6b1fad85ffc568e4df329ee3cdaded64fef19cc63b50e98c0f21ab29610"
+    },
+    {
       "path": "apps/portal-web/src/modules/SocialInteractions.tsx",
       "bytes": 7665,
       "sha256": "c5813abba6e90408b46bd41700235c5b85b0be7856d534b193f625ee672ab6a7"
@@ -2354,8 +2364,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 24147,
-      "sha256": "89b4f0cc9332477cbb3b13e1bd57770309a9ee057bc2375a44276843be01ec22"
+      "bytes": 27319,
+      "sha256": "0a4d22726e8a9fd7c4640683a4a16a54f37d5b9ab361c742746a1a6c47d245c9"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -2763,6 +2773,11 @@
       "sha256": "8765e07a1e45473ad5b74a5daa72f1ca0bbb4c744fde9e3daa0d855ae2e5cf07"
     },
     {
+      "path": "apps/portal-web/src/share-module-loader.ts",
+      "bytes": 881,
+      "sha256": "33634e7c1df0a590e0286b3c00085f2e6d6dafd2cc78848f63dc191d5bcaed06"
+    },
+    {
       "path": "apps/portal-web/src/skill-social.tsx",
       "bytes": 1264,
       "sha256": "adc549d3ccb1c7aec82c7016ca75829653ea27259b4976e9a5098b76c4b6aacf"
@@ -2771,6 +2786,11 @@
       "path": "apps/portal-web/src/social-post-task.ts",
       "bytes": 13792,
       "sha256": "722e8c07b61853d36b02e32b3cd82f52058282e928944218607725bd49de99d5"
+    },
+    {
+      "path": "apps/portal-web/src/social-share.ts",
+      "bytes": 9057,
+      "sha256": "d07016c91ee5367298ef1278b1fc57e7021977e5e265a0f735caa84dfb04964f"
     },
     {
       "path": "apps/portal-web/src/styles.css",
@@ -13393,6 +13413,11 @@
       "sha256": "670415ec73a676f2a024e8707e932600b24b2b102be72f5385bceda1e62f3fe5"
     },
     {
+      "path": "docs/development/social-cross-platform-sharing.md",
+      "bytes": 8403,
+      "sha256": "64236201624ed007a429ea4674eb18f981b7ef5854a174af46f31d9f98336d03"
+    },
+    {
       "path": "docs/development/social-mobile-install.md",
       "bytes": 1395,
       "sha256": "942d7b4ac1f34883bc0015e109afbefea4b98ed39638b51e2c1b2d2b971a87db"
@@ -13419,8 +13444,8 @@
     },
     {
       "path": "docs/development/social-post-optimization.md",
-      "bytes": 5867,
-      "sha256": "50c9c8be5823bf63c4e37ea1ab9ae7d04cab427608f557784dc38ae58a3100ec"
+      "bytes": 6153,
+      "sha256": "e2a0c093aed38b27101ce0d598ab922286e005281785d5d57a1ce7928bee06eb"
     },
     {
       "path": "docs/development/social-preview-worker.md",
@@ -19118,6 +19143,11 @@
       "sha256": "4a29b0bf7b129f8e81f67eb5845246c4b0a92e42d262b62b71de5cda9137906d"
     },
     {
+      "path": "tests/e2e/social-cross-platform-share.spec.ts",
+      "bytes": 20773,
+      "sha256": "5b1a5ddda0c542e96ab4ca226ea09e4f395ff6e1011542bc226772d7768bbaaa"
+    },
+    {
       "path": "tests/e2e/social-feed.spec.ts",
       "bytes": 18945,
       "sha256": "2301f42ca291c02b481e4573f89844b33a708eedf0a6506162f94da151f2d732"
@@ -20244,8 +20274,8 @@
     },
     {
       "path": "tests/runtime/page-tools-notification.test.ts",
-      "bytes": 2248,
-      "sha256": "17899bb9cc56e806c6e2df89b1071757ea12431b64a02b79d922b66b86808fdd"
+      "bytes": 2269,
+      "sha256": "893d46f0704fee24497fe9668b571329d5cada4c8ca02957740d1f41df0b1efb"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",
@@ -20526,6 +20556,11 @@
       "path": "tests/runtime/social-preview-assets.test.ts",
       "bytes": 20153,
       "sha256": "dc8a8b7695e6019f4332720a49d5958e346ac97e0070ff59fdd699a43ed56418"
+    },
+    {
+      "path": "tests/runtime/social-share.test.ts",
+      "bytes": 10897,
+      "sha256": "04b3bfd2e102226e8dbb51ab38ba7238b9184b9bb68353aab45304559bffbce9"
     },
     {
       "path": "tests/runtime/social-thumbnail-assets.test.ts",

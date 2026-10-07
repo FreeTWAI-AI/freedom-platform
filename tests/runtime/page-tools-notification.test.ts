@@ -26,7 +26,7 @@ test('all three page tools show their name inside the same accessible name; 提�
 test('登出 sits in the profile menu, not as a separate top-bar button',()=>{
   assert.doesNotMatch(app,/登出/);
   assert.match(settingsMenu,/className="settings-menu-item settings-menu-logout"/);
-  assert.match(settingsMenu,/登出<\/button>/);
+  assert.match(settingsMenu,/\{t\('settings\.logout'\)\}<\/button>/);
 });
 
 test('top-bar icon buttons share one 44px box and the profile avatar stays 36px',()=>{

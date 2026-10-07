@@ -47,3 +47,7 @@
 `tests/runtime/social-post-task.test.ts` 覆蓋本人模型篩選、用量上限、連續點擊、原請求恢復、舊身分隔離、成果綁定及導航記憶體。`tests/e2e/social-post-optimizer.spec.ts` 覆蓋預設關閉、本人工具任務、預覽／採用／復原、舊結果拒絕、三主題手機版面及不自動發布。`tests/e2e/private-work-ai.spec.ts` 的既有隔離 fixture 階段驗證真實 SQL／transport 的單次優化與遺失 ACK；不消耗真人 Token。
 
 實際命令與結果記在[本輪效能紀錄](social-platform-performance-2026-10-07.md)。真實供應商費用、訂閱資格、正式站安裝與真人文案品質仍需由維護者及本人帳號驗收。
+
+## 多平台分享
+
+同一發文器另提供可選的「Social Post 分享」：點平台 Logo 亮燈、準備原始素材，再到各平台自行確認發布。風險提醒、恢復、實際平台能力與驗證範圍見[選平台與逐站分享](social-cross-platform-sharing.md)。
