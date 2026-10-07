@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-07 release.production=687dee8739d9a8fc65a78fcb093347833cc004e8 release.staging=687dee8739d9a8fc65a78fcb093347833cc004e8 flag.production=absent flag.staging=absent repo_max_migration=125 applied_migration.production=124 applied_migration.staging=124 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-07 release.production=687dee8739d9a8fc65a78fcb093347833cc004e8 release.staging=687dee8739d9a8fc65a78fcb093347833cc004e8 flag.production=absent flag.staging=absent repo_max_migration=126 applied_migration.production=124 applied_migration.staging=124 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第三輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
