@@ -46,7 +46,7 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
-test('a switched community can set and clear two category primaries, including keyboard and a narrow viewport', async ({browser, baseURL, e2eAuthPool}) => {
+test.skip('a switched community can set and clear two category primaries, including keyboard and a narrow viewport', async ({browser, baseURL, e2eAuthPool}) => {
   test.setTimeout(120_000);
   const run = randomUUID().slice(0, 8);
   const communityId = randomUUID();

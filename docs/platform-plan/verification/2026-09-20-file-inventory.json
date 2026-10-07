@@ -11994,8 +11994,8 @@
     },
     {
       "path": "deploy/cloudflare/test/media-caller.test.mjs",
-      "bytes": 2117,
-      "sha256": "f17024d46618fd92249534211bdcc7ff020dfc2420957e0ca1807e683eb24450"
+      "bytes": 2122,
+      "sha256": "044a1f660e84433fb82e1a9cd5822bdb94ecc1408ce547e846831cba097dc7a0"
     },
     {
       "path": "deploy/cloudflare/test/media-restore-container.test.mjs",
@@ -13634,8 +13634,8 @@
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_repository_manifest_identity.py",
-      "bytes": 920,
-      "sha256": "a761e1f6e4e518a49c08606e6e12d2bcc1529f3e9d8dd645f1f038710540e03b"
+      "bytes": 967,
+      "sha256": "1d8c7f89a50ae4e217eadceca1c5eb4a1906ad775bb8a2572f83ca1643e7208e"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_retract_contract_parity.py",
@@ -16864,8 +16864,8 @@
     },
     {
       "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
-      "bytes": 4251,
-      "sha256": "5dc4c0b76eb1eef7f5625c67e792d0b6e2d7b3bfc21731089415b7916dfb26a3"
+      "bytes": 4256,
+      "sha256": "710f6c03119c546bdd4e2f615f85f0d6f388bf95f5dac141ba58f478c6783699"
     },
     {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",
@@ -18114,8 +18114,8 @@
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 19274,
-      "sha256": "c9c18bc43fccbebde55f70b5e710c433565f6ad38c7bf7c92c938b6d4b93b71b"
+      "bytes": 19279,
+      "sha256": "752eecb0414d6f7def66b58b57cd6452a172351c214815ae9a24b0456bb9977e"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
@@ -19789,8 +19789,8 @@
     },
     {
       "path": "tests/runtime/tenant-high-risk-verification.test.ts",
-      "bytes": 16236,
-      "sha256": "b64c49d71984f68839df1997a2c34441222c4612a3a981576c669c7fb2642c41"
+      "bytes": 16241,
+      "sha256": "31e091f87d1cc7f162790610de93b19a69fcba97b997e85c2dde5e06d709de32"
     },
     {
       "path": "tests/runtime/tenant-membership-identity.test.ts",
@@ -19904,8 +19904,8 @@
     },
     {
       "path": "tests/worker/credential-ingest-diagnostic.test.ts",
-      "bytes": 1016,
-      "sha256": "05d34e4b2634fff00f5580ef3931535c5439f25d4825ff1ec63723aab3ab552f"
+      "bytes": 1021,
+      "sha256": "bbda1f2c69688210da3ecc2be7fa3ab924ae0b5a713733281279f6b40bc48ea8"
     },
     {
       "path": "tests/worker/event-banner-assets.test.ts",
