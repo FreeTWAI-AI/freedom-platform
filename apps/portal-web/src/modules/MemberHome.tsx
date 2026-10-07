@@ -175,7 +175,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
         <MemberAvatar nickname={nickname} avatarUrl={member?.avatar_url} className="home-member-initial"/>
         <div>
           <p className="home-member-name">{nickname}{member?.positioning_title && <span className="positioning-title">{member.positioning_title}</span>}</p>
-          {member ? <p className="home-member-guild">{member.primary_guild ? `主要公會 · ${member.primary_guild.name}` : '尚未設定主要公會'}</p>
+          {member ? <p className="home-member-guild">{member.category_primaries ? member.category_primaries.map(item => `${item.category==='internal'?'內政主力':item.category==='external'?'外交主力':'專業與產業主力'} · ${item.guild?.name??'尚未選擇'}`).join('　') : member.primary_guild ? `主要公會 · ${member.primary_guild.name}` : '尚未設定主要公會'}</p>
             : loading && <p className="home-member-guild" role="status">正在載入名片…</p>}
           {showAssessment && <p className="home-assessment-hint">完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。</p>}
         </div>
