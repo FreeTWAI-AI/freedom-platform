@@ -12609,8 +12609,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 15659,
-      "sha256": "784babcb0bd8b75e87bb954cd051feaeb623c448043907512cdf0e59bf99a2e5"
+      "bytes": 17517,
+      "sha256": "fca384cd9892c50f0d7e4f37248220eded1c52186dfecd813ccd00d5e02605f8"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -16334,8 +16334,8 @@
     },
     {
       "path": "modules/positioning/guild-categories.ts",
-      "bytes": 36258,
-      "sha256": "74a9a15a3eb550742cd4dcdac72ff0e876cfd194cc4ac738bdac945bf4840a04"
+      "bytes": 36616,
+      "sha256": "141af56240c0bcb87978a31e22c1908aa49ff5359a52c5f21928de389c510ab9"
     },
     {
       "path": "modules/positioning/guild-questions.ts",
@@ -17804,8 +17804,8 @@
     },
     {
       "path": "scripts/guild-preferences-backfill.ts",
-      "bytes": 1756,
-      "sha256": "58a5f843111004e7be3e4e1aa2d244a6fcf7114ce4649592ccdab2d59726f782"
+      "bytes": 6988,
+      "sha256": "190ea6e1b0fb7df7c3234989663d41ec9238f2d6162cd7b6f6ff3ce1a29a8a76"
     },
     {
       "path": "scripts/import-ai-sister-guides.ts",
@@ -19094,8 +19094,8 @@
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",
-      "bytes": 74322,
-      "sha256": "7f3218b1c1b789932eac5a324be1e0a27ea9a1bc518a286901aa2171c6d0318a"
+      "bytes": 87289,
+      "sha256": "2fe0f57a03772f1b95519c2529b93b1020943d0a3296d03c455bdb19c2cea7fa"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
