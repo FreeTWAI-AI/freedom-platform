@@ -4,7 +4,7 @@
 
 ## 本輪實驗，修改前凍結
 
-- Source baseline：`a10da499ebd88858664388a744b859f0f9f92b3a`，起始 upstream base：`57b610abe0277e4b0fda711f45dd063540252ad0`。起始盤點 8 份 open PR；後續 #192 已合併、#175／#190 更新，最新 7 份 open PR 與前輪快照都保留在 PR 比對文件，沒有重新實作它們的功能。
+- Source baseline：`a10da499ebd88858664388a744b859f0f9f92b3a`，起始 upstream base：`57b610abe0277e4b0fda711f45dd063540252ad0`。起始盤點 8 份 open PR；後續 #192 已合併、#175／#190 更新。07:15 UTC 再查 9 份 open PR（包含本 PR #193），比對其餘 8 份；#190 最新的 PATCH／候選 DTO 及成果上傳、#194 runtime runner／reporter 的分區時間界線均沿用它們的獨立 PR，沒有重做。
 - 環境：同一 Windows 主機、Node 24.19.0、Chromium、專用合成 PostgreSQL；本機與正式站、staging、真人及競品證據分開。
 - Baseline 前端與上一份建置相同；保存 HTML／assets 的精確 bytes。比較完整初始 JS 靜態依賴，而非只比較改名後入口檔。
 - 初始 JS 成本：按頁載入重模組，目標完整初始 JS gzip 降到 baseline 的 70% 以下；登入、首頁與聊天入口仍可用。這只證明本輪 payload，不代替實際使用者 LCP 或萬人效能。
@@ -22,6 +22,10 @@
 - QR 保留原模板、四格留白與 opt-in URL；真實名片連結建立、更新、撤銷、手機掃碼及 PNG 匯出需解碼正確。v6 的整數比例嘗試仍失敗；檢查原始截圖後發現碼的上半部被置頂導覽遮住，因此撤回比例修改，讓掃碼測試先將完整碼捲至畫面中央再解碼。不能以延長 assertion timeout 或移除掃碼 assertion 放行。
 
 整合後全量 E2E 的第一次 Windows 嘗試在裝置配對 fixture 失敗，於 140 項時停止並保存 log／trace。兩個 static fixture helper 的 bytes 與 baseline a10 相同；它們以 `root + '/'` 判斷邊界，對 Windows `\\` 路徑會拒絕自己的頁面與 JS。修正採 Node `path.sep`，保留相鄰目錄／父目錄越界拒絕；校準同時驗證 Windows／POSIX，不修改產品 ACL 或裝置 consent／CAS assertions。另將帶 receipt key 的 GET 保持獨立，補齊共用讀取的 options 反例。後續完整重跑會另記結果，不能把這次中止記作 PASS。
+
+整合分享入口後的第二次全量嘗試於 23 項時中止（22 pass／1 fail），失敗在真實管理員流程的 fixture 收尾。Browser trace 顯示所有操作與權限 assertions 已完成；只關閉該 fixture 的 HTTP connections 後，同一流程 16.2 秒通過。另依新工具列更新兩個登入 selector、分列工具的對齊檢查，以及等實際 toolbar 掛載才開啟的 helper；保留可見性、accessible name、觸控、顏色、圖示與焦點斷言。型別錯誤及修正前的 8 pass／1 fail、22 pass／1 fail 也保留，沒有提升 timeout、使用 force click 或跳過失敗案例。
+
+原 PR 的四項 P2 review 一併追蹤：名片姓名 token 與工具 dialog 焦點已修正；本輪在 Chromium 加兩個受控實際 API 交錯，修正前為 6 pass／2 fail，重現發文 ACK 搶走新分類的焦點及第一頁留言被作廢。發文依當前分類／選擇版本合併，只有原發文視窗尚未被關閉或重開時恢復其焦點；留言保留讀取與 cursor，暫存新確認留言直到 server page 包含它，再以 ID 去重。26 則既有留言的分頁與新增後 27 則完整顯示都驗證，不新增第二套留言系統。
 
 ## 全目標待驗收矩陣
 
@@ -42,7 +46,7 @@
 
 ## 本機已確認的結果
 
-- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口與分享選單後 candidate 580,279 bytes／gzip 180,111 bytes。gzip 降低 53.00%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671 是歷史數字，不能代替目前建置。
+- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單及 review 修正後 candidate 580,279 bytes／gzip 180,127 bytes。gzip 降低 53.00%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671 與分享初版的 gzip 180,111 是歷史數字，不能代替目前建置。
 - 受控、明確允許共用的 5 個同時 GET：baseline 5 次 transport，candidate 1 次；settled 後下一次仍重新請求。預設新讀取、帳號切換、JSON 副本、獨立取消與 POST／DELETE 前後快照的反例一併驗證。
 - Client／build benchmark／Social Post／模型 service runtime tests：58 pass／0 fail／0 skip。最後分享入口的型別檢查與建置通過；整套 runtime CI 尚未在新 head 執行。
 - v4 的 85 項瀏覽器回歸通過。完整 hosted a10 UI CI 揭露 15 項失敗；v5 擴大範圍為 58 pass／7 fail／10 fixture skip，v6 為 7 pass／2 fail。沒有將這些版本放行。修正後 v8 的 9 項針對性反例／瀏覽器檢查全部通過，涵蓋撤權清單、名片 QR／PNG、名片配色、導覽與原素材載入；全量三階段 E2E 仍待本輪最終執行。
@@ -51,5 +55,6 @@
 - 角色、發文、本人優化、手機登入錯誤、原生 feed、shell 與密碼找回的針對性瀏覽器檢查：26 pass／0 fail。先前候選有 7 fail／19 pass：手機寬度規則把收合工具當成三欄整列，撐出登入標題；鍵盤序列也需包含新增的工具入口。修正實際 CSS 寬度及導覽序列後，未移除寬度、觸控或焦點 assertions。320px／390px 原生截圖已檢視。
 - Model fixture 修正後 2 pass／0 fail：正常執行及 ACK 遺失均只有一次 Execute／一次私人成果；不呼叫真實 provider、不消耗真人額度。修正前的失敗、clock 控制反例及拒絕版本留在本機，不能記作成功。
 - 新分享入口與既有作品投稿／shell 的針對性回歸：18 pass／0 fail，含桌面與 320px 真實作品提交、五個實際控制項、單次寫入、三主題與失敗恢復。完整三階段 E2E（一般頁面、私人模型 fixture、avatar asset fixture）仍待最終執行。
+- Review 修正後，組合回歸 22 pass／1 fail：新的分類／焦點及 27 則留言案例通過，唯一失敗是 test helper 在 toolbar 尚未掛載時返回。依 trace 改等實際可見入口，工具／guide 完整回歸 27 pass／0 fail；包含登入、四種寬度、兩主題、關閉／Esc、私人輸入、真實導引與跨帳號隔離。沒有把先前失敗版本記作 PASS。
 
 以上是載入量、可共用請求成本與特定流程的證據；正式站延遲、負載、全部按鈕真人操作及競品比較仍保留在原目標矩陣中。

@@ -22,6 +22,7 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const pendingComment = useRef<{text: string; key: string} | null>(null);
   const pendingLike = useRef<{liked: boolean; key: string} | null>(null);
+  const confirmedComments = useRef<Comment[]>([]);
   const sequence = useRef(0);
   useEffect(() => () => { ++sequence.current; }, []);
   async function load(next?: string) {
@@ -30,7 +31,9 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
     try {
       const page = await client.get<Comments>(`/social-posts/${post.post_id}/comments${next ? `?cursor=${encodeURIComponent(next)}` : ''}`);
       if (token !== sequence.current) return;
-      setComments(current => mergeComments(next ? current : [], page.items)); setCursor(page.next_cursor);
+      const fresh = confirmedComments.current.filter(comment => !page.items.some(item => item.comment_id === comment.comment_id));
+      setComments(current => mergeComments(next ? current : fresh, page.items)); setCursor(page.next_cursor);
+      confirmedComments.current = fresh;
     } catch (cause) { if (token === sequence.current) setError(cause instanceof Error ? cause.message : '留言暫時無法載入。'); }
     finally { if (token === sequence.current) setLoading(false); }
   }
@@ -54,7 +57,9 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
     pendingComment.current = command; setSending(true); setError('');
     try {
       const created = await client.post<Comment>(`/social-posts/${post.post_id}/comments`, {text: command.text}, {idempotencyKey: command.key});
-      ++sequence.current; setLoading(false);
+      // A comment acknowledgement does not cancel a pending read or its cursor.
+      // Retain newly confirmed comments until a server page includes them.
+      confirmedComments.current = mergeComments(confirmedComments.current, [created]);
       setComments(current => mergeComments(current, [created]));
       if (!comments.some(item => item.comment_id === created.comment_id)) onUpdate({comment_count: (post.comment_count ?? 0) + 1});
       pendingComment.current = null; setText('');
@@ -68,6 +73,7 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
     setSending(true); setError('');
     try {
       await client.delete(`/social-posts/${post.post_id}/comments/${comment.comment_id}`, {});
+      confirmedComments.current = confirmedComments.current.filter(item => item.comment_id !== comment.comment_id);
       setComments(current => current.filter(item => item.comment_id !== comment.comment_id));
       onUpdate({comment_count: Math.max(0, (post.comment_count ?? 0) - 1)}); setConfirmDelete(null);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '留言未能刪除。'); }

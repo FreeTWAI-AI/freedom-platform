@@ -3,8 +3,14 @@ import { expect, type Page } from './fixtures.js';
 /** Member tools are secondary; open their visible disclosure before choosing one.
  * Sign-in uses the same disclosure; management may retain inline tools. */
 export async function openPageTools(page:Page){
+  // Wait for the actual toolbar to mount before inspecting its disclosure.
+  // page.goto can finish while the first session/site reads are still pending.
+  await expect(page.locator('.page-tools').first()).toBeVisible();
   const menu=page.locator('.page-tools-menu');
-  if(await menu.count()&&!await menu.evaluate(element=>(element as HTMLDetailsElement).open))await menu.locator(':scope > summary').click();
+  if(await menu.count()){
+    if(!await menu.evaluate(element=>(element as HTMLDetailsElement).open))await menu.locator(':scope > summary').click();
+    await expect(menu).toHaveJSProperty('open',true);
+  }
 }
 
 /** Reach the original profile/recommendation and module cards on the simple home. */

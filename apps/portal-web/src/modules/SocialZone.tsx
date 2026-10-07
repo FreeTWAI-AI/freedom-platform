@@ -75,6 +75,8 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   const [originalDraft,setOriginalDraft]=useState<{before:string;after:string}|null>(null);
   const pending = useRef<{text: string; key: string} | null>(null);
   const loadSequence = useRef(0);
+  const selection = useRef({platform: '', version: 0});
+  const composerVersion = useRef(0);
   const newPosts = useRef<Post[]>([]);
   const load = useCallback(async (nextPlatform: string, nextCursor?: string) => {
     const sequence = ++loadSequence.current;
@@ -98,20 +100,35 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   useEffect(() => { void load(platform); }, [load, platform]);
   useEffect(() => () => { ++loadSequence.current; }, []);
   useEffect(() => { if (composerOpen && !composer.current?.open) {composer.current?.showModal(); composer.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus();} }, [composerOpen]);
-  function closeComposer() { composer.current?.close(); setComposerOpen(false); composerTrigger.current?.focus({preventScroll: true}); }
+  function selectPlatform(next: string) {
+    if (selection.current.platform === next) return;
+    selection.current = {platform: next, version: selection.current.version + 1};
+    ++loadSequence.current;
+    setPlatform(next);
+  }
+  function openComposer() { ++composerVersion.current; setComposerOpen(true); }
+  function closeComposer() { ++composerVersion.current; composer.current?.close(); setComposerOpen(false); composerTrigger.current?.focus({preventScroll: true}); }
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (publishing) return;
     const command = pending.current ?? {text: text.trim(), key: crypto.randomUUID()};
     if (!command.text) return;
     pending.current = command;
+    const selectedVersion = selection.current.version, interactionVersion = composerVersion.current;
     setPublishing(true); setPublishError(''); setNotice('');
     try {
       const created = await client.post<Post>('/social-posts/notes', {text: command.text}, {idempotencyKey: command.key});
       newPosts.current = [created, ...newPosts.current.filter(post => post.post_id !== created.post_id)];
-      setItems(current => [created, ...current.filter(post => post.post_id !== created.post_id)]);
-      if (platform !== '' && platform !== 'note') setPlatform('note');
-      pending.current = null; setText(''); setOriginalDraft(null);setNotice('貼文已發布。'); closeComposer();
+      const currentSelection = selection.current;
+      if (currentSelection.platform === '' || currentSelection.platform === 'note') {
+        setItems(current => [created, ...current.filter(post => post.post_id !== created.post_id)]);
+      } else if (currentSelection.version === selectedVersion) {
+        // Jump to a saved note only if the viewer has not chosen another feed
+        // while the acknowledgement was in flight.
+        setItems([created]); setCursor(null); selectPlatform('note');
+      }
+      pending.current = null; setText(''); setOriginalDraft(null);setNotice('貼文已發布。');
+      if (composerVersion.current === interactionVersion) closeComposer();
     } catch (cause) {
       if (cause instanceof ApiError && !cause.network) pending.current = null;
       setPublishError(cause instanceof Error ? cause.message : '尚未確認發布結果，請重試。');
@@ -189,7 +206,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   return <section className="social-zone stack" aria-label="社群媒體分享專區">
     <div className="card social-composer-start" data-guide-anchor="social:composer">
       <div className="social-composer-prompt"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/>
-        <button ref={composerTrigger} type="button" className="social-write-trigger" aria-label="建立貼文" aria-haspopup="dialog" onClick={() => setComposerOpen(true)}>{pending.current ? '繼續確認剛才的貼文…' : text ? '繼續編輯你的貼文…' : '分享近況、作品或想法…'}</button>
+        <button ref={composerTrigger} type="button" className="social-write-trigger" aria-label="建立貼文" aria-haspopup="dialog" onClick={openComposer}>{pending.current ? '繼續確認剛才的貼文…' : text ? '繼續編輯你的貼文…' : '分享近況、作品或想法…'}</button>
       </div>
     <details className="social-composer">
       <summary>分享外部連結</summary>
@@ -218,7 +235,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
     {notice && <p className="banner banner-info" role="status">{notice}</p>}
     {error && <div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => void load(platform)}>重試</button></div>}
     <div className="social-filters" data-guide-anchor="social:platform" role="group" aria-label="平台">
-      <label className="social-filter-select"><span className="sr-only">查看貼文</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{FILTERS.map(item=><option key={item.id||'all'} value={item.id}>{item.label}</option>)}</select></label>
+      <label className="social-filter-select"><span className="sr-only">查看貼文</span><select value={platform} onChange={event=>selectPlatform(event.target.value)}>{FILTERS.map(item=><option key={item.id||'all'} value={item.id}>{item.label}</option>)}</select></label>
       <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(platform)}>更新動態</button>
     </div>
     {loading && <p role="status">正在載入貼文…</p>}

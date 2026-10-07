@@ -132,3 +132,70 @@ test('a failed comment keeps its draft and reuses the command after the server c
   expect(keys).toHaveLength(2); expect(keys[1]).toBe(keys[0]);
   expect((await e2eAuthPool.query("SELECT count(*)::int AS n FROM community_social_comments WHERE body='重試只留一則'")).rows[0].n).toBe(1);
 });
+
+test('a late publication ACK preserves the newer filter and focus without hiding the saved post',async({page,e2eAuthPool})=>{
+  await login(page);
+  const text=`E2E 分類切換 ${Date.now()}`;
+  let release!:()=>void,committed!:()=>void;
+  const gate=new Promise<void>(resolve=>release=resolve),saved=new Promise<void>(resolve=>committed=resolve);
+  await page.route('**/api/v1/social-posts/notes',async route=>{
+    const response=await route.fetch();committed();await gate;await route.fulfill({response});
+  });
+  try{
+    await page.getByLabel('貼文內容',{exact:true}).fill(text);
+    await page.getByRole('button',{name:'發布貼文',exact:true}).click();await saved;
+    await page.getByRole('button',{name:'關閉發文',exact:true}).click();
+    const filter=page.getByRole('combobox',{name:'查看貼文',exact:true});
+    const loaded=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/social-posts'&&new URL(response.url()).searchParams.get('platform')==='youtube'&&response.request().method()==='GET');
+    await filter.selectOption('youtube');await loaded;
+    await expect(page.getByText('正在載入貼文…',{exact:true})).toBeHidden();await filter.focus();
+    release();await expect(page.getByText('貼文已發布。',{exact:true})).toBeVisible();
+    await expect(filter).toHaveValue('youtube');await expect(filter).toBeFocused();
+    await expect(card(page,text)).toHaveCount(0);
+    await filter.selectOption('note');await expect(card(page,text)).toHaveCount(1);
+    expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM community_social_posts WHERE note=$1',[text])).rows[0].n).toBe(1);
+
+    // An unchanged external filter still switches to the saved native post.
+    await filter.selectOption('youtube');await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+    const next=`E2E 原分類發文 ${Date.now()}`;await page.getByLabel('貼文內容',{exact:true}).fill(next);
+    await page.getByRole('button',{name:'發布貼文',exact:true}).click();
+    await expect(filter).toHaveValue('note');await expect(card(page,next)).toHaveCount(1);
+    await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeFocused();
+  }finally{release();}
+});
+
+test('sending during the first comment page keeps its snapshot, cursor and one copy of the new comment',async({page,e2eAuthPool})=>{
+  await login(page);
+  const text=`E2E 留言分頁交錯 ${Date.now()}`;await page.getByLabel('貼文內容',{exact:true}).fill(text);
+  await page.getByRole('button',{name:'發布貼文',exact:true}).click();const post=card(page,text);await expect(post).toBeVisible();
+  const postId=(await post.getAttribute('id'))!.replace('social-post-','');
+  await e2eAuthPool.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at)
+    SELECT p.post_id,p.community_id,p.author_user_id,'既有留言 '||lpad(i::text,2,'0'),now()-interval '1 minute'+i*interval '1 second'
+    FROM community_social_posts p CROSS JOIN generate_series(1,26) i WHERE p.post_id=$1`,[postId]);
+  await page.getByRole('button',{name:'更新動態',exact:true}).click();
+  await expect(post.getByRole('button',{name:'留言 · 26',exact:true})).toBeVisible();
+  let release!:()=>void,captured!:()=>void,held=false;
+  const gate=new Promise<void>(resolve=>release=resolve),snapshot=new Promise<void>(resolve=>captured=resolve);
+  let firstPage:{items:unknown[];next_cursor:string|null}|undefined;
+  await page.route(`**/api/v1/social-posts/${postId}/comments*`,async route=>{
+    const request=route.request();
+    if(request.method()!=='GET'||new URL(request.url()).searchParams.has('cursor')||held)return route.continue();
+    held=true;const response=await route.fetch();firstPage=await response.json();captured();await gate;await route.fulfill({response});
+  });
+  try{
+    await post.getByRole('button',{name:'留言 · 26',exact:true}).click();await snapshot;
+    expect(firstPage!.items).toHaveLength(24);expect(firstPage!.next_cursor).toBeTruthy();
+    await post.getByLabel('寫留言',{exact:true}).fill('新留言必須和既有內容一起保留');
+    await post.getByRole('button',{name:'送出留言',exact:true}).click();
+    await expect(post.getByRole('button',{name:'留言 · 27',exact:true})).toBeVisible();
+    await expect(post.locator('.social-comment')).toHaveCount(1);
+    release();await expect(post.locator('.social-comment')).toHaveCount(25);
+    await expect(post.getByText('既有留言 01',{exact:true})).toBeVisible();
+    await post.getByRole('button',{name:'載入更多留言',exact:true}).click();
+    await expect(post.locator('.social-comment')).toHaveCount(27);
+    await expect(post.getByText('既有留言 26',{exact:true})).toBeVisible();
+    await expect(post.getByText('新留言必須和既有內容一起保留',{exact:true})).toHaveCount(1);
+    await expect(post.getByRole('button',{name:'載入更多留言',exact:true})).toHaveCount(0);
+    expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM community_social_comments WHERE post_id=$1',[postId])).rows[0].n).toBe(27);
+  }finally{release();}
+});

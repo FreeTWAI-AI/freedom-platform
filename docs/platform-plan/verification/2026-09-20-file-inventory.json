@@ -1784,8 +1784,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialInteractions.tsx",
-      "bytes": 7124,
-      "sha256": "e905f82534f3e4fedd754a9e8c05f808ec91a7770a2aebab19754f18861e708b"
+      "bytes": 7665,
+      "sha256": "c5813abba6e90408b46bd41700235c5b85b0be7856d534b193f625ee672ab6a7"
     },
     {
       "path": "apps/portal-web/src/modules/SocialPostOptimizer.css",
@@ -1804,8 +1804,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 19762,
-      "sha256": "3c07cc01e896b6cfb42ac7158b39a83457d6af1e3f0142565a8303b59f56516b"
+      "bytes": 20682,
+      "sha256": "aacaaad690ebd446ac16e7ba06e0feb8202b686aab5be6ca520dc0347443eecb"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -12669,13 +12669,13 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 8666,
-      "sha256": "fdc3d0d9e585d81075be20302f1c01b24f42c81f3d75b9290a336c156201f3a7"
+      "bytes": 10442,
+      "sha256": "430cc68191cd767049c90d4bfd0961401ffc40a0f58c26c1038e1a43db8ca78f"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
-      "bytes": 21521,
-      "sha256": "f6e373774da2f5627df461d325b4586e02e9640017c1c41f53a5609f2ee96852"
+      "bytes": 26122,
+      "sha256": "ae92e45a44705b1dd816eeaa1aec303562bc6c8de41173519b3152061e1c9308"
     },
     {
       "path": "docs/development/social-platform-product-direction-2026-10-07.md",
@@ -17789,8 +17789,8 @@
     },
     {
       "path": "tests/e2e/admin.spec.ts",
-      "bytes": 26505,
-      "sha256": "3aa3419c6654468ac98deb72b4f29e7b04df5ef1f55d713afe79ea9a73999fa0"
+      "bytes": 26816,
+      "sha256": "8a6fce676039829d9b6a769717b0a764ef5b35dfd4c40e5fb4d387e18918d8b9"
     },
     {
       "path": "tests/e2e/agent-shops.spec.ts",
@@ -17879,8 +17879,8 @@
     },
     {
       "path": "tests/e2e/development-guide.spec.ts",
-      "bytes": 7081,
-      "sha256": "8aecc6b4ec260019d095ebcc9bae42f8b6d81639de12d9395662bac7c892dc46"
+      "bytes": 7083,
+      "sha256": "f6f88e0539749a22a4df57f5cdb34477c770b198a61ad35d3f3efc8ec1936e69"
     },
     {
       "path": "tests/e2e/device-connections-visual.ts",
@@ -18094,8 +18094,8 @@
     },
     {
       "path": "tests/e2e/navigation.ts",
-      "bytes": 3628,
-      "sha256": "a36579af8fef0fb26a3b5be3312be20ac4e377922eaecd32489550a8d0974ef8"
+      "bytes": 3917,
+      "sha256": "9f13871dcf59cf2f5199885aa3ca7ab65f511169f3026dcd8759d6410f8ad848"
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
@@ -18129,8 +18129,8 @@
     },
     {
       "path": "tests/e2e/page-tools-notification.spec.ts",
-      "bytes": 6791,
-      "sha256": "19e418f20da5a55df83cc7de992e9b9014bbbe93ad872637c616120fe54cea84"
+      "bytes": 7560,
+      "sha256": "284feb394c200354fa379ff42ba17446e9a2f72c8f7ec040cc827f85e0c5d90a"
     },
     {
       "path": "tests/e2e/page-tools.spec.ts",
@@ -18224,8 +18224,8 @@
     },
     {
       "path": "tests/e2e/social-feed.spec.ts",
-      "bytes": 9769,
-      "sha256": "29bffa5d5782583a744c1b5c24c8db5c86198bee09bd994d7cf48a7187d299d3"
+      "bytes": 14912,
+      "sha256": "b0907ea5d118889b0a2d9cf86241bdc13017369f8c609a8dce17a6484f3ffbe2"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",

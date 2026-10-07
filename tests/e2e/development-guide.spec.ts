@@ -5,7 +5,7 @@ import {test,expect} from './fixtures.js';
 test('development tools follow the current page on desktop and phone without a duplicate footer',async({page})=>{
  await page.goto('/');
  await expect(page.locator('.development-context')).toHaveCount(0);
- await openPageTools(page); await page.locator('.login-page-tools').getByRole('button',{name:'參與編修'}).click();
+ await openPageTools(page); await page.locator('.login-card-heading').getByRole('button',{name:'參與編修'}).click();
  let guide=page.getByRole('dialog',{name:/參與編修/});
  await expect(guide.getByRole('link',{name:'給 Agent 的文字版 ↗'})).toHaveAttribute('href','/development/registration.md');
  await guide.getByRole('button',{name:'關閉'}).click();

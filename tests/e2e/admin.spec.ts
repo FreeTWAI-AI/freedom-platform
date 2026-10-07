@@ -129,7 +129,13 @@ test('admin appointment, access sync, revocation and reactivation use real isola
   // Playwright's test timeout abandons the body via Promise.race, so this must also run from afterEach.
   let dropping:Promise<void>|undefined;
   const dropSchema=()=>dropping??=(async()=>{
-    if(server)await new Promise<void>(resolve=>server!.close(()=>resolve()));
+    const fixtureServer=server;
+    if(fixtureServer)await new Promise<void>(resolve=>{
+      fixtureServer.close(()=>resolve());
+      // Assertions have finished. Release only this fixture's HTTP connections
+      // before dropping its schema; browser/API keep-alive can otherwise hang close.
+      if('closeAllConnections' in fixtureServer)fixtureServer.closeAllConnections();
+    });
     try{await pool.end();}catch{/* still drop */}
     await dbAdmin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name=$1 AND pid<>pg_backend_pid()',[schema]).catch(()=>{});
     try{await dbAdmin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);}finally{await dbAdmin.end();}

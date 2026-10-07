@@ -5,6 +5,90 @@
   "repository": "FreeTWAI-AI/freedom-platform",
   "prs": [
     {
+      "number": 194,
+      "head": "1afede236615f359ac749e93080dc2d196a2b9e1",
+      "files": [
+        "docs/development/runtime-ci-postgres.md",
+        "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+        "packages/contribution-tools/runtime-matrix.md",
+        "packages/contribution-tools/suite-runner.mjs",
+        "packages/contribution-tools/test-reporter.mjs",
+        "packages/contribution-tools/test/runtime-matrix.test.mjs",
+        "packages/contribution-tools/test/test-reporter-progress.test.mjs"
+      ],
+      "diff_sha256_lf": "867a9c5f20dd01c7c4b4c9b98d594f121d437256c2a95249e6a2b8ce0e12bbe4",
+      "title": "fix(ci): give each runtime partition an interim 1,200 s budget",
+      "updated_at": "2026-10-07T07:12:39Z"
+    },
+    {
+      "number": 193,
+      "head": "a10da499ebd88858664388a744b859f0f9f92b3a",
+      "files": [
+        "DESIGN.md",
+        "apps/platform-api/src/routes/member-communications.ts",
+        "apps/platform-api/src/routes/promotion.ts",
+        "apps/portal-web/src/App.tsx",
+        "apps/portal-web/src/Navigation.tsx",
+        "apps/portal-web/src/PageTools.css",
+        "apps/portal-web/src/PageTools.tsx",
+        "apps/portal-web/src/SocialLayout.css",
+        "apps/portal-web/src/api.ts",
+        "apps/portal-web/src/modules/HomeDesign.css",
+        "apps/portal-web/src/modules/MemberChannels.tsx",
+        "apps/portal-web/src/modules/MemberHome.tsx",
+        "apps/portal-web/src/modules/MemberMessages.tsx",
+        "apps/portal-web/src/modules/NotificationBell.tsx",
+        "apps/portal-web/src/modules/SocialInteractions.tsx",
+        "apps/portal-web/src/modules/SocialZone.css",
+        "apps/portal-web/src/modules/SocialZone.tsx",
+        "apps/portal-web/src/modules/member-inbox.ts",
+        "apps/portal-web/src/page-help.ts",
+        "deploy/cloudflare/environments.json",
+        "deploy/cloudflare/lib/release-compatibility.mjs",
+        "deploy/cloudflare/test/migration-plan.test.mjs",
+        "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
+        "deploy/cloudflare/test/release-compatibility.test.mjs",
+        "docs/development/member-communications.md",
+        "docs/development/share-promotion.md",
+        "docs/development/social-platform-audit-2026-10-07.md",
+        "docs/development/social-platform-pr-overlap-2026-10-07.json",
+        "docs/development/social-platform-product-direction-2026-10-07.md",
+        "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+        "migrations/124_social_feed_interactions.sql",
+        "modules/community/promotion.ts",
+        "modules/community/social-posts.ts",
+        "modules/development/pages.ts",
+        "modules/member-communications/channels.ts",
+        "modules/member-communications/service.ts",
+        "tests/e2e/agent-shops.spec.ts",
+        "tests/e2e/ai-sister-guides.spec.ts",
+        "tests/e2e/audit-shell.spec.ts",
+        "tests/e2e/audit-skills.spec.ts",
+        "tests/e2e/calm-experience.spec.ts",
+        "tests/e2e/development-access.spec.ts",
+        "tests/e2e/development-guide.spec.ts",
+        "tests/e2e/member-connections.spec.ts",
+        "tests/e2e/member-experience.spec.ts",
+        "tests/e2e/member-home-next-step.spec.ts",
+        "tests/e2e/navigation-audit.spec.ts",
+        "tests/e2e/navigation.ts",
+        "tests/e2e/newcomer-guides.spec.ts",
+        "tests/e2e/page-issue-recovery.spec.ts",
+        "tests/e2e/page-tools-notification.spec.ts",
+        "tests/e2e/page-tools.spec.ts",
+        "tests/e2e/share-promotion.spec.ts",
+        "tests/e2e/simple-social-experience.spec.ts",
+        "tests/e2e/social-feed.spec.ts",
+        "tests/e2e/workshop-design.spec.ts",
+        "tests/runtime/member-channels-core.test.ts",
+        "tests/runtime/member-communications.test.ts",
+        "tests/runtime/social-feed.test.ts"
+      ],
+      "diff_sha256_lf": "645b73e6fa70ca16eaa472c4cd69500e86caea49a024cb67bd45bdb764cfa26c",
+      "title": "會員版面大改：首頁動態、直接發文、文字層級與一鍵已讀",
+      "updated_at": "2026-10-07T05:52:08Z"
+    },
+    {
       "number": 191,
       "head": "acbc2c1c98113daf2f3d8303d2ec098c913ad76f",
       "files": [
@@ -29,7 +113,7 @@
     },
     {
       "number": 190,
-      "head": "8367c1d62b9a7740c55e2ab0568addb23879d244",
+      "head": "46e0a7b8e2615967598878de49bff04dd283a883",
       "files": [
         "apps/portal-web/src/api.ts",
         "apps/portal-web/src/modules/GuildLaunchpad.tsx",
@@ -44,9 +128,9 @@
         "tests/e2e/guild-launchpad.spec.ts",
         "tests/runtime/work-result-client.test.ts"
       ],
-      "diff_sha256_lf": "f30e701a7b3c9d7e95738a92d23d4c2826a03325b6e990ad3b6d85f8d6661064",
+      "diff_sha256_lf": "53ae8f296668f112de64956b2d85169b2192e2a94780d202c5229f8552a235e4",
       "title": "P-C2-UI：公會啟動台的「我的工作」畫面（SP-03 畫面；Refs #153）",
-      "updated_at": "2026-10-07T06:00:06Z"
+      "updated_at": "2026-10-07T07:11:50Z"
     },
     {
       "number": 189,
@@ -188,10 +272,10 @@
       ],
       "diff_sha256_lf": "99463c348986e0f59b25870a381af5f078d373cc23ac0f88a6c4559d129976bf",
       "title": "feat(community): 新增個人開源 ERP／CRM 產業範本試用入口",
-      "updated_at": "2026-10-07T01:28:48Z"
+      "updated_at": "2026-10-07T06:22:19Z"
     }
   ],
-  "observed_at": "2026-10-07T06:05:14Z",
+  "observed_at": "2026-10-07T07:15:45.379574+00:00",
   "previous_observation": {
     "source_base": "57b610abe0277e4b0fda711f45dd063540252ad0",
     "observed_at": "2026-10-07T04:42:14.077963+00:00",
@@ -414,6 +498,11 @@
     {
       "number": 190,
       "note": "Retain its PATCH and validated candidate DTO together with our DELETE and auth guards. Every new mutation method must invalidate opted-in reads before and after the write."
+    },
+    {
+      "number": 194,
+      "note": "Runtime partition budget and reporter progress belong to this separate PR. No runner timeout, installed governance pin or full-suite gate is changed by our UX increment."
     }
-  ]
+  ],
+  "review_scope": "Nine open PRs observed, including this PR #193; eight other PRs compared. Read current #190 PortalClient PATCH/candidate DTO and result upload helper, and #194 partition runner/reporter budget changes; neither is reimplemented here."
 }
