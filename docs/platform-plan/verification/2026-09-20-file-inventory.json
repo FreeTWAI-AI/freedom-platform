@@ -279,8 +279,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 30701,
-      "sha256": "09c6016d2e631c0ecc3f389e7765919b45b1de9f3535a3dd6f5815c22bb6bd0d"
+      "bytes": 31054,
+      "sha256": "b2956914f2833bcc74566c5159e18e9d195a3d7d3ef90718635013c6973d3c28"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -12614,8 +12614,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 18774,
-      "sha256": "7dd976726bce93c2f34b64d5ad660514759a1bc540a2817d014083d256a674ca"
+      "bytes": 18854,
+      "sha256": "56a98b4a155848338656d52ff4fe68056fa3ff6233ac61220be563e1bf94e6fb"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -19169,8 +19169,8 @@
     },
     {
       "path": "tests/runtime/login-lockout-recovery.test.ts",
-      "bytes": 9883,
-      "sha256": "994a914ab6c3376b755b7646b279caba86f7e815781307dfc27a4062b3b59547"
+      "bytes": 12585,
+      "sha256": "b2f63a91da9d512b2d1d8fc29e1c683699cf31faffd618e478cbe3822a1717a7"
     },
     {
       "path": "tests/runtime/machine-device-client.test.ts",

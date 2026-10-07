@@ -21,10 +21,10 @@ const outcome = z.object({ code: z.string().optional(), reset: z.boolean().optio
 before(async () => { await admin.query(`CREATE SCHEMA ${schema}`); await migrate(pool); });
 after(async () => { await pool.end(); await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end(); });
 beforeEach(async () => { await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits CASCADE'); await seedLocal(pool); delivered.length = 0; });
-async function post(path: string, body: unknown, secure = false) {
+async function post(path: string, body: unknown, secure = false, headers: Record<string, string> = {}) {
   const at = secure ? secureOrigin : origin;
   const response = await (secure ? secureApp : app).request(at + '/api/v1' + path, { method: 'POST',
-    headers: { Origin: at, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    headers: { Origin: at, 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
   const raw = await response.json();
   return { response, raw, status: response.status, data: outcome.parse(raw), cookie: response.headers.get('set-cookie')?.split(';')[0] };
 }
@@ -118,4 +118,31 @@ for (const secure of [true, false]) test(`${secure ? 'HTTPS' : 'HTTP loopback'} 
   }
   const active = await api.request(at + '/api/v1/session', { headers: { Cookie: recovered.cookie } });
   assert.equal(active.status, 200); assert.deepEqual(await active.json(), { user: recovered.raw.user, csrf_token: recovered.data.csrf_token });
+});
+
+for (const secure of [true, false]) test(`${secure ? 'HTTPS' : 'HTTP loopback'} reset revokes only the displaced browser session of another account`, async () => {
+  const at = secure ? secureOrigin : origin, api = secure ? secureApp : app;
+  const first = await post('/auth/login', { email: DEMO_USERS[1].email, password: DEMO_PASSWORD }, secure);
+  const second = await post('/auth/login', { email: DEMO_USERS[1].email, password: DEMO_PASSWORD }, secure);
+  assert.equal(first.status, 200); assert.equal(second.status, 200);
+  assert.ok(first.cookie); assert.ok(second.cookie); assert.notEqual(first.cookie, second.cookie);
+  assert.match(first.cookie, secure ? /^__Host-freedom_session=/ : /^freedom_local_session=/);
+  assert.equal((await api.request(at + '/api/v1/session', { headers: { Cookie: first.cookie } })).status, 200);
+  assert.equal((await post('/auth/reset/request', { email }, secure)).status, 200);
+  const link = new URL(delivered.at(-1)!); assert.equal(link.origin, at);
+  const token = link.hash.slice('#reset-password/'.length);
+  const invalid = await post('/auth/reset/confirm', { token: 'A'.repeat(43), password: newPassword }, secure, { Cookie: first.cookie });
+  assert.equal(invalid.status, 422); assert.equal(invalid.data.code, 'reset_link_invalid');
+  assert.equal(invalid.cookie, undefined);
+  assert.equal((await api.request(at + '/api/v1/session', { headers: { Cookie: first.cookie } })).status, 200);
+  assert.equal((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1', [tokenHash(first.cookie.split('=')[1])])).rows[0].revoked_at, null);
+  const recovered = await post('/auth/reset/confirm', { token, password: newPassword }, secure, { Cookie: first.cookie });
+  assert.equal(recovered.status, 200); assert.ok(recovered.cookie);
+  const active = await api.request(at + '/api/v1/session', { headers: { Cookie: recovered.cookie } });
+  assert.equal(active.status, 200); assert.equal(outcome.parse(await active.json()).user?.user_id, DEMO_USERS[0].user_id);
+  assert.equal((await api.request(at + '/api/v1/session', { headers: { Cookie: first.cookie } })).status, 401);
+  assert.ok((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1', [tokenHash(first.cookie.split('=')[1])])).rows[0].revoked_at);
+  const other = await api.request(at + '/api/v1/session', { headers: { Cookie: second.cookie } });
+  assert.equal(other.status, 200); assert.equal(outcome.parse(await other.json()).user?.user_id, DEMO_USERS[1].user_id);
+  assert.equal((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1', [tokenHash(second.cookie.split('=')[1])])).rows[0].revoked_at, null);
 });

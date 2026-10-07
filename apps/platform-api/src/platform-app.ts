@@ -286,7 +286,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'password-reset-confirm-network',authNetwork(c),30,3600);
     await authRateLimit(pool,'password-reset-confirm-global','global',500,3600);
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     const result=await confirmPasswordReset(pool,body.token,body.password);
+    // Replace any old session on reset, so changing accounts never keeps an active old cookie.
+    if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });

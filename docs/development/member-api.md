@@ -40,7 +40,8 @@ mutation body or creating, replacing or revoking sessions.
 - `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
   changes the password, revokes old sessions, clears account lockout and issues a
   new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
-  with the same session cookie/lifetime as login. Invalid, expired and inactive
+  with the same session cookie/lifetime as login; the session cookie already sent
+  by this browser is also revoked, as on login. Invalid, expired and inactive
   proofs are rejected. See [password-recovery.md](password-recovery.md).
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
