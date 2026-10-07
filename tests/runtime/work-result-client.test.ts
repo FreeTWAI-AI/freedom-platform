@@ -4,7 +4,7 @@ import { ApiError, PortalClient } from '../../apps/portal-web/src/api.js';
 import { getWorkResultText, putWorkResultContent } from '../../apps/portal-web/src/modules/work-result-client.js';
 
 test('putWorkResultContent times out when the 200 response body stalls', async (t) => {
-  let recordedSignal: AbortSignal | undefined;
+  let recordedSignal: AbortSignal | null | undefined;
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = async (_input: unknown, init?: RequestInit) => {
@@ -60,7 +60,7 @@ test('putWorkResultContent times out when the 200 response body stalls', async (
 });
 
 test('putWorkResultContent aborts when caller controller aborts during body read', async (t) => {
-  let recordedSignal: AbortSignal | undefined;
+  let recordedSignal: AbortSignal | null | undefined;
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = async (_input: unknown, init?: RequestInit) => {
@@ -117,7 +117,7 @@ test('putWorkResultContent aborts when caller controller aborts during body read
 });
 
 test('getWorkResultText times out when the text body stalls', async (t) => {
-  let recordedSignal: AbortSignal | undefined;
+  let recordedSignal: AbortSignal | null | undefined;
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = async (_input: unknown, init?: RequestInit) => {
