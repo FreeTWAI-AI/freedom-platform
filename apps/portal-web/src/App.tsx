@@ -609,7 +609,7 @@ function Workspace({
             {tab === 'engagement' && <EngagementPanel />}
             {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}

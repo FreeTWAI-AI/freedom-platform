@@ -6,6 +6,8 @@ import {communityCatalog} from '../community/catalog.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {authorizeGuildAppointee,ensureGuildAppointeeMembership} from './guild-appointment-membership.js';
 import {notifyGuildApplicationReview,notifyGuildMasterChange} from '../member-communications/events.js';
+import {BackfillInput,ClassificationInput,SwitchInput} from '../../contracts/guild-launchpad/v1/guild-preferences.js';
+import {backfillInTransaction,classifyInTransaction,seedPendingClassification,switchInTransaction} from '../positioning/guild-categories.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -135,6 +137,7 @@ export async function reviewGuildApplication(pool:Pool,input:AdminCommand,id:str
       const alias=body.guild!.alias??'',title=body.guild!.profession_title??'';
       await aliasConflicts(q,alias,guildKey,body.guild!.name);
       await q.query('INSERT INTO positioning_guild_catalog(guild_key,profession_key,name,purpose,first_step,module_key,alias,profession_title) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[guildKey,'custom_'+id.replaceAll('-',''),body.guild!.name,body.guild!.purpose,body.guild!.first_step,body.guild!.module_key,alias,title]);
+      await seedPendingClassification(q,guildKey);
       for(const bookId of body.guild!.skill_book_ids)await q.query('INSERT INTO guild_skill_book_bindings(community_id,guild_key,book_id) VALUES($1,$2,$3)',[input.admin.community_id,guildKey,bookId]);
     }
     if(body.decision==='merge'){
@@ -154,6 +157,22 @@ export async function reviewGuildApplication(pool:Pool,input:AdminCommand,id:str
     if(body.decision==='merge'){after.alias_before=aliasBefore;after.alias_after=aliasAfter;}
     await audit(q,input.admin,'guild_application_review','guild_application',id,body.reason,{state:previous.state,aggregate_version:previous.aggregate_version},after);return updated;
   });
+}
+export async function classifyGuild(pool:Pool,input:AdminCommand,key:string){
+  const body=ClassificationInput.parse(input.body);
+  return adminCommand(pool,input,async()=>{},async q=>{
+    const result=await classifyInTransaction(q,input.admin,key,body,input.expected);
+    await audit(q,input.admin,'guild_classification','guild',key,body.reason,result.before,result.classification);
+    return {classification:result.classification,invalidation_operation_id:result.invalidation_operation_id};
+  });
+}
+export async function backfillGuildPreferencesAdmin(pool:Pool,input:AdminCommand){
+  const body=BackfillInput.parse(input.body);
+  return adminCommand(pool,input,async()=>{},async q=>backfillInTransaction(q,{communityId:input.admin.community_id,limit:body.limit,dryRun:body.dry_run!==false}));
+}
+export async function switchGuildPreferencesAdmin(pool:Pool,input:AdminCommand){
+  const body=SwitchInput.parse(input.body);
+  return adminCommand(pool,input,async()=>{},async q=>switchInTransaction(q,{communityId:input.admin.community_id,acceptBlocked:body.accept_blocked,switchedBy:input.admin.admin_id}));
 }
 export async function adminGuilds(pool:Pool,admin:AdminActor){
   return (await pool.query(`SELECT g.*,o.aggregate_version AS officer_version,

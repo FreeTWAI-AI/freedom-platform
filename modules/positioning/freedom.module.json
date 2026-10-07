@@ -1,0 +1,29 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "positioning",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/positioning/**",
+    "migrations/120_guild_categories_preferences.sql",
+    "tests/runtime/guild-category-preferences.test.ts",
+    "contracts/guild-launchpad/**",
+    "scripts/guild-preferences-backfill.ts"
+  ],
+  "public_exports": [
+    "modules/positioning/guild-categories.ts",
+    "contracts/guild-launchpad/v1/guild-preferences.ts"
+  ],
+  "dependencies": ["command-core"],
+  "contract_families": ["preview"],
+  "client_profiles": ["member"],
+  "instructions": [
+    "docs/development/member-api.md",
+    "docs/development/onboarding-api.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "single-transaction-effects"
+  ],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}

@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
-import { positioningView,saveProfile,listTracks,listGuilds,changeGuildMembership } from '../../../../modules/positioning/service.js';
+import { positioningView,saveProfile,listTracks,listGuilds,changeGuildMembership,leaveGuildV2 } from '../../../../modules/positioning/service.js';
 import {quickStartOnboarding} from '../../../../modules/positioning/onboarding.js';
+import { communitySwitched, getPreferenceView, setCategoryPreference } from '../../../../modules/positioning/guild-categories.js';
 
 import { assessmentDefinition,onboardingView,saveAssessmentAnswers,evaluateSavedAssessment,completeOnboarding,guildDirectory,guildPreferences,setSecondaryGuilds,setPrimaryGuild,listSkillBooks,createGuildApplication,listGuildApplications,listGuildAnswers,saveGuildAnswers } from '../../../../modules/positioning/onboarding.js';
 
-export function createPositioningRoutes(pool:Pool) {
+export function createPositioningRoutes(pool:Pool,options:{guildLaunchpadEnabled?:boolean}={}) {
   const app=new Hono<PlatformEnv>();
   app.get('/me/positioning',async c=>c.json(await positioningView(pool,c.get('actor'))));
   app.post('/me/positioning',async c=>{
@@ -32,7 +33,25 @@ export function createPositioningRoutes(pool:Pool) {
     if(result.draft)c.header('ETag',`"${result.draft.aggregate_version}"`);return c.json(result);
   });
   app.get('/guilds/directory',async c=>c.json({items:await guildDirectory(pool,c.get('actor'))}));
-  app.get('/me/guild-preferences',async c=>c.json(await guildPreferences(pool,c.get('actor'))));
+  app.get('/me/guild-preferences',async c=>{
+    const prefs=await guildPreferences(pool,c.get('actor'));
+    if(options.guildLaunchpadEnabled&&await communitySwitched(pool,c.get('actor').community_id))return c.json({...prefs,compatibility:'legacy_projection' as const});
+    return c.json(prefs);
+  });
+  if(options.guildLaunchpadEnabled){
+    app.get('/me/guild-preferences/v2',async c=>{
+      const view=await getPreferenceView(pool,c.get('actor'));
+      c.header('ETag',`"${view.aggregate_version}"`);c.header('Cache-Control','private, no-store');return c.json(view);
+    });
+    app.post('/me/guild-preferences/v2/set',async c=>{
+      const view=await setCategoryPreference(pool,await moduleCommand(c));
+      c.header('ETag',`"${view.aggregate_version}"`);c.header('Cache-Control','private, no-store');return c.json(view);
+    });
+    app.post('/guilds/:key/leave-v2',async c=>{
+      const result=await leaveGuildV2(pool,await moduleCommand(c),c.req.param('key'),c.req.header('X-Preference-Version'));
+      c.header('ETag',`"${result.membership.aggregate_version}"`);c.header('Cache-Control','private, no-store');return c.json(result);
+    });
+  }
   app.post('/me/guild-preferences/secondary',async c=>{
     const result=await setSecondaryGuilds(pool,await moduleCommand(c));
     c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
