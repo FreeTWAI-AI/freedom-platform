@@ -165,6 +165,8 @@ async function retain(q: PoolClient, tenantId: string, installationId: string) {
 }
 
 async function finishOperation(q: PoolClient, row: OperationRow, state: OperationRow['state'], problem?: { code: string; detail: string }) {
+  if (row.cancel_requested_at && state !== 'cancelled' && problem?.code !== 'capability_denied'
+    && await settleCancellationIfReady(q, row, await stepsOf(q, row.operation_id, row.tenant_id))) return;
   if (state === 'succeeded') {
     const conflict = await ensureEntryBinding(q, row);
     if (conflict) {
@@ -270,6 +272,12 @@ async function settleCancelled(q: PoolClient, row: OperationRow, steps: StepRow[
   await finishOperation(q, row, 'cancelled');
 }
 
+async function settleCancellationIfReady(q: PoolClient, row: OperationRow, steps: StepRow[]): Promise<boolean> {
+  if (!row.cancel_requested_at || steps.some(step => step.state === 'dispatched' || step.state === 'unknown')) return false;
+  await settleCancelled(q, row, steps);
+  return true;
+}
+
 export interface AdvanceOptions {
   providers?: ModuleProviderMap;
   clock?: () => Date;
@@ -314,8 +322,8 @@ async function claimStep(q: PoolClient, tenantId: string, operationId: string, p
   )).rows[0];
   if (!peeked) return null;
   const gate = await actorState(q, peeked.tenant_id, peeked.actor_principal_id);
-  const row = await readOperationRow(q, operationId, peeked.tenant_id);
   await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [operationId]);
+  const row = await readOperationRow(q, operationId, peeked.tenant_id);
   if (!['requested', 'running', 'needs_reconciliation'].includes(row.state)) return { kind: 'stop' };
   const steps = await stepsOf(q, operationId, row.tenant_id);
   if (!gate.allowed) {
@@ -405,8 +413,8 @@ async function claimStep(q: PoolClient, tenantId: string, operationId: string, p
 
 async function recordOutcome(q: PoolClient, claimed: ClaimedApply, outcome: 'confirmed' | 'failed_known' | 'unknown', providers: ModuleProviderMap) {
   const gate = await actorState(q, claimed.operation.tenant_id, claimed.operation.actor_principal_id);
+  await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [claimed.operation.operation_id]);
   const row = await readOperationRow(q, claimed.operation.operation_id, claimed.operation.tenant_id);
-  await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [row.operation_id]);
   const updated = await q.query(
     `UPDATE module_provision_steps SET lease_fence=lease_fence WHERE operation_id=$1 AND step_key=$2 AND lease_fence=$3`,
     [row.operation_id, claimed.step.step_key, claimed.fence],
@@ -452,6 +460,7 @@ async function applyConfirmed(q: PoolClient, row: OperationRow, step: StepRow, d
     data: { instance_id: step.instance_id, module_key: step.module_key, binding_id: version.binding_id, authority_epoch: version.authority_epoch, version: version.version },
   });
   const rest = await stepsOf(q, row.operation_id, row.tenant_id);
+  if (await settleCancellationIfReady(q, row, rest)) return;
   if (rest.every(item => item.state === 'confirmed' || item.step_key === step.step_key)) {
     await finishOperation(q, row, 'succeeded');
   } else if (row.state === 'requested') {
@@ -465,6 +474,7 @@ async function settleKnownFailure(q: PoolClient, row: OperationRow, steps: StepR
     if (step.state === 'unknown' || (step.state === 'dispatched' && step.step_key !== failedKey)) continue;
     if (step.state === 'failed_known' || step.state === 'compensated' || step.state === 'compensating') continue;
     if (step.state === 'confirmed') {
+      if (row.cancel_requested_at) continue;
       const keep = await providers[step.module_key]?.hasMemberData(q, step.instance_id) ?? false;
       if (keep) continue;
       await q.query(
@@ -621,6 +631,9 @@ export async function reconcileOperation(pool: Pool, actor: Actor, tenantId: str
           if ((reset.rowCount ?? 0) === 1) await bumpOperationVersion(q, row);
         }
       }
+    }
+    if (!['succeeded', 'failed', 'cancelled'].includes(row.state)) {
+      await settleCancellationIfReady(q, row, await stepsOf(q, operationId, tenantId));
     }
     return operationView(await readOperationRow(q, operationId, tenantId));
   });

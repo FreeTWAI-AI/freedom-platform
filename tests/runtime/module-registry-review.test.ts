@@ -921,9 +921,8 @@ test('r5 authorization gate failure keeps precedence over accepted cancel', asyn
   const current = await h.call('GET', `/tenants/${tenantId}/operations/${launched.operation_id}`, owner);
   const cancelled = await h.post(`/tenants/${tenantId}/operations/${launched.operation_id}/cancel`, owner, { reason: 'member_cancelled' }, `"${current.data.version}"`);
   assert.equal(cancelled.status, 202, JSON.stringify(cancelled.data));
-  const demoted = await h.pool.query(`UPDATE tenant_memberships SET role='viewer' WHERE tenant_id=$1
-    AND principal_id=(SELECT actor_principal_id FROM module_provision_operations WHERE operation_id=$2)`, [tenantId, launched.operation_id]);
-  assert.equal(demoted.rowCount, 1);
+  const suspended = await h.pool.query(`UPDATE tenants SET status='suspended' WHERE tenant_id=$1`, [tenantId]);
+  assert.equal(suspended.rowCount, 1);
   await observeTerminalTransitions();
   await advanceOperation(h.pool, tenantId, launched.operation_id, { providers });
   const settled = (await h.pool.query(`SELECT state,terminal_problem FROM module_provision_operations WHERE operation_id=$1`, [launched.operation_id])).rows[0];
