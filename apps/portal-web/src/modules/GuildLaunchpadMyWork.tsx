@@ -540,11 +540,14 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     const problem = noteProblem(note) ?? displayNameProblem(noteName);
     setNoteError(problem ?? '');
     if (problem || note.trim().length === 0) return;
+    const call = currentCall();
     const bytes = new TextEncoder().encode(note);
+    const hash = await sha256Hex(bytes);
+    if (!call.live()) return;
     await startSave({
-      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: await sha256Hex(bytes), contentType: 'text/markdown',
+      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType: 'text/markdown',
       displayName: noteName, expectedWorkVersion: heldVersion, sourceText: note,
-    });
+    }, call);
   }
   async function beginFileSave() {
     if (!work || !file || busy || writeLocked || attempt) return;
@@ -553,21 +556,25 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (file.size < 1 || file.size > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
     const nameProblem = displayNameProblem(file.name);
     if (nameProblem) { setFileError(nameProblem); return; }
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const call = currentCall();
+    const buffer = await file.arrayBuffer();
+    if (!call.live()) return;
+    const bytes = new Uint8Array(buffer);
     if (bytes.byteLength < 1 || bytes.byteLength > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
+    const hash = await sha256Hex(bytes);
+    if (!call.live()) return;
     setFileError('');
     await startSave({
-      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: await sha256Hex(bytes), contentType,
+      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType,
       displayName: file.name, expectedWorkVersion: heldVersion, sourceText: null,
-    });
+    }, call);
   }
-  async function startSave(next: SaveAttempt) {
+  async function startSave(next: SaveAttempt, call: Call) {
     setAttempt(next); setResave(null); setAwaitingAck(false); setStorageDown(false); setBanner('');
-    await runSave(next);
+    await runSave(next, call);
   }
-  async function runSave(next: SaveAttempt) {
+  async function runSave(next: SaveAttempt, call: Call) {
     if (!tenantId || !work) return;
-    const call = currentCall();
     const workId = work.work_id;
     let current = next;
     setBusy(true);
@@ -645,10 +652,11 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function saveAgain() {
     if (!resave || !work || busy) return;
+    const call = currentCall();
     await startSave({
       ...resave, phase: 'prepare', key: crypto.randomUUID(), uploadId: undefined, uploadVersion: undefined, putVersion: undefined, resultId: undefined,
       expectedWorkVersion: heldVersion,
-    });
+    }, call);
   }
   async function showResult(result: ResultView) {
     if (!tenantId || !work) return;
@@ -774,7 +782,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || !file || Boolean(attempt)}>儲存附件</button>
         </form>
         <p className="my-work-stage" aria-live="polite">{stage}</p>
-        {(awaitingAck || (storageDown && attempt)) && <button type="button" className="btn btn-ghost" disabled={busy || !attempt} onClick={() => { if (attempt) void runSave(attempt); }}>重試</button>}
+        {(awaitingAck || (storageDown && attempt)) && <button type="button" className="btn btn-ghost" disabled={busy || !attempt} onClick={() => { if (attempt) void runSave(attempt, currentCall()); }}>重試</button>}
         {resave && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveAgain()}>用最新版本再儲存一次</button>}
         <section aria-label="成果">
           {results.length === 0 ? <p>還沒有成果。寫下筆記或附上檔案後按儲存。</p> : <ul>{results.map(result => <li key={result.result_id} className="my-work-result">
