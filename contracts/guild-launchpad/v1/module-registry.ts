@@ -76,6 +76,16 @@ export const ApplicationReleaseViewSchema = ApplicationViewSchema.omit({ eligibi
 }).strict();
 
 export const InstanceStatusSchema = z.enum(['requested', 'provisioning', 'active', 'failed', 'suspended', 'archived']);
+export const WorkspaceModuleBindingViewSchema = z.object({
+  tenant_id: OpaqueId,
+  workspace_id: OpaqueId,
+  binding: z.object({
+    entry_capability: z.literal('work:create'),
+    instance_id: OpaqueId,
+    instance_status: InstanceStatusSchema,
+    writable: z.boolean(),
+  }).strict().nullable(),
+}).strict();
 export const InstanceViewSchema = z.object({
   instance_id: OpaqueId,
   tenant_id: OpaqueId,
@@ -225,6 +235,7 @@ export const InstancePageSchema = page(InstanceViewSchema);
 export const InstallationPageSchema = page(InstallationViewSchema);
 
 export type ApplicationView = z.infer<typeof ApplicationViewSchema>;
+export type WorkspaceModuleBindingView = z.infer<typeof WorkspaceModuleBindingViewSchema>;
 export type InstanceView = z.infer<typeof InstanceViewSchema>;
 export type InstallationView = z.infer<typeof InstallationViewSchema>;
 export type LaunchPlan = z.infer<typeof LaunchPlanSchema>;

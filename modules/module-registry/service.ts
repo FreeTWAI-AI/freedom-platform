@@ -4,7 +4,7 @@ import {
   EnableManualWorkSchema, LaunchpadContextSchema, ManualWorkBindingSchema,
   type ManualWorkBinding,
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
-import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput } from '../../contracts/guild-launchpad/v1/module-registry.js';
+import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput, WorkspaceModuleBindingViewSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import type { Actor } from '../identity-membership/service.js';
 import { isWorkInstanceWritable, requireTenantCapability, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
 import { readCapacityPolicy, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
@@ -175,18 +175,41 @@ export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: s
   });
 }
 
+async function workspaceWorkReadContext(q: PoolClient, actor: Actor, tenantId: string, workspaceId: string) {
+  const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
+  requireTenantCapability(context, 'work:read', false);
+  const workspace = (await q.query<{ version: string; status: string }>(
+    `SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`,
+    [tenantId, workspaceId],
+  )).rows[0];
+  requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
+  requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
+  const binding = await entryBinding(q, tenantId, workspaceId);
+  return { context, workspace, binding };
+}
+
+export async function readWorkspaceModuleBinding(pool: Pool, actor: Actor, tenantId: string, workspaceId: string) {
+  OpaqueId.parse(tenantId);
+  OpaqueId.parse(workspaceId);
+  return isolatedTransaction(pool, async q => {
+    const { binding } = await workspaceWorkReadContext(q, actor, tenantId, workspaceId);
+    const view = WorkspaceModuleBindingViewSchema.parse({
+      tenant_id: tenantId, workspace_id: workspaceId,
+      binding: binding ? {
+        entry_capability: 'work:create', instance_id: binding.instance_id, instance_status: binding.instance_status,
+        writable: isWorkInstanceWritable(binding.instance_status, binding.deployment_state ?? undefined),
+      } : null,
+    });
+    await assertCurrentSessionClock(q, actor);
+    return view;
+  });
+}
+
 export async function launchpadContext(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, guildKey: string, workPage: unknown) {
   OpaqueId.parse(tenantId);
   OpaqueId.parse(workspaceId);
   return isolatedTransaction(pool, async q => {
-    const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    requireTenantCapability(context, 'work:read', false);
-    const workspace = (await q.query<{ version: string; status: string }>(
-      `SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`,
-      [tenantId, workspaceId],
-    )).rows[0];
-    requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
-    requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
+    const { context, workspace, binding } = await workspaceWorkReadContext(q, actor, tenantId, workspaceId);
     const catalog = await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey]);
     requireCondition(catalog.rowCount === 1, 404, 'guild_not_found', '找不到這個公會。');
     const instances = (await q.query<{ instance_id: string }>(
@@ -198,7 +221,6 @@ export async function launchpadContext(pool: Pool, actor: Actor, tenantId: strin
       const view = await launchpadInstance(q, tenantId, row.instance_id);
       if (view) views.push(view);
     }
-    const binding = await entryBinding(q, tenantId, workspaceId);
     const hosted = binding
       ? (await q.query(`SELECT 1 FROM deployment_bindings WHERE instance_id=$1 AND tenant_id=$2 AND mode='hosted' AND state='active'`, [binding.instance_id, tenantId])).rowCount === 1
       : false;
@@ -209,10 +231,6 @@ export async function launchpadContext(pool: Pool, actor: Actor, tenantId: strin
     const body = LaunchpadContextSchema.parse({
       tenant_id: tenantId, workspace_id: workspaceId, source_version: source, instances: views, work_page: workPage,
       capacity_summary,
-      workspace_binding: binding ? {
-        instance_id: binding.instance_id, instance_status: binding.instance_status,
-        writable: isWorkInstanceWritable(binding.instance_status, binding.deployment_state ?? undefined),
-      } : null,
       connection_summary: binding && hosted ? [{ instance_id: binding.instance_id, status: 'hosted_active' }] : [],
     });
     await assertCurrentSessionClock(q, actor);
