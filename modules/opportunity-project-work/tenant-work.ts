@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { withTenantRead, type TenantScopeInput } from '../../packages/resource-scopes/index.js';
+import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
@@ -28,7 +29,7 @@ export function decodeKeyset(raw: string | undefined, context: WorkCursorContext
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
     || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId,workspaceId'
     || Object.entries(context).some(([key, value]) => parsed[key] !== value)
-    || typeof parsed.at !== 'string' || Number.isNaN(Date.parse(parsed.at)) || !OpaqueId.safeParse(parsed.id).success) {
+    || !isKeysetTimestamp(parsed.at) || !OpaqueId.safeParse(parsed.id).success) {
     throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
   }
   return { at: parsed.at, id: parsed.id as string };

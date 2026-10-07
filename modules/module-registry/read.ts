@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
@@ -8,6 +9,7 @@ import type { Actor } from '../identity-membership/service.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
+import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { moduleRegistryCapabilities } from './capabilities.js';
 
@@ -16,19 +18,22 @@ function requireManage(context: TenantScopeContext, write: boolean) {
   requireCondition(context.capabilities.includes('instance.manage'), 403, 'capability_denied', '目前沒有這個操作的權限。');
 }
 
-function encodeCursor(at: string, id: string) {
-  return Buffer.from(`${at}\n${id}`).toString('base64url');
+type RegistryCursorContext = { tenantId: string; callerId: string; filter: string };
+function encodeCursor(at: string, id: string, context: RegistryCursorContext) {
+  return Buffer.from(JSON.stringify({ ...context, at, id })).toString('base64url');
 }
-function decodeCursor(raw?: string) {
+function decodeCursor(raw: string | undefined, context: RegistryCursorContext) {
   if (!raw) return null;
-  let text = '';
-  try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
-  const split = text.indexOf('\n');
-  if (split < 1) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  const at = text.slice(0, split);
-  const id = text.slice(split + 1);
-  if (!OpaqueId.safeParse(id).success || Number.isNaN(Date.parse(at))) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  return { at, id };
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
+  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId'
+    || Object.entries(context).some(([key, value]) => parsed[key] !== value)
+    || !isKeysetTimestamp(parsed.at) || !OpaqueId.safeParse(parsed.id).success) {
+    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+  }
+  return { at: parsed.at, id: parsed.id as string };
 }
 
 const INSTANCE_COLUMNS = `instance_id, tenant_id, module_key, application_release_ref, data_schema_version, contract_ref,
@@ -44,10 +49,12 @@ export async function instanceView(q: PoolClient, tenantId: string, instanceId: 
 
 export async function listInstances(pool: Pool, actor: Actor, tenantId: string, query: { module_key?: string; status?: string; cursor?: string; limit?: number }) {
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor);
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
+    const cursorContext = { tenantId, callerId: context.subject_principal.principal_id,
+      filter: createHash('sha256').update(JSON.stringify({ list: 'instances', module_key: query.module_key ?? null, status: query.status ?? null })).digest('hex') };
+    const cursor = decodeCursor(query.cursor, cursorContext);
     const rows = (await q.query<{ instance_id: string; cursor_at: string }>(
       `SELECT instance_id, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
        FROM module_instances
@@ -63,7 +70,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
     await assertCurrentSessionClock(q, actor);
     return InstancePageSchema.parse({
       items,
-      next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].instance_id) : null,
+      next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].instance_id, cursorContext) : null,
       source_version: version && version !== '0' ? version : context.authorization_revision,
     });
   });
@@ -137,10 +144,12 @@ async function installationView(q: PoolClient, tenantId: string, installationId:
 
 export async function listInstallations(pool: Pool, actor: Actor, tenantId: string, query: { application_key?: string; workspace_id?: string; cursor?: string; limit?: number }) {
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor);
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
+    const cursorContext = { tenantId, callerId: context.subject_principal.principal_id,
+      filter: createHash('sha256').update(JSON.stringify({ list: 'installations', application_key: query.application_key ?? null, workspace_id: query.workspace_id ?? null })).digest('hex') };
+    const cursor = decodeCursor(query.cursor, cursorContext);
     const rows = (await q.query<{ installation_id: string; cursor_at: string }>(
       `SELECT installation_id, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
        FROM application_installations
@@ -156,7 +165,7 @@ export async function listInstallations(pool: Pool, actor: Actor, tenantId: stri
     await assertCurrentSessionClock(q, actor);
     return InstallationPageSchema.parse({
       items,
-      next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].installation_id) : null,
+      next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].installation_id, cursorContext) : null,
       source_version: version && version !== '0' ? version : context.authorization_revision,
     });
   });

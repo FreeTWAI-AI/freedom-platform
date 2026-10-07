@@ -1,8 +1,8 @@
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
-  EnableManualWorkSchema, InstanceCandidateSchema, LaunchpadContextSchema, ManualWorkBindingSchema,
-  type InstanceCandidate, type ManualWorkBinding,
+  EnableManualWorkSchema, LaunchpadContextSchema, ManualWorkBindingSchema,
+  type ManualWorkBinding,
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -17,7 +17,7 @@ import { installationFingerprintLock } from './capacity.js';
 import { journalCommand } from './events.js';
 import { MANUAL_WORKSPACE_RELEASE } from './definitions.js';
 import { executeLaunch, entryBinding } from './launch.js';
-import { assertFullGuildMember, createPlan } from './plans.js';
+import { assertFullGuildMember, createPlan, manualWorkCandidates } from './plans.js';
 import { InstanceSelectionRequired } from './problems.js';
 import { resolveProviders, type ModuleProviderMap } from './providers.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
@@ -26,21 +26,6 @@ import { ModuleInstanceViewSchema, type ModuleInstanceView } from '../../contrac
 export { suspendInstance, resumeInstance } from './lifecycle.js';
 export { listInstances, readInstance, listInstallations, installationByOperation } from './read.js';
 export { advanceOperation, readOperation, reconcileOperation, cancelOperation, sweepDueOperations } from './operations.js';
-
-async function workCandidates(q: PoolClient, tenantId: string): Promise<InstanceCandidate[]> {
-  const rows = (await q.query<{ instance_id: string; version: string; created_at: Date; bound_workspace_count: number }>(
-    `SELECT i.instance_id, i.version::text AS version, i.created_at,
-       (SELECT count(*)::int FROM workspace_module_bindings b WHERE b.tenant_id=i.tenant_id AND b.instance_id=i.instance_id) AS bound_workspace_count
-     FROM module_instances i
-     WHERE i.tenant_id=$1 AND i.module_key='work' AND i.status='active'
-     ORDER BY i.created_at, i.instance_id`,
-    [tenantId],
-  )).rows;
-  return rows.map(row => InstanceCandidateSchema.parse({
-    instance_id: row.instance_id, version: row.version, created_at: row.created_at.toISOString(),
-    bound_workspace_count: row.bound_workspace_count,
-  }));
-}
 
 function bindingView(tenantId: string, workspaceId: string, row: { instance_id: string; version: string; binding_id: string }, reused: boolean): ManualWorkBinding {
   return ManualWorkBindingSchema.parse({
@@ -79,7 +64,7 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
     )).rows[0];
     requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
     requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
-    const options = await workCandidates(q, tenantId);
+    const options = await manualWorkCandidates(q, tenantId, input.guild_key);
     if (!input.choice && options.length > 0) throw new InstanceSelectionRequired(options);
     await installationFingerprintLock(q, tenantId, workspaceId, 'manual-workspace');
     const again = await entryBinding(q, tenantId, workspaceId);
@@ -90,7 +75,10 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
       await assertFullGuildMember(q, context.community_id, actor.user_id, input.guild_key, true);
       return bindingView(tenantId, workspaceId, again, true);
     }
-    if (!input.choice && (await workCandidates(q, tenantId)).length > 0) throw new InstanceSelectionRequired(await workCandidates(q, tenantId));
+    if (!input.choice) {
+      const candidates = await manualWorkCandidates(q, tenantId, input.guild_key);
+      if (candidates.length > 0) throw new InstanceSelectionRequired(candidates);
+    }
     const dependencies = input.choice?.kind === 'reuse'
       ? [{ requirement_key: 'work', choice: 'reuse' as const, instance_id: input.choice.instance_id, expected_version: input.choice.expected_version }]
       : input.choice?.kind === 'create_new'
