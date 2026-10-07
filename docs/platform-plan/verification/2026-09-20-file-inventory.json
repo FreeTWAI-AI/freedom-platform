@@ -14139,8 +14139,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 25114,
-      "sha256": "025a071dad895b0979733920b3822bd78e0e60ca9f69d3853c028c7c84f8dc62"
+      "bytes": 29104,
+      "sha256": "a2375058342c9e2213c148c278655b7c349ef92e8daf00c00123bb51234d64f4"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -14159,8 +14159,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 26615,
-      "sha256": "ae79b8ad0b50fd809b7bcdb7f5597290588e9cf94de1f0a3990e307d14efff5d"
+      "bytes": 36676,
+      "sha256": "5bed3221c28e477e050ad390603eb0e79d12b72045cda6ddb76bd71314863534"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -16839,8 +16839,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6211,
-      "sha256": "35c3d845917a25307b03586d83b2343b8ad7764311a817b8d3ab8260c8fe4e9e"
+      "bytes": 6227,
+      "sha256": "ea07e99f1d273bd0bda009e88990a5616b08b1de2f70cdc46091f22560a590c5"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -18996,6 +18996,11 @@
       "path": "tests/runtime/game-console.test.ts",
       "bytes": 2314,
       "sha256": "f32cbec006131a3eccca6c1f5e7b2e34a8ee81bac0517cfa08fb9f0f4a394500"
+    },
+    {
+      "path": "tests/runtime/generator-drift.test.ts",
+      "bytes": 3259,
+      "sha256": "d6bbf6bfb48ab65ebdbf73034a42a5616fc7fac96aa39c290d21a4008701c51b"
     },
     {
       "path": "tests/runtime/github-app-setup.test.ts",
