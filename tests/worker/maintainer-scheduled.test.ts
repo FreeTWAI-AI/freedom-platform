@@ -27,11 +27,15 @@ const privateKey = await exportPKCS8(pair.privateKey);
 const publicKey = await exportSPKI(pair.publicKey);
 const server = createPool(serverUrl.href);
 let mf: Miniflare, db: Pool;
+const closedClients: Promise<void>[] = [];
 const calls: Array<{ method: string; host: string; path: string; authorization: string; body: unknown }> = [];
 
 before(async () => {
   await server.query(`CREATE DATABASE ${database}`);
   db = new Pool({ connectionString: databaseUrl, max: 2 });
+  // Pool.end() resolves after removing clients, before their sockets necessarily close.
+  // Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+  db.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
   await migrate(db);
   await db.query('INSERT INTO communities (community_id, name) VALUES ($1,$2)', [randomUUID(), 'Maintainer workerd']);
   // Wrangler's dry-run names the bundle after the entry. A scheduled-only module does not
@@ -71,6 +75,7 @@ before(async () => {
 after(async () => {
   await mf?.dispose().catch(() => undefined);
   await db?.end().catch(() => undefined);
+  await Promise.all(closedClients);
   try { await server.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`); }
   finally { await server.end(); }
 });
