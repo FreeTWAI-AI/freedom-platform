@@ -9,6 +9,9 @@ import type { Pool } from 'pg';
 // Foreign keys to sessions without ON DELETE CASCADE: a session they still reference is kept,
 // otherwise PostgreSQL rejects the whole batch. tests/runtime/auth-pruning.test.ts checks this list against pg_constraint.
 export const SESSION_REFERENCES=[['credential_ingest_authorizations','original_session_hash'],['model_broker_authorizations','original_session_hash'],['tenant_high_risk_verifications','session_hash']] as const;
+// Foreign keys to sessions with ON DELETE CASCADE: those rows are deleted with their session on purpose.
+// github_social_oauth_states is short-lived OAuth state bound to one login; a session that ended a day ago cannot finish it.
+export const SESSION_CASCADES=[['github_social_oauth_states','session_hash']] as const;
 const identifier=/^[a-z_][a-z0-9_]*$/;
 export async function pruneExpiredAuthRecords(pool:Pool,{batch=500,sessionReferences=SESSION_REFERENCES}:{batch?:number;sessionReferences?:readonly(readonly [string,string])[]}={}):Promise<{sessions:number;login_attempts:number;auth_rate_limits:number;password_reset_tokens:number}>{
   const unreferenced=sessionReferences.map(([table,column])=>{

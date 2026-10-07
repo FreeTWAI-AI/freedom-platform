@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS } from '../../packages/testing/seed.js';
-import { pruneExpiredAuthRecords, SESSION_REFERENCES } from '../../modules/identity-membership/auth-pruning.js';
+import { pruneExpiredAuthRecords, SESSION_CASCADES, SESSION_REFERENCES } from '../../modules/identity-membership/auth-pruning.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
 const schema = `fp_auth_pruning_${process.pid}_${Date.now()}`;
@@ -104,11 +104,12 @@ test('a stale session still referenced by a non-cascading foreign key is kept in
   } finally { await pool.query('DROP TABLE prune_reference_probe'); }
 });
 
-test('every foreign key to sessions without ON DELETE CASCADE is excluded from pruning', async () => {
-  // A new non-cascading reference would make every session batch fail; this keeps the list honest.
-  const rows = (await pool.query(`SELECT c.conrelid::regclass::text AS tbl, a.attname AS col FROM pg_constraint c
+test('every foreign key to sessions is either excluded from pruning or an intended cascade', async () => {
+  // A new reference to sessions fails here until auth-pruning.ts classifies it; a non-cascading one would make every session batch fail.
+  const rows = (await pool.query(`SELECT c.conrelid::regclass::text AS tbl, a.attname AS col, c.confdeltype='c' AS cascade FROM pg_constraint c
     JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=c.conkey[1]
-    WHERE c.contype='f' AND c.confrelid='sessions'::regclass AND c.confdeltype<>'c' ORDER BY 1,2`)).rows;
-  assert.deepEqual(rows.map(r => [r.tbl, r.col]), SESSION_REFERENCES.map(([t, c]) => [t, c]));
+    WHERE c.contype='f' AND c.confrelid='sessions'::regclass ORDER BY 1,2`)).rows;
+  assert.deepEqual(rows.filter(r => !r.cascade).map(r => [r.tbl, r.col]), SESSION_REFERENCES.map(([t, c]) => [t, c]));
+  assert.deepEqual(rows.filter(r => r.cascade).map(r => [r.tbl, r.col]), SESSION_CASCADES.map(([t, c]) => [t, c]));
 });
 

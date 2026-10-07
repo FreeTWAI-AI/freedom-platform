@@ -509,8 +509,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 22764,
-      "sha256": "21ab0c348cecadc020cc3793ea231696eb6c23174301443d8d198dc00b3f60b8"
+      "bytes": 23088,
+      "sha256": "d25a6145c4b409eeec2624deb32bee8f3cabb3d767bbcdb291d9f4a358ba9ad6"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -15164,8 +15164,8 @@
     },
     {
       "path": "modules/agent-control/bootstrap-http-limits.ts",
-      "bytes": 2391,
-      "sha256": "356c195e762a9c72d526c6efcc272ef1e47aed17a060db1eb88b50ab50310bbf"
+      "bytes": 2537,
+      "sha256": "9e06ffb1e35396fff6e0ed663bf36dcd5243441c22ea6831956c65480aa66f97"
     },
     {
       "path": "modules/agent-control/bootstrap-issuer.ts",
@@ -16063,6 +16063,11 @@
       "sha256": "074139c2b251ef6d80fa15c8928cd61bee84e14445f876c15f464836688de82f"
     },
     {
+      "path": "modules/identity-membership/auth-pruning.ts",
+      "bytes": 3347,
+      "sha256": "7a864e6537f6826101fb11a970e1cc5adbc0b620d305c89366743f68ceada19d"
+    },
+    {
       "path": "modules/identity-membership/avatar-bridge.md",
       "bytes": 4874,
       "sha256": "f94cf84d4fc8c1339ac8a7b26b4a2fb126d4cf9a99c7b22b5b205d8622fd65ad"
@@ -16089,8 +16094,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 31027,
-      "sha256": "f2525c697c56c712fd5240d0fa6ad9ec8ed449ce40b494578676b8a289e3dfde"
+      "bytes": 31166,
+      "sha256": "70ca372ace26b9d6fb47730ed2980ad88631b8d1434a75bc12b491d282efec7b"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -16099,8 +16104,8 @@
     },
     {
       "path": "modules/identity-membership/service.ts",
-      "bytes": 5133,
-      "sha256": "1a08507f4d50db59ec7837b0d1185d823433775085935a22e872d6ca2d047c5f"
+      "bytes": 5287,
+      "sha256": "06f5c7a8924780e9b74a73f69d9b4981444bd4a02d7a2d4aef8690d8efa3d343"
     },
     {
       "path": "modules/identity-membership/social-links.ts",
@@ -16449,8 +16454,8 @@
     },
     {
       "path": "modules/tenant-workspaces/high-risk-verification.ts",
-      "bytes": 7806,
-      "sha256": "06257155f314bf13bd77f1afc86f0f9b1c22b6ee68aa8411e38323a90cbdc673"
+      "bytes": 7963,
+      "sha256": "60dfc6642200ea695f9103078d38fb5afda922c0f886821461c4850ba186b04c"
     },
     {
       "path": "modules/tenant-workspaces/ownership.ts",
@@ -18678,6 +18683,11 @@
       "sha256": "6bb53e6557ff81bd4af47c0b7633a79390777a395c44f3b6e7d27bdb59c09df5"
     },
     {
+      "path": "tests/runtime/auth-pruning.test.ts",
+      "bytes": 7951,
+      "sha256": "6494805aa10f277c4e85ef4bccc3bbc75cfaf991e27267fdc9063e096bb289db"
+    },
+    {
       "path": "tests/runtime/avatar-bridge.test.ts",
       "bytes": 20949,
       "sha256": "679d44cf6af2f6be6c5214db88481131410dc85b0501e88c46945138de8e27da"
@@ -19249,8 +19259,8 @@
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
-      "bytes": 18855,
-      "sha256": "5dd87c39c8ae382988fd72e0e38ceb50cb69ee86bd450b908393ec33bb39523d"
+      "bytes": 18949,
+      "sha256": "103367ad6b2f000602d0da3fa572ce9d3ad1b96cc99e321ba2563501373e7b21"
     },
     {
       "path": "tests/runtime/member-device-bootstrap-adversarial.test.ts",
@@ -19979,8 +19989,8 @@
     },
     {
       "path": "tests/worker/github-sync-scheduled.test.ts",
-      "bytes": 3496,
-      "sha256": "1353419ca06a43054c007e282b7c6b3f7ab4377a7e4da2535c70ac1318204ba7"
+      "bytes": 4479,
+      "sha256": "36f59b0040ce6489879d2e5c538c5f57c48ebae5f0803ed3ee1ac5e700c2b327"
     },
     {
       "path": "tests/worker/guide-pack-assets.test.ts",
