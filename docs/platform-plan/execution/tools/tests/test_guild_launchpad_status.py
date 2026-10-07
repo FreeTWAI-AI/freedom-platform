@@ -22,6 +22,7 @@ README = (PACK / "README.md").read_text(encoding="utf-8")
 STATE = json.loads((EXECUTION / "unified-foundation" / "current-state.json").read_text(encoding="utf-8"))
 TRACE = json.loads((PACK / "traceability.json").read_text(encoding="utf-8"))
 PROGRESS = json.loads((PACK / "acceptance-progress.json").read_text(encoding="utf-8"))
+FIX_COMMAND = "run: python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status"
 
 
 def test_status_keys_map_to_current_state_paths():
@@ -75,6 +76,7 @@ def test_readme_value_drift_fails(key):
     failures = vsp.status_failures(drift_readme, STATE, TRACE, PROGRESS)
     assert failures
     assert any(key in f for f in failures)
+    assert any(key in f and f.endswith(FIX_COMMAND) for f in failures)
 
 
 @pytest.mark.parametrize("key", vsp.STATUS_SOURCES)
@@ -101,6 +103,7 @@ def test_current_state_drift_fails(key):
     failures = vsp.status_failures(README, state_copy, TRACE, PROGRESS)
     assert failures
     assert any(path in f for f in failures)
+    assert any(path in f and f.endswith(FIX_COMMAND) for f in failures)
 
 
 def test_missing_status_line_fails():
@@ -194,14 +197,16 @@ def passing_evidence():
         "source_sha": "a" * 40,
         "environment": "ci",
         "command": "synthetic fixture command",
-        "recorded_at": "2026-10-07",
+        "recorded_at": "2026-10-07T14:00:00Z",
         "result": "passed",
-        "ref": "synthetic-receipt.json"
+        "ref": "123456"
     }
 
 
 def passed_progress(ids=None):
     progress = copy.deepcopy(PROGRESS)
+    for milestone in progress["milestones"].values():
+        milestone["candidate_sha"] = "a" * 40
     for case in progress["cases"]:
         if ids is None or case["id"] in ids:
             case.update(status="passed", evidence=[passing_evidence()])
@@ -346,7 +351,10 @@ def test_invalid_evidence_fields_fail_closed(key, value):
     assert accepted == {"M1": False, "full": False}
 
 
-@pytest.mark.parametrize("recorded_at", ["2026-10-07", "2026-10-07T14:44:12.302980+00:00", "2026-10-07T14:44:12Z"])
+@pytest.mark.parametrize("recorded_at", [
+    "2026-10-07T14:44:12.302980+00:00", "2026-10-07T14:44:12Z",
+    "2026-10-07T14:44Z", "2026-10-07T14:44+08:00", "2026-10-07T14:44:12-04:00"
+])
 def test_valid_evidence_dates(recorded_at):
     progress = passed_progress()
     progress["cases"][0]["evidence"][0]["recorded_at"] = recorded_at
@@ -424,7 +432,7 @@ def test_malformed_baseline_cannot_infer_acceptance(acceptance):
 def test_repository_migration_maximum_is_a_code_fact(tmp_path):
     for number in range(1, 127):
         (tmp_path / f"{number:03}_{'a' if number == 1 else 'b'}.sql").write_text("-- fixture\n")
-    for name in ("notes.md", "12_bad.sql", "999_UPPER.sql", "1000_bad.sql"):
+    for name in ("notes.md", "12_bad.txt", "999_UPPER.txt", "1000_bad.txt"):
         (tmp_path / name).write_text("ignored\n")
     (tmp_path / "998_directory.sql").mkdir()
     nested = tmp_path / "nested"
@@ -433,6 +441,7 @@ def test_repository_migration_maximum_is_a_code_fact(tmp_path):
     assert vsp.repository_max_migration(tmp_path) == 126
     failures = vsp.status_failures(README, STATE, TRACE, PROGRESS, tmp_path)
     assert any("repo_max_migration=125" in f and "migrations/ (code) is 126" in f for f in failures)
+    assert any("repo_max_migration=125" in f and f.endswith(FIX_COMMAND) for f in failures)
 
 
 def test_empty_migrations_directory_raises(tmp_path):
@@ -485,3 +494,260 @@ def test_write_status_round_trip(tmp_path, line_count):
         assert again.returncode == 0
         assert again.stdout.strip() == expected
         assert readme_path.read_text(encoding="utf-8") == rewritten
+
+
+@pytest.mark.parametrize("milestone", ["M1", "full"])
+@pytest.mark.parametrize("candidate", ["", "a" * 39, "a" * 41, "A" * 40, "g" * 40, 123, False, [], {}])
+def test_invalid_candidate_sha_fails(milestone, candidate):
+    progress = passed_progress()
+    progress["milestones"][milestone]["candidate_sha"] = candidate
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"{milestone}.candidate_sha" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("milestone", ["M1", "full"])
+def test_candidate_sha_is_required(milestone):
+    progress = passed_progress()
+    del progress["milestones"][milestone]["candidate_sha"]
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"{milestone}.candidate_sha is required" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("candidate", [None, "b" * 40])
+@pytest.mark.parametrize("milestone", ["M1", "full"])
+def test_null_or_unproven_candidate_is_not_accepted_without_failing(milestone, candidate):
+    progress = passed_progress()
+    progress["milestones"][milestone]["candidate_sha"] = candidate
+    expected = {"M1": True, "full": True}
+    expected[milestone] = False
+    assert vsp.progress_failures(progress, TRACE) == ([], expected)
+
+
+def test_each_case_needs_nonlocal_passing_evidence_for_the_candidate():
+    progress = passed_progress()
+    progress["cases"][0]["evidence"] = [
+        {**passing_evidence(), "source_sha": "b" * 40},
+        {**passing_evidence(), "environment": "local"}
+    ]
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": False, "full": False})
+    progress["cases"][0]["evidence"].append(passing_evidence())
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+def test_milestones_can_accept_different_candidates():
+    progress = passed_progress()
+    progress["milestones"]["full"]["candidate_sha"] = "b" * 40
+    for case in progress["cases"]:
+        case["evidence"].append({**passing_evidence(), "source_sha": "b" * 40})
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+@pytest.mark.parametrize("result", ["failed", "partial", "blocked"])
+@pytest.mark.parametrize("environment", ["ci", "staging", "production"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_later_nonpass_contradicts_pass_regardless_of_array_order(result, environment, reverse):
+    progress = passed_progress()
+    entries = [
+        {**passing_evidence(), "environment": environment},
+        {**passing_evidence(), "environment": environment, "result": result,
+         "recorded_at": "2026-10-07T10:01:00-04:00"}
+    ]
+    progress["cases"][0]["evidence"] = entries[::-1] if reverse else entries
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert len(failures) == 1
+    assert failures[0].endswith(f"passed is contradicted by a later {result} result for aaaaaaaaaaaa in {environment}")
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("change", [
+    {"source_sha": "b" * 40}, {"environment": "staging"}, {"result": "passed"},
+    {"recorded_at": "2026-10-07T16:00:00+02:00"},
+    {"recorded_at": "2026-10-07T16:00:00+03:00"}
+])
+def test_other_sha_environment_or_non_later_result_does_not_supersede(change):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"].append({
+        **passing_evidence(), "result": "failed", "recorded_at": "2026-10-07T14:01:00Z", **change
+    })
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+def test_nonpass_in_another_case_does_not_supersede():
+    progress = passed_progress()
+    progress["cases"][-1].update(status="failed", evidence=[{
+        **passing_evidence(), "result": "failed", "recorded_at": "2026-10-07T14:01:00Z"
+    }])
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": False})
+
+
+@pytest.mark.parametrize("surviving_pass,expected", [
+    ({"source_sha": "b" * 40}, {"M1": False, "full": False}),
+    ({"environment": "staging"}, {"M1": True, "full": True}),
+    ({"recorded_at": "2026-10-07T14:02:00Z"}, {"M1": True, "full": True})
+])
+def test_only_unsuperseded_passes_count_for_candidate(surviving_pass, expected):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"].extend([
+        {**passing_evidence(), "result": "failed", "recorded_at": "2026-10-07T14:01:00Z"},
+        {**passing_evidence(), **surviving_pass}
+    ])
+    assert vsp.progress_failures(progress, TRACE) == ([], expected)
+
+
+@pytest.mark.parametrize("level", ["top", "M1", "full", "case", "evidence"])
+def test_unknown_progress_keys_fail_and_name_the_key(level):
+    progress = passed_progress()
+    target = {"top": progress, "M1": progress["milestones"]["M1"], "full": progress["milestones"]["full"],
+              "case": progress["cases"][0], "evidence": progress["cases"][0]["evidence"][0]}[level]
+    target["unexpected_field"] = "fixture"
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("unknown key unexpected_field" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("optional", [
+    {}, {"started_at": "2026-10-07T13:00Z"}, {"finished_at": "2026-10-07T14:00Z"},
+    {"started_at": "2026-10-07T16:00+03:00", "finished_at": "2026-10-07T14:00Z"},
+    {"started_at": "2026-10-07T16:00+02:00", "finished_at": "2026-10-07T14:00Z"},
+    {"artifact_sha256": "0123456789abcdef" * 4, "limits": "Synthetic fixture only", "failures": []},
+    {"failures": ["Earlier attempt failed", "Historical limitation"]}
+])
+def test_supported_optional_evidence_fields_are_valid(optional):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0].update(optional)
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+@pytest.mark.parametrize("key,value", [
+    ("artifact_sha256", "A" * 64), ("artifact_sha256", "a" * 63), ("artifact_sha256", "a" * 65),
+    ("artifact_sha256", "g" * 64), ("artifact_sha256", None),
+    ("limits", ""), ("limits", " \n"), ("limits", []), ("limits", None),
+    ("failures", "failed"), ("failures", [""]), ("failures", [" "]), ("failures", [1]),
+    ("failures", None), ("failures", ["valid", None])
+])
+def test_invalid_optional_evidence_fields_fail(key, value):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0][key] = value
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(key in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("key", ["recorded_at", "started_at", "finished_at"])
+@pytest.mark.parametrize("value", [
+    "2026-10-07", "2026-10-07T14:00", "2026-10-07T14:00:00", "2026-02-30T14:00Z",
+    "2026-10-07T14:00+0000", "2026-10-07T14:00+00:60", "2026-10-07T14:00+24:00", None
+])
+def test_timestamps_require_explicit_valid_timezone(key, value):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0][key] = value
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"{key} must be an ISO-8601 timestamp with an explicit Z or ±HH:MM timezone" in f for f in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+def test_started_at_cannot_follow_finished_at_in_absolute_time():
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0].update(
+        started_at="2026-10-07T10:00-05:00", finished_at="2026-10-07T14:00Z"
+    )
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("started_at must be <= finished_at" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("ref", [
+    "1", "123456", "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123456",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123456/attempts/2",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123456/job/987654"
+])
+def test_ci_action_run_references_are_valid(ref):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0]["ref"] = ref
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+@pytest.mark.parametrize("ref", [
+    "synthetic-receipt.json", "0", "01", "-1", "123\n", 123,
+    "https://github.com/FreeTWAI-AI/other/actions/runs/123",
+    "http://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/0",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123/attempts/0",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123/job/01",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123/attempts/1/job/2",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123/",
+    "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/123?check=1"
+])
+def test_invalid_ci_references_fail(ref):
+    progress = passed_progress()
+    progress["cases"][0]["evidence"][0]["ref"] = ref
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("ref for ci" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("environment", ["local", "staging", "production"])
+def test_other_environments_keep_nonempty_reference_rule(environment):
+    progress = passed_progress()
+    entry = {**passing_evidence(), "environment": environment, "ref": "synthetic-receipt.json"}
+    progress["cases"][0]["evidence"].append(entry)
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+    entry["ref"] = " "
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any("ref must be a non-empty string" in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+@pytest.mark.parametrize("with_valid_file", [False, True])
+def test_every_invalid_sql_filename_is_reported(tmp_path, with_valid_file):
+    if with_valid_file:
+        (tmp_path / "125_valid.sql").write_text("-- fixture\n")
+    invalid = ["12_bad.sql", "999_UPPER.sql", "1000_bad.sql", "no_number.sql", "126_bad-name.sql", ".sql"]
+    for name in invalid:
+        (tmp_path / name).write_text("-- invalid fixture\n")
+    (tmp_path / "notes.md").write_text("ignored\n")
+    with pytest.raises(ValueError) as error:
+        vsp.repository_max_migration(tmp_path)
+    assert str(error.value) == "invalid migration filenames: " + ", ".join(sorted(invalid))
+    failures = vsp.status_failures(README, STATE, TRACE, PROGRESS, tmp_path)
+    assert any(str(error.value) in failure for failure in failures)
+
+
+@pytest.mark.parametrize("milestone,scope", [
+    ("M1", {}), ("M1", {"T-015": "Restricted operator variant"}),
+    ("full", {}), ("full", {"T-060": "Full case scope"})
+])
+def test_valid_milestone_scope(milestone, scope):
+    progress = passed_progress()
+    progress["milestones"][milestone]["scope"] = scope
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+    del progress["milestones"][milestone]["scope"]
+    assert vsp.progress_failures(progress, TRACE) == ([], {"M1": True, "full": True})
+
+
+@pytest.mark.parametrize("milestone,scope,bad_key", [
+    ("M1", {"T-009": "Outside M1"}, "T-009"), ("full", {"T-061": "Unknown"}, "T-061"),
+    ("M1", {"T-015": " "}, "T-015"), ("full", {"T-060": ""}, "T-060"),
+    ("M1", {"T-023": None}, "T-023"), ("full", {"T-001": []}, "T-001"),
+    ("M1", [], "scope"), ("full", None, "scope"), ("M1", "T-015", "scope")
+])
+def test_invalid_milestone_scope_fails(milestone, scope, bad_key):
+    progress = passed_progress()
+    progress["milestones"][milestone]["scope"] = scope
+    failures, accepted = vsp.progress_failures(progress, TRACE)
+    assert any(f"{milestone}.scope" in failure and bad_key in failure for failure in failures)
+    assert accepted == {"M1": False, "full": False}
+
+
+def test_repository_candidates_remain_unselected_and_m1_variants_match_owner_decision():
+    assert all(milestone["candidate_sha"] is None for milestone in PROGRESS["milestones"].values())
+    assert PROGRESS["milestones"]["M1"]["scope"] == {
+        "T-015": "M1 變體：只驗受限營運者沒有任何路徑能批次取走 tenant 資料；匯出／還原部分移到提供匯出功能的里程碑。",
+        "T-023": "M1 變體：只驗權限半部，B 或匿名者猜 A 的物件／變體網址時 GET、HEAD、Range 一律拒絕；位元組還原由 two-tenant RLS 備份還原演練（#238）涵蓋，匯出／還原移到提供匯出功能的里程碑。"
+    }
+    assert PROGRESS["milestones"]["M1"]["basis"].endswith(
+        "T-015 與 T-023 依 2026-10-07 owner 決定以 M1 變體驗收（見 scope）。"
+    )
+    assert vsp.progress_failures(PROGRESS, TRACE) == ([], {"M1": False, "full": False})

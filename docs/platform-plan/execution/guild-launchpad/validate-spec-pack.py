@@ -1,5 +1,5 @@
 """Planning-document checks and the README status line generated from code (migrations), operator observations (current-state.json) and the progress index; never executes product T cases."""
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 import hashlib
 import json
@@ -37,8 +37,17 @@ STATUS_KEYS = (
 
 
 def repository_max_migration(migrations_dir):
-    numbers = [int(match.group(1)) for path in Path(migrations_dir).iterdir()
-               if path.is_file() and (match := re.fullmatch(r"(\d{3})_[a-z0-9_]+\.sql", path.name))]
+    numbers, invalid = [], []
+    for path in Path(migrations_dir).iterdir():
+        if not path.is_file() or not path.name.endswith(".sql"):
+            continue
+        match = re.fullmatch(r"(\d{3})_[a-z0-9_]+\.sql", path.name)
+        if match:
+            numbers.append(int(match.group(1)))
+        else:
+            invalid.append(path.name)
+    if invalid:
+        raise ValueError("invalid migration filenames: " + ", ".join(sorted(invalid)))
     if not numbers:
         raise ValueError("migrations/ (code) has no matching migration files")
     return max(numbers)
@@ -48,15 +57,17 @@ def valid_recorded_at(value):
     if not isinstance(value, str):
         return False
     try:
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
-            date.fromisoformat(value)
-        elif re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:\d{2})?", value):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)", value):
             datetime.fromisoformat(value)
         else:
             return False
     except ValueError:
         return False
     return True
+
+
+def unknown_keys(value, allowed):
+    return [f"unknown key {key}" for key in value if key not in allowed]
 
 
 def progress_failures(progress, trace):
@@ -74,17 +85,20 @@ def progress_failures(progress, trace):
                 canonical.add(case_id)
 
     progress = progress if isinstance(progress, dict) else {}
+    failures.extend(f"acceptance-progress.json: {error}" for error in
+                    unknown_keys(progress, ("format", "baseline", "milestones", "cases")))
     cases = progress.get("cases")
     if not isinstance(cases, list):
         failures.append("acceptance-progress.json cases must be a list")
         cases = []
-    by_id = {}
+    by_id, passing_by_id = {}, {}
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             failures.append(f"acceptance-progress.json cases[{index}] must be an object")
             continue
         case_id = case.get("id")
         label = f"acceptance-progress.json cases[{index}] ({case_id})"
+        failures.extend(f"{label}: {error}" for error in unknown_keys(case, ("id", "status", "evidence")))
         if not isinstance(case_id, str) or case_id not in canonical:
             failures.append(f"{label}: unknown ID")
         elif case_id in by_id:
@@ -100,12 +114,16 @@ def progress_failures(progress, trace):
             evidence = []
         if status == "not_run" and evidence:
             failures.append(f"{label}: not_run requires empty evidence")
-        passing = False
+        valid_entries = []
         for entry_index, entry in enumerate(evidence):
             errors = []
             if not isinstance(entry, dict):
                 errors.append("must be an object")
             else:
+                errors.extend(unknown_keys(entry, (
+                    "test", "command", "ref", "source_sha", "environment", "recorded_at", "result",
+                    "started_at", "finished_at", "artifact_sha256", "limits", "failures"
+                )))
                 for key in ("test", "command", "ref"):
                     if not isinstance(entry.get(key), str) or not entry[key].strip():
                         errors.append(f"{key} must be a non-empty string")
@@ -114,16 +132,55 @@ def progress_failures(progress, trace):
                     errors.append("source_sha must be 40 lowercase hex characters")
                 if entry.get("environment") not in EVIDENCE_ENVIRONMENTS:
                     errors.append("environment is invalid")
-                if not valid_recorded_at(entry.get("recorded_at")):
-                    errors.append("recorded_at must be YYYY-MM-DD or an ISO-8601 timestamp")
+                if entry.get("environment") == "ci":
+                    ref = entry.get("ref")
+                    if not isinstance(ref, str) or not re.fullmatch(
+                        r"(?:[1-9][0-9]*|https://github\.com/FreeTWAI-AI/freedom-platform/actions/runs/"
+                        r"[1-9][0-9]*(?:/(?:attempts|job)/[1-9][0-9]*)?)", ref
+                    ):
+                        errors.append("ref for ci must be a GitHub Actions run id or freedom-platform Actions run URL")
+                for key in ("recorded_at", "started_at", "finished_at"):
+                    if (key == "recorded_at" or key in entry) and not valid_recorded_at(entry.get(key)):
+                        errors.append(f"{key} must be an ISO-8601 timestamp with an explicit Z or ±HH:MM timezone")
+                if all(valid_recorded_at(entry.get(key)) for key in ("started_at", "finished_at")):
+                    if datetime.fromisoformat(entry["started_at"]) > datetime.fromisoformat(entry["finished_at"]):
+                        errors.append("started_at must be <= finished_at")
+                if "artifact_sha256" in entry:
+                    digest = entry["artifact_sha256"]
+                    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                        errors.append("artifact_sha256 must be 64 lowercase hex characters")
+                if "limits" in entry and (not isinstance(entry["limits"], str) or not entry["limits"].strip()):
+                    errors.append("limits must be a non-empty string")
+                if "failures" in entry and (not isinstance(entry["failures"], list) or
+                                           any(not isinstance(item, str) or not item.strip() for item in entry["failures"])):
+                    errors.append("failures must be a list of non-empty strings")
                 if entry.get("result") not in PROGRESS_STATUSES[1:]:
                     errors.append("result is invalid")
             if errors:
                 failures.append(f"{label}: evidence[{entry_index}] " + "; ".join(errors))
-            elif entry["result"] == "passed" and entry["environment"] in ACCEPTANCE_ENVIRONMENTS:
-                passing = True
+            else:
+                valid_entries.append(entry)
+        passing, contradictions = [], []
+        for entry in valid_entries:
+            if entry["result"] != "passed" or entry["environment"] not in ACCEPTANCE_ENVIRONMENTS:
+                continue
+            later = [other for other in valid_entries
+                     if other["source_sha"] == entry["source_sha"] and other["environment"] == entry["environment"]
+                     and other["result"] != "passed"
+                     and datetime.fromisoformat(other["recorded_at"]) > datetime.fromisoformat(entry["recorded_at"])]
+            if later:
+                contradictions.append(max(later, key=lambda other: datetime.fromisoformat(other["recorded_at"])))
+            else:
+                passing.append(entry)
+        if isinstance(case_id, str):
+            passing_by_id[case_id] = passing
         if status == "passed" and not passing:
-            failures.append(f"{label}: passed requires valid passing evidence from ci, staging or production")
+            if contradictions:
+                other = max(contradictions, key=lambda entry: datetime.fromisoformat(entry["recorded_at"]))
+                failures.append(f"{label}: passed is contradicted by a later {other['result']} result "
+                                f"for {other['source_sha'][:12]} in {other['environment']}")
+            else:
+                failures.append(f"{label}: passed requires valid passing evidence from ci, staging or production")
     for case_id in sorted(canonical - by_id.keys()):
         failures.append(f"acceptance-progress.json missing ID {case_id}")
 
@@ -147,7 +204,34 @@ def progress_failures(progress, trace):
     full = milestones.get("full")
     if not isinstance(full, dict) or full.get("cases") != "all":
         failures.append('acceptance-progress.json full.cases must be "all"')
-    accepted = {key: not failures and all(by_id[case_id].get("status") == "passed" for case_id in ids)
+    candidates = {}
+    for key, ids in (("M1", m1_ids), ("full", canonical)):
+        milestone = milestones.get(key)
+        if not isinstance(milestone, dict):
+            failures.append(f"acceptance-progress.json {key} must be an object")
+            continue
+        label = f"acceptance-progress.json {key}"
+        failures.extend(f"{label}: {error}" for error in
+                        unknown_keys(milestone, ("title", "basis", "cases", "candidate_sha", "scope")))
+        candidate = milestone.get("candidate_sha")
+        if "candidate_sha" not in milestone or (candidate is not None and
+                (not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate))):
+            failures.append(f"{label}.candidate_sha is required and must be null or 40 lowercase hex characters")
+        candidates[key] = candidate
+        if "scope" in milestone:
+            scope = milestone["scope"]
+            if not isinstance(scope, dict):
+                failures.append(f"{label}.scope must be an object")
+            else:
+                for case_id, description in scope.items():
+                    if case_id not in ids:
+                        failures.append(f"{label}.scope unknown ID {case_id} for this milestone")
+                    if not isinstance(description, str) or not description.strip():
+                        failures.append(f"{label}.scope {case_id} must be a non-empty string")
+    accepted = {key: not failures and candidates.get(key) is not None and all(
+                    by_id[case_id].get("status") == "passed" and
+                    any(entry["source_sha"] == candidates[key] for entry in passing_by_id[case_id])
+                    for case_id in ids)
                 for key, ids in (("M1", m1_ids), ("full", canonical))}
     return failures, accepted
 
@@ -225,7 +309,7 @@ def status_failures(readme, state, trace, progress, migrations_dir=MIGRATIONS):
             expected = expected_values[key]
             if parsed_val != expected:
                 source_str = sources[key]
-                failures.append(f"README glp-status {key}={parsed_val} but {source_str} is {expected}; update the README 目前狀態 section and its glp-status line together with its sources")
+                failures.append(f"README glp-status {key}={parsed_val} but {source_str} is {expected}; update the README 目前狀態 section and its glp-status line together with its sources; run: python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status")
 
     headings = re.findall(r"^## 目前狀態$", readme, re.M)
     if len(headings) != 1:
