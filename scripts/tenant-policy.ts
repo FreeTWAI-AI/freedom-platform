@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { Pool, type PoolClient, type PoolConfig } from 'pg';
 
@@ -7,6 +7,8 @@ import { Pool, type PoolClient, type PoolConfig } from 'pg';
 // expected name checked against current_database() before any other query; refuses shared local targets on connected values.
 // Refuses a NODE_ENV=production process: a client-process guard, not server-environment detection.
 // Raising a ceiling needs a reviewed change.
+// Expected-revision guard and operation-ID replay protect applies; remote TLS requires verify-full.
+// Revisions advance globally under a transaction advisory lock.
 export const CEILINGS = Object.freeze({
   max_active_instances: 50,
   max_instances_per_module: 10,
@@ -24,6 +26,14 @@ export function policyLockKey(tenantId: string | null): string {
   return `tenant.capacity/v1/${tenantId ?? 'default'}/policy`;
 }
 
+export function operationPolicyId(operationId: string): string {
+  const bytes = createHash('sha256').update(`freedom.tenant-capacity-policy/v1/operation/${operationId}`, 'utf8').digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 const FORMAT = 'freedom.tenant-capacity-policy/v1' as const;
 type Limit = keyof typeof CEILINGS;
 type Limits = Record<Exclude<Limit, 'max_retained_bytes'>, number> & { max_retained_bytes: string };
@@ -37,18 +47,20 @@ export type PolicyRow = Limits & {
 type Target = { database: string; role: string };
 type Scope = { kind: 'default' | 'tenant'; tenant_id: string | null };
 type Report =
-  | { format: typeof FORMAT; status: 'refused'; code: string; flag?: string; ceiling?: number; expected?: string; connected?: string }
+  | { format: typeof FORMAT; status: 'refused'; code: string; flag?: string; ceiling?: number; expected?: string; connected?: string; current?: string }
   | { format: typeof FORMAT; status: 'failed'; code: string; sqlstate?: string }
   | { format: typeof FORMAT; command: 'status'; executed: false; target: Target;
       default: PolicyRow | null; overrides: PolicyRow[]; retired: PolicyRow[]; retired_total: number }
   | { format: typeof FORMAT; command: 'plan' | 'apply'; executed: false; target: Target;
-      scope: Scope; retire: PolicyRow | null; insert: PolicyInsert }
+      scope: Scope; retire: PolicyRow | null; insert: PolicyInsert; expect_revision: string; provisional_revision: true }
   | { format: typeof FORMAT; command: 'apply'; executed: true; target: Target;
-      scope: Scope; retired: PolicyRow | null; inserted: PolicyRow; active_rows_for_scope: 1 };
+      scope: Scope; replayed: false; retired: PolicyRow | null; inserted: PolicyRow; active_rows_for_scope: 1 }
+  | { format: typeof FORMAT; command: 'apply'; executed: true; target: Target;
+      scope: Scope; replayed: true; inserted: PolicyRow; active_rows_for_scope: number };
 type Result = { exitCode: 0 | 1 | 2; report: Report };
 
 class Refusal extends Error {
-  constructor(readonly code: string, readonly details: { flag?: string; ceiling?: number; expected?: string; connected?: string } = {}) { super(code); }
+  constructor(readonly code: string, readonly details: { flag?: string; ceiling?: number; expected?: string; connected?: string; current?: string } = {}) { super(code); }
 }
 class ScopeVerificationFailure extends Error {}
 
@@ -76,8 +88,12 @@ function databaseConfig(databaseUrl: string): PoolConfig {
     || (sslmode !== null && !['verify-full', 'disable'].includes(sslmode)) || options === '') {
     throw new Refusal('invalid_database_url');
   }
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  const loopback = host === 'localhost' || host === '::1'
+    || (/^127(?:\.[0-9]{1,3}){3}$/.test(host) && host.split('.').every(part => Number(part) <= 255));
+  if (!loopback && sslmode !== 'verify-full') throw new Refusal('tls_required');
   return {
-    host: url.hostname.replace(/^\[|\]$/g, ''), port, database, user, password: () => password,
+    host, port, database, user, password: () => password,
     ssl: sslmode === 'verify-full' ? { rejectUnauthorized: true } : false,
     sslnegotiation: 'postgres', client_encoding: 'UTF8', application_name: 'freedom-tenant-policy',
     // A truthy default blocks PGOPTIONS (including search_path) and only repeats the application name.
@@ -87,6 +103,7 @@ function databaseConfig(databaseUrl: string): PoolConfig {
 function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   command: 'status' | 'plan' | 'apply'; config: PoolConfig; expectedDatabase: string; execute: boolean;
   tenantId: string | null; policy: (Limits & { plan_ref: string }) | null;
+  expectedRevision?: string; operationId?: string;
 } {
   const command = argv[0];
   if (command !== 'status' && command !== 'plan' && command !== 'apply') throw new Refusal('invalid_arguments');
@@ -99,11 +116,12 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
       execute = true;
       continue;
     }
-    if (!['--database-url', '--expect-database', '--tenant', ...requiredFlags].includes(flag) || values.has(flag)
+    if (!['--database-url', '--expect-database', '--expect-revision', '--operation-id', '--tenant', ...requiredFlags].includes(flag) || values.has(flag)
       || (command === 'status' && !['--database-url', '--expect-database'].includes(flag))
       || argv[i + 1] === undefined || argv[i + 1].startsWith('--')) throw new Refusal('invalid_arguments');
     values.set(flag, argv[++i]);
   }
+  if (values.has('--operation-id') && (command !== 'apply' || !execute)) throw new Refusal('invalid_arguments');
   if (env.NODE_ENV === 'production') throw new Refusal('production_refused');
   const databaseUrl = values.get('--database-url');
   if (!databaseUrl) throw new Refusal('database_url_required');
@@ -131,7 +149,16 @@ function validate(argv: readonly string[], env: NodeJS.ProcessEnv): {
   if (tenantId !== null && (tenantId.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(tenantId))) {
     throw new Refusal('invalid_tenant_id');
   }
-  return { command, config, expectedDatabase, execute, tenantId, policy: { ...limits, plan_ref: planRef } };
+  const expectedRevision = values.get('--expect-revision'), operationId = values.get('--operation-id');
+  if (execute && expectedRevision === undefined) throw new Refusal('missing_flag', { flag: '--expect-revision' });
+  if (expectedRevision !== undefined && (!/^(none|[1-9][0-9]{0,18})$/.test(expectedRevision) || expectedRevision.trim() !== expectedRevision)) {
+    throw new Refusal('invalid_expected_revision');
+  }
+  if (execute && operationId === undefined) throw new Refusal('missing_flag', { flag: '--operation-id' });
+  if (operationId !== undefined && (!/^[a-z0-9][a-z0-9._-]{7,63}$/.test(operationId) || operationId.trim() !== operationId)) {
+    throw new Refusal('invalid_operation_id');
+  }
+  return { command, config, expectedDatabase, execute, tenantId, expectedRevision, operationId, policy: { ...limits, plan_ref: planRef } };
 }
 
 const ROW_COLUMNS = `policy_id, revision::text AS revision, tenant_id, plan_ref,
@@ -160,6 +187,7 @@ export async function runTenantPolicy(argv: readonly string[], env: NodeJS.Proce
         if (write) {
           await client.query("SET LOCAL lock_timeout = '10s'");
           await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [policyLockKey(input.tenantId)]);
+          await client.query("SELECT pg_advisory_xact_lock(hashtextextended('tenant.capacity/v1/policy-revisions', 0))");
         }
         let report: Report;
         if (input.command === 'status') {
@@ -170,16 +198,37 @@ export async function runTenantPolicy(argv: readonly string[], env: NodeJS.Proce
             retired_total: Number((await client.query("SELECT count(*)::text AS total FROM tenant_capacity_policies WHERE status='retired'")).rows[0].total),
           };
         } else {
+          const scope: Scope = { kind: input.tenantId === null ? 'default' : 'tenant', tenant_id: input.tenantId };
+          const policyId = write ? operationPolicyId(input.operationId!) : null;
+          if (write) {
+            const replay = (await rows(client, 'WHERE policy_id=$1', [policyId]))[0];
+            if (replay) {
+              if (replay.tenant_id !== input.tenantId || replay.plan_ref !== input.policy!.plan_ref
+                || replay.max_model_budget !== '0'
+                || (Object.keys(CEILINGS) as Limit[]).some(key => replay[key] !== input.policy![key])) {
+                throw new Refusal('operation_id_conflict');
+              }
+              const activeCount = Number((await client.query(`SELECT count(*)::text AS total FROM tenant_capacity_policies
+                WHERE status='active' AND tenant_id IS NOT DISTINCT FROM $1::uuid`, [input.tenantId])).rows[0].total);
+              await client.query('COMMIT');
+              return { exitCode: 0, report: { format: FORMAT, command: 'apply', executed: true, replayed: true,
+                target, scope, inserted: replay, active_rows_for_scope: activeCount } };
+            }
+          }
           if (input.tenantId !== null && (await client.query('SELECT 1 FROM tenants WHERE tenant_id=$1', [input.tenantId])).rowCount !== 1) {
             throw new Refusal('tenant_not_found');
           }
-          const scope: Scope = { kind: input.tenantId === null ? 'default' : 'tenant', tenant_id: input.tenantId };
           const current = (await rows(client, `WHERE status='active' AND tenant_id IS NOT DISTINCT FROM $1::uuid${write ? ' FOR UPDATE' : ''}`, [input.tenantId]))[0] ?? null;
+          const currentRevision = current?.revision ?? 'none';
+          if (input.expectedRevision !== undefined && input.expectedRevision !== currentRevision) {
+            throw new Refusal('revision_conflict', { expected: input.expectedRevision, current: currentRevision });
+          }
           const revision = (await client.query<{ revision: string }>(`SELECT (COALESCE(max(revision), 0) + 1)::text AS revision
-            FROM tenant_capacity_policies WHERE tenant_id IS NOT DISTINCT FROM $1::uuid`, [input.tenantId])).rows[0].revision;
+            FROM tenant_capacity_policies`)).rows[0].revision;
           const insert: PolicyInsert = { ...input.policy!, revision, tenant_id: input.tenantId, max_model_budget: '0', status: 'active' };
           if (!write) {
-            report = { format: FORMAT, command: input.command, executed: false, target, scope, retire: current, insert };
+            report = { format: FORMAT, command: input.command, executed: false, target, scope, retire: current, insert,
+              expect_revision: currentRevision, provisional_revision: true };
           } else {
             let retired: PolicyRow | null = null;
             if (current) {
@@ -192,11 +241,11 @@ export async function runTenantPolicy(argv: readonly string[], env: NodeJS.Proce
               (policy_id, revision, tenant_id, plan_ref, max_active_instances, max_instances_per_module,
                max_concurrent_provisions, max_work_items, max_retained_bytes, max_concurrent_jobs, max_model_budget, status)
               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active') RETURNING ${ROW_COLUMNS}`,
-            [randomUUID(), revision, input.tenantId, insert.plan_ref, insert.max_active_instances, insert.max_instances_per_module,
+            [policyId, revision, input.tenantId, insert.plan_ref, insert.max_active_instances, insert.max_instances_per_module,
               insert.max_concurrent_provisions, insert.max_work_items, insert.max_retained_bytes, insert.max_concurrent_jobs, REQUIRED_MODEL_BUDGET])).rows[0]);
             const active = await rows(client, "WHERE status='active' AND tenant_id IS NOT DISTINCT FROM $1::uuid", [input.tenantId]);
             if (active.length !== 1 || active[0].policy_id !== inserted.policy_id) throw new ScopeVerificationFailure();
-            report = { format: FORMAT, command: 'apply', executed: true, target, scope, retired, inserted, active_rows_for_scope: 1 };
+            report = { format: FORMAT, command: 'apply', executed: true, replayed: false, target, scope, retired, inserted, active_rows_for_scope: 1 };
           }
         }
         await client.query('COMMIT');

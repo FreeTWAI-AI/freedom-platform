@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client, Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
-import { CEILINGS, policyLockKey, runTenantPolicy } from '../../scripts/tenant-policy.js';
+import { CEILINGS, operationPolicyId, policyLockKey, runTenantPolicy } from '../../scripts/tenant-policy.js';
 import { lockCapacityPolicy, readCapacityPolicy } from '../../modules/opportunity-project-work/tenant-capacity.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -16,7 +16,7 @@ if (!testUrl.hostname || testUrl.hostname.includes('%') || !testUrl.port || Numb
   throw new Error('tenant-policy-operator TEST_DATABASE_URL must explicitly name user, host, port and database, without a socket host or host query parameter.');
 }
 const expectedDatabase = new URL(databaseUrl).pathname.slice(1);
-const refusalUrl = 'postgresql://x@192.0.2.1:5432/fp_refusal';
+const refusalUrl = 'postgresql://x@192.0.2.1:5432/fp_refusal?sslmode=verify-full';
 const wrongDatabase = 'fp_tpo_not_this_database';
 const schema = `fp_tpo_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString: databaseUrl });
@@ -30,8 +30,9 @@ const defaults = {
 };
 const flagFor = (key: string) => `--${key.replaceAll('_', '-')}`;
 function args(command: 'plan' | 'apply', changes: Record<string, string> = {}, extra: string[] = []) {
+  const executionFlags = command === 'apply' && extra.includes('--execute') ? { expect_revision: 'none', operation_id: randomUUID() } : {};
   return [command, '--database-url', toolUrl.href, '--expect-database', expectedDatabase,
-    ...Object.entries({ ...defaults, ...changes }).flatMap(([key, value]) => [flagFor(key), value]), ...extra];
+    ...Object.entries({ ...defaults, ...executionFlags, ...changes }).flatMap(([key, value]) => [flagFor(key), value]), ...extra];
 }
 const run = (argv: string[]) => runTenantPolicy(argv, {});
 function beforeConnecting(argv: string[]) {
@@ -68,10 +69,16 @@ async function plan(command: 'plan' | 'apply' = 'plan', changes: Record<string, 
   return result.report;
 }
 async function apply(changes: Record<string, string> = {}, extra: string[] = []) {
-  const result = await run(args('apply', changes, [...extra, '--execute']));
+  const tenantIndex = extra.indexOf('--tenant');
+  const tenantId = tenantIndex < 0 ? null : extra[tenantIndex + 1];
+  const current = (await pool.query(`SELECT revision::text AS revision FROM tenant_capacity_policies
+    WHERE status='active' AND tenant_id IS NOT DISTINCT FROM $1::uuid`, [tenantId])).rows[0];
+  const result = await run(args('apply', { expect_revision: current?.revision ?? 'none', ...changes }, [...extra, '--execute']));
   assert.equal(result.exitCode, 0, JSON.stringify(result.report));
   assert.ok('command' in result.report && result.report.command === 'apply' && result.report.executed);
   assert.equal(result.report.active_rows_for_scope, 1);
+  assert.equal(result.report.replayed, false);
+  assert.ok(!result.report.replayed);
   return result.report;
 }
 async function snapshot() {
@@ -151,7 +158,7 @@ for (const url of [
   'postgresql:///fp_refusal', 'postgresql://x@%2Ftmp:5432/fp_refusal',
   ...['host=/tmp', 'host=192.0.2.9', 'user=freedom_local', 'database=freedom_local', 'port=5432',
     'sslmode=require', 'sslmode=no-verify', 'ssl=false', 'options=', 'options=a&options=b',
-    'sslmode=disable&sslmode=verify-full'].map(query => `${refusalUrl}?${query}`),
+    'sslmode=disable&sslmode=verify-full'].map(query => `postgresql://x@192.0.2.1:5432/fp_refusal?${query}`),
   `${refusalUrl}#fragment`, 'postgresql://x@192.0.2.1:5432/fp/refusal',
   'postgresql://x@192.0.2.1:5432/%E0%A4%A',
 ]) {
@@ -189,7 +196,7 @@ test('explicit connection does not inherit ambient PG target, TLS, password or S
   assert.equal(saved.rows[0].plan_ref, planRef);
 });
 for (const [name, url, ssl, options, password] of [
-  ['without password or query', refusalUrl, false, '-c application_name=freedom-tenant-policy', ''],
+  ['without password or query', 'postgresql://x@127.0.0.2:5432/fp_refusal', false, '-c application_name=freedom-tenant-policy', ''],
   ['with password, TLS and options', 'postgresql://x:synthetic-secret@192.0.2.1:5432/fp_refusal?sslmode=verify-full&options=-c%20search_path%3Dfp_tpo_capture',
     { rejectUnauthorized: true }, '-c search_path=fp_tpo_capture', 'synthetic-secret'],
 ] as const) {
@@ -219,7 +226,7 @@ for (const [name, url, ssl, options, password] of [
     // pg exposes these resolved fields at runtime but omits them from its public Client type.
     const client = captured[0] as unknown as { connectionParameters: Record<string, unknown>; password: () => string | Promise<string> };
     const parameters = client.connectionParameters;
-    for (const [key, value] of Object.entries({ host: '192.0.2.1', port: 5432, database: 'fp_refusal', user: 'x', ssl,
+    for (const [key, value] of Object.entries({ host: new URL(url).hostname, port: 5432, database: 'fp_refusal', user: 'x', ssl,
       sslnegotiation: 'postgres', options, application_name: 'freedom-tenant-policy', client_encoding: 'UTF8' })) {
       assert.deepEqual(parameters[key], value, key);
     }
@@ -455,7 +462,11 @@ async function waitForBlockedQuery(holderPid: number, parts: string[], count = 1
 test('concurrent default applies serialize and allocate consecutive revisions', { timeout: 15000 }, async () => {
   const initial = await apply();
   const holder = await openHolder(client => client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [policyLockKey(null)]));
-  const pending = [apply({ plan_ref: 'concurrent-a' }), apply({ plan_ref: 'concurrent-b' })];
+  const pending = [apply({ plan_ref: 'concurrent-a', expect_revision: initial.inserted.revision })];
+  try {
+    await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock']);
+    pending.push(apply({ plan_ref: 'concurrent-b', expect_revision: String(Number(initial.inserted.revision) + 1) }));
+  } catch (error) { await holder.release(); throw error; }
   try { await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock'], 2); } finally { await holder.release(); }
   const results = await Promise.all(pending);
   const revisions = results.map(result => Number(result.inserted.revision)).sort((a, b) => a - b);
@@ -470,13 +481,13 @@ test('tenant overrides preserve the default and missing tenants refuse without w
   const base = await apply(), t = await tenant(), other = await tenant();
   const before = (await snapshot()).rows[0];
   const first = await apply({ max_work_items: '7' }, ['--tenant', t]);
-  assert.equal(first.inserted.revision, '1'); assert.deepEqual(first.scope, { kind: 'tenant', tenant_id: t });
+  assert.equal(first.inserted.revision, '2'); assert.deepEqual(first.scope, { kind: 'tenant', tenant_id: t });
   assert.equal((await read(t))?.policy_id, first.inserted.policy_id);
   assert.equal((await read(other))?.policy_id, base.inserted.policy_id);
   assert.deepEqual((await snapshot()).rows.find(row => row.policy_id === base.inserted.policy_id), before);
   const second = await apply({ max_work_items: '8' }, ['--tenant', t]);
-  assert.equal(second.inserted.revision, '2'); assert.deepEqual(second.retired, { ...first.inserted, status: 'retired' });
-  assert.equal((await read(t))?.revision, '2');
+  assert.equal(second.inserted.revision, '3'); assert.deepEqual(second.retired, { ...first.inserted, status: 'retired' });
+  assert.equal((await read(t))?.revision, '3');
   assert.deepEqual((await snapshot()).rows.find(row => row.policy_id === base.inserted.policy_id), before);
   const snap = await snapshot(), missing = randomUUID();
   for (const argv of [args('plan', {}, ['--tenant', missing]), args('apply', {}, ['--tenant', missing]), args('apply', {}, ['--tenant', missing, '--execute'])]) {
@@ -493,7 +504,7 @@ test('tenant apply waits for the runtime tenant policy lock', { timeout: 15000 }
   const pending = apply({ plan_ref: 'after-runtime-write' }, ['--tenant', t]);
   try { await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock']); } finally { await holder.release(true); }
   const result = await pending;
-  assert.equal(result.inserted.revision, '2'); assert.equal(result.retired?.policy_id, first.inserted.policy_id);
+  assert.equal(result.inserted.revision, '3'); assert.equal(result.retired?.policy_id, first.inserted.policy_id);
   assert.equal((await read(t))?.policy_id, result.inserted.policy_id);
 });
 
@@ -513,7 +524,7 @@ for (const [sqlstate, code] of [['42501', 'operator_privilege_required'], ['55P0
       BEGIN RAISE EXCEPTION 'sensitive connection detail' USING ERRCODE='${sqlstate}'; END $$`);
     await pool.query('CREATE TRIGGER operator_failure BEFORE INSERT ON tenant_capacity_policies FOR EACH ROW EXECUTE FUNCTION operator_failure()');
     try {
-      const result = await run(args('apply', {}, ['--execute']));
+      const result = await run(args('apply', { expect_revision: '1' }, ['--execute']));
       assert.deepEqual(result, { exitCode: 1, report: { format: 'freedom.tenant-capacity-policy/v1', status: 'failed', code, sqlstate } });
       assert.deepEqual(await snapshot(), before);
     } finally {
@@ -529,11 +540,187 @@ test('scope verification failure rolls back retirement and insertion', async () 
     BEGIN UPDATE tenant_capacity_policies SET status='retired' WHERE policy_id=NEW.policy_id; RETURN NEW; END $$`);
   await pool.query('CREATE TRIGGER operator_verification_failure AFTER INSERT ON tenant_capacity_policies FOR EACH ROW EXECUTE FUNCTION operator_verification_failure()');
   try {
-    const result = await run(args('apply', {}, ['--execute']));
+    const result = await run(args('apply', { expect_revision: '1' }, ['--execute']));
     assert.deepEqual(result, { exitCode: 1, report: { format: 'freedom.tenant-capacity-policy/v1', status: 'failed', code: 'scope_verification_failed' } });
     assert.deepEqual(await snapshot(), before);
   } finally {
     await pool.query('DROP TRIGGER operator_verification_failure ON tenant_capacity_policies');
     await pool.query('DROP FUNCTION operator_verification_failure()');
   }
+});
+
+function applied(result: Awaited<ReturnType<typeof runTenantPolicy>>) {
+  assert.equal(result.exitCode, 0, JSON.stringify(result.report));
+  assert.ok('command' in result.report && result.report.command === 'apply' && result.report.executed);
+  return result.report;
+}
+function revisionConflict(result: Awaited<ReturnType<typeof runTenantPolicy>>, expected: string, current: string) {
+  assert.deepEqual(result, { exitCode: 2, report: {
+    format: 'freedom.tenant-capacity-policy/v1', status: 'refused', code: 'revision_conflict', expected, current,
+  } });
+}
+
+test('stale plans refuse after a newer default apply and preserve every row', async () => {
+  const first = await apply();
+  const reviewed = await plan();
+  assert.equal(reviewed.expect_revision, first.inserted.revision);
+  assert.equal(reviewed.provisional_revision, true);
+  const second = await apply({ plan_ref: 'operator-b' });
+  const before = await snapshot();
+  revisionConflict(await run(args('apply', { expect_revision: reviewed.expect_revision }, ['--execute'])),
+    reviewed.expect_revision, second.inserted.revision);
+  for (const command of ['plan', 'apply'] as const) {
+    revisionConflict(await run(args(command, { expect_revision: reviewed.expect_revision })),
+      reviewed.expect_revision, second.inserted.revision);
+  }
+  assert.deepEqual(await snapshot(), before);
+});
+test('none means no active row in the requested scope, including tenant overrides', async () => {
+  assert.equal((await plan()).expect_revision, 'none');
+  const base = await apply();
+  const before = await snapshot();
+  revisionConflict(await run(args('apply', { expect_revision: 'none' }, ['--execute'])), 'none', base.inserted.revision);
+  assert.deepEqual(await snapshot(), before);
+  const t = await tenant();
+  assert.equal((await plan('plan', {}, ['--tenant', t])).expect_revision, 'none');
+  const inserted = applied(await run(args('apply', { expect_revision: 'none' }, ['--tenant', t, '--execute'])));
+  assert.equal(inserted.inserted.tenant_id, t);
+  const snap = await snapshot();
+  revisionConflict(await run(args('apply', { expect_revision: '1' }, ['--tenant', await tenant(), '--execute'])), '1', 'none');
+  assert.deepEqual(await snapshot(), snap);
+});
+for (const flag of ['--expect-revision', '--operation-id']) {
+  test(`executed apply requires ${flag} before connecting`, async () => {
+    const argv = beforeConnecting(args('apply', {}, ['--execute']));
+    argv.splice(argv.indexOf(flag), 2);
+    refused(await run(argv), 'missing_flag', flag);
+  });
+}
+for (const [key, code, values] of [
+  ['expect_revision', 'invalid_expected_revision', ['', '0', '01', '-1', '1.5', 'None', '1'.repeat(20), ' 1', '1\n', 'none\n']],
+  ['operation_id', 'invalid_operation_id', ['', 'short', 'A2345678', '_1234567', 'a'.repeat(65), 'abcd/efgh', 'abcdefgh\n', ' abcdefgh']],
+] as const) {
+  test(`${key} rejects noncanonical grammar before connecting`, async () => {
+    for (const value of values) refused(await run(beforeConnecting(args('apply', { [key]: value }, ['--execute']))), code);
+  });
+}
+test('revision grammar accepts one through nineteen digits before a plain read', async () => {
+  for (const value of ['1', '9999999999999999999']) {
+    revisionConflict(await run(args('plan', { expect_revision: value })), value, 'none');
+  }
+});
+test('operation identity and expected revision are refused on unsupported commands', async () => {
+  for (const argv of [
+    ['status', '--database-url', refusalUrl, '--expect-database', expectedDatabase, '--expect-revision', 'none'],
+    ['status', '--database-url', refusalUrl, '--expect-database', expectedDatabase, '--operation-id', 'operation-001'],
+    beforeConnecting(args('plan', { operation_id: 'operation-001' })),
+    beforeConnecting(args('apply', { operation_id: 'operation-001' })),
+  ]) refused(await run(argv), 'invalid_arguments');
+});
+test('identical operations replay active and later retired rows without writing', async () => {
+  const argv = args('apply', { operation_id: 'replay-operation', expect_revision: 'none' }, ['--execute']);
+  const first = applied(await run(argv));
+  assert.equal(first.replayed, false);
+  const before = await snapshot();
+  const replay = applied(await run(argv));
+  assert.equal(replay.replayed, true);
+  assert.deepEqual(replay.inserted, first.inserted);
+  assert.equal(replay.active_rows_for_scope, 1);
+  assert.deepEqual(await snapshot(), before);
+  await apply({ operation_id: 'newer-operation' });
+  const retiredSnapshot = await snapshot();
+  const retiredReplay = applied(await run(argv));
+  assert.equal(retiredReplay.replayed, true);
+  assert.deepEqual(retiredReplay.inserted, { ...first.inserted, status: 'retired' });
+  assert.equal(retiredReplay.active_rows_for_scope, 1);
+  assert.deepEqual(await snapshot(), retiredSnapshot);
+});
+test('discarding a successful response then retrying the same precondition replays', async () => {
+  const argv = args('apply', { operation_id: 'lost-response-001', expect_revision: 'none' }, ['--execute']);
+  await run(argv); // Simulate a committed response that the operator never received.
+  const before = await snapshot();
+  assert.equal(before.count, 1);
+  const replay = applied(await run(argv));
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.inserted.policy_id, before.rows[0].policy_id);
+  assert.equal(replay.inserted.revision, String(before.rows[0].revision));
+  assert.deepEqual(await snapshot(), before);
+});
+test('operation IDs cannot be reused with different limits, plans, model budgets or scopes', async () => {
+  const operationId = 'conflict-operation';
+  await apply({ operation_id: operationId });
+  const t = await tenant(), missing = randomUUID();
+  const before = await snapshot();
+  for (const changes of [
+    ...Object.keys(CEILINGS).map(key => ({ [key]: '1' })), { plan_ref: 'different-plan' },
+  ]) {
+    refused(await run(args('apply', { operation_id: operationId, ...changes }, ['--execute'])), 'operation_id_conflict');
+    assert.deepEqual(await snapshot(), before);
+  }
+  for (const id of [t, missing]) {
+    refused(await run(args('apply', { operation_id: operationId }, ['--tenant', id, '--execute'])), 'operation_id_conflict');
+    assert.deepEqual(await snapshot(), before);
+  }
+  // A historical row with a different model budget also cannot replay the zero-budget request.
+  await pool.query('UPDATE tenant_capacity_policies SET max_model_budget=1 WHERE policy_id=$1', [operationPolicyId(operationId)]);
+  const changed = await snapshot();
+  refused(await run(args('apply', { operation_id: operationId }, ['--execute'])), 'operation_id_conflict');
+  assert.deepEqual(await snapshot(), changed);
+});
+test('operation policy IDs are deterministic lowercase version 5 UUIDs with RFC 4122 variants', () => {
+  const id = operationPolicyId('operation-001');
+  assert.equal(id, operationPolicyId('operation-001'));
+  assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.notEqual(id, operationPolicyId('operation-002'));
+});
+test('remote connections require verify-full before any network connection', async () => {
+  const original = Pool.prototype.connect;
+  let connections = 0;
+  try {
+    Pool.prototype.connect = function () { connections += 1; return Promise.reject(new Error('network forbidden')); };
+    for (const query of ['', '?sslmode=disable']) {
+      refused(await run(['status', '--database-url', `postgresql://x@192.0.2.1:5432/fp_refusal${query}`,
+        '--expect-database', 'fp_refusal']), 'tls_required');
+    }
+    assert.equal(connections, 0);
+  } finally { Pool.prototype.connect = original; }
+});
+test('loopback disable continues to work', async () => {
+  const url = new URL(toolUrl); url.searchParams.set('sslmode', 'disable');
+  const result = await run(['status', '--database-url', url.href, '--expect-database', expectedDatabase]);
+  assert.equal(result.exitCode, 0, JSON.stringify(result.report));
+});
+test('global revisions distinguish default, first override, and later replacements in runtime SQL', async () => {
+  const t = await tenant(), other = await tenant();
+  const base = await apply();
+  const r = BigInt(base.inserted.revision);
+  assert.equal((await read(t))?.revision, String(r));
+  const first = await apply({}, ['--tenant', t]);
+  assert.equal(first.inserted.revision, String(r + 1n));
+  assert.notEqual(first.inserted.revision, '1');
+  assert.equal((await read(t))?.revision, String(r + 1n));
+  const provisional = await plan();
+  assert.equal(provisional.insert.revision, String(r + 2n));
+  assert.equal(provisional.provisional_revision, true);
+  const nextDefault = await apply();
+  assert.equal(nextDefault.inserted.revision, String(r + 2n));
+  // A default replacement changes fallback tenants; an override remains effective for its own tenant.
+  assert.equal((await read(other))?.revision, String(r + 2n));
+  assert.equal((await read(t))?.revision, String(r + 1n));
+  const nextOverride = await apply({}, ['--tenant', t]);
+  assert.equal((await read(t))?.revision, nextOverride.inserted.revision);
+  assert.equal(nextOverride.inserted.revision, String(r + 3n));
+});
+test('concurrent applies on different scopes commit distinct global revisions', { timeout: 15000 }, async () => {
+  const t = await tenant();
+  const holder = await openHolder(client => client.query("SELECT pg_advisory_xact_lock(hashtextextended('tenant.capacity/v1/policy-revisions', 0))"));
+  const pending = [apply({ plan_ref: 'global-default' }), apply({ plan_ref: 'global-tenant' }, ['--tenant', t])];
+  try { await waitForBlockedQuery(holder.pid, ['pg_advisory_xact_lock', 'policy-revisions'], 2); } finally { await holder.release(); }
+  const results = await Promise.all(pending);
+  assert.deepEqual(results.map(result => result.inserted.revision).sort(), ['1', '2']);
+  assert.notEqual(results[0].inserted.revision, results[1].inserted.revision);
+  const saved = await snapshot();
+  assert.equal(saved.count, 2);
+  assert.ok(saved.rows.every(row => row.status === 'active'));
+  assert.equal((await read(t))?.revision, results[1].inserted.revision);
 });
