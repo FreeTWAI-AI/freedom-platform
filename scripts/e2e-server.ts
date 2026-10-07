@@ -15,6 +15,7 @@ import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
 import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
 import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { FakeObjectStore } from '../packages/asset-storage/fake-store.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
@@ -93,6 +94,15 @@ try{
   if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'&&process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1')throw Error('Avatar asset and private AI browser fixtures are mutually exclusive.');
   await migrate(pool);
   await seedLocal(pool);
+  // Synthetic local capacity only. Production does not seed a policy row.
+  await pool.query(`INSERT INTO tenant_capacity_policies(
+      policy_id, revision, tenant_id, plan_ref,
+      max_active_instances, max_instances_per_module, max_concurrent_provisions,
+      max_work_items, max_retained_bytes, max_concurrent_jobs, max_model_budget, status)
+    SELECT gen_random_uuid(), 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1',
+      10, 3, 2, 1000, 104857600, 4, NULL, 'active'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`);
   // One fixture sync fills github_items before the browser opens. No timer.
   // Events run before repositories. 200 leaves every tracked repository inside one fixture pass.
   if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:200,token:undefined});
@@ -125,7 +135,7 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,
+const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantWorkAssetStore:new FakeObjectStore(),
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));

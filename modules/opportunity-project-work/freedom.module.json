@@ -7,6 +7,7 @@
     "apps/platform-api/src/platform-app.ts",
     "apps/platform-api/src/member-boundary.ts",
     "apps/platform-api/src/routes/private-work.ts",
+    "apps/platform-api/src/routes/tenant-work.ts",
     "modules/community/task-board.ts",
     "modules/results/benefits.ts",
     "migrations/077_work_scope_privacy.sql",
@@ -124,6 +125,22 @@
         "engagement.accept",
         "engagement.receipt.report",
         "engagement.receipt.confirm"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "work.tenant-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/tenant-work.ts",
+      "operations": [
+        "work.tenant.list",
+        "work.tenant.read",
+        "work.tenant.create",
+        "work.tenant.update",
+        "work.tenant.archive",
+        "work.tenant.prepare",
+        "work.tenant.write",
+        "work.tenant.finalize"
       ],
       "auth_profile": "member-session"
     }

@@ -74,3 +74,9 @@ provider. Shared session/client types and error formatting live in
 These leaf modules never import `App.tsx` or create a second client/session.
 The shell retains the mutation lock, idempotency-key lifetime and session expiry
 callback. Feature extraction does not create a new authorization boundary.
+
+## Tenant manual Work
+
+Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Operator and viewer hold no Work capability.
+
+New writes (create, save, result prepare, write, and finalize) lock the bound module instance `FOR SHARE` and then its deployment `FOR SHARE`. Both must be `active`, or the write returns 409 `work_instance_unavailable`. Reads are unchanged. Archive does not consult instance status. There is no reopen command. Tenant lock order, skipping locks a path does not use: tenant scope, receipt advisory, workspace, instance then deployment, capacity-policy advisory then policy row, dimension advisory, asset quota advisory, upload intent, work row. Enable takes guild membership `FOR SHARE` after the policy lock. Private reads go through `withTenantRead` in `packages/resource-scopes` (`forUpdate: false`, `tenantWorkCapabilities`). That helper calls `assertCurrentSessionClock` after a successful read.

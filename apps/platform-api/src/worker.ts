@@ -172,6 +172,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     // workerd rejects a bound global fetch, so the preview caller stays unbound.
     linkPreviewFetch:(input,init)=>globalThis.fetch(input,init),
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }
 
