@@ -5,6 +5,8 @@ export type GitHubSocialConfig={clientId:string;clientSecret:string;tokenKey:str
 export type GitHubTokens={access_token:string;refresh_token?:string;expires_at:number|null;refresh_expires_at:number|null};
 export type GitHubIdentity={id:string;login:string};
 export type RepositorySnapshot={stargazers_count:number;forks_count:number;open_issues_count:number;subscribers_count:number;pushed_at:string|null;language:string|null;archived:boolean};
+export type GitHubDenialReason='not_accessible_by_integration'|'not_accessible_by_token'|'sso_required'|'oauth_app_restricted'|'unknown';
+export type GitHubDenialDiagnostic={event:'github_provider_denied';status:403;route:string;reason:GitHubDenialReason;accepted_permissions:string|null;github_request_id:string|null;sso_required:boolean};
 const counter=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const repositorySchema=z.object({stargazers_count:counter,forks_count:counter,open_issues_count:counter,subscribers_count:counter,pushed_at:z.iso.datetime().nullable(),language:z.string().max(100).nullable(),archived:z.boolean(),private:z.literal(false)});
 const tokensSchema=z.object({access_token:z.string().regex(/^ghu_[A-Za-z0-9_]+$/).max(1024),token_type:z.literal('bearer'),scope:z.literal('').optional(),expires_in:z.number().int().positive().max(86400).optional(),refresh_token:z.string().regex(/^ghr_[A-Za-z0-9_]+$/).max(1024).optional(),refresh_token_expires_in:z.number().int().positive().max(366*86400).optional()});
@@ -16,13 +18,24 @@ export class GitHubProviderError extends Problem {
   constructor(code='github_unavailable',status=502){super(status,code,code==='github_development_repository_required'?'請選擇你有修改權的公開原作或同來源 Fork，並確認它尚未封存。':code==='github_installation_required'?'請在工作 Repo 所屬帳號安裝工坊 GitHub App；組織安裝若尚未核准，需等管理者核准。':code==='github_installation_repository_required'?'App 尚未開放這個工作 Repo，請到安裝設定只選取需要連動的 Repo 後重試。':code==='github_reconnect_required'?'GitHub 連線已失效，請重新連接。':code==='github_rate_limited'?'GitHub 請求過於頻繁，請稍後再試。':code==='github_permission_required'?'GitHub 存取權限不足，請管理員檢查 App 權限與專案存取設定。':'GitHub 暫時無法回應，請稍後再試。');}
 }
 
+/** Endpoint shape only: owner, repository, client and installation ids never reach logs. */
+function routeTemplate(method:string,url:string):string{
+  let path='';try{path=new URL(url).pathname;}catch{}
+  const template=/^\/user\/starred\/[^/]+\/[^/]+$/.test(path)?'/user/starred/{repository}':
+    /^\/repos\/[^/]+\/[^/]+(\/[^/]+)*$/.test(path)?path.replace(/^\/repos\/[^/]+\/[^/]+/,'/repos/{repository}').replace(/\/\d+(?=\/|$)/g,'/{number}'):
+    /^\/applications\/[^/]+\/token$/.test(path)?'/applications/{client_id}/token':
+    /^\/user\/installations\/\d+\/repositories$/.test(path)?'/user/installations/{installation_id}/repositories':
+    ['/user','/user/installations','/login/oauth/access_token'].includes(path)?path:'other';
+  return `${method.toUpperCase()} ${template}`;
+}
+
 /** Only fixed GitHub endpoints; bounded concurrency, deadline and response size.
  * Never expose a provider response body: it may contain credentials or user data.
  */
 export class GitHubSocialProvider {
   private active=0;
   private waiting:(()=>void)[]=[];
-  constructor(private fetcher:typeof fetch=fetch){}
+  constructor(private fetcher:typeof fetch=fetch,private diagnose:(entry:GitHubDenialDiagnostic)=>void=entry=>console.warn(JSON.stringify(entry))){}
   private async request(url:string,init:RequestInit={},allowed=[200],maxBody=MAX_BODY):Promise<{status:number;body:unknown}>{
     if(this.active>=4){
       if(this.waiting.length>=32)throw new GitHubProviderError('github_busy',503);
@@ -35,10 +48,11 @@ export class GitHubSocialProvider {
       const response=await fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
       if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)){await response.body?.cancel();throw new GitHubProviderError();}
       if(!allowed.includes(response.status)){
+        if(response.status===401){await response.body?.cancel();throw new GitHubProviderError('github_reconnect_required',409);}
+        if(response.status===429||(response.status===403&&(response.headers.get('x-ratelimit-remaining')==='0'||response.headers.has('retry-after')))){await response.body?.cancel();throw new GitHubProviderError('github_rate_limited',429);}
+        if(response.status===403){await this.reportDenial(url,init.method??'GET',response,controller.signal);throw new GitHubProviderError('github_permission_required',403);}
         await response.body?.cancel();
-        if(response.status===401)throw new GitHubProviderError('github_reconnect_required',409);
-        if(response.status===429||(response.status===403&&(response.headers.get('x-ratelimit-remaining')==='0'||response.headers.has('retry-after'))))throw new GitHubProviderError('github_rate_limited',429);
-        throw new GitHubProviderError(response.status===403?'github_permission_required':response.status===404?'github_repository_unavailable':'github_unavailable',response.status===403?403:502);
+        throw new GitHubProviderError(response.status===404?'github_repository_unavailable':'github_unavailable',502);
       }
       if(response.status===204||response.status===404){await response.body?.cancel();return {status:response.status,body:null};}
       if(Number(response.headers.get('content-length'))>maxBody){await response.body?.cancel();throw new GitHubProviderError('github_invalid_response');}
@@ -48,6 +62,25 @@ export class GitHubSocialProvider {
       return {status:response.status,body};
     }catch(error){if(error instanceof GitHubProviderError)throw error;console.error('github_provider_failed',error instanceof Error?error.name:'unknown');throw new GitHubProviderError();}
     finally{clearTimeout(timer);const next=this.waiting.shift();if(next)next();else this.active--;}
+  }
+  /** Allow-listed evidence for a plain 403: never the message text, token, member or repository name. */
+  private async reportDenial(url:string,method:string,response:Response,signal:AbortSignal):Promise<void>{
+    let reason:GitHubDenialReason='unknown';const reader=response.body?.getReader();
+    try{
+      // A stalled body must not outlive the request deadline or hold a concurrency slot.
+      const stopped=new Promise<never>((_resolve,reject)=>{if(signal.aborted)reject(signal.reason);else signal.addEventListener('abort',()=>reject(signal.reason),{once:true});});stopped.catch(()=>{});
+      const chunks:Uint8Array[]=[];let size=0;
+      while(reader&&size<4096){const chunk=await Promise.race([reader.read(),stopped]);if(chunk.done)break;const part=chunk.value.subarray(0,4096-size);chunks.push(part);size+=part.byteLength;}
+      const message=(JSON.parse(Buffer.concat(chunks).toString('utf8')) as {message?:unknown}|null)?.message;
+      if(typeof message==='string'){const text=message.toLowerCase();reason=text.includes('resource not accessible by integration')?'not_accessible_by_integration':text.includes('resource not accessible by personal access token')?'not_accessible_by_token':text.includes('saml')||text.includes('sso')?'sso_required':text.includes('oauth app access restrictions')?'oauth_app_restricted':'unknown';}
+    }catch{/* unreadable, stalled, truncated or non-JSON bodies stay unknown */}
+    finally{reader?.cancel().catch(()=>{});}
+    const accepted=response.headers.get('x-accepted-github-permissions')?.trim()??'',requestId=response.headers.get('x-github-request-id')??'';
+    const entry:GitHubDenialDiagnostic={event:'github_provider_denied',status:403,route:routeTemplate(method,url),reason,
+      accepted_permissions:accepted.length<=200&&/^[a-z_]+=(read|write|admin)( *[,;] *[a-z_]+=(read|write|admin))*$/.test(accepted)?accepted:null,
+      github_request_id:/^[A-Za-z0-9:]{1,64}$/.test(requestId)?requestId:null,sso_required:response.headers.has('x-github-sso')||reason==='sso_required'};
+    // A broken log destination must not change the denial the member sees.
+    try{this.diagnose(entry);}catch{}
   }
   async metrics(repository:string,token?:string):Promise<RepositorySnapshot>{
     const response=await this.request(`${API}/repos/${repository}`,token?{headers:{Authorization:`Bearer ${token}`}}:{}),parsed=repositorySchema.safeParse(response.body);
