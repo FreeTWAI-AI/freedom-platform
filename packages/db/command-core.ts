@@ -17,10 +17,14 @@ export interface CommandPorts<T> {
   writeReceipt(q: PoolClient, requestDigest: string, response: T): Promise<void>;
 }
 
-/** Internal orchestration only; this is not an API authorization entrypoint. */
+/** Internal orchestration only; this is not an API authorization entrypoint.
+ * `runner` defaults to the legacy transaction helper. Tenant commands pass the
+ * isolated runner; this function does not choose one for them.
+ */
 export async function runCommandCore<T>(pool: Pool, ports: CommandPorts<T>,
-  authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>): Promise<T> {
-  return transaction(pool, async q => {
+  authorize: (q: PoolClient) => Promise<unknown>, run: (q: PoolClient) => Promise<T>,
+  runner: <R>(pool: Pool, run: (q: PoolClient) => Promise<R>) => Promise<R> = transaction): Promise<T> {
+  return runner(pool, async q => {
     await ports.authenticateAndLock(q);
     await ports.lockReceipt(q);
     await authorize(q); // Never return even an existing receipt before current authority.

@@ -6,14 +6,14 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant.js';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion } from '../../packages/db/index.js';
-import { transaction } from '../../packages/db/transaction.js';
 import { lockMemberSession } from '../../packages/db/member-session.js';
 import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
+import { bindPrincipalContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { scopedJournal, scopedMemberCommand, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { roleCapabilities } from './authorization.js';
 import {
-  auditTenant, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, NOT_FOUND, persistTransferFailure,
+  auditTenant, bindTenantScope, bumpAuthorizationRevision, countedSourceVersion, encodeCursor, iso, limitOf, NOT_FOUND, persistTransferFailure,
   readCursor, requireMutableStatus, TRANSFER_MISSING, versionOf,
 } from './facts.js';
 import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
@@ -64,6 +64,24 @@ function transferFailure(error: unknown): error is Problem {
   return error instanceof Problem && (error.code === 'transfer_expired' || error.code === 'transfer_authority_changed' || error.code === 'tenant_recovery_required');
 }
 
+/** Committed before the command. A later transfer_expired rolls the command back
+ * and must not restore the overdue row. The two call shapes are separate
+ * statements: a predicate is never interpolated into the SQL. */
+async function expireTransfers(pool: Pool, tenantId: string, transferId?: string): Promise<void> {
+  await isolatedTransaction(pool, async q => {
+    if (!await bindTenantScope(q, tenantId)) return;
+    if (transferId === undefined) {
+      await q.query(`UPDATE tenant_ownership_transfers
+        SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+        WHERE state='pending' AND expires_at<=clock_timestamp() AND tenant_id=$1`, [tenantId]);
+      return;
+    }
+    await q.query(`UPDATE tenant_ownership_transfers
+      SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+      WHERE state='pending' AND expires_at<=clock_timestamp() AND transfer_id=$1 AND tenant_id=$2`, [transferId, tenantId]);
+  });
+}
+
 async function withinTransferTtl(q: PoolClient, expiresAt: string, ttlSeconds: number): Promise<void> {
   const row = (await q.query<{ ok: boolean }>(
     `SELECT $1::timestamptz > clock_timestamp() AND $1::timestamptz <= clock_timestamp() + make_interval(secs => $2::int) AS ok`,
@@ -74,8 +92,7 @@ async function withinTransferTtl(q: PoolClient, expiresAt: string, ttlSeconds: n
 export async function proposeTransfer(pool: Pool, actor: Actor, tenantId: string, body: unknown, key: string) {
   const input = TransferProposeInputSchema.parse(body);
   OpaqueId.parse(tenantId);
-  await pool.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    WHERE tenant_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [tenantId]);
+  await expireTransfers(pool, tenantId);
   return scopedTenantCommand(pool, {
     actor, tenantId, operation: 'tenant.ownership.propose', key, body: input,
     target: { kind: 'tenant_ownership_transfer', id: tenantId }, capabilitiesForRole: roleCapabilities,
@@ -137,7 +154,10 @@ async function visibleTransfer(q: PoolClient, actor: Actor, tenantId: string, tr
 
 export async function getTransfer(pool: Pool, actor: Actor, tenantId: string, transferId: string) {
   OpaqueId.parse(tenantId); OpaqueId.parse(transferId);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
+    const principalId = await callerPrincipal(q, actor);
+    await bindPrincipalContext(q, principalId);
+    await bindTenantScope(q, tenantId);
     await visibleTransfer(q, actor, tenantId, transferId);
     await q.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
       WHERE transfer_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId]);
@@ -147,8 +167,9 @@ export async function getTransfer(pool: Pool, actor: Actor, tenantId: string, tr
 
 export async function listMyTransfers(pool: Pool, actor: Actor, query: { cursor?: string; limit?: string }) {
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const principalId = await callerPrincipal(q, actor);
+    await bindPrincipalContext(q, principalId);
     const after = readCursor(query.cursor, principalId, 'my_transfers', null);
     await q.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
       WHERE to_principal_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [principalId]);
@@ -169,8 +190,10 @@ export async function listMyTransfers(pool: Pool, actor: Actor, query: { cursor?
 export async function listTenantTransfers(pool: Pool, actor: Actor, tenantId: string, query: { cursor?: string; limit?: string }) {
   OpaqueId.parse(tenantId);
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     const principalId = await callerPrincipal(q, actor);
+    await bindPrincipalContext(q, principalId);
+    await bindTenantScope(q, tenantId);
     const tenant = (await q.query<{ community_id: string }>(`SELECT community_id FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
     if (!tenant || tenant.community_id !== actor.community_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
     const owner = await q.query(`SELECT 1 FROM tenant_memberships
@@ -197,13 +220,14 @@ export async function listTenantTransfers(pool: Pool, actor: Actor, tenantId: st
 export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string, transferId: string, body: unknown, key: string, expected: string) {
   const input = TransferAcceptInputSchema.parse(body);
   OpaqueId.parse(tenantId); OpaqueId.parse(transferId);
-  await pool.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    WHERE transfer_id=$1 AND tenant_id=$2 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId, tenantId]);
+  await expireTransfers(pool, tenantId, transferId);
   try {
     return await scopedMemberCommand(pool, {
       actor, scope: 'personal', operation: 'tenant.ownership.accept', key, body: input, expected,
       target: { kind: 'tenant_ownership_transfer', id: transferId },
     }, async (q, context) => {
+      await bindPrincipalContext(q, context.subject_principal.principal_id);
+      await bindTenantScope(q, tenantId);
       const visible = (await q.query<{ to_principal_id: string }>(
         `SELECT to_principal_id FROM tenant_ownership_transfers WHERE transfer_id=$1 AND tenant_id=$2`, [transferId, tenantId])).rows[0];
       if (!visible || visible.to_principal_id !== context.subject_principal.principal_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
@@ -310,9 +334,9 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
         JOIN users u ON u.user_id=p.user_ref
         WHERE m.tenant_id=$1 AND m.principal_id=$2`, [recorded, context.subject_principal.principal_id])).rows[0];
       requireCondition(still?.ok, 403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
-    });
+    }, undefined, isolatedTransaction);
   } catch (error) {
-    if (transferFailure(error)) await persistTransferFailure(pool, transferId);
+    if (transferFailure(error)) await persistTransferFailure(pool, transferId, tenantId);
     throw error;
   }
 }
@@ -320,8 +344,7 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
 export async function cancelTransfer(pool: Pool, actor: Actor, tenantId: string, transferId: string, body: unknown, key: string) {
   const input = TransferCancelInputSchema.parse(body);
   OpaqueId.parse(tenantId); OpaqueId.parse(transferId);
-  await pool.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    WHERE transfer_id=$1 AND tenant_id=$2 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId, tenantId]);
+  await expireTransfers(pool, tenantId, transferId);
   return scopedTenantCommand(pool, {
     actor, tenantId, operation: 'tenant.ownership.cancel', key, body: input,
     target: { kind: 'tenant_ownership_transfer', id: transferId }, capabilitiesForRole: roleCapabilities,
@@ -345,13 +368,14 @@ export async function cancelTransfer(pool: Pool, actor: Actor, tenantId: string,
 export async function declineTransfer(pool: Pool, actor: Actor, tenantId: string, transferId: string, body: unknown, key: string) {
   EmptyObjectSchema.parse(body);
   OpaqueId.parse(tenantId); OpaqueId.parse(transferId);
-  await pool.query(`UPDATE tenant_ownership_transfers SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    WHERE transfer_id=$1 AND tenant_id=$2 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId, tenantId]);
+  await expireTransfers(pool, tenantId, transferId);
   try {
     return await scopedMemberCommand(pool, {
       actor, scope: 'personal', operation: 'tenant.ownership.decline', key, body: {},
       target: { kind: 'tenant_ownership_transfer', id: transferId },
     }, async () => {}, async (q, context) => {
+      await bindPrincipalContext(q, context.subject_principal.principal_id);
+      await bindTenantScope(q, tenantId);
       const tenant = (await q.query<{ status: string; authorization_revision: string; community_id: string }>(
         `SELECT status, authorization_revision::text AS authorization_revision, community_id FROM tenants WHERE tenant_id=$1 FOR SHARE`, [tenantId])).rows[0];
       if (!tenant || tenant.community_id !== actor.community_id) throw new Problem(404, 'transfer_not_found', TRANSFER_MISSING);
@@ -374,9 +398,9 @@ export async function declineTransfer(pool: Pool, actor: Actor, tenantId: string
       const account = (await q.query<{ ok: boolean }>(`SELECT (p.status='active' AND u.active) AS ok
         FROM principals p JOIN users u ON u.user_id=p.user_ref WHERE p.principal_id=$1`, [context.subject_principal.principal_id])).rows[0];
       requireCondition(account?.ok, 403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
-    });
+    }, undefined, isolatedTransaction);
   } catch (error) {
-    if (transferFailure(error)) await persistTransferFailure(pool, transferId);
+    if (transferFailure(error)) await persistTransferFailure(pool, transferId, tenantId);
     throw error;
   }
 }
