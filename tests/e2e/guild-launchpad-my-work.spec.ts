@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import { test, expect, type Browser, type Page } from './fixtures.js';
+import { test, expect, type Browser, type Dialog, type Page, type Route } from './fixtures.js';
 
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
@@ -939,6 +939,95 @@ test('create and edit drafts ask before leaving and do not follow into another t
     });
     await session.page.getByRole('button', { name: workTitle2, exact: true }).click();
     await expect(session.page.locator('#my-work-edit-objective')).toHaveValue(editedObjective);
+  } finally {
+    await session.context.close();
+    await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+test('a failed open of another Work closes the open Work instead of leaving a dead edit form', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(180_000);
+  const [guild] = await guildsByCategory(e2eAuthPool);
+  const primary = await otherGuild(e2eAuthPool, [guild.guild_key]);
+  const member = await person(e2eAuthPool, 'failedopen', [{ guild_key: guild.guild_key, tier: 'full' }, { guild_key: primary.guild_key, tier: 'full' }], primary.guild_key);
+  const session = await login(browser, baseURL!, member.email);
+  const run = randomUUID().slice(0, 8);
+  const tenantName = `空間${run}`;
+  const title1 = `工作一${run}`;
+  const title2 = `工作二${run}`;
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: tenantName, workspace_name: '預設工作區' });
+    const tenantId = made.tenant.tenant_id as string;
+    const workspaceId = made.workspace.workspace_id as string;
+    const starter = await starterOf(session.page, guild.guild_key);
+    await openGuild(session.page, guild.guild_key, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title1);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('目標一');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title1, exact: true })).toBeVisible();
+
+    await session.page.getByLabel(starter.title_label, { exact: true }).fill(title2);
+    await session.page.getByLabel(starter.objective_hint, { exact: true }).fill('目標二');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(session.page.getByRole('button', { name: title2, exact: true })).toBeVisible();
+
+    const listRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works?limit=20`);
+    const list = await listRes.json();
+    const work1Item = list.items.find((item: any) => item.title === title1);
+    const work2Item = list.items.find((item: any) => item.title === title2);
+    expect(work1Item).toBeDefined();
+    expect(work2Item).toBeDefined();
+    const work1Id = work1Item.work_id;
+    const work2Id = work2Item.work_id;
+
+    await session.page.getByRole('button', { name: title1, exact: true }).click();
+    await expect(session.page.locator('#my-work-edit-title')).toHaveValue(title1);
+    await session.page.locator('#my-work-edit-objective').fill('失敗前的未保存修改');
+
+    const failWork2 = (url: URL) => url.pathname === `/api/v1/tenants/${tenantId}/works/${work2Id}`
+      || url.pathname.startsWith(`/api/v1/tenants/${tenantId}/works/${work2Id}/`);
+    let failedReads = 0;
+    const abortWork2 = (route: Route) => { failedReads += 1; return route.abort('failed'); };
+    await session.page.route(failWork2, abortWork2);
+
+    let patches = 0;
+    session.page.on('request', request => { if (request.method() === 'PATCH') patches += 1; });
+
+    session.page.once('dialog', dialog => {
+      expect(dialog.message()).toBe(LEAVE);
+      void dialog.accept();
+    });
+    await session.page.getByRole('button', { name: title2, exact: true }).click();
+
+    await expect.poll(() => failedReads).toBeGreaterThan(0);
+    await expect(session.page.locator('#my-work-edit-title')).toHaveCount(0);
+    await expect(session.page.getByRole('button', { name: '儲存變更', exact: true })).toHaveCount(0);
+
+    await session.page.unroute(failWork2, abortWork2);
+    const recordedDialogs: string[] = [];
+    const recordDialog = (dialog: Dialog) => {
+      recordedDialogs.push(dialog.message());
+      void dialog.dismiss();
+    };
+    session.page.on('dialog', recordDialog);
+    await session.page.getByRole('button', { name: title1, exact: true }).click();
+    await expect(session.page.locator('#my-work-edit-title')).toHaveValue(title1);
+    await expect(session.page.locator('#my-work-edit-objective')).toHaveValue('目標一');
+    session.page.off('dialog', recordDialog);
+    expect(recordedDialogs).toHaveLength(0);
+
+    await session.page.locator('#my-work-edit-objective').fill('重新開啟後的修改');
+    const patched = session.page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(work1Id));
+    await session.page.getByRole('button', { name: '儲存變更', exact: true }).click();
+    expect((await patched).status()).toBe(200);
+
+    expect(patches).toBe(1);
+    const finalRes = await session.page.request.get(`/api/v1/tenants/${tenantId}/works/${work1Id}`);
+    const finalWork = await finalRes.json();
+    expect(finalWork.objective).toBe('重新開啟後的修改');
   } finally {
     await session.context.close();
     await cleanup(e2eAuthPool, member.userId);
