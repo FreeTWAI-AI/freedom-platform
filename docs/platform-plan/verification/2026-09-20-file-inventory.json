@@ -13634,8 +13634,8 @@
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_repository_manifest_identity.py",
-      "bytes": 920,
-      "sha256": "a761e1f6e4e518a49c08606e6e12d2bcc1529f3e9d8dd645f1f038710540e03b"
+      "bytes": 968,
+      "sha256": "51fab20ca447a0445f4bd7ff06b5bef98906e6c1dbb5642dc553ee32b1d6c326"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_retract_contract_parity.py",
