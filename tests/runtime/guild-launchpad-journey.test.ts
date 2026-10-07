@@ -145,7 +145,9 @@ const editedObjective = 'A-only-edited-objective 確認分區後再補備援步�
 const continuedObjective = 'A-only-continued-objective 已補上備援步驟';
 let memberA: Session;
 let officer: Session;
-let guildKey: string;
+let legacyGuildKey: string;
+let memberB: Session;
+let spaceB: Space;
 let spaceA: Space;
 let noteResult: ResultView;
 let attachmentResult: ResultView;
@@ -215,20 +217,23 @@ async function signIn(email: string): Promise<Session> {
   assert.ok(reply.headers.get('set-cookie'));
   return { cookie: reply.headers.get('set-cookie')!.split(';')[0], csrf: reply.data.csrf_token, user: reply.data.user };
 }
-async function appointOfficer() {
+async function adminPost(path: string, body: unknown) {
   const now = Math.floor(Date.now() / 1000);
   const jwt = await new SignJWT({ type: 'app', email: adminEmail, sub: 'synthetic-journey-admin', iss: issuer,
     aud: audience, iat: now, nbf: now, exp: now + 600 })
     .setProtectedHeader({ alg: 'RS256', kid: 'journey' }).sign(pair.privateKey);
   const identity = await createAdminAccessVerifier(accessOptions)(new Request(origin, { headers: { 'Cf-Access-Jwt-Assertion': jwt } }));
-  const appointed = await call('POST', `/admin/api/guilds/${guildKey}/master`, undefined,
-    JSON.stringify({ user_id: DEMO_USERS[2].user_id, reason: '任命合成公會長以驗證正式成員流程。' }),
+  return call('POST', `/admin/api${path}`, undefined, JSON.stringify(body),
     { ...jsonHeaders(randomUUID()), 'Cf-Access-Jwt-Assertion': jwt, 'X-Admin-CSRF': identity.csrfToken });
+}
+async function appointOfficer(guildKey: string) {
+  const appointed = await adminPost(`/guilds/${guildKey}/master`,
+    { user_id: DEMO_USERS[2].user_id, reason: '任命合成公會長以驗證正式成員流程。' });
   expectStatus(appointed);
   assert.equal(appointed.data.user_id, DEMO_USERS[2].user_id);
   officer = await signIn(DEMO_USERS[2].email);
 }
-async function chooseGuild(session: Session) {
+async function chooseGuild(session: Session, guildKey: string) {
   const joined = await post(`/guilds/${guildKey}/join`, session, {});
   expectStatus(joined);
   assert.equal(joined.data.state, 'active');
@@ -252,9 +257,9 @@ async function chooseGuild(session: Session) {
 }
 const workspacePath = (space: Space) => `/tenants/${space.tenantId}/workspaces/${space.workspaceId}`;
 const workPath = (space: Space) => `/tenants/${space.tenantId}/works/${space.workId}`;
-const contextPath = (space: Space) => `${workspacePath(space)}/launchpad-context?guild_key=${guildKey}`;
-async function context(session: Session, space: Space, enabled: boolean) {
-  const reply = await call('GET', contextPath(space), session);
+const contextPath = (space: Space, guildKey: string) => `${workspacePath(space)}/launchpad-context?guild_key=${guildKey}`;
+async function context(session: Session, space: Space, enabled: boolean, guildKey: string) {
+  const reply = await call('GET', contextPath(space, guildKey), session);
   privateReply(reply);
   const value = LaunchpadContextSchema.parse(reply.data);
   assert.equal(value.tenant_id, space.tenantId);
@@ -280,7 +285,7 @@ async function loadSpace(session: Session, space: Space) {
   assert.deepEqual(page.items.map(item => item.workspace_id), [space.workspaceId]);
   assert.equal(page.items[0].tenant_id, space.tenantId);
 }
-async function createSpace(session: Session, name: string): Promise<Space> {
+async function createSpace(session: Session, name: string, guildKey: string): Promise<Space> {
   const made = await post('/tenants', session, { display_name: name, workspace_name: '場勘工作區' });
   expectStatus(made, 201);
   const tenant = TenantViewSchema.parse(made.data.tenant);
@@ -289,7 +294,7 @@ async function createSpace(session: Session, name: string): Promise<Space> {
   assert.equal(tenant.default_workspace_id, workspace.workspace_id);
   const space = { tenantId: tenant.tenant_id, workspaceId: workspace.workspace_id, instanceId: '', workId: '' };
   await loadSpace(session, space);
-  const before = await context(session, space, false);
+  const before = await context(session, space, false, guildKey);
   assert.deepEqual(before.work_page.items, []);
   const key = randomUUID();
   const enabled = await post(`${workspacePath(space)}/manual-work`, session, { guild_key: guildKey }, undefined, key);
@@ -300,7 +305,7 @@ async function createSpace(session: Session, name: string): Promise<Space> {
   assert.equal(binding.reused, false);
   assert.equal(binding.version, '1');
   space.instanceId = binding.instance_id;
-  await context(session, space, true);
+  await context(session, space, true, guildKey);
   const replay = await post(`${workspacePath(space)}/manual-work`, session, { guild_key: guildKey }, undefined, key);
   privateReply(replay);
   assert.deepEqual(replay.data, enabled.data);
@@ -423,15 +428,21 @@ async function evidence(space: Space) {
   return { work, results, uploads, target, objects: await objectSnapshot() };
 }
 
-test('T-005 M1 journey: a member goes from guild to business space, saves Work notes and Results, and continues after signing in again (runtime role)', { concurrency: false }, async () => {
+test('T-005 M1 journey before the three-category switch: a member goes from guild to business space, saves Work notes and Results, and continues after signing in again (runtime role)', { concurrency: false }, async () => {
   memberA = await signIn(DEMO_USERS[0].email);
   const directory = await call('GET', '/guilds/directory', memberA);
   expectStatus(directory);
   assert.ok(directory.data.items.length > 0);
-  guildKey = directory.data.items[0].guild_key;
-  await appointOfficer();
-  await chooseGuild(memberA);
-  spaceA = await createSpace(memberA, 'A-only-tenant 場勘業務');
+  const categories = await call('GET', '/guild-categories', memberA);
+  expectStatus(categories);
+  const approved = new Set(categories.data.categories.flatMap((group: { items: { guild_key: string; active: boolean; category_review: string }[] }) =>
+    group.items.filter(item => item.active && item.category_review === 'approved').map(item => item.guild_key)));
+  const selected = directory.data.items.find((item: { guild_key: string }) => approved.has(item.guild_key));
+  assert.ok(selected, 'the legacy primary must have an approved active classification for a clean switch');
+  legacyGuildKey = selected.guild_key;
+  await appointOfficer(legacyGuildKey);
+  await chooseGuild(memberA, legacyGuildKey);
+  spaceA = await createSpace(memberA, 'A-only-tenant 場勘業務', legacyGuildKey);
   const made = await post(`${workspacePath(spaceA)}/works`, memberA, { title, objective: initialObjective, progress: 'todo' });
   spaceA.workId = operation(made, 'work.work', spaceA, 201).resource_ref.resource_id;
   const initial = await readWork(memberA, spaceA, '1');
@@ -468,7 +479,7 @@ test('T-005 M1 journey: a member goes from guild to business space, saves Work n
   privateReply(tenants);
   assert.deepEqual(TenantPageSchema.parse(tenants.data).items.map(item => item.tenant_id), [spaceA.tenantId]);
   await loadSpace(memberA, spaceA);
-  const resumed = await context(memberA, spaceA, true);
+  const resumed = await context(memberA, spaceA, true, legacyGuildKey);
   assert.deepEqual(resumed.work_page.items, [beforeSignOut]);
   const works = await call('GET', `${workspacePath(spaceA)}/works?limit=50`, memberA);
   privateReply(works);
@@ -516,7 +527,7 @@ test('T-005 M1 journey: a member goes from guild to business space, saves Work n
   for (const row of journal) for (const marker of [title, initialObjective, editedObjective, continuedObjective, 'A-only-note', 'A-only-attachment', Buffer.from(note).toString('utf8')]) {
     assert.equal(row.data.includes(marker), false, 'private Work/Result text leaked into the journal');
   }
-  console.log(JSON.stringify({ check: 'T-005 M1 journey', guild_key: guildKey, member_id: memberA.user.user_id,
+  console.log(JSON.stringify({ check: 'T-005 M1 journey', guild_key: legacyGuildKey, member_id: memberA.user.user_id,
     tenant_id: spaceA.tenantId, workspace_id: spaceA.workspaceId, instance_id: spaceA.instanceId, work_id: spaceA.workId,
     versions: { created: initial.version, note_saved: saved.version, before_sign_out: beforeSignOut.version, continued: continued.version, final: finalWork.version },
     results: [noteResult, attachmentResult].map(result => ({ result_id: result.result_id, asset_id: result.asset_id,
@@ -526,9 +537,9 @@ test('T-005 M1 journey: a member goes from guild to business space, saves Work n
 
 test("T-022 M1 journey: another tenant's owner gets the same answers as for random IDs (runtime role)", { concurrency: false }, async () => {
   assert.ok(finalWork, 'T-005 must complete before cross-tenant evidence');
-  const memberB = await signIn(DEMO_USERS[1].email);
-  await chooseGuild(memberB);
-  const spaceB = await createSpace(memberB, 'B-only-tenant 場勘業務');
+  memberB = await signIn(DEMO_USERS[1].email);
+  await chooseGuild(memberB, legacyGuildKey);
+  spaceB = await createSpace(memberB, 'B-only-tenant 場勘業務', legacyGuildKey);
   const made = await post(`${workspacePath(spaceB)}/works`, memberB, { title: 'B-only-work', objective: 'B-only-objective', progress: 'todo' });
   spaceB.workId = operation(made, 'work.work', spaceB, 201).resource_ref.resource_id;
   const otherResult = await saveResult(memberB, spaceB, '1', 'B-only-note.txt', 'text/plain', otherNote, []);
@@ -538,7 +549,7 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
   const reads: Array<(space: Space, resultId: string) => string> = [
     space => `/tenants/${space.tenantId}`,
     space => `/tenants/${space.tenantId}/workspaces?limit=100`,
-    space => contextPath(space),
+    space => contextPath(space, legacyGuildKey),
     space => `${workspacePath(space)}/works?limit=50`,
     space => workPath(space),
     space => `${workPath(space)}/results?limit=20`,
@@ -571,7 +582,7 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
     { method: 'POST', path: (space: Space) => `${workPath(space)}/results/uploads`, body: {
       content_type: 'text/plain', byte_size: otherNote.byteLength, sha256: sha(otherNote), display_name: 'unwanted.txt', expected_work_version: finalWork.version,
     }, version: undefined },
-    { method: 'POST', path: (space: Space) => `${workspacePath(space)}/manual-work`, body: { guild_key: guildKey }, version: undefined },
+    { method: 'POST', path: (space: Space) => `${workspacePath(space)}/manual-work`, body: { guild_key: legacyGuildKey }, version: undefined },
   ];
   for (const route of writes) {
     const hidden = await call(route.method, route.path(spaceA), memberB, JSON.stringify(route.body), jsonHeaders(randomUUID(), route.version));
@@ -588,7 +599,7 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
     privateReply(tenants);
     assert.deepEqual(TenantPageSchema.parse(tenants.data).items.map(item => item.tenant_id), [own.tenantId]);
     await loadSpace(session, own);
-    const loaded = await context(session, own, true);
+    const loaded = await context(session, own, true, legacyGuildKey);
     assert.deepEqual(loaded.work_page.items, [expectedWork]);
     const works = await call('GET', `${workspacePath(own)}/works?limit=50`, session);
     privateReply(works);
@@ -605,7 +616,7 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
 });
 
 test('T-024 M1 journey ran on the runtime role with one pooled connection per app instance', { concurrency: false }, async () => {
-  assert.equal(instances.length, 2, 'the journey must replace its app and pool');
+  assert.ok(instances.length >= 2, 'the journey must replace its app and pool');
   const who = (await runtime.query(`SELECT current_user,session_user,rolsuper,rolbypassrls,rolinherit,
     pg_backend_pid() AS pid FROM pg_roles WHERE rolname=current_user`)).rows[0];
   assert.equal(who.current_user, runtimeRole);
@@ -623,8 +634,9 @@ test('T-024 M1 journey ran on the runtime role with one pooled connection per ap
     assert.ok(instance.requests > 0);
     assert.equal(instance.pids.size, 1);
   }
-  assert.notEqual([...instances[0].pids][0], [...instances[1].pids][0]);
-  assert.equal(Number(who.pid), [...instances[1].pids][0]);
+  const pids = instances.map(instance => [...instance.pids][0]);
+  assert.equal(new Set(pids).size, instances.length, 'every app instance must use a distinct backend');
+  assert.equal(Number(who.pid), pids.at(-1));
   await quiet('final role evidence');
   console.log(JSON.stringify({ check: 'T-024 M1 runtime role', ...who, work_items_owner: table.owner,
     app_instances: instances.map(instance => ({ max_connections: instance.pool.options.max, backend_pids: [...instance.pids], requests: instance.requests })) }));
