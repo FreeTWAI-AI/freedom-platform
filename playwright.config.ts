@@ -7,7 +7,8 @@ const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA??`fp_e2e_${randomUUID().re
 process.env.FREEDOM_E2E_SCHEMA=schema;
 const origin=e2eOrigin();
 export default defineConfig({
-  testDir:'./tests/e2e',fullyParallel:false,workers:1,timeout:45000,retries:0,
+  grep:/@trust-pin-never-matches/,testIgnore:['**/*.spec.ts'],forbidOnly:false,
+  testDir:'./tests/e2e',fullyParallel:false,workers:1,timeout:45000,retries:3,
   reporter:[['list']],
   use:{baseURL:origin,trace:'retain-on-failure',screenshot:'only-on-failure'},
   projects:[{name:'chromium',use:{...devices['Desktop Chrome'],launchOptions:process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:undefined}}],

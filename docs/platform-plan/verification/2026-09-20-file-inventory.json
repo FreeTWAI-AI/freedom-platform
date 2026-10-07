@@ -13053,6 +13053,11 @@
       "sha256": "f3974f432cfd494a68001ccf1c73adbaf691564845491302aee87792a21a7d3f"
     },
     {
+      "path": "docs/platform-plan/contracts/tests/conftest.py",
+      "bytes": 68,
+      "sha256": "af5d9e16985bdfb602bec8933a02284d834a78bbb5774868314ca4503c7bf6ea"
+    },
+    {
       "path": "docs/platform-plan/contracts/tests/fixtures/domain-skill-overlay/README.stage-1a.md",
       "bytes": 4433,
       "sha256": "40667eb97fbb9dfde42e3080e6b22f9a6cc440066e91c1923d00ed70266eb82a"
@@ -16454,8 +16459,8 @@
     },
     {
       "path": "package.json",
-      "bytes": 7985,
-      "sha256": "e9a2a90f937ffbcc0748d2b7dbd4bbbb78e2cada32950f39a0c6e0342cc461eb"
+      "bytes": 7787,
+      "sha256": "0604b783e2c4d95d0864ad84fb5aaf8351883bf1208a93f9f8a2c60ecb9136e2"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -17574,8 +17579,13 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1533,
-      "sha256": "f5308bd7170faa957395ee7459cde51598e5884950cbf469e56d66885d19d50f"
+      "bytes": 1613,
+      "sha256": "28aaa53150f4cfaac9c4816e8456e95142563311765ca70ac425344eb2003dbd"
+    },
+    {
+      "path": "pytest.ini",
+      "bytes": 61,
+      "sha256": "156346967a039aa6cda572a4148d2128f30b6c4f4f3766fc272b491fcdf72f57"
     },
     {
       "path": "repositories.lock.json",
