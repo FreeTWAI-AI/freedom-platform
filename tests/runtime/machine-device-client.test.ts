@@ -92,7 +92,7 @@ async function approve(userCode: string, decision = 'approve') {
     VALUES($1,$2,$3,'Synthetic device SDK member',$4,$5)`, [user, community, user+'@example.invalid', hashPassword(password), randomUUID()]);
   const { token, actor } = await login(app, user+'@example.invalid', password);
   await withMemberScope(app, { actor, scope: 'personal' }, async()=>{}, async()=>{});
-  const headers = { Cookie: 'freedom_local_session='+token, 'X-CSRF-Token': actor.csrf_token, Origin: origin,
+  const headers = { Cookie: '__Host-freedom_session='+token, 'X-CSRF-Token': actor.csrf_token, Origin: origin,
     'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() };
   const reviewResponse = await transport.request(origin+paths.inspect, { method:'POST', headers, body: JSON.stringify({ userCode }) });
   assert.equal(reviewResponse.status, 200);

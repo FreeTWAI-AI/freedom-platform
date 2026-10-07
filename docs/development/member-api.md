@@ -13,6 +13,17 @@ enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 Binary uploads and signed machine transports retain their own bounded readers.
 
+HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
+`SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
+HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names
+come from trusted configured origin, not forwarding headers. HTTPS readers do
+not accept the old name: existing HTTPS sessions must log in again after this
+cutover. The member boundary, administrative member-linking and promotion
+click attribution all use this policy. Duplicate selected session cookies,
+including whitespace around names or identical values, return
+`403 credential_kind_rejected`; the platform rejects them before reading a
+mutation body or creating, replacing or revoking sessions.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
@@ -21,9 +32,17 @@ Binary uploads and signed machine transports retain their own bounded readers.
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from
   the login identity; its audience starts empty (private).
-- `POST /auth/login`: existing `{email,password}`. Email remains **unverified**;
-  there is no mail sender/reset/automatic provider linking. Slugs confer no
-  GitHub/Discord/LINE ownership or privileged action.
+- `POST /auth/login`: existing `{email,password}`. Password login does not verify
+  email or automatically link providers. Slugs confer no GitHub/Discord/LINE
+  ownership or privileged action.
+- `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
+  and returns the same result for existing and unknown accounts.
+- `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
+  changes the password, revokes old sessions, clears account lockout and issues a
+  new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
+  with the same session cookie/lifetime as login; the session cookie already sent
+  by this browser is also revoked, as on login. Invalid, expired and inactive
+  proofs are rejected. See [password-recovery.md](password-recovery.md).
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
