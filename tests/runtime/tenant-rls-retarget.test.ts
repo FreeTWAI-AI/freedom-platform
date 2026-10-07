@@ -8,10 +8,6 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
-import { syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
-import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
-import { advanceOperation } from '../../modules/module-registry/operations.js';
-import type { ProvisionEffect } from '../../modules/module-registry/providers.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -38,8 +34,7 @@ const runtime = new Pool({
 });
 for (const pool of [admin, owner, runtime]) pool.on('error', () => undefined);
 const store = new FakeObjectStore();
-const providers = syntheticModuleProviders(runtime);
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, moduleProviders: providers });
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
 
 let created = false;
 type Session = { cookie: string; csrf: string; user: { user_id: string; email: string } };
@@ -100,8 +95,6 @@ before(async () => {
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
   const authority = template.split('-- BEGIN TENANT AUTHORITY POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
-  const registry = template.split('-- BEGIN MODULE REGISTRY DEFINITION GRANTS\n')[1].split('\n\\gexec')[0]
-    .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
 
   const q = await owner.connect();
   try {
@@ -110,8 +103,6 @@ before(async () => {
     await q.query(Object.values(statements.rows[0])[0] as string);
     const authorityStatements = await q.query(authority);
     for (const statement of authorityStatements.rows) await q.query(Object.values(statement)[0] as string);
-    const registryStatements = await q.query(registry);
-    for (const statement of registryStatements.rows) await q.query(Object.values(statement)[0] as string);
     await q.query('COMMIT');
   } catch (error) {
     try { await q.query('ROLLBACK'); } catch {}
@@ -127,7 +118,6 @@ before(async () => {
       max_concurrent_provisions, max_work_items, max_retained_bytes, max_concurrent_jobs, max_model_budget, status)
     SELECT $1, 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1', 10, 3, 2, 1000, 104857600, 4, NULL, 'active'
     WHERE NOT EXISTS (SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`, [randomUUID()]);
-  await installSyntheticCatalog();
   fixture = await buildFixture();
 });
 
@@ -139,45 +129,6 @@ after(async () => {
   } finally { await admin.end(); }
 });
 
-
-const synthContract = { family: 'guild-launchpad.synthetic', version: '1', source_commit: WORK_CONTRACT_SOURCE_COMMIT, artifact_sha256: '0'.repeat(64), behavior_profile: 'freedom.synthetic/v1' };
-async function installSyntheticCatalog() {
-  const policy = JSON.stringify({ policy_key: 'synthetic-storefront.launch', version: '1' });
-  const inventoryReq = {
-    requirement_key: 'inventory', module_key: 'synthetic-inventory', module_release_ref: 'synthetic-inventory@1.0.0',
-    capabilities: ['inventory:read'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [synthContract],
-  };
-  const storefrontReq = {
-    requirement_key: 'storefront', module_key: 'synthetic-storefront', module_release_ref: 'synthetic-storefront@1.0.0',
-    capabilities: ['storefront:sell'], required: true, cardinality: 'one', allow_reuse: false, compatible_contracts: [synthContract],
-  };
-  for (const moduleKey of ['synthetic-inventory', 'synthetic-storefront']) {
-    const capability = moduleKey === 'synthetic-inventory' ? 'inventory:read' : 'storefront:sell';
-    await owner.query(`INSERT INTO module_definitions(
-        module_key, release_ref, capabilities, data_catalog_ref, contract_ref, data_schema_version,
-        portable_profile_ref, runtime_profiles, config_schema_ref, supported_upgrade_paths,
-        license_review_ref, license_state, release_status, version)
-      VALUES($1,$2,$3::jsonb,'synthetic.tenant/v1',$4::jsonb,'1',NULL,'["hosted-shared"]'::jsonb,$5,'[]'::jsonb,NULL,'reviewed','available',1)
-      ON CONFLICT DO NOTHING`,
-    [moduleKey, `${moduleKey}@1.0.0`, JSON.stringify([capability]), JSON.stringify(synthContract), `${moduleKey}.config/v1`]);
-  }
-  await owner.query(`INSERT INTO application_definitions(
-      application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
-      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
-      release_status, customization_schema_ref, license_review_ref, version)
-    VALUES('synthetic-storefront','synthetic-storefront@1.0.0','合成店面',$1,$2::jsonb,'[]'::jsonb,$3::jsonb,
-      'storefront:sell','["hosted-reviewed"]'::jsonb,$4::jsonb,'reviewed','available','synthetic-storefront.config/v1',NULL,1)
-    ON CONFLICT DO NOTHING`,
-  [WORK_CONTRACT_SOURCE_COMMIT, JSON.stringify({ algorithm: 'sha256', value: '0'.repeat(64) }),
-    JSON.stringify([inventoryReq, storefrontReq]), policy]);
-  await owner.query(`INSERT INTO guild_application_offerings(
-      offering_id, community_id, guild_key, application_key, release_ref, status, display_order, launch_policy_ref, version)
-    SELECT $1,$2,'guild_ai_field','synthetic-storefront','synthetic-storefront@1.0.0','offered',10,$3::jsonb,1
-    WHERE NOT EXISTS (
-      SELECT 1 FROM guild_application_offerings
-      WHERE community_id=$2 AND guild_key='guild_ai_field' AND release_ref='synthetic-storefront@1.0.0')`,
-  [randomUUID(), DEMO_COMMUNITY, policy]);
-}
 
 async function extraUser(name: string) {
   const id = randomUUID();
@@ -290,31 +241,16 @@ async function buildFixture() {
     const invitationId = inv.data.invitation_id as string;
     assert.ok(invitationId, 'invitationId is empty');
 
-    // Launch plan, installation, operation
-    const plan = await post(`/tenants/${tenantId}/application-launch-plans`, session, { guild_key: guild, workspace_id: workspaceId, application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} });
-    assert.equal(plan.status, 201, `create plan: ${JSON.stringify(plan.data)}`);
-    const planId = plan.data.plan_id as string;
-    const planVersion = plan.data.version as string;
-    const planDigest = plan.data.configuration_digest;
-    assert.ok(planId, 'planId is empty');
-
-    const inst = await post(`/tenants/${tenantId}/application-installations`, session, { plan_id: planId, expected_plan_version: planVersion, configuration_digest: planDigest });
-    assert.equal(inst.status, 202, `create installation: ${JSON.stringify(inst.data)}`);
-    const operationId = inst.data.operation_id as string;
-    assert.ok(operationId, 'operationId is empty');
     const instanceId = mw.data.instance_id as string;
     assert.ok(instanceId, 'manual-work instanceId is empty');
-    const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
-    assert.equal(installation.status, 200, JSON.stringify(installation.data));
-    const dependencyId = installation.data.modules.find((m: any) => m.requirement_key === 'inventory').instance_id as string;
     const scopeId = (await owner.query("SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1", [tenantId])).rows[0].scope_id as string;
 
 
-    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag'), plan.response.headers.get('etag'), inst.response.headers.get('etag')].filter(Boolean) as string[];
+    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, planId, scopeId, dependencyId, installationId: installation.data.installation_id as string, planDigest, workVersion: updatedWorkVersion, uploadVersion,
-      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
+      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version].filter(Boolean) as string[],
       noteBytes
     };
   }
@@ -399,7 +335,7 @@ async function assertTenantWritePolicy(table: string, column: string) {
   return policies.map(row => row.policyname);
 }
 
-test('8. Discovered RLS tables reject retarget and cross-tenant select', async () => {
+test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', async () => {
   const { A, B } = fixture;
   const role = (await runtime.query(`SELECT current_user AS name, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user`)).rows[0];
   assert.equal(role.name, runtimeRole); assert.equal(role.rolsuper, false); assert.equal(role.rolbypassrls, false);
@@ -408,6 +344,13 @@ test('8. Discovered RLS tables reject retarget and cross-tenant select', async (
     WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND c.relrowsecurity ORDER BY c.relname;
   `)).rows;
   assert.ok(tables.length, 'No RLS tables discovered');
+  // Main's exact RLS set, also pinned by tenant-data-isolation.test.ts (RLS_TABLES).
+  assert.deepEqual(tables.map(row => row.relname), [
+    'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
+    'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
+    'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
+    'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+  ].sort(), 'RLS discovery must match main; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
   }
@@ -513,48 +456,4 @@ test('8. Discovered RLS tables reject retarget and cross-tenant select', async (
   console.log(JSON.stringify({ item8: record }));
 });
 
-test('9. An executor bound to A cannot claim or advance B; B can advance its own operation', async () => {
-  const { A, B } = fixture;
-  const operation = (await owner.query('SELECT state FROM module_provision_operations WHERE operation_id=$1', [B.operationId])).rows[0];
-  assert.ok(['requested', 'running', 'needs_reconciliation'].includes(operation.state));
-  assert.ok((await owner.query('SELECT 1 FROM module_provision_steps WHERE operation_id=$1', [B.operationId])).rowCount);
-  const visibility: Record<string, { other: number; own: number }> = {};
-  for (const table of ['module_provision_operations', 'module_provision_steps']) {
-    async function select(bound: typeof A) {
-      return isolatedTransaction(runtime, async q => {
-        await bindPrincipalContext(q, bound.principalId);
-        await bindTenantContext(q, { tenantId: bound.tenantId, tenantScopeId: bound.scopeId });
-        // Deliberately no application tenant predicate: only RLS can hide B here.
-        return q.query(`SELECT operation_id FROM ${identifier(table)} WHERE operation_id=$1`, [B.operationId]);
-      });
-    }
-    const other = await select(A);
-    const own = await select(B);
-    assert.equal(other.rowCount, 0, `${table}: raw operation lookup exposed B to A`);
-    assert.ok(own.rowCount! > 0, `${table}: B cannot see its own pending operation`);
-    visibility[table] = { other: other.rowCount!, own: own.rowCount! };
-  }
-  console.log(JSON.stringify({ item9_raw_visibility: visibility }));
-  async function snapshot() {
-    const rows: Record<string, unknown> = {};
-    for (const table of ['module_provision_operations', 'module_provision_steps', 'module_instances', 'application_installations', 'capacity_reservations', 'capacity_ledger']) {
-      rows[table] = (await owner.query(`SELECT to_jsonb(t) AS row FROM ${identifier(table)} t WHERE tenant_id=$1 ORDER BY to_jsonb(t)::text`, [B.tenantId])).rows;
-    }
-    return rows;
-  }
-  let applied = 0;
-  const guardedProviders: typeof providers = Object.fromEntries(Object.entries(providers).map(([key, provider]) => [key, {
-    ...provider,
-    ...(provider.kind === 'async' ? { apply: async (effect: ProvisionEffect) => { applied++; return provider.apply(effect); } } : {}),
-  }]));
-  const before = await snapshot();
-  const clock = () => new Date(Date.now() + 60_000);
-  await advanceOperation(runtime, A.tenantId, B.operationId, { providers: guardedProviders, clock });
-  assert.equal(applied, 0, 'A dispatched a provider effect for B');
-  assert.deepEqual(await snapshot(), before, 'A changed B operation, step, instance, installation or capacity rows');
-  await quiet();
-  await advanceOperation(runtime, B.tenantId, B.operationId, { providers: guardedProviders, clock });
-  assert.ok(applied > 0, 'The B operation was not claimable in its own tenant');
-  assert.notDeepEqual(await snapshot(), before, 'The positive control did not advance B');
-  await quiet();
-});
+// P-D1 adds test 9 for provisioning operations and the executor back here.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { after, before, test } from 'node:test';
+import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { createLocalJWKSet } from 'jose';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 import { Pool } from 'pg';
@@ -40,6 +40,18 @@ const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-mat
 const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, adminVerifier });
 
 let created = false;
+let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
+const requestEvidence: { method: string; path: string; pid: number; settings: Record<string, string | null> }[] = [];
+let connectionRemovals = 0;
+runtime.on('remove', () => { connectionRemovals++; });
+const requestStarts = new Map<string, number>();
+beforeEach(t => {
+  if (t.name.startsWith('T-022 ')) requestStarts.set(t.name, requestEvidence.length);
+});
+afterEach(t => {
+  if (t.name.startsWith('T-022 ')) console.log(JSON.stringify({ matrix_requests: t.name,
+    count: requestEvidence.length - requestStarts.get(t.name)! }));
+});
 type Session = { cookie: string; csrf: string; user: { user_id: string; email: string } };
 type Reply = { status: number; data: any; response: Response; bytes: Uint8Array; headers: Headers };
 
@@ -62,7 +74,7 @@ async function call(method: string, path: string, session?: Session, body?: stri
   const data = type.includes('application/json') && bytes.byteLength ? JSON.parse(Buffer.from(bytes).toString('utf8')) : null;
   const reply = { status: response.status, data, response, bytes, headers: response.headers };
   verifyHeaders(reply, method, path);
-  await quiet();
+  await quiet(method, path);
   return reply;
 }
 async function post(path: string, session?: Session, body?: unknown, version?: string, key: string = randomUUID()) {
@@ -105,6 +117,10 @@ before(async () => {
     try { await q.query('ROLLBACK'); } catch {}
     throw error;
   } finally { q.release(); }
+
+  runtimeConnection = (await runtime.query(`SELECT current_user, session_user, rolsuper, rolbypassrls,
+    pg_backend_pid() AS pg_backend_pid FROM pg_roles WHERE rolname=current_user`)).rows[0];
+  console.log(JSON.stringify({ t024_runtime_connection: runtimeConnection }));
 
   await seedLocal(owner);
   await owner.query(`UPDATE tenant_authority_policies SET status='retired' WHERE status='active'`);
@@ -379,10 +395,13 @@ test('T-022 1. Route inventory guard', () => {
   }
 });
 
-async function quiet() {
-  const settings = (await runtime.query(`SELECT current_setting('freedom.tenant_id', true) AS tenant,
+async function quiet(method: string, path: string) {
+  const row = (await runtime.query(`SELECT pg_backend_pid() AS pid,
+    current_setting('freedom.tenant_id', true) AS tenant,
     current_setting('freedom.principal_id', true) AS principal, current_setting('freedom.tenant_scope_id', true) AS scope,
     current_setting('freedom.platform_admin_id', true) AS admin`)).rows[0];
+  const { pid, ...settings } = row;
+  requestEvidence.push({ method, path, pid: Number(pid), settings });
   for (const [key, value] of Object.entries(settings)) assert.ok(value === null || value === '', `${key} context remained in the pool`);
 }
 
@@ -779,7 +798,7 @@ async function invalidCursor(path: string, cursor: string, actor?: Session) {
   const response = await app.request(url, { headers: actor ? { Cookie: actor.cookie } : {} });
   const bytes = new Uint8Array(await response.arrayBuffer());
   const reply: Reply = { status: response.status, data: JSON.parse(Buffer.from(bytes).toString('utf8')), response, bytes, headers: response.headers };
-  await quiet();
+  await quiet('GET', path);
   console.log(JSON.stringify({ cursor_rejection: path.split('?')[0], status: reply.status, code: reply.data?.code }));
   assert.equal(reply.status, 422, `${path}: ${JSON.stringify(describe(reply))}`);
   assert.equal(reply.data.code, 'invalid_cursor');
@@ -790,7 +809,7 @@ async function cursorPage(path: string, actor?: Session) {
   const response = await app.request(`${origin}/api/v1${path}`, { headers: actor ? { Cookie: actor.cookie } : {} });
   const data = await response.json() as any;
   assert.equal(response.status, 200, JSON.stringify(data));
-  await quiet();
+  await quiet('GET', path);
   return data;
 }
 
@@ -944,4 +963,22 @@ test('T-022 7. Successful private reads and attachment headers', async () => {
       if (route.path.endsWith('/content')) assert.deepEqual(Buffer.from(reply.bytes), data.noteBytes);
     }
   }
+});
+
+test('T-024 every matrix request ran on one runtime-role connection and left no tenant context', () => {
+  assert.equal(runtimeConnection.current_user, runtimeRole);
+  assert.equal(runtimeConnection.session_user, runtimeRole);
+  assert.equal(runtimeConnection.rolsuper, false);
+  assert.equal(runtimeConnection.rolbypassrls, false);
+  assert.ok(requestEvidence.length > 0, 'No matrix request connection evidence was recorded');
+  const pids = [...new Set(requestEvidence.map(row => row.pid))];
+  assert.deepEqual(pids, [runtimeConnection.pg_backend_pid],
+    `Runtime connection changed (pool removals=${connectionRemovals}). A failed rollback destroys its client; this matrix injects no rollback failure.`);
+  for (const row of requestEvidence) {
+    for (const [key, value] of Object.entries(row.settings)) {
+      assert.ok(value === null || value === '', `${row.method} ${row.path}: ${key} context remained on backend ${row.pid}`);
+    }
+  }
+  console.log(JSON.stringify({ t024_matrix_connection: { requests: requestEvidence.length, backend_pids: pids,
+    connection_removals: connectionRemovals, context_clear: true } }));
 });
