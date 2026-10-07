@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId, ResourceScopeRefSchema } from '../../contracts/common/v1/identity.js';
 import { lockMemberScope, lockTenantScope, type MemberScopeInput, type MemberScopeContext, type TenantScopeContext } from '../resource-scopes/index.js';
+import { isolatedTransaction } from '../resource-scopes/tenant-transaction.js';
 import { requireCondition } from '../shared/problem.js';
 import { runCommandCore } from '../db/command-core.js';
+import { transaction } from '../db/transaction.js';
 import { digest } from '../db/legacy-digest.js';
 import { assertCurrentSessionClock } from '../db/member-session.js';
 import { legacyMemberReceiptPorts, type Command } from '../db/member-command.js';
@@ -94,7 +96,8 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
   authorize: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: MemberScopeContext) => Promise<T>,
   revalidate?: (q: PoolClient, context: MemberScopeContext) => Promise<unknown>,
-  assertCurrentTime?: () => void): Promise<T> {
+  assertCurrentTime?: () => void,
+  runner: <R>(pool: Pool, run: (q: PoolClient) => Promise<R>) => Promise<R> = transaction): Promise<T> {
   // This server-owned port is outside the request/digest. Time-bounded domain
   // authority must survive the actual receipt read/write wait on this client.
   requireCondition((revalidate === undefined || typeof revalidate === 'function')
@@ -166,7 +169,7 @@ export async function scopedMemberCommand<T>(pool: Pool, input: ScopedMemberComm
       await assertCurrentSessionClock(q, actor);
       assertCurrentTime?.();
       authorizeScopedCommand(context);
-    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T, runner);
   } finally { if (context!) forgetScopedCommand(context); }
 }
 
@@ -281,7 +284,7 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
       authorizeScopedCommand(context);
-    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T);
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T, isolatedTransaction);
   } finally { if (context!) forgetScopedCommand(context); }
 }
 
