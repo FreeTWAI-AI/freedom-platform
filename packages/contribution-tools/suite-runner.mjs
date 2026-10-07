@@ -449,10 +449,11 @@ export async function runPinnedSuite(root, id, options = {}) {
 }
 
 const PARTITION_SCHEMA = 'freedom.runtime-partition/v1';
-// Interim: the ruleset-pinned workflow still runs four partitions, and four 900 s
-// partitions no longer fit the runtime suite on slower hosted runners. Return this
-// to 900_000 once six partitions run under the upgraded central pin.
-const PARTITION_BUDGET_MS = 1_200_000;
+// Per-partition budget by partition count. The ruleset-pinned d1c9 workflow runs four
+// partitions with the candidate's runner, and four 900 s partitions no longer fit the
+// runtime suite on slower hosted runners, so four keep the interim 1,200 s. Six
+// partitions, which the upgraded central pin runs from its trusted runner, get 900 s.
+const PARTITION_BUDGET_MS = Object.freeze({ 4: 1_200_000, 6: 900_000 });
 const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const strictKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
@@ -472,13 +473,14 @@ export async function runtimeSourceManifest(root) {
 }
 
 // A matrix fragment is never a runtime.full result. Own one fresh nonce DB and
-// one serial test process, including provisioning/cleanup inside PARTITION_BUDGET_MS.
+// one serial test process, including provisioning/cleanup inside its partition budget.
 export async function runRuntimePartition(root, options = {}) {
   const count = options.partitionCount;
   partitionCheck([4, 6].includes(count) && Number.isInteger(options.partitionIndex) &&
     options.partitionIndex >= 0 && options.partitionIndex < count, 'invalid_runtime_partition');
   partitionCheck(Object.keys(options).every(key => ['partitionCount','partitionIndex','testDatabaseUrl','signal'].includes(key)), 'invalid_runtime_partition_options');
-  const started_at = new Date().toISOString(), deadline = performance.now() + PARTITION_BUDGET_MS;
+  const budget = PARTITION_BUDGET_MS[count];
+  const started_at = new Date().toISOString(), deadline = performance.now() + budget;
   const source = await runtimeSourceManifest(root);
   const selected = partitionRuntimeFiles(source.full_source_manifest.map(file => file.path), count)[options.partitionIndex];
   const check_id = `runtime.partition.${options.partitionIndex}`;
@@ -489,7 +491,7 @@ export async function runRuntimePartition(root, options = {}) {
     const remaining = Math.floor(deadline - performance.now() - 24_000);
     if (remaining <= 0) throw Error('test_timeout');
     [report] = await runGroup(root, [{id: check_id, files: selected}], true,
-      {testDatabaseUrl: databases.urls[0], timeoutMs: remaining, runtimeShards: 1, signal: options.signal}, PARTITION_BUDGET_MS);
+      {testDatabaseUrl: databases.urls[0], timeoutMs: remaining, runtimeShards: 1, signal: options.signal}, budget);
   } catch (error) {
     cleanup = error.cleanupVerified === true;
     const allowed = ['test_database_rejected','test_timeout'];
@@ -531,7 +533,7 @@ export async function aggregateRuntimePartitions(root, fragments, options = {}) 
       const fragStarted = Date.parse(fragment.started_at);
       const fragEnded = Date.parse(fragment.ended_at);
       partitionCheck(fragEnded >= fragStarted, 'runtime_partition_clock');
-      partitionCheck(fragEnded - fragStarted <= PARTITION_BUDGET_MS, 'runtime_partition_window_exceeded');
+      partitionCheck(fragEnded - fragStarted <= PARTITION_BUDGET_MS[numPartitions], 'runtime_partition_window_exceeded');
       const report = fragment.report;
       partitionCheck(strictKeys(report, ['check_id','status','reason','test_count','evidence_sha256','selected_files','test_files','database_cleanup_verified']) &&
         report.check_id === fragment.check_id && report.status === 'passed' && report.reason === 'tests_executed' &&
