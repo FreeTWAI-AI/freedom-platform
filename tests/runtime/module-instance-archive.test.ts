@@ -296,13 +296,20 @@ test('archive operations read/reconcile, refuse cancel/by-operation, and never a
 
 test('archived bound workspace still returns strict launchpad context and an idempotent manual-work binding', async () => {
   const ctx = await ready();
+  const saved = await createWork(ctx, '封存前工作');
+  assert.equal(saved.status, 201);
   assert.equal((await archive(ctx)).status, 200);
   const context = await get(`/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/launchpad-context?guild_key=${guild}`, ctx.owner);
   assert.equal(context.status, 200, JSON.stringify(context.data));
   const body = LaunchpadContextSchema.parse(context.data);
   assert.equal(body.instances.find(instance => instance.instance_id === ctx.instanceId)?.status, 'archived');
   assert.deepEqual(body.connection_summary, []);
-  assert.deepEqual(context.data.workspace_binding, { instance_id: ctx.instanceId, instance_status: 'archived', writable: false });
+  assert.deepEqual(Object.keys(context.data).sort(), ['tenant_id', 'workspace_id', 'source_version', 'instances', 'work_page', 'capacity_summary', 'connection_summary'].sort());
+  assert.equal(body.work_page.items[0].work_id, saved.data.resource_ref.resource_id);
+  const retained = await get(`/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/module-binding`, ctx.owner);
+  assert.equal(retained.status, 200, JSON.stringify(retained.data));
+  assert.deepEqual(retained.data, { tenant_id: ctx.tenantId, workspace_id: ctx.workspaceId,
+    binding: { entry_capability: 'work:create', instance_id: ctx.instanceId, instance_status: 'archived', writable: false } });
   const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild);
   assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
   const binding = ManualWorkBindingSchema.parse(enabled.data);
@@ -746,20 +753,83 @@ test('restricted runtime role archives and a max-1 pool alternating tenants expo
 
 test('workspace binding reports unbound, active, suspended and inactive current deployment independently of connections', async () => {
   const ctx = await ready();
-  const read = async (workspace = ctx.workspaceId) => {
-    const reply = await get(`/tenants/${ctx.tenantId}/workspaces/${workspace}/launchpad-context?guild_key=${guild}`, ctx.owner);
+  const read = async (workspace = ctx.workspaceId, query = '') => {
+    const reply = await get(`/tenants/${ctx.tenantId}/workspaces/${workspace}/module-binding${query}`, ctx.owner);
     assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    assert.deepEqual(Object.keys(reply.data).sort(), ['binding', 'tenant_id', 'workspace_id']);
+    assert.equal(reply.data.tenant_id, ctx.tenantId);
+    assert.equal(reply.data.workspace_id, workspace);
+    assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+    assert.equal(reply.response.headers.get('vary'), 'Cookie');
     return reply.data;
   };
+  const expected = (status: string, writable: boolean) => ({ entry_capability: 'work:create', instance_id: ctx.instanceId, instance_status: status, writable });
   const unbound = await h.workspace(ctx.owner, ctx.tenantId, '未綁定工作區');
-  assert.equal((await read(unbound)).workspace_binding, null);
-  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'active', writable: true });
+  assert.equal((await read(unbound)).binding, null);
+  assert.deepEqual((await read()).binding, expected('active', true));
+  // Like instance detail and operation reads, this route does not parse query strings.
+  assert.deepEqual((await read(ctx.workspaceId, '?tenant_id=ignored&unknown=one&unknown=two')).binding, expected('active', true));
   await h.pool.query(`UPDATE deployment_bindings SET state='suspended' WHERE instance_id=$1`, [ctx.instanceId]);
-  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'active', writable: false });
+  assert.deepEqual((await read()).binding, expected('active', false));
   await h.pool.query(`UPDATE deployment_bindings SET state='active' WHERE instance_id=$1`, [ctx.instanceId]);
   assert.equal((await suspend(ctx)).status, 200);
-  assert.deepEqual((await read()).workspace_binding, { instance_id: ctx.instanceId, instance_status: 'suspended', writable: false });
-  assert.deepEqual((await read()).connection_summary, []);
+  assert.deepEqual((await read()).binding, expected('suspended', false));
+  const context = await get(`/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/launchpad-context?guild_key=${guild}`, ctx.owner);
+  assert.equal(context.status, 200);
+  assert.deepEqual(context.data.connection_summary, []);
+  assert.equal((await archive(ctx)).status, 200);
+  assert.deepEqual((await read()).binding, expected('archived', false));
+});
+
+test('module binding checks workspace availability, tenant isolation, ids and the release flag', async () => {
+  const ctx = await ready();
+  const endpoint = (tenant = ctx.tenantId, workspace = ctx.workspaceId) => `/tenants/${tenant}/workspaces/${workspace}/module-binding`;
+  error(await get(endpoint(ctx.tenantId, randomUUID()), ctx.owner), 404, 'not_found');
+  const other = await h.person('另一位業務擁有者');
+  const foreign = await h.createTenant(other.session, '另一個業務');
+  error(await get(endpoint(ctx.tenantId, foreign.workspaceId), ctx.owner), 404, 'not_found');
+  const denied = await get(endpoint(foreign.tenantId, foreign.workspaceId), ctx.owner);
+  const oldDenied = await get(`/tenants/${foreign.tenantId}/workspaces/${foreign.workspaceId}/launchpad-context?guild_key=${guild}`, ctx.owner);
+  assert.equal(denied.status, oldDenied.status);
+  assert.equal(denied.data.code, oldDenied.data.code);
+  assert.equal(denied.status, 404);
+  error(await get(endpoint(ctx.tenantId, 'bad-id'), ctx.owner), 422, 'validation_failed');
+  const closed = await h.call('GET', endpoint(), ctx.owner, undefined, {}, h.closed);
+  assert.equal(closed.status, 404);
+  const missing = await h.call('GET', '/unknown-module-binding', ctx.owner, undefined, {}, h.closed);
+  assert.deepEqual(closed.data, missing.data);
+  await h.pool.query(`UPDATE workspaces SET status='archived' WHERE tenant_id=$1 AND workspace_id=$2`, [ctx.tenantId, ctx.workspaceId]);
+  error(await get(endpoint(), ctx.owner), 409, 'workspace_unavailable');
+});
+
+test('module binding checks session expiry after its final binding query', async () => {
+  const ctx = await ready();
+  const actor = await authenticate(h.pool, ctx.owner.cookie.split('=')[1]);
+  let expired = false;
+  // A controlled SQL deadline change at the query boundary avoids wall-clock sleeps.
+  const controlled = new Proxy(h.pool, { get(target, property) {
+    if (property !== 'connect') { const value = Reflect.get(target, property, target); return typeof value === 'function' ? value.bind(target) : value; }
+    return async () => {
+      const q = await target.connect();
+      return new Proxy(q, { get(client, key) {
+        if (key !== 'query') { const value = Reflect.get(client, key, client); return typeof value === 'function' ? value.bind(client) : value; }
+        return async (sql: string, params?: unknown[]) => {
+          const result = await client.query(sql, params);
+          if (sql.includes('FROM workspace_module_bindings w') && !expired) {
+            await client.query(`UPDATE sessions SET expires_at='2000-01-01T00:00:00Z' WHERE token_hash=$1`, [actor.session_hash]);
+            expired = true;
+          }
+          return result;
+        };
+      } });
+    };
+  } });
+  const target = createApp(controlled, h.origin, 'local', { guildLaunchpadEnabled: true });
+  const reply = await h.call('GET', `/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/module-binding`, ctx.owner, undefined, {}, target);
+  error(reply, 401, 'session_expired');
+  assert.equal(expired, true);
+  assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(reply.response.headers.get('vary'), 'Cookie');
 });
 
 for (const refused of ['plan', 'launch'] as const) {

@@ -1037,7 +1037,7 @@ test('a failed open of another Work closes the open Work instead of leaving a de
 });
 
 for (const lifecycle of ['archive', 'suspend'] as const) {
-  test(`a workspace with an ${lifecycle === 'archive' ? 'archived' : 'suspended'} bound instance workspace keeps paginated Work and Results readable in light and RPG`, async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+  test(`a workspace whose bound instance is ${lifecycle === 'archive' ? 'archived' : 'suspended'} keeps paginated Work and Results readable in light and RPG`, async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
     test.setTimeout(180_000);
     const [guild] = await guildsByCategory(e2eAuthPool);
     const member = await person(e2eAuthPool, lifecycle, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
@@ -1059,7 +1059,9 @@ for (const lifecycle of ['archive', 'suspend'] as const) {
         await session.page.screenshot({ path: testInfo.outputPath(`before-${lifecycle}-${width}.png`), fullPage: true });
       }
       await changeBoundInstance(session.page, tenantId, workspaceId, guild.guild_key, lifecycle);
+      const bindingRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/module-binding`));
       await session.page.reload();
+      expect((await bindingRead).status()).toBe(200);
       const message = lifecycle === 'archive'
         ? '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。'
         : '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。';
@@ -1098,7 +1100,7 @@ async function changeBoundInstance(page: Page, tenantId: string, workspaceId: st
 }
 
 for (const write of ['create', 'edit', 'result'] as const) {
-  test(`a ${write} racing instance suspension reloads the read-only context`, async ({ browser, baseURL, e2eAuthPool }) => {
+  test(`${{ create: 'creating Work', edit: 'editing Work', result: 'saving a Result' }[write]} while the instance is suspended reloads the read-only context`, async ({ browser, baseURL, e2eAuthPool }) => {
     test.setTimeout(120_000);
     const [guild] = await guildsByCategory(e2eAuthPool);
     const member = await person(e2eAuthPool, `race-${write}`, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
@@ -1115,7 +1117,11 @@ for (const write of ['create', 'edit', 'result'] as const) {
       if (write === 'edit') await session.page.locator('#my-work-edit-objective').fill('競態修改');
       if (write === 'result') await session.page.locator('#my-work-note').fill('未送出的筆記');
       await changeBoundInstance(session.page, tenantId, workspaceId, guild.guild_key, 'suspend');
+      const bindingRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/module-binding`));
+      const contextRead = session.page.waitForResponse(response => response.url().includes(`/workspaces/${workspaceId}/launchpad-context`));
       await session.page.getByRole('button', { name: { create: '建立', edit: '儲存變更', result: '儲存筆記' }[write], exact: true }).click();
+      expect((await bindingRead).status()).toBe(200);
+      expect((await contextRead).status()).toBe(200);
       await expect(session.page.getByText('這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。', { exact: true })).toBeVisible();
       await expect(session.page.locator('#my-work-title')).toHaveCount(0);
       await expect(session.page.locator('#my-work-edit-title')).toHaveCount(0);
