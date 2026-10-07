@@ -7,7 +7,7 @@ import { artifactPath, parseJson, readBounded, sha256 } from './io.mjs';
 
 const PROGRESS_SCHEMA = 'freedom.test-file-progress/v1';
 const PROGRESS_MAX_BYTES = 1_048_576, PROGRESS_MAX_LINE = 2048, PROGRESS_MAX_FILES = 512, PROGRESS_MAX_FAILURES = 64;
-// The longest test process is one hosted runtime partition (suite-runner PARTITION_BUDGET_MS).
+// The longest test process is one hosted four-partition runtime fragment (suite-runner PARTITION_BUDGET_MS).
 const PROGRESS_MAX_ELAPSED_MS = 1_200_000;
 const FAILURE_TYPES = ['testCodeFailure','hookFailed','testTimeoutFailure','cancelledByParent','testAborted','subtestsFailed','unknown'];
 const caseDigest = (d,file) => createHash('sha256').update(JSON.stringify([file,d.details.type,d.line,d.column,d.nesting,d.testNumber,d.testId,d.parentId])).digest('hex');
