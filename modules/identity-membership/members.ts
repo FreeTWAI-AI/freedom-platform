@@ -45,7 +45,8 @@ export function normalizedContacts(raw:unknown,email:string) {
 export async function authRateLimit(pool:Pool,scope:string,network:string,limit:number,seconds=900) {
   const bucket=tokenHash(`${scope}/${network}`);
   const blocked=await transaction(pool,async q=>{
-    await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT DO NOTHING',[bucket]);
+    // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+    await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
     const row=(await q.query('SELECT * FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket])).rows[0];
     const expired=Date.now()-new Date(row.window_start).getTime()>=seconds*1000;
     if(!expired&&row.attempts>=limit)return true;

@@ -19,6 +19,7 @@ import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
 import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
@@ -210,6 +211,8 @@ export type WorkerDependencies = {
   syncGitHub?: typeof syncGitHubRepositories;
   githubFetcher?: typeof fetch;
   guildDiscovery?: typeof refreshGuildDiscoveryReports;
+  /** Test seam. Production uses pruneExpiredAuthRecords. */
+  authPrune?: typeof pruneExpiredAuthRecords;
 };
 
 /**
@@ -306,6 +309,8 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             try{await (deps.guildDiscovery??refreshGuildDiscoveryReports)(pool,{communityId:env.FREEDOM_REGISTRATION_COMMUNITY_ID,reviewer:guildReviewerFromBindings(env)});}
             catch{console.error('guild_discovery_failed');}
           }
+          try{await (deps.authPrune??pruneExpiredAuthRecords)(pool);}
+          catch{console.error('auth_prune_failed');}
         } catch (error) {
           const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9_]*$/.test(error.name) ? error.name : 'unknown';
           console.error('github_sync_failed', name);

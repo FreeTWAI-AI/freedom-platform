@@ -46,7 +46,8 @@ export async function createHighRiskVerification(pool: Pool, actor: Actor, body:
     requireCondition(principal.status === 'active' && principal.kind === 'person', 403, 'principal_disabled', '這個身分目前無法使用。');
     await qualified(q, actor, principal.principal_id, input.tenant_id, input.purpose);
     const attemptKey = tokenHash(`high-risk-verification:${actor.user_id}`);
-    await q.query(`INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT DO NOTHING`, [attemptKey]);
+    // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+    await q.query(`INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT (attempt_key) DO UPDATE SET attempt_key = excluded.attempt_key`, [attemptKey]);
     const attempt = (await q.query<{ failures: number; window_start: Date }>(
       `SELECT failures, window_start FROM login_attempts WHERE attempt_key=$1 FOR UPDATE`, [attemptKey])).rows[0];
     if (Date.now() - new Date(attempt.window_start).getTime() > 15 * 60 * 1000) {
