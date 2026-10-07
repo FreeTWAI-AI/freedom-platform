@@ -11993,11 +11993,6 @@
       "sha256": "3461b0db218aee2d3d128cf46d253425466180038bc41eea06ce98d2171e3ba0"
     },
     {
-      "path": "deploy/cloudflare/test/media-caller.test.mjs",
-      "bytes": 2117,
-      "sha256": "f17024d46618fd92249534211bdcc7ff020dfc2420957e0ca1807e683eb24450"
-    },
-    {
       "path": "deploy/cloudflare/test/media-restore-container.test.mjs",
       "bytes": 2499,
       "sha256": "75b61b5dd493c94e292252ba7c625264e8fda0cfa714b6ef964b590a31ed4fd9"
@@ -13631,11 +13626,6 @@
       "path": "docs/platform-plan/contracts/tests/test_portable_bundle_boundaries.py",
       "bytes": 13398,
       "sha256": "303f0ff8038e6039ca19cb635e18198689cc400ea83d93a83b3eb7bd15a7ac8b"
-    },
-    {
-      "path": "docs/platform-plan/contracts/tests/test_repository_manifest_identity.py",
-      "bytes": 920,
-      "sha256": "a761e1f6e4e518a49c08606e6e12d2bcc1529f3e9d8dd645f1f038710540e03b"
     },
     {
       "path": "docs/platform-plan/contracts/tests/test_retract_contract_parity.py",
@@ -16863,11 +16853,6 @@
       "sha256": "9d016936b2595205a7aa5c4de746ef67eba1b6bfde52785b964877ec1bff9282"
     },
     {
-      "path": "packages/contribution-tools/test/checkout-repositories.test.mjs",
-      "bytes": 4251,
-      "sha256": "5dc4c0b76eb1eef7f5625c67e792d0b6e2d7b3bfc21731089415b7916dfb26a3"
-    },
-    {
       "path": "packages/contribution-tools/test/consumer-entry-coverage.test.mjs",
       "bytes": 3052,
       "sha256": "a9acabb87ac4cd53979eef918f12694e29a30d7297d9afef49809d19a77918e5"
@@ -18111,11 +18096,6 @@
       "path": "tests/e2e/guild-alias.spec.ts",
       "bytes": 16008,
       "sha256": "b296f34604694ad0dbb5cfd3a4cbb8c43cb5063f1b575128b6ea47ff7a20325c"
-    },
-    {
-      "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 19274,
-      "sha256": "c9c18bc43fccbebde55f70b5e710c433565f6ad38c7bf7c92c938b6d4b93b71b"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
@@ -19788,11 +19768,6 @@
       "sha256": "87c8a81651e0d4d1008e740c58e385c1e36db00363e805497dfe0aa994b872bc"
     },
     {
-      "path": "tests/runtime/tenant-high-risk-verification.test.ts",
-      "bytes": 16236,
-      "sha256": "b64c49d71984f68839df1997a2c34441222c4612a3a981576c669c7fb2642c41"
-    },
-    {
       "path": "tests/runtime/tenant-membership-identity.test.ts",
       "bytes": 8598,
       "sha256": "b95c20982be6127abdff2e91330743829f5511cd26eca8849a6f5958a5897f83"
@@ -19901,11 +19876,6 @@
       "path": "tests/worker/broker-worker.test.ts",
       "bytes": 3758,
       "sha256": "9266da8cdc018255ba3fcf179c2cbd6c5e823533da467938572a9d1e6eb7058f"
-    },
-    {
-      "path": "tests/worker/credential-ingest-diagnostic.test.ts",
-      "bytes": 1016,
-      "sha256": "05d34e4b2634fff00f5580ef3931535c5439f25d4825ff1ec63723aab3ab552f"
     },
     {
       "path": "tests/worker/event-banner-assets.test.ts",
