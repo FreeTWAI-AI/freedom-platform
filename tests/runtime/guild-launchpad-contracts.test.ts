@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
@@ -391,6 +391,40 @@ print('looser')`;
         input: JSON.stringify({ schema, value: row.value, rule: row.rule }),
       });
       assert.equal(result.status, 0, `${profile.name} ${row.rule}\n${result.stdout}${result.stderr}`);
+    }
+  }
+});
+
+test('generated patterns use ASCII-only character classes', () => {
+  const dir = `${root}contracts/guild-launchpad/v1`;
+  const files = readdirSync(dir).filter(name => name.endsWith('.schema.json')).sort();
+  assert.ok(files.length > 0, 'no schema files found');
+
+  function collectPatterns(node: unknown, patterns: string[] = []): string[] {
+    if (!node || typeof node !== 'object') return patterns;
+    if (Array.isArray(node)) {
+      for (const item of node) collectPatterns(item, patterns);
+      return patterns;
+    }
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === 'pattern' && typeof value === 'string') {
+        patterns.push(value);
+      }
+      collectPatterns(value, patterns);
+    }
+    return patterns;
+  }
+
+  for (const file of files) {
+    const raw = readFileSync(`${dir}/${file}`, 'utf8');
+    const schema = JSON.parse(raw) as unknown;
+    const patterns = collectPatterns(schema);
+    for (const pattern of patterns) {
+      const forbidden = ['\\d', '\\D', '\\w', '\\W', '\\b', '\\B'].filter(token => pattern.includes(token));
+      assert.equal(forbidden.length, 0, `${file} pattern ${pattern} contains forbidden character class (${forbidden.join(', ')})`);
+      const stripped = pattern.replaceAll('[\\s\\S]', '');
+      const whitespace = ['\\s', '\\S'].filter(token => stripped.includes(token));
+      assert.equal(whitespace.length, 0, `${file} pattern ${pattern} contains whitespace character class (${whitespace.join(', ')})`);
     }
   }
 });
