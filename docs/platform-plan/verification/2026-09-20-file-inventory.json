@@ -1784,8 +1784,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/TenantSettings.tsx",
-      "bytes": 41856,
-      "sha256": "e9f5894c077481f5b0c172f5b6db7c8dcc99d8c08188a051b2cb1c277e125d22"
+      "bytes": 45120,
+      "sha256": "0b6017f29581b74f39a5c4ced8fb456109c955dbd49ba072c07269ca207da375"
     },
     {
       "path": "apps/portal-web/src/modules/WelcomePreview.tsx",
@@ -11589,13 +11589,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
-      "bytes": 5973,
-      "sha256": "219a8f938f6daa5ed0e9fa2a2fdbd0bee1aacda26e037d0517d5adcbfdb87b53"
+      "bytes": 5979,
+      "sha256": "953c43775b8d6dfc2199051d2ebbb2dbe8e74bf416a3ccf77fc7cab869bc6663"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-page.schema.json",
-      "bytes": 4465,
-      "sha256": "1ca601cbc85803b75a173b7f7aae4f56ca1d8b801fbd3df777bfbb85159c36fb"
+      "bytes": 4468,
+      "sha256": "9e916b2ec93a56e1c79254ae217c9d17f6a83d1730ef424d6e51cb78dccc5932"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-revoke-input.schema.json",
@@ -11604,8 +11604,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-view.schema.json",
-      "bytes": 3061,
-      "sha256": "d27bfc9f3e6a523e72a099c619f856bfe8990897577da8ffca5773c137ec2e21"
+      "bytes": 3064,
+      "sha256": "f179c403dab8c53354f370fd831790b14fdfbf90cc767a7325efade5d430036e"
     },
     {
       "path": "contracts/guild-launchpad/v1/invite-candidate.schema.json",
@@ -11624,23 +11624,23 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/member-change-input.schema.json",
-      "bytes": 1515,
-      "sha256": "42fe6bb1ba7feaffcfaf824ad3b91e055962bad9d649b2353991bb1a2f2e1548"
+      "bytes": 1665,
+      "sha256": "51cab0bc6239c1d44b937cbc9d5cc1e0ef51c4f03665593e48478e9f1cb5de75"
     },
     {
       "path": "contracts/guild-launchpad/v1/member-page.schema.json",
-      "bytes": 3617,
-      "sha256": "305cccea72f0d13aba4f1a3e99fca5383067be23de1864bfd636664c2f735af1"
+      "bytes": 3620,
+      "sha256": "0d7168c4999742153bbecb2834c3fb2066ae78e5b90c41fbfd659156257223f6"
     },
     {
       "path": "contracts/guild-launchpad/v1/member-view.schema.json",
-      "bytes": 2339,
-      "sha256": "8f9083026164133df812b17ec0e2ac92b13a0984cefd38307bb751df6a3c9a9e"
+      "bytes": 2342,
+      "sha256": "a5ea33166f3f69ef1383fee7e7d63c6643f87b576bcf5f09992e2d14d53d1f3f"
     },
     {
       "path": "contracts/guild-launchpad/v1/module-registry.ts",
-      "bytes": 8600,
-      "sha256": "5a763bd08a01de96cbc3d3eac2d1c2a9d1da2f7b91b11af5424169c783cc0203"
+      "bytes": 8529,
+      "sha256": "0ef0942925b0b85ef73628712892f8a1192eed07443271174ba162d03a4fb095"
     },
     {
       "path": "contracts/guild-launchpad/v1/preference-backfill-input.schema.json",
@@ -11664,8 +11664,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/primitives.ts",
-      "bytes": 3330,
-      "sha256": "5f7fac81a4d880150a0f46b8aa89c7c7669410dc3894f4b97f3a891bc6fdd427"
+      "bytes": 3489,
+      "sha256": "47b8fb5850e8975395d156b324277eb5c37f24e494a66811876327171dc79d75"
     },
     {
       "path": "contracts/guild-launchpad/v1/problem.schema.json",
@@ -11684,8 +11684,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-create-result.schema.json",
-      "bytes": 6996,
-      "sha256": "4357c175d226b8ead3a9ff190a662146b2e005d20c73cb54197e8ea8d6bc4c41"
+      "bytes": 6999,
+      "sha256": "35692cb8c8c820ecbc7c835c2c855c85ed3e893579df12cc21533108f40345ca"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-edit-input.schema.json",
@@ -11694,8 +11694,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-invite-input.schema.json",
-      "bytes": 1696,
-      "sha256": "4aa7c18a2d03223b853c501f84bfb8b99f8fb365c8f34146798aa611ce6f0d46"
+      "bytes": 1840,
+      "sha256": "c3f694c756900a4a63a4ba998bb7f2e892acb96b28f89af7ea82adfbd2dd6f1c"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-leave-result.schema.json",
@@ -11704,13 +11704,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-page.schema.json",
-      "bytes": 6486,
-      "sha256": "4156a3265d5e82a901833c954596dd21f66790e2d88176d0c3c2c116d1fe4870"
+      "bytes": 6489,
+      "sha256": "e8a3d5c70c907af2e65274515c279f53e40fb6a198dfed20606e0b2afc381be5"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-view.schema.json",
-      "bytes": 4824,
-      "sha256": "db54b63963274ecb9f2b4f9aef2ae9820a09252f19e23b4cbcbb3b70b46ece53"
+      "bytes": 4827,
+      "sha256": "3644d3103d2edd3a68b2e4d33f770741ee9be35d4eae027b2ca243401a589e2c"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-work.schema.json",
@@ -11724,8 +11724,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant.ts",
-      "bytes": 9992,
-      "sha256": "4bc74bd8ff6f9f84161109ba78a6a555e1f51302251637e60eef16041d9e1c02"
+      "bytes": 10146,
+      "sha256": "0523f3ad62823498b7c5a9ed74a386bd8d3b74e3f90bba808c6c443a8e2c56cd"
     },
     {
       "path": "contracts/guild-launchpad/v1/validation-failed-problem.schema.json",
@@ -11840,7 +11840,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "d451980f5862c2df75f8ba83443f8c07d03157fce005e52a230abcd7b7304865"
+      "sha256": "daf49efef51b34d180305db209d9a987fb501bf5c1e8ec560466634f124853e7"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -11919,8 +11919,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 40527,
-      "sha256": "e18c4d930cb995cb9f83c93667ddb9f0da2beb729fc5e0087ff1e59319eb15fd"
+      "bytes": 40566,
+      "sha256": "bc5bc91bbe5ec698c57b577c2868c96a6aed215f851d00f2b86bd912316af384"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12030,7 +12030,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "d009547e631f7759bb6b58910215e9888feefd8ee43afe87a292b224c3bddd75"
+      "sha256": "3c329e6f63c43e700fe6f5706a6d605c3ca28c25ecf67f9201d9eb0cbf7c964b"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12064,8 +12064,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52233,
-      "sha256": "9a55dc6f66b1f3e4bae33212a3c8892e17cef4d1f6401f400e8800fd14af4588"
+      "bytes": 52235,
+      "sha256": "f2378db8ef81b50acfc33bc0ce900c009e0846e10e1200c2abe99f0c852c2671"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -15098,6 +15098,11 @@
       "sha256": "9eef4a9c32ae9d6ace9e409ea57aa9cb787a77850bafcb9b208d733dfc708e25"
     },
     {
+      "path": "migrations/129_tenant_module_permissions.sql",
+      "bytes": 2070,
+      "sha256": "d890a90221c7fe51ed7b92002cb6ef794b850133cbe5ea3c90e40d26c63a9b39"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 5367,
       "sha256": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755"
@@ -15639,8 +15644,8 @@
     },
     {
       "path": "modules/autopilot-work/README.md",
-      "bytes": 12114,
-      "sha256": "4e96bfadc76b0a9972fe47cb078458128d11067ef04bea968709fb710db72bea"
+      "bytes": 12721,
+      "sha256": "af8a536211f31511e6b44d185209eb43173ebc1c242567e86f834b3108bd2842"
     },
     {
       "path": "modules/autopilot-work/freedom.module.json",
@@ -15664,8 +15669,8 @@
     },
     {
       "path": "modules/autopilot-work/tenant-results.ts",
-      "bytes": 25572,
-      "sha256": "be4bfc9d7516c92c639151426fa3182d77ee35fe9532d976aac3d87928f2d81a"
+      "bytes": 27386,
+      "sha256": "5ccb934c76870db2c6916664f8c21c85502f0b4ab85504f5a004dec2ce9c2943"
     },
     {
       "path": "modules/catalog-commerce/service.ts",
@@ -16044,8 +16049,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 9022,
-      "sha256": "bd08461bebdd30ba18d4b40ed49d36e0b8283cb9f3dfec61da12152c34d69718"
+      "bytes": 9150,
+      "sha256": "902368649e82e12321fa7d93d4c1eda3b60f5c0fd85da532b89faef0ea83a022"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -16179,8 +16184,8 @@
     },
     {
       "path": "modules/module-data/catalog.ts",
-      "bytes": 89014,
-      "sha256": "973dd7c95cc6c53db57e9cd678d0d3294bb166a02f0c78ce1789a7c48f36b9c4"
+      "bytes": 89542,
+      "sha256": "79a2e374c06b6e0f10e1e6404250a03428b4f82e3e8982c72d7489b347ea7521"
     },
     {
       "path": "modules/module-data/freedom.module.json",
@@ -16194,8 +16199,8 @@
     },
     {
       "path": "modules/module-registry/README.md",
-      "bytes": 22218,
-      "sha256": "da0fd8e8e80aadb9b844b20bd9f92f57bf17b9f52dcd551f55b658fb340767c7"
+      "bytes": 22583,
+      "sha256": "a8a1564cf0712babbbca9b1d42ebd1d30c3f8379fca16865d16cdd5fd5c780f2"
     },
     {
       "path": "modules/module-registry/canonical.ts",
@@ -16269,8 +16274,8 @@
     },
     {
       "path": "modules/module-registry/service.ts",
-      "bytes": 13811,
-      "sha256": "d6e253c01474ddea48519bd81c1559857bf06fc7bc756bf114f82fe812709bb6"
+      "bytes": 14493,
+      "sha256": "9ac429a3e46e2c630ae2b9a38ec79b4599e44a899fa82c69354c9fc480b28d79"
     },
     {
       "path": "modules/module-registry/validate.ts",
@@ -16289,8 +16294,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 13048,
-      "sha256": "ef6b9d93f162bd2244f1f02bb43ccacf5a298920102b47350b6b1719d752bcbf"
+      "bytes": 13480,
+      "sha256": "22718d4297fef12fd56b2d9fea9071ada85feb5a258db32778f6ba71b540a262"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -16319,8 +16324,8 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-capabilities.ts",
-      "bytes": 1040,
-      "sha256": "0524f2988cf79cd03110a017e0533e6634f94407805213af4c83747f4d5a9208"
+      "bytes": 3147,
+      "sha256": "5cfbea2a585c7f2da3dbfa7636983ba57812d389b61b6ebccf27c22b16ac8e60"
     },
     {
       "path": "modules/opportunity-project-work/tenant-capacity.ts",
@@ -16329,18 +16334,18 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-command.ts",
-      "bytes": 4263,
-      "sha256": "7d7535a918032da8feeb40c15430d55913ba4e760d8b0c37cd0a68b139266f45"
+      "bytes": 4099,
+      "sha256": "40843e678d06152414fc64655b3f79ad672a53a4ba78c9207965c00b62a9652b"
     },
     {
       "path": "modules/opportunity-project-work/tenant-work-commands.ts",
-      "bytes": 8337,
-      "sha256": "f60e0d68f69dc6c47d8c9cbc8f4a7571f2fd2b0335d096771086b436d4f849bc"
+      "bytes": 8686,
+      "sha256": "533fedab8779eff11c68909fd3ae35f5df67399c26a570fcbe469fe12d226998"
     },
     {
       "path": "modules/opportunity-project-work/tenant-work.ts",
-      "bytes": 7890,
-      "sha256": "d9a4caeddacbfa8e11b1112d1921e19cd36d69c0d11fcf392c9b9281d3a7a840"
+      "bytes": 8342,
+      "sha256": "00d010980e847a59fda696a32bce933d4cf267f80ed9ff69eefcf138d18372fa"
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
@@ -16519,13 +16524,13 @@
     },
     {
       "path": "modules/tenant-workspaces/README.md",
-      "bytes": 4800,
-      "sha256": "ef267612326c82b377c24b90ff1da4dcb389ad0ca071a81ee9d9d491040cc023"
+      "bytes": 6745,
+      "sha256": "da0b6b735707c71e48a12f8435c4f1b1c8d22c43625db3994704ab88e50df7f1"
     },
     {
       "path": "modules/tenant-workspaces/authorization.ts",
-      "bytes": 2668,
-      "sha256": "22365f63c997c633761599dce874dd32b94ec002a5c18bd142ce7c0b087e4600"
+      "bytes": 2670,
+      "sha256": "8a44e82cb7e2fa37a4404d26282ce5ae91689c10bc3b7bcfb473da4424e93a5a"
     },
     {
       "path": "modules/tenant-workspaces/facts.ts",
@@ -16534,8 +16539,8 @@
     },
     {
       "path": "modules/tenant-workspaces/freedom.module.json",
-      "bytes": 2449,
-      "sha256": "6bf2e95be548deeb4339f2bcae5bf56710515a39dc86420391b4a01f1a7d3dbe"
+      "bytes": 2616,
+      "sha256": "559a74a946da37b3b0a969ec47cc7458040c45e85e1be9871c27454abc6cf6e3"
     },
     {
       "path": "modules/tenant-workspaces/high-risk-verification.ts",
@@ -16543,9 +16548,14 @@
       "sha256": "a88dfeb815a9e2bf1e356f2c4cf60148ecc0f1b5abcfc0d3650ce16d02cf20fc"
     },
     {
+      "path": "modules/tenant-workspaces/instance-grants.ts",
+      "bytes": 5204,
+      "sha256": "f08b95e509e9231dfc6a1cb76b3bc513d468f2ce61c9e1dfd5f1191795a21489"
+    },
+    {
       "path": "modules/tenant-workspaces/ownership.ts",
-      "bytes": 30018,
-      "sha256": "425aa484a2c77088978195dbe8c492d12cfab3357173b7a77785290190f952e6"
+      "bytes": 30170,
+      "sha256": "94b9ca4b3f7cb1e60e36c283433ff28bf6454b8e53c533f883008df2e00401eb"
     },
     {
       "path": "modules/tenant-workspaces/policy.ts",
@@ -16554,8 +16564,8 @@
     },
     {
       "path": "modules/tenant-workspaces/recovery.ts",
-      "bytes": 30208,
-      "sha256": "219e57029ed684994d41641a3008a611b16f8f5fc72d641f1152aaab683ebee3"
+      "bytes": 30377,
+      "sha256": "046eb397a7d38badcd64a4f9a9a80333892c787a55a81c6980e4234bdcf12558"
     },
     {
       "path": "modules/tenant-workspaces/security-path.ts",
@@ -16564,8 +16574,8 @@
     },
     {
       "path": "modules/tenant-workspaces/service.ts",
-      "bytes": 45556,
-      "sha256": "a22dd2103b09c9e1dc7cd2c3b4de4bcdd758a0e559bde4857da79c9908137b2e"
+      "bytes": 47392,
+      "sha256": "cf9fa51ecedf204322aa87fc2adce27385e29f1dffcb7317a50d70f71ca38c26"
     },
     {
       "path": "package-lock.json",
@@ -16929,8 +16939,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6574,
-      "sha256": "9ea734abb876538181f9d84d7ed0bb52193f3812618690e88604663386ce7aa1"
+      "bytes": 6602,
+      "sha256": "aa7251211e6eeefd8cfe8b3b5780cc642eadee256e3ac3ba025ae428c45a8378"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -18528,6 +18538,11 @@
       "sha256": "a06a56764fcf42f5e6cb321821de9a873c7c5f172691bd573e0d15f5168aed52"
     },
     {
+      "path": "tests/e2e/tenant-member-grants-role-change.spec.ts",
+      "bytes": 10936,
+      "sha256": "9d2493834a6eeedb13fcf957163dd5c79f91e20bea89136945c1a140bb1b89c6"
+    },
+    {
       "path": "tests/e2e/tenant-ownership.spec.ts",
       "bytes": 21845,
       "sha256": "19440230d2a3ebeedad8f34c9ba800e6f6f32f205700665fc18c8290b259fa51"
@@ -19159,8 +19174,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
-      "bytes": 48688,
-      "sha256": "774777901db749a8ec537385e861643f2b6da0e060502c121d04ed4301f7ffc0"
+      "bytes": 51267,
+      "sha256": "2b45abdfc166176edcb10c3369b0a66185b29412e84c0e5810f4e7df63cca140"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -19579,8 +19594,8 @@
     },
     {
       "path": "tests/runtime/module-registry-schema.test.ts",
-      "bytes": 31458,
-      "sha256": "a05bfc65d683f1080535dae2d826bba6e10aa2c750d13d46a62eb9f0339ebff7"
+      "bytes": 33993,
+      "sha256": "e38be7038d2f0eb94d45994f8d0f00846dcc4d1c464c4ca0b5e9a6ff058a51d4"
     },
     {
       "path": "tests/runtime/module-registry.test.ts",
@@ -19964,18 +19979,23 @@
     },
     {
       "path": "tests/runtime/tenant-data-catalog.test.ts",
-      "bytes": 29996,
-      "sha256": "923d39bd2ac21c5f10bee242d450e3eebc68f3d7ce30a370c1f1f018e7de0192"
+      "bytes": 30025,
+      "sha256": "d1aa686d006f28007c3d29155e63261cc884ce8af3738004db09dc67b732c2e0"
     },
     {
       "path": "tests/runtime/tenant-data-isolation.test.ts",
-      "bytes": 40408,
-      "sha256": "8a6baad549f5bf89aa35ee2a43a63e167b072b823e96cce502a38e3d20f73b60"
+      "bytes": 40437,
+      "sha256": "263cb09d24a6ed685af2f4ff40041f4a742de09ac23077cb350f8e8c4e0ee664"
     },
     {
       "path": "tests/runtime/tenant-high-risk-verification.test.ts",
       "bytes": 16236,
       "sha256": "b64c49d71984f68839df1997a2c34441222c4612a3a981576c669c7fb2642c41"
+    },
+    {
+      "path": "tests/runtime/tenant-instance-permissions.test.ts",
+      "bytes": 51476,
+      "sha256": "cf933bbe751aae462c0b4c2acbc035a7d316d19639da3dd2ab82cb5a7f10588d"
     },
     {
       "path": "tests/runtime/tenant-membership-identity.test.ts",
@@ -20009,8 +20029,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 29143,
-      "sha256": "b2bb4886231108a075eef402a66a29d720e46ec91899bb22eca0f3de1f6c0e37"
+      "bytes": 30042,
+      "sha256": "1e845926f77ab588b400626d3a1256da10926daf98f778755c50e757698e9365"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
