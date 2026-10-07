@@ -118,14 +118,28 @@ export class GitHubSocial {
     });
   }
   async repositoryManager(q:PoolClient,actor:Actor,repository:string,repositoryId:string):Promise<boolean>{
+    // Caller holds user/session locks. Commit credential lifecycle separately,
+    // including rotation on provider denial, before the project can roll back.
+    const result=await transaction(this.pool,async credential=>{
+      await lockGitHubSocialMember(credential,actor.user_id);
+      const connection=await this.connection(credential,actor);
+      if(!this.config||!connection)return {allowed:false};
+      try{
+        const allowed=await this.withToken(credential,actor,connection,async token=>{
+          const identity=await this.provider.identity(token);
+          requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+          return this.provider.repositoryManager(repository,repositoryId,token);
+        });
+        return {allowed,connection:await this.connection(credential,actor)};
+      }catch(error){if(error instanceof Problem)return {error};throw error;}
+    });
+    if('error' in result)throw result.error;
+    if(!result.allowed)return false;
+    // Hold the lock through project/receipt commit and reject a disconnect or
+    // replacement that won the gap between the two transactions.
     await lockGitHubSocialMember(q,actor.user_id);
     const connection=await this.connection(q,actor);
-    if(!this.config||!connection)return false;
-    return this.withToken(q,actor,connection,async token=>{
-      const identity=await this.provider.identity(token);
-      requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
-      return this.provider.repositoryManager(repository,repositoryId,token);
-    });
+    return !!connection&&connection.encrypted_tokens===result.connection?.encrypted_tokens;
   }
   async start(actor:Actor,returnTo='#guilds'){
     const config=this.configured();
