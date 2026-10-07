@@ -22,7 +22,11 @@
     "tests/runtime/module-registry-rls-runtime-role.test.ts",
     "tests/runtime/module-instance-lifecycle.test.ts",
     "migrations/128_module_instance_archive.sql",
-    "tests/runtime/module-instance-archive.test.ts"
+    "tests/runtime/module-instance-archive.test.ts",
+    "apps/portal-web/src/modules/GuildLaunchpadApplications.tsx",
+    "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
+    "apps/portal-web/src/modules/module-words.ts",
+    "tests/e2e/guild-launchpad-applications.spec.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts",
