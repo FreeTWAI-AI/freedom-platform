@@ -1089,8 +1089,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 17013,
-      "sha256": "cf4f405cde8c3efc5e21b84385440281092d200e5ec8ec4de07cd57219aa5e76"
+      "bytes": 18840,
+      "sha256": "098ae9300e69271b3001bebf91039d22d1714dda364bc510f6a905abb0f52d9c"
     },
     {
       "path": "apps/portal-web/src/dragon-theme.css",
@@ -1394,8 +1394,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 37617,
-      "sha256": "be3b2336b83f1166f580077367bac07951c716d32e587497d0b3d501873dd025"
+      "bytes": 38732,
+      "sha256": "465b74372452eee31b34a1979cacb22a148b98035abf177fff9e2f3f3d050213"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
+      "bytes": 1716,
+      "sha256": "8385c49046d46fb3eb5c814a8aedb95183113e04381609c4884b830749d5b5cd"
+    },
+    {
+      "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+      "bytes": 49313,
+      "sha256": "de59be34a0ba4f23ee6a193c9a7d92d3d98154a3fb404f316aef5c257de247fc"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -1624,8 +1634,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PositioningPanels.tsx",
-      "bytes": 33522,
-      "sha256": "b47863943022248a774167c2bca520a022366be7b3ea71d444fb1fd4f2aa6053"
+      "bytes": 33552,
+      "sha256": "29ad36ca7c45b7341a5a9eef30af77efe012fa5d9f1256aba29874d8f7c9af12"
     },
     {
       "path": "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
@@ -2126,6 +2136,11 @@
       "path": "apps/portal-web/src/modules/tenant-workspaces.css",
       "bytes": 1319,
       "sha256": "806bd11ea2c2db54fadabebe7dc8583a9d6bed8bdc7aa1bd22d6c6c87b40962e"
+    },
+    {
+      "path": "apps/portal-web/src/modules/work-result-client.ts",
+      "bytes": 6976,
+      "sha256": "7e6fde748cf84767db55850e550d5ca07df29cb81691719ad7312c041102362d"
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
@@ -12569,8 +12584,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 15138,
-      "sha256": "989539cd7b5f3873ee1100f28423f777eee2c61a0b2445b6d9a68b9ef188cd55"
+      "bytes": 16468,
+      "sha256": "8958d391d0b93da9ea23336bd6bb96303dbf1be33cfec92e32c1e238e6984217"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -15834,8 +15849,8 @@
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 1141,
-      "sha256": "10cf72383a300593b86c0f2980e83d7a2e0e8d24efd521f81e62710cfe5e5d4f"
+      "bytes": 1415,
+      "sha256": "8b29b060adf8fed2968c4a517b6152de837b22349bab52993ab7510c7402a0a6"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -16609,13 +16624,13 @@
     },
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
-      "bytes": 3461,
-      "sha256": "a491a2e9607603093dd604ea62f97e00552b03766dd088f2c3aa68283ed3983c"
+      "bytes": 3705,
+      "sha256": "c6968b0cd0691dd0b044265640f88ad9a0209bac8723f4be7f926a5b8358bd55"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6166,
-      "sha256": "d36e1c6e299ebbe5df08f46455a3fe89e4f39d7e74edd9d26bbaa816bf4e5a84"
+      "bytes": 6185,
+      "sha256": "198a575ef5d7ffd5a3e8da1fe695cd927d763d70e118dd9806861f656621c94f"
     },
     {
       "path": "packages/contribution-tools/schema.mjs",
@@ -16624,8 +16639,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 31633,
-      "sha256": "f31545a3f0ff25e5cc571a58a63e793c3f1972a3bd582ba93fe8b5f3fbf2ea61"
+      "bytes": 32201,
+      "sha256": "2d3e0f55001985af059a0072e0792c56ca52a8bd7bed097560900e9c03035af2"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16774,8 +16789,8 @@
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
-      "bytes": 7363,
-      "sha256": "58b9286502025d22b1ab77cdc6d13529e6b9f74473924ebc2ab7fd310bb63936"
+      "bytes": 8095,
+      "sha256": "884c705efa6738320a69108049f819faf103bfd83b4c7858faa8636e4f2c63cd"
     },
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
@@ -16804,8 +16819,8 @@
     },
     {
       "path": "packages/contribution-tools/test/test-reporter-progress.test.mjs",
-      "bytes": 26499,
-      "sha256": "2d7214f87ba11dce12ba5e4f3ed8d477a56e9a9383aacaa6a7edde289ee50363"
+      "bytes": 26736,
+      "sha256": "f818c77bb4e57896c0577a047a09f69b58f02d859304fb504d5b0856c5e0bc1b"
     },
     {
       "path": "packages/contribution-tools/test/trusted-ci.test.mjs",
@@ -16824,8 +16839,8 @@
     },
     {
       "path": "packages/contribution-tools/test-reporter.mjs",
-      "bytes": 9829,
-      "sha256": "90ceddbde2d45ee9fcc18db0a862d9a5c666f2daaa974d3f6462fb6567f68b03"
+      "bytes": 10000,
+      "sha256": "59d3759e78229c0266339faf93e6572e8b46308588310a7ddaaf54befe1bd804"
     },
     {
       "path": "packages/contribution-tools/trusted-ci.mjs",
@@ -17873,9 +17888,14 @@
       "sha256": "48912a58397926313cd09cc840427d38aefdf12e08cdbbf211d7c2c804bf13ee"
     },
     {
+      "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
+      "bytes": 66392,
+      "sha256": "a3f5d831ee95a1ec8b15d37089d115197ccddfd2f3e65133f5d835dc9beca0f1"
+    },
+    {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 14793,
-      "sha256": "9e426a36c2f4abaf08b2e83a63b376fb88a02b2df139378af2ad048988504b51"
+      "bytes": 14811,
+      "sha256": "178ac1cf91386ef1b9a3b38a4125760783cc242e42ecba596eb3de605d16255f"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
@@ -19576,6 +19596,11 @@
       "path": "tests/runtime/work-privacy.test.ts",
       "bytes": 24575,
       "sha256": "7465423079bd020dfb0e918c5148079d35c6ab0c787f27cf23cd93061ae9a3b2"
+    },
+    {
+      "path": "tests/runtime/work-result-client.test.ts",
+      "bytes": 6702,
+      "sha256": "3211c70d98ddee13f39e88202b8d62ea01589ccf0dcbfb8b24352f8956dafb01"
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
