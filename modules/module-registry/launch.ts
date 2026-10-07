@@ -10,7 +10,8 @@ import {
 } from './capacity.js';
 import { journalCommand } from './events.js';
 import { effectDigest, type ModuleProviderMap, type ProvisionEffect } from './providers.js';
-import { assertFullGuildMember, type StoredChoice } from './plans.js';
+import { assertFullGuildMember, candidatesFor, moduleDefinition, type StoredChoice } from './plans.js';
+import type { Requirement } from './definitions.js';
 import { planStale, mapRegistryError, sameContract } from './validate.js';
 
 interface PlanRow {
@@ -86,18 +87,6 @@ async function lockReusedInstances(q: PoolClient, tenantId: string, choices: Sto
   }
 }
 
-async function compatibleNow(q: PoolClient, tenantId: string, choice: StoredChoice): Promise<boolean> {
-  const row = (await q.query(
-    `SELECT 1 FROM module_instances i
-     JOIN module_definitions d ON d.module_key=i.module_key AND d.release_ref=i.module_release_ref
-     WHERE i.tenant_id=$1 AND i.module_key=$2 AND i.status='active' AND i.data_schema_version=$3
-       AND i.contract_ref=$4::jsonb
-     LIMIT 1`,
-    [tenantId, choice.module_key, choice.data_schema_version, JSON.stringify(choice.contract_ref)],
-  )).rowCount;
-  return row === 1;
-}
-
 export async function executeLaunch(q: PoolClient, context: TenantScopeContext, actorUserId: string, input: {
   planId: string;
   expectedPlanVersion: string;
@@ -171,12 +160,15 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
     const lockedPolicy = await reserveCapacity(q, context.tenant_id, operationId, creates, true);
     if (lockedPolicy.revision !== plan.policy_revision) throw planStale();
     await lockReusedInstances(q, context.tenant_id, choices, input.versionMismatch, input.operation === 'manual.work.enable' ? 'not_found' : 'instance_unavailable');
-    const requirements = definition.module_requirements as Array<{ requirement_key: string; allow_reuse?: boolean; capabilities?: string[] }>;
+    const requirements = definition.module_requirements as Requirement[];
     for (const choice of choices) {
       const requirement = requirements.find(item => item.requirement_key === choice.requirement_key);
       // A module that forbids reuse is never a candidate, so an existing instance does not stale a default create.
-      if (requirement?.allow_reuse === false) continue;
-      if (choice.choice === 'create' && choice.origin === 'default' && await compatibleNow(q, context.tenant_id, choice)) throw planStale();
+      if (!requirement?.allow_reuse) continue;
+      if (choice.choice === 'create' && choice.origin === 'default') {
+        const moduleDef = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
+        if ((await candidatesFor(q, context.tenant_id, requirement, moduleDef)).length) throw planStale();
+      }
     }
     const workspaceStatus = await lockWorkspace(q, context.tenant_id, plan.workspace_id);
     requireCondition(workspaceStatus, 404, 'not_found', '找不到這個工作區。');

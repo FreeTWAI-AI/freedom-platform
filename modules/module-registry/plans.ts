@@ -72,7 +72,7 @@ async function workspaceStatus(q: PoolClient, tenantId: string, workspaceId: str
   requireCondition(row.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
 }
 
-async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: string | undefined): Promise<ModuleDefinitionRow> {
+export async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: string | undefined): Promise<ModuleDefinitionRow> {
   if (!releaseRef) throw new Problem(409, 'application_not_available', '這個應用目前無法啟動。');
   const row = (await q.query<ModuleDefinitionRow>(
     `SELECT release_ref, capabilities, contract_ref, data_schema_version, config_schema_ref, license_state, release_status
@@ -85,7 +85,7 @@ async function moduleDefinition(q: PoolClient, moduleKey: string, releaseRef: st
   return row;
 }
 
-async function candidatesFor(q: PoolClient, tenantId: string, requirement: Requirement, definition: ModuleDefinitionRow): Promise<CandidateRow[]> {
+export async function candidatesFor(q: PoolClient, tenantId: string, requirement: Requirement, definition: ModuleDefinitionRow): Promise<CandidateRow[]> {
   const rows = (await q.query<CandidateRow>(
     `SELECT i.instance_id, i.version::text AS version, i.created_at, i.contract_ref, i.data_schema_version, i.module_release_ref,
        d.capabilities,
