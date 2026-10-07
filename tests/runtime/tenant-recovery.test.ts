@@ -1031,6 +1031,170 @@ test('T-055 replaying execute waits on an in-flight capability revocation', asyn
   assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), after);
 });
 
+/** The case freeze trigger rejects an expires_at-only update. Move one case's
+ * approval clock without a state or version change. */
+async function setCaseExpiry(caseId: string, interval: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('ALTER TABLE tenant_recovery_cases DISABLE TRIGGER preserve_tenant_recovery_case');
+    const updated = await client.query(
+      `UPDATE tenant_recovery_cases SET expires_at=clock_timestamp()+$2::interval WHERE case_id=$1`,
+      [caseId, interval]);
+    assert.equal(updated.rowCount, 1);
+    await client.query('ALTER TABLE tenant_recovery_cases ENABLE TRIGGER preserve_tenant_recovery_case');
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+async function approvalPast(caseId: string): Promise<void> {
+  for (let i = 0; i < 200; i += 1) {
+    const past = (await pool.query<{ past: boolean }>(
+      `SELECT clock_timestamp() > expires_at AS past FROM tenant_recovery_cases WHERE case_id=$1`,
+      [caseId])).rows[0]?.past;
+    if (past) return;
+    await delay(50);
+  }
+  assert.fail('approval expiry did not pass');
+}
+async function executeReceipts(key: string): Promise<number> {
+  return (await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM platform_admin_receipts WHERE idempotency_key=$1 AND operation LIKE '%/execute'`,
+    [key])).rows[0].n;
+}
+async function recoveryExecuteOutbox(): Promise<number> {
+  return (await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM scoped_outbox o
+     JOIN scoped_transition_journal j ON j.transition_id=o.transition_id
+     WHERE j.operation='tenant.recovery.execute'`)).rows[0].n;
+}
+
+test('T-055 execute refuses an approval that expires while the capability row is locked', async () => {
+  const { tenant, caseId } = await preparedCase();
+  const unchanged = await caseRow(caseId);
+  await setCaseExpiry(caseId, '2 seconds');
+  assert.deepEqual(await caseRow(caseId), unchanged);
+  const before = await recoveryFootprint(tenant.tenant_id, caseId);
+  const key = randomUUID();
+  const holder = await pool.connect();
+  let pending: Promise<Reply> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const locked = await holder.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+      WHERE admin_id=$1 AND capability='tenant.recovery.execute' AND revoked_at IS NULL
+      ORDER BY capability_id FOR UPDATE`, [admins.executor.id]);
+    assert.equal(locked.rowCount, 1);
+    pending = adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+    await blockedBy(pid);
+    await approvalPast(caseId);
+    await holder.query('ROLLBACK');
+    const denied = await finish(pending, 'execute');
+    pending = undefined;
+    const after = await recoveryFootprint(tenant.tenant_id, caseId);
+    const evidence = JSON.stringify({
+      status: denied.status, code: denied.data.code,
+      case: after.recovery, owners: after.memberships, revision: after.tenant.revision,
+      before, after, receipts: await executeReceipts(key), outbox: await recoveryExecuteOutbox(),
+    });
+    assert.equal(denied.status, 409, evidence);
+    assert.equal(denied.data.code, 'recovery_approval_expired', evidence);
+    assert.deepEqual(after, before, evidence);
+    assert.equal(await executeReceipts(key), 0, evidence);
+    assert.equal(await recoveryExecuteOutbox(), 0, evidence);
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    await pending?.catch(() => undefined);
+  }
+});
+
+type RecoveryFootprint = Awaited<ReturnType<typeof recoveryFootprint>>;
+function assertOneExecution(before: RecoveryFootprint, after: RecoveryFootprint, ownerId: string, recipientId: string) {
+  assert.equal(after.tenant.status, 'active');
+  assert.equal(after.tenant.revision, (BigInt(before.tenant.revision) + 1n).toString());
+  assert.equal(after.recovery.state, 'executed');
+  assert.equal(after.recovery.version, (BigInt(before.recovery.version) + 1n).toString());
+  assert.equal(after.recovery.executed_by_admin_id, admins.executor.id);
+  const memberships = after.memberships as Array<{ principal_id: string; role: string; status: string }>;
+  assert.equal(memberships.find(row => row.principal_id === ownerId)?.status, 'revoked');
+  assert.equal(memberships.find(row => row.principal_id === recipientId)?.role, 'owner');
+  assert.equal(memberships.find(row => row.principal_id === recipientId)?.status, 'active');
+  assert.equal(memberships.filter(row => row.role === 'owner' && row.status === 'active').length, 1);
+  assert.equal(after.counts.audit, before.counts.audit + 2);
+  assert.equal(after.counts.admin_audit, before.counts.admin_audit + 1);
+  assert.equal(after.counts.receipts, before.counts.receipts + 1);
+  assert.equal(after.counts.outbox, before.counts.outbox + 2);
+  assert.equal(after.counts.journal, before.counts.journal + 2);
+}
+
+test('T-055 replaying execute after the approval expires returns the stored response', async () => {
+  const { tenant, to, caseId } = await preparedCase();
+  const before = await recoveryFootprint(tenant.tenant_id, caseId);
+  const key = randomUUID();
+  const executed = await adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+  assert.equal(executed.status, 200, executed.text);
+  assert.equal(executed.data.case.state, 'executed');
+  const after = await recoveryFootprint(tenant.tenant_id, caseId);
+  assertOneExecution(before, after, tenant.my_membership.principal_id, to);
+  assert.equal(await executeReceipts(key), 1);
+  assert.equal(await recoveryExecuteOutbox(), 2);
+  const frozen = await caseRow(caseId);
+  await setCaseExpiry(caseId, '-1 second');
+  assert.deepEqual(await caseRow(caseId), frozen);
+  await approvalPast(caseId);
+  const replay = await adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+  assert.equal(replay.status, 200, replay.text);
+  assert.deepEqual(replay.data, executed.data);
+  assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), after);
+  assert.equal(await executeReceipts(key), 1);
+  assert.equal(await recoveryExecuteOutbox(), 2);
+});
+
+test('T-055 execute completes once when the capability row is released before the approval expires', async () => {
+  const { tenant, to, caseId } = await preparedCase();
+  const before = await recoveryFootprint(tenant.tenant_id, caseId);
+  const key = randomUUID();
+  const holder = await pool.connect();
+  let pending: Promise<Reply> | undefined;
+  try {
+    await holder.query('BEGIN');
+    const pid = (await holder.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const locked = await holder.query(`SELECT capability_id FROM platform_admin_tenant_recovery_capabilities
+      WHERE admin_id=$1 AND capability='tenant.recovery.execute' AND revoked_at IS NULL
+      ORDER BY capability_id FOR UPDATE`, [admins.executor.id]);
+    assert.equal(locked.rowCount, 1);
+    pending = adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+    await blockedBy(pid);
+    const stillOpen = (await pool.query<{ open: boolean }>(
+      `SELECT expires_at > clock_timestamp() AS open FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0]?.open;
+    assert.equal(stillOpen, true);
+    await holder.query('ROLLBACK');
+    const executed = await finish(pending, 'execute');
+    pending = undefined;
+    assert.equal(executed.status, 200, executed.text);
+    assert.equal(executed.data.case.state, 'executed');
+    const after = await recoveryFootprint(tenant.tenant_id, caseId);
+    assertOneExecution(before, after, tenant.my_membership.principal_id, to);
+    assert.equal(await executeReceipts(key), 1);
+    assert.equal(await recoveryExecuteOutbox(), 2);
+    const replay = await adminKey(admins.executor, `/tenant-recovery-cases/${caseId}/execute`, key, {}, '3');
+    assert.equal(replay.status, 200, replay.text);
+    assert.deepEqual(replay.data, executed.data);
+    assert.deepEqual(await recoveryFootprint(tenant.tenant_id, caseId), after);
+    assert.equal(await executeReceipts(key), 1);
+    assert.equal(await recoveryExecuteOutbox(), 2);
+  } finally {
+    await holder.query('ROLLBACK').catch(() => undefined);
+    holder.release();
+    await pending?.catch(() => undefined);
+  }
+});
+
 test('T-055 open refuses a capability revoked during its tenant-row wait', async () => {
   const owner = await person('擁有者');
   const recipient = await person('接收者');

@@ -204,6 +204,8 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
       throw new Problem(409, 'recovery_not_required', '目前不能完成這份復原。');
     }
     await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute');
+    const expiredAfterLock = (await q.query<{ expired: boolean }>(`SELECT expires_at<=clock_timestamp() AS expired FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
+    if (expiredAfterLock?.expired) throw new Problem(409, 'recovery_approval_expired', '復原核准已過期。');
     const existing = (await q.query<{ version: string }>(`SELECT version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`,
       [current.tenant_id, current.proposed_owner_principal_id])).rows[0];
     if (existing) {
@@ -245,6 +247,8 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
       data: { tenant_id: current.tenant_id, principal_id: current.proposed_owner_principal_id, role: 'owner', status: 'active', authorization_revision: revision },
       eventType: 'freedom.tenant.membership.changed.v1',
     });
+    const expiredBeforeReceipt = (await q.query<{ expired: boolean }>(`SELECT expires_at<=clock_timestamp() AS expired FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
+    if (expiredBeforeReceipt?.expired) throw new Problem(409, 'recovery_approval_expired', '復原核准已過期。');
     return RecoveryExecuteResultSchema.parse({ case: adminView(await loadCase(q, caseId)), authorization_revision: revision });
   }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute'); });
 }
