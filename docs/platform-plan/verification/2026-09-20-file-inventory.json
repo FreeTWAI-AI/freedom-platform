@@ -12819,8 +12819,8 @@
     },
     {
       "path": "docs/development/staging-operations.md",
-      "bytes": 5996,
-      "sha256": "91d031a1a15035c3a089031c8a40a43bc099b49809bb82e9c6bfa5c83b7fcf5e"
+      "bytes": 8686,
+      "sha256": "849ab60d8d049033a689411c434fb4d3802f62934b2010f7df4d9b63df06f2aa"
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
@@ -16239,8 +16239,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4399,
-      "sha256": "eed07dfa89b6dda9e75e83b21e5e040b9493ef70d2418d36e644ed569769d32b"
+      "bytes": 4483,
+      "sha256": "0130f430a33ac2d5c35a898fcb2905dbf9a35bdbf44a78be9f53f103916cbf43"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -17976,6 +17976,11 @@
       "path": "scripts/verify-cloud-candidate.ts",
       "bytes": 12291,
       "sha256": "106b4f1a8b732f811cedabde01ec25ed2ef506ddbabc5dd9d118f1058c3550c8"
+    },
+    {
+      "path": "scripts/verify-guild-work.mjs",
+      "bytes": 26326,
+      "sha256": "6c2404af3b71dd4162b6c0387d1b8303133a917781af6a270a86f28e51e46de1"
     },
     {
       "path": "scripts/verify-member-settings.mjs",
@@ -19951,6 +19956,11 @@
       "path": "tests/runtime/verification-test-data.test.ts",
       "bytes": 23491,
       "sha256": "070aac6ab982a468faa734fe186afaa7f85d0d23ee52c16f789b5125f88ca171"
+    },
+    {
+      "path": "tests/runtime/verify-guild-work.test.ts",
+      "bytes": 14626,
+      "sha256": "15b9a38e71da1630e933a31468610febd9f22b4662ff53076d04690b779f77dd"
     },
     {
       "path": "tests/runtime/work-privacy.test.ts",
