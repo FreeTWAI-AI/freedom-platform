@@ -44,7 +44,7 @@ function reject(mutator, reason) {
 }
 
 test('Real baselines are accurate', async () => {
-  assert.equal(E2E_BASELINE.length, 87);
+  assert.equal(E2E_BASELINE.length, 88);
   assert.deepEqual(E2E_BASELINE, [...new Set(E2E_BASELINE)].sort());
   for (const file of E2E_BASELINE) {
     assert.ok(file.startsWith('tests/e2e/'));
@@ -179,7 +179,7 @@ test('CLI argument errors exit 2; missing Playwright writes not_run evidence', a
     assert.equal(result.status, 'not_run');
     assert.equal(result.reason, 'e2e_runner_unavailable');
     const summary = JSON.parse(child.stdout.split('\n')[0]);
-    assert.equal(summary.file_count, 87);
+    assert.equal(summary.file_count, E2E_BASELINE.length);
     assert.equal(summary.test_count, 0);
     assert.ok(!Object.hasOwn(summary, 'test_files'));
   });

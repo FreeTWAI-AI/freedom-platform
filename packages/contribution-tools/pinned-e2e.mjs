@@ -17,6 +17,7 @@ commerce-modules.spec.ts development-access.spec.ts development-guide.spec.ts
 device-connections.spec.ts event-highlights.spec.ts event-public.spec.ts events-past.spec.ts
 game-console.spec.ts github-setup.spec.ts github-social.spec.ts guild-alias.spec.ts
 guild-category-preferences.spec.ts guild-entry-questions.spec.ts guild-launchpad.spec.ts
+guild-launchpad-my-work.spec.ts
 guild-member-tiers.spec.ts guild-members.spec.ts guild-organization.spec.ts guild-reviews.spec.ts
 guild-workspace.spec.ts help-box-padding.spec.ts journeys.spec.ts member-avatar-asset.spec.ts
 member-channels-real.spec.ts member-channels.spec.ts member-connections-51.spec.ts

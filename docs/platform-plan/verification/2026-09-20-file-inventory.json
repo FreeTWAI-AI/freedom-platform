@@ -16579,8 +16579,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 8740,
-      "sha256": "0cfa7d54cd69ba409ca48ea44de0e530e75f8c4c25ab7883a2c433cbcf8adf08"
+      "bytes": 8772,
+      "sha256": "2d045fa8bf2f10a9497392f0625e5bbf23507bb631c874a892fc5cd60456f23d"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -16779,8 +16779,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 14277,
-      "sha256": "a076ab814ebee691dc732e3ec049976481a83fee8adaac4c1887b9b3caee6a33"
+      "bytes": 14294,
+      "sha256": "88e2f24a94c3c60735458782beb8e77cf85f76e4c057f4eea119d37be5d50d36"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
