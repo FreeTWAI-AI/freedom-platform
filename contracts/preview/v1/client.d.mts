@@ -24,7 +24,6 @@ export type Acceptance = { "acceptance_id": string; "state": "requested" | "acce
 export type ProjectInput = { "repository_url": string; "title": string; "description": string; "use_notes": string; "demo_url"?: string | null; "relationship": "author" | "maintainer" | "contributor" | "curator"; "consent_to_share": true };
 export type ProjectMetadata = { "title": string; "description": string; "use_notes": string; "demo_url"?: string | null };
 export type Project = { "project_id": string; "repository_id": string; "repository_full_name": string; "owner_ref": string; "title": string; "aggregate_version": number; "current_version": { "commit_sha": string; "license_spdx": string; [key: string]: unknown }; [key: string]: unknown };
-export type ProjectEditAccess = { "can_edit": true };
 export type CampaignInput = { "title": string; "audience": string; "goal": string; "draft_text": string; "source_project_id"?: string | null; "source_supplier_product_id"?: string | null; "source_brief"?: string };
 export type CampaignMetadata = { "title": string; "audience": string; "goal": string; "draft_text": string };
 export type Campaign = { "campaign_id": string; "title": string; "aggregate_version": number; "source_snapshot": { [key: string]: unknown }; "draft_text": string; [key: string]: unknown };
@@ -68,7 +67,6 @@ export interface Operations {
  importProject: { response: Project; body: ProjectInput };
  refreshProject: { response: Project; body: Empty };
  reviseProject: { response: Project; body: ProjectMetadata };
- checkProjectEditing: { response: ProjectEditAccess; body: Empty };
  listCampaigns: { response: CampaignList; body: never };
  createCampaign: { response: Campaign; body: CampaignInput };
  reviseCampaign: { response: Campaign; body: CampaignMetadata };

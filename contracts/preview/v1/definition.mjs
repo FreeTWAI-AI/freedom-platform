@@ -40,7 +40,6 @@ export const schemas={
  ProjectInput:object({repository_url:str(300),title:str(120),description:str(2000),use_notes:str(3000),demo_url:nullable(str(2000)),relationship:{enum:['author','maintainer','contributor','curator']},consent_to_share:{const:true}},['repository_url','title','description','use_notes','relationship','consent_to_share']),
  ProjectMetadata:object({title:str(120),description:str(2000),use_notes:str(3000),demo_url:nullable(str(2000))},['title','description','use_notes']),
  Project:object({project_id:uuid,repository_id:str(30),repository_full_name:str(200),owner_ref:uuid,title:str(120),aggregate_version:version,current_version:object({commit_sha:{type:'string',pattern:'^[a-f0-9]{40}$'},license_spdx:str(100)},undefined,true)},undefined,true),
- ProjectEditAccess:object({can_edit:{const:true}}),
  CampaignInput:object({...campaign,source_project_id:nullable(uuid),source_supplier_product_id:nullable(uuid),source_brief:str(3000,0)},Object.keys(campaign)),
  CampaignMetadata:object(campaign),
  Campaign:object({campaign_id:uuid,title:str(120),aggregate_version:version,source_snapshot:{type:'object'},draft_text:str(6000)},undefined,true),
@@ -72,8 +71,7 @@ op('requestSupply','POST','/retail/listings/{id}:request-supply','Listing','Snap
 op('listSupplyRequests','GET','/supplier/requests','AcceptanceList');op('decideSupplyRequest','POST','/supplier/requests/{id}:decide','Acceptance','DecisionInput','required');
 op('listProjects','GET','/opensource/projects','ProjectList');op('importProject','POST','/opensource/projects','Project','ProjectInput','none',201);
 op('refreshProject','POST','/opensource/projects/{id}:refresh','Project','Empty','required');op('reviseProject','POST','/opensource/projects/{id}:revise','Project','ProjectMetadata','required');
-op('checkProjectEditing','POST','/opensource/projects/{id}/edit-access','ProjectEditAccess','Empty');
 op('listCampaigns','GET','/marketing/campaigns','CampaignList');op('createCampaign','POST','/marketing/campaigns','Campaign','CampaignInput','none',201);
 op('reviseCampaign','POST','/marketing/campaigns/{id}:revise','Campaign','CampaignMetadata','required');op('recordShare','POST','/marketing/campaigns/{id}/shares','Campaign','ShareInput','required',201);
 op('listWorks','GET','/work-items','WorkList');op('getDashboard','GET','/dashboard','Dashboard');
-export const protocol={version:'freedom.preview/v1',revision:'0.4.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};
+export const protocol={version:'freedom.preview/v1',revision:'0.3.0',api_prefix:'/api/v1',operations,schemas,auth:'member_session_csrf',external_job_execution:false,public_checkout:false};

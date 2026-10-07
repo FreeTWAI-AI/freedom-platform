@@ -1,7 +1,7 @@
 // GENERATED. Change definition.mjs and rebuild in freedom-platform.
 export const protocol={
   "version": "freedom.preview/v1",
-  "revision": "0.4.0",
+  "revision": "0.3.0",
   "api_prefix": "/api/v1",
   "operations": {
     "getProtocol": {
@@ -260,16 +260,6 @@ export const protocol={
       "response": "Project",
       "body": "ProjectMetadata",
       "concurrency": "required",
-      "status": 200,
-      "auth": true,
-      "idempotent": true
-    },
-    "checkProjectEditing": {
-      "method": "POST",
-      "path": "/opensource/projects/{id}/edit-access",
-      "response": "ProjectEditAccess",
-      "body": "Empty",
-      "concurrency": "none",
       "status": 200,
       "auth": true,
       "idempotent": true
@@ -1303,18 +1293,6 @@ export const protocol={
       ],
       "additionalProperties": true
     },
-    "ProjectEditAccess": {
-      "type": "object",
-      "properties": {
-        "can_edit": {
-          "const": true
-        }
-      },
-      "required": [
-        "can_edit"
-      ],
-      "additionalProperties": false
-    },
     "CampaignInput": {
       "type": "object",
       "properties": {
@@ -1652,4 +1630,4 @@ export const protocol={
   "public_checkout": false
 }
 ;
-export const protocolSha256="6085c50487b037929de748be0697c0584a22b478d682937ab003dedf6d7bc6d4";
+export const protocolSha256="fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e";
