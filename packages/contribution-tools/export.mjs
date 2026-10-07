@@ -10,7 +10,7 @@ import { CONSUMER_LIBRARIES, LEGACY_LIBRARY_PROFILE, consumerLibraryProfile, LIB
 
 export const PORTABLE_TOOL_FILES = [
   ...['errors', 'io', 'schema', 'formats', 'contracts', 'pin-cli', 'workspace', 'context', 'verify', 'cli',
-    'local-artifacts', 'process-env', 'consumer-libraries', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'pinned-suites', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
+    'local-artifacts', 'process-env', 'consumer-libraries', 'test-reporter', 'test-failure-diagnostic', 'suite-runner', 'runtime-file-weights', 'pinned-suites', 'runtime-suites', 'runtime-databases'].map(name => `packages/contribution-tools/${name}.mjs`),
   'governance/README.md',
   ...['release-set', 'contract-pin-v1', 'contract-pin-v2', 'release-proof', 'release-trust', 'module', 'coding-context', 'verifier-report']
     .map(name => `governance/schemas/${name}.schema.json`),

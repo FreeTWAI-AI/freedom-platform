@@ -110,13 +110,16 @@ def test_catalog_clock_has_fields_setter_expiry_and_forbidden(clock):
     assert entry["schema_paths"]
 
 
-@pytest.mark.parametrize("clock", CLOCKS)
-@pytest.mark.parametrize("path_index", range(3))
+SCHEMA_PATH_CASES = [
+    (clock, index)
+    for clock in CLOCKS
+    for index in range(len(CATALOG["clocks"][clock]["schema_paths"]))
+]
+
+
+@pytest.mark.parametrize(("clock", "path_index"), SCHEMA_PATH_CASES)
 def test_catalog_schema_paths_resolve(clock, path_index):
-    paths = CATALOG["clocks"][clock]["schema_paths"]
-    if path_index >= len(paths):
-        pytest.skip("clock has fewer than 3 schema paths")
-    resolve_schema_path(paths[path_index])
+    resolve_schema_path(CATALOG["clocks"][clock]["schema_paths"][path_index])
 
 
 @pytest.mark.parametrize("path", fixture_files(), ids=lambda p: str(p.relative_to(FIX)))
