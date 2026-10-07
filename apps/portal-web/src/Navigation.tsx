@@ -7,24 +7,24 @@ export const TAB_TITLES: Record<TabId, string> = {
   friends: '我的好友', members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
   supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
-  'guild-workspace': '公會管理', community: '自由工坊社群',
+  'guild-workspace': '公會管理', business: '業務空間', community: '自由工坊社群',
   todos: '待辦清單', messages: '我的訊息', events: '社群活動', tasks: '社群任務',
   social: '社群分享', services: '社員服務', promotion: '推廣排行榜',
   highlights: '活動集錦',
 };
 
 const primary: TabId[] = ['home', 'guilds', 'skills', 'messages', 'events', 'tasks'];
-const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊'};
+const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊',business:'業務 工作區 邀請'};
 const groups: { label: string; pages: TabId[] }[] = [
   { label: '認識夥伴', pages: ['members', 'friends', 'highlights', 'positioning', 'squads', 'cocreation'] },
   { label: '分享推廣', pages: ['social', 'services', 'promotion'] },
   { label: '創作與合作', pages: ['workbench', 'private-ai', 'opensource', 'showcase', 'engagement'] },
   { label: '供貨與銷售', pages: ['supplier', 'retail', 'marketing'] },
-  { label: '管理', pages: ['guild-workspace'] },
+  { label: '管理', pages: ['guild-workspace', 'business'] },
 ];
 
-export function Navigation({ current, onSelect, canManageGuild, mobileOpen }: {
-  current: TabId; onSelect: (id: TabId) => void; canManageGuild: boolean; mobileOpen: boolean;
+export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEnabled, mobileOpen }: {
+  current: TabId; onSelect: (id: TabId) => void; canManageGuild: boolean; guildLaunchpadEnabled: boolean; mobileOpen: boolean;
 }) {
   const [query,setQuery]=useState('');
   const [expanded, setExpanded] = useState<string[]>(() => groups.filter(group => group.pages.includes(current)).map(group => group.label));
@@ -35,14 +35,14 @@ export function Navigation({ current, onSelect, canManageGuild, mobileOpen }: {
   </button>;
   return <nav id="workspace-navigation" className={`nav workspace-navigation${mobileOpen ? ' is-open' : ''}`} aria-label="主要工作區">
     <label className="nav-search"><span className="sr-only">搜尋功能</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} maxLength={80} placeholder="找功能，例如：聊天室"/></label>
-    {query.trim()?<div className="nav-search-results" aria-label="功能搜尋結果">{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>(id!=='guild-workspace'||canManageGuild)&&`${TAB_TITLES[id]} ${keywords[id]??''}`.includes(query.trim())).map(item)}<p className="field-hint">輸入其他關鍵字可換一組結果。</p></div>:<>
+    {query.trim()?<div className="nav-search-results" aria-label="功能搜尋結果">{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>(id!=='guild-workspace'||canManageGuild)&&(id!=='business'||guildLaunchpadEnabled)&&`${TAB_TITLES[id]} ${keywords[id]??''}`.includes(query.trim())).map(item)}<p className="field-hint">輸入其他關鍵字可換一組結果。</p></div>:<>
     <div className="nav-primary">{primary.map(item)}</div>
     {groups.map(group => <details className="nav-section" key={group.label} open={expanded.includes(group.label)}>
       <summary onClick={event => { event.preventDefault(); setExpanded(value => value.includes(group.label) ? value.filter(label => label !== group.label) : [...value, group.label]); }}>
         {group.label}<span aria-hidden="true">⌄</span>
       </summary>
       <div className="nav-section-items">
-        {group.pages.filter(id => id !== 'guild-workspace' || canManageGuild).map(item)}
+        {group.pages.filter(id => (id !== 'guild-workspace' || canManageGuild) && (id !== 'business' || guildLaunchpadEnabled)).map(item)}
         {group.label === '管理' && <a className="nav-item" href="/admin">平台管理 <span aria-hidden="true">↗</span></a>}
       </div>
     </details>)}

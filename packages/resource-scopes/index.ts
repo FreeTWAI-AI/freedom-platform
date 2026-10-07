@@ -1,8 +1,8 @@
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../../modules/identity-membership/service.js';
-import { PrincipalRefSchema, ResourceScopeRefSchema, type PrincipalRef, type ResourceScopeRef } from '../../contracts/common/v1/identity.js';
+import { OpaqueId, PrincipalRefSchema, ResourceScopeRefSchema, type PrincipalRef, type ResourceScopeRef } from '../../contracts/common/v1/identity.js';
 import { transaction } from '../db/transaction.js';
-import { lockMemberSession } from '../db/member-session.js';
+import { assertCurrentSessionClock, lockMemberSession } from '../db/member-session.js';
 import { requireCondition } from '../shared/problem.js';
 
 type MemberScopeKind = 'personal' | 'community';
@@ -120,5 +120,93 @@ export async function backfillLegacyScopeBatch(pool: Pool, limit = 100) {
       (SELECT count(*)::int FROM communities c WHERE NOT EXISTS(SELECT 1 FROM resource_scopes s WHERE s.community_ref=c.community_id)) AS communities,
       (SELECT count(*)::int FROM users u WHERE NOT EXISTS(SELECT 1 FROM principals p JOIN resource_scopes s ON s.owner_principal_id=p.principal_id WHERE p.user_ref=u.user_id)) AS users`)).rows[0];
     return { processed: communities.rows.length + users.rows.length, created, remaining };
+  });
+}
+
+export type TenantAccessRole = 'owner' | 'admin' | 'operator' | 'viewer';
+export type TenantLifecycle = 'active' | 'suspended' | 'recovery_required' | 'archived';
+export interface TenantScopeContext extends MemberScopeContext {
+  readonly tenant_id: string;
+  readonly community_id: string;
+  readonly role: TenantAccessRole;
+  readonly capabilities: readonly string[];
+  readonly authorization_revision: string;
+  readonly tenant_status: TenantLifecycle;
+  readonly principal_id: string;
+  readonly membership_version: string;
+}
+export interface TenantScopeInput {
+  actor: Actor;
+  tenantId: string;
+  forUpdate?: boolean;
+  lockUser?: boolean;
+  capabilitiesForRole: (role: TenantAccessRole) => readonly string[];
+}
+
+/** Lazy person principal only. Never creates a tenant, site, or service principal. */
+export async function mapPersonPrincipal(q: PoolClient, userId: string): Promise<PrincipalRow> {
+  return ensurePrincipal(q, userId);
+}
+
+/**
+ * Resolve one existing tenant scope inside the caller's transaction.
+ * Lock order: session, person principal, tenant scope, tenant row, membership.
+ * The tenant scope row must already exist. This function never inserts one.
+ * A missing tenant, a missing membership, and an inactive membership share one not-found result.
+ */
+export async function lockTenantScope(q: PoolClient, input: TenantScopeInput): Promise<TenantScopeContext> {
+  requireCondition(typeof input.capabilitiesForRole === 'function', 500, 'foundation_mapping_unavailable', '資源範圍映射暫時無法使用。');
+  requireCondition(OpaqueId.safeParse(input.tenantId).success, 404, 'tenant_not_found', '找不到這個業務空間。');
+  await lockMemberSession(q, input.actor, input.lockUser);
+  const principal = await ensurePrincipal(q, input.actor.user_id);
+  requireCondition(principal.status === 'active' && principal.kind === 'person', 403, 'principal_disabled', '這個身分目前無法使用。');
+  const lock = input.forUpdate ? 'FOR UPDATE' : 'FOR SHARE';
+  const scope = (await q.query<{ scope_id: string; kind: string; status: 'active' | 'disabled' }>(`SELECT scope_id,kind,status FROM resource_scopes WHERE tenant_ref=$1 FOR SHARE`, [input.tenantId])).rows[0];
+  requireCondition(scope?.kind === 'tenant', 404, 'tenant_not_found', '找不到這個業務空間。');
+  requireCondition(scope.status === 'active', 403, 'scope_disabled', '這個資源範圍目前無法使用。');
+  const tenant = (await q.query<{ tenant_id: string; community_id: string; status: TenantLifecycle; authorization_revision: string }>(
+    `SELECT tenant_id,community_id,status,authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1 ${lock}`,
+    [input.tenantId])).rows[0];
+  requireCondition(tenant, 404, 'tenant_not_found', '找不到這個業務空間。');
+  const membership = (await q.query<{ role: TenantAccessRole; status: string; version: string }>(
+    `SELECT role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 ${lock}`,
+    [input.tenantId, principal.principal_id])).rows[0];
+  requireCondition(membership?.status === 'active', 404, 'tenant_not_found', '找不到這個業務空間。');
+  requireCondition(tenant.community_id === input.actor.community_id, 404, 'tenant_not_found', '找不到這個業務空間。');
+  const role = membership.role;
+  requireCondition(role === 'owner' || role === 'admin' || role === 'operator' || role === 'viewer', 404, 'tenant_not_found', '找不到這個業務空間。');
+  const ref = ResourceScopeRefSchema.parse({ scope_id: scope.scope_id, kind: 'tenant' });
+  return Object.freeze({
+    authn_kind: 'member_session' as const,
+    subject_principal: Object.freeze(PrincipalRefSchema.parse({ principal_id: principal.principal_id, kind: 'person' as const })),
+    scope: Object.freeze(ref),
+    tenant_id: tenant.tenant_id,
+    community_id: tenant.community_id,
+    role,
+    capabilities: Object.freeze([...input.capabilitiesForRole(role)]),
+    authorization_revision: tenant.authorization_revision,
+    tenant_status: tenant.status,
+    principal_id: principal.principal_id,
+    membership_version: membership.version,
+  });
+}
+
+/**
+ * Private tenant read. Later tenant read endpoints should call this instead of
+ * opening a transaction around lockTenantScope. Not a command and not a receipt.
+ * The session clock is checked after a successful read(), which is after the
+ * tenant and membership locks, and before the value is returned. A thrown read
+ * is not followed by that query, so its SQLSTATE still reaches the caller.
+ */
+export async function withTenantRead<T>(
+  pool: Pool,
+  input: TenantScopeInput,
+  read: (q: PoolClient, context: TenantScopeContext) => Promise<T>,
+): Promise<T> {
+  return transaction(pool, async q => {
+    const context = await lockTenantScope(q, input);
+    const value = await read(q, context);
+    await assertCurrentSessionClock(q, input.actor);
+    return value;
   });
 }

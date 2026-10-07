@@ -64,7 +64,7 @@ test('common reference validators and generated JSON Schema agree, without grant
   const id = 'abcdefab-1234-4567-89ab-abcdefabcdef';
   for (const [name, validator, field, kinds] of [
     ['principal-ref', PrincipalRefSchema, 'principal_id', ['person', 'service']],
-    ['resource-scope-ref', ResourceScopeRefSchema, 'scope_id', ['community', 'personal', 'site']],
+    ['resource-scope-ref', ResourceScopeRefSchema, 'scope_id', ['community', 'personal', 'site', 'tenant']],
   ] as const) {
     const schema = JSON.parse(await readFile(new URL(`../../contracts/common/v1/${name}.schema.json`, import.meta.url), 'utf8'));
     assert.deepEqual(schema, { ...z.toJSONSchema(validator), $id: `https://freetwai.com/contracts/common/v1/${name}` });
@@ -113,8 +113,28 @@ test('typed target check rejects another scope, another kind and surplus claims'
 test('a site-shaped reference or fabricated session never activates a machine identity', async () => {
   const a = await member();
   await assert.rejects(inspect(a, { scope_id: randomUUID(), kind: 'site' }), problem(403, 'scope_kind_unavailable'));
+  await assert.rejects(inspect(a, { scope_id: randomUUID(), kind: 'tenant' }), problem(403, 'scope_kind_unavailable'));
   await assert.rejects(inspect({ ...a, session_hash: 'not-a-member-session' }), problem(401, 'session_expired'));
   assert.equal((await pool.query('SELECT count(*) FROM principals')).rows[0].count, '0');
+});
+
+test('tenant scope backing accepts only tenant_ref, and the member resolver still rejects that kind', async () => {
+  const ownerUser = randomUUID(), otherUser = randomUUID();
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+    VALUES($1,$2,$3,'形狀甲','not-a-login-hash',$4),($5,$2,$6,'形狀乙','not-a-login-hash',$7)`,
+  [ownerUser, firstCommunity, ownerUser + '@example.invalid', randomUUID(), otherUser, otherUser + '@example.invalid', randomUUID()]);
+  const owner = (await pool.query<{ principal_id: string }>(`INSERT INTO principals(user_ref) VALUES($1) RETURNING principal_id`, [ownerUser])).rows[0].principal_id;
+  const other = (await pool.query<{ principal_id: string }>(`INSERT INTO principals(user_ref) VALUES($1) RETURNING principal_id`, [otherUser])).rows[0].principal_id;
+  const tenantId = (await pool.query<{ tenant_id: string }>(`INSERT INTO tenants(community_id,display_name,status,created_by_principal_id)
+    VALUES($1,'形狀測試','recovery_required',$2) RETURNING tenant_id`, [firstCommunity, owner])).rows[0].tenant_id;
+  const scope = await pool.query(`INSERT INTO resource_scopes(kind,tenant_ref) VALUES('tenant',$1) RETURNING scope_id`, [tenantId]);
+  assert.equal(scope.rowCount, 1);
+  await assert.rejects(pool.query(`INSERT INTO resource_scopes(kind,owner_principal_id,tenant_ref) VALUES('personal',$1,$2)`, [other, tenantId]), sqlCode('23514'));
+  await assert.rejects(pool.query(`INSERT INTO resource_scopes(kind,community_ref,tenant_ref) VALUES('community',$1,$2)`, [firstCommunity, tenantId]), sqlCode('23514'));
+  await assert.rejects(pool.query(`INSERT INTO resource_scopes(kind) VALUES('tenant')`), sqlCode('23514'));
+  await assert.rejects(pool.query(`INSERT INTO resource_scopes(kind,tenant_ref,community_ref) VALUES('tenant',$1,$2)`, [tenantId, secondCommunity]), sqlCode('23514'));
+  const actor = await member();
+  await assert.rejects(inspect(actor, { scope_id: scope.rows[0].scope_id, kind: 'tenant' }), problem(403, 'scope_kind_unavailable'));
 });
 
 for (const failure of ['inactive', 'expired', 'revoked', 'other-user-session', 'wrong-community'] as const) {
