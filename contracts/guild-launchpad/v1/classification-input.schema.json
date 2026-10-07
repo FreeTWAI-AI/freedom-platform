@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "internal",
+        "external",
+        "professional_industry"
+      ]
+    },
+    "capability_tags": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "category",
+    "capability_tags",
+    "reason"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/classification-input",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: capability_tag_trimmed_blank, capability_tag_control_or_markup, capability_tags_unique, classification_reason_trimmed_short."
+}

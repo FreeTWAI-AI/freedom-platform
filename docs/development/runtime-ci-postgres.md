@@ -117,15 +117,19 @@ seconds. Credential-ingest adversarial and broker-bridge adversarial occupied
 867.483 seconds. The original 900-second deadline includes a 24-second cleanup
 reserve and remains unchanged.
 
-The existing selector now distributes six reviewed heavy files by static,
-rounded scheduling weights, with a default weight for every other/new file.
-Producer, aggregator and local full runner use the same candidate selector.
-Within-partition source order and the exact full manifest/file/case union remain
-required. A regression fixture records 210 completed-file progress deltas from
-that public run and marks the two unfinished files null. Replaying this observed
-work across all 212 selected files gives approximately 601/502/622/514 seconds;
-this excludes unknown unfinished costs and is neither a p95 estimate nor a new
-hosted pass. No test is removed, skipped, split or given a larger deadline.
+Once the central pin upgrade installs this workflow, CI runs six partitions.
+Each partition then returns to a 900 s budget (see the interim budget below),
+while the whole-run aggregate window is 1,800 s. The selector distributes files
+by static, rounded scheduling weights. Weights are the per-file minimum of
+completed-file progress deltas across hosted runs 37555767674, 37557794766,
+37559364439 and 37567098443 (2026-10-07), rounded up to whole seconds.
+Unmeasured files get the 10-second default. Two single-run fixtures remain
+regression tests: PR 117 run 37249458229 (210 completed-file deltas, two
+unfinished files recorded as null) and main run 37567098443 (247 files), whose
+four-partition maximum must stay under 770 s with these weights. The local
+default stays four, with local shard counts 1, 2 and 4. Within-partition source
+order and the exact full manifest/file/case union remain required. No test is
+removed, skipped or split.
 
 PR 117's PostgreSQL log also reports that three selected termination PIDs were
 no longer backends during cleanup. A real PostgreSQL regression reproduces the
@@ -164,6 +168,19 @@ fragment's span against that budget (`runtime_partition_window_exceeded`) and
 the whole run against a 1,800-second window (`runtime_full_window_exceeded`).
 Local runtime suites keep their 900-second cap, and caller options cannot raise
 it. Progress records accept elapsed times up to 1,200 seconds instead of
-clamping at 900. No test, file, case, count or cleanup requirement changes. The
-budget returns to 900 seconds once six partitions run under the upgraded central
-pin.
+clamping at 900. No test, file, case, count or cleanup requirement changes.
+
+The budget follows the partition count: four partitions keep the interim 1,200
+seconds and six partitions get 900. The upgraded central pin runs six partitions
+with the runner from the pinned commit, not the candidate's, so the 900-second
+budget must already be in that commit; a later change to the candidate's runner
+would not reach CI without another pin upgrade. The first six-partition hosted
+runs (stacked-PR previews 37592381527 and 37592437953 on 2026-10-07, twelve
+fragments) took 391 to 592 seconds per fragment, including provisioning and
+cleanup.
+
+Since 2026-10-07 11:15:36 UTC the central ruleset pins `6ffdf94a`, so
+main-target pull requests run six 900-second partitions with the runner and
+aggregate from that commit. The pin-upgrade control runs E0 (37609211995) and
+E1b (37609702268) each passed six fragments and 3,212 runtime tests; see
+`docs/platform-plan/verification/main-ruleset-2026-10-07.json`.

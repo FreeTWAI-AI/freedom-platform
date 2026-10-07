@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "number",
+      "const": 422
+    },
+    "code": {
+      "type": "string",
+      "const": "validation_failed"
+    },
+    "detail": {
+      "type": "string"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "type",
+    "title",
+    "status",
+    "code",
+    "detail",
+    "errors"
+  ],
+  "additionalProperties": false,
+  "$id": "https://freetwai.com/contracts/guild-launchpad/v1/validation-failed-problem",
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: none."
+}

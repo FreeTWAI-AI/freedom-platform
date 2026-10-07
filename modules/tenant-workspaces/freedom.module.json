@@ -4,7 +4,7 @@
   "owner_role": "platform",
   "owned_paths": [
     "modules/tenant-workspaces/**",
-    "contracts/guild-launchpad/**",
+    "contracts/guild-launchpad/v1/tenant.ts",
     "apps/platform-api/src/routes/tenant-workspaces.ts",
     "apps/portal-web/src/modules/TenantSelector.tsx",
     "apps/portal-web/src/modules/TenantSettings.tsx",

@@ -18,8 +18,11 @@ on:
 # qualifying edits and is not itself allowlisted. No other docs/platform-plan path is exempt.
 # Push, merge queue, rename, delete, unknown, governance, security, and
 # shared-runtime changes keep the full set.
-# The selector and aggregate script come from job.workflow_sha. Checks still
-# execute the candidate checkout. This is not an independent trusted harness.
+# The selector, the verify aggregate, the runtime partition runner, the runtime aggregate and every node:test, pytest and browser suite runner come from job.workflow_sha, checked out at .freedom/trusted.
+# The pinned runner derives each file set from the candidate tree and requires complete per-file and per-case evidence.
+# Candidate package scripts, globs and runner files do not define a required test suite.
+# The build, typecheck, dry-run and check scripts stay candidate-defined.
+# Candidate code still executes on the same runner, so this is not a sandbox against a hostile candidate.
 concurrency:
   group: verify-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -90,14 +93,27 @@ jobs:
           python-version: '3.13'
       - name: Install fixed host manifest validator dependency
         run: python -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple jsonschema==4.26.0
-      - name: Test affected-job selection
-        run: node --test --test-concurrency=1 scripts/ci/select-affected-jobs.test.mjs
       - run: npm ci
       - run: npm run contracts:build
       - run: git diff --exit-code -- contracts/preview/v1 packages/sdk
       - run: npm run check:runtime-text
       - run: npm run verify:inventory
-      - run: npm run test:governance
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.selector-unit
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
   # This required check always runs. source-integrity must succeed. A selected
   # job must succeed. An unselected heavy job may be skipped or may succeed.
   # Failure, cancellation, and a skip of a selected job do not pass.
@@ -128,13 +144,13 @@ jobs:
     timeout-minutes: 40
     needs: select
     if: ${{ !cancelled() && (needs.select.result != 'success' || needs.select.outputs.runtime_full == 'true') }}
-    # Independent runners and PostgreSQL services: one sequential test process
-    # per 50-file partition (200 current runtime files), rather than four
-    # competing on the same host. Selection and aggregation remain dynamic.
+    # Independent runners and PostgreSQL services: six partitions, each one
+    # serial test process. Measured weights balance the partitions, and each
+    # keeps its own 900-second budget. Selection and aggregation stay dynamic.
     strategy:
       fail-fast: false
       matrix:
-        partition: [0, 1, 2, 3]
+        partition: [0, 1, 2, 3, 4, 5]
     services:
       postgres:
         image: postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
@@ -191,10 +207,24 @@ jobs:
           # Verify the exact stock profile and render only the reviewed deleted-inode
           # mediation flag; retain AppArmor/userns restrictions and prove isolation.
           bash scripts/ci/verify-native-cli-prerequisites.sh
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
       - name: Complete this runtime partition in its owned database
         run: |
-          node --test --test-concurrency=1 tests/contribution-tools/runtime-sharding.integration.test.mjs
-          node scripts/runtime-full.mjs --partition-count 4 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
+          node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-sharding-integration
+          node .freedom/trusted/scripts/runtime-full.mjs --partition-count 6 --partition-index ${{ matrix.partition }} --output .freedom/reports/runtime-partition-${{ matrix.partition }}.json
         env:
           # This job's synthetic PostgreSQL service uses loopback trust only.
           TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
@@ -217,14 +247,28 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Download only this run's four partition artifacts
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - name: Download only this run's six partition artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: runtime-partition-*
           path: .freedom/reports/runtime-partitions
           merge-multiple: true
-      - name: Require exact complete union and original overall runtime deadline
-        run: node scripts/runtime-aggregate.mjs --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
+      - name: Require exact complete union, per-partition deadlines and one run window
+        run: node .freedom/trusted/scripts/runtime-aggregate.mjs --partition-count 6 --input-dir .freedom/reports/runtime-partitions --output .freedom/reports/runtime-full-matrix.json
       - name: Preserve aggregate diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -267,7 +311,21 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run contracts:build
       - run: npm run build
-      - run: npm run test:e2e
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-e2e.mjs --root .
   static-worker:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -327,7 +385,23 @@ jobs:
       - run: npm run worker:dry-run:media-operator
         env:
           WRANGLER_SEND_METRICS: 'false'
-      - run: npm run test:worker
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.worker-unit
+        env:
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
       - run: npm run test:media-restore
       - run: npm run test:media-restore -- --archive-only
   governance-consumers:
@@ -367,12 +441,6 @@ jobs:
       - run: npm ci
       - run: python -m pip install -r docs/platform-plan/contracts/tests/requirements-static.txt
       - run: npm run contracts:build
-      - run: npm run test:skill-client
-      # This integration launches every synthetic baseline file in the fixed
-      # runtime runner. Keep it required, outside the 60-second unit adapter.
-      - name: Verify complete runtime selection union
-        run: node --test --test-concurrency=1 tests/contribution-tools/runtime-union.integration.test.mjs
-      - run: npm run test:governance
       - run: node scripts/checkout-repositories.mjs
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
@@ -380,11 +448,33 @@ jobs:
       # their source object even when the candidate checkout is shallow.
       - name: Fetch the immutable adopted library source
         run: git fetch --no-tags --depth=1 origin 91b943ac61e132fbbce72ea066cb2301aa065600
-      - run: npm run test:repos
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.skill-client-unit
+      # This integration launches every synthetic baseline file in the fixed
+      # runtime runner. Keep it required, outside the 60-second unit adapter.
+      - name: Verify complete runtime selection union
+        run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.runtime-union-integration
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.governance-unit
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.pinned-pytest-integration
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.consumer-repositories
         env:
           FREEDOM_REPOSITORIES_ROOT: ${{ runner.temp }}/freedom-consumers
           FREEDOM_CONSUMER_SOURCE_COMMIT: 91b943ac61e132fbbce72ea066cb2301aa065600
-      - run: npm run test:contracts
+          TEST_DATABASE_URL: postgresql://freedom_local@127.0.0.1:5432/fp_foundation_ci
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.contracts-pytest
       - run: npm run verify:inventory
   # Selected preflight must succeed for verify. Enforcing this revision through
   # an installed workflow pin still requires its reviewed ruleset upgrade.
@@ -398,9 +488,23 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - run: node --test deploy/cloudflare/test/*.test.mjs
       - run: npm ci --ignore-scripts
+      - name: Checkout the pinned runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .freedom/trusted
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Confirm the pinned runner checkout
+        env:
+          PINNED_SHA: ${{ job.workflow_sha }}
+        run: |
+          test "$(git -C .freedom/trusted rev-parse HEAD)" = "$PINNED_SHA"
+          test -z "$(git -C .freedom/trusted status --porcelain)"
+      - run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.deploy-preflight
       - name: Fetch the immutable isolated migration database image
         run: docker pull postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
       - name: Verify both migration entrypoints against isolated PostgreSQL
-        run: node --import tsx --test tests/integration/migration-plan-postgres.test.ts tests/integration/migration-entrypoints-postgres.test.ts tests/runtime/migration-runner-plan.test.ts
+        run: node .freedom/trusted/scripts/ci/run-pinned-suite.mjs --root . --suite ci.migration-postgres

@@ -16,6 +16,10 @@ const bundlePath = '.wrangler/dry-run/maintainer-local/maintainer-worker.js';
 const serverUrl = new URL(process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL);
 const database = `fp_workerd_maintainer_${process.pid}_${Date.now()}`;
 const databaseUrl = Object.assign(new URL(serverUrl), { pathname: '/' + database }).href;
+
+// Required by Miniflare even when the database uses local trust auth.
+const workerDatabase = new URL(databaseUrl);
+workerDatabase.password ||= 'synthetic-workerd-only';
 const compatibilityDate = '2026-09-21';
 const APP_ID = '12345';
 const pair = await generateKeyPair('RS256', { modulusLength: 2048, extractable: true });
@@ -23,11 +27,15 @@ const privateKey = await exportPKCS8(pair.privateKey);
 const publicKey = await exportSPKI(pair.publicKey);
 const server = createPool(serverUrl.href);
 let mf: Miniflare, db: Pool;
+const closedClients: Promise<void>[] = [];
 const calls: Array<{ method: string; host: string; path: string; authorization: string; body: unknown }> = [];
 
 before(async () => {
   await server.query(`CREATE DATABASE ${database}`);
   db = new Pool({ connectionString: databaseUrl, max: 2 });
+  // Pool.end() resolves after removing clients, before their sockets necessarily close.
+  // Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+  db.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
   await migrate(db);
   await db.query('INSERT INTO communities (community_id, name) VALUES ($1,$2)', [randomUUID(), 'Maintainer workerd']);
   // Wrangler's dry-run names the bundle after the entry. A scheduled-only module does not
@@ -44,7 +52,7 @@ before(async () => {
       ],
       compatibilityDate, compatibilityFlags: ['nodejs_compat'],
       bindings: { GITHUB_MAINTAINER_APP_ID: APP_ID, GITHUB_MAINTAINER_ORG: 'FreeTWAI-AI', GITHUB_MAINTAINER_PRIVATE_KEY: privateKey },
-      hyperdrives: { HYPERDRIVE: databaseUrl },
+      hyperdrives: { HYPERDRIVE: workerDatabase.href },
       outboundService: async (request: Request) => {
         const url = new URL(request.url);
         const body = request.method === 'POST' ? await request.json() : null;
@@ -67,6 +75,7 @@ before(async () => {
 after(async () => {
   await mf?.dispose().catch(() => undefined);
   await db?.end().catch(() => undefined);
+  await Promise.all(closedClients);
   try { await server.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`); }
   finally { await server.end(); }
 });

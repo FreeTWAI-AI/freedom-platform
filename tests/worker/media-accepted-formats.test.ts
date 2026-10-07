@@ -34,6 +34,12 @@ function roleUrl(role: string) {
 const admin = new Pool({ connectionString: raw });
 const owner = new Pool({ connectionString: roleUrl(migrator) });
 const app = new Pool({ connectionString: roleUrl(runtimeRole) });
+// Pool.end() resolves after removing clients, before their sockets necessarily close.
+// Wait for actual client end events before DROP FORCE, so teardown cannot kill an idle closing client.
+const closedClients: Promise<void>[] = [];
+for (const pool of [owner, app]) {
+  pool.on('connect', client => closedClients.push(new Promise<void>(resolve => client.once('end', resolve))));
+}
 const sockets = new Set<Socket>();
 const proxy = socket ? createServer(client => {
   const upstream = createConnection(join(socket, '.s.PGSQL.5432'));
@@ -93,6 +99,7 @@ after(async () => {
   for (const channel of sockets) channel.destroy();
   if (proxy?.listening) await new Promise<void>(resolveClose => proxy.close(() => resolveClose()));
   await Promise.all([owner.end(), app.end()]);
+  await Promise.all(closedClients);
   try {
     if (created) {
       await admin.query(`DROP DATABASE ${database} WITH (FORCE)`);

@@ -1,15 +1,26 @@
 import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {Pool} from 'pg';
 import {createLocalJWKSet, exportJWK, generateKeyPair, SignJWT} from 'jose';
-import {createPool, LOCAL_DATABASE_URL} from '../../packages/db/index.js';
+import {createPool, LOCAL_DATABASE_URL, transaction} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {createAdminAccessVerifier} from '../../modules/platform-admin/access.js';
-import {backfillGuildPreferences, lockGuildCatalog, lockGuildCatalogShared} from '../../modules/positioning/guild-categories.js';
+import {
+  backfillGuildPreferences,
+  lockGuildCatalog,
+  lockGuildCatalogShared,
+  recomputeLegacyProjection,
+  switchInTransaction,
+} from '../../modules/positioning/guild-categories.js';
 import {lockMemberGuilds} from '../../modules/positioning/onboarding.js';
+import {guildPreferenceStatus} from '../../scripts/guild-preferences-backfill.js';
+// @ts-expect-error Existing host-only clean environment helper is an ESM JavaScript module.
+import {verificationEnvironment} from '../../packages/contribution-tools/process-env.mjs';
 
 const origin = 'http://127.0.0.1:4310';
 const databaseUrl = process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL;
@@ -158,6 +169,19 @@ test('T-001 catalog shape, empty slots, rejected writes, and flag-off 404', asyn
   const illegal = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'nope', guild_key: null, catalog_revision: catalog.data.catalog_revision}, {version});
   assert.equal(illegal.status, 422);
   assert.equal(illegal.data.code, 'validation_failed');
+  const overVersion = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: null, catalog_revision: '9223372036854775808'}, {version});
+  assert.equal(overVersion.status, 422);
+  assert.equal(overVersion.data.code, 'validation_failed');
+  const atVersionBound = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: 'guild_talent_direction', catalog_revision: '9223372036854775807'}, {version});
+  assert.equal(atVersionBound.status, 409);
+  assert.equal(atVersionBound.data.code, 'catalog_revision_changed');
+  const catalogRev = await revision('guild_talent_direction');
+  const longTag = await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'internal', capability_tags: [' ' + 'a'.repeat(64)], reason: '原因足夠'}, {version: catalogRev});
+  assert.equal(longTag.status, 422, JSON.stringify(longTag.data));
+  assert.equal(longTag.data.code, 'validation_failed');
+  const longReason = await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'internal', capability_tags: ['tag'], reason: ' ' + 'a'.repeat(1000)}, {version: catalogRev});
+  assert.equal(longReason.status, 422, JSON.stringify(longReason.data));
+  assert.equal(longReason.data.code, 'validation_failed');
   const extra = await member(flagged, '/me/guild-preferences/v2/set', s, {category: 'internal', guild_key: null, catalog_revision: catalog.data.catalog_revision, user_id: s.user.user_id}, {version});
   assert.equal(extra.status, 422);
   await assert.rejects(pool.query(`UPDATE guild_catalog_categories SET category = NULL WHERE guild_key = 'guild_talent_direction'`), (error: {code?: string}) => error.code === '23514');
@@ -959,4 +983,277 @@ test('T-030 a clean primary after an ambiguous recompute is mapped and can switc
   const legacyAfter = (await pool.query(`SELECT primary_guild_key, secondary_guild_keys FROM guild_member_preferences WHERE user_id = $1`, [memberSession.user.user_id])).rows[0];
   assert.deepEqual(legacyAfter, legacyBefore);
   assert.deepEqual((await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id = $1 ORDER BY category`, [memberSession.user.user_id])).rows, slots);
+});
+
+test('T-010 T-030 read-only status reports legacy, backfilled, switched and blocked communities', async () => {
+  const communityL = randomUUID();
+  const communityF = randomUUID();
+  const communityS = randomUUID();
+  const communityB = randomUUID();
+  await pool.query('INSERT INTO communities(community_id, name) VALUES ($1,$2)', [communityL, '社群 L']);
+  await pool.query('INSERT INTO communities(community_id, name) VALUES ($1,$2)', [communityF, '社群 F']);
+  await pool.query('INSERT INTO communities(community_id, name) VALUES ($1,$2)', [communityS, '社群 S']);
+  await pool.query('INSERT INTO communities(community_id, name) VALUES ($1,$2)', [communityB, '社群 B']);
+
+  const maker = DEMO_USERS[0].user_id;
+  async function user(communityId: string, id: string, name: string) {
+    await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+      SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [id, communityId, `${id}@example.test`, name, randomUUID(), maker]);
+  }
+  async function membership(communityId: string, id: string, key: string, state = 'active', tier = 'intern') {
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,$4,$5,$6)`, [randomUUID(), communityId, id, key, state, tier]);
+  }
+  async function preference(communityId: string, id: string, primary: string, secondary: string[] | null = null) {
+    await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys) VALUES ($1,$2,$3,$4)`, [communityId, id, primary, secondary]);
+  }
+
+  const idL = 'd0000000-0000-4000-8000-000000000001';
+  await user(communityL, idL, 'L成員');
+  await membership(communityL, idL, 'guild_member_operations');
+  await preference(communityL, idL, 'guild_member_operations');
+
+  const idF = 'd0000000-0000-4000-8000-000000000002';
+  await user(communityF, idF, 'F成員');
+  await membership(communityF, idF, 'guild_platform_engineering');
+  await preference(communityF, idF, 'guild_platform_engineering');
+  await backfillGuildPreferences(pool, {communityId: communityF, dryRun: false});
+
+  const idS = 'd0000000-0000-4000-8000-000000000003';
+  await user(communityS, idS, 'S成員');
+  await membership(communityS, idS, 'guild_talent_direction');
+  await preference(communityS, idS, 'guild_talent_direction');
+  await backfillGuildPreferences(pool, {communityId: communityS, dryRun: false});
+  await transaction(pool, q => switchInTransaction(q, {communityId: communityS, acceptBlocked: false, switchedBy: null}));
+
+  const b1 = 'd0000000-0000-4000-8000-000000000004';
+  const b2 = 'd0000000-0000-4000-8000-000000000005';
+  const b3 = 'd0000000-0000-4000-8000-000000000006';
+  await user(communityB, b1, 'B1');
+  await membership(communityB, b1, 'guild_security');
+  await preference(communityB, b1, 'guild_security');
+
+  await user(communityB, b2, 'B2');
+  await membership(communityB, b2, 'guild_ai_vibe');
+  await preference(communityB, b2, 'guild_ai_vibe');
+
+  await user(communityB, b3, 'B3');
+  await membership(communityB, b3, 'guild_talent_direction', 'left', 'full');
+  await preference(communityB, b3, 'guild_talent_direction');
+
+  await backfillGuildPreferences(pool, {communityId: communityB, dryRun: false});
+  await transaction(pool, q => recomputeLegacyProjection(q, {community_id: communityB, user_id: b2}));
+
+  const tableRows = (await pool.query(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' AND left(table_name, 6) = 'guild_' ORDER BY table_name`,
+  )).rows as {table_name: string}[];
+  const tableNames = tableRows.map(r => r.table_name);
+  for (const name of [
+    'guild_preference_sets', 'guild_preference_switch', 'guild_category_preferences',
+    'guild_preference_migration_audit', 'guild_preference_invalidations', 'guild_catalog_categories',
+  ]) {
+    assert.equal(tableNames.includes(name), true, `Missing required table: ${name}`);
+  }
+  async function snapshotGuildTables() {
+    const counts: Record<string, number> = {};
+    for (const name of tableNames) {
+      const res = await pool.query(`SELECT count(*)::int AS count FROM ${name}`);
+      counts[name] = Number(res.rows[0].count);
+    }
+    return counts;
+  }
+  const beforeSnapshot = await snapshotGuildTables();
+
+  const status = await guildPreferenceStatus(pool);
+  const byCommunity = new Map(status.communities.map(c => [c.community_id, c]));
+
+  assert.deepEqual(byCommunity.get(communityL), {
+    community_id: communityL,
+    state: 'legacy',
+    switched_at: null,
+    remaining: 1,
+    remaining_blocked: 0,
+    blocking_reasons: {},
+    blocking_reasons_complete: true,
+    preference_sets: {legacy: 0, backfilled: 0, switched: 0},
+  });
+
+  assert.deepEqual(byCommunity.get(communityF), {
+    community_id: communityF,
+    state: 'backfilled',
+    switched_at: null,
+    remaining: 0,
+    remaining_blocked: 0,
+    blocking_reasons: {},
+    blocking_reasons_complete: true,
+    preference_sets: {legacy: 0, backfilled: 1, switched: 0},
+  });
+
+  const entryS = byCommunity.get(communityS)!;
+  assert.ok(entryS?.switched_at);
+  assert.equal(Number.isNaN(Date.parse(entryS.switched_at)), false);
+  assert.deepEqual(entryS, {
+    community_id: communityS,
+    state: 'switched',
+    switched_at: entryS.switched_at,
+    remaining: 0,
+    remaining_blocked: 0,
+    blocking_reasons: {},
+    blocking_reasons_complete: true,
+    preference_sets: {legacy: 0, backfilled: 0, switched: 1},
+  });
+
+  assert.deepEqual(byCommunity.get(communityB), {
+    community_id: communityB,
+    state: 'blocked',
+    switched_at: null,
+    remaining: 2,
+    remaining_blocked: 2,
+    blocking_reasons: {unknown_category: 1, left_primary: 1},
+    blocking_reasons_complete: true,
+    preference_sets: {legacy: 1, backfilled: 1, switched: 0},
+  });
+
+  const ids = status.communities.map(c => c.community_id);
+  assert.deepEqual(ids, [...ids].sort());
+
+  assert.equal(status.totals.communities, status.communities.length);
+  assert.equal(status.totals.legacy, status.communities.filter(c => c.state === 'legacy').length);
+  assert.equal(status.totals.backfilled, status.communities.filter(c => c.state === 'backfilled').length);
+  assert.equal(status.totals.switched, status.communities.filter(c => c.state === 'switched').length);
+  assert.equal(status.totals.blocked, status.communities.filter(c => c.state === 'blocked').length);
+
+  const sumPrefs = status.communities.reduce(
+    (acc, c) => ({
+      legacy: acc.legacy + c.preference_sets.legacy,
+      backfilled: acc.backfilled + c.preference_sets.backfilled,
+      switched: acc.switched + c.preference_sets.switched,
+    }),
+    {legacy: 0, backfilled: 0, switched: 0},
+  );
+  assert.deepEqual(status.totals.preference_sets, sumPrefs);
+
+  const statusB = await guildPreferenceStatus(pool, {communityId: communityB});
+  assert.deepEqual(statusB.communities, [byCommunity.get(communityB)]);
+  assert.deepEqual(statusB.totals, {
+    communities: 1,
+    legacy: 0,
+    backfilled: 0,
+    switched: 0,
+    blocked: 1,
+    preference_sets: {legacy: 1, backfilled: 1, switched: 0},
+  });
+  await assert.rejects(
+    () => guildPreferenceStatus(pool, {communityId: randomUUID()}),
+    /No community matches --community-id/,
+  );
+
+  const afterSnapshot = await snapshotGuildTables();
+  assert.deepEqual(afterSnapshot, beforeSnapshot);
+});
+
+test('T-010 status refuses --execute and --limit before connecting', () => {
+  for (const extra of [['--execute'], ['--limit', '5']]) {
+    const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/guild-preferences-backfill.ts', '--status', ...extra, '--database-url', 'postgresql://status-refusal@127.0.0.1:9/fp_status_refusal'], {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)), env: verificationEnvironment(),
+      encoding: 'utf8', timeout: 30000, maxBuffer: 128 * 1024,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--status is read-only and cannot be combined with --execute or --limit\./);
+    assert.equal(result.stdout, '');
+  }
+});
+
+async function assertCatalogLockFree() {
+  const countRes = await pool.query(`
+    SELECT count(*)::int AS count
+    FROM pg_locks l CROSS JOIN (SELECT hashtextextended('guild-catalog-revision', 0) AS k) h
+    WHERE l.locktype = 'advisory'
+      AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+      AND l.objsubid = 1
+      AND l.classid::bigint = ((h.k >> 32) & 4294967295)
+      AND l.objid::bigint = (h.k & 4294967295)
+  `);
+  assert.equal(countRes.rows[0].count, 0);
+
+  const fresh = await database.connect();
+  try {
+    const lockRes = await fresh.query(`SELECT pg_try_advisory_lock(hashtextextended('guild-catalog-revision',0)) AS ok`);
+    assert.equal(lockRes.rows[0].ok, true);
+    const unlockRes = await fresh.query(`SELECT pg_advisory_unlock(hashtextextended('guild-catalog-revision',0)) AS ok`);
+    assert.equal(unlockRes.rows[0].ok, true);
+  } finally {
+    fresh.release(true);
+  }
+}
+
+test('T-010 status waits for the catalog lock and reports a write committed while it waited', async () => {
+  const communityId = randomUUID();
+  await pool.query(`INSERT INTO communities(community_id, name) VALUES ($1, 'Status Lock Test')`, [communityId]);
+  const userId = 'e0000000-0000-4000-8000-000000000001';
+  await pool.query(`INSERT INTO users(user_id, community_id, email, display_name, password_hash, profession_membership_ref)
+    SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id = $6`, [userId, communityId, `${userId}@example.test`, 'Test User', randomUUID(), DEMO_USERS[0].user_id]);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id, community_id, user_id, guild_key, state, member_tier) VALUES ($1,$2,$3,$4,$5,$6)`, [randomUUID(), communityId, userId, 'guild_member_operations', 'active', 'intern']);
+  await pool.query(`INSERT INTO guild_member_preferences(community_id, user_id, primary_guild_key, secondary_guild_keys) VALUES ($1,$2,$3,$4)`, [communityId, userId, 'guild_member_operations', null]);
+
+  const preStatus = await guildPreferenceStatus(pool, {communityId});
+  assert.equal(preStatus.communities[0].state, 'legacy');
+  assert.equal(preStatus.communities[0].remaining, 1);
+  assert.equal(preStatus.communities[0].remaining_blocked, 0);
+  assert.deepEqual(preStatus.communities[0].preference_sets, {legacy: 0, backfilled: 0, switched: 0});
+
+  const w = await pool.connect();
+  let settled = false;
+  let statusPromise: ReturnType<typeof guildPreferenceStatus> | undefined;
+  try {
+    await w.query('BEGIN');
+    const pid = (await w.query('SELECT pg_backend_pid()')).rows[0].pg_backend_pid;
+    await lockGuildCatalogShared(w);
+    await recomputeLegacyProjection(w, {community_id: communityId, user_id: userId});
+
+    statusPromise = guildPreferenceStatus(pool).finally(() => { settled = true; });
+
+    const deadline = Date.now() + 8000;
+    let waiting = false;
+    while (Date.now() < deadline) {
+      const locks = await pool.query(`SELECT mode FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND $1 = ANY(pg_blocking_pids(pid))`, [pid]);
+      if (locks.rows.some(r => r.mode === 'ExclusiveLock')) {
+        waiting = true;
+        break;
+      }
+      await new Promise(r => setTimeout(r, 20));
+    }
+    assert.equal(waiting, true);
+
+    await new Promise(r => setTimeout(r, 300));
+    assert.equal(settled, false);
+
+    await w.query('COMMIT');
+
+    const status = await statusPromise;
+    const entry = status!.communities.find(c => c.community_id === communityId);
+    assert.deepEqual(entry, {
+      community_id: communityId,
+      state: 'backfilled',
+      switched_at: null,
+      remaining: 0,
+      remaining_blocked: 0,
+      blocking_reasons: {},
+      blocking_reasons_complete: true,
+      preference_sets: {legacy: 0, backfilled: 1, switched: 0}
+    });
+  } finally {
+    await w.query('ROLLBACK').catch(() => undefined);
+    w.release();
+    await statusPromise?.catch(() => undefined);
+  }
+});
+
+test('T-010 status releases the catalog lock after a report', async () => {
+  await guildPreferenceStatus(pool);
+  await assertCatalogLockFree();
+});
+
+test('T-010 status releases the catalog lock after an error', async () => {
+  await assert.rejects(() => guildPreferenceStatus(pool, {communityId: randomUUID()}), /No community matches --community-id/);
+  await assertCatalogLockFree();
 });
