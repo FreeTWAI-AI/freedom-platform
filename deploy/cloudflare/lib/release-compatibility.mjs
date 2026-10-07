@@ -92,12 +92,18 @@ const FOUNDATION_NAMES = [
   // Machine model pins, dispatch evidence and one-use broker authorization;
   // recognition does not install the broker or activate execution.
   '119_machine_model_invocations.sql',
+  // Guild categories and one primary slot per category; expand only, the legacy
+  // preference columns stay and recognition switches no community.
+  '120_guild_categories_preferences.sql',
   // Tenant business spaces, memberships, invitations and authority audit; guild
   // roles gain no business-space authority and recognition activates nothing.
-  '120_tenant_workspaces.sql',
+  '121_tenant_workspaces.sql',
+  // Versioned guild launchpad config, pointers and expiring delegations; guild
+  // roles gain no business-space or private-work authority.
+  '122_guild_launchpad_config.sql',
   // Tenant module instances, manual Work and human Results under a per-tenant capacity
   // policy; no capacity policy is seeded and recognition activates nothing.
-  '121_tenant_manual_work.sql',
+  '123_tenant_manual_work.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

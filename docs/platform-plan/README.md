@@ -1,5 +1,7 @@
 # Freedom Platform 大平台規劃與技術規格索引
 
+> **2026-10-05 可接續的 target spec**：[公會啟動台與可攜式業務空間 SP-00–SP-12](execution/guild-launchpad/README.md)承接三類主力、全公會可用公版、tenant歸屬與單模組混合託管。規格/來源/追蹤已整理；功能、60項新產品驗收及正式能力啟用尚未完成，原計畫及foundation驗收不被取代。
+
 > 狀態：現行 canonical baseline（2026-09-19 低維運互惠修訂）；planning 文件，不代表已部署。
 
 > **2026-09-24 今日狀態與優先序：** 公開會員 beta 以 `main` `8338a42` 運行（root 已部署驗證，見 `09` 的 9/24 狀態）。它是 Node＋PostgreSQL 的已實作子集：email 註冊、封閉定位、18 個內建公會與核准的自訂公會、37 本技能書（43 個原作 repo）、名片、GitHub Star 與開發資格 grant／revoke。本頁的 56 packages、12 runtimes、signed channel 與金流仍是目標，下文「未跑／不宣稱完成」只適用這些目標與真人／provider 驗收。

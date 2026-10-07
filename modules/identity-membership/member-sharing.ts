@@ -224,10 +224,15 @@ async function sharedRow(q:Pool|PoolClient,token:string){
   // Contacts, social links and the share predicate share this one statement snapshot.
   const row=(await q.query(`SELECT u.user_id,u.community_id,u.display_name,s.include_avatar,s.design,s.headline,s.links,s.show_profile_links,s.profile_link_prefs,
       a.published_profile,(av.present) AS has_avatar,${profileColumns},
-      (SELECT jsonb_build_object('guild_key',g.guild_key,'name',g.name) FROM guild_member_preferences p
-        JOIN positioning_guild_catalog g ON g.guild_key=p.primary_guild_key
-        JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=g.guild_key AND m.state='active'
-        WHERE p.user_id=u.user_id AND p.community_id=u.community_id) AS primary_guild
+      (SELECT jsonb_build_object('guild_key',g.guild_key,'name',g.name) FROM positioning_guild_catalog g
+        WHERE g.guild_key=(CASE WHEN EXISTS (SELECT 1 FROM guild_preference_switch sw WHERE sw.community_id=u.community_id AND sw.state='switched')
+          THEN (SELECT cp.guild_key FROM guild_category_preferences cp
+            JOIN positioning_profession_memberships m ON m.user_id=cp.user_id AND m.community_id=cp.community_id AND m.guild_key=cp.guild_key AND m.state='active'
+            WHERE cp.user_id=u.user_id AND cp.community_id=u.community_id
+            ORDER BY CASE cp.category WHEN 'professional_industry' THEN 1 WHEN 'external' THEN 2 ELSE 3 END LIMIT 1)
+          ELSE (SELECT p.primary_guild_key FROM guild_member_preferences p
+            JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=p.primary_guild_key AND m.state='active'
+            WHERE p.user_id=u.user_id AND p.community_id=u.community_id) END)) AS primary_guild
     FROM member_card_shares s JOIN users u USING(user_id,community_id)
       LEFT JOIN member_accounts account USING(user_id,community_id)
       LEFT JOIN onboarding_assessments a USING(user_id,community_id)
@@ -272,10 +277,15 @@ export async function readPublicCards(pool:Pool,communityId:string,userIds:strin
   const cards=new Map<string,{path:string;title:string;summary:string;image:null;generation:string}>();
   if(!ids.length||!uuidPattern.test(communityId))return cards;
   const rows=(await pool.query(`SELECT u.user_id,u.display_name,s.share_token,s.headline,a.published_profile,
-      (SELECT g.name FROM guild_member_preferences p
-        JOIN positioning_guild_catalog g ON g.guild_key=p.primary_guild_key
-        JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=g.guild_key AND m.state='active'
-        WHERE p.user_id=u.user_id AND p.community_id=u.community_id) AS guild_name
+      (SELECT g.name FROM positioning_guild_catalog g
+        WHERE g.guild_key=(CASE WHEN EXISTS (SELECT 1 FROM guild_preference_switch sw WHERE sw.community_id=u.community_id AND sw.state='switched')
+          THEN (SELECT cp.guild_key FROM guild_category_preferences cp
+            JOIN positioning_profession_memberships m ON m.user_id=cp.user_id AND m.community_id=cp.community_id AND m.guild_key=cp.guild_key AND m.state='active'
+            WHERE cp.user_id=u.user_id AND cp.community_id=u.community_id
+            ORDER BY CASE cp.category WHEN 'professional_industry' THEN 1 WHEN 'external' THEN 2 ELSE 3 END LIMIT 1)
+          ELSE (SELECT p.primary_guild_key FROM guild_member_preferences p
+            JOIN positioning_profession_memberships m ON m.user_id=u.user_id AND m.community_id=u.community_id AND m.guild_key=p.primary_guild_key AND m.state='active'
+            WHERE p.user_id=u.user_id AND p.community_id=u.community_id) END)) AS guild_name
     FROM member_card_shares s JOIN users u ON u.user_id=s.user_id AND u.community_id=s.community_id
       LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
     WHERE s.community_id=$1 AND u.user_id=ANY($2::uuid[]) AND s.enabled AND u.active

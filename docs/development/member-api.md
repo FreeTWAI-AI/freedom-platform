@@ -149,3 +149,66 @@ private contact access, repository permission or additional skill books.
   frozen to its effective choices at that point. Rejoining therefore does not
   silently restore a secondary slot. Other joined guilds remain available for
   selection and keep their existing skill grants.
+
+## Three category primaries
+
+These routes exist only when the guild-launchpad feature is enabled. They still
+do not grant membership, offices, contact access, repository permission or skill
+books. A community stays on the legacy primary/secondary model until a platform
+admin switches that community. Before the switch, `POST /me/guild-preferences/v2/set`
+returns 409 `preference_switch_pending`. After the switch, `POST /guilds/:key/primary`
+and `POST /me/guild-preferences/secondary` return 409 `client_upgrade_required`.
+`GET /me/guild-preferences` then adds `compatibility: "legacy_projection"` and
+keeps the old fields as a read-only projection.
+
+- `GET /guild-categories` is public. It returns
+  `{catalog_revision, categories:[{category,label,section,items}], pending:[items]}`.
+  Each item has `guild_key`, `name`, `alias`, `profession_title`, `category`,
+  `category_review`, `capability_tags`, `active` and `catalog_revision`.
+  `catalog_revision` is a positive decimal string, or null when that catalog
+  guild has no classification row yet. A missing row is read as pending.
+  Approved guilds sit in their category; pending guilds sit in `pending`.
+- `GET /me/guild-preferences/v2` returns the member view:
+  `{aggregate_version, primaries:[{category,guild_key}], invalidated, migration_state, legacy}`.
+  `primaries` always has three rows, in order `internal`, `external`,
+  `professional_industry`. Empty slots use `guild_key: null`. No preference-set
+  row returns 503 `preference_mapping_unavailable` and writes nothing.
+  `aggregate_version` is a JSON number on the wire. The response is
+  `Cache-Control: private, no-store`.
+- `POST /me/guild-preferences/v2/set` accepts exactly
+  `{category, guild_key, catalog_revision}` with session, CSRF,
+  `Idempotency-Key` and the preference `If-Match`. `guild_key: null` clears
+  that category and carries the top-level catalog revision. A guild selection
+  carries that guild's `catalog_revision`. Unknown JSON fields return 422
+  `validation_failed`. A moved guild revision returns 409
+  `catalog_revision_changed`. A pending, missing or mismatched category returns
+  409 `guild_category_unresolved`. An inactive classification returns 409
+  `guild_inactive`. A non-active membership returns 409 `active_guild_required`.
+- `POST /guilds/:key/leave-v2` accepts `{clear_primary:boolean}` and the
+  membership `If-Match`. When the guild is a category primary, also send the
+  unquoted preference version in `X-Preference-Version`. Clearing that primary
+  and leaving happen in one command. Private business data is not moved or
+  deleted. After the switch, the legacy leave route returns 409
+  `primary_clear_required` if the guild is still a category primary.
+
+Platform-admin routes, also flag-gated: `GET /admin/api/guild-categories`,
+`POST /admin/api/guilds/:key/classification` (If-Match of that guild's
+`catalog_revision`), `POST /admin/api/guild-preferences/backfill` and
+`POST /admin/api/guild-preferences/switch`. Backfill and switch do not use
+If-Match. A missing classification row is 409 `guild_category_unresolved`;
+404 `guild_not_found` only when the catalog guild itself is absent.
+A member is a backfill or switch candidate when they have no preference set,
+or the set is still `legacy`. `backfilled` and `switched` are already
+reconciled and are not candidates. Before the switch, an old primary or
+secondary write recomputes that member under the member lock. An ambiguous
+plan (unknown category, left primary, inactive guild, or invalid secondary)
+leaves the set in `legacy`, with empty category slots and a
+`legacy_ambiguous` invalidation. That row does not count as mapped and does
+not drop the member out of `blocked` / `remaining_blocked`. A later clean
+plan moves the same set to `backfilled` and fills only the approved active
+primary. `accept_blocked: false` returns 409 `preference_switch_blocked`
+while any candidate is blocked; the refusal does not mark sets `switched`
+and does not record a clean migration audit for the ambiguous snapshot.
+Accepting the block still does not copy another guild into an empty slot
+or change the legacy primary, legacy secondary, membership tier, skill
+books, or contact visibility.

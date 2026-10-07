@@ -28,7 +28,7 @@ export class AdminClient {
     throw new AdminRequestError(ADMIN_ACCESS_EXPIRED_MESSAGE, status, true);
   }
 
-  async request<T>(path: string, body?: unknown, options: { key?: string; version?: number | null } = {}): Promise<T> {
+  async request<T>(path: string, body?: unknown, options: { key?: string; version?: number | string | null } = {}): Promise<T> {
     const requestCsrf = this.csrf;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined) {

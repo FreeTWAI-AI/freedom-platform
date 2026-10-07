@@ -9,7 +9,7 @@ The internal orchestration in [command-core.ts](command-core.ts) depends on Post
 
 ## Order and invariants
 
-The member path is: validate idempotency key → BEGIN → lock active user (`FOR SHARE`, or `FOR UPDATE` for user mutations) → lock current non-revoked/unexpired session → original user/operation/key advisory lock → current domain authorization → original request digest → receipt lookup → current-clock session check → replay or domain mutation/receipt → current-clock session check after insertion → COMMIT. All callbacks receive the same transaction client; errors roll back and release it.
+The member path is: validate idempotency key → BEGIN → lock active user (`FOR SHARE`, or `FOR UPDATE` for user mutations) → lock current non-revoked/unexpired session → original user/operation/key advisory lock → current domain authorization → original request digest → receipt lookup → current-clock session check → optional server-owned domain deadline revalidation → replay or domain mutation/receipt → current-clock session check after insertion → the same optional revalidation → COMMIT. All callbacks receive the same transaction client; errors roll back and release it.
 
 The digest stays `digest({body, expected: expected ?? null})`. The historical sorted-key JSON encoder in `legacy-digest.ts` is unchanged; it is not JCS. Operation strings, receipt primary keys, response JSON and error codes remain unchanged. Scope/principal/attempt-based receipt namespaces must be implemented separately, never by pretending a service is a member.
 
@@ -28,6 +28,15 @@ with `clock_timestamp()` after each receipt SELECT (including a miss) and INSERT
 This applies to the ordinary member wrapper and all seven media compatibility
 adapters. A receipt wait that crosses expiry returns `401 session_expired` before
 replay/new effect, or rolls back the inserted receipt and domain facts together.
+`memberCommand` accepts an optional fifth server-owned `revalidate(q)` callback.
+Historical four-argument callers omit it and keep the previous ports. When
+present, it runs after each of those session checks: before a stored receipt is
+returned, and after a new receipt insert. A domain deadline that is not the
+member session (a guild delegation expiry, for example) is therefore decided
+with the database clock after the receipt wait, and a failure rolls the receipt
+and domain facts back together. The callback is outside caller JSON, the receipt
+namespace and the digest. Domains still recheck that deadline after their own
+later waits; the hook does not replace those checks.
 No scope queries, receipt namespace, request digest or target semantics change.
 The check is a pre-commit decision, not a promise that the session stays valid
 through commit or response delivery.

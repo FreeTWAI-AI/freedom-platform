@@ -5,6 +5,7 @@ import { command,checkVersion,journal,transaction,type Command } from '../../pac
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,SESSION_LIFETIME_SECONDS,tokenHash,type Actor } from './service.js';
 import { memberPositioningSummary } from '../positioning/onboarding.js';
+import { ensureRegisteredPreferenceSet } from '../positioning/guild-categories.js';
 import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
@@ -74,6 +75,7 @@ export async function registerMember(pool:Pool,raw:unknown,options:{communityId?
     requireCondition(user,409,'account_unavailable','無法使用這個註冊資料；已有帳號請登入。');
     const contacts={...emptyContacts(),...body.contacts};
     await q.query('INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3)',[user.user_id,communityId,JSON.stringify(contacts)]);
+    await ensureRegisteredPreferenceSet(q,communityId!,user.user_id);
     const token=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');
     await q.query(`INSERT INTO sessions VALUES($1,$2,$3,now()+make_interval(secs=>$4),NULL)`,[tokenHash(token),user.user_id,csrf,SESSION_LIFETIME_SECONDS]);
     return {token,actor:{...user,session_hash:tokenHash(token),csrf_token:csrf} as Actor};
@@ -150,19 +152,32 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
   // Search only the public, last-confirmed profile. Raw assessment answers,
   // occupation, drafts and contact handles/email are never search predicates.
   // Count and page selection share one snapshot; filtering happens before LIMIT.
+  const switched=(await pool.query(`SELECT 1 FROM guild_preference_switch WHERE community_id=$1 AND state='switched'`,[actor.community_id])).rowCount===1;
   const result=(await pool.query(`WITH visible AS (
-    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,p.primary_guild_key,
+    SELECT u.user_id,u.display_name,u.created_at,a.published_profile,
+      CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END AS primary_guild_key,
       CASE WHEN EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
-        AND m.user_id=u.user_id AND m.guild_key=p.primary_guild_key AND m.state='active')
-        THEN COALESCE(NULLIF($6::jsonb->>p.primary_guild_key,''),(SELECT NULLIF(c.profession_title,'') FROM positioning_guild_catalog c WHERE c.guild_key=p.primary_guild_key AND c.guild_key ~ '^guild_custom_[0-9A-Fa-f]{32}$'),'專業探索者') ELSE NULL END AS positioning_title
+        AND m.user_id=u.user_id AND m.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND m.state='active')
+        THEN COALESCE(NULLIF($6::jsonb->>(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END),''),(SELECT NULLIF(c.profession_title,'') FROM positioning_guild_catalog c WHERE c.guild_key=(CASE WHEN $11::bool THEN display_primary.guild_key ELSE p.primary_guild_key END) AND c.guild_key ~ '^guild_custom_[0-9A-Fa-f]{32}$'),'專業探索者') ELSE NULL END AS positioning_title
     FROM users u JOIN member_account_classification t USING(user_id,community_id)
       LEFT JOIN onboarding_assessments a ON a.user_id=u.user_id AND a.community_id=u.community_id
       LEFT JOIN guild_member_preferences p ON p.user_id=u.user_id AND p.community_id=u.community_id
+      LEFT JOIN LATERAL (
+        SELECT cp.guild_key FROM guild_category_preferences cp
+        JOIN positioning_profession_memberships dm ON dm.community_id=cp.community_id AND dm.user_id=cp.user_id AND dm.guild_key=cp.guild_key AND dm.state='active'
+        WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id
+        ORDER BY CASE cp.category WHEN 'professional_industry' THEN 1 WHEN 'external' THEN 2 ELSE 3 END
+        LIMIT 1
+      ) display_primary ON $11::bool
     WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
-      AND ($8='' OR p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
-        AND pm.user_id=u.user_id AND pm.guild_key=$8 AND pm.state='active'))
+      AND ($8='' OR CASE WHEN $11::bool THEN EXISTS (
+        SELECT 1 FROM guild_category_preferences cp
+        JOIN positioning_profession_memberships pm ON pm.community_id=cp.community_id AND pm.user_id=cp.user_id AND pm.guild_key=cp.guild_key AND pm.state='active'
+        WHERE cp.community_id=u.community_id AND cp.user_id=u.user_id AND cp.guild_key=$8
+      ) ELSE p.primary_guild_key=$8 AND EXISTS(SELECT 1 FROM positioning_profession_memberships pm WHERE pm.community_id=u.community_id
+        AND pm.user_id=u.user_id AND pm.guild_key=$8 AND pm.state='active') END)
   ), matched AS (
     SELECT user_id,display_name,created_at,positioning_title,
       CASE WHEN positioning_title IS NOT NULL THEN NULLIF($6::jsonb->>primary_guild_key,'') END AS primary_guild_name FROM visible
@@ -175,7 +190,7 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
       AND ($9='' OR COALESCE(published_profile->'capabilities','[]'::jsonb) ? $9)
   ) SELECT (SELECT count(*)::int FROM matched) AS total,
     ARRAY(SELECT user_id FROM matched ORDER BY ${memberSort[input.sort]} LIMIT $2 OFFSET $3) AS user_ids`,
-    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id])).rows[0];
+    [actor.community_id,input.limit,input.offset,input.search,input.guild_key,JSON.stringify(guildTitles),JSON.stringify(capabilityLabels),input.primary_guild_key,input.capability,actor.user_id,switched])).rows[0];
   const items: Array<Awaited<ReturnType<typeof memberCard>> & {guild_roster?: {member_tier:'intern'|'full';aggregate_version:number;expert_aggregate_version:number|null;expert_active:boolean}}>=await Promise.all((result.user_ids as string[]).map(id=>memberCard(pool,actor,id)));
   if(input.guild_key&&items.length&&(await pool.query("SELECT 1 FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 AND state='active'",[actor.community_id,actor.user_id,input.guild_key])).rowCount){
     const rows=(await pool.query(`SELECT m.user_id,m.member_tier,m.aggregate_version,e.aggregate_version AS expert_aggregate_version,COALESCE(e.active,false) AS expert_active
