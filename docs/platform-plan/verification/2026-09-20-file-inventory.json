@@ -12869,8 +12869,8 @@
     },
     {
       "path": "docs/platform-plan/00-current-requirements-baseline.md",
-      "bytes": 25898,
-      "sha256": "b6b7bc9fd79e96a06f6db41c548e0107d724b89190725e7abb3ab81bf2a7d2dc"
+      "bytes": 26268,
+      "sha256": "cb82f54829dd45e85a4e9ba130c03848af8c52a4508cbc8f299e59cef025406c"
     },
     {
       "path": "docs/platform-plan/01-product-community-model.md",
@@ -12899,8 +12899,8 @@
     },
     {
       "path": "docs/platform-plan/06-delivery-plan.md",
-      "bytes": 77955,
-      "sha256": "93922676dbbd8fd733b13679bcc9a7edb180a75e0d37e4069d952e7b79a740cb"
+      "bytes": 78364,
+      "sha256": "97d57f6497232cbf7e9dbf959b8ec83502cfc4803653542cc4cdd6cff11f100f"
     },
     {
       "path": "docs/platform-plan/07-decisions-risks-traceability.md",
@@ -12934,8 +12934,8 @@
     },
     {
       "path": "docs/platform-plan/README.md",
-      "bytes": 29822,
-      "sha256": "c6ee25a352ff4b1bf5ed8ba3c5cab81ad8fa1ec535e3e488f764a684f9790301"
+      "bytes": 30159,
+      "sha256": "2ae0f8f70757822275b01a855a9de02c3a865eb65a4190386f2665db08434354"
     },
     {
       "path": "docs/platform-plan/contracts/README.md",
@@ -13724,8 +13724,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 4275,
-      "sha256": "bb6ea05cbdfd09b49a28f528c7bc226b4dc5c915866c318e8f1d181bf016249a"
+      "bytes": 11118,
+      "sha256": "62da187746f1265a3e0ebad49c2acf9d3f784636d78521e07c1f1339b1551a59"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -13734,23 +13734,23 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-01-guild-preferences.md",
-      "bytes": 25980,
-      "sha256": "0b63edd15dce698e53d541215eef73912c5f40337ef46cfe90ff9189494c3f83"
+      "bytes": 26270,
+      "sha256": "43e4e382eeb228564825ce527e104ff8328f19051286fd6df910d20fb8636c34"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-02-tenant-authorization.md",
-      "bytes": 35659,
-      "sha256": "ca9e685158a5c50385385f5530fe5cc716193fb6cbd14654963959c340fe5f28"
+      "bytes": 36004,
+      "sha256": "29205df36b3bce87d805a58989d8c96c2e656f512a64283ba5032795e43043eb"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-03-all-guild-launchpad.md",
-      "bytes": 30697,
-      "sha256": "e908c94e3ad56e438fd00e796c2909e8b28609ab19b9474af2bbc789b570087d"
+      "bytes": 31096,
+      "sha256": "36c2a31696e7b8de275e318972a5226a8c820cda6da6f7239979121f7c395c07"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-04-applications-instances.md",
-      "bytes": 37434,
-      "sha256": "090cc67550419bd414f58a94f892b58c9d694318fa3d35441dd116f6cc37b46a"
+      "bytes": 37725,
+      "sha256": "fc23cbdde625c44e5258cc63dfec11d19b02cfa2b08f0a4c8e73f505a08e7e9c"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-05-module-interoperability.md",
@@ -13759,8 +13759,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-06-isolation-recovery.md",
-      "bytes": 41352,
-      "sha256": "b0b05e17bcba9aeb15a92c8ddd9ca7e4c893be04e3acb823d9333cb8f5aedecb"
+      "bytes": 41643,
+      "sha256": "37c0cabdeedd815c7cffbe9bbe9eec316b79bdfe0ab839742ef3a6084e3e9d5d"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-07-portable-bundle.md",
@@ -13793,24 +13793,29 @@
       "sha256": "29a41a1ca70d99753d6df2f00882c372b440a8e7dae907503b101571c98ae85c"
     },
     {
+      "path": "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json",
+      "bytes": 6836,
+      "sha256": "0f9ef256f7164c2ba9c7d205dcff4e4a88c78a89a19589fe84bd5802663ff79a"
+    },
+    {
       "path": "docs/platform-plan/execution/guild-launchpad/acceptance.md",
       "bytes": 40550,
       "sha256": "35764484e72637fe117ec2fbccd48df0bc146a53cb0026b3540778e4a217d884"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/contracts.md",
-      "bytes": 12597,
-      "sha256": "ec1bf856f02aafc5b5ac2a3e7810b7f565d47e5ec174c2ed43305d920747716c"
+      "bytes": 12947,
+      "sha256": "c98c4f5297fb3cc4e5baf36ffba8e684eb9be3cb3d3f121b647929f196fa717b"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/data-responsibility.md",
-      "bytes": 10409,
-      "sha256": "801a4e5c8361899e13e7796ff18fdff160a6a27af720ae8145148fa456737082"
+      "bytes": 10787,
+      "sha256": "b4a00af877ade2b11c4de0f0a4c98d39601510461558a77a3b5a2d92a9d7b8cc"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/decision-log.md",
-      "bytes": 5747,
-      "sha256": "8066233fe6b408649cb549b972885848ff21600d55b9191aeb7b9f1372056c27"
+      "bytes": 6000,
+      "sha256": "9c71ac6e8d92756da25555e01ab2d7ce73e17e1820ea91bfc3332b19e8a340d5"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/repository-map.md",
@@ -13829,8 +13834,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py",
-      "bytes": 6189,
-      "sha256": "bccab3eeeda0c5448c976fe16cf35588b4ccffac788594a7b6e6d38a818b8ca7"
+      "bytes": 27795,
+      "sha256": "80375e1d83cc40092e8b9da95fdf83960aa43b1a151da6cdd7e00c913347d2a7"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/verification.md",
@@ -13986,6 +13991,11 @@
       "path": "docs/platform-plan/execution/tools/tests/test_check_specs.py",
       "bytes": 8804,
       "sha256": "32c139fd3a7ed3e3b9dbc3d2e22f0e314f8be8d4f23803d73647c07ae4195a35"
+    },
+    {
+      "path": "docs/platform-plan/execution/tools/tests/test_guild_launchpad_status.py",
+      "bytes": 40682,
+      "sha256": "9a784e44366d76380243ffc0f71bed2e20317f2af3ef652153c5db5e9cf0b2ec"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
@@ -14159,8 +14169,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 36676,
-      "sha256": "5bed3221c28e477e050ad390603eb0e79d12b72045cda6ddb76bd71314863534"
+      "bytes": 36639,
+      "sha256": "bafea8bbc3b1bfe9d78f7852ce705fb35429536a457961aa11370ecb9362195b"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15540,7 +15550,7 @@
     {
       "path": "modules/assets/engine.md",
       "bytes": 5311,
-      "sha256": "26f26b2a014ef24fb77fcb1872bed3e8f4d9ae6129700c88ccaf60d7c1c6b995"
+      "sha256": "91ca7fe460ad1cc07afbfda691048d5709264e9c0b50545c106cd17736a889d3"
     },
     {
       "path": "modules/assets/engine.ts",
@@ -16199,8 +16209,8 @@
     },
     {
       "path": "modules/module-registry/README.md",
-      "bytes": 1900,
-      "sha256": "aea66bebcdd1c2edef19bed944c43ea7295ea5dfdaaf14634634dbbab7becec5"
+      "bytes": 2265,
+      "sha256": "d2958f1ba0a6becc6b96434972170221119408e0e06ac98e5c1fedacf08ee804"
     },
     {
       "path": "modules/module-registry/freedom.module.json",
