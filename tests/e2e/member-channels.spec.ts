@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
+import {navigate} from './navigation.js';
 
 // Synthetic data only, served by route fixtures that follow the backend channel DTO. The real
 // API is covered by tests/e2e/member-channels-real.spec.ts; these cases pin the UI boundaries.
@@ -277,6 +278,21 @@ test('chat navigation defaults to private conversations and the bell explicitly 
     await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息',exact:true}).click();
     await expect(tab(page,'通知')).toHaveAttribute('aria-selected','true');await tab(page,'私人訊息').click();
   }
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
+  await expect(panel(page,'世界聊天')).toBeVisible();
+  await navigate(page,'會員首頁');
+  // The navigation helper's message shortcut uses the bell and opens notifications.
+  // Exercise the actual primary chat entry here instead.
+  await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();
+  await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
+  await expect(panel(page,'世界聊天')).toBeVisible();await navigate(page,'會員首頁');
+  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息',exact:true}).click();
+  await expect(tab(page,'通知')).toHaveAttribute('aria-selected','true');await tab(page,'私人訊息').click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
+  await expect(panel(page,'世界聊天')).toBeVisible();await navigate(page,'會員首頁');
+  await page.evaluate(()=>{window.location.hash='messages'});
+  await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
   await page.getByRole('button',{name:'建立群組',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
 });
 

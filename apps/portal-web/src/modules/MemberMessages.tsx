@@ -89,7 +89,7 @@ export function MemberMessages({client,session,onNavigate,onNotificationPeer,cha
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
       <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest}/>
     </div>
-    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} onReturnToChats={returnToChats}/></div>
+    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
   </section>;
 }
 

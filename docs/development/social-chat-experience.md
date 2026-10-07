@@ -25,7 +25,16 @@ CSRF、本人權限、撤權檢查、command idempotency 及遲到回應的 gene
 - Typecheck 與 fresh build 已通過。
 - 本輪 runtime 組合：93 pass／0 fail／0 skip，含新的私訊界線、同時間排序、較新到達、其他對象、錯誤訊息 ID、CSRF、同 key replay／衝突及既有會員／公會權限測試。
 - 自動已讀／主牆的第一次組合回歸為 61 pass／6 fail；修正真實已讀時機與背景清單交錯的 fixture，以及未讀數字 14px 和通知失敗恢復。第二次在手機滿版設計修正時停止，只有 2 項已觀察通過。
-- 第一輪滿版回歸於 18 項停止（13 pass／5 fail）：實際寬度未伸展、標題的輔助文字空白及測試同時找到收合／展開控制台與隱藏 tab。保留失敗 trace，修正實際伸展、完整標題的可讀名稱與精確入口；沒有縮減視窗、焦點、44px 或已讀 assertions。同步主線後再 fresh build／重跑，結果待回填。
+- 第一輪滿版回歸於 18 項停止（13 pass／5 fail）：實際寬度未伸展、標題的輔助文字空白及測試同時找到收合／展開控制台與隱藏 tab。保留失敗 trace，修正實際伸展、完整標題的可讀名稱與精確入口；沒有縮減視窗、焦點、44px 或已讀 assertions。同步主線後再 fresh build／重跑；修正 36×36 頭像及補上公開聊天直接入口後，v3 完成 73 pass。
 - 這是本機合成會員與隔離 PostgreSQL 的證據；正式網路延遲、萬人負載、真人操作時間及 Meta／Discord／LINE 比較仍待驗證。
 
 目前的新訊息更新沿用既有活動檢查與 polling。即時傳輸、圖片／檔案附件、對話搜尋、封鎖與檢舉仍是後續工作；這輪不宣稱已經完成。
+
+## 最終本機回歸
+
+- 最新 typecheck／fresh build 通過；v5 十檔 Chromium 組合為 **73 pass／0 fail**，含 320／390px、對話訊息區至少半個螢幕、輸入與送出在視窗內、控制台不遮擋、36×36 頭像、手機 visual viewport 縮小、返回恢復分類／控制台與個別草稿。軟體鍵盤本身沒有在無頭 Chromium 開啟；這一項用 visual viewport resize 反例測試，仍需真人手機驗收。
+- 貼圖、引用、公開聊天返回及直接連結、desktop resize、IME／Enter、較早分頁／已讀、撤權、其他群組隔離、待確認 key、通知、控制台與既有發文／分享一起回歸。
+- v4 為 **72 pass／1 fail**：新增路由案例誤用通知鈴的 helper，卻期待私訊，這份失敗不作產品缺陷證據。改成點真正的「我的訊息」後，以原本 App bytes fresh build 跑同一案例，**1 fail**，確認舊公開聊天入口覆蓋私訊。恢復修正後同一案例 **1 pass**，v5 全組合通過；另覆蓋通知鈴、hash 返回。最初反例 v1 缺少 helper import，v2 同樣誤用 helper，均保留原始紀錄。新的指定對象／頻道使用持續增加的 request 序號，離開聊天及重新進入時清除過期入口。
+- 主線 #175／#194 同步至 `137ace26dd00252219f7f4fed8c23b60c937ff9c`；#175 的 124 不改寫，社群貼文候選改為 125。新 catalog、名稱批准、未知名稱及舊批准拒絕在離線 Linux 完整 preflight **458 pass／0 fail／0 skip**。先前 bounded-read runtime 93 項的受測 service／types／tests bytes 保留。
+
+這些是本機合成資料的驗證，完整 hosted CI、staging 真人、正式效能與全平台目標仍待驗收。

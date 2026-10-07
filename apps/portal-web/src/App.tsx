@@ -499,6 +499,9 @@ function Workspace({
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
+  const notificationSequence=useRef(0)
+  const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
+  const chatEntrySequence=useRef(0)
   const [messageView,setMessageView]=useState<{view:'direct'|'notifications';request:number}>({view:'direct',request:0})
   const [shareEntry,setShareEntry]=useState<{target:ShareTarget;tab:TabId;sequence:number}|null>(null)
   const [shareNotice,setShareNotice]=useState('')
@@ -510,6 +513,11 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
+    if(tab!=='messages'){
+      setChatEntry(null)
+      setNotificationTarget(current=>current?.tab==='messages'?null:current)
+      setMessageView(current=>({view:'direct',request:current.request+1}))
+    }
     logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
@@ -519,7 +527,11 @@ function Workspace({
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
-    if(next==='messages')setMessageView(current=>({view:'direct',request:current.request+1}))
+    if(next==='messages'){
+      setChatEntry(null)
+      setNotificationTarget(current=>current?.tab==='messages'?null:current)
+      setMessageView(current=>({view:'direct',request:current.request+1}))
+    }
     if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
       window.history.replaceState(null,'',`/#${next}`)
       window.dispatchEvent(new HashChangeEvent('hashchange'))
@@ -555,9 +567,8 @@ function Workspace({
     observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});settle()
     return()=>{done=true;observer.disconnect()}
   },[shareEntry,tab])
-  const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
   useEffect(()=>{
-    const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
+    const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;selectTab('messages');setChatEntry({...value,request:++chatEntrySequence.current})}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
   const launchpadEnabled = site?.guild_launchpad_enabled === true
@@ -658,7 +669,7 @@ function Workspace({
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={mobileOpen ? '關閉選單' : '開啟選單'} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{mobileOpen ? '關閉選單' : '開啟選單'}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
-          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
@@ -683,8 +694,8 @@ function Workspace({
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
             {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
-            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} />}
-            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'events' && <EventsPanel client={client} session={session} />}

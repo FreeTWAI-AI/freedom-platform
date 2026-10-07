@@ -102,7 +102,7 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
   .messages-hub .messages-thread[data-chat-open=true]{display:flex;flex-direction:column;flex:1;min-height:0;padding:0;border:0;border-radius:0;gap:0;overflow:hidden}
   .messages-hub .messages-thread[data-chat-open=true]>:not(.messages-scroll){flex-shrink:0}
   .messages-hub .messages-thread[data-chat-open=true]>.chat-header{padding:10px 60px 10px 8px;min-height:64px;gap:8px;background:var(--bg-elev)}
-  .messages-hub .messages-thread[data-chat-open=true]>.chat-header>div{flex:1;min-width:0}
+  .messages-hub .messages-thread[data-chat-open=true]>.chat-header>div:not(.member-avatar){flex:1;min-width:0}
   .messages-hub .messages-thread[data-chat-open=true] .chat-header h2{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:16px}
   .messages-hub .messages-thread[data-chat-open=true] .chat-header .member-avatar{width:36px;height:36px;min-width:36px;font-size:16px;box-shadow:none}
   .messages-hub .messages-thread[data-chat-open=true] .messages-refresh{top:10px;right:10px}

@@ -130,6 +130,7 @@ test('mobile private chat uses one pane, preserves drafts and shows confirmed re
   expect(logBox.height).toBeGreaterThanOrEqual(viewport.height/2);expect(logBox.width).toBe(viewport.width);
   await expect(sender.locator('.messages-categories')).toBeHidden();await expect(sender.locator('.community-header')).toBeHidden();await expect(sender.locator('.game-console-ticker')).toBeHidden();await expect(sender.locator('.game-console-expanded')).toBeHidden();
   await expect(sender.locator('.demo-banner')).toBeVisible();expect((await a.locator('.chat-header').boundingBox())!.y).toBeLessThan(80);
+  const avatarBox=(await a.locator('.chat-header>.member-avatar').boundingBox())!;expect(avatarBox.width).toBe(36);expect(avatarBox.height).toBe(36);
   await sender.screenshot({path:'test-results/social-chat/private-workspace-390.png',fullPage:true});
   await a.locator('.messages-thread').screenshot({path:'test-results/social-chat/private-workspace-chat-390.png'});
   // Chromium does not open a software keyboard in this fixture. Exercise its visual viewport resize separately.
@@ -213,5 +214,9 @@ test('phone public chat returns to the conversation list and keeps private and p
   await expect(privateChat.getByRole('heading',{name:'對話',exact:true})).toBeFocused();
   await direct(page,accounts[1]);await expect(privateChat.locator('textarea')).toHaveValue('私人草稿');
   await group(page,'world');await expect(world.locator('textarea')).toHaveValue('公開草稿');
+  await world.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
+  // A console/deep-link intent opens the actual public conversation, rather than stopping at its phone list.
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
+  await expect(world.locator('.messages-compose')).toBeVisible();await expect(world.locator('textarea')).toHaveValue('公開草稿');await expect(page.locator('.messages-categories')).toBeHidden();
   expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(0);
 });

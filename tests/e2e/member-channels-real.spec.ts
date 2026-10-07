@@ -185,7 +185,7 @@ test('two synthetic members chat in their own guild and squad through the real U
       // The previous guild remains selected until the squad click commits. Its
       // activity poll is valid during that interval; exercise the boundary with
       // a real focus refresh so a timing-dependent poll cannot break this test.
-      const previousActivity=kind==='squad'?`GET /api/v1/me/channels/guild/${room.guild.key}/activity`:null;
+      const previousActivity=kind==='squad'&&await thread(r,'guild').isVisible()?`GET /api/v1/me/channels/guild/${room.guild.key}/activity`:null;
       if(previousActivity){
         const priorPoll=r.waitForResponse(response=>`${response.request().method()} ${new URL(response.url()).pathname}`===previousActivity&&response.status()===200);
         await r.evaluate(()=>window.dispatchEvent(new Event('focus')));

@@ -33,9 +33,9 @@
 
 Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼文＋清楚「＋發文」，移除主畫面的分類下拉、外部分享摺疊表單與原生貼文重複 badge；換圖／刪除移至貼文選項，發布回饋縮成短句。所有平台篩選與原外部 URL／縮圖分享仍可透過動態選項使用，作品／商品／開源投稿沿用全站「＋分享」。按時間顯示，不加入曝光排名或付費加權。
 
-型別檢查與 fresh build 已通過；手機主牆、外部分享、本人優化、配色與 guides 的完整針對性回歸正在執行，結果待回填。前一次全量的中止或前版通過不能代替這個新主牆。
+型別檢查與 fresh build 已通過；主牆、外部分享與本人優化在最終手機聊天 v5 的十檔組合中一起驗證，73 pass／0 fail。Guides 另有先前 27 項回歸。前一次全量的中止或前版通過不能代替這個新主牆。
 
-第二次主牆針對性回歸完成 25 pass／1 fail，新的原生主牆、發文 ACK／留言分頁交錯及本人優化均通過。唯一失敗是舊外部作品刪除案例沒有先選擇全部動態、開啟本人的貼文選項；已改為走這兩個真實入口，最終回歸待聊天版面同步完成後確認。
+第二次主牆針對性回歸完成 25 pass／1 fail，新的原生主牆、發文 ACK／留言分頁交錯及本人優化均通過。唯一失敗是舊外部作品刪除案例沒有先選擇全部動態、開啟本人的貼文選項；已改為走這兩個真實入口，最終手機聊天 v5 組合中此案例也已通過。
 
 新的針對性第一次 run 在 37 項後停止（34 pass／3 fail），三項失敗均是外部分享測試用部分名稱「連結」，同時找到新 dialog 和實際 input。保留三項 trace，改為 exact 欄位名稱，維持同一縮圖、分享、版面及配色 assertions；未提高 timeout 或改產品 accessible name。
 
@@ -45,7 +45,19 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 
 新增[聊天操作與範圍說明](social-chat-experience.md)。桌面使用類別／群組列表／單一對話；手機列表與對話有返回動作。沿用現有公會、小隊與私訊資料，沒有第二套群組。依 Hao 最新明確要求，自動已讀是正在顯示最新訊息時的新寫入；背景、未選擇群組及較早歷史不清未讀，回應遺失仍不默默重送。
 
-私訊加入驗證過的 `through_message_id`，保留舊 API 的空 body 相容性。收到 ACK 後向 API 重新確認未讀數，避免 idempotent replay 的原更新數把較新未讀扣掉。93 項 runtime 通過，型別檢查與建置通過；聊天、貼圖、手機及主牆的組合 E2E 結果待回填。
+私訊加入驗證過的 `through_message_id`，保留舊 API 的空 body 相容性。收到 ACK 後向 API 重新確認未讀數，避免 idempotent replay 的原更新數把較新未讀扣掉。93 項 runtime 通過，最新型別檢查與建置通過；手機滿版、聊天、貼圖、通知、控制台及主牆的十檔 v5 組合為 73 pass／0 fail。
+
+## 手機滿版聊天與最新主線整合
+
+手機對話採完整可用高度，分類與建立群組留在列表。返回、頭像、對象／群組名在上方，訊息區伸展，貼圖／輸入／送出在底部。僅聊天時收起全站工具、導覽角色與控制台，示範說明保留；返回即恢復。視窗縮小會跟著 visual viewport 調整，不把有新訊息或載入失敗說成已讀成功。
+
+最終 v5 十檔 73 項 Chromium 全數通過，含原生牆、投稿、分享及本人模型優化。v1 寬度／輔助名稱／fixture 共五項失敗的 trace 保留；v2 在截圖檢視的頭像與列表 activity 假設修正後停止，僅九項已觀察通過；v3 為 73 pass。v4 的 72 pass／1 fail 是導覽 helper 誤點通知鈴卻期待私訊，修正為真正導覽入口後，原 App bytes 的同案例反例 1 fail，修正版 1 pass，v5 全組合通過。沒有提高 timeout、force click 或移除視窗／已讀／ACL assertions。
+
+08:43 UTC GitHub 快照為 9 個 open PR（#193 加其餘 8 個）。新增／更新 #189／#195／#196／#197 pinned CI stack 及 #188 共用 Launchpad primitives／schema 的路徑、精確 diff refs／digest 保留，不重建這些功能。#175 與 #194 已合併至主線 `137ace26dd00252219f7f4fed8c23b60c937ff9c`，直接同步；社群 schema 改為 125，124 原 bytes 保留，manifest／frontier／已知名稱／完整 catalog digest 同步。此整合的離線 Linux 完整 preflight 458 pass／0 fail／0 skip。
+
+完整三階段 E2E、最新 hosted CI 及真人驗收仍未完成，不能把 73 個針對性案例當作全平台 PASS。測試與圖檔留在本機，沒有正式或 staging 寫入。
+
+最終 2026-10-07T09:04:50.434762+00:00 快照增加 #203 JSON 串流上限、#204 活動交易配額：共 11 個 open PR（本 PR＋其餘 10 個）。核對精確 base／head diff 與 candidate 檔案範圍，兩者均無 changed-path overlap，不重複實作，也未合併仍在審查的 PR。
 
 ## 全目標待驗收矩陣
 
@@ -66,7 +78,7 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 
 ## 本機已確認的結果
 
-- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單、review、貼文主牆及主線 #190 後 candidate 614,363 bytes／gzip 189,126 bytes。gzip 降低 50.65%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。主線 #190 前的主牆為 580,345／180,172；v8 的 572,186／177,671、分享初版的 gzip 180,111 與 review 版的 gzip 180,127 也都是歷史數字，不能代替目前建置。
+- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單、review、貼文主牆、主線 #190 及手機聊天改版後 candidate 614,990 bytes／gzip 189,316 bytes。gzip 降低 50.60%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。主線 #190 前的主牆為 580,345／180,172；v8 的 572,186／177,671、分享初版的 gzip 180,111 與 review 版的 gzip 180,127 也都是歷史數字，不能代替目前建置。
 - 受控、明確允許共用的 5 個同時 GET：baseline 5 次 transport，candidate 1 次；settled 後下一次仍重新請求。預設新讀取、帳號切換、JSON 副本、獨立取消與 POST／DELETE 前後快照的反例一併驗證。
 - Client／build benchmark／Social Post／模型 service／上游成果 client runtime tests：62 pass／0 fail／0 skip，包含 PATCH 寫入前／中／後的快照隔離。同步 #190 後的型別檢查與建置通過；先前未含成果 client 為 58 pass。整套 runtime CI 尚未在新 head 執行。
 - v4 的 85 項瀏覽器回歸通過。完整 hosted a10 UI CI 揭露 15 項失敗；v5 擴大範圍為 58 pass／7 fail／10 fixture skip，v6 為 7 pass／2 fail。沒有將這些版本放行。修正後 v8 的 9 項針對性反例／瀏覽器檢查全部通過，涵蓋撤權清單、名片 QR／PNG、名片配色、導覽與原素材載入；全量三階段 E2E 仍待本輪最終執行。

@@ -346,7 +346,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       </>}
       {selected&&status!=='gone'&&<>
         <div className="chat-header">{singlePane&&(kind!=='world'||onReturnToChats)&&<button type="button" className="btn btn-ghost chat-back" aria-label={backLabel} title={backLabel} onClick={kind==='world'?returnFromWorld:switchPane}><span aria-hidden="true">‹</span></button>}<div><h2 id={ids.title} ref={heading} tabIndex={-1} aria-label={kind==='world'?'世界聊天':`${history?.channel.name??selected.name}・${text.title}`}>{kind==='world'?'世界聊天':<>{history?.channel.name??selected.name}<span className="chat-sr-only">・{text.title}</span></>}</h2>
-        <span className="messages-meta">{kind==='world'?'所有會員可見':'只顯示這個頻道的訊息'} · {liveError?'更新暫停':'新訊息自動更新'}</span></div></div>
+        <span className="messages-meta">{kind==='world'?'所有會員可見':kind==='guild'?'公會成員':'群組成員'}{liveError?' · 更新暫停':''}</span></div></div>
         {liveError&&<p role="status" className="messages-meta">{liveError}</p>}
         {status==='loading'&&<p role="status">正在讀取訊息…</p>}
         {status==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{error}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(selected.key)}>重新讀取訊息</button></div></div>}
