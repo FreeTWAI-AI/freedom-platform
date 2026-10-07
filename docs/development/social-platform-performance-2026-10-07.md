@@ -35,9 +35,17 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 
 型別檢查與 fresh build 已通過；手機主牆、外部分享、本人優化、配色與 guides 的完整針對性回歸正在執行，結果待回填。前一次全量的中止或前版通過不能代替這個新主牆。
 
+第二次主牆針對性回歸完成 25 pass／1 fail，新的原生主牆、發文 ACK／留言分頁交錯及本人優化均通過。唯一失敗是舊外部作品刪除案例沒有先選擇全部動態、開啟本人的貼文選項；已改為走這兩個真實入口，最終回歸待聊天版面同步完成後確認。
+
 新的針對性第一次 run 在 37 項後停止（34 pass／3 fail），三項失敗均是外部分享測試用部分名稱「連結」，同時找到新 dialog 和實際 input。保留三項 trace，改為 exact 欄位名稱，維持同一縮圖、分享、版面及配色 assertions；未提高 timeout 或改產品 accessible name。
 
 測試期間重新查主線，#190 已合併至 `31df6ddb4e9356715b26d292bb5ab7869d365f36`。同步它的「我的工作」、成果提交／驗收與 DTO，沿用它的 runtime 登錄；只替新 PATCH method 補上本輪 opt-in GET 索引的寫入前／後隔離，同一受控反例也涵蓋 PATCH。#194 更新後維持 local runner 900 秒、只有 hosted partition 1,200 秒，本輪未複製或修改其 runner 工作。
+
+## 聊天分組與自動已讀
+
+新增[聊天操作與範圍說明](social-chat-experience.md)。桌面使用類別／群組列表／單一對話；手機列表與對話有返回動作。沿用現有公會、小隊與私訊資料，沒有第二套群組。依 Hao 最新明確要求，自動已讀是正在顯示最新訊息時的新寫入；背景、未選擇群組及較早歷史不清未讀，回應遺失仍不默默重送。
+
+私訊加入驗證過的 `through_message_id`，保留舊 API 的空 body 相容性。收到 ACK 後向 API 重新確認未讀數，避免 idempotent replay 的原更新數把較新未讀扣掉。93 項 runtime 通過，型別檢查與建置通過；聊天、貼圖、手機及主牆的組合 E2E 結果待回填。
 
 ## 全目標待驗收矩陣
 
@@ -49,7 +57,7 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 | 註冊與初次參與 | 包含必要驗證的加入流程 30 秒內，無需旁人教操作 | 既有簡化註冊／公會流程；真人分布與放棄率未量測 |
 | 發文與自我展示 | 日常、作品、附件、個人頁與搜尋易用，作者控制可見範圍 | #193 原生發文與時間 feed；發布前附件、完整作品頁、搜尋與匯出待做 |
 | 內容選擇與探索 | 追蹤／公會／主題本人選擇、推薦可關、新作者能被找到 | 產品方向已定義；新增功能與真實曝光評估待做 |
-| 聊天 | 即時待送、收到／已讀準確，返回／搜尋／附件／斷線重連可用 | 既有 pending、貼圖與返回；即時傳輸、附件、搜尋、封鎖／檢舉待做 |
+| 聊天 | 即時待送、收到／已讀準確，返回／搜尋／附件／斷線重連可用 | 分組導覽、待送、貼圖、返回與顯示後自動已讀；即時傳輸、附件、搜尋、封鎖／檢舉待做 |
 | 合作與回報 | 需求→找人→對話→約定→交付→驗收閉環，不重建既有業務系統 | 沿用 Work／Opportunity／Engagement；銜接、真人成果及正式回報驗收待做 |
 | 全平台效能 | 首次載入、互動延遲、API／DB、聊天延遲、資源量、負載與錯誤率可量測 | 本輪減少起始 payload 與重疊讀取；正式網路／DB／負載尚待實測 |
 | 超越競品 | 同任務、同裝置、可比較的完成率／延遲／留存與使用者偏好 | Meta／Discord／LINE 的對照資料仍缺；不能宣稱 parity 或領先 |
@@ -58,9 +66,9 @@ Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼�
 
 ## 本機已確認的結果
 
-- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單、review 及貼文主牆修正後 candidate 580,345 bytes／gzip 180,172 bytes。gzip 降低 52.99%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671、分享初版的 gzip 180,111 與 review 版的 gzip 180,127 是歷史數字，不能代替目前建置。
+- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單、review、貼文主牆及主線 #190 後 candidate 614,363 bytes／gzip 189,126 bytes。gzip 降低 50.65%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。主線 #190 前的主牆為 580,345／180,172；v8 的 572,186／177,671、分享初版的 gzip 180,111 與 review 版的 gzip 180,127 也都是歷史數字，不能代替目前建置。
 - 受控、明確允許共用的 5 個同時 GET：baseline 5 次 transport，candidate 1 次；settled 後下一次仍重新請求。預設新讀取、帳號切換、JSON 副本、獨立取消與 POST／DELETE 前後快照的反例一併驗證。
-- Client／build benchmark／Social Post／模型 service runtime tests：58 pass／0 fail／0 skip。最後分享入口的型別檢查與建置通過；整套 runtime CI 尚未在新 head 執行。
+- Client／build benchmark／Social Post／模型 service／上游成果 client runtime tests：62 pass／0 fail／0 skip，包含 PATCH 寫入前／中／後的快照隔離。同步 #190 後的型別檢查與建置通過；先前未含成果 client 為 58 pass。整套 runtime CI 尚未在新 head 執行。
 - v4 的 85 項瀏覽器回歸通過。完整 hosted a10 UI CI 揭露 15 項失敗；v5 擴大範圍為 58 pass／7 fail／10 fixture skip，v6 為 7 pass／2 fail。沒有將這些版本放行。修正後 v8 的 9 項針對性反例／瀏覽器檢查全部通過，涵蓋撤權清單、名片 QR／PNG、名片配色、導覽與原素材載入；全量三階段 E2E 仍待本輪最終執行。
 - Hosted a10 的四個 runtime partition、runtime aggregate、static worker、governance 與 deploy preflight 已通過；a10 的 UI／verify 仍失敗。這些結果不能當作新 head 的 CI。
 

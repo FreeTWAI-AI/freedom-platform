@@ -50,6 +50,9 @@ async function expectZero(page:Page){
   await expect(bell(page)).toHaveAccessibleName('通知');
 }
 async function noOverflow(page:Page){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+async function visibility(page:Page,state:'visible'|'hidden'){
+  await page.evaluate(value=>{Object.defineProperty(document,'visibilityState',{configurable:true,value});document.dispatchEvent(new Event('visibilitychange'));},state);
+}
 // Full-page shots start at the top so the sticky header is drawn in place.
 async function shot(page:Page,name:string){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${SHOTS}/${name}.png`,fullPage:true});}
 
@@ -103,21 +106,17 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(r.getByRole('menuitem')).toHaveText(['我的名片','待辦清單','登出']);
     await noOverflow(r);await shot(r,'settings-320');
     await settings(r).click();await openMessages(r);await expect(r.locator('#main-content')).toBeFocused();
-    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
-    await r.getByRole('tab',{name:/私人訊息/}).click();
+    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');await expect(r.getByRole('tab',{name:/通知/})).toContainText('沒有未讀');
+    await r.getByRole('tab',{name:/私人訊息/,includeHidden:true}).click();
     const rPanel=r.getByRole('tabpanel',{name:/私人訊息/}),rThread=rPanel.locator('.messages-thread'),rList=rPanel.getByRole('list',{name:'對話列表'});
     const fromSender=rList.getByRole('button',{name:new RegExp(sender.display_name)});
     await expect(rList.getByRole('button')).toHaveCount(1);await expect(fromSender).toContainText('1 則未讀');
     await fromSender.click();
     await expect(rThread.getByRole('heading',{name:`與 ${sender.display_name} 的對話`})).toBeFocused();
     await expect(rThread.getByText(first,{exact:true})).toBeVisible();await expect(rThread.locator('.messages-bubbles b, .messages-bubbles img')).toHaveCount(0);
-    // Opening the thread did not mark it read, on the API or in PostgreSQL.
-    expect(await receiverSide.unread('conversations')).toBe(1);
-    expect((await db.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[stored[0].message_id])).rows[0].read_at).toBeNull();
-    // 1 → 0 by an explicit read.
-    await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
-    // The button is renamed while the read is out; the tab total changes only after the server confirms.
-    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
+    // Entering the visible thread automatically confirms read state in PostgreSQL and the UI.
+    await expect.poll(async()=>(await db.query('SELECT read_at IS NOT NULL AS read FROM member_direct_messages WHERE message_id=$1',[stored[0].message_id])).rows[0].read).toBe(true);
+    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
     expect((await db.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[stored[0].message_id])).rows[0].read_at).not.toBeNull();
     // At 320px the list is deliberately hidden while reading; verify it through the back action.
@@ -138,19 +137,18 @@ test('two synthetic members exchange a private message and a friend notification
     await expect(rThread.getByText(second,{exact:true})).toHaveCount(0);
     const refreshList=rPanel.getByRole('button',{name:'重新整理對話',exact:true});await refreshList.click();
     await expect(fromSender).toContainText(second.slice(0,20));await expect(fromSender).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
-    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');
+    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');
     await rPanel.getByRole('button',{name:'回到目前對話',exact:true}).click();
     await expect(rThread.getByRole('heading',{name:`與 ${sender.display_name} 的對話`})).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
     const refreshThread=rThread.getByRole('button',{name:'重新讀取訊息',exact:true});await refreshThread.click();
     await expect(rThread.locator('.messages-bubbles .messages-body').last()).toHaveText(second);await expect(refreshThread).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
-    expect(await receiverSide.unread('conversations')).toBe(1);
-    await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
-    await expect(r.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
+    await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
 
     // The receiver replies; the sender's list goes 0 → 1 on a manual re-read.
+    await visibility(s,'hidden');
     const answer=`收件人回覆 <i>純文字</i> ${Date.now()}`;
     await rBox.fill(answer);await rThread.getByRole('button',{name:'送出',exact:true}).click();
     await expect(rThread.locator('.messages-bubbles .messages-body').last()).toHaveText(answer);await expect(rBox).toHaveValue('');
@@ -165,7 +163,7 @@ test('two synthetic members exchange a private message and a friend notification
     const badge=sPeer.locator('.messages-count'),[peerBox,badgeBox]=[await sPeer.boundingBox(),await badge.boundingBox()];
     expect(await badge.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);expect(badgeBox!.x+badgeBox!.width).toBeLessThanOrEqual(peerBox!.x+peerBox!.width);
     await shot(s,'direct-desktop');
-    await sThread.getByRole('button',{name:'標為已讀',exact:true}).click();
+    await sThread.getByRole('log').evaluate(node=>{node.scrollTop=node.scrollHeight});await visibility(s,'visible');
     await expect(s.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');await expect(sThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await senderSide.unread('conversations')).toBe(0);
     await expect(rThread.locator('.messages-bubbles .messages-body')).toHaveText([first,second,answer]);
@@ -177,7 +175,7 @@ test('two synthetic members exchange a private message and a friend notification
     const notices=(await db.query("SELECT notification_id,read_at,action_tab,action_resource_id FROM member_notifications WHERE recipient_ref=$1",[receiverSide.id])).rows;
     expect(notices).toHaveLength(1);expect(notices[0]).toMatchObject({read_at:null,action_tab:'members',action_resource_id:senderSide.id});
     expect(await receiverSide.unread('notifications')).toBe(1);
-    await r.getByRole('tab',{name:/通知/}).click();
+    await returnToList.click();await r.getByRole('tab',{name:/通知/}).click();
     const nPanel=r.getByRole('tabpanel',{name:/通知/}),refreshNotices=nPanel.getByRole('button',{name:'重新整理通知',exact:true});
     await refreshNotices.click();
     const notice=nPanel.locator(`li[data-notification="${notices[0].notification_id}"]`);

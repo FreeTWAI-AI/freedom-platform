@@ -101,9 +101,13 @@ async function login(page:Page,hash:string){
   return (await (await page.request.get('/api/v1/session')).json()).user.user_id as string;
 }
 async function open(page:Page,server:{me:{id:string}},hash='#messages'){server.me.id=await login(page,hash);}
-const tab=(page:Page,name:string)=>page.getByRole('tab',{name:new RegExp(`^${name}`)});
+const tab=(page:Page,name:string)=>page.locator('.messages-categories').getByRole('tab',{name:new RegExp(`^${name}`),includeHidden:true});
 const panel=(page:Page,name:string)=>page.getByRole('tabpanel',{name:new RegExp(`^${name}`)});
 async function noOverflow(page:Page){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+async function visibility(page:Page,state:'visible'|'hidden'){
+  await page.evaluate(value=>{Object.defineProperty(document,'visibilityState',{configurable:true,value});document.dispatchEvent(new Event('visibilitychange'));},state);
+}
+async function latestVisible(page:Page,log:ReturnType<Page['locator']>){await log.evaluate(node=>{node.scrollTop=node.scrollHeight});await visibility(page,'visible');}
 async function shot(page:Page,name:string){mkdirSync(SHOTS,{recursive:true});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${SHOTS}/${name}.png`,fullPage:true,animations:'disabled'});}
 /** Holds matching answers after their snapshot is taken, like a slow server. */
 function holder(){
@@ -119,23 +123,24 @@ test('five tabs keep their order and keyboard behaviour without mixing room hist
   await open(page,server);
   const tabs=page.getByRole('tab');
   await expect(tabs).toHaveCount(5);
-  const labels=['通知','公會閒聊','小隊閒聊','私人訊息','世界聊天'];
-  for(const [index,label] of labels.entries())await expect(tabs.nth(index)).toHaveText(new RegExp(`^${label}`));
+  const labels=['私人訊息','公會閒聊','小隊閒聊','世界聊天','通知'];
+  for(const [index,label] of labels.entries())await expect(tabs.nth(index)).toHaveAccessibleName(new RegExp(`^${label}`));
+  await expect(tabs).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/,/^通知/]);
   await expect(tab(page,'公會閒聊')).toContainText('3 則未讀');await expect(tab(page,'小隊閒聊')).toContainText('2 則未讀');
   await expect(tab(page,'私人訊息')).toContainText('沒有未讀');await expect(tab(page,'通知')).toContainText('沒有未讀');
   // Roving tabindex, arrow keys wrap, Home/End jump; each tab controls its own panel.
-  await tab(page,'通知').focus();
+  await tab(page,'私人訊息').focus();
   const expectSelected=async(label:string)=>{
     const current=tab(page,label);
     await expect(current).toBeFocused();await expect(current).toHaveAttribute('aria-selected','true');await expect(current).toHaveAttribute('tabindex','0');
     await expect(page.locator('#'+await current.getAttribute('aria-controls'))).toBeVisible();
     for(const name of labels.filter(item=>item!==label)){await expect(tab(page,name)).toHaveAttribute('aria-selected','false');await expect(tab(page,name)).toHaveAttribute('tabindex','-1');}
   };
-  for(const label of ['公會閒聊','小隊閒聊','私人訊息','世界聊天','通知']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  for(const label of ['公會閒聊','小隊閒聊','世界聊天','通知','私人訊息']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  await page.keyboard.press('ArrowUp');await expectSelected('通知');
   await page.keyboard.press('ArrowLeft');await expectSelected('世界聊天');
-  await page.keyboard.press('ArrowLeft');await expectSelected('私人訊息');
-  await page.keyboard.press('Home');await expectSelected('通知');
-  await page.keyboard.press('End');await expectSelected('世界聊天');
+  await page.keyboard.press('Home');await expectSelected('私人訊息');
+  await page.keyboard.press('End');await expectSelected('通知');
   // The top bar still owns the only h1.
   await expect(page.getByRole('heading',{level:1})).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');
   for(const label of labels){
@@ -182,6 +187,7 @@ test('guild lists page and retry, history opens only on selection, and reads mar
   await expect(list.locator('[data-channel-key]')).toHaveCount(22);await expect(guild.getByRole('button',{name:/載入更多公會頻道/})).toHaveCount(0);
   expect(server.log.reads).toEqual([]);
 
+  await visibility(page,'hidden');
   await list.getByRole('button',{name:'合成公會 01',exact:true}).click();
   const thread=guild.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
   await expect(thread.getByRole('heading',{name:'合成公會 01・公會閒聊'})).toBeFocused();
@@ -194,18 +200,19 @@ test('guild lists page and retry, history opens only on selection, and reads mar
   await expect(bubbles).toHaveCount(25);await expect(bubbles.first()).toHaveText('合成公會 01 合成訊息 1');
   await expect(thread.getByRole('button',{name:/載入較早訊息/})).toHaveCount(0);
   expect(server.log.history.filter(item=>item.key==='guild-01'&&item.offset===20)).toHaveLength(2);
-  // Opening is not reading.
+  // A background document may load a history but must not mark it read.
   expect(server.log.reads).toEqual([]);
   const channel=server.get('guild','guild-01'),shownNewest=channel.messages[0].message_id;
   // A message arrives after the page was drawn: the read covers only what the member saw.
   channel.messages.unshift(server.message(channel,'畫面之後才到的合成訊息'));
-  await thread.getByRole('button',{name:'標為已讀',exact:true}).click();
+  const background=holder();server.control.gate=(what,info)=>what==='history'&&info.limit===50?background.wait():undefined;
+  await latestVisible(page,thread.getByRole('log'));
   await expect(thread.getByRole('note')).toContainText('還有 1 則較新的未讀訊息');
   expect(server.log.reads.map(item=>item.through)).toEqual([shownNewest]);expect(server.log.reads[0].csrf).toBeTruthy();expect(server.log.reads[0].idempotency).toBeTruthy();
   await expect(tab(page,'公會閒聊')).toContainText('1 則未讀');await expect(list.getByRole('button',{name:'合成公會 01',exact:true})).toContainText('1 則未讀');
   await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  background.release();
   await expect(bubbles.last()).toHaveText('畫面之後才到的合成訊息');
-  await thread.getByRole('button',{name:'標為已讀',exact:true}).click();
   await expect(tab(page,'公會閒聊')).toContainText('沒有未讀');await expect(thread.getByRole('button',{name:/標為已讀/})).toHaveCount(0);
   await expect(thread.getByRole('note')).toHaveCount(0);
   expect(server.log.reads.map(item=>item.through)).toEqual([shownNewest,channel.messages[0].message_id]);
@@ -224,6 +231,53 @@ test('an empty guild or squad membership offers the real page instead of a made-
   await page.goBack();await expect(page).toHaveURL(/#messages$/);
   await tab(page,'公會閒聊').click();await panel(page,'公會閒聊').getByRole('button',{name:'前往職業公會',exact:true}).click();await expect(page).toHaveURL(/#guilds$/);
   expect(server.log.reads).toEqual([]);
+});
+
+test('phone group lists and scrolled history never auto-read; returning to latest reads only the active group',async({page})=>{
+  await page.setViewportSize({width:320,height:844});
+  const server=await channelServer(page,{guild:[['builders','合成公會甲',30],['makers','合成公會乙',2]],squad:[[squadA,'合成小隊甲',1]]});
+  await open(page,server);await tab(page,'公會閒聊').click();const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread');
+  await visibility(page,'hidden');await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();
+  await expect(thread.locator('.messages-bubbles>li')).toHaveCount(20);expect(server.log.reads).toEqual([]);
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();await visibility(page,'visible');
+  await expect(thread).toBeHidden();expect(server.log.reads).toEqual([]);
+  await guild.getByRole('button',{name:'合成公會乙',exact:true}).click();
+  await expect.poll(()=>server.get('guild','makers').read).toBe(BigInt(server.get('guild','makers').messages[0].sequence));
+  expect(server.log.reads.map(item=>item.key)).toEqual(['makers']);expect(server.get('guild','builders').read).toBe(0n);expect(server.get('squad',squadA).read).toBe(0n);
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();
+  await expect.poll(()=>server.log.reads.length).toBe(2);
+  const log=thread.getByRole('log');await log.evaluate(node=>{node.scrollTop=0;node.dispatchEvent(new Event('scroll'));});
+  const channel=server.get('guild','builders');channel.messages.unshift(server.message(channel,'歷史瀏覽中收到的新訊息'));
+  await expect(thread.getByRole('button',{name:'有新訊息 · 回到最新',exact:true})).toBeVisible();
+  expect(server.log.reads).toHaveLength(2);expect(BigInt(channel.messages[0].sequence)>channel.read).toBe(true);
+  await thread.getByRole('button',{name:'有新訊息 · 回到最新',exact:true}).click();
+  await expect.poll(()=>channel.read).toBe(BigInt(channel.messages[0].sequence));expect(server.log.reads.map(item=>item.key)).toEqual(['makers','builders','builders']);
+  await expect(tab(page,'小隊閒聊')).toContainText('1 則未讀');await noOverflow(page);await shot(page,'group-auto-read-320');
+});
+
+test('a lost auto-read ACK preserves its boundary and key until explicit recovery',async({page})=>{
+  const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['makers','合成公會乙',2]]});
+  let failed=false;server.control.fail=what=>{if(what==='read'&&!failed){failed=true;return '500'}};
+  await open(page,server);await tab(page,'公會閒聊').click();const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread');
+  await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('標為已讀未完成');
+  expect(server.log.reads).toHaveLength(1);const original=server.log.reads[0];
+  const channel=server.get('guild','builders');channel.messages.unshift(server.message(channel,'確認回覆遺失後的新訊息'));
+  await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect(thread.locator('.messages-bubbles .messages-body').last()).toHaveText('確認回覆遺失後的新訊息');
+  await expect(thread.getByRole('alert')).toContainText('標為已讀未完成');expect(server.log.reads).toHaveLength(1);
+  await thread.getByRole('button',{name:'重試標為已讀',exact:true}).click();
+  await expect.poll(()=>server.log.reads.length).toBe(3);expect(server.log.reads[1]).toEqual(original);
+  expect(server.log.reads[2].through).toBe(channel.messages[0].message_id);expect(server.log.reads[2].idempotency).not.toBe(original.idempotency);
+  await expect(tab(page,'公會閒聊')).toContainText('2 則未讀');expect(server.get('guild','makers').read).toBe(0n);
+});
+
+test('chat navigation defaults to private conversations and the bell explicitly opens notifications',async({page})=>{
+  const server=await channelServer(page,{});await open(page,server);
+  await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
+  for(let i=0;i<2;i++){
+    await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息',exact:true}).click();
+    await expect(tab(page,'通知')).toHaveAttribute('aria-selected','true');await tab(page,'私人訊息').click();
+  }
+  await page.getByRole('button',{name:'建立群組',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
 });
 
 test('sending is plain text, retries an unknown result once, and never lets an older re-read undo it',async({page})=>{
@@ -297,6 +351,7 @@ test('switching channels ignores slow answers and never mixes guild, squad or pr
   await expect(guild.getByRole('button',{name:'合成公會乙',exact:true,includeHidden:true})).toHaveAttribute('aria-current','true');
   // A slow answer for one squad does not land in another squad either.
   const squadHold=holder();server.control.gate=(what,info)=>what==='history'&&info.key===squadA?squadHold.wait():undefined;
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
   await tab(page,'小隊閒聊').click();
   const squad=panel(page,'小隊閒聊'),squadThread=squad.locator('.messages-thread');
   await expect(squadThread).toBeHidden();await expect(squadThread.locator('.messages-bubbles')).toHaveCount(0);
@@ -310,7 +365,8 @@ test('switching channels ignores slow answers and never mixes guild, squad or pr
   // Each panel holds only its own kind; the private panel holds none.
   await expect(squad.getByText(/合成公會/)).toHaveCount(0);await expect(guild.getByText(/合成小隊/)).toHaveCount(0);
   await expect(panel(page,'私人訊息').getByText(/合成(公會|小隊)/)).toHaveCount(0);
-  await tab(page,'公會閒聊').click();await expect(thread.getByRole('heading',{level:2})).toHaveText('合成公會乙・公會閒聊');
+  await squad.getByRole('button',{name:'← 返回小隊列表',exact:true}).click();
+  await tab(page,'公會閒聊').click();await guild.getByRole('button',{name:'回到目前對話',exact:true}).click();await expect(thread.getByRole('heading',{level:2})).toHaveText('合成公會乙・公會閒聊');
   await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(thread.locator('.messages-bubbles .messages-body')).toHaveCount(3);
   await noOverflow(page);await shot(page,'guild-320');
@@ -361,6 +417,8 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
   const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
   await guild.getByRole('button',{name:'載入更多公會頻道',exact:true}).click();
   await guild.getByRole('button',{name:'合成公會 22',exact:true}).click();await expect(bubbles).toHaveCount(2);
+  await expect.poll(()=>server.get('guild','guild-22').read).toBe(BigInt(server.get('guild','guild-22').messages[0].sequence));
+  await expect(thread.getByText('正在同步已讀…',{exact:true})).toHaveCount(0);await expect(guild.getByRole('button',{name:'重新整理公會頻道',exact:true})).toBeVisible();
   // The first page cannot prove the channel is gone: the open channel is checked on its own and stays.
   const before=server.log.history.filter(item=>item.key==='guild-22'&&item.limit===1).length;
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -373,6 +431,8 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
 
   // A complete list without the open channel closes it without another history read.
   await guild.getByRole('button',{name:'合成公會 01',exact:true}).click();await expect(bubbles).toHaveCount(2);
+  await expect.poll(()=>server.get('guild','guild-01').read).toBe(BigInt(server.get('guild','guild-01').messages[0].sequence));
+  await expect(thread.getByText('正在同步已讀…',{exact:true})).toHaveCount(0);await expect(guild.getByRole('button',{name:'重新整理公會頻道',exact:true})).toBeVisible();
   for(let n=3;n<=21;n++)server.get('guild',`guild-${String(n).padStart(2,'0')}`).member=false;
   server.get('guild','guild-01').member=false;
   const reads=server.log.history.filter(item=>item.key==='guild-01'&&item.limit===1).length;
@@ -383,6 +443,8 @@ test('a list re-read that no longer has the open channel closes it, and a paged 
 
   // A list answer taken before the member left must not put the channel back.
   await guild.getByRole('button',{name:'合成公會 02',exact:true}).click();await expect(bubbles).toHaveCount(2);
+  await expect.poll(()=>server.get('guild','guild-02').read).toBe(BigInt(server.get('guild','guild-02').messages[0].sequence));
+  await expect(thread.getByText('正在同步已讀…',{exact:true})).toHaveCount(0);await expect(guild.getByRole('button',{name:'重新整理公會頻道',exact:true})).toBeVisible();
   holding=true;await guild.getByRole('button',{name:'重新整理公會頻道',exact:true}).click();await expect.poll(()=>hold.held.length).toBe(1);holding=false;
   server.get('guild','guild-02').member=false;
   // The fast activity check may revoke before a manual-refresh button can be clicked.
@@ -399,24 +461,27 @@ test('a confirmed read whose unread re-check fails says the count is unconfirmed
   server.control.fail=(what,info)=>what==='history'&&info.limit===1&&checkFails-->0?'503':undefined;
   await open(page,server);await tab(page,'公會閒聊').click();
   const guild=panel(page,'公會閒聊'),thread=guild.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
+  await visibility(page,'hidden');
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();await expect(bubbles).toHaveCount(3);
   const box=thread.getByLabel('在 合成公會甲 發言');await box.fill('已讀後的草稿');
   const channel=server.get('guild','builders');
   // Arrives after the page was drawn, so the read cannot cover it.
   channel.messages.unshift(server.message(channel,'標記後才看到的合成訊息'));
-  await thread.getByRole('button',{name:'標為已讀',exact:true}).click();
+  const background=holder();server.control.gate=(what,info)=>what==='history'&&info.limit===50?background.wait():undefined;
+  await latestVisible(page,thread.getByRole('log'));
   await expect(thread.getByRole('alert')).toContainText('已標為已讀，但目前未讀數未確認');
   await expect(thread.getByRole('alert')).not.toContainText('標為已讀未完成');
   await expect(thread.getByText('3 則未讀')).toHaveCount(0);await expect(thread.getByRole('button',{name:/標為已讀/})).toHaveCount(0);
   await expect(bubbles).toHaveCount(3);await expect(box).toHaveValue('已讀後的草稿');
   await thread.getByRole('alert').getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  background.release();
   await expect(bubbles.last()).toHaveText('標記後才看到的合成訊息');await expect(thread.getByRole('alert')).toHaveCount(0);
-  // The newer message is still unread and only a new, explicit read covers it.
-  await expect(thread.getByText('1 則未讀',{exact:true})).toBeVisible();await expect(box).toHaveValue('已讀後的草稿');
-  expect(server.log.reads).toHaveLength(1);
+  // Displaying the newer message now syncs its own boundary automatically.
+  await expect(tab(page,'公會閒聊')).toContainText('沒有未讀');await expect(box).toHaveValue('已讀後的草稿');
+  await expect.poll(()=>server.log.reads.length).toBe(2);
 });
 
-test('re-reading the open channel also re-reads its tab and list unread totals without marking anything read',async({page})=>{
+test('new messages displayed in the active channel auto-read while other room totals stay unread',async({page})=>{
   const server=await channelServer(page,{guild:[['builders','合成公會甲',2]],squad:[[squadA,'合成小隊甲',0],[squadB,'合成小隊乙',0]]});
   await open(page,server);await tab(page,'小隊閒聊').click();
   const squad=panel(page,'小隊閒聊'),thread=squad.locator('.messages-thread'),bubbles=thread.locator('.messages-bubbles .messages-body');
@@ -429,11 +494,11 @@ test('re-reading the open channel also re-reads its tab and list unread totals w
   // Another member replies while this one has the room open; no window focus follows.
   const channel=server.get('squad',squadA);channel.messages.unshift(server.message(channel,'夥伴剛回覆的合成訊息'));
   await thread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
-  await expect(bubbles).toHaveText(['夥伴剛回覆的合成訊息']);await expect(thread.getByText('1 則未讀',{exact:true})).toBeVisible();
-  await expect(tab(page,'小隊閒聊')).toContainText('1 則未讀');await expect(button).toContainText('1 則未讀');
+  await expect(bubbles).toHaveText(['夥伴剛回覆的合成訊息']);
+  await expect(tab(page,'小隊閒聊')).toContainText('沒有未讀');await expect(button).not.toContainText('則未讀');
   await expect(toggle).toHaveAttribute('aria-expanded','false');
   await expect(squad.getByRole('button',{name:'合成小隊乙',exact:true})).not.toContainText('則未讀');
-  await expect(box).toHaveValue('回覆前的草稿');expect(server.log.reads).toEqual([]);
+  await expect(box).toHaveValue('回覆前的草稿');expect(server.log.reads.map(item=>item.through)).toEqual([channel.messages[0].message_id]);
   // The other kind and the private tab keep their own totals.
   await expect(tab(page,'公會閒聊')).toContainText('2 則未讀');await expect(tab(page,'私人訊息')).toContainText('沒有未讀');
   await expect(squad.getByText(/合成公會/)).toHaveCount(0);await expect(panel(page,'私人訊息').getByText(/合成(公會|小隊)/)).toHaveCount(0);
@@ -524,6 +589,8 @@ test('light and versefolk selection uses the workshop green palette',async({page
   });
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3]]});
   await open(page,server);
+  // Inspect unread selection colors before any foreground viewing acknowledges these rooms.
+  await visibility(page,'hidden');
   await tab(page,'公會閒聊').click();
   const guild=panel(page,'公會閒聊');
   await guild.getByRole('button',{name:'合成公會甲',exact:true}).click();
@@ -552,6 +619,7 @@ test('light and versefolk selection uses the workshop green palette',async({page
     if(await page.getByRole('button',{name:'收合訊息控制台'}).count())await page.getByRole('button',{name:'收合訊息控制台'}).click();
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:width===390?844:900});
+      if(width===390&&await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).isVisible())await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
       const toggle=page.locator('.mobile-menu-toggle');
       if(width===390&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
       await settle(page);

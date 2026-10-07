@@ -14,7 +14,8 @@ import type {ChatEntry} from './chat-entry';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
 import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
-import {ChatInput,ChatTime,useChatViewport} from './ChatWorkspace';
+import {ChatInput,ChatTime,useChatViewport,usePhoneChatBounds,useVisibleChatRead} from './ChatWorkspace';
+import {WorkshopIcon} from '../WorkshopIcon';
 import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
@@ -23,7 +24,8 @@ type Notice={notification_id:string;kind:string;title:string;body:string;created
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
 type Participant={user_id:string;display_name:string;avatar_url:string|null;last_seen_at:string|null;is_online:boolean};
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null}&MessageContent;
-const newestMessages=(items:Message[])=>[...items].sort((a,b)=>b.created_at.localeCompare(a.created_at));
+const messageOrder=(a:Message,b:Message)=>a.created_at.localeCompare(b.created_at)||a.message_id.localeCompare(b.message_id);
+const newestMessages=(items:Message[])=>[...items].sort((a,b)=>messageOrder(b,a));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
@@ -43,32 +45,39 @@ const usableAction=(action:NotificationAction|null)=>!action||!Object.hasOwn(act
 const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀數未確認':count>0?`${count} 則未讀`:'沒有未讀';
 
 type View='notifications'|'guild'|'squad'|'direct'|'world';
-const VIEWS:readonly (readonly [View,string])[]=[['notifications','通知'],['guild','公會閒聊'],['squad','小隊閒聊'],['direct','私人訊息'],['world','世界聊天']];
+const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人訊息','私訊','messages'],['guild','公會閒聊','公會','guilds'],['squad','小隊閒聊','群組','squads'],['world','世界聊天','公開','community'],['notifications','通知','通知','todos']];
 
-export function MemberMessages({client,session,onNavigate,onNotificationPeer,chatEntry}:Props&{chatEntry?:ChatEntry|null}){
+export function MemberMessages({client,session,onNavigate,onNotificationPeer,chatEntry,initialView}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
   const all=useReadAllInbox(client);
-  const [view,setView]=useState<View>('notifications');
+  const [view,setView]=useState<View>(initialView?.view??'direct');
+  const [listRequest,setListRequest]=useState(0);
+  const hub=useRef<HTMLElement>(null);usePhoneChatBounds(hub);
   const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>(),[worldUnread,setWorldUnread]=useState<InboxUnread>();
   const unread:Record<View,InboxUnread>={notifications:noticeUnread,guild:guildUnread,squad:squadUnread,direct:directUnread,world:worldUnread};
+  useEffect(()=>{if(initialView)setView(initialView.view)},[initialView?.request]);
   useEffect(()=>{if(chatEntry)setView(chatEntry.kind)},[chatEntry?.request]);
   const [openPeer,setOpenPeer]=useState<{id:string;request:number}|null>(null);
   useEffect(()=>{if(onNotificationPeer&&uuid.test(onNotificationPeer.id)){setView('direct');setOpenPeer({id:onNotificationPeer.id,request:onNotificationPeer.sequence});}},[onNotificationPeer?.sequence]);
   const tabs=useRef<Record<string,HTMLButtonElement|null>>({});
   function tabKey(event:KeyboardEvent){
     const index=VIEWS.findIndex(([id])=>id===view),last=VIEWS.length-1;
-    const next={ArrowRight:index===last?0:index+1,ArrowLeft:index===0?last:index-1,Home:0,End:last}[event.key];
+    const next={ArrowRight:index===last?0:index+1,ArrowDown:index===last?0:index+1,ArrowLeft:index===0?last:index-1,ArrowUp:index===0?last:index-1,Home:0,End:last}[event.key];
     if(next===undefined)return;
     event.preventDefault();
     const id=VIEWS[next][0];setView(id);tabs.current[id]?.focus();
   }
-  return <section className="member-messages">
+  function returnToChats(){setView('direct');setListRequest(value=>value+1);}
+  return <section ref={hub} className="member-messages messages-hub">
+    <div className="messages-categories">
     <div className="messages-tabs" role="tablist" aria-label="訊息類型" onKeyDown={tabKey}>
-      {VIEWS.map(([id,label])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} data-guide-anchor={id==='notifications'?'messages:notifications':id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
-        aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}>{label}{unread[id]!==undefined&&<span className={unread[id]===0?'chat-sr-only':'messages-count'}>{unreadText(unread[id])}</span>}</button>)}
+      {VIEWS.map(([id,label,short,icon])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-label={`${label}${unread[id]===undefined?'':`，${unreadText(unread[id])}`}`} data-guide-anchor={id==='notifications'?'messages:notifications':id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
+        aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}><WorkshopIcon name={icon}/><span>{short}</span>{unread[id]!==undefined&&<><span className="chat-sr-only">{unreadText(unread[id])}</span>{unread[id]!==0&&<span className="messages-count chat-category-count" aria-hidden="true">{unread[id]===null?'?':unread[id]!>99?'99+':unread[id]}</span>}</>}</button>)}
     </div>
-    <div className="messages-actions"><button type="button" className="btn btn-ghost" disabled={all.busy} onClick={()=>void all.markAll()}>{all.busy?'標記中…':'全部標為已讀'}</button>{all.error&&<p role="alert">{all.error}</p>}</div>
+    <button type="button" className="btn btn-ghost messages-new-group" onClick={()=>onNavigate('squads')} title="前往小隊建立合作群組"><WorkshopIcon name="members"/><span>建立群組</span></button>
+    </div>
     {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}
     <div id="messages-panel-notifications" role="tabpanel" aria-labelledby="messages-tab-notifications" hidden={view!=='notifications'}>
+      <div className="messages-notice-header"><h2>通知</h2><button type="button" className="btn btn-ghost" disabled={all.busy} onClick={()=>void all.markAll()}>{all.busy?'標記中…':'全部標為已讀'}</button>{all.error&&<p role="alert">{all.error}</p>}</div>
       <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
     </div>
     <div id="messages-panel-guild" role="tabpanel" aria-labelledby="messages-tab-guild" hidden={view!=='guild'}>
@@ -78,9 +87,9 @@ export function MemberMessages({client,session,onNavigate,onNotificationPeer,cha
       <MemberChannels client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
     </div>
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
-      <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'}/>
+      <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest}/>
     </div>
-    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'}/></div>
+    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} onReturnToChats={returnToChats}/></div>
   </section>;
 }
 
@@ -177,7 +186,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
 
 type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 
-export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean}){
+export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false,listRequest=0}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean;listRequest?:number}){
   const me=session.user.user_id,uid=useId();
   const mobile=useChatViewport(),singlePane=compact||mobile;
   const richDrafts=useRichChatDraft();
@@ -186,6 +195,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   const [convStatus,setConvStatus]=useState<'loading'|'ready'|'error'>('loading'),[convError,setConvError]=useState(''),[convMore,setConvMore]=useState({loading:false,error:''});
   const [peer,setPeer]=useState<string|null>(null),[thread,setThread]=useState<Thread|null>(null);
   const [picking,setPicking]=useState(true);
+  useEffect(()=>{if(!listRequest)return;setPicking(true);const frame=requestAnimationFrame(()=>document.getElementById(ids.list)?.focus());return()=>cancelAnimationFrame(frame);},[listRequest]);
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
   const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
@@ -193,7 +203,8 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
   // The in-flight refs record the full read that is still out, so a confirmed write can supersede it.
   const convInFlight=useRef<boolean|null>(null),threadInFlight=useRef<{id:string;quiet:boolean}|null>(null);
-  const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),readKeys=useRef(new Map<string,string>()),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
+  const convGeneration=useRef(0),threadGeneration=useRef(0),currentPeer=useRef<string|null>(null),heading=useRef<HTMLHeadingElement>(null),focusThread=useRef(false),alive=useRef(true);
+  const readAttempts=useRef(new Map<string,{through:string;key:string}>()),readLocks=useRef(new Set<string>()),readIssues=useRef(new Map<string,string>());
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{height:number;top:number}|null>(null),moreState=useRef(threadMore);
   const polling=useRef(false),retryAt=useRef(0),failures=useRef(0),listCheckedAt=useRef(0);
   const receiptRefresh=useRef(new Map<string,symbol>());
@@ -234,7 +245,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   const loadThread=useCallback(async(id:string,quiet=false)=>{
     const current=++threadGeneration.current;threadInFlight.current={id,quiet};
     const receiptVersion=receiptRefresh.current.get(id);
-    setThreadMore({loading:false,error:''});setReadError('');
+    setThreadMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(id)??'');
     if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
     try{
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`,{background:quiet});
@@ -304,6 +315,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
     if(id===me)return;
     stick.current=true;anchor.current=null;setHasNew(false);setLiveError('');retryAt.current=0;
     currentPeer.current=id;focusThread.current=moveFocus;setPeer(id);setPicking(false);void loadThread(id);
+    setReading(readLocks.current.has(id));
   },[loadThread,me]);
   useEffect(()=>{if(openPeer)select(openPeer.id,true);},[openPeer,select]);
   // A read that was already out when a write was confirmed may answer with the state before it.
@@ -328,23 +340,32 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
     }catch(cause){if(current===threadGeneration.current)setThreadMore({loading:false,error:fail(cause)});}
   }
 
-  async function markRead(){
-    if(!peer||reading)return;
-    const id=peer,current=threadGeneration.current;setReading(true);setReadError('');
-    const key=readKeys.current.get(id)??crypto.randomUUID();readKeys.current.set(id,key);
+  async function markRead(through?:string,retry=false){
+    if(!peer||!thread||readLocks.current.has(peer))return;
+    if(!retry&&readAttempts.current.has(peer))return;
+    const id=peer,current=threadGeneration.current,target=thread.items.find(item=>item.message_id===through);
+    const attempt=readAttempts.current.get(id)??(target?{through:target.message_id,key:crypto.randomUUID()}:null);
+    if(!attempt)return;
+    readAttempts.current.set(id,attempt);readLocks.current.add(id);readIssues.current.delete(id);setReading(true);setReadError('');
     try{
-      const result=await client.post<{user_id:string;read_at:string;updated_count:number}>(`/me/conversations/${encodeURIComponent(id)}/read`,{},{idempotencyKey:key});
-      readKeys.current.delete(id);announceInboxChange();
+      const boundary=thread.items.find(item=>item.message_id===attempt.through);
+      const result=await client.post<{user_id:string;read_at:string;updated_count:number}>(`/me/conversations/${encodeURIComponent(id)}/read`,{through_message_id:attempt.through},{idempotencyKey:attempt.key});
+      readAttempts.current.delete(id);announceInboxChange();
       if(!alive.current)return;
-      setConversations(value=>value.map(item=>item.participant.user_id===id?{...item,unread_count:0}:item));
-      if(currentPeer.current===id)setThread(value=>value&&value.participant.user_id===id?{...value,unread_count:0,items:value.items.map(message=>message.sender_ref===id&&!message.read_at?{...message,read_at:result.read_at}:message)}:value);
-      rereadAfterWrite(id);
-      try{const page=await client.get<ConversationPage>('/me/conversations?limit=1&offset=0');if(alive.current)onUnread(page.unread_count);}catch{if(alive.current)onUnread(null);}
+      if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&messageOrder(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
+      // Replay counts describe the original command, not the current UI snapshot.
+      // Re-read after ACK instead of subtracting that count from possibly newer mail.
+      void loadConversations(true);
+      if(currentPeer.current===id)await loadThread(id,true);
     }catch(cause){
-      if(!unconfirmed(cause))readKeys.current.delete(id);
-      if(current===threadGeneration.current)setReadError(`標為已讀未完成：${fail(cause,'請重試。')}`);
-    }finally{setReading(false);}
+      if(!unconfirmed(cause))readAttempts.current.delete(id);
+      const issue=`標為已讀未完成：${fail(cause,'請重試。')}`;readIssues.current.set(id,issue);
+      if(current===threadGeneration.current)setReadError(issue);
+    }finally{readLocks.current.delete(id);if(alive.current&&currentPeer.current===id)setReading(false);}
   }
+
+  useVisibleChatRead({active:active&&(!singlePane||!picking),identity:peer,through:thread?.items[0]?.message_id,unread:thread?.unread_count??0,
+    blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading,scroll,onRead:through=>void markRead(through)});
 
   async function send(id:string){
     const previous=pending[id];
@@ -385,8 +406,9 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
 
   const participant=thread?.participant??conversations.find(item=>item.participant.user_id===peer)?.participant,draft=peer?drafts[peer]??'':'',attempt=peer?pending[peer]:undefined,sendError=peer?sendErrors[peer]:undefined;
   const richDraft=richDrafts.get(peer??'');
+  function switchPane(){setPicking(value=>!value);requestAnimationFrame(()=>{if(picking)heading.current?.focus();else document.getElementById(ids.list)?.focus();});}
   return <div className={`messages-layout chat-workspace${compact?' is-compact':''}`}>
-    {singlePane&&peer&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={()=>{setPicking(value=>!value);requestAnimationFrame(()=>{if(picking)heading.current?.focus();else document.getElementById(ids.list)?.focus();});}}>{picking?'回到目前對話':compact?'切換對象':'← 返回對話列表'}</button>}
+    {singlePane&&peer&&picking&&<button type="button" className="btn btn-ghost messages-switch" aria-expanded={picking} aria-controls={`${uid}-picker`} onClick={switchPane}>回到目前對話</button>}
     <div id={`${uid}-picker`} hidden={singlePane&&Boolean(peer)&&!picking} className="messages-side">
       <MemberPicker client={client} me={me} onSelect={id=>select(id,true)}/>
       <section className="stack" aria-labelledby={ids.list}>
@@ -408,11 +430,11 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
         {convStatus==='ready'&&convNext!==null&&<button className="btn btn-ghost" type="button" disabled={convMore.loading} onClick={()=>void moreConversations()}>{convMore.loading?'正在讀取…':convMore.error?'重試載入更多對話':'載入更多對話'}</button>}
       </section>
     </div>
-    <section hidden={singlePane&&(!peer||picking)} className="messages-thread" aria-labelledby={ids.thread} aria-busy={threadStatus==='loading'}>
+    <section hidden={singlePane&&(!peer||picking)} className="messages-thread" data-chat-open={Boolean(peer)&&!picking&&!compact} aria-labelledby={ids.thread} aria-busy={threadStatus==='loading'}>
       {!peer&&<><h2 id={ids.thread}>私人訊息</h2><p className="muted">從對話列表或會員搜尋選擇對象。</p></>}
       {peer&&<>
-        <div className="chat-header">{participant&&<MemberAvatar nickname={participant.display_name} avatarUrl={participant.avatar_url}/>}<div>
-          <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?`與 ${participant.display_name} 的對話`:'讀取對話中'}</h2>
+        <div className="chat-header">{singlePane&&<button type="button" className="btn btn-ghost chat-back" aria-label={compact?'切換對象':'← 返回對話列表'} title="返回對話列表" aria-controls={`${uid}-picker`} onClick={switchPane}><span aria-hidden="true">‹</span></button>}{participant&&<MemberAvatar nickname={participant.display_name} avatarUrl={participant.avatar_url}/>}<div>
+          <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?<><span className="chat-sr-only">與 </span>{participant.display_name}<span className="chat-sr-only"> 的對話</span></>:'讀取對話中'}</h2>
           {participant&&<MemberPresence online={participant.is_online} lastSeen={participant.last_seen_at}/>}
         </div></div>
         {liveError&&<p className="messages-meta" role="status">{liveError}</p>}
@@ -435,8 +457,8 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
           {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
-          {thread.unread_count>0&&<div className="messages-actions"><span className="messages-meta">{thread.unread_count} 則未讀</span><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>{reading?'正在標記…':'標為已讀'}</button></div>}
-          {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead()}>重試標為已讀</button></div></div>}
+          {reading&&<p className="messages-meta" role="status">正在同步已讀…</p>}
+          {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead(thread.items[0]?.message_id,true)}>重試標為已讀</button></div></div>}
           {thread.can_send?<form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(peer);}}>
             <ChatExtras target={peer} draft={richDraft} disabled={attempt?.status==='sending'} onChange={value=>richDrafts.change(peer,value)}/>
             <ChatInput id={`${uid}-compose`} label={`寫給 ${thread.participant.display_name} 的訊息`} value={draft} sending={attempt?.status==='sending'} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}

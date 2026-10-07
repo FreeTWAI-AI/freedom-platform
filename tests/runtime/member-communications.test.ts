@@ -245,6 +245,38 @@ test('conversations show only own pairs sorted by latest message, with per-pair 
   assert.equal((await pool.query("SELECT read_at FROM member_direct_messages WHERE body='C1'")).rows[0].read_at,null);
 });
 
+test('snapshot-bounded private reads preserve later arrivals, other peers and stable timestamp ties',async()=>{
+  const [a,b,c]=await signInAll(),path=`/me/conversations/${A}/read`;
+  const sent=[];
+  for(let i=0;i<3;i++)sent.push((await request(`/me/conversations/${B}/messages`,a,{body:`boundary ${i}`})).data);
+  const ids=sent.map(item=>item.message_id).sort();
+  await pool.query("UPDATE member_direct_messages SET created_at=timestamptz '2026-09-24T09:00:00Z' WHERE message_id=ANY($1)",[ids]);
+  const foreign=(await request(`/me/conversations/${B}/messages`,c,{body:'another peer'})).data;
+  const outsidePair=(await request(`/me/conversations/${C}/messages`,a,{body:'another pair'})).data;
+  const key=randomUUID(),body={through_message_id:ids[1]};
+  assert.equal((await request(path,b,body,{key:''})).data.code,'idempotency_required');
+  assert.equal((await request(path,b,body,{csrf:'x'.repeat(43)})).data.code,'csrf_rejected');
+  for(const invalid of [{through_message_id:'invalid'},{through_message_id:1},{...body,read_at:'now'}])assert.equal((await request(path,b,invalid)).status,422);
+  for(const unavailable of [foreign.message_id,outsidePair.message_id,randomUUID()])assert.equal((await request(path,b,{through_message_id:unavailable})).status,404);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);
+  const first=await request(path,b,body,{key});assert.equal(first.status,200,JSON.stringify(first.data));assert.equal(first.data.updated_count,2);
+  assert.deepEqual((await request(path,b,body,{key})).data,first.data);
+  assert.equal((await request(path,b,{through_message_id:ids[2]},{key})).data.code,'idempotency_conflict');
+  const rows=(await pool.query('SELECT message_id,read_at FROM member_direct_messages WHERE message_id=ANY($1) ORDER BY message_id',[ids])).rows;
+  assert.deepEqual(rows.map(row=>row.read_at!==null),[true,true,false]);
+  assert.equal((await request(`/me/conversations/${A}/messages`,b)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',b)).data.unread_count,2);
+  assert.equal((await request(path,b,{through_message_id:ids[0]})).data.updated_count,0,'older boundary never consumes the newer message');
+  const later=(await request(`/me/conversations/${B}/messages`,a,{body:'arrived after snapshot'})).data;
+  assert.equal((await request(path,b,body)).data.updated_count,0,'a new command still uses the displayed boundary');
+  assert.equal((await pool.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[later.message_id])).rows[0].read_at,null);
+  // An own outgoing bubble is also a valid displayed pair boundary.
+  const outgoing=(await request(`/me/conversations/${A}/messages`,b,{body:'viewer reply'})).data;
+  assert.equal((await request(path,b,{through_message_id:outgoing.message_id})).data.updated_count,2);
+  assert.equal((await pool.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[foreign.message_id])).rows[0].read_at,null);
+  assert.equal((await request(path,b,{})).data.updated_count,0,'legacy empty-body command is still supported');
+});
+
 test('message and conversation pages are stable and counts stay constant across pages',async()=>{
   const [a,b,c]=await signInAll();const extra=await extraMember('peer'),d=await signIn(extra.email);
   for(let i=0;i<5;i++)assert.equal((await request(`/me/conversations/${B}/messages`,a,{body:`m${i}`})).status,201);

@@ -16,6 +16,7 @@ export const CommunicationPageQuery=z.object({
   offset:z.coerce.number().int().min(0).max(10000).default(0),
 }).strict();
 const Empty=z.object({}).strict();
+const ConversationReadInput=z.object({through_message_id:z.uuid().optional()}).strict();
 const MessageInput=MessageContentInput;
 export const DIRECT_MESSAGE_RATE_LIMIT=20,DIRECT_MESSAGE_RATE_WINDOW_SECONDS=60;
 
@@ -214,12 +215,19 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):
 }
 
 export async function markConversationRead(pool:Pool,input:Command,rawPeer:string){
-  Empty.parse(input.body);const id=peerId(input.actor,rawPeer);
-  return command(pool,input,async q=>{await currentMember(q,input.actor,false);await resolvePeer(q,input.actor,id);},async q=>{
-    // Only messages the peer sent to the viewer and already committed are marked.
+  const {through_message_id}=ConversationReadInput.parse(input.body),through=through_message_id?.toLowerCase(),id=peerId(input.actor,rawPeer);
+  return command(pool,input,async q=>{
+    await currentMember(q,input.actor,false);await resolvePeer(q,input.actor,id);
+    if(through)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
+      AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
+      [through,input.actor.community_id,input.actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
+  },async q=>{
+    // Opening a thread marks only through its displayed snapshot. A later arrival stays unread.
+    // The empty-body legacy command remains compatible; the portal always supplies a boundary.
     const row=(await q.query(`WITH marked AS (UPDATE member_direct_messages SET read_at=now()
-        WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL RETURNING 1)
-      SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id])).rows[0];
+        WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL
+          AND ($4::uuid IS NULL OR (created_at,message_id)<=(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$4)) RETURNING 1)
+      SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id,through??null])).rows[0];
     return {user_id:id,read_at:iso(row.read_at)!,updated_count:row.updated_count as number};
   });
 }

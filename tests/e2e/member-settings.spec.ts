@@ -18,6 +18,9 @@ async function login(page:Page,hash=''){
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
 }
+async function visibility(page:Page,state:'visible'|'hidden'){
+  await page.evaluate(value=>{Object.defineProperty(document,'visibilityState',{configurable:true,value});document.dispatchEvent(new Event('visibilitychange'));},state);
+}
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openPage(page:Page,name:string){
   if(name==='我的訊息'){
@@ -185,11 +188,11 @@ test('notifications show errors, page without dropping items, and confirm reads 
     notice(2,{tab:'https://evil.example',resource_id:null},{body:'<img src=x onerror="window.pwned=1">純文字'}),
     notice(3,{tab:'members',resource_id:peerA},{read_at:'2026-09-24T08:00:00Z'}),
   ];
-  let listFailures=1,pageTwoFailures=1,readFailures=1,listReads=0;const readKeys:string[]=[];
+  let listFails=true,pageTwoFailures=1,readFailures=1,listReads=0;const readKeys:string[]=[];
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>{
     listReads++;
     const url=new URL(route.request().url()),offset=Number(url.searchParams.get('offset')),limit=Number(url.searchParams.get('limit'));
-    if(offset===0&&limit===20&&listFailures-->0)return route.fulfill({status:500,json:{title:'boom'}});
+    if(offset===0&&limit===20&&listFails)return route.fulfill({status:500,json:{title:'boom'}});
     if(offset===2&&pageTwoFailures-->0)return route.abort();
     const slice=offset===0?items.slice(0,Math.min(2,limit)):items.slice(2);
     return route.fulfill({json:{items:slice,unread_count:items.filter(item=>!item.read_at).length,next_offset:offset===0&&limit>1?2:null}});
@@ -202,9 +205,10 @@ test('notifications show errors, page without dropping items, and confirm reads 
     return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');
+  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
   const panel=page.getByRole('tabpanel',{name:/通知/});
   await expect(panel.getByRole('alert')).toContainText('通知讀取失敗');await expect(panel.getByText('目前沒有通知。')).toHaveCount(0);
+  listFails=false;
   await panel.getByRole('button',{name:'重新讀取通知',exact:true}).click();
   await expect(panel.getByRole('heading',{level:3})).toHaveText(['合成通知 1','合成通知 2']);
   await expect(page.getByRole('tab',{name:/通知/})).toContainText('2 則未讀');
@@ -254,7 +258,7 @@ test('refreshing notifications keeps the list and the focused button, and a late
     return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');
+  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
   const panel=page.getByRole('tabpanel',{name:/通知/}),tab=page.getByRole('tab',{name:/通知/}),titles=panel.getByRole('heading',{level:3});
   const refresh=panel.getByRole('button',{name:/^(重新整理通知|正在整理通知…)$/});
   await expect(titles).toHaveText(['合成通知 1']);
@@ -283,7 +287,7 @@ test('a failed read before navigating can be retried or skipped explicitly',asyn
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>route.fulfill({json:{items,unread_count:1,next_offset:null}}));
   await page.route(/\/api\/v1\/me\/notifications\/[^/]+\/read$/,route=>route.fulfill({status:422,json:{title:'無法標記',detail:'合成錯誤'}}));
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');
+  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
   const item=page.locator('li',{hasText:'合成通知 1'});
   await item.getByRole('button',{name:'前往小隊集合',exact:true}).click();
   await expect(item.getByRole('alert')).toContainText('合成錯誤');await expect(page).toHaveURL(/#messages$/);
@@ -302,7 +306,7 @@ test('a late read after leaving the page never navigates, and a failed count ref
     const item=items.find(value=>value.notification_id===id)!;item.read_at='2026-09-24T10:00:00Z';return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');
+  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
   await page.locator('li',{hasText:'合成通知 1'}).getByRole('button',{name:'前往小隊集合',exact:true}).click();
   await openPage(page,'待辦清單');await expect(page).toHaveURL(/#todos$/);
   release();await page.waitForTimeout(300);
@@ -321,13 +325,15 @@ const participants:Record<string,{user_id:string;display_name:string;avatar_url:
 function thread(peer:string,count:number):Message[]{
   // Newest first, as the backend returns it.
   return Array.from({length:count},(_,i)=>{const n=count-i;const theirs=n%2===1;
-    return {message_id:`${peer.slice(-4)}-m${n}`,sender_ref:theirs?peer:me,recipient_ref:theirs?me:peer,body:`${participants[peer].display_name} 訊息 ${n}`,created_at:`2026-09-24T0${Math.min(n,9)}:00:00Z`,read_at:theirs&&n>=count-3?null:'2026-09-24T09:30:00Z'};});
+    return {message_id:`${peer.slice(-4)}-m${n}`,sender_ref:theirs?peer:me,recipient_ref:theirs?me:peer,body:`${participants[peer].display_name} 訊息 ${n}`,created_at:`2026-09-24T09:${String(n).padStart(2,'0')}:00Z`,read_at:theirs&&n>=count-3?null:'2026-09-24T09:30:00Z'};});
 }
 
 // `gate` holds a full-page read *after* its snapshot is taken, like a slow server answer.
-async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
+async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];readOutcomes?:('500'|'ok')[];gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
   const store:Record<string,Message[]>={[peerA]:thread(peerA,25),[peerB]:[]};
   const sends:{peer:string;key:string;body:string}[]=[],reads:string[]=[],outcomes=[...options.outcomes??[]];
+  const readOutcomes=[...options.readOutcomes??[]],readBoundaries:{peer:string;key:string;through:string}[]=[];
+  const receipts=new Map<string,{user_id:string;read_at:string;updated_count:number}>();
   const unread=(peer:string)=>store[peer].filter(item=>item.sender_ref===peer&&!item.read_at).length;
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
   await page.route(/\/api\/v1\/me\/conversations(\/.*)?(\?.*)?$/,async(route:Route)=>{
@@ -361,15 +367,37 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
     }
     if(parts[2]==='read'){
       reads.push(request.headers()['idempotency-key']);let updated=0;
-      for(const item of store[peer])if(item.sender_ref===peer&&!item.read_at){item.read_at='2026-09-24T10:05:00Z';updated++;}
-      return route.fulfill({json:{user_id:peer,read_at:'2026-09-24T10:05:00Z',updated_count:updated}});
+      const boundary=store[peer].find(item=>item.message_id===request.postDataJSON().through_message_id)!;
+      expect(boundary).toBeTruthy();expect(request.headers()['x-csrf-token']).toBeTruthy();
+      const key=request.headers()['idempotency-key'];readBoundaries.push({peer,key,through:boundary.message_id});
+      for(const item of store[peer])if(item.sender_ref===peer&&!item.read_at&&(item.created_at<boundary.created_at||item.created_at===boundary.created_at&&item.message_id<=boundary.message_id)){item.read_at='2026-09-24T10:05:00Z';updated++;}
+      const result=receipts.get(key)??{user_id:peer,read_at:'2026-09-24T10:05:00Z',updated_count:updated};receipts.set(key,result);
+      if(readOutcomes.shift()==='500')return route.fulfill({status:500,json:{title:'合成已讀回覆遺失'}});
+      return route.fulfill({json:result});
     }
     return route.fulfill({status:404,json:{}});
   });
-  return {store,sends,reads};
+  return {store,sends,reads,readBoundaries};
 }
 
-test('direct messages page, send with an unknown result once, and mark read only on request',async({page})=>{
+test('an unknown private auto-read result never replays silently or consumes later mail',async({page})=>{
+  const {store,reads,readBoundaries}=await direct(page,{readOutcomes:['500','ok']});
+  await login(page,'#messages');const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread');
+  await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:/合成夥伴甲/}).click();
+  await expect(threadRegion.getByRole('alert')).toContainText('標為已讀未完成');expect(reads).toHaveLength(1);
+  store[peerA].unshift({message_id:'a-after-ack',sender_ref:peerA,recipient_ref:me,body:'原本已讀以後才來的新私訊',created_at:'2026-09-24T11:00:00Z',read_at:null});
+  store[peerB].unshift({message_id:'b-background',sender_ref:peerB,recipient_ref:me,body:'另一位夥伴的未讀',created_at:'2026-09-24T11:01:00Z',read_at:null});
+  await threadRegion.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await expect(threadRegion.locator('.messages-bubbles .messages-body').last()).toHaveText('原本已讀以後才來的新私訊');
+  await expect(threadRegion.getByRole('alert')).toContainText('標為已讀未完成');expect(reads).toHaveLength(1);
+  expect(store[peerA][0].read_at).toBeNull();expect(store[peerB][0].read_at).toBeNull();
+  await threadRegion.getByRole('button',{name:'重試標為已讀',exact:true}).click();
+  await expect.poll(()=>reads.length).toBe(3);expect(readBoundaries[1]).toEqual(readBoundaries[0]);
+  expect(readBoundaries[2].through).toBe('a-after-ack');expect(reads[2]).not.toBe(reads[0]);
+  await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');expect(store[peerB][0].read_at).toBeNull();
+});
+
+test('direct messages auto-read on entry and retain paging plus idempotent send recovery',async({page})=>{
   const {sends,reads}=await direct(page,{outcomes:['abort','ok','500','ok']});
   await login(page,'#messages');
   await page.getByRole('tab',{name:/私人訊息/}).click();
@@ -384,9 +412,8 @@ test('direct messages page, send with an unknown result once, and mark read only
   await threadRegion.getByRole('button',{name:'載入較早訊息',exact:true}).click();
   await expect(bubbles).toHaveCount(25);await expect(bubbles.first()).toHaveText('合成夥伴甲 訊息 1');
   await expect(threadRegion.getByRole('button',{name:'載入較早訊息',exact:true})).toHaveCount(0);
-  // Opening the conversation did not mark anything read.
-  expect(reads).toEqual([]);
-  await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
+  // Opening the visible conversation confirms read state automatically.
+  await expect.poll(()=>reads.length).toBe(1);
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
   await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');expect(reads.length).toBe(1);
 
@@ -456,6 +483,7 @@ test('an open messages page can re-read the list and thread to see new mail with
   await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
   const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
   await expect(list.getByRole('button')).toHaveCount(1);
+  await visibility(page,'hidden');
   await list.getByRole('button',{name:/合成夥伴甲/}).click();
   const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('還沒寫完的回覆');
   // Mail arrives while the page stays open: a new sender and a new message in the open thread.
@@ -469,8 +497,11 @@ test('an open messages page can re-read the list and thread to see new mail with
   await refreshThread.click();
   await expect(threadRegion.locator('.messages-bubbles .messages-body').last()).toHaveText('甲的新回覆');await expect(refreshThread).toBeFocused();
   await expect(box).toHaveValue('還沒寫完的回覆');
-  // Re-reading is not reading: nothing was marked read.
-  expect(reads).toEqual([]);await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
+  // A background document may refresh its loaded snapshot but never clears unread mail.
+  expect(reads).toEqual([]);await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
+  await threadRegion.getByRole('log').evaluate(node=>{node.scrollTop=node.scrollHeight});await visibility(page,'visible');
+  await expect.poll(()=>reads.length).toBe(1);await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('1 則未讀');
+  await expect(list.getByRole('button',{name:/合成夥伴乙/})).toContainText('1 則未讀');await expect(box).toHaveValue('還沒寫完的回覆');
 });
 
 test('a slow re-read that started before a confirmed send or read never overwrites it',async({page})=>{
@@ -482,6 +513,7 @@ test('a slow re-read that started before a confirmed send or read never overwrit
     await expect.poll(()=>answered).toBeGreaterThanOrEqual(target);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
   await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
   const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread'),list=panel.getByRole('list',{name:'對話列表'});
+  await visibility(page,'hidden');
   await list.getByRole('button',{name:/合成夥伴甲/}).click();
   const bubbles=threadRegion.locator('.messages-bubbles .messages-body'),box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');
   await expect(bubbles).toHaveCount(20);
@@ -500,10 +532,10 @@ test('a slow re-read that started before a confirmed send or read never overwrit
   await expect(box).toHaveValue('送出後的新草稿');expect(sends.length).toBe(1);
 
   // The same for a confirmed read: the old unread counts must not come back.
-  await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toBeVisible();
+  expect(reads).toEqual([]);
   holding=true;await refreshList.click();await refreshThread.click();
   await expect.poll(()=>held.length).toBeGreaterThanOrEqual(2);holding=false;
-  await threadRegion.getByRole('button',{name:'標為已讀',exact:true}).click();
+  await threadRegion.getByRole('log').evaluate(node=>{node.scrollTop=node.scrollHeight});await visibility(page,'visible');
   await expect(threadRegion.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');
   await delivered(2);
   await expect(refreshList).toHaveText('重新整理對話');await expect(refreshThread).toHaveText('重新讀取訊息');

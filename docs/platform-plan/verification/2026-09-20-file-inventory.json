@@ -1024,8 +1024,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 45333,
-      "sha256": "2b056ffe537be57d7c0b7d85585a114f096da77f13a778c07efe9a8e1732e225"
+      "bytes": 45652,
+      "sha256": "ab50147b714def5bcc87cda6bc4879f9633f3521d3bc0b40d2cbea1cff09fb94"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -1274,18 +1274,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/ChatContent.tsx",
-      "bytes": 5268,
-      "sha256": "b090dbc1770a90fd0fb091dc3a1e4d458190e621b22f8136e06420b1dc1683a9"
+      "bytes": 5592,
+      "sha256": "347e709345649c76cf514b22fae8b93bc410cb8e1417c015ff057fc9e1a617f0"
     },
     {
       "path": "apps/portal-web/src/modules/ChatWorkspace.css",
-      "bytes": 5247,
-      "sha256": "48a0335fec80879b442324821eb0aa78fd5b7f487153b22f8fd6d69e3d69a404"
+      "bytes": 14084,
+      "sha256": "434a9833286e31d44314884515a149739f4907cc50cfafeea92c8db7503fc926"
     },
     {
       "path": "apps/portal-web/src/modules/ChatWorkspace.tsx",
-      "bytes": 2264,
-      "sha256": "fa3da7ccb2390a0c4f0276d19c8097c41bdd59ae860bdf06327157024aacd469"
+      "bytes": 5631,
+      "sha256": "64dd041c00a2a929258ff180a6731a7e71888c43682e6755edcc2b2c2812dc04"
     },
     {
       "path": "apps/portal-web/src/modules/ClientConnections.tsx",
@@ -1534,8 +1534,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 34975,
-      "sha256": "e1b299a2581bb2aedb8ec10b9e2b1848a10b04e5fdb6c7b938b1580b878811f4"
+      "bytes": 37179,
+      "sha256": "04111f0ff1861a05bc6c80041a5ceb3b549638d186782449894923df889d1bb7"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -1574,8 +1574,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 45678,
-      "sha256": "e2cf53807a334e77c8d629d89e6115b46179dd5e7cc91917d522af57b9386a8b"
+      "bytes": 48470,
+      "sha256": "26042488bd13d8edd4d8e8d4f506c7c0e63de42874e47ba92013f8ecfda0d89b"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -12678,19 +12678,24 @@
       "sha256": "03e4139bd4c5bb69bb7c99ff45f080f163ef40a2ea4e224c51c74d6321d1094d"
     },
     {
+      "path": "docs/development/social-chat-experience.md",
+      "bytes": 3877,
+      "sha256": "5dc38f5b74eb565778bfccd0fe2f84973f03e09d6afbc680f26d74a6fcc475b8"
+    },
+    {
       "path": "docs/development/social-platform-audit-2026-10-07.md",
       "bytes": 14484,
       "sha256": "440c3c23d359ab8bf3876f719e131091f041cb920e42e70092218fa8235cd8f1"
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 12275,
-      "sha256": "4a6e8cd0037514e6cbc4521ddf47184efc845a0c9ed189263b550dec092e5508"
+      "bytes": 13553,
+      "sha256": "1078c0906aafc85ef8e9330637a1809a4855e2af5c2d07b08c9096f7130ca49a"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
-      "bytes": 26122,
-      "sha256": "ae92e45a44705b1dd816eeaa1aec303562bc6c8de41173519b3152061e1c9308"
+      "bytes": 40705,
+      "sha256": "175f8c2685b777a565739d8dcc3628eda4fbb82a09c75b61e3d7f91c2445b228"
     },
     {
       "path": "docs/development/social-platform-product-direction-2026-10-07.md",
@@ -16049,8 +16054,8 @@
     },
     {
       "path": "modules/member-communications/service.ts",
-      "bytes": 17672,
-      "sha256": "6a57ef5c2976a70c9918c8ed0ef088a61233e542ae2a0bdb1cfd89368c43073e"
+      "bytes": 18505,
+      "sha256": "c711755282e281151714592adf7756bbfab24edc8fccca00d44a04a6689a0b94"
     },
     {
       "path": "modules/member-communications/stickers.ts",
@@ -16059,8 +16064,8 @@
     },
     {
       "path": "modules/member-communications/types.ts",
-      "bytes": 2867,
-      "sha256": "0abc8bae3601d351831ec18bcb89249a5161b59cebdc40365e502e2b5fbef0ca"
+      "bytes": 3079,
+      "sha256": "707902fd1c6661c1bd938b7fb9c92b02a4849d1184291885c99e94c9f62af715"
     },
     {
       "path": "modules/module-registry/AGENTS.md",
@@ -17864,8 +17869,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 18638,
-      "sha256": "c71d5c82fa3afa12f9fea8832e5d30357dcf316a35a35776677094f57570cf2d"
+      "bytes": 22402,
+      "sha256": "6c8c4c15a95c366614822cb279ebd668ce4abf1469ab7f4902c3138adad21888"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -18019,13 +18024,13 @@
     },
     {
       "path": "tests/e2e/member-channels-real.spec.ts",
-      "bytes": 30147,
-      "sha256": "bbea6605549b90b823957c58a67ebf839d356a4f1faac2aaba1a24c9fda7ea8d"
+      "bytes": 30860,
+      "sha256": "1943060f20cfd649ddd93229a9011173ddf33c1dee3cce6edaa3d90d9bcea53f"
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 54400,
-      "sha256": "898289e069fd6e98ff8c8ae01524c9d2c717565a30684ba1c370f035f9f33682"
+      "bytes": 61394,
+      "sha256": "779e48a76b6bf8ade8deb96b2e14eac37ebb87dd6095a8ee00564e02316477bb"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
@@ -18074,13 +18079,13 @@
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
-      "bytes": 17479,
-      "sha256": "fa35fc58644b7de757da235de206fb23b17ab4d74328ace7ddf928c96442792f"
+      "bytes": 17532,
+      "sha256": "0277395a7773b8c7c594793a2bcb57a8efee822c4f5dc03fe7ed440c64e32570"
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",
-      "bytes": 42407,
-      "sha256": "72d15b9857a874606bc3815b77d97bafd1774bfcbd2e2d7f709c143077c0e91e"
+      "bytes": 45915,
+      "sha256": "1977cb0d92c5d82da34ff2e9562b25b0825c55d7eb278b5f9555223b33d01437"
     },
     {
       "path": "tests/e2e/member-todos-real.spec.ts",
@@ -18199,8 +18204,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 26485,
-      "sha256": "2a0fd1f7c57ea55d23197cb9f5cd7fb1ad677576a6578f5eae8193e0a12c34a2"
+      "bytes": 26587,
+      "sha256": "e0d3bac2039bd6ae99a3bef3d01f551c18984d9a02f9d2f380537581bfc41888"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",
@@ -19054,8 +19059,8 @@
     },
     {
       "path": "tests/runtime/member-communications.test.ts",
-      "bytes": 36874,
-      "sha256": "f775fe687b7beced7886b09a5c82cc7d3d3cc1291ebf054554fcd5ca7b9e0097"
+      "bytes": 39971,
+      "sha256": "5e4b5d28c3681cffede3f971a5219c9a16f8faf4277f4fcfb3e3699827c3d491"
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
