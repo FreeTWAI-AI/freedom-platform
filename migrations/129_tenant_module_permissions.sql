@@ -34,3 +34,17 @@ CREATE UNIQUE INDEX tenant_module_permissions_one_ordinary
 ALTER TABLE tenant_module_permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_module_permissions_tenant ON tenant_module_permissions FOR ALL TO PUBLIC
   USING (tenant_id = freedom_ctx_tenant()) WITH CHECK (tenant_id = freedom_ctx_tenant());
+
+-- Grant validation relies on the instance's registered module release remaining fixed.
+CREATE OR REPLACE FUNCTION preserve_module_instance_identity() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Module instance identity is retained' USING ERRCODE = '23514';
+  END IF;
+  IF ROW(NEW.instance_id, NEW.tenant_id, NEW.module_key, NEW.application_release_ref, NEW.created_by_principal_id, NEW.origin_guild_key, NEW.created_at, NEW.module_release_ref)
+    IS DISTINCT FROM ROW(OLD.instance_id, OLD.tenant_id, OLD.module_key, OLD.application_release_ref, OLD.created_by_principal_id, OLD.origin_guild_key, OLD.created_at, OLD.module_release_ref) THEN
+    RAISE EXCEPTION 'Module instance identity is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;

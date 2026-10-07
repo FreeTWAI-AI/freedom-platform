@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, before, beforeEach, test } from 'node:test';
 import { Pool, type PoolClient } from 'pg';
+import { InstanceCapabilitiesInputSchema } from '../../contracts/guild-launchpad/v1/tenant.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
@@ -730,3 +731,115 @@ for (const first of ['create', 'revoke'] as const) {
     }
   });
 }
+
+function restrictedRuntime() {
+  const url = new URL(databaseUrl!); url.username = runtimeRole; url.password = '';
+  const runtime = new Pool({ connectionString: url.toString(), options: `-c search_path=${schema} -c statement_timeout=20000`, max: 1 });
+  return { runtime, target: createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store }) };
+}
+
+test('tenant list under restricted runtime omits a membership revoked after its page query', async () => {
+  const a = await openTenant();
+  const b = await openTenant(await login(DEMO_USERS[1].email));
+  const member = await person('競爭列表讀者');
+  await join(a, member, 'operator', grant(a, ['work:read']));
+  await join(b, member, 'operator', grant(b, ['work:read']));
+  const [removed, retained] = [a, b].sort((x, y) => x.tenantId.localeCompare(y.tenantId));
+  const expected = (await call('GET', `/tenants/${retained.tenantId}`, member.session)).data;
+  const { runtime, target } = restrictedRuntime();
+  const holder = await pool.connect();
+  let pending: Promise<Reply> | undefined;
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE', [removed.tenantId]);
+    const pid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    pending = call('GET', '/tenants', member.session, undefined, {}, target);
+    await blockedBy(pid); // The unlocked page SELECT has completed; the first tenant read is waiting.
+    await holder.query(`UPDATE tenant_memberships SET status='revoked',version=version+1,revoked_at=clock_timestamp()
+      WHERE tenant_id=$1 AND principal_id=$2`, [removed.tenantId, member.principalId]);
+    await holder.query(`UPDATE tenant_module_permissions SET status='revoked',version=version+1,revoked_at=clock_timestamp()
+      WHERE tenant_id=$1 AND principal_id=$2`, [removed.tenantId, member.principalId]);
+    await holder.query('UPDATE tenants SET authorization_revision=authorization_revision+1 WHERE tenant_id=$1', [removed.tenantId]);
+    await holder.query('COMMIT');
+    const listed = await pending;
+    assert.equal(listed.status, 200, JSON.stringify(listed.data));
+    assert.deepEqual(listed.data.items, [expected]);
+    assert.equal(listed.data.next_cursor, null);
+    assert.equal(listed.data.source_version, String(BigInt(expected.version) + BigInt(expected.authorization_revision) + BigInt(expected.my_membership.version)));
+    assert.equal(listed.response.headers.get('cache-control'), 'private, no-store');
+    const settings = (await runtime.query(`SELECT current_setting('freedom.tenant_id',true) AS tenant,
+      current_setting('freedom.principal_id',true) AS principal, current_setting('freedom.tenant_scope_id',true) AS scope`)).rows[0];
+    assert.ok(Object.values(settings).every(value => value === null || value === ''));
+    assert.equal((await runtime.query('SELECT * FROM tenant_module_permissions')).rowCount, 0);
+  } finally {
+    await holder.query('ROLLBACK'); holder.release();
+    if (pending) await Promise.allSettled([pending]);
+    await runtime.end();
+  }
+});
+
+test('tenant list under restricted runtime includes disabled scopes with their own grants', async () => {
+  const a = await openTenant();
+  const b = await openTenant(await login(DEMO_USERS[1].email));
+  const member = await person('停用範圍列表讀者');
+  await join(a, member, 'operator', grant(a, ['work:read']));
+  await join(b, member, 'viewer', grant(b, ['work:read']));
+  const { runtime, target } = restrictedRuntime();
+  try {
+    const before = await call('GET', '/tenants', member.session, undefined, {}, target);
+    assert.equal(before.status, 200, JSON.stringify(before.data));
+    assert.equal(before.data.items.length, 2);
+    await pool.query(`UPDATE resource_scopes SET status='disabled' WHERE kind='tenant' AND tenant_ref=$1`, [b.tenantId]);
+    const listed = await call('GET', '/tenants', member.session, undefined, {}, target);
+    assert.equal(listed.status, 200, JSON.stringify(listed.data));
+    assert.deepEqual(listed.data, before.data);
+    for (const t of [a, b]) assert.deepEqual(listed.data.items.find((item: any) => item.tenant_id === t.tenantId)
+      .capabilities.filter((entry: any) => entry.instance_id !== null), [{ instance_id: t.instanceId, keys: ['work:read'] }]);
+    assert.equal(listed.response.headers.get('cache-control'), 'private, no-store');
+    assert.equal((await runtime.query('SELECT * FROM tenant_module_permissions')).rowCount, 0);
+  } finally { await runtime.end(); }
+});
+
+test('oversized canonical invitation scope is rejected before INSERT even when compact JSON fits', async () => {
+  const t = await openTenant();
+  const member = await person('大型範圍受邀者');
+  const capabilities = Array.from({ length: 50 }, (_, i) => `synthetic:${String(i).padStart(3, '0')}:${'x'.repeat(145)}`);
+  const instanceId = randomUUID(), bindingId = randomUUID();
+  await isolatedTransaction(pool, async q => {
+    await q.query(`INSERT INTO module_definitions(module_key,release_ref,capabilities,data_catalog_ref,contract_ref,data_schema_version,
+      portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version)
+      SELECT 'synthetic-long-keys','synthetic-long-keys@1.0.0',$1::jsonb,data_catalog_ref,contract_ref,data_schema_version,
+        portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version
+      FROM module_definitions WHERE module_key='work' AND release_ref='work@1.0.0' ON CONFLICT DO NOTHING`, [JSON.stringify(capabilities)]);
+    await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,module_release_ref,application_release_ref,
+      data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+      SELECT $1,tenant_id,'synthetic-long-keys','synthetic-long-keys@1.0.0',application_release_ref,
+        data_schema_version,contract_ref,'active',$2,created_by_principal_id,origin_guild_key
+      FROM module_instances WHERE instance_id=$3`, [instanceId, bindingId, t.instanceId]);
+    await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,contract_ref,state)
+      SELECT $1,tenant_id,$2,mode,environment,contract_ref,'active' FROM deployment_bindings WHERE instance_id=$3`,
+    [bindingId, instanceId, t.instanceId]);
+  });
+  const entries = [{ instance_id: instanceId, capabilities }];
+  assert.equal(InstanceCapabilitiesInputSchema.safeParse(entries).success, true);
+  assert.ok(Buffer.byteLength(JSON.stringify(entries)) <= 8192);
+  const size = (await pool.query('SELECT octet_length($1::jsonb::text) AS bytes', [JSON.stringify(entries)])).rows[0].bytes;
+  assert.ok(size > 8192, String(size));
+  const before = await snapshot(t);
+  const reply = await post(`/tenants/${t.tenantId}/invitations`, t.owner, {
+    invitee_principal_id: member.principalId, role: 'operator', instance_capabilities: entries, expires_at: soon(),
+  });
+  assert.equal(reply.status, 422, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'validation_failed');
+  assert.equal(reply.data.detail, '邀請的權限範圍太大，請減少實例或權限後再試。');
+  assert.deepEqual(await snapshot(t), before);
+  assert.equal((await pool.query('SELECT 1 FROM tenant_invitations WHERE tenant_id=$1', [t.tenantId])).rowCount, 0);
+  // A smaller canonical invitation fits; acceptance stores grant rows rather
+  // than rewriting its scope. Member change stores text[] rows with no JSON cap.
+  const invited = await invite(t, member, 'operator', [{ instance_id: instanceId, capabilities: capabilities.slice(0, 49) }]);
+  const accepted = await post(`/tenants/${t.tenantId}/invitations/${invited.data.invitation_id}/accept`, member.session, {}, invited.data.version);
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  const changed = await change(t, member, entries);
+  assert.equal(changed.status, 200, JSON.stringify(changed.data));
+  assert.deepEqual(changed.data.instance_capabilities, entries);
+});

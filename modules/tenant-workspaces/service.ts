@@ -11,7 +11,7 @@ import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { assertCurrentSessionClock, lockMemberSession } from '../../packages/db/member-session.js';
-import { lockTenantScope, mapPersonPrincipal, withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { mapPersonPrincipal, withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { scopedJournal, scopedMemberCommand, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
@@ -19,7 +19,7 @@ import {
   MAX_ACTIVE_TENANTS_PER_PERSON, MAX_INVITATION_DAYS, MAX_PENDING_INVITATIONS_PER_TENANT, MAX_WORKSPACES_PER_TENANT,
   RESERVED_SLUGS, can, canInviteRole, canManageRole, roleCapabilities, type TenantCapability,
 } from './authorization.js';
-import { auditTenant, bumpAuthorizationRevision, iso, requireMutableStatus, versionOf } from './facts.js';
+import { auditTenant, bindTenantScope, bumpAuthorizationRevision, iso, requireMutableStatus, versionOf } from './facts.js';
 import { activeInstanceGrants, replaceInstanceGrants, revokeInstanceGrants, validateInstanceGrants } from './instance-grants.js';
 
 const NOT_FOUND = '找不到這個業務空間。';
@@ -202,10 +202,22 @@ export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: 
     const page = rows.slice(0, limit);
     const items = [];
     for (const row of page) {
-      await lockTenantScope(q, { actor, tenantId: row.tenant_id, forUpdate: false, capabilitiesForRole: roleCapabilities });
-      items.push(await tenantView(q, row.tenant_id, context.principal_id));
-      await clearTenantContext(q);
-      await bindPrincipalContext(q, context.principal_id);
+      try {
+        // A list remains readable when a scope is disabled. Recheck membership
+        // after the unlocked page query and retain tenant -> membership SHARE
+        // locks so role, revision and grants stay consistent through projection.
+        if (!await bindTenantScope(q, row.tenant_id)) continue;
+        const tenant = await q.query(`SELECT tenant_id FROM tenants WHERE tenant_id=$1 AND community_id=$2 FOR SHARE`,
+          [row.tenant_id, actor.community_id]);
+        if (!tenant.rowCount) continue;
+        const member = await q.query(`SELECT principal_id FROM tenant_memberships
+          WHERE tenant_id=$1 AND principal_id=$2 AND status='active' FOR SHARE`, [row.tenant_id, context.principal_id]);
+        if (!member.rowCount) continue;
+        items.push(await tenantView(q, row.tenant_id, context.principal_id));
+      } finally {
+        await clearTenantContext(q);
+        await bindPrincipalContext(q, context.principal_id);
+      }
     }
     const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
       FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
@@ -321,6 +333,10 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
       requireCondition(canInviteRole(context.role, input.role), 403, 'tenant_capability_denied', '你不能邀請這個角色。');
     }, async (q, context) => {
       const grants = await validateInstanceGrants(q, tenantId, input.role, input.instance_capabilities);
+      // Match the stored invitation CHECK, including jsonb's formatting bytes.
+      // Acceptance only changes its state; member changes store text[] grant rows.
+      const size = (await q.query<{ bytes: number }>(`SELECT octet_length($1::jsonb::text) AS bytes`, [JSON.stringify(grants)])).rows[0].bytes;
+      requireCondition(size <= 8192, 422, 'validation_failed', '邀請的權限範圍太大，請減少實例或權限後再試。');
       await visibleInvitee(q, input.invitee_principal_id, context.community_id);
       const existing = (await q.query<{ status: string }>(`SELECT status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [context.tenant_id, input.invitee_principal_id])).rows[0];
       if (existing?.status === 'active') throw new Problem(409, 'membership_exists', '這位成員已在業務空間中。');

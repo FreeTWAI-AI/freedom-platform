@@ -51,6 +51,20 @@ test('definition, offering, plan, and ledger rows reject mutation', async () => 
   await rejects(() => h.pool.query(`DELETE FROM capacity_ledger WHERE tenant_id=$1`, [tenantId]), '23514', 'capacity ledger is append-only');
 });
 
+test('module instance release reference is immutable even when the replacement release exists', async () => {
+  const { tenantId } = await enabled();
+  await h.pool.query(`INSERT INTO module_definitions(module_key,release_ref,capabilities,data_catalog_ref,contract_ref,data_schema_version,
+      portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version)
+    SELECT module_key,'work@1.0.1',capabilities,data_catalog_ref,contract_ref,data_schema_version,
+      portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version
+    FROM module_definitions WHERE module_key='work' AND release_ref='work@1.0.0' ON CONFLICT DO NOTHING`);
+  const before = (await h.pool.query('SELECT * FROM module_instances WHERE tenant_id=$1', [tenantId])).rows;
+  assert.equal(before.length, 1);
+  await rejects(() => h.pool.query(`UPDATE module_instances SET module_release_ref='work@1.0.1' WHERE tenant_id=$1`, [tenantId]),
+    '23514', 'Module instance identity is immutable');
+  assert.deepEqual((await h.pool.query('SELECT * FROM module_instances WHERE tenant_id=$1', [tenantId])).rows, before);
+});
+
 test('checks reject a bad offering, a zero reservation, and a bad status, and the widened instance status stays', async () => {
   const { tenantId } = await enabled();
   const definition = (await h.pool.query(`SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname='module_instances_status_check'`)).rows[0].def as string;
