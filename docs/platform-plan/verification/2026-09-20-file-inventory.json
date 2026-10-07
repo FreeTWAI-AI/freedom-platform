@@ -12514,8 +12514,8 @@
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
-      "bytes": 13616,
-      "sha256": "c7ca2be53f2d4136a56eb507f520a7c66432071aa9ca407e5a49f80fd7fed573"
+      "bytes": 14610,
+      "sha256": "1e6fa54344f357620252b1d031fb8c94dd4745b99618c44ddfecbebbe55eff0d"
     },
     {
       "path": "docs/development/e2e-harness.md",
@@ -17314,8 +17314,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4509,
-      "sha256": "8a134bf192da879b8586da3e265a6ba7c73a2a07a9c24ccb43ab5f3a3d8b63fd"
+      "bytes": 4567,
+      "sha256": "b89da755feebad7c66a3b2ec8a5c7b47ce359ab826c4f1e6bf12e79a4fe83403"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -17939,8 +17939,8 @@
     },
     {
       "path": "scripts/run-media-restore-test.mjs",
-      "bytes": 6094,
-      "sha256": "1aa329bd5eea9cc84992797df9f87ac7da29d3a417551c5352470c82902681c7"
+      "bytes": 6156,
+      "sha256": "3a1e94413adc116d489e5d863a5187ea3cb07e050bb66b33611cafc2e1ddb875"
     },
     {
       "path": "scripts/run-recovery-generation-drill.mjs",
@@ -18601,6 +18601,11 @@
       "path": "tests/integration/repositories.test.ts",
       "bytes": 17561,
       "sha256": "d26b19e791a9dd1c85c4ad58ff779251f9efd632def1f63e942bc884c0f2c24c"
+    },
+    {
+      "path": "tests/integration/tenant-rls-restore-drill.test.ts",
+      "bytes": 46887,
+      "sha256": "6b2a945ea2e883db75f18e285387a33d5ff2733300e254cd70a2e876f46cfa70"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",
