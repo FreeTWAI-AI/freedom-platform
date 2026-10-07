@@ -16630,7 +16630,7 @@
     {
       "path": "packages/contribution-tools/runtime-matrix.md",
       "bytes": 3461,
-      "sha256": "dbd88b79928de9db6bf2e6a7583d0614dd155529126fca2418ac5fd6c9125fe4"
+      "sha256": "a491a2e9607603093dd604ea62f97e00552b03766dd088f2c3aa68283ed3983c"
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
@@ -16644,8 +16644,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 31717,
-      "sha256": "bec030c7327bfc386007ce535163d25ce5cdf5bba201f9771aa04d6388cf91a8"
+      "bytes": 31633,
+      "sha256": "f31545a3f0ff25e5cc571a58a63e793c3f1972a3bd582ba93fe8b5f3fbf2ea61"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16753,9 +16753,9 @@
       "sha256": "af8090248c18b785b7c9a9e44d37bcffe79d27bdab00a36830727fdb81e9a6fb"
     },
     {
-      "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37450880442.json",
-      "bytes": 10148,
-      "sha256": "d3d341e434adc6755a4d5349d4e90ab21617579ec98a9f8dbe7e8ed758d2b9b7"
+      "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs-37567098443.json",
+      "bytes": 10624,
+      "sha256": "dc720b36fb02262b016dc5b192babbfa81fce650a770e3fd7731b233113d4fd6"
     },
     {
       "path": "packages/contribution-tools/test/fixtures/runtime-hosted-costs.json",
@@ -16815,7 +16815,7 @@
     {
       "path": "packages/contribution-tools/test/runtime-sharding.test.mjs",
       "bytes": 3660,
-      "sha256": "35e8862af8141901d8d77f4bc2c23633ee84584c79c635f8e39f7a87a7d01cfd"
+      "sha256": "9a2adf5d901d4d0929ea2aa1dc0bcde1350c99db0d995b376a1e6670facb543a"
     },
     {
       "path": "packages/contribution-tools/test/suite-runner.test.mjs",
