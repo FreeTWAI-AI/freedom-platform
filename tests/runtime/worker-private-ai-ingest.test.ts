@@ -75,7 +75,7 @@ async function member(){
   const connection=await createAgentConnections(app,{environment,clientId}).create(session.actor,{key:randomUUID(),runtimeDeviceId:device.runtimeDeviceId});
   await transaction(app,q=>insertInitialRefreshFamily(q,connection.connectionId,new Date(connection.issuedAt),new Date(connection.expiresAt)));
   const model=await createExecutionPrerequisites(app,{environment,clientId}).models.create(session.actor,{key:randomUUID(),connectionId:connection.connectionId,expectedConnectionVersion:'1',selection});
-  const headers={Cookie:'freedom_local_session='+session.token,'X-CSRF-Token':session.actor.csrf_token,Origin:origin,'Content-Type':'application/json','If-Match':'"1"'};
+  const headers={Cookie:'__Host-freedom_session='+session.token,'X-CSRF-Token':session.actor.csrf_token,Origin:origin,'Content-Type':'application/json','If-Match':'"1"'};
   return {session,model,headers};
 }
 const issue=(human:Awaited<ReturnType<typeof member>>,extra:Record<string,unknown>={})=>ports.privateAiProduct(new Request(origin+'/api/v1/me/credential-ingests',{
