@@ -104,6 +104,9 @@ const FOUNDATION_NAMES = [
   // Tenant module instances, manual Work and human Results under a per-tenant capacity
   // policy; no capacity policy is seeded and recognition activates nothing.
   '123_tenant_manual_work.sql',
+  // Tenant ownership transfer, fresh verification and controlled recovery; no
+  // authority policy is seeded and recognition activates nothing.
+  '124_tenant_ownership_recovery.sql',
   // Member-only native posts and interactions. Name recognition supplies no
   // release approval; exact schema digests and the independent host remain required.
   '125_social_feed_interactions.sql',
