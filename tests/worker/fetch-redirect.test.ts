@@ -56,6 +56,10 @@ test('workerd admin-sync forced run rejects a redirect without following it, the
   const serverUrl = new URL(process.env.TEST_DATABASE_URL ?? LOCAL_DATABASE_URL);
   const database = `fp_sync_wd_${process.pid}_${Date.now()}`;
   const databaseUrl = Object.assign(new URL(serverUrl), { pathname: '/' + database }).href;
+
+  // Required by Miniflare even when the database uses local trust auth.
+  const workerDatabase = new URL(databaseUrl);
+  workerDatabase.password ||= 'synthetic-workerd-only';
   const server = createPool(serverUrl.href);
   const calls: string[] = [];
   let mode: 'redirect' | 'allow' = 'redirect';
@@ -86,7 +90,7 @@ test('workerd admin-sync forced run rejects a redirect without following it, the
         CF_ACCOUNT_ID: accountId, FREEDOM_ADMIN_SYNC_APP_ID: appId, FREEDOM_ADMIN_SYNC_POLICY_ID: policyId,
         FREEDOM_ADMIN_SYNC_DOMAIN: domain, CF_API_TOKEN: 'synthetic-admin-sync-token',
       },
-      hyperdrives: { HYPERDRIVE: databaseUrl },
+      hyperdrives: { HYPERDRIVE: workerDatabase.href },
       outboundService: async (request: Request) => {
         const url = new URL(request.url);
         calls.push(`${request.method} ${url.pathname}${url.search}`);
