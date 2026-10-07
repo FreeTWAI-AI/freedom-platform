@@ -5,6 +5,8 @@ import { command, journal, checkVersion, type Command } from '../../packages/db/
 import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
 import { lockMemberGuilds,grantGuildBooks,assertCanLeaveGuild,removeSecondaryGuildOnLeave } from './onboarding.js';
+import { LeaveV2Input } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
+import { categorySlotForGuild, clearCategorySlot, communitySwitched, ensureProjectionSet, getPreferenceView, lockGuildCatalogShared, recomputeLegacyProjection } from './guild-categories.js';
 
 const short=z.string().trim().min(1).max(100);
 const uniqueStrings=(max:number)=>z.array(short).max(max).refine(a=>new Set(a).size===a.length,'請移除重複選項。');
@@ -56,20 +58,61 @@ export async function changeGuildMembership(pool:Pool,input:Command,guildKey:str
   return command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
   },async q=>{
+    await lockGuildCatalogShared(q);
     await lockMemberGuilds(q,input.actor);
-    if(action==='leave')await assertCanLeaveGuild(q,input.actor,guildKey);
+    const switched=await communitySwitched(q,input.actor.community_id);
+    if(action==='leave'){
+      if(switched)requireCondition(!(await categorySlotForGuild(q,input.actor,guildKey)),409,'primary_clear_required','請先取消本類主力，再離開這個公會。');
+      else await assertCanLeaveGuild(q,input.actor,guildKey);
+    }
     let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
-    if(action==='join'&&membership?.state==='active'){await grantGuildBooks(q,input.actor,guildKey);return membership;}
+    if(action==='join'&&membership?.state==='active'){await grantGuildBooks(q,input.actor,guildKey);if(!switched)await recomputeLegacyProjection(q,input.actor);return membership;}
     if(membership)checkVersion(membership.aggregate_version,input.expected);
     else { requireCondition(action==='join',404,'membership_not_found','你尚未加入這個公會。');requireCondition(!input.expected,412,'version_conflict','公會狀態已變更，請重新整理。'); }
     const state=action==='join'?'active':'left';
     if(membership?.state===state)return membership;
-    if(action==='leave')await removeSecondaryGuildOnLeave(q,input.actor,guildKey);
+    if(action==='leave'&&!switched)await removeSecondaryGuildOnLeave(q,input.actor,guildKey);
     if(membership)membership=(await q.query(`UPDATE positioning_profession_memberships SET state=$1,member_tier=CASE WHEN $1='active' THEN 'intern' ELSE member_tier END,aggregate_version=aggregate_version+1,left_at=CASE WHEN $1='left' THEN now() ELSE NULL END,
       joined_at=CASE WHEN $1='active' THEN now() ELSE joined_at END WHERE membership_id=$2 RETURNING *`,[state,membership.membership_id])).rows[0];
     else membership=(await q.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier) VALUES($1,$2,$3,$4,'active','intern') RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
     if(action==='join')await grantGuildBooks(q,input.actor,guildKey);
     await journal(q,input.actor,'profession_membership',membership.membership_id,membership.aggregate_version,`${action}_guild`,{guild_key:guildKey,state,rank:'runner'},'freedom.organization.profession_membership.updated.v1');
+    if(!switched)await recomputeLegacyProjection(q,input.actor);
     return membership;
+  });
+}
+export async function leaveGuildV2(pool:Pool,input:Command,guildKey:string,preferenceVersion?:string){
+  const body=LeaveV2Input.parse(input.body);
+  z.string().min(1).max(100).parse(guildKey);
+  if(preferenceVersion!==undefined)requireCondition(/^[1-9][0-9]{0,18}$/.test(preferenceVersion),400,'invalid_version','請提供有效的偏好版本。');
+  return command(pool,input,async q=>{
+    requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
+  },async q=>{
+    await lockGuildCatalogShared(q);
+    await lockMemberGuilds(q,input.actor);
+    const switched=await communitySwitched(q,input.actor.community_id);
+    let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[input.actor.community_id,input.actor.user_id,guildKey])).rows[0];
+    requireCondition(membership,404,'membership_not_found','你尚未加入這個公會。');
+    checkVersion(membership.aggregate_version,input.expected);
+    const slot=await categorySlotForGuild(q,input.actor,guildKey);
+    if(slot){
+      requireCondition(preferenceVersion,428,'version_required','請提供偏好版本。');
+      const set=(await q.query('SELECT aggregate_version::text AS aggregate_version FROM guild_preference_sets WHERE community_id=$1 AND user_id=$2 FOR UPDATE',[input.actor.community_id,input.actor.user_id])).rows[0];
+      requireCondition(set,503,'preference_mapping_unavailable','偏好對照尚未建立。');
+      checkVersion(String(set.aggregate_version),preferenceVersion);
+      requireCondition(body.clear_primary,409,'primary_clear_required','請先取消本類主力，或在離開時一併清除。');
+      if(switched)await clearCategorySlot(q,input.actor,slot.category,guildKey,'membership_left');
+    }
+    if(!switched){
+      await assertCanLeaveGuild(q,input.actor,guildKey);
+      if(membership.state!=='left')await removeSecondaryGuildOnLeave(q,input.actor,guildKey);
+    }
+    if(membership.state!=='left'){
+      membership=(await q.query(`UPDATE positioning_profession_memberships SET state='left',member_tier=member_tier,aggregate_version=aggregate_version+1,left_at=now() WHERE membership_id=$1 RETURNING *`,[membership.membership_id])).rows[0];
+      await journal(q,input.actor,'profession_membership',membership.membership_id,membership.aggregate_version,'leave_guild',{guild_key:guildKey,state:'left',rank:'runner'},'freedom.organization.profession_membership.updated.v1');
+    }
+    if(!switched)await recomputeLegacyProjection(q,input.actor);
+    await ensureProjectionSet(q,input.actor);
+    return {membership,preferences:await getPreferenceView(q,input.actor)};
   });
 }
