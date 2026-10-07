@@ -27,6 +27,12 @@ export async function lockGuildCatalog(q: PoolClient) {
 export async function lockGuildCatalogShared(q: PoolClient) {
   await q.query(`SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))`, [catalogFence]);
 }
+export async function lockGuildCatalogSession(q: PoolClient) {
+  await q.query(`SELECT pg_advisory_lock(hashtextextended($1,0))`, [catalogFence]);
+}
+export async function unlockGuildCatalogSession(q: PoolClient): Promise<boolean> {
+  return (await q.query(`SELECT pg_advisory_unlock(hashtextextended($1,0)) AS unlocked`, [catalogFence])).rows[0].unlocked;
+}
 async function lockMember(q: PoolClient, member: MemberRef) {
   await q.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, [`guild-member/${member.community_id}/${member.user_id}`]);
 }
