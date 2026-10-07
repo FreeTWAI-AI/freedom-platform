@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -13,8 +14,8 @@ import {
   SetPreferenceInput, SwitchInput,
 } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
 import {
-  GuildKey as PrimitiveGuildKey, MAX_STORED_VERSION, OpaqueId, Problem, StableKey, VERSION_PATTERN, ValidationFailedProblem,
-  signedDecimalPattern,
+  GuildKey as PrimitiveGuildKey, MAX_STORED_VERSION, NON_NEGATIVE_DECIMAL_PATTERN, NonNegativeDecimal, OpaqueId, Problem, StableKey,
+  VERSION_PATTERN, ValidationFailedProblem, nonNegativeDecimalPattern, signedDecimalPattern,
 } from '../../contracts/guild-launchpad/v1/primitives.js';
 import {
   AcceptResultSchema, CreateResultSchema, EmptyObjectSchema, InvitationPageSchema, InvitationRevokeInputSchema,
@@ -22,8 +23,15 @@ import {
   MemberPageSchema, MemberViewSchema, TenantCreateInputSchema, TenantEditInputSchema, TenantPageSchema, TenantViewSchema,
   WorkspaceCreateInputSchema, WorkspacePageSchema, WorkspaceViewSchema,
 } from '../../contracts/guild-launchpad/v1/tenant.js';
+import {
+  DisplayNameSchema, EnableManualWorkSchema, EmptyObjectSchema as WorkArchiveInputSchema, FinalizeSchema, InstanceCandidateSchema,
+  LaunchpadContextSchema, ManualWorkBindingSchema, ModuleInstancePageSchema, ModuleInstanceViewSchema, OperationSchema,
+  ResultPageSchema, ResultSchema, UploadPrepareSchema, UploadSchema, UploadVerifiedSchema, WorkObjectiveSchema, WorkPageSchema,
+  WorkSchema, WorkWriteSchema,
+} from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const python = process.platform === 'win32' ? 'python' : 'python3';
 const id = '12345678-1234-4234-8234-123456789abc';
 const id2 = '12345678-1234-4234-8234-123456789abd';
 const MAX_INT = 9007199254740991;
@@ -49,7 +57,7 @@ const GOOD_VERSIONS = ['1', '9', '10', '9'.repeat(18), '1000000000000000000', '9
 
 interface Case { name: string; value: unknown; valid: boolean }
 interface Profile { name: string; schema: z.ZodType; minimal: Record<string, unknown>; maximal: Record<string, unknown> }
-interface Hit { path: string[]; kind: 'maxLength' | 'maxItems' | 'maximum' | 'version' | 'newline' | 'iso' | 'missing'; limit?: number; maxLength?: number }
+interface Hit { path: string[]; kind: 'maxLength' | 'maxItems' | 'maximum' | 'version' | 'nonNegative' | 'newline' | 'iso' | 'missing'; limit?: number; maxLength?: number }
 type Json = Record<string, unknown>;
 
 function blocks(title: string | null): { id: string; kind: typeof KINDS[number]; order: number; enabled: boolean; title: string | null }[] {
@@ -191,7 +199,7 @@ function visit(schema: Json, value: unknown, path: string[], hits: Hit[]) {
     const maxLength = typeof schema.maxLength === 'number' ? schema.maxLength : undefined;
     if (maxLength !== undefined) hits.push({ path, kind: 'maxLength', limit: maxLength });
     const pattern = typeof schema.pattern === 'string' ? schema.pattern : '';
-    if (pattern.includes('9223372036854775807')) hits.push({ path, kind: 'version' });
+    if (pattern.includes('9223372036854775807')) hits.push({ path, kind: pattern.includes('(?:0|') ? 'nonNegative' : 'version' });
     if (pattern.includes('[0-9]{4}-[0-9]{2}-[0-9]{2}T')) hits.push({ path, kind: 'iso' });
     if (pattern) hits.push({ path, kind: 'newline', maxLength });
     return;
@@ -249,6 +257,12 @@ function casesFor(profile: Profile, document: Json): Case[] {
       for (const value of GOOD_VERSIONS) cases.push({ name: `valid version ${label} ${value}`, value: patch(profile.maximal, hit.path, value), valid: true });
       for (const value of BAD_VERSIONS) cases.push({ name: `invalid version ${label} ${JSON.stringify(value)}`, value: patch(profile.maximal, hit.path, value), valid: false });
     }
+    if (hit.kind === 'nonNegative') {
+      for (const value of ['0', ...GOOD_VERSIONS]) cases.push({ name: `valid non-negative ${label} ${value}`, value: patch(profile.maximal, hit.path, value), valid: true });
+      for (const value of ['00', '-0', '-1', '0\n', '01', '1.0', ' 1', '1\n', 1, '9223372036854775808']) {
+        cases.push({ name: `invalid non-negative ${label} ${JSON.stringify(value)}`, value: patch(profile.maximal, hit.path, value), valid: false });
+      }
+    }
     if (hit.kind === 'iso') {
       cases.push({ name: `fraction over ${label}`, value: patch(profile.maximal, hit.path, '2026-10-06T00:00:00.0000000000Z'), valid: false });
       cases.push({ name: `Arabic-Indic digits ${label}`, value: patch(profile.maximal, hit.path, '٢٠٢٦-١٠-٠٦T٠٠:٠٠:٠٠Z'), valid: false });
@@ -265,7 +279,7 @@ function casesFor(profile: Profile, document: Json): Case[] {
 function jsonSchema(name: string) {
   return JSON.parse(readFileSync(new URL(`../../contracts/guild-launchpad/v1/${name}.schema.json`, import.meta.url), 'utf8')) as Json & { description?: string };
 }
-function agree(profile: Profile, cases: Case[]) {
+function agree(profile: Profile, cases: Case[], schema: Json = jsonSchema(profile.name), timeout = 60000) {
   for (const item of cases) assert.equal(profile.schema.safeParse(item.value).success, item.valid, `${profile.name}: ${item.name}`);
   const script = `import json,sys
 from jsonschema import Draft202012Validator, FormatChecker
@@ -275,9 +289,9 @@ validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker()
 for case in payload['cases']:
     assert validator.is_valid(case['value']) == case['valid'], case['name']
 print('conformant')`;
-  const result = spawnSync('python3', ['-c', script], {
-    cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 16 * 1024 * 1024,
-    input: JSON.stringify({ schema: jsonSchema(profile.name), cases }),
+  const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
+    cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024,
+    input: JSON.stringify({ schema, cases }),
   });
   assert.equal(result.status, 0, `${profile.name}\n${result.stdout}${result.stderr}`);
   assert.equal(result.stdout.trim(), 'conformant');
@@ -349,6 +363,15 @@ test('signed decimal pattern matches the signed bigint bound', () => {
     let value = String(1 + Math.floor(next() * 9));
     for (let digit = 1; digit < 19; digit += 1) value += String(Math.floor(next() * 10));
     assert.equal(VERSION_PATTERN.test(value), BigInt(value) <= max, value);
+    assert.equal(NON_NEGATIVE_DECIMAL_PATTERN.test(value), BigInt(value) <= max, value);
+  }
+  assert.equal(nonNegativeDecimalPattern(MAX_STORED_VERSION), NON_NEGATIVE_DECIMAL_PATTERN.source);
+  const signedInner = VERSION_PATTERN.source.match(/^\^\(\?:(.+)\)\$\(\?!\[\\s\\S\]\)$/);
+  assert.ok(signedInner);
+  assert.equal(NON_NEGATIVE_DECIMAL_PATTERN.source, `^(?:0|${signedInner[1]})$(?![\\s\\S])`);
+  for (const value of ['0', ...GOOD_VERSIONS]) assert.equal(NonNegativeDecimal.safeParse(value).success, true, value);
+  for (const value of ['00', '-0', '-1', '0\n', '01', '1.0', ' 1', '1\n', '9223372036854775808', '9223372036854775809', '9223372036854775810', '9300000000000000000', '9'.repeat(19), '10000000000000000000', 1]) {
+    assert.equal(NonNegativeDecimal.safeParse(value).success, false, JSON.stringify(value));
   }
   for (const key of CATALOG_KEYS) assert.equal(GuildKey.safeParse(key).success, true, key);
   assert.equal(GuildKey.safeParse(`guild_custom_${'ab'.repeat(16)}`).success, true);
@@ -363,6 +386,7 @@ test('guild launchpad contracts regenerate deterministically and match generated
     cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024,
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /30 guild launchpad schemas and 1 bundle checked\/generated\./);
 });
 
 test('generated guild launchpad schemas agree with Zod except listed server-only rules', () => {
@@ -386,7 +410,7 @@ payload=json.load(sys.stdin)
 validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker())
 assert validator.is_valid(payload['value']), payload['rule']
 print('looser')`;
-      const result = spawnSync('python3', ['-c', script], {
+      const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
         cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024,
         input: JSON.stringify({ schema, value: row.value, rule: row.rule }),
       });
@@ -425,6 +449,269 @@ test('generated patterns use ASCII-only character classes', () => {
       const stripped = pattern.replaceAll('[\\s\\S]', '');
       const whitespace = ['\\s', '\\S'].filter(token => stripped.includes(token));
       assert.equal(whitespace.length, 0, `${file} pattern ${pattern} contains whitespace character class (${whitespace.join(', ')})`);
+    }
+  }
+});
+
+const titleMax = `🚀𠮷${'名'.repeat(118)}`;
+const objectiveMax = `🚀𠮷${'a'.repeat(16376)}`;
+const objectiveBytes = '中'.repeat(5462);
+const fileNameMax = '名'.repeat(120);
+const sha256 = 'ab'.repeat(32);
+const moduleText = `🚀𠮷${'k'.repeat(40)}`;
+
+function workDocument(max: boolean) {
+  return {
+    work_id: id, tenant_id: id, workspace_id: id, instance_id: id,
+    title: max ? titleMax : 'a', objective: max ? objectiveMax : 'a', progress: max ? 'done' : 'todo',
+    state: max ? 'archived' : 'draft', version: max ? MAX_VERSION : '1',
+    ...(max ? { current_result_id: id2 } : {}), updated_at: max ? isoMax : isoMin,
+  };
+}
+function workWrite(max: boolean) {
+  return { title: max ? titleMax : 'a', objective: max ? objectiveMax : 'a', progress: max ? 'done' : 'todo' };
+}
+function uploadDocument(max: boolean) {
+  return {
+    upload_id: id, work_id: id, asset_id: id, phase: max ? 'finalized' : 'prepared', expires_at: max ? isoMax : isoMin,
+    version: max ? MAX_VERSION : '1', byte_size: max ? 262144 : 1, sha256, content_type: max ? 'text/markdown' : 'text/plain',
+    display_name: max ? fileNameMax : 'a',
+  };
+}
+function prepareDocument(max: boolean) {
+  return {
+    content_type: max ? 'text/markdown' : 'text/plain', byte_size: max ? 262144 : 1, sha256,
+    display_name: max ? fileNameMax : 'a', expected_work_version: max ? MAX_VERSION : '1',
+  };
+}
+function resultDocument(max: boolean) {
+  return {
+    result_id: id, work_id: id, asset_id: id, revision: max ? MAX_VERSION : '1', work_version: max ? MAX_VERSION : '1',
+    provenance: 'human', content_type: max ? 'text/markdown' : 'text/plain', byte_size: max ? 262144 : 1, sha256,
+    created_at: max ? isoMax : isoMin, display_name: max ? fileNameMax : 'a',
+  };
+}
+function instanceDocument(max: boolean) {
+  return {
+    instance_id: id, tenant_id: id, module_key: max ? moduleText : 'work',
+    application_release_ref: max ? `🚀𠮷${'r'.repeat(40)}` : 'manual-workspace@1.0.0',
+    data_schema_version: max ? '🚀𠮷1' : '1', status: max ? 'archived' : 'provisioning', binding_id: id,
+    authority_epoch: max ? MAX_VERSION : '1', version: max ? MAX_VERSION : '1', configuration_revision: max ? MAX_VERSION : '1',
+  };
+}
+function operationDocument(max: boolean) {
+  return {
+    operation_id: id, state: 'succeeded', version: max ? MAX_VERSION : '1',
+    resource_ref: { tenant_id: id, instance_id: id, resource_type: max ? 'work.result' : 'work.work', resource_id: id },
+  };
+}
+function bindingDocument(max: boolean) {
+  return {
+    instance_id: id, tenant_id: id, workspace_id: id, binding_id: id, version: max ? MAX_VERSION : '1',
+    entry_capability: 'work:create', reused: max,
+  };
+}
+function enableDocument(max: boolean) {
+  return max
+    ? { guild_key: guildKey, choice: { kind: 'reuse', instance_id: id, expected_version: MAX_VERSION } }
+    : { guild_key: 'guild_a' };
+}
+function candidateDocument(max: boolean) {
+  return { instance_id: id, version: max ? MAX_VERSION : '1', created_at: max ? isoMax : isoMin, bound_workspace_count: max ? MAX_INT : 0 };
+}
+function capacityDocument(max: boolean) {
+  return {
+    policy_revision: max ? MAX_VERSION : null, used: max ? MAX_VERSION : '0', reserved: max ? MAX_VERSION : '0', limit: max ? MAX_VERSION : null,
+  };
+}
+function launchpadDocument(max: boolean) {
+  return {
+    tenant_id: id, workspace_id: id, source_version: max ? MAX_VERSION : '1',
+    instances: max ? [instanceDocument(true)] : [], work_page: paged(workDocument(max), max),
+    capacity_summary: capacityDocument(max), connection_summary: max ? [{ instance_id: id, status: 'hosted_active' }] : [],
+  };
+}
+
+const tenantProfiles: Profile[] = [
+  { name: 'work-write-input', schema: WorkWriteSchema, minimal: workWrite(false), maximal: workWrite(true) },
+  { name: 'work-archive-input', schema: WorkArchiveInputSchema, minimal: {}, maximal: {} },
+  { name: 'upload-prepare-input', schema: UploadPrepareSchema, minimal: prepareDocument(false), maximal: prepareDocument(true) },
+  { name: 'result-finalize-input', schema: FinalizeSchema, minimal: { expected_work_version: '1' }, maximal: { expected_work_version: MAX_VERSION } },
+  { name: 'enable-manual-work-input', schema: EnableManualWorkSchema, minimal: enableDocument(false), maximal: enableDocument(true) },
+  { name: 'work-operation', schema: OperationSchema, minimal: operationDocument(false), maximal: operationDocument(true) },
+  { name: 'work-view', schema: WorkSchema, minimal: workDocument(false), maximal: workDocument(true) },
+  { name: 'work-page', schema: WorkPageSchema, minimal: paged(workDocument(false), false), maximal: paged(workDocument(true), true) },
+  { name: 'upload-view', schema: UploadSchema, minimal: uploadDocument(false), maximal: uploadDocument(true) },
+  { name: 'upload-verified', schema: UploadVerifiedSchema, minimal: { upload_id: id, verified: true, version: '1' }, maximal: { upload_id: id, verified: true, version: MAX_VERSION } },
+  { name: 'result-view', schema: ResultSchema, minimal: resultDocument(false), maximal: resultDocument(true) },
+  { name: 'result-page', schema: ResultPageSchema, minimal: paged(resultDocument(false), false), maximal: paged(resultDocument(true), true) },
+  { name: 'module-instance-view', schema: ModuleInstanceViewSchema, minimal: instanceDocument(false), maximal: instanceDocument(true) },
+  { name: 'module-instance-page', schema: ModuleInstancePageSchema, minimal: paged(instanceDocument(false), false), maximal: paged(instanceDocument(true), true) },
+  { name: 'manual-work-binding', schema: ManualWorkBindingSchema, minimal: bindingDocument(false), maximal: bindingDocument(true) },
+  { name: 'launchpad-context', schema: LaunchpadContextSchema, minimal: launchpadDocument(false), maximal: launchpadDocument(true) },
+  { name: 'instance-candidate', schema: InstanceCandidateSchema, minimal: candidateDocument(false), maximal: candidateDocument(true) },
+];
+
+function workCarrier(name: string, field: 'title' | 'objective', value: string) {
+  if (name === 'work-write-input') return { ...workWrite(false), [field]: value };
+  if (name === 'work-view') return { ...workDocument(false), [field]: value };
+  if (name === 'work-page') return paged({ ...workDocument(false), [field]: value }, true);
+  return { ...launchpadDocument(false), work_page: paged({ ...workDocument(false), [field]: value }, true) };
+}
+function fileCarrier(name: string, value: string) {
+  if (name === 'upload-prepare-input') return { ...prepareDocument(false), display_name: value };
+  if (name === 'upload-view') return { ...uploadDocument(false), display_name: value };
+  if (name === 'result-view') return { ...resultDocument(false), display_name: value };
+  return paged({ ...resultDocument(false), display_name: value }, true);
+}
+const tenantServerOnly: { schema: string; rule: string; value: unknown }[] = [];
+for (const name of ['work-write-input', 'work-view', 'work-page', 'launchpad-context']) {
+  tenantServerOnly.push(
+    { schema: name, rule: 'work_title_trimmed_blank', value: workCarrier(name, 'title', '   ') },
+    { schema: name, rule: 'work_title_control_character', value: workCarrier(name, 'title', 'a\r') },
+    { schema: name, rule: 'work_title_lone_surrogate', value: workCarrier(name, 'title', 'a\uD800') },
+    { schema: name, rule: 'work_objective_trimmed_blank', value: workCarrier(name, 'objective', '   ') },
+    { schema: name, rule: 'work_objective_control_character', value: workCarrier(name, 'objective', 'a\r') },
+    { schema: name, rule: 'work_objective_lone_surrogate', value: workCarrier(name, 'objective', 'a\uD800') },
+    { schema: name, rule: 'work_objective_utf8_bytes', value: workCarrier(name, 'objective', objectiveBytes) },
+  );
+}
+for (const name of ['upload-prepare-input', 'upload-view', 'result-view', 'result-page']) {
+  tenantServerOnly.push(
+    { schema: name, rule: 'file_display_name_slash', value: fileCarrier(name, 'a/b') },
+    { schema: name, rule: 'file_display_name_backslash', value: fileCarrier(name, 'a\\b') },
+    { schema: name, rule: 'file_display_name_control_character', value: fileCarrier(name, 'a\u0001') },
+    { schema: name, rule: 'file_display_name_lone_surrogate', value: fileCarrier(name, 'a\uD800') },
+    { schema: name, rule: 'file_display_name_non_bmp', value: fileCarrier(name, '🚀') },
+  );
+}
+
+function extraItemCases(profile: Profile, document: Json): Case[] {
+  const found: { path: string[]; maxItems: number }[] = [];
+  const walk = (schema: Json, value: unknown, path: string[]) => {
+    const branches = (schema.anyOf ?? schema.oneOf) as Json[] | undefined;
+    if (branches) {
+      for (const branch of branches) walk(branch, value, path);
+      return;
+    }
+    const types = Array.isArray(schema.type) ? schema.type as string[] : schema.type ? [String(schema.type)] : [];
+    if (types.includes('object') && schema.properties && value && typeof value === 'object' && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      for (const [key, child] of Object.entries(schema.properties as Record<string, Json>)) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) walk(child, record[key], [...path, key]);
+      }
+      return;
+    }
+    if (types.includes('array') && Array.isArray(value) && typeof schema.maxItems === 'number') {
+      if (value.length > 0 && value.length < schema.maxItems) found.push({ path: [...path], maxItems: schema.maxItems });
+      if (schema.items && !Array.isArray(schema.items)) value.forEach((item, index) => walk(schema.items as Json, item, [...path, String(index)]));
+    }
+  };
+  walk(document, profile.maximal, []);
+  return found.map(hit => ({
+    name: `one item over ${hit.path.join('.')}`,
+    value: patch(profile.maximal, hit.path, Array.from({ length: hit.maxItems + 1 }, () => structuredClone((at(profile.maximal, hit.path) as unknown[])[0]))),
+    valid: false,
+  }));
+}
+function bundleRef(bundle: Json, name: string): Json {
+  return { $schema: 'https://json-schema.org/draft/2020-12/schema', $defs: bundle.$defs, $ref: `#/$defs/${name}` };
+}
+
+const DOCUMENT_DIGESTS: Record<string, string> = {
+  'classification-input': '82b03f526ea88808441aa8cf88fd2bffcaa68c9c8411165d67a9ba747290598f',
+  'empty-command-input': 'e4ba27de71418e758118b40338fce02571eca44db58b5296f959222e714a9d39',
+  'guild-classification': '0cfcb336dae6dd2b2a1f4236081bcb653bda9eceffddfbd480c551f28e76a3a0',
+  'invitation-accept-result': '219a8f938f6daa5ed0e9fa2a2fdbd0bee1aacda26e037d0517d5adcbfdb87b53',
+  'invitation-page': '1ca601cbc85803b75a173b7f7aae4f56ca1d8b801fbd3df777bfbb85159c36fb',
+  'invitation-revoke-input': '492ffe4d46ee56300115a7ff92652a9dc664904bf6cd6ffd06a3d367075f4856',
+  'invitation-view': 'd27bfc9f3e6a523e72a099c619f856bfe8990897577da8ffca5773c137ec2e21',
+  'invite-candidate': 'a54b8d678b4f31999582ec5cf1e4f808e652ee0b05fdcf586c5f3c2280903e96',
+  'launchpad-config': 'e850496636ef7c4475b8af32029add1ab61909973accaefa20ac624a18dc4888',
+  'leave-v2-input': 'dd06bd31728a3c77eb59377bef99b2a06b080b5da6b6f02f30c1b217f76db3b4',
+  'member-change-input': '42fe6bb1ba7feaffcfaf824ad3b91e055962bad9d649b2353991bb1a2f2e1548',
+  'member-page': '305cccea72f0d13aba4f1a3e99fca5383067be23de1864bfd636664c2f735af1',
+  'member-view': '8f9083026164133df812b17ec0e2ac92b13a0984cefd38307bb751df6a3c9a9e',
+  'preference-backfill-input': '39ba40ec3e83deed58b0cad55c2fc6ef2ef91f752faaa7aca1759d5c31c4ea5b',
+  'preference-backfill-report': '0f3a927e68b72e0115c2929378491f0ff4c7a27bdfcb4c08b8cfa13030910fcb',
+  'preference-switch-input': 'ae9b181322a23dedb01ccbc2f9fd08979518356a34528d8c5dbde2c49a31307c',
+  'preference-view': 'bbfda70d9c45e6f98d339acd6433bdafa428d5c3b05c87b3f2fddb5aa1c458fb',
+  'problem': '684f2f7cc162059282b35c5b5904cd68c1b52b1c3e35ef357838b9af15fbf146',
+  'set-preference-input': '190495cb5e0f6a1cd07d1d8436eb1f02e763c03b5932668528b2b69bedc11c12',
+  'tenant-create-input': '028f0835187fd51a9d3f54025d7508b95a6e0dfd6ead3c778f10f7c2483a28ff',
+  'tenant-create-result': '4357c175d226b8ead3a9ff190a662146b2e005d20c73cb54197e8ea8d6bc4c41',
+  'tenant-edit-input': '4a88cab4610d12bbfc4b66f69c36bddb650cc42a9301885593c1f9208b93cb15',
+  'tenant-invite-input': '4aa7c18a2d03223b853c501f84bfb8b99f8fb365c8f34146798aa611ce6f0d46',
+  'tenant-leave-result': '27fa1306198e796fb12579333d8307df539eacdd5cf575b46b9adb2ece3fdd43',
+  'tenant-page': '4156a3265d5e82a901833c954596dd21f66790e2d88176d0c3c2c116d1fe4870',
+  'tenant-view': 'db54b63963274ecb9f2b4f9aef2ae9820a09252f19e23b4cbcbb3b70b46ece53',
+  'validation-failed-problem': 'd1564faa27e82cab8fc391f65bc1e3f644c2ce63390bf1f314d0a6ab13e60650',
+  'workspace-create-input': '1e46cb1ad4b1c31e30e5c25f84c8da3a79beee3913bafa5c83ca922edd742c02',
+  'workspace-page': 'd9cd94501d7e5c43d754cf7e202f89d223999eb6a77bd3803107905b8506fef8',
+  'workspace-view': 'cf9e20cad7be7c50f59b34bb512dfbbea9a04c4f4f2d926200e48111536101ff',
+};
+
+test('tenant work bundle agrees with Zod except listed server-only rules', () => {
+  assert.equal([...titleMax].length, 120);
+  assert.equal(Buffer.byteLength(titleMax) <= 480, true);
+  assert.equal(Buffer.byteLength(objectiveMax), 16384);
+  assert.equal([...objectiveBytes].length, 5462);
+  assert.equal(Buffer.byteLength(objectiveBytes), 16386);
+  assert.equal(WorkObjectiveSchema.safeParse(objectiveMax).success, true);
+  assert.equal(WorkObjectiveSchema.safeParse(objectiveBytes).success, false);
+  assert.equal(DisplayNameSchema.safeParse(fileNameMax).success, true);
+  assert.equal(DisplayNameSchema.safeParse('🚀').success, false);
+  const bundle = jsonSchema('tenant-work');
+  assert.deepEqual(Object.keys(bundle), ['$schema', '$id', 'description', '$defs']);
+  assert.equal(bundle.$schema, 'https://json-schema.org/draft/2020-12/schema');
+  assert.equal(bundle.$id, 'https://freetwai.com/contracts/guild-launchpad/v1/tenant-work');
+  assert.equal(bundle.description, 'Tenant manual Work, human Results, module instances, and workspace launchpad context. Structural shapes only; the server decides identity, membership, capability, current version and quotas.');
+  const defs = bundle.$defs as Record<string, Json & { description?: string }>;
+  assert.deepEqual(Object.keys(defs), tenantProfiles.map(profile => profile.name));
+  assert.equal(Object.keys(DOCUMENT_DIGESTS).length, 30);
+  for (const [name, digest] of Object.entries(DOCUMENT_DIGESTS)) {
+    const bytes = readFileSync(new URL(`../../contracts/guild-launchpad/v1/${name}.schema.json`, import.meta.url));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), digest, name);
+  }
+  const instanceProperties = (defs['module-instance-view'].properties ?? {}) as Record<string, Json>;
+  for (const key of ['module_key', 'application_release_ref', 'data_schema_version']) {
+    assert.equal(instanceProperties[key]?.maxLength, undefined, key);
+    assert.equal(instanceProperties[key]?.pattern, undefined, key);
+  }
+  for (const profile of tenantProfiles) {
+    const def = defs[profile.name];
+    assert.ok(def, profile.name);
+    assert.equal(Object.hasOwn(def, '$schema'), false, profile.name);
+    assert.equal(Object.hasOwn(def, '$id'), false, profile.name);
+    const text = JSON.stringify(def);
+    assert.equal(text.includes('"$ref"'), false, profile.name);
+    assert.equal(text.includes('"$defs"'), false, profile.name);
+    const parsedMin = profile.schema.safeParse(profile.minimal);
+    const parsedMax = profile.schema.safeParse(profile.maximal);
+    assert.equal(parsedMin.success, true, `${profile.name} minimal ${parsedMin.success ? '' : JSON.stringify(parsedMin.error?.issues)}`);
+    assert.equal(parsedMax.success, true, `${profile.name} maximal ${parsedMax.success ? '' : JSON.stringify(parsedMax.error?.issues)}`);
+    const wrapped = bundleRef(bundle, profile.name);
+    agree(profile, [...casesFor(profile, def), ...extraItemCases(profile, def)], wrapped, 180000);
+    const rows = tenantServerOnly.filter(row => row.schema === profile.name);
+    if (!rows.length) assert.match(String(def.description), /Server-only rules: none\./);
+    const named = String(def.description).match(/Server-only rules: ([^.]+)\./)?.[1] ?? '';
+    if (named !== 'none') {
+      for (const rule of named.split(', ')) assert.equal(rows.some(row => row.rule === rule), true, `${profile.name} ${rule}`);
+    }
+    for (const row of rows) {
+      assert.equal(profile.schema.safeParse(row.value).success, false, `${profile.name} ${row.rule}`);
+      assert.match(String(def.description), new RegExp(row.rule));
+      const script = `import json,sys
+from jsonschema import Draft202012Validator, FormatChecker
+payload=json.load(sys.stdin)
+validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker())
+assert validator.is_valid(payload['value']), payload['rule']
+print('looser')`;
+      const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
+        cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 8 * 1024 * 1024,
+        input: JSON.stringify({ schema: wrapped, value: row.value, rule: row.rule }),
+      });
+      assert.equal(result.status, 0, `${profile.name} ${row.rule}\n${result.stdout}${result.stderr}`);
     }
   }
 });

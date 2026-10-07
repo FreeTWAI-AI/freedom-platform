@@ -58,9 +58,6 @@ async function bounded(request: Request) {
 }
 
 function clock(runtime: PlatformRuntime) { return runtime.now?.() ?? new Date(); }
-function previewFetch(runtime: PlatformRuntime) {
-  return runtime.linkPreviewFetch ?? ((input: string, init?: RequestInit) => globalThis.fetch(input, init));
-}
 
 export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
   app.get('/go/:code', async c => {
@@ -107,7 +104,7 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
       return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: existing }, 409);
     }
     await authRateLimit(pool, 'social-post-preview', commandInput.actor.user_id, 30, 3600);
-    const preview = await previewLink(draft.normalized.url, previewFetch(runtime));
+    const preview = await previewLink(draft.normalized.url, runtime.linkPreviewFetch ?? (async () => { throw new Error('preview_transport_unavailable'); }));
     try { return c.json(await createSocialPost(pool, commandInput, preview, clock(runtime), runtime.publicOrigin,runtime.socialThumbnailAssets), 201); }
     catch (error) {
       if (error instanceof SocialPostExists) return c.json({ type: 'about:blank', title: 'social_post_exists', status: 409, code: 'social_post_exists', detail: '這則貼文已經有人分享過了。', post_id: error.post_id }, 409);

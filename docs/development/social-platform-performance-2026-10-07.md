@@ -169,3 +169,13 @@ Code Cleanup 與 R&D 的原始失敗、正反例、來源／環境、學習與�
 原 head `0120c45` 的 hosted run `37624831193` 已結束為 failure：一般 UI 577 pass／1 fail／12 skip，西班牙文 320x844 的第一個 Email 欄位 bottom=855.5 超出 844；額外私人模型與 avatar fixture 階段未開始。實際 checkout 為合併後 `d2f37aaa154ec3a82659d795af9d8099c8d24e0e`，主線 `4b3180740524d4ff1fcc41a9971e5522fdca951f`、trusted evaluator `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`，不是單獨 PR head 執行。結構化失敗 summary 的 test_count=0 不能替代原 log 的實際數量。
 
 本輪縮小窄手機登入區塊間距，保留原品牌圖、文字、16px 輸入字體與 44px 控制項。本機五語原斷言通過，新 source 的 hosted Linux 結果仍待確認。全部 hosted、人工驗收、實體 iOS／Android 分享、正式負載與完整平台／競品比較保持待完成；這些局部改善不宣稱整平台完成。
+
+## 整合後的分享與通知回歸
+
+將已接受的主線 `687dee8739d9a8fc65a78fcb093347833cc004e8` 整合至通知候選 `fdb1e89d`。HTML 同時保留本輪 PWA／viewport 設定及主線 favicon／OG metadata；保留主線的 JSON 32KiB 串流界線、預覽 egress 保護、共用契約與社群 ERP 入口。四平台亮燈、草稿及通知邏輯的受測 bytes 維持不變。
+
+Fresh typecheck／build 通過。原 66 項瀏覽器案例加上主線 ERP 入口，在同一次執行為 **67 pass／0 fail／0 skip**（一個 worker、零 retry、原 timeout），成功附件直接用 JSON reporter 保存。登入／通知至下一幀回饋分別為 8.3／12.2ms 的單次受控本機樣本，並非正式 p95。重疊通知 GET 與已讀後刷新均仍為一次；實際 320px 選取亮燈、RPG 分享步驟、通知錯誤、西班牙文通知／安裝及社群入口截圖已檢視。初始 JS closure gzip 210,838 → 211,390 bytes，增加 552 bytes／0.262%，低於整合前設定的 1% 上限。
+
+首次 166 項原生組合實際為 151 pass／15 fail／0 skip：兩项 schema 驗證使用 Windows 的 `python3` 商店捷徑而退出 9009，其餘 13 項明確需要 Linux。測試呼叫改為 Windows `python`／其他系統 `python3`，並明確使用 UTF-8；原 cases、assertions、環境 allowlist 與 timeout 均保留。第二輪因乾淨環境無法讀取使用者套件而仍為 3 pass／2 fail；建立工作目錄內的獨立 Python／jsonschema 4.26.0 環境後，相同五項契約測試 **5 pass／0 fail／0 skip**。其餘 148 項通過來源與產品／Worker bytes 未變；這是兩次執行的 153 個不同 Windows 可執行案例，不能寫成一次 166 項全綠。
+
+隔離、無網路、非 root 的 Node24.21 Linux 容器前置檢查為 `unshare: Operation not permitted`，並缺少 bubblewrap。保留原失敗，未增加特權或 skip；13 項 native-text-process 在此主機為 **NOT_CHECKED**，仍需受信任的 hosted Linux CI。原 `0120` hosted UI 577／1／12 的 failure 保持歷史失敗；本輪結果不替代新的 hosted CI、人工驗收、實體手機或正式負載。
