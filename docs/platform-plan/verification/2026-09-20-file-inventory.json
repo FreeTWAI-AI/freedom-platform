@@ -1109,8 +1109,8 @@
     },
     {
       "path": "apps/portal-web/src/SocialLayout.css",
-      "bytes": 10780,
-      "sha256": "cbf647aeb29d0e8ccad0749f99bebabab99ad8d428acc1dc7e04747292b884e2"
+      "bytes": 10796,
+      "sha256": "73b98f743911015d0508d5ec20c0b51ec1978fdfd99fcb7c183f6fb1432a1bd9"
     },
     {
       "path": "apps/portal-web/src/WorkshopIcon.tsx",
@@ -1559,8 +1559,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 13808,
-      "sha256": "3988a7d3d252424b4f67ae60dd359334c1eefa1cf5956ec78096229e6dba0a4d"
+      "bytes": 13759,
+      "sha256": "3bb3793aa81e30d7e4af5783b7c2f786b3206e29066b2d0894b04518bbb07cbf"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -1799,13 +1799,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.css",
-      "bytes": 5624,
-      "sha256": "02045196747c3a922495b878ba40a63463f27034df8e8bd5acc149408b2a5160"
+      "bytes": 7043,
+      "sha256": "998c3348b3e3617a875da76b5646093757b87828d6e82280f86383a243905de8"
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 20682,
-      "sha256": "aacaaad690ebd446ac16e7ba06e0feb8202b686aab5be6ca520dc0347443eecb"
+      "bytes": 24147,
+      "sha256": "89b4f0cc9332477cbb3b13e1bd57770309a9ee057bc2375a44276843be01ec22"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -2139,8 +2139,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/page-guides.ts",
-      "bytes": 14085,
-      "sha256": "2582dee9fd01b64a10a9d9ba464c4ebd28acc477f1638bc59a44b7139ec16e00"
+      "bytes": 14109,
+      "sha256": "1752a3b667feb38bd72a5ed0360fb9cc9c71a8ac5a7ca9c64a93c669af7458c1"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/page-support.ts",
@@ -2184,8 +2184,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 16467,
-      "sha256": "42e4a9216871089591cc68557437a4122199a5945fe75046f0cb9d5fd249ba8c"
+      "bytes": 16533,
+      "sha256": "7ba3fc8eb8e8cb3ddab5bb951c2fb470a88b44ace2f70cf0d0c16ef06ae21b73"
     },
     {
       "path": "apps/portal-web/src/portal-feedback.tsx",
@@ -12669,8 +12669,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 10442,
-      "sha256": "430cc68191cd767049c90d4bfd0961401ffc40a0f58c26c1038e1a43db8ca78f"
+      "bytes": 11507,
+      "sha256": "b431eb71794c3d9df29adce939833103de6dfba17852526f5e57ff743fe1bb89"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -12699,8 +12699,8 @@
     },
     {
       "path": "docs/development/social-sharing-entry.md",
-      "bytes": 2452,
-      "sha256": "bdb83a7c3420aab885227c5b29a10df917fd4647fb26624f0589dfb5e19717c2"
+      "bytes": 3885,
+      "sha256": "be4e5c768b51582741015cbf93346b378922b0a59d016e7ea28fac55206bc9fd"
     },
     {
       "path": "docs/development/social-thumbnail-worker.md",
@@ -17894,8 +17894,8 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 28556,
-      "sha256": "fcea59fc696425a9b11f9618e95a8158275fff4ed8bd8feadc6b47902bf49b71"
+      "bytes": 28804,
+      "sha256": "029af7a62a74fb82c2eebe924a8bf53b0b236cd612a2db60dbc2f9fbc5a60585"
     },
     {
       "path": "tests/e2e/event-public.spec.ts",
@@ -18094,8 +18094,8 @@
     },
     {
       "path": "tests/e2e/navigation.ts",
-      "bytes": 3917,
-      "sha256": "9f13871dcf59cf2f5199885aa3ca7ab65f511169f3026dcd8759d6410f8ad848"
+      "bytes": 4413,
+      "sha256": "01fcd2902508a5906fc5098e3d3b53f4d7012e56aee507c742ff7a257ea0a68e"
     },
     {
       "path": "tests/e2e/newcomer-guides.spec.ts",
@@ -18179,8 +18179,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 25897,
-      "sha256": "7407e586dd86cbde975896f976aef8dbeac4005d75b7b824ba8ad94bf89ef075"
+      "bytes": 26485,
+      "sha256": "2a0fd1f7c57ea55d23197cb9f5cd7fb1ad677576a6578f5eae8193e0a12c34a2"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",
@@ -18224,8 +18224,8 @@
     },
     {
       "path": "tests/e2e/social-feed.spec.ts",
-      "bytes": 14912,
-      "sha256": "b0907ea5d118889b0a2d9cf86241bdc13017369f8c609a8dce17a6484f3ffbe2"
+      "bytes": 18945,
+      "sha256": "2301f42ca291c02b481e4573f89844b33a708eedf0a6506162f94da151f2d732"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",

@@ -133,7 +133,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   return <div className="member-home freedom-home">
     <div className="home-layout">
     <div className="home-main">
-    <section className="home-timeline" aria-label="首頁社群動態"><h2 className="home-feed-title">最新動態</h2><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
+    <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
     </div>
     <aside className="home-context" aria-label="我的工坊">
     <div className="home-support">

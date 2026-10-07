@@ -57,6 +57,15 @@ export async function navigate(page: Page, name: string) {
   await target.click();
 }
 
+/** Choose an optional feed through the same secondary dialog a member opens. */
+export async function selectSocialFeed(page: Page, name: string) {
+  await page.getByRole('button', {name: '動態選項', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: '動態選項', exact: true});
+  await dialog.getByRole('button', {name, exact: true}).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('.social-zone')).toHaveAttribute('aria-busy', 'false');
+}
+
 /** Sign out from the profile menu: 設定 in the workspace, or the profile menu shown before onboarding is done. */
 export async function signOut(page: Page) {
   const settings = page.getByRole('button', { name: '設定', exact: true });

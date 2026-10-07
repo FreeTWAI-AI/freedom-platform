@@ -1,5 +1,5 @@
 import {test, expect, type Page} from './fixtures.js';
-import {navigate} from './navigation.js';
+import {navigate, selectSocialFeed} from './navigation.js';
 
 async function login(page: Page) {
   await page.goto('/');
@@ -11,6 +11,47 @@ async function login(page: Page) {
   await page.getByRole('button',{name:'建立貼文',exact:true}).click();
 }
 function card(page: Page, text: string) { return page.locator('.social-card').filter({has: page.locator('.social-note').filter({hasText: text})}); }
+
+test('the phone homepage starts with member posts and one clear composer, with extra controls out of the wall',async({page,e2eAuthPool})=>{
+  await page.setViewportSize({width:390,height:844});await login(page);
+  const text=`E2E 清楚的動態牆 ${Date.now()}：分享我的新作品，歡迎一起討論。`;
+  await page.getByLabel('貼文內容',{exact:true}).fill(text);await page.getByRole('button',{name:'發布貼文',exact:true}).click();
+  const post=card(page,text);await expect(post).toBeVisible();
+  const postId=(await post.getAttribute('id'))!.replace('social-post-','');
+  const externalTitle=`E2E 外部連結 ${Date.now()}`;
+  const inserted=await e2eAuthPool.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state)
+    SELECT community_id,author_user_id,'link',$2,'other',$3,'外部內容仍可透過動態選項查看。','active'
+    FROM community_social_posts WHERE post_id=$1 RETURNING post_id`,[postId,`https://example.com/feed-${postId}`,externalTitle]);
+  try{
+    await page.goto('/#home');const feed=page.getByRole('region',{name:'首頁社群動態'});
+    await expect(feed.locator('.social-zone')).toHaveAttribute('data-feed','note');await expect(card(page,text)).toBeVisible();
+    await expect(feed.getByRole('heading',{name:externalTitle,exact:true})).toHaveCount(0);
+    await expect(feed.getByRole('combobox')).toHaveCount(0);
+    await expect(feed.locator('details.social-composer')).toHaveCount(0);
+    await expect(post.locator('.social-platform-badge')).toHaveCount(0);
+    await expect(post.getByRole('button',{name:'刪除',exact:true})).toBeHidden();
+    const trigger=feed.getByRole('button',{name:'建立貼文',exact:true}),options=feed.getByRole('button',{name:'動態選項',exact:true});
+    await expect(trigger).toContainText('＋發文');
+    for(const theme of ['light','dark','versefolk'])for(const width of [320,390]){
+      await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);
+      await page.setViewportSize({width,height:844});await page.evaluate(()=>scrollTo(0,0));
+      await expect(trigger).toBeInViewport();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      expect((await trigger.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect((await post.getByRole('button',{name:'讚 · 0',exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await page.screenshot({path:`test-results/social-postwall-${theme}-${width}.png`});
+    }
+    await options.click();await page.keyboard.press('Escape');await expect(options).toBeFocused();
+    await selectSocialFeed(page,'全部動態');await expect(feed.getByRole('heading',{name:externalTitle,exact:true})).toBeVisible();
+    await selectSocialFeed(page,'社群貼文');await expect(feed.getByRole('heading',{name:externalTitle,exact:true})).toHaveCount(0);
+    await options.click();await page.getByRole('dialog',{name:'動態選項',exact:true}).getByRole('button',{name:'分享外部連結',exact:true}).click();
+    const link=page.getByRole('dialog',{name:'分享外部連結',exact:true});await expect(link.getByLabel('連結',{exact:true})).toBeFocused();
+    await link.getByLabel('連結',{exact:true}).fill('https://example.com/unpublished-draft');await page.keyboard.press('Escape');
+    await expect(link).toBeHidden();await expect(options).toBeFocused();
+    await options.click();await page.getByRole('dialog',{name:'動態選項',exact:true}).getByRole('button',{name:'分享外部連結',exact:true}).click();
+    await expect(link.getByLabel('連結',{exact:true})).toHaveValue('https://example.com/unpublished-draft');await page.keyboard.press('Escape');
+  }finally{await e2eAuthPool.query('DELETE FROM community_social_posts WHERE post_id=$1',[inserted.rows[0].post_id]);}
+});
 
 test('write a native post, like, comment, remove and reload without duplicate effects', async ({page}) => {
   await login(page);
@@ -36,6 +77,7 @@ test('write a native post, like, comment, remove and reload without duplicate ef
   await page.reload();
   await expect(card(page, text)).toHaveCount(1);
   await expect(card(page, text).getByRole('button', {name: '已讚 · 1', exact: true})).toBeVisible();
+  await card(page, text).getByText('⋯',{exact:true}).click();
   await card(page, text).getByRole('button', {name: '刪除', exact: true}).click();
   await card(page, text).getByRole('button', {name: '確定刪除', exact: true}).click();
   await expect(card(page, text)).toHaveCount(0);
@@ -145,21 +187,21 @@ test('a late publication ACK preserves the newer filter and focus without hiding
     await page.getByLabel('貼文內容',{exact:true}).fill(text);
     await page.getByRole('button',{name:'發布貼文',exact:true}).click();await saved;
     await page.getByRole('button',{name:'關閉發文',exact:true}).click();
-    const filter=page.getByRole('combobox',{name:'查看貼文',exact:true});
+    const filter=page.getByRole('button',{name:'動態選項',exact:true});
     const loaded=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/social-posts'&&new URL(response.url()).searchParams.get('platform')==='youtube'&&response.request().method()==='GET');
-    await filter.selectOption('youtube');await loaded;
+    await selectSocialFeed(page,'YouTube');await loaded;
     await expect(page.getByText('正在載入貼文…',{exact:true})).toBeHidden();await filter.focus();
     release();await expect(page.getByText('貼文已發布。',{exact:true})).toBeVisible();
-    await expect(filter).toHaveValue('youtube');await expect(filter).toBeFocused();
+    await expect(page.locator('.social-zone')).toHaveAttribute('data-feed','youtube');await expect(filter).toBeFocused();
     await expect(card(page,text)).toHaveCount(0);
-    await filter.selectOption('note');await expect(card(page,text)).toHaveCount(1);
+    await selectSocialFeed(page,'社群貼文');await expect(card(page,text)).toHaveCount(1);
     expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM community_social_posts WHERE note=$1',[text])).rows[0].n).toBe(1);
 
     // An unchanged external filter still switches to the saved native post.
-    await filter.selectOption('youtube');await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+    await selectSocialFeed(page,'YouTube');await page.getByRole('button',{name:'建立貼文',exact:true}).click();
     const next=`E2E 原分類發文 ${Date.now()}`;await page.getByLabel('貼文內容',{exact:true}).fill(next);
     await page.getByRole('button',{name:'發布貼文',exact:true}).click();
-    await expect(filter).toHaveValue('note');await expect(card(page,next)).toHaveCount(1);
+    await expect(page.locator('.social-zone')).toHaveAttribute('data-feed','note');await expect(card(page,next)).toHaveCount(1);
     await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeFocused();
   }finally{release();}
 });

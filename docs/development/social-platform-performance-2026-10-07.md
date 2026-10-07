@@ -27,6 +27,14 @@
 
 原 PR 的四項 P2 review 一併追蹤：名片姓名 token 與工具 dialog 焦點已修正；本輪在 Chromium 加兩個受控實際 API 交錯，修正前為 6 pass／2 fail，重現發文 ACK 搶走新分類的焦點及第一頁留言被作廢。發文依當前分類／選擇版本合併，只有原發文視窗尚未被關閉或重開時恢復其焦點；留言保留讀取與 cursor，暫存新確認留言直到 server page 包含它，再以 ID 去重。26 則既有留言的分頁與新增後 27 則完整顯示都驗證，不新增第二套留言系統。
 
+第三次完整 E2E 在 `e53e4c6f23090dcbe9e3c0b9c350782264bb08ea` 執行，收到 Hao 的手機主牆設計修正後主動停止；已觀察 172 pass，未觀察 fail。這是中止紀錄，不是完整 PASS。原 log／artifacts 保留；先完成貼文優先版面再重新建置、驗證。
+
+## 手機動態牆的再次修正
+
+Hao 明確要求主牆像一般社群直接呈現會員貼文。預設原生貼文＋清楚「＋發文」，移除主畫面的分類下拉、外部分享摺疊表單與原生貼文重複 badge；換圖／刪除移至貼文選項，發布回饋縮成短句。所有平台篩選與原外部 URL／縮圖分享仍可透過動態選項使用，作品／商品／開源投稿沿用全站「＋分享」。按時間顯示，不加入曝光排名或付費加權。
+
+型別檢查與 fresh build 已通過；手機主牆、外部分享、本人優化、配色與 guides 的完整針對性回歸正在執行，結果待回填。前一次全量的中止或前版通過不能代替這個新主牆。
+
 ## 全目標待驗收矩陣
 
 本輪新增[分享／提交入口](social-sharing-entry.md)、供貨商／創作者／開發者的具體入口及 [Social Post 本人額度優化](social-post-optimization.md)。手機登入、密碼找回與長發文視窗也納入真實瀏覽器回歸；這些增量不代替下表的真人與正式站驗收。
@@ -46,7 +54,7 @@
 
 ## 本機已確認的結果
 
-- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單及 review 修正後 candidate 580,279 bytes／gzip 180,127 bytes。gzip 降低 53.00%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671 與分享初版的 gzip 180,111 是歷史數字，不能代替目前建置。
+- 完整初始 JS 靜態依賴 closure：baseline 1,361,771 bytes／gzip 383,241 bytes；加入本人模型優化、角色入口、分享選單、review 及貼文主牆修正後 candidate 580,345 bytes／gzip 180,172 bytes。gzip 降低 52.99%，通過預先設定的 70% 門檻；將 baseline 和自己比較的反例仍拒絕。v8 的 572,186／177,671、分享初版的 gzip 180,111 與 review 版的 gzip 180,127 是歷史數字，不能代替目前建置。
 - 受控、明確允許共用的 5 個同時 GET：baseline 5 次 transport，candidate 1 次；settled 後下一次仍重新請求。預設新讀取、帳號切換、JSON 副本、獨立取消與 POST／DELETE 前後快照的反例一併驗證。
 - Client／build benchmark／Social Post／模型 service runtime tests：58 pass／0 fail／0 skip。最後分享入口的型別檢查與建置通過；整套 runtime CI 尚未在新 head 執行。
 - v4 的 85 項瀏覽器回歸通過。完整 hosted a10 UI CI 揭露 15 項失敗；v5 擴大範圍為 58 pass／7 fail／10 fixture skip，v6 為 7 pass／2 fail。沒有將這些版本放行。修正後 v8 的 9 項針對性反例／瀏覽器檢查全部通過，涵蓋撤權清單、名片 QR／PNG、名片配色、導覽與原素材載入；全量三階段 E2E 仍待本輪最終執行。

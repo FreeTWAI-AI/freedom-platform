@@ -82,7 +82,7 @@
  .app-frame.social-layout .freedom-home .home-layout{grid-template-columns:minmax(0,1fr);gap:24px;max-width:680px}
  .app-frame.social-layout .home-context{border-top:1px solid var(--line);padding-top:24px}
  .app-frame.social-layout .social-composer-start{padding:12px}
- .app-frame.social-layout .social-write-trigger{font-size:.9375rem;padding-inline:12px}
+ .app-frame.social-layout .social-write-trigger{font-size:.9375rem;padding-left:12px;padding-right:4px}
  .app-frame.social-layout .social-publish-dialog{padding:16px}
  .app-frame.social-layout .social-publish-dialog .social-composer-footer .btn{width:100%}
 }
