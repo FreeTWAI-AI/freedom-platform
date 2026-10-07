@@ -584,6 +584,55 @@ test('launchpad context requires the workspace grant and lists only granted inst
   assert.equal(absent.status, 404); assert.equal(absent.data.code, 'not_found');
 });
 
+test('module binding follows the launchpad context grant rule for operators, viewers and unbound workspaces', async () => {
+  const t = await openTenant();
+  const second = await secondWorkspace(t);
+  const unbound = await secondWorkspace(t, false);
+  const operator = await person('操作人');
+  const secondGrants = grant(second, ['work:read', 'work:create']);
+  await join(t, operator, 'operator', secondGrants);
+  const binding = (space: Tenant) => ({
+    entry_capability: 'work:create', instance_id: space.instanceId, instance_status: 'active', writable: true,
+  });
+  async function readPair(space: Tenant, session: Session, status: 200 | 403, expectedBinding: ReturnType<typeof binding> | null = binding(space)) {
+    const base = `/tenants/${space.tenantId}/workspaces/${space.workspaceId}`;
+    const retained = await call('GET', base + '/module-binding', session);
+    const context = await call('GET', base + `/launchpad-context?guild_key=${space.guild}`, session);
+    assert.equal(retained.status, status, JSON.stringify(retained.data));
+    assert.equal(context.status, retained.status, JSON.stringify(context.data));
+    if (status === 403) {
+      assert.equal(retained.data.code, 'capability_denied');
+      assert.equal(context.data.code, retained.data.code);
+    } else {
+      assert.deepEqual(retained.data, {
+        tenant_id: space.tenantId, workspace_id: space.workspaceId, binding: expectedBinding,
+      });
+      for (const reply of [retained, context]) {
+        assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+        assert.equal(reply.response.headers.get('vary'), 'Cookie');
+      }
+    }
+  }
+  await readPair(t, operator.session, 403);
+  await readPair(unbound, operator.session, 403);
+  await readPair(second, operator.session, 200);
+
+  const extended = await change(t, operator, [...secondGrants, ...grant(t, ['work:read'])]);
+  assert.equal(extended.status, 200, JSON.stringify(extended.data));
+  await readPair(t, operator.session, 200);
+  await readPair(second, operator.session, 200);
+
+  const viewer = await person('讀者');
+  await join(t, viewer, 'viewer', grant(second, ['work:read']));
+  // Writability describes the active instance/deployment even for a read-only caller.
+  await readPair(second, viewer.session, 200);
+  await readPair(unbound, t.owner, 200, null);
+
+  const removed = await change(t, operator, []);
+  assert.equal(removed.status, 200, JSON.stringify(removed.data));
+  for (const space of [t, second, unbound]) await readPair(space, operator.session, 403);
+});
+
 test('account disable retains grants and recovery execute revokes the restored and former owner grants together', async () => {
   const t = await openTenant();
   const recipient = await person('復原擁有者');
