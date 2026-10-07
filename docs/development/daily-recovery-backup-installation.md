@@ -86,6 +86,20 @@ the first backup that includes migration 125, per-table row counts from that
 backup compared with counts taken by the table owner. The backup role and
 adapter remain operator-managed outside this repository.
 
+`npm run test:media-restore` also runs the synthetic two-tenant drill. It checks
+that a read-only BYPASSRLS role dumps every row through the coordinator; counts
+and fingerprints equal the owner's at the same snapshot; a default dump without
+BYPASSRLS fails and its visible-rows dump is silently incomplete; restore keeps
+tenant and asset references and digests; and after lockdown and runtime grants,
+the runtime role sees only the bound tenant. The drill does not verify the
+production role's grants. T-046 is not run: the OPEN-07 retention values are
+decided, but no expiry executor exists yet. T-047 is a known gap:
+a membership or invitation revoked after backup comes back active on restore
+(the invitation returns to pending). Tenant tables have no recovery generation,
+epoch floor or tombstone yet. The drill keeps the desired behaviour as a todo
+test. Until fencing exists, only quarantine and the remaining operator steps
+keep those rows from being served.
+
 ## Invoke and independently accept
 
 Install a reviewed private wrapper at
@@ -184,6 +198,7 @@ Sequence evidence remains ascending noncycling lower-bound evidence, not MVCC.
 
 ```sh
 node --import tsx --test --test-concurrency=1 tests/runtime/media-backup-daily.test.ts
+npm run test:media-restore
 npm run test:media-restore -- --archive-only
 npm run typecheck
 ```
