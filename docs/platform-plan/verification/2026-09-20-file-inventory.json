@@ -18998,6 +18998,11 @@
       "sha256": "f32cbec006131a3eccca6c1f5e7b2e34a8ee81bac0517cfa08fb9f0f4a394500"
     },
     {
+      "path": "tests/runtime/generator-drift.test.ts",
+      "bytes": 3259,
+      "sha256": "d6bbf6bfb48ab65ebdbf73034a42a5616fc7fac96aa39c290d21a4008701c51b"
+    },
+    {
       "path": "tests/runtime/github-app-setup.test.ts",
       "bytes": 19874,
       "sha256": "ec27c38cd9fc0d9d3bd044fe27d681773fcb9b7d7c22aa82ba16b71b3385b992"
