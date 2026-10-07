@@ -116,8 +116,8 @@ function workCandidates(rows: CandidateRow[]): InstanceCandidate[] {
 }
 
 /** Facade choices use the same pinned requirement, definition, and usability filter as createPlan. */
-export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string): Promise<InstanceCandidate[]> {
-  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE);
+export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string, communityId: string): Promise<InstanceCandidate[]> {
+  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE, communityId);
   const requirement = (application.module_requirements as Requirement[]).find(item => item.module_key === 'work');
   requireCondition(requirement, 409, 'application_not_available', '這個應用目前無法啟動。');
   const definition = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
@@ -134,7 +134,7 @@ export async function createPlan(
   const input = PlanInputSchema.parse(body);
   await assertFullGuildMember(q, context.community_id, actorUserId, input.guild_key, false);
   await workspaceStatus(q, context.tenant_id, input.workspace_id);
-  const definition = await loadOfferedDefinition(q, input.guild_key, input.application_key, input.release_ref);
+  const definition = await loadOfferedDefinition(q, input.guild_key, input.application_key, input.release_ref, context.community_id);
   assertConfiguration(input.configuration ?? {}, definition.customization_schema_ref);
   const policy = await readCapacityPolicy(q, context.tenant_id);
   if (!policy) throw new Problem(403, 'policy_unconfigured', '這個業務空間尚未設定容量政策。');

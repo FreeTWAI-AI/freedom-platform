@@ -107,7 +107,7 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
   if (plan.version !== input.expectedPlanVersion) throw planStale();
   if (plan.configuration_digest !== input.configurationDigest) throw planStale();
   await assertMember(q, context, actorUserId, plan.guild_key, false);
-  const definition = await loadOfferedDefinition(q, plan.guild_key, plan.application_key, plan.release_ref);
+  const definition = await loadOfferedDefinition(q, plan.guild_key, plan.application_key, plan.release_ref, context.community_id);
   await installationFingerprintLock(q, context.tenant_id, plan.workspace_id, plan.application_key);
   const policy = await readCapacityPolicy(q, context.tenant_id);
   if (!policy) throw new Problem(403, 'policy_unconfigured', '這個業務空間尚未設定容量政策。');

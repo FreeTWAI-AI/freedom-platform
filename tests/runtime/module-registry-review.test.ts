@@ -1305,3 +1305,91 @@ test('r6 public catalog success responses retain expected cache headers', async 
   assert.equal(memberList.response.headers.get('cache-control'), 'private, no-store');
   assert.ok(memberList.response.headers.get('vary')?.includes('Cookie'));
 });
+
+async function r7ScopedOffering(communityId: string, guildKey: string | null = 'guild_ai_field') {
+  await h.pool.query(`INSERT INTO application_definitions(
+      application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+    SELECT 'synthetic-scoped','synthetic-scoped@1.0.0',display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version
+    FROM application_definitions WHERE application_key='synthetic-storefront' ON CONFLICT DO NOTHING`);
+  await h.pool.query(`INSERT INTO guild_application_offerings(
+      offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+    VALUES($1,$2,$3,'synthetic-scoped','synthetic-scoped@1.0.0','offered',20,$4::jsonb,1)`,
+  [randomUUID(), communityId, guildKey, JSON.stringify({policy_key: 'synthetic-storefront.launch', version: '1'})]);
+}
+
+async function r7ForeignCommunity() {
+  const id = randomUUID();
+  await h.pool.query('INSERT INTO communities(community_id,name) VALUES($1,$2)', [id, '另一個合成社群']);
+  await r7ScopedOffering(id);
+  return id;
+}
+
+test('r7 foreign-community offerings are absent from member catalog and launchpad', async () => {
+  const { owner } = await prepared();
+  await r7ForeignCommunity();
+  for (const path of ['/applications?guild_key=guild_ai_field', '/guilds/guild_ai_field/launchpad']) {
+    const reply = await h.call('GET', path, owner);
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    const items = reply.data.items ?? reply.data.applications;
+    assert.equal(items.some((item: {application_key: string}) => item.application_key === 'synthetic-scoped'), false, path);
+    assert.ok(items.some((item: {application_key: string}) => item.application_key === 'synthetic-storefront'));
+    assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+  }
+});
+
+test('r7 foreign-community offerings cannot create a plan', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ForeignCommunity();
+  const before = await domainCounts(tenantId);
+  const reply = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(reply.status, 409, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'application_not_available');
+  assert.deepEqual(await domainCounts(tenantId), before);
+  assert.equal(await h.count('module_launch_plans', 'WHERE tenant_id=$1', [tenantId]), 0);
+});
+
+test('r7 launch rejects a plan when only the foreign-community offering remains', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ForeignCommunity();
+  await r7ScopedOffering(DEMO_COMMUNITY);
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  await h.pool.query(`UPDATE guild_application_offerings SET status='withdrawn',version=version+1
+    WHERE community_id=$1 AND application_key='synthetic-scoped'`, [DEMO_COMMUNITY]);
+  const before = await domainCounts(tenantId);
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 409, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'application_not_available');
+  assert.deepEqual(await domainCounts(tenantId), before);
+  assert.equal(await h.count('module_launch_plan_consumptions', 'WHERE tenant_id=$1', [tenantId]), 0);
+});
+
+test('r7 config references reject a foreign-community offering', async () => {
+  const leader = await leaderFor();
+  await r7ForeignCommunity();
+  const view = await h.call('GET', '/guilds/guild_ai_field/launchpad', leader.session);
+  assert.equal(view.status, 200, JSON.stringify(view.data));
+  const body = {...view.data.config.body, application_refs: [{application_key: 'synthetic-scoped', release_ref: 'synthetic-scoped@1.0.0', order: 0}]};
+  const reply = await h.post('/guilds/guild_ai_field/launchpad-config/preview', leader.session, {body, preview_mode: 'public'});
+  assert.equal(reply.status, 422, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'validation_failed');
+  assert.ok(reply.data.errors.some((error: {code: string}) => error.code === 'application_release_unknown'));
+  await r7ScopedOffering(DEMO_COMMUNITY);
+  const allowed = await h.post('/guilds/guild_ai_field/launchpad-config/preview', leader.session, {body, preview_mode: 'public'});
+  assert.equal(allowed.status, 200, JSON.stringify(allowed.data));
+});
+
+test('r7 a community-wide offering applies to its own guilds and can launch', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ScopedOffering(DEMO_COMMUNITY, null);
+  const catalog = await h.call('GET', '/applications?guild_key=guild_ai_field', owner);
+  assert.equal(catalog.status, 200, JSON.stringify(catalog.data));
+  assert.ok(catalog.data.items.some((item: {application_key: string}) => item.application_key === 'synthetic-scoped'));
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 200, JSON.stringify(reply.data));
+  assert.equal(reply.data.state, 'succeeded');
+});
