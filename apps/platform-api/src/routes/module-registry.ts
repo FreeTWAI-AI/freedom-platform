@@ -3,14 +3,14 @@ import { getCookie } from 'hono/cookie';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import {
-  CancelInputSchema, CatalogQuerySchema, InstallationQuerySchema, InstanceQuerySchema, LaunchInputSchema,
+  ArchiveInputSchema, CancelInputSchema, CatalogQuerySchema, InstallationQuerySchema, InstanceQuerySchema, LaunchInputSchema,
   PlanInputSchema, ReconcileInputSchema, ResumeInputSchema, SuspendInputSchema,
 } from '../../../../contracts/guild-launchpad/v1/module-registry.js';
 import { EnableManualWorkSchema, LaunchpadQuerySchema } from '../../../../contracts/guild-launchpad/v1/tenant-work.js';
 import { authenticate, type Actor } from '../../../../modules/identity-membership/service.js';
 import { browseApplications, readPublicRelease } from '../../../../modules/module-registry/catalog.js';
 import {
-  advanceOperation, cancelOperation, enableManualWork, installationByOperation, launchApplication,
+  advanceOperation, archiveInstance, cancelOperation, enableManualWork, installationByOperation, launchApplication,
   launchpadContext, listInstallations, listInstances, planApplication, readInstance, readOperation,
   reconcileOperation, resumeInstance, suspendInstance,
 } from '../../../../modules/module-registry/service.js';
@@ -140,6 +140,15 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
     const expected = matchVersion(c);
     const body = ResumeInputSchema.parse(await c.req.json());
     const operation = await resumeInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')),
+      OpaqueId.parse(c.req.param('instance_id')), expected, key, body);
+    etag(c, operation.version);
+    return c.json(operation, 200);
+  });
+  app.post('/tenants/:tenant_id/module-instances/:instance_id/archive', async c => {
+    const key = requiredKey(c);
+    const expected = matchVersion(c);
+    const body = ArchiveInputSchema.parse(await c.req.json());
+    const operation = await archiveInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')),
       OpaqueId.parse(c.req.param('instance_id')), expected, key, body);
     etag(c, operation.version);
     return c.json(operation, 200);

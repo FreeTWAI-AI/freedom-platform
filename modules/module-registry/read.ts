@@ -74,15 +74,20 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
     const row = (await q.query(
-      `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id,
+      `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id, archive_operation_id,
          (SELECT jsonb_build_object('operation_id',o.operation_id,'suspended_at',o.accepted_at,'reason',o.reason)
           FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
             AND o.operation_id=module_instances.suspension_operation_id AND o.instance_id=module_instances.instance_id
-            AND o.operation_kind='module.instance.suspend') AS member_suspension
+            AND o.operation_kind='module.instance.suspend') AS member_suspension,
+         (SELECT jsonb_build_object('operation_id',o.operation_id,'archived_at',o.accepted_at,'reason',o.reason)
+          FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
+            AND o.operation_id=module_instances.archive_operation_id AND o.instance_id=module_instances.instance_id
+            AND o.operation_kind='module.instance.archive') AS member_archive
        FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`, [tenantId, instanceId],
     )).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
-    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, ...fields } = row;
+    const { suspension_operation_id: _pointer, member_suspension: memberSuspension,
+      archive_operation_id: _archivePointer, member_archive: memberArchive, ...fields } = row;
     const view = InstanceViewSchema.parse(fields);
     const dependencies = (await q.query(
       `SELECT requirement_key, provider_instance_id, version::text AS version
@@ -108,9 +113,12 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
     const suspension = view.status !== 'suspended' ? null : memberSuspension
       ? { kind: 'member', ...memberSuspension, suspended_at: new Date(memberSuspension.suspended_at).toISOString() }
       : { kind: 'platform', operation_id: null, suspended_at: null, reason: null };
+    const archive = view.status !== 'archived' ? null : memberArchive
+      ? { kind: 'member', ...memberArchive, archived_at: new Date(memberArchive.archived_at).toISOString() }
+      : { kind: 'platform', operation_id: null, archived_at: null, reason: null };
     await assertCurrentSessionClock(q, actor);
     return InstanceDetailSchema.parse({ ...view, dependencies,
-      impact: { ...counts, consumers, workspace_ids: workspaces.map(row => row.workspace_id) }, suspension });
+      impact: { ...counts, consumers, workspace_ids: workspaces.map(row => row.workspace_id) }, suspension, archive });
   });
 }
 

@@ -113,12 +113,22 @@ export const InstanceSuspensionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('platform'), operation_id: z.null(), suspended_at: z.null(), reason: z.null(),
   }).strict(),
 ]);
+export const InstanceArchiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('member'), operation_id: OpaqueId, archived_at: IsoTimeSchema, reason: ReasonSchema,
+  }).strict(),
+  z.object({
+    kind: z.literal('platform'), operation_id: z.null(), archived_at: z.null(), reason: z.null(),
+  }).strict(),
+]);
 export const InstanceDetailSchema = InstanceViewSchema.extend({
   dependencies: z.array(InstanceDependencySchema).max(50),
   impact: InstanceImpactSchema,
   suspension: InstanceSuspensionSchema.nullable(),
+  archive: InstanceArchiveSchema.nullable(),
 }).strict().refine(value => (value.status === 'suspended') === (value.suspension !== null),
-  '暫停資訊須與模組實例狀態一致。');
+  '暫停資訊須與模組實例狀態一致。').refine(value => (value.status === 'archived') === (value.archive !== null),
+  '封存資訊須與模組實例狀態一致。');
 
 export const InstallationViewSchema = z.object({
   installation_id: OpaqueId,
@@ -180,6 +190,7 @@ export const RegistryOperationSchema = z.object({
   problem: z.object({ code: z.string(), detail: z.string() }).strict().optional(),
 }).strict();
 
+export const ArchiveInputSchema = z.object({ reason: ReasonSchema }).strict();
 export const SuspendInputSchema = z.object({ reason: ReasonSchema }).strict();
 export const ResumeInputSchema = z.object({}).strict();
 

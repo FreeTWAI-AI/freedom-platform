@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
-import { DEMO_USERS } from '../../packages/testing/seed.js';
+import { DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { WORK_CONTRACT_ARTIFACT_SHA256, WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { createRegistryHarness, type RegistryHarness } from './module-registry-harness.js';
@@ -226,7 +226,7 @@ test('lifecycle kind, reason, shape and terminal-state checks reject invalid ope
       FROM module_provision_operations WHERE operation_id=$6`, [id, kind, policy, instance, reason, launch.operation_id]);
   }
   const cases: [string, string, string][] = [
-    [launch.operation_id, "operation_kind='module.instance.archive'", 'kind_check'],
+    [launch.operation_id, "operation_kind='module.instance.upgrade'", 'kind_check'],
     [launch.operation_id, 'installation_id=NULL', 'launch_shape_check'],
     [launch.operation_id, 'policy_revision=NULL', 'launch_shape_check'],
     [launch.operation_id, `instance_id='${instance}'`, 'launch_shape_check'],
@@ -288,7 +288,7 @@ test('migration 127 preserves a launch row seeded under schema 126', async () =>
     const { seedLocal } = await import('../../packages/testing/seed.js');
     const { migrate } = await import('../../scripts/database.js');
     const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
-      .filter(source => source.name !== '127_module_instance_lifecycle.sql');
+      .filter(source => Number(source.name.slice(0, 3)) <= 126);
     await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 126, known_gaps: [22] }) });
     await seedLocal(pool);
     await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
@@ -309,6 +309,86 @@ test('migration 127 preserves a launch row seeded under schema 126', async () =>
     const current = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o`)).rows[0].row;
     assert.deepEqual(current, { ...old, instance_id: null, reason: null });
   } finally {
+    await pool.end();
+    await h.admin.query(`DROP SCHEMA ${schema} CASCADE`);
+  }
+});
+
+test('archive shape, terminal state, status and tenant operation FK reject invalid rows', async () => {
+  const { tenantId } = await enabled();
+  const instance = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].instance_id;
+  const launch = (await h.pool.query(`SELECT operation_id,installation_id,plan_id FROM module_provision_operations WHERE tenant_id=$1`, [tenantId])).rows[0];
+  const archiveId = randomUUID();
+  await h.pool.query(`INSERT INTO module_provision_operations(operation_id,tenant_id,actor_principal_id,operation_kind,
+      state,request_digest,authorization_revision,instance_id,reason)
+    SELECT $1,tenant_id,actor_principal_id,'module.instance.archive','succeeded',request_digest,authorization_revision,$2,'合成封存原因'
+    FROM module_provision_operations WHERE operation_id=$3`, [archiveId, instance, launch.operation_id]);
+  for (const set of ['instance_id=NULL', 'reason=NULL', `installation_id='${launch.installation_id}'`,
+    `plan_id='${launch.plan_id}'`, 'policy_revision=1']) {
+    await rejects(() => h.pool.query(`UPDATE module_provision_operations SET ${set} WHERE operation_id=$1`, [archiveId]), '23514', 'archive_shape_check');
+  }
+  for (const state of ['requested', 'running', 'needs_reconciliation', 'failed', 'cancelled']) {
+    await rejects(() => h.pool.query(`UPDATE module_provision_operations SET state=$2 WHERE operation_id=$1`, [archiveId, state]), '23514', 'lifecycle_state_check');
+  }
+  for (const reason of ['短', '長'.repeat(1001)]) {
+    await rejects(() => h.pool.query(`UPDATE module_provision_operations SET reason=$2 WHERE operation_id=$1`, [archiveId, reason]), '23514', 'reason_check');
+  }
+  await rejects(() => h.pool.query(`UPDATE module_instances SET archive_operation_id=$2 WHERE instance_id=$1`, [instance, archiveId]), '23514', 'archive_status_check');
+  await h.pool.query(`UPDATE module_instances SET status='archived',archive_operation_id=$2 WHERE instance_id=$1`, [instance, archiveId]);
+  for (const status of ['requested', 'provisioning', 'active', 'suspended', 'failed']) {
+    await rejects(() => h.pool.query(`UPDATE module_instances SET status=$2 WHERE instance_id=$1`, [instance, status]), '23514', 'archive_status_check');
+  }
+  const second = await h.createTenant((await h.signIn(DEMO_USERS[0].email)), '外租戶操作');
+  assert.equal((await h.enable((await h.signIn(DEMO_USERS[0].email)), second.tenantId, second.workspaceId, 'guild_ai_field')).status, 200);
+  const foreign = (await h.pool.query(`SELECT operation_id FROM module_provision_operations WHERE tenant_id=$1`, [second.tenantId])).rows[0].operation_id;
+  for (const id of [foreign, randomUUID()]) {
+    await rejects(() => h.pool.query(`UPDATE module_instances SET archive_operation_id=$2 WHERE instance_id=$1`, [instance, id]), '23503', 'archive_operation_fkey');
+  }
+  // Platform archives legitimately have no member-operation pointer.
+  await h.pool.query(`UPDATE module_instances SET archive_operation_id=NULL WHERE instance_id=$1`, [instance]);
+  const index = (await h.pool.query(`SELECT indexdef FROM pg_indexes WHERE schemaname=$1 AND indexname='application_module_links_instance'`, [h.schema])).rows[0];
+  assert.match(index.indexdef, /\(tenant_id, instance_id\)/);
+});
+
+test('migration 128 preserves pre-seeded launch, suspend and resume rows from schema 127', async () => {
+  const schema = `fp_mrs_archive_old_${process.pid}_${Date.now()}`;
+  await h.admin.query(`CREATE SCHEMA ${schema}`);
+  const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}` });
+  try {
+    const { readMigrationSources } = await import('../../packages/db/migration-files.mjs');
+    const { legacyMigrationProfile } = await import('../../packages/db/migration-plan.mjs');
+    const { runMigrationPlan } = await import('../../packages/db/migration-runner.mjs');
+    const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
+      .filter(source => Number(source.name.slice(0, 3)) <= 127);
+    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 127, known_gaps: [22] }) });
+    await seedLocal(pool);
+    await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
+      max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
+      SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
+        max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
+    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const owner = await h.signIn(DEMO_USERS[0].email, app);
+    await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+      VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
+    const tenant = await h.post('/tenants', owner, { display_name: '舊啟用紀錄' }, undefined, randomUUID(), app);
+    assert.equal(tenant.status, 201, JSON.stringify(tenant.data));
+    const enabled = await h.post(`/tenants/${tenant.data.tenant.tenant_id}/workspaces/${tenant.data.workspace.workspace_id}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
+    assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
+    for (const [kind, reason, policy] of [['module.instance.suspend', '合成暫停原因', null], ['module.instance.resume', null, 1]]) {
+      await pool.query(`INSERT INTO module_provision_operations(operation_id,tenant_id,actor_principal_id,operation_kind,
+          state,request_digest,authorization_revision,instance_id,reason,policy_revision)
+        SELECT $1,o.tenant_id,o.actor_principal_id,$2,'succeeded',o.request_digest,o.authorization_revision,i.instance_id,$3,$4
+        FROM module_provision_operations o JOIN module_instances i ON i.tenant_id=o.tenant_id
+        WHERE o.operation_kind='application.launch' LIMIT 1`, [randomUUID(), kind, reason, policy]);
+    }
+    await pool.query('COMMIT');
+    const before = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o ORDER BY operation_id`)).rows;
+    assert.equal(before.length, 3);
+    await pool.query(await readFile(new URL('../../migrations/128_module_instance_archive.sql', import.meta.url), 'utf8'));
+    assert.deepEqual((await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o ORDER BY operation_id`)).rows, before);
+    assert.equal((await pool.query(`SELECT archive_operation_id FROM module_instances`)).rows[0].archive_operation_id, null);
+  } finally {
+    await pool.query('ROLLBACK');
     await pool.end();
     await h.admin.query(`DROP SCHEMA ${schema} CASCADE`);
   }
