@@ -1,20 +1,22 @@
 import {Component, Suspense, type ReactNode} from 'react';
+import {useLanguage} from './language';
 
-class PageErrorBoundary extends Component<{children: ReactNode; label: string}, {failed: boolean}> {
+class PageErrorBoundary extends Component<{children: ReactNode; fallback: ReactNode}, {failed: boolean}> {
   state = {failed: false};
   static getDerivedStateFromError() { return {failed: true}; }
   render() {
     if (!this.state.failed) return this.props.children;
-    return <section className="card stack" role="alert">
-      <strong>{this.props.label}暫時無法開啟。</strong>
-      <p>請確認網路後重新載入頁面。</p>
-      <div className="messages-actions"><button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>重新載入頁面</button><a className="btn btn-ghost" href="/#home">返回首頁</a></div>
-    </section>;
+    return this.props.fallback;
   }
 }
 export function PageLoadBoundary({children, label, resetKey}: {children: ReactNode; label: string; resetKey?: string}) {
-  return <PageErrorBoundary key={resetKey ?? label} label={label}>
-    <Suspense fallback={<div className="page-loading" role="status" aria-live="polite"><p><span className="request-feedback-progress" aria-hidden="true"/>正在開啟{label}…</p><div className="page-loading-placeholder" aria-hidden="true"/><div className="page-loading-placeholder" aria-hidden="true"/></div>}>
+  const {t} = useLanguage();
+  return <PageErrorBoundary key={resetKey ?? label} fallback={<section className="card stack" role="alert">
+    <strong>{t('page.unavailable',{label})}</strong>
+    <p>{t('page.retryHint')}</p>
+    <div className="messages-actions"><button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>{t('page.reload')}</button><a className="btn btn-ghost" href="/#home">{t('page.home')}</a></div>
+  </section>}>
+    <Suspense fallback={<div className="page-loading" role="status" aria-live="polite"><p><span className="request-feedback-progress" aria-hidden="true"/>{t('page.opening',{label})}</p><div className="page-loading-placeholder" aria-hidden="true"/><div className="page-loading-placeholder" aria-hidden="true"/></div>}>
       {children}
     </Suspense>
   </PageErrorBoundary>;

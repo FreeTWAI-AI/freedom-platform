@@ -1,9 +1,11 @@
 import {useEffect, useState, useSyncExternalStore} from 'react';
 import {requestActivity} from './request-activity';
+import {useLanguage} from './language';
 import './RequestFeedback.css';
 
 /** Transport state complements the form's own ACK, error and retry controls. */
 export function RequestFeedback() {
+  const {t} = useLanguage();
   const activity = useSyncExternalStore(requestActivity.subscribe, requestActivity.snapshot, requestActivity.snapshot);
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
@@ -11,9 +13,10 @@ export function RequestFeedback() {
     window.addEventListener('online', update); window.addEventListener('offline', update);
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
-  if (online && !activity.pending) return null;
-  return <div className={`request-feedback${online ? '' : ' is-offline'}`} role="status" aria-live="polite" aria-atomic="true">
-    {online && <span className="request-feedback-progress" aria-hidden="true"/>}
-    <span>{!online ? '目前離線，連線恢復後再試。' : activity.mutations ? '正在處理…' : '正在讀取…'}</span>
+  // ConnectionStatus owns the single offline banner and its layout inset.
+  if (!online || !activity.pending) return null;
+  return <div className="request-feedback" role="status" aria-live="polite" aria-atomic="true">
+    <span className="request-feedback-progress" aria-hidden="true"/>
+    <span>{t(activity.mutations ? 'request.working' : 'request.reading')}</span>
   </div>;
 }

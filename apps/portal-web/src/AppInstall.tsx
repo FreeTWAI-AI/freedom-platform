@@ -86,5 +86,7 @@ function ConnectionStatus(){
     const observer=new ResizeObserver(size);if(banner.current)observer.observe(banner.current);size();
     return()=>{observer.disconnect();root.style.removeProperty('--connection-status-height');delete root.dataset.deviceOffline;};
   },[offline,t]);
-  return offline?<div ref={banner} className="app-connection-status" role="status">{t('install.offline')}</div>:null;
+  return offline?<div ref={banner} className="app-connection-status" role="status" aria-live="polite" aria-atomic="true">
+    <span className="request-feedback is-offline">{t('request.offline')}</span>{' '}<span>{t('request.draftHint')}</span>
+  </div>:null;
 }

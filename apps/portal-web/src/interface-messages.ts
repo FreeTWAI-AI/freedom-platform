@@ -2,6 +2,15 @@
 // All supported languages must have the same keys. Member-authored content is
 // not an interface message and must never be substituted by this catalog.
 export const interfaceMessages = {
+  'request.working':['正在處理…','Working…','処理中…','처리 중…','Procesando…'],
+  'request.reading':['正在讀取…','Loading…','読み込み中…','불러오는 중…','Cargando…'],
+  'request.offline':['目前離線，連線恢復後再試。','You are offline. Try again when connected.','オフラインです。接続が戻ってからお試しください。','오프라인입니다. 연결이 복구되면 다시 시도해 주세요.','Sin conexión. Inténtalo de nuevo cuando se restablezca.'],
+  'request.draftHint':['草稿保留在此頁。','Your draft stays on this page.','下書きはこのページに残ります。','초안은 이 페이지에 유지됩니다.','Tu borrador se mantiene en esta página.'],
+  'page.opening':['正在開啟{label}…','Opening {label}…','{label}を開いています…','{label} 여는 중…','Abriendo {label}…'],
+  'page.unavailable':['{label}暫時無法開啟。','{label} could not open.','{label}を開けません。','{label} 페이지를 열 수 없습니다.','No se pudo abrir {label}.'],
+  'page.retryHint':['請確認網路後重新載入頁面。','Check your connection, then reload the page.','接続を確認してからページを再読み込みしてください。','연결을 확인한 다음 페이지를 새로고침해 주세요.','Comprueba la conexión y vuelve a cargar la página.'],
+  'page.reload':['重新載入頁面','Reload page','ページを再読み込み','페이지 새로고침','Volver a cargar la página'],
+  'page.home':['返回首頁','Back to home','ホームに戻る','홈으로 돌아가기','Volver al inicio'],
   'notice.title':['通知','Notifications','通知','알림','Notificaciones'],
   'notice.count':['通知，{count} 則未讀','Notifications, {count} unread','通知、未読{count}件','알림, 읽지 않은 알림 {count}개','Notificaciones, {count} sin leer'],
   'notice.unknown':['通知，未讀數未確認','Notifications, unread count unconfirmed','通知、未読件数は未確認','알림, 읽지 않은 알림 수 미확인','Notificaciones, recuento sin confirmar'],

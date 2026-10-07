@@ -1554,8 +1554,8 @@
     },
     {
       "path": "apps/portal-web/src/AppInstall.tsx",
-      "bytes": 6401,
-      "sha256": "eaa0bda39fe65de13c36f1a3ae0086a75cb3a94548cdd3325b7fc441db91a7c7"
+      "bytes": 6542,
+      "sha256": "5c0d746f1a1f8edd4cef16e07616322d1e5c05e696cc06a74b02954510d182e5"
     },
     {
       "path": "apps/portal-web/src/CalmExperience.css",
@@ -1589,8 +1589,8 @@
     },
     {
       "path": "apps/portal-web/src/LazyPage.tsx",
-      "bytes": 1299,
-      "sha256": "35b490f2db2f9b19be70173e62645701d72c1629471192b62f5cd24742a67d0f"
+      "bytes": 1366,
+      "sha256": "fdd595add5362c24f8e03cb4f5ebb4d0cdbf4e38bb332e49fe9a2db5b8096d0a"
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
@@ -1619,13 +1619,13 @@
     },
     {
       "path": "apps/portal-web/src/RequestFeedback.css",
-      "bytes": 1261,
-      "sha256": "3dea6944580ea564d9bcc473809a581ab0f17fc9720b45977552c21fbec50025"
+      "bytes": 1405,
+      "sha256": "c207eded87f6b999cd20b57a2d8e090cd4b326bcd0ed7f014d7294e2cc501d4e"
     },
     {
       "path": "apps/portal-web/src/RequestFeedback.tsx",
-      "bytes": 1142,
-      "sha256": "7032840a3ae696e4881132417932fb1755b94bf6a2354babb4fcb9b0dd7a048e"
+      "bytes": 1192,
+      "sha256": "81bc180aaba35e67357527aba9168df392dcf57d871e27df621831d99a02e67e"
     },
     {
       "path": "apps/portal-web/src/ShareLauncher.css",
@@ -1699,8 +1699,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 50001,
-      "sha256": "63ea1822c1deb19ceb70467828d81e17684761b31b9966443ae0674c3d213ba8"
+      "bytes": 51650,
+      "sha256": "4d594cdc7d5eaa22b10f6d9968b43af175cb5d3240aa0840e6e65c363251e89c"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -13454,8 +13454,8 @@
     },
     {
       "path": "docs/development/social-platform-performance-2026-10-07.md",
-      "bytes": 31755,
-      "sha256": "c8dd5dab470d4f6da680314db2ebab1e987f94ded54a94c0fa8a56fb249660fa"
+      "bytes": 34168,
+      "sha256": "e9b527c25ddbb442181c7375cfb659466e5feb5136aafac6c65af53c260cabba"
     },
     {
       "path": "docs/development/social-platform-pr-overlap-2026-10-07.json",
@@ -18813,6 +18813,11 @@
       "sha256": "aa2aa3b6c9450d106c91a819f8986ca244fcc276bb9b36f52c7bb48194029532"
     },
     {
+      "path": "tests/e2e/connection-feedback-layout.spec.ts",
+      "bytes": 2366,
+      "sha256": "db28e9b0e0f11ba35bcf0272e3653260b183a2b348bdee518bb7049a77419471"
+    },
+    {
       "path": "tests/e2e/development-access.spec.ts",
       "bytes": 8140,
       "sha256": "8c2b24d797c88e40d5e982a82b5b9e35c1361aca832e6e521c082d14ffd5a24b"
@@ -19141,6 +19146,11 @@
       "path": "tests/e2e/share-promotion.spec.ts",
       "bytes": 26491,
       "sha256": "79fee816797341bfa7eaca8e0ab37597292abc38df49401332ba2719a72c2fb0"
+    },
+    {
+      "path": "tests/e2e/shared-feedback-language.spec.ts",
+      "bytes": 12031,
+      "sha256": "38900a3ffe3047f9466a7908dfe100f44bc76eb0cbd3899f69eba9ddda74d90e"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",

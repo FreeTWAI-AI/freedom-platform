@@ -179,3 +179,15 @@ Fresh typecheck／build 通過。原 66 項瀏覽器案例加上主線 ERP 入�
 首次 166 項原生組合實際為 151 pass／15 fail／0 skip：兩项 schema 驗證使用 Windows 的 `python3` 商店捷徑而退出 9009，其餘 13 項明確需要 Linux。測試呼叫改為 Windows `python`／其他系統 `python3`，並明確使用 UTF-8；原 cases、assertions、環境 allowlist 與 timeout 均保留。第二輪因乾淨環境無法讀取使用者套件而仍為 3 pass／2 fail；建立工作目錄內的獨立 Python／jsonschema 4.26.0 環境後，相同五項契約測試 **5 pass／0 fail／0 skip**。其餘 148 項通過來源與產品／Worker bytes 未變；這是兩次執行的 153 個不同 Windows 可執行案例，不能寫成一次 166 項全綠。
 
 隔離、無網路、非 root 的 Node24.21 Linux 容器前置檢查為 `unshare: Operation not permitted`，並缺少 bubblewrap。保留原失敗，未增加特權或 skip；13 項 native-text-process 在此主機為 **NOT_CHECKED**，仍需受信任的 hosted Linux CI。原 `0120` hosted UI 577／1／12 的 failure 保持歷史失敗；本輪結果不替代新的 hosted CI、人工驗收、實體手機或正式負載。
+
+## 共用操作回饋與離線版型
+
+共用的讀取、處理中、頁面載入與載入失敗復原提示，現在跟隨繁中、英文、日文、韓文與西班牙文。切換語言會更新原本提示，保留輸入與待確認的操作；不重新送出登入、不重新載入失敗的頁面，也不把開啟頁面當成發布成功。
+
+實際手機截圖發現原本頂部離線列與底部離線浮層同時出現。現在只保留頂部一份可讀取的狀態及草稿說明，移除遮住正文的離線浮層；沿用原本量測高度的版型空間，手機聊天室與輸入框仍避開提示。線上請求的即時回饋、三款主題、減少動態、44px 操作目標與既有恢復入口保留。
+
+兩個問題先用原產品重現：語言量尺為 6 pass／16 fail（原五項中文流程及中文離線為正控制）；重複離線量尺為 5 pass／2 fail（原五項即時回饋為正控制）。第一版翻譯修正 109 項通過後，保留證據再修離線版型。最後 fresh typecheck／build 通過，相同斷言、原 timeout、一個 worker、零 retry 的單次 **111 項 Playwright 用例全部通過**；包含原先 67 項、完整檔案額外的 25 項既有 harness 檢查及 19 項新增用例。34 項請求與建置原生檢查通過，最終 76 個 artifacts 保留；實際 320px 三主題西班牙文離線、載入／復原與 390x480 聊天草稿畫面已檢視。
+
+同一個初始 JS closure 量尺從 211,390 → 211,898 gzip bytes，增加 508 bytes／0.240%，低於修正前設定的 1% 上限；這不是正式負載或 p95 改善宣稱。API transport、帳號邊界與資料庫 schema 沒有修改，四平台 Logo 選取、原始媒體、取消與剪貼簿失敗保留草稿，以及登出清理私人分享資料均再次通過。
+
+前一版 `c52e48b4` 的 hosted run `37636146302` 已確認六分組共 3,282 項原生測試通過，包含上述 13 項 Linux 隔離用例；實際 merged checkout 為 `86c0b65a140e9c45290e51c44f0fab78388d4376`，主線為 `687dee8739d9a8fc65a78fcb093347833cc004e8`、trusted evaluator 為 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`。截至這份紀錄該 run 的完整 UI 仍在執行；前一版原生結果不替代本輪新 source 的 hosted CI。全平台完成、人工驗收、實體手機、正式負載與競品比較繼續保留未驗狀態，這一批只完成共用提示與離線版型的修正。
