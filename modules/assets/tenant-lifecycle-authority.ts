@@ -1,4 +1,4 @@
-import { transaction } from '../../packages/db/index.js';
+import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { scopedJournal, scopedTenantCommand, type ScopedJournalInput } from '../../packages/scoped-commands/index.js';
@@ -16,7 +16,7 @@ export function createTenantLifecycleAuthority(): LifecycleAuthority<TenantWorkA
   const authority: LifecycleAuthority<TenantWorkActor, TenantScopeContext> = {
     snapshot: actor => Object.freeze({ ...actor }),
     async read(pool, input, authorize, run) {
-      return transaction(pool, async q => {
+      return isolatedTransaction(pool, async q => {
         const context = await lockTenantScope(q, {
           actor: input.actor, tenantId: input.actor.tenant_id, forUpdate: false, lockUser: input.lockUser,
           capabilitiesForRole: tenantWorkCapabilities,
