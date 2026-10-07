@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
 import { Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
+import { changeMemberStatus, type AdminActor, type AdminCommand } from '../../modules/platform-admin/service.js';
+import { openRecoveryCase } from '../../modules/tenant-workspaces/recovery.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -454,6 +457,101 @@ test('T-024 a failed rollback destroys the client and the next connection has no
   assert.equal(unset(next.rows[0].tenant), true);
   assert.equal(next.rows[0].n, 0);
   pid = Number(next.rows[0].pid);
+});
+
+async function recoveryAdmin(): Promise<AdminActor> {
+  const communityId = (await owner.query<{ community_id: string }>('SELECT community_id FROM users WHERE user_id=$1', [people.p1.userId])).rows[0].community_id;
+  const actor: AdminActor = {
+    admin_id: randomUUID(), community_id: communityId, email: 'recovery-admin@example.test',
+    display_name: 'Recovery fixture', role: 'super_admin', subject: 'synthetic-admin',
+  };
+  actor.email = `recovery-${actor.admin_id}@example.test`;
+  await owner.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)',
+    [actor.admin_id, communityId, actor.email, actor.display_name]);
+  return actor;
+}
+
+/** The injected errors do not abort PostgreSQL's transaction. A release without
+ * an error would put this still-queryable, context-bearing client back in pg-pool. */
+async function adminRollbackFailure(run: (pool: Pool) => Promise<unknown>, failAt: RegExp, principalId: string | null) {
+  const faultPool = new Pool({ connectionString: roleUrl(runtimeRole), options: `-c search_path=${schema}`, max: 1 });
+  const q = await faultPool.connect();
+  const oldPid = await backend(q);
+  const query = q.query.bind(q);
+  const original = new Error('synthetic admin callback failure');
+  const rollback = new Error('synthetic rollback failure');
+  const removed = once(faultPool, 'remove', { signal: AbortSignal.timeout(5000) });
+  void removed.catch(() => undefined);
+  let failed = false;
+  let rollbackAttempted = false;
+  async function assertBoundAndQueryable() {
+    assert.equal((await query('SELECT 1 AS ok')).rows[0].ok, 1);
+    const context = (await query(`SELECT current_setting('freedom.tenant_id', true) AS tenant,
+      current_setting('freedom.principal_id', true) AS principal`)).rows[0];
+    assert.equal(context.tenant, spaces.a.tenantId);
+    if (principalId === null) assert.equal(unset(context.principal), true);
+    else assert.equal(context.principal, principalId);
+    assert.ok(q.listenerCount('error') > 0, 'the checked-out client retains its error listener');
+  }
+  q.query = (async (sql: string, ...args: unknown[]) => {
+    if (sql === 'ROLLBACK') {
+      rollbackAttempted = true;
+      await assertBoundAndQueryable();
+      throw rollback;
+    }
+    if (failAt.test(sql)) {
+      failed = true;
+      await assertBoundAndQueryable();
+      throw original;
+    }
+    return (query as (...args: unknown[]) => Promise<unknown>)(sql, ...args);
+  }) as typeof q.query;
+  q.release();
+  try {
+    await assert.rejects(run(faultPool), error => error === original);
+    assert.equal(failed, true);
+    assert.equal(rollbackAttempted, true);
+    assert.equal(original.cause, rollback);
+    assert.deepEqual(await removed, [q]);
+    assert.equal(faultPool.totalCount, 0);
+    assert.equal(faultPool.idleCount, 0);
+    const next = await faultPool.connect();
+    try {
+      assert.notEqual(await backend(next), oldPid);
+      for (const name of ['freedom.tenant_id', 'freedom.principal_id', 'freedom.tenant_scope_id', 'freedom.platform_admin_id']) {
+        assert.equal(unset(await setting(next, name)), true, name);
+      }
+      assert.equal((await next.query('SELECT tenant_id FROM tenants')).rowCount, 0);
+    } finally { next.release(); }
+  } finally { await faultPool.end(); }
+}
+
+test('T-024 recovery open preserves the original error and destroys a queryable client when rollback fails', async () => {
+  const actor = await recoveryAdmin();
+  await owner.query(`INSERT INTO platform_admin_tenant_recovery_capabilities(admin_id,capability) VALUES($1,'tenant.recovery.open')`, [actor.admin_id]);
+  await owner.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant)
+    VALUES(1,'active',600,86400,86400,1)`);
+  const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql', import.meta.url), 'utf8');
+  const authority = template.split('-- BEGIN TENANT AUTHORITY POLICY GRANTS\n')[1].split('\n\\gexec')[0]
+    .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
+  for (const row of (await owner.query(authority)).rows) await owner.query(Object.values(row)[0] as string);
+  const input: AdminCommand = {
+    admin: actor, operation: 'tenant.recovery.open', key: randomUUID(),
+    body: { tenant_id: spaces.a.tenantId, proposed_owner_principal_id: people.p3.principalId, reason: 'Synthetic recovery', evidence_ref: randomUUID() },
+  };
+  await adminRollbackFailure(pool => openRecoveryCase(pool, input), /SELECT status, community_id, authorization_revision/, null);
+  assert.equal((await owner.query('SELECT case_id FROM tenant_recovery_cases WHERE tenant_id=$1', [spaces.a.tenantId])).rowCount, 0);
+});
+
+test('T-024 account deactivation preserves the original error and destroys a queryable client when rollback fails', async () => {
+  const actor = await recoveryAdmin();
+  const prior = (await owner.query('SELECT active,admin_status_version FROM users WHERE user_id=$1', [people.p1.userId])).rows[0];
+  const input: AdminCommand = {
+    admin: actor, operation: 'member_status', key: randomUUID(), expected: String(prior.admin_status_version),
+    body: { active: false, reason: 'Synthetic deactivation' },
+  };
+  await adminRollbackFailure(pool => changeMemberStatus(pool, input, people.p1.userId), /SELECT tenant_id FROM tenants WHERE tenant_id=\$1 FOR UPDATE/, people.p1.principalId);
+  assert.deepEqual((await owner.query('SELECT active,admin_status_version FROM users WHERE user_id=$1', [people.p1.userId])).rows[0], prior);
 });
 
 test('T-024 direct SQL cannot read or retarget the other tenant, and a personal insert needs no context', async () => {

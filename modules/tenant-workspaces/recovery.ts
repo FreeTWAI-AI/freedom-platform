@@ -133,7 +133,7 @@ export async function openRecoveryCase(pool: Pool, input: AdminCommand) {
     await auditTenant(q, body.tenant_id, body.proposed_owner_principal_id, 'tenant.recovery.open', body.proposed_owner_principal_id, tenant.authorization_revision, tenant.authorization_revision, 'tenant.recovery.opened');
     await audit(q, input.admin, 'tenant.recovery.open', 'tenant_recovery_case', inserted.case_id, body.reason, null, { state: view.state, tenant_id: body.tenant_id });
     return view;
-  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.open'); });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.open'); }, isolatedTransaction);
 }
 
 export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -161,7 +161,7 @@ export async function approveRecoveryCase(pool: Pool, input: AdminCommand, caseI
     await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.approve', current.proposed_owner_principal_id, revision, revision, 'tenant.recovery.approved');
     await audit(q, input.admin, 'tenant.recovery.approve', 'tenant_recovery_case', caseId, body.reason, { state: 'evidence_required' }, { state: 'approved' });
     return view;
-  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); }, isolatedTransaction);
 }
 
 export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -262,7 +262,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
     const expiredBeforeReceipt = (await q.query<{ expired: boolean }>(`SELECT expires_at<=clock_timestamp() AS expired FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0];
     if (expiredBeforeReceipt?.expired) throw new Problem(409, 'recovery_approval_expired', '復原核准已過期。');
     return RecoveryExecuteResultSchema.parse({ case: adminView(await loadCase(q, caseId)), authorization_revision: revision });
-  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute'); });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.execute'); }, isolatedTransaction);
 }
 
 export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId: string) {
@@ -286,7 +286,7 @@ export async function closeRecoveryCase(pool: Pool, input: AdminCommand, caseId:
     await auditTenant(q, current.tenant_id, current.proposed_owner_principal_id, 'tenant.recovery.close', current.proposed_owner_principal_id, revision, revision, 'tenant.recovery.closed');
     await audit(q, input.admin, 'tenant.recovery.close', 'tenant_recovery_case', caseId, body.reason, { state: current.state }, { state: body.decision });
     return view;
-  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); });
+  }, false, async q => { await lockActiveCapability(q, input.admin.admin_id, 'tenant.recovery.review'); }, isolatedTransaction);
 }
 
 export async function getRecoveryCase(pool: Pool, admin: AdminActor, caseId: string) {
