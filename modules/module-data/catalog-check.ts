@@ -104,24 +104,144 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
-/** Tenant purposes come only from the scope_kind = 'tenant' branch of the
- * asset_scope_purpose check definition. */
-export function tenantPurposesFromConstraint(definition: string): string[] {
-  const purposes = new Set<string>();
-  for (const chunk of definition.split(/scope_kind\s*=\s*'/)) {
-    if (!chunk.startsWith("tenant'")) continue;
-    for (const match of chunk.matchAll(/purpose\s*=\s*'([^']+)'/g)) purposes.add(match[1]);
-    for (const match of chunk.matchAll(/purpose\s+IN\s*\(([^)]*)\)/gi)) {
-      for (const item of match[1].matchAll(/'([^']+)'/g)) purposes.add(item[1]);
-    }
-  }
-  return [...purposes].sort();
+type SqlToken = string;
+type CheckExpression = { kind: 'and' | 'or'; terms: CheckExpression[] } | { kind: 'atom'; tokens: SqlToken[] };
+
+function tokensOf(definition: string): SqlToken[] {
+  return definition.match(/'(?:''|[^'])*'|"(?:""|[^"])*"|::|<>|!=|[A-Za-z_][A-Za-z0-9_]*|[^\s]/g) ?? [];
 }
 
-function admitsTenantScopeKind(definition: string): boolean {
-  if (!/scope_kind/.test(definition) || !/'tenant'/.test(definition)) return false;
-  if (/scope_kind\s*(<>|!=)\s*'tenant'/.test(definition) && !/scope_kind\s*=\s*'tenant'/.test(definition) && !/scope_kind\s+IN\s*\([^)]*'tenant'/.test(definition)) return false;
-  return /scope_kind\s*=\s*'tenant'/.test(definition) || /scope_kind\s+IN\s*\([^)]*'tenant'/.test(definition);
+/** Remove only parentheses enclosing the whole expression, not an ANY/IN list. */
+function unwrapped(tokens: SqlToken[]): SqlToken[] {
+  while (tokens[0] === '(' && tokens[tokens.length - 1] === ')') {
+    let depth = 0;
+    const closesAtEnd = tokens.every((token, index) => {
+      if (token === '(') depth++;
+      if (token === ')') depth--;
+      return depth !== 0 || index === tokens.length - 1;
+    });
+    if (!closesAtEnd) break;
+    tokens = tokens.slice(1, -1);
+  }
+  return tokens;
+}
+
+function splitAt(tokens: SqlToken[], separator: string): SqlToken[][] {
+  const groups: SqlToken[][] = [[]];
+  let depth = 0;
+  for (const token of tokens) {
+    if (token === '(' || token === '[') depth++;
+    if (token === ')' || token === ']') depth--;
+    if (depth === 0 && token.toUpperCase() === separator) groups.push([]);
+    else groups[groups.length - 1].push(token);
+  }
+  return groups;
+}
+
+function parseCheck(tokens: SqlToken[]): CheckExpression {
+  if (tokens[0]?.toUpperCase() === 'CHECK') tokens = tokens.slice(1);
+  tokens = unwrapped(tokens);
+  for (const [separator, kind] of [['OR', 'or'], ['AND', 'and']] as const) {
+    const groups = splitAt(tokens, separator);
+    if (groups.length > 1) return { kind, terms: groups.map(parseCheck) };
+  }
+  return { kind: 'atom', tokens };
+}
+
+function withoutTextCasts(tokens: SqlToken[]): SqlToken[] {
+  const result: SqlToken[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === '::' && tokens[i + 1]?.toLowerCase() === 'text') {
+      i++;
+      if (tokens[i + 1] === '[' && tokens[i + 2] === ']') i += 2;
+    } else result.push(tokens[i]);
+  }
+  return result;
+}
+
+function literal(token: string | undefined): string | undefined {
+  return token?.startsWith("'") && token.endsWith("'") ? token.slice(1, -1).replaceAll("''", "'") : undefined;
+}
+
+function valuesOf(tokens: SqlToken[]): string[] | undefined {
+  const values: string[] = [];
+  for (const group of splitAt(unwrapped(tokens), ',')) {
+    const valueTokens = unwrapped(group);
+    const value = valueTokens.length === 1 ? literal(valueTokens[0]) : undefined;
+    if (value === undefined) return undefined;
+    values.push(value);
+  }
+  return values;
+}
+
+/** Undefined means an unsupported expression or a predicate on another column.
+ * Such a predicate may allow tenant rows; it cannot safely exclude a table. */
+function atomAllows(tokens: SqlToken[], bindings: Readonly<Record<string, string>>): boolean | undefined {
+  tokens = unwrapped(withoutTextCasts(tokens));
+  let depth = 0;
+  const index = tokens.findIndex(token => {
+    if (token === '(' || token === '[') depth++;
+    if (token === ')' || token === ']') depth--;
+    return depth === 0 && ['=', '<>', '!=', 'IN', 'NOT'].includes(token.toUpperCase());
+  });
+  if (index < 0) return undefined;
+  const left = unwrapped(tokens.slice(0, index));
+  if (left.length !== 1) return undefined;
+  const column = left[0].replace(/^"|"$/g, '');
+  if (!Object.hasOwn(bindings, column)) return undefined;
+  let operator = tokens[index].toUpperCase();
+  let right = unwrapped(tokens.slice(index + 1));
+  if (operator === 'NOT' && right[0]?.toUpperCase() === 'IN') {
+    operator = 'NOT IN';
+    right = unwrapped(right.slice(1));
+  }
+  let values: string[] | undefined;
+  if ((operator === '=' && right[0]?.toUpperCase() === 'ANY')
+    || (['<>', '!='].includes(operator) && right[0]?.toUpperCase() === 'ALL')) {
+    right = unwrapped(right.slice(1));
+    if (right[0]?.toUpperCase() !== 'ARRAY' || right[1] !== '[' || right[right.length - 1] !== ']') return undefined;
+    values = valuesOf(right.slice(2, -1));
+  } else if (operator === 'IN' || operator === 'NOT IN') {
+    values = valuesOf(right);
+  } else {
+    const value = right.length === 1 ? literal(right[0]) : undefined;
+    if (value !== undefined) values = [value];
+  }
+  if (!values) return undefined;
+  const included = values.includes(bindings[column]);
+  return ['<>', '!=', 'NOT IN'].includes(operator) ? !included : included;
+}
+
+function mayAllow(expression: CheckExpression, bindings: Readonly<Record<string, string>>): boolean {
+  if (expression.kind === 'atom') return atomAllows(expression.tokens, bindings) ?? true;
+  if (expression.kind === 'and') return expression.terms.every(term => mayAllow(term, bindings));
+  return expression.terms.some(term => mayAllow(term, bindings));
+}
+
+/** Tenant purposes come only from branches that may admit scope_kind tenant.
+ * PostgreSQL deparses IN as = ANY (ARRAY[...]); purpose candidates are evaluated
+ * with that scope bound so an adjacent personal/community branch cannot leak in. */
+export function tenantPurposesFromConstraint(definition: string): string[] {
+  const tokens = tokensOf(definition);
+  const expression = parseCheck(tokens);
+  const candidates = new Set<string>();
+  function visit(term: CheckExpression): void {
+    if (term.kind !== 'atom') { term.terms.forEach(visit); return; }
+    if (!term.tokens.some(token => token === 'purpose' || token === '"purpose"')) return;
+    for (const token of term.tokens) {
+      const value = literal(token);
+      if (value !== undefined) candidates.add(value);
+    }
+  }
+  visit(expression);
+  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"') || !tokens.includes("'tenant'")) return [];
+  return [...candidates].filter(purpose => mayAllow(expression, { scope_kind: 'tenant', purpose })).sort();
+}
+
+export function admitsTenantScopeKind(definition: string): boolean {
+  const tokens = tokensOf(definition);
+  if (!tokens.some(token => token === 'scope_kind' || token === '"scope_kind"') || !tokens.includes("'tenant'")) return false;
+  return mayAllow(parseCheck(tokens), { scope_kind: 'tenant' });
 }
 
 function sameSet(left: readonly string[], right: readonly string[]): boolean {

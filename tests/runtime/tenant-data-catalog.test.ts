@@ -6,7 +6,7 @@ import { Pool, type PoolClient } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { TENANT_DATA_CATALOG } from '../../modules/module-data/catalog.js';
 import {
-  checkTenantCatalog, introspectTenantSchema, tenantIsolationImportFindings,
+  admitsTenantScopeKind, checkTenantCatalog, introspectTenantSchema, tenantIsolationImportFindings, tenantPurposesFromConstraint,
   type TenantDataCatalog, type TenantSchemaSnapshot,
 } from '../../modules/module-data/catalog-check.js';
 
@@ -63,6 +63,62 @@ after(async () => {
   await pool.end();
   await admin.query(`DROP SCHEMA ${schema} CASCADE`);
   await admin.end();
+});
+
+test('T-021 CHECK parser accepts PostgreSQL equality, ANY arrays, parentheses, IN and AND/OR', () => {
+  // These cast-bearing literals are pg_get_constraintdef output from PG18.
+  for (const definition of [
+    "CHECK ((scope_kind = 'tenant'::text))",
+    "CHECK ((scope_kind = ANY (ARRAY['personal'::text, 'tenant'::text])))",
+    "CHECK ((scope_kind = ANY (ARRAY['personal', 'tenant'])))",
+    "CHECK (((((scope_kind)) = ANY ((ARRAY[(('personal'))::text, (('tenant'))::text])))))",
+    "CHECK (scope_kind IN ('personal', 'tenant'))",
+    "CHECK (((scope_kind <> 'tenant'::text) OR (scope_kind = 'tenant'::text)))",
+    "CHECK (((scope_kind = 'tenant'::text) AND (scope_id IS NOT NULL)))",
+  ]) assert.equal(admitsTenantScopeKind(definition), true, definition);
+  assert.deepEqual(tenantPurposesFromConstraint("CHECK ((((scope_kind = 'personal'::text) AND (purpose = ANY (ARRAY['member.avatar'::text, 'work.private-draft'::text]))) OR ((scope_kind = 'tenant'::text) AND (purpose = ANY (ARRAY['work.tenant-result'::text, 'tenant.crm-note'::text])))))"), ['tenant.crm-note', 'work.tenant-result']);
+  assert.deepEqual(tenantPurposesFromConstraint("CHECK (((scope_kind = 'tenant') AND purpose IN ('work.tenant-result', 'tenant.crm-note')) OR ((scope_kind = 'personal') AND purpose = 'member.avatar'))"), ['tenant.crm-note', 'work.tenant-result']);
+  assert.deepEqual(tenantPurposesFromConstraint("CHECK ((((scope_kind)) = 'tenant'::text AND ((purpose)) = ANY ((ARRAY[(('work.tenant-result'))::text, 'tenant.crm-note']))))"), ['tenant.crm-note', 'work.tenant-result']);
+});
+
+test('T-021 CHECK parser excludes negative tenant branches and fails closed on unknown forms', () => {
+  for (const definition of [
+    "CHECK ((scope_kind <> ALL (ARRAY['personal'::text, 'tenant'::text])))",
+    "CHECK ((scope_kind <> 'tenant'::text))",
+    "CHECK (scope_kind NOT IN ('personal', 'tenant'))",
+    "CHECK (((scope_kind <> 'tenant'::text) AND (scope_id IS NOT NULL)))",
+    "CHECK (((scope_kind = 'personal'::text) OR (scope_kind <> 'tenant'::text)))",
+  ]) {
+    assert.equal(admitsTenantScopeKind(definition), false, definition);
+    assert.deepEqual(tenantPurposesFromConstraint(`${definition.slice(0, -1)} AND purpose = 'tenant.crm-note')`), []);
+  }
+  assert.equal(admitsTenantScopeKind("CHECK ((lower(scope_kind) = 'tenant'::text))"), true);
+  assert.equal(admitsTenantScopeKind("CHECK ((scope_kind LIKE 'tenant'::text))"), true);
+  assert.equal(admitsTenantScopeKind("CHECK ((scope_kind = 'personal'::text))"), false);
+});
+
+test('T-021 PostgreSQL IN scope checks expose an unregistered tenant table', async () => {
+  assert.deepEqual(await rolled(async q => {
+    await q.query("CREATE TABLE private_cache (cache_id uuid PRIMARY KEY, scope_kind text CHECK (scope_kind IN ('personal', 'tenant')))");
+    const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='private_cache'::regclass AND contype='c'`)).rows[0].definition;
+    assert.equal(definition, "CHECK ((scope_kind = ANY (ARRAY['personal'::text, 'tenant'::text])))");
+    const snapshot = await liveSnapshot(q);
+    assert.ok(snapshot.detected.includes('private_cache'));
+    return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
+  }), [{ code: 'unregistered_table', subject: 'private_cache' }]);
+});
+
+test('T-021 PostgreSQL IN tenant-purpose checks expose an unregistered asset purpose', async () => {
+  assert.deepEqual(await rolled(async q => {
+    const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='assets'::regclass AND conname='asset_scope_purpose'`)).rows[0].definition;
+    const extended = definition.replace("purpose = 'work.tenant-result'::text", "purpose IN ('work.tenant-result', 'tenant.crm-note')");
+    assert.notEqual(extended, definition);
+    await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
+    await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${extended}`);
+    const snapshot = await liveSnapshot(q);
+    assert.deepEqual(snapshot.asset_purposes, ['tenant.crm-note', 'work.tenant-result']);
+    return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
+  }), [{ code: 'unregistered_asset_purpose', subject: 'tenant.crm-note' }]);
 });
 
 test('T-021 installed schema matches the frozen tenant data catalog', async () => {
