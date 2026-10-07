@@ -192,7 +192,7 @@ function visit(schema: Json, value: unknown, path: string[], hits: Hit[]) {
     if (maxLength !== undefined) hits.push({ path, kind: 'maxLength', limit: maxLength });
     const pattern = typeof schema.pattern === 'string' ? schema.pattern : '';
     if (pattern.includes('9223372036854775807')) hits.push({ path, kind: 'version' });
-    if (pattern.includes('\\d{4}-\\d{2}-\\d{2}T')) hits.push({ path, kind: 'iso' });
+    if (pattern.includes('[0-9]{4}-[0-9]{2}-[0-9]{2}T')) hits.push({ path, kind: 'iso' });
     if (pattern) hits.push({ path, kind: 'newline', maxLength });
     return;
   }

@@ -11,7 +11,7 @@ export const DisplayNameSchema = z.string().min(1).max(120).refine(value => new 
 export const PersonNameSchema = z.string().min(1).max(240);
 export const PublicSlugSchema = z.string().max(64).regex(/^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])$(?![\s\S])/);
 export const ReasonSchema = z.string().min(3).max(1000).refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
-export const IsoTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$(?![\s\S])/);
+export const IsoTimeSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\s\S])/);
 
 // This slice has no module instances. Inputs must send an empty list so the
 // shape can grow later. Any grant, including high-risk keys, is rejected here.
