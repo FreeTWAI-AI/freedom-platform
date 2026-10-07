@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
+import { readSessionCookie } from '../session-cookie.js';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { Problem, requireCondition } from '../../../../packages/shared/problem.js';
@@ -12,7 +12,6 @@ import { SocialPostExists, activeSocialPostId, createSocialPost, deleteSocialPos
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
 import type { PlatformRuntime } from '../runtime.js';
 
-const COOKIE = 'freedom_local_session';
 const THUMB_MAX = 512 * 1024;
 const THUMB_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -58,7 +57,7 @@ async function bounded(request: Request) {
 
 function clock(runtime: PlatformRuntime) { return runtime.now?.() ?? new Date(); }
 
-export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime) {
+export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runtime: PlatformRuntime, origin:string) {
   app.get('/go/:code', async c => {
     c.header('X-Robots-Tag', 'noindex, nofollow');
     c.header('Cache-Control', 'no-store');
@@ -69,7 +68,7 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.post('/api/v1/promotion/clicks', async c => {
     await authRateLimit(pool, 'promotion-click-network', runtime.sourceNetwork(c), 300, 3600);
     const body = z.object({ code: z.string().max(80) }).strict().parse(await c.req.json());
-    const sessionUserId = await optionalUser(pool, getCookie(c, COOKIE));
+    const sessionUserId = await optionalUser(pool, readSessionCookie(c.req.header('Cookie'),origin));
     await creditPromotionClick(pool, { code: body.code, userAgent: c.req.header('User-Agent') ?? '', network: runtime.sourceNetwork(c), sessionUserId, now: clock(runtime) });
     return c.json({ ok: true });
   });

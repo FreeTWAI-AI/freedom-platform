@@ -41,7 +41,7 @@ test('local synthetic native main and broker: owner handoff, direct credential i
       'Sec-Fetch-Site':'cross-site','Sec-Fetch-Mode':'navigate','Sec-Fetch-Dest':'document'},body:'assertion='+handoff.assertion});
     assert.equal(bootstrap.status,200,await bootstrap.clone().text());
     const html=await bootstrap.text(),csrf=/data-csrf="([A-Za-z0-9_-]{43})"/.exec(html)?.[1],cookie=bootstrap.headers.get('Set-Cookie')?.split(';')[0];
-    assert(csrf);assert(cookie);assert(cookie.startsWith('__Host-fp_broker_setup='));assert(!cookie.includes('freedom_local_session'));
+    assert(csrf);assert(cookie);assert(cookie.startsWith('__Host-fp_broker_setup='));for(const line of bootstrap.headers.getSetCookie())assert.doesNotMatch(line,/(?:^|;\s*)(?:__Host-freedom_session|freedom_local_session)=/);
     const setupHeaders={Origin:setupOrigin,Cookie:cookie,'X-FP-Broker-CSRF':csrf,'Sec-Fetch-Site':'same-origin','Sec-Fetch-Mode':'same-origin','Sec-Fetch-Dest':'empty'};
     await expectJson(await nativeCall(f,'setup','/credential-setup/prepare',{method:'POST',headers:{...setupHeaders,'Content-Type':'application/json'},body:'{"consent":true}'}));
     await expectJson(await nativeCall(f,'setup','/credential-setup/secret',{method:'POST',headers:{...setupHeaders,'Content-Type':'application/octet-stream','Content-Length':String(secret.length)},body:secret}));

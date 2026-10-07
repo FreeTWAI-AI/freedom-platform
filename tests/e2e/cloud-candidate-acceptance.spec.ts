@@ -270,7 +270,7 @@ test('secrets, cookies, CSRF and remote error text never reach the report',async
     const path=new URL(request.url).pathname;
     // A hostile or broken candidate echoes secrets back in every field it controls.
     if(path==='/api/v1/health')return {status:200,json:health({version:account.password})};
-    if(path==='/api/v1/auth/login')return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`freedom_local_session=${cookie}; Path=/; HttpOnly; Secure; SameSite=Strict`]};
+    if(path==='/api/v1/auth/login')return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`__Host-freedom_session=${cookie}; Path=/; HttpOnly; Secure; SameSite=Strict`]};
     if(path==='/api/v1/session')throw Object.assign(new Error(`boom ${account.password} ${cookie} ${request.headers['CF-Access-Client-Secret']}`),{name:'TypeError'});
     return {status:200,json:{}};
   });
@@ -332,15 +332,15 @@ function guildCandidate(knobs:{stale?:'join'|'leave';failAfterJoin?:'status500'|
   const csrf='csrf-mock-token-0000000001',userId=randomUUID(),sessions=new Set<string>(),receipts=new Map<string,Reply>();
   let logins=0,state:string|null=null,version=knobs.startVersion??0,joined=false,stale=0,staleEligible=false;
   const server=mock(request=>{
-    const path=new URL(request.url).pathname,cookie=/^freedom_local_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
+    const path=new URL(request.url).pathname,cookie=/^__Host-freedom_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
     if(path==='/api/v1/health')return {status:200,json:health()};
     if(path==='/api/v1/auth/login'){const value=`S${++logins}`.padEnd(43,'x');sessions.add(value);
-      return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`freedom_local_session=${value}; Path=/; HttpOnly; Secure; SameSite=Strict`]};}
+      return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`__Host-freedom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Strict`]};}
     if(!cookie||!sessions.has(cookie))return {status:401,json:{code:cookie?'session_expired':'login_required'}};
     if(path==='/api/v1/auth/logout'){
       if(request.headers.Origin!==staging.origin)return {status:403,json:{code:'origin_rejected'}};
       if(request.headers['X-CSRF-Token']!==csrf)return {status:403,json:{code:'csrf_rejected'}};
-      sessions.delete(cookie);return {status:200,json:{},cookies:['freedom_local_session=; Path=/; Max-Age=0']};
+      sessions.delete(cookie);return {status:200,json:{},cookies:['__Host-freedom_session=; Path=/; Secure; Max-Age=0']};
     }
     if(path==='/api/v1/session')return {status:200,json:{user:{user_id:userId}}};
     if(path==='/api/v1/me/guild-preferences')return {status:200,json:{primary_guild_key:'guild_platform_engineering'}};
@@ -519,7 +519,7 @@ function scriptedBrowser(script:RouteScript){
   const page={
     on(){},goto:navigate,reload:navigate,evaluate:async()=>'',getByLabel:()=>({fill:async()=>{}}),
     getByRole:(_role:string,{name}:{name:string})=>({waitFor:async()=>{},click:async()=>{
-      if(name==='登入'){await request('/api/v1/auth/login');jar=[{name:'freedom_local_session',value:browserCookie,secure:true,httpOnly:true,sameSite:'Strict'}];void request('/api/v1/work-items');}
+      if(name==='登入'){await request('/api/v1/auth/login');jar=[{name:'__Host-freedom_session',value:browserCookie,secure:true,httpOnly:true,sameSite:'Strict'}];void request('/api/v1/work-items');}
       else{await request('/api/v1/auth/logout');jar=[];}
     }}),
     // A request the page starts while teardown runs.
@@ -535,16 +535,16 @@ function scriptedBrowser(script:RouteScript){
 function browserCandidate(){
   const csrf='csrf-browser-mock-00000001',userId=randomUUID(),sessions=new Set([browserCookie]);let logins=0;
   const server=mock(request=>{
-    const path=new URL(request.url).pathname,cookie=/^freedom_local_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
+    const path=new URL(request.url).pathname,cookie=/^__Host-freedom_session=(.+)$/.exec(request.headers.Cookie??'')?.[1];
     if(path==='/api/v1/health')return {status:200,json:health()};
     if(path==='/api/v1/auth/login'){const value=`T${++logins}`.padEnd(43,'x');sessions.add(value);
-      return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`freedom_local_session=${value}; Path=/; HttpOnly; Secure; SameSite=Strict`]};}
+      return {status:200,json:{user:{user_id:userId,email:account.email},csrf_token:csrf},cookies:[`__Host-freedom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Strict`]};}
     if(!cookie||!sessions.has(cookie))return {status:401,json:{code:cookie?'session_expired':'login_required'}};
     if(path==='/api/v1/session')return {status:200,json:{user:{user_id:userId},csrf_token:csrf}};
     if(path==='/api/v1/auth/logout'){
       if(request.headers.Origin!==staging.origin)return {status:403,json:{code:'origin_rejected'}};
       if(request.headers['X-CSRF-Token']!==csrf)return {status:403,json:{code:'csrf_rejected'}};
-      sessions.delete(cookie);return {status:200,json:{},cookies:['freedom_local_session=; Path=/; Max-Age=0']};
+      sessions.delete(cookie);return {status:200,json:{},cookies:['__Host-freedom_session=; Path=/; Secure; Max-Age=0']};
     }
     return {status:404,json:{code:'not_found'}};
   });
@@ -590,7 +590,7 @@ test('browser route: fulfill failing then abort "already handled" is contained, 
   expect(phase.checks).toContainEqual({id:'no_routing_failures',status:'fail',note:'see metrics.routing_failures'});
   // UI logout never ran: teardown revoked the browser's cookie through the exact-origin client.
   expect(server.sessions.has(browserCookie)).toBe(false);
-  const revoke=server.calls.filter(call=>call.headers.Cookie===`freedom_local_session=${browserCookie}`);
+  const revoke=server.calls.filter(call=>call.headers.Cookie===`__Host-freedom_session=${browserCookie}`);
   expect(revoke.map(call=>`${call.method} ${new URL(call.url).pathname}`)).toEqual(['GET /api/v1/session','POST /api/v1/auth/logout']);
   expect(revoke.every(call=>new URL(call.url).origin===staging.origin&&call.headers['CF-Access-Client-Id']===access.clientId)).toBe(true);
   expect(report.cleanup.items).toContainEqual({phase:'browser',item:'browser session of the synthetic account',state:'restored'});
@@ -767,12 +767,19 @@ function rememberHeaders(seen:Set<string>,headers:Record<string,string|undefined
   remember(seen,headers['Idempotency-Key']??headers['idempotency-key']);
   remember(seen,headers['X-CSRF-Token']??headers['x-csrf-token']);
   const cookie=headers.Cookie??headers.cookie??'';
-  remember(seen,/(?:^|;\s*)freedom_local_session=([^;]+)/.exec(cookie)?.[1]);
-  for(const match of (headers['set-cookie']??'').matchAll(/freedom_local_session=([^;,\s]+)/g))remember(seen,match[1]);
+  for(const match of cookie.matchAll(/(?:^|;\s*)(?:__Host-freedom_session|freedom_local_session)=([^;]+)/g))remember(seen,match[1]);
+  for(const match of (headers['set-cookie']??'').matchAll(/(?:__Host-freedom_session|freedom_local_session)=([^;,\s]+)/g))remember(seen,match[1]);
 }
 function requestPath(url:string){
   try{const parsed=new URL(url);return parsed.pathname+parsed.search;}catch{return url;}
 }
+
+test('secret tracking records both session cookie names in requests and responses',()=>{
+  const seen=new Set<string>();
+  rememberHeaders(seen,{Cookie:'freedom_local_session=synthetic-local-request; __Host-freedom_session=synthetic-host-request',
+    'set-cookie':'__Host-freedom_session=synthetic-host-response; Path=/, freedom_local_session=synthetic-local-response; Path=/'});
+  expect([...seen].sort()).toEqual(['synthetic-host-request','synthetic-host-response','synthetic-local-request','synthetic-local-response']);
+});
 
 test('registration, messages and messages-mobile pass on the local harness and the report stays scrubbed',async({browser,e2eAuthPool})=>{
   test.setTimeout(240000);
@@ -782,7 +789,7 @@ test('registration, messages and messages-mobile pass on the local harness and t
     if(typeof request.body==='string'){try{rememberJson(seen,JSON.parse(request.body));}catch{/* non-JSON body */}}
     for(const id of request.url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)??[])seen.add(id);
     const response=await fetchTransport(request);
-    for(const line of response.headers.getSetCookie())remember(seen,/^freedom_local_session=([^;]+)/.exec(line)?.[1]);
+    for(const line of response.headers.getSetCookie())remember(seen,/^(?:__Host-freedom_session|freedom_local_session)=([^;]+)/.exec(line)?.[1]);
     try{rememberJson(seen,JSON.parse(Buffer.from(response.body).toString('utf8')));}catch{/* image or empty */}
     return response;
   };
@@ -888,8 +895,8 @@ test('a failure after peer registration still revokes B and records the label',a
       registers++;
       if(registers===2){
         try{peerLabel=String((JSON.parse(String(request.body)) as {nickname?:unknown}).nickname??'');}catch{peerLabel='';}
-        const line=response.headers.getSetCookie().find(value=>value.startsWith('freedom_local_session='));
-        peerCookie=/^freedom_local_session=([^;]+)/.exec(line??'')?.[1]??'';
+        const line=response.headers.getSetCookie().find(value=>/^(?:__Host-freedom_session|freedom_local_session)=/.test(value));
+        peerCookie=/^(?:__Host-freedom_session|freedom_local_session)=([^;]+)/.exec(line??'')?.[1]??'';
       }
     }
     return response;
@@ -903,7 +910,7 @@ test('a failure after peer registration still revokes B and records the label',a
   expect(report.cleanup.items).toContainEqual({phase:'messages',item:`synthetic member ${peerLabel}: root deactivates this cand-reg member in the candidate database`,state:'cleanup_required'});
   expect(report.cleanup.items).toContainEqual({phase:'messages',item:`revoked sessions of synthetic member ${peerLabel}`,state:'restored'});
   expect(peerCookie.length).toBeGreaterThan(20);
-  const probe=await fetch(new URL('/api/v1/session',target.origin),{headers:{cookie:`freedom_local_session=${peerCookie}`,accept:'application/json'},redirect:'manual'});
+  const probe=await fetch(new URL('/api/v1/session',target.origin),{headers:{cookie:`${target.origin.startsWith('https:')?'__Host-freedom_session':'freedom_local_session'}=${peerCookie}`,accept:'application/json'},redirect:'manual'});
   expect(probe.status).toBe(401);
   expect(JSON.stringify(report)).not.toContain(peerCookie);
 });

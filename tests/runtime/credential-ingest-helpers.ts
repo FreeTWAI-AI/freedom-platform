@@ -137,7 +137,7 @@ export async function ingestFixture() {
     const session=await login(app,email,'synthetic-password-only');const actor=await authenticate(app,session.token);
     const context=await withMemberScope(app,{actor,scope:'personal'},async()=>{},async(_q,c)=>c);
     await owner.query(`INSERT INTO private_work_persistence_policy(scope_id,purpose,owner_principal_id,revision,persistence_allowed,retained_byte_limit) VALUES($1,'work.private-draft',$2,1,true,10485760)`,[context.scope.scope_id,context.subject_principal.principal_id]);
-    return {actor,context,token:session.token,headers:{Cookie:'freedom_local_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:executionOrigin}};
+    return {actor,context,token:session.token,headers:{Cookie:'__Host-freedom_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:executionOrigin}};
   }
   async function paired(human:Awaited<ReturnType<typeof member>>) {
     const issuer=await generateKeyPair('ES256'),device=await generateKeyPair('ES256');
@@ -161,7 +161,7 @@ export async function ingestFixture() {
     await sessions.refresh({familyId:refresh.familyId,refreshHandle:refresh.handle,proof:await sign('freedom-bootstrap-refresh+jwt',{purpose:'bootstrap_refresh',client_id:options.clientId,environment:'local',connection_id:initial.connectionId,family_id:refresh.familyId,generation:refresh.generation,refresh_handle_hash:hash(refresh.handle),jti:randomUUID(),iat:Math.floor(await clock()/1000),htm:'POST',htu:host.refreshUri})});
     return initial;
   }
-  async function post(human:Awaited<ReturnType<typeof member>>,path:string,value:unknown,headers:Record<string,string>={}) { return fetch(executionOrigin+path,{method:'POST',headers:{...human.headers,'Content-Type':'application/json','Idempotency-Key':randomUUID(),'If-Match':'"1"',...headers},body:JSON.stringify(value)}); }
+  async function post(human:Awaited<ReturnType<typeof member>>,path:string,value:unknown,headers:Record<string,string>={}) { return fetch(executionOrigin+path,{method:'POST',headers:{...human.headers,Cookie:'freedom_local_session='+human.token,'Content-Type':'application/json','Idempotency-Key':randomUUID(),'If-Match':'"1"',...headers},body:JSON.stringify(value)}); }
   async function issue(human:Awaited<ReturnType<typeof member>>,modelConnectionId:string,headers:Record<string,string>={}) {
     return httpsFetch(mainOrigin+'/api/v1/me/credential-ingests',{method:'POST',headers:{...human.headers,Origin:mainOrigin,'Content-Type':'application/json','Idempotency-Key':randomUUID(),'If-Match':'"1"',...headers},body:JSON.stringify({operation:'create',modelConnectionId,consent:true})});
   }
@@ -169,7 +169,7 @@ export async function ingestFixture() {
     browser??=await chromium.launch({headless:true,args:['--ignore-certificate-errors-spki-list='+certificatePin,'--host-resolver-rules=MAP platform.test 127.0.0.1, MAP broker.test 127.0.0.1','--no-proxy-server']});
     const context=await browser.newContext();contexts.push(context);
     await context.route('**/*',route=>{const origin=new URL(route.request().url()).origin;return [mainOrigin,setupOrigin].includes(origin)?route.continue():route.abort();});
-    await context.addCookies([{name:'freedom_local_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);
+    await context.addCookies([{name:'__Host-freedom_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);
     return context;
   }
   async function navigateSetup(context:BrowserContext,assertion:string,diagnostic?:{phase(value:string):void}) {

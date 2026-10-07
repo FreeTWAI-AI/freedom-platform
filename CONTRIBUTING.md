@@ -5,7 +5,7 @@
 
 自由工坊的會員入口、中央資料庫與跨模組業務規則。 已提供 email 註冊、選主要公會（定位測驗可稍後補做）、公會與技能書、會員隱私、小隊、供貨與商店草稿、作品共創、行銷紀錄、Access 管理與公會長本人確認。
 
-先看[本倉 Issues](https://github.com/FreeTWAI-AI/freedom-platform/issues)與[現有 PR](https://github.com/FreeTWAI-AI/freedom-platform/pulls)。提出問題、這一輪範圍、完成條件與可投入時間，在 Issue 認領並協調重疊工作；維護者已直接派工時不必重複等待，將約定連回交接即可。使用自己的 fork／分支，PR 送到 **FreeTWAI-AI/freedom-platform:main**。
+先看[本倉 Issues](https://github.com/FreeTWAI-AI/freedom-platform/issues)與[現有 PR](https://github.com/FreeTWAI-AI/freedom-platform/pulls)。提出問題、這一輪範圍、完成條件與可投入時間，在 Issue 認領並協調重疊工作；維護者已直接派工時不必重複等待，將約定連回交接即可。使用自己的 fork／分支，PR 送到 **FreeTWAI-AI/freedom-platform:main**。在自己的 fork 執行 CI 時，`consumer-library-source` 與 `consumer-runtime` 會略過，這兩個工作只在 FreeTWAI-AI 的 consumer 倉庫執行。
 
 交給 Agent 前先讓它讀 [AGENTS.md](AGENTS.md)。PR 寫明變更用途、使用者可見結果、驗證命令、限制與原 Issue；附上可公開的合成案例或重現方式。Issue／PR 是程式協作的記錄，平台名片與公會身分不取代 repo 維護者的審查。
 
