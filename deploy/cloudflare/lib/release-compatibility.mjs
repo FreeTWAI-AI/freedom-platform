@@ -106,7 +106,7 @@ const FOUNDATION_NAMES = [
   '123_tenant_manual_work.sql',
   // Member-only native posts and interactions. Name recognition supplies no
   // release approval; exact schema digests and the independent host remain required.
-  '124_social_feed_interactions.sql',
+  '125_social_feed_interactions.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

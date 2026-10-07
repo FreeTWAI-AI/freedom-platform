@@ -77,7 +77,7 @@ Hao 後續要求以取代 Facebook 為長期目標。候選版尚無超越 Faceb
 
 ## Migration 與審查注意
 
-只增加 [124_social_feed_interactions.sql](../../migrations/124_social_feed_interactions.sql)，不改歷史 SQL；設定的 last 從 123 到 124，保留 gap 22。
+只增加 [125_social_feed_interactions.sql](../../migrations/125_social_feed_interactions.sql)，不改歷史 SQL；主線 #175 的 124 保留，設定的 last 從 124 到 125，保留 gap 22。
 124 是此基底的下一個可用編號，**#175 同時提出 124**。若 #175 先合併，本輪須改為下一個可用編號、重算 manifest／inventory 並重跑驗證；不得把兩個 124 直接合在同一 catalog，也不得新增假 gap 略過別人的 migration。
 本輪亦將精確檔名登錄至 release-compatibility 的已知 schema 清單，並更新完整 v3 測試 catalog 的 frontier。名稱登錄不能供給 release／restore／execution 權限，既有 host、完整 digest 與獨立批准要求保持；未知或改名 migration 仍拒絕。
 Operator 應先做受控 migration／staging 驗收再部署對應程式；本輪沒有操作 staging／production DB、合併或部署。

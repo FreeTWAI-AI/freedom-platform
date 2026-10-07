@@ -46,11 +46,11 @@ test('RELEASE independent complete real ledger with synthetic host is diagnostic
 
 test('RELEASE recognized social-feed migration still needs exact independent schema approval', () => {
   const f = fixture();
-  assert(f.scan.ledger.some(row => row.name === '124_social_feed_interactions.sql'));
+  assert(f.scan.ledger.some(row => row.name === '125_social_feed_interactions.sql'));
   assert.equal(run(f).status, 'compatible');
   // A release approved before native posts existed cannot use that approval
   // for the new schema, even with the same source/artifact identity.
-  const old = f.scan.ledger.filter(row => Number(row.name.slice(0, 3)) < 124);
+  const old = f.scan.ledger.filter(row => Number(row.name.slice(0, 3)) < 125);
   f.host.release_records[1].schema_ledger_digests = [compatibilityLedgerDigest(old)];
   const result = run(f);
   assert.equal(result.status, 'incompatible');
@@ -60,8 +60,8 @@ test('RELEASE recognized social-feed migration still needs exact independent sch
 test('RELEASE unknown migration names remain refused even with recomputed host digests', () => {
   for (const mode of ['rename-known', 'append-unknown']) {
     const f = fixture();
-    if (mode === 'rename-known') f.scan.ledger.at(-1).name = '124_unreviewed_social_feed.sql';
-    else f.scan.ledger.push({name: '125_unreviewed_future.sql', sha256: 'e'.repeat(64)});
+    if (mode === 'rename-known') f.scan.ledger.at(-1).name = '125_unreviewed_social_feed.sql';
+    else f.scan.ledger.push({name: '126_unreviewed_future.sql', sha256: 'e'.repeat(64)});
     f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
     f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
     f.host.observation.schema_ledger_digest = f.scan.ledger_digest;
