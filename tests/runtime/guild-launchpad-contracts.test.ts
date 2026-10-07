@@ -265,7 +265,7 @@ function casesFor(profile: Profile, document: Json): Case[] {
     if (hit.kind === 'iso') {
       cases.push({ name: `fraction over ${label}`, value: patch(profile.maximal, hit.path, '2026-10-06T00:00:00.0000000000Z'), valid: false });
       cases.push({ name: `Arabic-Indic digits ${label}`, value: patch(profile.maximal, hit.path, '٢٠٢٦-١٠-٠٦T٠٠:٠٠:٠٠Z'), valid: false });
-      cases.push({ name: `full-width digits ${label}`, value: patch(profile.maximal, hit.path, '２０２６-１０-０６T٠０:００:００Z'), valid: false });
+      cases.push({ name: `full-width digits ${label}`, value: patch(profile.maximal, hit.path, '２０２６-１０-０６T００:００:００Z'), valid: false });
     }
     if (hit.kind === 'newline') {
       const current = at(profile.maximal, hit.path);
