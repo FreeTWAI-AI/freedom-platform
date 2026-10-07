@@ -24,6 +24,8 @@ import { activeInstanceGrants, replaceInstanceGrants, revokeInstanceGrants, vali
 
 const NOT_FOUND = '找不到這個業務空間。';
 const INVITE_MISSING = '找不到這份邀請。';
+const INVITE_SCOPE_MAX_BYTES = 8192;
+const INVITE_SCOPE_TOO_LARGE = '邀請的權限範圍太大，請減少實例或權限後再試。';
 const MEMBER_MISSING = '找不到這位成員。';
 const DENIED = '你目前沒有這項業務空間權限。';
 
@@ -202,22 +204,21 @@ export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: 
     const page = rows.slice(0, limit);
     const items = [];
     for (const row of page) {
-      try {
-        // A list remains readable when a scope is disabled. Recheck membership
-        // after the unlocked page query and retain tenant -> membership SHARE
-        // locks so role, revision and grants stay consistent through projection.
-        if (!await bindTenantScope(q, row.tenant_id)) continue;
+      // A list remains readable when a scope is disabled. Recheck membership
+      // after the unlocked page query and retain tenant -> membership SHARE
+      // locks so role, revision and grants stay consistent through projection.
+      if (await bindTenantScope(q, row.tenant_id)) {
         const tenant = await q.query(`SELECT tenant_id FROM tenants WHERE tenant_id=$1 AND community_id=$2 FOR SHARE`,
           [row.tenant_id, actor.community_id]);
-        if (!tenant.rowCount) continue;
-        const member = await q.query(`SELECT principal_id FROM tenant_memberships
-          WHERE tenant_id=$1 AND principal_id=$2 AND status='active' FOR SHARE`, [row.tenant_id, context.principal_id]);
-        if (!member.rowCount) continue;
-        items.push(await tenantView(q, row.tenant_id, context.principal_id));
-      } finally {
-        await clearTenantContext(q);
-        await bindPrincipalContext(q, context.principal_id);
+        if (tenant.rowCount) {
+          const member = await q.query(`SELECT principal_id FROM tenant_memberships
+            WHERE tenant_id=$1 AND principal_id=$2 AND status='active' FOR SHARE`, [row.tenant_id, context.principal_id]);
+          if (member.rowCount) items.push(await tenantView(q, row.tenant_id, context.principal_id));
+        }
       }
+      // On errors, isolatedTransaction rolls back and clears the local context.
+      await clearTenantContext(q);
+      await bindPrincipalContext(q, context.principal_id);
     }
     const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
       FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
@@ -323,6 +324,10 @@ async function visibleInvitee(q: PoolClient, principalId: string, communityId: s
 export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, body: unknown, key: string) {
   const input = InviteInputSchema.parse(body);
   OpaqueId.parse(tenantId);
+  // Compact input is a lower bound for valid canonical scope JSON. Reject large
+  // scopes before the command core's input snapshot limit can obscure this error.
+  requireCondition(Buffer.byteLength(JSON.stringify(input.instance_capabilities)) <= INVITE_SCOPE_MAX_BYTES,
+    422, 'validation_failed', INVITE_SCOPE_TOO_LARGE);
   try {
     return await scopedTenantCommand(pool, {
       actor, tenantId, operation: 'tenant.invite', key, body: input,
@@ -336,7 +341,7 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
       // Match the stored invitation CHECK, including jsonb's formatting bytes.
       // Acceptance only changes its state; member changes store text[] grant rows.
       const size = (await q.query<{ bytes: number }>(`SELECT octet_length($1::jsonb::text) AS bytes`, [JSON.stringify(grants)])).rows[0].bytes;
-      requireCondition(size <= 8192, 422, 'validation_failed', '邀請的權限範圍太大，請減少實例或權限後再試。');
+      requireCondition(size <= INVITE_SCOPE_MAX_BYTES, 422, 'validation_failed', INVITE_SCOPE_TOO_LARGE);
       await visibleInvitee(q, input.invitee_principal_id, context.community_id);
       const existing = (await q.query<{ status: string }>(`SELECT status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [context.tenant_id, input.invitee_principal_id])).rows[0];
       if (existing?.status === 'active') throw new Problem(409, 'membership_exists', '這位成員已在業務空間中。');

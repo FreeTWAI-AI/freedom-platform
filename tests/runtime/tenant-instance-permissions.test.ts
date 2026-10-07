@@ -14,6 +14,7 @@ import { tenantWorkCapabilities } from '../../modules/opportunity-project-work/t
 import { authenticate, type Actor } from '../../modules/identity-membership/service.js';
 import { openRecoveryCase, approveRecoveryCase, executeRecoveryCase } from '../../modules/tenant-workspaces/recovery.js';
 import { changeMemberStatus, type AdminActor, type AdminCommand } from '../../modules/platform-admin/service.js';
+import { inviteMember } from '../../modules/tenant-workspaces/service.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl || !/^\/fp_[a-z0-9_]+$/.test(new URL(databaseUrl).pathname)) {
@@ -1042,3 +1043,46 @@ for (const seam of ['before-finalize', 'finalize-object-read', 'after-object-wri
     }
   });
 }
+
+test('contract-valid invitation beyond command snapshot size returns service scope validation before writes', async () => {
+  const t = await openTenant();
+  const member = await person('最大範圍受邀者');
+  const capabilities = Array.from({ length: 100 }, (_, i) => `synthetic:${String(i).padStart(3, '0')}:${'x'.repeat(145)}`);
+  const entries = Array.from({ length: 17 }, () => ({ instance_id: randomUUID(), capabilities }));
+  assert.equal(InstanceCapabilitiesInputSchema.safeParse(entries).success, true);
+  assert.ok(Buffer.byteLength(JSON.stringify(entries)) > 256 * 1024);
+  await isolatedTransaction(pool, async q => {
+    await q.query(`INSERT INTO module_definitions(module_key,release_ref,capabilities,data_catalog_ref,contract_ref,data_schema_version,
+      portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version)
+      SELECT 'synthetic-max-keys','synthetic-max-keys@1.0.0',$1::jsonb,data_catalog_ref,contract_ref,data_schema_version,
+        portable_profile_ref,runtime_profiles,config_schema_ref,supported_upgrade_paths,license_review_ref,license_state,release_status,version
+      FROM module_definitions WHERE module_key='work' AND release_ref='work@1.0.0' ON CONFLICT DO NOTHING`, [JSON.stringify(capabilities)]);
+    for (const entry of entries) {
+      const bindingId = randomUUID();
+      await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,module_release_ref,application_release_ref,
+        data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+        SELECT $1,tenant_id,'synthetic-max-keys','synthetic-max-keys@1.0.0',application_release_ref,
+          data_schema_version,contract_ref,'active',$2,created_by_principal_id,origin_guild_key
+        FROM module_instances WHERE instance_id=$3`, [entry.instance_id, bindingId, t.instanceId]);
+      await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,contract_ref,state)
+        SELECT $1,tenant_id,$2,mode,environment,contract_ref,'active' FROM deployment_bindings WHERE instance_id=$3`,
+      [bindingId, entry.instance_id, t.instanceId]);
+    }
+  });
+  const before = await snapshot(t), registry = await registrySnapshot(t);
+  const input = { invitee_principal_id: member.principalId, role: 'operator', instance_capabilities: entries, expires_at: soon() };
+  // The existing 32 KiB HTTP boundary takes precedence; preserve that guard.
+  const reply = await post(`/tenants/${t.tenantId}/invitations`, t.owner, input);
+  assert.equal(reply.status, 413, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'body_too_large');
+  const actor = await actorOf(t.owner);
+  await assert.rejects(inviteMember(pool, actor, t.tenantId, input, randomUUID()), (error: any) => {
+    assert.equal(error.status, 422);
+    assert.equal(error.code, 'validation_failed');
+    assert.equal(error.message, '邀請的權限範圍太大，請減少實例或權限後再試。');
+    return true;
+  });
+  assert.deepEqual(await snapshot(t), before);
+  assert.deepEqual(await registrySnapshot(t), registry);
+  assert.equal((await pool.query('SELECT 1 FROM tenant_invitations WHERE tenant_id=$1', [t.tenantId])).rowCount, 0);
+});
