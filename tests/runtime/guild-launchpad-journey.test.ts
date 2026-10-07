@@ -14,6 +14,7 @@ import {
   LaunchpadContextSchema, ManualWorkBindingSchema, OperationSchema, ResultPageSchema, ResultSchema,
   UploadSchema, UploadVerifiedSchema, WorkPageSchema, WorkSchema, type ResultView, type WorkView,
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
+import { BackfillReport, CATEGORY_ORDER, PreferenceView } from '../../contracts/guild-launchpad/v1/guild-preferences.js';
 import { TenantPageSchema, TenantViewSchema, WorkspacePageSchema, WorkspaceViewSchema } from '../../contracts/guild-launchpad/v1/tenant.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -146,6 +147,7 @@ const continuedObjective = 'A-only-continued-objective 已補上備援步驟';
 let memberA: Session;
 let officer: Session;
 let legacyGuildKey: string;
+let legacyOfficerVersion: string;
 let memberB: Session;
 let spaceB: Space;
 let spaceA: Space;
@@ -217,21 +219,22 @@ async function signIn(email: string): Promise<Session> {
   assert.ok(reply.headers.get('set-cookie'));
   return { cookie: reply.headers.get('set-cookie')!.split(';')[0], csrf: reply.data.csrf_token, user: reply.data.user };
 }
-async function adminPost(path: string, body: unknown) {
+async function adminPost(path: string, body: unknown, version?: string) {
   const now = Math.floor(Date.now() / 1000);
   const jwt = await new SignJWT({ type: 'app', email: adminEmail, sub: 'synthetic-journey-admin', iss: issuer,
     aud: audience, iat: now, nbf: now, exp: now + 600 })
     .setProtectedHeader({ alg: 'RS256', kid: 'journey' }).sign(pair.privateKey);
   const identity = await createAdminAccessVerifier(accessOptions)(new Request(origin, { headers: { 'Cf-Access-Jwt-Assertion': jwt } }));
   return call('POST', `/admin/api${path}`, undefined, JSON.stringify(body),
-    { ...jsonHeaders(randomUUID()), 'Cf-Access-Jwt-Assertion': jwt, 'X-Admin-CSRF': identity.csrfToken });
+    { ...jsonHeaders(randomUUID(), version), 'Cf-Access-Jwt-Assertion': jwt, 'X-Admin-CSRF': identity.csrfToken });
 }
-async function appointOfficer(guildKey: string) {
+async function appointOfficer(guildKey: string, version?: string) {
   const appointed = await adminPost(`/guilds/${guildKey}/master`,
-    { user_id: DEMO_USERS[2].user_id, reason: '任命合成公會長以驗證正式成員流程。' });
+    { user_id: DEMO_USERS[2].user_id, reason: '任命合成公會長以驗證正式成員流程。' }, version);
   expectStatus(appointed);
   assert.equal(appointed.data.user_id, DEMO_USERS[2].user_id);
   officer = await signIn(DEMO_USERS[2].email);
+  return String(appointed.data.aggregate_version);
 }
 async function chooseGuild(session: Session, guildKey: string) {
   const joined = await post(`/guilds/${guildKey}/join`, session, {});
@@ -427,6 +430,15 @@ async function evidence(space: Space) {
   const target = (await owner.query(`SELECT result_id FROM tenant_work_result_targets WHERE work_item_id=$1`, [space.workId])).rows[0];
   return { work, results, uploads, target, objects: await objectSnapshot() };
 }
+async function spaceIdentity(space: Space) {
+  const tenant = (await owner.query(`SELECT tenant_id,version::text,authorization_revision::text,status
+    FROM tenants WHERE tenant_id=$1`, [space.tenantId])).rows[0];
+  const workspace = (await owner.query(`SELECT tenant_id,workspace_id,version::text,status,is_default
+    FROM workspaces WHERE workspace_id=$1`, [space.workspaceId])).rows[0];
+  const instance = (await owner.query(`SELECT tenant_id,instance_id,version::text,module_key,status,origin_guild_key
+    FROM module_instances WHERE instance_id=$1`, [space.instanceId])).rows[0];
+  return { tenant, workspace, instance };
+}
 
 test('T-005 M1 journey before the three-category switch: a member goes from guild to business space, saves Work notes and Results, and continues after signing in again (runtime role)', { concurrency: false }, async () => {
   memberA = await signIn(DEMO_USERS[0].email);
@@ -440,7 +452,7 @@ test('T-005 M1 journey before the three-category switch: a member goes from guil
   const selected = directory.data.items.find((item: { guild_key: string }) => approved.has(item.guild_key));
   assert.ok(selected, 'the legacy primary must have an approved active classification for a clean switch');
   legacyGuildKey = selected.guild_key;
-  await appointOfficer(legacyGuildKey);
+  legacyOfficerVersion = await appointOfficer(legacyGuildKey);
   await chooseGuild(memberA, legacyGuildKey);
   spaceA = await createSpace(memberA, 'A-only-tenant 場勘業務', legacyGuildKey);
   const made = await post(`${workspacePath(spaceA)}/works`, memberA, { title, objective: initialObjective, progress: 'todo' });
@@ -613,6 +625,246 @@ test("T-022 M1 journey: another tenant's owner gets the same answers as for rand
   console.log(JSON.stringify({ check: 'T-022 M1 tenant isolation', tenant_a: spaceA.tenantId, tenant_b: spaceB.tenantId,
     compared_reads: reads.length, compared_writes: writes.length, a_version: finalWork.version, a_results: before.results.length,
     total_objects: before.objects.length, unchanged: true }));
+});
+
+test('T-005 M1 journey after the three-category switch: one approved guild per category goes from guild to business space, saves Work notes and attachments, and continues after signing in again (runtime role)', { concurrency: false }, async () => {
+  const requestStart = instances.reduce((total, instance) => total + instance.requests, 0);
+  const beforeA = await evidence(spaceA); // Before every operator call, including the dry run.
+  const beforeB = await evidence(spaceB);
+  const identitiesAB = await Promise.all([spaceIdentity(spaceA), spaceIdentity(spaceB)]);
+  const dryRun = await adminPost('/guild-preferences/backfill', { dry_run: true, limit: 100 });
+  expectStatus(dryRun);
+  assert.deepEqual(BackfillReport.parse(dryRun.data), {
+    dry_run: true, processed: 1, mapped: 0, blocked: 0, ambiguous: 0,
+    remaining: 1, remaining_blocked: 0, blocked_members: [],
+  }); // A/B were reconciled by legacy primary writes; the officer has membership only.
+  const backfill = await adminPost('/guild-preferences/backfill', { dry_run: false, limit: 100 });
+  expectStatus(backfill);
+  assert.deepEqual(BackfillReport.parse(backfill.data), {
+    dry_run: false, processed: 1, mapped: 0, blocked: 0, ambiguous: 0,
+    remaining: 0, remaining_blocked: 0, blocked_members: [],
+  });
+  const switched = await adminPost('/guild-preferences/switch', { accept_blocked: false });
+  expectStatus(switched);
+  assert.deepEqual(switched.data, { state: 'switched', aggregate_version: 2, blocked: 0, processed: 0, already_switched: false });
+  const rerun = await adminPost('/guild-preferences/backfill', { dry_run: false, limit: 100 });
+  expectStatus(rerun);
+  assert.deepEqual(BackfillReport.parse(rerun.data), { ...backfill.data, processed: 0 });
+  const reswitch = await adminPost('/guild-preferences/switch', { accept_blocked: false });
+  expectStatus(reswitch);
+  assert.deepEqual(reswitch.data, { ...switched.data, already_switched: true });
+  const legacy = await call('GET', '/me/guild-preferences', memberA);
+  expectStatus(legacy);
+  assert.equal(legacy.data.compatibility, 'legacy_projection');
+  assert.equal(legacy.data.primary_guild_key, legacyGuildKey);
+  const closed = await post(`/guilds/${legacyGuildKey}/primary`, memberA, {}, String(legacy.data.aggregate_version));
+  expectStatus(closed, 409);
+  assert.equal(closed.data.code, 'client_upgrade_required');
+  const aPreferences = await call('GET', '/me/guild-preferences/v2', memberA);
+  privateReply(aPreferences);
+  assert.equal(PreferenceView.parse(aPreferences.data).migration_state, 'switched');
+  assert.deepEqual(await evidence(spaceA), beforeA);
+  assert.deepEqual(await evidence(spaceB), beforeB);
+  assert.deepEqual(await Promise.all([spaceIdentity(spaceA), spaceIdentity(spaceB)]), identitiesAB);
+  assert.deepEqual(await readWork(memberA, spaceA, '5', attachmentResult.result_id), finalWork);
+  await readResults(memberA, spaceA, [attachmentResult, noteResult]);
+  await readContent(memberA, spaceA, noteResult, note, '5');
+  await readContent(memberA, spaceA, attachmentResult, attachment, '5');
+  const aTenants = await call('GET', '/tenants?limit=100', memberA);
+  privateReply(aTenants);
+  assert.deepEqual(TenantPageSchema.parse(aTenants.data).items.map(item => item.tenant_id), [spaceA.tenantId]);
+
+  const cEmail = 'journey-c@example.test';
+  // Registration leaves onboarding pending and the member boundary refuses v2
+  // preferences until a prior guild choice. Use the seedLocal user shape to keep
+  // all three slots empty; the empty set matches registration's post-switch row.
+  const cId = randomUUID();
+  await owner.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+    SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`,
+    [cId, DEMO_COMMUNITY, cEmail, '合成會員 C', randomUUID(), DEMO_USERS[0].user_id]);
+  await owner.query(`INSERT INTO guild_preference_sets(community_id,user_id,aggregate_version,migration_state)
+    VALUES($1,$2,1,'switched')`, [DEMO_COMMUNITY, cId]);
+  let memberC = await signIn(cEmail);
+  assert.equal(memberC.user.user_id, cId);
+  const emptyView = await call('GET', '/me/guild-preferences/v2', memberC);
+  privateReply(emptyView, '1');
+  const emptySlots = CATEGORY_ORDER.map(category => ({ category, guild_key: null }));
+  assert.deepEqual(PreferenceView.parse(emptyView.data).primaries, emptySlots);
+  assert.equal(emptyView.data.migration_state, 'switched');
+  assert.equal(emptyView.data.legacy, null);
+  const catalog = await call('GET', '/guild-categories', memberC);
+  expectStatus(catalog);
+  const selected = CATEGORY_ORDER.map(category => {
+    const group = catalog.data.categories.find((item: { category: string }) => item.category === category);
+    assert.ok(group);
+    const guild = group.items.find((item: { active: boolean; category_review: string }) => item.active && item.category_review === 'approved');
+    assert.ok(guild, `${category} needs an active approved guild`);
+    assert.equal(guild.category, category);
+    assert.match(guild.catalog_revision, /^[1-9][0-9]{0,18}$/);
+    return { category, guildKey: guild.guild_key as string, catalogRevision: guild.catalog_revision as string };
+  });
+  const journeys: Array<{
+    category: typeof CATEGORY_ORDER[number]; guildKey: string; space: Space; saved: WorkView; continued?: WorkView;
+    results: ResultView[]; noteBytes: Uint8Array; attachmentBytes: Uint8Array;
+  }> = [];
+  const primaries = [...emptySlots] as Array<{ category: typeof CATEGORY_ORDER[number]; guild_key: string | null }>;
+  const privateMarkers: string[] = [];
+  for (const { category, guildKey, catalogRevision } of selected) {
+    const marker = `C-${category}-`;
+    privateMarkers.push(marker);
+    const joined = await post(`/guilds/${guildKey}/join`, memberC, {});
+    expectStatus(joined);
+    assert.equal(joined.data.state, 'active');
+    assert.equal(joined.data.member_tier, 'intern');
+    // The professional guild may be the already-appointed legacy guild.
+    await appointOfficer(guildKey, guildKey === legacyGuildKey ? legacyOfficerVersion : undefined);
+    const promoted = await post(`/guilds/${guildKey}/members/${memberC.user.user_id}/tier`, officer,
+      { member_tier: 'full' }, String(joined.data.aggregate_version));
+    expectStatus(promoted);
+    assert.equal(promoted.data.member_tier, 'full');
+    assert.equal(promoted.data.changed, true);
+    assert.equal(promoted.data.aggregate_version, joined.data.aggregate_version + 1);
+    const preferences = await call('GET', '/me/guild-preferences/v2', memberC);
+    privateReply(preferences);
+    const current = PreferenceView.parse(preferences.data);
+    assert.deepEqual(current.primaries, primaries);
+    const chosen = await post('/me/guild-preferences/v2/set', memberC,
+      { category, guild_key: guildKey, catalog_revision: catalogRevision }, String(current.aggregate_version));
+    privateReply(chosen, String(current.aggregate_version + 1));
+    primaries.find(slot => slot.category === category)!.guild_key = guildKey;
+    assert.deepEqual(PreferenceView.parse(chosen.data).primaries, primaries);
+    const confirmed = await call('GET', '/me/guild-preferences/v2', memberC);
+    privateReply(confirmed, String(current.aggregate_version + 1));
+    assert.deepEqual(confirmed.data, chosen.data);
+    const launchpad = await call('GET', `/guilds/${guildKey}/launchpad`, memberC);
+    expectStatus(launchpad);
+    assert.deepEqual(launchpad.data.membership, { state: 'active', member_tier: 'full' });
+    assert.ok(launchpad.data.config.body.blocks.some((block: { kind: string; enabled: boolean }) => block.kind === 'my_work' && block.enabled));
+    const space = await createSpace(memberC, `${marker}tenant 業務空間`, guildKey);
+    const made = await post(`${workspacePath(space)}/works`, memberC,
+      { title: `${marker}work 工作`, objective: `${marker}objective 記錄下一步`, progress: 'in_progress' });
+    space.workId = operation(made, 'work.work', space, 201).resource_ref.resource_id;
+    const initial = await readWork(memberC, space, '1');
+    assert.equal(initial.title, `${marker}work 工作`);
+    assert.equal(initial.objective, `${marker}objective 記錄下一步`);
+    assert.equal(initial.progress, 'in_progress');
+    assert.equal(initial.state, 'draft');
+    await readResults(memberC, space, []);
+    const noteBytes = new TextEncoder().encode(`# ${marker}note\n私人筆記：重開後繼續。\n`);
+    const attachmentBytes = new TextEncoder().encode(`${marker}attachment\n實際附件：確認下一步。\n`);
+    const noteSaved = await saveResult(memberC, space, '1', `${marker}note.md`, 'text/markdown', noteBytes, []);
+    const attachmentSaved = await saveResult(memberC, space, '2', `${marker}attachment.txt`, 'text/plain', attachmentBytes, [noteSaved]);
+    const saved = await readWork(memberC, space, '3', attachmentSaved.result_id);
+    assert.deepEqual(saved, { ...initial, version: '3', current_result_id: attachmentSaved.result_id, updated_at: saved.updated_at });
+    await readContent(memberC, space, noteSaved, noteBytes, '3');
+    journeys.push({ category, guildKey, space, saved, results: [attachmentSaved, noteSaved], noteBytes, attachmentBytes });
+  }
+  const allPreferences = await call('GET', '/me/guild-preferences/v2', memberC);
+  privateReply(allPreferences, '4');
+  assert.deepEqual(PreferenceView.parse(allPreferences.data).primaries, primaries);
+  const beforeRestart = await Promise.all(journeys.map(journey => evidence(journey.space)));
+  const identities = await Promise.all(journeys.map(journey => spaceIdentity(journey.space)));
+  const oldSession = memberC;
+  expectStatus(await post('/auth/logout', oldSession, {}));
+  for (const { space, results } of journeys) {
+    for (const path of [workPath(space), ...results.map(result => `${workPath(space)}/results/${result.result_id}/content`)]) {
+      const refused = await call('GET', path, oldSession);
+      expectStatus(refused, 401);
+      const raw = Buffer.from(refused.bytes).toString('utf8');
+      for (const marker of privateMarkers) assert.equal(raw.includes(marker), false);
+    }
+  }
+  const beforePid = await quiet('before three-category restart');
+  await runtime.end();
+  instances.at(-1)!.closed = true;
+  startApp();
+  const afterPid = await quiet('after three-category restart');
+  assert.notEqual(afterPid, beforePid);
+  memberC = await signIn(cEmail);
+  assert.notEqual(memberC.cookie, oldSession.cookie);
+  assert.equal(memberC.user.user_id, oldSession.user.user_id);
+  const tenants = await call('GET', '/tenants?limit=100', memberC);
+  privateReply(tenants);
+  assert.deepEqual(TenantPageSchema.parse(tenants.data).items.map(item => item.tenant_id).sort(), journeys.map(item => item.space.tenantId).sort());
+  const resumedPreferences = await call('GET', '/me/guild-preferences/v2', memberC);
+  privateReply(resumedPreferences, '4');
+  assert.deepEqual(resumedPreferences.data, allPreferences.data);
+  for (const [index, journey] of journeys.entries()) {
+    const { space, saved, results, noteBytes, attachmentBytes, guildKey } = journey;
+    assert.deepEqual(await evidence(space), beforeRestart[index]);
+    assert.deepEqual(await spaceIdentity(space), identities[index]);
+    await loadSpace(memberC, space);
+    const resumed = await context(memberC, space, true, guildKey);
+    assert.deepEqual(resumed.work_page.items, [saved]);
+    assert.deepEqual(await readWork(memberC, space, '3', results[0].result_id), saved);
+    await readResults(memberC, space, results);
+    await readContent(memberC, space, results[1], noteBytes, '3');
+    await readContent(memberC, space, results[0], attachmentBytes, '3');
+    journey.continued = await editWork(memberC, space, saved, `C-${journey.category}-continued 已確認下一步`, 'done');
+    assert.equal(journey.continued.version, '4');
+    const persistedBeforeStale = await evidence(space);
+    const stale = await call('PATCH', workPath(space), memberC,
+      JSON.stringify({ title: saved.title, objective: `C-${journey.category}-stale 不應保存`, progress: 'todo' }), jsonHeaders(randomUUID(), saved.version));
+    expectStatus(stale, 412);
+    assert.equal(stale.data.code, 'version_conflict');
+    assert.deepEqual(await evidence(space), persistedBeforeStale);
+    assert.deepEqual(await readWork(memberC, space, '4', results[0].result_id), journey.continued);
+    await readResults(memberC, space, results);
+    await readContent(memberC, space, results[1], noteBytes, '4');
+    await readContent(memberC, space, results[0], attachmentBytes, '4');
+  }
+  for (const [index, { space, results, continued, guildKey }] of journeys.entries()) {
+    assert.deepEqual(await spaceIdentity(space), identities[index]);
+    assert.deepEqual(identities[index], {
+      tenant: { tenant_id: space.tenantId, version: '1', authorization_revision: '1', status: 'active' },
+      workspace: { tenant_id: space.tenantId, workspace_id: space.workspaceId, version: '1', status: 'active', is_default: true },
+      instance: { tenant_id: space.tenantId, instance_id: space.instanceId, version: '1', module_key: 'work', status: 'active', origin_guild_key: guildKey },
+    });
+    const persisted = await evidence(space);
+    assert.equal(persisted.work.tenant_id, space.tenantId);
+    assert.equal(persisted.work.workspace_id, space.workspaceId);
+    assert.equal(persisted.work.instance_id, space.instanceId);
+    assert.equal(persisted.work.work_item_id, space.workId);
+    assert.equal(persisted.work.version, continued!.version);
+    assert.equal(persisted.work.title, continued!.title);
+    assert.equal(persisted.work.objective, continued!.objective);
+    assert.equal(persisted.work.progress, continued!.progress);
+    assert.deepEqual(persisted.results.map(row => [row.result_id, row.tenant_id, row.work_item_id, row.revision, row.work_version, row.content_sha256, row.byte_size]),
+      results.map(result => [result.result_id, space.tenantId, space.workId, result.revision, result.work_version, result.sha256, result.byte_size]));
+    assert.equal(persisted.uploads.length, 2);
+    assert.deepEqual(persisted.uploads.map(row => row.state), ['finalized', 'finalized']);
+    assert.equal(persisted.target.result_id, results[0].result_id);
+    for (const result of persisted.results) {
+      const stored = persisted.objects.find(item => item.key === objectKey({ scopeId: result.scope_id, assetId: result.asset_id, representationId: result.representation_id }));
+      assert.ok(stored);
+      assert.equal(stored.sha256, result.content_sha256);
+      assert.equal(stored.byte_size, result.byte_size);
+    }
+  }
+  const allObjects = await objectSnapshot();
+  assert.equal(allObjects.length, 9);
+  const resultRows = (await owner.query('SELECT scope_id,asset_id,representation_id FROM tenant_work_results')).rows;
+  assert.deepEqual([...store.keys].sort(), resultRows.map(row => objectKey({ scopeId: row.scope_id, assetId: row.asset_id, representationId: row.representation_id })).sort());
+  const objectRows = (await owner.query('SELECT object_key,content_sha256,byte_size FROM asset_objects ORDER BY object_key')).rows;
+  assert.deepEqual(objectRows, allObjects.map(item => ({ object_key: item.key, content_sha256: item.sha256, byte_size: item.byte_size })));
+  for (const [space, before] of [[spaceA, beforeA], [spaceB, beforeB]] as const) {
+    const after = await evidence(space);
+    assert.deepEqual({ ...after, objects: after.objects.filter(item => before.objects.some(old => old.key === item.key)) }, before);
+  }
+  assert.deepEqual(await Promise.all([spaceIdentity(spaceA), spaceIdentity(spaceB)]), identitiesAB);
+  const journal = (await owner.query('SELECT data::text AS data FROM scoped_transition_journal')).rows;
+  for (const row of journal) for (const marker of privateMarkers) assert.equal(row.data.includes(marker), false, 'private category Work/Result text leaked into the journal');
+  console.log(JSON.stringify({ check: 'T-005 M1 three-category journey', member_id: memberC.user.user_id,
+    guilds: Object.fromEntries(selected.map(item => [item.category, item.guildKey])),
+    spaces: journeys.map(({ category, guildKey, space, saved, continued, results }, index) => ({ category, guild_key: guildKey,
+      tenant_id: space.tenantId, workspace_id: space.workspaceId, instance_id: space.instanceId, work_id: space.workId,
+      versions: { tenant: identities[index].tenant.version, workspace: identities[index].workspace.version,
+        instance: identities[index].instance.version, before_sign_out: saved.version, continued: continued!.version },
+      results: results.map(result => ({ result_id: result.result_id, asset_id: result.asset_id, revision: result.revision,
+        work_version: result.work_version, sha256: result.sha256, byte_size: result.byte_size })) })),
+    backend_pids: [beforePid, afterPid], backfill: { dry_run: dryRun.data, executed: backfill.data, rerun: rerun.data },
+    switch: { accept_blocked: false, outcome: switched.data, rerun: reswitch.data },
+    requests: instances.reduce((total, instance) => total + instance.requests, 0) - requestStart, finalized_object_count: allObjects.length, a_and_b_unchanged: true }));
 });
 
 test('T-024 M1 journey ran on the runtime role with one pooled connection per app instance', { concurrency: false }, async () => {
