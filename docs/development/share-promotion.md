@@ -64,6 +64,12 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 預覽抓取（`modules/community/link-preview.ts`）由 runtime 注入。YouTube 取影片 id（`watch?v=`、`youtu.be`、`/shorts/`、`/live/`、`/embed/`），再抓 `i.ytimg.com` 的 `hqdefault.jpg`，標題可選 oEmbed。其他平台讀 `og:image`、`og:image:secure_url` 或 `twitter:image`。限制是：`redirect:manual`、最多 3 次重導、每一跳都重跑網址規則、全程 6 秒、HTML 最多 1 MiB、圖片最多 5 MiB。回應只要聲明 `image/*` 就收下；格式以檔案簽名判斷，不採用對方的 Content-Type。GIF、動畫 PNG、動畫 WebP、簽名不符或超過 5 MiB 時捨棄縮圖、保留標題。靜態 png／jpeg／webp 正規化成 640×360 的 WebP（`social_thumbnail`）。處理器失敗就沒有縮圖，不讓貼文失敗。上傳的縮圖仍要聲明類型與簽名一致，且在 512 KiB 以下。User-Agent 固定為 `FreedomWorkshopPreview/1.0 (+https://freetwai.com)`。測試與 e2e 使用假的 fetcher，不連外網。
 
+Production runtime 必須提供受限的 preview transport；缺少 transport 時只建立無預覽貼文，不回退到一般 `fetch`。6 秒期限包括 DNS、TLS、headers 與 body 讀取，頁面、重導及縮圖都走相同邊界：
+
+- Node（`apps/platform-api/src/node-preview-fetch.ts`）取得完整 DNS address 列表；空列表、任何非公開或 family 不符的位址都拒絕。涵蓋 IPv4 私網、loopback、link-local、CGNAT、保留／測試網段，以及 IPv6 私網、mapped IPv4、NAT64、transition 與文件網段。使用全新的 HTTPS socket，lookup 只回傳已檢查的同一個 IP；Host、SNI 和正常憑證驗證仍使用原 hostname。不做「先 resolve、再另一次 fetch」。
+- Workers（`apps/platform-api/src/worker-preview-fetch.ts`）不宣稱 DNS pinning：[原生 `https.request`](https://developers.cloudflare.com/workers/runtime-apis/nodejs/https/) 仍是 fetch 包裝。改採維護者選定的可信 DNS namespace allowlist：`youtube.com`、`youtu.be`、`instagram.com`、`facebook.com`、`fb.watch`、`threads.net`、`threads.com`、`tiktok.com`、`x.com`、`twitter.com`（各自可加 `www.`）；資產只允許 `ytimg.com`、`fbcdn.net`、`cdninstagram.com`、`tiktokcdn.com`、`twimg.com` 及其子網域。每一跳與縮圖 URL 都重新檢查，不自動跟隨重導。
+- 其他 HTTPS 連結在 Workers 仍可分享，但不抓取標題或縮圖，作者可自填標題與上傳縮圖。這是明確的相容性取捨，不是 SSRF 已在正式環境可利用的證明；allowlist 信任列出的第三方 DNS 管理者，不保護第三方自身遭入侵。
+
 ## API
 
 會員路由沿用 session、CSRF、Origin，並須已完成加入（選定主要公會）。點擊與公開縮圖在 session middleware 之前。
@@ -91,11 +97,11 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 
 資料表在 `migrations/066_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
-部署時先套用 migration 066，再套用 067，然後換 Worker。Worker 的預覽 fetch 必須是未綁定的 `globalThis.fetch`。
+部署時先套用 migration 066，再套用 067，然後換 Worker。Worker 經可信 namespace wrapper 呼叫未綁定的 `globalThis.fetch`；不得以一般 fetch fallback 繞過 preview egress policy。
 
 程式入口：`modules/community/promotion.ts`、`modules/community/social-posts.ts`、`modules/community/member-services.ts`、`modules/community/link-preview.ts`、`packages/shared/share-url.ts`、`packages/shared/promotion-bots.ts`、`packages/shared/member-service.ts`、`apps/platform-api/src/routes/promotion.ts`、`apps/platform-api/src/routes/member-services.ts`。介面是「社群分享」、「社員服務」與「推廣排行榜」，技能書架、活動與會員首頁接同一套分享對話框。
 
-測試入口：`tests/runtime/share-promotion.test.ts`、`tests/runtime/member-services.test.ts`、`tests/runtime/link-preview.test.ts`、`tests/worker/share-go.test.ts`、`tests/e2e/share-promotion.spec.ts`、`tests/e2e/member-services.spec.ts`。瀏覽器測試前先 build。預覽不得打到 YouTube、Instagram、Facebook 或其他外站。
+測試入口：`tests/runtime/share-promotion.test.ts`、`tests/runtime/member-services.test.ts`、`tests/runtime/link-preview.test.ts`、`tests/runtime/link-preview-egress.test.ts`、`tests/worker/social-preview-assets.test.ts`、`tests/worker/share-go.test.ts`、`tests/e2e/share-promotion.spec.ts`、`tests/e2e/member-services.spec.ts`。瀏覽器測試前先 build。永久測試使用隔離 DNS／HTTPS fixture，不打到 YouTube、Instagram、Facebook 或其他外站。
 
 ## 社員服務
 
