@@ -217,3 +217,36 @@ and does not record a clean migration audit for the ambiguous snapshot.
 Accepting the block still does not copy another guild into an empty slot
 or change the legacy primary, legacy secondary, membership tier, skill
 books, or contact visibility.
+
+### Backfill script
+
+The operator runs
+`npx tsx scripts/guild-preferences-backfill.ts --database-url <url>`.
+It defaults to a dry run; pass `--execute` to write, `--limit` to page the run,
+and `--community-id` when the database has more than one community. The script
+refuses `NODE_ENV=production`, port 54339 and a database named `freedom_local`,
+and never reads `DATABASE_URL`.
+
+Pass `--status` for a read-only snapshot. It first takes the guild catalog
+lock at session level. Then it opens one `REPEATABLE READ READ ONLY`
+transaction, so the snapshot includes every catalog-locked write committed
+before the lock was granted. Preference writes wait while it runs. The
+transaction is rolled back and the lock released even on error. It refuses
+`--execute` and `--limit`. It prints JSON with
+`totals` and one entry per community (or only the `--community-id` one). Entry
+fields are `remaining`, `remaining_blocked`, `blocking_reasons` (the dry-run
+reason codes), `blocking_reasons_complete`, `preference_sets` and
+`switched_at`. `blocking_reasons` counts the listed blocked candidates by
+reason code, and `blocking_reasons_complete` is false only when more than 500
+candidates are blocked, because the dry run lists at most 500.
+
+State is decided by the first matching rule (the first matching rule wins):
+- `switched`: the community's `guild_preference_switch` row is `switched`.
+- `blocked`: not switched, and at least one candidate has a block reason
+  (`remaining_blocked > 0`). `POST /admin/api/guild-preferences/switch` with
+  `accept_blocked: false` returns 409 `preference_switch_blocked` for this
+  community.
+- `legacy`: not switched, nothing is blocked, and candidates remain
+  (`remaining > 0`). The backfill has not finished.
+- `backfilled`: not switched and no candidate remains. A community with no
+  candidates at all is also `backfilled`.
