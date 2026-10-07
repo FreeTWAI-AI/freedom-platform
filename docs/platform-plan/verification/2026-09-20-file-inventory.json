@@ -11564,13 +11564,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
-      "bytes": 5955,
-      "sha256": "189b4613ccd391d98970c272cf48c684e72e9877e16beeeedd58df2fe4b90d46"
+      "bytes": 5973,
+      "sha256": "219a8f938f6daa5ed0e9fa2a2fdbd0bee1aacda26e037d0517d5adcbfdb87b53"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-page.schema.json",
-      "bytes": 4447,
-      "sha256": "6e1d788b94018a3a9b0bd1ab107c46e0052380ee0512be3dc1630e8d1e83e8f3"
+      "bytes": 4465,
+      "sha256": "1ca601cbc85803b75a173b7f7aae4f56ca1d8b801fbd3df777bfbb85159c36fb"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-revoke-input.schema.json",
@@ -11579,8 +11579,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-view.schema.json",
-      "bytes": 3043,
-      "sha256": "052e4f771fbc065899932012d9adc586ba7051d91290473febabd81ac9d4d761"
+      "bytes": 3061,
+      "sha256": "d27bfc9f3e6a523e72a099c619f856bfe8990897577da8ffca5773c137ec2e21"
     },
     {
       "path": "contracts/guild-launchpad/v1/invite-candidate.schema.json",
@@ -11664,8 +11664,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-invite-input.schema.json",
-      "bytes": 1678,
-      "sha256": "af4bf458b4a815764bdc10d8575ca9e8c4fcb23d4146bcd95ab21aa7d6062b12"
+      "bytes": 1696,
+      "sha256": "4aa7c18a2d03223b853c501f84bfb8b99f8fb365c8f34146798aa611ce6f0d46"
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant-leave-result.schema.json",
@@ -11684,8 +11684,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/tenant.ts",
-      "bytes": 5688,
-      "sha256": "34843a283e97429f7c2a0364b8efe12acee18d75a65b34b0e54fe6f8d6856e11"
+      "bytes": 5715,
+      "sha256": "5e08fd37caef8730125964012ff30770ce83dbe1870fc8a37af913fe7d69bbb2"
     },
     {
       "path": "contracts/guild-launchpad/v1/validation-failed-problem.schema.json",
@@ -18814,8 +18814,8 @@
     },
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
-      "bytes": 27535,
-      "sha256": "5a8a33268da31e3e06bbbc6a211c353ad9d38a429cc72bd5f62f8f2fc98bef03"
+      "bytes": 29416,
+      "sha256": "a150fa74e8535e1574e6a541df815254ea37d3f9e45c7a701ef19c0539fa8cae"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
