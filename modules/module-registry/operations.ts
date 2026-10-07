@@ -634,8 +634,8 @@ export async function cancelOperation(pool: Pool, actor: Actor, tenantId: string
   }, async (q, context) => {
     requireRegistryCapability(context, 'module.operation.reconcile', true);
   }, async q => {
+    await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 AND tenant_id=$2 FOR UPDATE`, [operationId, tenantId]);
     const row = await readOperationRow(q, operationId, tenantId);
-    await q.query(`SELECT operation_id FROM module_provision_operations WHERE operation_id=$1 FOR UPDATE`, [operationId]);
     checkVersion(row.version, expected);
     if (['succeeded', 'failed', 'cancelled'].includes(row.state)) throw NOT_CANCELLABLE();
     const steps = await stepsOf(q, operationId, tenantId);
