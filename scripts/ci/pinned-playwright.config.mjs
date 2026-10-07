@@ -28,5 +28,7 @@ export default {
   testIgnore: [], grep: /.*/, grepInvert: [], forbidOnly: true, shard: null,
   fullyParallel: false, workers: 1, retries: 0, repeatEach: 1,
   ignoreSnapshots: false, updateSnapshots: 'none', respectGitIgnore: false,
+  // Under GitHub Actions Playwright would otherwise run git here and fetch the PR base commit (3 s per pass).
+  captureGitInfo: { commit: false, diff: false },
   projects: [{ name: 'chromium', use: chromium[0].use }]
 };

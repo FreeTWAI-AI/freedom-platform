@@ -176,7 +176,7 @@ async function withFixture(fn) {
   try { await fn(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 const cli = join(repoRoot, 'scripts/ci/run-pinned-e2e.mjs');
-const invoke = args => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: cliEnv, timeout: 10000 });
+const invoke = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', env: { ...cliEnv, ...env }, timeout: 60000 });
 async function baseline(root, omit) {
   await mkdir(join(root, 'tests/e2e'), { recursive: true });
   await writeFile(join(root, 'package.json'), '{}');
@@ -197,13 +197,17 @@ test('CLI trusted selection ignores candidate filters and includes a new spec', 
     await playwrightFixture(root, `export default {
       testDir: './empty', testMatch: /never-matches/, testIgnore: ['**/admin*.spec.ts'],
       grep: /smoke/, grepInvert: /required/, shard: { total: 4, current: 1 }, retries: 2, forbidOnly: false,
+      captureGitInfo: { commit: true, diff: true },
       projects: [{ name: 'chromium', grep: /smoke/, testDir: './empty', testIgnore: '**/*.spec.ts' },
         { name: 'extra', testMatch: /nothing/ }]
     };`);
     await writeFile(join(root, 'tests/e2e/zz-new-normal.spec.ts'), ordinaryTests);
+    // A pull_request event whose base commit is not local: Playwright's git info would try to fetch it.
+    await writeFile(join(root, 'event.json'), JSON.stringify({ pull_request: { title: 't', number: 1, base: { sha: '0'.repeat(40) } } }));
     const output = join(root, 'result.json');
-    const child = invoke(['--root', root, '--output', output]);
+    const child = invoke(['--root', root, '--output', output], { GITHUB_ACTIONS: 'true', GITHUB_EVENT_PATH: join(root, 'event.json'), DEBUG_GIT_COMMIT_INFO: '1' });
     assert.equal(child.status, 0, child.stdout + child.stderr);
+    assert.doesNotMatch(child.stdout + child.stderr, /GitCommitInfo: running "git /);
     const result = JSON.parse(await readFile(output, 'utf8'));
     assert.equal(result.status, 'passed');
     assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1));

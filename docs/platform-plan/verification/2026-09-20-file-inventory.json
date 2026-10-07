@@ -16979,8 +16979,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 18221,
-      "sha256": "0c64bbc95d0b747d7e1d4899a8948469a137fcc41ed6a13083932499a4129245"
+      "bytes": 18731,
+      "sha256": "63a50627ba8638316271f74b8ec02c28a5fb5295df308c56a0393847f6b6fdfe"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -17649,8 +17649,8 @@
     },
     {
       "path": "scripts/ci/pinned-playwright.config.mjs",
-      "bytes": 2019,
-      "sha256": "bc0a7a07169577a32f16eb77610b6cf89d76a9592528cef9b2ad4e09ba6e9e29"
+      "bytes": 2180,
+      "sha256": "96db598b34a7ecf5287261070e3a420c40918d5edc057140dc6528f7b9d5e947"
     },
     {
       "path": "scripts/ci/pinned_pytest_evidence.py",
