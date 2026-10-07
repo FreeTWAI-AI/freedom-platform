@@ -1,4 +1,4 @@
-import { navigate } from './navigation.js';
+import { navigate, expandHomeSections } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 async function fits(page: Page, label: string) {
@@ -24,6 +24,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
+  await expandHomeSections(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   for(const cover of await page.locator('.home-module-cover').all()){
     const box=await cover.boundingBox();expect(box!.width).toBeLessThanOrEqual(112);expect(box!.height).toBeLessThanOrEqual(112);
@@ -47,6 +48,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.getByRole('main').getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
+        await expandHomeSections(page);
         await expect(page.locator('.home-module-card')).toHaveCount(4);
         for(const label of await page.locator('.home-member-skills > span,.home-next-eyebrow,.home-member-name > .positioning-title,.home-partner-heading h2,.home-partner-swap').all()){
           expect(await label.evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);

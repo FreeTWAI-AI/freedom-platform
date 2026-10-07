@@ -161,6 +161,10 @@ export class PortalClient {
     return this.request<T>('POST', path, { ...options, body })
   }
 
+  async delete<T>(path: string, body: unknown, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+    return this.request<T>('DELETE', path, { ...options, body })
+  }
+
   async getSession(): Promise<SessionPayload> {
     return this.get<SessionPayload>('/session', { skipAuthHandler: true })
   }

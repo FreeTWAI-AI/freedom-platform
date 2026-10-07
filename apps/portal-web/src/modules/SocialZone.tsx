@@ -1,20 +1,24 @@
-import {useCallback, useEffect, useState, type FormEvent} from 'react';
+import {useCallback, useEffect, useId, useRef, useState, type FormEvent} from 'react';
 import {accessAwareFetch} from '../access-fetch';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import {PLATFORM_LABELS, type SocialPlatform} from '../../../../packages/shared/share-url';
 import {MemberAvatar} from './MemberAvatar';
 import {PromotionShare} from './PromotionShare';
+import {SocialInteractions} from './SocialInteractions';
 import './SocialZone.css';
 
-type Post = {
-  post_id: string; url: string; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
+export type SocialPost = {
+  post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
   author: {user_id: string; display_name: string; avatar_url: string | null};
   thumbnail_url: string | null; total_points: number; my_points: number; mine: boolean;
+  like_count: number; comment_count: number; liked: boolean;
 };
+type Post = SocialPost;
 type Page = {items: Post[]; next_cursor: string | null; can_hide: boolean};
 const FILTERS = [
   {id: '', label: '全部'},
+  {id: 'note', label: '工坊貼文'},
   {id: 'youtube', label: 'YouTube'},
   {id: 'instagram', label: 'Instagram'},
   {id: 'facebook', label: 'Facebook'},
@@ -24,15 +28,27 @@ const FILTERS = [
 function tone(platform: SocialPlatform) {
   return platform === 'youtube' || platform === 'instagram' || platform === 'facebook' ? platform : 'other';
 }
-function hostOf(url: string) { try { return new URL(url).hostname; } catch { return url; } }
+function hostOf(url: string | null) { try { return new URL(url ?? '').hostname; } catch { return url; } }
+
+function SocialBody({text}:{text:string}) {
+  const [expanded,setExpanded]=useState(false);
+  const id=useId(),long=text.length>180||text.split('\n').length>4;
+  return <div className="social-post-text"><p id={id} className={`social-note multiline-text${long&&!expanded?' is-preview':''}`}>{text}</p>
+    {long&&<button type="button" className="social-read-more" aria-expanded={expanded} aria-controls={id} onClick={()=>setExpanded(value=>!value)}>{expanded?'收合':'顯示全文'}</button>}
+  </div>;
+}
 
 function Thumb({post}: {post: Post}) {
   const [broken, setBroken] = useState(false);
+  if (post.kind === 'note' && !post.thumbnail_url) return null;
   if (!post.thumbnail_url || broken) return <div className="social-placeholder" data-platform={tone(post.platform)}><span className="social-platform-badge" data-platform={tone(post.platform)}>{post.platform_label}</span><span>{hostOf(post.url)}</span></div>;
   return <img className="social-thumb" src={post.thumbnail_url} alt="" width={640} height={360} onError={() => setBroken(true)}/>;
 }
 
-export function SocialZone({client, canReview = false}: {client: PortalClient; canReview?: boolean}) {
+export function SocialZone({client, canReview = false, viewer}: {client: PortalClient; canReview?: boolean; viewer?: {name: string; avatarUrl?: string | null}}) {
+  const composerId = useId();
+  const composer = useRef<HTMLDialogElement>(null), composerTrigger = useRef<HTMLButtonElement>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [platform, setPlatform] = useState('');
   const [items, setItems] = useState<Post[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -47,21 +63,53 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
+  const pending = useRef<{text: string; key: string} | null>(null);
+  const loadSequence = useRef(0);
+  const newPosts = useRef<Post[]>([]);
   const load = useCallback(async (nextPlatform: string, nextCursor?: string) => {
+    const sequence = ++loadSequence.current;
     if (nextCursor) setMore(true); else setLoading(true);
     setError('');
     try {
       const query = new URLSearchParams();
-      if (nextPlatform) query.set('platform', nextPlatform);
+      if (nextPlatform === 'note') query.set('kind', 'note');
+      else if (nextPlatform) query.set('platform', nextPlatform);
       if (nextCursor) query.set('cursor', nextCursor);
       const page = await client.get<Page>(`/social-posts${query.size ? `?${query}` : ''}`);
-      setItems(current => nextCursor ? [...current, ...page.items] : page.items);
+      if (sequence !== loadSequence.current) return;
+      const fresh = nextPlatform === '' || nextPlatform === 'note' ? newPosts.current.filter(post => !page.items.some(item => item.post_id === post.post_id)) : [];
+      setItems(current => nextCursor ? [...current, ...page.items.filter(post => !current.some(item => item.post_id === post.post_id))] : [...fresh, ...page.items]);
+      newPosts.current = newPosts.current.filter(post => !page.items.some(item => item.post_id === post.post_id));
       setCursor(page.next_cursor);
       setCanHide(page.can_hide);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '貼文暫時無法載入。'); }
-    finally { setLoading(false); setMore(false); }
+    } catch (cause) { if (sequence === loadSequence.current) setError(cause instanceof Error ? cause.message : '貼文暫時無法載入。'); }
+    finally { if (sequence === loadSequence.current) { setLoading(false); setMore(false); } }
   }, [client]);
   useEffect(() => { void load(platform); }, [load, platform]);
+  useEffect(() => () => { ++loadSequence.current; }, []);
+  useEffect(() => { if (composerOpen && !composer.current?.open) {composer.current?.showModal(); composer.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus();} }, [composerOpen]);
+  function closeComposer() { composer.current?.close(); setComposerOpen(false); composerTrigger.current?.focus({preventScroll: true}); }
+  async function publish(event: FormEvent) {
+    event.preventDefault();
+    if (publishing) return;
+    const command = pending.current ?? {text: text.trim(), key: crypto.randomUUID()};
+    if (!command.text) return;
+    pending.current = command;
+    setPublishing(true); setPublishError(''); setNotice('');
+    try {
+      const created = await client.post<Post>('/social-posts/notes', {text: command.text}, {idempotencyKey: command.key});
+      newPosts.current = [created, ...newPosts.current.filter(post => post.post_id !== created.post_id)];
+      setItems(current => [created, ...current.filter(post => post.post_id !== created.post_id)]);
+      if (platform !== '' && platform !== 'note') setPlatform('note');
+      pending.current = null; setText(''); setNotice('貼文已發布。'); closeComposer();
+    } catch (cause) {
+      if (cause instanceof ApiError && !cause.network) pending.current = null;
+      setPublishError(cause instanceof Error ? cause.message : '尚未確認發布結果，請重試。');
+    } finally { setPublishing(false); }
+  }
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!client.csrfToken) { setError('登入狀態已變更，請重新整理。'); return; }
@@ -120,6 +168,7 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
       });
       if (!response.ok) { const problem = await response.json().catch(() => ({})) as {detail?: string}; throw new ApiError({message: problem.detail || '貼文未能刪除。', status: response.status}); }
       setItems(current => current.filter(item => item.post_id !== post.post_id));
+      newPosts.current = newPosts.current.filter(item => item.post_id !== post.post_id);
       setConfirming(null); setNotice('貼文已刪除。');
     } catch (cause) { setError(cause instanceof Error ? cause.message : '貼文未能刪除。'); }
     finally { setSaving(false); }
@@ -131,8 +180,12 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
     finally { setSaving(false); }
   }
   return <section className="social-zone stack" aria-label="社群媒體分享專區">
-    <details className="social-composer card">
-      <summary data-guide-anchor="social:composer">分享一則貼文</summary>
+    <div className="card social-composer-start" data-guide-anchor="social:composer">
+      <div className="social-composer-prompt"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/>
+        <button ref={composerTrigger} type="button" className="social-write-trigger" aria-label="建立貼文" aria-haspopup="dialog" onClick={() => setComposerOpen(true)}>{pending.current ? '繼續確認剛才的貼文…' : text ? '繼續編輯你的貼文…' : '分享近況、作品或想法…'}</button>
+      </div>
+    <details className="social-composer">
+      <summary>分享外部連結</summary>
       <form onSubmit={event => void submit(event)} aria-busy={saving}>
         <label className="field">連結<input required type="url" inputMode="url" maxLength={2048} value={url} onChange={event => setUrl(event.target.value)} placeholder="https://"/></label>
         <label className="field">標題（選填）<input maxLength={120} value={title} onChange={event => setTitle(event.target.value)}/></label>
@@ -141,26 +194,40 @@ export function SocialZone({client, canReview = false}: {client: PortalClient; c
         <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? '正在讀取預覽…' : '分享貼文'}</button>
       </form>
     </details>
+    </div>
+    <dialog ref={composer} className="social-publish-dialog" aria-labelledby={composerId} onCancel={event => {event.preventDefault(); closeComposer();}} onClose={() => setComposerOpen(false)}>
+      {composerOpen && <div className="stack">
+        <header className="social-publish-head"><h2 id={composerId}>建立貼文</h2><button type="button" className="btn btn-ghost" aria-label="關閉發文" onClick={closeComposer}>關閉</button></header>
+        <p className="social-publish-identity"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/><span>{viewer?.name ?? '我'}<small>社群會員可見</small></span></p>
+        <form className="social-native-composer stack" onSubmit={event => void publish(event)} aria-busy={publishing}>
+          <label className="field"><span className="sr-only">貼文內容</span><textarea aria-label="貼文內容" autoFocus required rows={6} maxLength={2000} placeholder="分享近況、作品，或找夥伴一起做點事…" value={text} disabled={publishing || !!pending.current} onChange={event => setText(event.target.value)}/></label>
+          <div className="social-composer-footer"><span className="muted">{text.length}/2000</span><button className="btn btn-primary" disabled={publishing || !text.trim()}>{publishing ? '發布中…' : pending.current ? '重試發布' : '發布貼文'}</button></div>
+          {publishError && <p className="banner banner-error" role="alert">{publishError}</p>}
+        </form>
+      </div>}
+    </dialog>
     {notice && <p className="banner banner-info" role="status">{notice}</p>}
     {error && <div className="banner banner-error" role="alert"><p>{error}</p><button type="button" className="btn btn-ghost" onClick={() => void load(platform)}>重試</button></div>}
     <div className="social-filters" data-guide-anchor="social:platform" role="group" aria-label="平台">
-      {FILTERS.map(item => <button key={item.id || 'all'} type="button" className="btn btn-ghost social-filter" aria-pressed={platform === item.id} onClick={() => setPlatform(item.id)}>{item.label}</button>)}
+      <label className="social-filter-select"><span className="sr-only">查看貼文</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{FILTERS.map(item=><option key={item.id||'all'} value={item.id}>{item.label}</option>)}</select></label>
+      <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(platform)}>更新動態</button>
     </div>
     {loading && <p role="status">正在載入貼文…</p>}
-    {!loading && items.length === 0 && <p className="empty">這個分類還沒有貼文。</p>}
+    {!loading && items.length === 0 && <p className="empty">{platform ? '這個分類還沒有貼文。' : '還沒有動態。分享第一則近況，和夥伴開始聊聊。'}</p>}
     <div className="social-grid">
       {items.map(post => <article className="card social-card" key={post.post_id} id={`social-post-${post.post_id}`}>
-        <Thumb post={post}/>
         <div className="social-card-body">
-          <span className="social-platform-badge" data-platform={tone(post.platform)}>{post.platform_label || PLATFORM_LABELS[post.platform]}</span>
-          <h3>{post.title}</h3>
-          {post.note && <p className="social-note multiline-text">{post.note}</p>}
           <p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time></p>
-          <p className="social-points">推廣點擊 {post.total_points}</p>
+          <span className="social-platform-badge" data-platform={tone(post.platform)}>{post.platform_label || PLATFORM_LABELS[post.platform]}</span>
+          {post.kind !== 'note' && <h3>{post.title}</h3>}
+          {post.note && <SocialBody text={post.note}/>}
+          <Thumb post={post}/>
+          {post.kind !== 'note' && <p className="social-points">推廣點擊 {post.total_points}</p>}
+          <SocialInteractions client={client} post={post} canHide={canHide} onUpdate={update => setItems(current => current.map(item => item.post_id === post.post_id ? {...item, ...update} : item))}/>
           <div className="social-actions">
-            <a className="btn btn-ghost" href={post.url} target="_blank" rel="noopener noreferrer">開啟原文 ↗</a>
-            <PromotionShare client={client} kind="social_post" target={post.post_id} title={post.title} label="分享"/>
-            {post.mine && <label className="btn btn-ghost social-file">換縮圖<input type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event => { const next = event.target.files?.[0]; if (next) void upload(post, next); event.target.value = ''; }}/></label>}
+            {post.url && <a className="btn btn-ghost" href={post.url} target="_blank" rel="noopener noreferrer">開啟原文 ↗</a>}
+            {post.kind !== 'note' && <PromotionShare client={client} kind="social_post" target={post.post_id} title={post.title} label="分享"/>}
+            {post.mine && <label className="btn btn-ghost social-file">{post.kind === 'note' ? post.thumbnail_url ? '換圖片' : '加入圖片' : '換縮圖'}<input aria-label={post.kind === 'note' ? '貼文圖片（JPEG、PNG、WebP，512 KiB 以下）' : '更換縮圖'} type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event => { const next = event.target.files?.[0]; if (next) void upload(post, next); event.target.value = ''; }}/></label>}
             {post.mine && confirming !== post.post_id && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => setConfirming(post.post_id)}>刪除</button>}
             {post.mine && confirming === post.post_id && <>
               <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void remove(post)}>確定刪除</button>

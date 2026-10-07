@@ -9,7 +9,7 @@
 | `member_card` | 會員自己的名片 | 名片點擊排行榜 | 已開放 |
 | `platform` | 自由工坊本身 | 平台推廣排行榜 | 已做 |
 | `skill_book` | 目錄技能書或已公開的社群技能書 | 技能推廣排行榜 | 已做 |
-| `social_post` | 社群媒體分享專區的一則貼文 | 社群推廣排行榜 | 已做 |
+| `social_post` | 社群分享區的一則外部連結貼文 | 社群推廣排行榜 | 已做；工坊原生貼文不對外分享 |
 | `member_service` | 一項公開的社員服務 | 業務推廣排行榜 | 已做 |
 | `event` | 已公開的社群活動 | 活動推廣排行榜 | 已做 |
 
@@ -75,11 +75,16 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 | `POST /api/v1/promotion/links` | 會員 | 取得或建立個人連結 |
 | `GET /api/v1/promotion/links/mine?period=` | 會員 | 自己的連結、各期間分數與 `available`；只讀 |
 | `GET /api/v1/promotion/leaderboards?period=` | 會員 | 六塊榜，`week`／`month`／`all` |
-| `GET /api/v1/social-posts` | 會員 | 有效貼文，每頁 24 |
+| `GET /api/v1/social-posts` | 會員 | 同社群有效貼文，每頁 24；`kind=note/link`，外部平台篩選不混入原生貼文 |
 | `POST /api/v1/social-posts` | 會員 | 新增貼文，需 Idempotency-Key |
+| `POST /api/v1/social-posts/notes` | 會員 | `{text}`，1–2,000 字；不取外部預覽 |
+| `POST /api/v1/social-posts/:id/like` | 會員 | `{liked:boolean}`；設為讚／未讚，與推廣點擊分開 |
+| `GET /api/v1/social-posts/:id/comments` | 會員 | 同社群有效貼文的留言，每頁 24；`cursor` 依時間／ID 向後取 |
+| `POST /api/v1/social-posts/:id/comments` | 會員 | `{text}`，1–1,000 字；每日最多 100 則 |
+| `DELETE /api/v1/social-posts/:id/comments/:commentId` | 作者／平台管理員 | 軟刪除留言；公會職務不授予此管理權 |
 | `PUT /api/v1/social-posts/:id/thumbnail` | 作者 | PNG／JPEG／WebP，512 KiB 以下 |
 | `GET /api/v1/social-posts/:id/thumbnail` | 會員 | 有效貼文的縮圖 |
-| `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 同上；隱藏或刪除為 404 |
+| `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 只開放外部連結貼文；原生、隱藏或刪除為 404 |
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
 | `POST /api/v1/social-posts/:id/hide` | 平台管理員 | 隱藏 |
 
@@ -88,6 +93,10 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 活動分享沿用原本的活動分享碼。尚未結束的活動，點進 `/go/` 後會到 `/events/<id>?ref=<分享者的活動碼>`。已經結束、而且有公開活動集錦的，改到 `/highlights/<id>`。報名統計多了「點擊 N・報名 M 人」。舊的 `?ref=` 連結仍可報名，只是沒有點擊分。
 
 ## 資料與部署
+
+2026-10-07 社群互動候選增加 `kind=link/note` 與 likes／comments，沿用同一張 posts 表、會員 session／CSRF／Origin／command receipt 及圖片管線。原生貼文沒有外部網址，`note` 保存純文字，`title` 由第一行產生，不取得公開 promotion link。創建 receipt 的重播也須當前貼文／留言有效；隱藏或刪除後不返回原文字。原生與外部發布共用交易內每日 budget lock，並行請求不能超額。
+
+此候選使用 `124_social_feed_interactions.sql`；與開放中的 #175 编號重疊，必須依合併順序重排，再更新 migration manifest 和 inventory。不能改舊 migration 的 bytes。只實作會員 HTTP 路由，沒有擴充固定 preview SDK。詳見 [本輪盤點](social-platform-audit-2026-10-07.md)。
 
 資料表在 `migrations/066_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
@@ -137,6 +146,8 @@ LINE 應用內瀏覽器（例如 `Line/14.15.0`）、Facebook／Instagram 應用
 ### 資料
 
 `migrations/067_member_services.sql`：`member_services`、`member_service_covers`。公開列表索引是 `(community_id, updated_at DESC, service_id DESC) WHERE state='active'`，主人索引含有效與暫停。封面 `ON DELETE CASCADE`，但軟刪除要另外刪封面列。點擊分仍只在 `promotion_clicks`。列表的 `total_points` 用既有的 `promotion_links_target` 索引，合計該服務全部 `member_service` 連結的點擊。
+
+首頁直接呈現社群動態；在首頁或社群分享按「建立貼文」可寫原生貼文。關閉發文視窗保留草稿，確認發布後回到動態；長文可用「顯示全文」展開。外部網址仍從「分享外部連結」加入。
 
 本文件描述功能與維護方式；實跑結果另記於交接，不以文件存在代表已發布。
 

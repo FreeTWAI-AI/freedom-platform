@@ -224,6 +224,28 @@ export async function sendChannelMessage(pool:Pool,input:Command,rawKind:string,
   });
 }
 
+/** Used only inside the authenticated bulk member command transaction. */
+export async function markAllMemberChannelsRead(q:PoolClient,actor:Actor){
+  let updated=0;
+  for(const kind of CHANNEL_KINDS){
+    const rooms=await lockRooms(q,actor,kind);
+    for(const room of rooms){
+      await advisory(q,`member-channel/${actor.community_id}/${kind}/${room.channel_key}`);
+      const channel=(await q.query('SELECT last_sequence FROM member_chat_channels WHERE community_id=$1 AND kind=$2 AND channel_key=$3',
+        [actor.community_id,kind,room.channel_key])).rows[0];
+      if(!channel||BigInt(channel.last_sequence)===0n)continue;
+      const result=await q.query(`INSERT INTO member_channel_reads AS d(community_id,kind,channel_key,user_id,last_read_sequence,read_at)
+        VALUES($1,$2,$3,$4,$5,clock_timestamp())
+        ON CONFLICT (community_id,kind,channel_key,user_id) DO UPDATE
+          SET last_read_sequence=EXCLUDED.last_read_sequence,read_at=EXCLUDED.read_at
+          WHERE d.last_read_sequence<EXCLUDED.last_read_sequence`,
+        [actor.community_id,kind,room.channel_key,actor.user_id,channel.last_sequence]);
+      updated+=result.rowCount??0;
+    }
+  }
+  return updated;
+}
+
 export async function markChannelRead(pool:Pool,input:Command,rawKind:string,rawKey:string):Promise<ChannelReadResult>{
   const target=room(rawKind,rawKey),through=ChannelReadInput.parse(input.body).through_message_id.toLowerCase(),actor=input.actor;
   return command(pool,input,async q=>{await currentMember(q,actor,false);await lockRoom(q,actor,target);},async q=>{

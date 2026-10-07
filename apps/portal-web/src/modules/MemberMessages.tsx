@@ -4,7 +4,7 @@ import {formatIsoLocal} from '../format';
 import type {SessionPayload,TabId} from '../types';
 import {MemberAvatar} from './MemberAvatar';
 import {MemberChannels} from './MemberChannels';
-import {announceInboxChange,type InboxUnread} from './member-inbox';
+import {announceInboxChange,INBOX_ALL_READ,useReadAllInbox,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import type {MemberCardData} from './Membership';
@@ -46,6 +46,7 @@ type View='notifications'|'guild'|'squad'|'direct'|'world';
 const VIEWS:readonly (readonly [View,string])[]=[['notifications','通知'],['guild','公會閒聊'],['squad','小隊閒聊'],['direct','私人訊息'],['world','世界聊天']];
 
 export function MemberMessages({client,session,onNavigate,onNotificationPeer,chatEntry}:Props&{chatEntry?:ChatEntry|null}){
+  const all=useReadAllInbox(client);
   const [view,setView]=useState<View>('notifications');
   const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>(),[worldUnread,setWorldUnread]=useState<InboxUnread>();
   const unread:Record<View,InboxUnread>={notifications:noticeUnread,guild:guildUnread,squad:squadUnread,direct:directUnread,world:worldUnread};
@@ -65,6 +66,7 @@ export function MemberMessages({client,session,onNavigate,onNotificationPeer,cha
       {VIEWS.map(([id,label])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} data-guide-anchor={id==='notifications'?'messages:notifications':id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
         aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}>{label}{unread[id]!==undefined&&<span className={unread[id]===0?'chat-sr-only':'messages-count'}>{unreadText(unread[id])}</span>}</button>)}
     </div>
+    <div className="messages-actions"><button type="button" className="btn btn-ghost" disabled={all.busy} onClick={()=>void all.markAll()}>{all.busy?'標記中…':'全部標為已讀'}</button>{all.error&&<p role="alert">{all.error}</p>}</div>
     {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}
     <div id="messages-panel-notifications" role="tabpanel" aria-labelledby="messages-tab-notifications" hidden={view!=='notifications'}>
       <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
@@ -107,6 +109,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
     }
   },[client,onUnread]);
   useEffect(()=>{void load();},[load]);
+  useEffect(()=>{const update=()=>void load(true);window.addEventListener(INBOX_ALL_READ,update);return()=>window.removeEventListener(INBOX_ALL_READ,update)},[load]);
   async function loadMore(){
     if(nextOffset===null||more.loading)return;
     const current=generation.current;setMore({loading:true,error:''});
@@ -217,6 +220,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
     }
   },[client,onUnread]);
   useEffect(()=>{void loadConversations();},[loadConversations]);
+  useEffect(()=>{const update=()=>void loadConversations(true);window.addEventListener(INBOX_ALL_READ,update);return()=>window.removeEventListener(INBOX_ALL_READ,update)},[loadConversations]);
   async function moreConversations(){
     if(convNext===null||convMore.loading)return;
     const current=convGeneration.current;setConvMore({loading:true,error:''});
@@ -259,6 +263,11 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
       return false;
     }
   },[client,me]);
+  useEffect(()=>{
+    const update=()=>{if(currentPeer.current)void loadThread(currentPeer.current,true);};
+    window.addEventListener(INBOX_ALL_READ,update);
+    return()=>window.removeEventListener(INBOX_ALL_READ,update);
+  },[loadThread]);
   const live=useRef({pullLatest});live.current={pullLatest};
   async function pullLatest(){
     const shown=snapshot.current,id=currentPeer.current;

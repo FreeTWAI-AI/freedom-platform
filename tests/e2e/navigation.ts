@@ -1,5 +1,27 @@
 import { expect, type Page } from './fixtures.js';
 
+/** Member tools are secondary; open their visible disclosure before choosing one.
+ * Sign-in and management retain their inline tools. */
+export async function openPageTools(page:Page){
+  const menu=page.locator('.topbar .page-tools-menu');
+  if(await menu.count()&&!await menu.evaluate(element=>(element as HTMLDetailsElement).open))await menu.locator(':scope > summary').click();
+}
+
+/** Reach the original profile/recommendation and module cards on the simple home. */
+export async function expandHomeSections(page:Page){
+  for(const selector of ['.home-personal','.home-module-section']){
+    const section=page.locator(selector);
+    if(await section.count()&&!await section.evaluate(element=>(element as HTMLDetailsElement).open))await section.locator(':scope > summary').click();
+  }
+}
+
+export async function openFeatureSearch(page:Page){
+  const menu=page.getByRole('button',{name:'開啟選單',exact:true});
+  if(await menu.isVisible())await menu.click();
+  const more=page.locator('.nav-more');
+  if(!await more.evaluate(element=>(element as HTMLDetailsElement).open))await more.locator(':scope > summary').click();
+}
+
 /** Follow the same visible navigation a member uses, including phone menus and groups. */
 export async function navigate(page: Page, name: string) {
   await expect(page.locator('.shell')).toBeVisible();
@@ -20,8 +42,12 @@ export async function navigate(page: Page, name: string) {
   await expect(navigation).toBeVisible();
   const target = navigation.getByRole('button', { name, exact: true, includeHidden: true });
   await expect(target).toHaveCount(1);
-  const group = target.locator('xpath=ancestor::details[1]');
-  if (await group.count() && !await group.evaluate(element => (element as HTMLDetailsElement).open)) await group.locator(':scope > summary').click();
+  const groups = target.locator('xpath=ancestor::details');
+  // Open the outer disclosure before its nested group, using visible controls.
+  for (let index = 0; index < await groups.count(); index++) {
+    const group = groups.nth(index);
+    if (!await group.evaluate(element => (element as HTMLDetailsElement).open)) await group.locator(':scope > summary').click();
+  }
   await target.click();
 }
 

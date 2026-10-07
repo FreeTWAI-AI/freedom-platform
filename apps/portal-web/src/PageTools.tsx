@@ -27,18 +27,29 @@ function promptFor(tool:Tool,page:typeof developmentPages[number],draft:{title:s
   return `${preface}\n\n我想提出這頁的想法。先查這頁仍開啟的 Issue（包含 ${pageTag(page.id)} 或 ${marker(page.id)}），避免重複。請將我的想法整理成清楚的問題、預期體驗與完成條件，不要杜撰需求。標題：${draft.title||'請根據我的想法擬定'}。內容：${draft.body||'請先詢問我具體想法'}。用我的 GitHub 帳號向 ${PLATFORM_REPOSITORY}/issues 提出 Issue；若 repo 已有 ${pageTag(page.id)} 標籤就加上，並在正文保留 ${marker(page.id)}，讓網站能正確歸屬此頁。沒有 GitHub 權限時請提供已填好標題與正文的連結，讓我親自檢查送出。送出後回報真實 Issue 網址，不能把草稿當成已發布。`;
 }
 
-export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
+export function PageTools({pageId,client,compact=false}:{pageId:string;client?:PortalClient;compact?:boolean}){
   const page=developmentPages.find(value=>value.id===pageId);
   const [tool,setTool]=useState<Tool|null>(null),[activity,setActivity]=useState<PageGitHubActivity|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[claimCopied,setClaimCopied]=useState<number|null>(null),[title,setTitle]=useState(''),[body,setBody]=useState(''),[refreshTick,setRefreshTick]=useState(0);
   const [githubConnected,setGithubConnected]=useState(false),[githubConfigured,setGithubConfigured]=useState(false),[githubLoaded,setGithubLoaded]=useState(false),[githubCheckError,setGithubCheckError]=useState(false),[connectCopied,setConnectCopied]=useState(false),[posting,setPosting]=useState(false),[postError,setPostError]=useState(''),[postedUrl,setPostedUrl]=useState(''),[ownIssues,setOwnIssues]=useState<OwnIssue[]>([]);
   const [screenshot,setScreenshot]=useState<File|null>(null),[screenshotError,setScreenshotError]=useState(''),[screenshotHelp,setScreenshotHelp]=useState('');
   const [ownClaims,setOwnClaims]=useState<OwnClaim[]>([]),[claimIssue,setClaimIssue]=useState<number|null>(null),[claimMessage,setClaimMessage]=useState(designClaim),[claimError,setClaimError]=useState(''),[claimPosting,setClaimPosting]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null);
+  const toolsMenu=useRef<HTMLDetailsElement>(null);
+  const toolsTrigger=useRef<HTMLElement>(null);
   const screenshotInput=useRef<HTMLInputElement>(null);
   const screenshotCanvas=useRef<HTMLCanvasElement>(null);
   const issueKey=useRef<{draft:string;key:string}|null>(null);
   const claimKey=useRef<{draft:string;key:string}|null>(null);
   useEffect(()=>{if(tool)dialog.current?.showModal();else dialog.current?.close()},[tool]);
+  useEffect(()=>{if(toolsMenu.current)toolsMenu.current.open=false},[pageId]);
+  useEffect(()=>{
+    if(!compact)return;
+    const outside=(event:PointerEvent)=>{
+      if(event.target instanceof Node&&!toolsMenu.current?.contains(event.target)&&!dialog.current?.contains(event.target)&&toolsMenu.current)toolsMenu.current.open=false;
+    };
+    document.addEventListener('pointerdown',outside);
+    return()=>document.removeEventListener('pointerdown',outside);
+  },[compact]);
   useEffect(()=>{setTitle('');setBody('');setPostError('');setPostedUrl('');setScreenshot(null);setScreenshotError('');setScreenshotHelp('');setActivity(null);setOwnIssues([]);setOwnClaims([]);setClaimIssue(null);setClaimMessage(designClaim);setClaimError('');issueKey.current=null;claimKey.current=null},[pageId]);
   useEffect(()=>{if(!screenshot)return;let live=true;
     void createImageBitmap(screenshot).then(bitmap=>{if(!live){bitmap.close();return;}
@@ -115,8 +126,13 @@ export function PageTools({pageId,client}:{pageId:string;client?:PortalClient}){
   };
   const connectGitHub=async(target:'issue'|'claim'='issue')=>{if(!client)return;try{const result=await client.post<{authorization_url:string}>('/me/github/connect',{return_to:window.location.hash||'#home'});const url=new URL(result.authorization_url);if(url.protocol!=='https:'||url.hostname!=='github.com'||url.pathname!=='/login/oauth/authorize'||url.username||url.password||url.port)throw Error('GitHub 連結網址無法確認。');window.location.assign(url.href)}catch(cause){(target==='claim'?setClaimError:setPostError)(cause instanceof Error?cause.message:'無法連結 GitHub。')}};
   return <>
-    <div className="page-tools" role="group" aria-label={`${page.title}頁面工具`}>{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} aria-label={names[item]} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</div>
-    {tool&&<dialog ref={dialog} className="page-tools-dialog" aria-label={`${page.title}：${names[tool]}`} onClose={()=>setTool(null)}>
+    <div className={`page-tools${compact?' page-tools--compact':''}`} role="group" aria-label={`${page.title}頁面工具`}>
+      {compact?<details ref={toolsMenu} className="page-tools-menu" onKeyDown={event=>{if(event.key==='Escape'&&toolsMenu.current){toolsMenu.current.open=false;toolsTrigger.current?.focus()}}}>
+        <summary ref={toolsTrigger} aria-label="頁面工具"><span aria-hidden="true">⋯</span></summary>
+        <div className="page-tools-menu-items">{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</div>
+      </details>:<>{(['idea','help','edit'] as const).map(item=><button key={item} type="button" className={`page-tool-button page-tool-button--${item}`} aria-label={names[item]} onClick={()=>{setCopied(false);setTool(item)}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[item]}</svg><span className="page-tool-label">{names[item]}</span></button>)}</>}
+    </div>
+    {tool&&<dialog ref={dialog} className="page-tools-dialog" aria-label={`${page.title}：${names[tool]}`} onClose={()=>{setTool(null);if(compact&&toolsMenu.current){toolsMenu.current.open=false;toolsTrigger.current?.focus()}}}>
       <header><div><span className="page-tools-kicker">自由工坊 · 頁面工具</span><h2>{names[tool]} <small>{page.title}</small></h2></div><button type="button" className="page-tools-close" aria-label="關閉" onClick={()=>{dialog.current?.close();setTool(null)}}>×</button></header>
       <div className="page-tools-body">
         {tool==='idea'&&<>

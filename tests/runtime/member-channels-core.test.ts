@@ -112,6 +112,39 @@ test('new-message sequence cursors catch up without skipping messages or changin
   await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');assert.equal((await messages(a,'guild','guild_ai_vibe','?after_sequence=0')).status,404);
 });
 
+test('bulk inbox advances only current joined room cursors and receipt replay preserves new messages',async()=>{
+  const [a,b]=await signInAll();
+  await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');
+  await joinGuild(B,'guild_marketing');await joinGuild(A,'guild_marketing',DEMO_COMMUNITY,'left');
+  const own=await squad(B,[A]),foreign=await squad(B);
+  await post(b,'guild','guild_ai_vibe','已加入公會');await post(b,'guild','guild_marketing','已退出公會');
+  await post(b,'squad',own,'已加入小隊');await post(b,'squad',foreign,'別人的小隊');await post(b,'world','world','世界訊息');
+  const key=randomUUID(),path='/me/inbox/read-all',first=await request(path,a,{},{key});
+  assert.equal(first.status,200,JSON.stringify(first.data));assert.equal(first.data.channels_updated,3);
+  for(const kind of ['guild','squad','world'])assert.equal((await request(`/me/channels?kind=${kind}`,a)).data.unread_count,0);
+  const reads=(await pool.query('SELECT kind,channel_key FROM member_channel_reads WHERE user_id=$1',[A])).rows;
+  assert.equal(reads.some(row=>row.channel_key==='guild_marketing'||row.channel_key===foreign),false);
+  await post(b,'guild','guild_ai_vibe','新的提醒');await request(path,a,{},{key});
+  assert.equal((await request('/me/channels?kind=guild',a)).data.unread_count,1);
+  assert.equal((await request(path,a,{})).status,200);
+  assert.equal((await request('/me/channels?kind=guild',a)).data.unread_count,0);
+});
+
+test('bulk inbox rolls notification and private read marks back if a room cursor cannot commit',async()=>{
+  const [a,b]=await signInAll();
+  await post(b,'world','world','交易回滾測試');
+  await request(`/me/conversations/${A}/messages`,b,{body:'仍應未讀'});
+  await pool.query(`INSERT INTO member_notifications(community_id,recipient_ref,kind,source_key,title,body) VALUES($1,$2,'friend_request','bulk-rollback','通知','仍應未讀')`,[DEMO_COMMUNITY,A]);
+  await pool.query(`CREATE FUNCTION reject_bulk_cursor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic cursor failure'; END $$`);
+  await pool.query('CREATE TRIGGER reject_bulk_cursor BEFORE INSERT OR UPDATE ON member_channel_reads FOR EACH ROW EXECUTE FUNCTION reject_bulk_cursor()');
+  try{
+    assert.equal((await request('/me/inbox/read-all',a,{})).status,500);
+    assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+    assert.equal((await request('/me/conversations',a)).data.unread_count,1);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_channel_reads WHERE user_id=$1',[A])).rows[0].n,0);
+  }finally{await pool.query('DROP TRIGGER reject_bulk_cursor ON member_channel_reads');await pool.query('DROP FUNCTION reject_bulk_cursor()');}
+});
+
 test('the list shows every joined room, including empty ones, sorted and paged with total unread and no bodies, and GET writes nothing',async()=>{
   const [a,b]=await signInAll();
   for(const key of ['guild_marketing','guild_ai_vibe','guild_platform_engineering'])await joinGuild(A,key);

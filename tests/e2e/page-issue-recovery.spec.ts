@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 import {test,expect} from './fixtures.js';
 
 async function login(page:import('@playwright/test').Page){
@@ -23,7 +24,7 @@ test('confirmed Issue remains visible after a lost publish response and modal re
   });
   await page.route('**/api/v1/pages/github-activity?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[{number:16,title:'另一位會員的首頁提案',url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/16',author:'other-member',created_at:'2026-09-27T08:16:00Z',state:'open',kind:'issue',pages:['home']}],checked_at:'2026-09-27T08:19:00Z',truncated:false})}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'901',login:'maker'}})}));
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea.getByRole('link',{name:/#15/})).toBeVisible();
   await expect(idea.getByRole('link',{name:/#16/})).toBeVisible();
@@ -34,7 +35,7 @@ test('confirmed Issue remains visible after a lost publish response and modal re
   await expect(idea.getByRole('link',{name:'#17 改善首頁 ↗'})).toBeVisible();
   await expect(idea.getByText('發布結果尚未確認')).toHaveCount(0);
   await idea.getByRole('button',{name:'關閉'}).click();
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   await expect(idea.getByRole('link',{name:/#15/})).toBeVisible();
   await expect(idea.getByRole('link',{name:/#16/})).toBeVisible();
   await expect(idea.getByRole('link',{name:'#17 改善首頁 ↗'})).toBeVisible();
@@ -49,7 +50,7 @@ test('member can send a design claim comment from the Issue row',async({page})=>
   // Page activity now comes from the synced open issue #14 (page:home). #12 stays closed for history.
   await page.route('**/api/v1/me/github/pages/home/design-claims',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:posted?[{operation_key:'claim-e2e',state:'confirmed',issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91',created_at:new Date().toISOString()}]:[]})}));
   await page.route('**/api/v1/me/github/pages/home/issues/14/design-claim',async route=>{posted=route.request().postData()??'';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({confirmed:true,issue_number:14,comment_url:'https://github.com/FreeTWAI-AI/freedom-platform/issues/14#issuecomment-91'})})});
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await idea.getByRole('button',{name:'回覆這則 Issue'}).click();
   await page.screenshot({path:'test-results/page-design-claim-editor-desktop.png'});
@@ -68,7 +69,7 @@ test('member can send a design claim comment from the Issue row',async({page})=>
 test('console detail control follows message text on the same content row',async({page})=>{
   await login(page);
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   await page.getByRole('dialog',{name:'會員首頁：提出想法'}).getByRole('button',{name:'關閉'}).click();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   const entry=page.locator('.game-console-entry').filter({hasText:'服務暫時無法回應（503）'}).first();

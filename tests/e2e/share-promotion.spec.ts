@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { navigate } from './navigation.js';
+import { navigate, expandHomeSections } from './navigation.js';
 import { test, expect, type Browser, type Page } from './fixtures.js';
 
 const GUEST_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -42,6 +42,7 @@ async function login(page: Page) {
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.locator('.shell')).toBeVisible({ timeout: 20_000 });
+  await page.locator('.home-personal > summary').click();
 }
 
 async function creditVisit(browser: Browser, url: string, expected: (url: URL) => boolean, intercept?: string) {
@@ -134,7 +135,7 @@ test('an event share link lands on the public page and shows the click', async (
 test('sharing the workshop from home and the leaderboard uses one personal link', async ({ page, browser }) => {
   test.setTimeout(60_000);
   await login(page);
-  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '分享「自由工坊」', exact: true });
   await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
   await expect(dialog).toContainText('自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。');
@@ -150,7 +151,7 @@ test('sharing the workshop from home and the leaderboard uses one personal link'
   await expect(page).toHaveURL(url => url.pathname === '/' && url.search === '');
   await navigate(page, '推廣排行榜');
   await expect(board(page, '平台推廣排行榜')).toContainText(`我的名次：第 1 名・${weekBefore + 1} 分`);
-  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const again = page.getByRole('dialog', { name: '分享「自由工坊」', exact: true });
   await expect(again.locator('.skill-share-url')).toHaveText(platformGo);
   await again.getByRole('button', { name: '關閉分享', exact: true }).click();
@@ -253,13 +254,13 @@ test('social cards keep a 16:9 thumbnail, a small byline and actions on one row'
   }
   await page.setViewportSize({ width: 390, height: 900 });
   const avatar = await card.locator('.social-byline .social-avatar').boundingBox();
-  expect(avatar!.width).toBeLessThanOrEqual(36);
+  expect(avatar!.width).toBeLessThanOrEqual(40);
   const open = await card.getByRole('link', { name: '開啟原文 ↗', exact: true }).boundingBox();
   const share = await card.getByRole('button', { name: '分享', exact: true }).boundingBox();
   expect(Math.abs(open!.y - share!.y)).toBeLessThanOrEqual(1);
 
   await navigate(page, '推廣排行榜');
-  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '分享「自由工坊」' });
   await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
   const go = (await dialog.locator('.skill-share-url').innerText()).trim();
@@ -321,7 +322,7 @@ test('share pages stay inside the viewport and stay readable in every theme', as
   test.setTimeout(60_000);
   await login(page);
   await navigate(page, '社群分享');
-  await page.getByText('分享一則貼文', { exact: true }).click();
+  await page.getByText('分享外部連結', { exact: true }).click();
   await expect(page.getByLabel('連結')).toHaveCSS('font-size', '16px');
   for (const width of [390, 820, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -387,7 +388,7 @@ test('screenshots cover the boards, social zone, dialogs and interstitial', asyn
       await noOverflow(page);
     }
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+    await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '分享「自由工坊」' });
     await expect(dialog.locator('.skill-share-url')).toBeVisible();
     await dialog.screenshot({ path: `${SHOTS}/share-dialog-${theme}-1280.png` });

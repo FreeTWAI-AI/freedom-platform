@@ -197,6 +197,22 @@
 }
 
 /* Search across the public collection without changing member book grants. */
+.freedom-home .home-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 56rem; width: 100%; margin-inline: auto; }
+.freedom-home .home-main { display: grid; gap: 16px; }
+.freedom-home .home-rail { display: grid; gap: 16px; position: static; padding: 0 16px 16px; }
+.freedom-home .home-disclosure { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-elev); }
+.freedom-home .home-disclosure > summary { min-height: 48px; padding: 12px 16px; cursor: pointer; font-weight: 600; }
+.freedom-home .home-disclosure > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.freedom-home .home-module-section > .home-section-heading { padding: 0 16px; }
+.freedom-home .home-module-section > .home-module-grid { padding: 0 16px 16px; }
+.freedom-home .home-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.freedom-home #home-next-step-description { font-size: 1.125rem; line-height: 1.6; margin-bottom: 12px; }
+@media (max-width: 440px) {
+  .freedom-home .home-shortcuts { grid-template-columns: minmax(0, 1fr); }
+  .freedom-home .home-shortcut { min-height: 48px; justify-content: flex-start; }
+  .freedom-home .home-shortcut { flex-direction: row; align-items: center; padding: 8px 12px; }
+}
+
 :is(.community-library,.community-skill-library) .skill-library-filters { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: end; gap: 16px; }
 :is(.community-library,.community-skill-library) .skill-library-filters .field { min-width: 0; font-size: .85rem; }
 :is(.community-library,.community-skill-library) .skill-library-filters input,

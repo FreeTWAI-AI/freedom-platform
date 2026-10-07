@@ -48,6 +48,44 @@ const notify=(input:NotifyMemberInput)=>transaction(pool,q=>notifyMember(q,input
 const count=async(sql:string,values:unknown[]=[])=>(await pool.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 const noPrivate=(data:unknown)=>{const text=JSON.stringify(data);for(const needle of ['@local.test','@example.invalid','password','csrf','token_hash','email'])assert.ok(!text.includes(needle),`leaked ${needle}: ${text}`);};
 
+test('one bulk inbox command clears all pages and incoming DMs while preserving history and other members',async()=>{
+  const [a,b]=await signInAll();
+  for(let n=0;n<27;n++)await notify(notice(A));
+  await notify(notice(B));
+  await request(`/me/conversations/${A}/messages`,b,{body:'給 A 的未讀訊息'});
+  await request(`/me/conversations/${B}/messages`,a,{body:'給 B 的未讀訊息'});
+  const first=await request('/me/inbox/read-all',a,{});assert.equal(first.status,200,JSON.stringify(first.data));
+  assert.equal(first.data.notifications_updated,27);assert.equal(first.data.direct_messages_updated,1);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,0);
+  assert.equal((await request('/me/conversations',a)).data.unread_count,0);
+  assert.equal((await request('/me/notifications',b)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',b)).data.unread_count,1);
+  assert.equal(await count('member_notifications'),28);assert.equal(await count('member_direct_messages'),2);noPrivate(first.data);
+});
+
+test('bulk inbox replay cannot clear new arrivals and revoked sessions cannot replay it',async()=>{
+  const [a,b]=await signInAll(),key=randomUUID();
+  await notify(notice(A));
+  const first=await request('/me/inbox/read-all',a,{},{key});assert.equal(first.status,200);
+  await notify(notice(A));await request(`/me/conversations/${A}/messages`,b,{body:'第一次標記後的新訊息'});
+  const replay=await request('/me/inbox/read-all',a,{},{key});assert.deepEqual(replay.data,first.data);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',a)).data.unread_count,1);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);
+  assert.equal((await request('/me/inbox/read-all',a,{},{key})).status,401);
+});
+
+test('bulk inbox denies missing authentication, CSRF, key, unfinished onboarding and actor overrides',async()=>{
+  const [a]=await signInAll();await notify(notice(A));
+  assert.equal((await request('/me/inbox/read-all',undefined,{})).status,401);
+  assert.equal((await request('/me/inbox/read-all',a,{},{csrf:'wrong'})).status,403);
+  assert.equal((await request('/me/inbox/read-all',a,{},{key:''})).status,400);
+  assert.equal((await request('/me/inbox/read-all',a,{recipient_ref:B})).status,422);
+  const pending=await extraMember('bulk-pending',DEMO_COMMUNITY,{ready:false});
+  assert.equal((await request('/me/inbox/read-all',await signIn(pending.email),{})).status,403);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+});
+
 test('notification inbox pages newest first with stable ties, counts unread across pages and GET never marks read',async()=>{
   const [a,b]=await signInAll();
   const ids:string[]=[];for(let i=0;i<5;i++)ids.push((await notify(notice(A,{title:`通知 ${i}`})))!.notification_id);

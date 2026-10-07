@@ -2,7 +2,7 @@ import {useEffect,useLayoutEffect,useId,useRef,useState,type FormEvent} from 're
 import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {SessionPayload,TabId} from '../types';
-import {announceInboxChange,type InboxUnread} from './member-inbox';
+import {announceInboxChange,INBOX_ALL_READ,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
@@ -113,6 +113,11 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     }
   }
   const handlers=useRef({loadList,loadThread,pullLatest});handlers.current={loadList,loadThread,pullLatest};
+  useEffect(()=>{
+    const update=()=>{void handlers.current.loadList(true);if(current.current)void handlers.current.loadThread(current.current,true);};
+    window.addEventListener(INBOX_ALL_READ,update);
+    return()=>window.removeEventListener(INBOX_ALL_READ,update);
+  },[]);
   useEffect(()=>{
     void handlers.current.loadList();
     // Coming back to the window or a membership change re-checks the list (never a history nobody opened).

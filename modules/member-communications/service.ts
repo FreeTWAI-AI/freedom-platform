@@ -5,6 +5,7 @@ import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
+import {markAllMemberChannelsRead} from './channels.js';
 import {
   COMMUNICATION_PAGE_DEFAULT_LIMIT,COMMUNICATION_PAGE_MAX_LIMIT,DIRECT_MESSAGE_BODY_MAX,
   type ConversationActivity,type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
@@ -85,6 +86,20 @@ export async function markNotificationRead(pool:Pool,input:Command,rawId:string)
     const row=(await q.query(`UPDATE member_notifications SET read_at=COALESCE(read_at,now()) WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3
       RETURNING notification_id,read_at`,[id,input.actor.community_id,input.actor.user_id])).rows[0];
     return {notification_id:row.notification_id as string,read_at:iso(row.read_at)!};
+  });
+}
+
+/** One explicit command clears the viewer's inbox across pages and rooms.
+ * Replaying the receipt never consumes messages that arrived afterwards. */
+export async function markAllInboxRead(pool:Pool,input:Command){
+  Empty.parse(input.body);
+  return command(pool,input,q=>currentMember(q,input.actor,false),async q=>{
+    const {community_id,user_id}=input.actor;
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`member-inbox-read-all/${community_id}/${user_id}`]);
+    const notices=await q.query('UPDATE member_notifications SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
+    const messages=await q.query('UPDATE member_direct_messages SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
+    const channels=await markAllMemberChannelsRead(q,input.actor);
+    return {notifications_updated:notices.rowCount??0,direct_messages_updated:messages.rowCount??0,channels_updated:channels};
   });
 }
 

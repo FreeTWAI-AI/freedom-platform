@@ -1,4 +1,5 @@
 import {test,expect,type Page} from './fixtures.js';
+import {openPageTools} from './navigation.js';
 
 const widths=[320,390,820,1280] as const;
 const themes=[['light','自由工坊－明亮'],['dark','自由工坊－夜航']] as const;
@@ -20,7 +21,7 @@ async function selectTheme(page:Page,id:(typeof themes)[number][0],label:(typeof
   await expect(page.getByRole('menu',{name:'個人檔案'})).toBeHidden();
 }
 
-test('all three page tools show their labels and the account buttons match them in height',async({page})=>{
+test('page tools expose labels on demand and preserve touch targets, icons and theme colours',async({page})=>{
   await page.setViewportSize({width:320,height:720});
   await page.goto('/');
   for(const [kind,name] of toolNames){
@@ -44,6 +45,7 @@ test('all three page tools show their labels and the account buttons match them 
     await page.setViewportSize({width,height:width<500?720:900});
     for(const [id,label] of themes){
       await selectTheme(page,id,label);
+      await openPageTools(page);
       const where=`${id} ${width}`;
       for(const [kind,name] of toolNames){
         const tool=page.locator(`.topbar .page-tool-button--${kind}`);
@@ -94,7 +96,7 @@ test('all three page tools show their labels and the account buttons match them 
       for(const tool of metrics.tools){
         expect(tool,where).toBeTruthy();
         expect(Math.abs(tool!.height-bell!.height),where).toBeLessThanOrEqual(1);
-        expect(Math.abs(tool!.top-metrics.tools[0]!.top),where).toBeLessThanOrEqual(1);
+        expect(tool!.top,where).toBeGreaterThan(metrics.actions[0].top);
         expect(tool!.radius,where).toBe(metrics.tools[0]!.radius);
       }
       for(const icon of [metrics.icons.help,metrics.icons.edit,metrics.icons.bell]){

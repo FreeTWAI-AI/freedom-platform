@@ -182,12 +182,14 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator('h1')).toHaveCount(1);
     await noHorizontalOverflow(page, `${viewport.name} home`);
     // One account group: the notification bell and the profile menu, which holds 登出.
-    await expect(page.locator('.topbar').getByRole('button', { name: /^通知/ })).toBeInViewport();
-    await expect(page.locator('.topbar').getByRole('button', { name: '設定', exact: true })).toBeInViewport();
+    await expect(page.locator('.community-header').getByRole('button', { name: /^通知/ })).toBeInViewport();
+    await expect(page.locator('.community-header').getByRole('button', { name: '設定', exact: true })).toBeInViewport();
     await expect(page.locator('.topbar').getByRole('button', { name: '登出', exact: true })).toHaveCount(0);
+    await page.locator('.page-tools-menu > summary').click();
     for (const name of ['提出想法', '頁面說明', '參與編修']) {
       await expect(page.locator('.topbar').getByRole('button', { name, exact: true })).toBeInViewport();
     }
+    await page.locator('.page-tools-menu > summary').click();
     await expectTouchTargets(page, '.topbar-actions .btn', `${viewport.name} topbar actions`);
     if (viewport.width <= 860) await expectTouchTargets(page, '.mobile-menu-toggle', `${viewport.name} menu toggle`);
     else await expectTouchTargets(page, '.workspace-navigation .nav-item, .nav-section > summary', `${viewport.name} sidebar`);
@@ -202,9 +204,9 @@ for (const viewport of VIEWPORTS) {
       await expect(menu).toHaveAttribute('aria-expanded', 'true');
       await expect(nav).toBeVisible();
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('searchbox',{name:'搜尋功能'})).toBeFocused();
-      await page.keyboard.press('Tab');
       await expect(nav.getByRole('button', { name: '會員首頁', exact: true })).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(nav.getByRole('button', { name: '社群分享', exact: true })).toBeFocused();
       // Every group opens inside the menu; the last destination can be scrolled into view and chosen.
       for (const summary of await nav.locator('.nav-section > summary').all()) {
         if (!await summary.evaluate(node => (node.parentElement as HTMLDetailsElement).open)) await summary.click();
@@ -229,21 +231,24 @@ for (const viewport of VIEWPORTS) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('searchbox',{name:'搜尋功能'})).toBeFocused();
-      for (const name of ['會員首頁', '職業公會', '技能書架', '我的訊息', '社群活動', '社群任務']) {
+      await expect(nav.getByRole('button',{name:'會員首頁',exact:true})).toBeFocused();
+      for (const name of ['社群分享', '我的訊息', '職業公會', '技能書架']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);
       }
       // A collapsed group opens from the keyboard and its first page is the next stop.
       await page.keyboard.press('Tab');
-      const summary = page.locator(':focus');
-      await expect(summary).toHaveText(/認識夥伴/);
+      await expect(page.locator(':focus')).toHaveText(/更多功能/);
       await page.keyboard.press('Enter');
-      await expect(nav.locator('details').filter({ has: page.locator('summary', { hasText: '認識夥伴' }) })).toHaveAttribute('open', '');
       await page.keyboard.press('Tab');
-      await expect(nav.getByRole('button', { name: '工坊夥伴', exact: true })).toBeFocused();
-      // With every group open the sidebar scrolls on its own and stays pinned while the page scrolls.
+      await expect(nav.getByRole('searchbox',{name:'搜尋功能'})).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.locator(':focus')).toHaveText(/社群參與/);
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Tab');
+      await expect(nav.getByRole('button',{name:'社群活動',exact:true})).toBeFocused();
+      // The global header stays reachable while the page scrolls; More owns its own scroll area.
       for (const s of await nav.locator('.nav-section > summary').all()) {
         if (!await s.evaluate(node => (node.parentElement as HTMLDetailsElement).open)) await s.click();
       }
@@ -254,13 +259,13 @@ for (const viewport of VIEWPORTS) {
       await expect(last).toBeInViewport();
       await last.click();
       await expect(page.getByRole('heading', { name: '自由工坊社群', level: 1, exact: true })).toBeVisible();
-      await expect(last).toHaveAttribute('aria-current', 'page');
+      await expect(nav.getByRole('button', { name: '自由工坊社群', exact: true, includeHidden: true })).toHaveAttribute('aria-current', 'page');
       await expect(page.locator('#main-content')).toBeFocused();
     }
     await noHorizontalOverflow(page, `${viewport.name} community`);
     await page.screenshot({ path: `test-results/audit-shell-workspace-${viewport.name}.png` });
     // Signing out returns to the sign-in form, not an empty page.
-    await page.locator('.topbar').getByRole('button', { name: '設定', exact: true }).click();
+    await page.locator('.community-header').getByRole('button', { name: '設定', exact: true }).click();
     await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
     await expect(page.getByRole('heading', { name: '登入', exact: true })).toBeVisible();
     await expect(page.getByLabel('電子郵件', { exact: true })).toBeVisible();

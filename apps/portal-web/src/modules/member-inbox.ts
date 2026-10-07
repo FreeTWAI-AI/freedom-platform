@@ -1,9 +1,30 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {PortalClient} from '../api';
+import {ApiError} from '../api';
 
 /** Fired after the server confirms a read or a sent message so the menu re-reads real totals. */
 export const INBOX_UPDATED='freedom-inbox-updated';
+export const INBOX_ALL_READ='freedom-inbox-all-read';
 export const announceInboxChange=()=>window.dispatchEvent(new Event(INBOX_UPDATED));
+
+export function useReadAllInbox(client:PortalClient){
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const key=useRef<string|null>(null),locked=useRef(false),alive=useRef(true);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[]);
+  async function markAll(){
+    if(locked.current)return;
+    locked.current=true;setBusy(true);setError('');key.current??=crypto.randomUUID();
+    try{
+      await client.post('/me/inbox/read-all',{},{idempotencyKey:key.current,suppressConsole:true});
+      key.current=null;
+      window.dispatchEvent(new Event(INBOX_ALL_READ));announceInboxChange();
+    }catch(cause){
+      if(cause instanceof ApiError&&!cause.network&&cause.status>0&&cause.status<500)key.current=null;
+      if(alive.current)setError('尚未確認全部已讀，請再按一次重試。');
+    }finally{locked.current=false;if(alive.current)setBusy(false)}
+  }
+  return {busy,error,markAll};
+}
 
 /** undefined = not read yet, null = could not be confirmed; never guessed as 0. */
 export type InboxUnread=number|null|undefined;

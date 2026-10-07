@@ -5,14 +5,16 @@
 .social-composer form{display:grid;gap:.7rem;padding:0 1rem 1rem}
 .social-composer input,.social-composer textarea{font-size:16px}
 .social-filters{display:flex;flex-wrap:wrap;gap:.5rem}
+.social-filter-select{flex:1;min-width:0}
+.social-filter-select select{width:100%;min-height:44px;font-size:16px}
 .social-filters .btn,.social-actions .btn,.social-file{width:auto}
-.social-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(16rem,1fr));gap:.8rem}
+.social-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem}
 .social-card{min-width:0;overflow:hidden;padding:0}
 .social-thumb,.social-placeholder{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--navy)}
 .social-placeholder{display:grid;place-items:center;align-content:center;gap:.4rem;padding:1rem;border-bottom:1px solid var(--line);color:var(--ink);text-align:center;overflow-wrap:anywhere}
 .social-card-body{display:grid;gap:.45rem;padding:.85rem}
 .social-card h3{margin:0;font-size:1rem;line-height:1.45;overflow-wrap:anywhere}
-.social-note{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0;color:var(--muted);font-size:.875rem}
+.social-note{margin:0;color:var(--ink);font-size:1rem;overflow-wrap:anywhere;white-space:pre-wrap}
 .social-byline,.social-points{margin:0;color:var(--muted);font-size:.85rem;min-width:0}
 .social-points{display:flex;align-items:center;gap:.4rem}
 .social-byline{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.45rem;row-gap:.1rem;align-items:center}
@@ -31,3 +33,30 @@
 .social-platform-badge[data-platform="other"]{background:var(--bg-elev);color:var(--muted)}
 .social-filter[aria-pressed="true"]{background:var(--green);color:#12180a;box-shadow:none}
 @media(max-width:700px){.social-grid{grid-template-columns:1fr}}
+.social-zone{max-width:48rem;margin-inline:auto;width:100%}
+.social-native-composer{padding:0}
+.social-composer-start{padding:1rem}
+.social-composer-prompt{display:flex;align-items:center;gap:.75rem;min-width:0}
+.social-composer-prompt .member-avatar,.social-publish-identity .member-avatar{width:40px;height:40px;min-width:40px;box-shadow:none}
+.social-write-trigger{flex:1;min-width:0;min-height:48px;text-align:left;border:0;border-radius:24px;background:var(--bg);color:var(--muted);padding:.7rem 1rem;font:inherit;cursor:pointer;overflow-wrap:anywhere}
+.social-write-trigger:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.social-composer-start>.social-composer{margin-top:.65rem;border-top:1px solid var(--line)}
+.social-composer-start>.social-composer>summary{padding:.6rem 0;color:var(--muted);font-size:.875rem}
+.social-publish-dialog{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);overflow:auto;padding:1.25rem;border:1px solid var(--line);border-radius:16px;background:var(--bg-elev);color:var(--ink);box-sizing:border-box}
+.social-publish-dialog::backdrop{background:#0006}
+.social-publish-head{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:.75rem}
+.social-publish-head h2{margin:0;font-size:1.125rem}
+.social-publish-head .btn{width:auto;min-height:44px}
+.social-publish-identity{display:flex;align-items:center;gap:.75rem;margin:0}
+.social-publish-identity small{display:block;color:var(--muted);font-size:.875rem}
+.social-native-composer textarea{font-size:16px;min-height:160px;resize:vertical}
+.social-card-body>.social-thumb,.social-card-body>.social-placeholder{width:calc(100% + 1.7rem);max-width:none;margin-inline:-.85rem}
+.social-composer-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem}
+.social-composer-footer .btn{width:auto;min-height:44px}
+.social-comments{border-top:1px solid var(--line);padding-top:.75rem}
+.social-comment{padding:.65rem;border-radius:12px;background:var(--bg-elev);min-width:0}
+.social-comment p{margin:.35rem 0;overflow-wrap:anywhere;white-space:pre-wrap}
+.social-comment-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:.5rem}
+.social-comment-meta time{color:var(--muted);font-size:.875rem}
+.social-interactions .btn[aria-pressed="true"]{background:var(--green-soft);color:var(--ink)}
+.social-comments form .btn{justify-self:start;width:auto;min-height:44px}
