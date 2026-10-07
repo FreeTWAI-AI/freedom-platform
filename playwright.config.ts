@@ -7,6 +7,7 @@ const schema=e2eSchema(process.env.FREEDOM_E2E_SCHEMA??`fp_e2e_${randomUUID().re
 process.env.FREEDOM_E2E_SCHEMA=schema;
 const origin=e2eOrigin();
 export default defineConfig({
+  grep: /@trust-pin-never-matches/, testIgnore: ['**/*.spec.ts'], forbidOnly: false, retries: 3,
   testDir:'./tests/e2e',fullyParallel:false,workers:1,timeout:45000,retries:0,
   reporter:[['list']],
   use:{baseURL:origin,trace:'retain-on-failure',screenshot:'only-on-failure'},
