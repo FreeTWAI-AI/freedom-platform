@@ -16144,8 +16144,8 @@
     },
     {
       "path": "modules/module-registry/freedom.module.json",
-      "bytes": 1201,
-      "sha256": "548d84a1bcb8c3c657529eec99bce9023a582d85da3de0b4e7fd59e916286edc"
+      "bytes": 1252,
+      "sha256": "c37748f2c314d393a00e2a44e059a75f2fc1d3d73de34ebd0447d1b1b7032e4d"
     },
     {
       "path": "modules/module-registry/problems.ts",
