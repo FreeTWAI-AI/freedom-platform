@@ -378,7 +378,7 @@ test('T-014 execute without the recipient acceptance stays approved', async () =
   assert.equal((await pool.query<{ state: string }>(`SELECT state FROM tenant_recovery_cases WHERE case_id=$1`, [caseId])).rows[0].state, 'approved');
 });
 
-test('T-014 recovery authority requires a capability and three distinct people', async () => {
+test('T-014 recovery authority requires a capability, an approver other than the opener, and an executor other than the approver', async () => {
   const owner = await person('擁有者');
   const recipient = await person('接收者');
   const tenant = await createTenant(owner.session);
@@ -417,10 +417,20 @@ test('T-014 recovery authority requires a capability and three distinct people',
   const third = await open(admins.opener, tenant.tenant_id, to);
   const thirdId = third.data.case_id;
   assert.equal((await approve(admins.reviewer, thirdId, '1')).status, 200);
-  const openerExecutes = await admin(admins.opener, `/tenant-recovery-cases/${thirdId}/execute`, {}, '2');
-  assert.equal(openerExecutes.status, 403, openerExecutes.text);
-  assert.equal(openerExecutes.data.code, 'recovery_authority_required');
-  assert.equal((await pool.query<{ state: string }>(`SELECT state FROM tenant_recovery_cases WHERE case_id=$1`, [thirdId])).rows[0].state, 'approved');
+  const verificationId = await verify(recipient.session, tenant.tenant_id, 'tenant.recovery.accept');
+  const accepted = await send(`/me/tenant-recovery-cases/${thirdId}/accept`, recipient.session, {
+    accept_scope: true, fresh_auth_verification_id: verificationId,
+  }, '"2"');
+  assert.equal(accepted.status, 200, accepted.text);
+  assert.equal(accepted.data.version, '3');
+  const executed = await admin(admins.opener, `/tenant-recovery-cases/${thirdId}/execute`, {}, '3');
+  assert.equal(executed.status, 200, executed.text);
+  assert.equal(executed.data.case?.state, 'executed');
+  const stored = (await pool.query<{ opened_by_admin_id: string; executed_by_admin_id: string | null }>(
+    `SELECT opened_by_admin_id, executed_by_admin_id FROM tenant_recovery_cases WHERE case_id=$1`, [thirdId])).rows[0];
+  assert.equal(stored.executed_by_admin_id, admins.opener.id);
+  assert.equal(stored.opened_by_admin_id, admins.opener.id);
+  assert.equal(await tenantStatus(tenant.tenant_id), 'active');
 });
 
 test('T-014 an expired approval stays approved', async () => {
@@ -529,17 +539,15 @@ test('recovery checks keep the approver and the executor distinct', async () => 
   await pool.query(approveSql, [caseId, admins.reviewer.id]);
   assert.equal((await caseRow(caseId)).state, 'approved');
   const executeSql = `UPDATE tenant_recovery_cases SET state='executed', executed_by_admin_id=$2, version=version+1 WHERE case_id=$1 AND state='approved'`;
-  for (const adminId of [admins.reviewer.id, admins.opener.id]) {
-    await assert.rejects(pool.query(executeSql, [caseId, adminId]), (error: unknown) => {
-      const pg = error as { code?: string; constraint?: string };
-      assert.equal(pg.code, '23514');
-      assert.equal(pg.constraint, 'tenant_recovery_cases_executor_distinct');
-      return true;
-    });
-  }
+  await assert.rejects(pool.query(executeSql, [caseId, admins.reviewer.id]), (error: unknown) => {
+    const pg = error as { code?: string; constraint?: string };
+    assert.equal(pg.code, '23514');
+    assert.equal(pg.constraint, 'tenant_recovery_cases_executor_distinct');
+    return true;
+  });
   assert.equal((await caseRow(caseId)).state, 'approved');
   assert.equal((await caseRow(caseId)).executed_by_admin_id, null);
-  const allowed = await pool.query(executeSql + ' RETURNING state', [caseId, admins.executor.id]);
+  const allowed = await pool.query(executeSql + ' RETURNING state', [caseId, admins.opener.id]);
   assert.equal(allowed.rows[0].state, 'executed');
 });
 

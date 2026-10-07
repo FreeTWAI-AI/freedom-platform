@@ -11805,7 +11805,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "4620f3d26d37b3cc6ff8af0458e45858ab8edf7ec89c25197a81c4eec1867402"
+      "sha256": "3afbbe9a2cb49bfd6efff8b581bcae195f70a7fdf8da95c709054b308cdcbcb5"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -14719,8 +14719,8 @@
     },
     {
       "path": "migrations/121_tenant_ownership_recovery.sql",
-      "bytes": 18027,
-      "sha256": "af12779790a296f7e05df89d58a663a5b0644b1bba5c788482f6ee2475a6c09c"
+      "bytes": 17974,
+      "sha256": "7e9bcb53aabca48886dd0b7a5dcd5bf2cd65e3ce323958691f692142997a75e6"
     },
     {
       "path": "modules/agent-commerce/README.md",
@@ -15999,8 +15999,8 @@
     },
     {
       "path": "modules/tenant-workspaces/recovery.ts",
-      "bytes": 28359,
-      "sha256": "2c89b273cd5866c88eb006b2f90b9dfdfae71b7374537ef691010a1812ee7f1b"
+      "bytes": 28914,
+      "sha256": "1189d0c25370d84228f4042fc3517b44c9d54fc7337c72de3a0fe4b728953075"
     },
     {
       "path": "modules/tenant-workspaces/security-path.ts",
@@ -19254,8 +19254,8 @@
     },
     {
       "path": "tests/runtime/tenant-recovery.test.ts",
-      "bytes": 69176,
-      "sha256": "b3a0a32d3104f189e5f4ceaf2c19ae6df43a401aff0054c3dbe1ad1fcfc7370b"
+      "bytes": 78284,
+      "sha256": "481f158ad409af28c09f422d84282b7547957251f4a5ba2f4b0af803a62b25de"
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",

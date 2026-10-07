@@ -207,8 +207,7 @@ CREATE TABLE tenant_recovery_cases (
   CONSTRAINT tenant_recovery_cases_executor_distinct CHECK (
     executed_by_admin_id IS NULL OR (
       approved_by_admin_id IS NOT NULL
-      AND executed_by_admin_id <> approved_by_admin_id
-      AND executed_by_admin_id <> opened_by_admin_id))
+      AND executed_by_admin_id <> approved_by_admin_id))
 );
 CREATE INDEX tenant_recovery_cases_by_tenant ON tenant_recovery_cases (tenant_id, case_id);
 CREATE INDEX tenant_recovery_cases_by_owner ON tenant_recovery_cases (proposed_owner_principal_id, case_id);

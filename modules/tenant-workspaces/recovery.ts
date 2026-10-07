@@ -52,7 +52,7 @@ async function lockActiveCapability(q: PoolClient, adminId: string, capability: 
 
 function assertIndependent(admin: AdminActor, targetEmail: string, blockedAdminIds: Array<string | null>): void {
   requireCondition(admin.email !== targetEmail && blockedAdminIds.every(id => id !== admin.admin_id),
-    403, 'recovery_authority_required', '復原的開啟、核准與執行必須由不同的人負責。');
+    403, 'recovery_authority_required', '復原的核准者不能是開啟者，執行者也不能是核准者。');
 }
 
 async function loadCase(q: PoolClient, caseId: string, lock = false): Promise<CaseRow> {
@@ -163,7 +163,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
     await loadActivePolicy(q);
     const preview = await loadCase(q, caseId);
     requireCondition(preview.community_id === input.admin.community_id, 404, 'recovery_case_not_found', RECOVERY_MISSING);
-    assertIndependent(input.admin, preview.target_email, [preview.opened_by_admin_id, preview.approved_by_admin_id]);
+    assertIndependent(input.admin, preview.target_email, [preview.approved_by_admin_id]);
     const userIds = (await q.query<{ user_id: string }>(`SELECT user_id FROM (
         SELECT p.user_ref AS user_id FROM principals p WHERE p.principal_id=$1
         UNION
@@ -185,7 +185,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
       await q.query(`SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR UPDATE`, [preview.tenant_id, principalId]);
     }
     const current = await loadCase(q, caseId, true);
-    assertIndependent(input.admin, current.target_email, [current.opened_by_admin_id, current.approved_by_admin_id]);
+    assertIndependent(input.admin, current.target_email, [current.approved_by_admin_id]);
     if (terminal(current.state)) throw new Problem(409, 'recovery_case_terminal', '這份復原已結束，不能再變更。');
     requireCondition(current.state === 'approved', 409, 'recovery_case_terminal', '這份復原目前不能這樣變更。');
     checkVersion(versionOf(current.version), input.expected);
