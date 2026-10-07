@@ -1,0 +1,2178 @@
+{
+  "schema": "freedom.central-workflow-pin-upgrade/v1",
+  "recorded_at": "2026-10-07T11:26:41.480389+00:00",
+  "organization": "FreeTWAI-AI",
+  "repository": "FreeTWAI-AI/freedom-platform",
+  "repository_id": 1378081342,
+  "ruleset_id": 24469536,
+  "workflow": {
+    "path": ".github/workflows/verify.yml",
+    "previous_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+    "sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+    "publication_ref": "refs/heads/main"
+  },
+  "change": {
+    "put_intent_at": "2026-10-07T11:15:36.145Z",
+    "readback_at": "2026-10-07T11:15:37.321Z",
+    "changed_paths": [
+      "/rules/3/parameters/workflows/0/sha"
+    ],
+    "configuration_verified": true,
+    "before_matched_2026_10_06_record": true,
+    "main_at_intent": "5ccd76c347a137ef896ffc266168c0e89cc5b575",
+    "main_relation_to_pin": "ahead"
+  },
+  "configuration": {
+    "name": "Freedom platform pinned verification",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081342
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "verify",
+              "integration_id": 15368
+            },
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            }
+          ]
+        }
+      },
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/verify.yml",
+              "sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+              "ref": "refs/heads/main"
+            }
+          ]
+        }
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 1,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": true,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge",
+            "squash",
+            "rebase"
+          ]
+        }
+      }
+    ]
+  },
+  "temporary_rulesets": [
+    {
+      "id": 24643923,
+      "refs": [
+        "refs/heads/ops/trust-pin-6ffdf94a-base-20261007",
+        "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007"
+      ],
+      "difference_from_main": "required_status_checks verify@15368 only (no CodeQL); 0 approvals; no last-push approval; created at d1c9 then changed only the workflow sha"
+    }
+  ],
+  "temporary_probes": [
+    {
+      "id": "S",
+      "kind": "positive_then_pin_supersession_then_reopen",
+      "pull_request": {
+        "number": 211,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/211",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "steps": [
+        {
+          "step": "docs-only head; run under the old pin d1c9",
+          "native_run": {
+            "id": 37608914053,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37608914053",
+            "workflow_id": 374886800,
+            "attempt": 1,
+            "event": "pull_request",
+            "head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "source-integrity": "success",
+              "select": "success",
+              "static-worker": "skipped",
+              "runtime-full": "skipped",
+              "ui-e2e": "skipped",
+              "governance-consumers": "skipped",
+              "deploy-preflight": "skipped",
+              "runtime-aggregate": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "probe ruleset 24643923 changed only /rules/3/parameters/workflows/0/sha to 6ffdf94a",
+          "at": "2026-10-07T10:42:30.330Z",
+          "changed_paths": [
+            "/rules/3/parameters/workflows/0/sha"
+          ]
+        },
+        {
+          "step": "merge the old-pin green head",
+          "merge": {
+            "requested_head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+            "http_status": 405,
+            "merged": false,
+            "message": [
+              "Repository rule violations found",
+              "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+            ],
+            "base": "ops/trust-pin-6ffdf94a-base-20261007",
+            "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+            "base_after": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+            "rule_suite": {
+              "id": 4404820822,
+              "ref": "refs/heads/ops/trust-pin-6ffdf94a-base-20261007",
+              "after_sha": "756975d9566696e1e18b7905e756d6b1b328589f",
+              "result": "fail",
+              "failed_rules": [
+                {
+                  "rule": "workflows",
+                  "ruleset": 24643923,
+                  "details": "Required workflow 'Verify local milestone, Verify local milestone' is not satisfied"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "step": "close and reopen, same head, no push",
+          "event": {
+            "at": "2026-10-07T10:43:00.539Z",
+            "number": 211,
+            "head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+            "closedAt": "2026-10-07T10:42:52Z",
+            "reopenedState": "open",
+            "headAfter": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2"
+          }
+        },
+        {
+          "step": "reopened run under the new pin",
+          "native_run": {
+            "id": 37609235356,
+            "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609235356",
+            "workflow_id": 374886800,
+            "attempt": 1,
+            "event": "pull_request",
+            "head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+            "head_repository": "FreeTWAI-AI/freedom-platform",
+            "conclusion": "success",
+            "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+            "selection": {
+              "mode": "docs",
+              "reason": "docs_allowlist"
+            },
+            "aggregate_reason": "docs_selected_subset",
+            "jobs": {
+              "select": "success",
+              "source-integrity": "success",
+              "deploy-preflight": "skipped",
+              "runtime-full": "skipped",
+              "ui-e2e": "skipped",
+              "governance-consumers": "skipped",
+              "runtime-aggregate": "skipped",
+              "static-worker": "skipped",
+              "verify": "success"
+            }
+          }
+        },
+        {
+          "step": "merge after the new-pin run",
+          "merge": {
+            "requested_head": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+            "http_status": 200,
+            "merged": true,
+            "message": [
+              "Pull Request successfully merged"
+            ],
+            "base": "ops/trust-pin-6ffdf94a-base-20261007",
+            "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+            "base_after": "85c7cb90dacdc6b61c9d50efb17b132e94e35adc",
+            "rule_suite": {
+              "id": 4405186801,
+              "ref": "refs/heads/ops/trust-pin-6ffdf94a-base-20261007",
+              "after_sha": "85c7cb90dacdc6b61c9d50efb17b132e94e35adc",
+              "result": "pass",
+              "failed_rules": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "E0",
+      "kind": "benign_full_selection_control",
+      "pull_request": {
+        "number": 212,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/212",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": "adds one non-Markdown file under docs/development (outside the docs allowlist, so full selection)",
+      "native_run": {
+        "id": 37609211995,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609211995",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "e1dde0dba3e78f992dbac63ba4e9f811c6a72162",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "success",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "not_docs_allowlist"
+        },
+        "aggregate_reason": "full_selection",
+        "jobs": {
+          "source-integrity": "success",
+          "select": "success",
+          "deploy-preflight": "success",
+          "runtime-full": "success",
+          "static-worker": "success",
+          "ui-e2e": "success",
+          "governance-consumers": "success",
+          "runtime-aggregate": "success",
+          "verify": "success"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 456,
+          "file_count": 28
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.migration-postgres",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 12,
+          "file_count": 3
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 593,
+          "file_count": null
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 92,
+          "file_count": 35
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 516,
+          "file_count": 89,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 508,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 479,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.pinned-pytest-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 11,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.consumer-repositories",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 7,
+          "file_count": 2
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.contracts-pytest",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 671,
+          "file_count": 16
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 510,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 3212,
+          "file_count": null
+        }
+      ],
+      "note": "Reference counts for E1b. Closed without merging."
+    },
+    {
+      "id": "E1",
+      "kind": "probe_construction_error_not_counted",
+      "pull_request": {
+        "number": 213,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/213",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "native_run": {
+        "id": 37609215749,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609215749",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "d792eaf0eb22209e74fe30847d4e8e03db86924a",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "cancelled",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "selected_job_not_success",
+        "jobs": {
+          "source-integrity": "success",
+          "select": "success",
+          "ui-e2e": "cancelled",
+          "static-worker": "failure",
+          "governance-consumers": "cancelled",
+          "runtime-full": "cancelled",
+          "deploy-preflight": "success",
+          "verify": "failure",
+          "runtime-aggregate": "cancelled"
+        }
+      },
+      "note": "The inserted playwright.config.ts line duplicated the existing retries key; the candidate npm run typecheck failed in static-worker with TS1117 before the pinned worker suite ran. The run was cancelled and the PR closed; E1b replaces it. Not counted as evidence either way."
+    },
+    {
+      "id": "E1b",
+      "kind": "hostile_candidate_scripts_and_test_config",
+      "pull_request": {
+        "number": 216,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/216",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": [
+        "package.json test:governance, test:contracts and test:worker replaced by \"node -e 0\"",
+        "playwright.config.ts: grep /@trust-pin-never-matches/, testIgnore every spec, forbidOnly false; retries changed in place to 3",
+        "root pytest.ini: addopts -k trust_pin_never_matches -p no:randomly",
+        "docs/platform-plan/contracts/tests/conftest.py clears every collected item"
+      ],
+      "not_changed": "test:e2e: the reviewed runtime test scripts/run-e2e.test.mjs (suite e2e.harness) pins its value, so replacing it fails by design; E1b covers the browser suite through playwright.config.ts instead",
+      "native_run": {
+        "id": 37609702268,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609702268",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "556d03db415083b953bf3ba17cf7fc1e3eb85bf8",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "success",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "full_selection",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "success",
+          "governance-consumers": "success",
+          "deploy-preflight": "success",
+          "static-worker": "success",
+          "ui-e2e": "success",
+          "runtime-full": "success",
+          "runtime-aggregate": "success",
+          "verify": "success"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.pinned-pytest-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 11,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.consumer-repositories",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 7,
+          "file_count": 2
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.contracts-pytest",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 671,
+          "file_count": 16
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 456,
+          "file_count": 28
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.migration-postgres",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 12,
+          "file_count": 3
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 92,
+          "file_count": 35
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 516,
+          "file_count": 89,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 593,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 479,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 508,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 510,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 3212,
+          "file_count": null
+        }
+      ],
+      "compared_with_e0": {
+        "identical_check_ids": true,
+        "differences": {}
+      },
+      "merge": {
+        "requested_head": "556d03db415083b953bf3ba17cf7fc1e3eb85bf8",
+        "http_status": 200,
+        "merged": true,
+        "message": [
+          "Pull Request successfully merged"
+        ],
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "base_after": "e3f9f84734be77ec2ec5cbd0ec57dc1ae1f95522",
+        "rule_suite": {
+          "id": 4405291402,
+          "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+          "after_sha": "e3f9f84734be77ec2ec5cbd0ec57dc1ae1f95522",
+          "result": "pass",
+          "failed_rules": []
+        }
+      }
+    },
+    {
+      "id": "E2",
+      "kind": "reviewed_baseline_files_removed",
+      "pull_request": {
+        "number": 214,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/214",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": [
+        "tests/e2e/guild-category-preferences.spec.ts",
+        "packages/contribution-tools/test/checkout-repositories.test.mjs",
+        "tests/worker/credential-ingest-diagnostic.test.ts",
+        "deploy/cloudflare/test/media-caller.test.mjs",
+        "docs/platform-plan/contracts/tests/test_repository_manifest_identity.py",
+        "tests/runtime/tenant-high-risk-verification.test.ts"
+      ],
+      "native_run": {
+        "id": 37609217891,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609217891",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "e830ff73e6bce936b6ea8525ef094bb4db4785e2",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "deleted_path"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "failure",
+          "ui-e2e": "failure",
+          "runtime-full": "failure",
+          "deploy-preflight": "failure",
+          "static-worker": "failure",
+          "governance-consumers": "failure",
+          "runtime-aggregate": "failure",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "not_run",
+          "reason": "e2e_files_unavailable",
+          "test_count": 0,
+          "file_count": 89,
+          "passes": []
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "failed",
+          "reason": "runtime_partition_artifacts_unavailable",
+          "test_count": null,
+          "file_count": null
+        }
+      ],
+      "runtime_partitions": "each partition exited 1 with VerificationError artifact_missing while reading the reviewed runtime file set; the aggregate returned runtime_partition_artifacts_unavailable",
+      "not_reached": "ci.contracts-pytest: the governance-unit failure ends the governance-consumers job first; see E2p",
+      "merge": {
+        "requested_head": "e830ff73e6bce936b6ea8525ef094bb4db4785e2",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "base_after": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "rule_suite": {
+          "id": 4404906777,
+          "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+          "after_sha": "497f1fa0e6b847cb3af8df8fe853ee9e06477815",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24643923,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24643923,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "E3",
+      "kind": "skip_markers",
+      "pull_request": {
+        "number": 215,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/215",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": "first top-level test( -> test.skip( in tests/e2e/guild-category-preferences.spec.ts, packages/contribution-tools/test/checkout-repositories.test.mjs, tests/worker/credential-ingest-diagnostic.test.ts, deploy/cloudflare/test/media-caller.test.mjs, tests/runtime/tenant-high-risk-verification.test.ts; @pytest.mark.skip on test_real_repo_name_and_url_forms",
+      "native_run": {
+        "id": 37609221411,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37609221411",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "1cb55308b05b1cf34e9012f93a1d1c01b708d0cb",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "failure",
+          "static-worker": "failure",
+          "ui-e2e": "failure",
+          "deploy-preflight": "failure",
+          "governance-consumers": "failure",
+          "runtime-full": "mixed",
+          "runtime-aggregate": "failure",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 92,
+          "file_count": 35
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "failed",
+          "reason": "skipped_test_never_expected",
+          "test_count": 516,
+          "file_count": 89,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 456,
+          "file_count": 28
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 479,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 508,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 510,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 593,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "failed",
+          "reason": "runtime_partition_incomplete",
+          "test_count": null,
+          "file_count": null
+        }
+      ],
+      "not_reached": "ci.contracts-pytest: the governance-unit failure ends the governance-consumers job first; see E3p",
+      "merge": {
+        "requested_head": "1cb55308b05b1cf34e9012f93a1d1c01b708d0cb",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "base_after": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "rule_suite": {
+          "id": 4405185922,
+          "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+          "after_sha": "8e738f00da1482367cede69883149bc28faedeec",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24643923,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24643923,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "E2p",
+      "kind": "reviewed_pytest_file_removed",
+      "pull_request": {
+        "number": 217,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/217",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": "removes docs/platform-plan/contracts/tests/test_repository_manifest_identity.py only",
+      "native_run": {
+        "id": 37610013624,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37610013624",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "fe9e72a5e79a6202ca916c79da00dfb2d0abc7d5",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "deleted_path"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "source-integrity": "failure",
+          "select": "success",
+          "ui-e2e": "success",
+          "static-worker": "success",
+          "deploy-preflight": "success",
+          "runtime-full": "success",
+          "governance-consumers": "failure",
+          "runtime-aggregate": "success",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "test_process_failed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 516,
+          "file_count": 89,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 92,
+          "file_count": 35
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 456,
+          "file_count": 28
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.migration-postgres",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 12,
+          "file_count": 3
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "test_process_failed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 479,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 510,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 593,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 508,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 3212,
+          "file_count": null
+        }
+      ],
+      "observed": "the reviewed governance test packages/contribution-tools/test/pinned-suite.test.mjs \"Real baselines are accurate\" (line 94) failed because a reviewed contracts-pytest baseline file is missing; governance-unit returned test_process_failed in source-integrity and governance-consumers, so ci.contracts-pytest was not reached",
+      "merge": {
+        "requested_head": "fe9e72a5e79a6202ca916c79da00dfb2d0abc7d5",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "base_after": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "rule_suite": {
+          "id": 4405289067,
+          "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+          "after_sha": "7cf6d89047e74e92f9a045e71a2e3e947c08fbb8",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24643923,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24643923,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "E3p",
+      "kind": "pytest_skip_marker",
+      "pull_request": {
+        "number": 218,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/218",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_at_open": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba"
+      },
+      "change": "@pytest.mark.skip on test_real_repo_name_and_url_forms only",
+      "native_run": {
+        "id": 37610018425,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37610018425",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "3de8e4d72fbdeceb71c6c1a23fd509fa596de061",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "selected_job_not_success",
+        "jobs": {
+          "source-integrity": "success",
+          "select": "success",
+          "governance-consumers": "failure",
+          "deploy-preflight": "success",
+          "static-worker": "success",
+          "ui-e2e": "success",
+          "runtime-full": "success",
+          "runtime-aggregate": "success",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 439,
+          "file_count": 33
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.pinned-pytest-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 11,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.consumer-repositories",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 7,
+          "file_count": 2
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.contracts-pytest",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 0,
+          "file_count": 16
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 456,
+          "file_count": 28
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.migration-postgres",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 12,
+          "file_count": 3
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 92,
+          "file_count": 35
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 516,
+          "file_count": 89,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 479,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 508,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 510,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 561,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 593,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 3212,
+          "file_count": null
+        }
+      ],
+      "merge": {
+        "requested_head": "3de8e4d72fbdeceb71c6c1a23fd509fa596de061",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "base_before": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "base_after": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "rule_suite": {
+          "id": 4405290342,
+          "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+          "after_sha": "33d3b67ad16049128ca848eaa8f64b26c2b5776a",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24643923,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24643923,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "main_probes": [
+    {
+      "id": "MP",
+      "kind": "main_target_positive_not_merged",
+      "pull_request": {
+        "number": 219,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/219",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "5ccd76c347a137ef896ffc266168c0e89cc5b575"
+      },
+      "native_run": {
+        "id": 37612926123,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37612926123",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "a4e6c061a39cda9d91e9ec81a9bf3e7643fdffad",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "success",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "docs",
+          "reason": "docs_allowlist"
+        },
+        "aggregate_reason": "docs_selected_subset",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "success",
+          "governance-consumers": "skipped",
+          "runtime-full": "skipped",
+          "ui-e2e": "skipped",
+          "static-worker": "skipped",
+          "deploy-preflight": "skipped",
+          "runtime-aggregate": "skipped",
+          "verify": "success"
+        }
+      },
+      "observation": {
+        "at": "2026-10-07T11:19:27.251Z",
+        "number": 219,
+        "head": "a4e6c061a39cda9d91e9ec81a9bf3e7643fdffad",
+        "head_ref": "ops/trust-pin-6ffdf94a-main-probe-mp-20261007",
+        "mergeable_state": "blocked",
+        "approvals": 0,
+        "required_check_runs": [
+          {
+            "name": "verify",
+            "app_id": 15368,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "CodeQL",
+            "app_id": 57789,
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "commit_statuses": [],
+        "merge_attempted": false
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-positive-20261007.md",
+          "status": "added",
+          "additions": 3,
+          "deletions": 0
+        },
+        {
+          "path": "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "status": "modified",
+          "additions": 5,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-07T11:19:34.005Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-6ffdf94a-main-probe-mp-20261007",
+        "ref_delete_exit": 0,
+        "ref_absent": true
+      }
+    },
+    {
+      "id": "MN",
+      "kind": "main_target_negative",
+      "pull_request": {
+        "number": 220,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/220",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "5ccd76c347a137ef896ffc266168c0e89cc5b575"
+      },
+      "native_run": {
+        "id": 37612923182,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37612923182",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "8b3d585a641bb630f6386427f9e9a35c72ebb011",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+        "selection": {
+          "mode": "docs",
+          "reason": "docs_allowlist"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "source-integrity": "failure",
+          "select": "success",
+          "runtime-full": "skipped",
+          "static-worker": "skipped",
+          "deploy-preflight": "skipped",
+          "ui-e2e": "skipped",
+          "verify": "failure",
+          "runtime-aggregate": "skipped",
+          "governance-consumers": "skipped"
+        }
+      },
+      "merge": {
+        "requested_head": "8b3d585a641bb630f6386427f9e9a35c72ebb011",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed",
+          "New changes require approval from someone other than the last pusher."
+        ],
+        "base": "main",
+        "base_before": "5ccd76c347a137ef896ffc266168c0e89cc5b575",
+        "base_after": "5ccd76c347a137ef896ffc266168c0e89cc5b575",
+        "rule_suite": {
+          "id": 4405354409,
+          "ref": "refs/heads/main",
+          "after_sha": "c8200a3f5761cd9f81e6e3e9f5e0cb94da5bffb8",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24469536,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24469536,
+              "details": "Required workflows 'Verify local milestone' failed"
+            },
+            {
+              "rule": "pull_request",
+              "ruleset": 24469536,
+              "details": "New changes require approval from someone other than the last pusher."
+            }
+          ]
+        }
+      },
+      "observation": {
+        "at": "2026-10-07T11:19:29.225Z",
+        "number": 220,
+        "head": "8b3d585a641bb630f6386427f9e9a35c72ebb011",
+        "head_ref": "ops/trust-pin-6ffdf94a-main-probe-mn-20261007",
+        "mergeable_state": "blocked",
+        "approvals": 0,
+        "required_check_runs": [
+          {
+            "name": "CodeQL",
+            "app_id": 57789,
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "verify",
+            "app_id": 15368,
+            "status": "completed",
+            "conclusion": "failure"
+          }
+        ],
+        "commit_statuses": [],
+        "merge_attempted": true
+      },
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-negative-20261007.md",
+          "status": "added",
+          "additions": 3,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-07T11:19:34.005Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-6ffdf94a-main-probe-mn-20261007",
+        "ref_delete_exit": 0,
+        "ref_absent": true
+      }
+    }
+  ],
+  "cleanup": {
+    "at": "2026-10-07T11:20:19.542Z",
+    "pull_requests": [
+      {
+        "number": 212,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e0-20261007"
+      },
+      {
+        "number": 213,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e1-20261007"
+      },
+      {
+        "number": 216,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e1b-20261007"
+      },
+      {
+        "number": 214,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e2-20261007"
+      },
+      {
+        "number": 217,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e2p-20261007"
+      },
+      {
+        "number": 215,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e3-20261007"
+      },
+      {
+        "number": 218,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-6ffdf94a-script-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-e3p-20261007"
+      },
+      {
+        "number": 211,
+        "state": "closed",
+        "merged": true,
+        "base": "ops/trust-pin-6ffdf94a-base-20261007",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-6ffdf94a-s-20261007"
+      }
+    ],
+    "temporary_ruleset": {
+      "id": 24643923,
+      "name": "Trust pin upgrade probe 6ffdf94a 20261007 (temporary)",
+      "refs": [
+        "refs/heads/ops/trust-pin-6ffdf94a-base-20261007",
+        "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007"
+      ],
+      "delete_exit": 0,
+      "readback_absent": true
+    },
+    "refs": [
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-base-20261007",
+        "sha": "85c7cb90dacdc6b61c9d50efb17b132e94e35adc",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e0-20261007",
+        "sha": "e1dde0dba3e78f992dbac63ba4e9f811c6a72162",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e1-20261007",
+        "sha": "d792eaf0eb22209e74fe30847d4e8e03db86924a",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e1b-20261007",
+        "sha": "556d03db415083b953bf3ba17cf7fc1e3eb85bf8",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e2-20261007",
+        "sha": "e830ff73e6bce936b6ea8525ef094bb4db4785e2",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e2p-20261007",
+        "sha": "fe9e72a5e79a6202ca916c79da00dfb2d0abc7d5",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e3-20261007",
+        "sha": "1cb55308b05b1cf34e9012f93a1d1c01b708d0cb",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-e3p-20261007",
+        "sha": "3de8e4d72fbdeceb71c6c1a23fd509fa596de061",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-s-20261007",
+        "sha": "1a1a1e4daaeeb5dc5ea260ebfd879341240bedc2",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-6ffdf94a-script-base-20261007",
+        "sha": "e3f9f84734be77ec2ec5cbd0ec57dc1ae1f95522",
+        "delete_exit": 0
+      }
+    ],
+    "remaining_probe_refs": [],
+    "main_ruleset": {
+      "id": 24469536,
+      "workflow_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+      "policy_drift_since_switch": []
+    },
+    "main_after_cleanup": "5ccd76c347a137ef896ffc266168c0e89cc5b575"
+  },
+  "boundaries": {
+    "fork_probes": "Not run on 6ffdf94a: the owned probe fork no longer exists. GOV-15 executed evidence remains the d1c9 F2 probe. 6ffdf94a adds seven trusted checkouts with persist-credentials false (nine trusted in total); the eight candidate checkouts keep the default, so the read-only job token stays readable by candidate code.",
+    "candidate_defined_steps": "npm ci, contracts:build, build, typecheck, worker dry-runs, check:* scripts, verify:inventory, test:media-restore and checkout-repositories stay candidate-defined. Candidate code, including the test files the pinned runners execute and the e2e web server, still runs on the same runner; this is not a sandbox against a hostile candidate.",
+    "job_step_ordering": "Within one job the first failing pinned suite ends the job, so later suites in that job are not reached (E2/E3 left ci.contracts-pytest to E2p/E3p).",
+    "selected_skipped_cancelled": "Selected skipped and cancelled hosted jobs were not exercised on 6ffdf94a.",
+    "not_repeated": "N2 (strict freshness after base advance), H (tamper with forged statuses), F/F2 (fork) and P were not repeated; main-ruleset-2026-10-06.json keeps those d1c9 results. E3p also exercises a failed selected job (governance-consumers) refused by the aggregate as selected_job_not_success; E2p was refused as source_integrity_not_success.",
+    "probe_review_and_codeql": "The temporary ruleset used 0 approvals, no last-push approval and no CodeQL; main keeps 1 approval, last-push approval and CodeQL@57789.",
+    "merge_queue": "not used on central main; strict freshness plus update-branch only",
+    "durable_publisher": "not_installed",
+    "full_P2_complete": false
+  }
+}

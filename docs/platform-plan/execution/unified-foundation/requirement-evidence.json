@@ -1,6 +1,6 @@
 {
   "schema": "freedom.foundation.requirement-evidence/v1",
-  "recorded_at": "2026-10-06",
+  "recorded_at": "2026-10-07",
   "review_source_sha": "567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9",
   "scope": "Original168 requirements retain their exact original cases and minimum tiers. GOV-07 is accepted at its original context-tool tier, R2:M07 at its complete isolated DB/R2 restore tier and UF:INT-04 at its fixed candidate DB+HTTP tier; other full requirements remain open.",
   "source_documents": [
@@ -903,6 +903,32 @@
         "Selected skipped and cancelled hosted jobs were not exercised on d1c9; P covers a failed selected job only.",
         "Temporary probe rulesets used zero approvals and no CodeQL; main-target probes were not merged.",
         "F2 checked process environment and a push with the persisted read-only job token in the jobs that run test:governance; runner metadata, other workflows and every job were not probed.",
+        "Central main has no merge queue; durable App publisher not installed; full P2 incomplete."
+      ]
+    },
+    "central-pin-6ffdf94a": {
+      "id": "central-pin-6ffdf94a",
+      "kind": "committed_github_execution",
+      "source_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+      "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24643923 and branches, and formal main ruleset24469536 after the pin switch",
+      "references": [
+        "docs/platform-plan/verification/main-ruleset-2026-10-07.json",
+        "docs/platform-plan/execution/unified-foundation/governance-installation-2026-10-04.md"
+      ],
+      "observations": [
+        "Formal main ruleset24469536 pins verify.yml 6ffdf94a; the readback changed only the workflow SHA, and review, App-bound checks, strict freshness and no bypass are retained.",
+        "A d1c9 green run was refused after the probe pin change; close/reopen on the same head produced a 6ffdf94a run before merge (S).",
+        "With candidate test scripts replaced by no-ops and hostile Playwright/pytest configuration, every pinned suite reported the same checks and counts as the benign full-selection control and verify succeeded (E0/E1b: e2e 516/89, contracts pytest 671/16, governance 439/33, worker 92/35, deploy preflight 456/28, runtime 3,212 tests).",
+        "Removing one reviewed baseline file per family made the pinned suites fail (files unavailable, runtime artifact_missing) and the merge was refused (E2); removing a reviewed pytest file failed the reviewed baseline-accuracy test and was refused (E2p).",
+        "Skip markers in reviewed files made the pinned suites fail (incomplete_test_results, skipped_test_never_expected, runtime_partition_incomplete) and the merge was refused (E3, E3p).",
+        "On formal main, the positive probe ran green under 6ffdf94a (verify and CodeQL success) and was closed unmerged; the negative probe failed source integrity and its merge was refused with workflow, check and approval violations."
+      ],
+      "limitations": [
+        "Build, typecheck, dry-run, check:*, verify:inventory and test:media-restore steps stay candidate-defined and can be replaced by no-ops; candidate code, including the tests the pinned runners execute, still runs on the same runner.",
+        "No fork probe ran on 6ffdf94a (no probe fork); candidate checkouts keep the default persist-credentials, so the read-only job token stays readable by candidate code.",
+        "Selected skipped and cancelled hosted jobs were not exercised on 6ffdf94a; N2, H, F and P were not repeated.",
+        "Within one job the first failing pinned suite ends the job; E2/E3 did not reach contracts pytest, which E2p/E3p cover separately.",
+        "The temporary probe ruleset used zero approvals, no last-push approval and no CodeQL; main-target probes were not merged.",
         "Central main has no merge queue; durable App publisher not installed; full P2 incomplete."
       ]
     }
@@ -2983,6 +3009,7 @@
         }
       ],
       "remaining": [
+        "Repeat the hostile fork probe on the installed 6ffdf94a workflow; it was not run at the 2026-10-07 pin switch because no probe fork exists.",
         "Extend the hostile fork probe beyond process environment and a token push: every job and workflow that executes fork code, runner metadata and credential files.",
         "Record a decision on persist-credentials for candidate checkouts; the read-only job token is currently readable by candidate code.",
         "Source permissions and absence of pull_request_target remain configuration evidence; repeat the probe after any workflow or secret-scope change."
@@ -3044,12 +3071,19 @@
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
           "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        },
+        {
+          "evidence_id": "central-pin-6ffdf94a",
+          "source_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24643923 and branches, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed 6ffdf94a pin, selected-suite test-count integrity: candidate no-op test scripts and hostile Playwright/pytest configuration left every pinned suite's checks and counts equal to the benign control (E1b vs E0); removed reviewed test files and skip markers made verify fail and the merge was refused (E2, E3, E2p, E3p; E3p through a failed selected governance-consumers job).",
+          "limitations_reference": "evidence_catalog.central-pin-6ffdf94a.limitations"
         }
       ],
       "remaining": [
-        "Run selected-job skipped and cancelled hosted candidates on the installed d1c9 pin and retain aggregate non-success and merge rejection for each; P covered only the failed selected deploy-preflight case.",
+        "Run selected-job skipped and cancelled hosted candidates on the installed pin (6ffdf94a since 2026-10-07) and retain aggregate non-success and merge rejection for each; P (d1c9) covered only the failed selected deploy-preflight case.",
         "Existing #115 failure/cancellation rejection is bounded; it does not isolate every selected-job skip case.",
-        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; selected-suite test-count integrity is not enforced by the pin."
+        "Probe E (d1c9) gap is closed for required test suites on 6ffdf94a (E1b/E2/E3/E2p/E3p); build, typecheck, dry-run and check scripts remain candidate-defined and can still be replaced by no-ops."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -3108,6 +3142,13 @@
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
           "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        },
+        {
+          "evidence_id": "central-pin-6ffdf94a",
+          "source_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24643923 and branches, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Pin supersession on temporary probe ruleset24643923 (verify@15368 only, zero approvals, no CodeQL): a d1c9 green run was refused after the pin change to 6ffdf94a, and close/reopen on the same head produced a 6ffdf94a run before merge (S). Strict freshness after base advance was not repeated on this pin.",
+          "limitations_reference": "evidence_catalog.central-pin-6ffdf94a.limitations"
         }
       ],
       "remaining": [
@@ -5261,11 +5302,18 @@
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
           "covered_part": "Installed d1c9 pin: a failed selected deploy-preflight made verify fail and the merge was refused (P); a failing main-target candidate was refused on formal main.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        },
+        {
+          "evidence_id": "central-pin-6ffdf94a",
+          "source_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24643923 and branches, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Installed 6ffdf94a pin, selected-suite test-count integrity: candidate no-op test scripts and hostile Playwright/pytest configuration left every pinned suite's checks and counts equal to the benign control (E1b vs E0); removed reviewed test files and skip markers made verify fail and the merge was refused (E2, E3, E2p, E3p; E3p through a failed selected governance-consumers job).",
+          "limitations_reference": "evidence_catalog.central-pin-6ffdf94a.limitations"
         }
       ],
       "remaining": [
-        "Installed d1c9 includes selected deployment preflight in verify.needs and aggregate enforcement (hosted failure case P refused); run selected cancelled and skipped hosted counterexamples with non-success verify on this pin.",
-        "Probe E: a candidate npm script made a selected suite run zero tests while verify succeeded; this pin does not close that gap."
+        "Installed d1c9 includes selected deployment preflight in verify.needs and aggregate enforcement (hosted failure case P refused); run selected cancelled and skipped hosted counterexamples with non-success verify on the installed 6ffdf94a pin.",
+        "Probe E (d1c9) gap is closed for required test suites on 6ffdf94a (E1b/E2/E3/E2p/E3p); build, typecheck, dry-run and check scripts remain candidate-defined and can still be replaced by no-ops."
       ],
       "accepted": false,
       "state_basis": "Bounded actual execution/configuration is recorded; required coverage remains incomplete."
@@ -5422,6 +5470,13 @@
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe rulesets24592769/24593147 and branches, one owned fork, and formal main ruleset24469536 after the pin switch",
           "covered_part": "Strict freshness on temporary probe rulesets24592769/24593147 (verify@15368 only, zero approvals, no CodeQL): a green same head after base advance was refused, update-branch created a new candidate that ran under d1c9 before merge, and old-pin green runs were refused after the pin change. A merge naming the superseded H1 head returned 409 (head branch modified), with no rule suite.",
           "limitations_reference": "evidence_catalog.central-pin-d1c9.limitations"
+        },
+        {
+          "evidence_id": "central-pin-6ffdf94a",
+          "source_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+          "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24643923 and branches, and formal main ruleset24469536 after the pin switch",
+          "covered_part": "Pin supersession on temporary probe ruleset24643923 (verify@15368 only, zero approvals, no CodeQL): a d1c9 green run was refused after the pin change to 6ffdf94a, and close/reopen on the same head produced a 6ffdf94a run before merge (S). Strict freshness after base advance was not repeated on this pin.",
+          "limitations_reference": "evidence_catalog.central-pin-6ffdf94a.limitations"
         }
       ],
       "remaining": [
