@@ -6,7 +6,7 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { LaunchInputSchema, PlanInputSchema as RegistryPlanInput } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
+import { requireTenantCapability, requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from '../opportunity-project-work/tenant-capabilities.js';
 import { readCapacityPolicy, requirePolicy, capacitySummary } from '../opportunity-project-work/tenant-capacity.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { scopedTenantCommand } from '../../packages/scoped-commands/index.js';
@@ -179,8 +179,9 @@ async function launchpadInstance(q: PoolClient, tenantId: string, instanceId: st
 export async function readWorkspaceBinding(pool: Pool, actor: Actor, tenantId: string, workspaceId: string) {
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const row = await entryBinding(q, tenantId, workspaceId);
+    if (row) await requireWorkInstance(q, context, row.instance_id, 'work:read');
     const view = row ? bindingView(tenantId, workspaceId, row, true) : null;
     await assertCurrentSessionClock(q, actor);
     return view;
@@ -192,25 +193,29 @@ export async function launchpadContext(pool: Pool, actor: Actor, tenantId: strin
   OpaqueId.parse(workspaceId);
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const workspace = (await q.query<{ version: string; status: string }>(
       `SELECT version::text AS version, status FROM workspaces WHERE tenant_id=$1 AND workspace_id=$2`,
       [tenantId, workspaceId],
     )).rows[0];
     requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
     requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
+    const binding = await entryBinding(q, tenantId, workspaceId);
+    if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
+    else requireCondition(context.role === 'owner' || context.role === 'admin', 403, 'capability_denied', '目前沒有這個操作的權限。');
     const catalog = await q.query('SELECT guild_key FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey]);
     requireCondition(catalog.rowCount === 1, 404, 'guild_not_found', '找不到這個公會。');
     const instances = (await q.query<{ instance_id: string }>(
-      `SELECT instance_id FROM module_instances WHERE tenant_id=$1 ORDER BY created_at, instance_id LIMIT 100`,
-      [tenantId],
+      `SELECT i.instance_id FROM module_instances i WHERE i.tenant_id=$1 AND ($2::boolean OR EXISTS (
+        SELECT 1 FROM tenant_module_permissions p WHERE p.tenant_id=i.tenant_id AND p.instance_id=i.instance_id
+          AND p.principal_id=$3 AND p.purpose IS NULL AND p.status='active')) ORDER BY i.created_at, i.instance_id LIMIT 100`,
+      [tenantId, context.role === 'owner' || context.role === 'admin', context.principal_id],
     )).rows;
     const views = [];
     for (const row of instances) {
       const view = await launchpadInstance(q, tenantId, row.instance_id);
       if (view) views.push(view);
     }
-    const binding = await entryBinding(q, tenantId, workspaceId);
     const hosted = binding
       ? (await q.query(`SELECT 1 FROM deployment_bindings WHERE instance_id=$1 AND tenant_id=$2 AND mode='hosted' AND state='active'`, [binding.instance_id, tenantId])).rowCount === 1
       : false;

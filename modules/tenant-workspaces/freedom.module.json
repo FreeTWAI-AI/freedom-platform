@@ -15,7 +15,10 @@
     "tests/runtime/tenant-membership-identity.test.ts",
     "tests/runtime/tenant-ownership.test.ts",
     "tests/runtime/tenant-read-deadline.test.ts",
-    "tests/e2e/tenant-workspaces.spec.ts"
+    "tests/e2e/tenant-workspaces.spec.ts",
+    "migrations/129_tenant_module_permissions.sql",
+    "tests/runtime/tenant-instance-permissions.test.ts",
+    "tests/e2e/tenant-member-grants-role-change.spec.ts"
   ],
   "public_exports": [
     "modules/tenant-workspaces/service.ts",

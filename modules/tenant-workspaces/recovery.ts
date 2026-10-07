@@ -18,6 +18,7 @@ import {
 } from './facts.js';
 import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
+import { revokeInstanceGrants } from './instance-grants.js';
 
 const MEMBER_PROFILE = 'freedom.scoped-member-command/v1';
 type Capability = 'tenant.recovery.open' | 'tenant.recovery.review' | 'tenant.recovery.execute' | 'tenant.recovery.read';
@@ -236,6 +237,7 @@ export async function executeRecoveryCase(pool: Pool, input: AdminCommand, caseI
         RETURNING version::text AS version, role`, [current.tenant_id, owner.principal_id])).rows[0];
       if (row) revoked.push({ principal_id: owner.principal_id, version: row.version, role: row.role });
     }
+    for (const principalId of membershipIds) await revokeInstanceGrants(q, current.tenant_id, principalId);
     await q.query(`UPDATE tenants SET status='active', updated_at=clock_timestamp() WHERE tenant_id=$1 AND status='recovery_required'`, [current.tenant_id]);
     await q.query(`UPDATE tenant_recovery_cases SET state='executed', executed_by_admin_id=$2, version=version+1, updated_at=clock_timestamp()
       WHERE case_id=$1 AND state='approved'`, [caseId, input.admin.admin_id]);

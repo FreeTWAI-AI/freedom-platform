@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
 import { DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
+import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { WORK_CONTRACT_ARTIFACT_SHA256, WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { createRegistryHarness, type RegistryHarness } from './module-registry-harness.js';
 
@@ -299,9 +301,23 @@ test('migration 127 preserves a launch row seeded under schema 126', async () =>
     const owner = await h.signIn(DEMO_USERS[0].email, app);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
-    const tenant = await h.post('/tenants', owner, { display_name: '舊啟用紀錄' }, undefined, randomUUID(), app);
-    assert.equal(tenant.status, 201, JSON.stringify(tenant.data));
-    const enabled = await h.post(`/tenants/${tenant.data.tenant.tenant_id}/workspaces/${tenant.data.workspace.workspace_id}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
+    // Seed the historical tenant without today's TenantView, which requires
+    // migration 129's grant table. Keep the actual registry enable below.
+    const tenantId = randomUUID(), scopeId = randomUUID(), workspaceId = randomUUID();
+    await isolatedTransaction(pool, async q => {
+      const principal = await mapPersonPrincipal(q, owner.user.user_id);
+      const community = (await q.query('SELECT community_id FROM users WHERE user_id=$1', [owner.user.user_id])).rows[0].community_id;
+      await bindPrincipalContext(q, principal.principal_id);
+      await bindTenantContext(q, { tenantId, tenantScopeId: scopeId });
+      const tenant = await q.query(`INSERT INTO tenants(tenant_id,community_id,display_name,created_by_principal_id)
+        VALUES($1,$2,'舊啟用紀錄',$3)`, [tenantId, community, principal.principal_id]);
+      assert.equal(tenant.rowCount, 1, 'historical tenant fixture is created');
+      await q.query(`INSERT INTO resource_scopes(scope_id,kind,tenant_ref) VALUES($1,'tenant',$2)`, [scopeId, tenantId]);
+      await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at)
+        VALUES($1,$2,'owner','active',clock_timestamp())`, [tenantId, principal.principal_id]);
+      await q.query(`INSERT INTO workspaces(workspace_id,tenant_id,name,is_default) VALUES($1,$2,'舊工作區',true)`, [workspaceId, tenantId]);
+    });
+    const enabled = await h.post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
     assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
     const old = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o`)).rows[0].row;
     assert.equal(old.operation_kind, 'application.launch');
@@ -370,9 +386,23 @@ test('migration 128 preserves pre-seeded launch, suspend and resume rows from sc
     const owner = await h.signIn(DEMO_USERS[0].email, app);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
-    const tenant = await h.post('/tenants', owner, { display_name: '舊啟用紀錄' }, undefined, randomUUID(), app);
-    assert.equal(tenant.status, 201, JSON.stringify(tenant.data));
-    const enabled = await h.post(`/tenants/${tenant.data.tenant.tenant_id}/workspaces/${tenant.data.workspace.workspace_id}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
+    // Seed the historical tenant without today's TenantView, which requires
+    // migration 129's grant table. Keep the actual registry enable below.
+    const tenantId = randomUUID(), scopeId = randomUUID(), workspaceId = randomUUID();
+    await isolatedTransaction(pool, async q => {
+      const principal = await mapPersonPrincipal(q, owner.user.user_id);
+      const community = (await q.query('SELECT community_id FROM users WHERE user_id=$1', [owner.user.user_id])).rows[0].community_id;
+      await bindPrincipalContext(q, principal.principal_id);
+      await bindTenantContext(q, { tenantId, tenantScopeId: scopeId });
+      const tenant = await q.query(`INSERT INTO tenants(tenant_id,community_id,display_name,created_by_principal_id)
+        VALUES($1,$2,'舊啟用紀錄',$3)`, [tenantId, community, principal.principal_id]);
+      assert.equal(tenant.rowCount, 1, 'historical tenant fixture is created');
+      await q.query(`INSERT INTO resource_scopes(scope_id,kind,tenant_ref) VALUES($1,'tenant',$2)`, [scopeId, tenantId]);
+      await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at)
+        VALUES($1,$2,'owner','active',clock_timestamp())`, [tenantId, principal.principal_id]);
+      await q.query(`INSERT INTO workspaces(workspace_id,tenant_id,name,is_default) VALUES($1,$2,'舊工作區',true)`, [workspaceId, tenantId]);
+    });
+    const enabled = await h.post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, owner, { guild_key: 'guild_ai_field' }, undefined, randomUUID(), app);
     assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
     for (const [kind, reason, policy] of [['module.instance.suspend', '合成暫停原因', null], ['module.instance.resume', null, 1]]) {
       await pool.query(`INSERT INTO module_provision_operations(operation_id,tenant_id,actor_principal_id,operation_kind,

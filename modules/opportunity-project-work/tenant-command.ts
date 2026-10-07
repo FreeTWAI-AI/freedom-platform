@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 import { scopedJournal, scopedTenantCommand, type ScopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { digest } from '../../packages/db/index.js';
-import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
+import { tenantWorkCapabilities } from './tenant-capabilities.js';
 
 /** Thrown from run only after authorize. Rollback leaves no receipt, so the caller can perform storage I/O and record the same body. */
 export class ReceiptMiss extends Error {
@@ -32,7 +32,7 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
     return await scopedTenantCommand(pool, input, authorize, async (q, context) => {
       if (inspect) await inspect(q, context);
       throw new ReceiptMiss();
-    });
+    }, authorize);
   } catch (error) {
     if (!(error instanceof ReceiptMiss)) throw error;
   }
@@ -40,9 +40,7 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
   let opened = false;
   const commit = (work: (q: PoolClient, context: TenantScopeContext) => Promise<T>) => {
     opened = true;
-    return scopedTenantCommand(pool, input, async (_q, context) => {
-      requireTenantCapability(context, 'work:result.write', true);
-    }, async (q, context) => {
+    return scopedTenantCommand(pool, input, authorize, async (q, context) => {
       const value = await work(q, context);
       if (journal.record) {
         await scopedJournal(q, context, {
@@ -51,14 +49,12 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
         });
       }
       return value;
-    });
+    }, authorize);
   };
   const produced = await produce(journal, commit);
   if (opened) return produced as T;
   // The probe already rolled back. This later commit still has to see result-write authority.
-  return scopedTenantCommand(pool, input, async (_q, context) => {
-    requireTenantCapability(context, 'work:result.write', true);
-  }, async (q, context) => {
+  return scopedTenantCommand(pool, input, authorize, async (q, context) => {
     const value = journal.commit ? await journal.commit(q, context) : produced as T;
     if (journal.record) {
       await scopedJournal(q, context, {
@@ -67,7 +63,7 @@ export async function rememberTenantCommand<T>(pool: Pool, fields: CommandFields
       });
     }
     return value;
-  });
+  }, authorize);
 }
 
 /** Stable across a lost HTTP acknowledgement. Version nibble is fixed so the id stays a UUID. */

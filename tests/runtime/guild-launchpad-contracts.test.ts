@@ -46,7 +46,7 @@ const reasonText = `🚀𠮷${'a'.repeat(998)}`;
 const display = `🚀𠮷${'名'.repeat(118)}`;
 const person = `🚀𠮷${'名'.repeat(238)}`;
 const slug = `a${'b'.repeat(62)}c`;
-const capKey = `a${'b'.repeat(79)}`;
+const capKey = `a${'b'.repeat(159)}`;
 const isoMin = '2026-10-06T00:00:00Z';
 const isoMax = '2026-10-06T00:00:00.000000000Z';
 const cursor = '🚀𠮷cursor';
@@ -315,6 +315,40 @@ const SERVER_ONLY: { schema: string; rule: string; value: unknown }[] = [
   { schema: 'invitation-accept-result', rule: 'display_name_control_character', value: { invitation: { ...invitation(false), tenant_display_name: 'a\u0001' }, membership: member(false) } },
   { schema: 'tenant-create-result', rule: 'display_name_control_character', value: { tenant: { ...tenant(false), display_name: 'a\u0001' }, workspace: workspace(false) } },
 ];
+
+for (const name of ['tenant-invite-input', 'member-change-input']) {
+  const base = profiles.find(profile => profile.name === name)!.minimal;
+  const entry = { instance_id: id, capabilities: ['work:read'] };
+  SERVER_ONLY.push(
+    { schema: name, rule: 'instance_ids_unique', value: { ...base, instance_capabilities: [entry, entry] } },
+    { schema: name, rule: 'instance_capability_keys_unique', value: { ...base, instance_capabilities: [{ ...entry, capabilities: ['work:read', 'work:read'] }] } },
+  );
+}
+
+test('instance grant inputs accept explicit scopes and reject grammar, empty, duplicate and over-limit lists', () => {
+  for (const name of ['tenant-invite-input', 'member-change-input']) {
+    const profile = profiles.find(profile => profile.name === name)!;
+    const entry = { instance_id: id, capabilities: ['work:read', 'work:write'] };
+    assert.equal(profile.schema.safeParse({ ...profile.minimal, instance_capabilities: [entry] }).success, true);
+    const twenty = Array.from({ length: 20 }, (_, index) => ({ ...entry, instance_id: `12345678-1234-4234-8234-${String(index).padStart(12, '0')}` }));
+    const hundred = Array.from({ length: 100 }, (_, index) => `a:${index}`);
+    assert.equal(profile.schema.safeParse({ ...profile.minimal, instance_capabilities: twenty }).success, true);
+    assert.equal(profile.schema.safeParse({ ...profile.minimal, instance_capabilities: [{ ...entry, capabilities: hundred }] }).success, true);
+    const invalid = [
+      [...twenty, { ...entry, instance_id: id2 }], [entry, entry],
+      [{ ...entry, capabilities: [] }], [{ ...entry, capabilities: [...hundred, 'a:100'] }],
+      [{ ...entry, capabilities: ['work:read', 'work:read'] }], [{ ...entry, actor: id }],
+      ...['*', 'Bad', 'bad,key', 'work:read\n', `a${'b'.repeat(160)}`].map(key => [{ ...entry, capabilities: [key] }]),
+    ];
+    for (const entries of invalid) assert.equal(profile.schema.safeParse({ ...profile.minimal, instance_capabilities: entries }).success, false, JSON.stringify(entries));
+    agree(profile, [
+      { name: 'explicit instance', value: { ...profile.minimal, instance_capabilities: [entry] }, valid: true },
+      { name: 'twenty instances', value: { ...profile.minimal, instance_capabilities: twenty }, valid: true },
+      { name: 'empty capabilities', value: { ...profile.minimal, instance_capabilities: [{ ...entry, capabilities: [] }] }, valid: false },
+      { name: 'twenty-one instances', value: { ...profile.minimal, instance_capabilities: [...twenty, { ...entry, instance_id: id2 }] }, valid: false },
+    ]);
+  }
+});
 
 function launchpadOnly(): { schema: string; rule: string; value: unknown }[] {
   const base = config(false);
@@ -621,16 +655,16 @@ const DOCUMENT_DIGESTS: Record<string, string> = {
   'classification-input': '82b03f526ea88808441aa8cf88fd2bffcaa68c9c8411165d67a9ba747290598f',
   'empty-command-input': 'e4ba27de71418e758118b40338fce02571eca44db58b5296f959222e714a9d39',
   'guild-classification': '0cfcb336dae6dd2b2a1f4236081bcb653bda9eceffddfbd480c551f28e76a3a0',
-  'invitation-accept-result': '219a8f938f6daa5ed0e9fa2a2fdbd0bee1aacda26e037d0517d5adcbfdb87b53',
-  'invitation-page': '1ca601cbc85803b75a173b7f7aae4f56ca1d8b801fbd3df777bfbb85159c36fb',
+  'invitation-accept-result': '953c43775b8d6dfc2199051d2ebbb2dbe8e74bf416a3ccf77fc7cab869bc6663',
+  'invitation-page': '9e916b2ec93a56e1c79254ae217c9d17f6a83d1730ef424d6e51cb78dccc5932',
   'invitation-revoke-input': '492ffe4d46ee56300115a7ff92652a9dc664904bf6cd6ffd06a3d367075f4856',
-  'invitation-view': 'd27bfc9f3e6a523e72a099c619f856bfe8990897577da8ffca5773c137ec2e21',
+  'invitation-view': 'f179c403dab8c53354f370fd831790b14fdfbf90cc767a7325efade5d430036e',
   'invite-candidate': 'a54b8d678b4f31999582ec5cf1e4f808e652ee0b05fdcf586c5f3c2280903e96',
   'launchpad-config': '45909fdda6925281f05a29833b4551d27b2f9c74cd92bfe914ae78ebd00d0b34',
   'leave-v2-input': 'dd06bd31728a3c77eb59377bef99b2a06b080b5da6b6f02f30c1b217f76db3b4',
-  'member-change-input': '42fe6bb1ba7feaffcfaf824ad3b91e055962bad9d649b2353991bb1a2f2e1548',
-  'member-page': '305cccea72f0d13aba4f1a3e99fca5383067be23de1864bfd636664c2f735af1',
-  'member-view': '8f9083026164133df812b17ec0e2ac92b13a0984cefd38307bb751df6a3c9a9e',
+  'member-change-input': '51cab0bc6239c1d44b937cbc9d5cc1e0ef51c4f03665593e48478e9f1cb5de75',
+  'member-page': '0d7168c4999742153bbecb2834c3fb2066ae78e5b90c41fbfd659156257223f6',
+  'member-view': 'a5ea33166f3f69ef1383fee7e7d63c6643f87b576bcf5f09992e2d14d53d1f3f',
   'preference-backfill-input': '39ba40ec3e83deed58b0cad55c2fc6ef2ef91f752faaa7aca1759d5c31c4ea5b',
   'preference-backfill-report': '0f3a927e68b72e0115c2929378491f0ff4c7a27bdfcb4c08b8cfa13030910fcb',
   'preference-switch-input': 'ae9b181322a23dedb01ccbc2f9fd08979518356a34528d8c5dbde2c49a31307c',
@@ -638,12 +672,12 @@ const DOCUMENT_DIGESTS: Record<string, string> = {
   'problem': '684f2f7cc162059282b35c5b5904cd68c1b52b1c3e35ef357838b9af15fbf146',
   'set-preference-input': '190495cb5e0f6a1cd07d1d8436eb1f02e763c03b5932668528b2b69bedc11c12',
   'tenant-create-input': '028f0835187fd51a9d3f54025d7508b95a6e0dfd6ead3c778f10f7c2483a28ff',
-  'tenant-create-result': '4357c175d226b8ead3a9ff190a662146b2e005d20c73cb54197e8ea8d6bc4c41',
+  'tenant-create-result': '35692cb8c8c820ecbc7c835c2c855c85ed3e893579df12cc21533108f40345ca',
   'tenant-edit-input': '4a88cab4610d12bbfc4b66f69c36bddb650cc42a9301885593c1f9208b93cb15',
-  'tenant-invite-input': '4aa7c18a2d03223b853c501f84bfb8b99f8fb365c8f34146798aa611ce6f0d46',
+  'tenant-invite-input': 'c3f694c756900a4a63a4ba998bb7f2e892acb96b28f89af7ea82adfbd2dd6f1c',
   'tenant-leave-result': '27fa1306198e796fb12579333d8307df539eacdd5cf575b46b9adb2ece3fdd43',
-  'tenant-page': '4156a3265d5e82a901833c954596dd21f66790e2d88176d0c3c2c116d1fe4870',
-  'tenant-view': 'db54b63963274ecb9f2b4f9aef2ae9820a09252f19e23b4cbcbb3b70b46ece53',
+  'tenant-page': 'e8a3d5c70c907af2e65274515c279f53e40fb6a198dfed20606e0b2afc381be5',
+  'tenant-view': '3644d3103d2edd3a68b2e4d33f770741ee9be35d4eae027b2ca243401a589e2c',
   'validation-failed-problem': 'd1564faa27e82cab8fc391f65bc1e3f644c2ce63390bf1f314d0a6ab13e60650',
   'workspace-create-input': '1e46cb1ad4b1c31e30e5c25f84c8da3a79beee3913bafa5c83ca922edd742c02',
   'workspace-page': 'd9cd94501d7e5c43d754cf7e202f89d223999eb6a77bd3803107905b8506fef8',

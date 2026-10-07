@@ -18,6 +18,7 @@ import {
 } from './facts.js';
 import { assertFreshVerificationCurrent, consumeFreshVerification, receiptNamespaceDigest, requireFreshVerification } from './high-risk-verification.js';
 import { loadActivePolicy } from './policy.js';
+import { revokeInstanceGrants } from './instance-grants.js';
 
 const MEMBER_PROFILE = 'freedom.scoped-member-command/v1';
 const TENANT_PROFILE = 'freedom.scoped-tenant-command/v1';
@@ -292,6 +293,7 @@ export async function acceptTransfer(pool: Pool, actor: Actor, tenantId: string,
       }
       await q.query(`UPDATE tenant_ownership_transfers SET state='accepted', version=version+1, decided_at=clock_timestamp(), accepted_at=clock_timestamp(), updated_at=clock_timestamp()
         WHERE transfer_id=$1 AND state='pending'`, [transferId]);
+      for (const principalId of ids) await revokeInstanceGrants(q, tenantId, principalId);
       const revision = await bumpAuthorizationRevision(q, tenantId);
       await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.ownership.accept', transfer.from_principal_id, tenant.authorization_revision, revision, 'tenant.ownership.accepted');
       const digest = receiptNamespaceDigest(MEMBER_PROFILE, [context.subject_principal.principal_id, context.authn_kind, context.scope.scope_id, 'tenant.ownership.accept', key]);

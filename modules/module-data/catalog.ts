@@ -1209,6 +1209,16 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         },
         {
           kind: "table" as const,
+          table: "tenant_module_permissions",
+          columns: [
+            "permission_id", "tenant_id", "principal_id", "instance_id", "capabilities", "purpose", "expires_at",
+            "status", "version", "granted_by_principal_id", "created_at", "updated_at", "revoked_at",
+          ],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" },
+          isolation: { rls: "enabled" as const, policies: ["tenant_module_permissions_tenant"] },
+        },
+        {
+          kind: "table" as const,
           table: "tenant_ownership_transfers",
           columns: [
             "transfer_id",

@@ -18,7 +18,7 @@
       ]
     },
     "instance_capabilities": {
-      "maxItems": 0,
+      "maxItems": 20,
       "type": "array",
       "items": {
         "type": "object",
@@ -30,11 +30,13 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
           },
           "capabilities": {
+            "minItems": 1,
             "maxItems": 100,
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 80
+              "maxLength": 160,
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$(?![\\s\\S])"
             }
           }
         },
@@ -59,5 +61,5 @@
   ],
   "additionalProperties": false,
   "$id": "https://freetwai.com/contracts/guild-launchpad/v1/member-change-input",
-  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: reason_control_character."
+  "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: reason_control_character, instance_ids_unique, instance_capability_keys_unique."
 }

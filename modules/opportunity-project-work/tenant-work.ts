@@ -5,7 +5,7 @@ import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild
 import { withTenantRead, type TenantScopeInput } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
+import { requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from './tenant-capabilities.js';
 
 export interface TenantWorkRow {
   work_item_id: string; tenant_id: string; workspace_id: string; instance_id: string;
@@ -92,8 +92,11 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
   const cursorContext = { tenantId, workspaceId, callerId: actor.user_id, filter: createHash('sha256').update(query.q ?? '').digest('hex') };
   const cursor = decodeKeyset(query.cursor, cursorContext);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const source = await workspaceSource(q, tenantId, workspaceId);
+    const binding = (await q.query<{ instance_id: string }>(`SELECT instance_id FROM workspace_module_bindings
+      WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability='work:create'`, [tenantId, workspaceId])).rows[0];
+    if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
     const rows = (await q.query<TenantWorkRow & { cursor_at: string }>(`SELECT ${FIELDS},
         to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
       FROM work_items w
@@ -115,9 +118,10 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
 export async function readTenantWork(pool: Pool, actor: Actor, tenantId: string, workId: string) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workId);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const row = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
     requireCondition(row && row.state === 'draft', 404, 'not_found', '找不到這個工作。');
+    await requireWorkInstance(q, context, row.instance_id, 'work:read', '找不到這個工作。');
     return workView(row);
   });
 }

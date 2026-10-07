@@ -115,6 +115,7 @@ const FOUNDATION_NAMES = [
   '126_module_registry.sql',
   '127_module_instance_lifecycle.sql',
   '128_module_instance_archive.sql',
+  '129_tenant_module_permissions.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

@@ -22,7 +22,7 @@ const ENABLED = [
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
   'scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal',
-  'tenant_authority_audit', 'tenant_capacity_policies', 'tenant_high_risk_verifications', 'tenant_invitations', 'tenant_memberships',
+  'tenant_authority_audit', 'tenant_capacity_policies', 'tenant_high_risk_verifications', 'tenant_invitations', 'tenant_memberships', 'tenant_module_permissions',
   'tenant_ownership_transfers', 'tenant_recovery_cases',
   'tenant_work_result_targets', 'tenant_work_results', 'tenants', 'work_items', 'workspace_module_bindings', 'workspaces',
 ];
