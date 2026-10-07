@@ -104,21 +104,16 @@ test('Database URL checks', async (t) => {
   assert.equal(result1.status, 'not_run');
   assert.equal(result1.reason, 'test_database_required');
 
+  // Exact results: no field may echo any part of the rejected URL.
+  const rejected = { check_id: 'ci.worker-unit', status: 'not_run', reason: 'test_database_rejected' };
   const result2 = await runPinnedSuite(root, 'ci.worker-unit', { testDatabaseUrl: 'postgresql://postgres@db.example.com/fp_fixture' });
-  assert.equal(result2.status, 'not_run');
-  assert.equal(result2.reason, 'test_database_rejected');
-  assert.ok(!JSON.stringify(result2).includes('db.example.com'));
+  assert.deepEqual(result2, rejected);
 
   const result3 = await runPinnedSuite(root, 'ci.worker-unit', { testDatabaseUrl: 'postgresql://postgres:secret-pass@localhost/fp_fixture' });
-  assert.equal(result3.status, 'not_run');
-  assert.equal(result3.reason, 'test_database_rejected');
-  assert.ok(!JSON.stringify(result3).includes('secret-pass'));
+  assert.deepEqual(result3, rejected);
 
   const result4 = await runPinnedSuite(root, 'ci.worker-unit', { testDatabaseUrl: 'postgresql://postgres@localhost/fp_fixture?options=-c%20search_path%3Devil' });
-  assert.equal(result4.status, 'not_run');
-  assert.equal(result4.reason, 'test_database_rejected');
-  assert.ok(!JSON.stringify(result4).includes('search_path'));
-  assert.ok(!JSON.stringify(result4).includes('evil'));
+  assert.deepEqual(result4, rejected);
 });
 
 test('A database: false suite gets a clean environment', async (t) => {

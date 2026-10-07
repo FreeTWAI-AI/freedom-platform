@@ -16664,8 +16664,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
-      "bytes": 12153,
-      "sha256": "20b850c975788104789349afc2ba1df20b9cdb7a55ceeef6933fef62f549feb6"
+      "bytes": 11891,
+      "sha256": "81092d831778915e8a484a8c700c7fd88fe6e99673524e134ed532eadb031d94"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
