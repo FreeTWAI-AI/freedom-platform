@@ -16579,8 +16579,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 8772,
-      "sha256": "2d045fa8bf2f10a9497392f0625e5bbf23507bb631c874a892fc5cd60456f23d"
+      "bytes": 9220,
+      "sha256": "38f3b0997430b27ddf5eb6a0ab307ce5f70edd6df0d1b859928cf5015df787ea"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -16624,8 +16624,8 @@
     },
     {
       "path": "packages/contribution-tools/suite-runner.mjs",
-      "bytes": 36181,
-      "sha256": "bdf9b8ed9c0b8308771dcd6e6baa14042793c026d4205b5cc10a554f3889a3f0"
+      "bytes": 36386,
+      "sha256": "14f5d0ea481139805d6e07433c8268825b862eadcc2b9347b300127b45d11ec9"
     },
     {
       "path": "packages/contribution-tools/surface-audit.md",
@@ -16779,8 +16779,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 14294,
-      "sha256": "88e2f24a94c3c60735458782beb8e77cf85f76e4c057f4eea119d37be5d50d36"
+      "bytes": 18174,
+      "sha256": "9769843f292536cfcd4b4c911d4d65b4a21c0fa8e4c18c9db6c1755fe22cfee5"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -17448,6 +17448,11 @@
       "sha256": "bc8ebfbace821b9abcb14c94e8cb868e12e6aef61bd240d04cdcff4dad9d564b"
     },
     {
+      "path": "scripts/ci/pinned-playwright.config.mjs",
+      "bytes": 2019,
+      "sha256": "bc0a7a07169577a32f16eb77610b6cf89d76a9592528cef9b2ad4e09ba6e9e29"
+    },
+    {
       "path": "scripts/ci/pinned_pytest_evidence.py",
       "bytes": 3905,
       "sha256": "37188c20f56b997ba21aeb08c700e014f82d51aa69ba27ceff1525fa477aac11"
@@ -17464,8 +17469,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 6801,
-      "sha256": "a6df8155486a180c519e724f7ef68d65efcb19eef13c78d1214946299167d29a"
+      "bytes": 7021,
+      "sha256": "a6c572c8de3c987ce113284c9b11087ea2c0c24b20d1d955f609fe32eb0d2013"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
@@ -17729,8 +17734,8 @@
     },
     {
       "path": "tests/contribution-tools/pinned-pytest.integration.test.mjs",
-      "bytes": 5519,
-      "sha256": "04b851329d3e3e1d7f792f1a29f1c74e722b0f145cd2eb9a5de77c9e4119dd64"
+      "bytes": 6785,
+      "sha256": "ebe0c6e5383616a89fe559d6edf27ab746e887cd4c31355aa46c20535a6cebb8"
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",

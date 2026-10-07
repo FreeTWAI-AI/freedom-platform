@@ -15,6 +15,32 @@ async function withFixture(fn) {
   }
 }
 
+async function failingBaseline(root) {
+  await mkdir(join(root, 'docs/platform-plan/contracts/tests'), { recursive: true });
+  await mkdir(join(root, 'docs/platform-plan/execution/tools/tests'), { recursive: true });
+  for (const file of PINNED_SUITES['ci.contracts-pytest'].baseline) {
+    await writeFile(join(root, file), 'def test_ok(): pass\ndef test_required(): assert False\n');
+  }
+}
+
+for (const [name, path, body] of [
+  ['pytest.ini addopts', 'pytest.ini', '[pytest]\naddopts = -k test_ok\n'],
+  ['pytest.ini python_functions', 'pytest.ini', '[pytest]\npython_functions = test_ok\n'],
+  ['pyproject.toml addopts', 'pyproject.toml', '[tool.pytest.ini_options]\naddopts = "-k test_ok"\n'],
+  ...['docs/platform-plan/contracts/tests/conftest.py', 'conftest.py'].map(path => [path, path,
+    'def pytest_collection_modifyitems(config, items):\n    items[:] = [item for item in items if item.name == "test_ok"]\n'])
+]) {
+  test(`Candidate ${name} cannot deselect required tests`, async () => {
+    await withFixture(async root => {
+      await failingBaseline(root);
+      await writeFile(join(root, path), body);
+      const result = await runPinnedSuite(root, 'ci.contracts-pytest');
+      assert.equal(result.status, 'failed');
+      assert.equal(result.reason, 'test_process_failed');
+    });
+  });
+}
+
 test('All expected files pass', async () => {
   await withFixture(async (root) => {
     await mkdir(join(root, 'docs/platform-plan/contracts/tests'), { recursive: true });
@@ -110,7 +136,7 @@ def test_syntax(
   });
 });
 
-test('A fixture conftest.py that deselects every test', async () => {
+test('A candidate conftest.py is not loaded', async () => {
   await withFixture(async (root) => {
     await mkdir(join(root, 'docs/platform-plan/contracts/tests'), { recursive: true });
     await mkdir(join(root, 'docs/platform-plan/execution/tools/tests'), { recursive: true });
@@ -123,8 +149,8 @@ def pytest_collection_modifyitems(config, items):
 `);
 
     const result = await runPinnedSuite(root, 'ci.contracts-pytest');
-    assert.equal(result.status, 'failed');
-    // pytest exits with 5 (no tests collected) -> test_process_failed
-    assert.equal(result.reason, 'test_process_failed');
+    assert.equal(result.status, 'passed');
+    assert.equal(result.reason, 'tests_executed');
+    assert.equal(result.test_count, 16);
   });
 });

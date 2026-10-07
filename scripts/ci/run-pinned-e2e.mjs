@@ -4,17 +4,19 @@ import { resolve, join, dirname, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { E2E_BASELINE, E2E_PLAN, evaluateE2ePasses } from '../../packages/contribution-tools/pinned-e2e.mjs';
 import { readBounded } from '../../packages/contribution-tools/io.mjs';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const configFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
 
 // SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
 // Escalation is bounded independently of the 30-minute pass budget.
 function execute(root, cli, pass, env, signal) {
   return new Promise(done => {
     const group = process.platform !== 'win32';
-    const child = spawn(process.execPath, [cli, 'test', '--reporter=list,json', '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...pass.files],
+    const child = spawn(process.execPath, [cli, 'test', '--config', configFile, '--forbid-only', '--reporter=list,json', '--output', join(dirname(env.PLAYWRIGHT_JSON_OUTPUT_FILE), 'artifacts'), ...pass.files],
       { cwd: root, env, stdio: 'inherit', detached: group });
     let reason, escalation;
     const kill = name => {
@@ -109,7 +111,7 @@ async function main() {
         temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
         const reportPath = join(temp, 'report.json');
         const ran = await execute(root, cli, pass,
-          { ...baseEnv, ...pass.env, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath, PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(temp, 'last-run.json') }, controller.signal);
+          { ...baseEnv, ...pass.env, FREEDOM_PINNED_E2E_ROOT: root, PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath, PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: join(temp, 'last-run.json') }, controller.signal);
         executionReason = ran.reason;
         let report, evidence_sha256;
         try {
@@ -132,7 +134,7 @@ async function main() {
     process.removeListener('SIGTERM', onSignal);
   }
   if (controller.signal.aborted) executionReason = 'test_cancelled';
-  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, 'tests/e2e').split(sep).join('/') });
+  const result = evaluateE2ePasses(expectedFiles, passReports, { rootDir: resolve(root, 'tests/e2e').split(sep).join('/'), configFile });
   if (executionReason) { result.status = 'failed'; result.reason = executionReason; }
   await publish(result);
 }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 
 // Reviewed host data. Package scripts, globs and descriptors never change a suite.
 // A directory suite runs its baseline plus every candidate file in its directory
@@ -60,6 +61,7 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
     if (!selected_files.length) throw Error('empty_test_set');
     if (!object(options) || !text(options.rootDir) || !options.rootDir.startsWith('/')
       || options.rootDir.includes('\\')) throw Error('invalid_root_dir');
+    if (!text(options.configFile) || !isAbsolute(options.configFile)) throw Error('invalid_test_results');
     if (!Array.isArray(passReports)) throw Error('invalid_pass_plan');
     passes = passReports.map(pass => ({ id: text(pass?.id) ? pass.id : '',
       exit_code: Number.isInteger(pass?.exit_code) ? pass.exit_code : null,
@@ -73,6 +75,9 @@ export function evaluateE2ePasses(expectedFiles, passReports, options = {}) {
       if (pass.exit_code !== 0) throw Error('test_process_failed');
       const report = pass.report;
       if (!object(report) || !object(report.config) || report.config.rootDir !== options.rootDir
+        || report.config.configFile !== options.configFile || report.config.forbidOnly !== true
+        || !Array.isArray(report.config.projects) || report.config.projects.length !== 1
+        || report.config.projects[0]?.name !== 'chromium' || report.config.projects[0]?.testDir !== options.rootDir
         || !Array.isArray(report.errors) || !object(report.stats) || !Array.isArray(report.suites)
         || ['expected', 'skipped', 'unexpected', 'flaky'].some(key => !Number.isSafeInteger(report.stats[key]) || report.stats[key] < 0)) {
         throw Error('invalid_test_results');

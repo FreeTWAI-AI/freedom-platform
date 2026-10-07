@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import { E2E_BASELINE, E2E_PLAN, evaluateE2ePasses } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
+const configFile = '/trusted/scripts/ci/pinned-playwright.config.mjs';
 const expectedFiles = ['tests/e2e/other.spec.ts', 'tests/e2e/private-work-ai.spec.ts', 'tests/e2e/member-avatar-asset.spec.ts'];
 const cliEnv = { ...process.env, TEST_DATABASE_URL: 'postgresql://freedom_local@127.0.0.1:55521/fp_foundation_ci', FREEDOM_E2E_PORT: '4391' };
 const state = status => ({ timeout: 45000, annotations: [], expectedStatus: 'passed', projectId: 'chromium', projectName: 'chromium',
@@ -23,7 +24,7 @@ function report(suites) {
   const stats = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
   const visit = s => { for (const spec of s.specs) for (const t of spec.tests) stats[t.status]++; for (const nested of s.suites ?? []) visit(nested); };
   suites.forEach(visit);
-  return { config: { rootDir }, suites, errors: [], stats };
+  return { config: { rootDir, configFile, forbidOnly: true, projects: [{ name: 'chromium', testDir: rootDir }] }, suites, errors: [], stats };
 }
 function cleanPasses() {
   const suites = [
@@ -33,7 +34,7 @@ function cleanPasses() {
   ];
   return E2E_PLAN.map((pass, index) => ({ id: pass.id, exit_code: 0, evidence_sha256: 'a'.repeat(64), report: report(suites[index]) }));
 }
-const evaluate = (passes, files = expectedFiles) => evaluateE2ePasses(files, passes, { rootDir });
+const evaluate = (passes, files = expectedFiles) => evaluateE2ePasses(files, passes, { rootDir, configFile });
 const testIn = (passes, index, file, title) => passes[index].report.suites.find(s => s.file === file).suites[0].suites[0].specs.find(s => s.title === title).tests[0];
 function reject(mutator, reason) {
   const passes = cleanPasses();
@@ -121,6 +122,22 @@ test('A different config.rootDir fails', () => {
   reject(p => { p[0].report.config.rootDir = '/different/tests/e2e'; }, 'invalid_test_results');
 });
 
+test('A different configFile fails', () => {
+  reject(p => { p[0].report.config.configFile = '/candidate/playwright.config.ts'; }, 'invalid_test_results');
+});
+
+test('A report without forbidOnly fails', () => {
+  reject(p => { p[0].report.config.forbidOnly = false; }, 'invalid_test_results');
+});
+
+test('A report with two projects fails', () => {
+  reject(p => { p[0].report.config.projects.push({ name: 'extra', testDir: rootDir }); }, 'invalid_test_results');
+});
+
+test('A different project testDir fails', () => {
+  reject(p => { p[0].report.config.projects[0].testDir = '/different/tests/e2e'; }, 'invalid_test_results');
+});
+
 test('Suite and spec file fields containing slash or traversal fail', () => {
   for (const file of ['tests/e2e/other.spec.ts', '../other.spec.ts', 'other..spec.ts', '/other.spec.ts', 'nested/other.spec.ts']) {
     reject(p => { p[0].report.suites[0].file = file; }, 'invalid_test_results');
@@ -165,6 +182,64 @@ async function baseline(root, omit) {
   await writeFile(join(root, 'package.json'), '{}');
   for (const file of E2E_BASELINE) if (file !== omit) await writeFile(join(root, file), '// baseline fixture\n');
 }
+
+const ordinaryTests = "import { test } from '@playwright/test';\ntest('smoke', () => {});\ntest('required', () => {});\n";
+async function playwrightFixture(root, config) {
+  await baseline(root);
+  await writeFile(join(root, 'package.json'), '{"type":"module"}');
+  await symlink(join(repoRoot, 'node_modules'), join(root, 'node_modules'), 'dir');
+  await writeFile(join(root, 'playwright.config.ts'), config);
+  for (const file of E2E_BASELINE) await writeFile(join(root, file), ordinaryTests);
+}
+
+test('CLI trusted selection ignores candidate filters and includes a new spec', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, `export default {
+      testDir: './empty', testMatch: /never-matches/, testIgnore: ['**/admin*.spec.ts'],
+      grep: /smoke/, grepInvert: /required/, shard: { total: 4, current: 1 }, retries: 2, forbidOnly: false,
+      projects: [{ name: 'chromium', grep: /smoke/, testDir: './empty', testIgnore: '**/*.spec.ts' },
+        { name: 'extra', testMatch: /nothing/ }]
+    };`);
+    await writeFile(join(root, 'tests/e2e/zz-new-normal.spec.ts'), ordinaryTests);
+    const output = join(root, 'result.json');
+    const child = invoke(['--root', root, '--output', output]);
+    assert.equal(child.status, 0, child.stdout + child.stderr);
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'passed');
+    assert.equal(result.test_count, 178);
+    assert.equal(result.test_files.length, 89);
+    assert.ok(result.test_files.every(file => file.counts.tests === 2 && file.counts.passed === 2));
+    assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0]);
+  });
+});
+
+test('CLI trusted selection forbids test.only and stops after the default pass', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, "export default { testDir: './tests/e2e', projects: [{ name: 'chromium' }] };");
+    await writeFile(join(root, E2E_BASELINE[0]), ordinaryTests.replace("test('smoke'", "test.only('smoke'"));
+    const output = join(root, 'result.json');
+    const child = invoke(['--root', root, '--output', output]);
+    assert.equal(child.status, 1, child.stdout + child.stderr);
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'failed');
+    assert.equal(result.reason, 'test_process_failed');
+    assert.equal(result.passes.length, 1);
+    assert.equal(result.passes[0].id, 'default');
+    assert.notEqual(result.passes[0].exit_code, 0);
+  });
+});
+
+test('CLI trusted selection requires the chromium project', async () => {
+  await withFixture(async root => {
+    await playwrightFixture(root, "export default { projects: [{ name: 'other' }] };");
+    const output = join(root, 'result.json');
+    const child = invoke(['--root', root, '--output', output]);
+    assert.equal(child.status, 1, child.stdout + child.stderr);
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'failed');
+    assert.equal(result.reason, 'test_process_failed');
+  });
+});
 
 test('CLI argument errors exit 2; missing Playwright writes not_run evidence', async () => {
   for (const args of [['--unknown'], [], ['--root', ''], ['--root', '/tmp', '--output'], ['--root', '/tmp', '--extra', '/tmp/result.json']]) {

@@ -266,9 +266,12 @@ async function runPytestSuiteDefinition(root, id, files, suite, extraEnv, timeou
     temp = await mkdtemp(join(tmpdir(), 'fp-pinned-'));
     const junit = join(temp, 'junit.xml'), expected = join(temp, 'expected.json');
     await writeFile(expected, JSON.stringify(files));
-    const args = ['-I', '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider', '-o', 'junit_family=xunit1',
-      '--junitxml', junit, ...(suite.directories ?? (suite.directory ? [suite.directory] : files))];
-    const env = { ...verificationEnvironment(), ...extraEnv, PYTHONDONTWRITEBYTECODE: '1' };
+    const config = join(temp, 'pytest.ini');
+    await writeFile(config, '[pytest]\n');
+    const args = ['-I', '-B', '-m', 'pytest', '-q', '-c', config, '--rootdir', resolve(root), '--noconftest',
+      '-p', 'no:cacheprovider', '-o', 'junit_family=xunit1', '--junitxml', junit, ...files];
+    // The environment allowlist already excludes PYTEST_ADDOPTS and PYTEST_PLUGINS.
+    const env = { ...verificationEnvironment(), ...extraEnv, PYTHONDONTWRITEBYTECODE: '1', PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1' };
     if (options.signal?.aborted) return failure('test_cancelled');
     if (performance.now() >= deadline) return failure('test_timeout');
     const ran = await new Promise(done => {
