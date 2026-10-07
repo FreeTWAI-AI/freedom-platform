@@ -907,11 +907,17 @@ test('r4 transactional launch binding conflict rolls back every launch write', a
 });
 
 test('r4 two cancels with the same If-Match accept one request and settle once', { timeout: 20_000 }, async () => {
-  const { owner, tenantId, workspaceId } = await prepared('取消競態');
+  const { owner, actor, tenantId, workspaceId } = await prepared('取消競態');
   await setSyntheticFault(h.pool, 'synthetic-inventory', 'timeout');
   const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
-  const launched = await h.launch(owner, tenantId, planned);
-  assert.equal(launched.status, 202, JSON.stringify(launched.data));
+  const acceptedLaunch = await launchApplication(h.pool, actor, tenantId, {
+    plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+  }, randomUUID(), h.providers);
+  // Claim only the first step: leave one unknown effect and one undispatched step for cancellation settlement.
+  await advanceOperation(h.pool, tenantId, acceptedLaunch.operation_id, { providers: h.providers, budget: 0 });
+  const launched = await h.call('GET', `/tenants/${tenantId}/operations/${acceptedLaunch.operation_id}`, owner);
+  assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  assert.equal(launched.data.state, 'needs_reconciliation');
   const path = `/tenants/${tenantId}/operations/${launched.data.operation_id}/cancel`;
   await observeTerminalTransitions();
   const holder = await connect();
