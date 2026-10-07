@@ -292,7 +292,7 @@
     "manifest_semantics": "freedom.project.yaml deployment.trigger=published_release declares the v1 production release policy. Installed automation, signed release provenance and actual deployment observations are separate evidence; policy conformance is not inferred from this value."
   },
   "schema": {
-    "repository_max_migration": 124,
+    "repository_max_migration": 125,
     "last_observed_live": {
       "ledger_rows": 112,
       "through_number": 113,
