@@ -25,7 +25,14 @@ export async function instance(q: PoolClient, tenantId: string, instanceId: stri
     LEFT JOIN deployment_bindings d ON d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id AND d.binding_id=i.binding_id
     WHERE i.tenant_id=$1 AND i.instance_id=$2 AND i.module_key='storefront'${write ? ' FOR NO KEY UPDATE OF i' : ''}`, [tenantId, instanceId])).rows[0];
   requireCondition(row, 404, 'not_found', STORE_MISSING);
-  if (write) requireCondition(row.status === 'active' && row.deployment_state === 'active', 409, 'storefront_unavailable', '這間商店目前無法修改。');
+  if (write) {
+    // Match lifecycle's instance-before-deployment order. A deployment hold
+    // that commits during this wait must refuse both fresh writes and replays.
+    const live = await q.query(`SELECT 1 FROM deployment_bindings d
+      JOIN module_instances i ON i.tenant_id=d.tenant_id AND i.instance_id=d.instance_id AND i.binding_id=d.binding_id
+      WHERE i.tenant_id=$1 AND i.instance_id=$2 AND d.state='active' FOR SHARE OF d`, [tenantId, instanceId]);
+    requireCondition(row.status === 'active' && live.rowCount === 1, 409, 'storefront_unavailable', '這間商店目前無法修改。');
+  }
   else requireCondition(allowArchived || row.status !== 'archived', 404, 'not_found', STORE_MISSING);
   return row;
 }

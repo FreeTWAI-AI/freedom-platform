@@ -334,6 +334,35 @@ test('T-013 owner and admin can write, explicit read grants cannot write, foreig
   expect(await call('GET',s.root,reader),404); assert.deepEqual(expect(await call('GET','/me/stores',reader)).items,[]);
 });
 
+test('T-016 a deployment hold committed during authorization refuses both a fresh product write and receipt replay', async () => {
+  const s=await ready(); const key=randomUUID();
+  const command=()=>post(s.root+'/products',s.owner,product,undefined,key);
+  async function holdThenRefuse() {
+    const blocker=await h.pool.connect(); let pending: Promise<Reply> | undefined;
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('SELECT 1 FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 FOR UPDATE',[s.tenantId,s.instanceId]);
+      pending=command();
+      let waiting=false;
+      for(let n=0;n<1000;n++) {
+        const blocked=await h.pool.query(`SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE '%deployment_bindings%'`,[role]);
+        if(blocked.rowCount) { waiting=true;break; }
+      }
+      assert.equal(waiting,true,'Command must wait for the deployment row before changing products');
+      await blocker.query(`UPDATE deployment_bindings SET state='suspended' WHERE tenant_id=$1 AND instance_id=$2`,[s.tenantId,s.instanceId]);
+      await blocker.query('COMMIT');
+      const refused=await pending;expect(refused,409);assert.equal(refused.data.code,'storefront_unavailable');
+    } finally {
+      await blocker.query('ROLLBACK');blocker.release();
+      if(pending)await pending;
+    }
+  }
+  await holdThenRefuse(); assert.equal((await view(s)).product_count,0);
+  await h.pool.query(`UPDATE deployment_bindings SET state='active' WHERE tenant_id=$1 AND instance_id=$2`,[s.tenantId,s.instanceId]);
+  expect(await command(),201);
+  await holdThenRefuse(); assert.equal((await view(s)).product_count,1);
+});
+
 test('T-007 commerce guild leadership gives no access to another member store', async () => {
   const s=await ready(); await add(s);
   const leader=(await h.person('合成公會長')).session; await h.fullMember(leader.user.user_id,guild);
