@@ -390,3 +390,28 @@ production 由 owner 於 12:31Z 決定照第六輪的方式直接發（「直接
 
 限制：P-B2b 的 T-ID 案例（T-013、T-015、T-022、T-047）與 P-D3a 的畫面流程沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
 這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
+
+### 10 月 8 日：第八輪 staging／production rollout（main e89cd0c8，migration 132、133）
+
+`e89cd0c8` 是 #287 的 merge。它在第七輪（`3685d626`）之後帶進 #193 的社群整合（#284，migration 132：社群貼文的按讚、留言與純文字貼文；
+migration 133：新貼圖）與 P-D3a 的目錄修正（#287，無 migration）。第七輪的收據 #286 在 #287 之後才合併，不在本輪範圍內。
+兩個環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED` 都維持 `true`；#284 的會員功能不受這個 flag 控制，隨部署上線。staging 依 owner 的委派部署；
+production 由 owner 於 13:49Z 決定在 #287 合併後照第七輪的方式直接發（「#287 合併後直接發 (Recommended)」），不跑 staging 驗收，到 live 再測。
+
+- 兩個環境各自先做 migration 前的備份（staging `9492971b`、production `87d02a52`），都做過隔離還原與遠端讀回。
+- 132 讓 `community_social_posts` 多了 `kind`（預設 `link`；`note` 沒有網址），用 `social_post_content` 取代 066 的 note CHECK，並新增
+  `community_social_likes` 與 `community_social_comments`。133 把兩個 sticker_id CHECK 從 4 個放寬到 52 個 id。兩者對 `3685d626` 都只是新增或放寬，
+  既有資料都符合新的 CHECK；仍然是 migration 後立刻部署 `e89cd0c8`。
+- staging：migrator 套用 132、133，重套 runtime grants（兩者都沒有 GRANT，通用授權涵蓋新表）並通過唯讀驗證，14:32Z 部署（Worker 版本 `f9284c0b`）。
+- production：同樣由 migrator 套用並驗證。media operator 對 `community_social_posts` 有表層級授權，所以新欄位 `kind` 多出衍生的欄位權限列
+  （SELECT），其餘權限快照前後相同；14:34Z 以同一份 dist 部署（Worker 版本 `4c40169a`），33 個唯讀公開 checks 通過，4 次 fresh health 都是 `e89cd0c8`。
+- row security 不變：28 張表、39 條 policy。migrate 後新表在 staging 有 0 個讚、0 則留言，
+  production 有 0 個讚、0 則留言；兩邊 runtime 與備份角色在同一個 snapshot 的登入 probe 都通過。
+- 兩個環境部署後的備份（staging `770211b6`、production `691eed94`）都做過隔離還原與遠端讀回，backup pin 都改成 `e89cd0c8`。
+  staging 部署後 cron 有寫入（最後同步 14:51Z，last_error 8→8）；production 部署後 cron 有寫入（最後同步 14:51Z，last_error 6→6）。另有 2 次備份失敗後清理 maintenance policy，經過記在私人收據。
+
+回滾：重新部署 `3685d626`，不需要退回 migration；部署後新增的純文字貼文、按讚、留言與新貼圖，`3685d626` 只能部分顯示。128 之後仍然不能部署 X（`c84829e2`）。
+schema 只能從 migration 前的備份還原。
+
+限制：#284 與 #287 沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
+這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
