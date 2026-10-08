@@ -46,7 +46,7 @@ export function createShopMachineRoutes(pool:Pool,host:ShopServiceHost){
  const app=new Hono();
  app.use('*',async(c,next)=>{c.header('Cache-Control','no-store');await next();});
  app.get('/connection',async c=>c.json(await machine(pool,host,c.req.header('Authorization'),async(q,shop)=>({shop_id:shop.shop_id,kind:shop.kind,currency:shop.currency,mode:shop.mode,accepting_orders:shop.accepting_orders,
-  selections:shop.kind==='public'?(await q.query("SELECT selection_id,item_id,snapshot FROM commerce_selections WHERE shop_id=$1 AND acceptance_state='sellable'",[shop.shop_id])).rows:[]}))));
+  selections:shop.kind==='public'?(await q.query("SELECT l.selection_id,l.item_id,l.snapshot FROM commerce_selections l JOIN commerce_shops s ON s.shop_id=l.shop_id JOIN commerce_items i ON i.item_id=l.item_id JOIN commerce_shops supply ON supply.shop_id=i.shop_id WHERE s.origin='imported' AND supply.origin='imported' AND l.shop_id=$1 AND l.acceptance_state='sellable'",[shop.shop_id])).rows:[]}))));
  app.get('/orders',async c=>{const offset=z.coerce.number().int().min(0).max(100000).parse(c.req.query('offset')??0);return c.json({items:await machine(pool,host,c.req.header('Authorization'),(q,s)=>shopOrders(q,s,offset)),offset,limit:100});});
  app.post('/orders',async c=>{const body=await c.req.json();return c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>createOrder(q,s,body)),201);});
  app.get('/orders/:id',async c=>c.json(await machine(pool,host,c.req.header('Authorization'),(q,s)=>orderView(q,s,z.uuid().parse(c.req.param('id'))))));
@@ -60,7 +60,7 @@ export function createPublicShopRoutes(pool:Pool){
  const app=new Hono();
  app.get('/api/v1/public-shops/:id',async c=>{
   const shop=(await pool.query(`SELECT s.shop_id,s.name,s.description,s.website_url,s.contact,s.mode,s.accepting_orders FROM commerce_shops s JOIN users u ON u.user_id=s.owner_id
-   WHERE s.shop_id=$1 AND s.kind='public' AND u.active`,[z.uuid().parse(c.req.param('id'))])).rows[0];
+   WHERE s.origin='imported' AND s.shop_id=$1 AND s.kind='public' AND u.active`,[z.uuid().parse(c.req.param('id'))])).rows[0];
   requireCondition(shop,404,'shop_not_found','找不到公開商店。');return c.json(shop);
  });
  return app;
