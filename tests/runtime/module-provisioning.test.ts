@@ -252,6 +252,73 @@ test('T-034 a known failure keeps a reused or data-bearing module and archives a
   assert.equal(reservation.state, 'consumed');
 });
 
+for (const resolution of ['reconcile', 'executor'] as const) {
+  for (const memberData of [false, true]) {
+    test(`a late ${resolution} confirmation settles an earlier known failure with member data ${memberData}`, async () => {
+      const { owner, tenantId, workspaceId } = await prepared();
+      await setSyntheticFault(h.pool, 'synthetic-inventory', resolution === 'reconcile' ? 'ack_lost' : 'crash_after');
+      await setSyntheticFault(h.pool, 'synthetic-storefront', 'fail_known');
+      const planned = await h.plan(owner, tenantId, synthBody(workspaceId));
+      const launched = await h.launch(owner, tenantId, planned);
+      assert.equal(launched.status, 202, JSON.stringify(launched.data));
+      const operationId = launched.data.operation_id as string;
+      const before = (await h.pool.query(
+        'SELECT step_key,state FROM module_provision_steps WHERE operation_id=$1 ORDER BY ordinal', [operationId],
+      )).rows;
+      assert.deepEqual(before.map(row => row.state), [resolution === 'reconcile' ? 'unknown' : 'dispatched', 'failed_known']);
+      const inventory = (await h.pool.query(
+        "SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND module_key='synthetic-inventory'", [tenantId],
+      )).rows[0].instance_id as string;
+      if (memberData) {
+        await h.pool.query('UPDATE synthetic_module_effects SET member_data=true WHERE instance_id=$1', [inventory]);
+      }
+      await setSyntheticFault(h.pool, 'synthetic-inventory', null);
+      if (resolution === 'reconcile') {
+        const current = await operationVersion(operationId);
+        const reply = await h.post(`/tenants/${tenantId}/operations/${operationId}/reconcile`, owner, {}, `"${current.version}"`);
+        assert.equal(reply.status, 202, JSON.stringify(reply.data));
+      } else {
+        await h.pool.query(
+          "UPDATE module_provision_steps SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE operation_id=$1 AND step_key='step-0'",
+          [operationId],
+        );
+        await advanceOperation(h.pool, tenantId, operationId, { providers: h.providers, budget: 3000 });
+      }
+      const settled = await h.call('GET', `/tenants/${tenantId}/operations/${operationId}`, owner);
+      assert.equal(settled.data.state, 'failed', JSON.stringify(settled.data));
+      assert.equal(settled.data.problem.code, 'failed_known');
+      assert.equal((await h.pool.query('SELECT status FROM module_instances WHERE instance_id=$1', [inventory])).rows[0].status,
+        memberData ? 'active' : 'archived');
+      const installation = (await h.pool.query(
+        'SELECT status,retained_instance_ids FROM application_installations WHERE tenant_id=$1 AND workspace_id=$2', [tenantId, workspaceId],
+      )).rows[0];
+      assert.equal(installation.status, 'failed');
+      assert.deepEqual(installation.retained_instance_ids, memberData ? [inventory] : []);
+      assert.equal(await h.count('workspace_module_bindings', 'WHERE tenant_id=$1 AND workspace_id=$2', [tenantId, workspaceId]), 0);
+      const reservations = (await h.pool.query(
+        'SELECT dimension,state,units::text FROM capacity_reservations WHERE operation_id=$1 ORDER BY dimension', [operationId],
+      )).rows;
+      for (const reservation of reservations) {
+        const retained = memberData && ['module_instances', 'module_instances.synthetic-inventory'].includes(reservation.dimension);
+        assert.equal(reservation.state, retained ? 'consumed' : 'released', reservation.dimension);
+        if (retained) assert.equal(reservation.units, '1');
+      }
+      const ledgerBefore = (await h.pool.query(
+        'SELECT entry_id FROM capacity_ledger WHERE operation_id=$1 ORDER BY entry_id', [operationId],
+      )).rows;
+      const current = await operationVersion(operationId);
+      const replay = await h.post(`/tenants/${tenantId}/operations/${operationId}/reconcile`, owner, {}, `"${current.version}"`);
+      assert.equal(replay.status, 202, JSON.stringify(replay.data));
+      await advanceOperation(h.pool, tenantId, operationId, { providers: h.providers, budget: 3000 });
+      assert.deepEqual((await h.pool.query(
+        'SELECT entry_id FROM capacity_ledger WHERE operation_id=$1 ORDER BY entry_id', [operationId],
+      )).rows, ledgerBefore);
+      assert.equal(await effects('synthetic-inventory'), 1);
+      assert.deepEqual(await operationVersion(operationId), current);
+    });
+  }
+}
+
 test('cancel releases an all-pending operation, keeps quota once work is in flight, and refuses a terminal operation', async () => {
   const { owner, tenantId, workspaceId } = await prepared();
   const actor = await authenticate(h.pool, owner.cookie.split('=')[1]);
