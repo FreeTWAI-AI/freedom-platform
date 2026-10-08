@@ -1760,7 +1760,7 @@ test('r8 catalog and launchpad deduplicate releases before sorting and keyset pa
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) > single.indexOf(`${beforeKey}|${beforeKey}@1.0.0`));
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) < single.indexOf(`${afterKey}|${afterKey}@1.0.0`));
       } else {
-        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`]);
+        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`, 'hosted-store|hosted-store@1.0.0']);
       }
     }
   }
@@ -1802,7 +1802,7 @@ test('r8 anonymous guild winner uses offering ID across communities while member
   await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 50, 'ffffffff-ffff-4fff-8fff-ffffffffffff');
   await r8Offering(key, foreign, 'guild_ai_field', '9', 1, '00000000-0000-4000-8000-000000000002');
   const anonymous = await r8CatalogSequence('/applications?guild_key=guild_ai_field', 100);
-  assert.equal(anonymous.indexOf(`${key}|${key}@1.0.0`), 1, 'Foreign guild winner sorts after platform default and before order-10 items');
+  assert.equal(anonymous.indexOf(`${key}|${key}@1.0.0`), 2, 'Foreign guild winner sorts after both platform defaults and before scoped order-10 items');
   const member = await h.call('GET', '/applications?guild_key=guild_ai_field&limit=100', owner);
   assert.equal(member.status, 200, JSON.stringify(member.data));
   assert.equal(member.data.items.at(-1).application_key, key);
@@ -1827,7 +1827,7 @@ test('r8 launch definition chooses guild then community then platform after with
 test('r8 unavailable-only catalog and launchpad avoid membership and tenant eligibility queries', async () => {
   const { actor } = await prepared();
   await h.pool.query(`UPDATE guild_application_offerings SET status='withdrawn',version=version+1
-    WHERE application_key IN ('manual-workspace','synthetic-storefront') AND status='offered'`);
+    WHERE application_key IN ('manual-workspace','hosted-store','synthetic-storefront') AND status='offered'`);
   const queries: string[] = [];
   const trackedPool = new Proxy(h.pool, {
     get(pool, property) {

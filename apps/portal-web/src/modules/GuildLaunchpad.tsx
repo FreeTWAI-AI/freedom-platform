@@ -6,7 +6,8 @@ import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
 import {MyWorkPanel, rememberActing} from './GuildLaunchpadMyWork';
-import {GuildLaunchpadApplications, REASONS, type LaunchRequest} from './GuildLaunchpadApplications';
+import {GuildLaunchpadApplications, REASONS, startable, type LaunchRequest} from './GuildLaunchpadApplications';
+import {MyStoreAction} from './MyStoreAction';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
@@ -145,7 +146,7 @@ function blockedReason(value: string): boolean {
 }
 
 export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter?: Config['starter'] | null}) {
-  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。業務空間尚未在此環境啟用。</p>;
+  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。</p>;
   return <div className="stack">
     <p>業務空間尚未在此環境啟用</p>
     <p>這個環境還沒有開啟公會業務空間，所以這裡不能建立或保存工作。</p>
@@ -157,7 +158,7 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, canLeave, onLogin}: {
+function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, onLogin}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
@@ -171,6 +172,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   guildKey: string;
   userId?: string;
   registerLeave: (guard: (() => boolean) | null) => void;
+  registerPendingLeave: (guard: (() => boolean) | null) => void;
   canLeave: () => boolean;
 }) {
   const [workRefresh, setWorkRefresh] = useState(0);
@@ -180,6 +182,10 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   const showWork = (tenantId: string, workspaceId: string) => {
     if (!canLeave() || !userId) return false;
     rememberActing(userId, tenantId, workspaceId); setWorkRefresh(value => value + 1); return true;
+  };
+  const showStore = (tenantId: string, instanceId: string) => {
+    if (!canLeave()) return false;
+    window.location.hash = `stores/${tenantId}/${instanceId}`; return true;
   };
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
@@ -194,7 +200,10 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         <p>{config.starter.objective_hint}</p>
         {memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
           : <div className="actions"><button type="button" className="btn btn-primary" onClick={focusWork}>前往我的工作</button></div>}
-      </> : <>
+      </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
+        : <MyStoreAction client={client} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
+          onCreate={() => {if (canLeave()) setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});}}
+          onEnter={path => {if (canLeave()) window.location.hash = path;}}/> : <>
         {primary.eligibility.tenant_action !== 'denied' && <div className="actions"><button type="button" className="btn btn-primary" disabled={!primary.eligibility.can_launch} onClick={() => setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1})}>{primary.eligibility.tenant_action === 'continue' ? '繼續使用' : '啟動'}{primary.display_name}</button></div>}
         {primary.eligibility.reason_codes.map(code => <p key={code} className="field-hint">{REASONS[code]}</p>)}
         {primary.eligibility.reason_codes.includes('tenant_manage_required') && <div className="actions"><a className="btn btn-ghost" href="#business" onClick={event => {if (!canLeave()) event.preventDefault();}}>建立或選擇業務空間</a></div>}
@@ -212,7 +221,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         const upstream = httpsUrl(book.upstream_url);
         return <p key={book.book_id}>{book.title}{intro && <> · <a href={intro} rel="noopener noreferrer" target="_blank">閱讀介紹</a></>}{upstream && <> · <a href={upstream} rel="noopener noreferrer" target="_blank">上游</a></>}</p>;
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
-      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} canLeave={canLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
+      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} onStore={showStore} canLeave={canLeave} registerPendingLeave={registerPendingLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
@@ -237,8 +246,9 @@ export function PublicGuildLaunchpad({client, guildKey, onLogin}: {client: Porta
   </div>;
 }
 
-export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}: {
+export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId, registerPendingLeave}: {
   client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void; userId?: string;
+  registerPendingLeave?: (guard: (() => boolean) | null) => void;
 }) {
   const [guild, setGuild] = useState<{name: string; purpose: string} | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRef[]>([]);
@@ -278,6 +288,11 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   const generation = useRef(0);
   const leaveGuard = useRef<(() => boolean) | null>(null);
   const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
+  const launchLeaveGuard = useRef<(() => boolean) | null>(null);
+  const registerLaunchLeave = useCallback((guard: (() => boolean) | null) => {
+    launchLeaveGuard.current = guard; registerPendingLeave?.(guard);
+  }, [registerPendingLeave]);
+  const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
@@ -286,8 +301,15 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
 
   function remember(view: ConfigView, announce = true) {
     const next = asConfig(guildKey, view.body);
+    // Check at adoption: this response may predate a now-pending tenant creation.
+    if (!next.blocks.some(block => block.kind === 'applications' && block.enabled)
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) {
+      setBanner('最新配置尚未套用。請先確認原操作，再重新載入最新版本。'); setConflict(true);
+      return false;
+    }
     setDraft(next); setSaved(view); setSavedJson(JSON.stringify(next)); setPointer(view.pointer_version); setErrors([]); setConflict(false);
     if (announce && view.status === 'published' && view.source === 'guild_editor') setStatus(`已發布版本 ${view.revision}`);
+    return true;
   }
   function openDialog(dialog: HTMLDialogElement | null, button: HTMLButtonElement) {
     opener.current = button; dialog?.showModal();
@@ -383,7 +405,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('draft', `/guilds/${guildKey}/launchpad-config/drafts`, {body: draft}, pointer);
-      remember(view, false); setStatus(`已儲存草稿版本 ${view.revision}`);
+      if (!remember(view, false)) return;
+      setStatus(`已儲存草稿版本 ${view.revision}`);
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -393,7 +416,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('publish', `/guilds/${guildKey}/launchpad-config/${saved.config_id}/publish`, {expected_body_sha256: saved.body_sha256}, pointer);
-      remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      const adopted = remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
       const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`);
@@ -406,7 +430,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('revert', `/guilds/${guildKey}/launchpad-config/revert`, {to_revision: revertTarget, reason: revertReason.trim()}, pointer);
-      remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      const adopted = remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -453,6 +478,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     } catch (error) { fail(error); }
   }
   function updateBlock(index: number, patch: Partial<Config['blocks'][number]>) {
+    if (draft?.blocks[index]?.kind === 'applications' && patch.enabled === false
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) return;
     setDraft(current => current && {...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)});
   }
   function moveBlock(index: number, delta: number) {
@@ -484,7 +511,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (leaveGuard.current && !leaveGuard.current()) return; onBack?.(); }}>返回公會列表</button></div>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (!canLeave()) return; onBack?.(); }}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
@@ -492,7 +519,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} canLeave={() => !leaveGuard.current || leaveGuard.current()} onLogin={onLogin}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} onLogin={onLogin}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}

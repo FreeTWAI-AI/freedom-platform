@@ -86,15 +86,15 @@ export const SwitchInput = z.object({
 }).strict();
 
 export const CATEGORY_LABELS = {
-  internal: '內政',
-  external: '外交',
-  professional_industry: '專業與產業',
+  internal: '社群架構開發',
+  external: '社群業務推廣',
+  professional_industry: '社群專業服務',
 } as const;
 
 export const SECTION_LABELS = {
-  internal: '內政主力',
-  external: '外交主力',
-  professional_industry: '專業與產業主力',
+  internal: '社群架構開發主力',
+  external: '社群業務推廣主力',
+  professional_industry: '社群專業服務主力',
 } as const;
 
 export const CATEGORY_ORDER = ['internal', 'external', 'professional_industry'] as const;

@@ -500,3 +500,114 @@ test('T-021 tenant modules do not import the legacy transaction helper or call p
     { path: 'synthetic.ts', kind: 'pool_query' },
   ]);
 });
+
+const MAPPED_COMMERCE = ['commerce_shops', 'commerce_items', 'commerce_selections'];
+
+test('T-021 hosted commerce coverage follows only the explicit shop mapping paths', async () => {
+  await rolled(async (_q, snapshot) => {
+    assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG), []);
+    for (const table of MAPPED_COMMERCE) {
+      assert.ok(snapshot.detected.includes(table), table);
+      const live = snapshot.tables.find(item => item.name === table)!;
+      assert.deepEqual(live.tenant_evidence.direct_columns, []);
+      assert.equal(live.relrowsecurity, false);
+      assert.equal(live.relforcerowsecurity, false);
+      assert.deepEqual(live.policies, []);
+    }
+    assert.ok(snapshot.foreign_keys.some(edge => edge.table === 'commerce_resource_tenants'
+      && edge.referenced === 'commerce_shops'
+      && JSON.stringify(edge.columns) === '["resource_id"]'
+      && JSON.stringify(edge.referenced_columns) === '["shop_id"]'));
+    for (const table of ['communities', 'users', 'principals', 'commerce_shop_keys', 'commerce_orders',
+      'commerce_transfers', 'commerce_order_lines', 'commerce_payment_events', 'commerce_distribution_acceptances']) {
+      assert.equal(snapshot.detected.includes(table), false, `mapping does not assign ${table}`);
+    }
+  });
+});
+
+test('T-021 removing a mapped commerce catalog entry or adding a column fails coverage', async () => {
+  for (const table of MAPPED_COMMERCE) {
+    await rolled(async (q, snapshot) => {
+      const catalog: TenantDataCatalog = {
+        ...TENANT_DATA_CATALOG,
+        datasets: TENANT_DATA_CATALOG.datasets.map(dataset => ({ ...dataset,
+          physical_locations: dataset.physical_locations.filter(location => location.kind !== 'table' || location.table !== table),
+        })),
+      };
+      assert.deepEqual(checkTenantCatalog(snapshot, catalog), [{ code: 'unregistered_table', subject: table }]);
+      await q.query(`ALTER TABLE ${table} ADD COLUMN private_note text`);
+      assert.deepEqual(checkTenantCatalog(await liveSnapshot(q), TENANT_DATA_CATALOG), [
+        { code: 'unregistered_column', subject: `${table}.private_note` },
+      ]);
+    });
+  }
+});
+
+test('T-021 reverse mapping rejects a missing, repointed, wrong-column or wider FK', async () => {
+  for (const replacement of [
+    '',
+    'ALTER TABLE commerce_resource_tenants ADD FOREIGN KEY (resource_id) REFERENCES users(user_id)',
+    'ALTER TABLE commerce_resource_tenants ADD FOREIGN KEY (source_owner_id) REFERENCES commerce_shops(shop_id)',
+    'ALTER TABLE commerce_resource_tenants ADD FOREIGN KEY (resource_id) REFERENCES commerce_shops(community_id)',
+    'ALTER TABLE commerce_resource_tenants ADD FOREIGN KEY (resource_id,source_owner_id) REFERENCES commerce_shops(shop_id,community_id)',
+  ]) {
+    await rolled(async q => {
+      await q.query('ALTER TABLE commerce_resource_tenants DROP CONSTRAINT commerce_resource_tenants_resource_id_fkey');
+      // The empty fixture can make an unrelated target column unique. A valid
+      // FK to the same table must still fail when it no longer identifies shops.
+      if (replacement.endsWith('commerce_shops(community_id)')) {
+        await q.query('ALTER TABLE commerce_shops ADD UNIQUE (community_id)');
+      }
+      if (replacement) await q.query(replacement);
+      const snapshot = await liveSnapshot(q);
+      for (const table of MAPPED_COMMERCE) assert.equal(snapshot.detected.includes(table), false);
+      assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG),
+        [...MAPPED_COMMERCE].sort().map(subject => ({ code: 'tenant_resolution_mismatch', subject })), replacement);
+    });
+  }
+});
+
+test('T-021 mapped items and selections require their own exact shop FK', async () => {
+  for (const table of ['commerce_items', 'commerce_selections']) {
+    for (const repoint of [false, true]) {
+      await rolled(async q => {
+        await q.query(`ALTER TABLE ${table} DROP CONSTRAINT ${table}_shop_id_fkey`);
+        if (repoint) await q.query(`ALTER TABLE ${table} ADD FOREIGN KEY (shop_id) REFERENCES users(user_id)`);
+        const snapshot = await liveSnapshot(q);
+        assert.equal(snapshot.detected.includes(table), false);
+        // A selection's item reference must never substitute for seller scope.
+        assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG), [
+          { code: 'tenant_resolution_mismatch', subject: table },
+        ]);
+      });
+    }
+  }
+});
+
+test('T-021 mapped commerce requires independent tenant evidence at the mapping endpoint', async () => {
+  await rolled(async q => {
+    await q.query('ALTER TABLE commerce_resource_tenants RENAME COLUMN tenant_id TO former_scope_id');
+    const snapshot = await liveSnapshot(q);
+    // The endpoint remains detected via its module_instances FK. That alone
+    // cannot replace the mapping's declared independent tenant evidence.
+    assert.ok(snapshot.detected.includes('commerce_resource_tenants'));
+    assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG), [
+      { code: 'stale_column', subject: 'commerce_resource_tenants.tenant_id' },
+      ...[...MAPPED_COMMERCE, 'commerce_resource_tenants'].sort().map(subject => ({ code: 'tenant_resolution_mismatch', subject })),
+      { code: 'unregistered_column', subject: 'commerce_resource_tenants.former_scope_id' },
+    ]);
+  });
+});
+
+test('T-021 mapped commerce retains drift checks after losing the reverse mapping', async () => {
+  await rolled(async q => {
+    await q.query('ALTER TABLE commerce_resource_tenants DROP CONSTRAINT commerce_resource_tenants_resource_id_fkey');
+    await q.query('ALTER TABLE commerce_items ADD COLUMN private_note text');
+    await q.query('ALTER TABLE commerce_shops ENABLE ROW LEVEL SECURITY');
+    assert.deepEqual(checkTenantCatalog(await liveSnapshot(q), TENANT_DATA_CATALOG), [
+      { code: 'rls_mismatch', subject: 'commerce_shops' },
+      ...[...MAPPED_COMMERCE].sort().map(subject => ({ code: 'tenant_resolution_mismatch', subject })),
+      { code: 'unregistered_column', subject: 'commerce_items.private_note' },
+    ]);
+  });
+});

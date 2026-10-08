@@ -8,7 +8,41 @@ export type TenantResolution =
   | { readonly kind: 'direct'; readonly column: string }
   | { readonly kind: 'scope'; readonly scope_kind_column: string; readonly scope_id_column: string }
   | { readonly kind: 'asset_purpose'; readonly purposes: readonly string[] }
-  | { readonly kind: 'fk_chain'; readonly via: readonly string[] };
+  | { readonly kind: 'fk_chain'; readonly via: readonly string[] }
+  | { readonly kind: 'fk_path'; readonly via: readonly ForeignKeyStep[] };
+
+/** Column arrays always describe the physical FK source and target, even when
+ * the coverage path traverses that constraint in reverse. This is not an ACL. */
+type ForeignKeyStep = {
+  readonly table: string;
+  readonly direction: 'forward' | 'reverse';
+  readonly columns: readonly string[];
+  readonly referenced_columns: readonly string[];
+};
+
+type SchemaForeignKey = {
+  readonly table: string;
+  readonly referenced: string;
+  readonly columns: readonly string[];
+  readonly referenced_columns: readonly string[];
+};
+
+/** Explicit hosted-commerce coverage seeds, independent of catalog entries so
+ * removing an entry is still detected. Do not reverse arbitrary tenant FKs or
+ * expand these paths into legacy orders, credentials, or shared parent rows. */
+export const COMMERCE_RESOURCE_PATHS = deepFreeze({
+  commerce_shops: { kind: 'fk_path', via: [
+    { table: 'commerce_resource_tenants', direction: 'reverse', columns: ['resource_id'], referenced_columns: ['shop_id'] },
+  ] },
+  commerce_items: { kind: 'fk_path', via: [
+    { table: 'commerce_shops', direction: 'forward', columns: ['shop_id'], referenced_columns: ['shop_id'] },
+    { table: 'commerce_resource_tenants', direction: 'reverse', columns: ['resource_id'], referenced_columns: ['shop_id'] },
+  ] },
+  commerce_selections: { kind: 'fk_path', via: [
+    { table: 'commerce_shops', direction: 'forward', columns: ['shop_id'], referenced_columns: ['shop_id'] },
+    { table: 'commerce_resource_tenants', direction: 'reverse', columns: ['resource_id'], referenced_columns: ['shop_id'] },
+  ] },
+} as const);
 
 export type TableIsolation =
   | { readonly rls: 'enabled'; readonly policies: readonly string[] }
@@ -83,7 +117,7 @@ export type TenantSchemaSnapshot = {
   readonly tables: readonly SchemaTable[];
   readonly detected: readonly string[];
   readonly asset_purposes: readonly string[];
-  readonly foreign_keys: readonly { readonly table: string; readonly referenced: string }[];
+  readonly foreign_keys: readonly SchemaForeignKey[];
 };
 
 export type CatalogFindingCode =
@@ -285,7 +319,7 @@ function independentlyTenantBearing(table: SchemaTable): boolean {
   return evidence.direct_columns.length > 0 || evidence.scope_kind_columns.length > 0 || evidence.asset_purposes.length > 0;
 }
 
-function resolutionMatches(location: TableLocation, tables: ReadonlyMap<string, SchemaTable>, edges: ReadonlySet<string>): boolean {
+function resolutionMatches(location: Pick<TableLocation, 'table' | 'tenant_resolution'>, tables: ReadonlyMap<string, SchemaTable>, foreignKeys: readonly SchemaForeignKey[]): boolean {
   const live = tables.get(location.table);
   if (!live) return false;
   const resolution = location.tenant_resolution;
@@ -301,8 +335,25 @@ function resolutionMatches(location: TableLocation, tables: ReadonlyMap<string, 
       if (resolution.via.length === 0) return false;
       let prior = location.table;
       for (const next of resolution.via) {
-        if (!tables.has(next) || !edges.has(`${prior}/${next}`)) return false;
+        if (!tables.has(next) || !foreignKeys.some(edge => edge.table === prior && edge.referenced === next)) return false;
         prior = next;
+      }
+      return independentlyTenantBearing(tables.get(prior)!);
+    }
+    case 'fk_path': {
+      if (resolution.via.length === 0) return false;
+      let prior = location.table;
+      for (const step of resolution.via) {
+        const source = step.direction === 'forward' ? prior : step.table;
+        const target = step.direction === 'forward' ? step.table : prior;
+        if (!tables.has(step.table) || step.columns.length === 0 || step.columns.length !== step.referenced_columns.length
+          || !step.columns.every(column => tables.get(source)?.columns.includes(column))
+          || !step.referenced_columns.every(column => tables.get(target)?.columns.includes(column))
+          || !foreignKeys.some(edge => edge.table === source && edge.referenced === target
+            && edge.columns.length === step.columns.length && edge.referenced_columns.length === step.referenced_columns.length
+            && edge.columns.every((column, index) => column === step.columns[index])
+            && edge.referenced_columns.every((column, index) => column === step.referenced_columns[index]))) return false;
+        prior = step.table;
       }
       return independentlyTenantBearing(tables.get(prior)!);
     }
@@ -312,7 +363,6 @@ function resolutionMatches(location: TableLocation, tables: ReadonlyMap<string, 
 export function checkTenantCatalog(snapshot: TenantSchemaSnapshot, catalog: TenantDataCatalog): CatalogFinding[] {
   const findings: CatalogFinding[] = [];
   const byName = new Map(snapshot.tables.map(table => [table.name, table]));
-  const edges = new Set(snapshot.foreign_keys.map(edge => `${edge.table}/${edge.referenced}`));
   const detected = new Set(snapshot.detected);
   const located = new Map<string, TableLocation>();
   for (const location of tableLocations(catalog)) {
@@ -329,7 +379,7 @@ export function checkTenantCatalog(snapshot: TenantSchemaSnapshot, catalog: Tena
       findings.push({ code: 'unregistered_table', subject: name });
       continue;
     }
-    if (!detected.has(name) || !resolutionMatches(location, byName, edges)) findings.push({ code: 'tenant_resolution_mismatch', subject: name });
+    if (!detected.has(name) || !resolutionMatches(location, byName, snapshot.foreign_keys)) findings.push({ code: 'tenant_resolution_mismatch', subject: name });
     const liveColumns = new Set(live.columns);
     const catalogColumns = new Set(location.columns);
     for (const column of live.columns) if (!catalogColumns.has(column)) findings.push({ code: 'unregistered_column', subject: `${name}.${column}` });
@@ -382,15 +432,19 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = $1
       ORDER BY c.relname, p.polname`, [schema])).rows;
-  const foreignKeys = (await q.query<{ table: string; referenced: string }>(
-    `SELECT src.relname AS table, dst.relname AS referenced
+  const foreignKeys = (await q.query<SchemaForeignKey>(
+    `SELECT src.relname AS table, dst.relname AS referenced,
+            ARRAY(SELECT a.attname::text FROM unnest(co.conkey) WITH ORDINALITY k(attnum, ord)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=co.conrelid AND a.attnum=k.attnum ORDER BY k.ord) AS columns,
+            ARRAY(SELECT a.attname::text FROM unnest(co.confkey) WITH ORDINALITY k(attnum, ord)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid=co.confrelid AND a.attnum=k.attnum ORDER BY k.ord) AS referenced_columns
        FROM pg_catalog.pg_constraint co
        JOIN pg_catalog.pg_class src ON src.oid = co.conrelid
        JOIN pg_catalog.pg_namespace ns ON ns.oid = src.relnamespace
        JOIN pg_catalog.pg_class dst ON dst.oid = co.confrelid
        JOIN pg_catalog.pg_namespace nd ON nd.oid = dst.relnamespace
       WHERE co.contype = 'f' AND ns.nspname = $1 AND nd.nspname = $1 AND src.relkind = 'r'
-      ORDER BY src.relname, dst.relname`, [schema])).rows;
+      ORDER BY src.relname, dst.relname, co.conname`, [schema])).rows;
   const checks = (await q.query<{ table: string; name: string; definition: string }>(
     `SELECT c.relname AS table, co.conname AS name, pg_catalog.pg_get_constraintdef(co.oid) AS definition
        FROM pg_catalog.pg_constraint co
@@ -447,6 +501,12 @@ export async function introspectTenantSchema(q: PoolClient, schema: string): Pro
         grew = true;
       }
     }
+  }
+
+  // These explicit reverse paths do not seed the general FK closure above.
+  // Cross-party transaction rows require their own dataset/participant policy.
+  for (const [table, tenant_resolution] of Object.entries(COMMERCE_RESOURCE_PATHS)) {
+    if (resolutionMatches({ table, tenant_resolution }, tables, foreignKeys)) detected.add(table);
   }
 
   return {

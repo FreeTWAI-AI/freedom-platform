@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-08T19:02:54.160138+00:00",
+  "recorded_at": "2026-10-08T20:08:33.678128+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,23 +14,23 @@
   },
   "merged_source": {
     "repository": "FreeTWAI-AI/freedom-platform",
-    "sha": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-    "tree": "afd2e87465a6f4a452b52442f9d38ba5d82f1f81",
-    "pull_request": 287,
-    "merge_at": "2026-10-08T14:29:21Z",
+    "sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+    "tree": "109330c9743767290e38bd6fd4dbe8fdfde57157",
+    "pull_request": 297,
+    "merge_at": "2026-10-08T19:17:47Z",
     "verify": {
-      "run": 37784477204,
+      "run": 37826592639,
       "conclusion": "success",
-      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37784477204",
-      "head": "413b588d4680bc1c0cf5a520ea57782ef92119dd",
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37826592639",
+      "head": "01bf3739eafeca59781e08b9d5f4efa5efb467ed",
       "note": "verify of the merged PR head; strict up-to-date, so its tree equals the merge commit"
     },
-    "limitation": "This main commit (the #287 merge) is the production and staging release (operator receipts 2026-10-08, round 8): it adds the #193 community integration (#284: social feed likes, comments and note posts, migration 132; sticker pack, migration 133) and the P-D3a catalog follow-ups (#287) to the round-7 release 3685d626, with the guild launchpad flag on in both (#286, the round-7 receipt, is not part of release e89cd0c8; this PR carries that receipt for planned integration). The round-8 rollout did not change the installed central workflow source (governance_pins); the later 2026-10-08 pin switch to 709600a0 (#288) is recorded separately. Later main commits are not deployed."
+    "limitation": "This main commit (the #297 merge) is the production and staging release (operator receipts 2026-10-08, round 9): it adds the D1 guild launchpad profiles (#297: the commerce and commercial-production guilds get their own default block order and recommended applications) to the round-8 release e89cd0c8, with the guild launchpad flag on in both and no migration. #288 (CI capacity), #296 (inventory walk order) and #291 (the rounds 7/8 receipt) are in range and runtime-free. The installed central workflow source (governance_pins) is recorded separately. Later main commits are not deployed."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
+      "observed_release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
       "fresh_health": {
         "origin": "https://freetwai.com",
         "path": "/api/v1/health",
@@ -44,19 +44,19 @@
           "money_movement_enabled": false,
           "official": false,
           "runtime": "cloudflare-workers",
-          "release_sha": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
+          "release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
           "shop_key_policy": "legacy-compatible",
           "shop_key_issuer_profile": "freedom.shop-service-key/v1"
         },
-        "sha256": "780a6db5da954dde2873810528244455e99fa6b5210e735276c8769185ec0f7d"
+        "sha256": "7868c9dd5039174f4035191b42bd50510088d5a58c00ee565faa3df8b11b374c"
       },
-      "observed_at": "2026-10-08T14:35:21.488949+00:00",
+      "observed_at": "2026-10-08T19:20:31.852551+00:00",
       "limitation": "Public health proves this endpoint/release identity, not every feature, private DB schema, or cloud private-AI acceptance."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "last_operator_release_sha": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "operator_observed_at": "2026-10-08T14:32:48.134Z",
+      "last_operator_release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "operator_observed_at": "2026-10-08T19:19:33.551Z",
       "fresh_http": {
         "origin": "https://staging.freetwai.com",
         "path": "/api/v1/health",
@@ -70,6 +70,73 @@
       "limitation": "Fresh Access 302 is not authenticated health; release identity comes from the operator live readback in the staging rollout receipt."
     },
     "last_operator_rollout": {
+      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "prs": [
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/288",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/296",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/291",
+        "https://github.com/FreeTWAI-AI/freedom-platform/pull/297"
+      ],
+      "batch_components": [
+        {
+          "pull_request": 291,
+          "prs": [
+            "https://github.com/FreeTWAI-AI/freedom-platform/pull/286"
+          ]
+        }
+      ],
+      "kind": "operator_observed_private_receipt",
+      "scope": "staging, then production (same SHA and dist); the guild launchpad flag stays on in both; no migration",
+      "at": "2026-10-08T19:46:06.114345+00:00",
+      "receipt_sha256": "aadc7bda279bf8dd97610229993a0087f0eac7a6e97cb96a2981577ff61fbf9d",
+      "previous_release": {
+        "production": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
+        "staging": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c"
+      },
+      "owner_approval": "staging: the orchestrator delegation (Ted, 2026-10-07T14:00Z: merge, push and deploy to staging and live); production: Ted, Claude Code session 76af2ef7 (AskUserQuestion, 2026-10-08T19:00:46Z): \"#297 合併後直接發 (Recommended)\" to \"r9：#297（公會設定生效：電商與廣告攝影兩個公會的首頁區塊順序、主要動作各不相同；無 migration）detna 核准、CI 綠燈合併後，要照 r8 的方式直接發 staging + 正式環境嗎？\" (option text: \"合併後先部署 staging，再部署正式環境；沒有 migration。部署後跑備份並記收據，再到 live 讓兩位會員實測。回滾＝重新部署 e89cd0c8，沒有資料變更。\"); direct rollout with the flag on, no staging acceptance gate, verify on live",
+      "selected_checks": {
+        "staging": "not run (owner chose the direct rollout)",
+        "production": 33
+      },
+      "production_health_samples": "4/4 cc72c3fd",
+      "worker_versions": {
+        "staging": "3a5a5308-3893-4c8a-92e5-d26c8f2abbc4",
+        "production": "d80f2817-bd75-4b66-af36-53a1a97554fd"
+      },
+      "database_migrations_applied": {
+        "production": [],
+        "staging": []
+      },
+      "launchpad_profiles": {
+        "effect": "Both purpose guilds without a published guild_editor revision get the platform default at revision 2: guild_commerce_sales blocks mission, applications, my_work, announcements, skill_books, community_tasks, support; guild_commercial_production blocks mission, my_work, skill_books, announcements, applications, community_tasks, support; both recommend manual-workspace when it is offered. The default view stays virtual (no row is written on read). Members see the recommended application names and, as full members, the starter action; leaders get a recommendation editor.",
+        "staging": "staging public launchpad (19:19:36Z): guild_commerce_sales revision 2, blocks mission > applications > my_work > announcements > skill_books > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; guild_commercial_production revision 2, blocks mission > my_work > skill_books > announcements > applications > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; the two guilds differ",
+        "production": "production public launchpad (19:20:33Z): guild_commerce_sales revision 2, blocks mission > applications > my_work > announcements > skill_books > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; guild_commercial_production revision 2, blocks mission > my_work > skill_books > announcements > applications > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; the two guilds differ"
+      },
+      "ledger_check": "right before each deploy, staging at 2026-10-08T19:19:11.298Z and production at 2026-10-08T19:19:51.254Z: 132 migration files through 133_workshop_sticker_pack.sql (known gap 22), all applied, nothing pending or mismatched; 1 capacity and 0 authority policy rows in production, 1 and 0 in staging",
+      "row_security": "No migration: the read-only preflight on both databases saw row security on 28 tables (none forced) with 39 policies, the four freedom_ctx_* readers, migrator-owned row-security tables, a runtime role without BYPASSRLS and a backup role with BYPASSRLS.",
+      "worker_config_change": "None besides FREEDOM_RELEASE_SHA; FREEDOM_GUILD_LAUNCHPAD_ENABLED stays true and FREEDOM_SHOP_KEY_POLICY stays legacy-compatible on both.",
+      "private_ai_enabled": false,
+      "backup_release_pins_updated": true,
+      "production_accounts_created": 0,
+      "cron_after_rollout": {
+        "staging": "Under cc72c3fd the */10 cron (it also runs the P-D1 provision sweep) wrote to the staging GitHub sync table after the deploy (19:19:33Z): last sync 2026-10-08T19:41:15.909Z, rows 49->49, last_error count 8->8 (read 19:45:51Z).",
+        "production": "Under cc72c3fd the */10 cron (it also runs the P-D1 provision sweep) wrote to the production GitHub sync table after the deploy (19:20:19Z): last sync 2026-10-08T19:41:18.230Z, rows 61->62, last_error count 6->6 (read 19:45:56Z)."
+      },
+      "production_backup_attempts": "1 crashed after-rollout attempt(s) needed a maintenance-policy cleanup before the re-run passed; see the private receipt",
+      "rollback": "redeploy e89cd0c8; no migration and no data change. Drafts or publications a leader saves after the deploy use the same guild-launchpad.config/v1 schema and stay readable by e89cd0c8. Never redeploy X (c84829e2) after 128.",
+      "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for #297; production checks are public read-only HTTP plus the public launchpad of both purpose guilds, and no account was created. After the deploy a teammate session checked members on staging with demo accounts: a full member of the commerce guild sees the primary action 選品／營運待辦, a non-member sees the join hint, and a guild master's recommendation draft survives re-entry without changing the public page; no staging demo account is a full member of the commercial-production guild, and production was not checked signed in. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "at": "2026-10-08T19:46:06.114345+00:00"
+    },
+    "last_staging_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "at": "2026-10-08T19:46:06.114345+00:00"
+    },
+    "previous_production_rollout": {
       "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
       "prs": [
         "https://github.com/FreeTWAI-AI/freedom-platform/pull/284",
@@ -133,17 +200,12 @@
       "rollback": "redeploy 3685d626 (132/133 only add or widen; no migration rollback). It does not know note posts, likes, comments or the 48 new sticker ids, so rows created after the deploy stay in the database and are only partly shown by it. The launchpad flag off hides the #287 catalog change with the rest of the launchpad. Never redeploy X (c84829e2) after 128; schema only from the before-migration backups (before-migration sets: production 87d02a52, staging 9492971b).",
       "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for #284/#287; production checks are public read-only HTTP and no account was created. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
     },
-    "last_production_rollout": {
-      "same_as": "last_operator_rollout",
+    "previous_staging_rollout": {
+      "same_as": "previous_production_rollout",
       "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
       "at": "2026-10-08T15:13:18.810737+00:00"
     },
-    "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "at": "2026-10-08T15:13:18.810737+00:00"
-    },
-    "previous_production_rollout": {
+    "earlier_production_rollout": {
       "source": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
       "prs": [
         "https://github.com/FreeTWAI-AI/freedom-platform/pull/274",
@@ -199,12 +261,12 @@
       "rollback": "redeploy d2900cf4 (131 is additive for it; no migration rollback) or FREEDOM_GUILD_LAUNCHPAD_ENABLED off; never redeploy X (c84829e2) after 128; schema only from the before-migration backups (before-migration sets: production a34872cb, staging 7c9b4233).",
       "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for P-B2b/P-D3a; production checks are public read-only HTTP and no account was created. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
     },
-    "previous_staging_rollout": {
-      "same_as": "previous_production_rollout",
+    "earlier_staging_rollout": {
+      "same_as": "earlier_production_rollout",
       "source": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
       "at": "2026-10-08T13:17:01.176673+00:00"
     },
-    "earlier_production_rollout": {
+    "earliest_production_rollout": {
       "source": "d2900cf4cb6f6ee523b67a5ce1fcd34b2f68d283",
       "prs": [
         "https://github.com/FreeTWAI-AI/freedom-platform/pull/239",
@@ -277,84 +339,10 @@
       "rollback": "after 128, redeploying X breaks the new-instance manual-work enable (23502); roll back with FREEDOM_GUILD_LAUNCHPAD_ENABLED off or fix-forward, schema only from the before-migration backups (before-migration sets: production a972e586, staging 469c43e9).",
       "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for P-D1/P-D2a/P-D2b; production checks are public read-only HTTP and no account was created. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
     },
-    "earlier_staging_rollout": {
-      "same_as": "earlier_production_rollout",
+    "earliest_staging_rollout": {
+      "same_as": "earliest_production_rollout",
       "source": "d2900cf4cb6f6ee523b67a5ce1fcd34b2f68d283",
       "at": "2026-10-08T08:43:31.356551+00:00"
-    },
-    "earliest_production_rollout": {
-      "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-      "kind": "operator_observed_private_receipt",
-      "scope": "production only: the round-5 dist redeployed with one Worker variable change, the configuration staging has run since the 06:11Z trial; staging not touched",
-      "at": "2026-10-08T07:05:20.256920+00:00",
-      "receipt_sha256": "8f935499bb895fe75d5b182debf42079ed3731fdfbcf1fb8adf8fc126b710cae",
-      "previous_release": {
-        "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb"
-      },
-      "owner_approval": "Ted, 2026-10-08T06:47:02.557Z (\"271 合 , production 開\": merge #271 and turn the guild launchpad on in production) and 2026-10-08T06:47:56.827Z (capacity values: \"跟 staging 一樣 (Recommended)\")",
-      "worker_versions": {
-        "production": "2871eefe-67e4-4543-9b74-e6c1001fdae5"
-      },
-      "worker_config_change": "FREEDOM_GUILD_LAUNCHPAD_ENABLED=true on production; wrapper and schedules unchanged.",
-      "capacity_policy": "revision 1, plan_ref interim-default-20261007, the staging values, written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts (#227) before the backup",
-      "selected_checks": {
-        "production": 29
-      },
-      "production_health_samples": "4/4 c84829e2",
-      "database_migrations_applied": {
-        "production": []
-      },
-      "production_accounts_created": 0,
-      "backup_before": {
-        "set_id": "296292cb-05e1-43ef-ab4a-750a494b9bde",
-        "restore": "database_and_objects_restored",
-        "remote_readback": "verified"
-      },
-      "backup_after": {
-        "set_id": "7081aa04-31d8-4cc6-9463-89527bf21e91",
-        "restore": "database_and_objects_restored",
-        "remote_readback": "verified"
-      },
-      "live_after": {
-        "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-        "stagingLaunchpad": "true",
-        "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-        "productionLaunchpad": "true"
-      },
-      "limitation": "Same source and dist as last_operator_rollout; only the launchpad flag differs. Rollback is a redeploy of the same dist without the flag; the policy row and any tenant rows written while the flag was on stay."
-    },
-    "earliest_staging_rollout": {
-      "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-      "kind": "operator_observed_private_receipt",
-      "scope": "staging only: the round-5 dist redeployed with one Worker variable change; production not touched",
-      "at": "2026-10-08T06:11:10.410464+00:00",
-      "receipt_sha256": "0a27e629fa807d176eddef27e0446b4d34e40e520fb9f0a8cb1445c8873e809b",
-      "previous_release": {
-        "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb"
-      },
-      "owner_approval": "Ted, 2026-10-07T15:10:53Z (\"sounds great, keep going\", the staging-only trial plan) and 15:42:46Z (the interim capacity values); re-pinned from 687dee87 to X by the orchestrator under that approval at 2026-10-08T05:46:53Z, after round 5",
-      "worker_versions": {
-        "staging": "7b7050c2-7dad-4bcb-aec9-fc24b2c5e33c"
-      },
-      "worker_config_change": "FREEDOM_GUILD_LAUNCHPAD_ENABLED=true on staging only; wrapper and schedules unchanged.",
-      "selected_checks": {
-        "staging": 47
-      },
-      "database_migrations_applied": {
-        "staging": []
-      },
-      "backup_before": {
-        "set_id": "9cc67697-a911-423e-9d68-ff7b3abc51c2",
-        "restore": "database_and_objects_restored",
-        "remote_readback": "verified"
-      },
-      "live_after": {
-        "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-        "stagingLaunchpad": "true",
-        "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-        "productionLaunchpad": "absent"
-      },
-      "limitation": "Same source and dist as last_operator_rollout; only the launchpad flag differs. Rollback is a redeploy of the same dist without the flag."
     },
     "archived_rollouts": [
       {
@@ -716,6 +704,82 @@
         "production_backup_attempts": "every production backup passed on its first attempt",
         "rollback": "Redeploy e8cd72e8 to the affected Worker(s); no schema restore is needed. 126 adds oss_projects.public_metadata_revised (NOT NULL DEFAULT false) and 127 adds sessions.prune_retained_at plus three plain FK indexes; e8cd72e8 never reads or writes either column, and its own staging acceptance passed on the migrated schema before the round-5 deploy (staging.oldReleaseOnMigratedSchema). Rows the #237 prune already deleted (expired or revoked sessions, old rate-limit and login-attempt windows, expired reset tokens) come back only from the before-migration backup set; a rollback stops further pruning. (production bdc249cd, staging 2e0c96e2).",
         "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP. The guild launchpad stays dark (flag absent), so tenant routes are unmounted and row security is exercised by the migration probes and CI, not by live tenant traffic. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
+      },
+      {
+        "slot": "earliest_production_rollout until round 9",
+        "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+        "kind": "operator_observed_private_receipt",
+        "scope": "production only: the round-5 dist redeployed with one Worker variable change, the configuration staging has run since the 06:11Z trial; staging not touched",
+        "at": "2026-10-08T07:05:20.256920+00:00",
+        "receipt_sha256": "8f935499bb895fe75d5b182debf42079ed3731fdfbcf1fb8adf8fc126b710cae",
+        "previous_release": {
+          "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb"
+        },
+        "owner_approval": "Ted, 2026-10-08T06:47:02.557Z (\"271 合 , production 開\": merge #271 and turn the guild launchpad on in production) and 2026-10-08T06:47:56.827Z (capacity values: \"跟 staging 一樣 (Recommended)\")",
+        "worker_versions": {
+          "production": "2871eefe-67e4-4543-9b74-e6c1001fdae5"
+        },
+        "worker_config_change": "FREEDOM_GUILD_LAUNCHPAD_ENABLED=true on production; wrapper and schedules unchanged.",
+        "capacity_policy": "revision 1, plan_ref interim-default-20261007, the staging values, written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts (#227) before the backup",
+        "selected_checks": {
+          "production": 29
+        },
+        "production_health_samples": "4/4 c84829e2",
+        "database_migrations_applied": {
+          "production": []
+        },
+        "production_accounts_created": 0,
+        "backup_before": {
+          "set_id": "296292cb-05e1-43ef-ab4a-750a494b9bde",
+          "restore": "database_and_objects_restored",
+          "remote_readback": "verified"
+        },
+        "backup_after": {
+          "set_id": "7081aa04-31d8-4cc6-9463-89527bf21e91",
+          "restore": "database_and_objects_restored",
+          "remote_readback": "verified"
+        },
+        "live_after": {
+          "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "stagingLaunchpad": "true",
+          "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "productionLaunchpad": "true"
+        },
+        "limitation": "Same source and dist as last_operator_rollout; only the launchpad flag differs. Rollback is a redeploy of the same dist without the flag; the policy row and any tenant rows written while the flag was on stay."
+      },
+      {
+        "slot": "earliest_staging_rollout until round 9",
+        "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+        "kind": "operator_observed_private_receipt",
+        "scope": "staging only: the round-5 dist redeployed with one Worker variable change; production not touched",
+        "at": "2026-10-08T06:11:10.410464+00:00",
+        "receipt_sha256": "0a27e629fa807d176eddef27e0446b4d34e40e520fb9f0a8cb1445c8873e809b",
+        "previous_release": {
+          "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb"
+        },
+        "owner_approval": "Ted, 2026-10-07T15:10:53Z (\"sounds great, keep going\", the staging-only trial plan) and 15:42:46Z (the interim capacity values); re-pinned from 687dee87 to X by the orchestrator under that approval at 2026-10-08T05:46:53Z, after round 5",
+        "worker_versions": {
+          "staging": "7b7050c2-7dad-4bcb-aec9-fc24b2c5e33c"
+        },
+        "worker_config_change": "FREEDOM_GUILD_LAUNCHPAD_ENABLED=true on staging only; wrapper and schedules unchanged.",
+        "selected_checks": {
+          "staging": 47
+        },
+        "database_migrations_applied": {
+          "staging": []
+        },
+        "backup_before": {
+          "set_id": "9cc67697-a911-423e-9d68-ff7b3abc51c2",
+          "restore": "database_and_objects_restored",
+          "remote_readback": "verified"
+        },
+        "live_after": {
+          "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "stagingLaunchpad": "true",
+          "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "productionLaunchpad": "absent"
+        },
+        "limitation": "Same source and dist as last_operator_rollout; only the launchpad flag differs. Rollback is a redeploy of the same dist without the flag."
       }
     ],
     "execution_mode": "Explicitly authorized private operator invocation for an exact source; no automatic GitHub Release trigger was verified.",
@@ -764,11 +828,11 @@
     },
     "production_last_reported": "Production migrations 132-133 were applied 2026-10-08T14:33:55.634Z (round 8); migration 131 was applied 2026-10-08T12:58:40.698Z (round 7); migrations 128-130 were applied 2026-10-08T08:23:39.495Z (round 6); migrations 126-127 were applied 2026-10-08T05:32:04.184Z (round 5); migration 125 was applied 2026-10-07T23:06:41.204Z, 120-124 on 2026-10-07T14:24:14.781Z and 114-119 on 2026-10-06T21:12:53Z (operator receipts); the 2026-10-05 fe93730d, 2026-10-06 e07d61d2 and 2026-10-06 round-2 8d2213d7 production rollouts applied none.",
     "fresh_live_ledger_read": {
-      "staging": "operator ledger check 2026-10-08T14:32:21.096Z after migrating (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)",
-      "production": "operator ledger check 2026-10-08T14:33:58.345Z after migrating (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)"
+      "staging": "operator ledger check 2026-10-08T19:19:11.298Z right before the round-9 deploy (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)",
+      "production": "operator ledger check 2026-10-08T19:19:51.254Z right before the round-9 deploy (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)"
     },
-    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-08 round-8 operator receipts (ledger check after migrating); re-read exact names/digests/roles before the next schema or recovery operation.",
-    "row_security_observed": "Round-8 receipts, both databases: row security on 28 tables (forced on 0) with 39 policies (132/133 add none); 131 added tenant_module_permissions with one tenant policy and 128 added 9 tenant tables with one policy each (all created by the migrator, like the 18 from 125); the runtime roles have no BYPASSRLS and are not superuser; the backup roles have BYPASSRLS (granted 2026-10-07T16:56Z). Migration 125 enabled it in round 4.",
+    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-08 round-9 operator receipts (pre-deploy ledger reads; round 9 had no migration); re-read exact names/digests/roles before the next schema or recovery operation.",
+    "row_security_observed": "Round-9 read-only preflight, both databases: row security on 28 tables (forced on 0) with 39 policies, unchanged since round 7 (round 9 has no migration; 132/133 added none); 131 added tenant_module_permissions with one tenant policy and 128 added 9 tenant tables with one policy each (all created by the migrator, like the 18 from 125); the runtime roles have no BYPASSRLS and are not superuser; the backup roles have BYPASSRLS (granted 2026-10-07T16:56Z). Migration 125 enabled it in round 4.",
     "declared_historical_number_gaps": [
       22
     ],
@@ -812,29 +876,29 @@
         "production": "true",
         "staging": "true"
       },
-      "observed": "Round 8 (2026-10-08T15:13Z): both Workers run e89cd0c8 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so the P-D3a catalog follow-ups (#287: offering precedence guild > community > platform, one card per release, reviewed/retired releases shown to members as not launchable) went live with the deploy. Production: 33 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 7 (2026-10-08T13:17Z): both Workers run 3685d626 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-B2b (ordinary per-instance member grants) and P-D3a (guild application cards and the launch flow) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 6 (2026-10-08T08:43Z): both Workers run d2900cf4 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-D1 (module registry, launch plans, provision operations and the */10 provision sweep), P-D2a (instance suspend/resume) and P-D2b (instance archive) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Before round 6: Staging: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T06:11Z (trial on X with the round-5 dist, Worker version 7b7050c2); the trial acceptance (47 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 18: 3 sections, 12 approved items, 6 pending). Production: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T07:05Z (same X and dist, Worker version 2871eefe); the public acceptance (29 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 24: 3 sections, 12 approved items, 12 pending), and 4 fresh-DNS health reads returned X. X carries the launchpad, workspaces, module-registry, tenant-work and the #227 policy operator behind the same flag.",
+      "observed": "Round 9 (2026-10-08T19:46Z): both Workers run cc72c3fd with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so the D1 launchpad profiles (#297) went live with the deploy: guilds without a published guild_editor revision get the platform default at revision 2 with a purpose-specific block order and recommended applications. Production public launchpad (19:20:33Z): guild_commerce_sales revision 2, blocks mission > applications > my_work > announcements > skill_books > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; guild_commercial_production revision 2, blocks mission > my_work > skill_books > announcements > applications > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; the two guilds differ. Production: 33 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 8 (2026-10-08T15:13Z): both Workers run e89cd0c8 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so the P-D3a catalog follow-ups (#287: offering precedence guild > community > platform, one card per release, reviewed/retired releases shown to members as not launchable) went live with the deploy. Production: 33 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 7 (2026-10-08T13:17Z): both Workers run 3685d626 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-B2b (ordinary per-instance member grants) and P-D3a (guild application cards and the launch flow) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 6 (2026-10-08T08:43Z): both Workers run d2900cf4 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-D1 (module registry, launch plans, provision operations and the */10 provision sweep), P-D2a (instance suspend/resume) and P-D2b (instance archive) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Before round 6: Staging: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T06:11Z (trial on X with the round-5 dist, Worker version 7b7050c2); the trial acceptance (47 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 18: 3 sections, 12 approved items, 6 pending). Production: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T07:05Z (same X and dist, Worker version 2871eefe); the public acceptance (29 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 24: 3 sections, 12 approved items, 12 pending), and 4 fresh-DNS health reads returned X. X carries the launchpad, workspaces, module-registry, tenant-work and the #227 policy operator behind the same flag.",
       "policy_rows": {
         "capacity": 1,
         "authority": 0
       },
       "if_enabled": "Each environment has one tenant_capacity_policies row with the same values: default scope, plan_ref interim-default-20261007, revision 1 (10 active instances, 3 per module, 2 concurrent provisions, 1000 work items, 104857600 retained bytes, 2 concurrent jobs, model budget 0). Staging's was written 2026-10-08T05:51Z by the staging migrator under the owner's 2026-10-07 trial approval; production's was written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts after the owner chose the staging values on 2026-10-08. Neither environment has a tenant_authority_policies row, so ownership transfer and recovery return 403 policy_unconfigured. policy_rows counts the rows in each environment (the same in both).",
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "at": "2026-10-08T15:13:18.810737+00:00",
+      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "at": "2026-10-08T19:46:06.114345+00:00",
       "evidence": [
         "docs/platform-plan/execution/unified-foundation/closeout.md",
         "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json"
       ],
-      "limitation": "Rounds 6 to 8 went out without staging acceptance or T-ID evidence for P-D1/P-D2a/P-D2b (round 6), P-B2b/P-D3a (round 7) and the P-D3a catalog follow-ups (round 8); the owner chose the direct rollout. On in both environments with interim capacity values. Production was turned on by the owner on 2026-10-08 and is checked only by public read-only selected checks; it has no demo accounts, so the guild-work verifier ran on staging only. The guild-work verifier (#242) passed on staging at 06:32Z (receipt 20261008T063130038Z-83185463): T-005 passed and T-023 passed its M1 permission variant (export/restore not run), recorded in the guild-launchpad acceptance-progress.json. M1 is not accepted: 26 of its 28 cases have not run and M1 has no candidate_sha. The guild preference backfill is blocked (27 of 28 remaining legacy members have a legacy primary guild without an approved category); production is blocked the same way (156 of 305). The three-category board stays hidden in both environments."
+      "limitation": "Rounds 6 to 9 went out without staging acceptance or T-ID evidence for P-D1/P-D2a/P-D2b (round 6), P-B2b/P-D3a (round 7), the P-D3a catalog follow-ups (round 8) and the D1 launchpad profiles (round 9); the owner chose the direct rollout. On in both environments with interim capacity values. Production was turned on by the owner on 2026-10-08 and is checked only by public read-only selected checks; it has no demo accounts, so the guild-work verifier ran on staging only. The guild-work verifier (#242) passed on staging at 06:32Z (receipt 20261008T063130038Z-83185463): T-005 passed and T-023 passed its M1 permission variant (export/restore not run), recorded in the guild-launchpad acceptance-progress.json. M1 is not accepted: 26 of its 28 cases have not run and M1 has no candidate_sha. The guild preference backfill is blocked (27 of 28 remaining legacy members have a legacy primary guild without an approved category); production is blocked the same way (156 of 305). The three-category board stays hidden in both environments."
     },
-    "limitation": "media and private_ai: no fresh authenticated feature/DB/R2 inspection in this research. guild_launchpad comes from the 2026-10-08 operator receipts: round 8, round 7, round 6, round 5, the staging trial, the staging guild-work verifier run (authenticated, real R2, staging only) and the production flag-on (public read-only checks and fresh-DNS health only)."
+    "limitation": "media and private_ai: no fresh authenticated feature/DB/R2 inspection in this research. guild_launchpad comes from the 2026-10-08 operator receipts: round 9, round 8, round 7, round 6, round 5, the staging trial, the staging guild-work verifier run (authenticated, real R2, staging only) and the production flag-on (public read-only checks and fresh-DNS health only)."
   },
   "recovery": {
     "daily_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
     "last_rollout_backup_release_pins": {
-      "production": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "staging": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "wrapper_sha256": "7c11896be89ddcb7eff063e15af70f773e0ed2433ba5ad4a7b5ae29f1376304c",
-      "at": "2026-10-08T14:34:38.257640+00:00",
+      "production": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "staging": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+      "wrapper_sha256": "a561f39d51f663c833d3dffd7fe2e60cdb983d9576da820e34ca7713be28d1f8",
+      "at": "2026-10-08T19:20:20.606083+00:00",
       "operator_source_preserved": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
       "schedules_unchanged": true
     },
@@ -982,6 +1046,14 @@
         "created_at": "2026-10-08T14:52:49.331Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
+      },
+      {
+        "label": "after-rollout (round 9)",
+        "set": "f12747a0-4432-4472-bebf-046930f1a00f",
+        "source_release": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+        "created_at": "2026-10-08T19:36:17.375Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
       }
     ],
     "staging_rollout_backups": [
@@ -1118,6 +1190,14 @@
         "set": "770211b6-644a-4cce-955c-d63a698e11fc",
         "source_release": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
         "created_at": "2026-10-08T15:04:08.044Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      {
+        "label": "after-rollout (round 9)",
+        "set": "fc6da97b-b8bc-4677-97a0-3abad022bbe6",
+        "source_release": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+        "created_at": "2026-10-08T19:28:21.878Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
       }

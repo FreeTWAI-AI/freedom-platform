@@ -17,7 +17,9 @@
 
 目前 `guild_member_preferences` 為 `(community_id,user_id)` 一列，保存一個 `primary_guild_key` 與最多兩個 `secondary_guild_keys`；`effectiveSecondary()` 還有歷史 NULL 的推導行為。現行離會要求先換走原主要公會，加入／重加入預設 `intern`，技能書 grant 保留。這些是來源事實，不是本規格的新規則。
 
-目標為內政、外交、專業與產業三個獨立偏好槽；加入任何數量公會仍沿現行資格與限制。會員可只選一類，其他槽為空。主力只改排序、推薦與投入方向，不授予應用、tenant、技能編輯、GitHub 或管理權。
+2026-10-08 決策：三類顯示名稱更新為「社群架構開發」「社群業務推廣」「社群專業服務」，底層 category keys 與 API schema 不變；原需求索引保留提出時原文。電商與銷售公會的目標分類確定為 `external`；環境資料須由既有管理命令核准，不能由顯示名稱或 migration 135 推定已套用。
+
+目標為社群架構開發、社群業務推廣、社群專業服務三個獨立偏好槽；加入任何數量公會仍沿現行資格與限制。會員可只選一類，其他槽為空。主力只改排序、推薦與投入方向，不授予應用、tenant、技能編輯、GitHub 或管理權。
 
 1. 會員打開公會頁，讀取有效 catalog 及本人 memberships；顯示三類主力與所有其他已加入公會。
 2. 選「設為本類主力」前，server 確認公會有效、類別已核准且會員關係 active。`intern` 也可表達主力偏好；啟動應用另依 SP-02 檢查 `full`。
@@ -27,30 +29,40 @@
 
 ### 2.2 分類提案：18 個實際 key
 
-分類依 migrations 的使命與 catalog 綁定，而非名字或工具。下列均為**待內容審查的建議映射**，不是 Ted 已逐項批准分類；「需確認」必須在正式切換前結案，但公版 launchpad 不等其結案。
+分類依 migrations 的使命與 catalog 綁定，而非名字或工具。下表保留原提案的建議映射，並標記後續確認的決策；電商與銷售公會已於 2026-10-08 確認，其他列不能由此推定為 Ted 已逐項批准。「需確認」必須在正式切換前結案，但公版 launchpad 不等其結案。
 
 | 實際 guild_key | 基線名稱 | 建議主類別 | 使命依據／待確認事項 |
 |---|---|---|---|
-| `guild_talent_direction` | 人才與方向公會 | 內政 `internal` | 會員探索、學習與陪跑；如果未來主要提供對外職涯服務，另走改類流程 |
-| `guild_member_operations` | 會員與社群營運公會 | 內政 | 會員加入、交流、支援 |
-| `guild_platform_engineering` | 平台工程公會 | 內政 | 平台整合、資料及可靠性 |
-| `guild_ai_vibe` | AI 開發公會 | 內政 | 建議以社群開源建設為使命；**需確認**：若主使命是對外專業開發，應屬專業與產業 |
-| `guild_opportunity_partnership` | 商機與夥伴公會 | 外交 `external` | 外部需求、合作資源與夥伴連結 |
-| `guild_marketing` | 成長與行銷公會 | 外交 | 推廣、內容、活動成效；**需確認**以對外成長為主，而非內部社群營運 |
-| `guild_commerce_sales` | 電商與銷售公會 | 外交 | 通路、銷售與買家；**需確認**專業店務與外交通路的主使命取捨 |
-| `guild_product_quality_supply` | 商品品質與供應公會 | 專業與產業 `professional_industry` | 產品、供货條件、品質實踐 |
-| `guild_media_automation` | 媒體自動化公會 | 專業與產業 | 影片、字幕及媒體流程 |
-| `guild_commerce_settlement` | 交易整合與對帳公會 | 專業與產業 | 商家自有收款整合、核對；不代表平台代收或正式會計 |
-| `guild_ai_field` | AI 導入與驗證公會 | 專業與產業 | 場域測試、導入、部署；**需確認**是否主要服務工坊內部產品 |
-| `guild_ai_project` | AI 專案公會 | 專業與產業 | 需求、範圍與交付；**需確認**是否主使命為對外商機媒合 |
-| `guild_security` | 資安公會 | 專業與產業 | 有權管理系統的安全檢查與修復 |
-| `guild_music_mv` | 音樂創作與MV公會 | 專業與產業 | 音樂／MV 的製作交付 |
-| `guild_commercial_production` | 廣告攝影與影片公會 | 專業與產業 | 拍攝、分鏡與交付；不因服務行銷就歸外交 |
-| `guild_event_space` | 活動與空間公會 | 專業與產業 | 場地、動線及實體活動專業；**需確認**內部社群活動是否才是主要使命 |
-| `guild_projection_mapping` | 光影光雕公會 | 專業與產業 | 場勘、投影、視覺與播放設計 |
-| `guild_human_design` | 人類圖研究所 | 專業與產業 | 共讀、來源查核與探索；不作診斷或能力認證 |
+| `guild_talent_direction` | 人才與方向公會 | 社群架構開發 `internal` | 會員探索、學習與陪跑；如果未來主要提供對外職涯服務，另走改類流程 |
+| `guild_member_operations` | 會員與社群營運公會 | 社群架構開發 | 會員加入、交流、支援 |
+| `guild_platform_engineering` | 平台工程公會 | 社群架構開發 | 平台整合、資料及可靠性 |
+| `guild_ai_vibe` | AI 開發公會 | 社群架構開發 | 建議以社群開源建設為使命；**需確認**：若主使命是對外專業開發，應屬社群專業服務 |
+| `guild_opportunity_partnership` | 商機與夥伴公會 | 社群業務推廣 `external` | 外部需求、合作資源與夥伴連結 |
+| `guild_marketing` | 成長與行銷公會 | 社群業務推廣 | 推廣、內容、活動成效；**需確認**以對外成長為主，而非內部社群營運 |
+| `guild_commerce_sales` | 電商與銷售公會 | 社群業務推廣 | 通路、銷售與買家；2026-10-08 由 Ted 確認為 `external`；以既有有權管理命令核准，見下方執行步驟 |
+| `guild_product_quality_supply` | 商品品質與供應公會 | 社群專業服務 `professional_industry` | 產品、供货條件、品質實踐 |
+| `guild_media_automation` | 媒體自動化公會 | 社群專業服務 | 影片、字幕及媒體流程 |
+| `guild_commerce_settlement` | 交易整合與對帳公會 | 社群專業服務 | 商家自有收款整合、核對；不代表平台代收或正式會計 |
+| `guild_ai_field` | AI 導入與驗證公會 | 社群專業服務 | 場域測試、導入、部署；**需確認**是否主要服務工坊內部產品 |
+| `guild_ai_project` | AI 專案公會 | 社群專業服務 | 需求、範圍與交付；**需確認**是否主使命為對外商機媒合 |
+| `guild_security` | 資安公會 | 社群專業服務 | 有權管理系統的安全檢查與修復 |
+| `guild_music_mv` | 音樂創作與MV公會 | 社群專業服務 | 音樂／MV 的製作交付 |
+| `guild_commercial_production` | 廣告攝影與影片公會 | 社群專業服務 | 拍攝、分鏡與交付；不因服務行銷就歸社群業務推廣 |
+| `guild_event_space` | 活動與空間公會 | 社群專業服務 | 場地、動線及實體活動專業；**需確認**內部社群活動是否才是主要使命 |
+| `guild_projection_mapping` | 光影光雕公會 | 社群專業服務 | 場勘、投影、視覺與播放設計 |
+| `guild_human_design` | 人類圖研究所 | 社群專業服務 | 共讀、來源查核與探索；不作診斷或能力認證 |
 
 `guild_*` key、既有名稱、alias、profession_title 均不因分類而改名／合併。基線沒有本計畫新增的 ERP guild key；不得虛構已存在 ERP 公會。動態核准的 `guild_custom_<32 hex>` 由 catalog 查詢列舉，不能只用上表 18 個作分母。新公會審核要求 mission/category 欄位；在舊公會分類未決期間 `category_review='pending'`、`category=null`，仍提供 SP-03 公版，但不能寫入主力分類槽。
+
+#### 2026-10-08 電商分類的執行步驟
+
+migration 135 只新增 hosted-store offering。migration 120 的初始 seed 沒有執行期管理員身份，不能拿它的方式直接改既有分類；分類更新必須經既有 `classifyGuild` 命令，於同一交易留下偏好失效紀錄、分類 journal/outbox 與 admin audit。
+
+1. Operator 使用該環境已驗證的 Access 管理身份；現有 `platform_admins` 必須 active，且同社群、同信箱有 active 會員可作事件 actor。缺任一條件就停止並處理身份對應，不任取會員、不新增假會員或偽造 Access subject。分類 `external` 已決定，不需重新選定分類。
+2. 從 `GET /admin/api/guild-categories` 讀取 `guild_commerce_sales` 的最新 `catalog_revision` 與 `capability_tags`。若已是 `external`／`approved`，保留其狀態並核對既有分類稽核；不為重跑另造修訂。
+3. 對 `POST /admin/api/guilds/guild_commerce_sales/classification` 送出 `{category:"external",capability_tags:<讀到的原值>,reason:"2026-10-08 產品決策：電商與銷售公會歸社群業務推廣"}`，帶既有管理 CSRF、新的 Idempotency-Key 與該列 revision 的 `If-Match`。未知結果使用相同 key、body、version 重送；412 則重新讀取並核對變更後再決定，不能盲目覆蓋。
+4. 讀回 `external`／`approved`、新 revision 與保留的 tags／active，核對 `reviewed_by_principal_id` 為該真實 admin，以及同交易的 `platform_admin_audit`、`guild_classification` journal、`freedom.guild.classification.changed.v1` outbox。分類事件只含公開允許欄位；若有舊主力失效，另核對偏好版本／invalidation，不搬入或覆蓋其他主力。
+5. 各環境分別記錄實際結果與不可敏感的證據；在完成前，狀態維持「external 已授權、等待可用的 operator 身份執行」。本步驟不授權略過既有部署核准或把本機測試列為 live 證據。
 
 ### 2.3 依賴與並行
 

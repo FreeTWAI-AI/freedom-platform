@@ -46,7 +46,7 @@ async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 }
 
-test('a switched community can set and clear two category primaries, including keyboard and a narrow viewport', async ({browser, baseURL, e2eAuthPool}) => {
+test('a switched community can set and clear two category primaries, including keyboard and a narrow viewport', async ({browser, baseURL, e2eAuthPool}, testInfo) => {
   test.setTimeout(120_000);
   const run = randomUUID().slice(0, 8);
   const communityId = randomUUID();
@@ -66,15 +66,15 @@ test('a switched community can set and clear two category primaries, including k
     const session = await open(browser, baseURL!, email, {width: 1280, height: 900});
     try {
       await navigate(session.page, '職業公會');
-      for (const label of ['內政主力', '外交主力', '專業與產業主力']) {
+      for (const label of ['社群架構開發主力', '社群業務推廣主力', '社群專業服務主力']) {
         await expect(session.page.getByRole('group', {name: label, exact: true})).toContainText('尚未選擇');
       }
       const talent = session.page.getByRole('article', {name: guildNames.talent, exact: true});
       await talent.getByRole('button', {name: '設為本類主力', exact: true}).click();
-      const internal = session.page.getByRole('group', {name: '內政主力', exact: true});
+      const internal = session.page.getByRole('group', {name: '社群架構開發主力', exact: true});
       await expect(internal.getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
       await expect(internal.getByText('本類主力', {exact: true})).toBeVisible();
-      const emptyCategory = session.page.getByRole('group', {name: '專業與產業主力', exact: true});
+      const emptyCategory = session.page.getByRole('group', {name: '社群專業服務主力', exact: true});
       const emptyBox = await emptyCategory.boundingBox();
       const heldBox = await internal.boundingBox();
       expect(emptyBox).not.toBeNull();
@@ -83,8 +83,17 @@ test('a switched community can set and clear two category primaries, including k
       expect(heldBox!.height).toBeGreaterThan(400);
       const partnership = session.page.getByRole('article', {name: guildNames.partnership, exact: true});
       await partnership.getByRole('button', {name: '設為本類主力', exact: true}).click();
-      const external = session.page.getByRole('group', {name: '外交主力', exact: true});
+      const external = session.page.getByRole('group', {name: '社群業務推廣主力', exact: true});
       await expect(external.getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
+      for (const theme of ['light', 'dark']) {
+        await session.page.evaluate(value => {document.documentElement.dataset.theme = value;}, theme);
+        for (const width of [360, 768, 1280]) {
+          await session.page.setViewportSize({width, height: 900});
+          await noOverflow(session.page);
+          await session.page.evaluate(() => window.scrollTo(0, 0));
+          await session.page.screenshot({path: testInfo.outputPath(`category-${theme}-${width}.png`), fullPage: false});
+        }
+      }
       await internal.getByRole('button', {name: '取消本類主力', exact: true}).click();
       await expect(internal).toContainText('尚未選擇');
       const pending = session.page.getByRole('article', {name: guildNames.vibe, exact: true});
@@ -96,12 +105,12 @@ test('a switched community can set and clear two category primaries, including k
       const again = session.page.getByRole('article', {name: guildNames.talent, exact: true}).getByRole('button', {name: '設為本類主力', exact: true});
       await again.focus();
       await session.page.keyboard.press('Enter');
-      const chosen = session.page.getByRole('group', {name: '內政主力', exact: true}).getByRole('button', {name: '取消本類主力', exact: true});
+      const chosen = session.page.getByRole('group', {name: '社群架構開發主力', exact: true}).getByRole('button', {name: '取消本類主力', exact: true});
       await expect(chosen).toBeFocused();
       await chosen.click();
-      await expect(session.page.getByRole('group', {name: '內政主力', exact: true})).toContainText('尚未選擇');
+      await expect(session.page.getByRole('group', {name: '社群架構開發主力', exact: true})).toContainText('尚未選擇');
       await session.page.getByRole('article', {name: guildNames.talent, exact: true}).getByRole('button', {name: '設為本類主力', exact: true}).click();
-      const leave = session.page.getByRole('group', {name: '內政主力', exact: true}).getByRole('button', {name: `退出${guildNames.talent}`, exact: true});
+      const leave = session.page.getByRole('group', {name: '社群架構開發主力', exact: true}).getByRole('button', {name: `退出${guildNames.talent}`, exact: true});
       await leave.click();
       const confirm = session.page.getByRole('status').filter({hasText: '不會刪除'});
       await expect(confirm).toContainText('不會移動');
@@ -142,15 +151,15 @@ test('用新版本送出草稿 reloads the version and sends that If-Match', asy
     try {
       await navigate(first.page, '職業公會');
       await navigate(second.page, '職業公會');
-      await expect(first.page.getByRole('group', {name: '內政主力', exact: true})).toContainText('尚未選擇');
-      await expect(second.page.getByRole('group', {name: '外交主力', exact: true})).toContainText('尚未選擇');
+      await expect(first.page.getByRole('group', {name: '社群架構開發主力', exact: true})).toContainText('尚未選擇');
+      await expect(second.page.getByRole('group', {name: '社群業務推廣主力', exact: true})).toContainText('尚未選擇');
       await first.page.getByRole('article', {name: guildNames.talent, exact: true}).getByRole('button', {name: '設為本類主力', exact: true}).click();
-      await expect(first.page.getByRole('group', {name: '內政主力', exact: true}).getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
+      await expect(first.page.getByRole('group', {name: '社群架構開發主力', exact: true}).getByRole('article', {name: guildNames.talent, exact: true})).toBeVisible();
       const version = (await e2eAuthPool.query(`SELECT aggregate_version::text AS aggregate_version FROM guild_preference_sets WHERE user_id = $1`, [userId])).rows[0].aggregate_version as string;
       await second.page.getByRole('article', {name: guildNames.partnership, exact: true}).getByRole('button', {name: '設為本類主力', exact: true}).click();
       await expect(second.page.getByRole('status').filter({hasText: '草稿已保留'})).toBeVisible();
       await second.page.getByRole('button', {name: '用新版本送出草稿', exact: true}).click();
-      await expect(second.page.getByRole('group', {name: '外交主力', exact: true}).getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
+      await expect(second.page.getByRole('group', {name: '社群業務推廣主力', exact: true}).getByRole('article', {name: guildNames.partnership, exact: true})).toBeVisible();
       expect(matches).toHaveLength(2);
       expect(matches[0]).not.toBe(`"${version}"`);
       expect(matches[1]).toBe(`"${version}"`);
@@ -170,7 +179,7 @@ test('the demo community keeps the legacy primary and secondary guild page', asy
     await navigate(session.page, '職業公會');
     await expect(session.page.getByRole('heading', {name: '主要與次要公會', exact: true})).toBeVisible();
     await expect(session.page.getByRole('button', {name: '設定次要公會', exact: true})).toBeVisible();
-    await expect(session.page.getByRole('group', {name: '內政主力', exact: true})).toHaveCount(0);
+    await expect(session.page.getByRole('group', {name: '社群架構開發主力', exact: true})).toHaveCount(0);
   } finally {
     await session.context.close();
   }
@@ -183,9 +192,9 @@ test('admin category tools are reading-width cards and send the classification a
   const catalog = {
     catalog_revision: '3',
     categories: [
-      {category: 'internal', label: '內政', section: '內政主力', items: [tagged]},
-      {category: 'external', label: '外交', section: '外交主力', items: [{guild_key: 'guild_opportunity_partnership', name: '機會合作公會', category: 'external', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
-      {category: 'professional_industry', label: '專業與產業', section: '專業與產業主力', items: [{guild_key: 'guild_member_operations', name: '會員經營公會', category: 'professional_industry', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
+      {category: 'internal', label: '社群架構開發', section: '社群架構開發主力', items: [tagged]},
+      {category: 'external', label: '社群業務推廣', section: '社群業務推廣主力', items: [{guild_key: 'guild_opportunity_partnership', name: '機會合作公會', category: 'external', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
+      {category: 'professional_industry', label: '社群專業服務', section: '社群專業服務主力', items: [{guild_key: 'guild_member_operations', name: '會員經營公會', category: 'professional_industry', category_review: 'approved', capability_tags: [], catalog_revision: '3'}]},
     ],
     pending: [{guild_key: 'guild_ai_vibe', name: 'AI 氛圍公會', category: null, category_review: 'pending', capability_tags: [], catalog_revision: '3'}],
   };
