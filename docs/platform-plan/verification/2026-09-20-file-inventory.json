@@ -20314,8 +20314,8 @@
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",
-      "bytes": 52878,
-      "sha256": "b3d40f900a94449a1da6f4cce5ca82d91b4b9718db45ead4b2c88732d3a6fe85"
+      "bytes": 52704,
+      "sha256": "4c41edb06a7fa5c2846d86f247bd8be7d8f6641aff82a299eb2a53929da25cfa"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
