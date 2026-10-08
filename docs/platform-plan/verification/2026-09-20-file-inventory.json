@@ -13329,8 +13329,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 17433,
-      "sha256": "a739fb3ea84687b61cd92faf7cf75c78ef6ee7e42d2a3e21b01b62b65a79e0d0"
+      "bytes": 18026,
+      "sha256": "a180d2a02dab326a6f945a6ba7e669be81845912ad0c8bf2798e707e3f1dbe2c"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -17974,8 +17974,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 9481,
-      "sha256": "f10ca3ab8315078bf09b52752d90806562b31ac8bcacd72baa0cab2d80c3235f"
+      "bytes": 9660,
+      "sha256": "76f0a912cc675f419772c64d322ea839734099d17f43f6e26b38330efa46bc23"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -18209,8 +18209,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 22449,
-      "sha256": "4e40162e72e9c706467fc7d65623038f92ef8c1007382c6b920e5e6aa5a2ff11"
+      "bytes": 23945,
+      "sha256": "4466e2f73123fbdbcc77cc835b32aebcb1776fd01ce87bd3c45faee8d58f47ff"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -19109,8 +19109,8 @@
     },
     {
       "path": "scripts/ci/pinned-playwright.config.mjs",
-      "bytes": 2180,
-      "sha256": "96db598b34a7ecf5287261070e3a420c40918d5edc057140dc6528f7b9d5e947"
+      "bytes": 2383,
+      "sha256": "2074055af3f61fe611d023110487d5a6eebe96510feda1b4f4c05e8df4c6aa95"
     },
     {
       "path": "scripts/ci/pinned_pytest_evidence.py",
@@ -19129,8 +19129,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 7063,
-      "sha256": "2959ce61352b1173937cd1ee504691422df7e75e122cd6cd0d56e62abb9027c2"
+      "bytes": 7114,
+      "sha256": "6d5a33a32857b41088cf607125763701dc284b6c1943b7d01f9b9d2febd3bc9c"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",

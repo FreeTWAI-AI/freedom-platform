@@ -32,9 +32,9 @@
 
 ## Pinned CI 的容量界線（2026-10-08）
 
-可信 runner 對 default 整輪給 40 分鐘；private-AI 與 avatar-asset 仍各為原有
+可信 runner 對 default 整輪給 40 分鐘；private-AI、avatar-asset 與新增 message-image 各為
 30 分鐘上限。`ui-e2e` job 的整體上限為 50 分鐘，容納安裝／建置、default、
-兩個 fixture 輪次與收尾。這是有限的整體上限，不承諾三輪各自耗盡最大上限時仍能
+三個 fixture 輪次與收尾。這是有限的整體上限，不承諾四輪各自耗盡最大上限時仍能
 全部跑完。單一案例 timeout、1 worker、0 retries、完整檔案／案例選擇、預期 skip
 政策與結果驗證不變。逾時仍先 SIGTERM，最多再等 20 秒後 SIGKILL；即使 child
 在 SIGTERM 後以 0 結束，仍記 `test_timeout` 並停止後續輪次，不以不完整報告算通過。
@@ -274,3 +274,12 @@ node scripts/freedom.mjs prepare --base-ref <base> --paths <path>
 ```
 
 該路徑若沒有 descriptor 擁有，而且不是 `docs/**/*.md`，也不是根說明 `AGENTS.md`、`README.md`、`CONTRIBUTING.md`，這道命令會回報 `surface_unmapped`，並把該路徑列在 `unknown_paths`。
+
+## 私訊圖片 pinned plan 候選
+
+本地 source 的 host plan 增加獨立 message-image pass、固定 timeout 與 baseline
+`message-images.spec.ts`；移除繼承的三個 fixture env，再由每輪設定唯一 fixture。
+Trusted config 將該輪 fixture 傳給 webServer，不接受 candidate 覆蓋；既有
+community-search webServer 設定保留在 default 輪，不新增搜尋 pass。
+此 source／plan 測試不表示 installed required-workflow pin 已更新，也不等同
+真實 browser、部署、遠端媒體或備份驗收。pin 更新仍需獨立授權流程。
