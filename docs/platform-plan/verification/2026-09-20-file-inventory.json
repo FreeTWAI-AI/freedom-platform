@@ -19679,8 +19679,8 @@
     },
     {
       "path": "tests/runtime/module-registry.test.ts",
-      "bytes": 21902,
-      "sha256": "11f84e87a10677af8925687b544341d73cebf5054b8ec7514db7a426a8be6b6f"
+      "bytes": 21904,
+      "sha256": "ca514cb9af2e2758fee85e959e89713186376e4b34224f7cb92563930a9b5d17"
     },
     {
       "path": "tests/runtime/native-text-invocation.test.ts",
