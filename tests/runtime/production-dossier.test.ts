@@ -143,3 +143,23 @@ test('a changed source version across pages or before adoption never returns an 
     page: async () => ({ items: [dossier], next_cursor: null, source_version: '4' }),
   })).kind, 'blocked');
 });
+
+test('production write affordances require owner/admin template or exact instance capability', async () => {
+  const { canWriteTenantWork } = await import('../../apps/portal-web/src/modules/work-ui-capabilities');
+  const tenant = { status: 'active', my_membership: { role: 'viewer' }, capabilities: [{ instance_id: 'instance-a', keys: ['work:read'] }] } as unknown as import('../../contracts/guild-launchpad/v1/tenant').TenantView;
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:result.write'), false);
+  tenant.my_membership.role = 'operator';
+  tenant.capabilities[0].keys.push('work:result.write');
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:result.write'), true);
+  assert.equal(canWriteTenantWork(tenant, 'instance-b', 'work:result.write'), false);
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:create'), false);
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:write'), false);
+  tenant.capabilities = [{ instance_id: null, keys: ['work:result.write'] }];
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:result.write'), false);
+  for (const role of ['owner', 'admin'] as const) {
+    tenant.my_membership.role = role;
+    assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:result.write'), true);
+  }
+  tenant.status = 'suspended';
+  assert.equal(canWriteTenantWork(tenant, 'instance-a', 'work:result.write'), false);
+});

@@ -1319,3 +1319,75 @@ test('NP-003 failed first save recovers the same Work, 412 preserves production 
     assertLocal(session.urls);
   } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
 });
+
+test('NP-004 read-only production viewer keeps readable data without writes; an explicit result writer can save', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+  test.setTimeout(180_000);
+  const guildKey = 'guild_commercial_production';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const owner = await person(e2eAuthPool, 'production-owner', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const viewer = await person(e2eAuthPool, 'production-viewer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const writer = await person(e2eAuthPool, 'production-writer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, owner.email);
+  const contexts = [session.context];
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: `製作權限${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id;
+    const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(session.page, guildKey, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await session.page.locator('#my-work-title').fill('唯讀製作企劃');
+    await session.page.locator('#my-work-objective').fill('閱讀保存資料與依明確授權寫入');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await session.page.getByLabel('目標受眾', { exact: true }).fill('可閱讀的私人企劃');
+    await session.page.getByLabel('核心訊息', { exact: true }).fill('唯讀會員不應失去工作畫面');
+    await session.page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(session.page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(session.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    const works = await (await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
+    const work = works.items[0];
+    for (const entry of [{ person: viewer, role: 'viewer', capabilities: ['work:read'] }, { person: writer, role: 'operator', capabilities: ['work:read', 'work:result.write'] }]) {
+      const candidate = await (await session.page.request.get(`/api/v1/tenants/invite-candidates?user_id=${entry.person.userId}`)).json();
+      const invite = await postJson(session.page, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: entry.role,
+        instance_capabilities: [{ instance_id: work.instance_id, capabilities: entry.capabilities }], expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
+      const member = await login(browser, baseURL!, entry.person.email); contexts.push(member.context);
+      const auth = await (await member.page.request.get('/api/v1/session')).json();
+      const accepted = await member.page.request.post(`/api/v1/tenants/${tenantId}/invitations/${invite.invitation_id}/accept`, { data: {}, headers: {
+        Origin: new URL(member.page.url()).origin, 'X-CSRF-Token': auth.csrf_token, 'Idempotency-Key': randomUUID(), 'If-Match': `"${invite.version}"`,
+      } });
+      expect(accepted.status(), await accepted.text()).toBe(200);
+      const writes: string[] = [];
+      member.page.on('request', request => { if (/\/works(?:\/|$)/.test(new URL(request.url()).pathname) && ['POST', 'PUT', 'PATCH'].includes(request.method())) writes.push(request.method()); });
+      await openGuild(member.page, guildKey, guild.name);
+      await member.page.getByRole('button', { name: '唯讀製作企劃', exact: true }).click();
+      await expect(member.page.getByLabel('目標受眾', { exact: true })).toHaveValue('可閱讀的私人企劃');
+      await expect(member.page.getByLabel('核心訊息', { exact: true })).toHaveValue('唯讀會員不應失去工作畫面');
+      await expect(member.page.getByRole('heading', { name: '建立製作專案', exact: true })).toHaveCount(0);
+      await expect(member.page.locator('#my-work-edit-title')).toHaveCount(0);
+      if (entry.role === 'viewer') {
+        await expect(member.page.getByLabel('目標受眾', { exact: true })).toBeDisabled();
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '儲存附件', exact: true })).toHaveCount(0);
+        await member.page.locator('.my-work-result').first().getByRole('button', { name: '查看內容', exact: true }).click();
+        await expect(member.page.locator('.my-work-result pre')).toContainText('可閱讀的私人企劃');
+        expect(writes).toEqual([]);
+        for (const [skin, width] of [['light', 390], ['dark', 1440]] as const) {
+          await theme(member.page, skin); await member.page.setViewportSize({ width, height: 900 }); await noOverflow(member.page);
+          await member.page.getByRole('heading', { name: '製作專案企劃與版本', exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+          await member.page.evaluate(() => window.scrollBy(0, -96));
+          await member.page.screenshot({ path: testInfo.outputPath(`production-viewer-${skin}-${width}.png`) });
+        }
+      } else {
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+        await member.page.getByLabel('核心訊息', { exact: true }).fill('依明確成果寫入權限完成修改');
+        await member.page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+        await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+        expect(writes.length).toBeGreaterThan(0);
+      }
+      assertLocal(member.urls);
+    }
+  } finally {
+    for (const context of contexts) await context.close();
+    for (const member of [owner, viewer, writer]) await cleanup(e2eAuthPool, member.userId);
+  }
+});

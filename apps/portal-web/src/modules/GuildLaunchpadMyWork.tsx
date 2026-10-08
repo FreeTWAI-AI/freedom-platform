@@ -11,6 +11,7 @@ import { advanceWorkResultSave, workResultDigest as sha256Hex, type WorkResultSa
 import { emptyProductionDossier, parseProductionDossier, serializeProductionDossier, PRODUCTION_FILENAME, type ProductionDossier } from '../../../../modules/guild-workspace/production-dossier';
 import { readProductionResult, verifyProductionReferences, type ProductionRead, type ProductionScan } from './production-result-reader';
 import { ProductionProject } from './ProductionProject';
+import { canWriteTenantWork } from './work-ui-capabilities';
 import './GuildLaunchpadMyWork.css';
 
 const LEAVE = '有尚未儲存的內容，確定要離開嗎？';
@@ -140,6 +141,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [workspaceBinding, setWorkspaceBinding] = useState<WorkspaceModuleBindingView['binding']>(null);
   const bound = workspaceBinding !== null;
   const writable = workspaceBinding?.writable === true;
+  const canCreateWork = !isProduction || canWriteTenantWork(tenant, workspaceBinding?.instance_id, 'work:create');
+  const canEditWork = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:write');
+  const canArchiveWork = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:archive');
+  const canSaveResults = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:result.write');
   const [policyOff, setPolicyOff] = useState(false);
   const [inactive, setInactive] = useState(false);
   const [capabilityDenied, setCapabilityDenied] = useState(false);
@@ -397,7 +402,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function createWork(event: FormEvent) {
     event.preventDefault();
-    if (!tenantId || !workspaceId || !bound || busy || writeLocked) return;
+    if (!tenantId || !workspaceId || !bound || busy || writeLocked || !canCreateWork) return;
     if (work && !leaveOk(false)) return;
     const titleError = textProblem(draftTitle, 'title');
     const objectiveError = textProblem(draftObjective, 'objective');
@@ -511,7 +516,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     } finally { if (call.live()) setProductionLoading(false); }
   }
   async function saveProduction() {
-    if (!production || !tenantId || !work || busy || productionLoading || writeLocked || attempt || resave || productionConflict
+    if (!production || !tenantId || !work || busy || productionLoading || writeLocked || !canSaveResults || attempt || resave || productionConflict
       || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')) return;
     const call = currentCall();
     setNoteError(''); setBusy(true);
@@ -567,7 +572,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     } finally { if (call.live()) setBusy(false); }
   }
   async function saveEdits() {
-    if (!tenantId || !work || !editBase || busy || writeLocked || conflict) return;
+    if (!tenantId || !work || !editBase || busy || writeLocked || !canEditWork || conflict) return;
     const titleError = textProblem(editTitle, 'title');
     const objectiveError = textProblem(editObjective, 'objective');
     setEditError(titleError ?? objectiveError ?? '');
@@ -619,7 +624,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (isProduction && work) void loadProduction(work.work_id, currentCall(), undefined, true);
   }
   async function archive() {
-    if (!tenantId || !work || busy || writeLocked) return;
+    if (!tenantId || !work || busy || writeLocked || !canArchiveWork) return;
     const fingerprint = `archive:${work.work_id}:${heldVersion}`;
     const key = keyFor(fingerprint);
     const call = currentCall();
@@ -654,7 +659,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     }, call);
   }
   async function beginFileSave() {
-    if (!work || !file || busy || writeLocked || attempt || (isProduction && (resave || productionConflict || productionLoading))) return;
+    if (!work || !file || busy || writeLocked || !canSaveResults || attempt || (isProduction && (resave || productionConflict || productionLoading))) return;
     const contentType = contentTypeFor(file.name);
     if (!contentType) { setFileError('只接受 .txt 或 .md 檔案。'); return; }
     if (file.size < 1 || file.size > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
@@ -809,7 +814,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </li>)}</ul>}
           {worksCursor && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void loadMoreWorks()}>載入更多</button>}
         </section>
-        {writable && <>
+        {writable && canCreateWork && <>
         <h4 id={createHeadingId}>{isProduction ? '建立製作專案' : '新增工作'}</h4>
         <form className="stack" aria-labelledby={createHeadingId} onSubmit={event => void createWork(event)}>
           <label className="field" htmlFor="my-work-title">{titleLabel}
@@ -832,12 +837,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       </>}
       {work && <section className="stack my-work-open" aria-labelledby={openHeadingId}>
         <h4 id={openHeadingId}>{work.title}</h4>
-        {!writable && <dl className="detail-list">
+        {(!writable || !canEditWork) && <dl className="detail-list">
           <div><dt>目標</dt><dd>{work.objective}</dd></div>
           <div><dt>進度</dt><dd>{PROGRESS_LABEL[work.progress]}</dd></div>
         </dl>}
         {writable && <>
-        <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
+        {canEditWork && <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
           <label className="field" htmlFor="my-work-edit-title">標題
             <input id="my-work-edit-title" aria-describedby={editError ? 'my-work-edit-error' : undefined} value={editTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setEditTitle(event.target.value)}/>
           </label>
@@ -867,9 +872,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </div>}
           <div className="my-work-actions">
             <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || Boolean(conflict)}>儲存變更</button>
-            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked || !canArchiveWork} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
           </div>
-        </form>
+        </form>}
         {!isProduction && <form className="stack" aria-label="筆記" onSubmit={event => { event.preventDefault(); void beginNoteSave(); }}>
           <label className="field" htmlFor="my-work-note">{noteLabel}
             <textarea id="my-work-note" aria-describedby={noteError ? 'my-work-note-error' : undefined} value={note} disabled={busy || writeLocked} onChange={event => { setNote(event.target.value); if (!attempt) setStage('尚未儲存'); }}/>
@@ -880,18 +885,19 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           {noteError && <p id="my-work-note-error" className="banner banner-error" role="alert">{noteError}</p>}
           <button type="submit" className="btn btn-primary my-work-primary" disabled={busy || writeLocked || Boolean(attempt)}>儲存筆記</button>
         </form>}
-        <form className="stack" aria-label="附上檔案" onSubmit={event => { event.preventDefault(); void beginFileSave(); }}>
+        {canSaveResults && <form className="stack" aria-label="附上檔案" onSubmit={event => { event.preventDefault(); void beginFileSave(); }}>
           <label className="field" htmlFor="my-work-file">附件
             <input id="my-work-file" ref={fileRef} type="file" accept=".txt,.md,text/plain,text/markdown" aria-describedby={fileError ? 'my-work-file-error' : undefined} disabled={busy || writeLocked || (isProduction && (Boolean(attempt) || Boolean(resave) || productionConflict || productionLoading))} onChange={event => { setFile(event.target.files?.[0] ?? null); setFileError(''); if (!attempt) setStage('尚未儲存'); }}/>
           </label>
           {fileError && <p id="my-work-file-error" className="banner banner-error" role="alert">{fileError}</p>}
           <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || !file || Boolean(attempt) || (isProduction && (Boolean(resave) || productionConflict || productionLoading))}>儲存附件</button>
-        </form>
+        </form>}
         <p className="my-work-stage" aria-live="polite">{stage}</p>
         {(awaitingAck || (storageDown && attempt)) && <button type="button" className="btn btn-ghost" disabled={busy || !attempt} onClick={() => { if (attempt) void runSave(attempt, currentCall()); }}>重試</button>}
         {resave && !isProduction && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveAgain()}>用最新版本再儲存一次</button>}
         </>}
         {isProduction && <>
+          {!canSaveResults && <p className="field-hint">此專案目前可閱讀；儲存製作版本需要這個工作實例的成果寫入權限。</p>}
           {productionLoading && <p role="status">正在讀取製作版本…</p>}
           {productionRead?.kind === 'blocked' && <div className="stack"><p className="banner banner-error" role="alert">{productionRead.reason} 製作欄位已鎖定；原始成果仍可在下方下載。</p><button type="button" className="btn btn-ghost" disabled={busy || productionLoading} onClick={() => void loadProduction(work.work_id, currentCall(), undefined, Boolean(production))}>重新讀取製作版本</button></div>}
           {productionRead?.kind === 'more' && <div className="stack"><p>較新的成果是一般文字；繼續讀取較早版本後才能編輯製作資料。</p><button type="button" className="btn btn-ghost" disabled={productionLoading || busy} onClick={() => void loadProduction(work.work_id, currentCall(), productionRead.scan, productionReadContinuation.current.keepDraft, productionReadContinuation.current.expectedText)}>繼續尋找製作版本</button></div>}
@@ -901,7 +907,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
             {productionRead?.kind === 'empty' && <p>伺服器尚無製作資料。</p>}
             <div className="my-work-actions"><button type="button" className="btn btn-ghost" disabled={productionLoading || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} onClick={() => resolveProductionConflict(false)}>保留我的製作草稿</button><button type="button" className="btn btn-ghost" disabled={productionLoading || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} onClick={() => resolveProductionConflict(true)}>改用伺服器製作版本</button></div>
           </div>}
-          {production && <ProductionProject key={work.work_id} value={production} onChange={value => { setProduction(value); setStage('尚未儲存'); }} onSave={() => void saveProduction()} onDraftChange={setProductionComposerDirty} results={results} disabled={busy || writeLocked || productionLoading || Boolean(attempt) || Boolean(resave) || productionConflict || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} readOnly={!writable} saved={productionRead?.kind === 'found'} error={noteError} />}
+          {production && <ProductionProject key={work.work_id} value={production} onChange={value => { setProduction(value); setStage('尚未儲存'); }} onSave={() => void saveProduction()} onDraftChange={setProductionComposerDirty} results={results} disabled={busy || writeLocked || productionLoading || Boolean(attempt) || Boolean(resave) || productionConflict || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} readOnly={!writable || !canSaveResults} saved={productionRead?.kind === 'found'} error={noteError} />}
         </>}
         <section aria-label="成果">
           {results.length === 0 ? <p>{writable ? '還沒有成果。寫下筆記或附上檔案後按儲存。' : '還沒有成果。'}</p> : <ul>{results.map(result => <li key={result.result_id} className="my-work-result">

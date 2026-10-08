@@ -30,7 +30,7 @@ export function ProductionProject({ value, onChange, onSave, onDraftChange, resu
     const next = structuredClone(value); update(next); onChange(next);
   }
   function field(label: string, content: string, update: (text: string) => void, multiline = false) {
-    return <label className="field">{label}{multiline
+    return <label className={multiline ? 'field production-field-wide' : 'field'}>{label}{multiline
       ? <textarea aria-label={label} value={content} disabled={locked} onChange={event => update(event.target.value)} />
       : <input aria-label={label} value={content} disabled={locked} onChange={event => update(event.target.value)} />}</label>;
   }
@@ -65,7 +65,7 @@ export function ProductionProject({ value, onChange, onSave, onDraftChange, resu
       }
       setEntryError(''); onSave();
     }}>
-      <fieldset className="stack" disabled={locked}>
+      <fieldset className="stack production-brief" disabled={locked}>
         <legend>製作 brief</legend>
         {field('目標受眾', value.brief.audience, text => change(draft => { draft.brief.audience = text; }))}
         {field('使用渠道／用途', value.brief.channel, text => change(draft => { draft.brief.channel = text; }))}
