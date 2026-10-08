@@ -27,7 +27,7 @@ async function ownerOn(guilds: string[]) {
 test('HTTPS catalog eligibility uses the configured secure session cookie', async () => {
   const { owner } = await ownerOn(['guild_ai_field']);
   const origin = 'https://registry.example.test';
-  const app = createApp(h.pool, origin, 'local', { guildLaunchpadEnabled: true });
+  const app = createApp(h.pool, origin, 'staging', { guildLaunchpadEnabled: true });
   const path = `${origin}/api/v1/applications?guild_key=guild_ai_field`;
   const signed = await app.request(path, { headers: { Cookie: owner.cookie.replace('freedom_local_session=', '__Host-freedom_session=') } });
   assert.equal(signed.status, 200);
