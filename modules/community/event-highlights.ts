@@ -136,7 +136,7 @@ const listedSql = `e.state='published' AND e.ends_at<=now()
  AND ($1::uuid IS NULL OR e.community_id=$1)
  AND (($2::uuid IS NOT NULL AND e.organizer_ref=$2) OR NOT is_verification_test_account(e.organizer_ref))`;
 const attendanceSql = `((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
- (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=e.event_id AND g.email_sent_at IS NOT NULL))`;
+ (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=e.event_id AND g.state='going' AND (g.email_sent_at IS NOT NULL OR g.confirmed_at IS NOT NULL)))`;
 const itemVisible = `(h.uploader_user_id IS NOT DISTINCT FROM $2::uuid OR NOT is_verification_test_account(h.uploader_user_id))`;
 
 export function encodeHighlightCursor(endsAt: string, eventId: string) {

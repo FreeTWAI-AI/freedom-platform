@@ -2,7 +2,7 @@ import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
-import { Hono, type MiddlewareHandler } from 'hono';
+import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -64,6 +64,9 @@ import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,creat
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from '../../../modules/community/events.js';
+import {readGuestEventCalendar} from '../../../modules/community/event-calendar.js';
+import {readGuestEventReminder,saveGuestEventReminder} from '../../../modules/community/event-reminders.js';
+import {mutateGuestEventParticipation,processEventWaitlist,readGuestEventParticipation,requestGuestEventParticipation} from '../../../modules/community/event-waitlist.js';
 import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromotion,registerPublicPromotion} from './routes/promotion.js';
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
@@ -225,7 +228,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,event_participation_enabled:runtime.eventParticipationEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -264,6 +267,22 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   };
   app.use('/api/v1/me/notification-preferences',notificationPreferencesEnabled);
   app.use('/api/v1/me/notification-preferences/*',notificationPreferencesEnabled);
+  const eventParticipationEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');
+    c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.eventParticipationEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  };
+  app.use('/api/v1/events/:id/participation',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/waitlist',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/waitlist-policy',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/schedule',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/calendar',eventParticipationEnabled);
+  app.use('/api/v1/events/:id/reminder',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/participation',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/participation-request',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/calendar',eventParticipationEnabled);
+  app.use('/api/v1/public/events/:id/reminder',eventParticipationEnabled);
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -303,6 +322,36 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   registerPublicPromotion(app,pool,runtime,origin);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
+  const dispatchGuest=async(eventId:string)=>processEventWaitlist(pool,async(to,subject,body)=>{requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');await runtime.eventEmailSender(to,subject,body);},origin,undefined,eventId);
+  if(runtime.eventParticipationEnabled===true){
+    const guestMutation=async(c:Context)=>{
+      const body=await c.req.json(),version=c.req.header('If-Match')??'',key=c.req.header('Idempotency-Key')??'';
+      requireCondition(/^"[1-9][0-9]*"$/.test(version)&&Number.isSafeInteger(Number(version.slice(1,-1))),version?400:428,'version_required','請提供有效的 If-Match 版本。');
+      requireCondition(String(body?.expected_version)===version.slice(1,-1),400,'version_mismatch','內容版本必須與 If-Match 相同。');
+      requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
+      return {body,key,token:c.req.header('X-Event-Participation-Token')??''};
+    };
+    app.get('/api/v1/public/events/:id/participation',async c=>c.json(await readGuestEventParticipation(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.get('/api/v1/public/events/:id/calendar',async c=>c.json(await readGuestEventCalendar(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.get('/api/v1/public/events/:id/reminder',async c=>c.json(await readGuestEventReminder(pool,z.uuid().parse(c.req.param('id')),c.req.header('X-Event-Participation-Token')??'')));
+    app.post('/api/v1/public/events/:id/participation',async c=>{
+      const {body,key,token}=await guestMutation(c),eventId=z.uuid().parse(c.req.param('id'));
+      const result=await mutateGuestEventParticipation(pool,eventId,token,body,key);await dispatchGuest(eventId);return c.json(result);
+    });
+    app.patch('/api/v1/public/events/:id/reminder',async c=>{
+      const {body,key,token}=await guestMutation(c);
+      requireCondition(body.command_id===key,400,'idempotency_mismatch','內容命令識別碼必須與 Idempotency-Key 相同。');
+      return c.json(await saveGuestEventReminder(pool,z.uuid().parse(c.req.param('id')),token,body));
+    });
+    app.post('/api/v1/public/events/:id/participation-request',async c=>{
+      requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
+      const body=await c.req.json(),email=z.email().max(200).parse(body?.email).trim().toLowerCase();
+      await authRateLimit(pool,'event-register-network',authNetwork(c),10,3600);
+      await authRateLimit(pool,'event-register-email',email,3,3600);
+      await authRateLimit(pool,'event-register-global','global',300,3600);
+      return c.json(await requestGuestEventParticipation(pool,z.uuid().parse(c.req.param('id')),body,runtime.eventEmailSender,origin));
+    });
+  }
   app.post('/api/v1/public/events/:id/register',async c=>{
     requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');
     const body=await c.req.json();
@@ -310,7 +359,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'event-register-network',authNetwork(c),10,3600);
     await authRateLimit(pool,'event-register-email',email,3,3600);
     await authRateLimit(pool,'event-register-global','global',300,3600);
-    return c.json(await registerPublicEvent(pool,z.uuid().parse(c.req.param('id')),body,runtime.eventEmailSender,origin));
+    const eventId=z.uuid().parse(c.req.param('id'));
+    const result=await registerPublicEvent(pool,eventId,body,runtime.eventEmailSender,origin,runtime.eventParticipationEnabled===true);
+    if(runtime.eventParticipationEnabled===true)await dispatchGuest(eventId);
+    return c.json(result);
   });
   app.get('/api/v1/pages/github-activity',async c=>c.json(await pageGitHub.read(c.req.query('page'),c.req.query('refresh')==='1')));
   app.get('/api/v1/pages/github-events',async c=>c.json(await pageGitHubEvents.read()));

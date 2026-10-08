@@ -6,6 +6,8 @@ const appRoot = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   root: appRoot,
+  // Hooks and the renderer must share one React instance, even with nested dependencies.
+  resolve: { dedupe: ['react', 'react-dom'] },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

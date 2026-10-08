@@ -135,6 +135,8 @@ const FOUNDATION_NAMES = [
   '136_personal_content.sql',
   // Personal reminder policy only; no inbox, read cursor, subscription or delivery writes.
   '137_notification_preferences.sql',
+  // Participation is opt-in. Existing event publication and review authority do not change.
+  '138_event_participation.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
