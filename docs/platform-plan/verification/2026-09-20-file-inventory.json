@@ -29,13 +29,13 @@
     },
     {
       "path": "DESIGN.md",
-      "bytes": 11564,
-      "sha256": "ddd30122721e01b76b62190e5e4deeff173dff179645169de26d4e7fe65df2cb"
+      "bytes": 11591,
+      "sha256": "5179c2ddba2bf341ff6be39a624e5fb5da2019d2741140cc8cc4aba8735a8f2c"
     },
     {
       "path": "README.md",
-      "bytes": 19634,
-      "sha256": "3910a4907556cd354d77ff6c7dedfe058964c55e17a146312a95c308f307d743"
+      "bytes": 19661,
+      "sha256": "c4f5f6515ae38cb86abbf31efe1565d50eca4bd1aabe9519c8c8eb37c6c34584"
     },
     {
       "path": "compose.yaml",
@@ -1649,8 +1649,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 49861,
-      "sha256": "d085cc5da52e365d0c32a92edfc6ae0200ca50ddc9753cb0eea424f5212081ca"
+      "bytes": 50705,
+      "sha256": "1402f5d40e6ccb52e94ae227958954ecd3437e278f0c6b44bcefe42d5025463d"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1834,8 +1834,8 @@
     },
     {
       "path": "apps/portal-web/src/page-help.ts",
-      "bytes": 16968,
-      "sha256": "574fb6aa7f71caaa99676bf9f240c416509ce4c18fb8629e5a66b2aec38e6cad"
+      "bytes": 16995,
+      "sha256": "d7f049a06e27f06e0b1dfaf9262f834b885fbed869b4f30483f7b6e260a189e7"
     },
     {
       "path": "apps/portal-web/src/portal-feedback.tsx",
@@ -2179,8 +2179,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 47775,
-      "sha256": "c480c6f1c718edc794b81c91649d1bec7d1183d891b4830ef2b9c90eef4c11b4"
+      "bytes": 47738,
+      "sha256": "8596e5349acc0735f7401e077e1b71ce05187fbc6d857f76ae1211689afdb1d3"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
@@ -2189,8 +2189,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadApplications.tsx",
-      "bytes": 59603,
-      "sha256": "53d8c2dfcef253883bf956783575f0bc5723f109bd9d63a9d6443e4a2a10d334"
+      "bytes": 59763,
+      "sha256": "bedad6f43a505becfd6e5a8894ae9d1e6fa8ebdd8a3f38fbec69915fd68c2dc8"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
@@ -2264,8 +2264,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStore.tsx",
-      "bytes": 28433,
-      "sha256": "516239cf42886db953ae7e83cb0c1138d3a0a6e6ebf9dbc9f8e5193e73cffbbf"
+      "bytes": 26630,
+      "sha256": "fb0b1eb695a59e705f347bb69613d62c67227dded1988ad13134c1dee6d72d9f"
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
@@ -2334,8 +2334,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
-      "bytes": 14730,
-      "sha256": "567228362782b22cab98165db787e3e0471ba6758b2e1b2dd0db010764b8644a"
+      "bytes": 14743,
+      "sha256": "4f9ac79bbc8c94fe4aaa0599218d64c226d864075197cab5f3e25f080dbbf4f9"
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -2394,8 +2394,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 29285,
-      "sha256": "de2b232521b18bc6a047be100e587c37d8b590f45e258feed79e72a834bc4c43"
+      "bytes": 29211,
+      "sha256": "dd32cd3a38418a3d0e335b6e0b7c5834c6ccac9519e810a7ef42323f2d4b01a9"
     },
     {
       "path": "apps/portal-web/src/modules/ModelSettings.css",
@@ -2416,6 +2416,11 @@
       "path": "apps/portal-web/src/modules/ModuleDiscovery.css",
       "bytes": 1640,
       "sha256": "29afd34655769bc1a96546e5a4e4ae6fbfe12771dc48b7c5662efa637233792c"
+    },
+    {
+      "path": "apps/portal-web/src/modules/MyStoreAction.tsx",
+      "bytes": 2445,
+      "sha256": "c46252698d67efa1670068c32926b31d3f3826a86da3d77672e1d04be1216506"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
@@ -12364,8 +12369,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/guild-preferences.ts",
-      "bytes": 3658,
-      "sha256": "cbb17d8add8482fbbfefadb2ce2bd13b9a984d292fd395bb04c8cc0d923593b1"
+      "bytes": 3712,
+      "sha256": "0f7784dd1e8f0d288d28ec5205d8046be717bfad16fd42c1365c73cc9800479f"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
@@ -13364,8 +13369,8 @@
     },
     {
       "path": "docs/development/guild-library-layout.md",
-      "bytes": 3653,
-      "sha256": "ec2caa26ce07bf836ad41980081db64a996e511511b1f955732b6eebca5dc2f0"
+      "bytes": 3707,
+      "sha256": "d2b0432e794597945c7eadfd202c154ef8f830d9da132816c9141e9c9e3bfd24"
     },
     {
       "path": "docs/development/integration-pr85-104-future108.md",
@@ -14589,8 +14594,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 19456,
-      "sha256": "689e2303dfa051e97d84dd916528571d8acffddddd85e1476baeddc1b6783843"
+      "bytes": 21961,
+      "sha256": "3baebad42ca9cf24ecfb2ddbdd403d886b692a3f1992a54066894925337ce181"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -14599,8 +14604,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-01-guild-preferences.md",
-      "bytes": 26270,
-      "sha256": "43e4e382eeb228564825ce527e104ff8328f19051286fd6df910d20fb8636c34"
+      "bytes": 28890,
+      "sha256": "aa9b95499195dc2568328854e7898a328afc250362d060dde0958bbf897b8492"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-02-tenant-authorization.md",
@@ -14999,8 +15004,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 51272,
-      "sha256": "f4f0192475b38c34b87a3931bffe07b43ee7e7cc328b598acb2443409e1da251"
+      "bytes": 53989,
+      "sha256": "ea99aa58d0af7d0717f65cb6b34ec7ba5581cedcd84f30fad3b19f158f9d2196"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -15019,8 +15024,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 87928,
-      "sha256": "1e1c313b41df59cb732d013ac6b004686a00b6c0198a3e9bb622939e49101b56"
+      "bytes": 96544,
+      "sha256": "656e93ef735b7c763de589b54a26b7dbe81935d0933ee6124853903f74bb16e2"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -16004,8 +16009,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 8794,
-      "sha256": "245afeb2f4662b7350fdb360a7d77de92fcd09fe7dc198ca7c60ce7fcfc47f58"
+      "bytes": 8947,
+      "sha256": "23374d462a40ca4b2489ee2502b9bcdd89348c0f1a650da138fa84930534600c"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -19294,8 +19299,8 @@
     },
     {
       "path": "tests/e2e/guild-category-preferences.spec.ts",
-      "bytes": 19274,
-      "sha256": "c9c18bc43fccbebde55f70b5e710c433565f6ad38c7bf7c92c938b6d4b93b71b"
+      "bytes": 20004,
+      "sha256": "6045260e38697744c52e648c6d7c38f6d176c5f5d6a789499d6e24b39df63a71"
     },
     {
       "path": "tests/e2e/guild-entry-questions.spec.ts",
@@ -19319,8 +19324,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",
-      "bytes": 14811,
-      "sha256": "178ac1cf91386ef1b9a3b38a4125760783cc242e42ecba596eb3de605d16255f"
+      "bytes": 15042,
+      "sha256": "986cc0c95314abdb15f9460e0b8792ba6ddb78af96854af5279a469b48e2abf8"
     },
     {
       "path": "tests/e2e/guild-member-tiers.spec.ts",
@@ -19354,8 +19359,8 @@
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
-      "bytes": 16226,
-      "sha256": "bfffb144744703b2dd8d355845a09d69febdbf32458c5befd3c345baed6c1c41"
+      "bytes": 22812,
+      "sha256": "9599d7a371b0fd0f495b2fe762cc4bdff32ea9144c5f3ad14e3a7521fd1e5560"
     },
     {
       "path": "tests/e2e/instant-feedback.spec.ts",
@@ -20274,8 +20279,8 @@
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",
-      "bytes": 103944,
-      "sha256": "45b08e43f43033bc09aad575fca2e8b9e4c9b32637fe18e677195f6690039380"
+      "bytes": 105455,
+      "sha256": "48a80a551f9830f500427f715588a8c794a17b1e23ccb6401eea134846be1d0e"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
