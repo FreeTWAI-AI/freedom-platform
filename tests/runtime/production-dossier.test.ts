@@ -6,6 +6,7 @@ import { readProductionResult, verifyProductionReferences } from '../../apps/por
 import { advanceWorkResultSave, workResultDigest, type WorkResultSaveAttempt } from '../../apps/portal-web/src/modules/work-result-save';
 import type { ResultView } from '../../contracts/guild-launchpad/v1/tenant-work';
 import type { PortalClient } from '../../apps/portal-web/src/api';
+import { getWorkResultBytes } from '../../apps/portal-web/src/modules/work-result-client';
 
 test('production dossier is typed, deterministic UTF-8 Result content bound to one Work', () => {
   const value = emptyProductionDossier(randomUUID());
@@ -56,7 +57,7 @@ test('bounded reader resumes across interleaved Results and pagination; it ignor
   latest.display_name = 'production-dossier.md';
   const dossier = await result(workId, text, '2');
   const calls: (string | null)[] = [];
-  const input = { workId, budget: 1, page: async (cursor: string | null) => { calls.push(cursor); return cursor ? { items: [dossier], next_cursor: null } : { items: [latest], next_cursor: 'next' }; }, content: async (row: ResultView) => row === latest ? 'ordinary attachment' : text };
+  const input = { workId, expectedWorkVersion: '3', currentVersion: async () => '3', budget: 1, page: async (cursor: string | null) => { calls.push(cursor); return cursor ? { items: [dossier], next_cursor: null, source_version: '3' } : { items: [latest], next_cursor: 'next', source_version: '3' }; }, content: async (row: ResultView) => new TextEncoder().encode(row === latest ? 'ordinary attachment' : text) };
   const first = await readProductionResult(input);
   assert.equal(first.kind, 'more');
   if (first.kind !== 'more') throw Error('expected continuation');
@@ -69,8 +70,8 @@ test('unknown newer dossier blocks fallback to an older recognized snapshot; byt
   const workId = randomUUID();
   const future = serializeProductionDossier(emptyProductionDossier(workId)).replaceAll('/v1', '/v3');
   const row = await result(workId, future, '7');
-  assert.equal((await readProductionResult({ workId, page: async () => ({ items: [row], next_cursor: 'older' }), content: async () => future })).kind, 'blocked');
-  assert.equal((await readProductionResult({ workId, page: async () => ({ items: [row], next_cursor: null }), content: async () => 'tampered' })).kind, 'blocked');
+  assert.equal((await readProductionResult({ workId, expectedWorkVersion: '7', currentVersion: async () => '7', page: async () => ({ items: [row], next_cursor: 'older', source_version: '7' }), content: async () => new TextEncoder().encode(future) })).kind, 'blocked');
+  assert.equal((await readProductionResult({ workId, expectedWorkVersion: '7', currentVersion: async () => '7', page: async () => ({ items: [row], next_cursor: null, source_version: '7' }), content: async () => new TextEncoder().encode('tampered') })).kind, 'blocked');
 });
 
 test('references resolve only via the authorized same Work and exact digest/revision', async () => {
@@ -95,4 +96,50 @@ test('uploader preserves exact finalize key and payload across uncertain outcome
   assert.equal(saved.resultId, 'result-id');
   assert.equal(await invoke(false), null);
   assert.equal(calls.length, 2);
+});
+
+test('ordinary UTF-8 BOM attachment is verified as original bytes before dossier decoding', async () => {
+  const workId = randomUUID();
+  const ordinary = '\uFEFFordinary text';
+  const content = serializeProductionDossier(emptyProductionDossier(workId));
+  const attachment = await result(workId, ordinary, '3');
+  const dossier = await result(workId, content, '2');
+  const read = await readProductionResult({ workId, expectedWorkVersion: '3', currentVersion: async () => '3',
+    page: async () => ({ items: [attachment, dossier], next_cursor: null, source_version: '3' }),
+    content: async row => new TextEncoder().encode(row.result_id === attachment.result_id ? ordinary : content),
+  });
+  assert.equal(read.kind, 'found');
+});
+
+test('authenticated content client retains BOM bytes through the existing fetch channel', async () => {
+  const bytes = new TextEncoder().encode('\uFEFFordinary text');
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (_input, init) => {
+      assert.equal(init?.credentials, 'same-origin');
+      assert.equal(new Headers(init?.headers).get('X-Requested-With'), 'XMLHttpRequest');
+      return new Response(bytes, { headers: { 'Content-Type': 'text/plain' } });
+    };
+    assert.deepEqual(await getWorkResultBytes({ csrfToken: null } as PortalClient, '/api/v1/private-content'), bytes);
+  } finally { globalThis.fetch = original; }
+});
+
+test('a changed source version across pages or before adoption never returns an obsolete dossier', async () => {
+  const workId = randomUUID();
+  const content = serializeProductionDossier(emptyProductionDossier(workId));
+  const attachment = await result(workId, 'ordinary', '4');
+  const dossier = await result(workId, content, '2');
+  let current = '4';
+  const input = { workId, expectedWorkVersion: '4', currentVersion: async () => current, budget: 1,
+    page: async (cursor: string | null) => ({ items: cursor ? [dossier] : [attachment], next_cursor: cursor ? null : 'next', source_version: current }),
+    content: async (row: ResultView) => new TextEncoder().encode(row.result_id === attachment.result_id ? 'ordinary' : content),
+  };
+  const first = await readProductionResult(input);
+  if (first.kind !== 'more') throw Error('expected continuation');
+  current = '5';
+  assert.equal((await readProductionResult({ ...input, scan: first.scan })).kind, 'blocked');
+  // A stale page cannot be adopted even if the final concurrent write occurred after page retrieval.
+  assert.equal((await readProductionResult({ ...input, budget: 20,
+    page: async () => ({ items: [dossier], next_cursor: null, source_version: '4' }),
+  })).kind, 'blocked');
 });

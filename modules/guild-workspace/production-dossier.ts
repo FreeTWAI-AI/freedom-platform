@@ -30,7 +30,7 @@ export const ProductionDossierSchema = z.object({
   shots: z.array(z.object({ id, description: label, framing: text(1000), lighting_props: text(2000), owner_label: text(160), material_ids: z.array(id).max(40) }).strict()).max(100),
   materials: z.array(material).max(100),
   deliveries: z.array(z.object({ id, version_label: label, change_summary: text(), status: z.enum(['prepared', 'recorded_handoff']), method: text(1000), recipient_label: text(160), targets: z.array(deliveryTarget).min(1).max(40) }).strict()).max(100),
-  feedback: z.array(z.object({ id, delivery_id: id, target_version: label, source: z.enum(['internal_note', 'externally_reported']), text: label, follow_up: text(), status: z.enum(['open', 'addressed']) }).strict()).max(200),
+  feedback: z.array(z.object({ id, delivery_id: id, target_version: label, source: z.enum(['internal_note', 'externally_reported']), text: text().refine(value => value.trim().length > 0, '請填寫回饋'), follow_up: text(), status: z.enum(['open', 'addressed']) }).strict()).max(200),
 }).strict().superRefine((value, ctx) => {
   for (const field of ['specifications', 'shots', 'materials', 'deliveries', 'feedback'] as const) {
     if (new Set(value[field].map(row => row.id)).size !== value[field].length) ctx.addIssue({ code: 'custom', path: [field], message: '識別碼不可重複' });
