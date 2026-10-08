@@ -9,6 +9,8 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
+import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
+import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -35,9 +37,10 @@ const runtime = new Pool({
 });
 for (const pool of [admin, owner, runtime]) pool.on('error', () => undefined);
 const store = new FakeObjectStore();
+const providers = syntheticModuleProviders(runtime);
 const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-matrix.cloudflareaccess.com', audience: 'tenant-route-matrix',
   csrfSecret: 'synthetic-matrix-admin-csrf-secret-123456789', keySet: createLocalJWKSet({ keys: [] }) });
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, adminVerifier });
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
 
 let created = false;
 let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
@@ -97,12 +100,15 @@ before(async () => {
     GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);
   created = true;
   await migrate(owner);
+  await ensureSyntheticModuleTables(owner);
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql', import.meta.url), 'utf8');
   const general = template.slice(template.indexOf('BEGIN;'), template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))
     .replaceAll('SCHEMA public', `SCHEMA ${schema}`).replaceAll(':"runtime"', `"${runtimeRole}"`);
   const capacity = template.split('-- BEGIN TENANT CAPACITY POLICY GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
   const authority = template.split('-- BEGIN TENANT AUTHORITY POLICY GRANTS\n')[1].split('\n\\gexec')[0]
+    .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
+  const registry = template.split('-- BEGIN MODULE REGISTRY DEFINITION GRANTS\n')[1].split('\n\\gexec')[0]
     .replaceAll(":'runtime'", `'${runtimeRole}'`).replaceAll("n.nspname='public'", `n.nspname='${schema}'`);
 
   const q = await owner.connect();
@@ -112,6 +118,8 @@ before(async () => {
     await q.query(Object.values(statements.rows[0])[0] as string);
     const authorityStatements = await q.query(authority);
     for (const statement of authorityStatements.rows) await q.query(Object.values(statement)[0] as string);
+    const registryStatements = await q.query(registry);
+    for (const statement of registryStatements.rows) await q.query(Object.values(statement)[0] as string);
     await q.query('COMMIT');
   } catch (error) {
     try { await q.query('ROLLBACK'); } catch {}
@@ -131,6 +139,10 @@ before(async () => {
       max_concurrent_provisions, max_work_items, max_retained_bytes, max_concurrent_jobs, max_model_budget, status)
     SELECT $1, 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1', 10, 3, 2, 1000, 104857600, 4, NULL, 'active'
     WHERE NOT EXISTS (SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`, [randomUUID()]);
+  await installSyntheticCatalog();
+  // Keep both providers unresolved without sleeps or external effects.
+  await setSyntheticFault(owner, 'synthetic-inventory', 'crash_before');
+  await setSyntheticFault(owner, 'synthetic-storefront', 'crash_before');
   fixture = await buildFixture();
 });
 
@@ -143,6 +155,45 @@ after(async () => {
 });
 
 
+const synthContract = { family: 'guild-launchpad.synthetic', version: '1', source_commit: WORK_CONTRACT_SOURCE_COMMIT, artifact_sha256: '0'.repeat(64), behavior_profile: 'freedom.synthetic/v1' };
+async function installSyntheticCatalog() {
+  const policy = JSON.stringify({ policy_key: 'synthetic-storefront.launch', version: '1' });
+  const inventoryReq = {
+    requirement_key: 'inventory', module_key: 'synthetic-inventory', module_release_ref: 'synthetic-inventory@1.0.0',
+    capabilities: ['inventory:read'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [synthContract],
+  };
+  const storefrontReq = {
+    requirement_key: 'storefront', module_key: 'synthetic-storefront', module_release_ref: 'synthetic-storefront@1.0.0',
+    capabilities: ['storefront:sell'], required: true, cardinality: 'one', allow_reuse: false, compatible_contracts: [synthContract],
+  };
+  for (const moduleKey of ['synthetic-inventory', 'synthetic-storefront']) {
+    const capability = moduleKey === 'synthetic-inventory' ? 'inventory:read' : 'storefront:sell';
+    await owner.query(`INSERT INTO module_definitions(
+        module_key, release_ref, capabilities, data_catalog_ref, contract_ref, data_schema_version,
+        portable_profile_ref, runtime_profiles, config_schema_ref, supported_upgrade_paths,
+        license_review_ref, license_state, release_status, version)
+      VALUES($1,$2,$3::jsonb,'synthetic.tenant/v1',$4::jsonb,'1',NULL,'["hosted-shared"]'::jsonb,$5,'[]'::jsonb,NULL,'reviewed','available',1)
+      ON CONFLICT DO NOTHING`,
+    [moduleKey, `${moduleKey}@1.0.0`, JSON.stringify([capability]), JSON.stringify(synthContract), `${moduleKey}.config/v1`]);
+  }
+  await owner.query(`INSERT INTO application_definitions(
+      application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
+      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
+      release_status, customization_schema_ref, license_review_ref, version)
+    VALUES('synthetic-storefront','synthetic-storefront@1.0.0','合成店面',$1,$2::jsonb,'[]'::jsonb,$3::jsonb,
+      'storefront:sell','["hosted-reviewed"]'::jsonb,$4::jsonb,'reviewed','available','synthetic-storefront.config/v1',NULL,1)
+    ON CONFLICT DO NOTHING`,
+  [WORK_CONTRACT_SOURCE_COMMIT, JSON.stringify({ algorithm: 'sha256', value: '0'.repeat(64) }),
+    JSON.stringify([inventoryReq, storefrontReq]), policy]);
+  await owner.query(`INSERT INTO guild_application_offerings(
+      offering_id, community_id, guild_key, application_key, release_ref, status, display_order, launch_policy_ref, version)
+    SELECT $1,$2,'guild_ai_field','synthetic-storefront','synthetic-storefront@1.0.0','offered',10,$3::jsonb,1
+    WHERE NOT EXISTS (
+      SELECT 1 FROM guild_application_offerings
+      WHERE community_id=$2 AND guild_key='guild_ai_field' AND release_ref='synthetic-storefront@1.0.0')`,
+  [randomUUID(), DEMO_COMMUNITY, policy]);
+}
+
 const routeTable: Record<string, string> = {
   'GET /admin/api/guild-applications': 'admin',
   'POST /admin/api/guild-applications/:id/review': 'admin',
@@ -152,6 +203,8 @@ const routeTable: Record<string, string> = {
   'POST /admin/api/tenant-recovery-cases/:id/execute': 'admin',
   'POST /admin/api/tenant-recovery-cases/:id/close': 'admin',
   'GET /api/v1/public/guilds/:guild_key/launchpad': 'guild',
+  'GET /api/v1/applications': 'global',
+  'GET /api/v1/applications/:application_key/releases/:release_ref': 'global',
   'GET /api/v1/guild-workspace': 'principal',
   'GET /api/v1/guilds/:guild_key/launchpad': 'guild',
   'GET /api/v1/guilds/:guild_key/launchpad-config': 'guild',
@@ -189,6 +242,14 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/ownership-transfers/:id/decline': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/manual-work': 'tenant',
   'GET /api/v1/tenants/:tenant_id/module-instances': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/module-instances/:instance_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/application-installations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/application-installations/by-operation/:operation_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/application-launch-plans': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/application-installations': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/operations/:operation_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/operations/:operation_id/reconcile': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/operations/:operation_id/cancel': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
@@ -322,8 +383,23 @@ async function buildFixture() {
     const invitationId = inv.data.invitation_id as string;
     assert.ok(invitationId, 'invitationId is empty');
 
+    // Launch plan, installation, operation
+    const plan = await post(`/tenants/${tenantId}/application-launch-plans`, session, { guild_key: guild, workspace_id: workspaceId, application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} });
+    assert.equal(plan.status, 201, `create plan: ${JSON.stringify(plan.data)}`);
+    const planId = plan.data.plan_id as string;
+    const planVersion = plan.data.version as string;
+    const planDigest = plan.data.configuration_digest;
+    assert.ok(planId, 'planId is empty');
+
+    const inst = await post(`/tenants/${tenantId}/application-installations`, session, { plan_id: planId, expected_plan_version: planVersion, configuration_digest: planDigest });
+    assert.equal(inst.status, 202, `create installation: ${JSON.stringify(inst.data)}`);
+    const operationId = inst.data.operation_id as string;
+    assert.ok(operationId, 'operationId is empty');
     const instanceId = mw.data.instance_id as string;
     assert.ok(instanceId, 'manual-work instanceId is empty');
+    const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
+    assert.equal(installation.status, 200, JSON.stringify(installation.data));
+    const dependencyId = installation.data.modules.find((m: any) => m.requirement_key === 'inventory').instance_id as string;
     const scopeId = (await owner.query("SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1", [tenantId])).rows[0].scope_id as string;
     const resourceIds = new Set<string>();
     const collectIds = (value: unknown, key = '') => {
@@ -332,13 +408,13 @@ async function buildFixture() {
       else if (Array.isArray(value)) value.forEach(child => collectIds(child));
       else if (value && typeof value === 'object') Object.entries(value).forEach(([childKey, child]) => collectIds(child, childKey));
     };
-    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv]) collectIds(reply.data);
-    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
+    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv, plan, inst, installation]) collectIds(reply.data);
+    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, dependencyId, installation.data.installation_id, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
     const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", scopeId, workVersion: updatedWorkVersion, uploadVersion,
-      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version].filter(Boolean) as string[],
+      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
       noteBytes, resourceIds: [...resourceIds]
     };
   }
@@ -383,8 +459,9 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 2, tenant: 33 });
-  assert.equal(selectedRoutes.length, 59);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 41 });
+  assert.equal(selectedRoutes.length, 69);
+  console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
     assert.ok(routeTable[key], `Missing route classification for ${key}`);
@@ -435,6 +512,14 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/ownership-transfers/:id/decline', body: {} },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/manual-work', body: { guild_key: 'guild_ai_field' } },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances' },
+  { method: 'GET', path: '/tenants/:tenant_id/module-instances/:instance_id' },
+  { method: 'GET', path: '/tenants/:tenant_id/application-installations' },
+  { method: 'GET', path: '/tenants/:tenant_id/application-installations/by-operation/:operation_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/application-launch-plans', body: { guild_key: 'guild_ai_field', workspace_id: ':workspace_id', application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} } },
+  { method: 'POST', path: '/tenants/:tenant_id/application-installations', body: { plan_id: ':plan_id', expected_plan_version: ':plan_version', configuration_digest: { algorithm: 'sha256', value: ':plan_digest' } } },
+  { method: 'GET', path: '/tenants/:tenant_id/operations/:operation_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/reconcile', body: {}, version: ':operation_version' },
+  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/cancel', body: { reason: 'member_cancelled' }, version: ':operation_version' },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context?guild_key=guild_ai_field' },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/works', body: { title: 'T', objective: 'O', progress: 'todo' } },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/works' },
@@ -465,7 +550,8 @@ type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
-    principal_id: data.principalId,
+    principal_id: data.principalId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
+    plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
 async function verify(session: Session, tenantId: string, purpose: string) {
@@ -507,7 +593,7 @@ async function execute(route: Route, session: Session | undefined, replacements:
   if (route.version) {
     const data = replacements.tenant_id === fixture.A.tenantId ? fixture.A : fixture.B;
     headers['If-Match'] = route.version === '"1"' && /\/works\/:work_id(?:\/archive)?$/.test(route.path)
-      ? `"${data.workVersion}"` : route.version;
+      ? `"${data.workVersion}"` : route.version.startsWith(':') ? replacements[route.version.slice(1)] : route.version;
   }
   if (['POST', 'PATCH', 'PUT'].includes(route.method)) headers['Idempotency-Key'] = randomUUID();
   if (body !== undefined) headers['Content-Type'] = route.isRaw ? 'text/plain' : 'application/json';
@@ -527,7 +613,7 @@ function verifyHeaders(reply: Reply, method: string, path: string) {
 function scanForLeaks(reply: Reply, context: string, other: TenantData, extra: string[] = []) {
   const raw = Buffer.from(reply.bytes).toString('utf8') + JSON.stringify(Object.fromEntries(reply.headers));
   const targets = [other.tenantId, other.workspaceId, other.instanceId, other.workId, other.resultId, other.uploadId,
-    other.unfinalizedUploadId, other.invitationId, other.transferId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
+    other.unfinalizedUploadId, other.invitationId, other.transferId, other.planId, other.operationId, other.installationId, other.dependencyId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
     Buffer.from(other.noteBytes).toString('base64'), Buffer.from(other.noteBytes).toString('hex'), ...other.resourceIds, ...extra];
   for (const target of targets.filter(Boolean)) assert.equal(raw.includes(target), false, `${context}: leaked ${target}; ${JSON.stringify(describe(reply))}`);
 }
@@ -686,6 +772,17 @@ test('T-022 4. Body, header and query substitution', async () => {
   const manual = { ...routes.find(r => r.path.endsWith('/manual-work'))!, path: `/tenants/:tenant_id/workspaces/${freshWorkspace.data.workspace_id}/manual-work` };
   await compare('manual reuse', manual, { guild_key: 'guild_ai_field', choice: { kind: 'reuse', instance_id: B.instanceId, expected_version: '1' } },
     { guild_key: 'guild_ai_field', choice: { kind: 'reuse', instance_id: randomUUID(), expected_version: '1' } });
+  const plan = routes.find(r => r.path.endsWith('/application-launch-plans'))!;
+  const planBody = { ...plan.body, workspace_id: A.workspaceId };
+  await compare('plan workspace', plan, { ...planBody, workspace_id: B.workspaceId }, { ...planBody, workspace_id: randomUUID() });
+  await compare('plan dependency', plan, { ...planBody, workspace_id: freshWorkspace.data.workspace_id, dependencies: [{ requirement_key: 'inventory', choice: 'reuse', instance_id: B.dependencyId, expected_version: '1' }] },
+    { ...planBody, workspace_id: freshWorkspace.data.workspace_id, dependencies: [{ requirement_key: 'inventory', choice: 'reuse', instance_id: randomUUID(), expected_version: '1' }] });
+  await compare('existing installation', plan, { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: B.installationId },
+    { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: randomUUID() });
+  const installation = routes.find(r => r.method === 'POST' && r.path.endsWith('/application-installations'))!;
+  await compare('installation plan', installation, { ...installation.body, plan_id: B.planId, expected_plan_version: B.planVersion, configuration_digest: B.planDigest },
+    { ...installation.body, plan_id: randomUUID(), expected_plan_version: B.planVersion, configuration_digest: B.planDigest });
+
   // Principal ids are platform-wide. A real B owner may be invited into A, but an unknown person may not.
   const invited = await post(`/tenants/${A.tenantId}/invitations`, P, { invitee_principal_id: B.principalId, role: 'viewer', instance_capabilities: [], expires_at: new Date(Date.now() + 60000).toISOString() });
   assert.equal(invited.status, 201, JSON.stringify(describe(invited)));
@@ -781,8 +878,17 @@ test('T-022 4. Body, header and query substitution', async () => {
     assert.equal(launchpad.status, 200, JSON.stringify(describe(launchpad)));
     const other = actor === N ? A : B;
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
-    // Main has no application catalog; P-D1 adds application eligibility assertions.
-    assert.deepEqual(launchpad.data.applications, []);
+    const manages = actor === P || actor === N;
+    const expectedApplications = ['manual-workspace', 'synthetic-storefront'].map(application_key => ({
+      application_key, release_ref: `${application_key}@1.0.0`,
+      eligibility: { can_launch: manages, reason_codes: manages ? [] : ['tenant_manage_required'],
+        policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? 'continue' : 'create' },
+    }));
+    assert.deepEqual(launchpad.data.applications, expectedApplications);
+    const substituted = await call('GET', `/guilds/guild_ai_field/launchpad?tenant_id=${other.tenantId}&workspace_id=${other.workspaceId}`, actor);
+    assert.equal(substituted.status, 200, JSON.stringify(describe(substituted)));
+    assert.deepEqual(substituted.data.applications, expectedApplications);
+    scanForLeaks(substituted, '4 substituted launchpad eligibility', other);
   }
   console.log(JSON.stringify({ item4: outcomes }));
 });
@@ -840,11 +946,12 @@ test('T-022 4a. Same admin cursors reject tenant, workspace, caller and registry
     ['Work', `/tenants/${A.tenantId}/workspaces/${A.workspaceId}/works`, `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`, [], 'work_id'],
     ['Result', `/tenants/${A.tenantId}/works/${A.workId}/results`, `/tenants/${B.tenantId}/works/${B.workId}/results`, [], 'result_id'],
     ['instances', `/tenants/${A.tenantId}/module-instances`, `/tenants/${B.tenantId}/module-instances`, ['module_key=work', 'status=active'], 'instance_id'],
+    ['installations', `/tenants/${A.tenantId}/application-installations`, `/tenants/${B.tenantId}/application-installations`, ['application_key=manual-workspace', `workspace_id=${B.workspaceId}`], 'installation_id'],
   ] as const) {
     const page = await cursorPage(`${pathB}?limit=1`, W);
     assert.ok(page.next_cursor, `${label} did not mint a cursor`);
     await t.test(`${label}: same admin across tenants`, () => invalidCursor(pathA, page.next_cursor, W));
-    if (label === 'instances') {
+    if (label === 'instances' || label === 'installations') {
       await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, changedCursor(page.next_cursor, { unexpected: true }), W));
       await t.test(`${label}: missing cursor field`, async () => {
         const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
@@ -888,6 +995,7 @@ test('T-022 4c. Work and registry cursors reject noncanonical and impossible tim
   for (const path of [
     `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`,
     `/tenants/${B.tenantId}/module-instances`,
+    `/tenants/${B.tenantId}/application-installations`,
   ]) {
     const page = await cursorPage(`${path}?limit=1`, W);
     assert.ok(page.next_cursor);
@@ -950,6 +1058,90 @@ test('T-022 6. Idempotency across tenants', async () => {
     assert.notDeepEqual({ id: replyB.data.resource_ref?.resource_id ?? replyB.data.instance_id, version: replyB.data.version },
       { id: freshId ?? replyA.data.instance_id, version: replyA.data.version });
     outcomes.push({ route: item.route, A: describe(replyA), B: describe(replyB), counts: { before, after } });
+  }
+  // Registry commands use the same key in A and B, while their targets and receipts remain tenant-local.
+  const reusePlans: Reply[] = [];
+  const planKey = randomUUID();
+  const beforePlans = await Promise.all([count('module_launch_plans', A.tenantId), count('module_launch_plans', B.tenantId)]);
+  for (const data of [A, B]) {
+    const installations = await call('GET', `/tenants/${data.tenantId}/application-installations?application_key=manual-workspace&workspace_id=${data.workspaceId}`, W);
+    assert.equal(installations.status, 200, JSON.stringify(describe(installations)));
+    assert.equal(installations.data.items.length, 1);
+    const body = { guild_key: 'guild_ai_field', workspace_id: data.workspaceId,
+      application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0',
+      installation_choice: 'reuse_existing', existing_installation_id: installations.data.items[0].installation_id,
+      dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: data.instanceId, expected_version: '1' }], configuration: {} };
+    const path = `/tenants/${data.tenantId}/application-launch-plans`;
+    const planned = await post(path, W, body, undefined, planKey);
+    assert.equal(planned.status, 201, JSON.stringify(describe(planned)));
+    const replay = await post(path, W, body, undefined, planKey);
+    assert.equal(replay.status, planned.status);
+    assert.deepEqual(replay.data, planned.data);
+    assert.equal(planned.data.tenant_id, data.tenantId);
+    scanForLeaks(planned, '6 registry plan', data === A ? B : A);
+    scanForLeaks(replay, '6 registry plan replay', data === A ? B : A);
+    reusePlans.push(planned);
+  }
+  assert.notEqual(reusePlans[0].data.plan_id, reusePlans[1].data.plan_id);
+  const afterPlans = await Promise.all([count('module_launch_plans', A.tenantId), count('module_launch_plans', B.tenantId)]);
+  assert.deepEqual(afterPlans, beforePlans.map(n => n + 1));
+  outcomes.push({ route: '/tenants/:tenant_id/application-launch-plans', A: describe(reusePlans[0]), B: describe(reusePlans[1]), counts: { before: beforePlans, after: afterPlans } });
+
+  const launchKey = randomUUID();
+  const launches: Reply[] = [];
+  const beforeInstallations = await Promise.all([count('application_installations', A.tenantId), count('application_installations', B.tenantId)]);
+  for (const [index, data] of [A, B].entries()) {
+    const plan = reusePlans[index].data;
+    const body = { plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest };
+    const path = `/tenants/${data.tenantId}/application-installations`;
+    const launched = await post(path, W, body, undefined, launchKey);
+    assert.equal(launched.status, 200, JSON.stringify(describe(launched)));
+    assert.equal(launched.data.state, 'succeeded');
+    const replay = await post(path, W, body, undefined, launchKey);
+    assert.equal(replay.status, launched.status);
+    assert.deepEqual(replay.data, launched.data);
+    const installation = await call('GET', `/tenants/${data.tenantId}/application-installations/by-operation/${launched.data.operation_id}`, W);
+    assert.equal(installation.status, 200, JSON.stringify(describe(installation)));
+    assert.equal(installation.data.tenant_id, data.tenantId);
+    assert.equal(installation.data.workspace_id, data.workspaceId);
+    assert.equal(installation.data.modules[0].instance_id, data.instanceId);
+    for (const reply of [launched, replay, installation]) scanForLeaks(reply, '6 registry launch', data === A ? B : A);
+    launches.push(launched);
+  }
+  assert.notEqual(launches[0].data.operation_id, launches[1].data.operation_id);
+  const afterInstallations = await Promise.all([count('application_installations', A.tenantId), count('application_installations', B.tenantId)]);
+  assert.deepEqual(afterInstallations, beforeInstallations);
+  outcomes.push({ route: '/tenants/:tenant_id/application-installations', A: describe(launches[0]), B: describe(launches[1]), counts: { before: beforeInstallations, after: afterInstallations } });
+
+  for (const action of ['reconcile', 'cancel'] as const) {
+    const key = randomUUID();
+    const replies: Reply[] = [];
+    const before = await Promise.all([count('module_provision_operations', A.tenantId), count('module_provision_operations', B.tenantId)]);
+    for (const data of [A, B]) {
+      const operation = await call('GET', `/tenants/${data.tenantId}/operations/${data.operationId}`, W);
+      assert.equal(operation.status, 200, JSON.stringify(describe(operation)));
+      const reply = await post(`/tenants/${data.tenantId}/operations/${data.operationId}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      assert.equal(reply.status, 202, JSON.stringify(describe(reply)));
+      assert.equal(reply.data.operation_id, data.operationId);
+      const other = data === A ? B : A;
+      scanForLeaks(reply, `6 registry ${action}`, other);
+      const hidden = await post(`/tenants/${data.tenantId}/operations/${other.operationId}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      const missing = await post(`/tenants/${data.tenantId}/operations/${randomUUID()}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      assertSameAsRandom(`6 registry ${action} receipt target`, 'W', hidden, missing);
+      // Cancel checks the used command key before its target; reconcile reads its target first.
+      assert.equal(hidden.status, action === 'cancel' ? 409 : 404, JSON.stringify(describe(hidden)));
+      assert.equal(hidden.data.code, action === 'cancel' ? 'idempotency_conflict' : 'not_found');
+      scanForLeaks(hidden, `6 registry ${action} receipt target`, other);
+      scanForLeaks(missing, `6 registry ${action} random target`, other);
+      replies.push(reply);
+    }
+    assert.notDeepEqual(replies[0].data, replies[1].data);
+    const after = await Promise.all([count('module_provision_operations', A.tenantId), count('module_provision_operations', B.tenantId)]);
+    assert.deepEqual(after, before);
+    outcomes.push({ route: `/tenants/:tenant_id/operations/:operation_id/${action}`, A: describe(replies[0]), B: describe(replies[1]), counts: { before, after } });
   }
   console.log(JSON.stringify({ item6: outcomes }));
 });
