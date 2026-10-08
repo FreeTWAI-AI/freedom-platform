@@ -1404,3 +1404,231 @@ test('NP-004 production grants independently control read, result write and arch
     for (const member of [owner, viewer, writer, archiver]) await cleanup(e2eAuthPool, member.userId);
   }
 });
+
+// Direction cards are content in the same tenant Work, not a second member assessment.
+test('PA-001 direction card drafts, confirmed activities and review reopen from server Results across guilds', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+  test.setTimeout(240_000);
+  const guildKey = 'guild_talent_direction';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const other = await otherGuild(e2eAuthPool, [guildKey, 'guild_commercial_production']);
+  const member = await person(e2eAuthPool, 'direction', [{ guild_key: guildKey, tier: 'full' }, { guild_key: other.guild_key, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, member.email); const page = session.page;
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  try {
+    const made = await postJson(page, '/tenants', { display_name: `方向空間${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id; const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await page.locator('#my-work-title').fill('我的訪談小實驗');
+    await page.locator('#my-work-objective').fill('這週試著訪談一位朋友');
+    await page.getByRole('button', { name: '建立', exact: true }).click();
+    const form = page.getByRole('form', { name: '我的方向卡', exact: true });
+    await expect(form).toBeVisible();
+    await expect(page.getByText('方向卡保存在目前業務空間；具有這份工作讀取權限的人可查看。個人定位答案不會自動帶入。', { exact: true })).toBeVisible();
+    await form.getByLabel('目前的情境', { exact: true }).fill('想了解自己是否喜歡採訪');
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    const original = (await page.locator('.my-work-result').first().getByRole('link', { name: '下載', exact: true }).getAttribute('href'))!;
+    const originalBytes = await (await page.request.get(original)).body();
+    expect(originalBytes.toString('utf8')).toContain('"personally_confirmed": false');
+    await relogin(page, member.email); await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '我的訪談小實驗', exact: true }).click();
+    await expect(form.getByLabel('目前的情境', { exact: true })).toHaveValue('想了解自己是否喜歡採訪');
+    await expect(form.getByLabel('這週想改變的事', { exact: true })).toHaveValue('這週試著訪談一位朋友');
+    await form.getByLabel('小活動 1', { exact: true }).fill('寫下三個訪談問題');
+    await form.getByRole('button', { name: '加一個備選活動', exact: true }).click();
+    await form.getByLabel('小活動 2', { exact: true }).fill('直接和朋友試訪十分鐘');
+    await form.getByLabel('這週先試活動 1', { exact: true }).check();
+    await form.getByLabel('怎樣算完成', { exact: true }).fill('完成三個問題，請朋友指出一個不清楚的地方');
+    await form.getByLabel('可投入時間', { exact: true }).fill('週六一小時');
+    await form.getByLabel('需要的協助', { exact: true }).fill('朋友願意閱讀並回饋');
+    await form.getByLabel('回顧日期', { exact: true }).fill('2026-10-15');
+    await form.getByLabel('這個小活動由我自己選定', { exact: true }).check();
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    await form.getByText('做完後的回顧與下一步', { exact: true }).click();
+    await form.getByLabel('實際發生的事與學到的事', { exact: true }).fill('朋友指出問題太長，我改短了一句');
+    await form.getByLabel('我的下一步', { exact: true }).fill('下週再試訪一位朋友');
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 3 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    const worksBefore = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
+    expect(worksBefore.items).toHaveLength(1); const work = worksBefore.items[0];
+    await openGuild(page, other.guild_key, other.name);
+    await page.getByRole('button', { name: '我的訪談小實驗', exact: true }).click();
+    await expect(page.locator('.my-work-result')).toHaveCount(3);
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '我的訪談小實驗', exact: true }).click();
+    await expect(form.getByLabel('這個小活動由我自己選定', { exact: true })).toBeChecked();
+    await form.getByText('做完後的回顧與下一步', { exact: true }).click();
+    await expect(form.getByLabel('我的下一步', { exact: true })).toHaveValue('下週再試訪一位朋友');
+    const latestHref = (await page.locator('.my-work-result').first().getByRole('link', { name: '下載', exact: true }).getAttribute('href'))!;
+    const latestBytes = await (await page.request.get(latestHref)).body();
+    expect(latestBytes.toString('utf8')).toContain('freedom.positioning-action-card/v1');
+    await expect(page.locator('.my-work-result').first()).toContainText(createHash('sha256').update(latestBytes).digest('hex').slice(0, 12));
+    expect((await (await page.request.get(original)).body()).equals(originalBytes)).toBe(true);
+    const worksAfter = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
+    expect(worksAfter.items).toHaveLength(1); expect(worksAfter.items[0].work_id).toBe(work.work_id); expect(worksAfter.items[0].instance_id).toBe(work.instance_id);
+    for (const skin of ['light', 'dark'] as const) for (const width of [1440, 768, 360]) {
+      await theme(page, skin); await page.setViewportSize({ width, height: 900 }); await noOverflow(page);
+      await form.screenshot({ path: testInfo.outputPath(`direction-card-${skin}-${width}.png`) });
+      await form.scrollIntoViewIfNeeded(); await page.screenshot({ path: testInfo.outputPath(`direction-card-${skin}-${width}-viewport.png`) });
+    }
+    expect(errors).toEqual([]); assertLocal(session.urls);
+  } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+});
+
+test('PA-002 committed but unreadable create and Result responses retain their exact attempts through navigation', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(240_000);
+  const guildKey = 'guild_talent_direction';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const member = await person(e2eAuthPool, 'direction-unknown', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, member.email); const page = session.page;
+  let release = () => {};
+  try {
+    const made = await postJson(page, '/tenants', { display_name: `方向重試${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id; const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(page, guildKey, guild.name); await page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await page.locator('#my-work-title').fill('只建立一次的方向卡'); await page.locator('#my-work-objective').fill('試一次真實操作');
+    const createCalls: { key: string; body: string | null }[] = []; let committed = false;
+    let hold = new Promise<void>(resolve => { release = resolve; });
+    await page.route(`**/workspaces/${workspaceId}/works`, async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      createCalls.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+      const response = await route.fetch(); expect(response.ok()).toBe(true);
+      if (createCalls.length === 1) { committed = true; await hold; await route.fulfill({ response, json: {} }); }
+      else await route.fulfill({ response });
+    });
+    await page.getByRole('button', { name: '建立', exact: true }).click(); await expect.poll(() => committed).toBe(true);
+    await page.getByRole('button', { name: '會員首頁', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+    await page.evaluate(() => { window.location.hash = 'positioning'; });
+    await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+    await expect(page.locator('#my-work-title')).toHaveValue('只建立一次的方向卡'); await expect(page.locator('#my-work-title')).toBeDisabled();
+    release();
+    await expect(page.getByText('工作已送出，但還沒確認。請再按一次「建立」繼續確認（不會重複建立）。', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`)); await expect(page.locator('#my-work-title')).toBeDisabled();
+    await page.getByRole('button', { name: '建立', exact: true }).click();
+    const form = page.getByRole('form', { name: '我的方向卡', exact: true }); await expect(form).toBeVisible();
+    expect(createCalls).toHaveLength(2); expect(createCalls[1]).toEqual(createCalls[0]);
+    const works = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json(); expect(works.items).toHaveLength(1);
+    const workId = works.items[0].work_id;
+    expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM work_items WHERE tenant_id=$1', [tenantId])).rows[0].n).toBe(1);
+    await form.getByLabel('小活動 1', { exact: true }).fill('只保存一次的小活動');
+    const resultCalls: { key: string; body: string | null }[] = []; committed = false;
+    hold = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/finalize', async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      resultCalls.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+      const response = await route.fetch(); expect(response.ok()).toBe(true);
+      if (resultCalls.length === 1) { committed = true; await hold; await route.fulfill({ response, json: {} }); }
+      else await route.fulfill({ response });
+    });
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click(); await expect.poll(() => committed).toBe(true);
+    await page.evaluate(() => { window.location.hash = 'positioning'; }); await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+    await expect(form.getByLabel('小活動 1', { exact: true })).toBeDisabled(); release();
+    await expect(page.getByRole('button', { name: '重試', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '會員首頁', exact: true }).click();
+    await expect(form).toBeVisible();
+    await page.getByRole('button', { name: '設定', exact: true }).click();
+    await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+    await expect(form).toBeVisible();
+    await page.getByRole('button', { name: '返回公會列表', exact: true }).click(); await expect(form).toBeVisible();
+    await expect(form.getByLabel('小活動 1', { exact: true })).toHaveValue('只保存一次的小活動');
+    await page.getByRole('button', { name: '重試', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    expect(resultCalls).toHaveLength(2); expect(resultCalls[1]).toEqual(resultCalls[0]);
+    expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM tenant_work_results WHERE work_item_id=$1', [workId])).rows[0].n).toBe(1);
+    // Ordinary unsent card edits still allow an explicit discard, and refusal keeps them.
+    await form.getByLabel('目前的情境', { exact: true }).fill('未送草稿必須保留');
+    page.once('dialog', dialog => dialog.dismiss()); await page.evaluate(() => { window.location.hash = 'positioning'; });
+    await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`)); await expect(form.getByLabel('目前的情境', { exact: true })).toHaveValue('未送草稿必須保留');
+    page.once('dialog', dialog => dialog.accept()); await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+    await expect(page).toHaveURL(/#guilds$/); assertLocal(session.urls);
+  } finally { release(); await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+});
+
+test('PA-003 direction cards enforce tenant reads, independent Result grants, 412 comparison and unknown-format locks', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(240_000);
+  const guildKey = 'guild_talent_direction';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const owner = await person(e2eAuthPool, 'direction-owner', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const viewer = await person(e2eAuthPool, 'direction-viewer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const writer = await person(e2eAuthPool, 'direction-writer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, owner.email); const page = session.page;
+  const contexts = [session.context];
+  try {
+    const made = await postJson(page, '/tenants', { display_name: `方向權限${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id; const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(page, guildKey, guild.name); await page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await page.locator('#my-work-title').fill('需要權限的方向卡'); await page.locator('#my-work-objective').fill('選一件小事');
+    await page.getByRole('button', { name: '建立', exact: true }).click();
+    const form = page.getByRole('form', { name: '我的方向卡', exact: true });
+    await form.getByLabel('目前的情境', { exact: true }).fill('只在指定業務空間保存的內容');
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    const works = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json(); const work = works.items[0];
+    const contentHref = (await page.locator('.my-work-result').first().getByRole('link', { name: '下載', exact: true }).getAttribute('href'))!;
+    for (const entry of [{ person: viewer, role: 'viewer', capabilities: ['work:read'] }, { person: writer, role: 'operator', capabilities: ['work:read', 'work:result.write'] }]) {
+      const member = await login(browser, baseURL!, entry.person.email); contexts.push(member.context);
+      for (const path of [`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`, `/api/v1/tenants/${tenantId}/works/${work.work_id}`, contentHref]) {
+        const denied = await member.page.request.get(path); expect([403, 404]).toContain(denied.status()); expect(await denied.text()).not.toContain('只在指定業務空間保存的內容');
+      }
+      const candidate = await (await page.request.get(`/api/v1/tenants/invite-candidates?user_id=${entry.person.userId}`)).json();
+      const invite = await postJson(page, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: entry.role,
+        instance_capabilities: [{ instance_id: work.instance_id, capabilities: entry.capabilities }], expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
+      const auth = await (await member.page.request.get('/api/v1/session')).json();
+      const accepted = await member.page.request.post(`/api/v1/tenants/${tenantId}/invitations/${invite.invitation_id}/accept`, { data: {}, headers: {
+        Origin: new URL(member.page.url()).origin, 'X-CSRF-Token': auth.csrf_token, 'Idempotency-Key': randomUUID(), 'If-Match': `"${invite.version}"`,
+      } }); expect(accepted.status(), await accepted.text()).toBe(200);
+      await openGuild(member.page, guildKey, guild.name); await member.page.getByRole('button', { name: '需要權限的方向卡', exact: true }).click();
+      const readForm = member.page.getByRole('form', { name: '我的方向卡', exact: true });
+      await expect(readForm.getByLabel('目前的情境', { exact: true })).toHaveValue('只在指定業務空間保存的內容');
+      await expect(member.page.locator('#my-work-edit-title')).toHaveCount(0);
+      await expect(member.page.getByRole('button', { name: '建立', exact: true })).toHaveCount(0);
+      await expect(member.page.getByRole('button', { name: '封存', exact: true })).toHaveCount(0);
+      if (entry.role === 'viewer') {
+        await expect(readForm.getByLabel('目前的情境', { exact: true })).toBeDisabled();
+        await expect(readForm.getByRole('button', { name: '儲存方向卡', exact: true })).toHaveCount(0);
+        expect((await member.page.request.get(contentHref)).ok()).toBe(true);
+        const deniedWrite = await member.page.request.post(`/api/v1/tenants/${tenantId}/works/${work.work_id}/results/uploads`, { data: { content_type: 'text/plain', byte_size: 3, sha256: ABC_SHA, display_name: 'no.txt', expected_work_version: work.version }, headers: {
+          Origin: new URL(member.page.url()).origin, 'X-CSRF-Token': auth.csrf_token, 'Idempotency-Key': randomUUID(),
+        } }); expect([403, 404]).toContain(deniedWrite.status());
+      } else {
+        await form.getByLabel('需要的協助', { exact: true }).fill('保留在本頁等待比較的草稿');
+        await readForm.getByLabel('需要的協助', { exact: true }).fill('另一位有成果權限成員保存的版本');
+        await readForm.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+        await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+        await expect(readForm.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+      }
+      assertLocal(member.urls);
+    }
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.getByRole('button', { name: '保留我的方向卡草稿', exact: true })).toBeEnabled();
+    await expect(form.getByLabel('需要的協助', { exact: true })).toHaveValue('保留在本頁等待比較的草稿');
+    await page.getByText('查看伺服器方向卡內容', { exact: true }).click();
+    await expect(page.locator('.my-work-conflict pre')).toContainText('另一位有成果權限成員保存的版本');
+    await page.getByRole('button', { name: '保留我的方向卡草稿', exact: true }).click();
+    await form.getByRole('button', { name: '儲存方向卡', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 3 版');
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeEnabled();
+    await page.locator('#my-work-file').setInputFiles({ name: 'future.md', mimeType: 'text/markdown', buffer: Buffer.from('<!-- freedom.positioning-action-card/v99 -->\n不能以空白卡覆寫') });
+    await page.getByRole('button', { name: '儲存附件', exact: true }).click();
+    await expect(page.getByText(/方向卡使用未知格式/)).toBeVisible();
+    await expect(form.getByRole('button', { name: '儲存方向卡', exact: true })).toBeDisabled();
+    await relogin(page, owner.email); await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '需要權限的方向卡', exact: true }).click();
+    await expect(page.getByText(/方向卡使用未知格式/)).toBeVisible();
+    await expect(page.getByRole('button', { name: '儲存方向卡', exact: true })).toHaveCount(0);
+    await expect(page.locator('.my-work-result')).toHaveCount(4);
+    assertLocal(session.urls);
+  } finally { for (const context of contexts) await context.close(); for (const member of [owner, viewer, writer]) await cleanup(e2eAuthPool, member.userId); }
+});
