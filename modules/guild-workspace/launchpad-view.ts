@@ -5,9 +5,9 @@ import {requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog, skillBooksForGuild, type SkillBook} from '../community/catalog.js';
 import {ConfigValidationError, assertStoredVersion, publicSafeConfig, type ConfigView} from '../../contracts/guild-launchpad/v1/config.js';
-import {applicationsForGuild, availableReleaseRefs} from '../module-registry/catalog.js';
+import {applicationsForGuild, availableReleaseRefs, availableReleases} from '../module-registry/catalog.js';
 import {
-  activeMember, assertDelegatedViewerDeadline, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
+  DEFAULT_POINTER_VERSION, activeMember, assertDelegatedViewerDeadline, listDelegationCandidates, listDelegations, listRevisionMeta, loadCatalog, platformDefaultView,
   readPointerVersion, readSolePublicRevision, readStoredRevision, refreshDelegateAccess, requireGuildMember, resolvePublishedView,
   tryView, viewerAccess, type CatalogGuild, type ConfigProblem,
 } from './launchpad-config.js';
@@ -58,10 +58,12 @@ export async function publicLaunchpad(pool: Pool, guildKey: string) {
     const guild = await loadCatalog(q, guildKey);
     const stored = await readSolePublicRevision(q, guildKey);
     const resolved = stored
-      ? await resolvePublishedView(q, guild, stored.community_id, '1')
-      : {view: platformDefaultView(guild, '1'), problem: null as ConfigProblem};
-    const view = resolved.view;
-    const communityId = stored && view.source === 'guild_editor' ? stored.community_id : null;
+      ? await resolvePublishedView(q, guild, stored.community_id, DEFAULT_POINTER_VERSION)
+      : {view: platformDefaultView(guild, DEFAULT_POINTER_VERSION, await availableReleases(q, guildKey, null)), problem: null as ConfigProblem};
+    const communityId = stored && resolved.view.source === 'guild_editor' ? stored.community_id : null;
+    const view = stored && resolved.view.source === 'platform_default'
+      ? platformDefaultView(guild, DEFAULT_POINTER_VERSION, await availableReleases(q, guildKey, communityId))
+      : resolved.view;
     const allowed = await availableReleaseRefs(q, guildKey, communityId);
     return {
       guild: publicGuildDto(guild),
