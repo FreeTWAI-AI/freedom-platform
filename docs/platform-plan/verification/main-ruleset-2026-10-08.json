@@ -1,0 +1,816 @@
+{
+  "schema": "freedom.central-workflow-pin-upgrade/v1",
+  "recorded_at": "2026-10-08T19:02:54.144544+00:00",
+  "organization": "FreeTWAI-AI",
+  "repository": "FreeTWAI-AI/freedom-platform",
+  "repository_id": 1378081342,
+  "ruleset_id": 24469536,
+  "workflow": {
+    "path": ".github/workflows/verify.yml",
+    "previous_sha": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+    "sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+    "publication_ref": "refs/heads/main"
+  },
+  "change": {
+    "put_intent_at": "2026-10-08T17:09:26.678Z",
+    "readback_at": "2026-10-08T17:09:27.810Z",
+    "changed_paths": [
+      "/rules/3/parameters/workflows/0/sha"
+    ],
+    "configuration_verified": true,
+    "before_matched_2026_10_07_record": true,
+    "reason": "Capacity only: from 2026-10-08 the full UI suite ran about 29-33 min, so most runs under 6ffdf94a ended with test_timeout at its 30-min default-pass cap (for example #288 run 37793517498 at 659/680, and #286). #288 raises the default pass to 40 min and the ui-e2e job to 50 min; per-test timeout, 1 worker, 0 retries, every file and case, the expected-skip policy and the evidence format are unchanged. Ted approved the switch with a reduced probe set on 2026-10-08 ~15:59Z.",
+    "main_at_intent": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+    "main_relation_to_pin": "identical"
+  },
+  "configuration": {
+    "name": "Freedom platform pinned verification",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+      "repository_id": {
+        "repository_ids": [
+          1378081342
+        ]
+      },
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "refs/heads/main"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "verify",
+              "integration_id": 15368
+            },
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            }
+          ]
+        }
+      },
+      {
+        "type": "workflows",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "workflows": [
+            {
+              "repository_id": 1378081342,
+              "path": ".github/workflows/verify.yml",
+              "sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+              "ref": "refs/heads/main"
+            }
+          ]
+        }
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 1,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": true,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge",
+            "squash",
+            "rebase"
+          ]
+        }
+      }
+    ]
+  },
+  "temporary_rulesets": [
+    {
+      "id": 24736518,
+      "refs": [
+        "refs/heads/ops/trust-pin-709600a0-base-20261008",
+        "refs/heads/ops/trust-pin-709600a0-script-base-20261008"
+      ],
+      "difference_from_main": "required_status_checks verify@15368 only (no CodeQL@57789); 0 approvals; no last-push approval; refs limited to the two disposable bases; created pinned to 6ffdf94a, then only /rules/3/parameters/workflows/0/sha changed to 709600a0. All other parameters equal main (the readback added GitHub defaults required_reviewers [] and require_extra_approval_for_unattributed_changes true, which main also has)."
+    }
+  ],
+  "temporary_probes": [
+    {
+      "id": "E2",
+      "kind": "reviewed_baseline_files_removed",
+      "pull_request": {
+        "number": 293,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/293",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-709600a0-base-20261008",
+        "base_at_open": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
+      },
+      "change": [
+        "tests/e2e/guild-category-preferences.spec.ts",
+        "packages/contribution-tools/test/checkout-repositories.test.mjs",
+        "tests/worker/credential-ingest-diagnostic.test.ts",
+        "deploy/cloudflare/test/media-caller.test.mjs",
+        "docs/platform-plan/contracts/tests/test_repository_manifest_identity.py",
+        "tests/runtime/tenant-high-risk-verification.test.ts"
+      ],
+      "native_run": {
+        "id": 37809713521,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37809713521",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "7d8be3a881277ada2429e411f6e1a9f2e2e93dd2",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "selection": {
+          "mode": "full",
+          "reason": "deleted_path"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "failure",
+          "ui-e2e": "failure",
+          "runtime-full": "failure",
+          "static-worker": "failure",
+          "governance-consumers": "failure",
+          "deploy-preflight": "failure",
+          "runtime-aggregate": "failure",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "not_run",
+          "reason": "e2e_files_unavailable",
+          "test_count": 0,
+          "file_count": 107,
+          "passes": []
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "not_run",
+          "reason": "suite_files_unavailable",
+          "test_count": null,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "failed",
+          "reason": "runtime_partition_artifacts_unavailable",
+          "test_count": null,
+          "file_count": null
+        }
+      ],
+      "observed": "The pinned runner refused every family whose reviewed baseline file was removed: ci.governance-unit not_run suite_files_unavailable (source-integrity and governance-consumers), ci.e2e not_run e2e_files_unavailable, ci.worker-unit not_run suite_files_unavailable, ci.deploy-preflight not_run suite_files_unavailable, runtime.full failed runtime_partition_artifacts_unavailable. Aggregate source_integrity_not_success; merge refused with HTTP 405 (required status check verify failing; required workflow failed). ci.contracts-pytest was not reached because the governance-unit failure ends its job first (same as 10-07; the 10-07 E2p probe covers the pytest family on 6ffdf94a and #288 did not change it).",
+      "merge": {
+        "requested_head": "7d8be3a881277ada2429e411f6e1a9f2e2e93dd2",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-709600a0-base-20261008",
+        "base_before": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "base_after": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "rule_suite": {
+          "id": 4430988166,
+          "ref": "refs/heads/ops/trust-pin-709600a0-base-20261008",
+          "after_sha": "78bdf52a20060135869d0caabe565b6eac77767b",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": null,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": null,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ],
+          "ruleset_note": "GitHub returned no ruleset id: the temporary ruleset was deleted before this suite was read back"
+        }
+      }
+    },
+    {
+      "id": "E3",
+      "kind": "skip_markers",
+      "pull_request": {
+        "number": 294,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/294",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "ops/trust-pin-709600a0-script-base-20261008",
+        "base_at_open": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
+      },
+      "change": "first top-level test( -> test.skip( in tests/e2e/guild-category-preferences.spec.ts, packages/contribution-tools/test/checkout-repositories.test.mjs, tests/worker/credential-ingest-diagnostic.test.ts, deploy/cloudflare/test/media-caller.test.mjs, tests/runtime/tenant-high-risk-verification.test.ts; @pytest.mark.skip on test_real_repo_name_and_url_forms",
+      "native_run": {
+        "id": 37809718493,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37809718493",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "09553d88d48495f02988509ead26793019716bb1",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "source-integrity": "failure",
+          "select": "success",
+          "static-worker": "failure",
+          "ui-e2e": "failure",
+          "governance-consumers": "failure",
+          "deploy-preflight": "failure",
+          "runtime-full": "mixed",
+          "runtime-aggregate": "failure",
+          "verify": "failure"
+        }
+      },
+      "pinned_checks": [
+        {
+          "job": "source-integrity",
+          "check_id": "ci.selector-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 27,
+          "file_count": 1
+        },
+        {
+          "job": "source-integrity",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 445,
+          "file_count": 33
+        },
+        {
+          "job": "static-worker",
+          "check_id": "ci.worker-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 99,
+          "file_count": 36
+        },
+        {
+          "job": "ui-e2e",
+          "check_id": "ci.e2e",
+          "status": "failed",
+          "reason": "skipped_test_never_expected",
+          "test_count": 681,
+          "file_count": 107,
+          "passes": [
+            {
+              "id": "default",
+              "exit_code": 0
+            },
+            {
+              "id": "private-ai",
+              "exit_code": 0
+            },
+            {
+              "id": "avatar-asset",
+              "exit_code": 0
+            }
+          ]
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.skill-client-unit",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.runtime-union-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 1,
+          "file_count": 1
+        },
+        {
+          "job": "governance-consumers",
+          "check_id": "ci.governance-unit",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 445,
+          "file_count": 33
+        },
+        {
+          "job": "deploy-preflight",
+          "check_id": "ci.deploy-preflight",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 458,
+          "file_count": 28
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 0)",
+          "check_id": "runtime.partition.0",
+          "status": "failed",
+          "reason": "incomplete_test_results",
+          "test_count": 514,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 1)",
+          "check_id": "runtime.partition.1",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 715,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 4)",
+          "check_id": "runtime.partition.4",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 661,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 2)",
+          "check_id": "runtime.partition.2",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 763,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 3)",
+          "check_id": "runtime.partition.3",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 513,
+          "file_count": null
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "ci.runtime-sharding-integration",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 10,
+          "file_count": 1
+        },
+        {
+          "job": "runtime-full (partition 5)",
+          "check_id": "runtime.partition.5",
+          "status": "passed",
+          "reason": "tests_executed",
+          "test_count": 706,
+          "file_count": null
+        },
+        {
+          "job": "runtime-aggregate",
+          "check_id": "runtime.full",
+          "status": "failed",
+          "reason": "runtime_partition_incomplete",
+          "test_count": null,
+          "file_count": null
+        }
+      ],
+      "observed": "The pinned runner refused every family that received a skip marker: ci.governance-unit, ci.worker-unit and ci.deploy-preflight failed incomplete_test_results; ci.e2e failed skipped_test_never_expected; runtime.partition.0 (the partition holding the skipped runtime file) failed incomplete_test_results while partitions 1-5 passed, and runtime.full failed runtime_partition_incomplete. Aggregate source_integrity_not_success; merge refused with HTTP 405. ci.contracts-pytest was not reached for the same job-ordering reason (10-07 E3p covers it).",
+      "merge": {
+        "requested_head": "09553d88d48495f02988509ead26793019716bb1",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed"
+        ],
+        "base": "ops/trust-pin-709600a0-script-base-20261008",
+        "base_before": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "base_after": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "rule_suite": {
+          "id": 4430989102,
+          "ref": "refs/heads/ops/trust-pin-709600a0-script-base-20261008",
+          "after_sha": "dd8709fc2a5be6f728351ae243451c6a5a206c4e",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": null,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": null,
+              "details": "Required workflows 'Verify local milestone' failed"
+            }
+          ],
+          "ruleset_note": "GitHub returned no ruleset id: the temporary ruleset was deleted before this suite was read back"
+        }
+      }
+    }
+  ],
+  "main_probes": [
+    {
+      "id": "MP",
+      "kind": "main_target_positive_merged",
+      "pull_request": {
+        "number": 291,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/291",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
+      },
+      "native_run": {
+        "id": 37819659316,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37819659316",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "8dfd619ecc76a5975d8f977649a60343a8da1a00",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "success",
+        "trusted_workflow_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "selection": {
+          "mode": "full",
+          "reason": "governance_security_or_shared_runtime"
+        },
+        "aggregate_reason": "full_selection",
+        "jobs": {
+          "select": "success",
+          "source-integrity": "success",
+          "deploy-preflight": "success",
+          "governance-consumers": "success",
+          "ui-e2e": "success",
+          "static-worker": "success",
+          "runtime-full": "success",
+          "runtime-aggregate": "success",
+          "verify": "success"
+        }
+      },
+      "merge": {
+        "requested_head": "8dfd619ecc76a5975d8f977649a60343a8da1a00",
+        "http_status": 200,
+        "merged": true,
+        "message": [
+          "Pull Request successfully merged"
+        ],
+        "base": "main",
+        "base_before": "62b1b37a4db6a55cfce63a73351e541d746b1cc7",
+        "base_after": "8c8fe8960680843f019cd25558a05a456273672d",
+        "rule_suite": {
+          "id": 4432410313,
+          "ref": "refs/heads/main",
+          "after_sha": "8c8fe8960680843f019cd25558a05a456273672d",
+          "result": "pass",
+          "failed_rules": []
+        }
+      },
+      "observed": "MP is the real round-7/8 receipt PR #291 (carries #286 unchanged; docs and inventory only). After review fixes (4e452181) and a clean main merge when #296 merged first, head 8dfd619e ran under trusted 709600a0: run 37819659316, select chose full mode (governance_security_or_shared_runtime), every job succeeded (ui-e2e job 34.8 min, runtime partitions 10.6-14.4 min), aggregate full_selection; verify@15368 and CodeQL@57789 success. With detna's approval at that head it merged normally at 18:39:27Z (merge 8c8fe896, rule suite pass).",
+      "changed_files": [
+        {
+          "path": "docs/platform-plan/execution/guild-launchpad/README.md",
+          "status": "modified",
+          "additions": 23,
+          "deletions": 19
+        },
+        {
+          "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
+          "status": "modified",
+          "additions": 49,
+          "deletions": 0
+        },
+        {
+          "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
+          "status": "modified",
+          "additions": 397,
+          "deletions": 213
+        },
+        {
+          "path": "docs/platform-plan/verification/2026-09-20-file-inventory.json",
+          "status": "modified",
+          "additions": 6,
+          "deletions": 6
+        }
+      ]
+    },
+    {
+      "id": "MN",
+      "kind": "main_target_negative",
+      "pull_request": {
+        "number": 295,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/295",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "base": "main",
+        "base_at_open": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
+      },
+      "native_run": {
+        "id": 37814768499,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37814768499",
+        "workflow_id": 374886800,
+        "attempt": 1,
+        "event": "pull_request",
+        "head": "e09fea083ea441d719bf27ad1b0bbd8858197305",
+        "head_repository": "FreeTWAI-AI/freedom-platform",
+        "conclusion": "failure",
+        "trusted_workflow_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "selection": {
+          "mode": "docs",
+          "reason": "docs_allowlist"
+        },
+        "aggregate_reason": "source_integrity_not_success",
+        "jobs": {
+          "source-integrity": "failure",
+          "select": "success",
+          "static-worker": "skipped",
+          "verify": "failure",
+          "deploy-preflight": "skipped",
+          "ui-e2e": "skipped",
+          "governance-consumers": "skipped",
+          "runtime-full": "skipped",
+          "runtime-aggregate": "skipped"
+        }
+      },
+      "merge": {
+        "requested_head": "e09fea083ea441d719bf27ad1b0bbd8858197305",
+        "http_status": 405,
+        "merged": false,
+        "message": [
+          "Repository rule violations found",
+          "Required status check \"verify\" is failing.",
+          "Required workflows 'Verify local milestone' failed",
+          "New changes require approval from someone other than the last pusher."
+        ],
+        "base": "main",
+        "base_before": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "base_after": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "rule_suite": {
+          "id": 4431135639,
+          "ref": "refs/heads/main",
+          "after_sha": "3fa15d33e0305a96d4a8c7362f213d0ed7957558",
+          "result": "fail",
+          "failed_rules": [
+            {
+              "rule": "required_status_checks",
+              "ruleset": 24469536,
+              "details": "Required status check \"verify\" is failing."
+            },
+            {
+              "rule": "workflows",
+              "ruleset": 24469536,
+              "details": "Required workflows 'Verify local milestone' failed"
+            },
+            {
+              "rule": "pull_request",
+              "ruleset": 24469536,
+              "details": "New changes require approval from someone other than the last pusher."
+            }
+          ]
+        }
+      },
+      "observed": "MN (#295, head e09fea08) added docs/plans/trust-pin-main-probe-negative-20261008.md without regenerating the inventory. Run 37814768499 ran under trusted 709600a0: select chose docs mode (docs_allowlist); source-integrity failed at npm run verify:inventory with \"File set changed: extra=['docs/plans/trust-pin-main-probe-negative-20261008.md'], missing=[]\"; aggregate source_integrity_not_success. Main refused the merge with HTTP 405 (required status check verify failing; required workflow 'Verify local milestone' failed; approval from someone other than the last pusher missing). The PR was closed unmerged and its branch deleted.",
+      "changed_files": [
+        {
+          "path": "docs/plans/trust-pin-main-probe-negative-20261008.md",
+          "status": "added",
+          "additions": 3,
+          "deletions": 0
+        }
+      ],
+      "closure": {
+        "at": "2026-10-08T17:18:46.617Z",
+        "state": "closed",
+        "merged": false,
+        "head_ref": "ops/trust-pin-709600a0-main-probe-mn-20261008",
+        "ref_delete_exit": 0,
+        "ref_absent": true
+      }
+    }
+  ],
+  "cleanup": {
+    "at": "2026-10-08T17:19:05.292Z",
+    "pull_requests": [
+      {
+        "number": 293,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-709600a0-base-20261008",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-709600a0-e2-20261008"
+      },
+      {
+        "number": 294,
+        "state": "closed",
+        "merged": false,
+        "base": "ops/trust-pin-709600a0-script-base-20261008",
+        "head": "FreeTWAI-AI/freedom-platform:ops/trust-pin-709600a0-e3-20261008"
+      }
+    ],
+    "temporary_ruleset": {
+      "id": 24736518,
+      "name": "Trust pin upgrade probe 709600a0 20261008 (temporary)",
+      "refs": [
+        "refs/heads/ops/trust-pin-709600a0-base-20261008",
+        "refs/heads/ops/trust-pin-709600a0-script-base-20261008"
+      ],
+      "delete_exit": 0,
+      "readback_absent": true
+    },
+    "refs": [
+      {
+        "ref": "refs/heads/ops/trust-pin-709600a0-base-20261008",
+        "sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-709600a0-e2-20261008",
+        "sha": "7d8be3a881277ada2429e411f6e1a9f2e2e93dd2",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-709600a0-e3-20261008",
+        "sha": "09553d88d48495f02988509ead26793019716bb1",
+        "delete_exit": 0
+      },
+      {
+        "ref": "refs/heads/ops/trust-pin-709600a0-script-base-20261008",
+        "sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+        "delete_exit": 0
+      }
+    ],
+    "remaining_probe_refs": [],
+    "main_ruleset": {
+      "id": 24469536,
+      "workflow_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+      "policy_drift_since_switch": []
+    },
+    "main_after_cleanup": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
+  },
+  "boundaries": {
+    "reduced_probe_set": "Ted approved a reduced set for this pin (2026-10-08 ~15:59Z): E2 and E3 on the temporary ruleset, MP and MN on main. S (supersession), E0/E1b (hostile config), E2p/E3p (pytest-only) and fork probes were not repeated; main-ruleset-2026-10-07.json and main-ruleset-2026-10-06.json keep those results for 6ffdf94a and d1c9.",
+    "what_changed_in_the_pin": "#288 (merge 709600a0): .github/workflows/verify.yml ui-e2e timeout 40 -> 50 min; packages/contribution-tools/pinned-e2e.mjs and scripts/ci/run-pinned-e2e.mjs default-pass budget 30 -> 40 min (private-AI and avatar fixture passes stay 30 min); tests in packages/contribution-tools/test/pinned-e2e.test.mjs; docs/development/e2e-harness.md.",
+    "candidate_defined_steps": "Unchanged from 6ffdf94a: npm ci, contracts:build, build, typecheck, worker dry-runs, check:* scripts, verify:inventory, test:media-restore and checkout-repositories stay candidate-defined. Candidate code, including the test files the pinned runners execute and the e2e web server, still runs on the same runner; this is not a sandbox against a hostile candidate.",
+    "job_step_ordering": "Within one job the first failing pinned suite ends the job, so later suites in that job are not reached.",
+    "probe_review_and_codeql": "The temporary ruleset differs from main as recorded above; main keeps 1 approval, last-push approval and CodeQL.",
+    "merge_queue": "not used on central main; strict freshness plus update-branch only",
+    "durable_publisher": "not_installed",
+    "full_P2_complete": false
+  }
+}

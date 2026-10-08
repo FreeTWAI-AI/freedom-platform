@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-08T16:20:34.322054+00:00",
+  "recorded_at": "2026-10-08T19:02:54.160138+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -1139,17 +1139,17 @@
     {
       "purpose": "Central required workflow: selector/aggregate, pinned node:test/pytest/browser suite runners and native check publication",
       "ruleset": 24469536,
-      "source": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
-      "previous_source": "d1c9e18fffabebbdceaba233a34f3605220e2dd7",
-      "installed_at": "2026-10-07T11:15:37.321Z",
+      "source": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
+      "previous_source": "6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba",
+      "installed_at": "2026-10-08T17:09:27.810Z",
       "verify_app_id": 15368,
       "codeql_app_id": 57789,
       "minimum_reviews": 1,
       "last_push_approval": true,
       "dismiss_stale_reviews": true,
       "bypass_actors": [],
-      "evidence": "docs/platform-plan/verification/main-ruleset-2026-10-07.json",
-      "limitation": "Required node:test, pytest and browser suites run from the pinned runner against reviewed baselines; candidate test scripts and Playwright/pytest filters no longer define them (probes E1b/E2/E3/E2p/E3p). Build, typecheck, dry-run and check scripts stay candidate-defined, and candidate code still runs on the same runner. No fork probe ran on this pin (GOV-15 evidence stays d1c9 F2); selected skipped/cancelled hosted jobs were not exercised.",
+      "evidence": "docs/platform-plan/verification/main-ruleset-2026-10-08.json",
+      "limitation": "Capacity-only change from 6ffdf94a (#288: UI default pass 30 -> 40 min, ui-e2e job 40 -> 50 min; test sets, per-test timeout, workers, retries and skip policy unchanged). Re-verified with a reduced probe set: E2/E3 refused on a temporary ruleset, MN refused and the real receipt PR #291 merged on main (MP). S, E0/E1b, E2p/E3p and fork probes were not repeated; their results stay with 6ffdf94a (main-ruleset-2026-10-07.json) and d1c9 (GOV-15 evidence stays d1c9 F2). Build, typecheck, dry-run and check scripts stay candidate-defined, and candidate code still runs on the same runner; selected skipped/cancelled hosted jobs were not exercised.",
       "publication_ref": "refs/heads/main",
       "selection": "The exact configured SHA fixes workflow bytes; main is a mutable ref descriptor, not an immutable branch claim."
     },
