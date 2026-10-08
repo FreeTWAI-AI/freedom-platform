@@ -18,6 +18,7 @@ const schema = `e1cat_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
+  'commerce_resource_tenants',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
@@ -223,7 +224,7 @@ test('T-021 installed schema matches the frozen tenant data catalog', async () =
     q.release();
   }
   assert.equal(Object.isFrozen(TENANT_DATA_CATALOG), true);
-  assert.deepEqual(TENANT_DATA_CATALOG.datasets.map(dataset => dataset.dataset_key), ['DC-04', 'DC-06', 'DC-13', 'DC-14']);
+  assert.deepEqual(TENANT_DATA_CATALOG.datasets.map(dataset => dataset.dataset_key), ['DC-04', 'DC-06', 'DC-08', 'DC-13', 'DC-14']);
   const flags = (await pool.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
     `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
        FROM pg_catalog.pg_class c
@@ -480,6 +481,7 @@ test('T-021 catalog checker rejects a removed P-D1 table or column', async () =>
 
 test('T-021 tenant modules do not import the legacy transaction helper or call pool.query', async () => {
   const files = [
+    ...await walk('modules/agent-commerce/hosted', name => name.endsWith('.ts')),
     ...await walk('modules/tenant-workspaces', name => name.endsWith('.ts')),
     ...await walk('modules/module-registry', name => name.endsWith('.ts')),
     ...await walk('modules/opportunity-project-work', name => name.startsWith('tenant-') && name.endsWith('.ts')),

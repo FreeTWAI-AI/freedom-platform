@@ -431,7 +431,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'commerce_resource_tenants', 'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -443,6 +443,16 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       SELECT $1, transition_id, scope_id, scope_kind, 'synthetic.retarget.v1', '{}'::jsonb
       FROM scoped_transition_journal WHERE scope_id=$2 AND scope_kind='tenant' ORDER BY transition_id LIMIT 1
       ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
+  }
+  // Confirmed A/B commerce mappings exercise the same tenant policy as hosted setup.
+  for (const data of [A, B]) {
+    const shopId = randomUUID();
+    await owner.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256)
+      SELECT $1,t.community_id,p.user_ref,'internal','同名供貨','','','','TWD',$2
+      FROM tenants t JOIN principals p ON p.principal_id=$3 WHERE t.tenant_id=$4`,
+    [shopId, sha(Buffer.from(shopId)), data.principalId, data.tenantId]);
+    await owner.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
+      VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, data.tenantId, data.instanceId, data.principalId]);
   }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
     update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];

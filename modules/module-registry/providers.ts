@@ -60,9 +60,20 @@ export const hostedWorkProvider: TransactionalModuleProvider = {
 };
 
 export function defaultModuleProviders(): ModuleProviderMap {
-  return { work: hostedWorkProvider };
+  return { work: hostedWorkProvider, storefront: hostedStorefrontProvider };
 }
 
 export function resolveProviders(injected?: ModuleProviderMap): ModuleProviderMap {
   return { ...defaultModuleProviders(), ...injected };
 }
+
+/** Store setup is a separate member command. No downstream business import or seed.
+ * Member data is a SQL read anchored by the bound instance's RLS row. */
+export const hostedStorefrontProvider: TransactionalModuleProvider = {
+  kind: 'transactional',
+  async initialise() {},
+  async hasMemberData(q, instanceId) {
+    return (await q.query(`SELECT 1 FROM commerce_storefront_profiles p JOIN module_instances i
+      ON i.tenant_id=p.tenant_id AND i.instance_id=p.instance_id WHERE i.instance_id=$1 LIMIT 1`, [instanceId])).rowCount === 1;
+  },
+};

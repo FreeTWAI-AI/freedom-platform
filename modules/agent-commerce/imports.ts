@@ -8,16 +8,16 @@ import {listingDigest,resellerArrangement} from './distribution.js';
 
 export async function catalog(pool:Pool,actor:Actor){
  return (await pool.query(`SELECT i.*,s.name AS shop_name,s.currency,s.mode,s.shop_id FROM commerce_items i JOIN commerce_shops s USING(shop_id)
- JOIN users u ON u.user_id=s.owner_id WHERE s.community_id=$1 AND s.accepting_orders AND u.active ORDER BY i.title,i.item_id`,[actor.community_id])).rows;
+ JOIN users u ON u.user_id=s.owner_id WHERE s.origin='imported' AND s.community_id=$1 AND s.accepting_orders AND u.active ORDER BY i.title,i.item_id`,[actor.community_id])).rows;
 }
 export async function ownShops(pool:Pool,actor:Actor){
  return (await pool.query(`SELECT s.*,k.expires_at AS key_expires_at,k.revoked_at AS key_revoked_at,
  (SELECT count(*)::int FROM commerce_items i WHERE i.shop_id=s.shop_id) AS product_count,
  (SELECT count(*)::int FROM commerce_selections l WHERE l.shop_id=s.shop_id) AS selection_count
- FROM commerce_shops s LEFT JOIN commerce_shop_keys k USING(shop_id) WHERE s.community_id=$1 AND s.owner_id=$2 ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows;
+ FROM commerce_shops s LEFT JOIN commerce_shop_keys k USING(shop_id) WHERE s.origin='imported' AND s.community_id=$1 AND s.owner_id=$2 ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows;
 }
 export async function ownShop(q:Pool|PoolClient,actor:Pick<Actor,'user_id'|'community_id'>,id:string){
- const shop=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1 AND community_id=$2 AND owner_id=$3',[id,actor.community_id,actor.user_id])).rows[0];
+ const shop=(await q.query("SELECT * FROM commerce_shops WHERE origin='imported' AND shop_id=$1 AND community_id=$2 AND owner_id=$3",[id,actor.community_id,actor.user_id])).rows[0];
  requireCondition(shop,404,'shop_not_found','找不到你的商店。');return shop;
 }
 async function checkedSelections(q:Pool|PoolClient,actor:Actor,m:ShopManifest){
@@ -25,7 +25,7 @@ async function checkedSelections(q:Pool|PoolClient,actor:Actor,m:ShopManifest){
  const result=[];
  for(const selection of m.selections){
   const item=(await q.query(`SELECT i.*,s.currency,s.mode,s.accepting_orders,s.owner_id,s.community_id FROM commerce_items i JOIN commerce_shops s USING(shop_id)
-   JOIN users u ON u.user_id=s.owner_id WHERE i.item_id=$1 AND s.community_id=$2 AND u.active`,[selection.item_id,actor.community_id])).rows[0];
+   JOIN users u ON u.user_id=s.owner_id WHERE s.origin='imported' AND i.item_id=$1 AND s.community_id=$2 AND u.active`,[selection.item_id,actor.community_id])).rows[0];
   requireCondition(item,422,'item_unavailable','部分商品不存在或不可選，請重新下載開店包。');
   requireCondition(item.accepting_orders&&item.mode===m.mode,422,'shop_mode_mismatch','商品與商店的測試／正式模式不一致，或商品已暫停接單。');
   requireCondition(item.currency===m.currency,422,'currency_mismatch','同一家商店請選擇相同幣別的商品。');
@@ -42,10 +42,10 @@ export async function importShop(pool:Pool,input:Command){
  return command(pool,input,async()=>{},async q=>{
   const hash=digest(m);
   await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`shop-import/${input.actor.user_id}/${hash}`]);
-  const prior=(await q.query('SELECT shop_id FROM commerce_shops WHERE owner_id=$1 AND manifest_sha256=$2',[input.actor.user_id,hash])).rows[0];
+  const prior=(await q.query("SELECT shop_id FROM commerce_shops WHERE origin='imported' AND owner_id=$1 AND manifest_sha256=$2",[input.actor.user_id,hash])).rows[0];
   if(prior)return {...prior,reused:true};
   const selections=await checkedSelections(q,input.actor,m),id=randomUUID();
-  await q.query('INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[id,input.actor.community_id,input.actor.user_id,m.kind,m.name,m.description,m.website_url,m.contact,m.currency,hash,m.mode]);
+  await q.query("INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,mode,origin) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'imported')",[id,input.actor.community_id,input.actor.user_id,m.kind,m.name,m.description,m.website_url,m.contact,m.currency,hash,m.mode]);
   if(m.kind==='internal')for(const p of m.products)await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,photo_url,price_minor,shipping_minor,stock,shipping_terms,return_terms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),id,p.sku,p.title,p.description,p.photo_url,p.price_minor,p.shipping_minor,p.stock,p.shipping_terms,p.return_terms]);
   for(const {selection:s,item} of selections){
    const selectionId=randomUUID();

@@ -17,6 +17,8 @@ import {
   UploadPrepareSchema, UploadSchema, UploadVerifiedSchema, WorkPageSchema, WorkSchema, WorkWriteSchema,
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
+import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
+
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
 const reason = ['reason_control_character'] as const;
@@ -98,6 +100,22 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
+  ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
+    ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],
+    ['store-update-input', storefront.StoreUpdateInputSchema, 'input', ['at_least_one_field', 'text_trim_and_control_characters']],
+    ['product-input', storefront.ProductInputSchema, 'input', ['text_trim_and_control_characters']],
+    ['product-update-input', storefront.ProductUpdateInputSchema, 'input', ['at_least_one_field', 'text_trim_and_control_characters']],
+    ['empty-input', storefront.EmptyStoreInputSchema, 'input', []],
+    ['slug-query', storefront.SlugQuerySchema, 'input', []],
+    ['slug-availability', storefront.SlugAvailabilitySchema, 'output', []],
+    ['store-view', storefront.StoreViewSchema, 'output', []],
+    ['product-view', storefront.ProductViewSchema, 'output', []],
+    ['product-page', storefront.ProductPageSchema, 'output', []],
+    ['product-removed', storefront.ProductRemovedSchema, 'output', []],
+    ['my-stores', storefront.MyStoresSchema, 'output', []],
+    ['public-store-projection', storefront.PublicStoreProjectionSchema, 'output', []],
+    ['store-preview', storefront.StorePreviewSchema, 'output', []],
+  ]],
 ];
 
 function inlineDef(name: string, schema: z.ZodType, io: 'input' | 'output', rules: readonly string[]) {
