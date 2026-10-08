@@ -8,6 +8,7 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { authenticate,tokenHash } from '../../modules/identity-membership/service.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import {z} from 'zod';
 import { isAgentSkillUploadPath } from '../../apps/platform-api/src/routes/skill-submissions.js';
 import { importProject } from '../../modules/opensource-marketing/service.js';
 import { listPublishedSkillSubmissions,readPublishedSkillSubmission,readPublishedSkillIllustration } from '../../modules/skill-submissions/public.js';
@@ -286,12 +287,14 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  assert.equal(project.relationship,'author');assert.equal(project.relationship_verification,'self_declared');assert.equal(project.official,false);assert.equal(project.owner_ref,owner.user.user_id);
  const [item]=await listPublishedSkillSubmissions(pool);
  assert.equal(item.submission_id,id);assert.equal(item.official,false);assert.equal(item.relationship_verification,'self_declared');
+ assert.equal('author_name' in item,false);
  assert.deepEqual(item.source,{repository_full_name:'example/project',repository_url:'https://github.com/example/project',commit_sha:sha,license_spdx:'Apache-2.0',license_evidence_url:`https://github.com/example/project/blob/${sha}/LICENSE`,is_fork:false,archived:false});
  assert.equal(item.share_introductions.length,100);assert.equal(item.illustration_url,`/api/v1/skill-submissions/${id}/illustration`);
  // Every 社群技能書 is packaged with a book cover; works without drawn art use the shared community cover.
  assert.equal(item.cover_url,'/art/community-skills/default.webp');
  const text=JSON.stringify(item);for(const secret of [owner.user.user_id,owner.user.email,'grant','hash'])assert.equal(text.includes(secret),false,secret);
  const detail=await readPublishedSkillSubmission(pool,id);assert.equal(detail?.use_notes,payload().use_notes);assert.equal(detail?.demo_url,null);
+ assert.equal(detail!==null&&'author_name' in detail,false);
  assert.equal((await readPublishedSkillIllustration(pool,id))?.mime_type,'image/webp');
  const html=await platform.request(origin+`/development/submissions/${id}`);assert.equal(html.status,200);
  const markup=await html.text();assert.equal(markup.includes(maliciousTitle),false);assert.match(markup,/&lt;script&gt;/);
@@ -308,6 +311,20 @@ test('publish imports real pinned GitHub source once, needs consent and current 
  assert.deepEqual(share.data.introductions,item.share_introductions);assert.equal(share.data.illustration_url,item.illustration_url);assert.match(share.data.illustration_alt,/功能示意圖$/);
  assert.equal((await api('/skill-submissions/not-a-uuid')).status,404);
  const illustration=await platform.request(origin+`/api/v1/skill-submissions/${id}/illustration`);assert.equal(illustration.status,200);assert.equal(illustration.headers.get('Content-Type'),'image/webp');
+ const discoveryApp=createApp(pool,origin,'local',{communityDiscoveryEnabled:true});
+ const discoveryShape=z.object({sections:z.array(z.object({kind:z.string(),state:z.string(),items:z.array(z.object({id:z.string(),title:z.string(),summary:z.string(),path:z.string(),author_name:z.string().nullable(),occurred_at:z.string().nullable()}).strict())}))});
+ const discoveryResponse=await discoveryApp.request(origin+'/api/v1/public/community-discovery');
+ assert.equal(discoveryResponse.status,200);
+ const discovered=discoveryShape.parse(await discoveryResponse.json()).sections.find(section=>section.kind==='works');
+ assert.equal(discovered?.state,'ready');assert.equal(discovered?.items[0]?.id,id);
+ assert.equal(discovered?.items[0]?.path,`/development/submissions/${id}`);
+ const publicPaths=[`/development/submissions/${id}`,`/development/submissions/${id}/SKILL.md`,`/api/v1/skill-submissions/${id}/illustration`];
+ for(const path of publicPaths){const response=await discoveryApp.request(origin+path);assert.equal(response.status,200,path);assert.equal(response.headers.get('cache-control'),'no-store');}
+ await pool.query("UPDATE skill_submissions SET status='revoked',consent_to_share=false,revoked_at=now() WHERE submission_id=$1",[id]);
+ const revokedDiscovery=discoveryShape.parse(await (await discoveryApp.request(origin+'/api/v1/public/community-discovery')).json());
+ assert.deepEqual(revokedDiscovery.sections.find(section=>section.kind==='works')?.items,[]);
+ for(const path of publicPaths)assert.equal((await discoveryApp.request(origin+path)).status,404,path);
+ await pool.query("UPDATE skill_submissions SET status='published',consent_to_share=true,revoked_at=NULL WHERE submission_id=$1",[id]);
  // Deactivating the owner removes the publication from every public read.
  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[owner.user.user_id]);
  assert.deepEqual(await listPublishedSkillSubmissions(pool),[]);assert.equal(await readPublishedSkillSubmission(pool,id),null);assert.equal(await readPublishedSkillIllustration(pool,id),null);

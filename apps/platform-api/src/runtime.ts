@@ -80,4 +80,5 @@ export type PlatformRuntime = {
   moduleProviders?: ModuleProviderMap;
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
+  communityDiscoveryEnabled?: boolean;
 };

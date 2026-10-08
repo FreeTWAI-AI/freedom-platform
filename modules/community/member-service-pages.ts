@@ -1,5 +1,6 @@
 import { escapeHtml } from '../development/service.js';
 import { SERVICE_CATEGORIES, SERVICE_CATEGORY_LABELS, SERVICE_MODE_LABELS, type ServiceCategory, type ServiceMode } from '../../packages/shared/member-service.js';
+import { PUBLIC_REVALIDATION_MARKUP } from '../../packages/shared/public-revalidation.js';
 
 export type PublicServiceCard = {
   service_id: string; title: string; category: ServiceCategory; summary: string;
@@ -23,8 +24,9 @@ function coverPath(id: string) { return `/api/v1/public/member-services/${id}/co
 function paragraphs(value: string) {
   return value.split(/\n+/).filter(part => part.trim()).map(part => `<p>${escapeHtml(part.trim())}</p>`).join('');
 }
-function shell(origin: string, title: string, head: string, body: string) {
-  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>${head}<link rel="stylesheet" href="/services.css"></head><body>${body}<footer class="service-foot"><a href="/">加入自由工坊</a><a href="/services">在自由工坊看更多社員服務</a></footer></body></html>`;
+function shell(origin: string, title: string, head: string, body: string, discoveryEnabled: boolean, returnPath?: string) {
+  const join = returnPath ? `/?join=1&amp;return_to=${encodeURIComponent(returnPath)}` : '/';
+  return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title>${head}<link rel="stylesheet" href="/services.css"></head><body>${discoveryEnabled ? PUBLIC_REVALIDATION_MARKUP : ''}${body}<footer class="service-foot"><a href="${join}">加入自由工坊</a><a href="/services">在自由工坊看更多社員服務</a></footer></body></html>`;
 }
 function meta(origin: string, path: string, title: string, description: string, image: { url: string; width: number; height: number }) {
   const url = abs(origin, path), src = escapeHtml(image.url);
@@ -42,13 +44,13 @@ function serviceTop() {
   return `<header class="service-top"><a href="/"><img class="service-logo" src="${BRAND}" alt="自由工坊" width="1280" height="720"></a><a href="/services">社員服務</a></header>`;
 }
 
-export function serviceMissingHtml(origin: string) {
+export function serviceMissingHtml(origin: string, discoveryEnabled=false) {
   const head = `<meta name="robots" content="noindex"><meta name="description" content="這項服務目前沒有公開。">`;
   const body = `<main class="service-missing">${serviceTop()}<h1>找不到這項服務</h1><p>這項服務目前沒有公開。</p></main>`;
-  return shell(origin, '找不到這項服務｜自由工坊', head, body);
+  return shell(origin, '找不到這項服務｜自由工坊', head, body, discoveryEnabled);
 }
 
-export function serviceListHtml(origin: string, category: string, cards: PublicServiceCard[], nextCursor: string | null) {
+export function serviceListHtml(origin: string, category: string, cards: PublicServiceCard[], nextCursor: string | null, discoveryEnabled=false) {
   const title = '社員服務｜自由工坊';
   const description = '社員的本業服務。假髮、課程、設計、語言教學與其他專業工作。';
   const chips = [{ id: '', label: '全部' }, ...SERVICE_CATEGORIES.map(id => ({ id, label: SERVICE_CATEGORY_LABELS[id] }))].map(item => {
@@ -61,10 +63,10 @@ export function serviceListHtml(origin: string, category: string, cards: PublicS
   }).join('');
   const next = nextCursor ? `<p class="service-more"><a href="${escapeHtml(listPath(category, nextCursor))}">下一頁</a></p>` : '';
   const body = `<main>${serviceTop()}<header class="service-banner"><h1>社員服務</h1><p>${escapeHtml(description)}</p></header><nav class="service-chips" aria-label="分類">${chips}</nav>${cards.length ? `<div class="service-grid">${items}</div>` : '<p class="service-empty">目前沒有公開的社員服務。</p>'}${next}</main>`;
-  return shell(origin, title, meta(origin, listPath(category), title, description, { url: abs(origin, BRAND), width: 1280, height: 720 }), body);
+  return shell(origin, title, meta(origin, listPath(category), title, description, { url: abs(origin, BRAND), width: 1280, height: 720 }), body, discoveryEnabled);
 }
 
-export function serviceDetailHtml(origin: string, service: PublicServicePage) {
+export function serviceDetailHtml(origin: string, service: PublicServicePage, discoveryEnabled=false) {
   const title = `${service.title}｜${service.owner_name} 的服務｜自由工坊`;
   const image = service.has_cover
     ? { url: abs(origin, coverPath(service.service_id)), width: 1200, height: 675 }
@@ -76,5 +78,5 @@ export function serviceDetailHtml(origin: string, service: PublicServicePage) {
   ].join('');
   const contacts = service.contacts.map(contact => `<a class="service-contact" href="${escapeHtml(contact.url)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(contact.label)}</a>`).join('');
   const body = `<main class="service-detail">${serviceTop()}${service.has_cover ? media(service, origin) : placeholder(service.category)}<p class="service-category">${escapeHtml(SERVICE_CATEGORY_LABELS[service.category])}</p><h1>${escapeHtml(service.title)}</h1><p class="service-owner">${escapeHtml(service.owner_name)}</p><p class="service-summary">${escapeHtml(service.summary)}</p>${service.description ? `<div class="service-copy">${paragraphs(service.description)}</div>` : ''}<dl class="service-facts">${facts}</dl><div class="service-contacts">${contacts}</div></main>`;
-  return shell(origin, title, meta(origin, `/services/${service.service_id}`, title, service.summary, image), body);
+  return shell(origin, title, meta(origin, `/services/${service.service_id}`, title, service.summary, image), body, discoveryEnabled, discoveryEnabled ? `/services/${service.service_id}` : undefined);
 }
