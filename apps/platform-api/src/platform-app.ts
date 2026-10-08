@@ -3,11 +3,11 @@ import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
-import { login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
+import { authenticate, login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
 import { readSessionCookie, sessionCookieName } from './session-cookie.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
@@ -64,6 +64,7 @@ import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from
 import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromotion,registerPublicPromotion} from './routes/promotion.js';
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
+import { searchCommunityContent, assignContentTopics, listTaggableContent } from '../../../modules/community/content-search.js';
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
@@ -129,6 +130,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
+    if(c.req.path==='/api/v1/community-search'||c.req.path.startsWith('/api/v1/community-search/'))c.header('X-Robots-Tag','noindex, nofollow');
     readSessionCookie(c.req.header('Cookie'),origin);
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
@@ -220,7 +222,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -231,6 +233,26 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.body(PUBLIC_REVALIDATION_SCRIPT);
   });
   if(runtime.guildLaunchpadEnabled===true)app.get('/api/v1/guild-categories',async c=>c.json(await listGuildCategories(pool)));
+  const searchEnabled:MiddlewareHandler=async(_c,next)=>{
+    requireCondition(runtime.communitySearchEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  };
+  app.use('/api/v1/community-search',searchEnabled);
+  app.use('/api/v1/community-search/*',searchEnabled);
+  if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
+    let actor:Actor|null=null;
+    const session=readSessionCookie(c.req.header('Cookie'),origin);
+    if(session){
+      try { actor=await authenticate(pool,session); }
+      catch(error){
+        // Invalid, expired or revoked cookies only have anonymous visibility;
+        // database failures must remain failures rather than false empty results.
+        if(!(error instanceof Problem&&error.status===401&&['login_required','session_expired'].includes(error.code)))throw error;
+      }
+    }
+    if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
+    return c.json(await searchCommunityContent(pool,actor,c.req.query()));
+  });
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
     c.header('X-Robots-Tag','noindex, nofollow');
@@ -333,6 +355,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   };
   const routeId=(c:any,name='id')=>z.uuid().parse(c.req.param(name).split(':')[0]);
   const respond=(c:any,value:any,status=200)=>{if(value?.aggregate_version)c.header('ETag',`"${value.aggregate_version}"`);return c.json(value,status);};
+  if(runtime.communitySearchEnabled===true){
+    app.get('/api/v1/community-search/mine',async c=>c.json(await listTaggableContent(pool,c.get('actor'))));
+    app.post('/api/v1/community-search/topics',async c=>respond(c,await assignContentTopics(pool,await cmd(c))));
+  }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
   app.post('/api/v1/me/client-errors',async c=>{
     const body=z.object({action:z.string().regex(/^(GET|POST|PUT|PATCH|DELETE|UI) \/[a-zA-Z0-9_/:.#-]*$/).max(120),error_code:z.string().regex(/^[a-zA-Z0-9_:-]{1,80}$/),http_status:z.number().int().min(0).max(599).optional()}).strict().parse(await c.req.json());
