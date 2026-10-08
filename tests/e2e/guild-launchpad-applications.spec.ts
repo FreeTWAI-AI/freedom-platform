@@ -57,6 +57,7 @@ async function capture(page: Page, testInfo: TestInfo, state: string) {
     await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.effect instanceof KeyframeEffect && animation.effect.getTiming().iterations !== Infinity && animation.playState === 'running').length), {timeout:3000}).toBe(0);
     for (const width of [1280,360]) {
       await page.setViewportSize({width,height:900});
+      await page.evaluate(()=>window.scrollTo({left:0,top:0,behavior:'instant'}));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const buttons = await page.locator('.btn').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().height > 0).map(element => {
         const box = element.getBoundingClientRect();
