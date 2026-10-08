@@ -41,12 +41,12 @@ const verifier = createAdminAccessVerifier({
 const flagged = createApp(pool, origin, 'local', {guildLaunchpadEnabled: true, adminVerifier: verifier});
 const flagOff = createApp(pool, origin, 'local', {adminVerifier: verifier});
 const approved = [
-  'guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering', 'guild_opportunity_partnership',
+  'guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering', 'guild_opportunity_partnership', 'guild_commerce_sales',
   'guild_product_quality_supply', 'guild_media_automation', 'guild_commerce_settlement', 'guild_security',
   'guild_music_mv', 'guild_commercial_production', 'guild_projection_mapping', 'guild_human_design',
 ];
 const internal = ['guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering'];
-const external = ['guild_opportunity_partnership'];
+const external = ['guild_commerce_sales', 'guild_opportunity_partnership'];
 type Session = {cookie: string; csrf: string; user: {user_id: string}};
 let jwt = '';
 let csrf = '';
@@ -69,6 +69,7 @@ beforeEach(async () => {
       WHEN 'guild_member_operations' THEN 'internal'::guild_category
       WHEN 'guild_platform_engineering' THEN 'internal'::guild_category
       WHEN 'guild_opportunity_partnership' THEN 'external'::guild_category
+      WHEN 'guild_commerce_sales' THEN 'external'::guild_category
       WHEN 'guild_product_quality_supply' THEN 'professional_industry'::guild_category
       WHEN 'guild_media_automation' THEN 'professional_industry'::guild_category
       WHEN 'guild_commerce_settlement' THEN 'professional_industry'::guild_category
@@ -147,7 +148,7 @@ test('T-001 catalog shape, empty slots, rejected writes, and flag-off 404', asyn
   assert.deepEqual(catalog.data.categories.map((group: {category: string}) => group.category), ['internal', 'external', 'professional_industry']);
   assert.deepEqual(catalog.data.categories[0].items.map((item: {guild_key: string}) => item.guild_key).sort(), [...internal].sort());
   assert.deepEqual(catalog.data.categories[1].items.map((item: {guild_key: string}) => item.guild_key), external);
-  assert.equal(catalog.data.pending.length, 6);
+  assert.equal(catalog.data.pending.length, 5);
   assert.ok(catalog.data.pending.some((item: {guild_key: string}) => item.guild_key === 'guild_ai_vibe'));
   assert.match(catalog.data.catalog_revision, /^[1-9][0-9]*$/);
 
@@ -658,7 +659,7 @@ test('T-016 recategorize clears the slot, leave races do not keep a departed pri
   assert.equal((await member(flagged, '/guilds/guild_talent_direction/primary', s, {})).status, 200);
   assert.equal((await admin(flagged, '/guild-preferences/switch', {accept_blocked: true})).status, 200);
   const view = await member(flagged, '/me/guild-preferences/v2', s);
-  const moved = await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'external', capability_tags: ['會員陪跑'], reason: '改測外交分類'}, {version: await revision('guild_talent_direction')});
+  const moved = await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'external', capability_tags: ['會員陪跑'], reason: '改測社群業務推廣分類'}, {version: await revision('guild_talent_direction')});
   assert.equal(moved.status, 200, JSON.stringify(moved.data));
   assert.equal(moved.data.classification.category, 'external');
   assert.notEqual(moved.data.classification.catalog_revision, await revision('guild_member_operations'));
@@ -667,7 +668,7 @@ test('T-016 recategorize clears the slot, leave races do not keep a departed pri
   assert.equal(slot(after.data, 'external'), null);
   assert.equal(after.data.invalidated.find((item: {category: string}) => item.category === 'internal').reason, 'guild_recategorized');
   assert.equal((await pool.query(`SELECT state, member_tier FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = 'guild_talent_direction'`, [s.user.user_id])).rows[0].member_tier, 'intern');
-  await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'internal', capability_tags: [], reason: '還原內政分類'}, {version: moved.data.classification.catalog_revision});
+  await admin(flagged, '/guilds/guild_talent_direction/classification', {category: 'internal', capability_tags: [], reason: '還原社群架構開發分類'}, {version: moved.data.classification.catalog_revision});
 
   const current = await member(flagged, '/me/guild-preferences/v2', s);
   const version = String(current.data.aggregate_version);
