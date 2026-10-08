@@ -6,7 +6,7 @@ import type { PoolClient } from 'pg';
 import { authenticate } from '../../modules/identity-membership/service.js';
 import { setMemberTier } from '../../modules/positioning/member-tier.js';
 import { launchApplication, advanceOperation, reconcileOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
-import { loadOfferedDefinition, readPublicRelease } from '../../modules/module-registry/catalog.js';
+import { applicationsForGuild, browseApplications, loadOfferedDefinition, readPublicRelease } from '../../modules/module-registry/catalog.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { effectDigest } from '../../modules/module-registry/providers.js';
 import type { Command } from '../../packages/db/index.js';
@@ -1631,7 +1631,7 @@ test('r8 member catalog and launchpad show unavailable releases with fixed eligi
         && item.application_key !== 'synthetic-r8-draft' && item.eligibility === undefined));
     }
   }
-  // Reading a card grants no new plan or config eligibility.
+  // Reading a card grants no new plan eligibility.
   for (const key of keys) {
     const plan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, key, `${key}@1.0.0`));
     assert.equal(plan.status, 409, JSON.stringify(plan.data));
@@ -1743,7 +1743,7 @@ test('r8 catalog and launchpad deduplicate releases before sorting and keyset pa
   await r8Definition(key, 'available', 'reviewed');
   await r8Offering(key, null, null, '1', 0);
   await r8Offering(key, DEMO_COMMUNITY, null, '2', 0);
-  await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 30);
+  await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 30, '00000000-0000-4000-8000-000000000003');
   // Same display_order exercises offering_id as the last sorting key.
   const beforeKey = 'synthetic-r8-before';
   const afterKey = 'synthetic-r8-after';
@@ -1822,4 +1822,33 @@ test('r8 launch definition chooses guild then community then platform after with
     assert.equal(definition.offering_policy.version, version);
     await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE offering_id=$1", [offeringId]);
   }
+});
+
+test('r8 unavailable-only catalog and launchpad avoid membership and tenant eligibility queries', async () => {
+  const { actor } = await prepared();
+  await h.pool.query(`UPDATE guild_application_offerings SET status='withdrawn',version=version+1
+    WHERE application_key IN ('manual-workspace','synthetic-storefront') AND status='offered'`);
+  const queries: string[] = [];
+  const trackedPool = new Proxy(h.pool, {
+    get(pool, property) {
+      if (property !== 'connect') return Reflect.get(pool, property);
+      return async () => new Proxy(await pool.connect(), {
+        get(client, key) {
+          const value = Reflect.get(client, key);
+          if (key === 'query') return (...args: unknown[]) => {
+            if (typeof args[0] === 'string') queries.push(args[0]);
+            return Reflect.apply(value, client, args);
+          };
+          return typeof value === 'function' ? value.bind(client) : value;
+        },
+      });
+    },
+  });
+  const page = await browseApplications(trackedPool, {guildKey: 'guild_ai_field'}, actor);
+  const launchpad = await isolatedTransaction(trackedPool, q => applicationsForGuild(q, actor, 'guild_ai_field'));
+  for (const items of [page.items, launchpad]) {
+    assert.deepEqual(items.map(item => item.application_key).sort(), ['synthetic-held', 'synthetic-unresolved']);
+    for (const item of items) assert.deepEqual(item.eligibility, r8UnavailableEligibility());
+  }
+  assert.ok(queries.every(sql => !/\b(positioning_profession_memberships|principals|tenants|tenant_memberships|tenant_capacity_policies|application_installations|resource_scopes|set_config)\b/.test(sql)), 'Unavailable releases must not query or bind tenant eligibility');
 });
