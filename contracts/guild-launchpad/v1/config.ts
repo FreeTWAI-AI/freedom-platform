@@ -50,6 +50,22 @@ export type LaunchpadBlock = {
   title: string | null;
 };
 export type ApplicationRef = {application_key: string; release_ref: string; order: number};
+
+/** Match release pairs in recommendation order without mutating either input. */
+export function recommendedApplications<T extends {application_key: string; release_ref: string}>(
+  refs: readonly ApplicationRef[], applications: readonly T[],
+): T[] {
+  const recommended: T[] = [];
+  const seen = new Set<string>();
+  for (const ref of [...refs].sort((a, b) => a.order - b.order)) {
+    const key = JSON.stringify([ref.application_key, ref.release_ref]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const app = applications.find(item => item.application_key === ref.application_key && item.release_ref === ref.release_ref);
+    if (app) recommended.push(app);
+  }
+  return recommended;
+}
 export type Config = {
   schema_version: typeof CONFIG_SCHEMA_VERSION;
   guild_key: string;
