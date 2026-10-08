@@ -2,11 +2,12 @@ import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } f
 import { hasLoneSurrogate, type Config } from '../../../../contracts/guild-launchpad/v1/config';
 import type { TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
 import type { WorkspaceModuleBindingView } from '../../../../contracts/guild-launchpad/v1/module-registry';
-import type { LaunchpadContext, Operation, ResultView, UploadView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
+import type { LaunchpadContext, Operation, ResultView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
 import { ApiError, type InstanceSelectionCandidate, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { TenantSelector } from './TenantSelector';
-import { getWorkResultText, putWorkResultContent, type ResultContentType } from './work-result-client';
+import { getWorkResultText, type ResultContentType } from './work-result-client';
+import { advanceWorkResultSave, workResultDigest as sha256Hex, type WorkResultSaveAttempt as SaveAttempt } from './work-result-save';
 import './GuildLaunchpadMyWork.css';
 
 const LEAVE = '有尚未儲存的內容，確定要離開嗎？';
@@ -27,21 +28,6 @@ const PROGRESS_LABEL = { todo: '待辦', in_progress: '進行中', done: '完成
 type Progress = keyof typeof PROGRESS_LABEL;
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
 type Choice = { kind: 'create_new' } | { kind: 'reuse'; instance_id: string; expected_version: string };
-type SavePhase = 'prepare' | 'put' | 'finalize' | 'confirm';
-type SaveAttempt = {
-  phase: SavePhase;
-  key: string;
-  bytes: Uint8Array;
-  sha256: string;
-  contentType: ResultContentType;
-  displayName: string;
-  expectedWorkVersion: string;
-  sourceText: string | null;
-  uploadId?: string;
-  uploadVersion?: string;
-  putVersion?: string;
-  resultId?: string;
-};
 type Call = { signal?: AbortSignal; live: () => boolean };
 
 // Same sessionStorage key TenantSettings writes. This screen also reads workspace_id.
@@ -86,10 +72,6 @@ function contentTypeFor(name: string): ResultContentType | null {
 function defaultNoteName(now = new Date()) {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `筆記-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.md`;
-}
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
-  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 function flagOff(error: ApiError) {
   return error.status === 404 && `${error.detail ?? ''} ${error.message}`.includes('尚未提供');
@@ -625,36 +607,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     let current = next;
     setBusy(true);
     try {
-      if (current.phase === 'prepare') {
-        setStage('上傳中…');
-        const operation = await client.post<Operation>(`/tenants/${tenantId}/works/${workId}/results/uploads`, {
-          content_type: current.contentType, byte_size: current.bytes.byteLength, sha256: current.sha256,
-          display_name: current.displayName, expected_work_version: current.expectedWorkVersion,
-        }, { idempotencyKey: current.key, signal: call.signal });
-        if (!call.live()) return;
-        current = { ...current, uploadId: operation.resource_ref.resource_id, phase: 'put' };
-        setAttempt(current);
-      }
-      if (current.phase === 'put') {
-        setStage('上傳中…');
-        if (!current.uploadVersion) {
-          const upload = await client.get<UploadView>(`/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}`, { signal: call.signal });
-          if (!call.live()) return;
-          current = { ...current, uploadVersion: upload.version };
-          setAttempt(current);
-        }
-        const verified = await putWorkResultContent(client, `/api/v1/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}/content`, current.bytes, current.contentType, current.uploadVersion!, current.key, call.signal);
-        if (!call.live()) return;
-        current = { ...current, putVersion: verified.version, phase: 'finalize' };
-        setAttempt(current);
-      }
-      if (current.phase === 'finalize') {
-        setStage('核對中…');
-        const operation = await client.post<Operation>(`/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}/finalize`, { expected_work_version: current.expectedWorkVersion }, { idempotencyKey: current.key, ifMatch: current.putVersion, signal: call.signal });
-        if (!call.live()) return;
-        current = { ...current, resultId: operation.resource_ref.resource_id, phase: 'confirm' };
-        setAttempt(current);
-      }
+      const advanced = await advanceWorkResultSave(client, { tenantId, workId }, current, call,
+        value => { current = value; setAttempt(value); }, setStage);
+      if (!advanced || !call.live()) return;
+      current = advanced;
       if (current.phase === 'confirm' && current.resultId) {
         const result = await client.get<ResultView>(`/tenants/${tenantId}/works/${workId}/results/${current.resultId}`, { signal: call.signal });
         if (!call.live()) return;
