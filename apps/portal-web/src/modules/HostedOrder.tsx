@@ -3,7 +3,7 @@ import {PublicStoreProjectionSchema, type PublicStoreProjection} from '../../../
 import {QuoteInputSchema, ReadinessSchema, type HostedOrder, type HostedOrderQuote} from '../../../../contracts/guild-launchpad/v1/hosted-order';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor} from '../format';
-import {buyerRoute, readOrder, readQuote, type BuyerAttempt, type BuyerRoute} from './hosted-order-state';
+import {buyerRoute, readOrder, readQuote, readCancelObservation, type BuyerAttempt, type BuyerRoute} from './hosted-order-state';
 import './HostedStore.css';
 
 const TERMS = '僅預留 30 分鐘，尚未付款，不會安排出貨。運費未設定，稅額未評估。';
@@ -63,10 +63,12 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         const attempt = held.current;
         const found = readOrder(raw, target, attempt?.kind === 'submit' ? attempt.body : undefined);
         if (!found) throw unreadable();
+        const cancellation = attempt?.kind === 'cancel' ? readCancelObservation(raw, attempt) : null;
+        if (attempt?.kind === 'cancel' && !cancellation) throw unreadable();
         if (current()) {
           setOrder(found);
           // An own read confirms submit, but cannot prove an in-flight cancel did not commit later.
-          if (attempt?.kind === 'submit' || attempt?.kind === 'cancel' && found.state !== 'reserved') clearAttempt();
+          if (attempt?.kind === 'submit' || cancellation?.confirmed === true) clearAttempt();
           dirty.current = false;
         }
       }
@@ -95,7 +97,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         clearAttempt(); setQuote(value); dirty.current = true; announce('請確認商品、數量與金額；目前尚未預留庫存。');
       } else {
         const value = readOrder(raw, attempt.kind === 'submit' ? {kind: 'intent', slug: attempt.slug, intent: attempt.body.client_order_id} : {kind: 'order', id: attempt.id}, attempt.kind === 'submit' ? attempt.body : undefined);
-        if (!value || attempt.kind === 'cancel' && (value.state === 'reserved' || value.client_order_id !== attempt.intent || value.store.slug !== attempt.slug)) throw unreadable();
+        if (!value || attempt.kind === 'cancel' && (readCancelObservation(raw, attempt)?.confirmed !== true)) throw unreadable();
         adoptOrder(value);
       }
     } catch (cause) {

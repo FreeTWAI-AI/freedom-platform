@@ -38,3 +38,9 @@ export function readOrder(raw: unknown, expected: Exclude<BuyerRoute, {kind: 'lo
   if (submit && (order.quote_id !== submit.quote_id || order.terms_sha256 !== submit.terms_sha256)) return null;
   return order;
 }
+/** A current reserved observation is useful, but is never cancellation acknowledgement. */
+export function readCancelObservation(raw: unknown, expected: {id: string; slug: string; intent: string}): {order: HostedOrder; confirmed: boolean} | null {
+  const order = readOrder(raw, {kind: 'order', id: expected.id});
+  if (!order || order.store.slug !== expected.slug || order.client_order_id !== expected.intent) return null;
+  return {order, confirmed: order.state === 'cancelled' || order.state === 'expired'};
+}

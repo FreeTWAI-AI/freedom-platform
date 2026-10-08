@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {buyerRoute, readOrder, readQuote} from '../../apps/portal-web/src/modules/hosted-order-state.js';
+import {buyerRoute, readOrder, readQuote, readCancelObservation} from '../../apps/portal-web/src/modules/hosted-order-state.js';
 import {storeHtml} from '../../modules/agent-commerce/hosted/page.js';
 import {HOSTED_ORDER_PROFILE} from '../../contracts/guild-launchpad/v1/hosted-order.js';
 const id = '12345678-1234-4234-8234-123456789abc', other = '23456789-1234-4234-8234-123456789abc';
@@ -38,4 +38,16 @@ test('public display links to member status without script, purchase action or p
   const html = storeHtml({slug: 'small-shop', name: '<小店>', brand: null, description: '展示', currency: 'TWD', products: [], revision: '1', published_at: '2026-10-08T12:00:00.000Z', transaction_state: 'not_enabled'});
   assert.match(html, /href="\/#reservations\/small-shop"/); assert.match(html, /登入查看預留狀態/);
   assert.match(html, /&lt;小店&gt;/); assert.doesNotMatch(html, /<script|<form|<button|購買|結帳|buyer_id|tenant_id|csrf/);
+});
+
+
+test('cancellation acknowledgement binds order, store and intent and requires a terminal state', () => {
+  const expected = {id, slug: 'small-shop', intent: id};
+  const cancelled = {...order, version: '2', state: 'cancelled', closed_at: '2026-10-08T12:01:00.000Z', close_reason: 'buyer_cancelled'};
+  assert.equal(readCancelObservation(cancelled, expected)?.confirmed, true);
+  assert.equal(readCancelObservation({...order, version: '2', state: 'expired', closed_at: order.reservation_expires_at, close_reason: 'reservation_expired'}, expected)?.confirmed, true);
+  // A canonical old reserved DTO can be displayed by GET but cannot clear a held cancel.
+  const observed = readCancelObservation(order, expected);
+  assert.equal(observed?.order.state, 'reserved'); assert.equal(observed?.confirmed, false);
+  for (const raw of [{}, {...cancelled, order_id: other}, {...cancelled, client_order_id: other}, {...cancelled, store: {...terms.store, slug: 'other-shop'}}]) assert.equal(readCancelObservation(raw, expected), null);
 });
