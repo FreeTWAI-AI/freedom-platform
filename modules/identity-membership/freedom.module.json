@@ -11,7 +11,11 @@
     "apps/portal-web/src/modules/avatar-client.ts",
     "tests/runtime/avatar.test.ts",
     "packages/testing/e2e-avatar-asset-fixture.ts",
-    "tests/e2e/member-avatar-asset.spec.ts"
+    "tests/e2e/member-avatar-asset.spec.ts",
+    "migrations/127_auth_prune_retained_sessions.sql",
+    "modules/identity-membership/auth-pruning.ts",
+    "tests/runtime/auth-pruning.test.ts",
+    "tests/worker/source-network.test.ts"
   ],
   "public_exports": [
     "modules/identity-membership/avatars.ts",
@@ -35,7 +39,8 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "runtime.avatar"
+    "runtime.avatar",
+    "runtime.full"
   ],
   "surfaces": [
     {
