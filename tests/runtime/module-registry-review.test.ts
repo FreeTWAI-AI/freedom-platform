@@ -6,6 +6,8 @@ import type { PoolClient } from 'pg';
 import { authenticate } from '../../modules/identity-membership/service.js';
 import { setMemberTier } from '../../modules/positioning/member-tier.js';
 import { launchApplication, advanceOperation, reconcileOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
+import { applicationsForGuild, browseApplications, loadOfferedDefinition, readPublicRelease } from '../../modules/module-registry/catalog.js';
+import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { effectDigest } from '../../modules/module-registry/providers.js';
 import type { Command } from '../../packages/db/index.js';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
@@ -1548,4 +1550,305 @@ test('r7 public release exposes an available reviewed guild offering without eli
   assert.equal(reply.data.eligibility, undefined);
   assert.equal(reply.response.headers.get('cache-control'), 'public, max-age=60');
   assert.equal(reply.response.headers.get('vary'), 'Cookie');
+});
+
+const R8_UNAVAILABLE_RELEASES = [
+  ['reviewed', 'reviewed'], ['retired', 'reviewed'],
+  ['reviewed', 'unresolved'], ['reviewed', 'blocked'],
+  ['retired', 'unresolved'], ['retired', 'blocked'],
+  ['available', 'unresolved'], ['available', 'blocked'],
+] as const;
+
+async function r8Definition(key: string, status: string, license: string) {
+  await h.pool.query(`INSERT INTO application_definitions(
+      application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+    SELECT $1,$2,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,$3,$4,customization_schema_ref,license_review_ref,version
+    FROM application_definitions WHERE application_key='manual-workspace'`, [key, `${key}@1.0.0`, license, status]);
+}
+
+async function r8Offering(key: string, communityId: string | null, guildKey: string | null,
+  policyVersion = '1', order = 20, id = randomUUID()) {
+  await h.pool.query(`INSERT INTO guild_application_offerings(
+      offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+    VALUES($1,$2,$3,$4,$5,'offered',$6,$7::jsonb,1)`,
+  [id, communityId, guildKey, key, `${key}@1.0.0`, order, JSON.stringify({policy_key: 'synthetic-catalog.launch', version: policyVersion})]);
+  return id;
+}
+
+function r8UnavailableEligibility(version = '1') {
+  return {can_launch: false, reason_codes: ['application_not_available'], required_guild_tier: 'full', tenant_action: 'denied', policy_revision: version};
+}
+
+async function r8Same404(path: string, session?: Session) {
+  const random = `synthetic-unknown-${randomUUID().replaceAll('-', '')}`;
+  const absent = await h.call('GET', `/applications/${random}/releases/${random}@1.0.0`, session);
+  const reply = await h.call('GET', path, session);
+  assert.equal(absent.status, 404, JSON.stringify(absent.data));
+  assert.equal(reply.status, absent.status, path);
+  assert.deepEqual(reply.data, absent.data, path);
+  for (const header of ['cache-control', 'vary', 'content-type']) {
+    assert.equal(reply.response.headers.get(header), absent.response.headers.get(header), `${path}: ${header}`);
+  }
+  assert.equal(reply.response.headers.get('cache-control'), session ? 'private, no-store' : 'no-store');
+  assert.equal(reply.response.headers.get('vary'), 'Cookie');
+}
+
+test('r8 member catalog and launchpad show unavailable releases with fixed eligibility and hide drafts', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  const keys: string[] = ['synthetic-held', 'synthetic-unresolved'];
+  for (const [status, license] of R8_UNAVAILABLE_RELEASES) {
+    const key = `synthetic-r8-${status}-${license}`;
+    await r8Definition(key, status, license);
+    await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3');
+    keys.push(key);
+  }
+  await r8Definition('synthetic-r8-draft', 'draft', 'reviewed');
+  await r8Offering('synthetic-r8-draft', DEMO_COMMUNITY, 'guild_ai_field');
+  const memberSequence: string[][] = [];
+  for (const path of ['/applications?guild_key=guild_ai_field&limit=100', '/guilds/guild_ai_field/launchpad']) {
+    const reply = await h.call('GET', path, owner);
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+    const items = reply.data.items ?? reply.data.applications;
+    assert.equal(items.find((item: {application_key: string}) => item.application_key === 'manual-workspace').eligibility.can_launch, true);
+    for (const key of keys) {
+      const matching = items.filter((item: {application_key: string}) => item.application_key === key);
+      assert.equal(matching.length, 1, `${path}: ${key}`);
+      assert.deepEqual(matching[0].eligibility, r8UnavailableEligibility(key.startsWith('synthetic-r8-') ? '3' : '1'));
+    }
+    assert.equal(items.some((item: {application_key: string}) => item.application_key === 'synthetic-r8-draft'), false);
+    memberSequence.push(items.map((item: {application_key: string; release_ref: string}) => `${item.application_key}|${item.release_ref}`));
+  }
+  assert.deepEqual(memberSequence[0], memberSequence[1]);
+  for (const session of [undefined, owner]) {
+    for (const path of ['/applications?limit=100', ...(session ? [] : ['/applications?guild_key=guild_ai_field&limit=100'])]) {
+      const reply = await h.call('GET', path, session);
+      assert.equal(reply.status, 200, JSON.stringify(reply.data));
+      assert.equal(reply.response.headers.get('cache-control'), 'public, max-age=60');
+      assert.ok(reply.data.items.every((item: {application_key: string; eligibility?: unknown}) => !keys.includes(item.application_key)
+        && item.application_key !== 'synthetic-r8-draft' && item.eligibility === undefined));
+    }
+  }
+  // Reading a card grants no new plan eligibility.
+  for (const key of keys) {
+    const plan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, key, `${key}@1.0.0`));
+    assert.equal(plan.status, 409, JSON.stringify(plan.data));
+    assert.ok(['license_unresolved', 'application_not_available'].includes(plan.data.code));
+  }
+  assert.equal(await h.count('module_launch_plans', 'WHERE tenant_id=$1', [tenantId]), 0);
+});
+
+for (const scope of ['platform', 'community', 'guild'] as const) {
+  test(`r8 member release detail exposes unavailable ${scope} offerings privately while anonymous stays hidden`, async () => {
+    const { owner } = await prepared();
+    for (const [status, license] of R8_UNAVAILABLE_RELEASES) {
+      const key = `synthetic-r8-${scope}-${status}-${license}`;
+      await r8Definition(key, status, license);
+      // A guild offering from another guild in the same community is visible in detail.
+      await r8Offering(key, scope === 'platform' ? null : DEMO_COMMUNITY, scope === 'guild' ? 'guild_commerce_sales' : null);
+      const path = `/applications/${key}/releases/${key}@1.0.0`;
+      const reply = await h.call('GET', path, owner);
+      assert.equal(reply.status, 200, JSON.stringify(reply.data));
+      assert.equal(reply.data.release_status, status);
+      assert.equal(reply.data.license_state, license);
+      assert.equal(reply.data.source_commit, WORK_CONTRACT_SOURCE_COMMIT);
+      assert.equal(reply.data.eligibility, undefined);
+      assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+      assert.equal(reply.response.headers.get('vary'), 'Cookie');
+      await r8Same404(path);
+    }
+  });
+}
+
+for (const hidden of ['draft', 'unoffered', 'withdrawn-only', 'foreign-only'] as const) {
+  test(`r8 member release detail hides ${hidden} identically to a nonexistent release`, async () => {
+    const { owner } = await prepared();
+    const key = `synthetic-r8-hidden-${hidden}`;
+    await r8Definition(key, hidden === 'draft' ? 'draft' : 'retired', 'blocked');
+    if (hidden !== 'unoffered') {
+      const communityId = hidden === 'foreign-only' ? await r7ForeignCommunity() : DEMO_COMMUNITY;
+      const offeringId = await r8Offering(key, communityId, 'guild_ai_field');
+      if (hidden === 'withdrawn-only') {
+        await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE offering_id=$1", [offeringId]);
+      }
+    }
+    const path = `/applications/${key}/releases/${key}@1.0.0`;
+    await r8Same404(path, owner);
+    await r8Same404(path);
+    for (const catalogPath of ['/applications?guild_key=guild_ai_field&limit=100', '/guilds/guild_ai_field/launchpad']) {
+      const reply = await h.call('GET', catalogPath, owner);
+      assert.equal(reply.status, 200, JSON.stringify(reply.data));
+      assert.ok((reply.data.items ?? reply.data.applications).every((item: {application_key: string}) => item.application_key !== key));
+    }
+  });
+}
+
+test('r8 launchable release detail stays public for anonymous and private for a signed-in caller across scopes', async () => {
+  const { owner } = await prepared();
+  await r7ForeignCommunity();
+  for (const key of ['manual-workspace', 'synthetic-scoped']) {
+    const path = `/applications/${key}/releases/${key}@1.0.0`;
+    const anonymous = await h.call('GET', path);
+    const signed = await h.call('GET', path, owner);
+    assert.equal(anonymous.status, 200, JSON.stringify(anonymous.data));
+    assert.equal(signed.status, 200, JSON.stringify(signed.data));
+    assert.deepEqual(signed.data, anonymous.data);
+    assert.equal(signed.data.eligibility, undefined);
+    assert.equal(signed.response.headers.get('cache-control'), 'private, no-store');
+    assert.equal(anonymous.response.headers.get('cache-control'), 'public, max-age=60');
+    assert.equal(signed.response.headers.get('vary'), 'Cookie');
+  }
+});
+
+test('r8 release detail treats an invalid session as anonymous and rechecks a signed-in session clock', async () => {
+  const { owner, actor } = await prepared();
+  const key = 'synthetic-r8-session';
+  await r8Definition(key, 'reviewed', 'unresolved');
+  await r8Offering(key, null, null);
+  const path = `/applications/${key}/releases/${key}@1.0.0`;
+  const invalid = await h.call('GET', path, undefined, undefined, {Cookie: 'freedom_local_session=synthetic-invalid'});
+  const absent = await h.call('GET', '/applications/synthetic-absent/releases/synthetic-absent@1.0.0');
+  assert.equal(invalid.status, 404);
+  assert.deepEqual(invalid.data, absent.data);
+  for (const header of ['cache-control', 'vary', 'content-type']) assert.equal(invalid.response.headers.get(header), absent.response.headers.get(header));
+  await h.pool.query("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1", [actor.session_hash]);
+  // The actor was authenticated before expiry; the read must make its final clock decision in the transaction.
+  await assert.rejects(() => readPublicRelease(h.pool, key, `${key}@1.0.0`, actor), {status: 401, code: 'session_expired'});
+  assert.equal((await h.call('GET', path, owner)).status, 404);
+});
+
+async function r8CatalogSequence(path: string, limit: number, session?: Session) {
+  const sequence: string[] = [];
+  let cursor: string | null = null;
+  const cursors = new Set<string>();
+  do {
+    const reply = await h.call('GET', `${path}${path.includes('?') ? '&' : '?'}limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, session);
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    for (const item of reply.data.items) sequence.push(`${item.application_key}|${item.release_ref}`);
+    cursor = reply.data.next_cursor;
+    if (cursor) {
+      assert.equal(cursors.has(cursor), false, 'Cursor did not advance');
+      cursors.add(cursor);
+    }
+  } while (cursor);
+  assert.equal(new Set(sequence).size, sequence.length, 'A release appeared on more than one page');
+  return sequence;
+}
+
+test('r8 catalog and launchpad deduplicate releases before sorting and keyset pagination', async () => {
+  const { owner } = await prepared();
+  const key = 'synthetic-r8-overlap';
+  await r8Definition(key, 'available', 'reviewed');
+  await r8Offering(key, null, null, '1', 1);
+  await r8Offering(key, DEMO_COMMUNITY, null, '2', 0);
+  await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 30, '00000000-0000-4000-8000-000000000003');
+  // Same display_order exercises offering_id as the last sorting key.
+  const beforeKey = 'synthetic-r8-before';
+  const afterKey = 'synthetic-r8-after';
+  await r8Definition(beforeKey, 'available', 'reviewed');
+  await r8Definition(afterKey, 'available', 'reviewed');
+  await r8Offering(beforeKey, DEMO_COMMUNITY, 'guild_ai_field', '1', 30, '00000000-0000-4000-8000-000000000001');
+  await r8Offering(afterKey, DEMO_COMMUNITY, 'guild_ai_field', '1', 31);
+  for (const session of [owner, undefined]) {
+    for (const path of ['/applications?guild_key=guild_ai_field', '/applications']) {
+      const single = await r8CatalogSequence(path, 100, session);
+      assert.equal(single.filter(ref => ref === `${key}|${key}@1.0.0`).length, 1);
+      assert.deepEqual(await r8CatalogSequence(path, 1, session), single);
+      if (path.includes('guild_key')) {
+        assert.ok(single.indexOf(`${key}|${key}@1.0.0`) > single.indexOf(`${beforeKey}|${beforeKey}@1.0.0`));
+        assert.ok(single.indexOf(`${key}|${key}@1.0.0`) < single.indexOf(`${afterKey}|${afterKey}@1.0.0`));
+      } else {
+        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`]);
+      }
+    }
+  }
+  const catalog = await r8CatalogSequence('/applications?guild_key=guild_ai_field', 100, owner);
+  const launchpad = await h.call('GET', '/guilds/guild_ai_field/launchpad', owner);
+  assert.equal(launchpad.status, 200, JSON.stringify(launchpad.data));
+  assert.deepEqual(launchpad.data.applications.map((item: {application_key: string; release_ref: string}) => `${item.application_key}|${item.release_ref}`), catalog);
+});
+
+test('r8 offering precedence agrees across catalog launchpad and launch definition after withdrawals', async () => {
+  const { owner } = await prepared();
+  const key = 'synthetic-r8-policy';
+  await r8Definition(key, 'available', 'reviewed');
+  const platform = await r8Offering(key, null, null, '1');
+  const community = await r8Offering(key, DEMO_COMMUNITY, null, '2');
+  const guild = await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3');
+  for (const [offeringId, version] of [[guild, '3'], [community, '2'], [platform, '1']]) {
+    for (const path of ['/applications?guild_key=guild_ai_field&limit=100', '/guilds/guild_ai_field/launchpad']) {
+      const reply = await h.call('GET', path, owner);
+      assert.equal(reply.status, 200, JSON.stringify(reply.data));
+      const matching = (reply.data.items ?? reply.data.applications).filter((item: {application_key: string}) => item.application_key === key);
+      assert.equal(matching.length, 1);
+      assert.equal(matching[0].eligibility.can_launch, true);
+      assert.equal(matching[0].eligibility.policy_revision, version);
+    }
+    const definition = await isolatedTransaction(h.pool, q => loadOfferedDefinition(q, 'guild_ai_field', key, `${key}@1.0.0`, DEMO_COMMUNITY));
+    assert.equal(definition.offering_id, offeringId);
+    assert.equal(definition.offering_policy.version, version);
+    await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE offering_id=$1", [offeringId]);
+  }
+});
+
+test('r8 anonymous guild winner uses offering ID across communities while member scope stays local', async () => {
+  const { owner } = await prepared();
+  const foreign = await r7ForeignCommunity();
+  const key = 'synthetic-r8-cross-community';
+  await r8Definition(key, 'available', 'reviewed');
+  await r8Offering(key, null, null, '1', 0);
+  await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 50, 'ffffffff-ffff-4fff-8fff-ffffffffffff');
+  await r8Offering(key, foreign, 'guild_ai_field', '9', 1, '00000000-0000-4000-8000-000000000002');
+  const anonymous = await r8CatalogSequence('/applications?guild_key=guild_ai_field', 100);
+  assert.equal(anonymous.indexOf(`${key}|${key}@1.0.0`), 1, 'Foreign guild winner sorts after platform default and before order-10 items');
+  const member = await h.call('GET', '/applications?guild_key=guild_ai_field&limit=100', owner);
+  assert.equal(member.status, 200, JSON.stringify(member.data));
+  assert.equal(member.data.items.at(-1).application_key, key);
+  assert.equal(member.data.items.at(-1).eligibility.policy_revision, '3');
+});
+
+test('r8 launch definition chooses guild then community then platform after withdrawals', async () => {
+  await prepared();
+  const key = 'synthetic-r8-definition';
+  await r8Definition(key, 'available', 'reviewed');
+  const platform = await r8Offering(key, null, null, '1');
+  const community = await r8Offering(key, DEMO_COMMUNITY, null, '2');
+  const guild = await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3');
+  for (const [offeringId, version] of [[guild, '3'], [community, '2'], [platform, '1']]) {
+    const definition = await isolatedTransaction(h.pool, q => loadOfferedDefinition(q, 'guild_ai_field', key, `${key}@1.0.0`, DEMO_COMMUNITY));
+    assert.equal(definition.offering_id, offeringId);
+    assert.equal(definition.offering_policy.version, version);
+    await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE offering_id=$1", [offeringId]);
+  }
+});
+
+test('r8 unavailable-only catalog and launchpad avoid membership and tenant eligibility queries', async () => {
+  const { actor } = await prepared();
+  await h.pool.query(`UPDATE guild_application_offerings SET status='withdrawn',version=version+1
+    WHERE application_key IN ('manual-workspace','synthetic-storefront') AND status='offered'`);
+  const queries: string[] = [];
+  const trackedPool = new Proxy(h.pool, {
+    get(pool, property) {
+      if (property !== 'connect') return Reflect.get(pool, property);
+      return async () => new Proxy(await pool.connect(), {
+        get(client, key) {
+          const value = Reflect.get(client, key);
+          if (key === 'query') return (...args: unknown[]) => {
+            if (typeof args[0] === 'string') queries.push(args[0]);
+            return Reflect.apply(value, client, args);
+          };
+          return typeof value === 'function' ? value.bind(client) : value;
+        },
+      });
+    },
+  });
+  const page = await browseApplications(trackedPool, {guildKey: 'guild_ai_field'}, actor);
+  const launchpad = await isolatedTransaction(trackedPool, q => applicationsForGuild(q, actor, 'guild_ai_field'));
+  for (const items of [page.items, launchpad]) {
+    assert.deepEqual(items.map(item => item.application_key).sort(), ['synthetic-held', 'synthetic-unresolved']);
+    for (const item of items) assert.deepEqual(item.eligibility, r8UnavailableEligibility());
+  }
+  assert.ok(queries.every(sql => !/\b(positioning_profession_memberships|principals|tenants|tenant_memberships|tenant_capacity_policies|application_installations|resource_scopes|set_config)\b/.test(sql)), 'Unavailable releases must not query or bind tenant eligibility');
 });
