@@ -104,8 +104,10 @@ export function createPublicModuleRegistryRoutes(pool: Pool, origin: string) {
   app.get('/api/v1/applications/:application_key/releases/:release_ref', async c => {
     c.header('Cache-Control', 'no-store');
     c.header('Vary', 'Cookie');
-    const result = await readPublicRelease(pool, c.req.param('application_key'), c.req.param('release_ref'));
-    publicCache(c);
+    const actor = await optionalActor(pool, readSessionCookie(c.req.header('Cookie'), origin));
+    if (actor) privateCache(c);
+    const result = await readPublicRelease(pool, c.req.param('application_key'), c.req.param('release_ref'), actor);
+    if (!actor) publicCache(c);
     return c.json(result);
   });
   return app;

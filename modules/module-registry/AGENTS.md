@@ -15,7 +15,7 @@
 - `contract_ref` is required on module instances. The launchpad context projection omits it and keeps the older status set.
 - Guild catalog keys are validated against `positioning_guild_catalog`. There is no category column and no community column on the catalog.
 - Every transaction in this module uses `isolatedTransaction`. Member commands and reads bind through `lockTenantScope`. The sweep binds one tenant scope at a time and never reads another tenant's operations in that transaction. Catalog eligibility binds the principal, then one managed tenant at a time, because installations are invisible until that tenant is bound. Do not import `transaction` from `packages/db` and do not call `pool.query(`.
-- Plan `policy_revision` is the capacity policy revision. Eligibility `policy_revision` is the offering `launch_policy_ref.version`.
+- Plan `policy_revision` is the capacity policy revision. Eligibility `policy_revision` is `launch_policy_ref.version` of the offered row chosen by guild, then community, then platform precedence, with `offering_id` as the final tie-break.
 
 - Suspend/resume take tenant and membership `FOR SHARE`, receipt advisory, instance `FOR NO KEY UPDATE`, then its current deployment `FOR NO KEY UPDATE`. Resume reads the active capacity policy unlocked before the instance; neither command takes a policy/dimension advisory (it would cycle with Work or launch). Suspend checks unfinished launch steps and installation links after the instance lock. Keep the revalidate capability hook for receipt replays. Do not use `setInstance`: lifecycle keeps the deployment suspended rather than retired. Neither installation status nor authority epoch changes.
 
