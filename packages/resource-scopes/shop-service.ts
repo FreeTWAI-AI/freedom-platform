@@ -45,12 +45,12 @@ export async function lockShopService(q:PoolClient,authorization:string|undefine
   typeof authorization==='string'&&/^Bearer fw_shop_[A-Za-z0-9_-]{43}$/.test(authorization)?'legacy':null;
  if(!version)invalid();
  const hash=createHash('sha256').update(authorization!.slice(7)).digest('hex');
- const owner=(await q.query('SELECT s.owner_id,s.community_id FROM commerce_shop_keys k JOIN commerce_shops s USING(shop_id) WHERE k.token_hash=$1',[hash])).rows[0];
+ const owner=(await q.query("SELECT s.owner_id,s.community_id FROM commerce_shop_keys k JOIN commerce_shops s USING(shop_id) WHERE s.origin='imported' AND k.token_hash=$1",[hash])).rows[0];
  if(!owner)invalid();
  const user=await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) FOR SHARE',[owner.owner_id,owner.community_id]);
  if(user.rowCount!==1)invalid();
  const row=(await q.query(`SELECT k.*,s.owner_id,s.community_id FROM commerce_shop_keys k JOIN commerce_shops s USING(shop_id)
-  WHERE k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() FOR SHARE OF k`,[hash])).rows[0];
+  WHERE s.origin='imported' AND k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() FOR SHARE OF k`,[hash])).rows[0];
  if(!row||row.owner_id!==owner.owner_id||row.community_id!==owner.community_id||!binding(row,host,version!))invalid();
  let principal:any,scope:any;
  if(version==='v2'){
@@ -66,7 +66,7 @@ export async function lockShopService(q:PoolClient,authorization:string|undefine
  // Preserve the existing commerce ordering lock before locking mutable shop
  // state, so a pause already holding that lock can finish its shop UPDATE.
  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`commerce-orders/${row.community_id}`]);
- const shop=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1 FOR SHARE',[row.shop_id])).rows[0];
+ const shop=(await q.query("SELECT * FROM commerce_shops WHERE origin='imported' AND shop_id=$1 FOR SHARE",[row.shop_id])).rows[0];
  if(!shop||shop.owner_id!==owner.owner_id||shop.community_id!==owner.community_id)invalid();
  const context:ShopContext=version==='v2'?Object.freeze({authn_kind:'shop_service_key',
   subject_principal:Object.freeze({principal_id:principal.principal_id,kind:'service' as const}),

@@ -43,14 +43,19 @@ export async function machine<T>(pool:Pool,host:ShopServiceHost,authorization:st
 }
 async function release(q:PoolClient,orderId:string){
  await q.query(`UPDATE commerce_items i SET reserved=reserved-x.quantity FROM
- (SELECT item_id,sum(quantity)::int AS quantity FROM commerce_order_lines WHERE order_id=$1 GROUP BY item_id)x WHERE i.item_id=x.item_id`,[orderId]);
+ (SELECT item_id,sum(quantity)::int AS quantity FROM commerce_order_lines WHERE order_id=$1 GROUP BY item_id)x WHERE i.item_id=x.item_id AND EXISTS(SELECT 1 FROM commerce_shops s WHERE s.shop_id=i.shop_id AND s.origin='imported')`,[orderId]);
 }
 async function expireOrders(q:PoolClient,community:string){
  const expired=(await q.query(`SELECT o.order_id FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id
-  WHERE s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=now() FOR UPDATE OF o`,[community])).rows;
+  WHERE s.origin='imported' AND s.community_id=$1 AND o.buyer_payment='pending' AND o.expires_at<=now() FOR UPDATE OF o`,[community])).rows;
  for(const o of expired){await release(q,o.order_id);await q.query("UPDATE commerce_orders SET buyer_payment='cancelled' WHERE order_id=$1",[o.order_id]);}
 }
+async function requireImportedShop(q:PoolClient,shop:any){
+ const found=await q.query("SELECT 1 FROM commerce_shops WHERE shop_id=$1 AND origin='imported'",[shop.shop_id]);
+ requireCondition(found.rowCount===1,404,'shop_not_found','找不到此商店。');
+}
 export async function createOrder(q:PoolClient,shop:any,raw:unknown){
+ await requireImportedShop(q,shop);
  requireCondition(shop.accepting_orders,409,'shop_paused','商店已暫停接單。');
  requireCondition(shop.kind==='public',403,'public_shop_required','只有公開商店可建立買家訂單。');
  const body=orderInput.parse(raw),hash=digest(body);
@@ -61,7 +66,7 @@ export async function createOrder(q:PoolClient,shop:any,raw:unknown){
  for(const line of body.items){
   const selected=(await q.query(`SELECT l.*,i.stock,i.reserved,s.shop_id AS internal_shop_id FROM commerce_selections l
    JOIN commerce_items i USING(item_id) JOIN commerce_shops s ON s.shop_id=i.shop_id JOIN users u ON u.user_id=s.owner_id
-   WHERE l.selection_id=$1 AND l.shop_id=$2 AND s.community_id=$3 AND s.accepting_orders AND s.mode=$4 AND u.active`,[line.selection_id,shop.shop_id,shop.community_id,shop.mode])).rows[0];
+   WHERE s.origin='imported' AND l.selection_id=$1 AND l.shop_id=$2 AND s.community_id=$3 AND s.accepting_orders AND s.mode=$4 AND u.active`,[line.selection_id,shop.shop_id,shop.community_id,shop.mode])).rows[0];
   requireCondition(selected,404,'selection_not_found','商品不可選購。');
   requireCondition(selected.stock-selected.reserved>=line.quantity,409,'out_of_stock','商品可供數量不足，請勿向買家收款。');
   requireCondition(selected.acceptance_state==='sellable'&&selected.current_acceptance_id&&selected.listing_sha256,409,'acceptance_required','供貨方尚未接受這一版實際售價，不能結帳。');
@@ -89,11 +94,12 @@ export async function createOrder(q:PoolClient,shop:any,raw:unknown){
  return orderView(q,shop,id);
 }
 export async function orderView(q:PoolClient,shop:any,id:string){
- const order=(await q.query(`SELECT o.*,s.name AS public_shop_name,s.website_url AS public_website_url,s.contact AS public_shop_contact FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id WHERE o.order_id=$1 AND
+ await requireImportedShop(q,shop);
+ const order=(await q.query(`SELECT o.*,s.name AS public_shop_name,s.website_url AS public_website_url,s.contact AS public_shop_contact FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id WHERE s.origin='imported' AND o.order_id=$1 AND
  (o.public_shop_id=$2 OR (o.buyer_payment IN ('reported_paid','reported_refunded') AND EXISTS(SELECT 1 FROM commerce_transfers t WHERE t.order_id=o.order_id AND t.internal_shop_id=$2)))`,[id,shop.shop_id])).rows[0];
  requireCondition(order,404,'order_not_found','找不到此商店的訂單。');
  const transfers=(await q.query(`SELECT t.*,s.website_url AS internal_website_url,s.name AS internal_shop_name FROM commerce_transfers t
- JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE t.order_id=$1${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[id,shop.shop_id]:[id])).rows;
+ JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE s.origin='imported' AND t.order_id=$1${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[id,shop.shop_id]:[id])).rows;
  for(const t of transfers)t.lines=(await q.query('SELECT selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=$1',[t.transfer_id])).rows;
  const payables=(await payablesForOrder(q,id)).filter(p=>transfers.some(t=>t.transfer_id===p.transfer_id));
  for(const t of transfers){const mine=payables.filter(p=>p.transfer_id===t.transfer_id);if(mine.length)t.supplier_payables=mine;}
@@ -106,6 +112,7 @@ export async function orderView(q:PoolClient,shop:any,id:string){
   mode:shop.mode,payment_evidence:'merchant_backend_report',platform_bank_verified:false,platform_collects_money:false,money_movement_enabled:false,settlement_mode:'record_only'};
 }
 export async function shopOrders(q:PoolClient,shop:any,offset=0){
+ await requireImportedShop(q,shop);
  const rows=(await q.query(`SELECT DISTINCT o.order_id,o.created_at FROM commerce_orders o LEFT JOIN commerce_transfers t USING(order_id)
  WHERE o.public_shop_id=$1 OR (t.internal_shop_id=$1 AND o.buyer_payment IN ('reported_paid','reported_refunded')) ORDER BY o.created_at DESC,o.order_id DESC LIMIT 100 OFFSET $2`,[shop.shop_id,offset])).rows;
  const result=[];for(const row of rows)result.push(await orderView(q,shop,row.order_id));return result;
@@ -114,6 +121,7 @@ export async function memberOrders(pool:Pool,actor:Actor,id:string){
  return transaction(pool,async q=>shopOrders(q,await ownShop(q,actor,id)));
 }
 export async function payment(q:PoolClient,shop:any,id:string,transferId:string|undefined,raw:unknown){
+ await requireImportedShop(q,shop);
  const body=paymentInput.parse(raw),hash=digest({id,transferId,body});
  const order=(await q.query('SELECT * FROM commerce_orders WHERE order_id=$1 FOR UPDATE',[id])).rows[0];
  requireCondition(order,404,'order_not_found','找不到訂單。');
@@ -147,6 +155,7 @@ export async function payment(q:PoolClient,shop:any,id:string,transferId:string|
  return orderView(q,shop,id);
 }
 export async function setPaymentUrl(q:PoolClient,shop:any,id:string,url:string){
+ await requireImportedShop(q,shop);
  httpsUrl.parse(url);
  requireCondition(new URL(url).origin===new URL(shop.website_url).origin,422,'payment_origin_mismatch','付款入口必須位於自己的商店，由商店後台產生金流交易。');
  const transfer=(await q.query(`SELECT t.* FROM commerce_transfers t JOIN commerce_orders o USING(order_id)
@@ -160,7 +169,7 @@ export async function recordShipment(pool:Pool,input:Command,id:string){
  return command(pool,input,async()=>{},async q=>{
   await lockCommunity(q,input.actor.community_id);
   const t=(await q.query(`SELECT t.*,o.buyer_payment FROM commerce_transfers t JOIN commerce_shops s ON s.shop_id=t.internal_shop_id JOIN commerce_orders o USING(order_id)
-   WHERE t.transfer_id=$1 AND s.owner_id=$2 AND s.community_id=$3`,[id,input.actor.user_id,input.actor.community_id])).rows[0];
+   WHERE s.origin='imported' AND t.transfer_id=$1 AND s.owner_id=$2 AND s.community_id=$3`,[id,input.actor.user_id,input.actor.community_id])).rows[0];
   requireCondition(t,404,'transfer_not_found','只有出貨方可以登記。');
   // Two merchant reports. record_only settlement is not a confirmed transfer and does not authorize platform fulfillment.
   requireCondition(t.payment_state==='reported_paid'&&t.buyer_payment==='reported_paid',409,'payment_required','兩筆付款都收到後才能登記出貨；退款訂單請另行處理。');
@@ -170,6 +179,7 @@ export async function recordShipment(pool:Pool,input:Command,id:string){
  });
 }
 export async function cancelOrder(q:PoolClient,shop:any,id:string){
+ await requireImportedShop(q,shop);
  const o=(await q.query('SELECT * FROM commerce_orders WHERE order_id=$1 AND public_shop_id=$2',[id,shop.shop_id])).rows[0];
  requireCondition(o,404,'order_not_found','找不到訂單。');
  if(o.buyer_payment==='cancelled')return {cancelled:true};
