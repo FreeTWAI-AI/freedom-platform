@@ -61,6 +61,14 @@ public/member/my/admin response分開，不用一個包含全部資料的JSON再
 
 非目標：新Agent平台、每人複製公會站、任意JS/SQL/plugin、把社群Work看板改為私有資料庫、以公版建立正式買家checkout、宣稱所有附件格式已支援。
 
+### 2.4 非商務製作企劃與版本工作台 v0
+
+`guild_commercial_production` 在同一 tenant Work 入口深化為「建立製作專案 → 結構化 brief／交付規格／鏡位 → 素材版本 → 交付清單／回饋 → 重新登入續作」。[內容格式與實作邊界](../../../../modules/guild-workspace/production-dossier.md) 的 `freedom.production-dossier/v1` 是既有私有 Markdown Result 的 typed profile；沒有新增 HTTP 契約、module release、project core 或 commerce/order，Work domain／instance／ACL 仍由 SP-10／04／02 負責。
+
+同 Work 的文字素材引用固定 Result ID、revision、digest；外部照片／影片只保存 HTTPS 位置與自填版本，原始媒體 bytes 不在此 v0。交付記錄凍結所選版本，回饋指向確切交付版本；自填負責人、使用權、交接和外部回饋不等於驗證身分、收到證明、客戶核准或公開發布。NP-M 原檔媒體與 NP-R 真正客戶核准維持獨立後續範圍，不阻擋普通私人文字 v0。
+
+所有 Result 共用 revision 序列，reader 驗原 bytes/digest 後按分頁辨識最新製作內容，且綁同一 Work source version；未知較新 profile／損壞／版本變動時保留原文與草稿並停用覆寫。Work 建立與首份 Result、附件保存與引用登記是分開命令，後一步失敗續用既有 ID；不宣稱原子完成。412 保留草稿供與伺服器比較。UI 將 instance 可寫狀態與會員當前 capability 分開，唯讀 viewer 不出現寫入入口，具明確同 instance Result 寫權的 operator 可保存製作版本。這些本機候選行為與部署／live 驗收證據分開。
+
 ## 3. 現有程式對照與 KEEP／MODIFY／NEW／GENERATED，精確到實際檔案
 
 | 動作 | 精確路徑 | 範圍／基線限制 |
