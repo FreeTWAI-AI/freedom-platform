@@ -18,6 +18,7 @@ import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import {FloatingMessages} from './modules/FloatingMessages'
 import './SocialLayout.css'
 import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
+const NotificationPreferencesPanel = lazy(() => import('./modules/NotificationPreferences').then(m => ({default: m.NotificationPreferencesPanel})))
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -292,7 +293,7 @@ function MemberApp() {
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    <GameConsoleProvider key={session.user.user_id+':'+session.csrf_token} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
@@ -704,7 +705,7 @@ function Workspace({
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
-          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+          <div className="topbar-actions community-account-tools"><NotificationBell key={session.user.user_id+':'+session.csrf_token} client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
@@ -726,7 +727,7 @@ function Workspace({
               />
             )}
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
-            {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'account' && <><AccountPanel client={client} session={session} onNavigate={selectTab} />{site?.notification_preferences_enabled===true&&<NotificationPreferencesPanel key={session.user.user_id+':'+session.csrf_token} client={client} followingEnabled={site.community_relations_enabled===true}/>}</>}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
             {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}

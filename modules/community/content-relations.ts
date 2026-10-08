@@ -56,7 +56,7 @@ export async function changeCommunityBookmark(pool: Pool, input: Command) {
   });
 }
 
-export async function listCommunityFollows(pool: Pool, actor: Actor): Promise<{ items: FollowItem[] }> {
+export async function listCommunityFollows(pool: Pool | PoolClient, actor: Actor): Promise<{ items: FollowItem[] }> {
   const rows = (await pool.query(`SELECT f.relation_id::text,f.target_kind AS kind,f.target_id AS id,
     CASE WHEN ${activeAuthor} THEN u.display_name ELSE NULL END AS label
     FROM community_content_follows f LEFT JOIN users u ON f.target_kind='author'
@@ -85,7 +85,7 @@ export async function changeCommunityFollow(pool: Pool, input: Command) {
   });
 }
 
-export async function listCommunityFollowUpdates(pool: Pool, actor: Actor, raw: Record<string, string | undefined>): Promise<CommunitySearchPage> {
+export async function listCommunityFollowUpdates(pool: Pool | PoolClient, actor: Actor, raw: Record<string, string | undefined>): Promise<CommunitySearchPage> {
   requireCondition(Object.keys(raw).every(key => key === 'cursor'), 422, 'validation_failed', '追蹤更新只接受分頁標記。');
   const { items } = await listCommunityFollows(pool, actor);
   const authorIds: string[] = [];

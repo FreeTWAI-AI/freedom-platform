@@ -133,6 +133,8 @@ const FOUNDATION_NAMES = [
   '135_community_content_relations.sql',
   // Existing showcases retain their original community publication semantics.
   '136_personal_content.sql',
+  // Personal reminder policy only; no inbox, read cursor, subscription or delivery writes.
+  '137_notification_preferences.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
