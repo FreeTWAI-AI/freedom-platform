@@ -287,11 +287,19 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
   const keys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const leaveGuard = useRef<(() => boolean) | null>(null);
-  const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
   const launchLeaveGuard = useRef<(() => boolean) | null>(null);
+  // Direction-card drafts share the existing accepted-location guard. Other guilds retain their current Work navigation.
+  const updateAppLeave = useCallback(() => {
+    registerPendingLeave?.(() => (!launchLeaveGuard.current || launchLeaveGuard.current())
+      && (guildKey !== 'guild_talent_direction' || !leaveGuard.current || leaveGuard.current()));
+  }, [guildKey, registerPendingLeave]);
+  const registerLeave = useCallback((guard: (() => boolean) | null) => {
+    leaveGuard.current = guard; updateAppLeave();
+  }, [updateAppLeave]);
   const registerLaunchLeave = useCallback((guard: (() => boolean) | null) => {
-    launchLeaveGuard.current = guard; registerPendingLeave?.(guard);
-  }, [registerPendingLeave]);
+    launchLeaveGuard.current = guard; updateAppLeave();
+  }, [updateAppLeave]);
+  useEffect(() => () => registerPendingLeave?.(null), [registerPendingLeave]);
   const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
