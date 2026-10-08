@@ -536,18 +536,6 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
-  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id' },
-  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/setup', body: { name: '商店', slug: 'matrix-shop', currency: 'TWD' } },
-  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id', body: { name: '更名' }, version: '"1"' },
-  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/slug-availability?slug=matrix-shop' },
-  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products' },
-  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products', body: { title: '商品', price_minor: 100 } },
-  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id', body: { title: '更名' }, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove', body: {}, version: '"1"' },
-  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview' },
-  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/publish', body: {}, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/unpublish', body: {}, version: '"1"' },
-
   { method: 'GET', path: '/tenants/:tenant_id' },
   { method: 'POST', path: '/tenants/:tenant_id/edit', body: { display_name: 'new name', public_slug: null }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/members' },
@@ -593,6 +581,17 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/invitations/:id/decline', body: {} },
   { method: 'POST', path: '/tenants/:tenant_id/invitations/:id/revoke', body: { reason: 'synthetic revoke' }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/leave', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/setup', body: { name: '商店', slug: 'matrix-shop', currency: 'TWD' } },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id', body: { name: '更名' }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/slug-availability?slug=matrix-shop' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products', body: { title: '商品', price_minor: 100 } },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id', body: { title: '更名' }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove', body: {}, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/publish', body: {}, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/unpublish', body: {}, version: '"1"' },
 ];
 
 test('T-022 Matrix route matching routeTable', () => {
@@ -1470,7 +1469,11 @@ test('T-022 7. Successful private reads and attachment headers', async () => {
   for (const [data, actor, other] of [[fixture.A, fixture.people.P, fixture.B], [fixture.B, fixture.people.N, fixture.A]] as const) {
     for (const route of routes.filter(r => r.method === 'GET')) {
       const reply = await execute(route, actor, ids(data, route));
-      assert.equal(reply.status, 200, `${route.path}: ${JSON.stringify(describe(reply))}`);
+      if (route.path.includes('/storefronts/')) {
+        // This fixture's instance is Work. Storefront endpoints must conceal it.
+        assert.equal(reply.status, 404, `${route.path}: ${JSON.stringify(describe(reply))}`);
+        assert.equal(reply.data.code, 'not_found');
+      } else assert.equal(reply.status, 200, `${route.path}: ${JSON.stringify(describe(reply))}`);
       scanForLeaks(reply, `7 ${route.path}`, other);
       if (route.path.endsWith('/module-binding')) {
         assert.equal(reply.data.tenant_id, data.tenantId);

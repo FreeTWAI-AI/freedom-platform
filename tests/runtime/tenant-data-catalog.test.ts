@@ -224,7 +224,7 @@ test('T-021 installed schema matches the frozen tenant data catalog', async () =
     q.release();
   }
   assert.equal(Object.isFrozen(TENANT_DATA_CATALOG), true);
-  assert.deepEqual(TENANT_DATA_CATALOG.datasets.map(dataset => dataset.dataset_key), ['DC-04', 'DC-06', 'DC-13', 'DC-14']);
+  assert.deepEqual(TENANT_DATA_CATALOG.datasets.map(dataset => dataset.dataset_key), ['DC-04', 'DC-06', 'DC-08', 'DC-13', 'DC-14']);
   const flags = (await pool.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
     `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
        FROM pg_catalog.pg_class c
