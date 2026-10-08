@@ -14,6 +14,10 @@ import { after, before, test } from 'node:test';
 import { Pool, Client, type PoolClient } from 'pg';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
+import { digest } from '../../packages/db/index.js';
+import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
+import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { createAssetMaintenance } from '../../modules/assets/maintenance.js';
 import { createR2ObjectStore, type AssetR2Binding } from '../../packages/asset-storage/r2.js';
@@ -129,7 +133,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
-  'commerce_resource_tenants',
+  'commerce_resource_tenants', 'commerce_order_quotes',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
@@ -148,6 +152,7 @@ interface Space {
   workId: string; resultId: string; invitationId: string; auditId: string; receiptKey: string;
   transitionId: string; eventId: string; policyId: string;
   object?: ResultObject;
+  hosted?: Awaited<ReturnType<typeof insertHostedQuote>>;
 }
 const people: { p1: Person; p2: Person; p3: Person } = {
   p1: { userId: '', principalId: '', personalScopeId: '' },
@@ -223,6 +228,60 @@ async function publishResult(q: PoolClient, space: Space, author: Person) {
   await q.query(`UPDATE asset_upload_intents SET state='finalized', finalized_at=clock_timestamp() WHERE intent_id=$1`, [intentId]);
 }
 
+/** Synthetic retained quote with real hosted identities and unchanged production constraints.
+ * This SQL fixture does not activate reservations or claim service admission. */
+async function insertHostedQuote(q: PoolClient, data: { tenantId: string; principalId: string; instanceId: string }, buyerPrincipalId = data.principalId) {
+  const instanceId = randomUUID(), bindingId = randomUUID(), supplyId = randomUUID(), shopId = randomUUID();
+  const itemId = randomUUID(), selectionId = randomUUID(), publicationId = randomUUID(), quoteId = randomUUID();
+  const slug = `s-${instanceId}`, name = 'Synthetic retained store', title = 'Synthetic retained item';
+  const inserted = await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,module_release_ref,
+      data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+    SELECT $1,$2,'storefront','hosted-store@1.0.0',d.release_ref,d.data_schema_version,d.contract_ref,'active',$3,$4,source_instance.origin_guild_key
+    FROM module_definitions d JOIN module_instances source_instance ON source_instance.instance_id=$5 AND source_instance.tenant_id=$2
+    WHERE d.module_key='storefront' AND d.release_ref='storefront@1.0.0'`,
+  [instanceId, data.tenantId, bindingId, data.principalId, data.instanceId]);
+  assert.equal(inserted.rowCount, 1);
+  await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,endpoint_ref,service_principal_id,contract_ref,state)
+    SELECT $1,$2,$3,'hosted','hosted-shared',NULL,NULL,contract_ref,'active'
+    FROM module_definitions WHERE module_key='storefront' AND release_ref='storefront@1.0.0'`, [bindingId, data.tenantId, instanceId]);
+  for (const [id, kind] of [[supplyId, 'internal'], [shopId, 'public']] as const) {
+    await q.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,origin,mode,accepting_orders,name,description,website_url,contact,currency,manifest_sha256)
+      SELECT $1,t.community_id,p.user_ref,$2,'hosted','test',false,$3,'','','','TWD',$4
+      FROM tenants t JOIN principals p ON p.principal_id=$5 WHERE t.tenant_id=$6`,
+    [id, kind, name, digest({ instanceId, kind }), data.principalId, data.tenantId]);
+    await q.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
+      VALUES('shop',$1,$2,$3,$4,'confirmed')`, [id, data.tenantId, instanceId, data.principalId]);
+  }
+  await q.query(`INSERT INTO commerce_storefront_profiles(instance_id,tenant_id,supply_shop_id,storefront_shop_id,slug,product_seq,created_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,1,$6)`, [instanceId, data.tenantId, supplyId, shopId, slug, data.principalId]);
+  const product = { sku: 'P0001', title, description: '', price_minor: 100, currency: 'TWD',
+    shipping_minor: 0, shipping_terms: '交易尚未啟用；運送方式尚未設定。', return_terms: '交易尚未啟用；退換貨規則尚未設定。' };
+  await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,stock,reserved,shipping_minor,shipping_terms,return_terms)
+    VALUES($1,$2,'P0001',$3,'',100,1,0,0,$4,$5)`, [itemId, supplyId, title, product.shipping_terms, product.return_terms]);
+  await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot)
+    VALUES($1,$2,$3,100,'交易尚未啟用。',$4)`, [selectionId, shopId, itemId, product]);
+  const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
+  const projection = PublicStoreProjectionSchema.parse({ slug, name, brand: null, description: '', currency: 'TWD',
+    products: [{ sku: 'P0001', title, description: '', price_minor: 100 }], revision: '1', published_at: now.toISOString(), transaction_state: 'not_enabled' });
+  await q.query(`INSERT INTO commerce_storefront_publications(publication_id,instance_id,tenant_id,revision,slug,projection,projection_sha256,published_by_principal_id,published_at)
+    VALUES($1,$2,$3,1,$4,$5,$6,$7,$8)`, [publicationId, instanceId, data.tenantId, slug, projection, projectionDigest(projection), data.principalId, now]);
+  await q.query(`UPDATE commerce_storefront_profiles SET current_publication_id=$2,first_published_at=$3,version=version+1 WHERE instance_id=$1`, [instanceId, publicationId, now]);
+  const bindings = [{ selection_id: selectionId, item_id: itemId, version: '1', sku: 'P0001', quantity: 1 }];
+  const terms = { profile: HOSTED_ORDER_PROFILE, store: { slug, name }, publication_revision: '1', currency: 'TWD',
+    items: [{ sku: 'P0001', title, quantity: 1, unit_price_minor: 100, line_total_minor: 100 }], merchandise_total_minor: 100,
+    amount_due_minor: null, shipping_state: 'not_configured', tax_state: 'not_assessed', payment_state: 'not_enabled',
+    payment_enabled: false, refund_enabled: false, fulfilment_enabled: false, money_movement_enabled: false };
+  const hash = digest({ terms, buyer: buyerPrincipalId, tenant_id: data.tenantId, instance_id: instanceId,
+    shop_id: shopId, publication_id: publicationId, bindings });
+  const quote = QuoteSchema.parse({ ...terms, terms_sha256: hash, quote_id: quoteId, quoted_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 300000).toISOString(), reserves_stock: false });
+  await q.query(`INSERT INTO commerce_order_quotes(quote_id,tenant_id,instance_id,public_shop_id,buyer_principal_id,publication_id,
+      terms,bindings,terms_sha256,quoted_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+  [quoteId, data.tenantId, instanceId, shopId, buyerPrincipalId, publicationId, quote, JSON.stringify(bindings), hash, now, quote.expires_at]);
+  assert.equal((await q.query('SELECT reservation_enabled FROM commerce_storefront_profiles WHERE instance_id=$1', [instanceId])).rows[0].reservation_enabled, false);
+  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
+}
+
 async function installSpace(space: Space, author: Person, invitee: Person) {
   const guild = (await owner.query<{ guild_key: string }>('SELECT guild_key FROM positioning_guild_catalog ORDER BY guild_key LIMIT 1')).rows[0].guild_key;
   const q = await owner.connect();
@@ -249,6 +308,7 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
       VALUES($1,'tenant_execution',$2,$3,NULL,NULL,$4,'Keep this note','draft',$5,$6,$7,$8,'todo',clock_timestamp(),NULL)`,
     [space.workId, space.scopeId, author.userId, `note-${space.tenantId}`, space.tenantId, space.instanceId, space.workspaceId, author.principalId]);
     await publishResult(q, space, author);
+    space.hosted = await insertHostedQuote(q, { ...space, principalId: author.principalId });
     await q.query(`INSERT INTO tenant_invitations(invitation_id,tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
       VALUES($1,$2,$3,'viewer','[]'::jsonb,clock_timestamp()+interval '3 days','pending',$4)`,
     [space.invitationId, space.tenantId, invitee.principalId, author.principalId]);
@@ -272,6 +332,7 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
 
 async function visible(q: PoolClient) {
   return {
+    quotes: await column(q, 'SELECT quote_id AS id FROM commerce_order_quotes'),
     verifications: await column(q, 'SELECT verification_id AS id FROM tenant_high_risk_verifications'),
     transfers: await column(q, 'SELECT transfer_id AS id FROM tenant_ownership_transfers'),
     recovery: await column(q, 'SELECT case_id AS id FROM tenant_recovery_cases'),
@@ -295,6 +356,7 @@ async function visible(q: PoolClient) {
 function pair(tenantId: string, principalId: string) { return `${tenantId}:${principalId}`; }
 function tenantSlice(space: Space) {
   return {
+    quotes: [space.hosted!.quoteId],
     verifications: [], transfers: [], recovery: [],
     tenants: [space.tenantId],
     memberships: space === spaces.a
@@ -303,8 +365,8 @@ function tenantSlice(space: Space) {
     invitations: [space.invitationId],
     workspaces: [space.workspaceId],
     audit: [space.auditId],
-    instances: [space.instanceId],
-    deployments: [space.bindingId],
+    instances: [space.instanceId, space.hosted!.instanceId].sort(),
+    deployments: [space.bindingId, space.hosted!.bindingId].sort(),
     bindings: [`${space.tenantId}:${space.workspaceId}`],
     results: [space.resultId],
     targets: [space.workId],
@@ -316,7 +378,7 @@ function tenantSlice(space: Space) {
   };
 }
 const personalOnly = () => ({
-  verifications: [], transfers: [], recovery: [],
+  quotes: [], verifications: [], transfers: [], recovery: [],
   tenants: [], memberships: [], invitations: [], workspaces: [], audit: [], instances: [], deployments: [],
   bindings: [], results: [], targets: [], capacity: [defaultPolicyId], work: [personalWorkId],
   receipts: [personalReceiptKey], journal: [personalTransitionId], outbox: [personalEventId],
@@ -324,10 +386,10 @@ const personalOnly = () => ({
 
 const EXPECTED: Record<string, number> = {
   tenants: 2, tenant_memberships: 3, tenant_invitations: 2, workspaces: 2,
-  tenant_authority_audit: 2, module_instances: 2, deployment_bindings: 2, workspace_module_bindings: 2,
+  tenant_authority_audit: 2, module_instances: 4, deployment_bindings: 4, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
-  tenant_module_permissions: 0, commerce_resource_tenants: 0,
+  tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2,
   tenant_work_results: 2, tenant_work_result_targets: 2, tenant_capacity_policies: 3,
   work_items: 3, scoped_command_receipts: 3, scoped_transition_journal: 3, scoped_outbox: 3,
   // This fixture inserts existing Work directly; no registry launch is performed.
@@ -591,6 +653,23 @@ test('J6-R3 sealed quarantine restore preserves tenant references, validated FKs
   for (const [table, column] of [['tenants', 'tenant_id'], ['work_items', 'tenant_id'], ['assets', 'tenant_ref']]) {
     assert.equal((await restoredPool.query(`SELECT count(*)::int n FROM ${table} WHERE ${column}=$1`, [spaces.c.tenantId])).rows[0].n, 0);
   }
+  // Retained A/B quotes, their exact buyer and terms survive the snapshot;
+  // C was created after snapshot export and must not enter this recovery set.
+  const quoteIds = [spaces.a.hosted!.quoteId, spaces.b.hosted!.quoteId].sort();
+  const quoteRows = async (pool: Pool) => (await pool.query(`SELECT * FROM commerce_order_quotes WHERE quote_id=ANY($1::uuid[]) ORDER BY quote_id`, [quoteIds])).rows;
+  const restoredQuotes = await quoteRows(restoredPool);
+  assert.equal(restoredQuotes.length, 2);
+  assert.deepEqual(restoredQuotes, await quoteRows(owner));
+  for (const space of [spaces.a, spaces.b]) {
+    const row = restoredQuotes.find(row => row.quote_id === space.hosted!.quoteId)!;
+    assert.equal(row.tenant_id, space.tenantId);
+    assert.equal(row.instance_id, space.hosted!.instanceId);
+    assert.equal(row.buyer_principal_id, space.hosted!.buyerPrincipalId);
+    assert.deepEqual(QuoteSchema.parse(row.terms), space.hosted!.quote);
+    assert.deepEqual(row.bindings, space.hosted!.bindings);
+  }
+  assert.equal((await restoredPool.query('SELECT 1 FROM commerce_order_quotes WHERE tenant_id=$1 OR quote_id=$2',
+    [spaces.c.tenantId, spaces.c.hosted!.quoteId])).rowCount, 0);
   const restoredKeys = await foreignKeys(restoredPool);
   assert(restoredKeys.length > 0); assert.deepEqual(restoredKeys, await foreignKeys(owner));
   for (const key of restoredKeys) assert.equal(key.convalidated, true);
@@ -646,6 +725,21 @@ test('J6-R4 lockdown precedes grants; one restored runtime connection cycles A, 
         }
       }
       assert.deepEqual(await visible(q), space ? tenantSlice(space) : personalOnly());
+    });
+  }
+});
+
+test('J6-R4 restored quote buyer visibility survives without granting another buyer access', async () => {
+  for (const [person, space, other] of [[people.p1, spaces.a, spaces.b], [people.p2, spaces.b, spaces.a]] as const) {
+    await isolatedTransaction(runtimePool, async q => {
+      assert.deepEqual(await column(q, 'SELECT quote_id AS id FROM commerce_order_quotes'), []);
+      await bindPrincipalContext(q, person.principalId);
+      assert.deepEqual(await column(q, 'SELECT quote_id AS id FROM commerce_order_quotes'), [space.hosted!.quoteId]);
+      assert.equal((await q.query('SELECT 1 FROM commerce_order_quotes WHERE quote_id=$1', [other.hosted!.quoteId])).rowCount, 0);
+      await q.query('SAVEPOINT immutable_quote');
+      await assert.rejects(q.query('UPDATE commerce_order_quotes SET terms=terms WHERE quote_id=$1', [space.hosted!.quoteId]),
+        (error: unknown) => (error as { code?: string }).code === '23514');
+      await q.query('ROLLBACK TO SAVEPOINT immutable_quote');
     });
   }
 });
