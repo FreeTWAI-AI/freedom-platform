@@ -186,7 +186,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
       {!view.writable && <p>{view.capabilities.some(key => key !== 'store:read') ? '這間商店目前暫停，無法修改。' : '你可以檢視這間商店，但不能修改。'}</p>}
       {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
-        <p>{publicationText}</p><p className="banner" role="note">{NOTICE}</p>
+        <p className="banner" role="note">{NOTICE}</p>
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
           {!products.length && <p>還沒有商品。新增第一件商品後就能發布。</p>}
