@@ -101,6 +101,16 @@ export class GitHubSocialProvider {
     if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
     return {id:String(parsed.data.id),login:parsed.data.login};
   }
+  async repositoryManager(repository:string,repositoryId:string,token:string):Promise<boolean>{
+    const parsed=z.object({
+      id:z.number().int().positive().safe(),full_name:z.string(),private:z.boolean(),archived:z.boolean(),
+      permissions:z.object({admin:z.boolean().optional(),maintain:z.boolean().optional()}).optional(),
+    }).safeParse((await this.request(`${API}/repos/${repository}`,{headers:{Authorization:`Bearer ${token}`}})).body);
+    if(!parsed.success)throw new GitHubProviderError('github_invalid_response');
+    const repo=parsed.data;
+    return String(repo.id)===repositoryId&&repo.full_name.toLowerCase()===repository.toLowerCase()
+      &&!repo.private&&!repo.archived&&(repo.permissions?.admin===true||repo.permissions?.maintain===true);
+  }
   async starred(repository:string,token:string):Promise<boolean>{
     const response=await this.request(`${API}/user/starred/${repository}`,{headers:{Authorization:`Bearer ${token}`}},[204,404]);return response.status===204;
   }
