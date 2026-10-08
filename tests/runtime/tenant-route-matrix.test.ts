@@ -988,7 +988,65 @@ test('T-022 4a. Same admin cursors reject tenant, workspace, caller and registry
     invalidCursor(`/tenants/${A.tenantId}/workspaces/${workspace.data.workspace_id}/works`, page.next_cursor, W));
 });
 
-// P-D1 adds test 4b for public application catalog cursors back here.
+test('T-022 4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow', async t => {
+  // A second platform offering makes every catalog list issue real cursors.
+  await owner.query(`INSERT INTO application_definitions(
+    application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
+    module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
+    release_status, customization_schema_ref, license_review_ref, version)
+    SELECT 'synthetic-public', 'synthetic-public@1.0.0', display_name, source_commit, artifact_digest, skill_book_refs,
+      module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
+      release_status, customization_schema_ref, license_review_ref, version
+    FROM application_definitions WHERE application_key='manual-workspace'`);
+  await owner.query(`INSERT INTO guild_application_offerings(offering_id, application_key, release_ref, status, display_order, launch_policy_ref, version)
+    SELECT $1, application_key, release_ref, 'offered', 20, launch_policy_ref, 1
+    FROM application_definitions WHERE application_key='synthetic-public'`, [randomUUID()]);
+  const { people: { P, N } } = fixture;
+  const guildPath = '/applications?guild_key=guild_ai_field';
+  const plain = await cursorPage('/applications?limit=1');
+  const guild = await cursorPage(`${guildPath}&limit=1`);
+  const member = await cursorPage(`${guildPath}&limit=1`, P);
+  assert.ok(plain.next_cursor && guild.next_cursor && member.next_cursor, 'Catalog did not mint a cursor');
+  const plainCursor = plain.next_cursor as string;
+  await t.test('catalog: no guild to guild', () => invalidCursor(guildPath, plainCursor));
+  await t.test('catalog: guild to no guild', () => invalidCursor('/applications', guild.next_cursor));
+  await t.test('catalog: unexpected cursor field', () => invalidCursor('/applications', changedCursor(plainCursor, { unexpected: true })));
+  await t.test('catalog: missing cursor field', async () => {
+    const missing = JSON.parse(Buffer.from(plainCursor, 'base64url').toString('utf8'));
+    delete missing.filter;
+    await invalidCursor('/applications', Buffer.from(JSON.stringify(missing)).toString('base64url'));
+  });
+  for (const [label, changes] of [
+    ['oversized order', { order: 99999999999 }],
+    ['negative order', { order: -1 }],
+    ['fractional order', { order: 0.5 }],
+    ['string order', { order: '1' }],
+    ['invalid platform', { platform: 2 }],
+    ['invalid id', { id: 'invalid' }],
+  ] as const) {
+    await t.test(`catalog: ${label}`, () => invalidCursor('/applications', changedCursor(plainCursor, changes)));
+  }
+  for (const [label, cursor] of [
+    ['bad base64', `${plainCursor}!`],
+    ['bad JSON', Buffer.from('{').toString('base64url')],
+    ['null envelope', Buffer.from('null').toString('base64url')],
+    ['array envelope', Buffer.from(`[${Buffer.from(plainCursor, 'base64url').toString('utf8')}]`).toString('base64url')],
+    ['scalar envelope', Buffer.from('1').toString('base64url')],
+    ['legacy overflow cursor', Buffer.from(`0\n99999999999\n${randomUUID()}`).toString('base64url')],
+  ]) {
+    await t.test(`catalog: ${label}`, () => invalidCursor('/applications', cursor));
+  }
+  await t.test('catalog: member to anonymous with the same guild', () => invalidCursor(guildPath, member.next_cursor));
+  await t.test('catalog: anonymous to member with the same guild', () => invalidCursor(guildPath, guild.next_cursor, P));
+  // No guild uses no community predicate; same-community members share a global guild list.
+  await t.test('catalog: no guild cursor works for a member', () =>
+    cursorPage(`/applications?cursor=${encodeURIComponent(plainCursor)}`, P));
+  await t.test('catalog: member cursor works for another member in the same community', () =>
+    cursorPage(`${guildPath}&cursor=${encodeURIComponent(member.next_cursor)}`, N));
+  await walkPages('/applications', undefined, 'release_ref');
+  await walkPages(guildPath, undefined, 'release_ref');
+  await walkPages(guildPath, P, 'release_ref');
+});
 
 test('T-022 4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
   const { B, people: { W } } = fixture;
