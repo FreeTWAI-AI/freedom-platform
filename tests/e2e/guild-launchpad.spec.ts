@@ -72,7 +72,9 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
     await expect(page.getByRole('heading', {level: 1, name: payload.guild.name})).toBeVisible();
     await expect(page.getByText(mission, {exact: true}).first()).toBeVisible();
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
-    await expect(page.getByText('登入並加入公會後，可以在這裡看到自己的工作。業務空間尚未在此環境啟用。')).toBeVisible();
+    const myWork = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
+    await expect(myWork.locator('p').filter({hasText: /^登入並加入公會後，可以在這裡看到自己的工作。$/})).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('業務空間尚未在此環境啟用');
     await expect(page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveCount(0);
     await noOverflow(page);
   } finally { await context.close(); }

@@ -146,7 +146,7 @@ function blockedReason(value: string): boolean {
 }
 
 export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter?: Config['starter'] | null}) {
-  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。業務空間尚未在此環境啟用。</p>;
+  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。</p>;
   return <div className="stack">
     <p>業務空間尚未在此環境啟用</p>
     <p>這個環境還沒有開啟公會業務空間，所以這裡不能建立或保存工作。</p>
