@@ -18769,8 +18769,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 47677,
-      "sha256": "3fd40cd86eed303954d772018c027bbc9238eebdfb3d806f7ba88778c211c016"
+      "bytes": 47826,
+      "sha256": "fb3a9a32c420f559567f560ada44ce85c2a432c09f75d7c73fa3e40a8f3383e9"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",
