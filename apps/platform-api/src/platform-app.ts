@@ -1,3 +1,4 @@
+import { createHostedStoreRoutes, createPublicHostedStoreRoutes } from './routes/hosted-store.js';
 import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
@@ -320,7 +321,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
-  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool,origin));
+  if(runtime.guildLaunchpadEnabled===true){
+    app.route('/',createPublicModuleRegistryRoutes(pool,origin));
+    app.route('/',createPublicHostedStoreRoutes(pool));
+  }
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
@@ -386,6 +390,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/api/v1',createTenantWorkspaceRoutes(pool));
     app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore));
+    app.route('/api/v1',createHostedStoreRoutes(pool));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.
   for(const prefix of ['/api/*','/client-api/*','/agent-api/*','/development-agent/*','/shop-api/*'])app.all(prefix,c=>c.json({type:'about:blank',title:'Not found',status:404,code:'not_found',detail:'此版本尚未提供這個 API。'},404));
