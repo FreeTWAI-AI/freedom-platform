@@ -773,6 +773,7 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(value.split('?')[0]==='community-search')return 'community-search'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
+  if(value.startsWith('showcase/'))return 'showcase'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'

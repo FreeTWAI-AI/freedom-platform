@@ -145,3 +145,22 @@ test('bookmark cursor traverses more than one page exactly once and ignores anot
   if(unauthorized.status===200)assert.deepEqual((await unauthorized.json() as any).items,[]);
   else assert.equal(unauthorized.status,422);
 });
+
+test('ordinary community showcases are searchable and bookmarkable only within their original audience', async () => {
+  const owner=await member(2);
+  const id=randomUUID();
+  await pool.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,public_url) VALUES($1,$2,$3,'一般作品分享253','會員作品摘要','artifact:relations253',NULL)`,[id,DEMO_COMMUNITY,DEMO_USERS[2].user_id]);
+  const query=origin+'/api/v1/community-search?kinds=work&q='+encodeURIComponent('一般作品分享253');
+  assert.deepEqual((await (await app.request(query)).json() as any).items,[]);
+  const visible=await (await app.request(query,{headers:owner.headers})).json() as any;
+  assert.deepEqual(visible.items.map((item:any)=>item.id),[id]);
+  assert.equal(visible.items[0].path,`#showcase/${id}`);
+  const saved=await owner.post('bookmarks',{kind:'work',id,selected:true});
+  assert.equal(saved.status,200,await saved.clone().text());
+  const tagged=await app.request(origin+'/api/v1/community-search/topics',{method:'POST',headers:{...owner.headers,'Idempotency-Key':randomUUID()},body:JSON.stringify({kind:'work',id,topics:['showcase']})});
+  assert.equal(tagged.status,200,await tagged.clone().text());
+  const filtered=await (await app.request(query+'&topics=showcase',{headers:owner.headers})).json() as any;
+  assert.deepEqual(filtered.items.map((item:any)=>item.id),[id]);
+  const bookmarks=await (await owner.get('bookmarks')).json() as any;
+  assert.equal(bookmarks.items.find((item:any)=>item.id===id).content.title,'一般作品分享253');
+});

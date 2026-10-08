@@ -54,7 +54,7 @@ function after(row: Row, cursor: { sort: string; kind: string; id: string } | nu
 function compare(left: Row, right: Row) {
   return right.sort_key.localeCompare(left.sort_key) || left.kind.localeCompare(right.kind) || left.id.localeCompare(right.id);
 }
-const cursorSql = (sort: string, kind: Kind) => { const id = kind === 'event' ? 'e.event_id' : kind === 'post' ? 'p.post_id' : 's.submission_id'; return `($3::text IS NULL OR ${sort} < $3 OR (${sort} = $3 AND '${kind}' > $4) OR (${sort} = $3 AND '${kind}' = $4 AND ${id}::text > $5))`; };
+const cursorSql = (sort: string, kind: Kind, id = kind === 'event' ? 'e.event_id' : kind === 'post' ? 'p.post_id' : 's.submission_id') => `($3::text IS NULL OR ${sort} < $3 OR (${sort} = $3 AND '${kind}' > $4) OR (${sort} = $3 AND '${kind}' = $4 AND ${id}::text > $5))`;
 const topicSql = (kind: Kind, id: string) => `(cardinality($6::text[]) = 0 OR EXISTS (SELECT 1 FROM community_content_topic_sets tags WHERE tags.content_kind='${kind}' AND tags.content_id=${id} AND tags.topics && $6::text[]))`;
 const textSql = (columns: string[]) => `($1 = '' OR ${columns.map(column => `${column} ILIKE $2 ESCAPE '\\'`).join(' OR ')})`;
 
@@ -72,6 +72,7 @@ export async function searchCommunityContent(pool: SearchDatabase, actor: Actor 
   if (selected.includes('event')) found.push(...await eventRows(pool, actor, text, cursor, topics, limit + 1, filter));
   if (selected.includes('post') && actor) found.push(...await postRows(pool, actor, text, cursor, topics, limit + 1, filter));
   if (selected.includes('work')) found.push(...await workRows(pool, actor, text, cursor, topics, limit + 1, filter));
+  if (selected.includes('work') && actor) found.push(...await showcaseRows(pool, actor, text, cursor, topics, limit + 1, filter));
   if (selected.includes('skill_book')) found.push(...await bookRows(pool, text, cursor, topics, limit + 1, filter));
   const page = found.filter(row => after(row, cursor)).sort(compare).slice(0, limit);
   const last = page.at(-1);
@@ -137,6 +138,21 @@ async function workRows(pool: SearchDatabase, actor: Actor | null, text: string,
     ORDER BY s.published_at DESC,s.submission_id LIMIT $7`;
   return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, catalogRepositoryKeys, actor?.community_id ?? null, ...relationValues(filter, 'work'), actor?.community_id ?? null])).rows as Row[];
 }
+async function showcaseRows(pool: SearchDatabase, actor: Actor, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+  const sort = sortOf('s.created_at');
+  const sql = `SELECT 'work' AS kind,s.showcase_id::text AS id,s.title,left(s.description,180) AS summary,
+    '#showcase/' || s.showcase_id::text AS path,u.display_name AS label,NULL::text AS media_path,
+    CASE WHEN u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) THEN u.user_id::text ELSE NULL END AS author_id,
+    COALESCE(tags.topics,'{}'::text[]) AS topics,${sort} AS sort_key
+    FROM showcases s JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
+    LEFT JOIN community_content_topic_sets tags ON tags.content_kind='work' AND tags.content_id=s.showcase_id::text
+    WHERE s.community_id=$8::uuid AND (s.owner_ref=$9::uuid OR NOT is_verification_test_account(s.owner_ref))
+      AND ${textSql(['s.title', 's.description'])} AND ${topicSql('work', 's.showcase_id::text')}
+      AND ${cursorSql(sort, 'work', 's.showcase_id')} AND ${relationSql('work', 's.showcase_id', 's.owner_ref')}
+    ORDER BY s.created_at DESC,s.showcase_id LIMIT $7`;
+  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor.community_id, actor.user_id, ...relationValues(filter, 'work'), actor.community_id])).rows as Row[];
+}
+
 
 async function bookRows(pool: SearchDatabase, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
   const editorial: Record<string, string> = Object.fromEntries((await pool.query('SELECT book_id,summary FROM skill_book_editorial')).rows.map(row => [String(row.book_id), String(row.summary)]));
@@ -168,6 +184,7 @@ async function owned(q: PoolClient, actor: Actor, kind: Kind, id: string) {
     return;
   }
   requireCondition(z.uuid().safeParse(id).success, 404, 'not_found', '找不到這份內容。');
+  if (kind === 'work' && (await q.query(`SELECT 1 FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND owner_ref=$3 FOR SHARE`, [id, actor.community_id, actor.user_id])).rowCount === 1) return;
   const sql = kind === 'post'
     ? `SELECT 1 FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND author_user_id=$3 AND state='active'`
     : kind === 'work'
@@ -200,7 +217,12 @@ export async function listTaggableContent(pool: Pool, actor: Actor) {
   const tag = (kind: Kind, id: string) => { const row = topics.get(`${kind}:${id}`); return { topics: (row?.topics ?? []) as string[], aggregate_version: row ? Number(row.aggregate_version) : null }; };
   const [posts, works, events, books] = await Promise.all([
     pool.query(`SELECT post_id::text AS id,title FROM community_social_posts WHERE community_id=$1 AND author_user_id=$2 AND state='active' ORDER BY created_at DESC,post_id LIMIT 20`, [actor.community_id, actor.user_id]),
-    pool.query(`SELECT submission_id::text AS id,payload->>'title' AS title FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published' ORDER BY published_at DESC,submission_id LIMIT 20`, [actor.community_id, actor.user_id]),
+    pool.query(`SELECT id,title FROM (
+      SELECT submission_id::text AS id,payload->>'title' AS title,published_at AS created_at
+      FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published'
+      UNION ALL
+      SELECT showcase_id::text AS id,title,created_at FROM showcases WHERE community_id=$1 AND owner_ref=$2
+    ) owned_works ORDER BY created_at DESC,id LIMIT 20`, [actor.community_id, actor.user_id]),
     pool.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]),
     pool.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active ORDER BY book_id LIMIT 20`, [actor.community_id, actor.user_id]),
   ]);

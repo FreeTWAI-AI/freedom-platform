@@ -64,8 +64,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 21024,
-      "sha256": "602afd6411f038fb0c1ee4e7693f7c1f4b256828c705dd22f69a658eba74f1b3"
+      "bytes": 21051,
+      "sha256": "29c488f76a59f466ec33ee567a8747bc9b685ac5c382313f0d252a7972ab136a"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -1549,8 +1549,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 50583,
-      "sha256": "67568ffd658b6e004465d646efd8f4133376c005d6e3b8095be8244a1c6586bd"
+      "bytes": 50636,
+      "sha256": "3506bbb977571017ed20742d1f5b2283d384ee3e5854eb70a5448a8928a4980e"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2329,8 +2329,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 15461,
-      "sha256": "b43efa792939e11b5b736fadf3983cc4c9573bffb5b5a8b9466019786156a4c6"
+      "bytes": 16004,
+      "sha256": "5118316740ff88d9663040659cc06b047215189a7bdfe8ecba4fd723778f581b"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
@@ -16509,8 +16509,8 @@
     },
     {
       "path": "modules/community/content-search.ts",
-      "bytes": 18662,
-      "sha256": "2206ca1b00af951990e508a3bff91fd5f4c195b7ab459b1858a80ef0c7abeb0f"
+      "bytes": 20640,
+      "sha256": "4122fba56da4e041d150d075b8bd5c6ed2b9201fee904efbd246a7e726583a26"
     },
     {
       "path": "modules/community/discovery.ts",
@@ -19899,8 +19899,8 @@
     },
     {
       "path": "tests/runtime/community-relations.test.ts",
-      "bytes": 12350,
-      "sha256": "c3b965831a5f36e0e89a4e98b5a407c585a0f4c6e8ebf77d38c7fd6a11614b80"
+      "bytes": 13936,
+      "sha256": "c865d3a3f6ef7e36d341f9d48b572110fc57cad5ff8f46be953cbdac24875384"
     },
     {
       "path": "tests/runtime/community-search.test.ts",
