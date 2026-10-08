@@ -64,8 +64,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28900,
-      "sha256": "7fb10e37091bdfd5947a4ede41cb135bc1f57c4a4ed1331a9bb81626e9861c62"
+      "bytes": 29225,
+      "sha256": "f29f1823edd15c290b607e9f33ffe867b6433b8f0d8bc8d02c90c6a148e10671"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13256,6 +13256,11 @@
       "path": "docs/development/community-author-skills.md",
       "bytes": 8889,
       "sha256": "ebbf399c846712d6d9456754c16966fc63905133fbf2ed3ef4c4d83045f9672a"
+    },
+    {
+      "path": "docs/development/community-curation-handoff.md",
+      "bytes": 7789,
+      "sha256": "3976c69f653e6c5397313dd060344ad15095eb0cc618d7838d638f864f380d0f"
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
