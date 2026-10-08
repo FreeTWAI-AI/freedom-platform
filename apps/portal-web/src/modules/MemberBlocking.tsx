@@ -65,7 +65,7 @@ export function BlockedMembers({client}:{client:PortalClient}){
     {notice&&<p className="banner status-note" role="status">{notice}</p>}
     {page&&!page.items.length&&<p>這一頁沒有封鎖的會員。</p>}
     {page?.items.map(item=><div className="card stack" key={item.user_id} style={{minWidth:0,overflowWrap:'anywhere'}}><strong>{item.nickname??'目前無法使用的會員'}</strong><p className="field-hint">封鎖於 {new Date(item.blocked_at).toLocaleString('zh-TW')}</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={()=>{setBlockingTargets(value=>value.includes(item.user_id)?value:[...value,item.user_id]);setBlockingTarget(item.user_id);}}>封鎖設定</button></div></div>)}
-    {blockingTargets.map(id=><div key={id} hidden={blockingTarget!==id}><MemberBlockingAction client={client} userId={id} nickname={page?.items.find(item=>item.user_id===id)?.nickname??'目前無法使用的會員'} active={blockingTarget===id} onDismiss={()=>setBlockingTarget(null)} onChanged={()=>{setNotice('封鎖設定已保存；解除封鎖不會恢復好友關係。');return load();}}/></div>)}
+    {blockingTargets.map(id=><div key={id} hidden={blockingTarget!==id}><MemberBlockingAction client={client} userId={id} nickname={page?.items.find(item=>item.user_id===id)?.nickname??'這位會員'} active={blockingTarget===id} onDismiss={()=>setBlockingTarget(null)} onChanged={()=>{setNotice('封鎖設定已保存；解除封鎖不會恢復好友關係。');return load();}}/></div>)}
     <div className="actions">{offset>0&&<button type="button" className="btn btn-ghost" disabled={loading} onClick={()=>setOffset(value=>Math.max(0,value-20))}>上一頁封鎖名單</button>}{page?.next_offset!=null&&<button type="button" className="btn btn-ghost" disabled={loading} onClick={()=>setOffset(page.next_offset!)}>下一頁封鎖名單</button>}</div>
   </section>;
 }

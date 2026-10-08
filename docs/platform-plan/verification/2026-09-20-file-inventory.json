@@ -2099,8 +2099,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberBlocking.tsx",
-      "bytes": 8408,
-      "sha256": "12350e5c5204d4e11857228b8eaa2a04ab8911daf9024bb0eb89bd318a6d143b"
+      "bytes": 8393,
+      "sha256": "b96b8aae9f8b0277442c24deba3133421596e7cf1d82f2ca828ae91f9dec7b37"
     },
     {
       "path": "apps/portal-web/src/modules/MemberCardDownload.tsx",
