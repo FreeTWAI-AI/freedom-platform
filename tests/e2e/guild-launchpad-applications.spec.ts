@@ -517,3 +517,36 @@ test('restore opens the newest readable row and removes only unavailable termina
   const rows=JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId));
   expect(rows).toHaveLength(2); expect(rows[0]).toEqual(old);
 });
+
+test('archived-only tenant shows an empty workspace sentence without registry requests', async ({page,e2eAuthPool},testInfo) => {
+  await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'等待工作區空間',workspace_name:'已封存區'});
+  await e2eAuthPool.query("UPDATE workspaces SET status='archived',version=version+1 WHERE workspace_id=$1",[made.workspace.workspace_id]);
+  const registry:string[]=[];
+  page.on('request',request=>{const path=new URL(request.url()).pathname; if(path.startsWith(`/api/v1/tenants/${made.tenant.tenant_id}/`) && /\/(application-installations|module-instances|application-launch-plans)(\/|$)/.test(path)) registry.push(path);});
+  await open(page); await begin(page);
+  const sentence=flow(page).getByText('這個業務空間還沒有可用的工作區，請先到業務空間頁建立。',{exact:true});
+  await expect(sentence).toBeVisible(); await expect(sentence).toHaveJSProperty('tagName','P');
+  await expect(sentence.locator('..').locator(':scope > .application-actions').getByRole('link',{name:'前往業務空間',exact:true})).toHaveAttribute('href','#business');
+  await expect(flow(page).getByRole('group',{name:'工作區',exact:true})).toHaveCount(0);
+  await expect(flow(page).getByText('正在載入工作區…',{exact:true})).toHaveCount(0);
+  await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toHaveCount(0);
+  await capture(page,testInfo,'empty-workspace');
+  expect(registry).toEqual([]);
+});
+
+test('business link from an empty workspace preserves unsaved My Work when leaving is declined', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page);
+  const b=await post(page,'/tenants',{display_name:'保留草稿空間',workspace_name:'草稿區'});
+  const a=await post(page,'/tenants',{display_name:'尚無工作區空間',workspace_name:'已封存區'});
+  await launchApi(page,b.tenant.tenant_id,b.workspace.workspace_id);
+  await e2eAuthPool.query("UPDATE workspaces SET status='archived',version=version+1 WHERE workspace_id=$1",[a.workspace.workspace_id]);
+  await page.evaluate(({userId,b})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:b.tenant.tenant_id,workspace_id:b.workspace.workspace_id})),{userId,b});
+  await open(page); const title=page.locator('.my-work').locator('#my-work-title');
+  await expect(title).toBeVisible(); await title.fill('離開前仍需保留的工作');
+  await begin(page); await flow(page).getByRole('button',{name:'尚無工作區空間・擁有者',exact:true}).click();
+  const link=flow(page).getByRole('link',{name:'前往業務空間',exact:true}); await expect(link).toBeVisible();
+  page.once('dialog',dialog=>{expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});
+  await link.click(); await expect(page).toHaveURL(new RegExp(`#guilds/${GUILD}$`));
+  await expect(flow(page)).toBeVisible(); await expect(title).toHaveValue('離開前仍需保留的工作');
+  page.once('dialog',dialog=>void dialog.accept()); await link.click(); await expect(page).toHaveURL(/#business$/);
+});

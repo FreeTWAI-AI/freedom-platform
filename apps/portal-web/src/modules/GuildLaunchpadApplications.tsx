@@ -26,8 +26,8 @@ export function applicationStatus(app: ApplicationView): string {
 }
 type Release = z.infer<typeof ApplicationReleaseViewSchema>;
 
-export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork}: {
-  client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; onWork?: (tenantId: string, workspaceId: string) => boolean;
+export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, canLeave}: {
+  client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean;
 }) {
   const [items, setItems] = useState<ApplicationView[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
           {!publicMode && <button type="button" className="btn btn-ghost" disabled={!app.eligibility?.can_launch} onClick={event => { opener.current = event.currentTarget; setLaunch(app); }}>啟動應用</button>}
         </div>
         {!publicMode && app.eligibility?.reason_codes.map(code => <p key={code} className="field-hint">{visitor && code === 'guild_full_member_required' ? '先加入這個公會，才能啟動應用。' : REASONS[code]}</p>)}
-        {!publicMode && app.eligibility?.reason_codes.includes('tenant_manage_required') && <a className="btn btn-ghost" href="#business">建立或選擇業務空間</a>}
+        {!publicMode && app.eligibility?.reason_codes.includes('tenant_manage_required') && <a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a>}
         {openDetail === key && detail && <section className="stack" aria-label={`${app.display_name}版本資料`}>
           <p>來源提交：<code>{detail.source_commit.slice(0, 12)}</code></p>
           <p>成品摘要：<code>{detail.artifact_digest.value.slice(0, 12)}</code></p>
@@ -144,7 +144,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。</p>
       <div className="application-actions"><button type="button" className="btn btn-ghost" onClick={() => { storeLaunch(userId!, guildKey, row, true); setUnavailable(old => old.filter(item => item.key !== row.key)); }}>不再追蹤</button></div>
     </div>)}
-    {launch && userId && <LaunchFlow key={`${launch.application_key}:${launch.release_ref}`} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} restoredRow={restoredRow}/>}
+    {launch && userId && <LaunchFlow key={`${launch.application_key}:${launch.release_ref}`} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} canLeave={canLeave} restoredRow={restoredRow}/>}
     {cursor && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(cursor)}>載入更多</button>}
     {publicMode && items.length > 0 && <p>登入後可確認啟動資格。{onLogin && <button type="button" className="btn btn-ghost" onClick={onLogin}>登入查看資格</button>}</p>}
   </div>;
@@ -278,8 +278,8 @@ function dependencyWords(choice: Dependency) {
     : `共用既有的${moduleWord(choice.requirement_key)}（ID 尾碼 ${choice.instance_id.slice(-6)}，版本 ${choice.expected_version}）`;
 }
 
-function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow}: {
-  client: PortalClient; guildKey: string; userId: string; app: ApplicationView; onClose: () => void; onWork?: (tenantId: string, workspaceId: string) => boolean; restoredRow?: SavedLaunch;
+function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, restoredRow}: {
+  client: PortalClient; guildKey: string; userId: string; app: ApplicationView; onClose: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean; restoredRow?: SavedLaunch;
 }) {
   const initial = useRef(restoredRow);
   const tenantRows = useRef<TenantView[]>([]);
@@ -292,6 +292,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
   const [tenants, setTenants] = useState<TenantView[]>([]);
   const [tenantId, setTenantId] = useState('');
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
+  const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
   const [workspaceId, setWorkspaceId] = useState('');
   const [instances, setInstances] = useState<Record<string, InstanceView[]>>({});
   const [installations, setInstallations] = useState<InstallationView[]>([]);
@@ -359,12 +360,12 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
   async function selectTenant(id: string, preferred?: string | null, loaded?: WorkspaceView[]) {
     if (!tenantRows.current.some(row => row.tenant_id === id && launchable(row))) return;
     resetRequests(); place.current = {tenantId: id, workspaceId: ''};
-    setTenantId(id); setWorkspaceId(''); setWorkspaces([]); clearPrivate();
+    setTenantId(id); setWorkspaceId(''); setWorkspaces([]); setWorkspacesLoaded(false); clearPrivate();
     const call = ticket();
     try {
       const list = loaded ?? await workspaceList(client, id, call.signal);
       if (!call.live()) return;
-      setWorkspaces(list);
+      setWorkspaces(list); setWorkspacesLoaded(true);
       const next = list.find(item => item.workspace_id === preferred) ?? list[0];
       if (next) await selectWorkspace(id, next.workspace_id);
     } catch (error) { if (call.live()) { setReadFailed(true); setProblem(problemText(error)); } }
@@ -553,13 +554,14 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
       {tenants.filter(launchable).map(item => <button type="button" key={item.tenant_id} className={item.tenant_id === tenantId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={item.tenant_id === tenantId ? 'true' : undefined} onClick={() => { if (item.tenant_id !== tenantId) void selectTenant(item.tenant_id); }}>{item.display_name}・{roleLabel(item.my_membership.role)}</button>)}
     </div>{tenants.some(item => !launchable(item)) && <p className="field-hint">只列出你擁有或管理、目前可使用的業務空間。</p>}</fieldset>}
     {tenant && <p>目前業務空間：{tenant.display_name} · {roleLabel(tenant.my_membership.role)}{workspace && `／${workspace.name}`}</p>}
-    {tenantsLoaded && !readFailed && !tenants.some(launchable) && <div><p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}</p><div className="application-actions"><a className="btn btn-ghost" href="#business">建立或選擇業務空間</a></div></div>}
+    {tenantsLoaded && !readFailed && !tenants.some(launchable) && <div><p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}</p><div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a></div></div>}
     {problem && <p role="alert" className="banner banner-error">{problem}</p>}
     {changed && <div role="status"><p>{changed}</p>{changedKind === 'plan' && <ul>{Object.entries(instances).flatMap(([key, rows]) => rows.map(row => <li key={`${key}:${row.instance_id}`}>{moduleWord(key)}：ID 尾碼 {row.instance_id.slice(-6)}，最新版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}</li>))}</ul>}</div>}
     {retry && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void runAction(retry)}>重試</button>}
     {readFailed && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { setProblem(''); setReadFailed(false); if (!tenantsLoaded || !tenantId) void loadTenants(); else if (!workspaceId) void selectTenant(tenantId); else void candidates(true); }}>重新載入清單</button>}
-    {canManage && <fieldset className="fieldset"><legend>工作區</legend><div className="application-actions">{workspaces.map(item => <button type="button" key={item.workspace_id} className={item.workspace_id === workspaceId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={item.workspace_id === workspaceId ? 'true' : undefined} onClick={() => { if (item.workspace_id !== workspaceId) void selectWorkspace(tenantId, item.workspace_id); }}>{item.name}</button>)}</div></fieldset>}
-    {tenantsLoaded && tenants.some(launchable) && !workspace && !readFailed && <p role="status">正在載入工作區…</p>}
+    {canManage && workspacesLoaded && workspaces.length > 0 && <fieldset className="fieldset"><legend>工作區</legend><div className="application-actions">{workspaces.map(item => <button type="button" key={item.workspace_id} className={item.workspace_id === workspaceId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={item.workspace_id === workspaceId ? 'true' : undefined} onClick={() => { if (item.workspace_id !== workspaceId) void selectWorkspace(tenantId, item.workspace_id); }}>{item.name}</button>)}</div></fieldset>}
+    {canManage && !workspacesLoaded && !readFailed && <p role="status">正在載入工作區…</p>}
+    {canManage && workspacesLoaded && workspaces.length === 0 && <div><p>這個業務空間還沒有可用的工作區，請先到業務空間頁建立。</p><div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>前往業務空間</a></div></div>}
     {canManage && workspace && !pending && !plan && <>
       {!ready && <p role="status">正在載入可用實例…</p>}
       {ready && <>
