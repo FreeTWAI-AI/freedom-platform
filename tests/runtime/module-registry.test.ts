@@ -80,7 +80,7 @@ test('a guild created during the test still receives the platform-default manual
   await h.fullMember(owner.user.user_id, custom);
   const page = await h.call('GET', `/applications?guild_key=${custom}`, owner);
   assert.equal(page.status, 200, JSON.stringify(page.data));
-  assert.deepEqual(page.data.items.map((item: { application_key: string }) => item.application_key), ['manual-workspace']);
+  assert.deepEqual(page.data.items.map((item: { application_key: string }) => item.application_key), ['manual-workspace', 'hosted-store']);
   const field = await h.call('GET', '/applications?guild_key=guild_ai_field');
   const keys = field.data.items.map((item: { application_key: string }) => item.application_key);
   assert.equal(keys[0], 'manual-workspace');

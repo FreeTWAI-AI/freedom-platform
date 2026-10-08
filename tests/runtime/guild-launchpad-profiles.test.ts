@@ -14,6 +14,7 @@ const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
 const other = 'guild_music_mv';
 const manual = {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0'};
+const hosted = {application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0'};
 const synthetic = {application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0'};
 const orders: Record<string, readonly string[]> = {
   [commerce]: ['mission', 'applications', 'my_work', 'announcements', 'skill_books', 'community_tasks', 'support'],
@@ -75,7 +76,7 @@ test('purpose profiles are frozen, pure and preserve every unprofiled default', 
     }
   }
   const view = platformDefaultView(await catalog(commerce), undefined, [manual]);
-  assert.equal(view.revision, '2');
+  assert.equal(view.revision, '3');
   assert.equal(view.pointer_version, '1');
 });
 
@@ -88,7 +89,7 @@ test('recommendations match exact release pairs, sort refs and drop duplicate an
   assert.deepEqual(recommendedApplications([], apps), []);
 });
 
-test('member, public and leader defaults use revision 2 with pointer 1 and scoped recommendations', async () => {
+test('member, public and leader defaults use revision 3 with pointer 1 and scoped recommendations', async () => {
   const session = await member();
   for (const key of [commerce, production, other]) {
     const view = await h.call('GET', `/guilds/${key}/launchpad`, session);
@@ -96,9 +97,9 @@ test('member, public and leader defaults use revision 2 with pointer 1 and scope
     assert.equal(view.status, 200, JSON.stringify(view.data));
     assert.equal(pub.status, 200, JSON.stringify(pub.data));
     for (const config of [view.data.config, pub.data.config]) {
-      assert.equal(config.revision, '2');
+      assert.equal(config.revision, '3');
       assert.deepEqual(config.body.blocks.map((block: {kind: string}) => block.kind), orders[key] ?? BLOCK_KINDS);
-      assert.deepEqual(config.body.application_refs, key === other ? [] : [{...manual, order: 0}]);
+      assert.deepEqual(config.body.application_refs, key === other ? [] : (key === commerce ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order}))); 
     }
     assert.equal(view.data.config.pointer_version, '1');
     const applications = LaunchpadApplicationSchema.array().parse(view.data.applications);
@@ -108,8 +109,8 @@ test('member, public and leader defaults use revision 2 with pointer 1 and scope
   const owner = await leader();
   const initial = await h.call('GET', `/guilds/${commerce}/launchpad-config`, owner);
   assert.equal(initial.status, 200);
-  assert.deepEqual(initial.data.body.application_refs, [{...manual, order: 0}]);
-  assert.equal(initial.data.revision, '2');
+  assert.deepEqual(initial.data.body.application_refs, [hosted, manual].map((ref, order) => ({...ref, order})));
+  assert.equal(initial.data.revision, '3');
   assert.equal(initial.data.pointer_version, '1');
   const closed = await h.call('GET', `/guilds/${commerce}/launchpad`, session, undefined, {}, h.closed);
   assert.equal(closed.status, 404);
@@ -174,12 +175,12 @@ test('available releases use catalog winner precedence and retain the release-re
   ['00000000-0000-4000-8000-000000000001', synthetic.application_key, synthetic.release_ref]);
   await isolatedTransaction(h.pool, async q => {
     const releases = await availableReleases(q, commerce, DEMO_COMMUNITY);
-    assert.deepEqual(releases, [manual, synthetic]);
+    assert.deepEqual(releases, [manual, hosted, synthetic]);
     assert.deepEqual(await availableReleaseRefs(q, commerce, DEMO_COMMUNITY), new Set(releases.map(ref => ref.release_ref)));
-    assert.deepEqual(await availableReleases(q, commerce, null), [synthetic, manual]);
+    assert.deepEqual(await availableReleases(q, commerce, null), [synthetic, manual, hosted]);
   });
   await h.pool.query("UPDATE guild_application_offerings SET status='withdrawn',version=version+1 WHERE offering_id=$1", [offered]);
   await isolatedTransaction(h.pool, async q => {
-    assert.deepEqual(await availableReleases(q, commerce, DEMO_COMMUNITY), [synthetic, manual]);
+    assert.deepEqual(await availableReleases(q, commerce, DEMO_COMMUNITY), [synthetic, manual, hosted]);
   });
 });

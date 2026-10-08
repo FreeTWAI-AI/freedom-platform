@@ -12,8 +12,8 @@ import {
 import {assertOfferedApplications, availableReleases} from '../module-registry/catalog.js';
 import {LAUNCHPAD_PROFILES} from './launchpad-profiles.js';
 
-/** Revision 2 adds guild purpose profiles and scoped default recommendations. */
-export const PLATFORM_DEFAULT_REVISION = '2';
+/** Revision 3 recommends the hosted store first for commerce members. */
+export const PLATFORM_DEFAULT_REVISION = '3';
 /** Initial pointer CAS remains 1 independently of the default content revision. */
 export const DEFAULT_POINTER_VERSION = '1';
 export const PUBLISHED_EVENT = 'freedom.guild.launchpad.config.published.v1';
