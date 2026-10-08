@@ -366,3 +366,27 @@ production 由 owner 決定直接上線（「太囉嗦了 你全部把它做一�
 
 限制：P-D1／P-D2a／P-D2b 的 T-ID 案例（T-008、T-016、T-017、T-018、T-021、T-022、T-024、T-051、T-055、T-057、T-058）沒有執行，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
 這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
+
+### 10 月 8 日：第七輪 staging／production rollout（main 3685d626，migration 131）
+
+`3685d626` 是 #282 的 merge。它在第六輪（`d2900cf4`）之後帶進 P-B2b（#279，migration 131：成員的模組實例權限）與
+P-D3a（#282，無 migration：公會應用卡與啟動流程），以及 #274、#280（都不改 runtime）。
+兩個環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED` 都維持 `true`，所以這些路由與畫面隨部署上線。staging 依 owner 的委派部署；
+production 由 owner 於 12:31Z 決定照第六輪的方式直接發（「直接發 (Recommended)」），不跑 staging 驗收，到 live 再測。
+
+- 兩個環境各自先做 migration 前的備份（staging `7c9b4233`、production `a34872cb`），都做過隔離還原與遠端讀回。
+- 131 新增 `tenant_module_permissions`（一般的實例成員授權；匯出與限定用途的授權由 CHECK 擋下），並重建
+  `preserve_module_instance_identity()`，讓實例的 `module_release_ref` 也不可變更。`d2900cf4` 不寫這張表也不改 `module_release_ref`，
+  所以 131 對它相容；仍然是 migration 後立刻部署 `3685d626`。
+- staging：migrator 套用 131，重套 runtime grants（131 沒有 GRANT，通用授權涵蓋新表）並通過唯讀驗證，12:57Z 部署（Worker 版本 `2222f11c`）。
+- production：同樣由 migrator 套用並驗證，media operator 的權限快照前後相同；12:59Z 以同一份 dist 部署（Worker 版本 `e2e064cd`），
+  29 個唯讀公開 checks 通過，4 次 fresh health 都是 `3685d626`。
+- row security：131 在 `tenant_module_permissions` 啟用（不強制），一條 tenant policy（`tenant_module_permissions_tenant`），合計 28 張表、39 條 policy；
+  新表目前 staging 0 列、production 0 列。兩邊 migrate 後，runtime 與備份角色在同一個 snapshot 的登入 probe 都通過。
+- 兩個環境部署後的備份（staging `60e7f34d`、production `2547f645`）都做過隔離還原與遠端讀回，backup pin 都改成 `3685d626`。
+  staging 部署後 cron 有寫入（最後同步 13:11Z，last_error 8→8）；production 部署後 cron 有寫入（最後同步 13:11Z，last_error 6→6）。
+
+回滾：重新部署 `d2900cf4` 或關閉 flag，不需要退回 migration；128 之後仍然不能部署 X（`c84829e2`）。schema 只能從 migration 前的備份還原。
+
+限制：P-B2b 的 T-ID 案例（T-013、T-015、T-022、T-047）與 P-D3a 的畫面流程沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
+這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
