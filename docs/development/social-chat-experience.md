@@ -59,4 +59,4 @@ CSRF、本人權限、撤權檢查、command idempotency 及遲到回應的 gene
 
 [資產與來源雜湊](../design/freetwai-stickers-v2.json)保存 96 個輸出、512／144 尺寸、bytes、encoder 及來源 SHA；原始 JPEG 和私人路徑不提交。`scripts/compress-chat-stickers.py --sources <private-json>` 可在有 Pillow／WebP 的環境重建；私有 JSON 包含 id、label、keywords、source。凍結上限為聊天圖 96KiB、縮圖 12KiB、兩種圖合計不超過來源 25%。
 
-新增 `133_workshop_sticker_pack.sql` 只將兩張訊息表的已知貼圖 CHECK 擴至 52 個 ID；113 及其他歷史 migration 不改寫。部署流程需先依原 operator 規則套用 126，再提供新貼圖服務；source-only PR 沒有執行 staging／正式 migration 或部署。未知 ID 仍被 schema／API／資料庫拒絕，會員權限、CSRF 及傳送速率限制不變。
+新增 `133_workshop_sticker_pack.sql` 只將兩張訊息表的已知貼圖 CHECK 擴至 52 個 ID；113 及其他歷史 migration 不改寫。部署流程需先依原 operator 規則核准並套用此候選的 133，再提供新貼圖服務（原 #193 編號為 126；發布前須再核對當時編號）；source-only PR 沒有執行 staging／正式 migration 或部署。未知 ID 仍被 schema／API／資料庫拒絕，會員權限、CSRF 及傳送速率限制不變。

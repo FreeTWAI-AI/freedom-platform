@@ -61,6 +61,9 @@ fresh hosted CI. No timeout, suite selection or security gate is weakened here.
 The full DB-backed runtime and browser suites have not run locally: this runner
 has no disposable PostgreSQL binary/container. An attempted chat-content suite
 failed at local database setup (`ECONNREFUSED`), not at a product assertion.
+The separate actual-component browser harness could be built but Chromium could
+not create its process-singleton socket; its six old/new cases are NOT_RUN.
+Governance device fixtures also encounter prohibited local socket creation.
 Contracts pytest is unavailable because pytest is not installed. These are
 explicit gaps to be covered by exact-candidate hosted CI, not local passes.
 

@@ -102,7 +102,7 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 
 2026-10-07 社群互動候選增加 `kind=link/note` 與 likes／comments，沿用同一張 posts 表、會員 session／CSRF／Origin／command receipt 及圖片管線。原生貼文沒有外部網址，`note` 保存純文字，`title` 由第一行產生，不取得公開 promotion link。創建 receipt 的重播也須當前貼文／留言有效；隱藏或刪除後不返回原文字。原生與外部發布共用交易內每日 budget lock，並行請求不能超額。
 
-此候選使用 `132_social_feed_interactions.sql`；主線 #175 已使用 124，本候選已順延為 125，並同步 manifest、frontier、名稱登錄與 inventory。不能改舊 migration 的 bytes。只實作會員 HTTP 路由，沒有擴充固定 preview SDK。詳見 [本輪盤點](social-platform-audit-2026-10-07.md)。
+此整合候選使用 `132_social_feed_interactions.sql`；原 #193 曾順延為 125，現在同步至 main `59cfe68c`（已占用至 131）後暫重編為 132，並同步 manifest、frontier、名稱登錄與 inventory。發布前須再核對當時編號，並非預占。不能改舊 migration 的 bytes。只實作會員 HTTP 路由，沒有擴充固定 preview SDK。詳見 [本輪盤點](social-platform-audit-2026-10-07.md)。
 
 資料表在 `migrations/066_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
