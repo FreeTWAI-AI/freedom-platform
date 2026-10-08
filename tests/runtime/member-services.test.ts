@@ -447,6 +447,7 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   const junk = await html('/services?category=nope%3Cscript%3E&before=not-a-cursor');
   assert.match(junk.html, /S13/);
   assert.equal(junk.html.includes('nope'), false);
+  assert.equal(junk.html.includes('<script'), false);
   const unknown = await html(`/services/${randomUUID()}`);
   assert.equal(unknown.status, 404);
   assertLogo(unknown.html);
