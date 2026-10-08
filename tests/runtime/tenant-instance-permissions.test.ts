@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -27,7 +28,7 @@ const runtimeRole = `pb2b_${stamp}`;
 const admin = new Pool({ connectionString: databaseUrl, max: 2 });
 const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema} -c statement_timeout=20000`, max: 8 });
 const store = new FakeObjectStore();
-const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
 type Session = { cookie: string; csrf: string; userId: string };
 type Reply = { status: number; data: any; response: Response; bytes: Uint8Array };
 const ALL_WORK = ['work:archive', 'work:create', 'work:read', 'work:result.write', 'work:write'];
@@ -487,6 +488,7 @@ test('unreadable instances return byte-identical random-id replies on all Work, 
     [() => call('PUT', upload + '/content', operator.session, NOTE, headers()), () => call('PUT', unknownUpload + '/content', operator.session, NOTE, headers())],
     [() => post(upload + '/finalize', operator.session, { expected_work_version: '1' }, '2'), () => post(unknownUpload + '/finalize', operator.session, { expected_work_version: '1' }, '2')],
     [() => call('GET', base + '/results', operator.session), () => call('GET', unknown + '/results', operator.session)],
+    [() => call('GET', base + '/results?cursor=abc', operator.session), () => call('GET', unknown + '/results?cursor=abc', operator.session)],
     [() => call('GET', base + `/results/${flow.resultId}`, operator.session), () => call('GET', base + `/results/${randomUUID()}`, operator.session)],
     [() => call('GET', base + `/results/${flow.resultId}/content`, operator.session), () => call('GET', base + `/results/${randomUUID()}/content`, operator.session)],
     [() => call('GET', base + `/results/${flow.resultId}`, operator.session), () => call('GET', unknown + `/results/${flow.resultId}`, operator.session)],
@@ -504,6 +506,7 @@ test('unreadable instances return byte-identical random-id replies on all Work, 
   for (const request of [
     () => post(`${prefix}/workspaces/${hidden.workspaceId}/works`, operator.session, WORK_BODY),
     () => call('GET', `${prefix}/workspaces/${hidden.workspaceId}/works`, operator.session),
+    () => call('GET', `${prefix}/workspaces/${hidden.workspaceId}/works?cursor=abc`, operator.session),
   ]) {
     const r = await request(); assert.equal(r.status, 403); assert.equal(r.data.code, 'capability_denied');
   }
@@ -685,7 +688,7 @@ test('T-013 and restricted runtime max-one connection alternate owner A and scop
   const bWork = await createWork(b);
   const url = new URL(databaseUrl!); url.username = runtimeRole; url.password = '';
   const runtime = new Pool({ connectionString: url.toString(), options: `-c search_path=${schema} -c statement_timeout=20000`, max: 1 });
-  const restricted = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+  const restricted = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
   const actor = await actorOf(a.owner);
   const pid = (await runtime.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   async function quiet() {
@@ -785,7 +788,7 @@ for (const first of ['create', 'revoke'] as const) {
 function restrictedRuntime() {
   const url = new URL(databaseUrl!); url.username = runtimeRole; url.password = '';
   const runtime = new Pool({ connectionString: url.toString(), options: `-c search_path=${schema} -c statement_timeout=20000`, max: 1 });
-  return { runtime, target: createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store }) };
+  return { runtime, target: createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store }) };
 }
 
 test('tenant list under restricted runtime omits a membership revoked after its page query', async () => {
@@ -1045,7 +1048,7 @@ for (const seam of ['before-finalize', 'finalize-object-read', 'after-object-wri
       if (armed && seam === 'finalize-object-read') { reached = true; await gate.pause(); }
       return result;
     };
-    const target = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: seamStore });
+    const target = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: seamStore });
     const prepared = await post(`/tenants/${t.tenantId}/works/${workId}/results/uploads`, operator.session, prepareBody('1'), undefined, randomUUID(), target);
     assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
     const uploadId = prepared.data.resource_ref.resource_id as string;
