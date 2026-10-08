@@ -44,9 +44,9 @@ export function createEventHighlightPublicRoutes(pool: Pool, origin: string,runt
   app.get('/api/v1/public/event-highlights/media/:mediaId/thumb', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'thumb',runtime.eventHighlightAssetStore))));
   app.get('/highlights/:eventId', async c => {
     const eventId = c.req.param('eventId');
-    if (!uuidPattern.test(eventId)) return c.html(highlightsNotFoundHtml(origin), 404);
-    try { return c.html(await highlightsDetailHtml(pool, origin, eventId)); }
-    catch (error) { if (error instanceof Problem && error.status === 404) return c.html(highlightsNotFoundHtml(origin), 404); throw error; }
+    if (!uuidPattern.test(eventId)) return c.html(highlightsNotFoundHtml(origin,runtime.communityDiscoveryEnabled===true), 404);
+    try { return c.html(await highlightsDetailHtml(pool, origin, eventId,runtime.communityDiscoveryEnabled===true)); }
+    catch (error) { if (error instanceof Problem && error.status === 404) return c.html(highlightsNotFoundHtml(origin,runtime.communityDiscoveryEnabled===true), 404); throw error; }
   });
   return app;
 }

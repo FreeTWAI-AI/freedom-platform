@@ -25,8 +25,8 @@ function head(origin: string, path: string, title: string, description: string, 
   const url = origin + path, src = escape(absolute(origin, image.url));
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><link rel="canonical" href="${escape(url)}"><meta name="description" content="${escape(description)}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="自由工坊"><meta property="og:locale" content="zh_TW"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta name="twitter:description" content="${escape(description)}"><meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${src}"><meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}"><meta property="og:image:alt" content="${escape(image.alt)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${src}"><meta name="twitter:image:alt" content="${escape(image.alt)}"><link rel="stylesheet" href="/highlights.css"></head>`;
 }
-function shell(inner: string, footer: string) {
-  return `<body>${PUBLIC_REVALIDATION_MARKUP}<header class="hl-top"><a href="/"><img class="hl-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a href="/highlights">活動集錦</a></header><main>${inner}</main><footer class="hl-foot">${footer}<p>自由工坊活動集錦</p></footer></body></html>`;
+function shell(inner: string, footer: string, discoveryEnabled: boolean) {
+  return `<body>${discoveryEnabled ? PUBLIC_REVALIDATION_MARKUP : ''}<header class="hl-top"><a href="/"><img class="hl-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a href="/highlights">活動集錦</a></header><main>${inner}</main><footer class="hl-foot">${footer}<p>自由工坊活動集錦</p></footer></body></html>`;
 }
 const brandImage = {url: '/brand/freedom-workshop.webp', width: 1280, height: 720, alt: '自由工坊'};
 
@@ -54,14 +54,14 @@ export async function highlightsListHtml(pool: Pool, origin: string, query: {mod
   if (cursor && query.before) canonical.set('before', query.before);
   const path = canonical.size ? `/highlights?${canonical.toString()}` : '/highlights';
   const body = `<h1>活動集錦</h1><p>活動結束後會自動收進這裡，公開分享海報、照片與影片連結。</p><nav class="hl-chips" aria-label="活動形式">${chips}</nav><div class="hl-grid">${cards}</div>${empty}${more}`;
-  return head(origin, path, '活動集錦｜自由工坊', '自由工坊社群活動回顧：海報、照片與錄影連結。', brandImage, 'website') + shell(body, '<a href="/">加入自由工坊</a>');
+  return head(origin, path, '活動集錦｜自由工坊', '自由工坊社群活動回顧：海報、照片與錄影連結。', brandImage, 'website') + shell(body, '<a href="/">加入自由工坊</a>', publicScope?.publicOnly===true);
 }
 
 function paragraphs(description: string) {
   return description.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => `<p>${escape(line)}</p>`).join('') || '<p>這場活動沒有留下說明。</p>';
 }
 
-export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string) {
+export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string, discoveryEnabled=false) {
   const detail = await readHighlightEvent(pool, {communityId: null, viewerId: null, eventId});
   const image = highlightShareImage(detail);
   const posters = detail.items.filter(item => item.kind === 'poster');
@@ -82,13 +82,13 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
   const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
   const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
   const body = `${summary}${posterSection}${linkSection}${photoSection}${empty}`;
-  const footer = `<a href="/?join=1&amp;return_to=${encodeURIComponent(`/highlights/${eventId}`)}">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
-  return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer);
+  const footer = `<a href="${discoveryEnabled ? `/?join=1&amp;return_to=${encodeURIComponent(`/highlights/${eventId}`)}` : '/'}">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
+  return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer, discoveryEnabled);
 }
 
-export function highlightsNotFoundHtml(origin: string) {
+export function highlightsNotFoundHtml(origin: string, discoveryEnabled=false) {
   const body = '<h1>找不到這場活動</h1><p>這場活動還沒有公開的活動集錦，或連結不正確。</p><p><a href="/highlights">回到活動集錦</a></p>';
-  return head(origin, '/highlights', '找不到活動｜自由工坊活動集錦', '自由工坊社群活動回顧：海報、照片與錄影連結。', brandImage, 'website') + shell(body, '<a href="/">加入自由工坊</a>');
+  return head(origin, '/highlights', '找不到活動｜自由工坊活動集錦', '自由工坊社群活動回顧：海報、照片與錄影連結。', brandImage, 'website') + shell(body, '<a href="/">加入自由工坊</a>', discoveryEnabled);
 }
 
 export const highlightsCss = `:root{color-scheme:light;--bg:#f6f8fb;--ink:#1c2636;--muted:#566376;--line:#dce3eb;--card:#fff;--link:#315500;--chip:#f2f8dc;--green:#9ed400;--accent-ink:#203000;--info:#eef4ff;--blue:#344cbd}

@@ -7,6 +7,7 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {z} from 'zod';
+import {PUBLIC_REVALIDATION_MARKUP} from '../../packages/shared/public-revalidation.js';
 
 const discoverySchema=z.object({sections:z.array(z.object({kind:z.enum(['resources','works','events','highlights','services']),state:z.enum(['ready','unavailable']),items:z.array(z.object({id:z.string(),title:z.string(),summary:z.string(),author_name:z.string().nullable(),occurred_at:z.string().nullable(),path:z.string()}).strict())}).strict())}).strict();
 const siteSchema=z.object({community_discovery_enabled:z.boolean()});
@@ -39,6 +40,20 @@ test('OFF is failclosed and site reports the effective boolean',async()=>{
   assert.equal(response.status,404);
   assert.equal(siteSchema.parse(await (await off.request(origin+'/api/v1/site')).json()).community_discovery_enabled,false);
   assert.equal(siteSchema.parse(await (await app.request(origin+'/api/v1/site')).json()).community_discovery_enabled,true);
+});
+
+test('opt-in public HTML allows only the fixed revalidation script and escapes member scripts',async()=>{
+  const malicious='<script>alert("member")</script>';
+  const recap=await event(malicious,'open',true);
+  const offer=await service(malicious);
+  for(const path of ['/services',`/services/${offer}`,'/highlights',`/highlights/${recap}`]){
+    const response=await app.request(origin+path);
+    assert.equal(response.status,200,path);
+    const html=await response.text();
+    assert.equal(html.includes(malicious),false,path);
+    assert.equal(html.includes(PUBLIC_REVALIDATION_MARKUP),true,path);
+    assert.equal(html.replace(PUBLIC_REVALIDATION_MARKUP,'').includes('<script'),false,path);
+  }
 });
 
 test('bounded real content excludes nonpublic states and all private projection fields',async()=>{

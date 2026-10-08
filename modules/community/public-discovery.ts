@@ -15,7 +15,7 @@ export async function publicDiscovery(pool:Pool,configured?:string):Promise<Publ
   const scoped=async(read:(id:string)=>Promise<PublicDiscoveryCard[]>)=>{const id=await scope;return id?read(id):[];};
   const sections=await Promise.all([
     section('resources',async()=>communityCatalog.skill_books.slice(0,3).map(book=>({id:book.id,title:book.title,summary:book.description,author_name:new URL(book.upstream_url).pathname.split('/')[1]||null,occurred_at:null,path:`/development/skills/${book.id}`}))),
-    section('works',()=>scoped(async id=>(await listPublishedSkillSubmissions(pool,3,id)).map(work=>({id:work.submission_id,title:work.title,summary:work.description,author_name:work.author_name,occurred_at:work.published_at,path:work.public_path})))),
+    section('works',()=>scoped(async id=>(await listPublishedSkillSubmissions(pool,3,id)).map(work=>({id:work.submission_id,title:work.title,summary:work.description,author_name:null,occurred_at:work.published_at,path:work.public_path})))),
     ...(['events','highlights'] as const).map(kind=>section(kind,()=>scoped(async id=>{
       const rows=(await pool.query(`SELECT e.event_id AS id,e.title,e.description AS summary,u.display_name AS author_name,e.${kind==='events'?'starts_at':'ends_at'} AS occurred_at FROM community_events e JOIN users u ON u.user_id=e.organizer_ref WHERE e.community_id=$1 AND ${discoveryEventSql} AND e.ends_at${kind==='events'?'>':'<='}now() ORDER BY e.${kind==='events'?'starts_at ASC,e.event_id ASC':'ends_at DESC,e.event_id DESC'} LIMIT 3`,[id])).rows;
       return rows.map(row=>({id:row.id,title:row.title,summary:row.summary,author_name:row.author_name,occurred_at:new Date(row.occurred_at).toISOString(),path:`/${kind==='events'?'events':'highlights'}/${row.id}`}));

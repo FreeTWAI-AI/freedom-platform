@@ -17,7 +17,7 @@ export const PUBLISHED = `FROM skill_submissions s
     AND NOT is_verification_test_account(u.user_id)`;
 const PUBLIC_PAYLOAD = `s.payload || CASE WHEN p.public_metadata_revised THEN
   jsonb_build_object('title',p.title,'description',p.description,'use_notes',p.use_notes,'demo_url',p.demo_url) ELSE '{}'::jsonb END`;
-const COLUMNS = `s.submission_id,(${PUBLIC_PAYLOAD}) AS payload,s.project_id,s.published_at,u.display_name AS author_name,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
+const COLUMNS = `s.submission_id,(${PUBLIC_PAYLOAD}) AS payload,s.project_id,s.published_at,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
 
 // Art the workshop drew for works whose submitters supplied none (docs/design/community-skill-art-manifest.json),
@@ -36,7 +36,6 @@ function summary(row: any) {
     submission_id: row.submission_id as string,
     title: payload.title as string,
     description: payload.description as string,
-    author_name: row.author_name as string,
     repository_url: row.repository_url as string,
     relationship: payload.relationship as 'author' | 'maintainer' | 'contributor' | 'curator',
     relationship_verification: 'self_declared' as const,

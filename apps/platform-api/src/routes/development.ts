@@ -6,7 +6,7 @@ import type {GitHubMetrics} from '../../../../modules/github-social/service.js';
 import {getSkillShareContent,skillShareContentVersion} from '../../../../modules/community/skill-share-content.js';
 import {githubSocialCss} from '../generated/runtime-text.js';
 import type {PublicAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
-export function createDevelopmentRoutes(readMetrics?:(id:string)=>Promise<GitHubMetrics>,readEditorial?:(id:string)=>Promise<SkillEditorial|null>,readDiscovery?:(id:string)=>Promise<SkillDiscoveryBook|undefined>,publicOrigin=LIVE_SITE_ORIGIN,readAuthorClaim?:(id:string)=>Promise<PublicAuthorClaim>){
+export function createDevelopmentRoutes(readMetrics?:(id:string)=>Promise<GitHubMetrics>,readEditorial?:(id:string)=>Promise<SkillEditorial|null>,readDiscovery?:(id:string)=>Promise<SkillDiscoveryBook|undefined>,publicOrigin=LIVE_SITE_ORIGIN,readAuthorClaim?:(id:string)=>Promise<PublicAuthorClaim>,discoveryEnabled=false){
  const app=new Hono();
  app.get('/api/v1/skills/:id/share-content',c=>{
    const content=getSkillShareContent(c.req.param('id'));
@@ -40,7 +40,7 @@ export function createDevelopmentRoutes(readMetrics?:(id:string)=>Promise<GitHub
    const metrics=markdown?undefined:await readMetrics?.(id).catch(()=>undefined);
    const discovery=markdown?undefined:await readDiscovery?.(id).catch(()=>undefined);
    const authorClaim=markdown?undefined:await readAuthorClaim?.(id).catch(()=>undefined);
-   return markdown?c.text(text):c.html(pageHtml(text.split('\n')[0].slice(2),text,`/development/skills/${encodeURIComponent(id)}.md`,metrics,editorial,discovery,c.req.query('intro'),publicOrigin,authorClaim));
+   return markdown?c.text(text):c.html(pageHtml(text.split('\n')[0].slice(2),text,`/development/skills/${encodeURIComponent(id)}.md`,metrics,editorial,discovery,c.req.query('intro'),publicOrigin,authorClaim,discoveryEnabled));
  });
  app.get('/development/:id',c=>{
    const raw=c.req.param('id'),markdown=raw.endsWith('.md'),id=markdown?raw.slice(0,-3):raw,page=developmentPage(id);

@@ -387,7 +387,7 @@ test('public pages escape member text, page, and filter without echoing a bad qu
   assert.equal(nasty.status, 201, JSON.stringify(nasty.data));
   const page = await html(`/services/${nasty.data.service_id}`);
   assert.equal(page.status, 200);
-  assert.equal(page.html.includes(title), false);
+  assert.equal(page.html.includes('<script'), false);
   assert.match(page.html, /假髮&lt;script&gt;&quot;&#39;/);
   assert.match(page.html, /簡介&lt;b&gt;&quot;&#39;/);
   assert.match(page.html, /<p>第一段&lt;script&gt;<\/p><p>第二段&quot;引號&#39;<\/p>/);

@@ -7,17 +7,12 @@ export const PUBLIC_REVALIDATION_SCRIPT = `(() => {
     for (const meta of document.querySelectorAll('meta[property^="og:"],meta[name^="twitter:"],meta[name="description"]')) meta.remove();
   };
   const refresh = () => {
-    if (reloading || document.visibilityState !== 'visible') return;
+    if (reloading) return;
     reloading = true;
     clear();
     location.reload();
   };
   window.addEventListener('pagehide', clear);
   window.addEventListener('pageshow', event => { if (event.persisted) refresh(); });
-  window.addEventListener('focus', refresh);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') clear();
-    else refresh();
-  });
 })();`;
 export const PUBLIC_REVALIDATION_MARKUP = '<script src="/public-revalidation.js" defer></script>';
