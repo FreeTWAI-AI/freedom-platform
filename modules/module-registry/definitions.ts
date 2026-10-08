@@ -42,6 +42,8 @@ export const WORK_REQUIREMENT = Object.freeze({
 export const CONFIG_SCHEMA_REFS = Object.freeze([
   'manual-workspace.config/v1',
   'work.config/v1',
+  'storefront.config/v1',
+  'hosted-store.config/v1',
   'synthetic-storefront.config/v1',
   'synthetic-inventory.config/v1',
 ] as const);
@@ -65,3 +67,19 @@ export type Requirement = {
   allow_reuse: boolean;
   compatible_contracts: readonly ContractRef[];
 };
+
+export const STOREFRONT_CONTRACT_SOURCE_COMMIT = '9c0f5d4a319272caeb3b4e212828ab1d0ed28ba3';
+export const STOREFRONT_CONTRACT_ARTIFACT_SHA256 = 'eb9a262e2914af0a8fac3631533f8e4350b4d602b7a682d4497774b60c4d8ac7';
+export const HOSTED_STORE_RELEASE = 'hosted-store@1.0.0';
+export const STOREFRONT_MODULE_RELEASE = 'storefront@1.0.0';
+export const STORE_CAPABILITIES = Object.freeze(['store:manage', 'store:read', 'store:write', 'store:publish'] as const);
+export const STOREFRONT_CONTRACT = Object.freeze({
+  family: 'guild-launchpad.storefront', version: '1', source_commit: STOREFRONT_CONTRACT_SOURCE_COMMIT,
+  artifact_sha256: STOREFRONT_CONTRACT_ARTIFACT_SHA256, behavior_profile: 'freedom.storefront/v1',
+});
+export const HOSTED_STORE_LAUNCH_POLICY = Object.freeze({ policy_key: 'hosted-store.launch', version: '1' });
+export const STOREFRONT_REQUIREMENT = Object.freeze({
+  requirement_key: 'storefront', module_key: 'storefront', module_release_ref: STOREFRONT_MODULE_RELEASE,
+  capabilities: STORE_CAPABILITIES, required: true, cardinality: 'one' as const, allow_reuse: true,
+  compatible_contracts: Object.freeze([STOREFRONT_CONTRACT]),
+});
