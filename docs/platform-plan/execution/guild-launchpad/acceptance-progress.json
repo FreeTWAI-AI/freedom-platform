@@ -71,8 +71,22 @@
     },
     {
       "id": "T-005",
-      "status": "not_run",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        {
+          "command": "node scripts/verify-guild-work.mjs --expect-sha c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "ref": "staging guild-work receipt 20261008T063130038Z-83185463 (operator journal; tenant IDs inside, not published; digest in artifact_sha256)",
+          "source_sha": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "environment": "staging",
+          "recorded_at": "2026-10-08T06:43:24Z",
+          "started_at": "2026-10-08T06:31:30.038Z",
+          "finished_at": "2026-10-08T06:32:22.494Z",
+          "artifact_sha256": "185e6746928b71be17388d1c7ae656998d5b831e4400acc3dc348b28f1959b78",
+          "test": "verify-guild-work: A creates; A logs out and back in",
+          "result": "passed",
+          "limits": "Demo account maker@local.test as member A. Before the run the owner made it guild master of guild_product_quality_supply and guild_commerce_sales in the staging admin console (neither guild had a master), which made it a full member of both. It is not a platform admin, and the tenant routes the verifier uses check guild full membership and tenant roles, not guild officers. reviewer@local.test is member B. One run against https://staging.freetwai.com with real R2."
+        }
+      ]
     },
     {
       "id": "T-006",
@@ -161,8 +175,42 @@
     },
     {
       "id": "T-023",
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "evidence": [
+        {
+          "command": "node scripts/verify-guild-work.mjs --expect-sha c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "ref": "staging guild-work receipt 20261008T063130038Z-83185463 (operator journal; tenant IDs inside, not published; digest in artifact_sha256)",
+          "source_sha": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+          "environment": "staging",
+          "recorded_at": "2026-10-08T06:43:24Z",
+          "started_at": "2026-10-08T06:31:30.038Z",
+          "finished_at": "2026-10-08T06:32:22.494Z",
+          "artifact_sha256": "185e6746928b71be17388d1c7ae656998d5b831e4400acc3dc348b28f1959b78",
+          "test": "verify-guild-work: B and anonymous are refused",
+          "result": "partial",
+          "limits": "Permission half only: GET, HEAD and Range on every content path issued to A, as B and as Access-only anonymous. Export/restore not run: c84829e2 has no export route. Demo account maker@local.test as member A. Before the run the owner made it guild master of guild_product_quality_supply and guild_commerce_sales in the staging admin console (neither guild had a master), which made it a full member of both. It is not a platform admin, and the tenant routes the verifier uses check guild full membership and tenant roles, not guild officers. reviewer@local.test is member B. One run against https://staging.freetwai.com with real R2."
+        }
+      ],
+      "variants": {
+        "M1": {
+          "status": "passed",
+          "evidence": [
+            {
+              "command": "node scripts/verify-guild-work.mjs --expect-sha c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+              "ref": "staging guild-work receipt 20261008T063130038Z-83185463 (operator journal; tenant IDs inside, not published; digest in artifact_sha256)",
+              "source_sha": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+              "environment": "staging",
+              "recorded_at": "2026-10-08T06:43:24Z",
+              "started_at": "2026-10-08T06:31:30.038Z",
+              "finished_at": "2026-10-08T06:32:22.494Z",
+              "artifact_sha256": "185e6746928b71be17388d1c7ae656998d5b831e4400acc3dc348b28f1959b78",
+              "test": "verify-guild-work: B and anonymous are refused",
+              "result": "passed",
+              "limits": "M1 variant (milestones.M1.scope.T-023): permission half only. Demo account maker@local.test as member A. Before the run the owner made it guild master of guild_product_quality_supply and guild_commerce_sales in the staging admin console (neither guild had a master), which made it a full member of both. It is not a platform admin, and the tenant routes the verifier uses check guild full membership and tenant roles, not guild officers. reviewer@local.test is member B. One run against https://staging.freetwai.com with real R2."
+            }
+          ]
+        }
+      }
     },
     {
       "id": "T-024",
