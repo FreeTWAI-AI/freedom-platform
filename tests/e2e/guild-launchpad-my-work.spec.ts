@@ -1477,6 +1477,9 @@ test('PA-001 direction card drafts, confirmed activities and review reopen from 
       await theme(page, skin); await page.setViewportSize({ width, height: 900 }); await noOverflow(page);
       await form.screenshot({ path: testInfo.outputPath(`direction-card-${skin}-${width}.png`) });
       await form.scrollIntoViewIfNeeded(); await page.screenshot({ path: testInfo.outputPath(`direction-card-${skin}-${width}-viewport.png`) });
+      await form.getByRole('heading', { name: '我的方向卡', exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+      await page.evaluate(() => window.scrollBy(0, -96));
+      await page.screenshot({ path: testInfo.outputPath(`direction-card-${skin}-${width}-start.png`) });
     }
     expect(errors).toEqual([]); assertLocal(session.urls);
   } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
