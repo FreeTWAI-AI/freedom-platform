@@ -170,6 +170,8 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
   for (const profile of profiles) {
     await open(page, profile.key);
     await expect(primary(page).getByRole('heading')).toHaveText(profile.title);
+    const myWork = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
+    await expect(myWork.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
     for (const theme of ['light', 'dark']) {
       await page.evaluate(value => {
         localStorage.setItem('freedom-theme', value);
@@ -189,6 +191,16 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
           expect(button.height).toBeGreaterThanOrEqual(44);
           if (width === 1280) expect(button.width).toBeLessThan(bounds.width / 2);
         }
+        const myWorkBounds = await myWork.evaluate(block => ({
+          width: block.getBoundingClientRect().width,
+          buttons: [...block.querySelectorAll('.btn')].map(button => ({text: button.textContent?.trim(), width: button.getBoundingClientRect().width})),
+        }));
+        expect(myWorkBounds.buttons.length).toBeGreaterThan(0);
+        for (const button of myWorkBounds.buttons) {
+          expect(button.width).toBeLessThanOrEqual(myWorkBounds.width);
+          if (width === 1280) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
+        }
+        await writeFile(testInfo.outputPath(`${profile.key}-${theme}-${width}-my-work-buttons.json`), JSON.stringify(myWorkBounds, null, 2));
         const colours = await recommendations(page).locator('.pill').first().evaluate(element => ({
           color: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor,
         }));

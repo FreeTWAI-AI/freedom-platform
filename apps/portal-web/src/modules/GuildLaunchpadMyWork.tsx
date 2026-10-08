@@ -735,7 +735,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   if (upgrade) return <p className="field-hint" role="status">{UPGRADE}</p>;
   if (!loading && tenants.length === 0) return <div className="my-work">
     <p>你還沒有業務空間。</p>
-    <a className="btn btn-ghost" href="#business" onClick={goBusiness}>前往業務空間</a>
+    <div className="actions"><a className="btn btn-ghost" href="#business" onClick={goBusiness}>前往業務空間</a></div>
   </div>;
 
   return <div className="my-work">
