@@ -279,8 +279,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 31643,
-      "sha256": "5593b09494364ac18ba9066efdea96e57dd2260ac392d1b6ffd9f1f8d660c5ce"
+      "bytes": 31650,
+      "sha256": "c7fd06e801bd2abf999b0ab37c7ebf6fb22fbb6aed8415937a97566b8ca11f95"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -419,8 +419,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
-      "bytes": 9780,
-      "sha256": "c9652e84e674c418bbe20ff274f24b41a91dae1427b9bc3597c8f7a88b3bef26"
+      "bytes": 9801,
+      "sha256": "82fbf5a7f9f56d8ab9002ea9137e506c2e191f6e392134cd6fcf6df29404004b"
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
@@ -12829,8 +12829,8 @@
     },
     {
       "path": "docs/development/staging-operations.md",
-      "bytes": 5996,
-      "sha256": "91d031a1a15035c3a089031c8a40a43bc099b49809bb82e9c6bfa5c83b7fcf5e"
+      "bytes": 8686,
+      "sha256": "849ab60d8d049033a689411c434fb4d3802f62934b2010f7df4d9b63df06f2aa"
     },
     {
       "path": "docs/development/supplier-retail-pricing.md",
@@ -13734,8 +13734,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 11118,
-      "sha256": "7b4a06d3112b6475b06051cd58bd6b7cece1d0553b4bd7a2bbbac2f2a37ae5e6"
+      "bytes": 11504,
+      "sha256": "cd7360e03b26eab5b32e6937fffc8f0db16c19ac329a7b5c51e87b5d4128019b"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -14159,8 +14159,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 29104,
-      "sha256": "a2375058342c9e2213c148c278655b7c349ef92e8daf00c00123bb51234d64f4"
+      "bytes": 32788,
+      "sha256": "10cc668cd0964aae3272afa9f8e0c359c6e70e248e7e68fb89415d1adbf02b41"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
@@ -14179,8 +14179,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 36639,
-      "sha256": "bafea8bbc3b1bfe9d78f7852ce705fb35429536a457961aa11370ecb9362195b"
+      "bytes": 45803,
+      "sha256": "36fe3af04efdf8fc1eb849c2955edf35aa558ef8564e4f47196eb151230b6a7e"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -16339,8 +16339,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4399,
-      "sha256": "eed07dfa89b6dda9e75e83b21e5e040b9493ef70d2418d36e644ed569769d32b"
+      "bytes": 4483,
+      "sha256": "0130f430a33ac2d5c35a898fcb2905dbf9a35bdbf44a78be9f53f103916cbf43"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -18088,6 +18088,11 @@
       "sha256": "106b4f1a8b732f811cedabde01ec25ed2ef506ddbabc5dd9d118f1058c3550c8"
     },
     {
+      "path": "scripts/verify-guild-work.mjs",
+      "bytes": 28434,
+      "sha256": "e991db315a9391892350232a82d71f3a95d27b8e78cb8c93f248b9993946b474"
+    },
+    {
       "path": "scripts/verify-member-settings.mjs",
       "bytes": 4907,
       "sha256": "5d712e7d97ae7d99746547de218af7371aed9749da23c7a81eb7b4fa779eb1b6"
@@ -18699,8 +18704,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 46887,
-      "sha256": "6b2a945ea2e883db75f18e285387a33d5ff2733300e254cd70a2e876f46cfa70"
+      "bytes": 47677,
+      "sha256": "3fd40cd86eed303954d772018c027bbc9238eebdfb3d806f7ba88778c211c016"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",
@@ -19214,8 +19219,8 @@
     },
     {
       "path": "tests/runtime/guild-category-preferences.test.ts",
-      "bytes": 87289,
-      "sha256": "2fe0f57a03772f1b95519c2529b93b1020943d0a3296d03c455bdb19c2cea7fa"
+      "bytes": 103944,
+      "sha256": "45b08e43f43033bc09aad575fca2e8b9e4c9b32637fe18e677195f6690039380"
     },
     {
       "path": "tests/runtime/guild-entry-questions.test.ts",
@@ -19664,8 +19669,8 @@
     },
     {
       "path": "tests/runtime/module-registry.test.ts",
-      "bytes": 20693,
-      "sha256": "7030bdcfda28ea966bc7f8eb0f8c3915b32b40eb1a2d4d7c38531fcaa652c5de"
+      "bytes": 21902,
+      "sha256": "11f84e87a10677af8925687b544341d73cebf5054b8ec7514db7a426a8be6b6f"
     },
     {
       "path": "tests/runtime/native-text-invocation.test.ts",
@@ -20146,6 +20151,11 @@
       "path": "tests/runtime/verification-test-data.test.ts",
       "bytes": 23491,
       "sha256": "070aac6ab982a468faa734fe186afaa7f85d0d23ee52c16f789b5125f88ca171"
+    },
+    {
+      "path": "tests/runtime/verify-guild-work.test.ts",
+      "bytes": 20840,
+      "sha256": "18a24de3be9892b05ce8ab0f418adef465378373771edc007bbe88de26a6d6c9"
     },
     {
       "path": "tests/runtime/work-privacy.test.ts",

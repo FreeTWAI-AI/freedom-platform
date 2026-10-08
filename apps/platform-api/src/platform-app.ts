@@ -297,7 +297,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
-  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool,origin));
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
