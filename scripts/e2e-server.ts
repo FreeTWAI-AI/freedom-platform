@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from '../tests/runtime/tenant-cursor-fixture.js';
 import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -139,7 +140,7 @@ try{
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
   ?await (await import('../packages/public-guide-assets/node.js')).createLocalGuideCatalog('local'):undefined;
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
-const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantWorkAssetStore:new FakeObjectStore(),
+const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,tenantCursorSigningKey:TENANT_CURSOR_TEST_KEY,tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{})});
