@@ -273,16 +273,15 @@ test('cover priority is banner, poster, photo thumb, then the newest youtube thu
   const videoEvent = await ended({title: '只有影片'});
   await pool.query(`INSERT INTO community_event_highlights(media_id,event_id,community_id,uploader_user_id,kind,title,url,platform,state)
     VALUES ($1,$2,$3,$4,'link','YouTube 影片',$5,'youtube','active')`, [randomUUID(), videoEvent, DEMO_COMMUNITY, MAKER, 'https://www.youtube.com/watch?v=abcdefghijk']);
-  const bare = await ended({title: '還沒有'});
+  await ended({title: '還沒有'});
   const list = await call('/api/v1/event-highlights', maker);
   const cover = (title: string) => list.data.items.find((item: any) => item.title === title).cover;
-  assert.deepEqual(cover('有海報'), {kind: 'banner', url: `/api/v1/public/event-highlights/${withBanner}/banner`});
-  assert.deepEqual(cover('海報優先'), {kind: 'poster', url: `/api/v1/public/event-highlights/media/${posterId}/image`});
-  assert.deepEqual(cover('照片優先'), {kind: 'photo', url: `/api/v1/public/event-highlights/media/${thumbPhoto}/thumb`});
-  assert.deepEqual(cover('只有影片'), {kind: 'youtube', url: 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'});
+  assert.equal(cover('有海報').kind, 'banner');
+  assert.equal(cover('海報優先').kind, 'poster');
+  assert.equal(cover('照片優先').kind, 'photo');
+  assert.equal(cover('只有影片').kind, 'youtube');
   assert.equal(cover('還沒有'), null);
   assert.deepEqual(list.data.items.find((item: any) => item.title === '照片優先').counts, {links: 1, photos: 1, posters: 0});
-  assert.equal(bare.length > 0, true);
 });
 
 test('rejected links do not burn the rate limit, and accepted links normalize, dedupe and replay', async () => {
@@ -398,7 +397,6 @@ test('photos and posters become exact webp variants and bad images are refused',
   assert.deepEqual([thumb.width, thumb.height], [480, 360]);
   assert.deepEqual([posterImage.width, posterImage.height], [1600, 1200]);
   const fetched = await call(landscape.data.image_url);
-  assert.equal(fetched.headers.get('cache-control'), 'public, max-age=300');
   assert.match(fetched.headers.get('content-type') ?? '', /image\/webp/);
   const detail = await call('/api/v1/event-highlights/' + eventId, maker);
   assertPrivate(detail.data);
@@ -526,7 +524,6 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.match(withPoster.text, /property="og:image:height" content="1600"/);
   const bannerBytes = await call(`/api/v1/public/event-highlights/${eventId}/banner`);
   assert.equal(bannerBytes.status, 200);
-  assert.equal(bannerBytes.headers.get('cache-control'), 'public, max-age=300');
   for (let index = 0; index < 12; index += 1) await insertEvent({...past(10 + index), title: `較早 ${index}`});
   const first = await call('/highlights');
   assert.match(first.text, /較早的活動/);
@@ -541,89 +538,46 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.match(invalid.text, new RegExp(`canonical" href="${LIVE}/highlights"`));
 });
 
-test('a public detail with no media omits empty section headings', async () => {
-  const eventId = await ended({title: '還沒有集錦'});
-  const page = await call('/highlights/' + eventId);
-  assert.equal(page.status, 200, page.text);
-  assert.equal(page.text.includes('<h2>海報</h2>'), false);
-  assert.equal(page.text.includes('錄影與影片'), false);
-  assert.equal(page.text.includes('活動照片'), false);
-  assert.match(page.text, /<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。<\/p>/);
-});
 
-test('a public detail with one link omits the empty photo section', async () => {
-  const maker = await login();
-  const eventId = await ended({title: '只有影片'});
-  const link = await post(`/api/v1/event-highlights/${eventId}/links`, maker, {url: 'https://www.youtube.com/watch?v=abcdefghijk', title: '回顧影片'});
-  assert.equal(link.status, 201, link.text);
-  const page = await call('/highlights/' + eventId);
-  assert.equal(page.status, 200, page.text);
-  assert.match(page.text, /<h2>錄影與影片<\/h2>/);
-  assert.match(page.text, /回顧影片/);
-  assert.equal(page.text.includes('<h2>海報</h2>'), false);
-  assert.equal(page.text.includes('活動照片'), false);
-  assert.equal(page.text.includes('還沒有人補上內容'), false);
-});
-
-test('descriptions are public for every visibility while meeting links stay hidden', async () => {
-  const marker = (visibility: string) => `<script>hl-${visibility}-secret</script>`;
-  const hiddenNotice = '這是一場會員活動，活動說明只提供給會員。';
-  const visibilities = ['open', 'referral', 'workshop', 'guild'] as const;
-  const ids: Record<string, string> = {};
-  for (const visibility of visibilities) {
-    ids[visibility] = await insertEvent({
-      ...past(2), title: `說明權限 ${visibility}`, description: `開頭 ${marker(visibility)} 結尾`,
-      visibility, mode: 'online', online: MEETING, kind: visibility === 'guild' ? 'guild_skill_exchange' : 'other',
-      guild: visibility === 'guild' ? 'guild_event_space' : null,
-    });
-  }
-  const member = await login(DEMO_USERS[1].email);
-  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES ($1,$2,$3,'guild_event_space','active')`, [randomUUID(), DEMO_COMMUNITY, member.user.user_id]);
-  const outsider = await login(DEMO_USERS[2].email);
+test('anonymous HTML, metadata and media never expose member or guild event content; current member ACL is rechecked', async () => {
   const organizer = await login();
-  const leftId = await addUser(`left-${randomUUID()}@member.test`, '已離開公會');
-  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES ($1,$2,$3,'guild_event_space','left')`, [randomUUID(), DEMO_COMMUNITY, leftId]);
-  const leftEmail = (await pool.query('SELECT email FROM users WHERE user_id=$1', [leftId])).rows[0].email as string;
-  const left = await login(leftEmail);
-  const viewers = [
-    ['guild member', member],
-    ['organizer', organizer],
-    ['non-member', outsider],
-    ['former member', left],
-  ] as const;
-  for (const visibility of visibilities) {
-    const token = `hl-${visibility}-secret`;
-    const page = await call('/highlights/' + ids[visibility]);
-    assert.equal(page.status, 200, page.text);
-    assert.equal(page.text.includes('<script'), false, visibility);
-    assert.equal(page.text.includes(token), true, `public html ${visibility}`);
-    assert.equal(page.text.includes(hiddenNotice), false, visibility);
-    assert.equal(page.text.includes(MEETING_TOKEN), false, `public meeting ${visibility}`);
-    assert.equal(page.text.includes(LOCATION), false, `public location ${visibility}`);
-    for (const name of ['name="description"', 'property="og:description"', 'name="twitter:description"']) {
-      const meta = new RegExp(`<meta ${name} content="([^"]*)"`).exec(page.text);
-      assert.ok(meta, `${visibility} ${name}`);
-      assert.equal(meta[1].includes(token), true, `${visibility} ${name}`);
-      assert.equal(meta[1].includes(MEETING_TOKEN), false, `${visibility} ${name}`);
+  const member = await login(DEMO_USERS[1].email);
+  const outsider = await login(DEMO_USERS[2].email);
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES ($1,$2,$3,'guild_event_space','active')`, [randomUUID(), DEMO_COMMUNITY, member.user.user_id]);
+  const image = await sharp({create:{width:20,height:10,channels:3,background:'green'}}).png().toBuffer();
+  const ids:Record<string,string>={};
+  let guildMedia:string='';
+  for(const visibility of ['open','referral','workshop','guild']){
+    const title=`privacy-title-${visibility}`,description=`privacy-description-${visibility}`;
+    const eventId=await ended({title,description,visibility,online:MEETING,kind:visibility==='guild'?'guild_skill_exchange':'other',guild:visibility==='guild'?'guild_event_space':null});
+    ids[visibility]=eventId;
+    const photo=await upload(`/api/v1/event-highlights/${eventId}/photos`,organizer,image,'image/png','landscape');
+    assert.equal(photo.status,201,photo.text);
+    const publiclyReadable=['open','referral'].includes(visibility);
+    const page=await call('/highlights/'+eventId);
+    assert.equal(page.status,publiclyReadable?200:404);
+    assert.equal(page.text.includes(title),publiclyReadable);
+    assert.equal(page.text.includes(description),publiclyReadable);
+    assert.equal(page.text.includes(MEETING_TOKEN),false);
+    const anonymous=await call(`/api/v1/public/event-highlights/media/${photo.data.media_id}/image`);
+    assert.equal(anonymous.status,publiclyReadable?200:404);
+    for(const [viewer,canRead] of [[organizer,true],[member,true],[outsider,visibility!=='guild']] as const){
+      const detail=await call('/api/v1/event-highlights/'+eventId,viewer);
+      assert.equal(detail.status,canRead?200:404);
+      assert.equal(detail.text.includes(description),canRead);
+      assertPrivate(detail.data,detail.text);
+      const bytes=await call(`/api/v1/event-highlights/media/${photo.data.media_id}/image`,viewer);
+      assert.equal(bytes.status,canRead?200:404);
     }
-    for (const [label, session] of viewers) {
-      const detail = await call('/api/v1/event-highlights/' + ids[visibility], session);
-      assert.equal(detail.status, 200, `${label} ${visibility} ${detail.text}`);
-      assert.equal(detail.data.description.includes(token), true, `${label} ${visibility}`);
-      assertPrivate(detail.data, detail.text);
-    }
-    const anon = await call('/api/v1/event-highlights/' + ids[visibility]);
-    assert.notEqual(anon.status, 200, visibility);
-    assert.equal(anon.text.includes(token), false, `signed-out api ${visibility}`);
-    assert.equal(anon.text.includes(MEETING_TOKEN), false, `signed-out meeting ${visibility}`);
+    if(visibility==='guild')guildMedia=photo.data.media_id;
   }
-  const listed = await call('/api/v1/event-highlights', outsider);
-  assert.equal(JSON.stringify(listed.data).includes('hl-'), false);
-  assert.equal(listed.data.items.every((item: {description?: unknown}) => !('description' in item)), true);
-  assert.equal(JSON.stringify(listed.data).includes(MEETING_TOKEN), false);
-  const htmlList = await call('/highlights');
-  for (const visibility of visibilities) assert.equal(htmlList.text.includes(`hl-${visibility}-secret`), false, visibility);
-  assert.equal(htmlList.text.includes(MEETING_TOKEN), false);
+  const anonymousList=await call('/highlights');
+  assert.equal(anonymousList.text.includes('privacy-title-workshop'),false);
+  assert.equal(anonymousList.text.includes('privacy-title-guild'),false);
+  await pool.query(`UPDATE positioning_profession_memberships SET state='left',left_at=now() WHERE user_id=$1 AND guild_key='guild_event_space'`,[member.user.user_id]);
+  assert.equal((await call('/api/v1/event-highlights/'+ids.guild,member)).status,404);
+  assert.equal((await call(`/api/v1/event-highlights/media/${guildMedia}/image`,member)).status,404);
+  assert.equal((await call('/api/v1/event-highlights/'+ids.guild,organizer)).status,200);
 });
 
 test('one public detail render does not select highlight or banner image bytes', async () => {

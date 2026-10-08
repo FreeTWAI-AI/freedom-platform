@@ -5,6 +5,7 @@ import { Section, EmptyState, ErrorPanel } from '../portal-feedback'
 import { WorkSharingEntry } from './WorkSharingEntry'
 import { looksLikeUrl, opportunityStateLabel, parseMajorToMinor } from '../format'
 import type { Opportunity, Showcase } from '../types'
+import {EventOutcomeBacklinks} from './EventOutcomeBacklinks';
 
 export function ShowcasePanel() {
   const { session, pending, mutate, isMe } = usePortal()
@@ -235,6 +236,7 @@ function ShowcaseCard({
       </dl>
       {showcase.public_url && <div className="actions"><a className="btn btn-ghost" href={showcase.public_url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">查看作品 ↗</a></div>}
       <details><summary>成果紀錄</summary><code>{showcase.artifact_ref}</code></details>
+      <EventOutcomeBacklinks client={client} kind="work" sourceId={showcase.showcase_id}/>
       {mine ? (
         <p className="hint">有人想合作時，需求會出現在下方「與你相關的商機」。</p>
       ) : (

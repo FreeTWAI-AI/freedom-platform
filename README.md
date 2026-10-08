@@ -54,6 +54,10 @@
 
 `FREEDOM_EVENT_PARTICIPATION_ENABLED=true` 才開放 #256 入口，預設關閉；**即使 flag 關閉，換入本版 source 前仍須套用 migration 138**，既有報名流程也使用新欄位。Worker 啟用時需要可用的 `EMAIL.send`；既有每十分鐘排程做有界輪巡，不保證分鐘級提醒或補位精度，Node 入口不自動排程。ICS 使用固定 UID、UTC 與版本序號，但不是公開訂閱連結，也不自動更新已匯入的副本。私人管理憑證只由 Email 連結 fragment 交給限定 API header，不保存至瀏覽器 storage 或匯出到 ICS。實作、命令與狀態邊界見 [會員 API](./docs/development/member-api.md#event-calendar-reminders-and-waitlists-256)。這是預設關閉的 source candidate；本機隔離資料庫／瀏覽器與獨立 ICS parser 驗證不表示正式寄送、Apple／Google Calendar 實際匯入、部署或啟用已完成。
 
+本分支的 #257 是活動精華／成果連結的 **source candidate**：在原活動集錦儲存自己的摘要草稿，明確選擇閱讀範圍與發布同意後，連結目前可閱讀的社群作品、技能書及真正的小隊成果；三者有詳細入口與返回原活動的連結。小隊成果由目前隊主本人撰寫、儲存私人草稿並明確發布，不把名冊、私人 Result、自填署名或 Going 回覆當成成果、出席、驗收或 XP。來源撤下或權限變更會停止顯示整份相依摘要、媒體與反向連結，不會退回成未綁定的公開照片。
+
+`FREEDOM_SQUAD_OUTCOMES_ENABLED`、`FREEDOM_EVENT_OUTCOMES_ENABLED` 均預設關閉；活動精華必須同時啟用小隊成果，否則 runtime 拒絕不完整設定。**換入本版 source 前，即使 flags 關閉，也須套用 migrations 139、140**：既有媒體讀取仍使用 binding 表核對目前權限。關閉 flags 不會取消已存 binding 的隱私檢查；不可盲退到忽略 binding 的舊 source。匿名集錦只讀公開／推薦活動，不揭露公會或會員限定活動、圖片、封面與 metadata；目前仍有閱讀權限的會員使用受驗證媒體入口。撤下阻止後續讀取，不承諾收回已下載或外站快取的副本。API、限制與命令契約見 [member API](docs/development/member-api.md#event-highlights-and-published-squad-outcomes-257)。這不是部署、flag-on、正式 #261 政策或需求驗收證據。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

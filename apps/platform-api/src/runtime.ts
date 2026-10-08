@@ -91,4 +91,8 @@ export type PlatformRuntime = {
   notificationPreferencesEnabled?: boolean;
   /** Calendar, voluntary reminders and FIFO waitlists; absent or false keeps new surfaces unavailable. */
   eventParticipationEnabled?: boolean;
+  /** Explicit authored squad publication; no private Result or roster publication. */
+  squadOutcomesEnabled?: boolean;
+  /** Event summaries and current-authorized canonical outcome links. */
+  eventOutcomesEnabled?: boolean;
 };

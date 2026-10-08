@@ -61,6 +61,10 @@ import {createMemberCommunicationRoutes} from './routes/member-communications.js
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
 import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,eventAssetVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
 import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,createEventHighlightMemberRoutes,createEventHighlightPublicRoutes,isHighlightPhotoUpload,isHighlightPosterUpload} from './routes/event-highlights.js';
+import {createSquadOutcomeRoutes,createPublicSquadOutcomeRoutes} from './routes/squad-outcomes.js';
+import {createEventOutcomeRoutes,createPublicEventOutcomeRoutes} from './routes/event-outcomes.js';
+import {publicSquadOutcomeHtml} from '../../../modules/identity-membership/squad-outcomes-page.js';
+import {eventOutcomeBacklinksHtml} from '../../../modules/community/event-outcomes-page.js';
 import {CollaborationGitHub} from '../../../modules/co-creation/github.js';
 import {acceptedWorkFeed,contributionRecords,previewTasks} from '../../../modules/community/task-board.js';
 import {publicEvent,publicEventBanner,publicEventVideo,registerPublicEvent} from '../../../modules/community/events.js';
@@ -99,6 +103,7 @@ function wireVersions(value:any):any {
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  if(runtime.eventOutcomesEnabled===true&&runtime.squadOutcomesEnabled!==true)throw new Error('event_outcomes_require_squad_outcomes');
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
@@ -224,11 +229,18 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));
-  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true));
-  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
+  const skillEventBacklinks=runtime.eventOutcomesEnabled===true?async(id:string,c:Context)=>{
+    let actor:Actor|null=null;
+    const session=readSessionCookie(c.req.header('Cookie'),origin);
+    if(session){try{actor=await authenticate(pool,session);}catch(error){if(!(error instanceof Problem&&error.status===401&&['login_required','session_expired'].includes(error.code)))throw error;}}
+    if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
+    return eventOutcomeBacklinksHtml(pool,{kind:'skill_book',id},actor?{communityId:actor.community_id,userId:actor.user_id}:null);
+  }:undefined;
+  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,event_participation_enabled:runtime.eventParticipationEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,notification_preferences_enabled:runtime.notificationPreferencesEnabled===true,event_participation_enabled:runtime.eventParticipationEnabled===true,squad_outcomes_enabled:runtime.squadOutcomesEnabled===true,event_outcomes_enabled:runtime.eventOutcomesEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -283,6 +295,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.use('/api/v1/public/events/:id/participation-request',eventParticipationEnabled);
   app.use('/api/v1/public/events/:id/calendar',eventParticipationEnabled);
   app.use('/api/v1/public/events/:id/reminder',eventParticipationEnabled);
+  const squadOutcomesEnabled:MiddlewareHandler=async(c,next)=>{c.header('Cache-Control','no-store');requireCondition(runtime.squadOutcomesEnabled===true,404,'not_found','找不到這個頁面。');await next();};
+  for(const path of ['/api/v1/squads/:id/outcomes','/api/v1/squad-outcomes/*','/api/v1/me/squad-outcomes','/api/v1/public/squad-outcomes/*'])app.use(path,squadOutcomesEnabled);
+  const eventOutcomesEnabled:MiddlewareHandler=async(c,next)=>{c.header('Cache-Control','no-store');requireCondition(runtime.eventOutcomesEnabled===true,404,'not_found','找不到這個頁面。');await next();};
+  for(const path of ['/api/v1/event-highlights/:id/outcomes','/api/v1/event-highlights/:id/outcomes/*','/api/v1/event-highlights/:id/outcome-references','/api/v1/event-outcomes/*','/api/v1/event-outcome-backlinks/*','/api/v1/public/event-highlights/:id/outcomes','/api/v1/public/event-outcomes/*','/api/v1/public/event-outcome-backlinks/*'])app.use(path,eventOutcomesEnabled);
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -322,6 +338,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   registerPublicPromotion(app,pool,runtime,origin);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
+  if(runtime.squadOutcomesEnabled===true)app.route('/api/v1/public',createPublicSquadOutcomeRoutes(pool));
+  if(runtime.squadOutcomesEnabled===true)app.get('/squad-outcomes/:id',async c=>{
+    c.header('Cache-Control','no-store');
+    try{return c.html(await publicSquadOutcomeHtml(pool,z.uuid().parse(c.req.param('id')),runtime.publicOrigin,runtime.eventOutcomesEnabled===true));}
+    catch(error){if(error instanceof Problem&&error.status===404)return c.html('<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>找不到公開成果｜自由工坊</title></head><body><h1>找不到公開成果</h1><p>這份成果尚未公開、已撤下，或目前不再可閱讀。</p><a href="/">返回自由工坊</a></body></html>',404);throw error;}
+  });
+  if(runtime.eventOutcomesEnabled===true)app.route('/api/v1/public',createPublicEventOutcomeRoutes(pool));
   const dispatchGuest=async(eventId:string)=>processEventWaitlist(pool,async(to,subject,body)=>{requireCondition(runtime.eventEmailSender,503,'event_email_unavailable','活動郵件服務暫時無法使用。');await runtime.eventEmailSender(to,subject,body);},origin,undefined,eventId);
   if(runtime.eventParticipationEnabled===true){
     const guestMutation=async(c:Context)=>{
@@ -505,6 +528,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);
   app.route('/api/v1',createEventHighlightMemberRoutes(pool,runtime));
+  if(runtime.squadOutcomesEnabled===true)app.route('/api/v1',createSquadOutcomeRoutes(pool));
+  if(runtime.eventOutcomesEnabled===true)app.route('/api/v1',createEventOutcomeRoutes(pool));
   app.route('/api/v1',createGitHubSocialRoutes(loadSocial));
   app.route('/api/v1',createMemberAuthorClaimRoutes(pool,options.githubSocial?.fetcher??globalThis.fetch,runtime.githubMetricsToken));
   app.route('/api/v1',createDevelopmentAccessRoutes(pool,loadSocial));

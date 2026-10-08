@@ -65,6 +65,25 @@ function env(overrides: Partial<WorkerEnv> = {}): WorkerEnv & { ASSETS: ReturnTy
 const stagingEnv = (o: Partial<WorkerEnv> = {}) => env({ FREEDOM_ENV: 'staging', APP_ORIGIN: 'https://staging-next.freetwai.com', FREEDOM_RELEASE_SHA: SHA_A, FREEDOM_DATABASE_NAME: 'freedom_candidate', FREEDOM_TRUST_CF_CONNECTING_IP: 'true', ...o });
 const publicEnv = (o: Partial<WorkerEnv> = {}) => env({ FREEDOM_ENV: 'public', APP_ORIGIN: 'https://next.freetwai.com', FREEDOM_RELEASE_SHA: SHA_B, FREEDOM_DATABASE_NAME: 'freedom_candidate', FREEDOM_REGISTRATION_COMMUNITY_ID: COMMUNITY, FREEDOM_TRUST_CF_CONNECTING_IP: 'true', ...o });
 
+test('incomplete outcome enablement fails closed before pools or browser fallback',async()=>{
+ const h=harness(),configuration=env({FREEDOM_EVENT_OUTCOMES_ENABLED:'true',FREEDOM_SQUAD_OUTCOMES_ENABLED:'false'});
+ const {result:value}=await quietly(()=>h.fetch('http://127.0.0.1:8787/squad-outcomes/'+randomUUID(),configuration));
+ assert.equal(value.status,503);
+ assert.equal(h.pools.length,0);
+ assert.equal(configuration.ASSETS.seen.length,0);
+});
+
+test('disabled outcome APIs deny anonymous and stale sessions before authentication or pool reads',async()=>{
+ const app=createApp({query:async()=>{throw new Error('Disabled outcome API must not query a session or private record.');}} as unknown as Pool,'http://127.0.0.1:4310');
+ const id=randomUUID();
+ for(const path of [`/squads/${id}/outcomes`,`/squad-outcomes/${id}`,`/me/squad-outcomes`,`/event-highlights/${id}/outcomes`,`/event-highlights/${id}/outcomes/own`,`/event-highlights/${id}/outcome-references`,`/event-outcomes/${id}`,`/event-outcome-backlinks/skill_book/video-autopilot`,`/public/event-outcomes/${id}`]){
+  for(const headers of [new Headers(),new Headers({Cookie:'freedom_local_session='+ 'a'.repeat(43)})]){
+   const response=await app.request('http://127.0.0.1:4310/api/v1'+path,{headers});
+   assert.equal(response.status,404,path);
+  }
+ }
+});
+
 /** Handler with injected pools plus a ctx that records waitUntil work. */
 function harness(facts: Parameters<typeof fakePool>[0] = {}) {
   const pools: FakePool[] = [];

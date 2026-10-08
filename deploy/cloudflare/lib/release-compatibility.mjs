@@ -137,6 +137,10 @@ const FOUNDATION_NAMES = [
   '137_notification_preferences.sql',
   // Participation is opt-in. Existing event publication and review authority do not change.
   '138_event_participation.sql',
+  // Authored outcomes are independent of private Results and attendance/XP.
+  '139_squad_outcomes.sql',
+  // Authored event recaps reference current canonical sources; no source prose is copied.
+  '140_event_outcomes.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

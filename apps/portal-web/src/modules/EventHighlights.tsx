@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PortalClient } from '../api';
 import { ApiError } from '../api';
 import { imageOrientation, uploadHighlightImage } from './highlight-media';
+import {EventOutcomes} from './EventOutcomes';
 import './EventHighlights.css';
 
 type Mode = 'online' | 'in_person' | 'hybrid';
@@ -21,6 +22,7 @@ type Item = {
 type Detail = Card & {
   description: string | null; banner_url: string | null; banner_orientation: 'landscape' | 'portrait' | null;
   items: Item[]; can_upload: boolean;
+  visibility:'open'|'referral'|'workshop'|'guild';
   quota: { links: { remaining_for_me: number; remaining_for_event: number }; photos: { remaining_for_me: number; remaining_for_event: number }; posters: { remaining_for_me: number; remaining_for_event: number } };
 };
 const modeLabel: Record<Mode, string> = { online: '線上', in_person: '實體', hybrid: '線上＋實體' };
@@ -48,14 +50,14 @@ function Cover({ cover, mode, whenLabel }: { cover: Cover; mode: Mode; whenLabel
   return <img key={cover.url} src={cover.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
-export function EventHighlights({ client }: { client: PortalClient }) {
+export function EventHighlights({ client,outcomesEnabled=false }: { client: PortalClient;outcomesEnabled?:boolean }) {
   const [eventId, setEventId] = useState(eventIdFromHash);
   useEffect(() => {
     const changed = () => setEventId(eventIdFromHash());
     window.addEventListener('hashchange', changed);
     return () => window.removeEventListener('hashchange', changed);
   }, []);
-  return <div className="hl-panel">{eventId ? <HighlightDetail client={client} eventId={eventId} /> : <HighlightList client={client} />}</div>;
+  return <div className="hl-panel">{eventId ? <HighlightDetail key={eventId} client={client} eventId={eventId} outcomesEnabled={outcomesEnabled}/> : <HighlightList client={client} />}</div>;
 }
 
 function HighlightList({ client }: { client: PortalClient }) {
@@ -75,7 +77,7 @@ function HighlightList({ client }: { client: PortalClient }) {
   }, [client]);
   useEffect(() => { void load(mode, null, false); }, [load, mode]);
   return <>
-    <p className="hl-intro">活動結束後會自動收進這裡，並公開給所有人看，方便分享社群活動。參加過的夥伴可以補上照片、海報和影片連結。</p>
+    <p className="hl-intro">活動結束後會收進集錦。公開活動可分享給所有人；社群與公會內部活動仍依目前閱讀權限。夥伴可以補上有權分享的摘要、照片、海報和影片連結。</p>
     {error && <p role="alert">{error}</p>}
     <div className="hl-chips" data-guide-anchor="highlights:format" role="group" aria-label="活動形式">
       {([['all', '全部'], ['online', '線上'], ['in_person', '實體']] as const).map(([value, label]) =>
@@ -88,7 +90,7 @@ function HighlightList({ client }: { client: PortalClient }) {
         <h2><a href={`#highlights/${item.event_id}`}>{item.title}</a></h2>
         <p>{when(item.starts_at, item.ends_at)}</p>
         <p><span className={`hl-mode hl-mode-${item.mode}`}>{modeLabel[item.mode]}</span> {item.organizer_name}</p>
-        <p className="hl-meta">{item.attending_count} 人參加 · 影片 {item.counts.links}・照片 {item.counts.photos}・海報 {item.counts.posters}</p>
+        <p className="hl-meta">{item.attending_count} 人回覆 Going · 影片 {item.counts.links}・照片 {item.counts.photos}・海報 {item.counts.posters}</p>
         <p><a className="hl-btn" href={`#highlights/${item.event_id}`}>查看集錦</a></p>
       </article>)}
     </div>
@@ -96,7 +98,7 @@ function HighlightList({ client }: { client: PortalClient }) {
   </>;
 }
 
-function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: string }) {
+function HighlightDetail({ client, eventId,outcomesEnabled }: { client: PortalClient; eventId: string;outcomesEnabled:boolean }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -110,6 +112,7 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
   const [manual, setManual] = useState(false);
   const [copied, setCopied] = useState(false);
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const [outcomeId,setOutcomeId]=useState<string|null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -139,26 +142,33 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
     event.preventDefault();
     if (!detail) return;
     setFormError(null); setProgress(null);
+    let batch:File[]|null=null,uploaded=0;
     try {
       if (kind === 'link') {
-        await client.post(`/event-highlights/${eventId}/links`, { url, ...(title.trim() ? { title: title.trim() } : {}) }, { idempotencyKey: crypto.randomUUID() });
+        await client.post(`/event-highlights/${eventId}/links`, { url, ...(title.trim() ? { title: title.trim() } : {}),...(outcomeId?{outcome_id:outcomeId}:{}) }, { idempotencyKey: crypto.randomUUID() });
         setUrl(''); setTitle('');
       } else {
-        const files = [...(fileRef.current?.files ?? [])];
+        const files = [...(fileRef.current?.files ?? [])];batch=files;
         if (!files.length) { setFormError('請先選擇圖片。'); return; }
         for (let index = 0; index < files.length; index += 1) {
           const file = files[index];
-          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setFormError('請選擇 JPEG、PNG 或 WebP 圖片。'); return; }
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new ApiError({message:'請選擇 JPEG、PNG 或 WebP 圖片。',status:422});
           setProgress(files.length > 1 ? `正在上傳第 ${index + 1}／${files.length} 張` : null);
           const orientation = await imageOrientation(file);
-          await uploadHighlightImage(client, eventId, kind, file, orientation, title, crypto.randomUUID());
+          await uploadHighlightImage(client, eventId, kind, file, orientation, title, crypto.randomUUID(),outcomeId??undefined);
+          uploaded+=1;
         }
         setTitle('');
         if (fileRef.current) fileRef.current.value = '';
       }
       setProgress(null);
       await load();
-    } catch (err) { setProgress(null); setFormError(message(err)); await load(); }
+    } catch (err) {
+      setProgress(null);
+      setFormError(`${uploaded?`已新增 ${uploaded} 張；成功項目保留，其餘尚未新增。 `:''}${message(err)}`);
+      if(batch&&uploaded&&fileRef.current){const remaining=new DataTransfer();for(const file of batch.slice(uploaded))remaining.items.add(file);fileRef.current.files=remaining.files;}
+      await load();
+    }
   }
   async function remove(item: Item) {
     if (!window.confirm('要移除這個項目嗎？公開頁也會一併拿掉。')) return;
@@ -171,26 +181,27 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
   const shareUrl = new URL(detail.public_path, window.location.origin).href;
   const links = detail.items.filter(item => item.kind === 'link');
   const posters = detail.items.filter(item => item.kind === 'poster');
-  const hint = kind === 'link' ? '影片請貼 YouTube、Facebook 等連結，也可以貼相簿或回顧文章。' : kind === 'photo' ? 'JPEG、PNG 或 WebP，10 MiB 以下，可一次選多張。上傳前請確認照片中的人同意公開。' : '活動海報或宣傳圖，JPEG、PNG 或 WebP，10 MiB 以下。';
+  const hint = kind === 'link' ? '影片請貼 YouTube、Facebook 等連結，也可以貼相簿或回顧文章。' : kind === 'photo' ? 'JPEG、PNG 或 WebP，10 MiB 以下，可一次選多張。上傳前請確認你有權向所選範圍分享、照片中的人已同意。' : '活動海報或宣傳圖，JPEG、PNG 或 WebP，10 MiB 以下；請保留作者、來源及授權。';
   const currentPhoto = photoIndex === null ? null : photos[photoIndex];
   return <>
     <div className="hl-actions">
       <a className="hl-btn" href="#highlights">返回活動集錦</a>
       <a className="hl-btn" href={`#events/${eventId}`}>活動專頁</a>
-      <a className="hl-btn" href={detail.public_path} target="_blank" rel="noopener noreferrer">公開頁 ↗</a>
-      <button type="button" className="hl-btn" onClick={() => void share()}>分享</button>
+      {['open','referral'].includes(detail.visibility)&&<><a className="hl-btn" href={detail.public_path} target="_blank" rel="noopener noreferrer">公開頁 ↗</a>
+      <button type="button" className="hl-btn" onClick={() => void share()}>分享</button></>}
     </div>
     {copied && <p role="status">已複製公開連結。</p>}
     {(manual || openCopy) && <p className="hl-copy"><label>請手動複製公開連結。<input readOnly value={shareUrl} aria-label="公開連結" onFocus={event => event.currentTarget.select()} /></label> <button type="button" className="hl-btn" onClick={() => setOpenCopy(value => !value)} hidden>{openCopy ? '收合' : '顯示'}</button></p>}
-    <p className="hl-notice">這一頁是公開的，任何拿到連結的人都看得到。</p>
+    <p className="hl-notice">{['open','referral'].includes(detail.visibility)?'公開活動的公開內容可供任何人閱讀；私人成果與草稿不會自動公開。':'這場活動只對符合目前社群或公會權限的會員開放，不提供匿名公開頁。'}</p>
     {error && <p role="alert">{error}</p>}
     <section className="hl-block">
       <h2>{detail.title}</h2>
       <p>{when(detail.starts_at, detail.ends_at)} · <span className={`hl-mode hl-mode-${detail.mode}`}>{modeLabel[detail.mode]}</span> · {kindLabel[detail.event_kind] ?? '其他活動'}</p>
-      <p>主辦 {detail.organizer_name} · {detail.attending_count} 人參加</p>
+      <p>主辦 {detail.organizer_name} · {detail.attending_count} 人回覆 Going（不代表實際出席）</p>
       <div className={expanded ? undefined : 'hl-clamp'}>{(detail.description ?? '').split(/\n+/).filter(line => line.trim()).map(line => <p key={line}>{line}</p>)}</div>
       <button type="button" className="hl-btn" onClick={() => setExpanded(value => !value)}>{expanded ? '收合' : '展開'}</button>
     </section>
+    {outcomesEnabled&&<EventOutcomes client={client} eventId={eventId} onBindingChange={setOutcomeId} onChanged={load}/>}
     <section>
       <h2>海報</h2>
       <div className="hl-posters">
@@ -222,7 +233,7 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
         </div>)}
       </div>
     </section>
-    {detail.items.length === 0 && <p>還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>}
+    {detail.items.length === 0 && <p>還沒有人補上內容。有閱讀權限的社群會員可以補上有權分享的照片、海報或影片連結。</p>}
     <details className="hl-add">
       <summary>補上照片或影片連結</summary>
       <p className="hl-quota">你還可以新增：連結 {room(detail.quota, 'links')}・照片 {room(detail.quota, 'photos')}・海報 {room(detail.quota, 'posters')}</p>
@@ -231,6 +242,7 @@ function HighlightDetail({ client, eventId }: { client: PortalClient; eventId: s
           <button key={value} type="button" aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
       </div>
       <p className="hl-hint">{hint}</p>
+      {outcomesEnabled&&<p className="hl-hint">{outcomeId?'新增項目綁定目前選取的精華，沿用精華目前狀態與閱讀範圍；私人草稿不會匿名公開。':'尚未綁定精華：新增項目直接沿用這場活動的閱讀範圍。要保持私人草稿，請先在上方儲存並選取精華。'}</p>}
       <form onSubmit={event => void submit(event)}>
         {kind === 'link' && <label className="hl-field">影片連結<input value={url} onChange={event => setUrl(event.target.value)} type="url" required placeholder="https://" autoComplete="off" /></label>}
         {kind !== 'link' && <label className="hl-field">{kind === 'photo' ? '照片' : '海報'}<input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple={kind === 'photo'} required /></label>}

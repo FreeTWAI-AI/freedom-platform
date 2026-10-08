@@ -18,11 +18,12 @@ export async function imageOrientation(file: File): Promise<'landscape' | 'portr
   }
 }
 
-export async function uploadHighlightImage(client: PortalClient, eventId: string, kind: 'photo' | 'poster', file: File, orientation: 'landscape' | 'portrait', title: string, key: string) {
+export async function uploadHighlightImage(client: PortalClient, eventId: string, kind: 'photo' | 'poster', file: File, orientation: 'landscape' | 'portrait', title: string, key: string,outcomeId?:string) {
   if (!client.csrfToken) throw new ApiError({ message: '登入狀態已變更，請重新整理後再試。', status: 400 });
   const requestCsrfToken = client.csrfToken;
   const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': file.type, 'X-CSRF-Token': client.csrfToken, 'Idempotency-Key': key, 'X-Photo-Orientation': orientation };
   if (title.trim()) headers['X-Media-Title'] = encodeURIComponent(title.trim());
+  if(outcomeId)headers['X-Event-Outcome-Id']=outcomeId;
   let response: Response;
   try {
     response = await accessAwareFetch(`/api/v1/event-highlights/${eventId}/${kind === 'photo' ? 'photos' : 'posters'}`, { method: 'POST', credentials: 'same-origin', body: file, headers });
