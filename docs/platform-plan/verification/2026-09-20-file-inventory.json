@@ -19639,8 +19639,8 @@
     },
     {
       "path": "tests/runtime/module-provisioning.test.ts",
-      "bytes": 30269,
-      "sha256": "17b5fc0666aa3bb3ec588a3111d5b88bfdfcb069ebf8223917d4d684ad93ad33"
+      "bytes": 30937,
+      "sha256": "46d7e834c7154aba5cdac15d8a9fdaee8f4d9689ceee68096276cb36e44340e1"
     },
     {
       "path": "tests/runtime/module-registry-harness.ts",
