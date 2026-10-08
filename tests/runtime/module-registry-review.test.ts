@@ -1741,7 +1741,7 @@ test('r8 catalog and launchpad deduplicate releases before sorting and keyset pa
   const { owner } = await prepared();
   const key = 'synthetic-r8-overlap';
   await r8Definition(key, 'available', 'reviewed');
-  await r8Offering(key, null, null, '1', 0);
+  await r8Offering(key, null, null, '1', 1);
   await r8Offering(key, DEMO_COMMUNITY, null, '2', 0);
   await r8Offering(key, DEMO_COMMUNITY, 'guild_ai_field', '3', 30, '00000000-0000-4000-8000-000000000003');
   // Same display_order exercises offering_id as the last sorting key.
@@ -1760,7 +1760,7 @@ test('r8 catalog and launchpad deduplicate releases before sorting and keyset pa
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) > single.indexOf(`${beforeKey}|${beforeKey}@1.0.0`));
         assert.ok(single.indexOf(`${key}|${key}@1.0.0`) < single.indexOf(`${afterKey}|${afterKey}@1.0.0`));
       } else {
-        assert.equal(single[0], `${key}|${key}@1.0.0`);
+        assert.deepEqual(single, ['manual-workspace|manual-workspace@1.0.0', `${key}|${key}@1.0.0`]);
       }
     }
   }
