@@ -1,3 +1,5 @@
+import { createTenantListCursorCodec } from '../../packages/shared/tenant-list-cursor.js';
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -80,9 +82,9 @@ class BarrierStore implements ObjectStore {
 }
 
 const store = new BarrierStore();
-const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
 const closed = createApp(pool, origin, 'local');
-const unstored = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true });
+const unstored = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
 type Session = { cookie: string; csrf: string; user: { user_id: string; display_name: string; email: string } };
 type Reply = { status: number; data: any; response: Response; bytes: Uint8Array };
 
@@ -1292,7 +1294,7 @@ test('demoting the admin to viewer after the finalize probe stores no result', {
 
 test('one pooled connection alternates two tenants without mixing their work', async () => {
   const narrow = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 1 });
-  const narrowApp = createApp(narrow, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+  const narrowApp = createApp(narrow, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
   try {
     const [guild] = await guildKeys();
     const alpha = await signIn(DEMO_USERS[0].email, narrowApp);
@@ -1321,5 +1323,93 @@ test('one pooled connection alternates two tenants without mixing their work', a
     assert.deepEqual(third.data.items.map((item: { title: string }) => item.title), ['甲的工作']);
   } finally {
     await narrow.end();
+  }
+});
+
+
+test('signed Work and Results continuations bind current principal, resource, filter and keyset; authorization precedes decode', async () => {
+  const { owner, tenantId, workspaceId, adminUser, principalId, workId } = await adminWorkspace();
+  const second = await createWork(owner, tenantId, workspaceId, '第二個工作');
+  assert.equal(second.status, 201, JSON.stringify(second.data));
+  const secondId = second.data.resource_ref.resource_id as string;
+  // Preserve database microseconds rather than rounding through JavaScript Date.
+  await pool.query(`UPDATE work_items SET created_at='2026-10-08T12:00:00.123456Z' WHERE work_item_id=$1`, [workId]);
+  await pool.query(`UPDATE work_items SET created_at='2026-10-08T12:00:00.123457Z' WHERE work_item_id=$1`, [secondId]);
+  const path = `/tenants/${tenantId}/workspaces/${workspaceId}/works`;
+  const first = await call('GET', path + '?limit=1', adminUser.session);
+  assert.equal(first.status, 200, JSON.stringify(first.data));
+  assert.equal(first.data.items[0].work_id, secondId);
+  const token = first.data.next_cursor as string;
+  assert.match(token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+  const scopeId = (await pool.query('SELECT scope_id FROM resource_scopes WHERE tenant_ref=$1', [tenantId])).rows[0].scope_id;
+  const codec = createTenantListCursorCodec(TENANT_CURSOR_TEST_KEY, { environment: 'local', origin });
+  const binding = { purpose: 'work' as const, tenantId, resourceId: workspaceId, principalId, scopeId, filter: '' };
+  assert.notEqual(principalId, adminUser.id);
+  assert.deepEqual(codec.decode(token, binding), { at: '2026-10-08T12:00:00.123457Z', id: secondId });
+  const next = await call('GET', path + '?limit=1&cursor=' + token, adminUser.session);
+  assert.equal(next.status, 200, JSON.stringify(next.data));
+  assert.deepEqual(next.data.items.map((row: { work_id: string }) => row.work_id), [workId]);
+  for (const [url, actor] of [
+    [path + '?limit=1&q=工作&cursor=' + token, adminUser.session],
+    [path + '?limit=1&cursor=' + token, owner],
+    [path + '?cursor=' + codec.encode({ at: '2026-10-08T12:00:00.123457Z', id: secondId }, { ...binding, principalId: adminUser.id }), adminUser.session],
+  ] as const) {
+    const reply = await call('GET', url, actor);
+    assert.equal(reply.status, 422, JSON.stringify(reply.data));
+    assert.equal(reply.data.code, 'invalid_cursor');
+  }
+  const forged = token.split('.');
+  const envelope = JSON.parse(Buffer.from(forged[0], 'base64url').toString());
+  envelope.p.id = workId;
+  forged[0] = Buffer.from(JSON.stringify(envelope)).toString('base64url');
+  const tampered = await call('GET', path + '?cursor=' + forged.join('.'), adminUser.session);
+  assert.equal(tampered.data.code, 'invalid_cursor');
+
+  for (const version of ['1', '2']) {
+    const prepared = await prepareUpload(owner, tenantId, workId, `note-${version}.txt`, 'text/plain', ABC, version);
+    assert.equal(prepared.status, 201, JSON.stringify(prepared.data));
+    const uploadId = prepared.data.resource_ref.resource_id as string;
+    assert.equal((await writeUpload(owner, tenantId, workId, uploadId, ABC, '1')).status, 200);
+    const finalized = await finalizeUpload(owner, tenantId, workId, uploadId, version, '2');
+    assert.equal(finalized.status, 200, JSON.stringify(finalized.data));
+  }
+  const resultsPath = `/tenants/${tenantId}/works/${workId}/results`;
+  const results = await call('GET', resultsPath + '?limit=1', adminUser.session);
+  assert.equal(results.status, 200, JSON.stringify(results.data));
+  const resultsToken = results.data.next_cursor as string;
+  assert.deepEqual(codec.decode(resultsToken, { ...binding, purpose: 'results', resourceId: workId }), { revision: '2' });
+  const resultsNext = await call('GET', resultsPath + '?limit=1&cursor=' + resultsToken, adminUser.session);
+  assert.equal(resultsNext.status, 200, JSON.stringify(resultsNext.data));
+  assert.deepEqual(resultsNext.data.items.map((row: { revision: string }) => row.revision), ['1']);
+  for (const url of [resultsPath + '?cursor=' + token, `/tenants/${tenantId}/works/${secondId}/results?cursor=${resultsToken}`]) {
+    const reply = await call('GET', url, adminUser.session);
+    assert.equal(reply.status, 422, JSON.stringify(reply.data));
+    assert.equal(reply.data.code, 'invalid_cursor');
+  }
+  const stranger = await signIn(DEMO_USERS[1].email);
+  const closedSigner = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: '' });
+  for (const target of [app, closedSigner]) {
+    for (const url of [path, resultsPath]) {
+      const hidden = await call('GET', url + '?cursor=abc', stranger, undefined, {}, target);
+      const missing = await call('GET', url.replace(tenantId, randomUUID()) + '?cursor=abc', stranger, undefined, {}, target);
+      assert.equal(hidden.status, 404, JSON.stringify(hidden.data));
+      assert.deepEqual(hidden.data, missing.data);
+    }
+    for (const url of [path.replace(workspaceId, randomUUID()), resultsPath.replace(workId, randomUUID())]) {
+      const missing = await call('GET', url + '?cursor=abc', owner, undefined, {}, target);
+      assert.equal(missing.status, 404, JSON.stringify(missing.data));
+    }
+  }
+  for (const url of [path, resultsPath]) {
+    for (const suffix of ['', '?cursor=abc']) {
+      const unavailable = await call('GET', url + suffix, owner, undefined, {}, closedSigner);
+      assert.equal(unavailable.status, 503, JSON.stringify(unavailable.data));
+      assert.equal(unavailable.data.code, 'tenant_cursor_unavailable');
+    }
+  }
+  await pool.query(`UPDATE tenant_memberships SET status='revoked', revoked_at=clock_timestamp(), version=version+1 WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId]);
+  for (const [url, cursor] of [[path, token], [resultsPath, resultsToken]]) {
+    const revoked = await call('GET', url + '?cursor=' + cursor, adminUser.session);
+    assert.equal(revoked.status, 404, JSON.stringify(revoked.data));
   }
 });
