@@ -34,7 +34,9 @@
     "tests/runtime/hosted-order-http-contracts.test.ts",
     "apps/portal-web/src/modules/HostedOrder.tsx",
     "apps/portal-web/src/modules/hosted-order-state.ts",
-    "tests/runtime/hosted-order-ui.test.ts"
+    "tests/runtime/hosted-order-ui.test.ts",
+    "tests/e2e/hosted-order.spec.ts",
+    "tests/e2e/hosted-order-fixture.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
