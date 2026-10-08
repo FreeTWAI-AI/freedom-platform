@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
   ApplicationPageSchema, ApplicationReleaseViewSchema, ApplicationViewSchema, EligibilitySchema,
-  type ApplicationView, type Eligibility,
+  type ApplicationView, type Eligibility, type LaunchpadApplication,
 } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
@@ -53,6 +53,17 @@ function eligibilityView(full: boolean, manages: boolean, policy: boolean, insta
   });
 }
 
+function isLaunchable(row: Pick<ApplicationView, 'release_status' | 'license_state'>): boolean {
+  return row.release_status === 'available' && row.license_state === 'reviewed';
+}
+
+function unavailableEligibility(policyRevision: string): Eligibility {
+  return EligibilitySchema.parse({
+    can_launch: false, reason_codes: ['application_not_available'], required_guild_tier: 'full',
+    tenant_action: 'denied', policy_revision: policyRevision,
+  });
+}
+
 function encodeCursor(platform: boolean, order: number, id: string, filter: string) {
   return Buffer.from(JSON.stringify({ filter, platform: platform ? 0 : 1, order, id })).toString('base64url');
 }
@@ -78,7 +89,9 @@ function decodeCursor(raw: string | undefined, filter: string): { platform: numb
   return { platform: parsed.platform, order: parsed.order, id: parsed.id as string };
 }
 
-const SELECT_OFFERING = `SELECT o.offering_id, d.application_key, d.release_ref, d.display_name, d.module_requirements,
+// Choose the most specific offered row before sorting or applying a page cursor.
+const OFFERING_PRECEDENCE = `(o.guild_key IS NULL), (o.community_id IS NULL), o.offering_id`;
+const SELECT_OFFERING = `SELECT DISTINCT ON (d.application_key, d.release_ref) o.offering_id, d.application_key, d.release_ref, d.display_name, d.module_requirements,
   d.runtime_profiles, d.launch_policy_ref, d.license_state, d.release_status, d.version::text AS version,
   d.source_commit, d.artifact_digest, d.skill_book_refs, d.license_review_ref, d.customization_schema_ref,
   d.entry_capability, o.display_order, (o.community_id IS NULL) AS platform, o.launch_policy_ref AS offering_policy`;
@@ -88,7 +101,7 @@ export async function assertGuildKey(q: PoolClient, guildKey: string) {
   requireCondition(found.rowCount === 1, 404, 'guild_not_found', '找不到這個公會。');
 }
 
-export async function listApplications(q: PoolClient, query: CatalogQuery) {
+async function listApplicationRows(q: PoolClient, query: CatalogQuery) {
   if (query.guildKey) await assertGuildKey(q, query.guildKey);
   const limit = query.limit ?? 20;
   const filter = createHash('sha256').update(JSON.stringify({ list: 'applications', guild_key: query.guildKey ?? null,
@@ -110,17 +123,24 @@ export async function listApplications(q: PoolClient, query: CatalogQuery) {
       ? `((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=${communityParam} AND (o.guild_key IS NULL OR o.guild_key=${guildParam})))`
       : `((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=${guildParam})`
     : `(o.community_id IS NULL AND o.guild_key IS NULL)`;
+  const visibility = communityParam
+    ? `d.release_status IN ('reviewed','available','retired')`
+    : `d.release_status='available' AND d.license_state='reviewed'`;
   const scopeParams = [...params];
   params.push(cursor?.platform ?? null, cursor?.order ?? null, cursor?.id ?? null, limit + 1);
   const base = params.length;
   const rows = (await q.query<OfferingRow>(
-    `${SELECT_OFFERING}
-     FROM guild_application_offerings o
-     JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
-     WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed' AND ${where}
-       AND ($${base - 3}::int IS NULL OR ((CASE WHEN o.community_id IS NULL THEN 0 ELSE 1 END), o.display_order, o.offering_id)
+    `WITH offerings AS (
+       ${SELECT_OFFERING}
+       FROM guild_application_offerings o
+       JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
+       WHERE o.status='offered' AND ${visibility} AND ${where}
+       ORDER BY d.application_key, d.release_ref, ${OFFERING_PRECEDENCE}
+     )
+     SELECT * FROM offerings
+     WHERE ($${base - 3}::int IS NULL OR ((CASE WHEN platform THEN 0 ELSE 1 END), display_order, offering_id)
             > ($${base - 3}::int, $${base - 2}::int, $${base - 1}::uuid))
-     ORDER BY (o.community_id IS NOT NULL), o.display_order, o.offering_id
+     ORDER BY (NOT platform), display_order, offering_id
      LIMIT $${base}`,
     params,
   )).rows;
@@ -130,7 +150,7 @@ export async function listApplications(q: PoolClient, query: CatalogQuery) {
     scopeParams,
   )).rows[0].v;
   return {
-    items: page.map(row => applicationView(row)),
+    items: page,
     next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id, filter) : null,
     source_version: source && source !== '0' ? source : '1',
   };
@@ -162,19 +182,25 @@ export function applicationView(row: OfferingRow, eligibility?: Eligibility): Ap
   });
 }
 
-export async function loadRelease(q: PoolClient, applicationKey: string, releaseRef: string) {
+export async function loadRelease(q: PoolClient, applicationKey: string, releaseRef: string, actor: Actor | null = null) {
   const row = (await q.query<OfferingRow>(
     `SELECT d.application_key, d.release_ref, d.display_name, d.module_requirements, d.runtime_profiles,
        d.launch_policy_ref, d.license_state, d.release_status, d.version::text AS version, d.source_commit,
        d.artifact_digest, d.skill_book_refs, d.license_review_ref, d.customization_schema_ref, d.entry_capability,
        0 AS display_order, NULL::uuid AS offering_id, true AS platform
      FROM application_definitions d WHERE d.application_key=$1 AND d.release_ref=$2
-       AND d.release_status='available' AND d.license_state='reviewed'
-       AND EXISTS (
-         SELECT 1 FROM guild_application_offerings o
-         WHERE o.application_key=d.application_key AND o.release_ref=d.release_ref AND o.status='offered'
+       AND (
+         (d.release_status='available' AND d.license_state='reviewed' AND EXISTS (
+           SELECT 1 FROM guild_application_offerings o
+           WHERE o.application_key=d.application_key AND o.release_ref=d.release_ref AND o.status='offered'
+         ))
+         OR ($3::uuid IS NOT NULL AND d.release_status IN ('reviewed','available','retired') AND EXISTS (
+           SELECT 1 FROM guild_application_offerings o
+           WHERE o.application_key=d.application_key AND o.release_ref=d.release_ref AND o.status='offered'
+             AND (o.community_id IS NULL OR o.community_id=$3)
+         ))
        )`,
-    [applicationKey, releaseRef],
+    [applicationKey, releaseRef, actor?.community_id ?? null],
   )).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這個應用版本。');
   return ApplicationReleaseViewSchema.parse({
@@ -202,7 +228,7 @@ export async function loadOfferedDefinition(q: PoolClient, guildKey: string, app
      JOIN guild_application_offerings o ON o.application_key=d.application_key AND o.release_ref=d.release_ref
      WHERE d.application_key=$2 AND d.release_ref=$3 AND o.status='offered'
        AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$4 AND (o.guild_key IS NULL OR o.guild_key=$1)))
-     ORDER BY o.community_id NULLS LAST
+     ORDER BY ${OFFERING_PRECEDENCE}
      LIMIT 1`,
     [guildKey, applicationKey, releaseRef, communityId],
   )).rows[0];
@@ -235,15 +261,24 @@ export async function assertOfferedApplications(q: PoolClient, guildKey: string,
   if (errors.length) throw new ConfigValidationError(errors);
 }
 
-export async function availableReleaseRefs(q: PoolClient, guildKey: string, communityId: string | null): Promise<Set<string>> {
-  const rows = (await q.query<{ release_ref: string }>(
-    `SELECT d.release_ref FROM guild_application_offerings o
-     JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
-     WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))`,
+export async function availableReleases(q: PoolClient, guildKey: string, communityId: string | null): Promise<{ application_key: string; release_ref: string }[]> {
+  return (await q.query<{ application_key: string; release_ref: string }>(
+    `WITH offerings AS (
+       SELECT DISTINCT ON (d.application_key, d.release_ref)
+         d.application_key, d.release_ref, o.offering_id, o.display_order, (o.community_id IS NULL) AS platform
+       FROM guild_application_offerings o
+       JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
+       WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
+         AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))
+       ORDER BY d.application_key, d.release_ref, ${OFFERING_PRECEDENCE}
+     )
+     SELECT application_key, release_ref FROM offerings ORDER BY (NOT platform), display_order, offering_id`,
     [guildKey, communityId],
   )).rows;
-  return new Set(rows.map(row => row.release_ref));
+}
+
+export async function availableReleaseRefs(q: PoolClient, guildKey: string, communityId: string | null): Promise<Set<string>> {
+  return new Set((await availableReleases(q, guildKey, communityId)).map(row => row.release_ref));
 }
 
 async function personPrincipalId(q: PoolClient, userId: string): Promise<string | null> {
@@ -355,46 +390,51 @@ export async function eligibilityFor(q: PoolClient, actor: Actor, guildKey: stri
 /** Public catalog. Offerings have no tenant_id. Eligibility binds the principal, then one managed tenant at a time. */
 export async function browseApplications(pool: Pool, query: CatalogQuery, actor: Actor | null) {
   return isolatedTransaction(pool, async q => {
-    const page = await listApplications(q, { ...query, communityId: actor?.community_id });
-    if (!actor || !query.guildKey) return ApplicationPageSchema.parse(page);
+    const page = await listApplicationRows(q, { ...query, communityId: actor?.community_id });
+    if (!actor || !query.guildKey) return ApplicationPageSchema.parse({ ...page, items: page.items.map(row => applicationView(row)) });
     const items = [];
-    for (const item of page.items) {
-      const policy = (await q.query<{ version: string }>(
-        `SELECT o.launch_policy_ref->>'version' AS version
-         FROM guild_application_offerings o
-         WHERE o.release_ref=$1 AND o.application_key=$4 AND o.status='offered'
-           AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$3 AND (o.guild_key IS NULL OR o.guild_key=$2)))
-         ORDER BY o.community_id NULLS LAST
-         LIMIT 1`,
-        [item.release_ref, query.guildKey, actor.community_id, item.application_key],
-      )).rows[0];
-      items.push({
-        ...item,
-        eligibility: await eligibilityFor(q, actor, query.guildKey, item.application_key, item.release_ref, policy?.version ?? item.launch_policy_ref.version),
-      });
+    for (const row of page.items) {
+      const eligibility = isLaunchable(row)
+        ? await eligibilityFor(q, actor, query.guildKey, row.application_key, row.release_ref, row.offering_policy.version)
+        : unavailableEligibility(row.offering_policy.version);
+      items.push(applicationView(row, eligibility));
     }
     await assertCurrentSessionClock(q, actor);
     return ApplicationPageSchema.parse({ ...page, items });
   });
 }
 
-export async function readPublicRelease(pool: Pool, applicationKey: string, releaseRef: string) {
-  return isolatedTransaction(pool, q => loadRelease(q, applicationKey, releaseRef));
+export async function readPublicRelease(pool: Pool, applicationKey: string, releaseRef: string, actor: Actor | null = null) {
+  return isolatedTransaction(pool, async q => {
+    const release = await loadRelease(q, applicationKey, releaseRef, actor);
+    if (actor) await assertCurrentSessionClock(q, actor);
+    return release;
+  });
 }
 
-export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey: string) {
+export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey: string): Promise<LaunchpadApplication[]> {
   await assertGuildKey(q, guildKey);
-  const principalId = await personPrincipalId(q, actor.user_id);
-  if (principalId) await bindPrincipalOnly(q, principalId);
   const rows = (await q.query<OfferingRow>(
-    `${SELECT_OFFERING}
-     FROM guild_application_offerings o
-     JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
-     WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))
-     ORDER BY (o.community_id IS NOT NULL), o.display_order, o.offering_id`,
+    `WITH offerings AS (
+       ${SELECT_OFFERING}
+       FROM guild_application_offerings o
+       JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
+       WHERE o.status='offered' AND d.release_status IN ('reviewed','available','retired')
+         AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))
+       ORDER BY d.application_key, d.release_ref, ${OFFERING_PRECEDENCE}
+     )
+     SELECT * FROM offerings ORDER BY (NOT platform), display_order, offering_id`,
     [guildKey, actor.community_id],
   )).rows;
+  if (!rows.some(isLaunchable)) {
+    await assertCurrentSessionClock(q, actor);
+    return rows.map(row => ({
+      application_key: row.application_key, release_ref: row.release_ref, display_name: row.display_name,
+      eligibility: unavailableEligibility(row.offering_policy.version),
+    }));
+  }
+  const principalId = await personPrincipalId(q, actor.user_id);
+  if (principalId) await bindPrincipalOnly(q, principalId);
   const facts = (await q.query<{ full_member: boolean; manages: boolean; policy: boolean; installed: string[] }>(
     `WITH me AS (
        SELECT principal_id FROM principals WHERE user_ref=$1 AND kind='person'
@@ -453,7 +493,10 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
     return {
       application_key: row.application_key,
       release_ref: row.release_ref,
-      eligibility: eligibilityView(full, manages, policy, installed, row.offering_policy.version),
+      display_name: row.display_name,
+      eligibility: isLaunchable(row)
+        ? eligibilityView(full, manages, policy, installed, row.offering_policy.version)
+        : unavailableEligibility(row.offering_policy.version),
     };
   });
 }

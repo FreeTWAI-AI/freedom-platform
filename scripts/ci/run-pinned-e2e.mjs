@@ -5,14 +5,14 @@ import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, evaluateE2ePasses } from '../../packages/contribution-tools/pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses } from '../../packages/contribution-tools/pinned-e2e.mjs';
 import { readBounded } from '../../packages/contribution-tools/io.mjs';
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const configFile = fileURLToPath(new URL('./pinned-playwright.config.mjs', import.meta.url));
 
 // SIGTERM allows Playwright's 15s webServer shutdown to drop the private schema.
-// Escalation is bounded independently of the 30-minute pass budget.
+// Escalation is bounded independently of the host-owned whole-pass budget.
 function execute(root, cli, pass, env, signal) {
   return new Promise(done => {
     const group = process.platform !== 'win32';
@@ -31,7 +31,7 @@ function execute(root, cli, pass, env, signal) {
     const abort = () => stop('test_cancelled');
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
-    const timer = setTimeout(() => stop('test_timeout'), 30 * 60 * 1000);
+    const timer = setTimeout(() => stop('test_timeout'), E2E_PASS_TIMEOUT_MS[pass.id]);
     child.once('error', () => { reason ??= 'test_process_failed'; });
     child.once('close', (exit_code, termination_signal) => {
       clearTimeout(timer);

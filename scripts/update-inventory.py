@@ -9,7 +9,9 @@ spec = importlib.util.spec_from_file_location("inventory", root / "docs/platform
 inventory = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(inventory)
 files = []
-for path in sorted(inventory.source_files()):
+# source_files() already walks in a fixed order (each directory's files, then its sorted subdirectories); sorting the
+# Path objects again would reorder the whole manifest against what main holds and turn every merge into a conflict.
+for path in inventory.source_files():
     data = path.read_bytes()
     files.append({"path": str(path.relative_to(root)), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
 inventory.MANIFEST.write_text(json.dumps({
