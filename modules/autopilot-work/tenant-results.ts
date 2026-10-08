@@ -309,9 +309,15 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     const limit = query.limit ?? 20;
     let cursor: string | null = null;
     if (query.cursor) {
-      const text = Buffer.from(query.cursor, 'base64url').toString('utf8');
-      if (!/^[1-9][0-9]{0,18}$/.test(text)) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-      cursor = text;
+      const invalid = () => new Problem(422, 'invalid_cursor', '分頁游標無效。');
+      let parsed: Record<string, unknown>;
+      try { parsed = JSON.parse(Buffer.from(query.cursor, 'base64url').toString('utf8')); }
+      catch { throw invalid(); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+        || Object.keys(parsed).sort().join(',') !== 'caller_id,revision,tenant_id,work_id'
+        || parsed.tenant_id !== tenantId || parsed.work_id !== workId || parsed.caller_id !== actor.user_id
+        || !assetVersion.safeParse(parsed.revision).success) throw invalid();
+      cursor = parsed.revision as string;
     }
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       requireTenantCapability(context, 'work:read', false);
@@ -323,7 +329,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       const page = rows.slice(0, limit);
       return ResultPageSchema.parse({
         items: page.map(resultView),
-        next_cursor: rows.length > limit ? Buffer.from(page[page.length - 1].revision).toString('base64url') : null,
+        next_cursor: rows.length > limit ? Buffer.from(JSON.stringify({ tenant_id: tenantId, work_id: workId, caller_id: actor.user_id, revision: page[page.length - 1].revision })).toString('base64url') : null,
         source_version: work.aggregate_version,
       });
     });

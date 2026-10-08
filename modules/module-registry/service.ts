@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
@@ -13,24 +13,29 @@ import { scopedJournal, scopedTenantCommand } from '../../packages/scoped-comman
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { lockTenantScope, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { InstanceSelectionRequired } from './problems.js';
 
 const RELEASE = 'manual-workspace@1.0.0';
 const SCHEMA_VERSION = '1';
 
-function encodeCursor(at: string, id: string) {
-  return Buffer.from(`${at}\n${id}`).toString('base64url');
+type RegistryCursorContext = { tenantId: string; callerId: string; filter: string };
+function encodeCursor(at: string, id: string, context: RegistryCursorContext) {
+  return Buffer.from(JSON.stringify({ ...context, at, id })).toString('base64url');
 }
-function decodeCursor(raw?: string): { at: string; id: string } | null {
+function decodeCursor(raw: string | undefined, context: RegistryCursorContext) {
   if (!raw) return null;
-  let text = '';
-  try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
-  const split = text.indexOf('\n');
-  if (split < 1) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  const at = text.slice(0, split), id = text.slice(split + 1);
-  if (!OpaqueId.safeParse(id).success || Number.isNaN(Date.parse(at))) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  return { at, id };
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
+  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId'
+    || Object.entries(context).some(([key, value]) => parsed[key] !== value)
+    || !isKeysetTimestamp(parsed.at) || !OpaqueId.safeParse(parsed.id).success) {
+    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+  }
+  return { at: parsed.at, id: parsed.id as string };
 }
 
 async function guildGate(q: PoolClient, context: TenantScopeContext, actor: Actor, guildKey: string) {
@@ -172,11 +177,13 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
 export async function listInstances(pool: Pool, actor: Actor, tenantId: string, query: { module_key?: string; status?: string; cursor?: string; limit?: number }) {
   OpaqueId.parse(tenantId);
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor);
   const clock = { user_id: actor.user_id, session_hash: actor.session_hash };
   return isolatedTransaction(pool, async q => {
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: tenantWorkCapabilities });
     requireTenantCapability(context, 'instance.manage', false);
+    const cursorContext = { tenantId, callerId: context.subject_principal.principal_id,
+      filter: createHash('sha256').update(JSON.stringify({ list: 'instances', module_key: query.module_key ?? null, status: query.status ?? null })).digest('hex') };
+    const cursor = decodeCursor(query.cursor, cursorContext);
     const rows = (await q.query<{ instance_id: string; cursor_at: string }>(
       `SELECT instance_id, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
        FROM module_instances
@@ -191,7 +198,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
     for (const row of page) items.push(await instanceView(q, tenantId, row.instance_id));
     const version = (await q.query<{ v: string | null }>(`SELECT max(version)::text AS v FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].v;
     const body = ModuleInstancePageSchema.parse({
-      items, next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].instance_id) : null,
+      items, next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].cursor_at, page[page.length - 1].instance_id, cursorContext) : null,
       source_version: version && version !== '0' ? version : context.authorization_revision,
     });
     await assertCurrentSessionClock(q, clock);

@@ -5,8 +5,8 @@
   "protocol_sha256": "fe2ee45447f4a5e92c10e22307dee3b380d028acca04bac5278d3aeca0da7b3e",
   "files": {
     "openapi.json": {
-      "sha256": "898228553caf72955943a203a58ed0a06f8a36bc7266541593710c9f31d5dc8e",
-      "bytes": 80211
+      "sha256": "84463c2a1f45c786d6f9c90d83f46faf742520c230db49f81d01c72ac3941bbc",
+      "bytes": 80427
     },
     "metadata.json": {
       "sha256": "465ce597d48b6e3cbce3569161706f82c9a4da8240dcd6a1a43ba7273bd158a3",

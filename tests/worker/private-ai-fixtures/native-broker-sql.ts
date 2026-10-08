@@ -103,7 +103,7 @@ export async function nativeBrokerSqlFixture(extend?:(context:{workers:V4WorkerO
     const session=await login(app,email,'synthetic-password-only');const actor=await authenticate(app,session.token);
     const context=await withMemberScope(app,{actor,scope:'personal'},async()=>{},async(_q,c)=>c);
     await owner.query(`INSERT INTO private_work_persistence_policy(scope_id,purpose,owner_principal_id,revision,persistence_allowed,retained_byte_limit) VALUES($1,'work.private-draft',$2,1,true,10485760)`,[context.scope.scope_id,context.subject_principal.principal_id]);
-    return {actor,context,token:session.token,headers:{Cookie:'freedom_local_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
+    return {actor,context,token:session.token,headers:{Cookie:'__Host-freedom_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
   }
   async function paired(human:Awaited<ReturnType<typeof member>>) {
     const issuer=await generateKeyPair('ES256'),device=await generateKeyPair('ES256');

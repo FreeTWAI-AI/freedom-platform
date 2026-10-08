@@ -9,7 +9,10 @@
     "tests/runtime/tenant-data-catalog.test.ts",
     "tests/runtime/tenant-data-isolation.test.ts",
     "tests/runtime/tenant-rls-runtime-role.test.ts",
-    "tests/runtime/tenant-rls-b2a-runtime-role.test.ts"
+    "tests/runtime/tenant-rls-b2a-runtime-role.test.ts",
+    "tests/runtime/tenant-route-matrix.test.ts",
+    "tests/runtime/tenant-rls-retarget.test.ts",
+    "tests/runtime/guild-launchpad-journey.test.ts"
   ],
   "public_exports": [
     "modules/module-data/catalog.ts",

@@ -342,7 +342,7 @@ try {
   record.user_id = registeredId;
   record.status = 'registered';
   await saveRecord();
-  const sessionCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
+  const sessionCookie = (await context.cookies(origin)).find(cookie => cookie.name === '__Host-freedom_session');
   if (sessionCookie) secrets.push(sessionCookie.value);
   expect(Boolean(sessionCookie?.secure && sessionCookie?.httpOnly && sessionCookie?.sameSite === 'Strict'), 'HTTPS session must be Secure, HttpOnly and SameSite Strict').toBe(true);
   await expect(page.getByRole('heading', { name: '你喜歡怎麼做事？', exact: true })).toBeVisible();
@@ -850,7 +850,7 @@ try {
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.locator('.shell')).toBeVisible();
   await expect(page.locator('.demo-banner')).toHaveCount(0);
-  const renewedCookie = (await context.cookies(origin)).find(cookie => cookie.name === 'freedom_local_session');
+  const renewedCookie = (await context.cookies(origin)).find(cookie => cookie.name === '__Host-freedom_session');
   if (renewedCookie) secrets.push(renewedCookie.value);
   expect(Boolean(renewedCookie?.secure && renewedCookie?.httpOnly && renewedCookie?.sameSite === 'Strict')).toBe(true);
   await navigate(page, '我的名片');

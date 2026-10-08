@@ -35,7 +35,7 @@ test('MODEL-SETTINGS-ADV absent trusted ingest keeps CSP self-only while safe ow
 
 test('MODEL-SETTINGS-ADV whitespace duplicate original session cookies fail GET and ingest before application pull',{timeout:60000},async()=>{
  const f=await settingsFixture();try{const member=await f.configured(),other=await f.member();
-  const cookie=member.headers.Cookie+'; freedom_local_session \t='+other.token;
+  const cookie=member.headers.Cookie+'; __Host-freedom_session \t='+other.token;
   const settings=await f.main.request('direct',{path:'/api/v1/me/model-settings',method:'GET',headers:{Cookie:cookie}});
   const ingest=await f.main.request('direct',{path:'/api/v1/me/credential-ingests',method:'POST',headers:{...member.headers,Cookie:cookie,'Content-Type':'application/json','If-Match':'"1"','Idempotency-Key':randomUUID()},body:JSON.stringify({operation:'create',modelConnectionId:member.model.modelConnectionId,consent:true})});
   const observed={settings:{status:settings.status,pulls:settings.pulls},ingest:{status:ingest.status,pulls:ingest.pulls}};console.log('WHITESPACE_DUPLICATE_SAFE_RESULT',JSON.stringify(observed));assert(settings.status>=400,JSON.stringify(observed));assert(ingest.status>=400,JSON.stringify(observed));assert.equal(ingest.pulls,0,JSON.stringify(observed));
