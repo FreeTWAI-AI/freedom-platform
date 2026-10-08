@@ -67,6 +67,11 @@ export const ApplicationViewSchema = z.object({
   eligibility: EligibilitySchema.optional(),
 }).strict();
 
+export const LaunchpadApplicationSchema = ApplicationViewSchema.pick({
+  application_key: true, release_ref: true, display_name: true,
+}).extend({eligibility: EligibilitySchema}).strict();
+export type LaunchpadApplication = z.infer<typeof LaunchpadApplicationSchema>;
+
 export const ApplicationReleaseViewSchema = ApplicationViewSchema.omit({ eligibility: true }).extend({
   source_commit: z.string().regex(/^[0-9a-f]{40}$/),
   artifact_digest: DigestSchema,

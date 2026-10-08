@@ -17,6 +17,14 @@
 .guild-launchpad-public>main{max-width:72rem;margin:auto;padding:0 1rem 3rem}
 .guild-launchpad-books{display:grid;gap:.6rem}
 .guild-launchpad-books a{overflow-wrap:anywhere}
+.guild-launchpad-primary{display:grid;gap:.5rem;min-width:0}
+.guild-launchpad-primary .actions{margin:0;justify-content:flex-start}
+.guild-launchpad-primary .btn{max-width:100%}
+.guild-launchpad-ref-list{display:grid;gap:.8rem;padding-left:1.5rem}
+.guild-launchpad-ref-row{min-width:0}
+.guild-launchpad-ref-row>.guild-launchpad-block-actions{margin-top:.3rem}
+.guild-launchpad-recommendations>h3{margin:0}
 @media(max-width:720px){
   .guild-launchpad input,.guild-launchpad textarea,.guild-launchpad select{font-size:16px}
+  .guild-launchpad-primary .actions>.btn-primary{width:100%}
 }
