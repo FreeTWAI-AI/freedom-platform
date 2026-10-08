@@ -31,6 +31,7 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const python = process.platform === 'win32' ? 'python' : 'python3';
 const id = '12345678-1234-4234-8234-123456789abc';
 const id2 = '12345678-1234-4234-8234-123456789abd';
 const MAX_INT = 9007199254740991;
@@ -288,7 +289,7 @@ validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker()
 for case in payload['cases']:
     assert validator.is_valid(case['value']) == case['valid'], case['name']
 print('conformant')`;
-  const result = spawnSync('python3', ['-c', script], {
+  const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
     cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024,
     input: JSON.stringify({ schema, cases }),
   });
@@ -443,7 +444,7 @@ payload=json.load(sys.stdin)
 validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker())
 assert validator.is_valid(payload['value']), payload['rule']
 print('looser')`;
-      const result = spawnSync('python3', ['-c', script], {
+      const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
         cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024,
         input: JSON.stringify({ schema, value: row.value, rule: row.rule }),
       });
@@ -740,7 +741,7 @@ payload=json.load(sys.stdin)
 validator=Draft202012Validator(payload['schema'], format_checker=FormatChecker())
 assert validator.is_valid(payload['value']), payload['rule']
 print('looser')`;
-      const result = spawnSync('python3', ['-c', script], {
+      const result = spawnSync(python, ['-X', 'utf8', '-c', script], {
         cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 8 * 1024 * 1024,
         input: JSON.stringify({ schema: wrapped, value: row.value, rule: row.rule }),
       });

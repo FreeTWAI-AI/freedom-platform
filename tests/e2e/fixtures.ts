@@ -5,6 +5,17 @@ import { e2eSchema, resetE2eAuthState } from '../../packages/testing/e2e-auth-is
 
 export * from '@playwright/test';
 export const test = base.extend<{ isolateAuth: void }, { e2eAuthPool: Pool }>({
+  // Existing journeys explicitly exercise the Traditional Chinese interface.
+  // A separately created context may override locale to test browser detection.
+  locale: 'zh-TW',
+  browser: [async ({browser},use)=>{
+    const newContext=browser.newContext.bind(browser);
+    const localized=new Proxy(browser,{get(target,key){
+      if(key==='newContext')return (options:Parameters<typeof newContext>[0]={})=>newContext({locale:'zh-TW',...options});
+      const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;
+    }});
+    await use(localized);
+  },{scope:'worker'}],
   e2eAuthPool: [async ({}, use, workerInfo) => {
     if (workerInfo.config.workers !== 1) throw Error('The shared E2E database requires one worker.');
     const schema = e2eSchema(process.env.FREEDOM_E2E_SCHEMA);

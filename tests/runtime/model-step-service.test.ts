@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, test } from 'node:test';
+import { after, before, beforeEach, mock, test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -148,6 +148,24 @@ test('STEP-02 concurrent activation persists once, shares oldAttempt numbering, 
   const persisted=JSON.stringify((await owner.query('SELECT observation FROM model_text_steps')).rows);assert(!persisted.includes('PRIVATE_SYNTHETIC_MODEL_OUTPUT'));
   const facts=JSON.stringify((await owner.query("SELECT data FROM scoped_transition_journal WHERE aggregate_type IN ('model_text_step','model_export_approval')")).rows);
   assert(!facts.includes('PRIVATE_BODY'));assert(!facts.includes('synthetic-not-a-provider-key'));assert(!facts.includes('PRIVATE_SYNTHETIC_MODEL_OUTPUT'));
+});
+
+test('STEP-CLOCK database ahead of host still dispatches once within both five-second permit limits',async()=>{
+  const f=await approved();
+  const localNow=Date.now.bind(Date);
+  const shifted=mock.method(Date,'now',()=>localNow()-500);
+  try {
+    const a=await steps.activate(f.actor,activateInput(f));
+    const command={key:randomUUID(),stepId:a.stepId,expectedVersion:'1'};
+    const begun=await steps.begin(f.actor,command);assert(begun.capability);
+    const permit=(await owner.query('SELECT dispatched_at,permit_expires_at FROM model_text_steps WHERE step_id=$1',[a.stepId])).rows[0];
+    assert(permit.permit_expires_at.getTime()<=permit.dispatched_at.getTime()+5000);
+    assert(permit.permit_expires_at.getTime()<=Date.now()+5000);
+    const replay=await steps.begin(f.actor,command);assert.equal(replay.capability,null);
+    const observation=await host.dispatch(begun.capability,await steps.context(f.actor,begun.capability));
+    assert.equal(posts,1);await assert.rejects(host.dispatch(begun.capability,await steps.context(f.actor,begun.capability)));
+    assert.equal(posts,1);assert.equal((await steps.record(f.actor,begun.capability,observation)).state,'awaiting_result');
+  } finally {shifted.mock.restore();}
 });
 test('STEP-03 Stop after begin prevents actual POST and retains consumed unknown reservation',async()=>{
   const f=await approved(),a=await steps.activate(f.actor,activateInput(f)),begun=await steps.begin(f.actor,{key:randomUUID(),stepId:a.stepId,expectedVersion:'1'});assert(begun.capability);

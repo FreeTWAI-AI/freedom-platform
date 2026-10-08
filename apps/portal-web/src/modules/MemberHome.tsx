@@ -11,12 +11,13 @@ import './HomeDesign.css';
 import {MemberRecommendations} from './MemberRecommendations';
 import {SkillBookIntro, type IntroBook} from './SkillBookIntro';
 import {openMemberChat} from './chat-entry';
+import {SocialZone} from './SocialZone';
+import {PlatformPurpose} from '../PlatformPurpose';
 
 const shortcuts: { id: TabId; title: string }[] = [
-  { id: 'events', title: '社群活動' },
-  { id: 'tasks', title: '社群任務' },
-  { id: 'guilds', title: '我的公會' },
-  { id: 'skills', title: '技能書架' },
+  { id: 'social', title: '看社群動態' },
+  { id: 'messages', title: '開始聊天' },
+  { id: 'members', title: '找夥伴' },
 ];
 const entries: { id: TabId; title: string; description: string; cover: string }[] = [
   { id: 'supplier', title: '我有東西要賣', description: '讓 AI 整理商品、建立內部商店', cover: 'market-network' },
@@ -55,7 +56,11 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       if (current !== request.current) return;
       const retrying = alertRef.current?.contains(document.activeElement);
       setMember(data); setLoadError(null); setLoading(false);
-      if (retrying) requestAnimationFrame(() => summary.current?.focus());
+      if (retrying) requestAnimationFrame(() => {
+        const disclosure = summary.current?.closest('details');
+        if (disclosure) disclosure.open = true;
+        summary.current?.focus();
+      });
     }).catch((error: unknown) => {
       if (current !== request.current) return;
       setLoadError(`名片暫時無法載入。${error instanceof Error ? error.message : ''}`); setLoading(false);
@@ -139,6 +144,11 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   return <div className="member-home freedom-home">
     <div className="home-layout">
     <div className="home-main">
+    <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
+    </div>
+    <aside className="home-context" aria-label="我的工坊">
+    <div className="home-support">
+    <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
       <p>{loadError}下方常用入口仍可使用。</p>
       <button type="button" className="btn btn-ghost" aria-disabled={loading} onClick={retry}>{loading ? '正在重新載入名片…' : '重新載入名片'}</button>
@@ -166,7 +176,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       </button>)}
     </nav>
 
-    <section className="home-module-section" aria-labelledby="home-module-title">
+    <details className="home-module-section home-disclosure">
+      <summary>創作、商品與推廣</summary>
       <header className="home-section-heading"><h2 id="home-module-title">商品、作品與推廣</h2></header>
       <div className="home-module-grid">
         {entries.map(entry => <article key={entry.id} className={`home-module-card home-module-${entry.id}`}>
@@ -178,8 +189,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
           </div>
         </article>)}
       </div>
-    </section>
+    </details>
     </div>
+    <details className="home-personal home-disclosure">
+    <summary>我的名片與推薦夥伴</summary>
     <aside className="home-rail">
     <section ref={summary} tabIndex={-1} className="member-card home-member-summary guild-base-hero" data-guide-anchor="home:member-summary" aria-label="我的會員摘要" aria-busy={loading}>
       <div className="home-member-identity">
@@ -201,6 +214,8 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       </div>
     </section>
     <MemberRecommendations client={client}/>
+    </aside>
+    </details>
     </aside>
     </div>
   </div>;

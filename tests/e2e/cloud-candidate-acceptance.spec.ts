@@ -690,11 +690,15 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
   test.setTimeout(120000);
   const id=randomUUID(),email=`cloud-candidate-${id}@local.test`;
   // Observes the tool's own browser context: inbox paths only, method and path only.
-  const inbox={requested:[] as string[],responses:0,failed:[] as string[]};
+  const previews=new Set([...['1','6','20'].map(limit=>`/api/v1/me/notifications?limit=${limit}&offset=0`),'/api/v1/me/conversations?limit=1&offset=0',...['guild','squad','world'].map(kind=>`/api/v1/me/channels?kind=${kind}&limit=1&offset=0`)]);
+  const inbox={requested:[] as string[],unexpected:[] as string[],responses:0,failed:[] as string[]};
   const observed:BrowserLike={newContext:async options=>{
     const context=await browser.newContext(options);
     const watch=(url:string)=>isInboxPath(new URL(url).pathname);
-    context.on('request',request=>{if(watch(request.url()))inbox.requested.push(new URL(request.url()).pathname);});
+    context.on('request',request=>{if(watch(request.url())){
+      const url=new URL(request.url());inbox.requested.push(url.pathname);
+      if(request.method()!=='GET'||!previews.has(url.pathname+url.search))inbox.unexpected.push(url.pathname);
+    }});
     context.on('response',response=>{if(watch(response.url()))inbox.responses++;});
     context.on('requestfailed',request=>{if(watch(request.url()))inbox.failed.push(request.failure()?.errorText??'');});
     return context;
@@ -716,9 +720,13 @@ test('local harness: real session, CSRF, guild grant/revoke freshness, avatar, b
     expect(healthPhase.metrics).toMatchObject({provenance:'not_asserted_local_node'});
     expect(healthPhase.checks.map(check=>check.id)).not.toContain('release_sha_matches_expected');
     expect(report.statement).toMatch(/not evidence of any cloud deployment/);
-    // The signed-in shell requests inbox previews by itself; every one was aborted, none answered.
+    // Notification pages: unread summary1, bell6, RPG activity feed20; offset0 only.
+    // The chat shortcut requests one-item summaries, never conversation history.
+    // No conversation history or writes are allowed.
+    // The harness still aborts every inbox request and receives no private response.
     expect(inbox.requested.some(path=>path==='/api/v1/me/notifications')).toBe(true);
-    expect(inbox.requested.some(path=>path==='/api/v1/me/conversations'),'the home console no longer preloads private conversations').toBe(false);
+    expect(inbox.requested.some(path=>path==='/api/v1/me/conversations')).toBe(true);
+    expect(inbox.unexpected).toEqual([]);
     expect(inbox.responses).toBe(0);
     expect(inbox.failed).toHaveLength(inbox.requested.length);
     expect(inbox.failed.every(text=>/BLOCKED_BY_CLIENT/.test(text))).toBe(true);

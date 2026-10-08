@@ -92,7 +92,10 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
-  for(const name of ['提出想法','頁面說明','參與編修','通知'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
+  await expect(page.locator('.community-header').getByRole('button',{name:/^通知/})).toBeVisible();
+  await page.locator('.page-tools-menu > summary').click();
+  for(const name of ['提出想法','頁面說明','參與編修'])await expect(page.locator('.topbar').getByRole('button',{name,exact:true})).toBeVisible();
+  await page.locator('.page-tools-menu > summary').click();
   await expect(page.locator('.game-console-ticker')).toBeVisible();
   await expect(page.locator('.development-context')).toHaveCount(0);
   expect(await page.evaluate(()=>getComputedStyle(document.querySelector('.game-console-ticker')!).backgroundColor)).toBe('rgb(255, 255, 255)');
@@ -285,10 +288,15 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   await page.getByRole('menuitemradio',{name:'自由工坊－敘生'}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','versefolk');
   await expect(page.getByRole('menuitemradio',{name:'自由工坊－敘生'})).toHaveAttribute('aria-checked','true');
+  await page.getByRole('button',{name:'設定',exact:true}).click();
   // 頁面說明 uses the theme's soft green, the same tint family as the filled 提出想法.
   await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,probe=document.createElement('span');probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green-soft').trim();document.body.append(probe);const soft=getComputedStyle(probe).backgroundColor;probe.remove();return getComputedStyle(tool).backgroundColor===soft})).toBe(true);
+  await page.locator('.home-module-section > summary').click();
   await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
-  for(const name of ['提出想法','頁面說明','參與編修','通知'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
+  await page.locator('.home-module-section > summary').click();
+  await page.locator('.page-tools-menu > summary').click();
+  for(const name of ['提出想法','頁面說明','參與編修'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
+  await page.locator('.page-tools-menu > summary').click();
   await expect(page.locator('.game-console-ticker')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-home-versefolk-320.png',fullPage:true});

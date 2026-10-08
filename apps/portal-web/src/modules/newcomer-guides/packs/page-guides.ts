@@ -242,7 +242,7 @@ export const PAGE_GUIDES: Record<string, Record<string, GuideDefinition>> = {
       "steps": [
         {
           "selector": "[data-guide-anchor=\"social:composer\"]",
-          "instruction": "這是分享表單入口，需要填寫時請自行展開。"
+          "instruction": "按「＋發文」就能寫貼文，完成後再自行發布。"
         }
       ]
     },
@@ -251,7 +251,7 @@ export const PAGE_GUIDES: Record<string, Record<string, GuideDefinition>> = {
       "steps": [
         {
           "selector": "[data-guide-anchor=\"social:platform\"]",
-          "instruction": "這排可按平台找貼文，請自行選擇篩選。"
+          "instruction": "按這裡的「⋯」開啟動態選項，再自行選擇要看的貼文。"
         }
       ]
     }

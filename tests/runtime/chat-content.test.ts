@@ -6,7 +6,9 @@ import {createPool,LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
-import {CHAT_STICKERS} from '../../modules/member-communications/stickers.js';
+import {CHAT_STICKERS,WORKSHOP_STICKERS} from '../../modules/member-communications/stickers.js';
+import {FREETWAI_STICKERS} from '../../modules/member-communications/freetwai-stickers.js';
+import {MessageContentInput} from '../../modules/member-communications/content.js';
 
 const origin='http://127.0.0.1:4310',databaseUrl=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_chat_content_${process.pid}_${Date.now()}`,database=createPool(databaseUrl);
@@ -29,9 +31,27 @@ async function request(path:string,session:Session,body?:unknown,key=randomUUID(
 }
 const room=`/me/channels/guild/${guild}/messages`,dm=(id:string)=>`/me/conversations/${id}/messages`;
 
+test('all 48 supplied sticker IDs pass both PostgreSQL constraints, unknown IDs stay refused, and new sticker DTOs persist through the real API',async()=>{
+  assert.equal(FREETWAI_STICKERS.length,48);assert.equal(new Set(CHAT_STICKERS.map(item=>item.id)).size,52);
+  for(const sticker of FREETWAI_STICKERS)assert.deepEqual(MessageContentInput.parse({sticker_id:sticker.id}),{sticker_id:sticker.id});
+  const [a,b]=await sessions();assert.equal((await request(room,a,{body:'建立實際公會頻道'})).status,201);
+  const ids=FREETWAI_STICKERS.map(item=>item.id),bodies=FREETWAI_STICKERS.map(item=>'[貼圖] '+item.label);
+  // Catalog constraint fixtures are older history, outside the live send rate budget.
+  await pool.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,sticker_id,created_at) SELECT $1,$2,$3,body,id,CURRENT_TIMESTAMP-interval '2 minutes' FROM unnest($4::text[],$5::text[]) AS supplied(id,body)`,[DEMO_COMMUNITY,A,B,ids,bodies]);
+  await pool.query(`INSERT INTO member_channel_messages(community_id,kind,channel_key,sequence,sender_ref,body,sticker_id,created_at) SELECT $1,'guild',$2,ordinal+1,$3,body,id,CURRENT_TIMESTAMP-interval '2 minutes' FROM unnest($4::text[],$5::text[]) WITH ORDINALITY AS supplied(id,body,ordinal)`,[DEMO_COMMUNITY,guild,A,ids,bodies]);
+  await pool.query("UPDATE member_chat_channels SET last_sequence=49 WHERE community_id=$1 AND kind='guild' AND channel_key=$2",[DEMO_COMMUNITY,guild]);
+  await assert.rejects(()=>pool.query("INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,sticker_id) VALUES($1,$2,$3,'unknown','freetwai-v2-unknown')",[DEMO_COMMUNITY,A,B]),{code:'23514'});
+  await assert.rejects(()=>pool.query("INSERT INTO member_channel_messages(community_id,kind,channel_key,sequence,sender_ref,body,sticker_id) VALUES($1,'guild',$2,50,$3,'unknown','freetwai-v2-unknown')",[DEMO_COMMUNITY,guild,A]),{code:'23514'});
+  for(const path of [room,dm(B)]){
+    const sticker=FREETWAI_STICKERS[47],saved=await request(path,a,{sticker_id:sticker.id});assert.equal(saved.status,201,JSON.stringify(saved.data));assert.deepEqual(saved.data.sticker,{id:sticker.id,label:sticker.label});
+  }
+  const messages=(await request(dm(A),b)).data.items;assert.ok(messages.some((message:any)=>message.sticker?.id==='freetwai-v2-cry'));
+  assert.equal((await request(dm(B),a,{sticker_id:'freetwai-v2-unknown'})).status,422);
+});
+
 test('all original stickers persist in group and direct history with readable legacy bodies and idempotent retries',async()=>{
   const [a,b]=await sessions();
-  for(const path of [room,dm(B)])for(const sticker of CHAT_STICKERS){
+  for(const path of [room,dm(B)])for(const sticker of WORKSHOP_STICKERS){
     const key=randomUUID(),body={sticker_id:sticker.id},first=await request(path,a,body,key);
     assert.equal(first.status,201,JSON.stringify(first.data));assert.deepEqual(first.data.sticker,{id:sticker.id,label:sticker.label});assert.equal(first.data.body,`[貼圖] ${sticker.label}`);
     assert.deepEqual((await request(path,a,body,key)).data,first.data);

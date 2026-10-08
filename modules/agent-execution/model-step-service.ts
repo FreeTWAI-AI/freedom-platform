@@ -303,7 +303,9 @@ export function createModelStepServiceWithAuthority<A extends AuthorityOwner,C e
       checkVersion(b.step!.aggregate_version,input.expectedVersion);requireCondition(b.step!.state==='reserved',409,'model_step_already_consumed','模型步驟不能重送。');
       requireCondition(opaque,503,'model_authentication_unavailable','模型認證暫時無法使用。');
       const verified=readVerifiedModelBinding(opaque,b.step!.binding);requireCondition(verified.recoveryGeneration===b.step!.verified_binding.recoveryGeneration && verified.evidenceOrigin===b.step!.evidence_origin,409,'model_step_binding_stale','復原世代已變更。');
-      const t=await current(q,actor,b,true),expiry=new Date(Math.min(t.getTime()+5000,b.step!.lease_expires_at.getTime(),new Date(verified.expiresAt).getTime(),modelStepInvocationExpiry(guard)));
+      // Both SQL and host enforce a five-second ceiling. Clip to both clocks;
+      // a slightly ahead database must not mint a permit rejected by the host.
+      const t=await current(q,actor,b,true),expiry=new Date(Math.min(t.getTime()+5000,Date.now()+5000,b.step!.lease_expires_at.getTime(),new Date(verified.expiresAt).getTime(),modelStepInvocationExpiry(guard)));
       await q.query(`UPDATE model_text_steps SET state='dispatched',aggregate_version=aggregate_version+1,usage_status='unknown',dispatched_at=$3,permit_expires_at=$4,verified_binding=$5
         WHERE step_id=$1 AND aggregate_version=$2`,[input.stepId,input.expectedVersion,t,expiry,JSON.stringify(verified)]);
       b.step=await step(q,actor,context,input.stepId,true);fresh=true;await journal(q,context,operation,'model_text_step',input.stepId,b.step.aggregate_version,b.step.state);return metadata(b.step);

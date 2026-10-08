@@ -2,7 +2,7 @@
 // Independent real TLS/SQL browser evidence covers installed backend authority.
 import {createServer} from 'node:http';
 import {readFile,mkdtemp,rm,writeFile} from 'node:fs/promises';
-import {resolve,extname,join} from 'node:path';
+import {resolve,extname,join,sep} from 'node:path';
 import {tmpdir} from 'node:os';
 import type {Page,Route,Request} from '@playwright/test';
 import {installVisualApi,visualOverview,visualIds} from './model-settings-visual.js';
@@ -43,7 +43,7 @@ createRoot(document.getElementById('root')).render(React.createElement(Fixture))
       finally{if(previous===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=previous;}
     }
     const server=createServer(async(req,res)=>{try{
-      const path=resolve(root,'.'+new URL(req.url!,'http://fixture.invalid').pathname);if(path!==root&&!path.startsWith(root+'/')){res.writeHead(404);res.end();return;}
+      const path=resolve(root,'.'+new URL(req.url!,'http://fixture.invalid').pathname);if(path!==root&&!path.startsWith(root+sep)){res.writeHead(404);res.end();return;}
       const actual=extname(path)?path:join(root,'index.html');res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css'} as Record<string,string>)[extname(actual)]??'application/octet-stream');res.setHeader('Cache-Control','no-store');res.end(await readFile(actual));
     }catch{res.writeHead(404);res.end();}});
     await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));

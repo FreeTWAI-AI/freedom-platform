@@ -1,0 +1,43 @@
+.platform-purpose{display:grid;gap:12px;min-width:0;color:var(--ink)}
+.platform-purpose h2,.platform-purpose h3,.platform-purpose p{margin:0}
+.purpose-roles{display:grid;gap:8px}
+.purpose-entry{display:grid;grid-template-columns:64px minmax(0,1fr) 16px;align-items:center;gap:10px;width:100%;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg-elev);color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.purpose-entry strong{font-size:1rem;font-weight:700}
+.purpose-entry>span:not(.purpose-arrow){font-size:.875rem;line-height:1.6}
+.purpose-arrow{color:var(--blue-ink)}
+.purpose-mobile-summary{display:none}
+.purpose-entry:hover{border-color:var(--blue-ink);background:var(--green-soft)}
+.purpose-entry:focus-visible,.purpose-actions .btn:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.purpose-entry:disabled{opacity:.6;cursor:default}
+.purpose-terms{color:var(--muted);font-size:.875rem;line-height:1.6}
+.platform-purpose--member h2{font-size:1rem}
+.purpose-role{display:grid;gap:6px;padding-block:10px;border-bottom:1px solid var(--line)}
+.purpose-role h3{font-size:1rem}
+.purpose-role p{font-size:.875rem;line-height:1.6;color:var(--muted)}
+.purpose-actions{display:flex;gap:6px;flex-wrap:wrap}
+.purpose-actions .btn{min-height:44px;padding:8px 10px;font-size:.875rem}
+.login-layout .login-story-copy{display:grid;gap:14px;padding:0}
+.login-layout .login-story-copy h1{font-size:clamp(1.25rem,2vw,1.75rem);line-height:1.45;margin:0;letter-spacing:0;text-wrap:balance}
+.login-layout .login-purpose-intro{margin:0;color:var(--muted);font-size:1rem;line-height:1.6}
+.login-public-resources{grid-column:1/-1;max-width:56rem;width:100%;justify-self:center}
+.login-layout .purpose-next-destination{margin:0 0 12px;color:var(--blue-ink);font-size:.875rem;line-height:1.6}
+.login-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;min-width:0}
+.login-card-heading h2{margin:0;overflow-wrap:anywhere}
+.login-card .auth-switch{margin-bottom:16px}
+.login-card form>.btn-primary{width:100%;min-height:48px}
+.login-secondary-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:12px}
+.login-secondary-actions:empty{display:none}
+.login-secondary-actions .btn{min-height:44px;padding:8px 4px;border:0;background:transparent;box-shadow:none;color:var(--blue-ink);text-decoration:underline;text-underline-offset:4px}
+@media(max-width:860px){
+ .login-layout .login-story-copy{order:1;display:grid;gap:10px}
+ .login-layout .login-form-area{order:2}
+ .login-layout .login-story .brand-poster{max-width:80px}
+ .login-layout .login-story-copy h1{font-size:1.25rem;line-height:1.5}
+ .login-layout .login-purpose-intro{font-size:.875rem}
+ .login-public-resources{order:3;grid-column:auto}
+ .platform-purpose--public .purpose-roles{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .platform-purpose--public .purpose-entry{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;min-height:64px;padding:8px 6px;gap:4px}
+ .platform-purpose--public .purpose-summary,.platform-purpose--public .purpose-arrow{display:none}
+ .platform-purpose--public .purpose-mobile-summary{display:block}
+ .login-layout .login-card{padding:16px;min-width:0}
+}

@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 import {test,expect,type Page} from './fixtures.js';
 import {navigate,signOut} from './navigation.js';
 import {readFile} from 'node:fs/promises';
@@ -66,7 +67,7 @@ test('bad or wrong-role manifests never create a shop; form stays simple',async(
 test('both page guides teach the AI handoff, private setup and payment steps on phone',async({page})=>{
  await login(page);await page.setViewportSize({width:320,height:900});
  for(const title of ['我有東西要賣','我可以賣東西']){
-  await navigate(page,title);await page.getByRole('button',{name:'頁面說明',exact:true}).click();
+  await navigate(page,title);await openPageTools(page); await page.getByRole('button',{name:'頁面說明',exact:true}).click();
   const guide=page.getByRole('dialog',{name:`${title}：頁面說明`,exact:true});
   await expect(guide).toBeVisible();await expect(guide.locator('.page-tools-help-steps li')).toHaveCount(6);
   await expect(guide).toContainText('freedom-shop.json');await expect(guide).toContainText('金鑰');await expect(guide).toContainText('AI');

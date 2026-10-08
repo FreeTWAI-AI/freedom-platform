@@ -46,18 +46,22 @@ async function member(browser:Browser,baseURL:string,index:number,width=1280){
   await navigate(page,'我的訊息');return page;
 }
 async function group(page:Page,kind:'guild'|'world'='guild'){
+  await returnToList(page);
   await page.getByRole('tab',{name:new RegExp(kind==='guild'?'^公會閒聊':'^世界聊天')}).click();
   const panel=page.locator(`#messages-panel-${kind}`);if(kind==='guild')await panel.locator(`[data-channel-key="${guild}"]`).click();
+  else if(await panel.getByRole('button',{name:'世界聊天',exact:true}).isVisible())await panel.getByRole('button',{name:'世界聊天',exact:true}).click();
   await expect(panel.locator('.messages-compose')).toBeVisible();return panel;
 }
+async function returnToList(page:Page){const back=page.locator('.messages-hub>[role=tabpanel]:not([hidden]) .chat-back');if(await back.isVisible())await back.click();}
 async function direct(page:Page,account:Account){
+  await returnToList(page);
   await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.locator('#messages-panel-direct');
   if(!await panel.getByLabel('搜尋會員',{exact:true}).isVisible())await panel.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
   await panel.getByLabel('搜尋會員',{exact:true}).fill(account.name);await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
   await panel.getByRole('button',{name:`傳訊給 ${account.name}`,exact:true}).click();await expect(panel.locator('.messages-compose')).toBeVisible();return panel;
 }
 async function choose(panel:Locator,label:string){
-  await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByRole('button',{name:`選用貼圖：${label}`,exact:true}).click();
+  await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByRole('button',{name:'工坊夥伴',exact:true}).click();await panel.getByRole('button',{name:`選用貼圖：${label}`,exact:true}).click();
   await expect(panel.getByLabel('待送出的貼圖')).toBeVisible();
 }
 async function post(page:Page,path:string,data:unknown){
@@ -78,18 +82,46 @@ for(const [outgoing,incoming] of [[25,0],[1,21]]){
     const receipts=a.locator('.messages-bubbles > .is-mine .messages-meta');
     await expect(receipts).toHaveCount(outgoing);await expect(receipts).toHaveText(Array.from({length:outgoing},()=>/已送出/));
     const receiver=await member(browser,baseURL!,1),b=await direct(receiver,accounts[0]);
-    await b.getByRole('button',{name:'標為已讀',exact:true}).click();
+    await expect.poll(async()=>(await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1 AND recipient_ref=$2 AND read_at IS NULL',[accounts[0].id,accounts[1].id])).rows[0].n).toBe(0);
+    await expect(b.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
     await sender.bringToFront();
     await expect(receipts).toHaveText(Array.from({length:outgoing},()=>/對方已讀/));
   });
 }
+
+test('supplied pack loads thumbnails only in the picker, preserves a text draft, and new guild and private sticker replies persist and reload',async({browser,baseURL})=>{
+  const sender=await member(browser,baseURL!,0,320),receiver=await member(browser,baseURL!,1,390),a=await group(sender),b=await group(receiver);
+  const assets=()=>sender.evaluate(()=>performance.getEntriesByType('resource').map(item=>item.name).filter(name=>name.includes('/art/chat/freetwai-v2/')));
+  expect(await assets()).toEqual([]);await a.locator('textarea').fill('選貼圖仍保留的文字草稿');
+  const parent=await post(receiver,`/me/channels/guild/${guild}/messages`,{body:'謝謝一起完成作品'});const original=a.locator(`[data-message-id="${parent.message_id}"]`);await expect(original).toBeVisible();await original.getByRole('button',{name:`回覆${accounts[1].name}的訊息`,exact:true}).click();
+  await a.getByRole('button',{name:'選擇貼圖',exact:true}).click();await expect(a.getByRole('button',{name:'自由工坊',exact:true})).toHaveAttribute('aria-pressed','true');await expect(a.locator('.chat-sticker-choice')).toHaveCount(48);
+  await expect.poll(async()=>(await assets()).some(url=>url.includes('-thumbnail-'))).toBe(true);expect((await assets()).some(url=>url.includes('-image-'))).toBe(false);
+  const search=a.getByLabel('搜尋貼圖',{exact:true});await search.fill('感謝');await a.getByRole('button',{name:'選用貼圖：謝謝',exact:true}).click();await expect(a.locator('[aria-label="待送出的貼圖"] [data-sticker-id="freetwai-v2-thanks"] img')).toHaveJSProperty('naturalWidth',512);
+  await a.getByRole('button',{name:'送出',exact:true}).click();await expect(b.locator('.messages-bubbles [data-sticker-id="freetwai-v2-thanks"]')).toHaveCount(1);await expect(a.locator('textarea')).toHaveValue('選貼圖仍保留的文字草稿');
+  const reply=b.locator('.messages-bubbles>li').filter({has:receiver.locator('[data-sticker-id="freetwai-v2-thanks"]')});await expect(reply.getByLabel('回覆的訊息')).toContainText('謝謝一起完成作品');
+  await receiver.reload();const restored=await group(receiver);await expect(restored.locator('.messages-bubbles [data-sticker-id="freetwai-v2-thanks"] img')).toHaveJSProperty('naturalWidth',512);
+  const directA=await direct(sender,accounts[1]),directB=await direct(receiver,accounts[0]);await directA.getByRole('button',{name:'選擇貼圖',exact:true}).click();await directA.getByLabel('搜尋貼圖',{exact:true}).fill('相信');await directA.getByRole('button',{name:'選用貼圖：我信',exact:true}).click();await directA.getByRole('button',{name:'送出',exact:true}).click();await expect(directB.locator('.messages-bubbles [data-sticker-id="freetwai-v2-trust"]')).toHaveCount(1);
+  await receiver.reload();await direct(receiver,accounts[0]);await expect(receiver.locator('.messages-bubbles [data-sticker-id="freetwai-v2-trust"]')).toHaveCount(1);
+});
+
+test('supplied sticker picker scrolls at 320px in every base theme and falls back to its text label when an image fails',async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0,320);
+  for(const [name,theme] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
+    await returnToList(page);await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitemradio',{name,exact:true}).click();await page.keyboard.press('Escape');await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+    const panel=await group(page);await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await expect(panel.locator('.chat-sticker-choice')).toHaveCount(48);
+    const grid=panel.locator('.chat-sticker-grid');expect(await grid.evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await panel.getByLabel('搜尋貼圖',{exact:true}).fill('人工智慧');const choice=panel.getByRole('button',{name:'選用貼圖：AI 不是這樣用的吧',exact:true});await expect(choice).toBeVisible();expect((await choice.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({path:`test-results/social-chat/freetwai-picker-${theme}-320.png`});await panel.getByLabel('搜尋貼圖',{exact:true}).press('Escape');await expect(panel.getByRole('button',{name:'選擇貼圖',exact:true})).toBeFocused();
+  }
+  await page.route('**/art/chat/freetwai-v2/*-image-*.webp',route=>route.abort());const panel=page.locator('#messages-panel-guild');await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByLabel('搜尋貼圖',{exact:true}).fill('哭');await panel.getByRole('button',{name:'選用貼圖：哭了',exact:true}).click();await expect(panel.getByLabel('待送出的貼圖')).toContainText('[貼圖] 哭了');await panel.getByRole('button',{name:'改寫文字',exact:true}).click();await expect(panel.locator('textarea')).toBeVisible();
+});
 
 test('mobile guild sticker replies are received and reload from the real database; picker is searchable and keyboard friendly',async({browser,baseURL})=>{
   const sender=await member(browser,baseURL!,0),receiver=await member(browser,baseURL!,1,390),a=await group(sender),b=await group(receiver);
   const parent=await post(sender,`/me/channels/guild/${guild}/messages`,{body:'一起完成第一個作品？'});
   const original=b.locator(`[data-message-id="${parent.message_id}"]`);await expect(original).toBeVisible();
   await original.getByRole('button',{name:`回覆${accounts[0].name}的訊息`,exact:true}).click();
-  await b.getByRole('button',{name:'選擇貼圖',exact:true}).click();const search=b.getByLabel('搜尋貼圖',{exact:true});await expect(search).toBeFocused();
+  await b.getByRole('button',{name:'選擇貼圖',exact:true}).click();const search=b.getByLabel('搜尋貼圖',{exact:true});await expect(search).toBeFocused();await b.getByRole('button',{name:'工坊夥伴',exact:true}).click();
   await search.fill('合作');await search.press('Enter');await expect(b.getByRole('button',{name:'選用貼圖：一起共創'})).toBeVisible();
   expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1',[accounts[1].id])).rows[0].n).toBe(0);
   await search.press('Escape');await expect(b.getByRole('button',{name:'選擇貼圖',exact:true})).toBeFocused();
@@ -105,26 +137,41 @@ test('mobile guild sticker replies are received and reload from the real databas
 
 test('mobile private chat uses one pane, preserves drafts and shows confirmed read receipts without sending on keyboard Enter',async({browser,baseURL})=>{
   const sender=await member(browser,baseURL!,0,390),receiver=await member(browser,baseURL!,1),a=await direct(sender,accounts[1]),b=await direct(receiver,accounts[0]);
+  await receiver.getByRole('tab',{name:/^通知/}).click();
   await expect(a.locator('.messages-side')).toBeHidden();await expect(a.getByRole('heading',{name:`與 ${accounts[1].name} 的對話`})).toBeVisible();
   const box=a.getByLabel(`寫給 ${accounts[1].name} 的訊息`);await box.fill('一起討論作品');await box.press('Enter');await box.pressSequentially('明天見');
   expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(0);
-  await a.getByRole('button',{name:'送出',exact:true}).click();await expect(b.locator('.messages-bubbles')).toContainText('明天見');
+  await a.getByRole('button',{name:'送出',exact:true}).click();
   const sent=a.locator('.messages-bubbles>li').filter({hasText:'明天見'});await expect(sent).toContainText('已送出');await expect(sent).not.toContainText('對方已讀');
-  await b.getByRole('button',{name:'標為已讀',exact:true}).click();await expect(sent).toContainText('對方已讀');
+  await receiver.getByRole('tab',{name:/^私人訊息/}).click();await expect(b.locator('.messages-bubbles')).toContainText('明天見');
+  await expect(sent).toContainText('對方已讀');await expect(b.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
   await box.fill('這份草稿留給乙');await a.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
   await expect(a.locator('.messages-side')).toBeVisible();await expect(a.locator('.messages-thread')).toBeHidden();await expect(a.getByRole('heading',{name:'對話',exact:true})).toBeFocused();
   await direct(sender,accounts[2]);await expect(a.locator('textarea')).toHaveValue('');await a.locator('textarea').fill('這份留給丙');
   await direct(sender,accounts[1]);await expect(box).toHaveValue('這份草稿留給乙');await expect(a.locator('.messages-side')).toBeHidden();
   expect(await sender.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await sender.evaluate(()=>scrollTo(0,0));
+  const [sendBox,inputBox]=[await a.getByRole('button',{name:'送出',exact:true}).boundingBox(),await box.boundingBox()];
+  const viewport=sender.viewportSize()!,logBox=(await a.getByRole('log').boundingBox())!;
+  expect(sendBox!.y+sendBox!.height).toBeLessThanOrEqual(viewport.height-12);expect(inputBox!.y+inputBox!.height).toBeLessThanOrEqual(viewport.height-12);
+  expect(logBox.height).toBeGreaterThanOrEqual(viewport.height/2);expect(logBox.width).toBe(viewport.width);
+  await expect(sender.locator('.messages-categories')).toBeHidden();await expect(sender.locator('.community-header')).toBeHidden();await expect(sender.locator('.game-console-ticker')).toBeHidden();await expect(sender.locator('.game-console-expanded')).toBeHidden();
+  await expect(sender.locator('.demo-banner')).toBeVisible();expect((await a.locator('.chat-header').boundingBox())!.y).toBeLessThan(80);
+  const avatarBox=(await a.locator('.chat-header>.member-avatar').boundingBox())!;expect(avatarBox.width).toBe(36);expect(avatarBox.height).toBe(36);
   await sender.screenshot({path:'test-results/social-chat/private-workspace-390.png',fullPage:true});
   await a.locator('.messages-thread').screenshot({path:'test-results/social-chat/private-workspace-chat-390.png'});
+  // Chromium does not open a software keyboard in this fixture. Exercise its visual viewport resize separately.
+  await sender.evaluate(()=>{Object.defineProperty(visualViewport!,'height',{configurable:true,get:()=>520});visualViewport!.dispatchEvent(new Event('resize'));});
+  await expect.poll(async()=>{const bound=(await box.boundingBox())!;return bound.y+bound.height;}).toBeLessThanOrEqual(508);
+  await expect(box).toHaveValue('這份草稿留給乙');await expect(a.getByRole('button',{name:'送出',exact:true})).toBeVisible();
+  await sender.evaluate(()=>{Reflect.deleteProperty(visualViewport!,'height');visualViewport!.dispatchEvent(new Event('resize'));});
 });
 
 test('mobile return to channel list keeps rich drafts and desktop resizing restores both panes',async({browser,baseURL})=>{
   const page=await member(browser,baseURL!,0,320),panel=await group(page);
   await panel.locator('textarea').fill('公會專用的草稿');await choose(panel,'一起共創');
   await panel.getByRole('button',{name:'← 返回公會列表',exact:true}).click();await expect(panel.locator('.messages-thread')).toBeHidden();await expect(panel.locator('.messages-side')).toBeVisible();
+  await expect(page.locator('.messages-categories')).toBeVisible();await expect(page.locator('.community-header')).toBeVisible();await expect(page.locator('.game-console-ticker')).toBeVisible();
   await panel.locator(`[data-channel-key="${guild}"]`).click();await expect(panel.getByLabel('待送出的貼圖')).toBeVisible();
   await panel.getByRole('button',{name:'改寫文字',exact:true}).click();await expect(panel.locator('textarea')).toHaveValue('公會專用的草稿');
   await page.setViewportSize({width:1280,height:900});await expect(panel.locator('.messages-side')).toBeVisible();await expect(panel.locator('.messages-thread')).toBeVisible();
@@ -171,8 +218,10 @@ test('world and squad chat use the same real sticker flow, and the picker fits a
     await page.reload();await page.getByRole('tab',{name:/^小隊閒聊/}).click();const panel=page.locator('#messages-panel-squad');await panel.locator(`[data-channel-key="${squad}"]`).click();
     await choose(panel,'加油');await panel.getByRole('button',{name:'送出',exact:true}).click();await expect(panel.locator('.messages-bubbles [data-sticker-id="workshop-v1-cheer"]')).toHaveCount(1);
     for(const [theme,value] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
+      await panel.getByRole('button',{name:'← 返回小隊列表',exact:true}).click();
       await page.getByRole('button',{name:'設定',exact:true}).click();await page.getByRole('menuitemradio',{name:theme,exact:true}).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme',value);if(await page.getByRole('button',{name:'設定',exact:true}).getAttribute('aria-expanded')==='true')await page.getByRole('button',{name:'設定',exact:true}).click();
+      await panel.locator(`[data-channel-key="${squad}"]`).click();
       await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       const image=panel.locator('.chat-sticker-choice img').first();await expect.poll(()=>image.evaluate(element=>(element as HTMLImageElement).complete&&(element as HTMLImageElement).naturalWidth>0)).toBe(true);
       await page.screenshot({path:`test-results/social-chat/picker-${value}-320.png`,fullPage:true});await panel.getByRole('button',{name:'關閉貼圖',exact:true}).click();
@@ -181,4 +230,20 @@ test('world and squad chat use the same real sticker flow, and the picker fits a
     await db.query("DELETE FROM member_channel_reads WHERE kind='squad' AND channel_key=$1",[squad]);await db.query("DELETE FROM member_channel_messages WHERE kind='squad' AND channel_key=$1",[squad]);
     await db.query("DELETE FROM member_chat_channels WHERE kind='squad' AND channel_key=$1",[squad]);await db.query('DELETE FROM member_squad_memberships WHERE squad_id=$1',[squad]);await db.query('DELETE FROM member_squads WHERE squad_id=$1',[squad]);
   }
+});
+
+test('phone public chat returns to the conversation list and keeps private and public drafts',async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0,390),privateChat=await direct(page,accounts[1]);
+  await privateChat.locator('textarea').fill('私人草稿');
+  const world=await group(page,'world');await world.locator('textarea').fill('公開草稿');
+  await world.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
+  await expect(page.locator('.messages-categories')).toBeVisible();await expect(privateChat.locator('.messages-side')).toBeVisible();await expect(privateChat.locator('.messages-thread')).toBeHidden();
+  await expect(privateChat.getByRole('heading',{name:'對話',exact:true})).toBeFocused();
+  await direct(page,accounts[1]);await expect(privateChat.locator('textarea')).toHaveValue('私人草稿');
+  await group(page,'world');await expect(world.locator('textarea')).toHaveValue('公開草稿');
+  await world.getByRole('button',{name:'← 返回對話列表',exact:true}).click();
+  // A console/deep-link intent opens the actual public conversation, rather than stopping at its phone list.
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
+  await expect(world.locator('.messages-compose')).toBeVisible();await expect(world.locator('textarea')).toHaveValue('公開草稿');await expect(page.locator('.messages-categories')).toBeHidden();
+  expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(0);
 });

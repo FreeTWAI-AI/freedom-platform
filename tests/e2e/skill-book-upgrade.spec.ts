@@ -563,8 +563,10 @@ test('a loading draft refresh stays dim inside the dialog', async ({ page }) => 
   await login(page);
   for (const tab of ['開源投稿', '技能書架'] as const) {
     await navigate(page, tab);
-    const advanced = page.getByText('使用 Agent 或聊天 AI 協助整理（進階）', { exact: true });
-    if (await advanced.count()) await advanced.click();
+    if(tab==='開源投稿'){
+      const advanced=page.locator('details.work-sharing-advanced');await expect(advanced).toBeVisible();
+      if(!await advanced.evaluate(element=>(element as HTMLDetailsElement).open))await advanced.locator(':scope > summary').click();
+    }
     await page.getByRole('button', { name: '上傳技能', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
     const refresh = dialog.getByRole('button', { name: '重新整理草稿', exact: true });

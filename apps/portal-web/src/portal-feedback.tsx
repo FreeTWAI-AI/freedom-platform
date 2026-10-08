@@ -1,5 +1,6 @@
 import type React from 'react'
 import type { ActionError } from './portal-session'
+import {useLanguage} from './language'
 
 export function Section({ title, description, children, "data-guide-anchor": guideAnchor }: { title: string; description: string; children: React.ReactNode; "data-guide-anchor"?:string }) {
   return (
@@ -31,25 +32,26 @@ export function ErrorPanel({
   onReload?: () => void
   reloadLabel?: string
 }) {
+  const {t}=useLanguage()
   return (
     <div className="banner banner-error" role="alert">
       <p>{error.message}</p>
-      {error.conflict && <p>資料可能已被其他人更新。請重新載入後再操作，不要重複送出同一筆動作。</p>}
-      {error.network && <p>連線中斷時不會自動重送。若要重試同一筆動作，請使用「再試一次」。</p>}
+      {error.conflict && <p>{t('feedback.conflict')}</p>}
+      {error.network && <p>{t('feedback.network')}</p>}
       <div className="actions">
         {error.accessExpired && (
           <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
-            重新載入頁面
+            {t('feedback.reloadPage')}
           </button>
         )}
         {error.network && error.retry && (
           <button type="button" className="btn btn-primary" onClick={error.retry}>
-            再試一次
+            {t('feedback.retry')}
           </button>
         )}
         {(error.conflict || onReload) && onReload && !error.accessExpired && (
           <button type="button" className="btn btn-ghost" onClick={onReload}>
-            {reloadLabel}
+            {reloadLabel==='重新載入'?t('feedback.reload'):reloadLabel}
           </button>
         )}
       </div>

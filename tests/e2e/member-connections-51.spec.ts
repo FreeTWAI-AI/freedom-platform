@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
-import {navigate} from './navigation.js';
+import {navigate,expandHomeSections} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 import {DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 mkdirSync('test-results',{recursive:true});
@@ -219,6 +219,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
   await page.setViewportSize({width:1280,height:900});
   await joinGuild(page);
   await shellTheme(page,'自由工坊－明亮','light');
+  await expandHomeSections(page);
   await expect(page.getByRole('button',{name:'補做定位測驗',exact:true})).toHaveClass(/btn-ghost/);
   await expect(page.getByRole('button',{name:'編輯我的名片',exact:true})).toBeVisible();
   await expect(page.getByText('完成定位後，名片會顯示擅長能力，也更容易遇到合適的夥伴。',{exact:true})).toBeVisible();
@@ -304,6 +305,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
 test('a quick-entry member can finish positioning later and the invitation disappears',async({page})=>{
   await account(page,'補做定位夥伴');
   await joinGuild(page);
+  await expandHomeSections(page);
   await expect(page.getByRole('button',{name:'補做定位測驗',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'補做定位測驗',exact:true}).click();
   await page.getByRole('button',{name:'補充／繼續探索定位',exact:true}).click();

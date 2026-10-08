@@ -1,12 +1,14 @@
-.notification-bell{position:relative;display:inline-flex;align-items:center;height:44px;flex:none}
+/* Anchor to the whole account group so the avatar does not push the panel off a phone. */
+.community-account-tools,.welcome-preview-top>.experience-actions{position:relative}
+.notification-bell{position:static;display:inline-flex;align-items:center;height:44px;flex:none}
 .notification-bell-trigger{position:relative;display:inline-flex;align-items:center;gap:.35rem;min-height:44px;height:44px;box-sizing:border-box}
 /* A round icon button; the accessible name carries the word 通知 and the unread count. */
 .notification-bell .notification-bell-trigger{width:44px;padding:0;justify-content:center;border-radius:999px}
 .notification-bell-trigger[aria-expanded="true"]{border-color:var(--focus)}
 .notification-bell-trigger svg{width:20px;height:20px;flex:none}
 .notification-bell-count{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;display:grid;place-items:center;box-sizing:border-box;background:var(--danger);color:var(--danger-bg);font-size:.6875rem;font-weight:700;line-height:1;box-shadow:0 0 0 2px var(--bg)}
-.notification-bell-popover{position:absolute;right:0;top:calc(100% + .4rem);z-index:90;width:min(380px,calc(100vw - 1.5rem));max-height:min(70vh,580px);overflow:auto;padding:.8rem;background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 34px #0003;color:var(--ink)}
-.notification-bell-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.notification-bell-popover{position:absolute;right:0;top:calc(100% + .4rem);z-index:90;box-sizing:border-box;width:min(380px,calc(100vw - 1.5rem));max-height:min(70vh,580px);overflow:auto;padding:.8rem;background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 34px #0003;color:var(--ink)}
+.notification-bell-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem}
 .notification-bell-item{display:block;width:100%;padding:.7rem .15rem;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .notification-bell-item:is(:hover,:focus-visible){background:var(--bg);outline-offset:-2px}
 .notification-bell-item.is-unread{border-left:3px solid var(--green);padding-left:.55rem}

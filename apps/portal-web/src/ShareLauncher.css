@@ -1,0 +1,14 @@
+.share-launcher-trigger{min-height:44px;padding:8px 12px;white-space:nowrap;font-size:.875rem}
+.share-launcher-dialog{width:min(480px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-elev);color:var(--ink);overflow:auto}
+.share-launcher-dialog::backdrop{background:#11182788}
+.share-launcher-dialog>header{position:sticky;top:-16px;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg-elev);margin-top:-16px;padding-block:16px 12px}
+.share-launcher-dialog h2{margin:0;font-size:1.125rem;line-height:1.5}
+.share-launcher-dialog>header .btn{flex:none;min-height:44px}
+.share-launcher-options{display:grid;gap:10px}
+.share-launcher-options>button{display:grid;gap:4px;min-width:0;min-height:64px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.share-launcher-options strong{font-size:1rem}
+.share-launcher-options span{color:var(--muted);font-size:.875rem;line-height:1.6;overflow-wrap:anywhere}
+.share-launcher-options>button:hover{border-color:var(--focus);background:var(--green-soft)}
+.share-launcher-options>button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.share-launcher-options>.share-launcher-back{min-height:44px;background:transparent;font-size:.875rem}
+.share-entry-status{margin:0 0 12px;font-size:.875rem;color:var(--muted);overflow-wrap:anywhere}

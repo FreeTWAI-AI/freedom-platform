@@ -5,6 +5,7 @@ import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
+import {MessageSearchQuery,messageSearchPattern,boundedMessageSearch,type MessageSearchPage} from './message-search.js';
 import {
   CHANNEL_KINDS,CHANNEL_KEY_MAX,CHANNEL_MESSAGE_BODY_MAX,CHANNEL_NOT_AVAILABLE,CHANNEL_PAGE_DEFAULT_LIMIT,CHANNEL_PAGE_MAX_LIMIT,CHANNEL_PAGE_MAX_OFFSET,
   GUILD_CHANNEL_KEY_PATTERN,
@@ -171,6 +172,26 @@ export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKe
   });
 }
 
+/** Search one room under the same live locks and public-history visibility rules. */
+export async function searchChannelMessages(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown):Promise<MessageSearchPage<ChannelMessage>>{
+  const target=room(rawKind,rawKey),{q:query,limit,cursor}=MessageSearchQuery.parse(raw);
+  return snapshot(pool,actor,async q=>{
+    await lockRoom(q,actor,target);
+    return boundedMessageSearch(q,async()=>{
+      if(cursor)requireCondition((await q.query(`SELECT 1 FROM member_channel_messages WHERE message_id=$1 AND community_id=$2 AND kind=$3 AND channel_key=$4
+        AND ($3<>'world' OR sender_ref=$5 OR NOT is_verification_test_account(sender_ref))`,
+        [cursor,actor.community_id,target.kind,target.key,actor.user_id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
+      const rows=(await q.query(`SELECT ${messageColumns} FROM member_channel_messages m JOIN users u ON u.user_id=m.sender_ref
+        WHERE m.community_id=$1 AND m.kind=$2 AND m.channel_key=$3
+          AND ($2<>'world' OR m.sender_ref=$4 OR NOT is_verification_test_account(m.sender_ref))
+          AND m.body ILIKE $5 AND ($6::uuid IS NULL OR m.sequence<(SELECT sequence FROM member_channel_messages WHERE message_id=$6))
+        ORDER BY m.sequence DESC LIMIT $7`,[actor.community_id,target.kind,target.key,actor.user_id,messageSearchPattern(query),cursor??null,limit+1])).rows;
+      const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'channel',actor.user_id);
+      return {items:shown.map((row,index)=>({...message(row),...contents[index]})),next_cursor:rows.length>limit?shown[shown.length-1].message_id:null};
+    });
+  });
+}
+
 /** Check only an opened room; preserve the same live user/session/membership locks as history reads. */
 export async function channelActivity(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown={}):Promise<ChannelActivity>{
   z.object({}).strict().parse(raw);const target=room(rawKind,rawKey);
@@ -222,6 +243,28 @@ export async function sendChannelMessage(pool:Pool,input:Command,rawKind:string,
     requireCondition(row,404,'channel_message_not_found','找不到這則訊息。');
     return {...message(row),...(await messageContents(q,[row],'channel',actor.user_id))[0]};
   });
+}
+
+/** Used only inside the authenticated bulk member command transaction. */
+export async function markAllMemberChannelsRead(q:PoolClient,actor:Actor){
+  let updated=0;
+  for(const kind of CHANNEL_KINDS){
+    const rooms=await lockRooms(q,actor,kind);
+    for(const room of rooms){
+      await advisory(q,`member-channel/${actor.community_id}/${kind}/${room.channel_key}`);
+      const channel=(await q.query('SELECT last_sequence FROM member_chat_channels WHERE community_id=$1 AND kind=$2 AND channel_key=$3',
+        [actor.community_id,kind,room.channel_key])).rows[0];
+      if(!channel||BigInt(channel.last_sequence)===0n)continue;
+      const result=await q.query(`INSERT INTO member_channel_reads AS d(community_id,kind,channel_key,user_id,last_read_sequence,read_at)
+        VALUES($1,$2,$3,$4,$5,clock_timestamp())
+        ON CONFLICT (community_id,kind,channel_key,user_id) DO UPDATE
+          SET last_read_sequence=EXCLUDED.last_read_sequence,read_at=EXCLUDED.read_at
+          WHERE d.last_read_sequence<EXCLUDED.last_read_sequence`,
+        [actor.community_id,kind,room.channel_key,actor.user_id,channel.last_sequence]);
+      updated+=result.rowCount??0;
+    }
+  }
+  return updated;
 }
 
 export async function markChannelRead(pool:Pool,input:Command,rawKind:string,rawKey:string):Promise<ChannelReadResult>{

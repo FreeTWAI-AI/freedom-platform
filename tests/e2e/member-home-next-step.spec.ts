@@ -38,6 +38,8 @@ async function login(page: Page) {
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
+  // These cases inspect the optional member summary, reached through its visible disclosure.
+  await page.locator('.home-personal > summary').click();
 }
 
 function suggestion(page: Page) {
@@ -129,7 +131,7 @@ test('home does not guess a next action while the member read waits or fails and
   await expect(summary).toHaveAttribute('aria-busy', 'true');
   await expect(summary).toContainText('正在載入名片');
   await expect(suggestion(page)).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(4);
+  await expect(page.getByRole('navigation', { name: '常用入口', exact: true }).getByRole('button')).toHaveCount(3);
   mode = 'fail'; release();
   const alert = page.getByRole('alert').filter({ hasText: '名片暫時無法載入' });
   await expect(alert).toBeVisible();
