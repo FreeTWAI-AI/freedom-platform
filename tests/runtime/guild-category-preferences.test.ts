@@ -41,12 +41,12 @@ const verifier = createAdminAccessVerifier({
 const flagged = createApp(pool, origin, 'local', {guildLaunchpadEnabled: true, adminVerifier: verifier});
 const flagOff = createApp(pool, origin, 'local', {adminVerifier: verifier});
 const approved = [
-  'guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering', 'guild_opportunity_partnership', 'guild_commerce_sales',
+  'guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering', 'guild_opportunity_partnership',
   'guild_product_quality_supply', 'guild_media_automation', 'guild_commerce_settlement', 'guild_security',
   'guild_music_mv', 'guild_commercial_production', 'guild_projection_mapping', 'guild_human_design',
 ];
 const internal = ['guild_talent_direction', 'guild_member_operations', 'guild_platform_engineering'];
-const external = ['guild_commerce_sales', 'guild_opportunity_partnership'];
+const external = ['guild_opportunity_partnership'];
 type Session = {cookie: string; csrf: string; user: {user_id: string}};
 let jwt = '';
 let csrf = '';
@@ -69,7 +69,6 @@ beforeEach(async () => {
       WHEN 'guild_member_operations' THEN 'internal'::guild_category
       WHEN 'guild_platform_engineering' THEN 'internal'::guild_category
       WHEN 'guild_opportunity_partnership' THEN 'external'::guild_category
-      WHEN 'guild_commerce_sales' THEN 'external'::guild_category
       WHEN 'guild_product_quality_supply' THEN 'professional_industry'::guild_category
       WHEN 'guild_media_automation' THEN 'professional_industry'::guild_category
       WHEN 'guild_commerce_settlement' THEN 'professional_industry'::guild_category
@@ -148,7 +147,7 @@ test('T-001 catalog shape, empty slots, rejected writes, and flag-off 404', asyn
   assert.deepEqual(catalog.data.categories.map((group: {category: string}) => group.category), ['internal', 'external', 'professional_industry']);
   assert.deepEqual(catalog.data.categories[0].items.map((item: {guild_key: string}) => item.guild_key).sort(), [...internal].sort());
   assert.deepEqual(catalog.data.categories[1].items.map((item: {guild_key: string}) => item.guild_key), external);
-  assert.equal(catalog.data.pending.length, 5);
+  assert.equal(catalog.data.pending.length, 6);
   assert.ok(catalog.data.pending.some((item: {guild_key: string}) => item.guild_key === 'guild_ai_vibe'));
   assert.match(catalog.data.catalog_revision, /^[1-9][0-9]*$/);
 
@@ -827,10 +826,10 @@ test('T-010 dry-run counts a blocked member past the first page and only an acce
   assert.equal((await pool.query(`SELECT count(*) FROM guild_category_preferences WHERE guild_key = 'guild_talent_direction'`)).rows[0].count, '100');
 });
 
-test('T-001 classification journals one public event and refuses without an active member', async () => {
+test('T-001 commerce classification journals one public event and refuses without an active member', async () => {
   async function facts() {
     return {
-      revision: await revision('guild_security'),
+      revision: await revision('guild_commerce_sales'),
       audit: (await pool.query(`SELECT count(*) FROM platform_admin_audit`)).rows[0].count as string,
       outbox: (await pool.query(`SELECT count(*) FROM outbox WHERE event_type = 'freedom.guild.classification.changed.v1'`)).rows[0].count as string,
       journal: (await pool.query(`SELECT count(*) FROM transition_journal WHERE command = 'classify_guild'`)).rows[0].count as string,
@@ -839,13 +838,15 @@ test('T-001 classification journals one public event and refuses without an acti
   async function classifyAs(value: string, version: string) {
     const token = await sign(value);
     const tokenCsrf = (await verifier(new Request(origin, {headers: {'Cf-Access-Jwt-Assertion': token}}))).csrfToken;
-    const response = await flagged.request(origin + '/admin/api/guilds/guild_security/classification', {
+    const response = await flagged.request(origin + '/admin/api/guilds/guild_commerce_sales/classification', {
       method: 'POST',
       headers: {Origin: origin, 'Cf-Access-Jwt-Assertion': token, 'X-Admin-CSRF': tokenCsrf, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(), 'If-Match': `"${version}"`},
       body: JSON.stringify({category: 'external', capability_tags: [], reason: '沒有可用的會員帳號'}),
     });
     return {status: response.status, data: await read(response)};
   }
+  const initial = (await pool.query(`SELECT category, category_review FROM guild_catalog_categories WHERE guild_key = 'guild_commerce_sales'`)).rows[0];
+  assert.deepEqual(initial, {category: null, category_review: 'pending'});
   const before = await facts();
   await pool.query('INSERT INTO platform_admins(admin_id, community_id, email, display_name) VALUES ($1,$2,$3,$4)', [randomUUID(), DEMO_COMMUNITY, 'category-orphan@example.test', '無會員管理員']);
   const missing = await classifyAs('category-orphan@example.test', before.revision);
@@ -860,12 +861,29 @@ test('T-001 classification journals one public event and refuses without an acti
   assert.equal(inactive.status, 403);
   assert.equal(inactive.data.code, 'guild_classification_denied');
   assert.deepEqual(await facts(), before);
-  const saved = await admin(flagged, '/guilds/guild_security/classification', {category: 'external', capability_tags: ['守門'], reason: '改測公開事件'}, {version: await revision('guild_security')});
+  const body = {category: 'external', capability_tags: ['通路'], reason: '改測公開事件'};
+  const options = {version: await revision('guild_commerce_sales'), key: randomUUID()};
+  const saved = await admin(flagged, '/guilds/guild_commerce_sales/classification', body, options);
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.classification.category, 'external');
+  assert.equal(saved.data.classification.category_review, 'approved');
+  assert.equal((await pool.query(`SELECT reviewed_by_principal_id FROM guild_catalog_categories WHERE guild_key = 'guild_commerce_sales'`)).rows[0].reviewed_by_principal_id, adminId);
+  const savedFacts = await facts();
+  const replay = await admin(flagged, '/guilds/guild_commerce_sales/classification', body, options);
+  assert.equal(replay.status, 200);
+  assert.deepEqual(replay.data, saved.data);
+  assert.deepEqual(await facts(), savedFacts);
+  assert.equal(savedFacts.audit, String(Number(before.audit) + 1));
+  assert.deepEqual((await pool.query(`SELECT admin_id, verified_access_subject FROM platform_admin_audit
+    WHERE action = 'guild_classification' AND target_ref = 'guild_commerce_sales'`)).rows,
+  [{admin_id: adminId, verified_access_subject: 'verified-category-admin'}]);
+  assert.deepEqual((await pool.query(`SELECT actor_ref FROM transition_journal
+    WHERE aggregate_type = 'guild_classification' AND command = 'classify_guild'`)).rows,
+  [{actor_ref: 'a0000000-0000-4000-8000-0000000000aa'}]);
   const events = (await pool.query(`SELECT payload FROM outbox WHERE event_type = 'freedom.guild.classification.changed.v1'`)).rows;
   assert.equal(events.length, 1);
   assert.deepEqual(Object.keys(events[0].payload.data).sort(), ['active', 'capability_tags', 'catalog_revision', 'category', 'category_review', 'guild_key']);
-  assert.equal(events[0].payload.data.guild_key, 'guild_security');
+  assert.equal(events[0].payload.data.guild_key, 'guild_commerce_sales');
   assert.equal(events[0].payload.data.category, 'external');
   assert.equal(events[0].payload.data.reason, undefined);
   assert.equal(JSON.stringify(events[0].payload).includes(email), false);

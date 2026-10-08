@@ -10,7 +10,9 @@
 
 2026-10-08 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第八輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
-狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 135（線上商店會員畫面帶進 135，把線上商店提供給所有公會，並核准電商與銷售公會為社群業務推廣；線上商店後端帶進 134；#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用；134、135 尚未套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 135（線上商店會員畫面帶進 135，把線上商店提供給所有公會；線上商店後端帶進 134；#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用；134、135 尚未套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+
+2026-10-08 電商分類決策：`guild_commerce_sales` 歸 `external`（社群業務推廣）。這是已確認的目標；各環境須由真實有權管理員依 [SP-01 執行步驟](SP-01-guild-preferences.md#2026-10-08-電商分類的執行步驟) 送既有分類命令，保留分類事件與管理稽核。migration 135 不直接更新分類，此處不宣稱已套用。
 
 `accepted_m1`／`accepted_full` 只有在驗證無失敗、里程碑指定 `candidate_sha`，且每案都已通過並有該 SHA 在 ci、staging 或 production 的有效、未被較晚非通過結果推翻的通過證據時才為 true。T-015 與 T-023 依 `acceptance-progress.json` 的 `scope` 採 M1 變體驗收。M1 變體結果記在該案的 `variants.M1`，沿用相同的 `status`／`evidence` 格式，只計入 M1，不計入完整計畫。沒有 `variants.M1` 時，M1 使用該案本身的結果。新增 migration 的 PR 必須重跑 `python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status`。
 

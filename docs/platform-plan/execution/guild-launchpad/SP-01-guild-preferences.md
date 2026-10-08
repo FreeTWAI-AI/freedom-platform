@@ -17,7 +17,7 @@
 
 目前 `guild_member_preferences` 為 `(community_id,user_id)` 一列，保存一個 `primary_guild_key` 與最多兩個 `secondary_guild_keys`；`effectiveSecondary()` 還有歷史 NULL 的推導行為。現行離會要求先換走原主要公會，加入／重加入預設 `intern`，技能書 grant 保留。這些是來源事實，不是本規格的新規則。
 
-2026-10-08 決策：三類顯示名稱更新為「社群架構開發」「社群業務推廣」「社群專業服務」，底層 category keys 與 API schema 不變；原需求索引保留提出時原文。電商與銷售公會核准為 `external`。此處記錄程式候選，不代表 migration 已部署。
+2026-10-08 決策：三類顯示名稱更新為「社群架構開發」「社群業務推廣」「社群專業服務」，底層 category keys 與 API schema 不變；原需求索引保留提出時原文。電商與銷售公會的目標分類確定為 `external`；環境資料須由既有管理命令核准，不能由顯示名稱或 migration 135 推定已套用。
 
 目標為社群架構開發、社群業務推廣、社群專業服務三個獨立偏好槽；加入任何數量公會仍沿現行資格與限制。會員可只選一類，其他槽為空。主力只改排序、推薦與投入方向，不授予應用、tenant、技能編輯、GitHub 或管理權。
 
@@ -39,7 +39,7 @@
 | `guild_ai_vibe` | AI 開發公會 | 社群架構開發 | 建議以社群開源建設為使命；**需確認**：若主使命是對外專業開發，應屬社群專業服務 |
 | `guild_opportunity_partnership` | 商機與夥伴公會 | 社群業務推廣 `external` | 外部需求、合作資源與夥伴連結 |
 | `guild_marketing` | 成長與行銷公會 | 社群業務推廣 | 推廣、內容、活動成效；**需確認**以對外成長為主，而非內部社群營運 |
-| `guild_commerce_sales` | 電商與銷售公會 | 社群業務推廣 | 通路、銷售與買家；2026-10-08 由 Ted 確認為 `external`，migration 135 將原待確認分類設為核准 |
+| `guild_commerce_sales` | 電商與銷售公會 | 社群業務推廣 | 通路、銷售與買家；2026-10-08 由 Ted 確認為 `external`；以既有有權管理命令核准，見下方執行步驟 |
 | `guild_product_quality_supply` | 商品品質與供應公會 | 社群專業服務 `professional_industry` | 產品、供货條件、品質實踐 |
 | `guild_media_automation` | 媒體自動化公會 | 社群專業服務 | 影片、字幕及媒體流程 |
 | `guild_commerce_settlement` | 交易整合與對帳公會 | 社群專業服務 | 商家自有收款整合、核對；不代表平台代收或正式會計 |
@@ -53,6 +53,16 @@
 | `guild_human_design` | 人類圖研究所 | 社群專業服務 | 共讀、來源查核與探索；不作診斷或能力認證 |
 
 `guild_*` key、既有名稱、alias、profession_title 均不因分類而改名／合併。基線沒有本計畫新增的 ERP guild key；不得虛構已存在 ERP 公會。動態核准的 `guild_custom_<32 hex>` 由 catalog 查詢列舉，不能只用上表 18 個作分母。新公會審核要求 mission/category 欄位；在舊公會分類未決期間 `category_review='pending'`、`category=null`，仍提供 SP-03 公版，但不能寫入主力分類槽。
+
+#### 2026-10-08 電商分類的執行步驟
+
+migration 135 只新增 hosted-store offering。migration 120 的初始 seed 沒有執行期管理員身份，不能拿它的方式直接改既有分類；分類更新必須經既有 `classifyGuild` 命令，於同一交易留下偏好失效紀錄、分類 journal/outbox 與 admin audit。
+
+1. Operator 使用該環境已驗證的 Access 管理身份；現有 `platform_admins` 必須 active，且同社群、同信箱有 active 會員可作事件 actor。缺任一條件就停止並處理身份對應，不任取會員、不新增假會員或偽造 Access subject。分類 `external` 已決定，不需重新選定分類。
+2. 從 `GET /admin/api/guild-categories` 讀取 `guild_commerce_sales` 的最新 `catalog_revision` 與 `capability_tags`。若已是 `external`／`approved`，保留其狀態並核對既有分類稽核；不為重跑另造修訂。
+3. 對 `POST /admin/api/guilds/guild_commerce_sales/classification` 送出 `{category:"external",capability_tags:<讀到的原值>,reason:"2026-10-08 產品決策：電商與銷售公會歸社群業務推廣"}`，帶既有管理 CSRF、新的 Idempotency-Key 與該列 revision 的 `If-Match`。未知結果使用相同 key、body、version 重送；412 則重新讀取並核對變更後再決定，不能盲目覆蓋。
+4. 讀回 `external`／`approved`、新 revision 與保留的 tags／active，核對 `reviewed_by_principal_id` 為該真實 admin，以及同交易的 `platform_admin_audit`、`guild_classification` journal、`freedom.guild.classification.changed.v1` outbox。分類事件只含公開允許欄位；若有舊主力失效，另核對偏好版本／invalidation，不搬入或覆蓋其他主力。
+5. 各環境分別記錄實際結果與不可敏感的證據；在完成前，狀態維持「分類決策已確認、環境資料待核准」。本步驟不授權略過既有部署核准或把本機測試列為 live 證據。
 
 ### 2.3 依賴與並行
 
