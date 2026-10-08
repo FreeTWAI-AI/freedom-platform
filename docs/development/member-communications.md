@@ -2,7 +2,7 @@
 
 會員在「設定 → 我的訊息」裡的通知、閒聊頻道與私訊，資料存放在中央 PostgreSQL（migration 035、037），由 `modules/member-communications/` 負責。這裡只有站內紀錄：不寄 email、不推播、不連外部服務，也不回填歷史事件。四個分區與完整路徑見 [會員設定、待辦與訊息](member-settings-messages.md)。
 
-## API（全部需要會員登入，並已選定主要公會）
+## API（全部需要會員登入，並完成目前加入資格）
 
 分頁參數一律是 `limit`（1–50，預設 20）與 `offset`（0–10000，預設 0）；未知查詢參數回 422。通知與私訊列表都是新到舊，同時間以 UUID 由大到小排序；頻道訊息依交易內配置的序號由大到小排序。未讀數在同一個資料庫快照內計算，不受目前頁數影響。GET 不會標記已讀。
 
@@ -18,7 +18,7 @@
 
 DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；`avatar_url` 只在對方目前可見且有頭像時給既有的 `/api/v1/members/:id/avatar?v=` 路徑。回應不含 email、聯絡方式或任何 token。
 
-POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再回相同結果。
+上表通知與私訊 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`；封鎖設定另使用版本 CAS（見下節）。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再讀取原收據。
 
 「全部標為已讀」在通知鈴與訊息頁都可使用。它是一個明確的 POST 操作；開啟通知、切換頁面和 GET 不會自動消耗未讀。既有內容與歷史不刪除，也不改其他會員的未讀狀態。聊天室只更新本人目前成員資格允許的頻道；沿用既有成員鎖、channel sequence 鎖及單調 cursor。這些寫入與 command receipt 在同一個交易，任一失敗全部回滾。收到 ACK 後重新讀取各分區的真實未讀數；失敗顯示錯誤，同一 key 重試只回第一次結果，之後的新通知和聊天仍是未讀。
 
@@ -26,18 +26,34 @@ POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Mat
 
 路由仍掛在共用的 session、Origin、CSRF 與加入資格 middleware 之後，但服務函式不信任傳進來的 `Actor`：直接呼叫、或驗證後才被撤銷的請求，也會在服務層重新以資料庫目前狀態判斷。
 
-- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`、`conversationActivity`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；加入資格改由剛鎖住的會員列判斷，未完成加入（選定主要公會）回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
+- **讀取**（`listNotifications`、`listConversations`、`conversationMessages`、`conversationActivity`）：在 `BEGIN ISOLATION LEVEL REPEATABLE READ` 交易的第一步先 `FOR SHARE` 鎖會員列（`user_id`＋`community_id`＋`active`），再 `FOR SHARE` 鎖 session 列（未撤銷、未過期），順序與 `command()` 相同（先 users 再 sessions，不反向）。停用、跨社群、撤銷或過期回 `401 session_expired`；加入資格改由剛鎖住的會員列判斷，未完成目前加入資格回 `403 onboarding_required`。計數與分頁仍在同一快照內，GET 不寫任何領域資料。因為 `FOR SHARE` 不能在 `READ ONLY` 交易執行，所以拿掉了 `READ ONLY`，快照不變。
 - **與撤銷同時發生**：讀取若先拿到鎖，會排在撤銷之前完成（撤銷等它提交）。若撤銷已提交或先拿到鎖，讀取等待後，快照看到的是舊列而 PostgreSQL 回 `40001`；整個讀取以新交易重跑（最多 3 次，只限這三個讀取），重跑時看到撤銷而拒絕。不會回傳內容，也不會把原始 `40001` 丟出；3 次都衝突時回 `503 communications_busy`。
-- **指令**（`markNotificationRead`、`markConversationRead`、`sendDirectMessage`）：`command()` 已先鎖會員列、再鎖 session 列；授權 callback 只在同一交易內用已鎖住的會員列重新確認加入資格（`currentMember(q, actor, false)`，不再鎖 session），之後才查 receipt。所以加入資格被重設後，重送舊 key 也回 `403 onboarding_required`，不會回放舊結果。私訊重送另外會以 `FOR SHARE` 重新確認收件者可收訊（`409 recipient_unavailable`）。
-- 對方停用或未完成加入（選定主要公會）時，自己仍能讀取既有對話與標已讀（只檢查「自己」的資格，不改變上面的私訊規則）。
+- **指令**（`markNotificationRead`、`markConversationRead`、`sendDirectMessage`）：`command()` 已先鎖會員列、再鎖 session 列；授權 callback 在同一交易內用目前會員列重新確認加入資格，之後才查 receipt。私訊傳送先取得雙方無序 pair advisory lock，再鎖收件者並確認可聯絡；等待 pair 或收據後重新核對 session 真實時鐘、加入資格與聯絡限制。加入資格重設或封鎖已生效後，舊 key 也不能繞過現況授權。
+- 對方停用、未完成加入或任一方封鎖時，自己仍能讀取既有對話與標已讀（只檢查「自己」的資格）；封鎖不刪除歷史。
 
 ## 私訊規則
 
-- 雙方都必須是同一社群、啟用中且已完成加入（選定主要公會）的會員；不能傳給自己。不需要先成為好友。
+- 雙方都必須是同一社群、啟用中且已完成目前加入資格、沒有任一方向有效封鎖的會員；不能傳給自己。不需要先成為好友。
 - 內容是純文字：前後空白會去掉，換行統一為 `\n`，長度 1–2000 字（以 Unicode 字元計）。不解析 HTML／Markdown，也不抓取網址；前端必須當文字顯示。
-- 找不到、跨社群、或未完成加入（選定主要公會）且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入（選定主要公會）時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。
-- 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。同一傳送者的傳送以 advisory lock 排序，同時送出也不會超過；重送既有 key 不計次、也不會被擋。收件者以 `FOR SHARE` 鎖定，雙向同時傳送不會互鎖。
+- 找不到、跨社群、或未完成加入且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。任一方向封鎖時傳送與建立／接受好友邀請回通用 `409 recipient_unavailable`，不回傳反向封鎖欄位。
+- 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。私訊先取得無序 pair lock，再取得傳送者頻率限制 advisory lock；同時送出也不會超過，雙向傳送使用相同 pair barrier。授權通過後重送既有 key 不計次；收件者以 `FOR SHARE` 鎖定。
 - 私訊不產生通知（避免未讀重複計算）。訊息內容不寫入 command receipt 或 transition journal；receipt 只保留 `message_id`。
+
+## 獨立會員封鎖與部署邊界
+
+候選 `FREEDOM_MEMBER_BLOCKING_ENABLED` 精確為 `true` 才註冊 `/api/v1/me/blocks` 管理路由並顯示 UI；未設定或其他值均預設關閉，管理路由回 404。Node 與 Worker 使用相同旗標與服務；私訊、好友與小隊新互動的封鎖守衛不依賴旗標，所以已保存的封鎖在 OFF 時仍有效。
+
+`packages/shared/member-blocking.ts` 定義嚴格 DTO：單筆 `{user_id, blocked_by_me, aggregate_version}`；本人名單 `{items:[{user_id, nickname, blocked_at, aggregate_version}], next_offset}`。不提供反向封鎖者名單。不可用會員的本人名單暱稱為 `null`，但原擁有者仍可解除；跨社群、對自己及未授權的目標不可操作。GET 採 `private, no-store`，單筆已有保存列時提供版本 ETag。
+
+`POST /me/blocks/:userId/block|unblock` 僅接受 `{}`、Origin／CSRF 與 Idempotency-Key；已有列需帶引號格式的 `If-Match` 版本，沒有列時不帶版本。UUID 大小寫先正規化為同一指令目標。migration 136 保留同一 `block_id`、`active|removed` 狀態及遞增版本；解除不刪列，重複相同狀態不增版，舊 block 收據重播不重新封鎖。收據僅保存 `{updated}`，journal 使用保存列 ID 及空 body，不複製暱稱、聯絡資料或訊息正文；成功回應另依目前授權重讀狀態，不回放過時的封鎖狀態。
+
+封鎖、好友建立／接受／移除及私訊共用既有 `friend/<community>/<low>/<high>` barrier，在 receipt 查詢之前取得。封鎖同一交易將已有或待接受好友關係移除、靜默撤回雙方待處理小隊邀請；不發 declined／封鎖通知。好友移除與邀請撤回都是同一 `member_interaction_block` journal 的交易副作用，不另產生通知型邀請 transition；失敗會一併回滾。小隊邀請／接受與申請加入／接受申請在授權與 receipt 重驗使用相同 pair barrier，舊 key 不能繞過。推薦、好友搜尋及會員目錄在分頁前排除雙向封鎖，卡片組成後再次重查；並行變更時 total 仍表示原候選快照。先完成的合法傳送可保留；封鎖先提交時，排隊傳送或接受邀請必須拒絕。好友移除、私訊歷史／已讀、已存在的公會／小隊資格、退出及共同頻道不受此封鎖阻擋。本人設定 DTO 沒有反向封鎖欄位；實際互動沿用不可用的一般錯誤碼與訊息。成員仍可能從原本可聯絡到不可聯絡、can_send 或推薦變化推論限制；本功能不承諾無法推論，也不隱藏既有歷史／共同頻道或公開名片。
+
+**部署本程式前必須先跑到 migration 136，即使旗標 OFF**：守衛會查新表，不能把 OFF 誤當成舊 schema 相容模式。沿用既有 migration／runtime grants 流程，先在隔離與 staging 資料庫驗證，再由獲授權的操作者決定啟用。此次沒有部署或修改 production 旗標。OFF 不會解除設定；舊版程式沒有守衛，回滾舊 binary 會忽略已保存封鎖，因此應 forward-fix 或採安全維護模式，不能把「舊 binary 回滾」當成維持封鎖承諾的退路。
+
+number 136 is provisional if another migration lands first.
+
+這是 #251 已授權的獨立封鎖切片；檢舉案件／證據／申訴不在本切片；正式政策另由 #261 追蹤，不以此切片關閉整張 Issue。
 
 ## 公會與小隊頻道
 
@@ -68,17 +84,17 @@ POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Mat
 
 晉升通知標題是「你已成為正式成員」，正文是「你已成為「公會名稱」的正式成員，可以發布與編輯公會內容。」改回實習的標題是「你已改為實習成員」，正文是「你在「公會名稱」改為實習成員。」
 
-不通知的情況：邀請者自己取消、移除已是好友的關係、重複送出仍在等待的邀請、重送同一 key、專家狀態沒有真的改變（即使版本號增加）、重新任命同一位公會長、提名確認時席位原本就是本人、同一個成員等級再寫一次（版本也不增加）。公會申請通知會附上審查說明；申請者原本就能在自己的申請列表看到這段文字。其他通知只用顯示名稱與公會名稱，不放 email、管理員身分或內部識別碼。
+不通知的情況：封鎖與因此移除的好友／待回覆邀請、邀請者自己取消、移除已是好友的關係、重複送出仍在等待的邀請、重送同一 key、專家狀態沒有真的改變（即使版本號增加）、重新任命同一位公會長、提名確認時席位原本就是本人、同一個成員等級再寫一次（版本也不增加）。公會申請通知會附上審查說明；申請者原本就能在自己的申請列表看到這段文字。其他通知只用顯示名稱與公會名稱，不放 email、管理員身分或內部識別碼。
 
 `squad_invitation` 由小隊邀請（migration 036）呼叫同一個 `notifyMember`。
 
 ## 測試
 
 ```sh
-npx tsx --test --test-concurrency=1 tests/runtime/member-communications.test.ts tests/runtime/notification-events.test.ts
+node --import tsx --test --test-concurrency=1 tests/runtime/member-blocking.test.ts tests/runtime/member-communications.test.ts tests/runtime/notification-events.test.ts
 ```
 
-兩個檔案都在獨立的 PostgreSQL schema 執行。`notification-events.test.ts` 以只存在於測試 schema 的 trigger 讓 receipt／audit 寫入失敗，證明領域變更與通知一起回滾。
+先設定指向隔離 PostgreSQL 的 `TEST_DATABASE_URL`。這三個檔案都在獨立 schema 執行；`member-blocking.test.ts` 覆蓋雙向守衛、本人資料、保留版本、收據、資格與真實鎖等待；`notification-events.test.ts` 以只存在於測試 schema 的 trigger 讓 receipt／audit 寫入失敗，證明領域變更與通知一起回滾。
 
 `member-communications.test.ts` 另外直接呼叫服務函式（不經 HTTP middleware）：以登入取得 `Actor` 後撤銷 session、讓 session 過期、停用會員、換成其他社群、或重設定位，三個讀取與兩個標已讀（含重送既有 key）都必須被拒絕且不寫任何資料；私訊重送會重新檢查傳送者與收件者。併發測試用另一條連線持有撤銷交易，以 `pg_blocking_pids` 確認讀取確實在等待（不靠 sleep 當證據），提交後讀取必須回 401／403，不能回內容或原始 `40001`。
 
@@ -87,6 +103,6 @@ npx tsx --test --test-concurrency=1 tests/runtime/member-communications.test.ts 
 ## 目前限制
 
 - 沒有即時推送。前端目前僅對可見、選定的對話每秒讀取輕量 activity；待確認的已載入私訊 outgoing receipts 另每 8 秒以原授權訊息分頁核對，保留手動重讀與失敗退避。詳見[訊息介面](member-settings-messages.md)；這些週期性核對不會自動標已讀。
-- 沒有封鎖、檢舉、刪除或編輯訊息；也沒有通知「全部標為已讀」。
+- 尚未提供檢舉、刪除或編輯訊息；也沒有通知「全部標為已讀」。獨立封鎖候選的預設 OFF 與部署邊界見上節，不代表檢舉／政策已完成。
 - 會員因退出公會而自動解除的專家或公會長身分不發通知，只有管理員操作與提名確認會發。
 - 分頁使用 offset；有新訊息寫入時，翻頁可能看到重複或跳過的項目，前端應以 id 去重。

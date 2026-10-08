@@ -5,12 +5,14 @@ import { command,checkVersion,journal,type Command } from '../../packages/db/ind
 import { requireCondition } from '../../packages/shared/problem.js';
 import { notifyMember } from '../member-communications/notifications.js';
 import type { Actor } from './service.js';
+import {lockInteractionPair,assertCanContact} from './blocks.js';
 
 // Owner invites, the recipient accepts/declines, the owner may withdraw. Only the
 // recipient's accept creates/activates membership, so squad-only contacts stay
 // hidden until then. Every write shares changeSquadMembership's per-(squad,member)
 // advisory lock, then locks membership before invitation in that fixed order.
-// A new invite first takes a per-squad budget lock (budget -> pair), so the
+// Interaction pair lock precedes the per-squad budget and membership locks.
+// A new invite takes a per-squad budget lock (budget -> membership), so the
 // pending limit holds across recipients; answers never take the budget lock.
 // Invite and accept need both parties eligible. Withdraw and decline only need the
 // acting party eligible, so a pending row whose other party later became inactive or
@@ -72,11 +74,14 @@ export async function inviteToSquad(pool:Pool,input:Command,squadId:string) {
   squadId=uuid(squadId);const recipientId=InviteInput.parse(input.body).recipient_ref.toLowerCase();
   requireCondition(recipientId!==input.actor.user_id,422,'squad_self_invitation','不能邀請自己加入小隊。');
   let squad!:Awaited<ReturnType<typeof communitySquad>>;
-  return command(pool,input,async q=>{
+  const authorize=async(q:PoolClient)=>{
+    await lockInteractionPair(q,input.actor,recipientId);
+    await assertCanContact(q,input.actor,recipientId);
     await eligibleActor(q,input.actor);squad=await communitySquad(q,input.actor,squadId);
     requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以邀請夥伴。');
     await eligibleMember(q,input.actor.community_id,recipientId,true);
-  },async q=>{
+  };
+  return command(pool,input,authorize,async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-invitation-budget/${squadId}`]);
     const membership=await lockPair(q,squadId,recipientId);
     requireCondition(membership?.state!=='active',409,'squad_member_already','這位夥伴已經在小隊裡。');
@@ -90,7 +95,7 @@ export async function inviteToSquad(pool:Pool,input:Command,squadId:string) {
     const created=await invitationView(q,id);
     await notify(q,input.actor,created,recipientId,'',`${created.owner_name}邀請你加入小隊「${created.squad_name}」`,'前往小隊集合，接受或婉拒邀請。');
     return created;
-  });
+  },async q=>{await lockInteractionPair(q,input.actor,recipientId);await assertCanContact(q,input.actor,recipientId);});
 }
 
 type Resolution='accept'|'decline'|'withdraw';
@@ -107,6 +112,8 @@ export async function resolveSquadInvitation(pool:Pool,input:Command,invitationI
     if(action==='withdraw')requireCondition(squad.owner_ref===input.actor.user_id&&row.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以撤回邀請。');
     else requireCondition(row.recipient_ref===input.actor.user_id,403,'squad_invitation_recipient_only','只有受邀本人可以回覆這份邀請。');
     const other=input.actor.user_id===row.owner_ref?row.recipient_ref:row.owner_ref;
+    await lockInteractionPair(q,input.actor,other);
+    if(action==='accept')await assertCanContact(q,input.actor,other);
     if(action==='accept'){await eligibleMember(q,input.actor.community_id,other,true);otherVisible=true;}
     else otherVisible=await communityMember(q,input.actor.community_id,other);
     target=row;
@@ -126,6 +133,10 @@ export async function resolveSquadInvitation(pool:Pool,input:Command,invitationI
     else if(action==='decline')await notify(q,input.actor,result,target.owner_ref,':declined',`${result.recipient_name}婉拒了小隊「${result.squad_name}」的邀請`,'需要時可以之後再次邀請。');
     else await notify(q,input.actor,result,target.recipient_ref,':withdrawn',`${result.owner_name}撤回了小隊「${result.squad_name}」的邀請`,'這份邀請已不能接受；你仍可以自行申請加入小隊。');
     return result;
+  },async q=>{
+    const other=input.actor.user_id===target.owner_ref?target.recipient_ref:target.owner_ref;
+    await lockInteractionPair(q,input.actor,other);
+    if(action==='accept')await assertCanContact(q,input.actor,other);
   });
   // A replayed receipt keeps its state and version but follows the other party's current visibility.
   if(otherVisible)return response;

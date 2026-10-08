@@ -81,4 +81,6 @@ export type PlatformRuntime = {
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
   communityDiscoveryEnabled?: boolean;
+  /** Management surface only; saved blocks continue protecting contact when false. */
+  memberBlockingEnabled?: boolean;
 };

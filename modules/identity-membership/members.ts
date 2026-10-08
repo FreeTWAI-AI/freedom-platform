@@ -10,6 +10,7 @@ import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 import { notifyFriendshipChange } from '../member-communications/events.js';
+import {lockInteractionPair,assertCanContact,assertInteractionMember,contactableIds} from './blocks.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
 type Audience=typeof audienceKeys[number];
@@ -105,9 +106,9 @@ export async function saveAccount(pool:Pool,input:Command) {
   return accountView(pool,input.actor);
 }
 const pair=(a:string,b:string)=>[a,b].sort();
-async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string) {
+async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   z.uuid().parse(id);
-  const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id))`,[id,actor.community_id,actor.user_id])).rows[0];
+  const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
 export async function memberCard(pool:Pool,actor:Actor,id:string) {
@@ -172,6 +173,8 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
         LIMIT 1
       ) display_primary ON $11::bool
     WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+        AND ((b.owner_ref=$10 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$10)))
       AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
       AND ($8='' OR CASE WHEN $11::bool THEN EXISTS (
@@ -201,7 +204,8 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
     const byId=new Map(rows.map(row=>[row.user_id,row]));
     for(const item of items){const row=byId.get(item.user_id);if(row)item.guild_roster={member_tier:row.member_tier,aggregate_version:Number(row.aggregate_version),expert_aggregate_version:row.expert_aggregate_version==null?null:Number(row.expert_aggregate_version),expert_active:Boolean(row.expert_active)};}
   }
-  return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
+  const allowed=await contactableIds(pool,actor,items.map(item=>item.user_id));
+  return {items:items.filter(item=>allowed.has(item.user_id)),total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));
@@ -221,8 +225,12 @@ export async function listFriends(pool:Pool,actor:Actor) {
 export async function changeFriendship(pool:Pool,input:Command,id:string,action:'request'|'accept'|'remove') {
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();requireCondition(id!==input.actor.user_id,422,'self_friendship','不能將自己加為好友。');
   const [low,high]=pair(id,input.actor.user_id);
-  return command(pool,input,async q=>{await visibleMember(q,input.actor,id);},async q=>{
-    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`friend/${input.actor.community_id}/${low}/${high}`]);
+  const authorize=async(q:PoolClient)=>{
+    await lockInteractionPair(q,input.actor,id);
+    await visibleMember(q,input.actor,id,true);
+    if(action!=='remove')await assertCanContact(q,input.actor,id);
+  };
+  return command(pool,input,authorize,async q=>{
     const row=(await q.query('SELECT * FROM member_friendships WHERE community_id=$1 AND low_ref=$2 AND high_ref=$3 FOR UPDATE',[input.actor.community_id,low,high])).rows[0];
     if(action==='request'&&row&&row.state!=='removed')return row;
     if(row)checkVersion(row.aggregate_version,input.expected);
@@ -233,7 +241,7 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
       ON CONFLICT(community_id,low_ref,high_ref) DO UPDATE SET state=$5,requester_ref=CASE WHEN $5='pending' THEN $4 ELSE member_friendships.requester_ref END,aggregate_version=member_friendships.aggregate_version+1,updated_at=now() RETURNING *`,[input.actor.community_id,low,high,input.actor.user_id,state])).rows[0];
     await notifyFriendshipChange(q,input.actor.community_id,input.actor.user_id,row,result);
     return result;
-  });
+  },async q=>{await assertInteractionMember(q,input.actor);if(action!=='remove')await assertCanContact(q,input.actor,id);});
 }
 
 const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
@@ -290,10 +298,17 @@ export async function updateSquadChannel(pool:Pool,input:Command,id:string) {
 export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:'request'|'accept'|'leave',targetId=input.actor.user_id) {
   // Normalized ids keep one advisory lock per (squad,member), shared with squad-invitations.ts.
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();targetId=z.uuid().parse(targetId).toLowerCase();
+  let peerId:string|undefined;
   return command(pool,input,async q=>{
     const squad=await squadExists(q,input.actor,id);
     if(action==='accept') {requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以接受加入申請。');await visibleMember(q,input.actor,targetId);}
     else requireCondition(targetId===input.actor.user_id,403,'squad_self_only','請本人提出加入或退出申請。');
+    if(action!=='leave'){
+      const other=action==='accept'?targetId:String(squad.owner_ref);
+      peerId=other;
+      await lockInteractionPair(q,input.actor,other);
+      await assertCanContact(q,input.actor,other);
+    }
     if(action==='leave')requireCondition(squad.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人目前不能退出自己建立的小隊。');
   },async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-membership/${id}/${targetId}`]);
@@ -305,5 +320,5 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     const state=action==='request'?'pending':action==='accept'?'active':'left';
     return (await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
       ON CONFLICT(squad_id,user_id) DO UPDATE SET state=$3,aggregate_version=member_squad_memberships.aggregate_version+1,updated_at=now() RETURNING *`,[id,targetId,state])).rows[0];
-  });
+  },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
 }
