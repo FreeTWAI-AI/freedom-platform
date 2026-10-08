@@ -20149,8 +20149,8 @@
     },
     {
       "path": "tests/runtime/tenant-route-matrix.test.ts",
-      "bytes": 86148,
-      "sha256": "b71a869b5f96acfb2f585b65e254b4a2c4e5c25b8559118b9f38e647bccfe1e3"
+      "bytes": 94045,
+      "sha256": "2fd810320d6956dc5a5ebc458308092930487f7c88b556952a7458e02e81b2f2"
     },
     {
       "path": "tests/runtime/tenant-snapshot-evidence-rls.test.ts",
