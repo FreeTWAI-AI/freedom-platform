@@ -301,8 +301,15 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
 
   function remember(view: ConfigView, announce = true) {
     const next = asConfig(guildKey, view.body);
+    // Check at adoption: this response may predate a now-pending tenant creation.
+    if (!next.blocks.some(block => block.kind === 'applications' && block.enabled)
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) {
+      setBanner('最新配置尚未套用。請先確認原操作，再重新載入最新版本。'); setConflict(true);
+      return false;
+    }
     setDraft(next); setSaved(view); setSavedJson(JSON.stringify(next)); setPointer(view.pointer_version); setErrors([]); setConflict(false);
     if (announce && view.status === 'published' && view.source === 'guild_editor') setStatus(`已發布版本 ${view.revision}`);
+    return true;
   }
   function openDialog(dialog: HTMLDialogElement | null, button: HTMLButtonElement) {
     opener.current = button; dialog?.showModal();
@@ -398,7 +405,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('draft', `/guilds/${guildKey}/launchpad-config/drafts`, {body: draft}, pointer);
-      remember(view, false); setStatus(`已儲存草稿版本 ${view.revision}`);
+      if (!remember(view, false)) return;
+      setStatus(`已儲存草稿版本 ${view.revision}`);
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -408,7 +416,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('publish', `/guilds/${guildKey}/launchpad-config/${saved.config_id}/publish`, {expected_body_sha256: saved.body_sha256}, pointer);
-      remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      const adopted = remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
       const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`);
@@ -421,7 +430,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('revert', `/guilds/${guildKey}/launchpad-config/revert`, {to_revision: revertTarget, reason: revertReason.trim()}, pointer);
-      remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      const adopted = remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -468,6 +478,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     } catch (error) { fail(error); }
   }
   function updateBlock(index: number, patch: Partial<Config['blocks'][number]>) {
+    if (draft?.blocks[index]?.kind === 'applications' && patch.enabled === false
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) return;
     setDraft(current => current && {...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)});
   }
   function moveBlock(index: number, delta: number) {
