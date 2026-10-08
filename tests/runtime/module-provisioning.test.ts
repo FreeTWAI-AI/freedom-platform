@@ -319,6 +319,30 @@ for (const resolution of ['reconcile', 'executor'] as const) {
   }
 }
 
+for (const selection of ['explicit-create', 'non-reusable-default'] as const) {
+  test(`launch rejects a retired module release after planning ${selection}`, async () => {
+    const { owner, tenantId, workspaceId } = await prepared();
+    const extra = selection === 'explicit-create'
+      ? { dependencies: [{ requirement_key: 'inventory', choice: 'create', configuration: {} }] }
+      : {};
+    const planned = await h.plan(owner, tenantId, synthBody(workspaceId, extra));
+    assert.equal(planned.status, 201, JSON.stringify(planned.data));
+    const moduleKey = selection === 'explicit-create' ? 'synthetic-inventory' : 'synthetic-storefront';
+    await h.pool.query(
+      "UPDATE module_definitions SET release_status='retired',version=version+1 WHERE module_key=$1", [moduleKey],
+    );
+    const receipts = await h.count('scoped_command_receipts');
+    const reply = await h.launch(owner, tenantId, planned);
+    assert.equal(reply.status, 409, JSON.stringify(reply.data));
+    assert.equal(reply.data.code, 'application_not_available');
+    for (const table of ['application_installations', 'module_instances', 'module_provision_operations', 'capacity_reservations', 'capacity_ledger', 'module_launch_plan_consumptions']) {
+      assert.equal(await h.count(table, 'WHERE tenant_id=$1', [tenantId]), 0, table);
+    }
+    assert.equal(await h.count('scoped_command_receipts'), receipts);
+    assert.equal(await effects(), 0);
+  });
+}
+
 test('cancel releases an all-pending operation, keeps quota once work is in flight, and refuses a terminal operation', async () => {
   const { owner, tenantId, workspaceId } = await prepared();
   const actor = await authenticate(h.pool, owner.cookie.split('=')[1]);

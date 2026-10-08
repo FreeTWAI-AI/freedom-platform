@@ -168,11 +168,14 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
     await lockReusedInstances(q, context.tenant_id, choices, input.versionMismatch, input.operation === 'manual.work.enable' ? 'not_found' : 'instance_unavailable');
     const requirements = definition.module_requirements as Requirement[];
     for (const choice of choices) {
+      if (choice.choice !== 'create') continue;
       const requirement = requirements.find(item => item.requirement_key === choice.requirement_key);
+      if (!requirement) throw planStale();
+      // A stored plan cannot create a module release that has since been retired.
+      const moduleDef = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
       // A module that forbids reuse is never a candidate, so an existing instance does not stale a default create.
       if (!requirement?.allow_reuse) continue;
-      if (choice.choice === 'create' && choice.origin === 'default') {
-        const moduleDef = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
+      if (choice.origin === 'default') {
         if ((await candidatesFor(q, context.tenant_id, requirement, moduleDef)).length) throw planStale();
       }
     }
