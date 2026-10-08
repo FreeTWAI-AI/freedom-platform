@@ -286,7 +286,7 @@ function MemberApp() {
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
@@ -722,9 +722,9 @@ function Workspace({
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
-            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
-            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'messages' && <MemberMessages client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'events' && <EventsPanel client={client} session={session} />}

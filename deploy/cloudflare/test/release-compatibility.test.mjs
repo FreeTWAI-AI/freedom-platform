@@ -556,7 +556,7 @@ test('114 fences generic ingest writers while schema alone does not assert OpenR
   assert.equal(evaluate(f).status, 'compatible', 'original pre-114 ingest contract remains representable');
 });
 
-const FRONTIER_NAME = '133_workshop_sticker_pack.sql';
+const FRONTIER_NAME = '134_member_interaction_blocks.sql';
 const NODE_A = 'v2_20261005T000000001Z_0000000000000001_alpha.sql';
 const NODE_B = 'v2_20261005T000000002Z_0000000000000002_beta.sql';
 const NODE_C = 'v2_20261005T000000000Z_0000000000000003_child.sql';
@@ -575,7 +575,7 @@ function catalogs() {
   const legacyScan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
   const profile = {
     format: DAG_MIGRATIONS,
-    legacy: { format: LEGACY_MIGRATIONS, first: 1, last: 133, known_gaps: [22] },
+    legacy: { format: LEGACY_MIGRATIONS, first: 1, last: 134, known_gaps: [22] },
     legacy_ledger: legacyScan.ledger.map(({ name, sha256 }) => ({ name, sha256 })),
   };
   const files = {

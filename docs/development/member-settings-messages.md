@@ -21,7 +21,7 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | 公會申請 | 申請人收到審核通過或拒絕結果 |
 | 專家、公會長 | 專家任命或解除、公會長任命或改任成功後通知當事人 |
 | 公會、小隊閒聊 | 當下有該公會或小隊成員資格的人可讀取及發言 |
-| 會員私訊 | 同社群有效會員可開始對話，只有雙方可讀取內容 |
+| 會員私訊 | 同社群有效且目前可聯絡的會員可開始對話，只有雙方可讀取內容 |
 
 通知與原操作在同一資料庫交易保存，重播或無變動操作不新增通知。Migration 035–037 建立通知、私訊、邀請與閒聊資料表，不補發歷史通知，也不發送站外郵件或推播。
 
@@ -30,6 +30,18 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 本分支提供四張工坊原創圖片貼圖與指定訊息回覆，可用於公會、小隊、世界與私訊。可搜尋、預覽及取消引用；文字、貼圖與引用草稿按對話分開。貼圖使用固定 `sticker_id`，引用使用 `reply_to_message_id`，由 API 核對同一對話及讀取原文。詳見 [社群設計與聊天升級](social-project-upgrade.md)，部署需本整合候選的 migration 113（最終基底更新時重新核對編號）。
 
 頻道未讀排除自己發出的內容；第一次加入尚未標記已讀時，既有他人訊息也列為未讀。已讀只推進到本人指定的已載入訊息，新到的內容仍保留未讀。離開時保留已讀位置，重新加入後接續使用；離開期間的內容仍依該位置計算。公會與小隊頻道彼此獨立，也不會轉成每位成員各一則重複通知。
+
+## 本人封鎖（候選，預設關閉）
+
+`FREEDOM_MEMBER_BLOCKING_ENABLED=true` 才顯示夥伴名冊、私人訊息及控制台的「封鎖設定」，並在「我的好友」提供「我的封鎖名單」。其他值與未設定均關閉管理入口及管理 API；已保存的封鎖仍由 API 強制執行，不會因關閉旗標失效。此候選尚未宣稱部署。
+
+本人確認封鎖後，雙方都不能傳送新私訊或建立、接受好友邀請；現有好友關係與待回覆邀請在同一交易內移除，不發送封鎖或婉拒通知。既有私訊歷史、標已讀、公會／小隊成員資格及共同頻道不變。解除封鎖不恢復好友，也不自動傳送保留的訊息草稿；若另一方仍有封鎖，仍不能聯絡。
+
+名單只包含本人主動設定的有效封鎖，不提供「誰封鎖我」名單。對方已不可用時遮蔽暱稱，但本人仍能解除原設定。名單每頁 20 筆；API 上限 50 筆、offset 上限 10000。
+
+未知傳送結果保留原 key、操作和版本；關閉再開、切換對話或清單分頁後，重試仍沿用同一筆指令。已知錯誤（例如 412）需先重讀最新設定，不能盲目重送。完成時刷新目前清單頁，而不是指令送出時的舊頁；離開登入 session 後不保留前一位會員的操作。
+
+本切片只處理雙向聯絡封鎖，不建立檢舉案件、證據、申訴或管理員處分；這些仍依 #193 的內容契約及 #261 的正式政策另行完成。migration 與舊版回滾限制見[通知與私訊服務](member-communications.md)。
 
 ## API
 
@@ -43,6 +55,10 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | `GET /me/conversations/:userId/messages` | 本人與指定會員的訊息 |
 | `POST /me/conversations/:userId/messages` | 傳送 `{body}` 或 `{sticker_id}`，可選填 `reply_to_message_id` |
 | `POST /me/conversations/:userId/read` | 將對方傳給本人的訊息標為已讀 |
+| `GET /me/blocks` | 旗標開啟時讀取本人的有效封鎖名單 |
+| `GET /me/blocks/:userId` | 旗標開啟時讀取本人對指定會員的設定與目前可聯絡狀態 |
+| `POST /me/blocks/:userId/block` `{}` | 旗標開啟時本人確認封鎖；已有設定需帶其 `If-Match` 版本 |
+| `POST /me/blocks/:userId/unblock` `{}` | 旗標開啟時本人解除設定；已有設定需帶其 `If-Match` 版本 |
 | `GET /me/channels?kind=guild` 或 `kind=squad` | 本人目前可用的頻道及未讀數；不包含正文 |
 | `GET /me/channels/:kind/:key/messages` | 本人有資格的指定頻道訊息 |
 | `POST /me/channels/:kind/:key/messages` | 傳送 `{body}` 或 `{sticker_id}` 到該頻道，可選填 `reply_to_message_id` |
@@ -64,11 +80,14 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 
 通知與私訊標為已讀是冪等操作，不需要 `If-Match`。GET 不改變已讀狀態。
 
+封鎖設定的 GET 使用 `Cache-Control: private, no-store`；有保存列時單筆回應提供帶引號的版本 ETag。POST 僅接受空物件，已有保存列（包含已解除）時需用該版本作 `If-Match`；首次沒有保存列時不帶版本。解除不刪除版本列，舊收據重播不重新封鎖，成功回應從目前設定重讀。詳細 DTO、授權與重試邊界見[通知與私訊服務](member-communications.md)。
+
 ## 驗證入口
 
 使用隔離 PostgreSQL、合成會員及真正的 HTTP／瀏覽器流程驗證權限、重試、邀請同意、未讀與手機操作；不使用正式會員測試私訊或邀請。部署驗證僅查詢合成帳號的空信箱、可用頻道列表與 GitHub 待辦，不載入正式頻道正文，完成後停用帳號並撤銷 session。
 
 - `tests/runtime/member-communications.test.ts`
+- `tests/runtime/member-blocking.test.ts`
 - `tests/runtime/notification-events.test.ts`
 - `tests/runtime/member-channels-core.test.ts`、`tests/runtime/member-channel-access.test.ts`
 - `tests/e2e/member-settings.spec.ts`、`tests/e2e/member-channels.spec.ts`

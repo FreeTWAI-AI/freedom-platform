@@ -127,6 +127,8 @@ const FOUNDATION_NAMES = [
   // Member-only native posts and original sticker pack; name recognition is not release approval.
   '132_social_feed_interactions.sql',
   '133_workshop_sticker_pack.sql',
+  // Provisional next legacy slot on canonical main646f85c6; recheck numbering at integration.
+  '134_member_interaction_blocks.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

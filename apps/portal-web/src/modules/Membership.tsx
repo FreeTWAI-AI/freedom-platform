@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useModuleMutation, type ModulePanelProps } from './shared';
+import {MemberBlockingAction} from './MemberBlocking';
 import type { PortalClient } from '../api';
 import { ClientConnections } from './ClientConnections';
 import { ModuleBanner } from './ModuleBanner';
@@ -85,11 +86,13 @@ export function DirectoryMemberRow({member,labels,children,client}:{member:Membe
   </article>;
 }
 
-export function MembersPanel({client,session,focusRequest,onMessage}:ModulePanelProps&{focusRequest?:{id:string;sequence:number};onMessage:(id:string)=>void}){
+export function MembersPanel({client,session,focusRequest,onMessage,memberBlockingEnabled=false}:ModulePanelProps&{focusRequest?:{id:string;sequence:number};onMessage:(id:string)=>void;memberBlockingEnabled?:boolean}){
   const [members,setMembers]=useState<MemberCardData[]>([]),[nextOffset,setNextOffset]=useState<number|null>(null),[total,setTotal]=useState<number|null>(null),[loadError,setLoadError]=useState(''),[loading,setLoading]=useState(true),[notice,setNotice]=useState(''),[labels,setLabels]=useState<Record<string,string>>({}),[skillGroups,setSkillGroups]=useState<SkillGroup[]>([]);
   const [friends,setFriends]=useState<DirectoryFriend[]>([]),[friendError,setFriendError]=useState('');
   const [guilds,setGuilds]=useState<GuildRef[]>([]),[guildError,setGuildError]=useState(''),[search,setSearch]=useState(''),[filters,setFilters]=useState<DirectoryFilters>(defaultDirectoryFilters);
   const [pageSize,setPageSize]=useState(20),[pageOffset,setPageOffset]=useState(0);
+  const [blockingTarget,setBlockingTarget]=useState<string|null>(null),[blockingTargets,setBlockingTargets]=useState<{user_id:string;nickname:string}[]>([]);
+  function openBlocking(member:MemberCardData){setBlockingTargets(value=>value.some(item=>item.user_id===member.user_id)?value:[...value,{user_id:member.user_id,nickname:member.nickname}]);setBlockingTarget(member.user_id);}
   const filterRef=useRef(filters),generation=useRef(0),friendsGeneration=useRef(0),guildGeneration=useRef(0),loadedOffset=useRef(0);
   filterRef.current=filters;
   const {mutate,busy,error}=useModuleMutation(client);
@@ -150,7 +153,8 @@ export function MembersPanel({client,session,focusRequest,onMessage}:ModulePanel
     {guildError&&<div className="directory-options-error" role="alert"><span>公會選項暫時無法載入。</span><button className="btn btn-ghost" onClick={()=>void loadGuilds()}>重讀公會選項</button></div>}
     <div className="directory-results-heading"><p className="directory-result-count" aria-live="polite">{loading&&members.length===0?'正在尋找夥伴…':total===null?'':`顯示 ${members.length?pageOffset+1:0}–${pageOffset+members.length} / ${total} 位夥伴`}</p><p className="field-hint">聯絡方式依本人設定顯示。</p></div>
     {loadError&&<div role="alert" className="banner banner-error"><p>{loadError}</p><button className="btn btn-ghost" onClick={()=>void load(loadedOffset.current)}>重新載入夥伴</button></div>}
-    <div className="member-directory directory-rows" data-guide-anchor="members:directory" aria-busy={loading}>{members.map(member=><DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{!member.is_self&&<div className="directory-friend-actions"><button className="btn btn-ghost" type="button" onClick={()=>onMessage(member.user_id)}>私訊使用者</button>{member.friendship.state==='accepted'?<><span className="badge">平台好友</span><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'remove',member.friendship.aggregate_version)}>移除好友</button></>:member.friendship.state==='pending'?<span className="muted">{member.friendship.requester_ref===session.user.user_id?'好友邀請已送出':'對方已邀請你'}</span>:<button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'request',member.friendship.aggregate_version)}>邀請成為好友</button>}</div>}</DirectoryMemberRow>)}</div>
+    <div className="member-directory directory-rows" data-guide-anchor="members:directory" aria-busy={loading}>{members.map(member=><DirectoryMemberRow key={member.user_id} member={member} labels={labels} client={client}>{!member.is_self&&<div className="directory-friend-actions"><button className="btn btn-ghost" type="button" onClick={()=>onMessage(member.user_id)}>私訊使用者</button>{member.friendship.state==='accepted'?<><span className="badge">平台好友</span><button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'remove',member.friendship.aggregate_version)}>移除好友</button></>:member.friendship.state==='pending'?<span className="muted">{member.friendship.requester_ref===session.user.user_id?'好友邀請已送出':'對方已邀請你'}</span>:<button className="btn btn-ghost" disabled={busy} onClick={()=>void act(member.user_id,'request',member.friendship.aggregate_version)}>邀請成為好友</button>}{memberBlockingEnabled&&<button type="button" className="btn btn-ghost" onClick={()=>openBlocking(member)}>封鎖設定</button>}</div>}</DirectoryMemberRow>)}</div>
+    {memberBlockingEnabled&&blockingTargets.map(target=><div key={target.user_id} hidden={blockingTarget!==target.user_id}><MemberBlockingAction client={client} userId={target.user_id} nickname={target.nickname} active={blockingTarget===target.user_id} onDismiss={()=>setBlockingTarget(null)} onChanged={()=>{setNotice('封鎖設定已保存。好友關係與邀請以重新讀取的資料為準。');return Promise.all([load(pageOffset),loadFriends()]).then(()=>{});}}/></div>)}
     {loading&&<p role="status">正在載入夥伴…</p>}
     {!loading&&!members.length&&!loadError&&<div className="directory-empty"><p>{filtered?'沒有符合的夥伴。換個關鍵字、專長或公會試試。':'還沒有完成加入的會員。'}</p>{filtered&&<button className="btn btn-ghost" onClick={reset}>查看全部夥伴</button>}</div>}
     {total!==null&&!loadError&&total>pageSize&&<nav className="directory-pagination" aria-label="夥伴頁數"><button className="btn btn-ghost" type="button" disabled={loading||pageOffset===0} onClick={()=>setPageOffset(Math.max(0,pageOffset-pageSize))}>上一頁</button><span aria-live="polite">第 {Math.floor(pageOffset/pageSize)+1} / {Math.ceil(total/pageSize)} 頁</span><button className="btn btn-ghost" type="button" disabled={loading||nextOffset===null} onClick={()=>setPageOffset(nextOffset!)}>下一頁</button></nav>}
