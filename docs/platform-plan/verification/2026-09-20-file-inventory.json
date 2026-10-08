@@ -20769,8 +20769,8 @@
     },
     {
       "path": "tests/runtime/message-images.test.ts",
-      "bytes": 35356,
-      "sha256": "1e206172deeab75d32ab12b45adcd66eb5f4a93113973a912b535f388bafc6e2"
+      "bytes": 35373,
+      "sha256": "07fbd1e9a868e8c8c53ceb8f65bac0cf9722547ceb97f18ad6e654d62144717d"
     },
     {
       "path": "tests/runtime/migration-runner-plan.test.ts",

@@ -381,5 +381,5 @@ test('a committed block wins against an upload receipt actually waiting on the p
     for(;;){if((await fixture.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount)break;assert(Date.now()<deadline,'upload replay must actually wait on the pair');await fixture.query('SELECT pg_sleep(0.005)');}
     await q.query("INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active')",[community,b.id,a.id]);await q.query('COMMIT');
     await code(await pending,409,'recipient_unavailable');assert.deepEqual(await counts(),before);
-  }finally{await q.query('ROLLBACK');q.release();await pending.catch(()=>{});}
+  }finally{await q.query('ROLLBACK');q.release();await Promise.resolve(pending).catch(()=>{});}
 });
