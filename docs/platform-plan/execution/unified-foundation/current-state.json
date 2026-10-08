@@ -23,7 +23,7 @@
       "conclusion": "success",
       "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37693401097"
     },
-    "limitation": "This main commit is the production and staging release (operator receipts 2026-10-07, round 4); #243 merged the approved heads of #231 and #240 and #241 those of #205 and #207, each as one batch. The installed central workflow source stays 6ffdf94a (governance_pins). Later main commits are not deployed."
+    "limitation": "This main commit is the production and staging release (operator receipts 2026-10-07, round 4); #243 merged the approved heads of #231 and #240 and #241 those of #205 and #207, each as one batch. The installed central workflow source stays 6ffdf94a (governance_pins). Later main commits are not deployed: when this receipt was recorded main was 87f9fe51, which adds #238 (two-tenant row-security restore drill test) and #245 (P-E2 without P-D1, merged 2026-10-07T23:47:41Z); neither carries a migration and neither is deployed."
   },
   "deployment": {
     "production": {
