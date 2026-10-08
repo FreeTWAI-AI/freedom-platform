@@ -1251,6 +1251,9 @@ test('NP-003 production brief, exact material versions, delivery and feedback re
         await page.setViewportSize({ width, height: 900 });
         await noOverflow(page);
         await page.locator('.my-work-open').screenshot({ path: testInfo.outputPath(`production-${skin}-${width}.png`) });
+        await page.getByRole('heading', { name: '製作專案企劃與版本', exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+        await page.evaluate(() => window.scrollBy(0, -96));
+        await page.screenshot({ path: testInfo.outputPath(`production-${skin}-${width}-viewport.png`) });
       }
     }
     assertLocal(session.urls);
