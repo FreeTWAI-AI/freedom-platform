@@ -74,7 +74,8 @@
         "module.operation.read",
         "module.provision.reconcile",
         "module.provision.cancel",
-        "launchpad.context"
+        "launchpad.context",
+        "module.binding.read"
       ],
       "auth_profile": "member-session"
     }
