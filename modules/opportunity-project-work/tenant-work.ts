@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { withTenantRead, type TenantScopeInput } from '../../packages/resource-scopes/index.js';
+import { unavailableTenantListCursor, type TenantListCursorCodec } from '../../packages/shared/tenant-list-cursor.js';
 import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -17,23 +17,6 @@ export interface TenantWorkRow {
 const FIELDS = `w.work_item_id, w.tenant_id, w.workspace_id, w.instance_id, w.title, w.objective, w.progress, w.state,
   w.aggregate_version::text AS aggregate_version, w.updated_at, w.created_at, t.result_id AS current_result_id`;
 
-type WorkCursorContext = { tenantId: string; workspaceId: string; callerId: string; filter: string };
-export function encodeKeyset(at: string, id: string, context: WorkCursorContext) {
-  return Buffer.from(JSON.stringify({ ...context, at, id })).toString('base64url');
-}
-export function decodeKeyset(raw: string | undefined, context: WorkCursorContext): { at: string; id: string } | null {
-  if (!raw) return null;
-  let parsed: Record<string, unknown>;
-  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
-  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
-    || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId,workspaceId'
-    || Object.entries(context).some(([key, value]) => parsed[key] !== value)
-    || !isKeysetTimestamp(parsed.at) || !OpaqueId.safeParse(parsed.id).success) {
-    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  }
-  return { at: parsed.at, id: parsed.id as string };
-}
 export function likePattern(value: string) {
   return `%${value.replace(/[\\%_]/g, match => `\\${match}`)}%`;
 }
@@ -87,17 +70,22 @@ async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: str
   return row.source === '0' ? row.version : row.source;
 }
 
-export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, query: { q?: string; limit?: number; cursor?: string }) {
+export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, query: { q?: string; limit?: number; cursor?: string }, cursors: TenantListCursorCodec = unavailableTenantListCursor) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
   const limit = query.limit ?? 20;
-  const cursorContext = { tenantId, workspaceId, callerId: actor.user_id, filter: createHash('sha256').update(query.q ?? '').digest('hex') };
-  const cursor = decodeKeyset(query.cursor, cursorContext);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
     await requireWorkCapability(q, context, 'work:read', false);
     const source = await workspaceSource(q, tenantId, workspaceId);
     const binding = (await q.query<{ instance_id: string }>(`SELECT instance_id FROM workspace_module_bindings
       WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability='work:create'`, [tenantId, workspaceId])).rows[0];
     if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
+    const cursorContext = { purpose: 'work' as const, tenantId, resourceId: workspaceId,
+      principalId: context.subject_principal.principal_id, scopeId: context.scope.scope_id, filter: query.q ?? '' };
+    const cursor = cursors.decode(query.cursor, cursorContext);
+    if (cursor && (Object.keys(cursor).sort().join(',') !== 'at,id'
+      || !isKeysetTimestamp(cursor.at) || !OpaqueId.safeParse(cursor.id).success)) {
+      throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+    }
     const rows = (await q.query<TenantWorkRow & { cursor_at: string }>(`SELECT ${FIELDS},
         to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
       FROM work_items w
@@ -110,7 +98,7 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
     const page = rows.slice(0, limit);
     return WorkPageSchema.parse({
       items: page.map(workView),
-      next_cursor: rows.length > limit ? encodeKeyset(page[page.length - 1].cursor_at, page[page.length - 1].work_item_id, cursorContext) : null,
+      next_cursor: rows.length > limit ? cursors.encode({ at: page[page.length - 1].cursor_at, id: page[page.length - 1].work_item_id }, cursorContext) : null,
       source_version: source,
     });
   });
