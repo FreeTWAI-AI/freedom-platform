@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { OpaqueId } from '../../common/v1/identity.js';
 import { GuildKey, StableKey, Version, page } from './primitives.js';
-import { IsoTimeSchema } from './tenant.js';
+import { IsoTimeSchema, ReasonSchema } from './tenant.js';
 
 const CAPABILITY_KEY = /^[a-z][a-z0-9_.:-]{0,159}$(?![\s\S])/;
 export const CapabilityKey = z.string().max(160).regex(CAPABILITY_KEY);
@@ -94,9 +94,31 @@ export const InstanceDependencySchema = z.object({
   provider_instance_id: OpaqueId,
   version: Version,
 }).strict();
+export const InstanceImpactSchema = z.object({
+  consumer_count: z.number().int().nonnegative(),
+  consumers: z.array(z.object({
+    caller_instance_id: OpaqueId,
+    requirement_key: StableKey,
+    module_key: StableKey,
+    status: InstanceStatusSchema,
+  }).strict()).max(50),
+  workspace_count: z.number().int().nonnegative(),
+  workspace_ids: z.array(OpaqueId).max(50),
+}).strict();
+export const InstanceSuspensionSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('member'), operation_id: OpaqueId, suspended_at: IsoTimeSchema, reason: ReasonSchema,
+  }).strict(),
+  z.object({
+    kind: z.literal('platform'), operation_id: z.null(), suspended_at: z.null(), reason: z.null(),
+  }).strict(),
+]);
 export const InstanceDetailSchema = InstanceViewSchema.extend({
   dependencies: z.array(InstanceDependencySchema).max(50),
-}).strict();
+  impact: InstanceImpactSchema,
+  suspension: InstanceSuspensionSchema.nullable(),
+}).strict().refine(value => (value.status === 'suspended') === (value.suspension !== null),
+  '暫停資訊須與模組實例狀態一致。');
 
 export const InstallationViewSchema = z.object({
   installation_id: OpaqueId,
@@ -157,6 +179,9 @@ export const RegistryOperationSchema = z.object({
   retry_after_seconds: z.number().int().min(0).max(86400).optional(),
   problem: z.object({ code: z.string(), detail: z.string() }).strict().optional(),
 }).strict();
+
+export const SuspendInputSchema = z.object({ reason: ReasonSchema }).strict();
+export const ResumeInputSchema = z.object({}).strict();
 
 export const CancelInputSchema = z.object({ reason: z.literal('member_cancelled') }).strict();
 export const ReconcileInputSchema = z.object({}).strict();

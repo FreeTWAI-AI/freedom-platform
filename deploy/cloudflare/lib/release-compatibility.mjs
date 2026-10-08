@@ -117,6 +117,8 @@ const FOUNDATION_NAMES = [
   // Application catalog, module releases, launch plans and provision operations.
   // Manual-work enablement stays a facade over the same launch core.
   '128_module_registry.sql',
+  // Member suspend and resume of module instances: lifecycle operation kinds and a suspension pointer.
+  '129_module_instance_lifecycle.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
