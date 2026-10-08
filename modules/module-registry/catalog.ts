@@ -156,11 +156,6 @@ async function listApplicationRows(q: PoolClient, query: CatalogQuery) {
   };
 }
 
-export async function listApplications(q: PoolClient, query: CatalogQuery) {
-  const page = await listApplicationRows(q, query);
-  return { ...page, items: page.items.map(row => applicationView(row)) };
-}
-
 /** The pin stays in stored JSON. The public requirement schema does not carry it. */
 function publishedRequirements(value: unknown): unknown {
   if (!Array.isArray(value)) return value;
