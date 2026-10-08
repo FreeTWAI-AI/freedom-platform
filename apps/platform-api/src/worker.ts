@@ -62,6 +62,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
+  FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
   FREEDOM_MEMBER_BLOCKING_ENABLED?: string;
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
@@ -211,6 +212,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
     communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
