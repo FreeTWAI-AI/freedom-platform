@@ -23,7 +23,10 @@
     "apps/portal-web/src/modules/MyStoreAction.tsx",
     "migrations/135_hosted_store_offering.sql",
     "tests/e2e/hosted-store.spec.ts",
-    "tests/runtime/hosted-store-offering.test.ts"
+    "tests/runtime/hosted-store-offering.test.ts",
+    "contracts/guild-launchpad/v1/hosted-order.ts",
+    "contracts/guild-launchpad/v1/hosted-order.schema.json",
+    "tests/runtime/hosted-order-contracts.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
