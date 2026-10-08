@@ -29,6 +29,30 @@
 
 `playwright.config.ts` 的 webServer 另固定帶上 `FREEDOM_E2E_GUIDE_FIXTURE=1` 與 `FREEDOM_E2E_GITHUB_FIXTURES=1`，以及這一輪的 `FREEDOM_E2E_SCHEMA`。`reuseExistingServer` 是 false。
 
+## Pinned CI 的容量界線（2026-10-08）
+
+可信 runner 對 default 整輪給 40 分鐘；private-AI 與 avatar-asset 仍各為原有
+30 分鐘上限。`ui-e2e` job 的整體上限為 50 分鐘，容納安裝／建置、default、
+兩個 fixture 輪次與收尾。這是有限的整體上限，不承諾三輪各自耗盡最大上限時仍能
+全部跑完。單一案例 timeout、1 worker、0 retries、完整檔案／案例選擇、預期 skip
+政策與結果驗證不變。逾時仍先 SIGTERM，最多再等 20 秒後 SIGKILL；即使 child
+在 SIGTERM 後以 0 結束，仍記 `test_timeout` 並停止後續輪次，不以不完整報告算通過。
+預算是 trusted source 常數，candidate config、CLI 參數與環境不能自行調大。
+
+調整依據：[PR #284 的完整通過 run](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37778414757)
+在 tree `b69fa0ab276830ea8801e7cc744a0f355d6ab076` 的 default 為 668 pass／12 個
+預期 skip，29.1 分鐘，另兩輪 49.3 秒與 12.9 秒。
+[同 tree 的 main run](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37782673747)
+在原 30 分鐘上限終止；已印出 650 個 pass，尚有 18 個 default 案例及兩個 fixture
+輪次未完成。沒有已印出的 assertion failure；pinned verdict 是 `test_timeout`。
+650 個共同案例的時間合計為 1642.190 秒與 1778.295 秒（+8.29%），是相同 source
+在兩次 runner 的觀察，不能推定產品回歸。40 分鐘提供有界餘裕；外層 50 分鐘另留
+實測 fixture、setup 與 cleanup 空間，不新增 sharding 或刪除安全等待。
+
+這是 source 修正。PR 的 runner/workflow 仍由 installed required-workflow pin 決定；
+該 pin 沒有因本變更而自動升級。必須另經獨立 review、正常合併與有權操作者明確批准
+pin 更新，才對 pinned PR gate 生效。舊 run 保留真實失敗，不靠原版本重跑碰綠。
+
 ## 埠與 schema
 
 埠來自 `FREEDOM_E2E_PORT`。`packages/testing/e2e-origin.ts` 的 `e2ePort()` 在未設定時用 4311；值必須是 1024–65535 的四或五位數字，並且拒絕 4310 與 4312。伺服器只綁 `127.0.0.1` 上的那個埠。Origin 是 `http://127.0.0.1:<port>`，不寫死別組的埠。
