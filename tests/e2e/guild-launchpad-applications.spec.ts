@@ -384,7 +384,7 @@ test('stored operator acting context selects the owned tenant without registry r
   await e2eAuthPool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,[t.tenant.tenant_id,otherPrincipal]);
   await e2eAuthPool.query(`UPDATE tenant_memberships SET role='operator',version=version+1 WHERE tenant_id=$1 AND principal_id=$2`,[t.tenant.tenant_id,principal]);
   await page.evaluate(({userId,p})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:p.tenant.tenant_id,workspace_id:p.workspace.workspace_id})),{userId,p});
-  await open(page); await expect(page.locator('.my-work')).toContainText('本人空間');
+  await open(page); await expect(page.locator('.my-work')).toContainText('本人空間／本人區');
   await page.evaluate(({userId,t})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:t.tenant.tenant_id,workspace_id:t.workspace.workspace_id})),{userId,t});
   const requests:string[]=[]; page.on('request',request=>requests.push(new URL(request.url()).pathname));
   await begin(page); await expect(flow(page)).toContainText('目前業務空間：本人空間 · 擁有者／本人區');
