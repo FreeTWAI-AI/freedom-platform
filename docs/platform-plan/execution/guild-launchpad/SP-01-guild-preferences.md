@@ -62,7 +62,7 @@ migration 135 只新增 hosted-store offering。migration 120 的初始 seed 沒
 2. 從 `GET /admin/api/guild-categories` 讀取 `guild_commerce_sales` 的最新 `catalog_revision` 與 `capability_tags`。若已是 `external`／`approved`，保留其狀態並核對既有分類稽核；不為重跑另造修訂。
 3. 對 `POST /admin/api/guilds/guild_commerce_sales/classification` 送出 `{category:"external",capability_tags:<讀到的原值>,reason:"2026-10-08 產品決策：電商與銷售公會歸社群業務推廣"}`，帶既有管理 CSRF、新的 Idempotency-Key 與該列 revision 的 `If-Match`。未知結果使用相同 key、body、version 重送；412 則重新讀取並核對變更後再決定，不能盲目覆蓋。
 4. 讀回 `external`／`approved`、新 revision 與保留的 tags／active，核對 `reviewed_by_principal_id` 為該真實 admin，以及同交易的 `platform_admin_audit`、`guild_classification` journal、`freedom.guild.classification.changed.v1` outbox。分類事件只含公開允許欄位；若有舊主力失效，另核對偏好版本／invalidation，不搬入或覆蓋其他主力。
-5. 各環境分別記錄實際結果與不可敏感的證據；在完成前，狀態維持「分類決策已確認、環境資料待核准」。本步驟不授權略過既有部署核准或把本機測試列為 live 證據。
+5. 各環境分別記錄實際結果與不可敏感的證據；在完成前，狀態維持「external 已授權、等待可用的 operator 身份執行」。本步驟不授權略過既有部署核准或把本機測試列為 live 證據。
 
 ### 2.3 依賴與並行
 
