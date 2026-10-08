@@ -281,3 +281,91 @@ test('store drafts ask before main navigation and retain edits when leaving is d
   await open(page, ready.hash);
   await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('導覽商店');
 });
+
+for (const width of [1280, 360]) test(`pending and unknown store writes keep their retry across navigation at ${width}px`, async ({page, e2eAuthPool}, testInfo) => {
+  await page.setViewportSize({width, height: 900});
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '操作確認工作室');
+  await post(page, ready.root + '/setup', {name: '操作確認商店', description: '', slug: slugFor().toLowerCase(), currency: 'TWD'}, 201);
+  await open(page, ready.hash);
+  const form = page.getByRole('form', {name: '新增商品', exact: true});
+  const status = storePage(page).getByRole('status');
+  const title = '只建立一次的茶杯';
+  const requests: {key: string | undefined; body: string | null}[] = [];
+  const productIds: string[] = [];
+  let releaseResponse!: () => void;
+  const responseGate = new Promise<void>(resolve => {releaseResponse = resolve;});
+  let committed = false, prompts = 0;
+  // Accepting any draft prompt must not allow an unresolved operation to unmount.
+  page.on('dialog', async dialog => {prompts++; await dialog.accept();});
+  await page.route('**/api/v1' + ready.root + '/products', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    requests.push({key: route.request().headers()['idempotency-key'], body: route.request().postData()});
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    productIds.push(ProductViewSchema.parse(await response.json()).product_id);
+    if (requests.length === 1) {
+      committed = true;
+      await responseGate;
+      // The database committed, but the client cannot validate this damaged success.
+      await route.fulfill({response, json: {}});
+    } else await route.fulfill({response});
+  });
+  const savedProducts = async () => (await e2eAuthPool.query(`SELECT i.item_id FROM commerce_items i
+    JOIN commerce_storefront_profiles p ON p.supply_shop_id=i.shop_id
+    WHERE p.instance_id=$1 AND i.title=$2`, [ready.hash.split('/')[2], title])).rows;
+  const stays = async (message: string) => {
+    await expect(status).toContainText(message);
+    await expect(page).toHaveURL(new RegExp('#' + ready.hash + '$'));
+    await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue(title);
+    expect(prompts).toBe(0);
+  };
+  const attemptNavigation = async (message: string) => {
+    // Use an actual history traversal; seed an earlier distinct entry without leaving the store.
+    await page.evaluate(hash => {
+      history.replaceState(null, '', '#home');
+      history.pushState(null, '', '#' + hash);
+    }, ready.hash);
+    await page.goBack();
+    await stays(message);
+    await navigate(page, '職業公會');
+    await stays(message);
+    await storePage(page).getByRole('link', {name: '返回我的商店', exact: true}).click();
+    await stays(message);
+    await page.evaluate(() => {window.location.hash = 'home';});
+    await stays(message);
+    const settings = page.getByRole('button', {name: '設定', exact: true});
+    if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+    await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
+    await stays(message);
+    await expect(page.getByRole('heading', {name: '登入', exact: true})).toHaveCount(0);
+  };
+  try {
+    await form.getByLabel('商品名稱', {exact: true}).fill(title);
+    await form.getByLabel('價格（新臺幣 TWD）', {exact: true}).fill('350');
+    await form.getByLabel('庫存', {exact: true}).fill('1');
+    await form.getByRole('button', {name: '新增商品', exact: true}).click();
+    await expect.poll(() => committed).toBe(true);
+    expect(await savedProducts()).toHaveLength(1);
+    await attemptNavigation('正在確認原操作，請等候完成後再離開。');
+    releaseResponse();
+    const retry = storePage(page).getByRole('button', {name: '重試', exact: true});
+    await expect(retry).toBeEnabled();
+    await attemptNavigation('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await storePage(page).screenshot({path: testInfo.outputPath(`store-unknown-operation-${width}.png`)});
+    expect(await savedProducts()).toHaveLength(1);
+    await retry.click();
+    await expect(status).toContainText('已新增商品。');
+    await expect(form.getByLabel('商品名稱', {exact: true})).toHaveValue('');
+    expect(requests).toHaveLength(2);
+    expect(requests[0].key).toBeTruthy();
+    expect(requests[1]).toEqual(requests[0]);
+    expect(productIds).toHaveLength(2);
+    expect(productIds[1]).toBe(productIds[0]);
+    expect(await savedProducts()).toEqual([{item_id: productIds[0]}]);
+    await navigate(page, '職業公會');
+    await expect(page).toHaveURL(/#guilds$/);
+    await expect(form).toHaveCount(0);
+    expect(prompts).toBe(0);
+  } finally {releaseResponse();}
+});

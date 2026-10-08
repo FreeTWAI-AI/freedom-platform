@@ -82,14 +82,20 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
   const busyRef = useRef(false);
   const statusLine = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
-  function leaveOk() {return !dirtyRef.current || window.confirm(LEAVE);}
+  function leaveOk() {
+    if (busyRef.current || held.current) {
+      announce(busyRef.current ? '正在確認原操作，請等候完成後再離開。' : '尚未確認原操作的結果，請按「重試」確認後再離開。');
+      return false;
+    }
+    return !dirtyRef.current || window.confirm(LEAVE);
+  }
   useEffect(() => {
-    registerLeave(() => !dirtyRef.current || window.confirm(LEAVE));
+    registerLeave(leaveOk);
     return () => registerLeave(null);
   }, [registerLeave]);
   useEffect(() => {
     controller.current = new AbortController();
-    const unloading = (event: BeforeUnloadEvent) => {if (dirtyRef.current) {event.preventDefault(); event.returnValue = '';}};
+    const unloading = (event: BeforeUnloadEvent) => {if (dirtyRef.current || busyRef.current || held.current) {event.preventDefault(); event.returnValue = '';}};
     window.addEventListener('beforeunload', unloading);
     void load();
     return () => {controller.current.abort(); readGeneration.current++; window.removeEventListener('beforeunload', unloading);};
