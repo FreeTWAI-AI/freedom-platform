@@ -12,13 +12,20 @@ suspended_at: null, reason: null }`. No HTTP route places or releases a hold.
 
 An operator with direct database access may use this runbook for an approved
 incident. Production writes require the platform owner's explicit approval.
-Connect with psql as the runtime role with the required table permissions, or
-as the database owner. Every block binds `freedom.tenant_id` for its own
-transaction: the runtime role is subject to tenant row security, while the
-owner is not, because row security is enabled but not forced. Select the
-reviewed database and schema explicitly when connecting. Set `expected_database`
-from the approved environment configuration, independently of the connection
-string, as in the [capacity policy operator](../../docs/development/tenant-capacity-policy.md).
+Connect with psql only as that environment's migrator role, the owner of these
+tables (`roles.migrator` in [environment configuration](../../deploy/cloudflare/environments.json)),
+using the same table owner (migrator) connection as the
+[capacity policy operator](../../docs/development/tenant-capacity-policy.md).
+Never connect as `postgres` or any other superuser, and do not use the
+application's runtime role. Select the reviewed database and schema explicitly
+when connecting. Set `expected_database` from the approved environment
+configuration, independently of the connection string.
+
+Row security on these tables is enabled but not forced, so the migrator, as
+their owner, is not filtered by the tenant policies. Every block still binds
+`freedom.tenant_id` for its own transaction, so the same SQL stays tenant-scoped
+under row security; the runtime tests check this with a non-owner role that is
+subject to it.
 
 ## Setup and transaction handling
 
@@ -60,7 +67,7 @@ version unchanged.
 
 The row includes the latest lifecycle operation ordered by `accepted_at`, then
 `operation_id`, and the same unfinished-launch predicate as lifecycle. A missing
-row means this tenant/instance pair is absent or invisible to the connected role.
+row means this tenant/instance pair is absent from the selected database and schema.
 The `database` column helps diagnose an incorrect connection.
 
 <!-- platform-hold:read -->

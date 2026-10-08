@@ -1105,7 +1105,7 @@ test('platform hold runbook refuses unfinished launch steps and reused installat
   await refusedHold(ctx, 'hold');
 });
 
-test('platform hold runbook binds tenant rows for a non-owner runtime role and refuses the no-binding control', async t => {
+test('platform hold runbook SQL stays tenant-bound under row security and refuses the no-binding control', async t => {
   const ctx = await ready(), role = `fp_hold_${randomUUID().replaceAll('-', '')}`;
   const schema = (await h.pool.query('SELECT current_schema() AS schema')).rows[0].schema as string;
   assert.match(schema, /^fp_mil_[0-9_]+$/);
@@ -1137,7 +1137,7 @@ test('platform hold runbook binds tenant rows for a non-owner runtime role and r
     assert.deepEqual(active, { ...original, version: nextVersion(held.instance_version), binding_version: nextVersion(held.deployment_version) });
     await assertOnlyHoldRowsChanged(before, ctx);
     await refusedHold(ctx, 'hold', {}, { role, omitBinding: true });
-    t.diagnostic('Non-owner NOBYPASSRLS role: bound hold/release each returned one row; identical hold without tenant set_config returned zero rows and changed nothing.');
+    t.diagnostic('SQL under row security with a non-owner NOBYPASSRLS test role: bound hold/release each returned one row; identical hold without tenant set_config returned zero rows and changed nothing.');
   } finally {
     if (created) {
       await h.pool.query(`DROP OWNED BY ${role}`);
