@@ -33,6 +33,23 @@ Agent／聊天 AI／CLI 上傳保留在進階工具中；其既有 100 則短文
 
 公開失敗時保留同一份私人草稿，可以直接重試，或重載後從「繼續未公開的草稿」恢復。尚未公開的手動草稿可以修改；API 檢查本人、版本和狀態。Agent 草稿仍用既有工具管理，已公開投稿不提供這個修改入口。
 
+### 已公開作品與組織 Repo 的介紹管理
+
+技能書架的社群投稿可按「管理作品介紹」進入作品管理。原投稿會員保留編輯權；其他會員先連結本人 GitHub，再按「核對 GitHub 管理權」。API 使用該會員的加密授權憑證，即時確認 GitHub user ID、原 Repo ID、公開且未封存，以及 Repo 的 `permissions.admin` 或 `permissions.maintain`；不要求 Repo owner login 等於會員 login，因此個人與組織 Repo 都能使用。只有 `push`、一般組織成員、自填維護者關係或公會職稱不足以授權。
+
+核對、更新版本、儲存介紹及 idempotent replay 都會重新授權；核對結果不是永久授權。若 GitHub App／組織尚未授權該 Repo，先由組織管理者確認 App 的 Repo 存取範圍；缺少權限資料或 GitHub 查詢失敗時拒絕編輯，不使用平台 metrics token 代替會員憑證。[GitHub Repo API 契約](https://docs.github.com/en/rest/repos/repos#get-a-repository)。
+
+公開介紹的名稱、描述、使用說明與展示網址會同步反映於書架、公開介紹頁與技能內容。原投稿 payload／hash、分享短文、圖片、公開同意、來源關係和固定 SHA 保留；沒有改換投稿歸屬、授予原 Repo 寫入權，或開放私人草稿、Agent grants、行銷紀錄。更新 GitHub 版本仍不重寫既有投稿或行銷的固定來源。
+
+- `POST /api/v1/opensource/projects/:id/edit-access`：需會員 session、Origin／CSRF、Idempotency-Key；僅核對當次編輯權。
+- `POST /api/v1/opensource/projects/:id:revise`、`:refresh`：每次獨立核對編輯權，保留 If-Match／交易／稽核；權限只適用同社群可見作品。
+- `migrations/126_project_public_metadata.sql`：新增公開介紹已修訂標記；尚未修訂的既有投稿繼續呈現原投稿內容。
+- Preview 契約更新為 `freedom.preview/v1` revision `0.4.0`，新增 `checkProjectEditing` 並同步 SDK／bundle；外倉由其維護者更新自己的來源 pins。
+
+本次本機驗證使用隔離 PostgreSQL schema 與明示的合成 GitHub OAuth／組織 Repo 回應；瀏覽器實跑管理者核對、儲存、書架與公開介紹頁同步，390px 書架無水平溢出。未使用真實組織憑證，未部署正式站。
+
+修正後實跑：`npm run typecheck`、`npm run build`、`git diff --check` 通過；organization-project-editing、opensource-marketing、skill-submissions、github-social、preview-protocol 五份 runtime suite **57/57**；migration-plan／release-compatibility **98/98**（macOS 使用 `TMPDIR=/private/tmp`，避免系統 temporary path 的 symlink 被 migration 安全檢查拒絕）。全倉測試與真實 GitHub 組織授權尚未驗證。
+
 ## API 與資料
 
 - `POST /api/v1/showcases`：`artifact_ref` 改為選填，未提供時在同一交易內產生；新增選填 `public_url`。保留舊 request 與既有引用規則。

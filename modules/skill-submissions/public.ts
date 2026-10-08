@@ -15,7 +15,9 @@ export const PUBLISHED = `FROM skill_submissions s
   WHERE s.status='published' AND s.consent_to_share AND NOT p.official
     AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
     AND NOT is_verification_test_account(u.user_id)`;
-const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,u.display_name AS author_name,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
+const PUBLIC_PAYLOAD = `s.payload || CASE WHEN p.public_metadata_revised THEN
+  jsonb_build_object('title',p.title,'description',p.description,'use_notes',p.use_notes,'demo_url',p.demo_url) ELSE '{}'::jsonb END`;
+const COLUMNS = `s.submission_id,(${PUBLIC_PAYLOAD}) AS payload,s.project_id,s.published_at,u.display_name AS author_name,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
 
 // Art the workshop drew for works whose submitters supplied none (docs/design/community-skill-art-manifest.json),
@@ -78,7 +80,7 @@ export async function readPublishedUpgrade(pool: Pool, id: string): Promise<stri
 export async function readPublishedSkillTitles(pool: Pool, communityId: string, ids: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.map(id => id.toLowerCase()))].filter(id => z.uuid().safeParse(id).success);
   if (!unique.length) return new Map();
-  const rows = (await pool.query(`SELECT s.submission_id::text AS id, s.payload->>'title' AS title ${PUBLISHED} AND s.community_id=$1 AND s.submission_id=ANY($2::uuid[])`, [communityId, unique])).rows as { id: string; title: string }[];
+  const rows = (await pool.query(`SELECT s.submission_id::text AS id, (${PUBLIC_PAYLOAD})->>'title' AS title ${PUBLISHED} AND s.community_id=$1 AND s.submission_id=ANY($2::uuid[])`, [communityId, unique])).rows as { id: string; title: string }[];
   return new Map(rows.map(row => [row.id, row.title]));
 }
 

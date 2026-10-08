@@ -1,0 +1,61 @@
+import type { Pool } from 'pg';
+import { transaction } from '../../packages/db/transaction.js';
+
+// Login-path tables grew without bound since 30-day sessions landed (#107):
+// the newest session per user is preserved so members.ts last-seen stays correct.
+// Rate-limit deletes repeat the age test outside the subquery so a row a concurrent login just reused is re-checked and kept;
+// the readers insert with ON CONFLICT DO UPDATE, which locks an existing row before they SELECT it.
+// Every candidate is locked with SKIP LOCKED, so the prune never waits on a request (no lock-order deadlock) and skips rows in use.
+
+// Foreign keys to sessions without ON DELETE CASCADE: a session they still reference is kept,
+// otherwise PostgreSQL rejects the whole batch. tests/runtime/auth-pruning.test.ts checks this list against pg_constraint.
+export const SESSION_REFERENCES=[['credential_ingest_authorizations','original_session_hash'],['model_broker_authorizations','original_session_hash'],['tenant_high_risk_verifications','session_hash']] as const;
+// Foreign keys to sessions with ON DELETE CASCADE: those rows are deleted with their session on purpose.
+// github_social_oauth_states is short-lived OAuth state bound to one login; a session that ended a day ago cannot finish it.
+export const SESSION_CASCADES=[['github_social_oauth_states','session_hash']] as const;
+const identifier=/^[a-z_][a-z0-9_]*$/;
+export async function pruneExpiredAuthRecords(pool:Pool,{batch=500,sessionReferences=SESSION_REFERENCES}:{batch?:number;sessionReferences?:readonly(readonly [string,string])[]}={}):Promise<{sessions:number;login_attempts:number;auth_rate_limits:number;password_reset_tokens:number}>{
+  const unreferenced=sessionReferences.map(([table,column])=>{
+    if(!identifier.test(table)||!identifier.test(column))throw new Error('invalid_session_reference');
+    return `AND NOT EXISTS(SELECT 1 FROM ${table} r WHERE r.${column}=s.token_hash)`;
+  }).join(' ');
+  const arl=(await pool.query(`DELETE FROM auth_rate_limits WHERE bucket IN (SELECT bucket FROM auth_rate_limits WHERE window_start < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED) AND window_start < now() - interval '1 day'`,[batch])).rowCount??0;
+  const la=(await pool.query(`DELETE FROM login_attempts WHERE attempt_key IN (SELECT attempt_key FROM login_attempts WHERE window_start < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED) AND window_start < now() - interval '1 day'`,[batch])).rowCount??0;
+  const prt=(await pool.query(`DELETE FROM password_reset_tokens WHERE token_hash IN (SELECT token_hash FROM password_reset_tokens WHERE expires_at < now() - interval '1 day' LIMIT $1 FOR UPDATE SKIP LOCKED)`,[batch])).rowCount??0;
+  // token_hash breaks ties (equal or missing timestamps) so exactly one newest row per user survives.
+  const s=await transaction(pool,async q=>{
+    const hashes=(await q.query<{token_hash:string}>(`SELECT s.token_hash FROM sessions s
+      WHERE (s.expires_at < now() - interval '1 day' OR s.revoked_at < now() - interval '1 day')
+        AND EXISTS(SELECT 1 FROM sessions n WHERE n.user_id=s.user_id AND (coalesce(n.last_seen_at,n.created_at,'-infinity'),n.token_hash)>(coalesce(s.last_seen_at,s.created_at,'-infinity'),s.token_hash))
+        ${unreferenced}
+        AND (s.prune_retained_at IS NULL OR s.prune_retained_at < now() - interval '30 days')
+      LIMIT $1 FOR UPDATE OF s SKIP LOCKED`,[batch])).rows.map(r=>r.token_hash);
+    if(!hashes.length)return 0;
+    // RLS can hide references; the FK is the authority when the batch fails.
+    await q.query('SAVEPOINT auth_prune_batch');
+    try {
+      const deleted=(await q.query('DELETE FROM sessions WHERE token_hash = ANY($1::text[])',[hashes])).rowCount??0;
+      await q.query('RELEASE SAVEPOINT auth_prune_batch');
+      return deleted;
+    } catch(error) {
+      if((error as {code?:string}).code!=='23503')throw error;
+      await q.query('ROLLBACK TO SAVEPOINT auth_prune_batch');
+      await q.query('RELEASE SAVEPOINT auth_prune_batch');
+    }
+    let deleted=0;
+    for(const hash of hashes){
+      await q.query('SAVEPOINT auth_prune_session');
+      try {
+        deleted+=(await q.query('DELETE FROM sessions WHERE token_hash = $1',[hash])).rowCount??0;
+      } catch(error) {
+        if((error as {code?:string}).code!=='23503')throw error;
+        await q.query('ROLLBACK TO SAVEPOINT auth_prune_session');
+        // Recheck later so retained sessions cannot fill every subsequent batch.
+        await q.query('UPDATE sessions SET prune_retained_at = now() WHERE token_hash = $1',[hash]);
+      }
+      await q.query('RELEASE SAVEPOINT auth_prune_session');
+    }
+    return deleted;
+  });
+  return {sessions:s,login_attempts:la,auth_rate_limits:arl,password_reset_tokens:prt};
+}

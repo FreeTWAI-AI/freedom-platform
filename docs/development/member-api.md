@@ -117,6 +117,17 @@ network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per networ
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
 
+## Event submission budget
+
+`POST /api/v1/events` permits five newly committed submissions per member in a
+one-hour window. The PostgreSQL budget is locked and updated in the same
+transaction as the event, bulletin, notifications and receipt; concurrent requests
+cannot exceed it, and failed commands do not consume it. At capacity, new
+submissions return `429 auth_rate_limited` without those side effects. Exact
+Idempotency-Key replays remain available without consuming another slot.
+Five per hour is a provisional value (#199); it is the named constant
+`eventCreateLimit` in `modules/community/events.ts`.
+
 ## Member avatars
 
 `GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the

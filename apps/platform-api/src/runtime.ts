@@ -34,8 +34,10 @@ export type PlatformRuntime = {
   /** GitHub App webhook secret. Undefined leaves only that route answering 503. */
   maintainerWebhookSecret: () => string | undefined;
   adminVerifier: AdminAccessVerifier;
-  /** Deterministic auth rate-limit key: a trusted client IP or SHARED_NETWORK_KEY. */
+  /** Trusted client address or SHARED_NETWORK_KEY; preserves promotion visitor identity. */
   sourceNetwork: (c: Context) => string;
+  /** Optional grouped budget key; adapters without it retain sourceNetwork limits. */
+  rateLimitNetwork?: (c: Context) => string;
   /** Hostnames accepted on inbound requests. */
   allowedHosts: ReadonlySet<string>;
   /** Origin for canonical/share URLs, development guidance, published-skill links and upload examples. */
