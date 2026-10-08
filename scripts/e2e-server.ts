@@ -141,6 +141,8 @@ const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
 // Explicit installed shop-key policy for this local harness; absence would close shop-key operations.
 const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bound-only',adminVerifier:e2eAuthorClaimAdminVerifier,linkPreviewFetch,publicGuideAssets,guildLaunchpadEnabled:true,memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',tenantWorkAssetStore:new FakeObjectStore(),
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
+  // Explicit browser-harness option; product server/Worker release flags remain default OFF.
+  communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));

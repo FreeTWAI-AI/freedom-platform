@@ -6,7 +6,8 @@
     "modules/community/content-search.ts",
     "apps/portal-web/src/modules/CommunitySearch.tsx",
     "tests/runtime/community-search.test.ts",
-    "migrations/137_community_content_topics.sql"
+    "migrations/137_community_content_topics.sql",
+    "tests/e2e/community-search.spec.ts"
   ],
   "public_exports": [
     "modules/community/content-search.ts"
