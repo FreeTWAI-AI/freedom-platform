@@ -329,7 +329,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, ca
   const [tenantName, setTenantName] = useState('');
   const [tenantError, setTenantError] = useState('');
   const [tenantRetry, setTenantRetry] = useState(false);
-  const tenantAttempt = useRef<{name: string; key: string} | null>(null);
+  const tenantAttempt = useRef<{name: string; key: string; body: z.infer<typeof TenantCreateInputSchema>} | null>(null);
   const initial = useRef(restoredRow);
   const tenantRows = useRef<TenantView[]>([]);
   const [tenantsLoaded, setTenantsLoaded] = useState(false);
@@ -403,13 +403,17 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, ca
   }
   async function createSpace() {
     if (busyRef.current) return;
-    const input = TenantCreateInputSchema.safeParse({display_name: tenantName.trim()});
-    if (!input.success) { setTenantError('請輸入 1–120 個字的業務空間名稱，不含控制字元。'); return; }
-    const held = tenantAttempt.current?.name === input.data.display_name ? tenantAttempt.current : {name: input.data.display_name, key: crypto.randomUUID()};
-    tenantAttempt.current = held;
+    if (!tenantAttempt.current) {
+      const input = TenantCreateInputSchema.safeParse({display_name: tenantName.trim()});
+      if (!input.success) { setTenantError('請輸入 1–120 個字的業務空間名稱，不含控制字元。'); return; }
+      tenantAttempt.current = {name: input.data.display_name, key: crypto.randomUUID(), body: input.data};
+    }
+    const held = tenantAttempt.current;
     busyRef.current = true; setBusy(true); setTenantError(''); setTenantRetry(false); const call = ticket();
     try {
-      const made = CreateResultSchema.parse(await client.post('/tenants', {display_name: held.name}, {idempotencyKey: held.key, signal: call.signal}));
+      const result = CreateResultSchema.safeParse(await client.post('/tenants', held.body, {idempotencyKey: held.key, signal: call.signal}));
+      if (!result.success) throw new ApiError({message: '回應未完整收到，請重試確認原操作。', network: true});
+      const made = result.data;
       if (!call.live()) return;
       rememberActing(userId, made.tenant.tenant_id, made.workspace.workspace_id);
       tenantAttempt.current = null; setTenantName('');
@@ -628,10 +632,10 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, ca
     </div>{tenants.some(item => !launchable(item)) && <p className="field-hint">只列出你擁有或管理、目前可使用的業務空間。</p>}</fieldset>}
     {tenant && <p>目前業務空間：{tenant.display_name} · {roleLabel(tenant.my_membership.role)}{workspace && `／${workspace.name}`}</p>}
     {tenantsLoaded && !readFailed && !tenants.some(launchable) && <div><p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}</p><form className="stack" onSubmit={event => {event.preventDefault(); void createSpace();}}>
-      <label className="field">業務空間名稱<input required maxLength={TenantCreateInputSchema.shape.display_name.maxLength ?? 120} value={tenantName} aria-describedby="launch-space-hint launch-space-error" onChange={event => {setTenantName(event.target.value); setTenantRetry(false);}}/></label>
+      <label className="field">業務空間名稱<input required disabled={busy || tenantRetry} maxLength={TenantCreateInputSchema.shape.display_name.maxLength ?? 120} value={tenantName} aria-describedby="launch-space-hint launch-space-error" onChange={event => setTenantName(event.target.value)}/></label>
       <p className="field-hint" id="launch-space-hint">應用的資料會保存在這個業務空間；之後可以在業務空間頁邀請夥伴。</p>
       <p id="launch-space-error" role="alert">{tenantError}</p>
-      <div className="application-actions"><button className="btn btn-primary" disabled={busy}>建立業務空間</button>{tenantRetry && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void createSpace()}>重試</button>}</div>
+      <div className="application-actions"><button className="btn btn-primary" disabled={busy || tenantRetry}>建立業務空間</button>{tenantRetry && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void createSpace()}>重試</button>}</div>
     </form><div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a></div></div>}
     {problem && <p role="alert" className="banner banner-error">{problem}</p>}
     {changed && <div role="status"><p>{changed}</p>{changedKind === 'plan' && <ul>{Object.entries(instances).flatMap(([key, rows]) => rows.map(row => <li key={`${key}:${row.instance_id}`}>{moduleWord(key)}：ID 尾碼 {row.instance_id.slice(-6)}，最新版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}</li>))}</ul>}</div>}
