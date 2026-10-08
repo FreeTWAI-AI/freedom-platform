@@ -111,6 +111,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
   const [editing, setEditing] = useState<string | null>(null);
   function leaveOk() {return !dirtyRef.current || window.confirm(LEAVE);}
   useEffect(() => {
+    controller.current = new AbortController();
     const unloading = (event: BeforeUnloadEvent) => {if (dirtyRef.current) {event.preventDefault(); event.returnValue = '';}};
     window.addEventListener('beforeunload', unloading);
     void load();
@@ -159,7 +160,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
         announce(attempt.product ? '這件商品剛剛被更新，已重新載入。' : '商店資料剛剛被更新，已重新載入。');
       } else if (cause instanceof ApiError && cause.code === 'storefront_already_set_up') {
         await load(); announce('這間商店已經設定過，已重新載入。');
-      } else if (cause instanceof ApiError && ['storefront_slug_taken', 'storefront_slug_reserved'].includes(cause.code ?? '') && attempt.fieldError) {
+      } else if (cause instanceof ApiError && ['storefront_slug_taken', 'storefront_slug_reserved', 'validation_failed'].includes(cause.code ?? '') && attempt.fieldError) {
         attempt.fieldError(cause);
       } else setError(errorText(cause));
     } finally {if (!signal.aborted) {busyRef.current = false; setBusy(false);}}
@@ -262,13 +263,13 @@ function SettingsForm({client, root, store, busy, onDirty, onSave}: {
       ...(!store?.slug_locked ? {slug: fields.slug.trim().toLowerCase()} : {}), ...(!store ? {currency: fields.currency} : {})};
     const result = (store ? StoreUpdateInputSchema : StoreSetupInputSchema).safeParse(body);
     if (!result.success) {setError('有欄位格式不符，請檢查後再送出。'); return;}
-    await onSave(result.data, () => {setSaved(fields); onDirtyRef.current(false);}, cause => setSlugError(errorText(cause)));
+    await onSave(result.data, () => {setSaved(fields); onDirtyRef.current(false);}, cause => cause.code === 'validation_failed' ? setError(errorText(cause)) : setSlugError(errorText(cause)));
   }
   return <form className="hosted-store-form stack" aria-label={store ? '商店資料' : '建立商店'} onSubmit={event => void submit(event)}>
     <fieldset disabled={busy} className="hosted-store-fields stack"><legend className="sr-only">{store ? '商店資料' : '商店設定'}</legend>
       <label className="field">商店名稱<input required maxLength={StoreSetupInputSchema.shape.name.maxLength!} value={fields.name} onChange={event => change('name', event.target.value)}/></label>
       <label className="field">品牌（選填）<input maxLength={StoreSetupInputSchema.shape.brand.unwrap().unwrap().maxLength!} value={fields.brand} onChange={event => change('brand', event.target.value)}/></label>
-      <label className="field">商店網址{store?.slug_locked ? <span>/shops/{store.slug}</span> : <span className="hosted-store-slug"><span>/shops/</span><input required maxLength={40} autoCapitalize="off" spellCheck={false} aria-describedby={`${id}-slug-hint ${id}-slug-result ${id}-slug-error`} value={fields.slug} onChange={event => change('slug', event.target.value)}/></span>}</label>
+      <div className="field">{store?.slug_locked ? <><span>商店網址</span><span>/shops/{store.slug}</span></> : <><label htmlFor={`${id}-slug`}>商店網址</label><span className="hosted-store-slug"><span aria-hidden="true">/shops/</span><input id={`${id}-slug`} required maxLength={40} autoCapitalize="off" spellCheck={false} aria-describedby={`${id}-slug-hint ${id}-slug-result ${id}-slug-error`} value={fields.slug} onChange={event => change('slug', event.target.value)}/></span></>}</div>
       {!store?.slug_locked && <><p id={`${id}-slug-hint`} className="field-hint">3–40 個小寫英文字母、數字或連字號，以英文字母開頭；第一次發布後不能再改。</p><p id={`${id}-slug-result`} aria-live="polite">{availability}</p><p id={`${id}-slug-error`} role="alert">{slugError}</p></>}
       <label className="field">商店介紹<textarea maxLength={StoreSetupInputSchema.shape.description.unwrap().maxLength!} value={fields.description} onChange={event => change('description', event.target.value)}/></label>
       {store ? <p>幣別：{currencyLabel(store.currency)}</p> : <><label className="field">幣別<select value={fields.currency} onChange={event => change('currency', event.target.value)}><option value="TWD">新臺幣 TWD</option><option value="USD">美元 USD</option></select></label><p className="field-hint">建立後不能更改。</p></>}
