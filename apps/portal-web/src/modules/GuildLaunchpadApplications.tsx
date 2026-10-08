@@ -5,7 +5,7 @@ import {OpaqueId} from '../../../../contracts/common/v1/identity';
 import {TenantPageSchema, WorkspacePageSchema, type TenantView, type WorkspaceView} from '../../../../contracts/guild-launchpad/v1/tenant';
 import {ApplicationViewSchema, InstancePageSchema, InstallationPageSchema, InstallationViewSchema, LaunchPlanSchema, PlanInputSchema, LaunchInputSchema, RegistryOperationSchema, type InstanceView, type InstallationView, type LaunchPlan, type RegistryOperation} from '../../../../contracts/guild-launchpad/v1/module-registry';
 import {readActing} from './GuildLaunchpadMyWork';
-import {moduleRoleWord} from './module-words';
+import {roleLabel} from './TenantSelector';
 import {moduleWord, INSTANCE_STATUS_WORDS} from './module-words';
 import {formatIsoLocal} from '../format';
 import {ApiError, type PortalClient} from '../api';
@@ -548,9 +548,9 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
     <p>{app.release_ref}</p>
     {!tenantsLoaded && !readFailed && <p role="status">正在載入業務空間…</p>}
     {tenantsLoaded && tenants.some(launchable) && <fieldset className="fieldset"><legend>業務空間</legend><div className="application-actions">
-      {tenants.filter(launchable).map(item => <button type="button" key={item.tenant_id} className="btn btn-ghost" aria-current={item.tenant_id === tenantId ? 'true' : undefined} onClick={() => { if (item.tenant_id !== tenantId) void selectTenant(item.tenant_id); }}>{item.display_name}・{moduleRoleWord(item.my_membership.role)}</button>)}
+      {tenants.filter(launchable).map(item => <button type="button" key={item.tenant_id} className="btn btn-ghost" aria-current={item.tenant_id === tenantId ? 'true' : undefined} onClick={() => { if (item.tenant_id !== tenantId) void selectTenant(item.tenant_id); }}>{item.display_name}・{roleLabel(item.my_membership.role)}</button>)}
     </div>{tenants.some(item => !launchable(item)) && <p className="field-hint">只列出你擁有或管理、目前可使用的業務空間。</p>}</fieldset>}
-    {tenant && <p>目前業務空間：{tenant.display_name} · {moduleRoleWord(tenant.my_membership.role)}{workspace && `／${workspace.name}`}</p>}
+    {tenant && <p>目前業務空間：{tenant.display_name} · {roleLabel(tenant.my_membership.role)}{workspace && `／${workspace.name}`}</p>}
     {tenantsLoaded && !readFailed && !tenants.some(launchable) && <p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}<a className="btn btn-ghost" href="#business">建立或選擇業務空間</a></p>}
     {problem && <p role="alert" className="banner banner-error">{problem}</p>}
     {changed && <div role="status"><p>{changed}</p>{changedKind === 'plan' && <ul>{Object.entries(instances).flatMap(([key, rows]) => rows.map(row => <li key={`${key}:${row.instance_id}`}>{moduleWord(key)}：ID 尾碼 {row.instance_id.slice(-6)}，最新版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}</li>))}</ul>}</div>}
