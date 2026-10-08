@@ -37,8 +37,8 @@ async function fixture(stock = 3) {
   await h.pool.query('UPDATE users SET community_id=$1 WHERE user_id=$2', [buyerCommunity, b.id]);
   return { ...t, instanceId, root, slug, owner, product, b, c, buyer: await actor(b.session), other: await actor(c.session) };
 }
-async function quote(s: Awaited<ReturnType<typeof fixture>>, buyer = s.buyer, quantity = 1) {
-  return createDirectQuote(runtime, buyer, s.slug, { publication_revision: '1', items: [{ sku: s.product.sku, quantity }] }, randomUUID());
+async function quote(s: Awaited<ReturnType<typeof fixture>>, buyer = s.buyer, quantity = 1, key = randomUUID()) {
+  return createDirectQuote(runtime, buyer, s.slug, { publication_revision: '1', items: [{ sku: s.product.sku, quantity }] }, key);
 }
 const body = (q: Awaited<ReturnType<typeof quote>>, intent = randomUUID()) => ({ quote_id: q.quote_id, terms_sha256: q.terms_sha256, client_order_id: intent });
 const code = (expected: string) => (e: unknown) => (e as { code?: string }).code === expected;
@@ -63,7 +63,8 @@ after(async () => {
 test('direct buyer outside seller tenant reserves once, resumes login, cancels CAS and replays current state without financial facts', async () => {
   const s = await fixture();
   assert.equal((await h.pool.query('SELECT 1 FROM tenant_memberships m JOIN principals p ON p.principal_id=m.principal_id WHERE tenant_id=$1 AND p.user_ref=$2', [s.tenantId, s.b.id])).rowCount, 0);
-  const q = await quote(s), input = body(q), key = randomUUID();
+  const quoteKey = randomUUID(), q = await quote(s, s.buyer, 1, quoteKey), input = body(q), key = randomUUID();
+  assert.deepEqual(await quote(s, s.buyer, 1, quoteKey), q, 'same-key quote retry preserves ID and original deadline');
   assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved, 0);
   const order = await submitDirectOrder(runtime, s.buyer, s.slug, input, key);
   assert.equal(order.state, 'reserved'); assert.equal(order.payment_enabled, false); assert.equal(order.amount_due_minor, null);
@@ -71,7 +72,9 @@ test('direct buyer outside seller tenant reserves once, resumes login, cancels C
   assert.equal((await h.call('GET', s.root, s.b.session, undefined, {}, app)).status, 404);
   const receipt = (await h.pool.query('SELECT scope_kind,response FROM scoped_command_receipts WHERE idempotency_key=$1', [key])).rows[0];
   assert.equal(receipt.scope_kind, 'personal'); assert.deepEqual(receipt.response, { id: order.order_id });
-  assert.equal((await submitDirectOrder(runtime, s.buyer, s.slug, input, randomUUID())).order_id, order.order_id);
+  const retried = await submitDirectOrder(runtime, s.buyer, s.slug, input, randomUUID());
+  assert.equal(retried.order_id, order.order_id); assert.equal(retried.created_at, order.created_at);
+  assert.equal(retried.reservation_expires_at, order.reservation_expires_at);
   await assert.rejects(submitDirectOrder(runtime, s.buyer, s.slug, body(q), randomUUID()), code('quote_consumed'));
   await assert.rejects(readDirectOrder(runtime, s.other, order.order_id), code('hosted_order_not_found'));
   await assert.rejects(cancelDirectOrder(runtime, s.other, order.order_id, randomUUID(), '1'), code('hosted_order_not_found'));
