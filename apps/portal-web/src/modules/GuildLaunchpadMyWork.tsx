@@ -776,6 +776,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, 
           if (isDocument) {
             const parsed = parseDocument(current.sourceText, workId);
             if (parsed.kind === 'document') {
+              setWorkDocument(parsed.value);
               setDocumentBaseline(JSON.stringify(parsed.value));
               setDocumentRead({ kind: 'found', value: parsed.value, text: current.sourceText, result });
             }
