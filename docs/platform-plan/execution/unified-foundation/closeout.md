@@ -300,5 +300,24 @@ production 不受影響：flag 仍未設定，也沒有 capacity policy 列。
 
 回滾是把 staging 以同一份 dist 重新部署、不設 flag；policy 列與試開期間建立的 tenant 資料會保留。
 
-尚未完成：guild-work verifier（#242）需要示範帳號先有一個公會的完整成員資格，試開後的備份排在 verifier 之後。
-這次試開不是 guild launchpad 的驗收，60 項驗收仍全部 not_run。
+試開本身不是 guild launchpad 的驗收；guild-work 驗收見下一節。
+
+### 10 月 8 日：staging guild-work verifier（X）
+
+- 06:30–06:31Z：owner 用自己的 Cloudflare Access 身分，在 staging 管理後台（公會管理 → 設定公會長）把示範帳號 `maker@local.test`
+  設為 `guild_product_quality_supply` 與 `guild_commerce_sales` 的公會長。兩個公會原本都沒有公會長，所以沒有取代任何人；
+  任命時 maker 成為兩個公會的正式成員。走的是產品流程，沒有直接改資料庫。公會長不是平台管理員，verifier 用到的 tenant 路由
+  只檢查公會正式成員與 tenant 角色，不看公會幹部。
+- 06:31Z–06:32Z：整合負責人以 60 分鐘的 Access 授權執行 X 的 `scripts/verify-guild-work.mjs --expect-sha c84829e21a2b43753b32bb18ebb8f4ac739175eb`（#242），
+  結束後撤銷授權。served SHA 等於 X，4 項檢查全部通過：
+  - preconditions：網站回報 launchpad 啟用，build identity 等於 X。
+  - A creates：會員 A（maker）建立 tenant 與業務空間，開啟手動工作，存一個 Work、一份筆記 Result 與一個 64 KiB 附件 Result（真實 R2）。
+  - A logs out and back in：登出再登入後讀回相同的 ID、版本與位元組 digest，並存下筆記的下一個版本。
+  - B and anonymous are refused：另一位會員 B（`reviewer@local.test`）與只有 Access 的匿名者，對所有已發給 A 的內容路徑
+    以 GET、HEAD、Range 存取都被拒絕。
+- receipt `20261008T063130038Z-83185463`（SHA-256 `185e6746928b71be17388d1c7ae656998d5b831e4400acc3dc348b28f1959b78`）保存在 operator journal；內含 tenant ID，所以不公開。
+- 依 `acceptance-progress.json` 記錄：T-005 通過；T-023 依 M1 範圍只驗權限半部，`variants.M1` 通過，完整案例記為 partial
+  （X 沒有匯出路由，匯出還原沒有執行）。
+- 06:33Z 開始的試開後備份做過隔離還原與遠端讀回。
+
+M1 仍未接受：28 個 M1 案例中其餘 26 個尚未執行，M1 也還沒有指定 candidate_sha。production 的 flag 仍未設定，是否開啟由 owner 決定。

@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-08T06:16:17.817776+00:00",
+  "recorded_at": "2026-10-08T06:43:24.467850+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -54,7 +54,7 @@
     "staging": {
       "url": "https://staging.freetwai.com/",
       "last_operator_release_sha": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-      "operator_observed_at": "2026-10-08T05:08:24.685Z",
+      "operator_observed_at": "2026-10-08T06:11:10.410464+00:00",
       "fresh_http": {
         "origin": "https://staging.freetwai.com",
         "path": "/api/v1/health",
@@ -149,9 +149,37 @@
       "at": "2026-10-08T06:03:11.785720+00:00"
     },
     "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
       "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
-      "at": "2026-10-08T06:03:11.785720+00:00"
+      "kind": "operator_observed_private_receipt",
+      "scope": "staging only: the round-5 dist redeployed with one Worker variable change; production not touched",
+      "at": "2026-10-08T06:11:10.410464+00:00",
+      "receipt_sha256": "0a27e629fa807d176eddef27e0446b4d34e40e520fb9f0a8cb1445c8873e809b",
+      "previous_release": {
+        "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb"
+      },
+      "owner_approval": "Ted, 2026-10-07T15:10:53Z (\"sounds great, keep going\", the staging-only trial plan) and 15:42:46Z (the interim capacity values); re-pinned from 687dee87 to X by the orchestrator under that approval at 2026-10-08T05:46:53Z, after round 5",
+      "worker_versions": {
+        "staging": "7b7050c2-7dad-4bcb-aec9-fc24b2c5e33c"
+      },
+      "worker_config_change": "FREEDOM_GUILD_LAUNCHPAD_ENABLED=true on staging only; wrapper and schedules unchanged.",
+      "selected_checks": {
+        "staging": 47
+      },
+      "database_migrations_applied": {
+        "staging": []
+      },
+      "backup_before": {
+        "set_id": "9cc67697-a911-423e-9d68-ff7b3abc51c2",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified"
+      },
+      "live_after": {
+        "staging": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+        "stagingLaunchpad": "true",
+        "production": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+        "productionLaunchpad": "absent"
+      },
+      "limitation": "Same source and dist as last_operator_rollout; only the launchpad flag differs. Rollback is a redeploy of the same dist without the flag."
     },
     "previous_production_rollout": {
       "source": "e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f",
@@ -225,9 +253,9 @@
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP. The guild launchpad stays dark (flag absent), so row security is exercised by the migration probes and CI, not by live tenant traffic. The pinned daily operator source c3e5a537 reads row-security tables through the backup roles' BYPASSRLS; it predates the fail-closed row_security=off in packages/db/snapshot-evidence.ts."
     },
     "previous_staging_rollout": {
-      "same_as": "previous_production_rollout",
-      "source": "e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f",
-      "at": "2026-10-08T00:05:19.819991+00:00"
+      "same_as": "last_operator_rollout",
+      "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
+      "at": "2026-10-08T06:03:11.785720+00:00"
     },
     "earlier_production_rollout": {
       "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
@@ -311,9 +339,9 @@
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance; production checks are read-only HTTP. #162 names one prepared statement in credential-ingest-authorizations; it only runs with FREEDOM_PRIVATE_AI_ENABLED=true (off on both) or in the undeployed credential broker, so neither environment exercised it through Hyperdrive. The guild launchpad tables exist but stay unused while FREEDOM_GUILD_LAUNCHPAD_ENABLED is absent; no capacity or authority policy row was written."
     },
     "earlier_staging_rollout": {
-      "same_as": "earlier_production_rollout",
-      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
-      "at": "2026-10-07T14:44:12.302980+00:00"
+      "same_as": "previous_production_rollout",
+      "source": "e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f",
+      "at": "2026-10-08T00:05:19.819991+00:00"
     },
     "earliest_production_rollout": {
       "source": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
@@ -355,9 +383,9 @@
       "limitation": "Private originals retained by operator; no credentials/member data included. Selected checks are not full foundation acceptance. #162 names one prepared statement in credential-ingest-authorizations; it only runs with FREEDOM_PRIVATE_AI_ENABLED=true (off on both) or in the undeployed credential broker, so neither environment exercised it through Hyperdrive."
     },
     "earliest_staging_rollout": {
-      "same_as": "earliest_production_rollout",
-      "source": "8d2213d7f36fd9b0613d16fbf71858be5001a4ad",
-      "at": "2026-10-06T22:32:44.798029+00:00"
+      "same_as": "earlier_production_rollout",
+      "source": "687dee8739d9a8fc65a78fcb093347833cc004e8",
+      "at": "2026-10-07T14:44:12.302980+00:00"
     },
     "archived_rollouts": [
       {
@@ -553,9 +581,10 @@
       "source": "c84829e21a2b43753b32bb18ebb8f4ac739175eb",
       "at": "2026-10-08T06:11:10.410464+00:00",
       "evidence": [
-        "docs/platform-plan/execution/unified-foundation/closeout.md"
+        "docs/platform-plan/execution/unified-foundation/closeout.md",
+        "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json"
       ],
-      "limitation": "Staging trial only, with interim capacity values; production stays off until the owner decides. The guild-work verifier has not run, so no guild-work flow is accepted. The guild preference backfill is blocked (27 of 28 remaining legacy members have a legacy primary guild without an approved category), so the three-category board stays hidden on staging."
+      "limitation": "Staging trial only, with interim capacity values; production stays off until the owner decides. The guild-work verifier (#242) passed on staging at 06:32Z (receipt 20261008T063130038Z-83185463): T-005 passed and T-023 passed its M1 permission variant (export/restore not run), recorded in the guild-launchpad acceptance-progress.json. M1 is not accepted: 26 of its 28 cases have not run and M1 has no candidate_sha. The guild preference backfill is blocked (27 of 28 remaining legacy members have a legacy primary guild without an approved category), so the three-category board stays hidden on staging."
     },
     "limitation": "No fresh authenticated feature/DB/R2 inspection in this research; the guild_launchpad entry comes from the 2026-10-08 round-5 operator receipt."
   },
