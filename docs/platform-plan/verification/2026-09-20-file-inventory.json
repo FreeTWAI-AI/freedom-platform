@@ -18334,8 +18334,8 @@
     },
     {
       "path": "packages/scoped-commands/README.md",
-      "bytes": 7231,
-      "sha256": "3383eb4e506988e965302aaf1b657182671cab7b0442e99e5ee873b1f8db21fd"
+      "bytes": 7857,
+      "sha256": "06748f4f6acd8d9606a51a0e20fcc0104e10b6d1255b662f71b2b6156902fd3b"
     },
     {
       "path": "packages/scoped-commands/command-context.ts",
