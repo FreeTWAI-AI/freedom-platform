@@ -19,6 +19,7 @@ export interface Profile {
   version: string; product_seq: number; first_published_at: Date | null; current_publication_id: string | null;
   name: string; description: string; currency: 'TWD' | 'USD'; revision: string | null; published_at: Date | null;
   projection: unknown; projection_sha256: string | null;
+  reservation_enabled: boolean;
 }
 export async function instance(q: PoolClient, tenantId: string, instanceId: string, write: boolean, allowArchived = false): Promise<Instance> {
   const row = (await q.query<Instance>(`SELECT i.instance_id,i.status,d.state AS deployment_state FROM module_instances i
@@ -89,6 +90,9 @@ export async function storeCommand<T>(pool: Pool, actor: Actor, tenantId: string
     const peek = await instance(q, tenantId, instanceId, false, true);
     await requireStoreInstance(q, context, peek.instance_id, capability, true);
     inst = await instance(q, tenantId, instanceId, true);
+    // All hosted stock/price/publication writers share the order authority's
+    // instance -> community -> profile ordering, including receipt replay.
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`commerce-orders/${context.community_id}`]);
   };
   try { return await scopedTenantCommand(pool, { actor, tenantId, tenantLock: 'share', operation, body, key, expected,
     target: { kind: productId ? 'storefront_product' : 'storefront', id: productId ?? instanceId }, capabilitiesForRole: storeCapabilities },

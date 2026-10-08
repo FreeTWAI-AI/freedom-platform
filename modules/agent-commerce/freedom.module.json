@@ -26,7 +26,9 @@
     "tests/runtime/hosted-store-offering.test.ts",
     "contracts/guild-launchpad/v1/hosted-order.ts",
     "contracts/guild-launchpad/v1/hosted-order.schema.json",
-    "tests/runtime/hosted-order-contracts.test.ts"
+    "tests/runtime/hosted-order-contracts.test.ts",
+    "migrations/138_hosted_direct_reservations.sql",
+    "tests/runtime/hosted-direct-orders.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
