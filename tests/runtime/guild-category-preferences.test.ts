@@ -18,6 +18,7 @@ import {
   switchInTransaction,
 } from '../../modules/positioning/guild-categories.js';
 import {lockMemberGuilds} from '../../modules/positioning/onboarding.js';
+import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {guildPreferenceStatus} from '../../scripts/guild-preferences-backfill.js';
 // @ts-expect-error Existing host-only clean environment helper is an ESM JavaScript module.
 import {verificationEnvironment} from '../../packages/contribution-tools/process-env.mjs';
@@ -267,6 +268,233 @@ test('T-002 one category accepts one concurrent primary and empty slots still al
   const rejoined = await member(flagged, '/guilds/guild_security/join', s, {}, {version: String(left.data.membership.aggregate_version)});
   assert.equal(rejoined.status, 200, JSON.stringify(rejoined.data));
   assert.equal((await pool.query(`SELECT state FROM positioning_profession_memberships WHERE user_id = $1 AND guild_key = 'guild_security'`, [s.user.user_id])).rows[0].state, 'active');
+});
+
+test("T-001 T-002 a member who registers after the switch starts with three empty slots, and quick-start fills only the chosen approved guild's category", async () => {
+  const switched = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(switched.status, 200, JSON.stringify(switched.data));
+  assert.deepEqual(switched.data, {state: 'switched', aggregate_version: 2, blocked: 0, processed: 0, already_switched: false});
+  const registered = await member(flagged, '/auth/register', undefined, {email: 'post-switch-approved@example.test', password: 'guild-onboarding-test-password'});
+  assert.equal(registered.status, 201, JSON.stringify(registered.data));
+  const s: Session = {cookie: registered.response.headers.get('set-cookie')!.split(';')[0], csrf: registered.data.csrf_token, user: registered.data.user};
+  const initial = (await pool.query(`SELECT s.aggregate_version::text AS aggregate_version, s.migration_state,
+    u.onboarding_required, u.onboarding_completed_at FROM guild_preference_sets s JOIN users u USING (community_id, user_id)
+    WHERE s.community_id=$1 AND s.user_id=$2`, [DEMO_COMMUNITY, s.user.user_id])).rows;
+  assert.deepEqual(initial, [{aggregate_version: '1', migration_state: 'switched', onboarding_required: true, onboarding_completed_at: null}]);
+  assert.deepEqual((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows, []);
+
+  const gated = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(gated.status, 403);
+  assert.equal(gated.data.code, 'onboarding_required');
+  const onboarding = await member(flagged, '/me/onboarding', s);
+  assert.equal(onboarding.status, 200, JSON.stringify(onboarding.data));
+  assert.equal(onboarding.data.required, true);
+  assert.equal(onboarding.data.completed, false);
+  const guild = 'guild_member_operations';
+  const launchpadBefore = await member(flagged, `/guilds/${guild}/launchpad`, s);
+  assert.equal(launchpadBefore.status, 403);
+  assert.equal(launchpadBefore.data.code, 'onboarding_required');
+  const body = {guild_keys: [guild], primary_guild_key: guild, confirmed: true, guild_answers: sampleGuildAnswers(guild)};
+  const quick = await member(flagged, '/me/onboarding/quick-start', s, body);
+  assert.equal(quick.status, 200, JSON.stringify(quick.data));
+  assert.equal(quick.data.required, false);
+  assert.equal(quick.data.completed, true);
+  assert.equal(quick.data.entry_mode, 'quick');
+  assert.equal(quick.data.assessment_completed, false);
+  assert.equal(quick.data.draft, null);
+  const view = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(view.status, 200, JSON.stringify(view.data));
+  assert.equal(view.response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(view.data.migration_state, 'switched');
+  assert.equal(view.data.aggregate_version, 2);
+  assert.equal(view.data.aggregate_version, Number(initial[0].aggregate_version) + 1);
+  assert.equal(view.response.headers.get('etag'), `"${view.data.aggregate_version}"`);
+  assert.deepEqual(view.data.primaries, [
+    {category: 'internal', guild_key: guild},
+    {category: 'external', guild_key: null},
+    {category: 'professional_industry', guild_key: null},
+  ]);
+  assert.deepEqual((await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows,
+    [{category: 'internal', guild_key: guild}]);
+
+  const legacy = await member(flagged, '/me/guild-preferences', s);
+  assert.equal(legacy.status, 200, JSON.stringify(legacy.data));
+  // Quick start saves its chosen legacy primary before projecting the category slot.
+  assert.deepEqual(legacy.data, {primary_guild_key: guild, secondary_guild_keys: [], aggregate_version: 1, compatibility: 'legacy_projection'});
+  const beforeLegacyWrite = await counts();
+  const refused = await member(flagged, `/guilds/${guild}/primary`, s, {}, {version: String(legacy.data.aggregate_version)});
+  assert.equal(refused.status, 409);
+  assert.equal(refused.data.code, 'client_upgrade_required');
+  assert.deepEqual(await counts(), beforeLegacyWrite);
+  const afterLegacyWrite = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(afterLegacyWrite.status, 200, JSON.stringify(afterLegacyWrite.data));
+  assert.deepEqual(afterLegacyWrite.data, view.data);
+  assert.equal(afterLegacyWrite.response.headers.get('etag'), view.response.headers.get('etag'));
+  assert.deepEqual((await member(flagged, '/me/guild-preferences', s)).data, legacy.data);
+
+  const otherGuild = 'guild_opportunity_partnership';
+  await join(s, otherGuild);
+  const selected = await member(flagged, '/me/guild-preferences/v2/set', s, {
+    category: 'external', guild_key: otherGuild, catalog_revision: await revision(otherGuild),
+  }, {version: String(view.data.aggregate_version)});
+  assert.equal(selected.status, 200, JSON.stringify(selected.data));
+  assert.equal(selected.data.aggregate_version, 3);
+  assert.equal(selected.response.headers.get('etag'), '"3"');
+  assert.equal(slot(selected.data, 'internal'), guild);
+  assert.equal(slot(selected.data, 'external'), otherGuild);
+  assert.equal(slot(selected.data, 'professional_industry'), null);
+  const launchpad = await member(flagged, `/guilds/${guild}/launchpad`, s);
+  assert.equal(launchpad.status, 200, JSON.stringify(launchpad.data));
+
+  const beforeReplay = await counts();
+  // A fresh command key is a second completion attempt, not a receipt replay.
+  const repeated = await member(flagged, '/me/onboarding/quick-start', s, body);
+  assert.equal(repeated.status, 409);
+  assert.equal(repeated.data.code, 'onboarding_already_completed');
+  assert.deepEqual(await counts(), beforeReplay);
+  const afterReplay = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(afterReplay.status, 200, JSON.stringify(afterReplay.data));
+  assert.deepEqual(afterReplay.data, selected.data);
+  assert.equal(afterReplay.response.headers.get('etag'), selected.response.headers.get('etag'));
+});
+
+test('T-001 quick-start after the switch with a pending guild completes onboarding and writes no slot', async () => {
+  const switched = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(switched.status, 200, JSON.stringify(switched.data));
+  assert.deepEqual(switched.data, {state: 'switched', aggregate_version: 2, blocked: 0, processed: 0, already_switched: false});
+  const registered = await member(flagged, '/auth/register', undefined, {email: 'post-switch-pending@example.test', password: 'guild-onboarding-test-password'});
+  assert.equal(registered.status, 201, JSON.stringify(registered.data));
+  const s: Session = {cookie: registered.response.headers.get('set-cookie')!.split(';')[0], csrf: registered.data.csrf_token, user: registered.data.user};
+  const initial = (await pool.query(`SELECT aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id=$1`, [s.user.user_id])).rows;
+  assert.deepEqual(initial, [{aggregate_version: '1', migration_state: 'switched'}]);
+  const guild = 'guild_ai_vibe';
+  assert.deepEqual((await pool.query(`SELECT category::text AS category, category_review::text AS category_review, active FROM guild_catalog_categories WHERE guild_key=$1`, [guild])).rows,
+    [{category: null, category_review: 'pending', active: true}]);
+  const quick = await member(flagged, '/me/onboarding/quick-start', s, {
+    guild_keys: [guild], primary_guild_key: guild, confirmed: true, guild_answers: sampleGuildAnswers(guild),
+  });
+  assert.equal(quick.status, 200, JSON.stringify(quick.data));
+  assert.equal(quick.data.required, false);
+  assert.equal(quick.data.completed, true);
+  assert.equal(quick.data.entry_mode, 'quick');
+  assert.equal(quick.data.assessment_completed, false);
+  assert.ok((await pool.query(`SELECT onboarding_completed_at FROM users WHERE user_id=$1`, [s.user.user_id])).rows[0].onboarding_completed_at);
+  const view = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(view.status, 200, JSON.stringify(view.data));
+  assert.equal(view.data.migration_state, 'switched');
+  assert.equal(view.data.aggregate_version, 1);
+  assert.equal(view.data.aggregate_version, Number(initial[0].aggregate_version));
+  assert.equal(view.response.headers.get('etag'), '"1"');
+  assert.deepEqual(view.data.primaries, [
+    {category: 'internal', guild_key: null},
+    {category: 'external', guild_key: null},
+    {category: 'professional_industry', guild_key: null},
+  ]);
+  assert.deepEqual((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows, []);
+  assert.deepEqual((await pool.query(`SELECT aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id=$1`, [s.user.user_id])).rows, initial);
+  const launchpad = await member(flagged, `/guilds/${guild}/launchpad`, s);
+  assert.equal(launchpad.status, 200, JSON.stringify(launchpad.data));
+
+  const approvedGuild = 'guild_security';
+  await join(s, approvedGuild);
+  const selected = await member(flagged, '/me/guild-preferences/v2/set', s, {
+    category: 'professional_industry', guild_key: approvedGuild, catalog_revision: await revision(approvedGuild),
+  }, {version: String(view.data.aggregate_version)});
+  assert.equal(selected.status, 200, JSON.stringify(selected.data));
+  assert.equal(selected.data.aggregate_version, 2);
+  assert.equal(selected.response.headers.get('etag'), '"2"');
+  assert.equal(slot(selected.data, 'internal'), null);
+  assert.equal(slot(selected.data, 'external'), null);
+  assert.equal(slot(selected.data, 'professional_industry'), approvedGuild);
+  assert.deepEqual((await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows,
+    [{category: 'professional_industry', guild_key: approvedGuild}]);
+});
+
+test('T-001 quick-start after the switch with an approved but inactive guild completes onboarding and writes no slot', async () => {
+  const switched = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(switched.status, 200, JSON.stringify(switched.data));
+  assert.deepEqual(switched.data, {state: 'switched', aggregate_version: 2, blocked: 0, processed: 0, already_switched: false});
+  const guild = 'guild_security';
+  await pool.query(`UPDATE guild_catalog_categories SET active=false WHERE guild_key=$1`, [guild]);
+  try {
+    assert.deepEqual((await pool.query(`SELECT category::text AS category, category_review::text AS category_review, active FROM guild_catalog_categories WHERE guild_key=$1`, [guild])).rows,
+      [{category: 'professional_industry', category_review: 'approved', active: false}]);
+    const registered = await member(flagged, '/auth/register', undefined, {email: 'post-switch-inactive@example.test', password: 'guild-onboarding-test-password'});
+    assert.equal(registered.status, 201, JSON.stringify(registered.data));
+    const s: Session = {cookie: registered.response.headers.get('set-cookie')!.split(';')[0], csrf: registered.data.csrf_token, user: registered.data.user};
+    assert.deepEqual((await pool.query(`SELECT aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id=$1`, [s.user.user_id])).rows,
+      [{aggregate_version: '1', migration_state: 'switched'}]);
+    const quick = await member(flagged, '/me/onboarding/quick-start', s, {
+      guild_keys: [guild], primary_guild_key: guild, confirmed: true, guild_answers: sampleGuildAnswers(guild),
+    });
+    assert.equal(quick.status, 200, JSON.stringify(quick.data));
+    assert.equal(quick.data.required, false);
+    assert.equal(quick.data.completed, true);
+    assert.equal(quick.data.entry_mode, 'quick');
+    assert.ok((await pool.query(`SELECT onboarding_completed_at FROM users WHERE user_id=$1`, [s.user.user_id])).rows[0].onboarding_completed_at);
+    const view = await member(flagged, '/me/guild-preferences/v2', s);
+    assert.equal(view.status, 200, JSON.stringify(view.data));
+    assert.equal(view.data.migration_state, 'switched');
+    assert.equal(view.data.aggregate_version, 1);
+    assert.equal(view.response.headers.get('etag'), '"1"');
+    assert.deepEqual(view.data.primaries, [
+      {category: 'internal', guild_key: null},
+      {category: 'external', guild_key: null},
+      {category: 'professional_industry', guild_key: null},
+    ]);
+    assert.deepEqual((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows, []);
+    assert.deepEqual((await pool.query(`SELECT state, member_tier FROM positioning_profession_memberships WHERE user_id=$1 AND guild_key=$2`, [s.user.user_id, guild])).rows,
+      [{state: 'active', member_tier: 'intern'}]);
+  } finally {
+    await pool.query(`UPDATE guild_catalog_categories SET active=true WHERE guild_key=$1`, [guild]);
+  }
+});
+
+test("T-002 a member who registered before the switch finishes quick-start after it and gets the chosen guild's category", async () => {
+  const registered = await member(flagged, '/auth/register', undefined, {email: 'before-switch-onboarding@example.test', password: 'guild-onboarding-test-password'});
+  assert.equal(registered.status, 201, JSON.stringify(registered.data));
+  const s: Session = {cookie: registered.response.headers.get('set-cookie')!.split(';')[0], csrf: registered.data.csrf_token, user: registered.data.user};
+  assert.deepEqual((await pool.query(`SELECT aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id=$1`, [s.user.user_id])).rows,
+    [{aggregate_version: '1', migration_state: 'backfilled'}]);
+  assert.deepEqual((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows, []);
+  const beforeSwitch = await counts();
+  const preview = await admin(flagged, '/guild-preferences/backfill', {dry_run: true});
+  assert.equal(preview.status, 200, JSON.stringify(preview.data));
+  assert.deepEqual(preview.data, {dry_run: true, processed: 0, mapped: 0, blocked: 0, ambiguous: 0, remaining: 0, remaining_blocked: 0, blocked_members: []});
+  const switched = await admin(flagged, '/guild-preferences/switch', {accept_blocked: false});
+  assert.equal(switched.status, 200, JSON.stringify(switched.data));
+  assert.deepEqual(switched.data, {state: 'switched', aggregate_version: 2, blocked: 0, processed: 0, already_switched: false});
+  assert.deepEqual(await counts(), beforeSwitch);
+  // The reconciled empty set is not a mapping candidate; switch still advances every set.
+  assert.deepEqual((await pool.query(`SELECT aggregate_version::text AS aggregate_version, migration_state FROM guild_preference_sets WHERE user_id=$1`, [s.user.user_id])).rows,
+    [{aggregate_version: '2', migration_state: 'switched'}]);
+  assert.deepEqual((await pool.query(`SELECT guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows, []);
+  assert.deepEqual((await pool.query(`SELECT user_id FROM guild_preference_migration_audit WHERE user_id=$1`, [s.user.user_id])).rows, []);
+  const gated = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(gated.status, 403);
+  assert.equal(gated.data.code, 'onboarding_required');
+
+  const guild = 'guild_security';
+  const quick = await member(flagged, '/me/onboarding/quick-start', s, {
+    guild_keys: [guild], primary_guild_key: guild, confirmed: true, guild_answers: sampleGuildAnswers(guild),
+  });
+  assert.equal(quick.status, 200, JSON.stringify(quick.data));
+  assert.equal(quick.data.required, false);
+  assert.equal(quick.data.completed, true);
+  assert.equal(quick.data.entry_mode, 'quick');
+  assert.equal(quick.data.assessment_completed, false);
+  const view = await member(flagged, '/me/guild-preferences/v2', s);
+  assert.equal(view.status, 200, JSON.stringify(view.data));
+  assert.equal(view.data.migration_state, 'switched');
+  assert.equal(view.data.aggregate_version, 3);
+  assert.equal(view.response.headers.get('etag'), '"3"');
+  assert.deepEqual(view.data.primaries, [
+    {category: 'internal', guild_key: null},
+    {category: 'external', guild_key: null},
+    {category: 'professional_industry', guild_key: guild},
+  ]);
+  assert.deepEqual((await pool.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE user_id=$1`, [s.user.user_id])).rows,
+    [{category: 'professional_industry', guild_key: guild}]);
 });
 
 test('T-010 backfill maps only the legacy primary and reruns without duplicating rows', async () => {
