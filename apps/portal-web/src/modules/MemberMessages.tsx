@@ -19,7 +19,7 @@ import {ChatInput,ChatTime,useChatViewport,usePhoneChatBounds,useVisibleChatRead
 import {ChatSearch} from './ChatSearch';
 import {WorkshopIcon} from '../WorkshopIcon';
 import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
-import {messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
+import {matchesDirectMessageAck,messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
@@ -210,26 +210,32 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   const [picking,setPicking]=useState(true);
   useEffect(()=>{if(!listRequest)return;setPicking(true);const frame=requestAnimationFrame(()=>document.getElementById(ids.list)?.focus());return()=>cancelAnimationFrame(frame);},[listRequest]);
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
-  const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
+  const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPendingState]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
+  // Guards and retries must see the tuple in the same event that starts the write,
+  // before React commits state or runs effects. State is only the rendered mirror.
+  const held=useRef<Record<string,Pending>>({});
+  function setPending(update:(value:Record<string,Pending>)=>Record<string,Pending>){
+    held.current=update(held.current);setPendingState(held.current);
+  }
   const [reading,setReading]=useState(false),[readError,setReadError]=useState('');
   const [searchOpen,setSearchOpen]=useState(false);
   const [selection,setSelection]=useState<ImageSelection|null>(null);
   const selectionRef=useRef<ImageSelection|null>(null),selections=useRef(new Map<string,ImageSelection>()),fileInput=useRef<HTMLInputElement>(null),sendLocks=useRef(new Set<string>());
   function clearImage(){
-    const value=selectionRef.current;if(value)URL.revokeObjectURL(value.url);
+    const value=selectionRef.current;if(value&&held.current[value.peer])return;if(value)URL.revokeObjectURL(value.url);
     if(value)selections.current.delete(value.peer);
     selectionRef.current=null;setSelection(null);
   }
   // Conversation changes only select a preview. Original bytes and upload keys
   // stay in this session's memory until confirmation or an explicit draft removal.
   useLayoutEffect(()=>{const value=peer?selections.current.get(peer)??null:null;selectionRef.current=value;setSelection(value);},[peer]);
-  useEffect(()=>()=>{for(const value of selections.current.values())URL.revokeObjectURL(value.url);selections.current.clear();selectionRef.current=null;},[]);
+  useEffect(()=>()=>{for(const value of selections.current.values())URL.revokeObjectURL(value.url);selections.current.clear();selectionRef.current=null;held.current={};},[]);
   useEffect(()=>{
-    const leave=(event:BeforeUnloadEvent)=>{if(Object.values(pending).some(value=>value.selectionKey)){event.preventDefault();event.returnValue='';}};
+    const leave=(event:BeforeUnloadEvent)=>{if(Object.keys(held.current).length>0){event.preventDefault();event.returnValue='';}};
     window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);
-  },[pending]);
+  },[]);
   function attachImage(files:File[]){
-    if(!peer||messageImagesEnabled!==true||sendLocks.current.has(peer)||pending[peer])return;
+    if(!peer||messageImagesEnabled!==true||sendLocks.current.has(peer)||held.current[peer])return;
     const error=files.length!==1?'每則訊息只能附加一張圖片。':messageImageFileError(files[0]);
     if(error){setSendErrors(value=>({...value,[peer]:error}));return;}
     clearImage();
@@ -237,13 +243,13 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     selections.current.set(peer,value);selectionRef.current=value;setSelection(value);richDrafts.change(peer,{sticker_id:undefined});
     setSendErrors(({[peer]:_,...rest})=>rest);
   }
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     registerLeave?.(()=>{
-      if(!Object.values(pending).some(value=>value.selectionKey))return true;
-      window.alert('圖片傳送結果尚未確認。請回到原對話，使用重試送出確認結果後再離開。');return false;
+      if(Object.keys(held.current).length===0)return true;
+      window.alert('訊息傳送結果尚未確認。請回到原對話，使用重試送出確認結果後再離開。');return false;
     });
     return()=>registerLeave?.(null);
-  },[pending,registerLeave]);
+  },[registerLeave]);
   // Manual refreshes keep the loaded list/thread (and the focused button) on screen until the new page arrives.
   const [convRefresh,setConvRefresh]=useState({loading:false,error:''}),[threadRefresh,setThreadRefresh]=useState({loading:false,error:''});
   // The in-flight refs record the full read that is still out, so a confirmed write can supersede it.
@@ -414,7 +420,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
   async function send(id:string){
-    const previous=pending[id];
+    const previous=held.current[id];
     if(previous?.status==='sending'||sendLocks.current.has(id))return;
     const selected=selections.current.get(id);
     const image=selected?.user===me&&(messageImagesEnabled===true||previous?.selectionKey===selected.key)?selected:null;
@@ -422,6 +428,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     if(image&&payload.sticker_id){setSendErrors(value=>({...value,[id]:'圖片與貼圖不能同時傳送，請移除其中一項。'}));return;}
     if(!payload.body&&!payload.sticker_id&&!image){setSendErrors(value=>({...value,[id]:'請先輸入訊息內容，或選擇貼圖。'}));return;}
     if(payload.body&&[...payload.body].length>MAX_BODY){setSendErrors(value=>({...value,[id]:`訊息最多 ${MAX_BODY} 字。`}));return;}
+    if(image&&!payload.body)delete payload.body;
     if(image?.imageId)payload.image_id=image.imageId;
     const same=previous?.status==='unknown';
     const attempt:Pending={key:same?previous.key:crypto.randomUUID(),body,payload,status:'sending',stage:image?image.imageId?'message':'upload':undefined,selectionKey:image?.key};
@@ -435,8 +442,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
         image.imageId=uploaded.image_id;if(currentPeer.current===id)setSelection({...image});payload.image_id=uploaded.image_id;
         attempt.stage='message';setPending(value=>({...value,[id]:{...attempt}}));
       }
-      const message=await client.post<Message>(`/me/conversations/${encodeURIComponent(id)}/messages`,image&&!payload.body?{...payload,body:undefined}:payload,{idempotencyKey:attempt.key});
+      const message=await client.post<unknown>(`/me/conversations/${encodeURIComponent(id)}/messages`,payload,{idempotencyKey:attempt.key});
       if(!alive.current||client.sessionGeneration!==sessionGeneration)return;
+      if(!matchesDirectMessageAck(message,{sender:me,recipient:id,payload}))throw new ApiError({message:'訊息回應未能核對，請以原內容重試確認。',network:true});
       // A new outgoing sentinel can hide a receipt change for the previous one.
       // Keep this dirty until a successful read taken after this send completes.
       receiptRefresh.current.set(id,Symbol());
@@ -517,7 +525,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}
               {messageImagesEnabled===true&&message.image&&<DirectMessageImage peer={peer} messageId={message.message_id}/>}
               {!(messageImagesEnabled===true&&message.image&&message.body==='[圖片]')&&<ChatBody message={message}/>}
-              {thread.can_send&&<div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={attempt?.status==='sending'} onClick={()=>{richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>}
+              {thread.can_send&&<div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[peer])return;richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>}
             </li>;})}
           </ol>}
           {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?attempt.stage==='upload'?'上傳圖片中…':attempt.stage==='message'?'傳送訊息中…':'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
@@ -531,7 +539,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
             if(!files.length)for(const item of Array.from(event.clipboardData.items)){if(item.kind==='file'){const file=item.getAsFile();if(file)files.push(file);}}
             if(files.length){event.preventDefault();attachImage(files);}
           }}>
-            <ChatExtras key={selection?.key??peer} target={peer} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(attempt)return;if(value.sticker_id)clearImage();richDrafts.change(peer,value);}}/>
+            <ChatExtras key={selection?.key??peer} target={peer} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(held.current[peer])return;if(value.sticker_id)clearImage();richDrafts.change(peer,value);}}/>
             {messageImagesEnabled===true&&<div className="message-image-controls">
               <input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const files=Array.from(event.target.files??[]);event.target.value='';if(files.length)attachImage(files);}}/>
               <button className="btn btn-ghost" type="button" disabled={Boolean(attempt)} onClick={()=>fileInput.current?.click()}>附加圖片</button>
@@ -542,7 +550,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
               <button className="btn btn-ghost" type="button" disabled={Boolean(attempt)} onClick={clearImage}>移除</button>
             </div>}
             <ChatInput id={`${uid}-compose`} label={`寫給 ${thread.participant.display_name} 的訊息`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
-              onSend={()=>void send(peer)} onChange={text=>{if(!attempt)setDrafts(value=>({...value,[peer]:text}));}}/>
+              onSend={()=>void send(peer)} onChange={text=>{if(!held.current[peer])setDrafts(value=>({...value,[peer]:text}));}}/>
             {attempt?.status==='unknown'&&<p className="messages-meta" role="note">原訊息與圖片已保留。請先重試確認結果，再修改內容或附件。</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">

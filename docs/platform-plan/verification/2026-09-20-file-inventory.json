@@ -2349,8 +2349,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 57520,
-      "sha256": "657ce4c888708624121c4943e9f27e2d9881068147b43d36b0ee55df21def99a"
+      "bytes": 58165,
+      "sha256": "6161e1f082c79b05a0c843c073a00e4dfa731da6adeaf9c9771fc2d863301532"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2714,8 +2714,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/message-image-client.ts",
-      "bytes": 2995,
-      "sha256": "93f5e6626effa49893e35870c662c0b6a294b6bc2d2419a6e8e6b4a290f433b3"
+      "bytes": 5633,
+      "sha256": "26dc7666c36400d74940a0faafc2d0492372f638b6cac409f28be2cfd544d2af"
     },
     {
       "path": "apps/portal-web/src/modules/module-words.ts",
@@ -13429,8 +13429,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 17319,
-      "sha256": "03847b110c75821db3c7661833b315f15cd1f32d9e44e0b7d6ec449528bc2b14"
+      "bytes": 18224,
+      "sha256": "7ec8261ac4bc7feb37ca0251ea1c661aa775f010515e4d8f1c53faa01de96f47"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -17214,8 +17214,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 1097,
-      "sha256": "4a4663706093ac3c47f3f5be17c439a71c49ae6d46cc15a19254590bfad34f6d"
+      "bytes": 1144,
+      "sha256": "43301270d9cd4555a9ed936dd84433d078a57f171c44eb0bc7405cf5e63e55e0"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19579,8 +19579,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 10459,
-      "sha256": "dfbf5c2b5143e0efba3b6886db7fe8c54916ed768214e094722a7a373fd33e60"
+      "bytes": 16851,
+      "sha256": "bf9e482941555f19ccdd86076f4fbd9e8f4e74d6291d947773b88cfc9d81179e"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20761,6 +20761,11 @@
       "path": "tests/runtime/member-skill-registration.test.ts",
       "bytes": 16948,
       "sha256": "ab3be71d326e20a0f1b4bd700fd1c18e7974db8362fc14a55d4dc5ef4b635b6b"
+    },
+    {
+      "path": "tests/runtime/message-image-ack.test.ts",
+      "bytes": 3076,
+      "sha256": "2b176daacf27a4c7991e7bc5d3f6769a26f9c9bd6cdffb4920801eff04dd05e0"
     },
     {
       "path": "tests/runtime/message-image-upload-reader.test.ts",

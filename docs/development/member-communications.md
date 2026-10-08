@@ -119,3 +119,15 @@ node --import tsx --test --test-concurrency=1 tests/runtime/member-blocking.test
 與圖片 runtime/browser 測試，不以目錄 wildcard 吸收舊 communications、App 或 routes。
 既有未映射 surface 仍回報 unavailable；descriptor 是來源 metadata，不是模組安裝
 或 application release。圖片沿 [既有 Asset adapter](../../modules/assets/message-image.md)。
+
+圖片或訊息送出時，原 tuple 先同步保存於本次 session 的記憶體 ref，再發起請求；
+React state 只負責畫面。頁面離開、Console 自身的 session-end 與 beforeunload
+讀同一 ref，包含首次 send 同一事件內的導覽；不同 principal／已撤銷 session
+仍清除私有資料。主視窗仍無法詢問另一 popout 的 pending tuple，不承諾跨窗
+登出攔截或 crash durability。
+
+只有 canonical ACK 核對成功才釋放原 key、body 與圖片 bytes：核對 message UUID、
+目前 sender／精確 recipient、server 正規化後正文、reply ID／sticker 與 image
+有無；圖片 metadata 必須為 WebP、正整數且不超過 1 MiB。Message.image
+沒有 image_id，不要求虛構欄位。2xx 的空物件或錯誤對象仍視為 unknown，
+沿原 tuple 重試，不以 HTTP status 代替提交確認。上傳 ACK 使用同一 byte bounds。
