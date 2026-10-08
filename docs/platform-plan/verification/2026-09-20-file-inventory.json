@@ -16284,8 +16284,8 @@
     },
     {
       "path": "modules/module-registry/operations.ts",
-      "bytes": 35508,
-      "sha256": "b6e5469e44219e286fa1843cf23983230c5cf7983c5eea00c79effb560186fed"
+      "bytes": 35742,
+      "sha256": "1f72c1c1bcedf0efe45db95e1cb674ef69a5f96d09da3ab90096ff8eba57a93a"
     },
     {
       "path": "modules/module-registry/plans.ts",
@@ -19639,8 +19639,8 @@
     },
     {
       "path": "tests/runtime/module-provisioning.test.ts",
-      "bytes": 24401,
-      "sha256": "64895b166a4931c1b0dca9b8e01a40a0d534804e8a6c63dc832216bf1f734d4e"
+      "bytes": 28825,
+      "sha256": "e4b680c80c76ca7e08ecc2c5207b874a709fa62ebad8cfd79405089dfea99dda"
     },
     {
       "path": "tests/runtime/module-registry-harness.ts",
