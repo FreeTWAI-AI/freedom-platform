@@ -2199,8 +2199,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
-      "bytes": 64628,
-      "sha256": "c29fb5eee5031e43b2b3f6bfa1d40217ce322a83f853eb492fc97e753d168154"
+      "bytes": 64671,
+      "sha256": "4a00d46dba677f5b3aad8ba24fb0186f4628d321e92a4ebec1925ac3a652d7dc"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",

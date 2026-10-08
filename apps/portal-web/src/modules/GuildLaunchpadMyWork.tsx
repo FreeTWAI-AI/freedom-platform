@@ -761,6 +761,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, 
           if (isProduction) {
             const parsed = parseProductionDossier(current.sourceText, workId);
             if (parsed.kind === 'dossier') {
+              setProduction(parsed.value);
               setProductionBaseline(JSON.stringify(parsed.value));
               setProductionRead({ kind: 'found', dossier: parsed.value, text: current.sourceText, result });
             }
