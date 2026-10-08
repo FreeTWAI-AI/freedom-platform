@@ -41,9 +41,10 @@ store, and verify binding presence/format without printing values. Deploy and
 verify staging first: an authorized list must paginate, a tampered cursor must
 return 422, and an inaccessible tenant must still return 404. Only then proceed
 with the approved production release. Do not release the source ahead of this
-configuration: it would turn existing authorized lists into 503. Keep an existing
-working release available for rollback; never roll back a key by placing it in
-source, logs, URLs or ordinary Worker vars. Synthetic keys in runtime tests and
+configuration: it would turn existing authorized lists into 503. Follow the
+[operator procedure and recovery limits](../../docs/development/tenant-list-cursors.md);
+an older unsigned reader is not an equivalent security rollback. Never place a
+key in source, logs, URLs or ordinary Worker vars. Synthetic keys in runtime tests and
 the disposable e2e server are public test data and are forbidden for deployments.
 
 `enableManualWork` is a facade over the same plan and launch core. The wire stays a `ManualWorkBinding`. An already-bound workspace returns inside the command with `reused: true` only while its entry instance and that instance's current deployment are both `active`. Otherwise it returns 409 `work_instance_unavailable` with the suspended, archived, or generic read-only detail. Refusal writes nothing and stores no receipt, so the same `Idempotency-Key` succeeds after a resume. A missing capacity policy is still `policy_unconfigured` on that path. When the tenant already has an active `work` instance and the caller sends no choice, the command fails with `instance_selection_required` even if there is exactly one candidate. The workspace row is locked `FOR NO KEY UPDATE` inside launch, after the installation fingerprint and the policy advisory, not in authorize.
