@@ -1,0 +1,124 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "skill-submissions",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/skill-submissions/limits.ts",
+    "modules/skill-submissions/payload.ts",
+    "modules/skill-submissions/public.ts",
+    "modules/skill-submissions/repository-match.ts",
+    "modules/skill-submissions/service.ts",
+    "modules/skill-submissions/upload-authority.ts",
+    "apps/platform-api/src/routes/skill-submissions.ts",
+    "apps/platform-api/src/routes/published-skills.ts",
+    "apps/portal-web/src/modules/SkillUpload.tsx",
+    "apps/portal-web/src/modules/SkillUpload.css",
+    "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
+    "apps/portal-web/src/modules/skill-upload-chat.ts",
+    "tests/runtime/skill-submissions.test.ts",
+    "tests/runtime/published-skills.test.ts",
+    "tests/runtime/skill-submission-upgrades.test.ts",
+    "tests/runtime/skill-upload-chat.test.ts",
+    "tests/runtime/skill-upload-client.test.ts",
+    "tests/e2e/skill-upload.spec.ts",
+    "tests/e2e/skill-book-upgrade.spec.ts"
+  ],
+  "public_exports": [
+    "modules/skill-submissions/limits.ts",
+    "modules/skill-submissions/payload.ts",
+    "modules/skill-submissions/public.ts",
+    "modules/skill-submissions/repository-match.ts",
+    "modules/skill-submissions/service.ts",
+    "modules/skill-submissions/upload-authority.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "asset-lifecycle",
+    "asset-storage",
+    "shared"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "skill-submissions.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/skill-submissions.ts",
+      "operations": [
+        "skill-submissions.submission.list",
+        "skill-submissions.manual-submission.create",
+        "skill-submissions.submission.issue",
+        "skill-submissions.submission.read",
+        "skill-submissions.manual-submission.update",
+        "skill-submissions.own-illustration.read",
+        "skill-submissions.grant.rotate",
+        "skill-submissions.submission.revoke",
+        "skill-submissions.submission.publish",
+        "skill-submissions.submission.upgrade",
+        "skill-submissions.upload-key.list",
+        "skill-submissions.upload-key.create",
+        "skill-submissions.upload-key.revoke"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "skill-submissions.agent-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/skill-submissions.ts",
+      "operations": [
+        "skill-submissions.agent-submission.create",
+        "skill-submissions.agent-submission.upload"
+      ],
+      "auth_profile": "skill-upload-key-or-grant"
+    },
+    {
+      "surface_id": "skill-submissions.published.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/published-skills.ts",
+      "operations": [
+        "skill-submissions.published-submission.list",
+        "skill-submissions.published-submission.read",
+        "skill-submissions.published-share-content.read",
+        "skill-submissions.published-illustration.read",
+        "skill-submissions.upload-skill-guide.read",
+        "skill-submissions.upload-protocol.read",
+        "skill-submissions.upload-guide.read",
+        "skill-submissions.published-agent-guide.read",
+        "skill-submissions.published-page.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "skill-submissions.upload-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/SkillUpload.tsx",
+      "operations": [
+        "skill-submissions.upload-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "skill-submissions.manual-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
+      "operations": [
+        "skill-submissions.manual-page.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

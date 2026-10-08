@@ -53,4 +53,10 @@ repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runti
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions
 skill-upload-chat skill-upload-client social-links squad-invitations tenant-authority-policy-grants tenant-authorization tenant-data-catalog tenant-data-isolation tenant-high-risk-verification tenant-membership-identity tenant-ownership tenant-ownership-transfer tenant-policy-operator tenant-read-deadline tenant-recovery tenant-rls-b2a-runtime-role tenant-rls-runtime-role tenant-snapshot-evidence-rls tenant-transaction tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy work-result-client worker-adapter tenant-rls-retarget tenant-route-matrix module-registry module-registry-review module-registry-rls-runtime-role module-provisioning module-capacity module-registry-schema
 guild-launchpad-journey
+ai-sister-guides asset-http-range auth-pruning community-discovery credential-ingest-rate-budget credential-setup-ui domain-media-gc domain-media-policy-grants
+event-banner-assets event-create-rate-limit event-highlight-assets event-video-assets link-preview-egress login-lockout-recovery machine-device-client media-accepted-formats-playback
+media-backup-archive media-backup-daily media-backup-evidence media-backup-retention media-backup-transfer media-domain-bridge media-recovery-bundle media-session-recovery
+media-verify member-service-cursor migration-runner-plan model-step-revocation-races native-text-invocation native-text-process openrouter-byok operator-avatar-backfill
+operator-banner-social-backfill operator-event-video-backfill operator-media-backfill operator-media-runtime-grants operator-skill-highlight-backfill organization-project-editing platform-json-body private-ai-preflight
+session-cookie-security social-preview-assets social-thumbnail-assets verify-guild-work worker-private-ai-ingest
 `.trim().split(/\s+/)).sort());
