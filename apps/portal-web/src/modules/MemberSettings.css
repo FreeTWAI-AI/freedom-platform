@@ -76,6 +76,23 @@
 .messages-bubbles>li.is-mine{justify-self:end;background:#1d2a12}
 .messages-compose{display:grid;gap:.5rem}
 .messages-compose textarea{width:100%;min-height:6rem;font-size:16px;resize:vertical}
+.message-image-link{display:block;width:fit-content;max-width:100%}
+.message-image{display:block;max-width:min(100%,320px);max-height:320px;object-fit:contain;border:1px solid var(--line);border-radius:12px}
+.message-image-controls{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0}
+.message-image-controls .btn,.message-image-preview .btn{min-height:44px;padding:6px 12px;font-size:14px;flex:none}
+.message-image-preview{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev)}
+.message-image-preview img{width:64px;height:64px;object-fit:contain;border-radius:8px;flex:none}
+.message-image-preview>span{min-width:0;flex:1;overflow-wrap:anywhere;font-size:14px}
+.message-image-preview small{display:block;color:var(--muted)}
+/* Image controls keep their own rows even in the phone's compact sticker layout. */
+html .chat-workspace .messages-compose.has-image-controls{grid-template-columns:minmax(0,1fr) auto}
+html .chat-workspace .messages-compose.has-image-controls>.chat-extras{grid-column:1/-1;grid-row:1}
+html .chat-workspace .messages-compose.has-image-controls>.message-image-controls{grid-column:1/-1;grid-row:2}
+html .chat-workspace .messages-compose.has-image-controls>.message-image-preview{grid-column:1/-1;grid-row:3}
+html .chat-workspace .messages-compose.has-image-controls>.chat-input{grid-column:1;grid-row:4}
+html .chat-workspace .messages-compose.has-image-controls>.messages-actions{grid-column:2;grid-row:4}
+html .chat-workspace .messages-compose.has-image-controls>.chat-input-help{grid-row:5}
+html .chat-workspace .messages-compose.has-image-controls>.banner{grid-row:6}
 .messages-search input{width:100%;font-size:16px;min-height:44px}
 /* Guild and squad chat: each row is the channel button itself. */
 .member-channel-list>li,.member-channel-list>li.is-unread{padding:0;border:0;background:none}

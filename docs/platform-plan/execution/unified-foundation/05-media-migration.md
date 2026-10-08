@@ -17,6 +17,7 @@ Spec ID：`UF-SPEC-MEDIA`；狀態：`profile-io-and-aggregate-inventory-local; 
 | community.event-highlight | community_event_highlight_images.bytes | typed asset/variant ref；image、thumb | variants 成對完成、移除權限、公開顯示 |
 | community.social-thumbnail | community_social_post_thumbnails.image_bytes | asset_id | 來源 metadata、作者替換/移除、fetch 失敗允許無縮圖；保留 SSRF 防護 |
 | member.service-cover | member_service_covers.image_bytes | asset_id | 暫停、隱藏、刪除後舊 URL 不可繞過 |
+| member.message-image（#230，新增，無舊 bytes） | 無；只有新上傳 | `member_message_image_asset_targets`（asset_id、message_id） | 只有該則私訊雙方可讀、撤權立即 404、不產生公開或簽章網址；本機驗證，保存／刪除規則見 [message-image.md](../../../../modules/assets/message-image.md) |
 
 ASSET-A 提供共同機制，ASSET-B 先接頭像；MEDIA-B/C 再用同一機制接其他六類。靜態 CSS/Logo/built-ins 留在 Git/Workers Assets，未需持久化的名片下載圖留在瀏覽器；salt、hash 等非媒體 bytea 不搬、不禁止。
 

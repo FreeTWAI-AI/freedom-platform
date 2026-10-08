@@ -8,7 +8,7 @@
 | --- | --- |
 | `playwright.config.ts` | 單一 worker、每輪一個 `fp_e2e_` schema、本機 webServer |
 | `scripts/e2e-server.ts` | 只聽 `127.0.0.1` 的本機測試伺服器，建立並卸下該輪 schema |
-| `scripts/run-e2e.mjs` | `npm run test:e2e` 的編排：普通輪、private-AI 輪、avatar-asset 輪 |
+| `scripts/run-e2e.mjs` | `npm run test:e2e` 的編排：普通輪、private-AI 輪、avatar-asset 輪、message-image 輪 |
 | `scripts/run-e2e.test.mjs` | 編排邏輯的 Node 測試，不開瀏覽器 |
 | `tests/e2e/fixtures.ts` | 規格使用的 `test`／`expect`，並在案例之間重設該 schema 的登入限流 |
 | `tests/e2e/navigation.ts` | 會員看得到的導覽與登出 |
@@ -17,15 +17,16 @@
 
 `public_exports` 是三個 helper：`tests/e2e/fixtures.ts`、`navigation.ts`、`quick-join.ts`。功能規格用 `./fixtures.js` 這類路徑 import 它們。規格檔本身不是 export，也不是這個模組的擁有路徑。
 
-## `npm run test:e2e` 的三輪
+## `npm run test:e2e` 的四輪
 
-`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑三個行程，每一輪都是新的 Playwright 行程與新的 schema：
+`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑四個行程，每一輪都是新的 Playwright 行程與新的 schema：
 
-1. 普通輪。參數原樣轉交，不設 `FREEDOM_E2E_PRIVATE_AI_FIXTURE` 或 `FREEDOM_E2E_AVATAR_ASSET_FIXTURE`。
+1. 普通輪。參數原樣轉交，不設任何 fixture 旗標。
 2. private-AI 輪。加上 `tests/e2e/private-work-ai.spec.ts`，且只設 `FREEDOM_E2E_PRIVATE_AI_FIXTURE=1`。
 3. avatar-asset 輪。加上 `tests/e2e/member-avatar-asset.spec.ts`，且只設 `FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1`。
+4. message-image 輪。加上 `tests/e2e/message-images.spec.ts`，且只設 `FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1`。伺服器這輪用記憶體內物件儲存，並把本機 schema 的 `member.message-image` 政策列設為啟用；普通輪保持功能未安裝，該規格在普通輪只驗證「沒有圖片控制項、路由 404」。
 
-前一輪非零結束碼或訊號會停下來，不開下一輪。呼叫端已經帶了其中一個 fixture 旗標、帶了檔案篩選，或是 `--help`／`--version` 時，維持單一行程，不再自動加另外兩輪。預設計畫不會在同一輪同時設兩個旗標。若環境已經兩個都是 `1`，編排不會拆開它們；`scripts/e2e-server.ts` 在啟動遷移前直接拋錯，兩個 fixture 不能一起用。
+前一輪非零結束碼或訊號會停下來，不開下一輪。呼叫端已經帶了其中一個 fixture 旗標、帶了檔案篩選，或是 `--help`／`--version` 時，維持單一行程，不再自動加另外幾輪。預設計畫不會在同一輪同時設兩個旗標。若環境已經有兩個以上是 `1`，編排不會拆開它們；`scripts/e2e-server.ts` 在啟動遷移前直接拋錯，fixture 不能一起用。
 
 `playwright.config.ts` 的 webServer 另固定帶上 `FREEDOM_E2E_GUIDE_FIXTURE=1` 與 `FREEDOM_E2E_GITHUB_FIXTURES=1`，以及這一輪的 `FREEDOM_E2E_SCHEMA`。`reuseExistingServer` 是 false。
 
@@ -44,7 +45,7 @@ descriptor 的 invariants 是下面這些 slug。沒有寫進去的，就是這�
 | slug | 程式實際做的事 |
 | --- | --- |
 | `isolated-fp-e2e-schema` | 只接受 `fp_e2e_` 加 32 hex；建立、搜尋路徑與卸下都對這個 schema |
-| `fixture-flags-never-combined` | 預設三輪各設一個旗標；伺服器在兩個旗標都是 `1` 時拋錯 |
+| `fixture-flags-never-combined` | 預設後三輪各設一個旗標；伺服器在 message-image 旗標與另一個旗標同時是 `1` 時拋錯 |
 | `port-from-freedom-e2e-port` | 埠只從 `FREEDOM_E2E_PORT` 讀，未設定為 4311，拒絕 4310／4312 |
 | `browser-server-local-only` | `NODE_ENV=production` 或非 `local` 的 `FREEDOM_ENV` 直接拋錯 |
 | `github-fetch-stubbed-when-flagged` | `FREEDOM_E2E_GITHUB_FIXTURES=1` 時，伺服器行程的 `globalThis.fetch` 改成 GitHub fixture。webServer 會設這個旗標。沒設時，這行替換不會發生 |
@@ -82,7 +83,7 @@ private-AI 輪會 `readFile` `deploy/cloudflare/sql/20-runtime-grants.psql`。�
 
 `e2e.harness` 是本機固定套件。它用與其他非 runtime adapter 相同的有界 Node reporter，在 60 秒、沒有資料庫的預算內只跑 `node --test scripts/run-e2e.test.mjs`。基準檔被刪、零測試、skip、TODO、取消或失敗都不能算通過。`governance.unit` 與 `runtime.full` 不會跑這個檔，所以 descriptor 的 `tests` 只有 `e2e.harness`。
 
-這份套件證明的是編排計畫：三輪順序、旗標不疊加、失敗即停、`test:e2e` 指向這個 runner。它不開 Chromium，也不建立 PostgreSQL schema。
+這份套件證明的是編排計畫：四輪順序、旗標不疊加、失敗即停、`test:e2e` 指向這個 runner。它不開 Chromium，也不建立 PostgreSQL schema。
 
 瀏覽器規格由 CI 的 `ui-e2e` job 跑：`npm ci`、安裝 Chromium、`npm run contracts:build`、`npm run build`，然後 `npm run test:e2e`。`node scripts/freedom.mjs verify` 不會取代那個 job。沒有 `TEST_DATABASE_URL` 時，runtime 套件是 `not_run`；那不表示瀏覽器已通過。
 

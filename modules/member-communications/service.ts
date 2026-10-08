@@ -4,7 +4,7 @@ import {command,type Command} from '../../packages/db/index.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
-import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
+import {DirectMessageInput,messageContents,storedMessageBody} from './content.js';
 import {markAllMemberChannelsRead} from './channels.js';
 import {MessageSearchQuery,messageSearchPattern,boundedMessageSearch,type MessageSearchPage} from './message-search.js';
 import {
@@ -18,13 +18,13 @@ export const CommunicationPageQuery=z.object({
 }).strict();
 const Empty=z.object({}).strict();
 const ConversationReadInput=z.object({through_message_id:z.uuid().optional()}).strict();
-const MessageInput=MessageContentInput;
+const MessageInput=DirectMessageInput;
 export const DIRECT_MESSAGE_RATE_LIMIT=20,DIRECT_MESSAGE_RATE_WINDOW_SECONDS=60;
 
 const ready=(alias:string)=>`${alias}.active AND (NOT ${alias}.onboarding_required OR ${alias}.onboarding_completed_at IS NOT NULL)`;
 const iso=(value:Date|string|null)=>value===null?null:new Date(value).toISOString();
 const pageOf=<T>(rows:T[],limit:number,offset:number)=>({items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null});
-function peerId(actor:Actor,raw:string){
+export function peerId(actor:Actor,raw:string){
   const id=z.uuid().parse(raw).toLowerCase();
   requireCondition(id!==actor.user_id.toLowerCase(),422,'self_conversation','不能傳訊息給自己。');
   return id;
@@ -202,8 +202,10 @@ export async function searchConversationMessages(pool:Pool,actor:Actor,rawPeer:s
   });
 }
 
-export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):Promise<Message>{
+/** `messageImages` is the installed image feature; without it image_id is refused as not found. */
+export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string,options:{messageImages?:boolean}={}):Promise<Message>{
   const body=MessageInput.parse(input.body),id=peerId(input.actor,rawPeer);
+  if(body.image_id!==undefined)requireCondition(options.messageImages===true,404,'not_found','找不到這個頁面。');
   // Receipts keep only the message id; replay rereads the sender's own row, so
   // message text never enters command receipts, journals or logs.
   const sent=await command(pool,input,async q=>{
@@ -225,8 +227,18 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):
     const recent=(await q.query(`SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND sender_ref=$2 AND created_at>clock_timestamp()-make_interval(secs=>$3)`,
       [input.actor.community_id,input.actor.user_id,DIRECT_MESSAGE_RATE_WINDOW_SECONDS])).rows[0].n;
     requireCondition(recent<DIRECT_MESSAGE_RATE_LIMIT,429,'message_rate_limited','訊息傳送太頻繁，請稍後再試。');
+    if(body.image_id){
+      // The draft must be this sender's own ready upload for exactly this recipient and not yet sent.
+      // The sidecar's composite key and UNIQUE(message_id) repeat these facts for concurrent sends.
+      const image=(await q.query(`SELECT t.message_id FROM member_message_image_asset_targets t JOIN assets a ON a.asset_id=t.asset_id AND a.purpose='member.message-image' AND a.state='ready' AND a.deletion_fence=0
+        WHERE t.image_id=$1 AND t.community_id=$2 AND t.owner_user_id=$3 AND t.recipient_user_id=$4 AND t.asset_id IS NOT NULL FOR UPDATE OF t`,[body.image_id,input.actor.community_id,input.actor.user_id,id])).rows[0];
+      requireCondition(image,404,'image_not_available','找不到可傳送的圖片，請重新選擇。');
+      requireCondition(image.message_id===null,409,'image_already_sent','這張圖片已經傳送過，請重新選擇。');
+    }
     const row=(await q.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,sticker_id,reply_to_message_id,created_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()) RETURNING message_id',
       [input.actor.community_id,input.actor.user_id,id,storedMessageBody(body),body.sticker_id??null,body.reply_to_message_id??null])).rows[0];
+    // Attach in the same transaction; the sidecar's composite key repeats sender, recipient and community.
+    if(body.image_id)requireCondition((await q.query('UPDATE member_message_image_asset_targets SET message_id=$2 WHERE image_id=$1 AND message_id IS NULL',[body.image_id,row.message_id])).rowCount===1,409,'image_already_sent','這張圖片已經傳送過，請重新選擇。');
     return {message_id:row.message_id as string};
   });
   const row=(await pool.query('SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages WHERE message_id=$1 AND community_id=$2 AND sender_ref=$3',

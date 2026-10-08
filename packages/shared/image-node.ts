@@ -13,7 +13,7 @@ export const nodeImageProcessor: ImageProcessor = Object.freeze({
     // No keepMetadata/withMetadata: EXIF, GPS, comments and ICC profiles are removed.
     // toBuffer performs the actual decode; header-only metadata is never stored.
     return image.autoOrient()
-      .resize(width, height, fit === 'cover' ? { fit, position: 'centre' } : { fit, background })
+      .resize(width, height, fit === 'cover' ? { fit, position: 'centre' } : fit === 'inside' ? { fit, withoutEnlargement: true } : { fit, background })
       .webp({ quality, effort }).timeout({ seconds: 5 }).toBuffer();
   },
 });

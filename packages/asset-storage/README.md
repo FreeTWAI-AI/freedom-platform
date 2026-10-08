@@ -94,6 +94,7 @@ arbitrary caps, MIME types or transform versions.
 | `community.event-highlight.thumbnail` | 200 KiB | `modules/community/event-highlights.ts` |
 | `community.social-thumbnail` | 512 KiB | `modules/skill-submissions/payload.ts` |
 | `member.service-cover` | 512 KiB | `modules/skill-submissions/payload.ts` |
+| `member.message-image` | 1 MiB | `modules/assets/message-image.ts` (new uploads only, no legacy bytes) |
 
 Raster legacy profiles permit PNG/JPEG/WebP; video permits MP4/WebM. Media
 metadata carries the exact `profileId` and its fixed `legacy-bytes.v1` transform.

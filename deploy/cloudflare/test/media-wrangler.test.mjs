@@ -30,13 +30,13 @@ function declared(config) {
   }
 }
 
-test('actual canonical Wrangler keeps all six flags OFF and reports unavailable bindings, never remote acceptance', () => {
+test('actual canonical Wrangler keeps all seven flags OFF and reports unavailable bindings, never remote acceptance', () => {
   const report = checkMediaWranglerConfig(resolve(root, 'wrangler.jsonc'), manifest);
   assert.equal(report.structural, true); assert.equal(report.status, 'unavailable');
   assert.equal(report.deployment_ready, false); assert.equal(report.provider_mutations, 0);
   assert.equal(report.enabled_by_this_tool, false); assert.equal(report.runtime_acceptance, 'not_run');
   for (const environment of Object.values(report.mapping)) {
-    assert.equal(environment.features.length, 7);
+    assert.equal(environment.features.length, 8);
     assert(environment.features.every(item => item.declared_enabled === false));
     assert(environment.features.filter(item => item.flag).every(item => item.installation === 'default_off'));
     assert.deepEqual(environment.required_capabilities, []);
@@ -48,7 +48,7 @@ test('actual canonical Wrangler keeps all six flags OFF and reports unavailable 
 
 test('fixed media flag mapping matches the actual installed main Worker and retained full social writer capability', () => {
   const source = readFileSync(resolve(root, 'apps/platform-api/src/worker.ts'), 'utf8');
-  const actual = [...new Set(source.match(/FREEDOM_(?:SERVICE_COVER|EVENT_BANNER|EVENT_VIDEO|SKILL_IMAGE|SOCIAL_THUMBNAIL|EVENT_HIGHLIGHT)_ENABLED/g))].sort();
+  const actual = [...new Set(source.match(/FREEDOM_(?:SERVICE_COVER|EVENT_BANNER|EVENT_VIDEO|SKILL_IMAGE|SOCIAL_THUMBNAIL|EVENT_HIGHLIGHT|MESSAGE_IMAGE)_ENABLED/g))].sort();
   assert.deepEqual([...flags].sort(), actual);
   for (const flag of flags) assert(source.includes(`env.${flag}==='true'`));
   const social = MEDIA_WORKER_FEATURES.find(item => item.purpose === 'community.social-thumbnail');
@@ -67,7 +67,7 @@ test('declared complete profiles map exact staging/production bucket, DB, app ro
     assert.equal(environment.expected_runtime_role, expected.database.roles.runtime);
     assert.equal(environment.expected_bucket, expected.r2_buckets[0].name);
     assert.equal(environment.origin, `https://${expected.hostname}`);
-    assert.equal(environment.features.filter(item => item.declared_enabled).length, 7);
+    assert.equal(environment.features.filter(item => item.declared_enabled).length, 8);
     assert.equal(environment.provider_role_database_readback, 'not_run');
     assert.equal(environment.provider_cache_readback, 'not_run');
     assert(environment.required_capabilities.includes('media.server-policy.v1'));
