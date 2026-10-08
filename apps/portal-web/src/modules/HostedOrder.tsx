@@ -95,7 +95,7 @@ export function HostedOrderPage({client, locationHash, registerLeave, replaceLoc
         clearAttempt(); setQuote(value); dirty.current = true; announce('請確認商品、數量與金額；目前尚未預留庫存。');
       } else {
         const value = readOrder(raw, attempt.kind === 'submit' ? {kind: 'intent', slug: attempt.slug, intent: attempt.body.client_order_id} : {kind: 'order', id: attempt.id}, attempt.kind === 'submit' ? attempt.body : undefined);
-        if (!value || attempt.kind === 'cancel' && (value.client_order_id !== attempt.intent || value.store.slug !== attempt.slug)) throw unreadable();
+        if (!value || attempt.kind === 'cancel' && (value.state === 'reserved' || value.client_order_id !== attempt.intent || value.store.slug !== attempt.slug)) throw unreadable();
         adoptOrder(value);
       }
     } catch (cause) {
