@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from 'react';
-import type { InvitationView, MemberView, RecoveryCaseView, TenantView, TransferView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
+import type { InstanceCapabilitiesInput, InvitationView, InviteRole, MemberView, RecoveryCaseView, TenantView, TransferView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
 import { ApiError, type PortalClient } from '../api';
 import type { SessionPayload } from '../types';
 import { TenantSelector, roleLabel } from './TenantSelector';
@@ -9,11 +9,37 @@ type Page<T> = { items: T[]; next_cursor: string | null; source_version: string 
 type Attempt = { key: string; path: string; body: unknown; ifMatch?: string; tenantId: string | null; notice?: string };
 type DirectoryPerson = { user_id: string; nickname: string };
 type AfterRole = TransferView['from_role_after'];
+type RoleChange = { member: MemberView; role: InviteRole; removed: InstanceCapabilitiesInput };
 const INVITE_ROLES = ['admin', 'operator', 'viewer'] as const;
 const AFTER_ROLES = ['admin', 'operator', 'viewer', 'revoked'] as const;
 const AFTER_LABEL: Record<AfterRole, string> = { admin: '管理員', operator: '操作者', viewer: '檢視者', revoked: '已撤銷' };
 const TRANSFER_HOURS = [1, 6, 24] as const;
 const UNRESOLVED_ALERT = '上一個操作的結果還在確認。請先按「再確認一次」，或重新送出原本的操作。';
+const WORK_PERMISSION_LABELS: Record<string, string> = {
+  'work:read': '讀取', 'work:create': '建立', 'work:write': '編輯', 'work:archive': '封存', 'work:result.write': '上傳成果',
+};
+
+function grantsForRole(member: MemberView, role: InviteRole): InstanceCapabilitiesInput {
+  if (role === 'admin') return [];
+  return member.instance_capabilities.map(grant => ({
+    instance_id: grant.instance_id,
+    capabilities: grant.capabilities.filter(key => role === 'operator' || key.endsWith(':read')),
+  })).filter(grant => grant.capabilities.length > 0);
+}
+
+function removedGrants(member: MemberView, next: InstanceCapabilitiesInput): InstanceCapabilitiesInput {
+  return member.instance_capabilities.map(grant => ({
+    instance_id: grant.instance_id,
+    capabilities: grant.capabilities.filter(key => !next.some(entry => entry.instance_id === grant.instance_id && entry.capabilities.includes(key))),
+  })).filter(grant => grant.capabilities.length > 0);
+}
+
+function grantSummary(grants: MemberView['instance_capabilities']) {
+  return grants.filter(grant => grant.capabilities.length > 0).map(grant => {
+    const moduleName = grant.capabilities.some(key => key.startsWith('work:')) ? '人工工作 ' : '';
+    return `${moduleName}…${grant.instance_id.slice(-6)}：${grant.capabilities.map(key => WORK_PERMISSION_LABELS[key] ?? key).join('、')}`;
+  }).join('；');
+}
 
 function attemptSlot(tenantId: string | null) { return tenantId ?? ''; }
 function sameRequest(attempt: Attempt, path: string, body: unknown, ifMatch?: string) {
@@ -56,11 +82,14 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
   const dialogTitle = useId();
   const unresolvedRef = useRef(new Map<string, Attempt>());
   const workspaceLock = useRef(false);
+  const memberChangeLock = useRef(false);
   const [tenants, setTenants] = useState<TenantView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tenant, setTenant] = useState<TenantView | null>(null);
   const [workspaceName, setWorkspaceName] = useState('');
   const [members, setMembers] = useState<MemberView[]>([]);
+  const [roleChange, setRoleChange] = useState<RoleChange | null>(null);
+  const [changingMember, setChangingMember] = useState<string | null>(null);
   const [membersComplete, setMembersComplete] = useState(true);
   const [invitations, setInvitations] = useState<InvitationView[]>([]);
   const [incomingTransfers, setIncomingTransfers] = useState<TransferView[]>([]);
@@ -156,7 +185,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
 
   async function loadMine(prefer?: string) {
     const { signal, live } = begin();
-    setLoading(true); setTenant(null); setMembers([]); setWorkspaceName(''); setPending(null); setTransferPreview(null);
+    setLoading(true); setTenant(null); setMembers([]); setRoleChange(null); setWorkspaceName(''); setPending(null); setTransferPreview(null);
     try {
       const [page, inbox, transfers, recoveries] = await Promise.all([
         client.get<Page<TenantView>>('/tenants?limit=100', { signal }),
@@ -215,7 +244,7 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     setNotice(''); setAlertText(''); setPeople([]); setRecipientPeople([]); setTransferPreview(null);
     setPending(unresolvedRef.current.get(tenantId) ?? unresolvedRef.current.get('') ?? null);
     const { signal, live } = begin();
-    setSelectedId(tenantId); setTenant(null); setMembers([]); setWorkspaceName(''); setOutgoing(null); setOutgoingReadError(''); setLoading(true);
+    setSelectedId(tenantId); setTenant(null); setMembers([]); setRoleChange(null); setWorkspaceName(''); setOutgoing(null); setOutgoingReadError(''); setLoading(true);
     void loadTenant(tenantId, signal, live).catch(error => { if (live()) setAlertText(error instanceof ApiError ? error.message : '需要處理'); }).finally(() => { if (live()) setLoading(false); });
   }
 
@@ -374,18 +403,33 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
     await loadMine(action === 'accept' ? invitation.tenant_id : selectedId ?? undefined);
   }
 
-  async function changeMember(member: MemberView, status: 'active' | 'revoked') {
-    if (!tenant) return;
-    const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, { role: member.role === 'owner' ? 'viewer' : member.role, status, instance_capabilities: [], reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' }, member.version);
-    if (!attempt) return;
-    const saved = await run<MemberView>(attempt);
-    if (!saved) return;
-    setNotice(status === 'revoked' ? `已撤銷${member.display_name}。` : `已更新${member.display_name}的角色。`);
-    await loadMine(tenant.tenant_id);
+  async function changeMember(member: MemberView, status: 'active' | 'revoked', role: InviteRole = member.role === 'owner' ? 'viewer' : member.role) {
+    if (!tenant || memberChangeLock.current) return;
+    memberChangeLock.current = true;
+    setChangingMember(member.principal_id);
+    try {
+      const instance_capabilities = status === 'revoked' ? [] : grantsForRole(member, role);
+      const attempt = attemptFor(tenant.tenant_id, `/tenants/${tenant.tenant_id}/members/${member.principal_id}/change`, { role, status, instance_capabilities, reason: status === 'revoked' ? '撤銷成員資格' : '調整成員角色' }, member.version);
+      if (!attempt) return;
+      const saved = await run<MemberView>(attempt);
+      if (!saved) return;
+      setNotice(status === 'revoked' ? `已撤銷${member.display_name}。` : `已更新${member.display_name}的角色。`);
+      await loadMine(tenant.tenant_id);
+    } finally {
+      memberChangeLock.current = false;
+      setChangingMember(null);
+    }
   }
 
-  async function updateRole(member: MemberView, role: 'admin' | 'operator' | 'viewer') {
-    await changeMember({ ...member, role }, member.status);
+  function updateRole(member: MemberView, role: InviteRole) {
+    setRoleChange(null);
+    if (memberChangeLock.current || role === member.role) return;
+    const removed = removedGrants(member, grantsForRole(member, role));
+    if (removed.length > 0) {
+      setRoleChange({ member, role, removed });
+      return;
+    }
+    void changeMember(member, member.status, role);
   }
 
   async function leave() {
@@ -603,15 +647,23 @@ export function TenantSettings({ client, session, enabled }: { client: PortalCli
         <h2>成員</h2>
         <ul className="stack tenant-rows">{members.map(member => <li key={member.principal_id} className="tenant-row">
           <p>{member.display_name}・{roleLabel(member.role)}・{member.status === 'active' ? '使用中' : '已撤銷'}</p>
+          {grantSummary(member.instance_capabilities) && <p className="field-hint tenant-member-grants">{grantSummary(member.instance_capabilities)}</p>}
           {canManage && member.status === 'active' && member.role !== 'owner' && member.principal_id !== tenant.my_membership.principal_id && <div className="actions tenant-member-actions">
             <div className="field tenant-member-role">
               <label htmlFor={`tenant-member-role-${member.principal_id}`}>角色</label>
-              <select id={`tenant-member-role-${member.principal_id}`} value={member.role} onChange={event => void updateRole(member, event.target.value as 'admin' | 'operator' | 'viewer')}>
+              <select id={`tenant-member-role-${member.principal_id}`} value={roleChange?.member.principal_id === member.principal_id ? roleChange.role : member.role} disabled={changingMember !== null} onChange={event => updateRole(member, event.target.value as InviteRole)}>
                 {inviteChoices.map(role => <option key={role} value={role}>{roleLabel(role)}</option>)}
               </select>
             </div>
-            <button type="button" className="btn btn-ghost" onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
+            <button type="button" className="btn btn-ghost" disabled={changingMember !== null} onClick={() => void changeMember(member, 'revoked')}>撤銷</button>
           </div>}
+          {roleChange?.member.principal_id === member.principal_id && <section aria-label="確認角色變更" aria-live="polite">
+            <p>改為{roleLabel(roleChange.role)}將移除以下實例權限：{grantSummary(roleChange.removed)}。</p>
+            <div className="actions">
+              <button type="button" className="btn btn-ghost" disabled={changingMember !== null} onClick={() => void changeMember(roleChange.member, 'active', roleChange.role)}>確認變更</button>
+              <button type="button" className="btn btn-ghost" disabled={changingMember !== null} onClick={() => setRoleChange(null)}>取消</button>
+            </div>
+          </section>}
         </li>)}</ul>
       </section>
       {canInvite && <form className="stack" onSubmit={event => void findPeople(event)}>

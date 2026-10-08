@@ -717,3 +717,23 @@ input,textarea,select{background:#0c1017;border-color:#404959;color:var(--ink)}i
 .settings-menu-list .language-picker label{flex-wrap:wrap;justify-content:flex-start}
 @media(max-width:860px){.login-language-row{order:0}.login-language-scope{grid-column:auto}.language-picker select{min-width:0;width:170px}.language-picker label{flex-wrap:wrap}.login-layout .purpose-entry strong{font-size:.875rem}.login-layout .login-card-heading{align-items:flex-start}}
 @media(max-width:760px){.tree-toggle{padding:15px 12px;gap:10px}.tree-toggle strong{font-size:.95rem}.tree-subcategories{padding:0 12px 12px}.tree-subtoggle{padding:14px 0}.custom-choice-input{flex-direction:column;align-items:stretch}.tree-toggle > span:last-child{font-size:.75rem}}
+
+/* Visitor exploration remains in normal flow before the existing account form. */
+.discovery-login-layout{align-items:start;padding:1.5rem;gap:1.5rem}
+.discovery-login-layout .discovery-story{align-self:start;min-width:0;gap:1rem}
+.discovery-story .brand-poster{width:min(220px,100%);border-color:var(--line)}
+.discovery-story .brand-poster img{height:auto;max-height:none;object-fit:contain}
+.public-discovery{min-width:0}
+.discovery-heading h1{font-size:clamp(1.4rem,2.5vw,2rem);line-height:1.3;margin:0}
+.discovery-heading p{margin:.5rem 0 .8rem}
+.discovery-heading .actions{flex-wrap:wrap}
+.discovery-section{min-width:0;border-top:1px solid var(--line);padding-top:.8rem}
+.discovery-section h2{font-size:1.1rem;margin:0 0 .65rem;scroll-margin-top:1rem}
+.discovery-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:.65rem}
+.discovery-card{min-width:0;padding:.85rem;box-shadow:none;overflow-wrap:anywhere}
+.discovery-card h3{font-size:1rem;line-height:1.5;margin:0 0 .4rem}
+.discovery-card h3 a{display:block;min-height:44px;color:var(--ink);text-decoration:underline}
+.discovery-card h3 a:hover,.discovery-card h3 a:focus-visible{color:var(--ink);text-decoration-thickness:2px}
+.discovery-card p{font-size:.9rem;margin:0 0 .6rem;line-height:1.6}
+.discovery-card-meta{display:flex;flex-wrap:wrap;gap:.3rem .7rem;color:var(--muted);font-size:.8rem}
+@media(max-width:860px){.discovery-login-layout{max-width:720px;padding:1rem;gap:1.25rem}.discovery-story .brand-poster{width:160px}.discovery-login-layout .login-form-area{width:100%;min-width:0}}

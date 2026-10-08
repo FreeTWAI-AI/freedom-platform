@@ -25,6 +25,7 @@ import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
+import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
@@ -137,6 +138,7 @@ function MemberApp() {
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [bootError, setBootError] = useState<ActionError | null>(null)
   const [loginNotice, setLoginNotice] = useState<string | null>(null)
+  const [publicReturnNotice, setPublicReturnNotice] = useState<string | null>(null)
   const [site, setSite] = useState<SiteConfig | null>(null)
   const [onboarding, setOnboarding] = useState<OnboardingView | null>(null)
   const [gateError, setGateError] = useState('')
@@ -259,7 +261,7 @@ function MemberApp() {
 
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
-    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} onLogin={()=>setEventLoginRequested(true)}/>;
+    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
     if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
@@ -272,12 +274,12 @@ function MemberApp() {
           notice={loginNotice}
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
-          onLoggedIn={applySession}
+          onLoggedIn={(next, returnNotice) => { applySession(next); setPublicReturnNotice(returnNotice ?? null) }}
           entryIntent={entryIntent}
           onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
-          onPasswordReset={()=>{clearResetHash();setResetToken(null);toLogin('密碼已重設，請用新密碼登入。')}}
+          onPasswordReset={next=>{clearResetHash();setResetToken(null);applySession(next)}}
         />
       </div>
     )
@@ -285,7 +287,8 @@ function MemberApp() {
 
   return (
     <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
-    {!onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
+    {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
+    {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
       ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?t(`intent.${entryIntent}`):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent)window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
@@ -328,14 +331,23 @@ function LoginView({
   notice: string | null
   bootError: ActionError | null
   onRetrySession: () => void
-  onLoggedIn: (session: SessionPayload) => void
+  onLoggedIn: (session: SessionPayload, returnNotice?: string) => void
   entryIntent: EntryIntent | null
   onChooseEntry: (intent: EntryIntent) => void
   resetToken:string|null
   onCancelReset:()=>void
-  onPasswordReset:()=>void
+  onPasswordReset:(session:SessionPayload)=>void
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'request-reset'>('login')
+  const [returnPath] = useState(() => publicDiscoveryPath(new URLSearchParams(window.location.search).get('return_to')))
+  const emailInput = useRef<HTMLInputElement>(null)
+  const authForm = useRef<HTMLFormElement>(null)
+  const discoveryEnabled = site?.community_discovery_enabled === true && !resetToken
+  const join = useCallback(() => {
+    setMode('register'); setError(null); setResetNotice('')
+    requestAnimationFrame(() => { authForm.current?.scrollIntoView({ block: 'start' }); emailInput.current?.focus({ preventScroll: true }) })
+  }, [])
+  useEffect(() => { if (discoveryEnabled && site?.registration_enabled && new URLSearchParams(window.location.search).get('join') === '1') join() }, [discoveryEnabled, site?.registration_enabled, join])
   const activeMode=resetToken?'confirm-reset':mode
   const [nickname, setNickname] = useState('')
   const [email, setEmail] = useState('')
@@ -346,7 +358,6 @@ function LoginView({
   const [error, setError] = useState<unknown>(null)
   const {language,t}=useLanguage()
   const errorDetails=error?{...describeError(error),message:authErrorMessage(error,language)}:null
-  const emailInput = useRef<HTMLInputElement>(null)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -361,8 +372,9 @@ function LoginView({
       }
       if(activeMode==='confirm-reset'){
         if(password!==confirmPassword)throw new Error('兩次輸入的新密碼不一致。')
-        await client.post('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
-        onPasswordReset()
+        const session=await client.post<SessionPayload>('/auth/reset/confirm',{token:resetToken,password},{skipAuthHandler:true})
+        if(!session?.user||!session.csrf_token)throw new Error('登入回應不完整')
+        onPasswordReset(session)
         return
       }
       const session = activeMode === 'register'
@@ -371,7 +383,12 @@ function LoginView({
       if (!session?.user || !session.csrf_token) {
         throw new Error('登入回應不完整')
       }
-      onLoggedIn(session)
+      if (activeMode === 'register' && discoveryEnabled && returnPath) {
+        let allowed = false
+        try { allowed = await validatePublicReturn(returnPath) } catch { /* Registration succeeded even when original content cannot be checked. */ }
+        if (allowed) { window.location.assign(returnPath); return }
+        onLoggedIn(session, '帳號已建立。原本的公開內容目前無法確認或已停止公開，你仍可繼續逛工坊。')
+      } else onLoggedIn(session)
     } catch (err) {
       setError(err)
     } finally {
@@ -381,18 +398,19 @@ function LoginView({
 
   const accessExpired = Boolean(bootError?.accessExpired || errorDetails?.accessExpired)
   return (
-    <main className="login-layout">
+    <main className={`login-layout${discoveryEnabled ? ' discovery-login-layout' : ''}`}>
       <div className="login-entry-tools"><LanguagePicker className="login-language-row"/><InstallAppButton/></div>
-      <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>{t('auth.headline')}</h1><p className="login-purpose-intro">{t('auth.intro')}</p><PlatformPurpose variant="public" disabled={pending||accessExpired||activeMode==='confirm-reset'} onAction={target=>{
+      {discoveryEnabled ? <section className="login-story discovery-story"><BrandPoster/><PublicDiscovery onJoin={join} registrationEnabled={Boolean(site?.registration_enabled)}/></section> : <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>{t('auth.headline')}</h1><p className="login-purpose-intro">{t('auth.intro')}</p><PlatformPurpose variant="public" disabled={pending||accessExpired||activeMode==='confirm-reset'} onAction={target=>{
         if(target!=='supplier'&&target!=='showcase'&&target!=='tasks')return
         onChooseEntry(target);setMode(site?.registration_enabled?'register':'login');setError(null);setResetNotice('')
         requestAnimationFrame(()=>emailInput.current?.focus())
-      }}/></div></section>
+      }}/></div></section>}
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
         {!accessExpired && activeMode!=='confirm-reset'&&<div className="auth-switch" role="group" aria-label={t('auth.switch')}><button type="button" className={activeMode==='login'?'selected':''} aria-pressed={activeMode==='login'} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>{t('auth.memberLogin')}</button>{site?.registration_enabled&&<button type="button" className={activeMode==='register'?'selected':''} aria-pressed={activeMode==='register'} onClick={()=>{setMode('register');setError(null);setResetNotice('')}}>{t('auth.create')}</button>}</div>}
         <header className="login-card-heading"><h2 id="login-heading">{t(accessExpired?'auth.accessExpired':activeMode==='register'?'auth.join':activeMode==='request-reset'?'auth.forgot':activeMode==='confirm-reset'?'auth.newPasswordTitle':'auth.login')}</h2><PageTools pageId="registration" compact/></header>
         {entryIntent&&!accessExpired&&activeMode!=='confirm-reset'&&activeMode!=='request-reset'&&<p className="purpose-next-destination" role="status">{language==='zh-Hant'?`${activeMode==='register'?'加入':'登入'}後前往：${entryIntentLabel(entryIntent)}。`:t('auth.destination',{destination:t(`intent.${entryIntent}`)})}</p>}
+        {discoveryEnabled && returnPath && activeMode === 'register' && <p className="muted">建立帳號後，會先確認並返回原本的公開內容；選公會與完整定位可以稍後再做。</p>}
         {notice && !accessExpired && (
           <p className="banner banner-info" role="status">
             {language==='zh-Hant'?notice:authErrorMessage({message:notice},language)}
@@ -403,7 +421,7 @@ function LoginView({
         )}
         {errorDetails && <ErrorPanel error={errorDetails} />}
         {resetNotice&&<p className="banner banner-info" role="status">{t('auth.resetNotice')}</p>}
-        {!accessExpired && <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+        {!accessExpired && <form ref={authForm} className="stack" onSubmit={(event) => void onSubmit(event)}>
           {activeMode==='register'&&<p className="registration-progress">{t('auth.progress')}</p>}
           {activeMode!=='confirm-reset'&&<label className="field">
             <span className="field-label">{t('auth.email')}</span>

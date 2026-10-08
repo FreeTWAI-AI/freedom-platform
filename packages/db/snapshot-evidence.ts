@@ -160,18 +160,23 @@ async function setSnapshotFormats(client: PoolClient): Promise<void> {
   await query(client, `SET LOCAL DateStyle = 'ISO, YMD'`);
   await query(client, `SET LOCAL extra_float_digits = 3`);
   await query(client, `SET LOCAL bytea_output = 'hex'`);
+  // Fail closed. A non-owner subject to row security errors instead of
+  // returning a silently filtered snapshot. Table owners are unchanged.
+  await query(client, `SET LOCAL row_security = off`);
   const rows = await query(
     client,
     `SELECT pg_catalog.current_setting('TimeZone') AS time_zone,
             pg_catalog.current_setting('DateStyle') AS date_style,
             pg_catalog.current_setting('extra_float_digits') AS extra_float_digits,
-            pg_catalog.current_setting('bytea_output') AS bytea_output`,
+            pg_catalog.current_setting('bytea_output') AS bytea_output,
+            pg_catalog.current_setting('row_security') AS row_security`,
   );
   if (rows.length !== 1) fail();
   if (text(rows[0], 'time_zone') !== 'UTC') fail();
   if (text(rows[0], 'date_style') !== 'ISO, YMD') fail();
   if (text(rows[0], 'extra_float_digits') !== '3') fail();
   if (text(rows[0], 'bytea_output') !== 'hex') fail();
+  if (text(rows[0], 'row_security') !== 'off') fail();
 }
 
 function quotedSha256Call(schema: string): string {

@@ -21,6 +21,17 @@ enforced while streaming, including requests without `Content-Length`; oversized
 streams are cancelled with `413 body_too_large` before their remainder is read.
 Binary uploads and signed machine transports retain their own bounded readers.
 
+HTTPS deployments use `__Host-freedom_session` with `Secure`, `HttpOnly`,
+`SameSite=Strict`, `Path=/` and no `Domain`. Only explicitly configured local
+HTTP loopback hosts use `freedom_local_session` without `Secure`. Cookie names
+come from trusted configured origin, not forwarding headers. HTTPS readers do
+not accept the old name: existing HTTPS sessions must log in again after this
+cutover. The member boundary, administrative member-linking and promotion
+click attribution all use this policy. Duplicate selected session cookies,
+including whitespace around names or identical values, return
+`403 credential_kind_rejected`; the platform rejects them before reading a
+mutation body or creating, replacing or revoking sessions.
+
 - `GET /api/v1/site`: brand, registration_enabled, demo_accounts_enabled, community.
 - `POST /auth/register`: `{email,password,nickname?,contacts?}`. Password 12–128
   characters, nickname up to 60. A missing or blank nickname becomes
@@ -29,9 +40,17 @@ Binary uploads and signed machine transports retain their own bounded readers.
   with a private default. Registration has exactly one email input: `email`.
   A separate `contacts.email` input is rejected. Contact email always comes from
   the login identity; its audience starts empty (private).
-- `POST /auth/login`: existing `{email,password}`. Email remains **unverified**;
-  there is no mail sender/reset/automatic provider linking. Slugs confer no
-  GitHub/Discord/LINE ownership or privileged action.
+- `POST /auth/login`: existing `{email,password}`. Password login does not verify
+  email or automatically link providers. Slugs confer no GitHub/Discord/LINE
+  ownership or privileged action.
+- `POST /auth/reset/request`: `{email}`; requires the configured recovery sender
+  and returns the same result for existing and unknown accounts.
+- `POST /auth/reset/confirm`: `{token,password}`; a valid one-use mailbox link
+  changes the password, revokes old sessions, clears account lockout and issues a
+  new session atomically. Returns `{reset,expires_after_minutes,user,csrf_token}`
+  with the same session cookie/lifetime as login; the session cookie already sent
+  by this browser is also revoked, as on login. Invalid, expired and inactive
+  proofs are rejected. See [password-recovery.md](password-recovery.md).
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
@@ -105,6 +124,17 @@ real socket IP; in-process requests share one budget. Registration caps are 8 pe
 network / 15 min, 3 per email / 15 min and 100 global / min; login 60 per network /
 15 min, 240 global / min plus 10 failures per account / 15 min. PostgreSQL persists
 these limits across worker restarts. Password hashing uses async scrypt.
+
+## Event submission budget
+
+`POST /api/v1/events` permits five newly committed submissions per member in a
+one-hour window. The PostgreSQL budget is locked and updated in the same
+transaction as the event, bulletin, notifications and receipt; concurrent requests
+cannot exceed it, and failed commands do not consume it. At capacity, new
+submissions return `429 auth_rate_limited` without those side effects. Exact
+Idempotency-Key replays remain available without consuming another slot.
+Five per hour is a provisional value (#199); it is the named constant
+`eventCreateLimit` in `modules/community/events.ts`.
 
 ## Member avatars
 
@@ -225,3 +255,36 @@ and does not record a clean migration audit for the ambiguous snapshot.
 Accepting the block still does not copy another guild into an empty slot
 or change the legacy primary, legacy secondary, membership tier, skill
 books, or contact visibility.
+
+### Backfill script
+
+The operator runs
+`npx tsx scripts/guild-preferences-backfill.ts --database-url <url>`.
+It defaults to a dry run; pass `--execute` to write, `--limit` to page the run,
+and `--community-id` when the database has more than one community. The script
+refuses `NODE_ENV=production`, port 54339 and a database named `freedom_local`,
+and never reads `DATABASE_URL`.
+
+Pass `--status` for a read-only snapshot. It first takes the guild catalog
+lock at session level. Then it opens one `REPEATABLE READ READ ONLY`
+transaction, so the snapshot includes every catalog-locked write committed
+before the lock was granted. Preference writes wait while it runs. The
+transaction is rolled back and the lock released even on error. It refuses
+`--execute` and `--limit`. It prints JSON with
+`totals` and one entry per community (or only the `--community-id` one). Entry
+fields are `remaining`, `remaining_blocked`, `blocking_reasons` (the dry-run
+reason codes), `blocking_reasons_complete`, `preference_sets` and
+`switched_at`. `blocking_reasons` counts the listed blocked candidates by
+reason code, and `blocking_reasons_complete` is false only when more than 500
+candidates are blocked, because the dry run lists at most 500.
+
+State is decided by the first matching rule (the first matching rule wins):
+- `switched`: the community's `guild_preference_switch` row is `switched`.
+- `blocked`: not switched, and at least one candidate has a block reason
+  (`remaining_blocked > 0`). `POST /admin/api/guild-preferences/switch` with
+  `accept_blocked: false` returns 409 `preference_switch_blocked` for this
+  community.
+- `legacy`: not switched, nothing is blocked, and candidates remain
+  (`remaining > 0`). The backfill has not finished.
+- `backfilled`: not switched and no candidate remains. A community with no
+  candidates at all is also `backfilled`.

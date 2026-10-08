@@ -107,10 +107,26 @@ const FOUNDATION_NAMES = [
   // Tenant ownership transfer, fresh verification and controlled recovery; no
   // authority policy is seeded and recognition activates nothing.
   '124_tenant_ownership_recovery.sql',
-  // Member-only native posts and interactions. Name recognition supplies no
-  // release approval; exact schema digests and the independent host remain required.
-  '125_social_feed_interactions.sql',
-  '126_workshop_sticker_pack.sql',
+  // Transaction-local tenant context and row security without FORCE. The runtime
+  // role is not the table owner, so ENABLE already applies to it.
+  '125_tenant_row_security.sql',
+  // Additive public project metadata marker; submission snapshots stay intact.
+  '126_project_public_metadata.sql',
+  // Retained session markers and FK lookup indexes for context-free pruning under RLS.
+  '127_auth_prune_retained_sessions.sql',
+  // Application catalog, module releases, launch plans and provision operations.
+  // Manual-work enablement stays a facade over the same launch core.
+  '128_module_registry.sql',
+  // Member suspend and resume of module instances: lifecycle operation kinds and a suspension pointer.
+  '129_module_instance_lifecycle.sql',
+  // Member archive of module instances: an archive operation kind and an archive pointer.
+  '130_module_instance_archive.sql',
+  // Ordinary per-instance member grants (export and purpose-bound grants stay
+  // closed); a module instance's release reference becomes immutable.
+  '131_tenant_module_permissions.sql',
+  // Member-only native posts and original sticker pack; name recognition is not release approval.
+  '132_social_feed_interactions.sql',
+  '133_workshop_sticker_pack.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

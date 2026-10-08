@@ -121,12 +121,16 @@ export const configSchema = z.object({
     ctx.addIssue({code: 'custom', message: 'block_set_invalid', path: ['blocks']});
     for (const kind of BLOCK_KINDS) if (!kinds.has(kind)) ctx.addIssue({code: 'custom', message: 'block_kind_missing', path: ['blocks']});
   }
-  if (value.application_refs.length > 0) ctx.addIssue({code: 'custom', message: 'application_release_unknown', path: ['application_refs']});
+  const applicationOrders = new Set<number>();
+  const applicationKeys = new Set<string>();
   value.application_refs.forEach((ref, index) => {
     const path = ['application_refs', index];
     if (!STABLE_KEY_PATTERN.test(ref.application_key)) ctx.addIssue({code: 'custom', message: 'stable_key_invalid', path: [...path, 'application_key']});
+    else if (applicationKeys.has(ref.application_key)) ctx.addIssue({code: 'custom', message: 'application_duplicate', path: [...path, 'application_key']});
+    else applicationKeys.add(ref.application_key);
     textIssue(ctx, ref.release_ref, [...path, 'release_ref'], {maxBytes: 200, minChars: 1, maxChars: 200});
-    if (!Number.isInteger(ref.order) || ref.order < 0 || ref.order > 1000) ctx.addIssue({code: 'custom', message: 'invalid_order', path: [...path, 'order']});
+    if (!Number.isInteger(ref.order) || ref.order < 0 || ref.order > 1000 || applicationOrders.has(ref.order)) ctx.addIssue({code: 'custom', message: 'invalid_order', path: [...path, 'order']});
+    else applicationOrders.add(ref.order);
   });
   textIssue(ctx, value.starter.title_label, ['starter', 'title_label'], {maxBytes: 480, minChars: 0, maxChars: 480});
   textIssue(ctx, value.starter.objective_hint, ['starter', 'objective_hint'], {maxBytes: 480, minChars: 0, maxChars: 480});
@@ -151,7 +155,7 @@ function httpsUrl(value: string): boolean {
   } catch { return false; }
 }
 
-const KNOWN = new Set(['unknown_field','control_character','lone_surrogate','too_short','too_long','invalid_order','schema_version_invalid','config_too_large','block_set_invalid','block_kind_invalid','block_kind_duplicate','block_kind_missing','enabled_locked','application_release_unknown','unsupported_url','stable_key_invalid','guild_key_mismatch','capability_duplicate','capabilities_invalid','version_invalid']);
+const KNOWN = new Set(['unknown_field','control_character','lone_surrogate','too_short','too_long','invalid_order','schema_version_invalid','config_too_large','block_set_invalid','block_kind_invalid','block_kind_duplicate','block_kind_missing','enabled_locked','application_release_unknown','application_duplicate','unsupported_url','stable_key_invalid','guild_key_mismatch','capability_duplicate','capabilities_invalid','version_invalid']);
 
 function mapIssues(issues: {code: string; message: string; path: PropertyKey[]; keys?: string[]}[]): FieldError[] {
   const errors: FieldError[] = [];
@@ -184,13 +188,13 @@ export function parseConfig(input: unknown, guildKey: string): Config {
   return parsed.data;
 }
 
-export function publicSafeConfig(config: Config): PublicSafeConfig {
+export function publicSafeConfig(config: Config, allowedReleaseRefs: ReadonlySet<string> = new Set()): PublicSafeConfig {
   return {
     schema_version: config.schema_version,
     guild_key: config.guild_key,
     mission_override: config.mission_override,
     blocks: config.blocks.map(block => ({...block})),
-    application_refs: [],
+    application_refs: config.application_refs.filter(ref => allowedReleaseRefs.has(ref.release_ref)).map(ref => ({...ref})),
     starter: {...config.starter},
     support: {...config.support},
   };

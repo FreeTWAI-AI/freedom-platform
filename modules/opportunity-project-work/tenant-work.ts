@@ -1,10 +1,12 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { WorkPageSchema, WorkSchema, type WorkView } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { withTenantRead, type TenantScopeInput } from '../../packages/resource-scopes/index.js';
+import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
+import { isWorkInstanceWritable, requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from './tenant-capabilities.js';
 
 export interface TenantWorkRow {
   work_item_id: string; tenant_id: string; workspace_id: string; instance_id: string;
@@ -15,17 +17,22 @@ export interface TenantWorkRow {
 const FIELDS = `w.work_item_id, w.tenant_id, w.workspace_id, w.instance_id, w.title, w.objective, w.progress, w.state,
   w.aggregate_version::text AS aggregate_version, w.updated_at, w.created_at, t.result_id AS current_result_id`;
 
-export function encodeKeyset(at: string, id: string) {
-  return Buffer.from(`${at}\n${id}`).toString('base64url');
+type WorkCursorContext = { tenantId: string; workspaceId: string; callerId: string; filter: string };
+export function encodeKeyset(at: string, id: string, context: WorkCursorContext) {
+  return Buffer.from(JSON.stringify({ ...context, at, id })).toString('base64url');
 }
-export function decodeKeyset(raw?: string): { at: string; id: string } | null {
+export function decodeKeyset(raw: string | undefined, context: WorkCursorContext): { at: string; id: string } | null {
   if (!raw) return null;
-  const text = Buffer.from(raw, 'base64url').toString('utf8');
-  const split = text.indexOf('\n');
-  if (split < 1) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  const at = text.slice(0, split), id = text.slice(split + 1);
-  if (!OpaqueId.safeParse(id).success || Number.isNaN(Date.parse(at))) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-  return { at, id };
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
+  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'at,callerId,filter,id,tenantId,workspaceId'
+    || Object.entries(context).some(([key, value]) => parsed[key] !== value)
+    || !isKeysetTimestamp(parsed.at) || !OpaqueId.safeParse(parsed.id).success) {
+    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+  }
+  return { at: parsed.at, id: parsed.id as string };
 }
 export function likePattern(value: string) {
   return `%${value.replace(/[\\%_]/g, match => `\\${match}`)}%`;
@@ -64,7 +71,7 @@ export async function lockWritableInstance(q: PoolClient, tenantId: string, inst
   const deployment = instance ? (await q.query<{ state: string }>(
     `SELECT state FROM deployment_bindings WHERE tenant_id=$1 AND binding_id=$2 AND instance_id=$3 FOR SHARE`,
     [tenantId, instance.binding_id, instanceId])).rows[0] : undefined;
-  requireCondition(instance?.status === 'active' && deployment?.state === 'active', 409, 'work_instance_unavailable', '這個工作實例目前無法接受新的寫入。');
+  requireCondition(isWorkInstanceWritable(instance?.status, deployment?.state), 409, 'work_instance_unavailable', '這個工作實例目前無法接受新的寫入。');
 }
 
 async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: string) {
@@ -83,10 +90,14 @@ async function workspaceSource(q: PoolClient, tenantId: string, workspaceId: str
 export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, query: { q?: string; limit?: number; cursor?: string }) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workspaceId);
   const limit = query.limit ?? 20;
-  const cursor = decodeKeyset(query.cursor);
+  const cursorContext = { tenantId, workspaceId, callerId: actor.user_id, filter: createHash('sha256').update(query.q ?? '').digest('hex') };
+  const cursor = decodeKeyset(query.cursor, cursorContext);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const source = await workspaceSource(q, tenantId, workspaceId);
+    const binding = (await q.query<{ instance_id: string }>(`SELECT instance_id FROM workspace_module_bindings
+      WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability='work:create'`, [tenantId, workspaceId])).rows[0];
+    if (binding) await requireWorkInstance(q, context, binding.instance_id, 'work:read');
     const rows = (await q.query<TenantWorkRow & { cursor_at: string }>(`SELECT ${FIELDS},
         to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
       FROM work_items w
@@ -99,7 +110,7 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
     const page = rows.slice(0, limit);
     return WorkPageSchema.parse({
       items: page.map(workView),
-      next_cursor: rows.length > limit ? encodeKeyset(page[page.length - 1].cursor_at, page[page.length - 1].work_item_id) : null,
+      next_cursor: rows.length > limit ? encodeKeyset(page[page.length - 1].cursor_at, page[page.length - 1].work_item_id, cursorContext) : null,
       source_version: source,
     });
   });
@@ -108,9 +119,10 @@ export async function listTenantWork(pool: Pool, actor: Actor, tenantId: string,
 export async function readTenantWork(pool: Pool, actor: Actor, tenantId: string, workId: string) {
   OpaqueId.parse(tenantId); OpaqueId.parse(workId);
   return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-    requireTenantCapability(context, 'work:read', false);
+    await requireWorkCapability(q, context, 'work:read', false);
     const row = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
     requireCondition(row && row.state === 'draft', 404, 'not_found', '找不到這個工作。');
+    await requireWorkInstance(q, context, row.instance_id, 'work:read', '找不到這個工作。');
     return workView(row);
   });
 }

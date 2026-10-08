@@ -168,6 +168,7 @@ test('a granted primary-guild book opens from the same next-step region', async 
   });
   await stubJson(page, '/api/v1/me/skill-books', { items: [{ book_id: 'book-other', id: 'book-other' }, { book_id: granted.book_id }] });
   await stubJson(page, '/api/v1/task-board/preview', { items: [] });
+  await stubJson(page, '/api/v1/dashboard', { now: [] });
   await login(page);
   const prompt = suggestion(page);
   await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
@@ -203,6 +204,7 @@ test('the task hint appears only when the board has open tasks and leaves the Co
   await stubCard(page, memberCard({ primary_guild: guild }));
   await stubJson(page, '/api/v1/me/skill-books', { items: [] });
   await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
+  await stubJson(page, '/api/v1/dashboard', { now: [] });
   await login(page);
   const prompt = suggestion(page);
   await expect(prompt.getByText(taskHint, { exact: true })).toBeVisible();
@@ -222,6 +224,7 @@ for (const [name, mock] of [
     await stubCard(page, memberCard({ primary_guild: guild }));
     await stubJson(page, '/api/v1/me/skill-books', { items: [] });
     await mock(page);
+    await stubJson(page, '/api/v1/dashboard', { now: [] });
     await login(page);
     const prompt = suggestion(page);
     await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
@@ -233,6 +236,45 @@ for (const [name, mock] of [
   });
 }
 
+const workHint = '你有認領中的工作還沒結案，可以回到「我的工作」繼續。';
+// Only `now` matters to home; the shape mirrors work.ts dashboard() for a claim that is still in progress.
+const unfinishedClaim = { work_item_id: 'claim-1', title: '不應顯示的工作標題', state: 'claiming_closed', my_claim: { claim_id: 'claim-1', state: 'in_progress' } };
+
+test('an unfinished claim replaces the open-task hint with a return to my work', async ({ page }) => {
+  await stubCard(page, memberCard({ primary_guild: guild }));
+  await stubJson(page, '/api/v1/me/skill-books', { items: [] });
+  await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
+  await stubJson(page, '/api/v1/dashboard', { now: [unfinishedClaim] });
+  await login(page);
+  const prompt = suggestion(page);
+  await expect(prompt.locator('.home-next-copy #home-next-task-hint')).toHaveText(workHint);
+  await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
+  await expect(prompt.getByText(taskHint, { exact: true })).toHaveCount(0);
+  await expect(prompt.getByRole('button', { name: /社群任務|分享作品與需求/ })).toHaveCount(0);
+  await expect(prompt).not.toContainText('不應顯示的');
+  const resume = prompt.getByRole('button', { name: '回到我的工作', exact: true });
+  await expect(resume).toHaveAccessibleDescription(`${skillsMessage} ${workHint}`);
+  await checkConsole(page, skillsMessage, 'skills');
+  await expect(page.locator('.game-console-entry[data-next-step="true"]').last()).not.toContainText(workHint);
+  await resume.focus();
+  await expect(resume).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#workbench$/);
+  await expect(page.getByRole('heading', { name: '我的工作', level: 1, exact: true })).toBeVisible();
+});
+
+test('a failed work dashboard read keeps the open-task hint', async ({ page }) => {
+  await stubCard(page, memberCard({ primary_guild: guild }));
+  await stubJson(page, '/api/v1/me/skill-books', { items: [] });
+  await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
+  await page.route(url => url.pathname === '/api/v1/dashboard', route => route.fulfill({ status: 503, body: '' }));
+  await login(page);
+  const prompt = suggestion(page);
+  await expect(prompt.getByText(taskHint, { exact: true })).toBeVisible();
+  await expect(prompt.getByRole('button', { name: '查看社群任務', exact: true })).toBeVisible();
+  await expect(prompt.getByText(workHint, { exact: true })).toHaveCount(0);
+});
+
 test('the home action stays compact, readable and reachable in all themes on desktop and phones', async ({ page }) => {
   test.setTimeout(90000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -240,6 +282,7 @@ test('the home action stays compact, readable and reachable in all themes on des
   await stubCard(page, memberCard({ primary_guild: guild, positioning_title: '測試探索者' }));
   await stubJson(page, '/api/v1/me/skill-books', { items: [] });
   await stubJson(page, '/api/v1/task-board/preview', { items: [{ work_item_id: 'preview-1', title: '不應顯示的任務標題' }] });
+  await stubJson(page, '/api/v1/dashboard', { now: [] });
   await login(page);
   const prompt = suggestion(page);
   const names = ['前往技能書架', '進入測試資安公會聊天室', '查看社群任務'] as const;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OpaqueId, Version, page } from './primitives.js';
+import { CapabilityKey, OpaqueId, Version, page } from './primitives.js';
 
 // Wire versions are positive decimal strings. Do not name a field aggregate_version:
 // the platform JSON middleware rewrites only that literal name into a number.
@@ -10,23 +10,25 @@ export const TenantStatusSchema = z.enum(['active', 'suspended', 'recovery_requi
 export const DisplayNameSchema = z.string().min(1).max(120).refine(value => new TextEncoder().encode(value).length <= 480 && !/[\u0000-\u001f\u007f]/.test(value), '名稱含有不允許的字元。');
 export const PersonNameSchema = z.string().min(1).max(240);
 export const PublicSlugSchema = z.string().max(64).regex(/^[a-z0-9](?:[a-z0-9-]{1,62}[a-z0-9])$(?![\s\S])/);
-export const ReasonSchema = z.string().min(3).max(1000).refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
+export const ReasonSchema = z.string().min(3).max(1000)
+  .refine(value => { const length = [...value].length; return length >= 3 && length <= 1000; }, '原因需有 3 至 1000 個字元。')
+  .refine(value => !/[\u0000-\u001f\u007f]/.test(value), '原因含有不允許的字元。');
 export const IsoTimeSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})$(?![\s\S])/);
 
-// This slice has no module instances. Inputs must send an empty list so the
-// shape can grow later. Any grant, including high-risk keys, is rejected here.
-export const EmptyInstanceCapabilitiesSchema = z.array(z.object({
+export const InstanceCapabilitiesInputSchema = z.array(z.object({
   instance_id: OpaqueId,
-  capabilities: z.array(z.string().max(80)).max(100),
-}).strict()).max(0);
+  capabilities: z.array(CapabilityKey).min(1).max(100),
+}).strict()).max(20).refine(entries => new Set(entries.map(entry => entry.instance_id)).size === entries.length,
+  '實例不能重複。').refine(entries => entries.every(entry => new Set(entry.capabilities).size === entry.capabilities.length),
+  '權限不能重複。');
 
 export const CapabilityGrantSchema = z.object({
   instance_id: OpaqueId.nullable(),
-  keys: z.array(z.string().max(80).regex(/^[a-z][a-z0-9._-]{0,79}$(?![\s\S])/)).max(100),
+  keys: z.array(CapabilityKey).max(100),
 }).strict();
 export const MemberCapabilitySchema = z.object({
   instance_id: OpaqueId,
-  capabilities: z.array(z.string().max(80).regex(/^[a-z][a-z0-9._-]{0,79}$(?![\s\S])/)).max(100),
+  capabilities: z.array(CapabilityKey).max(100),
 }).strict();
 
 export const TenantViewSchema = z.object({
@@ -88,14 +90,14 @@ export const WorkspaceCreateInputSchema = z.object({ name: DisplayNameSchema }).
 export const InviteInputSchema = z.object({
   invitee_principal_id: OpaqueId,
   role: InviteRoleSchema,
-  instance_capabilities: EmptyInstanceCapabilitiesSchema,
+  instance_capabilities: InstanceCapabilitiesInputSchema,
   expires_at: IsoTimeSchema,
 }).strict();
 export const InvitationRevokeInputSchema = z.object({ reason: ReasonSchema }).strict();
 export const MemberChangeInputSchema = z.object({
   role: InviteRoleSchema,
   status: z.enum(['active', 'revoked']),
-  instance_capabilities: EmptyInstanceCapabilitiesSchema,
+  instance_capabilities: InstanceCapabilitiesInputSchema,
   reason: ReasonSchema,
 }).strict();
 export const EmptyObjectSchema = z.object({}).strict();
@@ -205,6 +207,7 @@ export const TENANT_AUTHORITY_PROBLEM_CODES = [
   'tenant_recovery_required', 'tenant_suspended', 'slug_conflict', 'idempotency_conflict',
   'recovery_approval_expired', 'recovery_acceptance_required', 'recovery_case_terminal',
   'recovery_not_required', 'recovery_case_pending', 'version_conflict', 'version_required',
+  'capability_not_grantable', 'invitation_stale',
 ] as const;
 
 export type TenantView = z.infer<typeof TenantViewSchema>;
@@ -212,6 +215,7 @@ export type WorkspaceView = z.infer<typeof WorkspaceViewSchema>;
 export type MemberView = z.infer<typeof MemberViewSchema>;
 export type InvitationView = z.infer<typeof InvitationViewSchema>;
 export type TenantRole = z.infer<typeof TenantRoleSchema>;
+export type InstanceCapabilitiesInput = z.infer<typeof InstanceCapabilitiesInputSchema>;
 export type InviteRole = z.infer<typeof InviteRoleSchema>;
 export type TenantStatus = z.infer<typeof TenantStatusSchema>;
 export type TransferView = z.infer<typeof TransferViewSchema>;

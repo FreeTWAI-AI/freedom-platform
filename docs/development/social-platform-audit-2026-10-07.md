@@ -77,7 +77,7 @@ Hao 後續要求以取代 Facebook 為長期目標。候選版尚無超越 Faceb
 
 ## Migration 與審查注意
 
-只增加 [125_social_feed_interactions.sql](../../migrations/125_social_feed_interactions.sql)，不改歷史 SQL；主線 #175 的 124 保留，設定的 last 從 124 到 125，保留 gap 22。
+只增加 [125_social_feed_interactions.sql](../../migrations/132_social_feed_interactions.sql)，不改歷史 SQL；主線 #175 的 124 保留，設定的 last 從 124 到 125，保留 gap 22。
 124 是此基底的下一個可用編號，**#175 同時提出 124**。若 #175 先合併，本輪須改為下一個可用編號、重算 manifest／inventory 並重跑驗證；不得把兩個 124 直接合在同一 catalog，也不得新增假 gap 略過別人的 migration。
 本輪亦將精確檔名登錄至 release-compatibility 的已知 schema 清單，並更新完整 v3 測試 catalog 的 frontier。名稱登錄不能供給 release／restore／execution 權限，既有 host、完整 digest 與獨立批准要求保持；未知或改名 migration 仍拒絕。
 Operator 應先做受控 migration／staging 驗收再部署對應程式；本輪沒有操作 staging／production DB、合併或部署。
@@ -116,3 +116,5 @@ node scripts/run-e2e.mjs tests/e2e/social-feed.spec.ts tests/e2e/simple-social-e
 Git index 的 canonical blob inventory 由 Linux snapshot 驗證，最後檔案 hashes／本機連結數與候選 tree 附在 PR；不驗證 Markdown anchors、外部 URL、runtime、簽章或真人證據。
 Full runtime 沒有通過：首次 LOGIN role fixture 受本機 PostgreSQL 密碼驗證影響；專用容器重跑出現 avatar teardown 的 shared-memory 錯誤與 TLS fixture 失敗，725 個案例通過時停止該次全量執行。沒有用未修改基底重跑全套來證明失敗歸因。之後的 scoped final tests 改用專用、loopback、tmpfs、提高 lock 容量的 PostgreSQL 測試容器；沒有改平台或 production 資料庫設定。
 Focused pass 不推定成整庫 pass。正式環境負載、端到端時間、真人 30 秒加入、staging 登入後流程、全量 E2E／Worker 皆不由此結果推定。提交為待審 PR，整合前仍須通過 repo 的正式 gates。
+
+2026-10-08 整合補註：原 125／126 的新增 SQL 未改 bytes，於 #193 收尾候選暫重編為 132／133；上文測試與版本數據仍是原日期的證據，並非新整合版本重跑結果。

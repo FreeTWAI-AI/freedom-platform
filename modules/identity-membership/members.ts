@@ -43,16 +43,18 @@ export function normalizedContacts(raw:unknown,email:string) {
 // Persistent per-network budgets run before password hashing. A separate email
 // budget survives changing networks. No mail or provider ownership is inferred.
 export async function authRateLimit(pool:Pool,scope:string,network:string,limit:number,seconds=900) {
+  await transaction(pool,q=>authRateLimitInTransaction(q,scope,network,limit,seconds));
+}
+
+/** Domain commands charge only new effects and roll the budget back on failure. */
+export async function authRateLimitInTransaction(q:PoolClient,scope:string,network:string,limit:number,seconds=900) {
   const bucket=tokenHash(`${scope}/${network}`);
-  const blocked=await transaction(pool,async q=>{
-    await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT DO NOTHING',[bucket]);
-    const row=(await q.query('SELECT * FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket])).rows[0];
-    const expired=Date.now()-new Date(row.window_start).getTime()>=seconds*1000;
-    if(!expired&&row.attempts>=limit)return true;
-    await q.query(`UPDATE auth_rate_limits SET attempts=$2,window_start=CASE WHEN $3 THEN now() ELSE window_start END WHERE bucket=$1`,[bucket,expired?1:row.attempts+1,expired]);
-    return false;
-  });
-  requireCondition(!blocked,429,'auth_rate_limited','操作次數過多，請稍後再試。');
+  // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+  await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT(bucket) DO UPDATE SET bucket=excluded.bucket',[bucket]);
+  const row=(await q.query('SELECT * FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE',[bucket])).rows[0];
+  const expired=Date.now()-new Date(row.window_start).getTime()>=seconds*1000;
+  requireCondition(expired||row.attempts<limit,429,'auth_rate_limited','操作次數過多，請稍後再試。');
+  await q.query(`UPDATE auth_rate_limits SET attempts=$2,window_start=CASE WHEN $3 THEN now() ELSE window_start END WHERE bucket=$1`,[bucket,expired?1:row.attempts+1,expired]);
 }
 export async function registerMember(pool:Pool,raw:unknown,options:{communityId?:string;allowSingleCommunity:boolean;publicMode?:boolean}) {
   const body=RegistrationInput.parse(raw),email=body.email.trim().toLowerCase();

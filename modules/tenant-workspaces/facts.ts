@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import { VersionSchema } from '../../contracts/guild-launchpad/v1/tenant.js';
+import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 
 export const NOT_FOUND = '找不到這個業務空間。';
@@ -49,10 +50,36 @@ export async function bumpAuthorizationRevision(q: PoolClient, tenantId: string)
   return versionOf(row.authorization_revision);
 }
 
+/** Bind T/S for an existing tenant scope. A missing scope leaves the context unchanged. */
+export async function bindTenantScope(q: PoolClient, tenantId: string): Promise<boolean> {
+  const scope = (await q.query<{ scope_id: string }>(
+    `SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1`, [tenantId])).rows[0];
+  if (!scope) return false;
+  await bindTenantContext(q, { tenantId, tenantScopeId: scope.scope_id });
+  return true;
+}
+
+/** Caller has P bound and T clear. An UPDATE also needs SELECT visibility.
+ * With T clear, only the recipient read policy matches, so a transfer this
+ * person sent stays pending until that tenant's T is bound. The recipient
+ * update stays here, before any tenant is bound. */
 export async function invalidatePendingTransfersOfPrincipal(q: PoolClient, principalId: string): Promise<void> {
   await q.query(`UPDATE tenant_ownership_transfers
     SET state='invalidated', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
     WHERE state='pending' AND (from_principal_id=$1 OR to_principal_id=$1)`, [principalId]);
+  const tenants = (await q.query<{ tenant_id: string }>(`SELECT tenant_id FROM tenant_memberships
+    WHERE principal_id=$1 AND status='active'
+    ORDER BY tenant_id`, [principalId])).rows;
+  for (const tenant of tenants) {
+    await clearTenantContext(q);
+    await bindPrincipalContext(q, principalId);
+    if (!await bindTenantScope(q, tenant.tenant_id)) continue;
+    await q.query(`UPDATE tenant_ownership_transfers
+      SET state='invalidated', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+      WHERE tenant_id=$1 AND state='pending' AND from_principal_id=$2`, [tenant.tenant_id, principalId]);
+  }
+  await clearTenantContext(q);
+  await bindPrincipalContext(q, principalId);
 }
 
 /** Admin and security transactions are not scoped member commands, so they
@@ -81,24 +108,30 @@ export async function writeTenantControlEvent(q: PoolClient, input: {
     VALUES($1,$2,$3,'tenant',$4,$5)`, [randomUUID(), transition, scope.scope_id, input.eventType, JSON.stringify(payload)]);
 }
 
-export async function persistTransferFailure(pool: Pool, transferId: string): Promise<void> {
-  await pool.query(`UPDATE tenant_ownership_transfers
-    SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    WHERE transfer_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId]);
-  await pool.query(`UPDATE tenant_ownership_transfers t
-    SET state='invalidated', version=t.version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
-    FROM tenants tn
-    WHERE t.transfer_id=$1 AND t.tenant_id=tn.tenant_id AND t.state='pending'
-      AND (tn.authorization_revision<>t.tenant_authorization_revision OR tn.status<>'active'
-        OR NOT EXISTS (
-          SELECT 1 FROM tenant_memberships m
-          JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
-          JOIN users u ON u.user_id=p.user_ref AND u.active
-          WHERE m.tenant_id=t.tenant_id AND m.principal_id=t.from_principal_id AND m.role='owner' AND m.status='active')
-        OR NOT EXISTS (
-          SELECT 1 FROM principals rp
-          JOIN users ru ON ru.user_id=rp.user_ref AND ru.active
-          WHERE rp.principal_id=t.to_principal_id AND rp.kind='person' AND rp.status='active'))`, [transferId]);
+/** Own transaction so a rolled-back accept or decline still records the failure.
+ * Callers that know the tenant pass it. The two-argument form stays for the
+ * owner-role suites, which bypass row security. */
+export async function persistTransferFailure(pool: Pool, transferId: string, tenantId?: string): Promise<void> {
+  await isolatedTransaction(pool, async q => {
+    if (tenantId) await bindTenantScope(q, tenantId);
+    await q.query(`UPDATE tenant_ownership_transfers
+      SET state='expired', version=version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+      WHERE transfer_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [transferId]);
+    await q.query(`UPDATE tenant_ownership_transfers t
+      SET state='invalidated', version=t.version+1, decided_at=clock_timestamp(), updated_at=clock_timestamp()
+      FROM tenants tn
+      WHERE t.transfer_id=$1 AND t.tenant_id=tn.tenant_id AND t.state='pending'
+        AND (tn.authorization_revision<>t.tenant_authorization_revision OR tn.status<>'active'
+          OR NOT EXISTS (
+            SELECT 1 FROM tenant_memberships m
+            JOIN principals p ON p.principal_id=m.principal_id AND p.status='active'
+            JOIN users u ON u.user_id=p.user_ref AND u.active
+            WHERE m.tenant_id=t.tenant_id AND m.principal_id=t.from_principal_id AND m.role='owner' AND m.status='active')
+          OR NOT EXISTS (
+            SELECT 1 FROM principals rp
+            JOIN users ru ON ru.user_id=rp.user_ref AND ru.active
+            WHERE rp.principal_id=t.to_principal_id AND rp.kind='person' AND rp.status='active'))`, [transferId]);
+  });
 }
 
 export function encodeCursor(principalId: string, kind: string, tenantId: string | null, after: string): string {

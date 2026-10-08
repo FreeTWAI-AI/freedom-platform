@@ -11,6 +11,7 @@ import type { EventEmailSender } from '../../../modules/community/events.js';
 import type {GuildReviewer} from '../../../modules/community/guild-discovery.js';
 import type { ServiceCoverAssetService } from '../../../modules/assets/media-domain.js';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
+import type { ModuleProviderMap } from '../../../modules/module-registry/providers.js';
 
 /** Stable rate-limit key used whenever no trusted network address is available. */
 export const SHARED_NETWORK_KEY = 'shared-server';
@@ -34,8 +35,10 @@ export type PlatformRuntime = {
   /** GitHub App webhook secret. Undefined leaves only that route answering 503. */
   maintainerWebhookSecret: () => string | undefined;
   adminVerifier: AdminAccessVerifier;
-  /** Deterministic auth rate-limit key: a trusted client IP or SHARED_NETWORK_KEY. */
+  /** Trusted client address or SHARED_NETWORK_KEY; preserves promotion visitor identity. */
   sourceNetwork: (c: Context) => string;
+  /** Optional grouped budget key; adapters without it retain sourceNetwork limits. */
+  rateLimitNetwork?: (c: Context) => string;
   /** Hostnames accepted on inbound requests. */
   allowedHosts: ReadonlySet<string>;
   /** Origin for canonical/share URLs, development guidance, published-skill links and upload examples. */
@@ -73,6 +76,9 @@ export type PlatformRuntime = {
   linkPreviewFetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /** Explicit store for tenant Result bytes. Absent refuses upload and content reads. */
   tenantWorkAssetStore?: ObjectStore;
+  /** Injected module providers. Hosted work is always registered; tests add synthetic modules. */
+  moduleProviders?: ModuleProviderMap;
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
+  communityDiscoveryEnabled?: boolean;
 };

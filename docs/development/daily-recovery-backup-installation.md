@@ -71,6 +71,35 @@ must consume the entire digest-checked stream with `pg_restore --single-transact
 the two environment jobs with one host-owned lock: both databases share the same
 connection-limited cluster.
 
+## Row security from migration 125
+
+[Migration 125](../../migrations/125_tenant_row_security.sql) enables row security
+on the tenant tables without forcing it. `pg_dump` sets `row_security = off` by
+default and fails for a dump role that is neither a superuser, a role with
+`BYPASSRLS`, nor the table owner. `--enable-row-security` dumps only the rows
+visible to that role; without a tenant context this is not a full-data backup.
+
+Before migration 125 is applied to an environment, the operator must confirm
+that the reviewed full-data backup path for that environment can read every row
+of the row-security tables. Keep the dump role's attribute readback and, after
+the first backup that includes migration 125, per-table row counts from that
+backup compared with counts taken by the table owner. The backup role and
+adapter remain operator-managed outside this repository.
+
+`npm run test:media-restore` also runs the synthetic two-tenant drill. It checks
+that a read-only BYPASSRLS role dumps every row through the coordinator; counts
+and fingerprints equal the owner's at the same snapshot; a default dump without
+BYPASSRLS fails and its visible-rows dump is silently incomplete; restore keeps
+tenant and asset references and digests; and after lockdown and runtime grants,
+the runtime role sees only the bound tenant. The drill does not verify the
+production role's grants. T-046 is not run: the OPEN-07 retention values are
+decided, but no expiry executor exists yet. T-047 is a known gap:
+a membership or invitation revoked after backup comes back active on restore
+(the invitation returns to pending). Tenant tables have no recovery generation,
+epoch floor or tombstone yet. The drill keeps the desired behaviour as a todo
+test. Until fencing exists, only quarantine and the remaining operator steps
+keep those rows from being served.
+
 ## Invoke and independently accept
 
 Install a reviewed private wrapper at
@@ -169,6 +198,7 @@ Sequence evidence remains ascending noncycling lower-bound evidence, not MVCC.
 
 ```sh
 node --import tsx --test --test-concurrency=1 tests/runtime/media-backup-daily.test.ts
+npm run test:media-restore
 npm run test:media-restore -- --archive-only
 npm run typecheck
 ```

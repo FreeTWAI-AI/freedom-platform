@@ -58,7 +58,7 @@
     "apps/platform-api/src/routes/guild-launchpad.ts",
     "contracts/guild-launchpad/v1/config.ts"
   ],
-  "dependencies": ["command-core"],
+  "dependencies": ["command-core", "module-registry"],
   "contract_families": [],
   "client_profiles": [],
   "instructions": [

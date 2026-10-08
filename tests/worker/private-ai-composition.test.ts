@@ -35,7 +35,7 @@ const requestKeys=await crypto.subtle.generateKey('Ed25519',true,['sign','verify
 const issuerKeys=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 async function jwk(key:CryptoKey){const {kty,crv,x,y,d}=await crypto.subtle.exportKey('jwk',key);return {kty,crv,x,...(y?{y}:{}),...(d?{d}:{})};}
 const community=randomUUID(),user=randomUUID(),cookie=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');
-const headers={Cookie:'freedom_local_session='+cookie,'X-CSRF-Token':csrf,Origin:origin,'Content-Type':'application/json'};
+const headers={Cookie:'__Host-freedom_session='+cookie,'X-CSRF-Token':csrf,Origin:origin,'Content-Type':'application/json'};
 const paths={begin:'/execution-api/v1/auth/device-authorizations',token:'/execution-api/v1/auth/token',inspect:'/api/v1/me/device-authorizations/inspect',decide:'/api/v1/me/device-authorizations/decide',list:'/api/v1/me/agent-connections',status:'/execution-api/v1/bootstrap'};
 before(async()=>{
   await admin.query(`CREATE ROLE ${migrator} LOGIN PASSWORD '${rolePassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;

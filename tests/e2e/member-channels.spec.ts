@@ -651,9 +651,16 @@ test('light and versefolk selection uses the workshop green palette',async({page
     if(await page.getByRole('button',{name:'收合訊息控制台'}).count())await page.getByRole('button',{name:'收合訊息控制台'}).click();
     for(const width of [1280,390]){
       await page.setViewportSize({width,height:width===390?844:900});
-      if(width===390&&await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).isVisible())await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
+      if(width===390){
+        const back=guild.getByRole('button',{name:'← 返回公會列表',exact:true});
+        const resume=guild.getByRole('button',{name:'回到目前對話',exact:true});
+        // Both controls are rendered only after React has adopted the mobile pane.
+        // Later theme iterations may already be showing the list.
+        await expect(back.or(resume)).toBeVisible();
+        if(await back.isVisible())await back.click();
+      }
       const toggle=page.locator('.mobile-menu-toggle');
-      if(width===390&&await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+      if(width===390){await expect(toggle).toBeVisible();if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();}
       await settle(page);
       const active=await paintOf(page,nav);
       expect(active.background,`${theme} ${width} nav`).toBe(navBg);

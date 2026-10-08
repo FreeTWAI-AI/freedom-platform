@@ -19,7 +19,8 @@ export async function chargeBootstrapHttp(pool: Pool, environment: RuntimeEnviro
       let denied = false;
       // Global before network, for every request: fixed order and bounded creation.
       for (const [bucket, limit] of [[hash('global', 'global'), limits[operation][1]], [hash('network', network), limits[operation][0]]] as const) {
-        await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT DO NOTHING', [bucket]);
+        // DO UPDATE locks an existing row, so the scheduled prune cannot delete it before the SELECT below.
+        await q.query('INSERT INTO auth_rate_limits(bucket) VALUES($1) ON CONFLICT (bucket) DO UPDATE SET bucket = excluded.bucket', [bucket]);
         const row = (await q.query<{ attempts: number; expired: boolean }>(`SELECT attempts,
           window_start<=clock_timestamp()-interval '60 seconds' AS expired FROM auth_rate_limits WHERE bucket=$1 FOR UPDATE`, [bucket])).rows[0];
         if (!row.expired && row.attempts >= limit) { denied = true; break; }

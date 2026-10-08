@@ -9,6 +9,7 @@ import {notifyGuildApplicationReview,notifyGuildMasterChange} from '../member-co
 import {BackfillInput,ClassificationInput,SwitchInput} from '../../contracts/guild-launchpad/v1/guild-preferences.js';
 import {backfillInTransaction,classifyInTransaction,seedPendingClassification,switchInTransaction} from '../positioning/guild-categories.js';
 import {applyOwnerAccountStatus} from '../tenant-workspaces/security-path.js';
+import {isolatedTransaction} from '../../packages/resource-scopes/tenant-transaction.js';
 
 export type VerifiedAdminIdentity={email:string;subject:string;csrfToken:string};
 export type AdminActor={admin_id:string;community_id:string;email:string;display_name:string;role:'super_admin';subject:string};
@@ -28,9 +29,9 @@ export async function authenticateAdmin(q:Pool|PoolClient,identity:VerifiedAdmin
   return {...row,subject:identity.subject};
 }
 function publicAdmin(admin:AdminActor){return {admin_id:admin.admin_id,community_id:admin.community_id,email:admin.email,display_name:admin.display_name,role:admin.role};}
-export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false,revalidate?:(q:PoolClient)=>Promise<unknown>):Promise<T>{
+export async function adminCommand<T>(pool:Pool,input:AdminCommand,authorize:(q:PoolClient)=>Promise<unknown>,run:(q:PoolClient)=>Promise<T>,lockRoles=false,revalidate?:(q:PoolClient)=>Promise<unknown>,runner:typeof transaction=transaction):Promise<T>{
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
-  return transaction(pool,async q=>{
+  return runner(pool,async q=>{
     // Role mutations and Access synchronization serialize before locking the
     // acting admin. Otherwise two admins revoking one another can deadlock.
     if(lockRoles)await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`admin-roles/${input.admin.community_id}`]);
@@ -84,7 +85,7 @@ export async function changeMemberStatus(pool:Pool,input:AdminCommand,id:string)
     if(!body.active){await q.query('UPDATE sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1',[id]);await q.query('UPDATE member_client_connections SET revoked_at=COALESCE(revoked_at,now()),aggregate_version=aggregate_version+1 WHERE user_id=$1 AND revoked_at IS NULL',[id]);}
     await applyOwnerAccountStatus(q,id,body.active);
     await audit(q,input.admin,'member_status','member',id,body.reason,{active:prior.active,aggregate_version:prior.aggregate_version},{active:updated.active,aggregate_version:updated.aggregate_version});return updated;
-  });
+  },false,undefined,isolatedTransaction);
 }
 export async function adminApplications(pool:Pool,admin:AdminActor,limit:number,offset:number,state:string){
   const rows=(await pool.query(`SELECT a.*,u.display_name AS applicant_name,u.email AS applicant_email,g.name AS approved_guild_name,g.alias AS approved_guild_alias

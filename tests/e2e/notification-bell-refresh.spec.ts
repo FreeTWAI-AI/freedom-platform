@@ -1,5 +1,5 @@
 import {test,expect,type Page,type Route} from './fixtures.js';
-import {signOut} from './navigation.js';
+import {navigate,signOut} from './navigation.js';
 
 const preview='**/api/v1/me/notifications?limit=6&offset=0';
 const notice={notification_id:'synthetic-notice',title:'測試通知',body:'只有目前登入會員可見的合成提醒',created_at:'2026-01-01T00:00:00Z',read_at:null as string|null,action:null};
@@ -80,6 +80,40 @@ test('a slow preview shows immediate local feedback, closes by Escape and recove
   await expect(panel.getByRole('alert')).toHaveCount(0);await expect(bell).toHaveAccessibleName('通知，1 則未讀');
   await expect(panel.locator('.notification-bell-item')).toContainText(notice.body);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('a same-login bulk-read acknowledgement refreshes the bell after leaving Messages',async({page})=>{
+  let held:Route|undefined,read=false,previewReads=0;
+  await page.route(preview,async route=>{previewReads++;await route.fulfill({json:payload(read)});});
+  await page.route('**/api/v1/me/inbox/read-all',route=>{held=route;});
+  await login(page);
+  const bell=page.locator('.notification-bell-trigger');
+  await expect(bell).toHaveAccessibleName('通知，1 則未讀');
+  await navigate(page,'我的訊息');
+  const messages=page.locator('.member-messages');
+  await messages.getByRole('tab',{name:/^通知/}).click();
+  await messages.getByRole('button',{name:'全部標為已讀',exact:true}).click();
+  await expect.poll(()=>held!==undefined).toBe(true);
+  await navigate(page,'會員首頁');await expect(messages).toHaveCount(0);
+  await page.evaluate(()=>{
+    const state=window as typeof window&{noticeEvents:number;allReadEvents:number};
+    state.noticeEvents=0;state.allReadEvents=0;
+    window.addEventListener('freedom-inbox-updated',()=>state.noticeEvents++);
+    window.addEventListener('freedom-inbox-all-read',()=>state.allReadEvents++);
+  });
+  const before=previewReads,currentUrl=page.url();
+  const acknowledgement=page.waitForResponse(response=>response.url().endsWith('/me/inbox/read-all'));
+  try{
+    read=true;await held!.fulfill({json:{read_at:'2026-01-02T00:00:00Z'}});
+    await (await acknowledgement).finished();await frameBarrier(page);
+    await expect(bell).toHaveAccessibleName('通知');
+    expect(previewReads-before).toBe(1);
+    expect(await page.evaluate(()=>{
+      const state=window as typeof window&{noticeEvents:number;allReadEvents:number};
+      return {updated:state.noticeEvents,allRead:state.allReadEvents};
+    })).toEqual({updated:1,allRead:1});
+    await expect(page).toHaveURL(currentUrl);
+  }finally{if(held)await held.fulfill({json:{read_at:'2026-01-02T00:00:00Z'}}).catch(()=>{});}
 });
 
 for(const mode of ['single','all'] as const)test(`an old account ${mode} read acknowledgement cannot navigate or refresh the new login`,async({page})=>{

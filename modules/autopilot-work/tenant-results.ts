@@ -18,7 +18,7 @@ import { assetCommandKey, assetVersion, createAssetLifecycleWithAuthority, type 
 import { createTenantLifecycleAuthority, type TenantWorkActor } from '../assets/tenant-lifecycle-authority.js';
 import { withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability } from '../opportunity-project-work/tenant-capabilities.js';
+import { requireWorkCapability, requireWorkInstance } from '../opportunity-project-work/tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, requirePolicy, retainedByteUsage } from '../opportunity-project-work/tenant-capacity.js';
 import { rememberTenantCommand, stableOperationId } from '../opportunity-project-work/tenant-command.js';
 import { loadWork, lockWritableInstance, tenantWorkReadInput } from '../opportunity-project-work/tenant-work.js';
@@ -77,8 +77,10 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     async lockTarget(q, context, _actor, id, create): Promise<LifecycleTarget> {
       // Prepare (create) locks instance, then capacity policy, then Work.
       // Other phases lock the instance only; publication locks the intent, then policy, then Work.
+      await requireWorkCapability(q, context, 'work:result.write', true);
       const preview = await loadWork(q, context.tenant_id, context.scope.scope_id, id, false);
       requireCondition(preview, 404, 'not_found', '找不到這個工作。');
+      await requireWorkInstance(q, context, preview.instance_id, 'work:result.write', '找不到這個工作。');
       requireCondition(preview.state === 'draft', 409, 'work_archived', '這個工作已封存。');
       await lockWritableInstance(q, context.tenant_id, preview.instance_id);
       if (!create) return { targetId: id, aggregateVersion: preview.aggregate_version, assetId: null };
@@ -96,7 +98,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     },
     prepareRepresentation: preparePrivateText,
     // Runs inside the inserting command, including after the receipt wait.
-    revalidate: async (_q, context) => { requireTenantCapability(context, 'work:result.write', true); },
+    revalidate: async (q, context) => { await requireWorkCapability(q, context, 'work:result.write', true); },
     async lockPublication(q, context, _actor, row) {
       // Intent is already locked. The result trigger locks the Work row next, so this matches that order.
       const workId = row.target_work_id;
@@ -132,6 +134,23 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     return row;
   }
 
+  // These checks also authorize every receipt read/write in rememberTenantCommand.
+  // Version/state checks remain in inspect, so successful historical receipts stay replayable.
+  async function authorizeWork(q: PoolClient, context: TenantScopeContext, workId: string) {
+    await requireWorkCapability(q, context, 'work:result.write', true);
+    const row = await loadWork(q, context.tenant_id, context.scope.scope_id, workId, false);
+    requireCondition(row, 404, 'not_found', '找不到這個工作。');
+    await requireWorkInstance(q, context, row.instance_id, 'work:result.write', '找不到這個工作。');
+  }
+  async function authorizeUpload(q: PoolClient, context: TenantScopeContext, workId: string, uploadId: string, write: boolean) {
+    await requireWorkCapability(q, context, 'work:result.write', write);
+    const row = await intent(q, context, uploadId, workId);
+    const work = await loadWork(q, context.tenant_id, context.scope.scope_id, row.target_work_id, false);
+    requireCondition(work, 404, 'not_found', '找不到這個上傳。');
+    await requireWorkInstance(q, context, work.instance_id, 'work:result.write', '找不到這個上傳。');
+    return row;
+  }
+
   async function prepare(actor: Actor, tenantId: string, workId: string, body: unknown, key: string) {
     requireStore();
     const input = UploadPrepareSchema.parse(body);
@@ -141,8 +160,8 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       return await rememberTenantCommand(pool, {
         actor, tenantId, operation: 'work.tenant.prepare', key, target: { kind: 'tenant_work', id: workId },
         body: { work_id: workId, ...input },
-      }, async (_q, context) => {
-        requireTenantCapability(context, 'work:result.write', true);
+      }, async (q, context) => {
+        await authorizeWork(q, context, workId);
       }, async journal => {
         const prepared = await engine.prepare(actorOf(actor, tenantId), {
           key: engineKey, targetWorkId: workId, expectedVersion: input.expected_work_version, contentType: input.content_type,
@@ -169,8 +188,8 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       return await rememberTenantCommand(pool, {
         actor, tenantId, operation: 'work.tenant.write', key, target: { kind: 'tenant_upload', id: uploadId },
         body: { work_id: workId, upload_id: uploadId, byte_size: bytes.byteLength, sha256: digestHex },
-      }, async (_q, context) => {
-        requireTenantCapability(context, 'work:result.write', true);
+      }, async (q, context) => {
+        await authorizeUpload(q, context, workId, uploadId, true);
       }, async journal => {
         const bound = actorOf(actor, tenantId);
         const lease = await engine.resumeUpload(bound, { key: resumeKey, intentId: uploadId });
@@ -219,14 +238,16 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
       return await rememberTenantCommand<Operation>(pool, {
         actor, tenantId, operation: 'work.tenant.finalize', key, target: { kind: 'tenant_upload', id: uploadId },
         body: { work_id: workId, upload_id: uploadId, expected_work_version: input.expected_work_version },
-      }, async (_q, context) => {
-        requireTenantCapability(context, 'work:result.write', true);
+      }, async (q, context) => {
+        await authorizeUpload(q, context, workId, uploadId, true);
       }, async (journal, commit) => {
         const bound = actorOf(actor, tenantId);
         const lease = await engine.resumeUpload(bound, { key: resumeKey, intentId: uploadId });
         if (lease.state === 'finalized') {
-          const existing = (await pool.query<{ result_id: string; work_version: string }>(
-            `SELECT result_id, work_version::text AS work_version FROM tenant_work_results WHERE intent_id=$1`, [uploadId])).rows[0];
+          const existing = await withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async q => {
+            return (await q.query<{ result_id: string; work_version: string }>(
+              `SELECT result_id, work_version::text AS work_version FROM tenant_work_results WHERE intent_id=$1`, [uploadId])).rows[0];
+          });
           requireCondition(existing, 404, 'not_found', '找不到這個成果。');
           journal.record = false;
           return wire(tenantId, instanceId, 'work.result', existing.result_id, key, 'work.tenant.finalize');
@@ -284,8 +305,7 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
 
   async function readUpload(actor: Actor, tenantId: string, workId: string, uploadId: string) {
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-      requireTenantCapability(context, 'work:result.write', false);
-      return uploadView(await intent(q, context, uploadId, workId));
+      return uploadView(await authorizeUpload(q, context, workId, uploadId, false));
     });
   }
 
@@ -307,30 +327,40 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
     const limit = query.limit ?? 20;
     let cursor: string | null = null;
     if (query.cursor) {
-      const text = Buffer.from(query.cursor, 'base64url').toString('utf8');
-      if (!/^[1-9][0-9]{0,18}$/.test(text)) throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
-      cursor = text;
+      const invalid = () => new Problem(422, 'invalid_cursor', '分頁游標無效。');
+      let parsed: Record<string, unknown>;
+      try { parsed = JSON.parse(Buffer.from(query.cursor, 'base64url').toString('utf8')); }
+      catch { throw invalid(); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+        || Object.keys(parsed).sort().join(',') !== 'caller_id,revision,tenant_id,work_id'
+        || parsed.tenant_id !== tenantId || parsed.work_id !== workId || parsed.caller_id !== actor.user_id
+        || !assetVersion.safeParse(parsed.revision).success) throw invalid();
+      cursor = parsed.revision as string;
     }
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-      requireTenantCapability(context, 'work:read', false);
+      await requireWorkCapability(q, context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
+      await requireWorkInstance(q, context, work.instance_id, 'work:read', '找不到這個工作。');
       const rows = (await q.query<ResultRow>(`SELECT ${resultFields} FROM tenant_work_results r
         WHERE r.work_item_id=$1 AND r.tenant_id=$2 AND r.scope_id=$3 AND ($4::bigint IS NULL OR r.revision < $4::bigint)
         ORDER BY r.revision DESC LIMIT $5`, [workId, tenantId, context.scope.scope_id, cursor, limit + 1])).rows;
       const page = rows.slice(0, limit);
       return ResultPageSchema.parse({
         items: page.map(resultView),
-        next_cursor: rows.length > limit ? Buffer.from(page[page.length - 1].revision).toString('base64url') : null,
+        next_cursor: rows.length > limit ? Buffer.from(JSON.stringify({ tenant_id: tenantId, work_id: workId, caller_id: actor.user_id, revision: page[page.length - 1].revision })).toString('base64url') : null,
         source_version: work.aggregate_version,
       });
     });
   }
   async function readResult(actor: Actor, tenantId: string, workId: string, resultId: string) {
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-      requireTenantCapability(context, 'work:read', false);
+      await requireWorkCapability(q, context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
+      // Check the parent before the child, including a missing Result, so
+      // nested routes cannot disclose whether an unreadable Work exists.
+      await requireWorkInstance(q, context, work.instance_id, 'work:read', '找不到這個工作。');
       const row = (await q.query<ResultRow>(`SELECT ${resultFields} FROM tenant_work_results r
         WHERE r.result_id=$1 AND r.work_item_id=$2 AND r.tenant_id=$3 AND r.scope_id=$4`,
       [resultId, workId, tenantId, context.scope.scope_id])).rows[0];
@@ -341,9 +371,10 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
 
   async function snapshot(actor: Actor, tenantId: string, workId: string, resultId: string) {
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
-      requireTenantCapability(context, 'work:read', false);
+      await requireWorkCapability(q, context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
+      await requireWorkInstance(q, context, work.instance_id, 'work:read', '找不到這個工作。');
       const row = (await q.query<ResultRow>(`SELECT ${resultFields} FROM tenant_work_results r
         JOIN assets a ON a.asset_id=r.asset_id
         WHERE r.result_id=$1 AND r.work_item_id=$2 AND r.tenant_id=$3 AND r.scope_id=$4

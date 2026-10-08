@@ -29,11 +29,11 @@ export const FULL_RUNTIME_BASELINE = Object.freeze(paths(`
 newcomer-guides newcomer-guide-dialogue guide-anchors guide-pack-assets
 chat-content direct-message-receipts member-card-qr member-session-lifecycle
 admin-access-session admin-access-sync admin-access admin-appointments admin-guild-candidates admin-sync-worker
-agent-commerce agent-connections agent-connections-adversarial asset-authority-compatibility asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory avatar avatar-bridge
+agent-commerce agent-connections agent-connections-adversarial asset-authority-compatibility asset-engine asset-lifecycle-races asset-lifecycle asset-maintenance asset-r2 asset-storage asset-media-profiles media-inventory media-backup-coordinator avatar avatar-bridge
 avatar-command-compat avatar-upload benefits bootstrap-contracts bootstrap-http bootstrap-http-contracts bootstrap-issuer bootstrap-proof bootstrap-session-contracts bootstrap-session-proof bootstrap-sessions bootstrap-sessions-adversarial bootstrap-status bootstrap-status-adversarial client-connections co-creation
 command-core commerce credential-ingest-authorizations credential-ingest-broker credential-ingest-process credential-ingest-adversarial credential-broker-store credential-broker-crypto credential-broker-adversarial development-access-grant-race development-access development-map device-authorizations device-authorizations-adversarial device-pairing-contracts device-pairing-proof e2e-auth-isolation
 event-highlights events-past execution-authority-adversarial execution-prerequisites execution-runs execution-runs-adversarial execution-runs-grants execution-state execution-state-adversarial fixed-behavior-harness flows freedom_env game-console-feed game-console-routing game-console
-github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
+generator-drift github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-category-preferences guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
 guild-workspace guild-launchpad guild-launchpad-contracts guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
 member-channels-core member-communications member-connections member-directory member-ecard member-experience
@@ -51,5 +51,12 @@ portal-client-recovery positioning preview-protocol private-policy-grants privat
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams
 skill-collaboration skill-discovery skill-share-content skill-sharing skill-submission-upgrades skill-submissions
-skill-upload-chat skill-upload-client social-links squad-invitations tenant-authority-policy-grants tenant-authorization tenant-high-risk-verification tenant-membership-identity tenant-ownership tenant-ownership-transfer tenant-read-deadline tenant-recovery tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy work-result-client worker-adapter
+skill-upload-chat skill-upload-client social-links squad-invitations tenant-authority-policy-grants tenant-authorization tenant-data-catalog tenant-data-isolation tenant-high-risk-verification tenant-instance-permissions tenant-membership-identity tenant-ownership tenant-ownership-transfer tenant-policy-operator tenant-read-deadline tenant-recovery tenant-rls-b2a-runtime-role tenant-rls-runtime-role tenant-snapshot-evidence-rls tenant-transaction tenant-work tenant-work-authority-races tenant-work-schema verification-test-data work-privacy work-result-client worker-adapter tenant-rls-retarget tenant-route-matrix module-registry module-registry-review module-registry-rls-runtime-role module-provisioning module-capacity module-registry-schema module-instance-lifecycle module-instance-archive
+guild-launchpad-journey
+ai-sister-guides asset-http-range auth-pruning community-discovery credential-ingest-rate-budget credential-setup-ui domain-media-gc domain-media-policy-grants
+event-banner-assets event-create-rate-limit event-highlight-assets event-video-assets link-preview-egress login-lockout-recovery machine-device-client media-accepted-formats-playback
+media-backup-archive media-backup-daily media-backup-evidence media-backup-retention media-backup-transfer media-domain-bridge media-recovery-bundle media-session-recovery
+media-verify member-service-cursor migration-runner-plan model-step-revocation-races native-text-invocation native-text-process openrouter-byok operator-avatar-backfill
+operator-banner-social-backfill operator-event-video-backfill operator-media-backfill operator-media-runtime-grants operator-skill-highlight-backfill organization-project-editing platform-json-body private-ai-preflight
+session-cookie-security social-preview-assets social-thumbnail-assets verify-guild-work worker-private-ai-ingest
 `.trim().split(/\s+/)).sort());

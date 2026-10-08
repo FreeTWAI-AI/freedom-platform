@@ -1,27 +1,31 @@
+import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import {
   AcceptResultSchema, CreateResultSchema, DisplayNameSchema, EmptyObjectSchema, InvitationPageSchema, InvitationRevokeInputSchema,
   InvitationViewSchema, InviteCandidateSchema, InviteInputSchema, LeaveResultSchema, MemberChangeInputSchema, MemberPageSchema,
   MemberViewSchema, TenantCreateInputSchema, TenantEditInputSchema, TenantPageSchema, TenantViewSchema,
   WorkspaceCreateInputSchema, WorkspacePageSchema, WorkspaceViewSchema,
-  type InvitationView, type MemberView, type TenantStatus, type TenantView, type WorkspaceView,
+  type InstanceCapabilitiesInput, type InvitationView, type MemberView, type TenantStatus, type TenantView, type WorkspaceView,
 } from '../../contracts/guild-launchpad/v1/tenant.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import type { Actor } from '../identity-membership/service.js';
 import { checkVersion } from '../../packages/db/index.js';
-import { transaction } from '../../packages/db/transaction.js';
 import { assertCurrentSessionClock, lockMemberSession } from '../../packages/db/member-session.js';
 import { mapPersonPrincipal, withTenantRead, type TenantScopeContext } from '../../packages/resource-scopes/index.js';
+import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { scopedJournal, scopedMemberCommand, scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
   MAX_ACTIVE_TENANTS_PER_PERSON, MAX_INVITATION_DAYS, MAX_PENDING_INVITATIONS_PER_TENANT, MAX_WORKSPACES_PER_TENANT,
   RESERVED_SLUGS, can, canInviteRole, canManageRole, roleCapabilities, type TenantCapability,
 } from './authorization.js';
-import { auditTenant, bumpAuthorizationRevision, iso, requireMutableStatus, versionOf } from './facts.js';
+import { auditTenant, bindTenantScope, bumpAuthorizationRevision, iso, requireMutableStatus, versionOf } from './facts.js';
+import { activeInstanceGrants, replaceInstanceGrants, revokeInstanceGrants, validateInstanceGrants } from './instance-grants.js';
 
 const NOT_FOUND = '找不到這個業務空間。';
 const INVITE_MISSING = '找不到這份邀請。';
+const INVITE_SCOPE_MAX_BYTES = 8192;
+const INVITE_SCOPE_TOO_LARGE = '邀請的權限範圍太大，請減少實例或權限後再試。';
 const MEMBER_MISSING = '找不到這位成員。';
 const DENIED = '你目前沒有這項業務空間權限。';
 
@@ -83,7 +87,9 @@ async function tenantView(q: PoolClient, tenantId: string, principalId: string):
     tenant_id: row.tenant_id, community_id: row.community_id, display_name: row.display_name, public_slug: row.public_slug,
     status: row.status, version: versionOf(row.version), authorization_revision: versionOf(row.authorization_revision),
     my_membership: { principal_id: principalId, role: row.role, version: versionOf(row.membership_version) },
-    capabilities: [{ instance_id: null, keys: [...roleCapabilities(row.role)] }],
+    capabilities: [{ instance_id: null, keys: [...roleCapabilities(row.role)] },
+      ...((await activeInstanceGrants(q, tenantId, [principalId])).get(principalId) ?? [])
+        .map(entry => ({ instance_id: entry.instance_id, keys: entry.capabilities }))],
     default_workspace_id: await defaultWorkspaceId(q, tenantId),
   });
 }
@@ -93,25 +99,25 @@ async function workspaceView(q: PoolClient, workspaceId: string): Promise<Worksp
   requireCondition(row, 500, 'internal_error', '工作區無法讀取。');
   return WorkspaceViewSchema.parse({ ...row, version: versionOf(row.version) });
 }
-async function memberView(q: PoolClient, tenantId: string, principalId: string): Promise<MemberView> {
+async function memberView(q: PoolClient, tenantId: string, principalId: string, grants?: InstanceCapabilitiesInput): Promise<MemberView> {
   const row = (await q.query<{ principal_id: string; role: MemberView['role']; status: 'active' | 'revoked'; version: string }>(
     `SELECT principal_id,role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId])).rows[0];
   requireCondition(row, 404, 'member_not_found', MEMBER_MISSING);
   return MemberViewSchema.parse({
     principal_id: row.principal_id, display_name: await personName(q, row.principal_id), role: row.role, status: row.status,
-    instance_capabilities: [], version: versionOf(row.version),
+    instance_capabilities: grants ?? (await activeInstanceGrants(q, tenantId, [principalId])).get(principalId) ?? [], version: versionOf(row.version),
   });
 }
 async function invitationView(q: PoolClient, invitationId: string): Promise<InvitationView> {
   const row = (await q.query<{
     invitation_id: string; tenant_id: string; tenant_display_name: string; invitee_principal_id: string;
-    role: InvitationView['role']; state: InvitationView['state']; expires_at: Date; version: string;
-  }>(`SELECT i.invitation_id,i.tenant_id,t.display_name AS tenant_display_name,i.invitee_principal_id,i.role,i.state,i.expires_at,i.version::text AS version
+    role: InvitationView['role']; state: InvitationView['state']; expires_at: Date; version: string; instance_capabilities: InstanceCapabilitiesInput;
+  }>(`SELECT i.invitation_id,i.tenant_id,t.display_name AS tenant_display_name,i.invitee_principal_id,i.role,i.instance_capabilities,i.state,i.expires_at,i.version::text AS version
     FROM tenant_invitations i JOIN tenants t ON t.tenant_id=i.tenant_id WHERE i.invitation_id=$1`, [invitationId])).rows[0];
   requireCondition(row, 404, 'invitation_not_found', INVITE_MISSING);
   return InvitationViewSchema.parse({
     invitation_id: row.invitation_id, tenant_id: row.tenant_id, tenant_display_name: row.tenant_display_name,
-    invitee_principal_id: row.invitee_principal_id, role: row.role, instance_capabilities: [], state: row.state,
+    invitee_principal_id: row.invitee_principal_id, role: row.role, instance_capabilities: row.instance_capabilities, state: row.state,
     expires_at: iso(row.expires_at), version: versionOf(row.version),
   });
 }
@@ -120,7 +126,7 @@ async function activeOwnerCount(q: PoolClient, tenantId: string): Promise<number
   return (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships WHERE tenant_id=$1 AND role='owner' AND status='active'`, [tenantId])).rows[0].n;
 }
 async function callerPrincipal(pool: Pool, actor: Actor): Promise<string> {
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active' && principal.kind === 'person', 403, 'principal_disabled', '這個身分目前無法使用。');
@@ -146,27 +152,33 @@ export async function createTenant(pool: Pool, actor: Actor, body: unknown, key:
   return scopedMemberCommand(pool, {
     actor, scope: 'personal', operation: 'tenant.create', key, body: input,
     target: { kind: 'tenant_collection', id: principalId },
-  }, async () => {}, async (q, context) => {
+  }, async (q, context) => {
+    await bindPrincipalContext(q, context.subject_principal.principal_id);
+  }, async (q, context) => {
     // Do not upgrade the principal row: lockMemberScope already holds it FOR SHARE,
     // and two creates would deadlock on that upgrade. This lock queues them instead.
+    // The quota count runs before a tenant context is bound, through the principal policies.
     await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('tenant.create/v1/' || $1::text, 0))`, [context.subject_principal.principal_id]);
     const active = (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
       WHERE m.principal_id=$1 AND m.status='active' AND t.status='active'`, [context.subject_principal.principal_id])).rows[0].n;
     if (active >= MAX_ACTIVE_TENANTS_PER_PERSON) throw new Problem(429, 'quota_exceeded', '使用中的業務空間已達上限。', 60);
     const workspaceName = input.workspace_name ?? input.display_name;
     DisplayNameSchema.parse(workspaceName);
-    const tenant = (await q.query<{ tenant_id: string }>(`INSERT INTO tenants(community_id,display_name,created_by_principal_id)
-      VALUES($1,$2,$3) RETURNING tenant_id`, [actor.community_id, input.display_name, context.subject_principal.principal_id])).rows[0];
-    await q.query(`INSERT INTO resource_scopes(kind,tenant_ref) VALUES('tenant',$1)`, [tenant.tenant_id]);
-    await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`, [tenant.tenant_id, context.subject_principal.principal_id]);
-    const workspace = (await q.query<{ workspace_id: string }>(`INSERT INTO workspaces(tenant_id,name,is_default) VALUES($1,$2,true) RETURNING workspace_id`, [tenant.tenant_id, workspaceName])).rows[0];
-    await auditTenant(q, tenant.tenant_id, context.subject_principal.principal_id, 'tenant.create', context.subject_principal.principal_id, '1', '1', 'tenant.created');
-    const view = await tenantView(q, tenant.tenant_id, context.subject_principal.principal_id);
+    const tenantId = randomUUID();
+    const scopeId = randomUUID();
+    await bindTenantContext(q, { tenantId, tenantScopeId: scopeId });
+    await q.query(`INSERT INTO tenants(tenant_id,community_id,display_name,created_by_principal_id)
+      VALUES($1,$2,$3,$4)`, [tenantId, actor.community_id, input.display_name, context.subject_principal.principal_id]);
+    await q.query(`INSERT INTO resource_scopes(scope_id,kind,tenant_ref) VALUES($1,'tenant',$2)`, [scopeId, tenantId]);
+    await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`, [tenantId, context.subject_principal.principal_id]);
+    const workspace = (await q.query<{ workspace_id: string }>(`INSERT INTO workspaces(tenant_id,name,is_default) VALUES($1,$2,true) RETURNING workspace_id`, [tenantId, workspaceName])).rows[0];
+    await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.create', context.subject_principal.principal_id, '1', '1', 'tenant.created');
+    const view = await tenantView(q, tenantId, context.subject_principal.principal_id);
     const space = await workspaceView(q, workspace.workspace_id);
-    await scopedJournal(q, context, { aggregate_type: 'tenant', id: tenant.tenant_id, version: view.version, operation: 'tenant.create',
-      data: { tenant_id: tenant.tenant_id, version: view.version }, eventType: 'freedom.tenant.created.v1' });
-    await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenant.tenant_id, version: view.authorization_revision, operation: 'tenant.create',
-      data: { tenant_id: tenant.tenant_id, principal_id: context.subject_principal.principal_id, role: 'owner', status: 'active', authorization_revision: view.authorization_revision },
+    await scopedJournal(q, context, { aggregate_type: 'tenant', id: tenantId, version: view.version, operation: 'tenant.create',
+      data: { tenant_id: tenantId, version: view.version }, eventType: 'freedom.tenant.created.v1' });
+    await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: view.authorization_revision, operation: 'tenant.create',
+      data: { tenant_id: tenantId, principal_id: context.subject_principal.principal_id, role: 'owner', status: 'active', authorization_revision: view.authorization_revision },
       eventType: 'freedom.tenant.membership.changed.v1' });
     return CreateResultSchema.parse({ tenant: view, workspace: space });
   }, async (q, context) => {
@@ -175,22 +187,39 @@ export async function createTenant(pool: Pool, actor: Actor, body: unknown, key:
     const tenantId = (prior.tenant as { tenant_id?: unknown } | undefined)?.tenant_id;
     requireCondition(typeof tenantId === 'string', 403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
     await stillActiveMember(q, tenantId, context.subject_principal.principal_id);
-  });
+  }, undefined, isolatedTransaction);
 }
 
 export async function listMyTenants(pool: Pool, actor: Actor, query: { cursor?: string; limit?: string }) {
   const limit = limitOf(query.limit);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const context = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(context.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+    await bindPrincipalContext(q, context.principal_id);
     const after = readCursor(query.cursor, context.principal_id, 'tenants', null);
     const rows = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
       WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id > $3::uuid)
       ORDER BY t.tenant_id LIMIT $4`, [context.principal_id, actor.community_id, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
     const items = [];
-    for (const row of page) items.push(await tenantView(q, row.tenant_id, context.principal_id));
+    for (const row of page) {
+      // A list remains readable when a scope is disabled. Recheck membership
+      // after the unlocked page query and retain tenant -> membership SHARE
+      // locks so role, revision and grants stay consistent through projection.
+      if (await bindTenantScope(q, row.tenant_id)) {
+        const tenant = await q.query(`SELECT tenant_id FROM tenants WHERE tenant_id=$1 AND community_id=$2 FOR SHARE`,
+          [row.tenant_id, actor.community_id]);
+        if (tenant.rowCount) {
+          const member = await q.query(`SELECT principal_id FROM tenant_memberships
+            WHERE tenant_id=$1 AND principal_id=$2 AND status='active' FOR SHARE`, [row.tenant_id, context.principal_id]);
+          if (member.rowCount) items.push(await tenantView(q, row.tenant_id, context.principal_id));
+        }
+      }
+      // On errors, isolatedTransaction rolls back and clears the local context.
+      await clearTenantContext(q);
+      await bindPrincipalContext(q, context.principal_id);
+    }
     const source = (await q.query<{ version: string }>(`SELECT COALESCE(sum(t.version + t.authorization_revision + m.version), 0)::bigint::text AS version
       FROM tenant_memberships m JOIN tenants t ON t.tenant_id=m.tenant_id
       WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2`, [context.principal_id, actor.community_id])).rows[0].version;
@@ -276,7 +305,8 @@ export async function listMembers(pool: Pool, actor: Actor, tenantId: string, qu
           AND ($3::uuid IS NULL OR principal_id > $3::uuid) ORDER BY principal_id LIMIT $4`, [context.tenant_id, context.principal_id, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
     const items = [];
-    for (const row of page) items.push(await memberView(q, context.tenant_id, row.principal_id));
+    const grants = await activeInstanceGrants(q, context.tenant_id, page.map(row => row.principal_id));
+    for (const row of page) items.push(await memberView(q, context.tenant_id, row.principal_id, grants.get(row.principal_id) ?? []));
     return MemberPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, full ? 'members' : 'my_membership', context.tenant_id, page[page.length - 1].principal_id) : null,
       source_version: versionOf(context.authorization_revision),
@@ -294,6 +324,10 @@ async function visibleInvitee(q: PoolClient, principalId: string, communityId: s
 export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, body: unknown, key: string) {
   const input = InviteInputSchema.parse(body);
   OpaqueId.parse(tenantId);
+  // Compact input is a lower bound for valid canonical scope JSON. Reject large
+  // scopes before the command core's input snapshot limit can obscure this error.
+  requireCondition(Buffer.byteLength(JSON.stringify(input.instance_capabilities)) <= INVITE_SCOPE_MAX_BYTES,
+    422, 'validation_failed', INVITE_SCOPE_TOO_LARGE);
   try {
     return await scopedTenantCommand(pool, {
       actor, tenantId, operation: 'tenant.invite', key, body: input,
@@ -303,6 +337,11 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
       requireCap(context, 'tenant.member.invite');
       requireCondition(canInviteRole(context.role, input.role), 403, 'tenant_capability_denied', '你不能邀請這個角色。');
     }, async (q, context) => {
+      const grants = await validateInstanceGrants(q, tenantId, input.role, input.instance_capabilities);
+      // Match the stored invitation CHECK, including jsonb's formatting bytes.
+      // Acceptance only changes its state; member changes store text[] grant rows.
+      const size = (await q.query<{ bytes: number }>(`SELECT octet_length($1::jsonb::text) AS bytes`, [JSON.stringify(grants)])).rows[0].bytes;
+      requireCondition(size <= INVITE_SCOPE_MAX_BYTES, 422, 'validation_failed', INVITE_SCOPE_TOO_LARGE);
       await visibleInvitee(q, input.invitee_principal_id, context.community_id);
       const existing = (await q.query<{ status: string }>(`SELECT status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [context.tenant_id, input.invitee_principal_id])).rows[0];
       if (existing?.status === 'active') throw new Problem(409, 'membership_exists', '這位成員已在業務空間中。');
@@ -313,8 +352,8 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
       const pending = (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM tenant_invitations WHERE tenant_id=$1 AND state='pending' AND expires_at>clock_timestamp()`, [context.tenant_id])).rows[0].n;
       if (pending >= MAX_PENDING_INVITATIONS_PER_TENANT) throw new Problem(429, 'quota_exceeded', '待回覆的邀請已達上限。', 60);
       const created = (await q.query<{ invitation_id: string }>(`INSERT INTO tenant_invitations(tenant_id,invitee_principal_id,role,instance_capabilities,expires_at,state,created_by_principal_id)
-        VALUES($1,$2,$3,'[]'::jsonb,$4::timestamptz,'pending',$5) RETURNING invitation_id`,
-      [context.tenant_id, input.invitee_principal_id, input.role, input.expires_at, context.principal_id])).rows[0];
+        VALUES($1,$2,$3,$6::jsonb,$4::timestamptz,'pending',$5) RETURNING invitation_id`,
+      [context.tenant_id, input.invitee_principal_id, input.role, input.expires_at, context.principal_id, JSON.stringify(grants)])).rows[0];
       await auditTenant(q, context.tenant_id, context.principal_id, 'tenant.invite', input.invitee_principal_id, context.authorization_revision, context.authorization_revision, 'tenant.invite.created');
       return invitationView(q, created.invitation_id);
     });
@@ -323,11 +362,14 @@ export async function inviteMember(pool: Pool, actor: Actor, tenantId: string, b
 
 export async function listMyInvitations(pool: Pool, actor: Actor, query: { cursor?: string; limit?: string }) {
   const limit = limitOf(query.limit);
-  const principalId = await callerPrincipal(pool, actor);
-  await pool.query(`UPDATE tenant_invitations SET state='expired', version=version+1, updated_at=clock_timestamp()
-    WHERE invitee_principal_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [principalId]);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
+    const principal = await mapPersonPrincipal(q, actor.user_id);
+    requireCondition(principal.status === 'active' && principal.kind === 'person', 403, 'principal_disabled', '這個身分目前無法使用。');
+    await bindPrincipalContext(q, principal.principal_id);
+    const principalId = principal.principal_id;
+    await q.query(`UPDATE tenant_invitations SET state='expired', version=version+1, updated_at=clock_timestamp()
+      WHERE invitee_principal_id=$1 AND state='pending' AND expires_at<=clock_timestamp()`, [principalId]);
     const after = readCursor(query.cursor, principalId, 'my_invitations', null);
     const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
       AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
@@ -345,31 +387,53 @@ export async function listMyInvitations(pool: Pool, actor: Actor, query: { curso
   });
 }
 
+async function missingInvitation(q: PoolClient): Promise<never> {
+  await clearTenantContext(q);
+  throw new Problem(404, 'invitation_not_found', INVITE_MISSING);
+}
+
 async function invitationGate(pool: Pool, actor: Actor, tenantId: string, invitationId: string, who: 'invitee' | 'manager'): Promise<'ready' | 'expired'> {
-  const decision = await transaction(pool, async q => {
+  const decision = await isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
+    await bindPrincipalContext(q, principal.principal_id);
+    const scope = (await q.query<{ scope_id: string }>(
+      `SELECT scope_id FROM resource_scopes WHERE tenant_ref=$1 AND kind='tenant'`, [tenantId])).rows[0];
+    if (!scope) {
+      await clearTenantContext(q);
+      return 'missing' as const;
+    }
+    await bindTenantContext(q, { tenantId, tenantScopeId: scope.scope_id });
     const row = (await q.query<{ invitee_principal_id: string; created_by_principal_id: string; state: string; expired: boolean; role: 'admin' | 'operator' | 'viewer' }>(
       `SELECT invitee_principal_id,created_by_principal_id,state,role,(state='pending' AND expires_at<=clock_timestamp()) AS expired
        FROM tenant_invitations WHERE invitation_id=$1 AND tenant_id=$2 FOR SHARE`, [invitationId, tenantId])).rows[0];
-    if (!row) return 'missing' as const;
-    if (who === 'invitee' && row.invitee_principal_id !== principal.principal_id) return 'missing' as const;
+    if (!row) {
+      await clearTenantContext(q);
+      return 'missing' as const;
+    }
+    if (who === 'invitee' && row.invitee_principal_id !== principal.principal_id) {
+      await clearTenantContext(q);
+      return 'missing' as const;
+    }
     if (who === 'manager') {
       const actorMember = (await q.query<{ role: 'owner' | 'admin' | 'operator' | 'viewer'; status: string }>(
         `SELECT role,status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principal.principal_id])).rows[0];
       const manager = actorMember?.status === 'active' && (actorMember.role === 'owner' || (row.created_by_principal_id === principal.principal_id && canInviteRole(actorMember.role, row.role)));
-      if (!manager) return 'missing' as const;
+      if (!manager) {
+        await clearTenantContext(q);
+        return 'missing' as const;
+      }
+    }
+    if (row.state === 'pending' && row.expired) {
+      await q.query(`UPDATE tenant_invitations SET state='expired', version=version+1, updated_at=clock_timestamp()
+        WHERE invitation_id=$1 AND tenant_id=$2 AND state='pending' AND expires_at<=clock_timestamp()`, [invitationId, tenantId]);
     }
     if (row.expired || row.state === 'expired') return 'expired' as const;
     return 'ready' as const;
   });
   if (decision === 'missing') throw new Problem(404, 'invitation_not_found', INVITE_MISSING);
-  if (decision === 'expired') {
-    await pool.query(`UPDATE tenant_invitations SET state='expired', version=version+1, updated_at=clock_timestamp()
-      WHERE invitation_id=$1 AND tenant_id=$2 AND state='pending' AND expires_at<=clock_timestamp()`, [invitationId, tenantId]);
-    throw new Problem(409, 'invitation_expired', '邀請已過期。');
-  }
+  if (decision === 'expired') throw new Problem(409, 'invitation_expired', '邀請已過期。');
   return decision;
 }
 
@@ -381,18 +445,21 @@ export async function acceptInvitation(pool: Pool, actor: Actor, tenantId: strin
   return scopedMemberCommand(pool, {
     actor, scope: 'personal', operation: 'tenant.invite.accept', key, body: {}, expected,
     target: { kind: 'tenant_invitation', id: invitationId },
-  }, async () => {}, async (q, context) => {
+  }, async (q, context) => {
+    await bindPrincipalContext(q, context.subject_principal.principal_id);
+  }, async (q, context) => {
     requireCondition(context.subject_principal.principal_id === principalId, 403, 'tenant_capability_denied', DENIED);
     const scope = (await q.query<{ scope_id: string; status: string }>(`SELECT scope_id,status FROM resource_scopes WHERE tenant_ref=$1 FOR SHARE`, [tenantId])).rows[0];
-    requireCondition(scope?.status === 'active', 404, 'invitation_not_found', INVITE_MISSING);
+    if (!scope) await missingInvitation(q);
+    await bindTenantContext(q, { tenantId, tenantScopeId: scope.scope_id });
+    if (scope.status !== 'active') await missingInvitation(q);
     const tenant = (await q.query<{ status: TenantStatus; community_id: string; authorization_revision: string }>(
       `SELECT status,community_id,authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1 FOR UPDATE`, [tenantId])).rows[0];
-    requireCondition(tenant && tenant.community_id === actor.community_id, 404, 'invitation_not_found', INVITE_MISSING);
-    const invitation = (await q.query<{ invitee_principal_id: string; created_by_principal_id: string; role: 'admin' | 'operator' | 'viewer'; state: string; version: string; expired: boolean }>(
-      `SELECT invitee_principal_id,created_by_principal_id,role,state,version::text AS version,(state='pending' AND expires_at<=clock_timestamp()) AS expired
+    if (!tenant || tenant.community_id !== actor.community_id) await missingInvitation(q);
+    const invitation = (await q.query<{ invitee_principal_id: string; created_by_principal_id: string; role: 'admin' | 'operator' | 'viewer'; state: string; version: string; expired: boolean; instance_capabilities: unknown }>(
+      `SELECT invitee_principal_id,created_by_principal_id,role,instance_capabilities,state,version::text AS version,(state='pending' AND expires_at<=clock_timestamp()) AS expired
        FROM tenant_invitations WHERE invitation_id=$1 AND tenant_id=$2 FOR UPDATE`, [invitationId, tenantId])).rows[0];
-    requireCondition(invitation, 404, 'invitation_not_found', INVITE_MISSING);
-    requireCondition(invitation.invitee_principal_id === context.subject_principal.principal_id, 404, 'invitation_not_found', INVITE_MISSING);
+    if (!invitation || invitation.invitee_principal_id !== context.subject_principal.principal_id) await missingInvitation(q);
     if (invitation.expired || invitation.state === 'expired') throw new Problem(409, 'invitation_expired', '邀請已過期。');
     requireCondition(invitation.state === 'pending', 409, 'invitation_closed', '這份邀請已結束。');
     checkVersion(versionOf(invitation.version), expected);
@@ -404,12 +471,14 @@ export async function acceptInvitation(pool: Pool, actor: Actor, tenantId: strin
     requireCondition(inviter?.status === 'active' && canInviteRole(inviter.role, invitation.role), 403, 'tenant_capability_denied', '邀請人目前不能授予這個角色。');
     const already = (await q.query<{ status: string }>(`SELECT status FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2 FOR UPDATE`, [tenantId, context.subject_principal.principal_id])).rows[0];
     if (already?.status === 'active') throw new Problem(409, 'membership_exists', '這位成員已在業務空間中。');
+    const grants = await validateInstanceGrants(q, tenantId, invitation.role, invitation.instance_capabilities, true);
     if (already) {
       await q.query(`UPDATE tenant_memberships SET role=$3,status='active',version=version+1,accepted_at=clock_timestamp(),revoked_at=NULL,updated_at=clock_timestamp()
         WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, context.subject_principal.principal_id, invitation.role]);
     } else {
       await q.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,$3,'active',clock_timestamp())`, [tenantId, context.subject_principal.principal_id, invitation.role]);
     }
+    await replaceInstanceGrants(q, tenantId, context.subject_principal.principal_id, grants, invitation.created_by_principal_id);
     await q.query(`UPDATE tenant_invitations SET state='accepted', version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId]);
     const revision = await bumpAuthorizationRevision(q, tenantId);
     await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.accept', context.subject_principal.principal_id, tenant.authorization_revision, revision, 'tenant.invite.accepted');
@@ -423,7 +492,7 @@ export async function acceptInvitation(pool: Pool, actor: Actor, tenantId: strin
     const recorded = (prior.invitation as { tenant_id?: unknown } | undefined)?.tenant_id;
     requireCondition(typeof recorded === 'string', 403, 'tenant_capability_denied', '目前無法使用這個業務空間。');
     await stillActiveMember(q, recorded, context.subject_principal.principal_id);
-  });
+  }, undefined, isolatedTransaction);
 }
 
 export async function declineInvitation(pool: Pool, actor: Actor, tenantId: string, invitationId: string, body: unknown, key: string) {
@@ -433,20 +502,24 @@ export async function declineInvitation(pool: Pool, actor: Actor, tenantId: stri
   return scopedMemberCommand(pool, {
     actor, scope: 'personal', operation: 'tenant.invite.decline', key, body: {},
     target: { kind: 'tenant_invitation', id: invitationId },
-  }, async () => {}, async (q, context) => {
+  }, async (q, context) => {
+    await bindPrincipalContext(q, context.subject_principal.principal_id);
+  }, async (q, context) => {
+    const scope = (await q.query<{ scope_id: string }>(`SELECT scope_id FROM resource_scopes WHERE tenant_ref=$1 AND kind='tenant'`, [tenantId])).rows[0];
+    if (!scope) await missingInvitation(q);
+    await bindTenantContext(q, { tenantId, tenantScopeId: scope.scope_id });
     const invitation = (await q.query<{ invitee_principal_id: string; state: string; expired: boolean }>(
       `SELECT invitee_principal_id,state,(state='pending' AND expires_at<=clock_timestamp()) AS expired
        FROM tenant_invitations WHERE invitation_id=$1 AND tenant_id=$2 FOR UPDATE`, [invitationId, tenantId])).rows[0];
-    requireCondition(invitation, 404, 'invitation_not_found', INVITE_MISSING);
-    requireCondition(invitation.invitee_principal_id === context.subject_principal.principal_id, 404, 'invitation_not_found', INVITE_MISSING);
+    if (!invitation || invitation.invitee_principal_id !== context.subject_principal.principal_id) await missingInvitation(q);
     if (invitation.expired || invitation.state === 'expired') throw new Problem(409, 'invitation_expired', '邀請已過期。');
     requireCondition(invitation.state === 'pending', 409, 'invitation_closed', '這份邀請已結束。');
     await q.query(`UPDATE tenant_invitations SET state='declined', version=version+1, updated_at=clock_timestamp() WHERE invitation_id=$1`, [invitationId]);
     const tenant = (await q.query<{ authorization_revision: string }>(`SELECT authorization_revision::text AS authorization_revision FROM tenants WHERE tenant_id=$1`, [tenantId])).rows[0];
-    requireCondition(tenant, 404, 'invitation_not_found', INVITE_MISSING);
+    if (!tenant) await missingInvitation(q);
     await auditTenant(q, tenantId, context.subject_principal.principal_id, 'tenant.invite.decline', context.subject_principal.principal_id, tenant.authorization_revision, tenant.authorization_revision, 'tenant.invite.declined');
     return invitationView(q, invitationId);
-  });
+  }, undefined, undefined, isolatedTransaction);
 }
 
 export async function revokeInvitation(pool: Pool, actor: Actor, tenantId: string, invitationId: string, body: unknown, key: string, expected: string) {
@@ -490,6 +563,9 @@ export async function changeMember(pool: Pool, actor: Actor, tenantId: string, p
       throw new Problem(403, 'tenant_capability_denied', '擁有者變更需要所有權移交。');
     }
     requireCondition(canManageRole(context.role, target.role) && canManageRole(context.role, input.role), 403, 'tenant_capability_denied', DENIED);
+    requireCondition(input.status !== 'revoked' || input.instance_capabilities.length === 0,
+      422, 'capability_not_grantable', '其中有無法授予的權限，請重新整理後再試。');
+    const grants = await validateInstanceGrants(q, tenantId, input.role, input.instance_capabilities);
     if (input.status === 'active') {
       await q.query(`UPDATE tenant_memberships SET role=$3,status='active',version=version+1,revoked_at=NULL,accepted_at=COALESCE(accepted_at,clock_timestamp()),updated_at=clock_timestamp()
         WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId, input.role]);
@@ -497,6 +573,7 @@ export async function changeMember(pool: Pool, actor: Actor, tenantId: string, p
       await q.query(`UPDATE tenant_memberships SET role=$3,status='revoked',version=version+1,revoked_at=clock_timestamp(),updated_at=clock_timestamp()
         WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId, input.role]);
     }
+    await replaceInstanceGrants(q, tenantId, principalId, grants, context.principal_id);
     const revision = await bumpAuthorizationRevision(q, tenantId);
     await auditTenant(q, tenantId, context.principal_id, 'tenant.member.change', principalId, context.authorization_revision, revision, 'tenant.member.changed');
     await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: revision, operation: 'tenant.member.change',
@@ -522,6 +599,7 @@ export async function leaveTenant(pool: Pool, actor: Actor, tenantId: string, bo
     const updated = (await q.query<{ version: string }>(`UPDATE tenant_memberships SET status='revoked', version=version+1, revoked_at=clock_timestamp(), updated_at=clock_timestamp()
       WHERE tenant_id=$1 AND principal_id=$2 RETURNING version::text`, [tenantId, context.principal_id])).rows[0];
     requireCondition(updated, 404, 'tenant_not_found', NOT_FOUND);
+    await revokeInstanceGrants(q, tenantId, context.principal_id);
     const revision = await bumpAuthorizationRevision(q, tenantId);
     await auditTenant(q, tenantId, context.principal_id, 'tenant.member.leave', context.principal_id, context.authorization_revision, revision, 'tenant.member.left');
     await scopedJournal(q, context, { aggregate_type: 'tenant_membership', id: tenantId, version: revision, operation: 'tenant.member.leave',
@@ -533,7 +611,7 @@ export async function leaveTenant(pool: Pool, actor: Actor, tenantId: string, bo
 
 export async function resolveInviteCandidate(pool: Pool, actor: Actor, userId: string) {
   OpaqueId.parse(userId);
-  return transaction(pool, async q => {
+  return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const user = (await q.query<{ user_id: string; display_name: string }>(`SELECT user_id,display_name FROM users
       WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL)`, [userId, actor.community_id])).rows[0];

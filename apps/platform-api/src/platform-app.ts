@@ -3,20 +3,22 @@ import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
+import { readSessionCookie, sessionCookieName } from './session-cookie.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
-import { InstanceSelectionRequired } from '../../../modules/module-registry/problems.js';
+import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
+import {PUBLIC_REVALIDATION_SCRIPT} from '../../../packages/shared/public-revalidation.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
 import { createCommerceRoutes } from './routes/commerce.js';
@@ -25,6 +27,7 @@ import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
 import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
+import {publicDiscovery,discoveryReadAllowed} from '../../../modules/community/public-discovery.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
 import { createAdminRoutes } from './routes/admin.js';
 import { createCoCreationRoutes } from './routes/co-creation.js';
@@ -44,7 +47,7 @@ import {readSkillEditorial} from '../../../modules/guild-workspace/service.js';
 import {createGuildWorkspaceRoutes} from './routes/guild-workspace.js';
 import {createTenantWorkspaceRoutes} from './routes/tenant-workspaces.js';
 import {createGuildLaunchpadRoutes, createPublicGuildLaunchpadRoutes} from './routes/guild-launchpad.js';
-import {createModuleRegistryRoutes} from './routes/module-registry.js';
+import {createModuleRegistryRoutes, createPublicModuleRegistryRoutes} from './routes/module-registry.js';
 import {checkTenantResultContentHeaders,createTenantWorkRoutes,isTenantResultContentUpload} from './routes/tenant-work.js';
 import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
@@ -61,7 +64,6 @@ import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromot
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 
-const COOKIE='freedom_local_session';
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -91,7 +93,7 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
-  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
+  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
   if(brokerFormOrigin!==undefined){
     const setup=new URL(brokerFormOrigin),main=new URL(origin);
@@ -100,6 +102,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   }
 
   const secureCookies=freedomEnv!=='local';
+  const COOKIE=sessionCookieName(origin);
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const pageGitHub=new PageGitHubReader(pool);
@@ -108,6 +111,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.onError((err,c)=>{
     if(err instanceof z.ZodError) return c.json({type:'about:blank',title:'Validation failed',status:422,code:'validation_failed',detail:err.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ')},422);
     if(err instanceof InstanceSelectionRequired) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,candidates:err.candidates},409);
+    if(err instanceof DependencySelectionRequired) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,candidates:err.candidates},409);
+    if(err instanceof QuotaExceeded) return c.json({type:'about:blank',title:err.code,status:err.status,code:err.code,detail:err.message,dimension:err.dimension},429);
     if(err instanceof AssetStorageError && err.code==='object_unavailable') return c.json({type:'about:blank',title:'object_unavailable',status:503,code:'object_unavailable',detail:'內容儲存目前無法使用。'},503);
     if(err instanceof Problem) {
       const retry=err.retryAfterSeconds;
@@ -123,6 +128,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
+    readSessionCookie(c.req.header('Cookie'),origin);
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
@@ -187,7 +193,15 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
       }
     }
+    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+    }
     await next();
+    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+      if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
+      if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
+      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+    }
     // A native cross-origin form uses the source document's referrer policy
     // when deriving Origin. Suppressing all referrers makes that Origin null.
     // Only installed HTML documents disclose the origin, never path or query;
@@ -201,11 +215,20 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));
-  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore));
-  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
+  app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true));
+  app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true}));
+  app.get('/api/v1/public/community-discovery',async c=>{
+    requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
+    return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
+  });
+  app.get('/public-revalidation.js',c=>{
+    c.header('Content-Type','text/javascript; charset=utf-8');
+    c.header('Cache-Control','no-store');
+    return c.body(PUBLIC_REVALIDATION_SCRIPT);
+  });
   if(runtime.guildLaunchpadEnabled===true)app.get('/api/v1/guild-categories',async c=>c.json(await listGuildCategories(pool)));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
@@ -218,14 +241,18 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('Content-Length',String(bytes.length));
     return c.body(new Uint8Array(bytes));
   });
-  app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
+  app.get('/api/v1/public/events/:id',async c=>{
+    const event=await publicEvent(pool,z.uuid().parse(c.req.param('id')));
+    if(event.visibility==='referral')c.header('X-Robots-Tag','noindex, nofollow');
+    return c.json(event);
+  });
   app.get('/api/v1/public/events/:id/banner',async c=>{
     const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')),runtime.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');
     return c.body(new Uint8Array(bytes));
   });
   app.get('/api/v1/public/events/:id/video',async c=>eventAssetVideoResponse(c,pool,z.uuid().parse(c.req.param('id')),runtime.eventVideoAssetStore));
-  registerPublicPromotion(app,pool,runtime);
+  registerPublicPromotion(app,pool,runtime,origin);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
   app.post('/api/v1/public/events/:id/register',async c=>{
@@ -253,7 +280,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'registration-global','global',100,60);
     const raw=await c.req.json();
     const result=await registerMember(pool,raw,{communityId:runtime.registrationCommunityId(),allowSingleCommunity:freedomEnv==='local',publicMode:freedomEnv==='public'});
-    const old=getCookie(c,COOKIE);
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) {const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]);}
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor),201);
@@ -264,7 +291,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
-    const old=getCookie(c,COOKIE);
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor));
@@ -284,13 +311,17 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'password-reset-confirm-network',authNetwork(c),30,3600);
     await authRateLimit(pool,'password-reset-confirm-global','global',500,3600);
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     const result=await confirmPasswordReset(pool,body.token,body.password);
-    deleteCookie(c,COOKIE,{path:'/'});
-    return c.json(result);
+    // Replace any old session on reset, so changing accounts never keeps an active old cookie.
+    if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
+    return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
-  app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool,origin));
+  app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
     if(ifMatch) requireCondition(/^"[1-9][0-9]*"$/.test(ifMatch),400,'invalid_version','If-Match 須為加引號的整數版本。');
@@ -307,7 +338,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await pool.query('INSERT INTO member_client_errors(community_id,user_id,action,error_code,http_status) VALUES($1,$2,$3,$4,$5)',[actor.community_id,actor.user_id,body.action,body.error_code,body.http_status??null]);
     return c.json({recorded:true},201);
   });
-  app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/'});return c.json({logged_out:true});});
+  app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/',secure:secureCookies,httpOnly:true,sameSite:'Strict'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
@@ -348,12 +379,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createPositioningRoutes(pool,{guildLaunchpadEnabled:runtime.guildLaunchpadEnabled===true}));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin,shopHost));
-  app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
+  app.route('/api/v1', createOpenSourceRoutes(pool,runtime.githubMetricsToken,loadSocial));
   app.route('/api/v1',createCoCreationRoutes(pool,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/api/v1',createTenantWorkspaceRoutes(pool));
-    app.route('/api/v1',createModuleRegistryRoutes(pool));
+    app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders));
     app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.

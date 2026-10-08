@@ -17,7 +17,9 @@ export function useReadAllInbox(client:PortalClient){
     locked.current=true;setBusy(true);setError('');key.current??=crypto.randomUUID();
     try{
       await client.post('/me/inbox/read-all',{},{idempotencyKey:key.current,suppressConsole:true});
-      if(!valid())return;
+      // The shell still needs the confirmed totals after this page unmounts.
+      // A different login must never receive the previous session’s acknowledgement.
+      if(session!==client.sessionGeneration)return;
       key.current=null;
       window.dispatchEvent(new Event(INBOX_ALL_READ));announceInboxChange();
     }catch(cause){

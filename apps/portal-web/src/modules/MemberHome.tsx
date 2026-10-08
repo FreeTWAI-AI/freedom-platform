@@ -26,6 +26,14 @@ const entries: { id: TabId; title: string; description: string; cover: string }[
   { id: 'marketing', title: '行銷工作室', description: '撰寫介紹與記錄分享', cover: 'cooperation-forge' },
 ];
 
+// The third next-step button follows real work facts, in this order: a claim of mine that is not finished (/dashboard, work.ts),
+// then the open task board, then work sharing. Titles stay on their own pages and no count is shown.
+const taskActions = {
+  resume: { tab: 'workbench', label: '回到我的工作', hint: '你有認領中的工作還沒結案，可以回到「我的工作」繼續。' },
+  tasks: { tab: 'tasks', label: '查看社群任務', hint: '社群任務板有開放中的任務，可自行挑選一件參與。' },
+  showcase: { tab: 'showcase', label: '分享作品與需求', hint: null },
+} satisfies Record<string, { tab: TabId; label: string; hint: string | null }>;
+
 type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
@@ -35,7 +43,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [guideBook, setGuideBook] = useState<IntroBook | null>(null);
-  const [taskAction, setTaskAction] = useState<'tasks' | 'showcase' | null>(null);
+  const [taskAction, setTaskAction] = useState<keyof typeof taskActions | null>(null);
   // Only the newest request of a mounted page may change the card; late or superseded replies are dropped.
   const request = useRef(0);
   const summary = useRef<HTMLElement>(null);
@@ -89,9 +97,10 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       client.get<{ items: { guild_key: string; skill_books: IntroBook[] }[] }>('/guilds/directory'),
       client.get<{ items: { book_id?: string; id?: string }[] }>('/me/skill-books'),
       client.get<{ items: unknown[] }>('/task-board/preview'),
+      client.get<{ now: unknown[] }>('/dashboard'),
     ]).then(results => {
       if (!active) return;
-      const [directory, grants, tasks] = results;
+      const [directory, grants, tasks, work] = results;
       const directoryItems = directory.status === 'fulfilled' && Array.isArray(directory.value.items) ? directory.value.items : null;
       const grantItems = grants.status === 'fulfilled' && Array.isArray(grants.value.items) ? grants.value.items : null;
       if (directoryItems && grantItems) {
@@ -106,7 +115,9 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
         }) ?? null);
       } else setGuideBook(null);
       const taskItems = tasks.status === 'fulfilled' && Array.isArray(tasks.value.items) ? tasks.value.items : null;
-      setTaskAction(taskItems ? (taskItems.length > 0 ? 'tasks' : 'showcase') : null);
+      // A claim I have not finished outranks the open board; a failed dashboard read falls back to the board.
+      const unfinished = work.status === 'fulfilled' && Array.isArray(work.value.now) && work.value.now.length > 0;
+      setTaskAction(unfinished ? 'resume' : taskItems ? (taskItems.length > 0 ? 'tasks' : 'showcase') : null);
     });
     return () => { active = false; };
   }, [client, primaryGuild?.guild_key]);
@@ -147,13 +158,13 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
       <p className="home-next-eyebrow">下一步</p>
       <p id="home-next-step-description">{nextStep.message}</p>
       {internPrimary && <p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}
-      {primaryGuild && taskAction === 'tasks' && <p id="home-next-task-hint">社群任務板有開放中的任務，可自行挑選一件參與。</p>}
+      {primaryGuild && taskAction && taskActions[taskAction].hint && <p id="home-next-task-hint">{taskActions[taskAction].hint}</p>}
       {primaryGuild ? <div className="home-next-actions">
         {guideBook
           ? <SkillBookIntro book={guideBook} label="閱讀第一本技能書" describedBy="home-next-step-description"/>
           : <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.('skills')}>前往技能書架</button>}
         <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
-        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby={taskAction === 'tasks' ? 'home-next-step-description home-next-task-hint' : 'home-next-step-description'} onClick={() => onNavigate?.(taskAction)}>{taskAction === 'tasks' ? '查看社群任務' : '分享作品與需求'}</button>}
+        {taskAction && <button type="button" className="btn btn-ghost" aria-describedby={taskActions[taskAction].hint ? 'home-next-step-description home-next-task-hint' : 'home-next-step-description'} onClick={() => onNavigate?.(taskActions[taskAction].tab)}>{taskActions[taskAction].label}</button>}
       </div> : <div className="home-next-actions"><button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button></div>}
       </div>
       <img className="home-next-art" src="/art/rpg/skill-codex.webp" alt="" width="124" height="108"/>

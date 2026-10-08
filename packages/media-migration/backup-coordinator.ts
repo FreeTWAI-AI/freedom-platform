@@ -6,6 +6,9 @@ import { transferBackup, type BackupManifest } from './backup-transfer.js';
 import { collectSchemaEvidence, type SchemaEvidence } from './backup-evidence.js';
 
 type Maintenance = ReturnType<typeof createAssetMaintenance>;
+// The exporter idles for the whole dump (the daily adapter allows 180 s).
+// Leave margin; this bound only prevents a dead operator holding xmin indefinitely.
+const EXPORTER_IDLE_MS = 600_000;
 const identity = z.object({ database: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/),
   sourceSchema: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/),
   sourceRelease: z.string().regex(/^[0-9a-f]{40}$/) }).strict();
@@ -73,16 +76,19 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
   if (pool.options.max !== undefined && pool.options.max < 2)
     throw new ConsistentBackupError('backup_invalid_target');
   let exporter: PoolClient | undefined;
+  let exporterError: Error | undefined;
+  const onExporterError = (error: Error) => { exporterError ??= error; };
   let inTransaction = false;
   try {
     exporter = await pool.connect();
+    exporter.on('error', onExporterError);
     const actual = (await exporter.query('SELECT current_database() AS database,current_schema() AS schema')).rows[0];
     if (actual.database !== target.database || actual.schema !== target.sourceSchema)
       throw new ConsistentBackupError('backup_target_mismatch');
     // beginCapture commits its global deletion barrier before this snapshot.
     const begun = await maintenance.beginCapture({ sourceRelease: target.sourceRelease, sourceSchema: target.sourceSchema });
     await exporter.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'); inTransaction = true;
-    await exporter.query("SET LOCAL statement_timeout='30000'; SET LOCAL lock_timeout='3000'; SET LOCAL idle_in_transaction_session_timeout='120000'");
+    await exporter.query(`SET LOCAL statement_timeout='30000'; SET LOCAL lock_timeout='3000'; SET LOCAL idle_in_transaction_session_timeout='${EXPORTER_IDLE_MS}'`);
     const snapshot = (await exporter.query('SELECT pg_export_snapshot() AS exported,pg_current_snapshot()::text AS reference')).rows[0];
     if (typeof snapshot.exported !== 'string' || !/^[0-9A-F]{8}-[0-9A-F]{8}-[1-9][0-9]{0,9}$/.test(snapshot.exported))
       throw new ConsistentBackupError('backup_snapshot_mismatch');
@@ -95,8 +101,11 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
     const evidence = options.snapshotEvidence === true ? await collectSchemaEvidence(exporter, target.sourceSchema) : undefined;
     const dump = Object.freeze(dumpEvidence.parse(await databaseSnapshot.write(Object.freeze({
       snapshotId: snapshot.exported, database: target.database, schema: target.sourceSchema, release: target.sourceRelease }))));
+    if (exporterError) throw exporterError;
     // The exporter is no longer needed after the completed, hashed dump.
     await exporter.query('COMMIT'); inTransaction = false;
+    if (exporterError) throw exporterError;
+    exporter.removeListener('error', onExporterError);
     exporter.release(); exporter = undefined;
     const objects = await transferBackup(captured, source, destination, {
       async renew() { await maintenance.renewProtection(begun.captureId); },
@@ -105,14 +114,15 @@ export async function createConsistentAssetBackup(pool: Pool, options: {
     return Object.freeze({ version: 1, status: 'database_snapshot_and_objects_verified', database: target.database, dump, objects,
       ...(evidence === undefined ? {} : { evidence }) });
   } catch (error) {
-    if (error instanceof ConsistentBackupError) throw error;
+    if (!exporterError && error instanceof ConsistentBackupError) throw error;
     // Operator logs may record a fixed code; never propagate SQL/store secrets.
     throw new ConsistentBackupError('backup_capture_failed');
   } finally {
     if (exporter) {
       let destroyed = false;
       if (inTransaction) { try { await exporter.query('ROLLBACK'); } catch { destroyed = true; } }
-      exporter.release(destroyed);
+      exporter.removeListener('error', onExporterError);
+      exporter.release(destroyed || exporterError !== undefined);
     }
   }
 }
