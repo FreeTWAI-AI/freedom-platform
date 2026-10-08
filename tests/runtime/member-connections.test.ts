@@ -144,7 +144,7 @@ test('AI reports reject invented guilds, duplicates, extra commands and unbounde
   assert.equal(validateAiGuildReport(await reviewer(catalog),catalog,fallback).method,'ai');assert.equal(called,true);
 });
 test('existing scheduled handler runs guild analysis even when GitHub sync fails, and releases its pool',async()=>{
-  let analyzed=false,ended=false;const handler=createWorkerHandler({createPool:()=>({end:async()=>{ended=true;}} as unknown as Pool),syncGitHub:async()=>{throw new Error('fixture');},guildDiscovery:async(_pool,options)=>{assert.equal(options?.communityId,DEMO_COMMUNITY);analyzed=true;return {updated:1};}});
+  let analyzed=false,ended=false;const handler=createWorkerHandler({createPool:()=>({end:async()=>{ended=true;}} as unknown as Pool),syncGitHub:async()=>{throw new Error('fixture');},guildDiscovery:async(_pool,options)=>{assert.equal(options?.communityId,DEMO_COMMUNITY);analyzed=true;return {updated:1};},authPrune:async()=>({sessions:0,login_attempts:0,auth_rate_limits:0,password_reset_tokens:0})});
   const pending:Promise<unknown>[]=[];await handler.scheduled({}, {HYPERDRIVE:{connectionString:'unused'},ASSETS:{fetch:async()=>new Response()},FREEDOM_REGISTRATION_COMMUNITY_ID:DEMO_COMMUNITY}, {waitUntil:p=>{pending.push(p);}});
   await Promise.all(pending);assert.equal(analyzed,true);assert.equal(ended,true);
 });

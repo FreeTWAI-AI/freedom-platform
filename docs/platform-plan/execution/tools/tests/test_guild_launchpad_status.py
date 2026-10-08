@@ -23,6 +23,8 @@ STATE = json.loads((EXECUTION / "unified-foundation" / "current-state.json").rea
 TRACE = json.loads((PACK / "traceability.json").read_text(encoding="utf-8"))
 PROGRESS = json.loads((PACK / "acceptance-progress.json").read_text(encoding="utf-8"))
 FIX_COMMAND = "run: python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status"
+# Tests derive from the declared value, so adding a migration never breaks them.
+DECLARED_MAX_MIGRATION = int(dict(token.split("=", 1) for token in vsp.STATUS_LINE.search(README).group(1).split())["repo_max_migration"])
 
 
 def test_status_keys_map_to_current_state_paths():
@@ -430,7 +432,9 @@ def test_malformed_baseline_cannot_infer_acceptance(acceptance):
 
 
 def test_repository_migration_maximum_is_a_code_fact(tmp_path):
-    for number in range(1, 127):
+    declared = DECLARED_MAX_MIGRATION
+    ahead = declared + 1
+    for number in range(1, ahead + 1):
         (tmp_path / f"{number:03}_{'a' if number == 1 else 'b'}.sql").write_text("-- fixture\n")
     for name in ("notes.md", "12_bad.txt", "999_UPPER.txt", "1000_bad.txt"):
         (tmp_path / name).write_text("ignored\n")
@@ -438,10 +442,10 @@ def test_repository_migration_maximum_is_a_code_fact(tmp_path):
     nested = tmp_path / "nested"
     nested.mkdir()
     (nested / "999_nested.sql").write_text("ignored\n")
-    assert vsp.repository_max_migration(tmp_path) == 126
+    assert vsp.repository_max_migration(tmp_path) == ahead
     failures = vsp.status_failures(README, STATE, TRACE, PROGRESS, tmp_path)
-    assert any("repo_max_migration=125" in f and "migrations/ (code) is 126" in f for f in failures)
-    assert any("repo_max_migration=125" in f and f.endswith(FIX_COMMAND) for f in failures)
+    assert any(f"repo_max_migration={declared}" in f and f"migrations/ (code) is {ahead}" in f for f in failures)
+    assert any(f"repo_max_migration={declared}" in f and f.endswith(FIX_COMMAND) for f in failures)
 
 
 def test_empty_migrations_directory_raises(tmp_path):
@@ -469,7 +473,7 @@ def test_write_status_round_trip(tmp_path, line_count):
     migrations.mkdir()
     (migrations / "125_fixture.sql").write_text("-- fixture\n")
     readme_path = pack / "README.md"
-    stale = README.replace("repo_max_migration=125", "repo_max_migration=1")
+    stale = README.replace(f"repo_max_migration={DECLARED_MAX_MIGRATION}", "repo_max_migration=1")
     line = vsp.STATUS_LINE.search(stale).group(0)
     if line_count == 0:
         stale = vsp.STATUS_LINE.sub("", stale)

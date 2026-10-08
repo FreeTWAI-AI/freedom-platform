@@ -31,6 +31,18 @@ async function ownedProject(q:PoolClient,actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到可由你管理的開源作品。');return row;
 }
+export type RepositoryManager=(q:PoolClient,actor:Actor,repository:string,repositoryId:string)=>Promise<boolean>;
+async function editableProject(q:PoolClient,actor:Actor,id:string,manager?:RepositoryManager) {
+  const row=(await q.query<{owner_ref:string;repository_url:string;repository_id:string}>(`SELECT owner_ref,repository_url,repository_id FROM oss_projects
+    WHERE project_id=$1 AND community_id=$2 AND (owner_ref=$3 OR NOT is_verification_test_account(owner_ref)) FOR UPDATE`,[id,actor.community_id,actor.user_id])).rows[0];
+  requireCondition(row,404,'not_found','找不到可由你管理的開源作品。');
+  const allowed=row.owner_ref===actor.user_id||(manager&&await manager(q,actor,githubCoordinate(row.repository_url),row.repository_id));
+  requireCondition(allowed,404,'not_found','找不到可由你管理的開源作品；請先連結 GitHub，並確認授權涵蓋這個 Repo 的 admin／maintain 管理權。');
+}
+export async function checkProjectEditing(pool:Pool,input:Command,id:string,manager?:RepositoryManager) {
+  z.object({}).strict().parse(input.body);
+  return command(pool,input,q=>editableProject(q,input.actor,id,manager),async()=>({can_edit:true}));
+}
 async function insertVersion(q:PoolClient,projectId:string,source:ProjectSource) {
   const versionId=randomUUID();
   const {inspected_at:_,...facts}=source,sourceDigest=digest(facts);
@@ -77,10 +89,10 @@ export async function importProjectWithinTransaction(q:PoolClient,input:Pick<Com
     await journal(q,input.actor,'oss_project',id,1,'import_public_repository',{repository_id:source.repository_id,commit_sha:source.commit_sha,relationship:body.relationship,relationship_verification:'self_declared'},'freedom.skills.candidate.registered.v1');
     return projectView(q,input.actor,id);
 }
-export async function refreshProject(pool:Pool,input:Command,id:string,read:GitHubRead={}) {
+export async function refreshProject(pool:Pool,input:Command,id:string,read:GitHubRead={},manager?:RepositoryManager) {
   z.object({}).strict().parse(input.body);
-  return command(pool,input,q=>ownedProject(q,input.actor,id),async q=>{
-    const current=await ownedProject(q,input.actor,id,true);checkVersion(current.aggregate_version,input.expected);
+  return command(pool,input,q=>editableProject(q,input.actor,id,manager),async q=>{
+    const current=await projectView(q,input.actor,id);checkVersion(current.aggregate_version,input.expected);
     const source=await inspectGitHubRepository(current.repository_url,read.fetcher??globalThis.fetch,read.token);
     requireCondition(source.repository_id===current.repository_id,409,'repository_identity_changed','這個 GitHub 網址已指向不同儲存庫；保留原本紀錄，請先確認來源。');
     const versionId=await insertVersion(q,id,source);
@@ -90,11 +102,11 @@ export async function refreshProject(pool:Pool,input:Command,id:string,read:GitH
     return projectView(q,input.actor,id);
   });
 }
-export async function reviseProject(pool:Pool,input:Command,id:string) {
+export async function reviseProject(pool:Pool,input:Command,id:string,manager?:RepositoryManager) {
   const body=projectMetadata.parse(input.body);
-  return command(pool,input,q=>ownedProject(q,input.actor,id),async q=>{
-    const current=await ownedProject(q,input.actor,id,true);checkVersion(current.aggregate_version,input.expected);
-    const row=(await q.query(`UPDATE oss_projects SET title=$2,description=$3,use_notes=$4,demo_url=$5,
+  return command(pool,input,q=>editableProject(q,input.actor,id,manager),async q=>{
+    const current=await projectView(q,input.actor,id);checkVersion(current.aggregate_version,input.expected);
+    const row=(await q.query(`UPDATE oss_projects SET title=$2,description=$3,use_notes=$4,demo_url=$5,public_metadata_revised=true,
       aggregate_version=aggregate_version+1,updated_at=now() WHERE project_id=$1 RETURNING *`,[id,body.title,body.description,body.use_notes,body.demo_url])).rows[0];
     await journal(q,input.actor,'oss_project',id,row.aggregate_version,'revise_description',{});
     return projectView(q,input.actor,id);
