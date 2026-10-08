@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { after, before, beforeEach, test } from 'node:test';
-import { Pool } from 'pg';
+import { setTimeout as delay } from 'node:timers/promises';
+import { Pool, type PoolClient } from 'pg';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { STOREFRONT_CONTRACT, STOREFRONT_CONTRACT_SOURCE_COMMIT, STOREFRONT_CONTRACT_ARTIFACT_SHA256 } from '../../modules/module-registry/definitions.js';
 import { changeMemberStatus, type AdminActor } from '../../modules/platform-admin/service.js';
@@ -195,6 +196,44 @@ test('T-008 T-020 another workspace reuses products and grants, explicit create 
   assert.notEqual(expect(await call('GET', '/me/stores', s.owner)).items[0].instance_id, s.instanceId);
 });
 
+test('T-017 a failed storefront without a profile is hidden and permits a new store in another workspace', async () => {
+  const s = await open();
+  assert.equal(await h.count('commerce_storefront_profiles', 'WHERE instance_id=$1', [s.instanceId]), 0);
+  assert.equal(expect(await call('GET', '/me/stores', s.owner)).items[0].instance_id, s.instanceId);
+  const q = await h.pool.connect();
+  try {
+    await q.query('BEGIN');
+    // Simulate the terminal state setInstance writes during provisioning in
+    // operations.ts. There is no transition trigger; no store setup has run.
+    await q.query(`UPDATE module_instances SET status='failed',version=version+1 WHERE tenant_id=$1 AND instance_id=$2`, [s.tenantId, s.instanceId]);
+    await q.query(`UPDATE deployment_bindings SET state='retired',version=version+1
+      WHERE tenant_id=$1 AND instance_id=$2 AND state<>'retired'`, [s.tenantId, s.instanceId]);
+    await q.query('COMMIT');
+  } finally { await q.query('ROLLBACK'); q.release(); }
+  assert.deepEqual(expect(await call('GET', '/me/stores', s.owner)).items, []);
+  const missing = await app.request(h.origin + '/api/v1' + s.root.replace(s.instanceId, randomUUID()), { headers: { Cookie: s.owner.cookie } });
+  const failed = await app.request(h.origin + '/api/v1' + s.root, { headers: { Cookie: s.owner.cookie } });
+  assert.equal(missing.status, 404); assert.equal(failed.status, 404);
+  assert.deepEqual(await failed.arrayBuffer(), await missing.arrayBuffer());
+  assert.deepEqual([...failed.headers], [...missing.headers]);
+  const unavailable = await post(s.root + '/setup', s.owner, settings);
+  expect(unavailable, 409); assert.equal(unavailable.data.code, 'storefront_unavailable');
+  // A real provisioning failure has no entry binding. This simulated failure
+  // follows a successful launch, so retain its binding and use another workspace.
+  const workspace = expect(await post(`/tenants/${s.tenantId}/workspaces`, s.owner, { name: '失敗後新櫃檯' }), 201).workspace_id;
+  const planned = await plan(s.owner, s.tenantId, workspace); expect(planned, 201);
+  const launched = await launch(s.owner, s.tenantId, planned);
+  assert.ok([200, 202].includes(launched.status), JSON.stringify(launched.data));
+  assert.equal(launched.data.state, 'succeeded');
+  assert.equal(await h.count('module_instances', `WHERE tenant_id=$1 AND module_key='storefront' AND status NOT IN ('archived','failed')`, [s.tenantId]), 1);
+  const next = expect(await call('GET', '/me/stores', s.owner)).items;
+  assert.equal(next.length, 1); assert.notEqual(next[0].instance_id, s.instanceId);
+  assert.equal(next[0].setup_state, 'setup_required');
+  const root = `/tenants/${s.tenantId}/storefronts/${next[0].instance_id}`;
+  assert.equal(expect(await post(root + '/setup', s.owner, settings), 201).setup_state, 'ready');
+  assert.equal(await h.count('commerce_storefront_profiles', 'WHERE instance_id=$1', [s.instanceId]), 0);
+});
+
 test('T-011 names preserve identity, draft slug can change and published slug is locked by API and SQL', async () => {
   const s = await ready(); let v = await view(s);
   v = expect(await patch(s.root, s.owner, { name: '新名字' }, v.version)); assert.equal(v.instance_id, s.instanceId); assert.equal(v.store.slug, settings.slug);
@@ -282,6 +321,87 @@ test('T-006 public allowlist hides identifiers and all hidden cases return ident
   await h.pool.query(`UPDATE users SET email=$2,active=false WHERE user_id=$1`, [s.owner.user.user_id,s.owner.user.email]); await hidden();
 });
 
+test('T-006 T-024 public stores derive tenant context only from the slug regardless of sessions, headers or query', async () => {
+  const a = await open();
+  expect(await post(a.root + '/setup', a.owner, { ...settings, name: '甲店展示', slug: 'tenant-a-shop' }), 201);
+  await add(a, { ...product, title: '甲店商品一' }); await add(a, { ...product, title: '甲店商品二' }); expect(await publish(a));
+  const b = await open();
+  expect(await post(b.root + '/setup', b.owner, { ...settings, name: '乙店專屬名稱', slug: 'tenant-b-shop' }), 201);
+  await add(b, { ...product, title: '乙店專屬商品' }); expect(await publish(b));
+  assert.notEqual(a.tenantId, b.tenantId); assert.notEqual(a.owner.user.user_id, b.owner.user.user_id);
+  const memberships = (await h.pool.query(`SELECT m.tenant_id FROM tenant_memberships m JOIN principals p USING(principal_id)
+    WHERE p.user_ref=$1 AND m.status='active' ORDER BY m.tenant_id`, [b.owner.user.user_id])).rows;
+  assert.deepEqual(memberships, [{ tenant_id: b.tenantId }]);
+  const stray = { 'X-Freedom-Tenant': b.tenantId, 'X-Tenant-Id': b.tenantId, 'Freedom-Tenant-Id': b.tenantId,
+    Authorization: 'Bearer fw_shop_' + randomBytes(32).toString('base64url') };
+  const query = `?tenant_id=${b.tenantId}&instance_id=${b.instanceId}&slug=tenant-b-shop`;
+  const memberB = { Cookie: b.owner.cookie, 'X-CSRF-Token': b.owner.csrf };
+  const variants: { name: string; headers: Record<string, string>; query: string }[] = [
+    { name: 'anonymous', headers: {}, query: '' },
+    { name: 'tenant B session', headers: memberB, query: '' },
+    { name: 'owner A session', headers: { Cookie: a.owner.cookie }, query: '' },
+    { name: 'stray tenant and bearer headers', headers: stray, query: '' },
+    { name: 'stray tenant query', headers: {}, query },
+    { name: 'tenant B session plus all stray inputs', headers: { ...memberB, ...stray }, query },
+  ];
+  async function snapshot(path: string, headers: HeadersInit = {}) {
+    const response = await app.request(h.origin + path, { headers });
+    // app.request adds no Date header, so compare the complete header list.
+    return { status: response.status, body: Buffer.from(await response.arrayBuffer()), headers: [...response.headers] };
+  }
+  for (const state of ['published', 'unpublished', 'never existed']) {
+    if (state === 'unpublished') expect(await publish(a, 'unpublish'));
+    const slug = state === 'never existed' ? 'never-existed-shop' : 'tenant-a-shop';
+    for (const path of [`/shops/${slug}`, `/api/v1/public/stores/${slug}`]) {
+      const reference = await snapshot(path);
+      assert.equal(reference.status, state === 'published' ? 200 : 404);
+      if (state === 'published') {
+        for (const privateB of ['乙店專屬名稱', 'tenant-b-shop', '乙店專屬商品']) assert.equal(reference.body.toString('utf8').includes(privateB), false);
+        if (path.startsWith('/api/')) assert.equal(JSON.parse(reference.body.toString('utf8')).products.length, 2);
+      }
+      for (const variant of variants) {
+        assert.deepEqual(await snapshot(path + variant.query, variant.headers), reference, `${state}: ${path}: ${variant.name}`);
+      }
+    }
+  }
+  // Hold every runtime pool client together so an idle connection cannot escape
+  // the context check by being repeatedly reused for each checkout.
+  const clients: PoolClient[] = [];
+  try {
+    for (let n = 0; n < runtime.options.max; n++) clients.push(await runtime.connect());
+    const contexts = await Promise.all(clients.map(async q => (await q.query(`SELECT pg_backend_pid() AS pid,
+      current_setting('freedom.tenant_id',true) AS tenant_id,current_setting('freedom.tenant_scope_id',true) AS tenant_scope_id,
+      current_setting('freedom.principal_id',true) AS principal_id`)).rows[0]));
+    assert.equal(new Set(contexts.map(c => c.pid)).size, runtime.options.max);
+    for (const c of contexts) assert.ok(!c.tenant_id && !c.tenant_scope_id && !c.principal_id, 'Runtime connection must have no residual tenant or principal context');
+  } finally { for (const q of clients) q.release(); }
+});
+
+test('T-016 a disabled setup admin does not hide a store with a current active owner', async () => {
+  const s = await open();
+  const setupAdmin = (await h.person('合成設定管理者')).session;
+  await join(s, setupAdmin, 'admin');
+  expect(await post(s.root + '/setup', setupAdmin, settings), 201);
+  await add(s); expect(await publish(s));
+  const profile = (await h.pool.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [s.instanceId])).rows[0];
+  assert.equal((await h.pool.query('SELECT owner_id FROM commerce_shops WHERE shop_id=$1', [profile.storefront_shop_id])).rows[0].owner_id, setupAdmin.user.user_id);
+  const id = randomUUID();
+  const admin: AdminActor = { admin_id:id, community_id:DEMO_COMMUNITY, email:'synthetic-admin@example.test', display_name:'合成管理員', role:'super_admin', subject:id };
+  await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)', [id,DEMO_COMMUNITY,admin.email,admin.display_name]);
+  await changeMemberStatus(h.pool, { admin, operation:'member.status', key:randomUUID(), body:{active:false,reason:'合成設定者停用'}, expected:'1' }, setupAdmin.user.user_id);
+  assert.equal((await h.pool.query('SELECT status FROM tenants WHERE tenant_id=$1', [s.tenantId])).rows[0].status, 'active');
+  assert.equal((await h.pool.query('SELECT status FROM module_instances WHERE instance_id=$1', [s.instanceId])).rows[0].status, 'active');
+  const shown = await publicPair(settings.slug);
+  assert.equal(shown.json.status, 200); assert.equal(shown.html.status, 200);
+  expect(await publish(s));
+  await changeMemberStatus(h.pool, { admin, operation:'member.status', key:randomUUID(), body:{active:false,reason:'合成最後店主停用'}, expected:'1' }, s.owner.user.user_id);
+  const hidden = await publicPair(settings.slug), missing = await publicPair('unknown-shop');
+  assert.equal(hidden.json.status, 404); assert.equal(hidden.html.status, 404);
+  assert.equal(hidden.jsonText, missing.jsonText); assert.equal(hidden.htmlText, missing.htmlText);
+  assert.deepEqual([...hidden.json.headers], [...missing.json.headers]);
+  assert.deepEqual([...hidden.html.headers], [...missing.html.headers]);
+});
+
 test('T-016 account closure revokes sessions, tenant and instance liveness hide public pages, and FK cleanup cascades', async () => {
   const s = await ready(); await add(s); expect(await publish(s));
   const id = randomUUID(); const admin: AdminActor = { admin_id:id,community_id:DEMO_COMMUNITY,email:'synthetic-admin@example.test',display_name:'合成管理員',role:'super_admin',subject:id };
@@ -342,13 +462,16 @@ test('T-016 a deployment hold committed during authorization refuses both a fres
     try {
       await blocker.query('BEGIN');
       await blocker.query('SELECT 1 FROM deployment_bindings WHERE tenant_id=$1 AND instance_id=$2 FOR UPDATE',[s.tenantId,s.instanceId]);
+      const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
       pending=command();
       let waiting=false;
-      for(let n=0;n<1000;n++) {
-        const blocked=await h.pool.query(`SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE '%deployment_bindings%'`,[role]);
+      const deadline=Date.now()+20000;
+      while(Date.now()<deadline) {
+        const blocked=await h.pool.query(`SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND usename=$2 AND query LIKE '%deployment_bindings%'`,[pid,role]);
         if(blocked.rowCount) { waiting=true;break; }
+        await delay(10);
       }
-      assert.equal(waiting,true,'Command must wait for the deployment row before changing products');
+      assert.equal(waiting,true,'Command did not block on the held deployment row within 20 seconds before changing products');
       await blocker.query(`UPDATE deployment_bindings SET state='suspended' WHERE tenant_id=$1 AND instance_id=$2`,[s.tenantId,s.instanceId]);
       await blocker.query('COMMIT');
       const refused=await pending;expect(refused,409);assert.equal(refused.data.code,'storefront_unavailable');

@@ -4,7 +4,7 @@ ALTER TABLE commerce_shops ADD COLUMN origin text NOT NULL DEFAULT 'imported'
 ALTER TABLE commerce_shops ADD CONSTRAINT commerce_shops_hosted_display_only
   CHECK (origin <> 'hosted' OR (accepting_orders = false AND mode = 'test' AND website_url = '' AND contact = ''));
 CREATE UNIQUE INDEX module_instances_one_storefront ON module_instances(tenant_id)
-  WHERE module_key='storefront' AND status <> 'archived';
+  WHERE module_key='storefront' AND status <> 'archived' AND status <> 'failed';
 
 CREATE TABLE commerce_resource_tenants (
   resource_kind text NOT NULL CHECK (resource_kind IN ('shop')),

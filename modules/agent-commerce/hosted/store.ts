@@ -33,7 +33,7 @@ export async function instance(q: PoolClient, tenantId: string, instanceId: stri
       WHERE i.tenant_id=$1 AND i.instance_id=$2 AND d.state='active' FOR SHARE OF d`, [tenantId, instanceId]);
     requireCondition(row.status === 'active' && live.rowCount === 1, 409, 'storefront_unavailable', '這間商店目前無法修改。');
   }
-  else requireCondition(allowArchived || row.status !== 'archived', 404, 'not_found', STORE_MISSING);
+  else requireCondition(allowArchived || !['archived', 'failed'].includes(row.status), 404, 'not_found', STORE_MISSING);
   return row;
 }
 /** Every private profile read is anchored to both confirmed RLS mappings. */
@@ -169,7 +169,7 @@ export async function listMyStores(pool: Pool, actor: Actor) {
         const name = (await q.query<{ display_name: string }>('SELECT display_name FROM tenants WHERE tenant_id=$1', [t.tenant_id])).rows[0].display_name;
         const instances = (await q.query<Instance>(`SELECT i.instance_id,i.status,d.state AS deployment_state FROM module_instances i
           LEFT JOIN deployment_bindings d ON d.binding_id=i.binding_id AND d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id
-          WHERE i.tenant_id=$1 AND i.module_key='storefront' AND i.status<>'archived'`, [t.tenant_id])).rows;
+          WHERE i.tenant_id=$1 AND i.module_key='storefront' AND i.status NOT IN ('archived','failed')`, [t.tenant_id])).rows;
         for (const inst of instances) {
           if (!(await effectiveStoreCapabilities(q, context, inst.instance_id)).includes('store:read')) continue;
           const view = await storeView(q, context, inst);

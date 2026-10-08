@@ -420,7 +420,7 @@ test('guild launchpad contracts regenerate deterministically and match generated
     cwd: root, env: verificationEnvironment(), encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024,
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.match(result.stdout, /30 guild launchpad schemas and 1 bundle checked\/generated\./);
+  assert.match(result.stdout, /30 guild launchpad schemas and 2 bundle checked\/generated\./);
 });
 
 test('generated guild launchpad schemas agree with Zod except listed server-only rules', () => {
