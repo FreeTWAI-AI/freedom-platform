@@ -129,6 +129,8 @@ const FOUNDATION_NAMES = [
   '133_workshop_sticker_pack.sql',
   // Optional topic tags for community search. Publication does not require a tag,
   '134_community_content_topics.sql',
+  // Private references only: targets deliberately have no FK so withdrawn content stays removable.
+  '135_community_content_relations.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

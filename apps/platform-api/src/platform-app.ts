@@ -19,6 +19,7 @@ import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
 import {PUBLIC_REVALIDATION_SCRIPT} from '../../../packages/shared/public-revalidation.js';
+import { listCommunityBookmarks, changeCommunityBookmark, listCommunityFollows, changeCommunityFollow, listCommunityFollowUpdates } from '../../../modules/community/content-relations.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
 import { createCommerceRoutes } from './routes/commerce.js';
@@ -221,7 +222,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -238,6 +239,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   };
   app.use('/api/v1/community-search',searchEnabled);
   app.use('/api/v1/community-search/*',searchEnabled);
+  app.use('/api/v1/community-relations/*',async(c,next)=>{
+    c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  });
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -354,6 +360,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   if(runtime.communitySearchEnabled===true){
     app.get('/api/v1/community-search/mine',async c=>c.json(await listTaggableContent(pool,c.get('actor'))));
     app.post('/api/v1/community-search/topics',async c=>respond(c,await assignContentTopics(pool,await cmd(c))));
+  }
+  if(runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true){
+    app.get('/api/v1/community-relations/bookmarks',async c=>c.json(await listCommunityBookmarks(pool,c.get('actor'),c.req.query())));
+    app.post('/api/v1/community-relations/bookmarks',async c=>respond(c,await changeCommunityBookmark(pool,await cmd(c))));
+    app.get('/api/v1/community-relations/follows',async c=>c.json(await listCommunityFollows(pool,c.get('actor'))));
+    app.post('/api/v1/community-relations/follows',async c=>respond(c,await changeCommunityFollow(pool,await cmd(c))));
+    app.get('/api/v1/community-relations/updates',async c=>c.json(await listCommunityFollowUpdates(pool,c.get('actor'),c.req.query())));
   }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
   app.post('/api/v1/me/client-errors',async c=>{

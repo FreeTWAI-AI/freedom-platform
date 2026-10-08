@@ -83,4 +83,6 @@ export type PlatformRuntime = {
   communityDiscoveryEnabled?: boolean;
   /** Explicit release setting for community content search. Absent or false leaves routes unregistered. */
   communitySearchEnabled?: boolean;
+  /** Private bookmarks and follows require both this setting and community search. */
+  communityRelationsEnabled?: boolean;
 };
