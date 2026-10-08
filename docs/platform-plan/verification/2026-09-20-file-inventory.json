@@ -13744,8 +13744,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 16749,
-      "sha256": "bb444a73403af6685d44cc29232ba6f5c1fcb8434805835ca2df56408642ce45"
+      "bytes": 16765,
+      "sha256": "4f61bfbaf8b4bb5dd4cd3291d8eea758d2e0637bf73783706f7189b727fd6405"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -14169,8 +14169,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/closeout.md",
-      "bytes": 44312,
-      "sha256": "1f37029149c9e4ba986d33990d2fae9b571f1a4f164e8ee2d78d7f240985f9d1"
+      "bytes": 44328,
+      "sha256": "bd3740e9c825ea3ad427698d8aea33bdb15231e2ae84abdf325ba89bf8260cca"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/composition-evidence-2026-10-05.json",
