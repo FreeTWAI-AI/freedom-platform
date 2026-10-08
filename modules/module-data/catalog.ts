@@ -62,6 +62,12 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       dataset_key: "DC-04",
       catalog_version: "1",
       physical_locations: [
+        { kind: "table" as const, table: "commerce_resource_tenants", columns: ["resource_kind", "resource_id", "tenant_id", "instance_id", "source_owner_id", "mapping_state", "version", "created_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["commerce_resource_tenants_tenant"] } },
+        { kind: "table" as const, table: "commerce_storefront_profiles", columns: ["instance_id", "tenant_id", "supply_shop_id", "storefront_shop_id", "slug", "brand", "current_publication_id", "first_published_at", "product_seq", "version", "created_by_principal_id", "created_at", "updated_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "exempt" as const, reason_code: "public_projection_reader", reason: "hosted/public.ts readPublicStore reads the immutable public projection before binding principal-less tenant context. All private reads join module_instances or confirmed commerce_resource_tenants under tenant RLS." } },
+        { kind: "table" as const, table: "commerce_storefront_publications", columns: ["publication_id", "instance_id", "tenant_id", "revision", "slug", "projection", "projection_sha256", "published_by_principal_id", "published_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "exempt" as const, reason_code: "public_projection_reader", reason: "hosted/public.ts readPublicStore reads the immutable public projection before binding principal-less tenant context. All private reads join module_instances or confirmed commerce_resource_tenants under tenant RLS." } },
         {
           kind: "table" as const,
           table: "agent_connections",

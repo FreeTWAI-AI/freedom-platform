@@ -26,6 +26,7 @@ const runtimeRole = `d1ra_${stamp}`;
 const guild = 'guild_ai_field';
 const digest = '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a';
 const tenantTables = [
+  'commerce_resource_tenants',
   'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
   'module_provision_operations', 'module_launch_plan_consumptions', 'module_provision_steps',
   'capacity_reservations', 'capacity_ledger', 'module_instances', 'deployment_bindings', 'workspace_module_bindings',
