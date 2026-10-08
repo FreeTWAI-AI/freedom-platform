@@ -11,6 +11,7 @@ import { lockTenantScope, type TenantScopeContext } from '../../packages/resourc
 import { isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { isKeysetTimestamp } from '../../packages/shared/keyset-timestamp.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
+import { BLOCKING_CONSUMER_SQL } from './validate.js';
 import { moduleRegistryCapabilities } from './capabilities.js';
 
 function requireManage(context: TenantScopeContext, write: boolean) {
@@ -86,21 +87,31 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
     const context = await lockTenantScope(q, { actor, tenantId, forUpdate: false, capabilitiesForRole: moduleRegistryCapabilities });
     requireManage(context, false);
     const row = (await q.query(
-      `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id,
+      `SELECT ${INSTANCE_COLUMNS}, suspension_operation_id, archive_operation_id,
          (SELECT d.state FROM deployment_bindings d WHERE d.tenant_id=module_instances.tenant_id
             AND d.instance_id=module_instances.instance_id AND d.binding_id=module_instances.binding_id) AS current_binding_state,
          (SELECT jsonb_build_object('operation_id',o.operation_id,'suspended_at',o.accepted_at,'reason',o.reason)
           FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
             AND o.operation_id=module_instances.suspension_operation_id AND o.instance_id=module_instances.instance_id
-            AND o.operation_kind='module.instance.suspend') AS member_suspension
+            AND o.operation_kind='module.instance.suspend') AS member_suspension,
+         (SELECT jsonb_build_object('operation_id',o.operation_id,'archived_at',o.accepted_at,'reason',o.reason)
+          FROM module_provision_operations o WHERE o.tenant_id=module_instances.tenant_id
+            AND o.operation_id=module_instances.archive_operation_id AND o.instance_id=module_instances.instance_id
+            AND o.operation_kind='module.instance.archive') AS member_archive,
+         (SELECT o.operation_id FROM module_provision_operations o JOIN module_provision_steps s
+            ON s.tenant_id=o.tenant_id AND s.operation_id=o.operation_id
+          WHERE o.tenant_id=module_instances.tenant_id AND s.instance_id=module_instances.instance_id
+            AND o.operation_kind='application.launch' AND s.state IN ('failed_known','compensated')
+          ORDER BY o.updated_at DESC, o.operation_id DESC, s.step_key LIMIT 1) AS launch_archive_operation_id
        FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`, [tenantId, instanceId],
     )).rows[0];
     requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
-    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, current_binding_state: bindingState, ...fields } = row;
+    const { suspension_operation_id: _pointer, member_suspension: memberSuspension, current_binding_state: bindingState,
+      archive_operation_id: _archivePointer, member_archive: memberArchive, launch_archive_operation_id: launchArchiveOperationId, ...fields } = row;
     const view = InstanceViewSchema.parse(fields);
     const dependencies = (await q.query(
       `SELECT requirement_key, provider_instance_id, version::text AS version
-       FROM module_dependencies WHERE tenant_id=$1 AND caller_instance_id=$2 ORDER BY requirement_key`,
+       FROM module_dependencies WHERE tenant_id=$1 AND caller_instance_id=$2 ORDER BY requirement_key, provider_instance_id, dependency_id LIMIT 50`,
       [tenantId, instanceId],
     )).rows;
     const consumers = (await q.query(
@@ -108,10 +119,13 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
        FROM module_dependencies d JOIN module_instances i
          ON i.tenant_id=d.tenant_id AND i.instance_id=d.caller_instance_id
        WHERE d.tenant_id=$1 AND d.provider_instance_id=$2
-       ORDER BY d.caller_instance_id, d.requirement_key, d.dependency_id LIMIT 50`, [tenantId, instanceId],
+       ORDER BY (${BLOCKING_CONSUMER_SQL}) DESC, d.caller_instance_id, d.requirement_key, d.dependency_id LIMIT 50`, [tenantId, instanceId],
     )).rows;
-    const counts = (await q.query<{ consumer_count: number; workspace_count: number }>(
+    const counts = (await q.query<{ consumer_count: number; blocking_consumer_count: number; workspace_count: number }>(
       `SELECT (SELECT count(*)::int FROM module_dependencies WHERE tenant_id=$1 AND provider_instance_id=$2) AS consumer_count,
+         (SELECT count(*)::int FROM module_dependencies d JOIN module_instances i
+           ON i.tenant_id=d.tenant_id AND i.instance_id=d.caller_instance_id
+          WHERE d.tenant_id=$1 AND d.provider_instance_id=$2 AND ${BLOCKING_CONSUMER_SQL}) AS blocking_consumer_count,
          (SELECT count(DISTINCT workspace_id)::int FROM workspace_module_bindings WHERE tenant_id=$1 AND instance_id=$2) AS workspace_count`,
       [tenantId, instanceId],
     )).rows[0];
@@ -122,9 +136,13 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
     const suspension = view.status !== 'suspended' ? null : isMemberSuspension(memberSuspension, bindingState)
       ? { kind: 'member', ...memberSuspension, suspended_at: new Date(memberSuspension.suspended_at).toISOString() }
       : { kind: 'platform', operation_id: null, suspended_at: null, reason: null };
+    const archive = view.status !== 'archived' ? null : memberArchive
+      ? { kind: 'member', ...memberArchive, archived_at: new Date(memberArchive.archived_at).toISOString() }
+      : launchArchiveOperationId ? { kind: 'launch', operation_id: launchArchiveOperationId, archived_at: null, reason: null }
+      : { kind: 'platform', operation_id: null, archived_at: null, reason: null };
     await assertCurrentSessionClock(q, actor);
     return InstanceDetailSchema.parse({ ...view, dependencies,
-      impact: { ...counts, consumers, workspace_ids: workspaces.map(row => row.workspace_id) }, suspension });
+      impact: { ...counts, consumers, workspace_ids: workspaces.map(row => row.workspace_id) }, suspension, archive });
   });
 }
 

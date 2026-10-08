@@ -10,7 +10,7 @@ import {
 } from './capacity.js';
 import { journalCommand } from './events.js';
 import { effectDigest, type ModuleProviderMap, type ProvisionEffect } from './providers.js';
-import { assertFullGuildMember, candidatesFor, moduleDefinition, type StoredChoice } from './plans.js';
+import { assertEntryBindingCompatible, assertFullGuildMember, candidatesFor, moduleDefinition, type StoredChoice } from './plans.js';
 import type { Requirement } from './definitions.js';
 import { planStale, mapRegistryError, sameContract } from './validate.js';
 
@@ -121,6 +121,8 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
   if (plan.installation_choice === 'create_new' && live) throw planStale();
   if (plan.installation_choice === 'reuse_existing' && (!live || live.installation_id !== plan.existing_installation_id)) throw planStale();
 
+  await assertEntryBindingCompatible(q, context.tenant_id, plan.workspace_id, definition.entry_capability, definition.module_requirements as Requirement[], choices);
+
   if (plan.installation_choice === 'reuse_existing' && live) {
     const lockedPolicy = requirePolicy(await lockCapacityPolicy(q, context.tenant_id));
     if (lockedPolicy.revision !== plan.policy_revision) throw planStale();
@@ -183,6 +185,7 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
     requireCondition(workspaceStatus, 404, 'not_found', '找不到這個工作區。');
     requireCondition(workspaceStatus === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
     await assertMember(q, context, actorUserId, plan.guild_key, true);
+    await assertEntryBindingCompatible(q, context.tenant_id, plan.workspace_id, definition.entry_capability, requirements, choices);
     let ordinal = 0;
     const instanceOf = (requirementKey: string) => {
       const choice = choices.find(item => item.requirement_key === requirementKey);
@@ -341,10 +344,11 @@ async function bindEntry(q: PoolClient, tenantId: string, workspaceId: string, e
 }
 
 export async function entryBinding(q: PoolClient, tenantId: string, workspaceId: string) {
-  return (await q.query<{ instance_id: string; version: string; binding_id: string }>(
-    `SELECT w.instance_id, w.version::text AS version, i.binding_id
+  return (await q.query<{ instance_id: string; version: string; binding_id: string; instance_status: string; deployment_state: string | null }>(
+    `SELECT w.instance_id, w.version::text AS version, i.binding_id, i.status AS instance_status, d.state AS deployment_state
      FROM workspace_module_bindings w
      JOIN module_instances i ON i.tenant_id=w.tenant_id AND i.instance_id=w.instance_id
+     LEFT JOIN deployment_bindings d ON d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id AND d.binding_id=i.binding_id
      WHERE w.tenant_id=$1 AND w.workspace_id=$2 AND w.entry_capability='work:create'`,
     [tenantId, workspaceId],
   )).rows[0] ?? null;

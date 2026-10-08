@@ -177,3 +177,5 @@ export type ResultView = z.infer<typeof ResultSchema>;
 export type ModuleInstanceView = z.infer<typeof ModuleInstanceViewSchema>;
 export type ManualWorkBinding = z.infer<typeof ManualWorkBindingSchema>;
 export type InstanceCandidate = z.infer<typeof InstanceCandidateSchema>;
+
+export type LaunchpadContext = z.infer<typeof LaunchpadContextSchema>;

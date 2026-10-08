@@ -15,3 +15,8 @@ export function requireTenantCapability(context: TenantScopeContext, capability:
   if (write && context.tenant_status !== 'active') throw new Problem(403, 'capability_denied', '目前無法使用這個業務空間。');
   requireCondition(context.capabilities.includes(capability), 403, 'capability_denied', '目前沒有這個操作的權限。');
 }
+
+/** New Work/Result writes require the instance and its current deployment to be active. */
+export function isWorkInstanceWritable(instanceStatus: string | undefined, deploymentState: string | undefined): boolean {
+  return instanceStatus === 'active' && deploymentState === 'active';
+}

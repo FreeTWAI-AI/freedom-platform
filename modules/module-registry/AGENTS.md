@@ -18,3 +18,7 @@
 - Plan `policy_revision` is the capacity policy revision. Eligibility `policy_revision` is the offering `launch_policy_ref.version`.
 
 - Suspend/resume take tenant and membership `FOR SHARE`, receipt advisory, instance `FOR NO KEY UPDATE`, then its current deployment `FOR NO KEY UPDATE`. Resume reads the active capacity policy unlocked before the instance; neither command takes a policy/dimension advisory (it would cycle with Work or launch). Suspend checks unfinished launch steps and installation links after the instance lock. Keep the revalidate capability hook for receipt replays. Do not use `setInstance`: lifecycle keeps the deployment suspended rather than retired. Neither installation status nor authority epoch changes.
+
+- Owner archive extends `lifecycle.ts`. Take linked installation fingerprints in workspace/application order before the instance `FOR NO KEY UPDATE`, then the current deployment. Re-read links unlocked after the instance lock; an uncovered fingerprint is `instance_changed`, never a new fingerprint lock after instance. Update linked live installations in installation UUID order. No capacity/policy lock; retain all workspace bindings, dependencies, Work/Results and history. Only archive retires its deployment; suspend keeps it suspended. Archive revalidates owner capability on receipt replay.
+
+- `platform-hold.md` SQL blocks are executed by `tests/runtime/module-instance-lifecycle.test.ts`; change the document and its tests together.

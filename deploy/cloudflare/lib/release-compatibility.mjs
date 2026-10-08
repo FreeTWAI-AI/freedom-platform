@@ -119,6 +119,8 @@ const FOUNDATION_NAMES = [
   '128_module_registry.sql',
   // Member suspend and resume of module instances: lifecycle operation kinds and a suspension pointer.
   '129_module_instance_lifecycle.sql',
+  // Member archive of module instances: an archive operation kind and an archive pointer.
+  '130_module_instance_archive.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

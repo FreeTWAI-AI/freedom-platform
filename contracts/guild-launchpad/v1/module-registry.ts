@@ -76,6 +76,16 @@ export const ApplicationReleaseViewSchema = ApplicationViewSchema.omit({ eligibi
 }).strict();
 
 export const InstanceStatusSchema = z.enum(['requested', 'provisioning', 'active', 'failed', 'suspended', 'archived']);
+export const WorkspaceModuleBindingViewSchema = z.object({
+  tenant_id: OpaqueId,
+  workspace_id: OpaqueId,
+  binding: z.object({
+    entry_capability: z.literal('work:create'),
+    instance_id: OpaqueId,
+    instance_status: InstanceStatusSchema,
+    writable: z.boolean(),
+  }).strict().nullable(),
+}).strict();
 export const InstanceViewSchema = z.object({
   instance_id: OpaqueId,
   tenant_id: OpaqueId,
@@ -96,6 +106,7 @@ export const InstanceDependencySchema = z.object({
 }).strict();
 export const InstanceImpactSchema = z.object({
   consumer_count: z.number().int().nonnegative(),
+  blocking_consumer_count: z.number().int().nonnegative(),
   consumers: z.array(z.object({
     caller_instance_id: OpaqueId,
     requirement_key: StableKey,
@@ -113,12 +124,25 @@ export const InstanceSuspensionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('platform'), operation_id: z.null(), suspended_at: z.null(), reason: z.null(),
   }).strict(),
 ]);
+export const InstanceArchiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('launch'), operation_id: OpaqueId, archived_at: IsoTimeSchema.nullable(), reason: ReasonSchema.nullable(),
+  }).strict(),
+  z.object({
+    kind: z.literal('member'), operation_id: OpaqueId, archived_at: IsoTimeSchema, reason: ReasonSchema,
+  }).strict(),
+  z.object({
+    kind: z.literal('platform'), operation_id: z.null(), archived_at: z.null(), reason: z.null(),
+  }).strict(),
+]);
 export const InstanceDetailSchema = InstanceViewSchema.extend({
   dependencies: z.array(InstanceDependencySchema).max(50),
   impact: InstanceImpactSchema,
   suspension: InstanceSuspensionSchema.nullable(),
+  archive: InstanceArchiveSchema.nullable(),
 }).strict().refine(value => (value.status === 'suspended') === (value.suspension !== null),
-  '暫停資訊須與模組實例狀態一致。');
+  '暫停資訊須與模組實例狀態一致。').refine(value => (value.status === 'archived') === (value.archive !== null),
+  '封存資訊須與模組實例狀態一致。');
 
 export const InstallationViewSchema = z.object({
   installation_id: OpaqueId,
@@ -180,6 +204,7 @@ export const RegistryOperationSchema = z.object({
   problem: z.object({ code: z.string(), detail: z.string() }).strict().optional(),
 }).strict();
 
+export const ArchiveInputSchema = z.object({ reason: ReasonSchema }).strict();
 export const SuspendInputSchema = z.object({ reason: ReasonSchema }).strict();
 export const ResumeInputSchema = z.object({}).strict();
 
@@ -210,6 +235,7 @@ export const InstancePageSchema = page(InstanceViewSchema);
 export const InstallationPageSchema = page(InstallationViewSchema);
 
 export type ApplicationView = z.infer<typeof ApplicationViewSchema>;
+export type WorkspaceModuleBindingView = z.infer<typeof WorkspaceModuleBindingViewSchema>;
 export type InstanceView = z.infer<typeof InstanceViewSchema>;
 export type InstallationView = z.infer<typeof InstallationViewSchema>;
 export type LaunchPlan = z.infer<typeof LaunchPlanSchema>;
