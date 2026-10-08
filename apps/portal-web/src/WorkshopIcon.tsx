@@ -6,6 +6,7 @@ const paths: Record<TabId, string> = {
   'private-ai':'M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5Zm7 4v3',
   skills:'M3 4h7v17H3Zm10 0h4l4 16-4 1ZM6 8h1m-1 9h1',
   'guild-workspace':'M4 3h16v12H4Zm4 5h8m-8 3h5m-7 4v6l6-3 6 3v-6',
+  reservations:'M5 3h14v18H5Zm4 5h6m-6 4h6m-6 4h4',
   stores:'M4 10v11h16V10M3 3h18l1 7H2Zm6 18v-7h6v7',
   business:'M4 7h16v13H4Zm0 4h16M9 7V5h6v2',
   home:'m3 10 9-7 9 7v10H3Zm6 10v-7h6v7',
