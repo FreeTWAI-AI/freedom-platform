@@ -12,7 +12,7 @@ import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { tokenHash } from '../../modules/identity-membership/service.js';
-import { createWorkerHandler, cloudflareSourceNetwork, readWorkerConfig, workerRuntime, workerScope, type WorkerEnv } from '../../apps/platform-api/src/worker.js';
+import { createWorkerHandler, cloudflareSourceNetwork, rateLimitNetworkKey, readWorkerConfig, workerRuntime, workerScope, type WorkerEnv } from '../../apps/platform-api/src/worker.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { authoredUploadText } from '../../apps/platform-api/src/routes/published-skills.js';
 import { currentImageProcessor } from '../../packages/shared/image-runtime.js';
@@ -146,8 +146,30 @@ test('client address headers are trusted only for an opted-in Cloudflare edge re
   assert.equal(await trusted({ 'CF-Connecting-IP': 'not-an-ip' }, { colo: 'TPE' }), 'shared-server');
   assert.equal(await trusted(spoof, { colo: 'TPE' }), '192.0.2.10');
   assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::1' }, { colo: 'TPE' }), '2001:db8::1');
+  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8:0:0:1::1' }, { colo: 'TPE' }), '2001:db8:0:0:1::1');
+  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::ffff:2' }, { colo: 'TPE' }), '2001:db8::ffff:2');
   // Deployed local config cannot opt in at all.
   assert.throws(() => readWorkerConfig(env({ FREEDOM_TRUST_CF_CONNECTING_IP: 'true' })));
+});
+
+test('IPv6 rate-limit keys collapse to the /64 prefix and IPv4-mapped addresses keep their IPv4 budget', () => {
+  assert.equal(rateLimitNetworkKey('192.0.2.10'), '192.0.2.10');
+  assert.equal(rateLimitNetworkKey('::ffff:192.0.2.10'), '192.0.2.10');
+  assert.equal(rateLimitNetworkKey('::FFFF:192.0.2.10'), '192.0.2.10');
+  assert.equal(rateLimitNetworkKey('0:0:0:0:0:ffff:192.0.2.10'), '192.0.2.10');
+  // The same mapped address in hex keeps the same IPv4 key; different IPv4s stay apart.
+  assert.equal(rateLimitNetworkKey('::ffff:c000:20a'), '192.0.2.10');
+  assert.equal(rateLimitNetworkKey('::ffff:c633:6407'), '198.51.100.7');
+  // An embedded quad outside ::ffff:0:0/96 is just another host in that /64, not an IPv4 budget.
+  assert.equal(rateLimitNetworkKey('2001:db8::ffff:192.0.2.10'), '2001:db8:0:0::/64');
+  assert.equal(rateLimitNetworkKey('2001:db8::ffff:198.51.100.7'), '2001:db8:0:0::/64');
+  assert.equal(rateLimitNetworkKey('2001:0DB8:0000:0001:aaaa:bbbb:cccc:dddd'), '2001:db8:0:1::/64');
+  assert.equal(rateLimitNetworkKey('2001:db8:0:1::'), '2001:db8:0:1::/64');
+  assert.equal(rateLimitNetworkKey('::1'), '0:0:0:0::/64');
+  assert.equal(rateLimitNetworkKey('fe80::1%eth0'), 'fe80:0:0:0::/64');
+  assert.equal(rateLimitNetworkKey('2001:db8:1:2:3:4:5:6'), '2001:db8:1:2::/64');
+  assert.equal(rateLimitNetworkKey('2001:db8:1:2:ffff::'), '2001:db8:1:2::/64');
+  assert.equal(rateLimitNetworkKey('2001:db8:1:3::1'), '2001:db8:1:3::/64');
 });
 
 test('concurrent requests with different bindings never share origin, community, release, keys or pools', async () => {

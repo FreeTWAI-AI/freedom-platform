@@ -173,3 +173,57 @@ test('a zero limit forbids a new instance and a zero concurrent limit forbids a 
   assert.equal(concurrent.data.dimension, 'concurrent_provisions');
   assert.equal(await h.count('application_installations', 'WHERE tenant_id=$1', [tenantId]), 0);
 });
+
+async function r7RepeatedModulePlan() {
+  const { owner, tenantId, workspaceId } = await prepared('重複模組容量');
+  const base = (await h.pool.query("SELECT module_requirements FROM application_definitions WHERE application_key='synthetic-storefront'")).rows[0].module_requirements[0];
+  const requirements = [
+    {...base, requirement_key: 'inventory-a', allow_reuse: false},
+    {...base, requirement_key: 'inventory-b', allow_reuse: false},
+  ];
+  await h.pool.query(`INSERT INTO application_definitions(
+      application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+    SELECT 'synthetic-repeated','synthetic-repeated@1.0.0',display_name,source_commit,artifact_digest,skill_book_refs,$1::jsonb,
+      'inventory:read',runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version
+    FROM application_definitions WHERE application_key='synthetic-storefront' ON CONFLICT DO NOTHING`, [JSON.stringify(requirements)]);
+  await h.pool.query(`INSERT INTO guild_application_offerings(
+      offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+    SELECT $1,community_id,guild_key,'synthetic-repeated','synthetic-repeated@1.0.0','offered',20,launch_policy_ref,1
+    FROM guild_application_offerings WHERE application_key='synthetic-storefront'`, [randomUUID()]);
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-repeated', 'synthetic-repeated@1.0.0'));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  return {owner, tenantId, workspaceId, planned};
+}
+
+test('r7 repeated module requirements sum units before checking a per-module limit of one', async () => {
+  await setLimits({perModule: 1});
+  const {owner, tenantId, planned} = await r7RepeatedModulePlan();
+  const receipts = await h.count('scoped_command_receipts');
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 429, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'quota_exceeded');
+  assert.equal(reply.data.dimension, 'module_instances.synthetic-inventory');
+  for (const table of ['application_installations', 'module_instances', 'module_provision_operations', 'capacity_reservations', 'capacity_ledger', 'module_launch_plan_consumptions']) {
+    assert.equal(await h.count(table, 'WHERE tenant_id=$1', [tenantId]), 0, table);
+  }
+  assert.equal(await h.count('scoped_command_receipts'), receipts);
+});
+
+test('r7 repeated module requirements reserve one aggregated dimension at a limit of two', async () => {
+  await setLimits({perModule: 2});
+  const {owner, tenantId, planned} = await r7RepeatedModulePlan();
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 200, JSON.stringify(reply.data));
+  assert.equal(reply.data.state, 'succeeded');
+  assert.deepEqual(planned.data.capacity_delta.filter((item: {dimension: string}) => item.dimension === 'module_instances.synthetic-inventory'),
+    [{dimension: 'module_instances.synthetic-inventory', units: '2'}]);
+  const reservations = (await h.pool.query(`SELECT dimension,units::text,state FROM capacity_reservations
+    WHERE tenant_id=$1 AND operation_id=$2 AND dimension='module_instances.synthetic-inventory'`, [tenantId, reply.data.operation_id])).rows;
+  assert.deepEqual(reservations, [{dimension: 'module_instances.synthetic-inventory', units: '2', state: 'consumed'}]);
+  assert.equal(await h.count('module_instances', 'WHERE tenant_id=$1', [tenantId]), 2);
+  const ledger = (await h.pool.query(`SELECT kind,delta::text FROM capacity_ledger
+    WHERE tenant_id=$1 AND operation_id=$2 AND dimension='module_instances.synthetic-inventory' ORDER BY kind`, [tenantId, reply.data.operation_id])).rows;
+  assert.deepEqual(ledger, [{kind: 'actual', delta: '2'}, {kind: 'reserved', delta: '2'}]);
+  await assertLedger(tenantId);
+});

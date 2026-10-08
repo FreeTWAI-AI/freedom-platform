@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
-import { readCapacityPolicy } from '../opportunity-project-work/tenant-capacity.js';
+import { lockCapacityPolicy, readCapacityPolicy, requirePolicy } from '../opportunity-project-work/tenant-capacity.js';
 import { loadOfferedDefinition } from './catalog.js';
 import { digestOf } from './canonical.js';
 import {
@@ -107,7 +107,7 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
   if (plan.version !== input.expectedPlanVersion) throw planStale();
   if (plan.configuration_digest !== input.configurationDigest) throw planStale();
   await assertMember(q, context, actorUserId, plan.guild_key, false);
-  const definition = await loadOfferedDefinition(q, plan.guild_key, plan.application_key, plan.release_ref);
+  const definition = await loadOfferedDefinition(q, plan.guild_key, plan.application_key, plan.release_ref, context.community_id);
   await installationFingerprintLock(q, context.tenant_id, plan.workspace_id, plan.application_key);
   const policy = await readCapacityPolicy(q, context.tenant_id);
   if (!policy) throw new Problem(403, 'policy_unconfigured', '這個業務空間尚未設定容量政策。');
@@ -122,6 +122,12 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
   if (plan.installation_choice === 'reuse_existing' && (!live || live.installation_id !== plan.existing_installation_id)) throw planStale();
 
   if (plan.installation_choice === 'reuse_existing' && live) {
+    const lockedPolicy = requirePolicy(await lockCapacityPolicy(q, context.tenant_id));
+    if (lockedPolicy.revision !== plan.policy_revision) throw planStale();
+    await lockReusedInstances(q, context.tenant_id, choices, input.versionMismatch, input.operation === 'manual.work.enable' ? 'not_found' : 'instance_unavailable');
+    const workspaceStatus = await lockWorkspace(q, context.tenant_id, plan.workspace_id);
+    requireCondition(workspaceStatus, 404, 'not_found', '找不到這個工作區。');
+    requireCondition(workspaceStatus === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
     await assertMember(q, context, actorUserId, plan.guild_key, true);
     return reuseInstallation(q, context, plan, live, input.operation);
   }
@@ -162,11 +168,14 @@ export async function executeLaunch(q: PoolClient, context: TenantScopeContext, 
     await lockReusedInstances(q, context.tenant_id, choices, input.versionMismatch, input.operation === 'manual.work.enable' ? 'not_found' : 'instance_unavailable');
     const requirements = definition.module_requirements as Requirement[];
     for (const choice of choices) {
+      if (choice.choice !== 'create') continue;
       const requirement = requirements.find(item => item.requirement_key === choice.requirement_key);
+      if (!requirement) throw planStale();
+      // A stored plan cannot create a module release that has since been retired.
+      const moduleDef = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
       // A module that forbids reuse is never a candidate, so an existing instance does not stale a default create.
       if (!requirement?.allow_reuse) continue;
-      if (choice.choice === 'create' && choice.origin === 'default') {
-        const moduleDef = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
+      if (choice.origin === 'default') {
         if ((await candidatesFor(q, context.tenant_id, requirement, moduleDef)).length) throw planStale();
       }
     }

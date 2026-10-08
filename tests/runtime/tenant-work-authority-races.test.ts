@@ -749,7 +749,7 @@ test('manual enable and Work create on one workspace do not deadlock when a bind
   dbFaults.length = 0;
   captureDbFaults = true;
   // Plan insert FK (application_key, release_ref) references this definition row.
-  // migrations/126_module_registry.sql. Work create does not reference it.
+  // migrations/128_module_registry.sql. Work create does not reference it.
   const h2 = await openHolder(
     `SELECT application_key FROM application_definitions
      WHERE application_key = 'manual-workspace' AND release_ref = 'manual-workspace@1.0.0'

@@ -116,8 +116,8 @@ function workCandidates(rows: CandidateRow[]): InstanceCandidate[] {
 }
 
 /** Facade choices use the same pinned requirement, definition, and usability filter as createPlan. */
-export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string): Promise<InstanceCandidate[]> {
-  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE);
+export async function manualWorkCandidates(q: PoolClient, tenantId: string, guildKey: string, communityId: string): Promise<InstanceCandidate[]> {
+  const application = await loadOfferedDefinition(q, guildKey, 'manual-workspace', MANUAL_WORKSPACE_RELEASE, communityId);
   const requirement = (application.module_requirements as Requirement[]).find(item => item.module_key === 'work');
   requireCondition(requirement, 409, 'application_not_available', '這個應用目前無法啟動。');
   const definition = await moduleDefinition(q, requirement.module_key, requirement.module_release_ref);
@@ -134,7 +134,7 @@ export async function createPlan(
   const input = PlanInputSchema.parse(body);
   await assertFullGuildMember(q, context.community_id, actorUserId, input.guild_key, false);
   await workspaceStatus(q, context.tenant_id, input.workspace_id);
-  const definition = await loadOfferedDefinition(q, input.guild_key, input.application_key, input.release_ref);
+  const definition = await loadOfferedDefinition(q, input.guild_key, input.application_key, input.release_ref, context.community_id);
   assertConfiguration(input.configuration ?? {}, definition.customization_schema_ref);
   const policy = await readCapacityPolicy(q, context.tenant_id);
   if (!policy) throw new Problem(403, 'policy_unconfigured', '這個業務空間尚未設定容量政策。');
@@ -258,7 +258,11 @@ export async function createPlan(
   const capacityDelta = [];
   if (creates.length) {
     capacityDelta.push({ dimension: 'module_instances', units: String(creates.length) });
-    for (const choice of creates) capacityDelta.push({ dimension: `module_instances.${choice.module_key}`, units: '1' });
+    const createsByModule = new Map<string, number>();
+    for (const choice of creates) {
+      createsByModule.set(choice.module_key, (createsByModule.get(choice.module_key) ?? 0) + 1);
+    }
+    for (const [moduleKey, count] of createsByModule) capacityDelta.push({ dimension: `module_instances.${moduleKey}`, units: String(count) });
   }
   if (input.installation_choice === 'create_new') capacityDelta.push({ dimension: 'concurrent_provisions', units: '1' });
   const warnings = choices.map(choice => ({

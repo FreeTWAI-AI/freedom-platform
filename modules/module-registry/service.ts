@@ -64,7 +64,7 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
     )).rows[0];
     requireCondition(workspace, 404, 'not_found', '找不到這個工作區。');
     requireCondition(workspace.status === 'active', 409, 'workspace_unavailable', '這個工作區目前無法使用。');
-    const options = await manualWorkCandidates(q, tenantId, input.guild_key);
+    const options = await manualWorkCandidates(q, tenantId, input.guild_key, context.community_id);
     if (!input.choice && options.length > 0) throw new InstanceSelectionRequired(options);
     await installationFingerprintLock(q, tenantId, workspaceId, 'manual-workspace');
     const again = await entryBinding(q, tenantId, workspaceId);
@@ -76,7 +76,7 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
       return bindingView(tenantId, workspaceId, again, true);
     }
     if (!input.choice) {
-      const candidates = await manualWorkCandidates(q, tenantId, input.guild_key);
+      const candidates = await manualWorkCandidates(q, tenantId, input.guild_key, context.community_id);
       if (candidates.length > 0) throw new InstanceSelectionRequired(candidates);
     }
     const dependencies = input.choice?.kind === 'reuse'

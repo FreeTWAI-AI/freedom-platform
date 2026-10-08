@@ -110,10 +110,15 @@ const FOUNDATION_NAMES = [
   // Transaction-local tenant context and row security without FORCE. The runtime
   // role is not the table owner, so ENABLE already applies to it.
   '125_tenant_row_security.sql',
+  // Additive public project metadata marker; submission snapshots stay intact.
+  '126_project_public_metadata.sql',
+  // Retained session markers and FK lookup indexes for context-free pruning under RLS.
+  '127_auth_prune_retained_sessions.sql',
   // Application catalog, module releases, launch plans and provision operations.
   // Manual-work enablement stays a facade over the same launch core.
-  '126_module_registry.sql',
-  '127_module_instance_lifecycle.sql',
+  '128_module_registry.sql',
+  // Member suspend and resume of module instances: lifecycle operation kinds and a suspension pointer.
+  '129_module_instance_lifecycle.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

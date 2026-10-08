@@ -277,7 +277,7 @@ test('lifecycle instance and suspension-operation composite foreign keys reject 
   }
 });
 
-test('migration 127 preserves a launch row seeded under schema 126', async () => {
+test('migration 129 preserves a launch row seeded under schema 128', async () => {
   const schema = `fp_mrs_old_${process.pid}_${Date.now()}`;
   await h.admin.query(`CREATE SCHEMA ${schema}`);
   const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}` });
@@ -288,8 +288,8 @@ test('migration 127 preserves a launch row seeded under schema 126', async () =>
     const { seedLocal } = await import('../../packages/testing/seed.js');
     const { migrate } = await import('../../scripts/database.js');
     const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
-      .filter(source => source.name !== '127_module_instance_lifecycle.sql');
-    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 126, known_gaps: [22] }) });
+      .filter(source => source.name !== '129_module_instance_lifecycle.sql');
+    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 128, known_gaps: [22] }) });
     await seedLocal(pool);
     await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
       max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)

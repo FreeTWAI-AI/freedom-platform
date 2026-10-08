@@ -217,23 +217,23 @@ async function bumpOperationVersion(q: PoolClient, row: OperationRow) {
 
 /** The entry requirement is the one whose capabilities include `entry_capability`. */
 async function ensureEntryBinding(q: PoolClient, row: OperationRow): Promise<{ code: string; detail: string } | null> {
-  const requirement = (await q.query<{ module_key: string }>(
-    `SELECT req->>'module_key' AS module_key
+  const requirement = (await q.query<{ requirement_key: string }>(
+    `SELECT req->>'requirement_key' AS requirement_key
      FROM application_definitions d
-     CROSS JOIN LATERAL jsonb_array_elements(d.module_requirements) AS req
+     CROSS JOIN LATERAL jsonb_array_elements(d.module_requirements) WITH ORDINALITY AS requirements(req, ordinal)
      WHERE d.application_key=$1 AND d.release_ref=$2
        AND jsonb_typeof(req->'capabilities')='array'
        AND jsonb_exists(req->'capabilities', $3)
+     ORDER BY ordinal
      LIMIT 1`,
     [row.application_key, row.release_ref, row.entry_capability],
   )).rows[0];
-  if (!requirement?.module_key) return null;
+  if (!requirement?.requirement_key) return null;
   const instance = (await q.query<{ instance_id: string }>(
     `SELECT l.instance_id FROM application_module_links l
      JOIN module_instances i ON i.tenant_id=l.tenant_id AND i.instance_id=l.instance_id
-     WHERE l.tenant_id=$1 AND l.installation_id=$2 AND i.module_key=$3 AND i.status='active'
-     LIMIT 1`,
-    [row.tenant_id, row.installation_id, requirement.module_key],
+     WHERE l.tenant_id=$1 AND l.installation_id=$2 AND l.requirement_key=$3 AND i.status='active'`,
+    [row.tenant_id, row.installation_id, requirement.requirement_key],
   )).rows[0];
   if (!instance) return null;
   await lockWorkspace(q, row.tenant_id, row.workspace_id!);
@@ -406,7 +406,7 @@ async function claimStep(q: PoolClient, tenantId: string, operationId: string, p
   }
   if (provider.kind === 'transactional') {
     await provider.initialise(q, effect);
-    await applyConfirmed(q, row, step, effect.effect_digest);
+    await applyConfirmed(q, row, step, effect.effect_digest, providers);
     return { kind: 'local' };
   }
   return { kind: 'apply', operation: row, step, fence, provider, effect };
@@ -428,7 +428,7 @@ async function recordOutcome(q: PoolClient, claimed: ClaimedApply, outcome: 'con
     return;
   }
   if (outcome === 'confirmed') {
-    await applyConfirmed(q, row, claimed.step, claimed.effect.effect_digest);
+    await applyConfirmed(q, row, claimed.step, claimed.effect.effect_digest, providers);
     return;
   }
   if (outcome === 'unknown') {
@@ -441,7 +441,7 @@ async function recordOutcome(q: PoolClient, claimed: ClaimedApply, outcome: 'con
   await settleKnownFailure(q, row, steps, claimed.step.step_key, providers);
 }
 
-async function applyConfirmed(q: PoolClient, row: OperationRow, step: StepRow, digest: string) {
+async function applyConfirmed(q: PoolClient, row: OperationRow, step: StepRow, digest: string, providers: ModuleProviderMap) {
   const updated = await q.query(
     `UPDATE module_provision_steps SET state='confirmed', evidence_ref=$3, result_digest=$3
      WHERE operation_id=$1 AND step_key=$2 AND state IN ('unknown','pending','dispatched')`,
@@ -462,6 +462,11 @@ async function applyConfirmed(q: PoolClient, row: OperationRow, step: StepRow, d
   });
   const rest = await stepsOf(q, row.operation_id, row.tenant_id);
   if (await settleCancellationIfReady(q, row, rest)) return;
+  const failed = rest.find(item => item.state === 'failed_known');
+  if (failed) {
+    await settleKnownFailure(q, row, rest, failed.step_key, providers);
+    return;
+  }
   if (rest.every(item => item.state === 'confirmed' || item.step_key === step.step_key)) {
     await finishOperation(q, row, 'succeeded');
   } else if (row.state === 'requested') {
@@ -611,7 +616,7 @@ export async function reconcileOperation(pool: Pool, actor: Actor, tenantId: str
         effect_key: lookup.step.provider_effect_key, tenant_id: tenantId, instance_id: lookup.step.instance_id, module_key: lookup.step.module_key,
       });
       if (lookup.status === 'found' && lookup.owner_tenant_id === tenantId && lookup.effect_digest === digest) {
-        await applyConfirmed(q, row, lookup.step, digest);
+        await applyConfirmed(q, row, lookup.step, digest, providers);
       } else if (lookup.status === 'found') {
         await q.query(
           `UPDATE module_provision_operations SET terminal_problem=$2::jsonb, state='needs_reconciliation', version=version+1, updated_at=clock_timestamp()

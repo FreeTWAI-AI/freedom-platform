@@ -1,5 +1,4 @@
 import { Hono, type Context } from 'hono';
-import { getCookie } from 'hono/cookie';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import {
@@ -18,8 +17,7 @@ import { resolveProviders, type ModuleProviderMap } from '../../../../modules/mo
 import { listTenantWork } from '../../../../modules/opportunity-project-work/tenant-work.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
-
-const COOKIE = 'freedom_local_session';
+import { readSessionCookie } from '../session-cookie.js';
 
 function privateCache(c: { header: (name: string, value: string) => void }) {
   c.header('Cache-Control', 'private, no-store');
@@ -88,13 +86,13 @@ async function optionalActor(pool: Pool, cookie: string | undefined): Promise<Ac
 }
 
 /** Catalog reads. Mounted at `/` before the member boundary, and only when guild launchpad is enabled. */
-export function createPublicModuleRegistryRoutes(pool: Pool) {
+export function createPublicModuleRegistryRoutes(pool: Pool, origin: string) {
   const app = new Hono();
   app.get('/api/v1/applications', async c => {
     c.header('Cache-Control', 'no-store');
     c.header('Vary', 'Cookie');
     const query = CatalogQuerySchema.parse(singleQuery(c));
-    const actor = await optionalActor(pool, getCookie(c, COOKIE));
+    const actor = await optionalActor(pool, readSessionCookie(c.req.header('Cookie'), origin));
     const member = Boolean(actor && query.guild_key);
     if (member) privateCache(c);
     const result = await browseApplications(pool, {

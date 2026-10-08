@@ -35,8 +35,10 @@ export type PlatformRuntime = {
   /** GitHub App webhook secret. Undefined leaves only that route answering 503. */
   maintainerWebhookSecret: () => string | undefined;
   adminVerifier: AdminAccessVerifier;
-  /** Deterministic auth rate-limit key: a trusted client IP or SHARED_NETWORK_KEY. */
+  /** Trusted client address or SHARED_NETWORK_KEY; preserves promotion visitor identity. */
   sourceNetwork: (c: Context) => string;
+  /** Optional grouped budget key; adapters without it retain sourceNetwork limits. */
+  rateLimitNetwork?: (c: Context) => string;
   /** Hostnames accepted on inbound requests. */
   allowedHosts: ReadonlySet<string>;
   /** Origin for canonical/share URLs, development guidance, published-skill links and upload examples. */
@@ -70,7 +72,7 @@ export type PlatformRuntime = {
   health?: Readonly<Record<string, string | null>>;
   /** Clock for promotion days. Tests inject a fixed instant. */
   now?: () => Date;
-  /** Link-preview fetch. Production calls global fetch unbound; tests pass a fixture. */
+  /** Host-enforced preview egress. Node pins a public IP; Workers trusts fixed DNS owners. Absent fails closed. */
   linkPreviewFetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /** Explicit store for tenant Result bytes. Absent refuses upload and content reads. */
   tenantWorkAssetStore?: ObjectStore;

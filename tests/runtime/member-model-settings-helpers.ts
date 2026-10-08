@@ -114,7 +114,7 @@ export async function settingsFixture(fixtureOptions:{installed?:boolean;catalog
     const session=await login(app,email,'synthetic-password-only');const actor=await authenticate(app,session.token);
     const context=await withMemberScope(app,{actor,scope:'personal'},async()=>{},async(_q,c)=>c);
     await owner.query(`INSERT INTO private_work_persistence_policy(scope_id,purpose,owner_principal_id,revision,persistence_allowed,retained_byte_limit) VALUES($1,'work.private-draft',$2,1,true,10485760)`,[context.scope.scope_id,context.subject_principal.principal_id]);
-    return {actor,context,token:session.token,headers:{Cookie:'freedom_local_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
+    return {actor,context,token:session.token,headers:{Cookie:'__Host-freedom_session='+session.token,'X-CSRF-Token':actor.csrf_token,Origin:mainOrigin}};
   }
   async function paired(human:Awaited<ReturnType<typeof member>>) {
     const issuer=await generateKeyPair('ES256'),device=await generateKeyPair('ES256');
@@ -145,7 +145,7 @@ export async function settingsFixture(fixtureOptions:{installed?:boolean;catalog
     browser??=await chromium.launch({headless:true,args:['--ignore-certificate-errors-spki-list='+certificatePin,'--host-resolver-rules=MAP platform.test 127.0.0.1, MAP broker.test 127.0.0.1','--no-proxy-server']});
     const context=await browser.newContext();contexts.push(context);
     await context.route('**/*',route=>[mainOrigin,setupOrigin].includes(new URL(route.request().url()).origin)?route.continue():route.abort());
-    await context.addCookies([{name:'freedom_local_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);return context;
+    await context.addCookies([{name:'__Host-freedom_session',value:human.token,domain:'platform.test',path:'/',secure:true,httpOnly:true,sameSite:'Strict'}]);return context;
   }
   async function cleanup(){fixtureCertificates.delete(mainOrigin);fixtureCertificates.delete(setupOrigin);providerGate?.release();await Promise.all(contexts.map(c=>c.close()));await browser?.close();await Promise.all(replicas.map(p=>p.close()));await main?.close();await broker?.close();await closeServer(provider);await closeServer(external);await Promise.all([app.end(),executor.end(),brokerPool.end(),owner.end()]);await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP ROLE ${Object.values(roles).join(',')}`);await admin.end();await rm(directory,{recursive:true,force:true});await rm(tlsDirectory,{recursive:true,force:true});}
   return {schema,roles,owner,app,executor,brokerPool,admin,directory,secret,output,posts,withdrawProvider:()=>closeServer(provider),main:main!,broker:broker!,mainOrigin,setupOrigin,recoveryOrigin,issuerKeys,ingestKeys,responseKeys,recovery,refreshRecovery,member,paired,configured,browserContext,post,get,cleanup};

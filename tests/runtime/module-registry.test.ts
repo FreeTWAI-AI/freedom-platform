@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { WORK_CONTRACT } from '../../modules/module-registry/definitions.js';
+import { createApp } from '../../apps/platform-api/src/app.js';
 import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
 
 let h: RegistryHarness;
@@ -22,6 +23,23 @@ async function ownerOn(guilds: string[]) {
   const made = await h.createTenant(owner, '品牌甲');
   return { owner, ...made };
 }
+
+test('HTTPS catalog eligibility uses the configured secure session cookie', async () => {
+  const { owner } = await ownerOn(['guild_ai_field']);
+  const origin = 'https://registry.example.test';
+  const app = createApp(h.pool, origin, 'staging', { guildLaunchpadEnabled: true });
+  const path = `${origin}/api/v1/applications?guild_key=guild_ai_field`;
+  const signed = await app.request(path, { headers: { Cookie: owner.cookie.replace('freedom_local_session=', '__Host-freedom_session=') } });
+  assert.equal(signed.status, 200);
+  assert.equal(signed.headers.get('cache-control'), 'private, no-store');
+  const member = await signed.json() as { items: { eligibility?: unknown }[] };
+  assert.ok(member.items.length > 0 && member.items.every(item => item.eligibility));
+  const localCookie = await app.request(path, { headers: { Cookie: owner.cookie } });
+  assert.equal(localCookie.status, 200);
+  assert.equal(localCookie.headers.get('cache-control'), 'public, max-age=60');
+  const anonymous = await localCookie.json() as { items: { eligibility?: unknown }[] };
+  assert.ok(anonymous.items.every(item => item.eligibility === undefined));
+});
 
 test('catalog is public without a guild and private when a session asks for eligibility', async () => {
   const owner = await h.signIn(DEMO_USERS[0].email);

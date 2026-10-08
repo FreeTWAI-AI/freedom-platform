@@ -2,6 +2,44 @@
 
 > 歷史 Castle 運行手冊，2026-09-25 退役。現行 staging 在 Cloudflare Worker，見 [遷移手冊 §14](cloudflare-migration.md#14-切換後現況2026-09-25)。下文不改寫。
 
+## Guild Work 部署後驗證（現行 Worker）
+
+Staging 部署後，先由操作者啟用 guild launchpad、配置 active capacity policy，並確認
+`maker@local.test` 已有至少一個 active/full 公會資格。驗證器不授予資格、不修改使用者或
+既有工作；每次建立帶 run id 的 A/B tenant，保留資料供隔日續讀。每位帳號最多五個
+active tenant，重跑前由操作者自行管理測試空間容量。
+
+```sh
+FREEDOM_ACCESS_TOKEN_FILE=/private/path/short-lived-token.json \
+FREEDOM_STAGING_EVIDENCE_DIR=/private/path/guild-work-evidence \
+node scripts/verify-guild-work.mjs --expect-sha 687dee8739d9a8fc65a78fcb093347833cc004e8
+
+# 隔日：使用上一輪實際產生的 receipt 路徑，origin 與 served SHA 必須相同。
+FREEDOM_ACCESS_TOKEN_FILE=/private/path/short-lived-token.json \
+FREEDOM_STAGING_EVIDENCE_DIR=/private/path/guild-work-evidence \
+node scripts/verify-guild-work.mjs --expect-sha 687dee8739d9a8fc65a78fcb093347833cc004e8 \
+  --resume /private/path/guild-work-evidence/guild-work-<run-id>.json
+```
+
+`--expect-sha` 必須是實際部署的完整 SHA；目前路由相容性已核對上述版本與
+`70fb6ae7`，換版本前須重新核對。憑證沿用 `verify-staging.mjs` 的私密檔案格式與
+Access Service Auth 規則。證據目錄為 0700、receipt 為 0600，只記錄 IDs、版本、
+SHA-256 與拒絕狀態，不保存 cookie、密碼、Access headers 或 URL query。
+
+T-005 覆蓋一般會員無模型呼叫的手動 Work、筆記 Result、64 KiB 隨機可列印文字附件
+Result、真實內容下載核對、登出撤銷、重新登入及下一版筆記；筆記和附件沿用 UI 的
+prepare／PUT／finalize。`--resume` 只讀 A 舊資料，核對版本及 digest，並建立新的 B tenant
+重驗隔離。T-023 permission 覆蓋 B 的列表隔離及 B／僅 Access 無會員 session 的
+GET、HEAD、Range 拒絕；目前只發出 Result content URL，沒有獨立 object／variant URL。
+內容 HEAD／Range 的產品統一拒絕為 405，跨 tenant GET 為 404，未登入為 401。
+此版本沒有 tenant export route，`export_restore` 保持
+`not_run (no export route at <sha>)`。HTTP 驗證不代替真人或瀏覽器驗收，也不宣告整列 T-023 完成。
+Feature 關閉、identity 缺失／不符或前置失敗以 2 結束；會員流程失敗以 1 結束並保存失敗
+receipt；全部通過為 0。本機測試限定 `--origin http://127.0.0.1:<port>`，不需要 Access 檔案。
+
+本機回歸測試：[verify-guild-work.test.ts](../../tests/runtime/verify-guild-work.test.ts)，
+由 CI 的 `runtime.full` 自動選入，使用 `TEST_DATABASE_URL` 與可丟棄的 schema／role。
+
 ## 位置與依賴
 
 - 主機：Castle／`castleridge-ai1`，Linux 使用者 `ted-h`。

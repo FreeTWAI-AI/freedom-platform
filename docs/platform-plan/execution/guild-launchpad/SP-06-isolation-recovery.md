@@ -3,6 +3,7 @@
 ## 1. 文件識別、來源與範圍
 
 - ID：SP-06；版本：0.1.0；狀態：`planned / implementation_not_started / acceptance_not_run`
+- 2026-10-07 註：上一行是 2026-10-05 規格草案的狀態，保留不改。之後 P-C2（#181，merge `57b610ab`，migration 123）已實作本規格的一部分並合併到 main；部署、啟用與驗收的目前狀態只記在 [README「目前狀態」](README.md#目前狀態)。
 - 程式來源：`FreeTWAI-AI/freedom-platform@567ae8d3849cfaa319b79c42d9c6c0a48d76f4a9`，2026-10-05 讀取；意圖來源：完整《Freedom Guild Launchpad Architecture Plan v1.0》§8、§14、§20、§24及附錄 A/B
 - 主責：D-10、D-11、D-17；R-021–R-025、R-046–R-047；T-021–T-025、T-046–T-047。協作 D-13、D-15、D-18、D-20；R-026、R-039–R-045；T-026、T-039–T-045
 - 單一資料責任清單：[data-responsibility.md](data-responsibility.md)；共同DTO：[contracts.md](contracts.md)；精確路徑：[repository-map.md](repository-map.md)；參數/未決：[decision-log.md](decision-log.md)；追蹤：[traceability.json](traceability.json)

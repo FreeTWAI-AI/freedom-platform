@@ -8,7 +8,7 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
-import { syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
+import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { advanceOperation } from '../../modules/module-registry/operations.js';
 import type { ProvisionEffect } from '../../modules/module-registry/providers.js';
@@ -93,6 +93,7 @@ before(async () => {
     GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);
   created = true;
   await migrate(owner);
+  await ensureSyntheticModuleTables(owner);
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql', import.meta.url), 'utf8');
   const general = template.slice(template.indexOf('BEGIN;'), template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))
     .replaceAll('SCHEMA public', `SCHEMA ${schema}`).replaceAll(':"runtime"', `"${runtimeRole}"`);
@@ -128,6 +129,9 @@ before(async () => {
     SELECT $1, 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1', 10, 3, 2, 1000, 104857600, 4, NULL, 'active'
     WHERE NOT EXISTS (SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`, [randomUUID()]);
   await installSyntheticCatalog();
+  // Keep both providers unresolved without sleeps or external effects.
+  await setSyntheticFault(owner, 'synthetic-inventory', 'crash_before');
+  await setSyntheticFault(owner, 'synthetic-storefront', 'crash_before');
   fixture = await buildFixture();
 });
 
@@ -310,10 +314,10 @@ async function buildFixture() {
     const scopeId = (await owner.query("SELECT scope_id FROM resource_scopes WHERE kind='tenant' AND tenant_ref=$1", [tenantId])).rows[0].scope_id as string;
 
 
-    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag'), plan.response.headers.get('etag'), inst.response.headers.get('etag')].filter(Boolean) as string[];
+    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, planId, scopeId, dependencyId, installationId: installation.data.installation_id as string, planDigest, workVersion: updatedWorkVersion, uploadVersion,
+      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
       etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
       noteBytes
     };
@@ -399,7 +403,7 @@ async function assertTenantWritePolicy(table: string, column: string) {
   return policies.map(row => row.policyname);
 }
 
-test('8. Discovered RLS tables reject retarget and cross-tenant select', async () => {
+test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', async () => {
   const { A, B } = fixture;
   const role = (await runtime.query(`SELECT current_user AS name, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user`)).rows[0];
   assert.equal(role.name, runtimeRole); assert.equal(role.rolsuper, false); assert.equal(role.rolbypassrls, false);
@@ -408,6 +412,15 @@ test('8. Discovered RLS tables reject retarget and cross-tenant select', async (
     WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND c.relrowsecurity ORDER BY c.relname;
   `)).rows;
   assert.ok(tables.length, 'No RLS tables discovered');
+  // Pin the merged P-D1 RLS set; discovery requires fixture coverage for every new table.
+  assert.deepEqual(tables.map(row => row.relname), [
+    'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
+    'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
+    'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
+    'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
+    'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
+    'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+  ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
   }
@@ -513,28 +526,11 @@ test('8. Discovered RLS tables reject retarget and cross-tenant select', async (
   console.log(JSON.stringify({ item8: record }));
 });
 
-test('9. An executor bound to A cannot claim or advance B; B can advance its own operation', async () => {
+test('T-022 9. An executor bound to A cannot claim or advance B; B can advance its own operation', async () => {
   const { A, B } = fixture;
   const operation = (await owner.query('SELECT state FROM module_provision_operations WHERE operation_id=$1', [B.operationId])).rows[0];
   assert.ok(['requested', 'running', 'needs_reconciliation'].includes(operation.state));
   assert.ok((await owner.query('SELECT 1 FROM module_provision_steps WHERE operation_id=$1', [B.operationId])).rowCount);
-  const visibility: Record<string, { other: number; own: number }> = {};
-  for (const table of ['module_provision_operations', 'module_provision_steps']) {
-    async function select(bound: typeof A) {
-      return isolatedTransaction(runtime, async q => {
-        await bindPrincipalContext(q, bound.principalId);
-        await bindTenantContext(q, { tenantId: bound.tenantId, tenantScopeId: bound.scopeId });
-        // Deliberately no application tenant predicate: only RLS can hide B here.
-        return q.query(`SELECT operation_id FROM ${identifier(table)} WHERE operation_id=$1`, [B.operationId]);
-      });
-    }
-    const other = await select(A);
-    const own = await select(B);
-    assert.equal(other.rowCount, 0, `${table}: raw operation lookup exposed B to A`);
-    assert.ok(own.rowCount! > 0, `${table}: B cannot see its own pending operation`);
-    visibility[table] = { other: other.rowCount!, own: own.rowCount! };
-  }
-  console.log(JSON.stringify({ item9_raw_visibility: visibility }));
   async function snapshot() {
     const rows: Record<string, unknown> = {};
     for (const table of ['module_provision_operations', 'module_provision_steps', 'module_instances', 'application_installations', 'capacity_reservations', 'capacity_ledger']) {
@@ -548,6 +544,8 @@ test('9. An executor bound to A cannot claim or advance B; B can advance its own
     ...(provider.kind === 'async' ? { apply: async (effect: ProvisionEffect) => { applied++; return provider.apply(effect); } } : {}),
   }]));
   const before = await snapshot();
+  await setSyntheticFault(owner, 'synthetic-inventory', null);
+  await setSyntheticFault(owner, 'synthetic-storefront', null);
   const clock = () => new Date(Date.now() + 60_000);
   await advanceOperation(runtime, A.tenantId, B.operationId, { providers: guardedProviders, clock });
   assert.equal(applied, 0, 'A dispatched a provider effect for B');

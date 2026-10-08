@@ -191,7 +191,10 @@ for (const future of [false, true]) test((future ? 'future' : 'expired') + ' lea
     const a = createNativeTextStartAuthority({ claim: async () => { claims++; return claim(); }, assertCurrent: async () => {} });
     await rejects('execution_authority_unavailable', adapter.invoke(invalid, a, async () => { loads++; return context(); }));
     assert.equal(claims, 0); assert.equal(loads, 0);
-    const valid = { ...b, activatedAt: new Date().toISOString(), leaseExpiresAt: new Date(Date.now() + 90000).toISOString() };
+    // One clock sample keeps the valid fixture inside the exact 90-second ceiling.
+    const validNow = Date.now();
+    const valid = { ...b, activatedAt: new Date(validNow).toISOString(), leaseExpiresAt: new Date(validNow + 90000).toISOString() };
+    assert.equal(Date.parse(valid.leaseExpiresAt) - Date.parse(valid.activatedAt), 90000);
     assert.equal((await adapter.invoke(valid, a, async () => { loads++; return context(); })).text, 'Synthetic draft');
     assert.equal(claims, 1); assert.equal(loads, 1);
 });
@@ -203,7 +206,10 @@ test('lease expiry during the real native controls probe is rechecked before the
   const b = binding(), short = { ...b, leaseExpiresAt: new Date(Date.now() + 1000).toISOString() };
   await rejects('execution_authority_unavailable', adapter.invoke(short, a, async () => { loads++; return context(); }));
   assert.equal(claims, 0); assert.equal(loads, 0);
-  assert.equal((await adapter.invoke({ ...b, activatedAt: new Date().toISOString(), leaseExpiresAt: new Date(Date.now()+90000).toISOString() }, a,
+  const validNow = Date.now();
+  const valid = { ...b, activatedAt: new Date(validNow).toISOString(), leaseExpiresAt: new Date(validNow + 90000).toISOString() };
+  assert.equal(Date.parse(valid.leaseExpiresAt) - Date.parse(valid.activatedAt), 90000);
+  assert.equal((await adapter.invoke(valid, a,
     async () => { loads++; return context(); })).text, 'Synthetic draft');
   assert.equal(claims, 1); assert.equal(loads, 1); await noOwned();
 });

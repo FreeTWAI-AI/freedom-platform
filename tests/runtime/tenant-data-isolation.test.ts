@@ -42,6 +42,9 @@ const DEFINERS = [
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
+  'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
+  'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans',
+  'module_provision_operations', 'module_provision_steps',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
 ];

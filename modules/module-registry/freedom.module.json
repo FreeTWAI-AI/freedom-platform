@@ -6,8 +6,8 @@
     "modules/module-registry/**",
     "apps/platform-api/src/routes/module-registry.ts",
     "migrations/123_tenant_manual_work.sql",
-    "migrations/126_module_registry.sql",
-    "migrations/127_module_instance_lifecycle.sql",
+    "migrations/128_module_registry.sql",
+    "migrations/129_module_instance_lifecycle.sql",
     "contracts/guild-launchpad/v1/module-registry.ts",
     "packages/testing/synthetic-module-provider.ts",
     "tests/runtime/tenant-work.test.ts",
@@ -20,7 +20,9 @@
     "tests/runtime/module-registry-schema.test.ts",
     "tests/runtime/module-registry-review.test.ts",
     "tests/runtime/module-registry-rls-runtime-role.test.ts",
-    "tests/runtime/module-instance-lifecycle.test.ts"
+    "tests/runtime/module-instance-lifecycle.test.ts",
+    "scripts/tenant-policy.ts",
+    "tests/runtime/tenant-policy-operator.test.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts",

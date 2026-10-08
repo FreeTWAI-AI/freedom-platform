@@ -10,6 +10,7 @@ import {Pool} from 'pg';
 import sharp from 'sharp';
 import {migrate} from '../../scripts/database.js';
 import {tokenHash} from '../../modules/identity-membership/service.js';
+import { z } from 'zod';
 const raw=process.env.TEST_DATABASE_URL;assert(raw,'Owned fp_* TEST_DATABASE_URL required');const adminUrl=new URL(raw);
 assert.match(adminUrl.pathname,/^\/fp_[a-z0-9_]+$/);assert(['127.0.0.1','localhost','[::1]'].includes(adminUrl.hostname));const socket=adminUrl.searchParams.get('host');if(socket)assert(socket.startsWith('/'));
 const database=`fp_worker_preview_${process.pid}_${Date.now()}`,migrator=database+'_owner',runtimeRole=database+'_app',password=randomBytes(24).toString('hex');
@@ -29,7 +30,7 @@ before(async()=>{
 });
 after(async()=>{for(const instance of instances)await instance.dispose();for(const channel of sockets)channel.destroy();if(proxy?.listening)await new Promise<void>(r=>proxy.close(()=>r()));await Promise.all([owner.end(),app.end()]);try{if(created){await admin.query(`DROP DATABASE ${database}`);await admin.query(`DROP ROLE ${migrator},${runtimeRole}`);}}finally{await admin.end();}if(directory)await rm(directory,{recursive:true,force:true});});
 async function worker(options:{enabled?:string;media?:boolean;images?:boolean}={}){
-  const instance=new Miniflare(convertV4MiniflareOptions({workers:[{name:'native-preview-'+randomUUID(),modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings:{FREEDOM_ENV:'local',APP_ORIGIN:origin,FREEDOM_REGISTRATION_COMMUNITY_ID:community,...(options.enabled===undefined?{}:{FREEDOM_SOCIAL_THUMBNAIL_ENABLED:options.enabled})},hyperdrives:{HYPERDRIVE:tcp},...(options.media===false?{}:{r2Buckets:['MEDIA']}),...(options.images===false?{}:{images:{binding:'IMAGES'}}),assets:{directory:join(directory,'assets'),binding:'ASSETS',routerConfig:{has_user_worker:true,invoke_user_worker_ahead_of_assets:true},assetConfig:{not_found_handling:'none'}},outboundService:async(request)=>{outboundCalls++;const url=new URL(request.url);assert.equal(request.method,'GET');assert.equal(request.headers.get('user-agent'),'FreedomWorkshopPreview/1.0 (+https://freetwai.com)');assert.equal(request.headers.get('cookie'),null);assert.equal(request.headers.get('authorization'),null);assert.equal(url.protocol,'https:');if(url.hostname==='www.youtube.com'&&url.pathname==='/oembed')return Response.json({title:'Synthetic HTTPS preview'});assert.equal(url.hostname,'i.ytimg.com');assert.match(url.pathname,/^\/vi\/[a-zA-Z0-9_-]+\/hqdefault\.jpg$/);if(url.pathname.includes('/redirect001/'))return new Response(null,{status:302,headers:{Location:'https://127.0.0.1/private'}});if(url.pathname.includes('/oversized01/'))return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png','Content-Length':'5242881'}});return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png'}});}}]}));instances.push(instance);await instance.ready;return instance;
+  const instance=new Miniflare(convertV4MiniflareOptions({workers:[{name:'native-preview-'+randomUUID(),modules:true,scriptPath:resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR??'.wrangler/dry-run/local','worker.js'),compatibilityDate:'2026-09-21',compatibilityFlags:['nodejs_compat'],bindings:{FREEDOM_ENV:'local',APP_ORIGIN:origin,FREEDOM_REGISTRATION_COMMUNITY_ID:community,...(options.enabled===undefined?{}:{FREEDOM_SOCIAL_THUMBNAIL_ENABLED:options.enabled})},hyperdrives:{HYPERDRIVE:tcp},...(options.media===false?{}:{r2Buckets:['MEDIA']}),...(options.images===false?{}:{images:{binding:'IMAGES'}}),assets:{directory:join(directory,'assets'),binding:'ASSETS',routerConfig:{has_user_worker:true,invoke_user_worker_ahead_of_assets:true},assetConfig:{not_found_handling:'none'}},outboundService:async(request)=>{outboundCalls++;const url=new URL(request.url);assert.equal(request.method,'GET');assert.equal(request.headers.get('user-agent'),'FreedomWorkshopPreview/1.0 (+https://freetwai.com)');assert.equal(request.headers.get('cookie'),null);assert.equal(request.headers.get('authorization'),null);assert.equal(url.protocol,'https:');if(url.hostname==='x.com'){if(url.pathname==='/unsafe-redirect')return new Response(null,{status:302,headers:{Location:'https://private-looking.test/secret'}});if(url.pathname==='/safe-redirect')return new Response(null,{status:302,headers:{Location:'https://www.x.com/landing'}});const image=url.pathname==='/unsafe-image'?'https://private-looking.test/secret.png':'https://a.cdninstagram.com/image.png';return new Response('<title>Approved public page</title><meta property="og:image" content="'+image+'">',{headers:{'Content-Type':'text/html'}});}if(url.hostname==='www.x.com')return new Response('<title>Approved public page</title>',{headers:{'Content-Type':'text/html'}});if(url.hostname==='a.cdninstagram.com')return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png'}});if(url.hostname==='www.youtube.com'&&url.pathname==='/oembed')return Response.json({title:'Synthetic HTTPS preview'});assert.equal(url.hostname,'i.ytimg.com');assert.match(url.pathname,/^\/vi\/[a-zA-Z0-9_-]+\/hqdefault\.jpg$/);if(url.pathname.includes('/redirect001/'))return new Response(null,{status:302,headers:{Location:'https://127.0.0.1/private'}});if(url.pathname.includes('/oversized01/'))return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png','Content-Length':'5242881'}});return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png'}});}}]}));instances.push(instance);await instance.ready;return instance;
 }
 type Member={id:string;cookie:string;csrf:string};
 async function member(){const id=randomUUID(),token=randomBytes(32).toString('base64url'),csrf=randomUUID();await owner.query("INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref) VALUES($1,$2,$3,'Synthetic social member','not-a-login',$4)",[id,community,id+'@native-social.test',randomUUID()]);await owner.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,$3,clock_timestamp()+interval '1 hour')",[tokenHash(token),id,csrf]);return {id,cookie:'freedom_local_session='+token,csrf};}
@@ -53,4 +54,37 @@ test('original social POST traverses native Worker HTTPS preview normalization, 
  for(const video of ['redirect001','oversized01']){const requestsBefore:number=outboundCalls;const result=await create(installed,human,randomUUID(),video);assert.equal(result.status,201,await result.clone().text());const bare=await result.json() as {thumbnail_url:unknown};assert.equal(bare.thumbnail_url,null);assert.equal(outboundCalls,requestsBefore+2,'No request to rejected redirect and no image fallback.');assert.equal((await bucket.list()).objects.length,1);}
  await assert.rejects(app.query("UPDATE domain_media_storage_policy SET persistence_allowed=true WHERE purpose='community.social-thumbnail'"),e=>(e as {code:string}).code==='42501');
  const removed=await call(installed,'/api/v1/social-posts/'+dto.post_id,{method:'DELETE',headers:{...headers(human),'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:'{}'});assert.equal(removed.status,200,await removed.clone().text());assert.equal((await call(installed,publicPath)).status,404);assert.equal((await bucket.list()).objects.length,1);assert.equal((await owner.query("SELECT count(*)::int n FROM assets WHERE state='ready'")).rows[0].n,0);
+});
+
+test('canonical Worker leaves untrusted links publishable without egress and checks redirect and thumbnail namespaces', async () => {
+  const human = await member(), installed = await worker({ enabled: 'true' });
+  const schema = z.object({ post_id: z.uuid(), title: z.string(), thumbnail_url: z.string().nullable() });
+  const post = async (url: string) => {
+    const response = await call(installed, '/api/v1/social-posts', { method: 'POST', headers: {
+      ...headers(human), 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(),
+    }, body: JSON.stringify({ url }) });
+    assert.equal(response.status, 201, await response.clone().text());
+    return schema.parse(await response.json());
+  };
+  for (const host of ['private-looking.test', 'youtube.com.attacker.test', 'evil.youtube.com', 'ytimg.com.attacker.test', 'cdninstagram.com.attacker.test']) {
+    const before = outboundCalls, result = await post('https://' + host + '/secret');
+    assert.equal(result.title, host);
+    assert.equal(result.thumbnail_url, null);
+    assert.equal(outboundCalls, before, 'An untrusted hostname must not reach outbound HTTPS at all');
+  }
+  for (const path of ['/unsafe-redirect', '/safe-redirect', '/unsafe-image']) {
+    const before = outboundCalls, result = await post('https://x.com' + path);
+    assert.equal(result.title, path === '/unsafe-redirect' ? 'x.com' : 'Approved public page');
+    assert.equal(result.thumbnail_url, null);
+    assert.equal(outboundCalls, before + (path === '/safe-redirect' ? 2 : 1));
+  }
+  const approved = await post('https://x.com/approved-image');
+  assert.equal(approved.title, 'Approved public page');
+  assert.equal(approved.thumbnail_url, '/api/v1/social-posts/' + approved.post_id + '/thumbnail');
+  const publicImage = await call(installed, '/api/v1/public/social-posts/' + approved.post_id + '/thumbnail');
+  assert.equal(publicImage.status, 200);
+  const metadata = await sharp(Buffer.from(await publicImage.arrayBuffer())).metadata();
+  assert.equal(metadata.format, 'webp');
+  assert.equal(metadata.width, 640);
+  assert.equal(metadata.height, 360);
 });

@@ -24,11 +24,13 @@ foreign ownership and withdrawn persistence policy still deny access.
 
 ## Fixed member boundary
 
-The factory independently authenticates the real `freedom_local_session` cookie.
+The factory independently authenticates `__Host-freedom_session` on configured
+HTTPS origins, or `freedom_local_session` only on approved local HTTP loopback.
+Duplicate selected session cookies are rejected, never resolved by ordering.
 It never trusts a previously injected Actor, bearer/Agent credential, request
 owner/scope, or caller policy. [The shared member middleware](../../apps/platform-api/src/member-boundary.ts)
-was extracted from the existing platform app, retaining its cookie, timing-safe
-CSRF comparison, authentication and onboarding rules except for the fail-closed
+was extracted from the existing platform app, retaining its timing-safe
+CSRF comparison, authentication and onboarding rules alongside the fail-closed
 empty-token guard described below. Production passes its unchanged
 onboarding exception list; this factory passes no exception. All private paths
 require completed onboarding, including HEAD and failed command replays.
@@ -38,7 +40,7 @@ before comparison. The legacy schema allows an empty string, although normal
 login/registration always generate a random nonempty token. A malformed DB row
 must not make an absent/empty header pass a zero-byte equality check. Tests use
 an actual empty-token session and both production and closed routers; ordinary
-generated-token requests still succeed. No other auth semantics are changed.
+generated-token requests still succeed. That guard does not relax other authentication checks.
 
 The configured host/origin allowlists come from the existing environment helpers.
 Unsafe methods require an allowed Origin and the existing `X-CSRF-Token` compared
