@@ -1,0 +1,62 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "development",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/development/page-github.ts",
+    "modules/development/pages.ts",
+    "modules/development/service.ts",
+    "apps/platform-api/src/routes/development.ts",
+    "tests/runtime/development-map.test.ts",
+    "tests/runtime/page-github.test.ts",
+    "tests/runtime/page-issue-label.test.ts",
+    "tests/runtime/skill-collaboration.test.ts",
+    "tests/runtime/skill-sharing.test.ts",
+    "tests/runtime/skill-book-guides.test.ts",
+    "tests/runtime/member-skill-registration.test.ts",
+    "tests/e2e/development-guide.spec.ts"
+  ],
+  "public_exports": [
+    "modules/development/page-github.ts",
+    "modules/development/pages.ts",
+    "modules/development/service.ts"
+  ],
+  "dependencies": [
+    "shared"
+  ],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "development.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/development.ts",
+      "operations": [
+        "development.skill-share-content.read",
+        "development.map.read",
+        "development.map-well-known.read",
+        "development.skill-collaboration.read",
+        "development.llms-index.read",
+        "development.styles.read",
+        "development.share-script.read",
+        "development.index.read",
+        "development.skill-agent-guide.read",
+        "development.page-agent-guide.read",
+        "development.skill-guide.read",
+        "development.page-guide.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    }
+  ]
+}
