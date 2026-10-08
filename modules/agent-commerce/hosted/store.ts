@@ -88,7 +88,7 @@ export async function storeCommand<T>(pool: Pool, actor: Actor, tenantId: string
   authorize, (q, context) => run(q, context, inst), authorize); } catch (e) { mapError(e); }
 }
 export async function storeFact(q: PoolClient, context: TenantScopeContext, id: string, version: string, operation: string, aggregate = 'storefront') {
-  await scopedJournal(q, context, { aggregate_type: aggregate, id, version, operation, data: { instance_id: id, version } });
+  await scopedJournal(q, context, { aggregate_type: aggregate, id, version, operation, data: { resource_id: id, version } });
 }
 export async function slugAvailability(q: PoolClient, raw: string, ownInstance: string) {
   const slug = raw.trim().toLowerCase();
