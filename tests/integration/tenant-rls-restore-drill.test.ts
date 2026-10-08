@@ -129,7 +129,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
-  'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
+  'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
@@ -325,6 +325,8 @@ const EXPECTED: Record<string, number> = {
   tenants: 2, tenant_memberships: 3, tenant_invitations: 2, workspaces: 2,
   tenant_authority_audit: 2, module_instances: 2, deployment_bindings: 2, workspace_module_bindings: 2,
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
+  // This fixture has no explicit instance grants; verify the new table survives empty.
+  tenant_module_permissions: 0,
   tenant_work_results: 2, tenant_work_result_targets: 2, tenant_capacity_policies: 3,
   work_items: 3, scoped_command_receipts: 3, scoped_transition_journal: 3, scoped_outbox: 3,
   // This fixture inserts existing Work directly; no registry launch is performed.

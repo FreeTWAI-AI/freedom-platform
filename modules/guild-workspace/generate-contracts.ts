@@ -20,6 +20,7 @@ import {
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
 const reason = ['reason_control_character'] as const;
+const instanceGrants = ['instance_ids_unique', 'instance_capability_keys_unique'] as const;
 const launchpad = [
   'guild_key_pattern_and_bounds', 'text_control_surrogate_and_utf8_bounds', 'block_id_stable_key',
   'block_kind_set_and_duplicates', 'block_order_range_and_uniqueness', 'mandatory_block_enabled',
@@ -51,9 +52,9 @@ const documents: ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', 
   ['tenant-create-input', TenantCreateInputSchema, 'input', displayName],
   ['tenant-edit-input', TenantEditInputSchema, 'input', displayName],
   ['workspace-create-input', WorkspaceCreateInputSchema, 'input', displayName],
-  ['tenant-invite-input', InviteInputSchema, 'input', []],
+  ['tenant-invite-input', InviteInputSchema, 'input', instanceGrants],
   ['invitation-revoke-input', InvitationRevokeInputSchema, 'input', reason],
-  ['member-change-input', MemberChangeInputSchema, 'input', reason],
+  ['member-change-input', MemberChangeInputSchema, 'input', [...reason, ...instanceGrants]],
   ['empty-command-input', EmptyObjectSchema, 'input', []],
   ['launchpad-config', configSchema, 'input', launchpad],
   ['guild-classification', GuildClassification, 'output', []],
