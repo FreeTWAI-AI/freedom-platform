@@ -35,6 +35,18 @@ export function ShowcasePanel() {
   useEffect(() => {
     void load()
   }, [load, session.user.user_id])
+  useEffect(() => {
+    const reveal = () => {
+      const id = window.location.hash.slice('#showcase/'.length);
+      if (!window.location.hash.startsWith('#showcase/') || !showcases?.some(item => item.showcase_id === id)) return;
+      const card = document.getElementById(`showcase-${id}`);
+      card?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      card?.focus();
+    };
+    reveal();
+    window.addEventListener('hashchange', reveal);
+    return () => window.removeEventListener('hashchange', reveal);
+  }, [showcases]);
 
   if (loading && !showcases) return <p className="muted" role="status">載入作品與商機…</p>
   if (loadError || !showcases || !opportunities) {

@@ -1549,8 +1549,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 50524,
-      "sha256": "5a7786e2888352a1878eacd88635847e35bf2a8aa82b05b980dcf500ed5e8b57"
+      "bytes": 50577,
+      "sha256": "99056f01590edf6fa82e9e2b19e4167c16cef9219d988ae5dc44f733a0596955"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2324,8 +2324,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 15461,
-      "sha256": "b43efa792939e11b5b736fadf3983cc4c9573bffb5b5a8b9466019786156a4c6"
+      "bytes": 16004,
+      "sha256": "5118316740ff88d9663040659cc06b047215189a7bdfe8ecba4fd723778f581b"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
@@ -16494,8 +16494,8 @@
     },
     {
       "path": "modules/community/content-search.ts",
-      "bytes": 17083,
-      "sha256": "adb2168f2959d91526edc7c0bb398d1234751d01a81445337fb05510d3fec44d"
+      "bytes": 18836,
+      "sha256": "aa16d25dcb06024b6986bee2409f91114b74161bca9958fa851bc293b804fac5"
     },
     {
       "path": "modules/community/discovery.ts",
@@ -19884,8 +19884,8 @@
     },
     {
       "path": "tests/runtime/community-search.test.ts",
-      "bytes": 20732,
-      "sha256": "1b9e711fbe34c2bd4fe4dfe7bc5e3f88e426440b924d71e58c2a92bb3a2c159e"
+      "bytes": 25961,
+      "sha256": "79c400df8cd52f770822d519dc107e08edb7ff5a25052b539a0e740c9ced8679"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",

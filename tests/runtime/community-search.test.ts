@@ -12,6 +12,7 @@ import { DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { communityCatalog } from '../../modules/community/catalog.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { lockMemberGuilds } from '../../modules/positioning/onboarding.js';
+import { createShowcase, listShowcases } from '../../modules/opportunity-project-work/business.js';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) throw new Error('TEST_DATABASE_URL must name a disposable database');
@@ -78,8 +79,12 @@ test('published work search shares live consent and owner visibility and skills 
   const found = await searchCommunityContent(pool, null, { q: '中文作品', kinds: 'work' });
   assert.deepEqual(found.items.map(row => row.id), [submission]);
   assert.equal(found.items[0].path, `/development/submissions/${submission}`);
+  const member = (await login(pool, DEMO_USERS[2].email, DEMO_PASSWORD)).actor;
+  const ordinary = await createShowcase(pool, { actor: member, operation: 'search-mixed-consent', key: randomUUID(), body: { title: '中文作品', description: '僅社群可讀的一般作品', consent_to_share: true } });
+  assert.deepEqual(new Set((await searchCommunityContent(pool, member, { q: '中文作品', kinds: 'work' })).items.map(row => row.id)), new Set([submission, ordinary.showcase_id]));
   await pool.query("UPDATE skill_submissions SET status='revoked',revoked_at=now(),consent_to_share=false WHERE submission_id=$1", [submission]);
   assert.deepEqual((await searchCommunityContent(pool, null, { q: '中文作品', kinds: 'work' })).items, []);
+  assert.deepEqual((await searchCommunityContent(pool, member, { q: '中文作品', kinds: 'work' })).items.map(row => row.id), [ordinary.showcase_id]);
   const books = await searchCommunityContent(pool, null, { kinds: 'skill_book' });
   for (const book of books.items) assert.equal(book.path, `/development/skills/${book.id}`);
 });
@@ -216,4 +221,58 @@ test('book topic authorization waits behind the member-guild barrier and observe
     await locker.query('ROLLBACK'); locker.release();
     await pending; await racer.end();
   }
+});
+
+test('ordinary showcase search preserves the original member audience and topic ownership, including removal and replay', async () => {
+  const owner = (await login(pool, DEMO_USERS[2].email, DEMO_PASSWORD)).actor;
+  const reader = (await login(pool, DEMO_USERS[0].email, DEMO_PASSWORD)).actor;
+  const foreign = (await editorFixture()).actor;
+  const create = { actor: owner, operation: 'search-showcase-create', key: randomUUID(), body: {
+    title: '一般會員作品搜尋268', description: '同社群可讀作品說明', artifact_ref: 'artifact:never-in-search268', public_url: null, consent_to_share: true,
+  } };
+  await assert.rejects(createShowcase(pool, { ...create, body: { ...create.body, consent_to_share: false } }));
+  const showcase = await createShowcase(pool, create);
+  const query = { q: create.body.title, kinds: 'work' };
+  assert.deepEqual((await searchCommunityContent(pool, null, query)).items, []);
+  assert.deepEqual((await searchCommunityContent(pool, foreign, query)).items, []);
+  const visible = await searchCommunityContent(pool, reader, query);
+  const originalAudience = (await listShowcases(pool, reader)).filter(row => row.title === create.body.title);
+  assert.deepEqual(visible.items.map(row => row.id), originalAudience.map(row => row.showcase_id));
+  assert.equal(visible.items[0].path, `#showcase/${showcase.showcase_id}`);
+  assert.equal(visible.items[0].summary, create.body.description);
+  assert.equal(JSON.stringify(visible).includes(create.body.artifact_ref), false);
+  await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [owner.user_id, `search-fixture-${owner.user_id}@example.invalid`]);
+  try {
+    assert.deepEqual((await searchCommunityContent(pool, reader, query)).items, []);
+    assert.equal((await listShowcases(pool, reader)).some(row => row.showcase_id === showcase.showcase_id), false);
+    assert.deepEqual((await searchCommunityContent(pool, owner, query)).items.map(row => row.id), [showcase.showcase_id]);
+  } finally { await pool.query('UPDATE users SET email=$2 WHERE user_id=$1', [owner.user_id, DEMO_USERS[2].email]); }
+
+  const tag = { actor: owner, operation: 'search-showcase-topics', key: randomUUID(), body: { kind: 'work', id: showcase.showcase_id.toUpperCase(), topics: ['showcase'] } };
+  await assert.rejects(assignContentTopics(pool, { ...tag, actor: reader }), deniedCode('not_found'));
+  await assert.rejects(assignContentTopics(pool, { ...tag, actor: foreign }), deniedCode('not_found'));
+  assert.equal((await assignContentTopics(pool, tag)).aggregate_version, 1);
+  assert.deepEqual((await searchCommunityContent(pool, reader, { ...query, topics: 'showcase' })).items.map(row => row.id), [showcase.showcase_id]);
+  assert.ok((await listTaggableContent(pool, owner)).items.some(row => row.id === showcase.showcase_id && row.topics.includes('showcase')));
+  assert.equal((await listTaggableContent(pool, reader)).items.some(row => row.id === showcase.showcase_id), false);
+  // Showcases have no revocable consent flag/state machine; source removal must
+  // remove the projection even if its optional topic set remains retained.
+  await pool.query('DELETE FROM showcases WHERE showcase_id=$1', [showcase.showcase_id]);
+  assert.deepEqual((await searchCommunityContent(pool, reader, { ...query, topics: 'showcase' })).items, []);
+  assert.equal((await listTaggableContent(pool, owner)).items.some(row => row.id === showcase.showcase_id), false);
+  await assert.rejects(assignContentTopics(pool, tag), deniedCode('not_found'));
+});
+
+test('showcase keyset pagination uses the actual showcase ID for tied timestamps', async () => {
+  const owner = (await login(pool, DEMO_USERS[2].email, DEMO_PASSWORD)).actor;
+  const ids = [randomUUID(), randomUUID(), randomUUID()].sort();
+  for (const id of ids) await pool.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,created_at)
+    VALUES($1,$2,$3,'作品分頁反例268','同微秒排序','artifact:search-pages268','2026-01-01T00:00:00.000001Z')`, [id, owner.community_id, owner.user_id]);
+  const seen: string[] = []; let cursor: string | undefined;
+  do {
+    const page = await searchCommunityContent(pool, owner, { q: '作品分頁反例268', kinds: 'work', limit: '1', cursor });
+    seen.push(...page.items.map(row => row.id)); cursor = page.next_cursor ?? undefined;
+    assert.ok(seen.length <= ids.length, 'cursor cannot repeat a showcase');
+  } while (cursor);
+  assert.deepEqual(seen, ids);
 });
