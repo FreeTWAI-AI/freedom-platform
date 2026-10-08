@@ -1026,12 +1026,13 @@ test('r4 transactional launch binding conflict rolls back every launch write', a
   const other = await h.workspace(owner, tenantId, '既有櫃');
   const enabled = await h.enable(owner, tenantId, other, 'guild_ai_field');
   assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
-  await h.pool.query(`INSERT INTO workspace_module_bindings(tenant_id,workspace_id,entry_capability,instance_id)
-    VALUES($1,$2,'work:create',$3)`, [tenantId, workspaceId, enabled.data.instance_id]);
   const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
     dependencies: [{ requirement_key: 'work', choice: 'create', configuration: {} }],
   }));
   assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  // A retained binding that appears after planning must also be refused before launch writes.
+  await h.pool.query(`INSERT INTO workspace_module_bindings(tenant_id,workspace_id,entry_capability,instance_id)
+    VALUES($1,$2,'work:create',$3)`, [tenantId, workspaceId, enabled.data.instance_id]);
   const before = await domainCounts(tenantId);
   const receipts = await receiptCount(tenantId, 'application.launch');
   const consumptions = await h.count('module_launch_plan_consumptions', 'WHERE tenant_id=$1', [tenantId]);

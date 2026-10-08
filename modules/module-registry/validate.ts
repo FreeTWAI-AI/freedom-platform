@@ -81,3 +81,7 @@ export function mapRegistryError(error: unknown): never {
   if (code === '23514' && message.includes('cycle')) throw new Problem(422, 'dependency_cycle', '模組依賴不能形成循環。');
   throw error;
 }
+
+
+/** Fixed alias used by archive enforcement and the detail impact queries. */
+export const BLOCKING_CONSUMER_SQL = "i.status IN ('requested','provisioning','active','suspended')";

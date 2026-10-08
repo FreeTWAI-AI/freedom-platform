@@ -882,6 +882,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "created_at",
             "module_release_ref",
             "suspension_operation_id",
+            "archive_operation_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,

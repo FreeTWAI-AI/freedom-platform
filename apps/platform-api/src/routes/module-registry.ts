@@ -2,16 +2,16 @@ import { Hono, type Context } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import {
-  CancelInputSchema, CatalogQuerySchema, InstallationQuerySchema, InstanceQuerySchema, LaunchInputSchema,
+  ArchiveInputSchema, CancelInputSchema, CatalogQuerySchema, InstallationQuerySchema, InstanceQuerySchema, LaunchInputSchema,
   PlanInputSchema, ReconcileInputSchema, ResumeInputSchema, SuspendInputSchema,
 } from '../../../../contracts/guild-launchpad/v1/module-registry.js';
 import { EnableManualWorkSchema, LaunchpadQuerySchema } from '../../../../contracts/guild-launchpad/v1/tenant-work.js';
 import { authenticate, type Actor } from '../../../../modules/identity-membership/service.js';
 import { browseApplications, readPublicRelease } from '../../../../modules/module-registry/catalog.js';
 import {
-  advanceOperation, cancelOperation, enableManualWork, installationByOperation, launchApplication,
+  advanceOperation, archiveInstance, cancelOperation, enableManualWork, installationByOperation, launchApplication,
   launchpadContext, listInstallations, listInstances, planApplication, readInstance, readOperation,
-  reconcileOperation, resumeInstance, suspendInstance,
+  readWorkspaceModuleBinding, reconcileOperation, resumeInstance, suspendInstance,
 } from '../../../../modules/module-registry/service.js';
 import { resolveProviders, type ModuleProviderMap } from '../../../../modules/module-registry/providers.js';
 import { listTenantWork } from '../../../../modules/opportunity-project-work/tenant-work.js';
@@ -148,6 +148,15 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
     etag(c, operation.version);
     return c.json(operation, 200);
   });
+  app.post('/tenants/:tenant_id/module-instances/:instance_id/archive', async c => {
+    const key = requiredKey(c);
+    const expected = matchVersion(c);
+    const body = ArchiveInputSchema.parse(await c.req.json());
+    const operation = await archiveInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')),
+      OpaqueId.parse(c.req.param('instance_id')), expected, key, body);
+    etag(c, operation.version);
+    return c.json(operation, 200);
+  });
   app.get('/tenants/:tenant_id/application-installations', async c => {
     const query = InstallationQuerySchema.parse(singleQuery(c));
     return c.json(await listInstallations(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), query));
@@ -196,6 +205,9 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
     const operation = await cancelOperation(pool, c.get('actor'), tenantId, operationId, expected, key, body.reason);
     etag(c, operation.version);
     return c.json(operation, operation.state === 'cancelled' ? 200 : 202);
+  });
+  app.get('/tenants/:tenant_id/workspaces/:workspace_id/module-binding', async c => {
+    return c.json(await readWorkspaceModuleBinding(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('workspace_id'))));
   });
   app.get('/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context', async c => {
     const tenantId = OpaqueId.parse(c.req.param('tenant_id'));
