@@ -22,7 +22,9 @@
     "tests/runtime/flows.test.ts",
     "apps/portal-web/src/modules/WorkbenchPanel.tsx",
     "apps/portal-web/src/modules/ShowcasePanel.tsx",
-    "apps/portal-web/src/modules/EngagementPanel.tsx"
+    "apps/portal-web/src/modules/EngagementPanel.tsx",
+    "scripts/verify-guild-work.mjs",
+    "tests/runtime/verify-guild-work.test.ts"
   ],
   "public_exports": [
     "modules/opportunity-project-work/work.ts",
