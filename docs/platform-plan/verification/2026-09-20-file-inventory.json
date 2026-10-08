@@ -534,8 +534,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
-      "bytes": 11726,
-      "sha256": "b305ecfc9a2295181181cfe1aae6aeb4f3b0acaa25d6ebd780a328ca7ae64a78"
+      "bytes": 11873,
+      "sha256": "39fe85967eee1b62df76348e877d350be00452d18cf09712dbc1a049bb2a8cab"
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
@@ -17074,13 +17074,13 @@
     },
     {
       "path": "modules/module-registry/AGENTS.md",
-      "bytes": 5877,
-      "sha256": "bbf58dd91bbb1f5bdb66cdd16e887ec5cfb0e7ac7d1212ff48f0551bf36b3f12"
+      "bytes": 5984,
+      "sha256": "bfe99ad72aff392e2533c7c4c8f3853c93097bd10f49b4f5442d2d90a607d0f4"
     },
     {
       "path": "modules/module-registry/README.md",
-      "bytes": 27757,
-      "sha256": "41003546ef4a9c9f387c9508c3f0ab10f6d8769686755129045e10cc13431ac4"
+      "bytes": 28681,
+      "sha256": "ffdd1b8c533fec0f3bf4ab4dde47e4a15e41fe09a063d61e080ae48950813fa5"
     },
     {
       "path": "modules/module-registry/canonical.ts",
@@ -17099,8 +17099,8 @@
     },
     {
       "path": "modules/module-registry/catalog.ts",
-      "bytes": 22668,
-      "sha256": "14318352963e072b6f7b8513e6d9f736daafa430865343d92d4c2b618ebf1e5f"
+      "bytes": 24182,
+      "sha256": "cd9c040c3a0d0e4c64f85cb2434258424c6cf1b83881adbff50fcfb8356a467f"
     },
     {
       "path": "modules/module-registry/definitions.ts",
@@ -20599,8 +20599,8 @@
     },
     {
       "path": "tests/runtime/module-registry-review.test.ts",
-      "bytes": 101438,
-      "sha256": "83f5fdb77d5aaf566f4e8bb3812d2c5fea671f2b34265ec9e8b74859f1e80552"
+      "bytes": 119972,
+      "sha256": "47cad9f8a93362c18172569a03221b51dea60fd8469b49063dca95909aa65ce4"
     },
     {
       "path": "tests/runtime/module-registry-rls-runtime-role.test.ts",
