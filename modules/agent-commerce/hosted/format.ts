@@ -19,4 +19,3 @@ export function formatMinor(amountMinor: string | number, currency: string): str
     return `${currency} ${negative ? '-' : ''}${whole}.${cents}`
   }
 }
-

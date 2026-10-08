@@ -40,4 +40,3 @@ export function commandHeaders(c: Context<PlatformEnv>, versionRequired: boolean
 export function etag(c: Context<PlatformEnv>, version: string) {
   c.header('ETag', `"${version}"`);
 }
-
