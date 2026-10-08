@@ -18,7 +18,9 @@
     "tests/runtime/module-capacity.test.ts",
     "tests/runtime/module-registry-schema.test.ts",
     "tests/runtime/module-registry-review.test.ts",
-    "tests/runtime/module-registry-rls-runtime-role.test.ts"
+    "tests/runtime/module-registry-rls-runtime-role.test.ts",
+    "scripts/tenant-policy.ts",
+    "tests/runtime/tenant-policy-operator.test.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts",
