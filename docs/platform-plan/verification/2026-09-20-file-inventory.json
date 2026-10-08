@@ -279,8 +279,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 31066,
-      "sha256": "34568c6417a6b436f579ac47873124567377d6c20a2e53587587cc7c1da194c1"
+      "bytes": 31092,
+      "sha256": "23cb39acee76cf70be81b2c205fbc80b712c4d98e75a18c2de314e7b40687920"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -444,8 +444,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/promotion.ts",
-      "bytes": 8439,
-      "sha256": "82eac13b569f4b045565a5af06bee0e7d1185689895a1794ba5dd359ef005d25"
+      "bytes": 8467,
+      "sha256": "955bdb2388c2043e7b3e5f12f5a85f9c4b93758f927921d81e2469a886a33a5c"
     },
     {
       "path": "apps/platform-api/src/routes/published-skills.ts",
@@ -484,8 +484,8 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 4732,
-      "sha256": "b3eaf022d76babc3f4b211518b2b499b8a1b5a9f2d39aec0ad6494a736b73e02"
+      "bytes": 4870,
+      "sha256": "5a06b1189f99032fae001c7628efa2c1d870c2dc5ad06fd97717b3b5d2596d35"
     },
     {
       "path": "apps/platform-api/src/server.ts",
@@ -514,8 +514,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 24628,
-      "sha256": "598f61f6ff35e94f72513551285021a6e9787f55a520c9abbfa29e2d57f812cc"
+      "bytes": 25058,
+      "sha256": "24fe8d7bc2257dd9a709e3b71d318f08a431287d0235b8182f16307da57edb26"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -20044,8 +20044,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 37218,
-      "sha256": "6a889c73bfd024b143d1dc283bd4743023994a861f02af5af91028903c30ad1d"
+      "bytes": 37141,
+      "sha256": "c02534e7d51c56e9f4855d4599f0cd393294f0376fd7909627cd942316efa3c3"
     },
     {
       "path": "tests/runtime/worker-private-ai-ingest.test.ts",
@@ -20271,6 +20271,11 @@
       "path": "tests/worker/social-thumbnail-assets.test.ts",
       "bytes": 13432,
       "sha256": "00523003d4a0a683544fa44388b16ad85da20251373f68e1e337825938751041"
+    },
+    {
+      "path": "tests/worker/source-network.test.ts",
+      "bytes": 5814,
+      "sha256": "0443c6f9f44ddc4f4cf49fd4450b2eb9b261c670d49e4852b365dd743c54cd9c"
     },
     {
       "path": "tests/worker/workerd.test.ts",

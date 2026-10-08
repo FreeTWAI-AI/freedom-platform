@@ -91,7 +91,7 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
-  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
+  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
   if(brokerFormOrigin!==undefined){
     const setup=new URL(brokerFormOrigin),main=new URL(origin);

@@ -145,10 +145,9 @@ test('client address headers are trusted only for an opted-in Cloudflare edge re
   assert.equal(await trusted({ 'X-Forwarded-For': '198.51.100.7' }, { colo: 'TPE' }), 'shared-server');
   assert.equal(await trusted({ 'CF-Connecting-IP': 'not-an-ip' }, { colo: 'TPE' }), 'shared-server');
   assert.equal(await trusted(spoof, { colo: 'TPE' }), '192.0.2.10');
-  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::1' }, { colo: 'TPE' }), '2001:db8:0:0::/64');
-  // Two different addresses inside the same /64 collapse to one key.
-  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8:0:0:1::1' }, { colo: 'TPE' }), '2001:db8:0:0::/64');
-  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::ffff:2' }, { colo: 'TPE' }), '2001:db8:0:0::/64');
+  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::1' }, { colo: 'TPE' }), '2001:db8::1');
+  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8:0:0:1::1' }, { colo: 'TPE' }), '2001:db8:0:0:1::1');
+  assert.equal(await trusted({ 'CF-Connecting-IP': '2001:db8::ffff:2' }, { colo: 'TPE' }), '2001:db8::ffff:2');
   // Deployed local config cannot opt in at all.
   assert.throws(() => readWorkerConfig(env({ FREEDOM_TRUST_CF_CONNECTING_IP: 'true' })));
 });

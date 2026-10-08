@@ -66,7 +66,7 @@ export function registerPublicPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
     return c.html(html);
   });
   app.post('/api/v1/promotion/clicks', async c => {
-    await authRateLimit(pool, 'promotion-click-network', runtime.sourceNetwork(c), 300, 3600);
+    await authRateLimit(pool, 'promotion-click-network', (runtime.rateLimitNetwork??runtime.sourceNetwork)(c), 300, 3600);
     const body = z.object({ code: z.string().max(80) }).strict().parse(await c.req.json());
     const sessionUserId = await optionalUser(pool, readSessionCookie(c.req.header('Cookie'),origin));
     await creditPromotionClick(pool, { code: body.code, userAgent: c.req.header('User-Agent') ?? '', network: runtime.sourceNetwork(c), sessionUserId, now: clock(runtime) });

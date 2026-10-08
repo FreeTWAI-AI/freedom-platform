@@ -149,12 +149,21 @@ export function rateLimitNetworkKey(address: string): string {
  * (non-local env, explicit binding), the request carries `cf`, and the worker
  * already required Host to equal the configured custom-domain origin. Otherwise
  * every client shares one conservative key. X-Forwarded-For is never read.
- * IPv6 clients are keyed by their /64 because one subscriber usually controls the whole prefix.
+ * Keep the full address for existing non-limiter consumers such as promotion scoring.
  */
 export function cloudflareSourceNetwork(trustConnectingIp: boolean) {
   return (c: Context): string => {
     if (!trustConnectingIp || !(c.req.raw as Request & { cf?: unknown }).cf) return SHARED_NETWORK_KEY;
     const address = c.req.header('CF-Connecting-IP')?.trim() ?? '';
+    return isIP(address) ? address : SHARED_NETWORK_KEY;
+  };
+}
+
+/** Group only request budgets; never replace the visitor identity with a prefix. */
+export function cloudflareRateLimitNetwork(trustConnectingIp: boolean) {
+  const sourceNetwork = cloudflareSourceNetwork(trustConnectingIp);
+  return (c: Context): string => {
+    const address = sourceNetwork(c);
     return isIP(address) ? rateLimitNetworkKey(address) : SHARED_NETWORK_KEY;
   };
 }
@@ -184,6 +193,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
+    rateLimitNetwork: cloudflareRateLimitNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),
     // Every Worker links, canonicalizes and documents its own configured origin;
     // only the existing Node deployments keep the live-site default.
