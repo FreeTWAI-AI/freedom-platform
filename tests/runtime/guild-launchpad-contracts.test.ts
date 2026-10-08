@@ -333,7 +333,7 @@ function launchpadOnly(): { schema: string; rule: string; value: unknown }[] {
     { schema: 'launchpad-config', rule: 'block_kind_set_and_duplicates', value: { ...base, blocks: dup } },
     { schema: 'launchpad-config', rule: 'block_order_range_and_uniqueness', value: { ...base, blocks: order } },
     { schema: 'launchpad-config', rule: 'mandatory_block_enabled', value: { ...base, blocks: disabled } },
-    { schema: 'launchpad-config', rule: 'application_refs_rejected', value: { ...base, application_refs: [{ application_key: 'app_key', release_ref: 'rel', order: 1 }] } },
+    { schema: 'launchpad-config', rule: 'application_duplicate', value: { ...base, application_refs: [{ application_key: 'app_key', release_ref: 'rel', order: 1 }, { application_key: 'app_key', release_ref: 'rel-b', order: 2 }] } },
     { schema: 'launchpad-config', rule: 'public_url_https', value: { ...base, support: { kind: 'platform_help', public_url: 'http://example.test' } } },
   ];
 }
@@ -626,7 +626,7 @@ const DOCUMENT_DIGESTS: Record<string, string> = {
   'invitation-revoke-input': '492ffe4d46ee56300115a7ff92652a9dc664904bf6cd6ffd06a3d367075f4856',
   'invitation-view': 'd27bfc9f3e6a523e72a099c619f856bfe8990897577da8ffca5773c137ec2e21',
   'invite-candidate': 'a54b8d678b4f31999582ec5cf1e4f808e652ee0b05fdcf586c5f3c2280903e96',
-  'launchpad-config': 'e850496636ef7c4475b8af32029add1ab61909973accaefa20ac624a18dc4888',
+  'launchpad-config': '45909fdda6925281f05a29833b4551d27b2f9c74cd92bfe914ae78ebd00d0b34',
   'leave-v2-input': 'dd06bd31728a3c77eb59377bef99b2a06b080b5da6b6f02f30c1b217f76db3b4',
   'member-change-input': '42fe6bb1ba7feaffcfaf824ad3b91e055962bad9d649b2353991bb1a2f2e1548',
   'member-page': '305cccea72f0d13aba4f1a3e99fca5383067be23de1864bfd636664c2f735af1',

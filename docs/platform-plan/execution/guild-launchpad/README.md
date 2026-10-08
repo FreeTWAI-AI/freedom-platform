@@ -6,11 +6,11 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f release.staging=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f flag.production=absent flag.staging=absent repo_max_migration=127 applied_migration.production=125 applied_migration.staging=125 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-08 release.production=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f release.staging=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f flag.production=absent flag.staging=absent repo_max_migration=128 applied_migration.production=125 applied_migration.staging=125 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第四輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
-狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 127（#244 於 2026-10-08 合併，帶進 126、127），兩個環境都已套用到 125，126、127 尚未套用。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 128（#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128），兩個環境都已套用到 125，126～128 尚未套用。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 `accepted_m1`／`accepted_full` 只有在驗證無失敗、里程碑指定 `candidate_sha`，且每案都已通過並有該 SHA 在 ci、staging 或 production 的有效、未被較晚非通過結果推翻的通過證據時才為 true。T-015 與 T-023 依 `acceptance-progress.json` 的 `scope` 採 M1 變體驗收。M1 變體結果記在該案的 `variants.M1`，沿用相同的 `status`／`evidence` 格式，只計入 M1，不計入完整計畫。沒有 `variants.M1` 時，M1 使用該案本身的結果。新增 migration 的 PR 必須重跑 `python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status`。
 

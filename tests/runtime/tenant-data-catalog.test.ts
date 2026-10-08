@@ -18,7 +18,10 @@ const schema = `e1cat_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
-  'deployment_bindings', 'module_instances', 'scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal',
+  'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
+  'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
+  'module_provision_operations', 'module_provision_steps',
+  'scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal',
   'tenant_authority_audit', 'tenant_capacity_policies', 'tenant_high_risk_verifications', 'tenant_invitations', 'tenant_memberships',
   'tenant_ownership_transfers', 'tenant_recovery_cases',
   'tenant_work_result_targets', 'tenant_work_results', 'tenants', 'work_items', 'workspace_module_bindings', 'workspaces',
@@ -440,6 +443,39 @@ test('T-021 asset-purpose resolution requires every declared live tenant purpose
     assert.deepEqual(snapshot.asset_purposes, []);
     assert.ok(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG).some(finding => finding.code === 'tenant_resolution_mismatch' && finding.subject === 'asset_objects'));
   });
+});
+
+test('T-021 catalog checker rejects a removed P-D1 table or column', async () => {
+  const q = await pool.connect();
+  try {
+    const snapshot = await liveSnapshot(q);
+    const withoutTable: TenantDataCatalog = {
+      ...structuredClone(TENANT_DATA_CATALOG),
+      datasets: structuredClone(TENANT_DATA_CATALOG).datasets.map(dataset => ({
+        ...dataset,
+        physical_locations: dataset.physical_locations.filter(location => location.kind !== 'table' || location.table !== 'application_installations'),
+      })),
+    };
+    assert.deepEqual(
+      checkTenantCatalog(snapshot, withoutTable).filter(item => item.subject === 'application_installations'),
+      [{ code: 'unregistered_table', subject: 'application_installations' }],
+    );
+    const withoutColumn: TenantDataCatalog = {
+      ...structuredClone(TENANT_DATA_CATALOG),
+      datasets: structuredClone(TENANT_DATA_CATALOG).datasets.map(dataset => ({
+        ...dataset,
+        physical_locations: dataset.physical_locations.map(location => location.kind === 'table' && location.table === 'module_instances'
+          ? { ...location, columns: location.columns.filter(column => column !== 'module_release_ref') }
+          : location),
+      })),
+    };
+    assert.deepEqual(
+      checkTenantCatalog(snapshot, withoutColumn).filter(item => item.subject === 'module_instances.module_release_ref'),
+      [{ code: 'unregistered_column', subject: 'module_instances.module_release_ref' }],
+    );
+  } finally {
+    q.release();
+  }
 });
 
 test('T-021 tenant modules do not import the legacy transaction helper or call pool.query', async () => {

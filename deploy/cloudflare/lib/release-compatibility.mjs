@@ -114,6 +114,9 @@ const FOUNDATION_NAMES = [
   '126_project_public_metadata.sql',
   // Retained session markers and FK lookup indexes for context-free pruning under RLS.
   '127_auth_prune_retained_sessions.sql',
+  // Application catalog, module releases, launch plans and provision operations.
+  // Manual-work enablement stays a facade over the same launch core.
+  '128_module_registry.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

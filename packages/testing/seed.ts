@@ -28,5 +28,18 @@ export async function seedLocal(pool:Pool) {
       await q.query('INSERT INTO work_review_routes(work_item_id,reviewer_ref,valid_until) VALUES($1,$2,$3)',[DEMO_WORK,owner.user_id,terms.completion.feedback_due]);
       await journal(q,owner,'work_item',DEMO_WORK,1,'open',{fixture:true},'freedom.work.item.opened.v1');
     }
+    // TRUNCATE communities CASCADE removes guild_application_offerings because that
+    // table references communities. The platform-default row is migration data, so
+    // put it back when the table exists and the row is missing.
+    const registry = await q.query<{ rel: string | null }>(`SELECT to_regclass('guild_application_offerings') AS rel`);
+    if (registry.rows[0]?.rel) {
+      await q.query(`INSERT INTO guild_application_offerings(
+          offering_id, community_id, guild_key, application_key, release_ref, status, display_order, launch_policy_ref, version)
+        SELECT gen_random_uuid(), NULL, NULL, 'manual-workspace', 'manual-workspace@1.0.0', 'offered', 0,
+          '{"policy_key":"manual-workspace.launch","version":"1"}'::jsonb, 1
+        WHERE NOT EXISTS (
+          SELECT 1 FROM guild_application_offerings
+          WHERE community_id IS NULL AND guild_key IS NULL AND release_ref = 'manual-workspace@1.0.0')`);
+    }
   });
 }

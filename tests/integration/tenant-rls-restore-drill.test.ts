@@ -132,6 +132,8 @@ const RLS_TABLES = [
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+  'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
+  'module_launch_plan_consumptions', 'module_provision_operations', 'module_provision_steps', 'capacity_reservations', 'capacity_ledger',
 ];
 const sha = 'ab'.repeat(32);
 
@@ -233,11 +235,13 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     await q.query(`INSERT INTO workspaces(workspace_id,tenant_id,name,is_default) VALUES($1,$2,'Counter',true)`, [space.workspaceId, space.tenantId]);
     await q.query(`INSERT INTO tenant_authority_audit(event_id,tenant_id,actor_principal_id,action,target_principal_id,old_revision,new_revision,reason_code)
       VALUES($1,$2,$3,'tenant.create',$3,1,1,'tenant.created')`, [space.auditId, space.tenantId, author.principalId]);
-    await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
-      VALUES($1,$2,'work','manual-workspace@1.0.0','1',NULL,'active',$3,$4,$5)`,
+    await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,module_release_ref,data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+      SELECT $1,$2,'work','manual-workspace@1.0.0','work@1.0.0','1',contract_ref,'active',$3,$4,$5
+      FROM module_definitions WHERE module_key='work' AND release_ref='work@1.0.0'`,
     [space.instanceId, space.tenantId, space.bindingId, author.principalId, guild]);
     await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,endpoint_ref,service_principal_id,contract_ref,state)
-      VALUES($1,$2,$3,'hosted','hosted-shared',NULL,NULL,NULL,'active')`, [space.bindingId, space.tenantId, space.instanceId]);
+      SELECT $1,$2,$3,'hosted','hosted-shared',NULL,NULL,contract_ref,'active'
+      FROM module_definitions WHERE module_key='work' AND release_ref='work@1.0.0'`, [space.bindingId, space.tenantId, space.instanceId]);
     await q.query(`INSERT INTO workspace_module_bindings(tenant_id,workspace_id,entry_capability,instance_id)
       VALUES($1,$2,'work:create',$3)`, [space.tenantId, space.workspaceId, space.instanceId]);
     await q.query(`INSERT INTO work_items(work_item_id,work_mode,scope_id,owner_ref,owner_principal_id,community_id,title,objective,state,tenant_id,instance_id,workspace_id,created_by_principal_id,progress,updated_at,participation_terms_revision)
@@ -323,6 +327,9 @@ const EXPECTED: Record<string, number> = {
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   tenant_work_results: 2, tenant_work_result_targets: 2, tenant_capacity_policies: 3,
   work_items: 3, scoped_command_receipts: 3, scoped_transition_journal: 3, scoped_outbox: 3,
+  // This fixture inserts existing Work directly; no registry launch is performed.
+  application_installations: 0, application_module_links: 0, module_dependencies: 0, module_launch_plans: 0,
+  module_launch_plan_consumptions: 0, module_provision_operations: 0, module_provision_steps: 0, capacity_reservations: 0, capacity_ledger: 0,
 };
 function evidenceCount(evidence: SchemaEvidence, table: string) {
   const found = evidence.tables.find(row => row.table === table);

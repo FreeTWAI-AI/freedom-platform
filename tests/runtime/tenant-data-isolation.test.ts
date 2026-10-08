@@ -42,6 +42,9 @@ const DEFINERS = [
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
+  'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
+  'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans',
+  'module_provision_operations', 'module_provision_steps',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
 ];
@@ -159,11 +162,17 @@ async function installSpace(space: Space, author: Person, invitee: Person) {
     await q.query(`INSERT INTO workspaces(workspace_id,tenant_id,name,is_default) VALUES($1,$2,'Counter',true)`, [space.workspaceId, space.tenantId]);
     await q.query(`INSERT INTO tenant_authority_audit(event_id,tenant_id,actor_principal_id,action,target_principal_id,old_revision,new_revision,reason_code)
       VALUES($1,$2,$3,'tenant.create',$3,1,1,'tenant.created')`, [space.auditId, space.tenantId, author.principalId]);
-    await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
-      VALUES($1,$2,'work','manual-workspace@1.0.0','1',NULL,'active',$3,$4,$5)`,
+    await q.query(`INSERT INTO module_instances(
+        instance_id, tenant_id, module_key, application_release_ref, module_release_ref, data_schema_version,
+        contract_ref, status, binding_id, created_by_principal_id, origin_guild_key)
+      SELECT $1, $2, 'work', 'manual-workspace@1.0.0', 'work@1.0.0', '1', contract_ref, 'active', $3, $4, $5
+      FROM module_definitions WHERE module_key = 'work' AND release_ref = 'work@1.0.0'`,
     [space.instanceId, space.tenantId, space.bindingId, author.principalId, guild]);
-    await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,endpoint_ref,service_principal_id,contract_ref,state)
-      VALUES($1,$2,$3,'hosted','hosted-shared',NULL,NULL,NULL,'active')`, [space.bindingId, space.tenantId, space.instanceId]);
+    await q.query(`INSERT INTO deployment_bindings(
+        binding_id, tenant_id, instance_id, mode, environment, endpoint_ref, service_principal_id, contract_ref, state)
+      SELECT $1, $2, $3, 'hosted', 'hosted-shared', NULL, NULL, contract_ref, 'active'
+      FROM module_definitions WHERE module_key = 'work' AND release_ref = 'work@1.0.0'`,
+    [space.bindingId, space.tenantId, space.instanceId]);
     await q.query(`INSERT INTO workspace_module_bindings(tenant_id,workspace_id,entry_capability,instance_id)
       VALUES($1,$2,'work:create',$3)`, [space.tenantId, space.workspaceId, space.instanceId]);
     await q.query(`INSERT INTO work_items(work_item_id,work_mode,scope_id,owner_ref,owner_principal_id,community_id,title,objective,state,tenant_id,instance_id,workspace_id,created_by_principal_id,progress,updated_at,participation_terms_revision)
