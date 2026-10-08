@@ -64,6 +64,10 @@ export interface ReservationRequest {
 export async function reserveCapacity(q: PoolClient, tenantId: string, operationId: string, creates: readonly { module_key: string; count: number }[], includeConcurrent: boolean): Promise<TenantCapacityPolicy> {
   const policy = requirePolicy(await lockCapacityPolicy(q, tenantId));
   const requests: ReservationRequest[] = [];
+  const createsByModule = new Map<string, number>();
+  for (const item of creates) {
+    createsByModule.set(item.module_key, (createsByModule.get(item.module_key) ?? 0) + item.count);
+  }
   const instanceUnits = creates.reduce((sum, item) => sum + item.count, 0);
   if (instanceUnits > 0) {
     requests.push({
@@ -72,13 +76,13 @@ export async function reserveCapacity(q: PoolClient, tenantId: string, operation
       limit: BigInt(policy.max_active_instances),
       usage: await instanceUsage(q, tenantId),
     });
-    for (const item of creates) {
-      if (item.count < 1) continue;
+    for (const [moduleKey, count] of createsByModule) {
+      if (count < 1) continue;
       requests.push({
-        dimension: `module_instances.${item.module_key}`,
-        units: BigInt(item.count),
+        dimension: `module_instances.${moduleKey}`,
+        units: BigInt(count),
         limit: BigInt(policy.max_instances_per_module),
-        usage: await instanceUsage(q, tenantId, item.module_key),
+        usage: await instanceUsage(q, tenantId, moduleKey),
       });
     }
   }

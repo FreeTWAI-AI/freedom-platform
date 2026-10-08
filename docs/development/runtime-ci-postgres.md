@@ -178,3 +178,9 @@ would not reach CI without another pin upgrade. The first six-partition hosted
 runs (stacked-PR previews 37592381527 and 37592437953 on 2026-10-07, twelve
 fragments) took 391 to 592 seconds per fragment, including provisioning and
 cleanup.
+
+Since 2026-10-07 11:15:36 UTC the central ruleset pins `6ffdf94a`, so
+main-target pull requests run six 900-second partitions with the runner and
+aggregate from that commit. The pin-upgrade control runs E0 (37609211995) and
+E1b (37609702268) each passed six fragments and 3,212 runtime tests; see
+`docs/platform-plan/verification/main-ruleset-2026-10-07.json`.

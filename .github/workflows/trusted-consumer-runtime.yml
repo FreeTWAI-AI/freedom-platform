@@ -9,7 +9,10 @@ jobs:
   consumer-runtime:
     # Installed on three adopted consumers. The additional directory build
     # profile needs independent review and owned-ref canaries before installation.
-    if: ${{ github.repository != 'FreeTWAI-AI/freedom-platform' }}
+    # Forks skip: their job.workflow_sha is not in the central repository, so the
+    # trusted-source checkout cannot fetch it. Every FreeTWAI-AI repository runs the
+    # job; the host refuses repositories outside its approved set (fails closed).
+    if: ${{ github.repository_owner == 'FreeTWAI-AI' && github.repository != 'FreeTWAI-AI/freedom-platform' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Source/profile tuples are fixed by the reviewed host source, per repository.

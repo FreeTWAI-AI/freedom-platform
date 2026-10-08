@@ -277,7 +277,7 @@ test('lifecycle instance and suspension-operation composite foreign keys reject 
   }
 });
 
-test('migration 127 preserves a launch row seeded under schema 126', async () => {
+test('migration 129 preserves a launch row seeded under schema 128', async () => {
   const schema = `fp_mrs_old_${process.pid}_${Date.now()}`;
   await h.admin.query(`CREATE SCHEMA ${schema}`);
   const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}` });
@@ -288,8 +288,8 @@ test('migration 127 preserves a launch row seeded under schema 126', async () =>
     const { seedLocal } = await import('../../packages/testing/seed.js');
     const { migrate } = await import('../../scripts/database.js');
     const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
-      .filter(source => Number(source.name.slice(0, 3)) <= 126);
-    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 126, known_gaps: [22] }) });
+      .filter(source => Number(source.name.slice(0, 3)) <= 128);
+    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 128, known_gaps: [22] }) });
     await seedLocal(pool);
     await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
       max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
@@ -350,7 +350,7 @@ test('archive shape, terminal state, status and tenant operation FK reject inval
   assert.match(index.indexdef, /\(tenant_id, instance_id\)/);
 });
 
-test('migration 128 preserves pre-seeded launch, suspend and resume rows from schema 127', async () => {
+test('migration 130 preserves pre-seeded launch, suspend and resume rows from schema 129', async () => {
   const schema = `fp_mrs_archive_old_${process.pid}_${Date.now()}`;
   await h.admin.query(`CREATE SCHEMA ${schema}`);
   const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}` });
@@ -359,8 +359,8 @@ test('migration 128 preserves pre-seeded launch, suspend and resume rows from sc
     const { legacyMigrationProfile } = await import('../../packages/db/migration-plan.mjs');
     const { runMigrationPlan } = await import('../../packages/db/migration-runner.mjs');
     const sources = readMigrationSources(new URL('../../migrations', import.meta.url).pathname)
-      .filter(source => Number(source.name.slice(0, 3)) <= 127);
-    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 127, known_gaps: [22] }) });
+      .filter(source => Number(source.name.slice(0, 3)) <= 129);
+    await runMigrationPlan(pool, { sources, profile: legacyMigrationProfile({ first: 1, last: 129, known_gaps: [22] }) });
     await seedLocal(pool);
     await pool.query(`INSERT INTO tenant_capacity_policies(policy_id,revision,tenant_id,plan_ref,max_active_instances,
       max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
@@ -384,7 +384,7 @@ test('migration 128 preserves pre-seeded launch, suspend and resume rows from sc
     await pool.query('COMMIT');
     const before = (await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o ORDER BY operation_id`)).rows;
     assert.equal(before.length, 3);
-    await pool.query(await readFile(new URL('../../migrations/128_module_instance_archive.sql', import.meta.url), 'utf8'));
+    await pool.query(await readFile(new URL('../../migrations/130_module_instance_archive.sql', import.meta.url), 'utf8'));
     assert.deepEqual((await pool.query(`SELECT to_jsonb(o) AS row FROM module_provision_operations o ORDER BY operation_id`)).rows, before);
     assert.equal((await pool.query(`SELECT archive_operation_id FROM module_instances`)).rows[0].archive_operation_id, null);
   } finally {

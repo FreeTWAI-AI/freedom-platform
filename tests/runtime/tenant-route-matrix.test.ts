@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { after, before, test } from 'node:test';
+import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { createLocalJWKSet } from 'jose';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 import { Pool } from 'pg';
@@ -9,7 +9,7 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
-import { syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
+import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -43,6 +43,18 @@ const adminVerifier = createAdminAccessVerifier({ issuer: 'https://synthetic-mat
 const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store, moduleProviders: providers, adminVerifier });
 
 let created = false;
+let runtimeConnection: { current_user: string; session_user: string; rolsuper: boolean; rolbypassrls: boolean; pg_backend_pid: number };
+const requestEvidence: { method: string; path: string; pid: number; settings: Record<string, string | null> }[] = [];
+let connectionRemovals = 0;
+runtime.on('remove', () => { connectionRemovals++; });
+const requestStarts = new Map<string, number>();
+beforeEach(t => {
+  if (t.name.startsWith('T-022 ')) requestStarts.set(t.name, requestEvidence.length);
+});
+afterEach(t => {
+  if (t.name.startsWith('T-022 ')) console.log(JSON.stringify({ matrix_requests: t.name,
+    count: requestEvidence.length - requestStarts.get(t.name)! }));
+});
 type Session = { cookie: string; csrf: string; user: { user_id: string; email: string } };
 type Reply = { status: number; data: any; response: Response; bytes: Uint8Array; headers: Headers };
 
@@ -64,8 +76,11 @@ async function call(method: string, path: string, session?: Session, body?: stri
   const type = response.headers.get('content-type') ?? '';
   const data = type.includes('application/json') && bytes.byteLength ? JSON.parse(Buffer.from(bytes).toString('utf8')) : null;
   const reply = { status: response.status, data, response, bytes, headers: response.headers };
+  if (/\/module-instances\/[^/]+\/(suspend|resume)$/.test(path)) {
+    console.log(JSON.stringify({ lifecycle_reply: { method, path, status: reply.status, code: reply.data?.code ?? null } }));
+  }
   verifyHeaders(reply, method, path);
-  await quiet();
+  await quiet(method, path);
   return reply;
 }
 async function post(path: string, session?: Session, body?: unknown, version?: string, key: string = randomUUID()) {
@@ -88,6 +103,7 @@ before(async () => {
     GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);
   created = true;
   await migrate(owner);
+  await ensureSyntheticModuleTables(owner);
   const template = await readFile(new URL('../../deploy/cloudflare/sql/20-runtime-grants.psql', import.meta.url), 'utf8');
   const general = template.slice(template.indexOf('BEGIN;'), template.indexOf('-- BEGIN PRIVATE POLICY GRANTS'))
     .replaceAll('SCHEMA public', `SCHEMA ${schema}`).replaceAll(':"runtime"', `"${runtimeRole}"`);
@@ -113,6 +129,10 @@ before(async () => {
     throw error;
   } finally { q.release(); }
 
+  runtimeConnection = (await runtime.query(`SELECT current_user, session_user, rolsuper, rolbypassrls,
+    pg_backend_pid() AS pg_backend_pid FROM pg_roles WHERE rolname=current_user`)).rows[0];
+  console.log(JSON.stringify({ t024_runtime_connection: runtimeConnection }));
+
   await seedLocal(owner);
   await owner.query(`UPDATE tenant_authority_policies SET status='retired' WHERE status='active'`);
   await owner.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant)
@@ -123,6 +143,9 @@ before(async () => {
     SELECT $1, 1, NULL, 'synthetic-F-GUILD-TWO-TENANTS-v1', 10, 3, 2, 1000, 104857600, 4, NULL, 'active'
     WHERE NOT EXISTS (SELECT 1 FROM tenant_capacity_policies WHERE status='active' AND tenant_id IS NULL)`, [randomUUID()]);
   await installSyntheticCatalog();
+  // Keep both providers unresolved without sleeps or external effects.
+  await setSyntheticFault(owner, 'synthetic-inventory', 'crash_before');
+  await setSyntheticFault(owner, 'synthetic-storefront', 'crash_before');
   fixture = await buildFixture();
 });
 
@@ -225,7 +248,6 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/module-instances/:instance_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/suspend': 'tenant',
   'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/resume': 'tenant',
-  'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/archive': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations/by-operation/:operation_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/application-launch-plans': 'tenant',
@@ -234,7 +256,6 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/operations/:operation_id/reconcile': 'tenant',
   'POST /api/v1/tenants/:tenant_id/operations/:operation_id/cancel': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context': 'tenant',
-  'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/module-binding': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/works/:work_id': 'tenant',
@@ -318,6 +339,13 @@ async function buildFixture() {
     const mw = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, session, { guild_key: guild });
     assert.equal(mw.status, 200, `enable manual work: ${JSON.stringify(mw.data)}`);
 
+    const extraWorkspace = await post(`/tenants/${tenantId}/workspaces`, session, { name: '主工作區' });
+    assert.equal(extraWorkspace.status, 201, JSON.stringify(extraWorkspace.data));
+    const extraInstance = await post(`/tenants/${tenantId}/workspaces/${extraWorkspace.data.workspace_id}/manual-work`, session,
+      { guild_key: guild, choice: { kind: 'create_new' } });
+    assert.equal(extraInstance.status, 200, JSON.stringify(extraInstance.data));
+    assert.notEqual(extraInstance.data.instance_id, mw.data.instance_id);
+
     // Work
     const w = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, session, { title: '同名工作', objective: 'O', progress: 'todo' });
     assert.equal(w.status, 201, `create work: ${JSON.stringify(w.data)}`);
@@ -374,6 +402,16 @@ async function buildFixture() {
     assert.ok(operationId, 'operationId is empty');
     const instanceId = mw.data.instance_id as string;
     assert.ok(instanceId, 'manual-work instanceId is empty');
+    const instance = await call('GET', `/tenants/${tenantId}/module-instances/${instanceId}`, session);
+    assert.equal(instance.status, 200, JSON.stringify(describe(instance)));
+    const instanceVersion = instance.data.version as string;
+    assert.match(instanceVersion, /^[1-9][0-9]{0,18}$/);
+    const lifecycleBefore = await instanceLifecycleSnapshot({ tenantId, instanceId });
+    assert.equal(lifecycleBefore.instance.version, instanceVersion);
+    assert.equal(lifecycleBefore.instance.status, 'active');
+    assert.equal(lifecycleBefore.instance.suspension_operation_id, null);
+    assert.equal(lifecycleBefore.instance.binding_state, 'active');
+    assert.equal(lifecycleBefore.operations, 0);
     const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
     assert.equal(installation.status, 200, JSON.stringify(installation.data));
     const dependencyId = installation.data.modules.find((m: any) => m.requirement_key === 'inventory').instance_id as string;
@@ -385,13 +423,13 @@ async function buildFixture() {
       else if (Array.isArray(value)) value.forEach(child => collectIds(child));
       else if (value && typeof value === 'object') Object.entries(value).forEach(([childKey, child]) => collectIds(child, childKey));
     };
-    for (const reply of [mw, w, u1, putRes, f1, u2, inv, plan, inst, installation]) collectIds(reply.data);
-    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, scopeId, dependencyId, installation.data.installation_id]) assert.match(id, /^[0-9a-f-]{36}$/);
-    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag'), plan.response.headers.get('etag'), inst.response.headers.get('etag')].filter(Boolean) as string[];
+    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv, plan, inst, instance, installation]) collectIds(reply.data);
+    for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, dependencyId, installation.data.installation_id, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
+    const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, planId, scopeId, dependencyId, installationId: installation.data.installation_id as string, planDigest, workVersion: updatedWorkVersion, uploadVersion,
-      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
+      tenantId, workspaceId, principalId, instanceId, instanceVersion, lifecycleBefore, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version, instanceVersion].filter(Boolean) as string[],
       noteBytes, resourceIds: [...resourceIds]
     };
   }
@@ -429,9 +467,16 @@ async function buildFixture() {
 
 let fixture: Awaited<ReturnType<typeof buildFixture>>;
 
-test('1. Route inventory guard', () => {
+test('T-022 1. Route inventory guard', () => {
   const relevantPaths = /(tenants|tenant-|module-instances|application-|operations\/|manual-work|launchpad-context|works|results|applications|guilds\/[^/]+\/launchpad)/;
   const selectedRoutes = app.routes.filter(r => relevantPaths.test(r.path));
+  const counts = Object.values(routeTable).reduce<Record<string, number>>((all, kind) => {
+    all[kind] = (all[kind] ?? 0) + 1;
+    return all;
+  }, {});
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 43 });
+  assert.equal(selectedRoutes.length, 71);
+  console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
     assert.ok(routeTable[key], `Missing route classification for ${key}`);
@@ -442,10 +487,13 @@ test('1. Route inventory guard', () => {
   }
 });
 
-async function quiet() {
-  const settings = (await runtime.query(`SELECT current_setting('freedom.tenant_id', true) AS tenant,
+async function quiet(method: string, path: string) {
+  const row = (await runtime.query(`SELECT pg_backend_pid() AS pid,
+    current_setting('freedom.tenant_id', true) AS tenant,
     current_setting('freedom.principal_id', true) AS principal, current_setting('freedom.tenant_scope_id', true) AS scope,
     current_setting('freedom.platform_admin_id', true) AS admin`)).rows[0];
+  const { pid, ...settings } = row;
+  requestEvidence.push({ method, path, pid: Number(pid), settings });
   for (const [key, value] of Object.entries(settings)) assert.ok(value === null || value === '', `${key} context remained in the pool`);
 }
 
@@ -480,18 +528,16 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/manual-work', body: { guild_key: 'guild_ai_field' } },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances' },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances/:instance_id' },
-  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/suspend', body: { reason: 'synthetic suspend' }, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/resume', body: {}, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/archive', body: { reason: 'synthetic archive' }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/suspend', body: { reason: 'synthetic suspend' }, version: ':instance_version' },
+  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/resume', body: {}, version: ':instance_version' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations/by-operation/:operation_id' },
   { method: 'POST', path: '/tenants/:tenant_id/application-launch-plans', body: { guild_key: 'guild_ai_field', workspace_id: ':workspace_id', application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} } },
-  { method: 'POST', path: '/tenants/:tenant_id/application-installations', body: { plan_id: ':plan_id', expected_plan_version: '1', configuration_digest: { algorithm: 'sha256', value: 'ab'.repeat(32) } } },
+  { method: 'POST', path: '/tenants/:tenant_id/application-installations', body: { plan_id: ':plan_id', expected_plan_version: ':plan_version', configuration_digest: { algorithm: 'sha256', value: ':plan_digest' } } },
   { method: 'GET', path: '/tenants/:tenant_id/operations/:operation_id' },
-  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/reconcile', body: {}, version: '"1"' },
-  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/cancel', body: { reason: 'member_cancelled' }, version: '"1"' },
+  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/reconcile', body: {}, version: ':operation_version' },
+  { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/cancel', body: { reason: 'member_cancelled' }, version: ':operation_version' },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context?guild_key=guild_ai_field' },
-  { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/module-binding' },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/works', body: { title: 'T', objective: 'O', progress: 'todo' } },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/works' },
   { method: 'GET', path: '/tenants/:tenant_id/works/:work_id' },
@@ -512,7 +558,7 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/leave', body: {}, version: '"1"' },
 ];
 
-test('Matrix route matching routeTable', () => {
+test('T-022 Matrix route matching routeTable', () => {
   assert.deepEqual(routes.map(r => `${r.method} /api/v1${r.path.split('?')[0]}`).sort(),
     Object.entries(routeTable).filter(([, kind]) => kind === 'tenant').map(([key]) => key).sort());
 });
@@ -522,6 +568,7 @@ function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
+    plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
 async function verify(session: Session, tenantId: string, purpose: string) {
@@ -563,7 +610,7 @@ async function execute(route: Route, session: Session | undefined, replacements:
   if (route.version) {
     const data = replacements.tenant_id === fixture.A.tenantId ? fixture.A : fixture.B;
     headers['If-Match'] = route.version === '"1"' && /\/works\/:work_id(?:\/archive)?$/.test(route.path)
-      ? `"${data.workVersion}"` : route.version;
+      ? `"${data.workVersion}"` : route.version.startsWith(':') ? replacements[route.version.slice(1)] : route.version;
   }
   if (['POST', 'PATCH', 'PUT'].includes(route.method)) headers['Idempotency-Key'] = randomUUID();
   if (body !== undefined) headers['Content-Type'] = route.isRaw ? 'text/plain' : 'application/json';
@@ -583,13 +630,12 @@ function verifyHeaders(reply: Reply, method: string, path: string) {
 function scanForLeaks(reply: Reply, context: string, other: TenantData, extra: string[] = []) {
   const raw = Buffer.from(reply.bytes).toString('utf8') + JSON.stringify(Object.fromEntries(reply.headers));
   const targets = [other.tenantId, other.workspaceId, other.instanceId, other.workId, other.resultId, other.uploadId,
-    other.unfinalizedUploadId, other.invitationId, other.transferId, other.operationId, other.planId, other.installationId,
-    other.dependencyId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
+    other.unfinalizedUploadId, other.invitationId, other.transferId, other.planId, other.operationId, other.installationId, other.dependencyId, Buffer.from(other.noteBytes).toString('utf8'), sha(other.noteBytes),
     Buffer.from(other.noteBytes).toString('base64'), Buffer.from(other.noteBytes).toString('hex'), ...other.resourceIds, ...extra];
   for (const target of targets.filter(Boolean)) assert.equal(raw.includes(target), false, `${context}: leaked ${target}; ${JSON.stringify(describe(reply))}`);
 }
 
-test('3a. Other tenant in the path', async () => {
+test('T-022 3a. Other tenant in the path', async () => {
   for (const route of routes) {
     for (const name of ['O', 'M', 'F', 'I', 'N'] as const) {
       const data = name === 'N' ? fixture.A : fixture.B;
@@ -604,7 +650,7 @@ test('3a. Other tenant in the path', async () => {
   }
 });
 
-test('3b. Own tenant in path, other tenant resource', async () => {
+test('T-022 3b. Own tenant in path, other tenant resource', async () => {
   for (const route of routes) {
     const positions = [...route.path.matchAll(/:([a-z_]+)/g)].map(m => m[1]).filter(key => key !== 'tenant_id');
     for (const position of positions) {
@@ -621,7 +667,7 @@ test('3b. Own tenant in path, other tenant resource', async () => {
   }
 });
 
-test('3c. P as viewer of B', async () => {
+test('T-022 3c. P as viewer of B', async () => {
   const selfService = /\/leave$|\/invitations\/:id\/(accept|decline)$|\/ownership-transfers\/:id\/(accept|decline)$/;
   for (const route of routes) {
     if (selfService.test(route.path)) continue;
@@ -689,11 +735,11 @@ function nonTenantRoute(key: string): Route {
   }
   return { method, path: path === '/tenants/invite-candidates' ? `${path}?user_id=${fixture.people.M.user.user_id}` : path, body, version };
 }
-test('3d. Anonymous', async () => {
+test('T-022 3d. Anonymous', async () => {
   for (const [key, kind] of Object.entries(routeTable)) {
     if (!['tenant', 'principal', 'admin', 'guild'].includes(kind) || key.includes('/public/')) continue;
     const route = kind === 'tenant' ? routes.find(r => `${r.method} /api/v1${r.path.split('?')[0]}` === key)! : nonTenantRoute(key);
-    const realIds = { ...ids(fixture.A, route), config_id: fixture.A.planId, delegation_id: fixture.A.invitationId };
+    const realIds = { ...ids(fixture.A, route), config_id: randomUUID(), delegation_id: fixture.A.invitationId };
     const randomIds = Object.fromEntries(Object.keys(realIds).map(key => [key, key === 'guild_key' ? 'guild_random' : randomUUID()]));
     const replies = await pair(route, undefined, realIds, randomIds);
     assertSameAsRandom(key, 'Anonymous', ...replies);
@@ -701,6 +747,30 @@ test('3d. Anonymous', async () => {
     for (const reply of replies) { scanForLeaks(reply, `3d ${key}`, fixture.A); scanForLeaks(reply, `3d ${key}`, fixture.B); }
   }
 });
+
+test('T-022 3e. Denied instance lifecycle commands left both tenants unchanged', async () => {
+  for (const [tenant, data] of [['A', fixture.A], ['B', fixture.B]] as const) {
+    const after = await instanceLifecycleSnapshot(data);
+    assert.deepEqual(after, data.lifecycleBefore, `${tenant}: denied lifecycle commands changed tenant state`);
+    assert.equal(after.operations, 0, `${tenant}: denied lifecycle commands created operations`);
+    console.log(JSON.stringify({ lifecycle_denials_unchanged: { tenant, before: data.lifecycleBefore, after } }));
+  }
+});
+
+async function instanceLifecycleSnapshot(data: { tenantId: string; instanceId: string }) {
+  const instance = (await owner.query<{ status: string; version: string; suspension_operation_id: string | null; binding_state: string }>(
+    `SELECT i.status, i.version::text AS version, i.suspension_operation_id, d.state AS binding_state
+     FROM module_instances i JOIN deployment_bindings d
+       ON d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id AND d.binding_id=i.binding_id
+     WHERE i.tenant_id=$1 AND i.instance_id=$2`, [data.tenantId, data.instanceId],
+  )).rows[0];
+  assert.ok(instance, 'Manual-work instance and current deployment must exist');
+  const operations = (await owner.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM module_provision_operations
+     WHERE tenant_id=$1 AND operation_kind IN ('module.instance.suspend','module.instance.resume')`, [data.tenantId],
+  )).rows[0].n;
+  return { instance, operations };
+}
 
 async function count(table: string, tenantId: string, column = 'tenant_id') {
   assert.match(table, /^[a-z_]+$/); assert.match(column, /^[a-z_]+$/);
@@ -724,7 +794,7 @@ async function secondResult(data: TenantData, actor: Session) {
   data.workVersion = current.data.version;
 }
 
-test('4. Body, header and query substitution', async () => {
+test('T-022 4. Body, header and query substitution', async () => {
   const { A, B, people: { P, N } } = fixture;
   const routerMissing = await call('GET', '/surely-not-a-route', P);
   const outcomes: Record<string, any> = {};
@@ -751,8 +821,8 @@ test('4. Body, header and query substitution', async () => {
   await compare('existing installation', plan, { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: B.installationId },
     { ...planBody, installation_choice: 'reuse_existing', existing_installation_id: randomUUID() });
   const installation = routes.find(r => r.method === 'POST' && r.path.endsWith('/application-installations'))!;
-  await compare('installation plan', installation, { ...installation.body, plan_id: B.planId, configuration_digest: B.planDigest },
-    { ...installation.body, plan_id: randomUUID(), configuration_digest: B.planDigest });
+  await compare('installation plan', installation, { ...installation.body, plan_id: B.planId, expected_plan_version: B.planVersion, configuration_digest: B.planDigest },
+    { ...installation.body, plan_id: randomUUID(), expected_plan_version: B.planVersion, configuration_digest: B.planDigest });
 
   // Principal ids are platform-wide. A real B owner may be invited into A, but an unknown person may not.
   const invited = await post(`/tenants/${A.tenantId}/invitations`, P, { invitee_principal_id: B.principalId, role: 'viewer', instance_capabilities: [], expires_at: new Date(Date.now() + 60000).toISOString() });
@@ -849,11 +919,17 @@ test('4. Body, header and query substitution', async () => {
     assert.equal(launchpad.status, 200, JSON.stringify(describe(launchpad)));
     const other = actor === N ? A : B;
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
-    for (const entry of launchpad.data.applications) {
-      assert.ok(entry.eligibility);
-      assert.equal(entry.eligibility.can_launch, actor === P || actor === N);
-      if (actor === fixture.people.O || actor === fixture.people.M) assert.ok(entry.eligibility.reason_codes.includes('tenant_manage_required'));
-    }
+    const manages = actor === P || actor === N;
+    const expectedApplications = ['manual-workspace', 'synthetic-storefront'].map(application_key => ({
+      application_key, release_ref: `${application_key}@1.0.0`,
+      eligibility: { can_launch: manages, reason_codes: manages ? [] : ['tenant_manage_required'],
+        policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? 'continue' : 'create' },
+    }));
+    assert.deepEqual(launchpad.data.applications, expectedApplications);
+    const substituted = await call('GET', `/guilds/guild_ai_field/launchpad?tenant_id=${other.tenantId}&workspace_id=${other.workspaceId}`, actor);
+    assert.equal(substituted.status, 200, JSON.stringify(describe(substituted)));
+    assert.deepEqual(substituted.data.applications, expectedApplications);
+    scanForLeaks(substituted, '4 substituted launchpad eligibility', other);
   }
   console.log(JSON.stringify({ item4: outcomes }));
 });
@@ -869,7 +945,7 @@ async function invalidCursor(path: string, cursor: string, actor?: Session) {
   const response = await app.request(url, { headers: actor ? { Cookie: actor.cookie } : {} });
   const bytes = new Uint8Array(await response.arrayBuffer());
   const reply: Reply = { status: response.status, data: JSON.parse(Buffer.from(bytes).toString('utf8')), response, bytes, headers: response.headers };
-  await quiet();
+  await quiet('GET', path);
   console.log(JSON.stringify({ cursor_rejection: path.split('?')[0], status: reply.status, code: reply.data?.code }));
   assert.equal(reply.status, 422, `${path}: ${JSON.stringify(describe(reply))}`);
   assert.equal(reply.data.code, 'invalid_cursor');
@@ -880,7 +956,7 @@ async function cursorPage(path: string, actor?: Session) {
   const response = await app.request(`${origin}/api/v1${path}`, { headers: actor ? { Cookie: actor.cookie } : {} });
   const data = await response.json() as any;
   assert.equal(response.status, 200, JSON.stringify(data));
-  await quiet();
+  await quiet('GET', path);
   return data;
 }
 
@@ -900,7 +976,7 @@ async function walkPages(path: string, actor: Session | undefined, id: string) {
   assert.deepEqual(seen, expected.items.map((item: any) => item[id]), `${path} omitted or reordered a row`);
 }
 
-test('4a. Same admin cursors reject tenant, workspace, caller and registry filter changes', async t => {
+test('T-022 4a. Same admin cursors reject tenant, workspace, caller and registry filter changes', async t => {
   const { A, B, people: { W, N } } = fixture;
   const workspace = await post(`/tenants/${A.tenantId}/workspaces`, W, { name: '游標工作區' });
   assert.equal(workspace.status, 201);
@@ -918,10 +994,24 @@ test('4a. Same admin cursors reject tenant, workspace, caller and registry filte
     await t.test(`${label}: same admin across tenants`, () => invalidCursor(pathA, page.next_cursor, W));
     if (label === 'instances' || label === 'installations') {
       await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, changedCursor(page.next_cursor, { unexpected: true }), W));
-      const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
-      delete missing.filter;
-      await t.test(`${label}: missing cursor field`, () => invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W));
+      await t.test(`${label}: missing cursor field`, async () => {
+        const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
+        delete missing.filter;
+        await invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W);
+      });
       await t.test(`${label}: different caller`, () => invalidCursor(pathB, page.next_cursor, N));
+      await t.test(`${label}: authorization precedes cursor validation`, async () => {
+        for (const [actor, status, code] of [
+          [fixture.people.O, 403, 'capability_denied'],
+          [fixture.people.F, 404, 'tenant_not_found'],
+        ] as const) {
+          const reply = await call('GET', `${pathA}?cursor=invalid`, actor);
+          assert.equal(reply.status, status, JSON.stringify(describe(reply)));
+          assert.equal(reply.data.code, code);
+          scanForLeaks(reply, '4a cursor authorization', B);
+        }
+      });
+
       for (const filter of filters) {
         await walkPages(`${pathB}?${filter}`, W, id);
         await t.test(`${label}: changed ${filter.split('=')[0]}`, () => invalidCursor(`${pathB}?${filter}`, page.next_cursor, W));
@@ -939,8 +1029,8 @@ test('4a. Same admin cursors reject tenant, workspace, caller and registry filte
     invalidCursor(`/tenants/${A.tenantId}/workspaces/${workspace.data.workspace_id}/works`, page.next_cursor, W));
 });
 
-test('4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow', async t => {
-  // A second platform offering makes both public result sets issue real cursors.
+test('T-022 4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow', async t => {
+  // A second platform offering makes every catalog list issue real cursors.
   await owner.query(`INSERT INTO application_definitions(
     application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs,
     module_requirements, entry_capability, runtime_profiles, launch_policy_ref, license_state,
@@ -952,29 +1042,54 @@ test('4b. Catalog cursors bind guild absence and reject PostgreSQL int overflow'
   await owner.query(`INSERT INTO guild_application_offerings(offering_id, application_key, release_ref, status, display_order, launch_policy_ref, version)
     SELECT $1, application_key, release_ref, 'offered', 20, launch_policy_ref, 1
     FROM application_definitions WHERE application_key='synthetic-public'`, [randomUUID()]);
+  const { people: { P, N } } = fixture;
+  const guildPath = '/applications?guild_key=guild_ai_field';
   const plain = await cursorPage('/applications?limit=1');
-  const guild = await cursorPage('/applications?guild_key=guild_ai_field&limit=1');
-  assert.ok(plain.next_cursor && guild.next_cursor);
-  await t.test('catalog: no guild to guild', () => invalidCursor('/applications?guild_key=guild_ai_field', plain.next_cursor));
+  const guild = await cursorPage(`${guildPath}&limit=1`);
+  const member = await cursorPage(`${guildPath}&limit=1`, P);
+  assert.ok(plain.next_cursor && guild.next_cursor && member.next_cursor, 'Catalog did not mint a cursor');
+  const plainCursor = plain.next_cursor as string;
+  await t.test('catalog: no guild to guild', () => invalidCursor(guildPath, plainCursor));
   await t.test('catalog: guild to no guild', () => invalidCursor('/applications', guild.next_cursor));
-  await t.test('catalog: unexpected cursor field', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { unexpected: true })));
-  await t.test('catalog: oversized order', () => invalidCursor('/applications', changedCursor(plain.next_cursor, { order: 99999999999 })));
+  await t.test('catalog: unexpected cursor field', () => invalidCursor('/applications', changedCursor(plainCursor, { unexpected: true })));
+  await t.test('catalog: missing cursor field', async () => {
+    const missing = JSON.parse(Buffer.from(plainCursor, 'base64url').toString('utf8'));
+    delete missing.filter;
+    await invalidCursor('/applications', Buffer.from(JSON.stringify(missing)).toString('base64url'));
+  });
+  for (const [label, changes] of [
+    ['oversized order', { order: 99999999999 }],
+    ['negative order', { order: -1 }],
+    ['fractional order', { order: 0.5 }],
+    ['string order', { order: '1' }],
+    ['invalid platform', { platform: 2 }],
+    ['invalid id', { id: 'invalid' }],
+  ] as const) {
+    await t.test(`catalog: ${label}`, () => invalidCursor('/applications', changedCursor(plainCursor, changes)));
+  }
+  for (const [label, cursor] of [
+    ['bad base64', `${plainCursor}!`],
+    ['bad JSON', Buffer.from('{').toString('base64url')],
+    ['null envelope', Buffer.from('null').toString('base64url')],
+    ['array envelope', Buffer.from(`[${Buffer.from(plainCursor, 'base64url').toString('utf8')}]`).toString('base64url')],
+    ['scalar envelope', Buffer.from('1').toString('base64url')],
+    ['legacy overflow cursor', Buffer.from(`0\n99999999999\n${randomUUID()}`).toString('base64url')],
+  ]) {
+    await t.test(`catalog: ${label}`, () => invalidCursor('/applications', cursor));
+  }
+  await t.test('catalog: member to anonymous with the same guild', () => invalidCursor(guildPath, member.next_cursor));
+  await t.test('catalog: anonymous to member with the same guild', () => invalidCursor(guildPath, guild.next_cursor, P));
+  // No guild uses no community predicate; same-community members share a global guild list.
+  await t.test('catalog: no guild cursor works for a member', () =>
+    cursorPage(`/applications?cursor=${encodeURIComponent(plainCursor)}`, P));
+  await t.test('catalog: member cursor works for another member in the same community', () =>
+    cursorPage(`${guildPath}&cursor=${encodeURIComponent(member.next_cursor)}`, N));
   await walkPages('/applications', undefined, 'release_ref');
-  // Walk the guild-filtered list with its unchanged filter.
-  const all = await cursorPage('/applications?guild_key=guild_ai_field&limit=50');
-  let cursor: string | null = null;
-  const seen: string[] = [];
-  do {
-    const page = await cursorPage(`/applications?guild_key=guild_ai_field&limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
-    seen.push(...page.items.map((item: any) => item.release_ref));
-    assert.equal(new Set(seen).size, seen.length);
-    assert.ok(seen.length <= all.items.length);
-    cursor = page.next_cursor;
-  } while (cursor);
-  assert.deepEqual(seen, all.items.map((item: any) => item.release_ref));
+  await walkPages(guildPath, undefined, 'release_ref');
+  await walkPages(guildPath, P, 'release_ref');
 });
 
-test('4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
+test('T-022 4c. Work and registry cursors reject noncanonical and impossible timestamps', async t => {
   const { B, people: { W } } = fixture;
   for (const path of [
     `/tenants/${B.tenantId}/workspaces/${B.workspaceId}/works`,
@@ -991,7 +1106,7 @@ test('4c. Work and registry cursors reject noncanonical and impossible timestamp
   }
 });
 
-test('6. Idempotency across tenants', async () => {
+test('T-022 6. Idempotency across tenants', async () => {
   const { A, B, people: { W } } = fixture;
   // Use new Works with equal versions so both requests send exactly the same upload body.
   const workIds: string[] = [];
@@ -1043,10 +1158,161 @@ test('6. Idempotency across tenants', async () => {
       { id: freshId ?? replyA.data.instance_id, version: replyA.data.version });
     outcomes.push({ route: item.route, A: describe(replyA), B: describe(replyB), counts: { before, after } });
   }
+  // Registry commands use the same key in A and B, while their targets and receipts remain tenant-local.
+  const reusePlans: Reply[] = [];
+  const planKey = randomUUID();
+  const beforePlans = await Promise.all([count('module_launch_plans', A.tenantId), count('module_launch_plans', B.tenantId)]);
+  for (const data of [A, B]) {
+    const installations = await call('GET', `/tenants/${data.tenantId}/application-installations?application_key=manual-workspace&workspace_id=${data.workspaceId}`, W);
+    assert.equal(installations.status, 200, JSON.stringify(describe(installations)));
+    assert.equal(installations.data.items.length, 1);
+    const body = { guild_key: 'guild_ai_field', workspace_id: data.workspaceId,
+      application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0',
+      installation_choice: 'reuse_existing', existing_installation_id: installations.data.items[0].installation_id,
+      dependencies: [{ requirement_key: 'work', choice: 'reuse', instance_id: data.instanceId, expected_version: '1' }], configuration: {} };
+    const path = `/tenants/${data.tenantId}/application-launch-plans`;
+    const planned = await post(path, W, body, undefined, planKey);
+    assert.equal(planned.status, 201, JSON.stringify(describe(planned)));
+    const replay = await post(path, W, body, undefined, planKey);
+    assert.equal(replay.status, planned.status);
+    assert.deepEqual(replay.data, planned.data);
+    assert.equal(planned.data.tenant_id, data.tenantId);
+    scanForLeaks(planned, '6 registry plan', data === A ? B : A);
+    scanForLeaks(replay, '6 registry plan replay', data === A ? B : A);
+    reusePlans.push(planned);
+  }
+  assert.notEqual(reusePlans[0].data.plan_id, reusePlans[1].data.plan_id);
+  const afterPlans = await Promise.all([count('module_launch_plans', A.tenantId), count('module_launch_plans', B.tenantId)]);
+  assert.deepEqual(afterPlans, beforePlans.map(n => n + 1));
+  outcomes.push({ route: '/tenants/:tenant_id/application-launch-plans', A: describe(reusePlans[0]), B: describe(reusePlans[1]), counts: { before: beforePlans, after: afterPlans } });
+
+  const launchKey = randomUUID();
+  const launches: Reply[] = [];
+  const beforeInstallations = await Promise.all([count('application_installations', A.tenantId), count('application_installations', B.tenantId)]);
+  for (const [index, data] of [A, B].entries()) {
+    const plan = reusePlans[index].data;
+    const body = { plan_id: plan.plan_id, expected_plan_version: plan.version, configuration_digest: plan.configuration_digest };
+    const path = `/tenants/${data.tenantId}/application-installations`;
+    const launched = await post(path, W, body, undefined, launchKey);
+    assert.equal(launched.status, 200, JSON.stringify(describe(launched)));
+    assert.equal(launched.data.state, 'succeeded');
+    const replay = await post(path, W, body, undefined, launchKey);
+    assert.equal(replay.status, launched.status);
+    assert.deepEqual(replay.data, launched.data);
+    const installation = await call('GET', `/tenants/${data.tenantId}/application-installations/by-operation/${launched.data.operation_id}`, W);
+    assert.equal(installation.status, 200, JSON.stringify(describe(installation)));
+    assert.equal(installation.data.tenant_id, data.tenantId);
+    assert.equal(installation.data.workspace_id, data.workspaceId);
+    assert.equal(installation.data.modules[0].instance_id, data.instanceId);
+    for (const reply of [launched, replay, installation]) scanForLeaks(reply, '6 registry launch', data === A ? B : A);
+    launches.push(launched);
+  }
+  assert.notEqual(launches[0].data.operation_id, launches[1].data.operation_id);
+  const afterInstallations = await Promise.all([count('application_installations', A.tenantId), count('application_installations', B.tenantId)]);
+  assert.deepEqual(afterInstallations, beforeInstallations);
+  outcomes.push({ route: '/tenants/:tenant_id/application-installations', A: describe(launches[0]), B: describe(launches[1]), counts: { before: beforeInstallations, after: afterInstallations } });
+
+  for (const action of ['reconcile', 'cancel'] as const) {
+    const key = randomUUID();
+    const replies: Reply[] = [];
+    const before = await Promise.all([count('module_provision_operations', A.tenantId), count('module_provision_operations', B.tenantId)]);
+    for (const data of [A, B]) {
+      const operation = await call('GET', `/tenants/${data.tenantId}/operations/${data.operationId}`, W);
+      assert.equal(operation.status, 200, JSON.stringify(describe(operation)));
+      const reply = await post(`/tenants/${data.tenantId}/operations/${data.operationId}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      assert.equal(reply.status, 202, JSON.stringify(describe(reply)));
+      assert.equal(reply.data.operation_id, data.operationId);
+      const other = data === A ? B : A;
+      scanForLeaks(reply, `6 registry ${action}`, other);
+      const hidden = await post(`/tenants/${data.tenantId}/operations/${other.operationId}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      const missing = await post(`/tenants/${data.tenantId}/operations/${randomUUID()}/${action}`, W,
+        action === 'cancel' ? { reason: 'member_cancelled' } : {}, `"${operation.data.version}"`, key);
+      assertSameAsRandom(`6 registry ${action} receipt target`, 'W', hidden, missing);
+      // Cancel checks the used command key before its target; reconcile reads its target first.
+      assert.equal(hidden.status, action === 'cancel' ? 409 : 404, JSON.stringify(describe(hidden)));
+      assert.equal(hidden.data.code, action === 'cancel' ? 'idempotency_conflict' : 'not_found');
+      scanForLeaks(hidden, `6 registry ${action} receipt target`, other);
+      scanForLeaks(missing, `6 registry ${action} random target`, other);
+      replies.push(reply);
+    }
+    assert.notDeepEqual(replies[0].data, replies[1].data);
+    const after = await Promise.all([count('module_provision_operations', A.tenantId), count('module_provision_operations', B.tenantId)]);
+    assert.deepEqual(after, before);
+    outcomes.push({ route: `/tenants/:tenant_id/operations/:operation_id/${action}`, A: describe(replies[0]), B: describe(replies[1]), counts: { before, after } });
+  }
+  // Reuse plans above require the initial instance version; lifecycle positive controls run only after them.
+  const operationIds = new Set<string>((await owner.query<{ operation_id: string }>(
+    'SELECT operation_id FROM module_provision_operations WHERE tenant_id=ANY($1::uuid[])', [[A.tenantId, B.tenantId]],
+  )).rows.map(row => row.operation_id));
+  for (const action of ['suspend', 'resume'] as const) {
+    const route = `/tenants/:tenant_id/module-instances/:instance_id/${action}`;
+    const body = action === 'suspend' ? { reason: 'synthetic suspend' } : {};
+    const key = randomUUID();
+    const replies: Reply[] = [];
+    const before = await Promise.all([instanceLifecycleSnapshot(A), instanceLifecycleSnapshot(B)]);
+    const targets = [];
+    for (const data of [A, B]) {
+      const other = data === A ? B : A;
+      const freshId = replies[0]?.data.operation_id;
+      const extra = data === B && freshId ? [freshId] : [];
+      const ownBefore = await instanceLifecycleSnapshot(data);
+      const otherBefore = await instanceLifecycleSnapshot(other);
+      const instance = await call('GET', `/tenants/${data.tenantId}/module-instances/${data.instanceId}`, W);
+      assert.equal(instance.status, 200, JSON.stringify(describe(instance)));
+      assert.equal(instance.data.version, ownBefore.instance.version);
+      scanForLeaks(instance, `6 lifecycle ${action} version`, other, extra);
+      const expected = `"${instance.data.version}"`;
+      const path = substitute(route, ids(data, { method: 'POST', path: route }));
+      const reply = await post(path, W, body, expected, key);
+      assert.equal(reply.status, 200, JSON.stringify(describe(reply)));
+      assert.match(reply.data.operation_id, /^[0-9a-f-]{36}$/);
+      assert.equal(operationIds.has(reply.data.operation_id), false, 'Lifecycle must return a fresh operation id');
+      operationIds.add(reply.data.operation_id);
+      assert.deepEqual(reply.data, { operation_id: reply.data.operation_id, state: 'succeeded', version: '1' });
+      assert.equal(reply.headers.get('etag'), '"1"');
+      assert.equal(reply.headers.get('cache-control'), 'private, no-store');
+      scanForLeaks(reply, `6 lifecycle ${action}`, other, extra);
+      const ownAfter = await instanceLifecycleSnapshot(data);
+      const status = action === 'suspend' ? 'suspended' : 'active';
+      assert.deepEqual(ownAfter, { instance: { ...ownBefore.instance, status, binding_state: status,
+        version: String(BigInt(ownBefore.instance.version) + 1n),
+        suspension_operation_id: action === 'suspend' ? reply.data.operation_id : null }, operations: ownBefore.operations + 1 });
+
+      const replay = await post(path, W, body, expected, key);
+      assert.equal(replay.status, reply.status, JSON.stringify(describe(replay)));
+      assert.deepEqual(replay.data, reply.data);
+      assert.equal(replay.headers.get('etag'), '"1"');
+      assert.equal(replay.headers.get('cache-control'), 'private, no-store');
+      scanForLeaks(replay, `6 lifecycle ${action} replay`, other, extra);
+      assert.deepEqual(await instanceLifecycleSnapshot(data), ownAfter, 'Receipt replay changed instance or operation count');
+
+      const hidden = await post(`/tenants/${data.tenantId}/module-instances/${other.instanceId}/${action}`, W, body, expected, key);
+      const missing = await post(`/tenants/${data.tenantId}/module-instances/${randomUUID()}/${action}`, W, body, expected, key);
+      assertSameAsRandom(`6 lifecycle ${action} receipt target`, 'W', hidden, missing);
+      // The used command key is checked before either hidden or missing instance is looked up.
+      assert.equal(hidden.status, 409, JSON.stringify(describe(hidden)));
+      assert.equal(hidden.data.code, 'idempotency_conflict');
+      scanForLeaks(hidden, `6 lifecycle ${action} receipt target`, other, extra);
+      scanForLeaks(missing, `6 lifecycle ${action} random target`, other, extra);
+      assert.deepEqual(await instanceLifecycleSnapshot(data), ownAfter, 'Denied receipt targets changed own tenant');
+      assert.deepEqual(await instanceLifecycleSnapshot(other), otherBefore, 'Lifecycle commands changed the other tenant');
+      targets.push({ tenant: data === A ? 'A' : 'B', hidden: describe(hidden), missing: describe(missing) });
+      replies.push(reply);
+      data.resourceIds.push(reply.data.operation_id);
+    }
+    assert.notDeepEqual(replies[0].data, replies[1].data);
+    const after = await Promise.all([instanceLifecycleSnapshot(A), instanceLifecycleSnapshot(B)]);
+    assert.deepEqual(after.map(row => row.operations), before.map(row => row.operations + 1));
+    outcomes.push({ route, A: describe(replies[0]), B: describe(replies[1]), targets, counts: {
+      before: before.map(row => row.operations), after: after.map(row => row.operations),
+    }, instances: { before: before.map(row => row.instance), after: after.map(row => row.instance) } });
+  }
   console.log(JSON.stringify({ item6: outcomes }));
 });
 
-test('7. Successful private reads and attachment headers', async () => {
+test('T-022 7. Successful private reads and attachment headers', async () => {
   for (const [data, actor, other] of [[fixture.A, fixture.people.P, fixture.B], [fixture.B, fixture.people.N, fixture.A]] as const) {
     for (const route of routes.filter(r => r.method === 'GET')) {
       const reply = await execute(route, actor, ids(data, route));
@@ -1055,4 +1321,22 @@ test('7. Successful private reads and attachment headers', async () => {
       if (route.path.endsWith('/content')) assert.deepEqual(Buffer.from(reply.bytes), data.noteBytes);
     }
   }
+});
+
+test('T-024 every matrix request ran on one runtime-role connection and left no tenant context', () => {
+  assert.equal(runtimeConnection.current_user, runtimeRole);
+  assert.equal(runtimeConnection.session_user, runtimeRole);
+  assert.equal(runtimeConnection.rolsuper, false);
+  assert.equal(runtimeConnection.rolbypassrls, false);
+  assert.ok(requestEvidence.length > 0, 'No matrix request connection evidence was recorded');
+  const pids = [...new Set(requestEvidence.map(row => row.pid))];
+  assert.deepEqual(pids, [runtimeConnection.pg_backend_pid],
+    `Runtime connection changed (pool removals=${connectionRemovals}). A failed rollback destroys its client; this matrix injects no rollback failure.`);
+  for (const row of requestEvidence) {
+    for (const [key, value] of Object.entries(row.settings)) {
+      assert.ok(value === null || value === '', `${row.method} ${row.path}: ${key} context remained on backend ${row.pid}`);
+    }
+  }
+  console.log(JSON.stringify({ t024_matrix_connection: { requests: requestEvidence.length, backend_pids: pids,
+    connection_removals: connectionRemovals, context_clear: true } }));
 });

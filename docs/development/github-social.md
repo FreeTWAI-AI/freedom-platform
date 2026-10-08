@@ -54,6 +54,8 @@ OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/ca
 
 App 已連結只代表設定已保存。讀取星數、OAuth 回呼及單元測試通過，都不代表對原作者專案的實際 Star 寫入已通過。修正外部權限後，應由本人對選定的技能書操作並核對 GitHub 回應；不改用管理員 token，也不悄悄擴大到 OAuth `public_repo` 或程式碼寫入權限。
 
+GitHub 以 403 拒絕且不是限流時，provider 會先寫一行 `github_provider_denied` 結構化 log（`console.warn`，可用 `wrangler tail` 查看），再照常回 `github_permission_required`。欄位只有：API 路徑樣板（例如 `PUT /user/starred/{repository}`，不含 repo 名稱）、GitHub 要求的權限（`x-accepted-github-permissions`）、GitHub 請求編號（`x-github-request-id`）、是否要求 SSO，以及把 GitHub 回傳的 `message` 對到的固定分類碼（`not_accessible_by_integration`、`not_accessible_by_token`、`sso_required`、`oauth_app_restricted`、`unknown`）。分類只取回應本文前 4 KB，之後不再讀取，讀取也受同一個請求期限約束；原文不寫進 log；不記 token、會員身分與 SSO 網址，標頭值不符預期格式就記成 null。這行 log 只提供對照線索：回給會員的錯誤與狀態碼不變，也不重試或改用其他 token。
+
 ## 驗證
 
 Runtime 測試使用隔離 PostgreSQL 與合成提供者，覆蓋真實路由、session／state 隔離、加密、刷新、設定重試與拒絕過度權限。UI 測試驗證按鈕、數據、錯誤、跨帳號清理、解除連結和 manifest 表單。實際 GitHub 授權／Star 需要 App 已建立及本人同意，不能用 mock 通過冒稱真實授權已完成。

@@ -62,7 +62,7 @@ export async function publicLaunchpad(pool: Pool, guildKey: string) {
       : {view: platformDefaultView(guild, '1'), problem: null as ConfigProblem};
     const view = resolved.view;
     const communityId = stored && view.source === 'guild_editor' ? stored.community_id : null;
-    const allowed = await availableReleaseRefs(q, guildKey);
+    const allowed = await availableReleaseRefs(q, guildKey, communityId);
     return {
       guild: publicGuildDto(guild),
       config: {revision: view.revision, body: publicSafeConfig(view.body, allowed)},

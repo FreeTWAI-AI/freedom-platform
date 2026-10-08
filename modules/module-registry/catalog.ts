@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
@@ -52,18 +53,23 @@ function eligibilityView(full: boolean, manages: boolean, policy: boolean, insta
   });
 }
 
-function encodeCursor(platform: boolean, order: number, id: string, guildKey: string | undefined) {
-  return Buffer.from(JSON.stringify({ guildKey: guildKey ?? null, platform: platform ? 0 : 1, order, id })).toString('base64url');
+function encodeCursor(platform: boolean, order: number, id: string, filter: string) {
+  return Buffer.from(JSON.stringify({ filter, platform: platform ? 0 : 1, order, id })).toString('base64url');
 }
 
-function decodeCursor(raw: string | undefined, guildKey: string | undefined): { platform: number; order: number; id: string } | null {
+function decodeCursor(raw: string | undefined, filter: string): { platform: number; order: number; id: string } | null {
   if (!raw) return null;
   let parsed: Record<string, unknown>;
-  try { parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')); }
-  catch { throw new Problem(422, 'invalid_cursor', '分頁游標無效。'); }
+  try {
+    const bytes = Buffer.from(raw, 'base64url');
+    if (bytes.toString('base64url') !== raw) throw new Error('Invalid base64url');
+    parsed = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+  }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
-    || Object.keys(parsed).sort().join(',') !== 'guildKey,id,order,platform'
-    || parsed.guildKey !== (guildKey ?? null)
+    || Object.keys(parsed).sort().join(',') !== 'filter,id,order,platform'
+    || parsed.filter !== filter
     || (parsed.platform !== 0 && parsed.platform !== 1)
     || typeof parsed.order !== 'number' || !Number.isInteger(parsed.order) || parsed.order < 0 || parsed.order > 2147483647
     || !OpaqueId.safeParse(parsed.id).success) {
@@ -85,16 +91,26 @@ export async function assertGuildKey(q: PoolClient, guildKey: string) {
 export async function listApplications(q: PoolClient, query: CatalogQuery) {
   if (query.guildKey) await assertGuildKey(q, query.guildKey);
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor, query.guildKey);
+  const filter = createHash('sha256').update(JSON.stringify({ list: 'applications', guild_key: query.guildKey ?? null,
+    community_id: query.guildKey && query.communityId ? query.communityId : null })).digest('hex');
+  const cursor = decodeCursor(query.cursor, filter);
   const params: unknown[] = [];
   let guildParam = '';
   if (query.guildKey) {
     params.push(query.guildKey);
     guildParam = `$${params.length}`;
   }
+  let communityParam = '';
+  if (query.guildKey && query.communityId) {
+    params.push(query.communityId);
+    communityParam = `$${params.length}`;
+  }
   const where = query.guildKey
-    ? `((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=${guildParam})`
+    ? communityParam
+      ? `((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=${communityParam} AND (o.guild_key IS NULL OR o.guild_key=${guildParam})))`
+      : `((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=${guildParam})`
     : `(o.community_id IS NULL AND o.guild_key IS NULL)`;
+  const scopeParams = [...params];
   params.push(cursor?.platform ?? null, cursor?.order ?? null, cursor?.id ?? null, limit + 1);
   const base = params.length;
   const rows = (await q.query<OfferingRow>(
@@ -111,11 +127,11 @@ export async function listApplications(q: PoolClient, query: CatalogQuery) {
   const page = rows.slice(0, limit);
   const source = (await q.query<{ v: string | null }>(
     `SELECT max(o.version)::text AS v FROM guild_application_offerings o WHERE ${where}`,
-    query.guildKey ? [query.guildKey] : [],
+    scopeParams,
   )).rows[0].v;
   return {
     items: page.map(row => applicationView(row)),
-    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id, query.guildKey) : null,
+    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id, filter) : null,
     source_version: source && source !== '0' ? source : '1',
   };
 }
@@ -152,7 +168,12 @@ export async function loadRelease(q: PoolClient, applicationKey: string, release
        d.launch_policy_ref, d.license_state, d.release_status, d.version::text AS version, d.source_commit,
        d.artifact_digest, d.skill_book_refs, d.license_review_ref, d.customization_schema_ref, d.entry_capability,
        0 AS display_order, NULL::uuid AS offering_id, true AS platform
-     FROM application_definitions d WHERE d.application_key=$1 AND d.release_ref=$2`,
+     FROM application_definitions d WHERE d.application_key=$1 AND d.release_ref=$2
+       AND d.release_status='available' AND d.license_state='reviewed'
+       AND EXISTS (
+         SELECT 1 FROM guild_application_offerings o
+         WHERE o.application_key=d.application_key AND o.release_ref=d.release_ref AND o.status='offered'
+       )`,
     [applicationKey, releaseRef],
   )).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這個應用版本。');
@@ -170,7 +191,7 @@ export interface DefinitionRow extends OfferingRow {
   offering_policy: { policy_key: string; version: string };
 }
 
-export async function loadOfferedDefinition(q: PoolClient, guildKey: string, applicationKey: string, releaseRef: string): Promise<DefinitionRow> {
+export async function loadOfferedDefinition(q: PoolClient, guildKey: string, applicationKey: string, releaseRef: string, communityId: string): Promise<DefinitionRow> {
   const row = (await q.query<DefinitionRow>(
     `SELECT d.application_key, d.release_ref, d.display_name, d.module_requirements, d.runtime_profiles,
        d.launch_policy_ref, d.license_state, d.release_status, d.version::text AS version, d.source_commit,
@@ -180,10 +201,10 @@ export async function loadOfferedDefinition(q: PoolClient, guildKey: string, app
      FROM application_definitions d
      JOIN guild_application_offerings o ON o.application_key=d.application_key AND o.release_ref=d.release_ref
      WHERE d.application_key=$2 AND d.release_ref=$3 AND o.status='offered'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=$1)
+       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$4 AND (o.guild_key IS NULL OR o.guild_key=$1)))
      ORDER BY o.community_id NULLS LAST
      LIMIT 1`,
-    [guildKey, applicationKey, releaseRef],
+    [guildKey, applicationKey, releaseRef, communityId],
   )).rows[0];
   requireCondition(row, 409, 'application_not_available', '這個應用目前無法啟動。');
   if (row.license_state !== 'reviewed') throw new Problem(409, 'license_unresolved', '這個應用的授權尚未完成審查。');
@@ -195,7 +216,7 @@ export async function loadOfferedDefinition(q: PoolClient, guildKey: string, app
 }
 
 /** Each stored ref must be an offered available reviewed release for this guild or the platform default. */
-export async function assertOfferedApplications(q: PoolClient, guildKey: string, refs: readonly { application_key: string; release_ref: string }[]) {
+export async function assertOfferedApplications(q: PoolClient, guildKey: string, communityId: string, refs: readonly { application_key: string; release_ref: string }[]) {
   if (refs.length === 0) return;
   const errors: { code: string; path: string }[] = [];
   for (const [index, ref] of refs.entries()) {
@@ -205,22 +226,22 @@ export async function assertOfferedApplications(q: PoolClient, guildKey: string,
        JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
        WHERE o.status='offered' AND d.application_key=$2 AND d.release_ref=$3
          AND d.release_status='available' AND d.license_state='reviewed'
-         AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=$1)
+         AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$4 AND (o.guild_key IS NULL OR o.guild_key=$1)))
        LIMIT 1`,
-      [guildKey, ref.application_key, ref.release_ref],
+      [guildKey, ref.application_key, ref.release_ref, communityId],
     )).rows[0];
     if (!row) errors.push({ code: 'application_release_unknown', path: `application_refs.${index}.release_ref` });
   }
   if (errors.length) throw new ConfigValidationError(errors);
 }
 
-export async function availableReleaseRefs(q: PoolClient, guildKey: string): Promise<Set<string>> {
+export async function availableReleaseRefs(q: PoolClient, guildKey: string, communityId: string | null): Promise<Set<string>> {
   const rows = (await q.query<{ release_ref: string }>(
     `SELECT d.release_ref FROM guild_application_offerings o
      JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
      WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=$1)`,
-    [guildKey],
+       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))`,
+    [guildKey, communityId],
   )).rows;
   return new Set(rows.map(row => row.release_ref));
 }
@@ -334,18 +355,18 @@ export async function eligibilityFor(q: PoolClient, actor: Actor, guildKey: stri
 /** Public catalog. Offerings have no tenant_id. Eligibility binds the principal, then one managed tenant at a time. */
 export async function browseApplications(pool: Pool, query: CatalogQuery, actor: Actor | null) {
   return isolatedTransaction(pool, async q => {
-    const page = await listApplications(q, query);
+    const page = await listApplications(q, { ...query, communityId: actor?.community_id });
     if (!actor || !query.guildKey) return ApplicationPageSchema.parse(page);
     const items = [];
     for (const item of page.items) {
       const policy = (await q.query<{ version: string }>(
         `SELECT o.launch_policy_ref->>'version' AS version
          FROM guild_application_offerings o
-         WHERE o.release_ref=$1 AND o.status='offered'
-           AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=$2)
+         WHERE o.release_ref=$1 AND o.application_key=$4 AND o.status='offered'
+           AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$3 AND (o.guild_key IS NULL OR o.guild_key=$2)))
          ORDER BY o.community_id NULLS LAST
          LIMIT 1`,
-        [item.release_ref, query.guildKey],
+        [item.release_ref, query.guildKey, actor.community_id, item.application_key],
       )).rows[0];
       items.push({
         ...item,
@@ -370,9 +391,9 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
      FROM guild_application_offerings o
      JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
      WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR o.guild_key=$1)
+       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))
      ORDER BY (o.community_id IS NOT NULL), o.display_order, o.offering_id`,
-    [guildKey],
+    [guildKey, actor.community_id],
   )).rows;
   const facts = (await q.query<{ full_member: boolean; manages: boolean; policy: boolean; installed: string[] }>(
     `WITH me AS (

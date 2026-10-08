@@ -95,8 +95,8 @@ function configFrom(input: unknown, guildKey: string, prefix = ''): Config {
   }
 }
 function pgCode(error: unknown): string { return typeof error === 'object' && error !== null && 'code' in error ? String((error as {code: unknown}).code) : ''; }
-async function assertRefs(q: PoolClient, guildKey: string, config: Config, prefix = '') {
-  try { await assertOfferedApplications(q, guildKey, config.application_refs); }
+async function assertRefs(q: PoolClient, guildKey: string, communityId: string, config: Config, prefix = '') {
+  try { await assertOfferedApplications(q, guildKey, communityId, config.application_refs); }
   catch (error) {
     if (error instanceof ConfigValidationError && prefix) throw new ConfigValidationError(error.errors.map(item => ({code: item.code, path: item.path ? `${prefix}.${item.path}` : prefix})));
     throw error;
@@ -262,7 +262,7 @@ export async function createDraft(pool: Pool, input: Command, guildKey: string) 
     await activeMember(q, input.actor);
     await loadCatalog(q, guildKey);
     config = configFrom(wrapped.body, guildKey, 'body');
-    await assertRefs(q, guildKey, config, 'body');
+    await assertRefs(q, guildKey, input.actor.community_id, config, 'body');
     principalId = await ensurePrincipal(q, input.actor);
     delegated = !(await requireCapability(q, input.actor, guildKey, 'guild.content.edit')).leader;
   }, async q => {
@@ -293,7 +293,7 @@ export async function previewLaunchpad(pool: Pool, actor: Actor, guildKey: strin
     const access = await requireCapability(q, actor, guildKey, 'guild.config.preview');
     const wrapped = parseInput(previewInput, input);
     const config = configFrom(wrapped.body, guildKey, 'body');
-    await assertRefs(q, guildKey, config, 'body');
+    await assertRefs(q, guildKey, actor.community_id, config, 'body');
     await assertCurrentSessionClock(q, actor);
     if (!access.leader) await assertDelegationDeadline(q, actor, guildKey, 'guild.config.preview');
     return {effective_config: config, validation: [] as {code: string; path: string}[], preview_data_origin: 'synthetic_fixture' as const};
@@ -324,7 +324,7 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
     requireCondition(row.status === 'draft', 409, 'config_not_draft', '只有草稿可以發布。');
     requireCondition(row.body_sha256 === body.expected_body_sha256, 412, 'version_conflict', '配置內容與預期摘要不一致。');
     const config = parseConfig(row.body, guildKey);
-    await assertRefs(q, guildKey, config);
+    await assertRefs(q, guildKey, input.actor.community_id, config);
     requireCondition(digest(config) === row.body_sha256, 412, 'version_conflict', '配置摘要與內容不一致。');
     await supersedePublished(q, input.actor.community_id, guildKey, row.config_id);
     const published = (await q.query("UPDATE guild_launchpad_config_revisions SET status='published' WHERE config_id=$1 AND status='draft' RETURNING config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at", [row.config_id])).rows[0] as StoredRevision;
@@ -356,7 +356,7 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
       FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2 AND revision=$3::bigint FOR SHARE`, [input.actor.community_id, guildKey, body.to_revision])).rows[0] as StoredRevision | undefined;
     requireCondition(prior, 404, 'config_revision_not_found', '找不到這個啟動台版本。');
     const config = parseConfig(prior.body, guildKey);
-    await assertRefs(q, guildKey, config);
+    await assertRefs(q, guildKey, input.actor.community_id, config);
     const hash = digest(config);
     const revision = await nextRevision(q, input.actor.community_id, guildKey);
     await supersedePublished(q, input.actor.community_id, guildKey, randomUUID());

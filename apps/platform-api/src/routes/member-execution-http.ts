@@ -78,7 +78,7 @@ export async function createMemberExecutionHttpTransport(pool: Pool, options: {
     if (sourceNetwork !== undefined && typeof sourceNetwork !== 'function') throw new Error();
     if (grantTtlSeconds !== undefined && (!Number.isInteger(grantTtlSeconds) || grantTtlSeconds < 1 || grantTtlSeconds > 3600)) throw new Error();
   } catch { throw new Error('invalid_member_execution_http_configuration'); }
-  const requestHost = new URL(origin).host, boundary = memberBoundary(pool), runs = createExecutionRuns(pool);
+  const requestHost = new URL(origin).host, boundary = memberBoundary(pool,origin), runs = createExecutionRuns(pool);
   const prerequisites = createExecutionPrerequisites(pool,{environment,clientId,...(grantTtlSeconds === undefined ? {} : {grantTtlSeconds})});
   const app = new Hono<PlatformEnv>();
   app.onError((error,c) => {

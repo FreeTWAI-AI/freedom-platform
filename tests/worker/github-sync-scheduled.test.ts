@@ -25,12 +25,14 @@ async function capture(run: () => Promise<void>) {
 test('the platform worker exposes scheduled and runs one bounded sync for events, repositories and metrics', async () => {
   const pool = {ended: 0, async end() { this.ended += 1; }};
   let seen: {budget?: number; token?: string; pool?: unknown} = {};
+  let pruned: unknown;
   const handler = createWorkerHandler({
     createPool: () => pool as unknown as Pool,
     syncGitHub: async (given, options?: GitHubSyncOptions) => {
       seen = {budget: options?.budget, token: options?.token, pool: given};
       return empty;
     },
+    authPrune: async given => { pruned = given; return {sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0}; },
   });
   assert.equal(typeof handler.fetch, 'function');
   assert.equal(typeof handler.scheduled, 'function');
@@ -40,6 +42,7 @@ test('the platform worker exposes scheduled and runs one bounded sync for events
   assert.equal(GITHUB_SYNC_REQUEST_BUDGET, 40);
   assert.equal(seen.token, TOKEN);
   assert.equal(seen.pool, pool);
+  assert.equal(pruned, pool, 'the scheduled run prunes expired auth records with the same pool');
   assert.equal(pool.ended, 1);
   assert.equal(pending.length, 1);
   await Promise.all(pending);
@@ -50,6 +53,7 @@ test('a scheduled sync failure is logged without the token and still ends the po
   const handler = createWorkerHandler({
     createPool: () => pool as unknown as Pool,
     syncGitHub: async () => { throw new Error('sync failed ' + TOKEN); },
+    authPrune: async () => ({sessions: 0, login_attempts: 0, auth_rate_limits: 0, password_reset_tokens: 0}),
   });
   const {ctx, pending} = context();
   const logged = await capture(async () => {
@@ -57,6 +61,22 @@ test('a scheduled sync failure is logged without the token and still ends the po
   });
   assert.deepEqual(logged, ['github_sync_failed Error']);
   assert.equal(logged.join(' ').includes(TOKEN), false);
+  assert.equal(pool.ended, 1);
+  await Promise.all(pending);
+});
+
+test('a failing auth prune logs one line and still ends the pool', async () => {
+  const pool = {ended: 0, async end() { this.ended += 1; }};
+  const handler = createWorkerHandler({
+    createPool: () => pool as unknown as Pool,
+    syncGitHub: async () => empty,
+    authPrune: async () => { throw new Error('prune failed ' + TOKEN); },
+  });
+  const {ctx, pending} = context();
+  const logged = await capture(async () => {
+    await handler.scheduled({cron: '*/10 * * * *'}, env(), ctx);
+  });
+  assert.deepEqual(logged, ['auth_prune_failed']);
   assert.equal(pool.ended, 1);
   await Promise.all(pending);
 });

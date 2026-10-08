@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import { getCookie } from 'hono/cookie';
+import { readSessionCookie } from './session-cookie.js';
 import { timingSafeEqual } from 'node:crypto';
 import type { Pool } from 'pg';
 import { authenticate } from '../../../modules/identity-membership/service.js';
@@ -8,9 +8,9 @@ import type { PlatformEnv } from './module-context.js';
 
 /** Shared existing member-cookie/CSRF/onboarding boundary. Origin/Host and
  * body limits belong to the host router. No pre-injected Actor is trusted. */
-export function memberBoundary(pool: Pool, onboardingAllowed: (path: string, method: string) => boolean = () => false): MiddlewareHandler<PlatformEnv> {
+export function memberBoundary(pool: Pool, origin: string, onboardingAllowed: (path: string, method: string) => boolean = () => false): MiddlewareHandler<PlatformEnv> {
   return async (c, next) => {
-    const actor = await authenticate(pool, getCookie(c, 'freedom_local_session'));
+    const actor = await authenticate(pool, readSessionCookie(c.req.header('Cookie'),origin));
     c.set('actor', actor);
     if (!['GET', 'HEAD'].includes(c.req.method)) {
       // Legacy schema only says NOT NULL. A malformed stored empty token must

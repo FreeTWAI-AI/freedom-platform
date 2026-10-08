@@ -10,7 +10,7 @@ import { effectDigest } from '../../modules/module-registry/providers.js';
 import type { Command } from '../../packages/db/index.js';
 import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
 import { setSyntheticFault } from '../../packages/testing/synthetic-module-provider.js';
-import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
+import { WORK_CONTRACT, WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { consumeInstanceReservations } from '../../modules/module-registry/capacity.js';
 import type { ModuleProviderMap } from '../../modules/module-registry/providers.js';
 import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
@@ -1305,4 +1305,247 @@ test('r6 public catalog success responses retain expected cache headers', async 
   assert.equal(memberList.status, 200, JSON.stringify(memberList.data));
   assert.equal(memberList.response.headers.get('cache-control'), 'private, no-store');
   assert.ok(memberList.response.headers.get('vary')?.includes('Cookie'));
+});
+
+async function r7ScopedOffering(communityId: string, guildKey: string | null = 'guild_ai_field') {
+  await h.pool.query(`INSERT INTO application_definitions(
+      application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+    SELECT 'synthetic-scoped','synthetic-scoped@1.0.0',display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+      entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version
+    FROM application_definitions WHERE application_key='synthetic-storefront' ON CONFLICT DO NOTHING`);
+  await h.pool.query(`INSERT INTO guild_application_offerings(
+      offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+    VALUES($1,$2,$3,'synthetic-scoped','synthetic-scoped@1.0.0','offered',20,$4::jsonb,1)`,
+  [randomUUID(), communityId, guildKey, JSON.stringify({policy_key: 'synthetic-storefront.launch', version: '1'})]);
+}
+
+async function r7ForeignCommunity() {
+  const id = randomUUID();
+  await h.pool.query('INSERT INTO communities(community_id,name) VALUES($1,$2)', [id, '另一個合成社群']);
+  await r7ScopedOffering(id);
+  return id;
+}
+
+test('r7 foreign-community offerings are absent from member catalog and launchpad', async () => {
+  const { owner } = await prepared();
+  await r7ForeignCommunity();
+  for (const path of ['/applications?guild_key=guild_ai_field', '/guilds/guild_ai_field/launchpad']) {
+    const reply = await h.call('GET', path, owner);
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    const items = reply.data.items ?? reply.data.applications;
+    assert.equal(items.some((item: {application_key: string}) => item.application_key === 'synthetic-scoped'), false, path);
+    assert.ok(items.some((item: {application_key: string}) => item.application_key === 'synthetic-storefront'));
+    assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+  }
+});
+
+test('r7 foreign-community offerings cannot create a plan', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ForeignCommunity();
+  const before = await domainCounts(tenantId);
+  const reply = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(reply.status, 409, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'application_not_available');
+  assert.deepEqual(await domainCounts(tenantId), before);
+  assert.equal(await h.count('module_launch_plans', 'WHERE tenant_id=$1', [tenantId]), 0);
+});
+
+test('r7 launch rejects a plan when only the foreign-community offering remains', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ForeignCommunity();
+  await r7ScopedOffering(DEMO_COMMUNITY);
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  await h.pool.query(`UPDATE guild_application_offerings SET status='withdrawn',version=version+1
+    WHERE community_id=$1 AND application_key='synthetic-scoped'`, [DEMO_COMMUNITY]);
+  const before = await domainCounts(tenantId);
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 409, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'application_not_available');
+  assert.deepEqual(await domainCounts(tenantId), before);
+  assert.equal(await h.count('module_launch_plan_consumptions', 'WHERE tenant_id=$1', [tenantId]), 0);
+});
+
+test('r7 config references reject a foreign-community offering', async () => {
+  const leader = await leaderFor();
+  await r7ForeignCommunity();
+  const view = await h.call('GET', '/guilds/guild_ai_field/launchpad', leader.session);
+  assert.equal(view.status, 200, JSON.stringify(view.data));
+  const body = {...view.data.config.body, application_refs: [{application_key: 'synthetic-scoped', release_ref: 'synthetic-scoped@1.0.0', order: 0}]};
+  const reply = await h.post('/guilds/guild_ai_field/launchpad-config/preview', leader.session, {body, preview_mode: 'public'});
+  assert.equal(reply.status, 422, JSON.stringify(reply.data));
+  assert.equal(reply.data.code, 'validation_failed');
+  assert.ok(reply.data.errors.some((error: {code: string}) => error.code === 'application_release_unknown'));
+  await r7ScopedOffering(DEMO_COMMUNITY);
+  const allowed = await h.post('/guilds/guild_ai_field/launchpad-config/preview', leader.session, {body, preview_mode: 'public'});
+  assert.equal(allowed.status, 200, JSON.stringify(allowed.data));
+});
+
+test('r7 a community-wide offering applies to its own guilds and can launch', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  await r7ScopedOffering(DEMO_COMMUNITY, null);
+  const catalog = await h.call('GET', '/applications?guild_key=guild_ai_field', owner);
+  assert.equal(catalog.status, 200, JSON.stringify(catalog.data));
+  assert.ok(catalog.data.items.some((item: {application_key: string}) => item.application_key === 'synthetic-scoped'));
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'synthetic-scoped', 'synthetic-scoped@1.0.0'));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const reply = await h.launch(owner, tenantId, planned);
+  assert.equal(reply.status, 200, JSON.stringify(reply.data));
+  assert.equal(reply.data.state, 'succeeded');
+});
+
+async function r7LaunchWrites(tenantId: string) {
+  const snapshot: Record<string, unknown> = {...await domainCounts(tenantId)};
+  for (const table of ['application_module_links', 'module_launch_plan_consumptions', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox']) {
+    snapshot[table] = await h.count(table);
+  }
+  snapshot.installations = (await h.pool.query('SELECT installation_id,status,version::text,provision_operation_id FROM application_installations WHERE tenant_id=$1 ORDER BY installation_id', [tenantId])).rows;
+  snapshot.instances = (await h.pool.query('SELECT instance_id,status,version::text FROM module_instances WHERE tenant_id=$1 ORDER BY instance_id', [tenantId])).rows;
+  snapshot.bindings = (await h.pool.query('SELECT workspace_id,instance_id,version::text FROM workspace_module_bindings WHERE tenant_id=$1 ORDER BY workspace_id', [tenantId])).rows;
+  return snapshot;
+}
+
+for (const change of ['suspended', 'archived', 'version', 'deployment'] as const) {
+  test(`r7 reuse_existing revalidates a linked instance after ${change} changes`, async () => {
+    const { owner, tenantId, workspaceId } = await prepared();
+    const firstPlan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId));
+    assert.equal((await h.launch(owner, tenantId, firstPlan)).status, 200);
+    const installation = (await h.pool.query('SELECT installation_id FROM application_installations WHERE tenant_id=$1', [tenantId])).rows[0];
+    const instance = (await h.pool.query('SELECT instance_id,version::text FROM module_instances WHERE tenant_id=$1', [tenantId])).rows[0];
+    const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+      installation_choice: 'reuse_existing', existing_installation_id: installation.installation_id,
+      dependencies: [{requirement_key: 'work', choice: 'reuse', instance_id: instance.instance_id, expected_version: instance.version}],
+    }));
+    assert.equal(planned.status, 201, JSON.stringify(planned.data));
+    if (change === 'deployment') {
+      await h.pool.query("UPDATE deployment_bindings SET state='suspended',version=version+1 WHERE tenant_id=$1", [tenantId]);
+    } else if (change === 'version') {
+      await h.pool.query('UPDATE module_instances SET version=version+1 WHERE tenant_id=$1', [tenantId]);
+    } else {
+      await h.pool.query('UPDATE module_instances SET status=$2,version=version+1 WHERE tenant_id=$1', [tenantId, change]);
+    }
+    const before = await r7LaunchWrites(tenantId);
+    const reply = await h.launch(owner, tenantId, planned);
+    assert.equal(reply.status, 409, JSON.stringify(reply.data));
+    assert.equal(reply.data.code, change === 'version' ? 'plan_stale' : 'instance_unavailable');
+    assert.deepEqual(await r7LaunchWrites(tenantId), before);
+  });
+}
+
+test('r7 unchanged reuse_existing preserves the original operation and idempotent replay', async () => {
+  const { owner, tenantId, workspaceId } = await prepared();
+  const firstPlan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId));
+  const launched = await h.launch(owner, tenantId, firstPlan);
+  assert.equal(launched.status, 200, JSON.stringify(launched.data));
+  const installation = (await h.pool.query('SELECT installation_id FROM application_installations WHERE tenant_id=$1', [tenantId])).rows[0];
+  const instance = (await h.pool.query('SELECT instance_id,version::text FROM module_instances WHERE tenant_id=$1', [tenantId])).rows[0];
+  const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', workspaceId, 'manual-workspace', 'manual-workspace@1.0.0', {
+    installation_choice: 'reuse_existing', existing_installation_id: installation.installation_id,
+    dependencies: [{requirement_key: 'work', choice: 'reuse', instance_id: instance.instance_id, expected_version: instance.version}],
+  }));
+  assert.equal(planned.status, 201, JSON.stringify(planned.data));
+  const key = randomUUID();
+  const reused = await h.launch(owner, tenantId, planned, key);
+  assert.equal(reused.status, 200, JSON.stringify(reused.data));
+  assert.equal(reused.data.operation_id, launched.data.operation_id);
+  const before = await r7LaunchWrites(tenantId);
+  const replay = await h.launch(owner, tenantId, planned, key);
+  assert.equal(replay.status, 200, JSON.stringify(replay.data));
+  assert.deepEqual(replay.data, reused.data);
+  assert.deepEqual(await r7LaunchWrites(tenantId), before);
+  assert.equal(await h.count('module_instances', 'WHERE tenant_id=$1', [tenantId]), 1);
+  assert.equal(await h.count('capacity_reservations', 'WHERE tenant_id=$1', [tenantId]), 3);
+});
+
+for (const entry of ['unique', 'multiple'] as const) {
+  test(`r7 async entry binding selects the requirement key with ${entry} entry capability`, async () => {
+    const { owner, actor, tenantId, workspaceId } = await prepared();
+    const first = await h.enable(owner, tenantId, workspaceId, 'guild_ai_field');
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    const other = await h.workspace(owner, tenantId, '第二個人工櫃');
+    const second = await h.enable(owner, tenantId, other, 'guild_ai_field', {kind: 'create_new'});
+    assert.equal(second.status, 200, JSON.stringify(second.data));
+    const target = await h.workspace(owner, tenantId, '合成入口櫃');
+    const key = `synthetic-entry-${entry}`;
+    const requirements = [
+      {requirement_key: 'a-work', module_key: 'work', module_release_ref: 'work@1.0.0', capabilities: [entry === 'unique' ? 'work:read' : 'work:create'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [WORK_CONTRACT]},
+      {requirement_key: 'b-work', module_key: 'work', module_release_ref: 'work@1.0.0', capabilities: ['work:create'], required: true, cardinality: 'one', allow_reuse: true, compatible_contracts: [WORK_CONTRACT]},
+      {requirement_key: 'storefront', module_key: 'synthetic-storefront', module_release_ref: 'synthetic-storefront@1.0.0', capabilities: ['storefront:sell'], required: true, cardinality: 'one', allow_reuse: false, compatible_contracts: [SYNTH]},
+    ];
+    await h.pool.query(`INSERT INTO application_definitions(
+        application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+      SELECT $1,$2,display_name,source_commit,artifact_digest,skill_book_refs,$3::jsonb,'work:create',runtime_profiles,
+        launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version
+      FROM application_definitions WHERE application_key='synthetic-storefront'`, [key, `${key}@1.0.0`, JSON.stringify(requirements)]);
+    await h.pool.query(`INSERT INTO guild_application_offerings(
+        offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+      VALUES($1,$2,'guild_ai_field',$3,$4,'offered',20,$5::jsonb,1)`,
+    [randomUUID(), DEMO_COMMUNITY, key, `${key}@1.0.0`, JSON.stringify({policy_key: 'synthetic-storefront.launch', version: '1'})]);
+    const planned = await h.plan(owner, tenantId, h.planBody('guild_ai_field', target, key, `${key}@1.0.0`, {
+      dependencies: [
+        {requirement_key: 'a-work', choice: 'reuse', instance_id: first.data.instance_id, expected_version: first.data.version},
+        {requirement_key: 'b-work', choice: 'reuse', instance_id: second.data.instance_id, expected_version: second.data.version},
+      ],
+    }));
+    assert.equal(planned.status, 201, JSON.stringify(planned.data));
+    const launched = await launchApplication(h.pool, actor, tenantId, {
+      plan_id: planned.data.plan_id, expected_plan_version: planned.data.version, configuration_digest: planned.data.configuration_digest,
+    }, randomUUID(), h.providers);
+    await advanceOperation(h.pool, tenantId, launched.operation_id, {providers: h.providers, budget: 3000});
+    const operation = await h.call('GET', `/tenants/${tenantId}/operations/${launched.operation_id}`, owner);
+    assert.equal(operation.data.state, 'succeeded', JSON.stringify(operation.data));
+    const binding = (await h.pool.query(`SELECT instance_id FROM workspace_module_bindings
+      WHERE tenant_id=$1 AND workspace_id=$2 AND entry_capability='work:create'`, [tenantId, target])).rows[0];
+    const expected = entry === 'unique' ? second.data.instance_id : first.data.instance_id;
+    assert.equal(binding?.instance_id, expected);
+    const links = (await h.pool.query(`SELECT l.requirement_key,l.instance_id FROM application_module_links l
+      JOIN application_installations i ON i.installation_id=l.installation_id AND i.tenant_id=l.tenant_id
+      WHERE i.tenant_id=$1 AND i.workspace_id=$2 ORDER BY l.requirement_key`, [tenantId, target])).rows;
+    assert.equal(links.find(row => row.requirement_key === 'a-work').instance_id, first.data.instance_id);
+    assert.equal(links.find(row => row.requirement_key === 'b-work').instance_id, second.data.instance_id);
+    assert.equal(await h.count('module_instances', "WHERE tenant_id=$1 AND module_key='work'", [tenantId]), 2);
+  });
+}
+
+for (const hidden of ['draft', 'reviewed', 'retired', 'unresolved', 'blocked', 'unoffered', 'withdrawn'] as const) {
+  test(`r7 public release hides ${hidden} identically to a nonexistent release`, async () => {
+    const key = `synthetic-hidden-${hidden}`;
+    const status = ['draft', 'reviewed', 'retired'].includes(hidden) ? hidden : 'available';
+    const license = ['unresolved', 'blocked'].includes(hidden) ? hidden : 'reviewed';
+    await h.pool.query(`INSERT INTO application_definitions(
+        application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
+      SELECT $1,$2,display_name,source_commit,artifact_digest,skill_book_refs,module_requirements,
+        entry_capability,runtime_profiles,launch_policy_ref,$3,$4,customization_schema_ref,license_review_ref,version
+      FROM application_definitions WHERE application_key='manual-workspace'`, [key, `${key}@1.0.0`, license, status]);
+    if (hidden !== 'unoffered') {
+      await h.pool.query(`INSERT INTO guild_application_offerings(
+          offering_id,community_id,guild_key,application_key,release_ref,status,display_order,launch_policy_ref,version)
+        SELECT $1,NULL,NULL,$2,$3,$4,20,launch_policy_ref,1
+        FROM application_definitions WHERE application_key=$2`, [randomUUID(), key, `${key}@1.0.0`, hidden === 'withdrawn' ? 'withdrawn' : 'offered']);
+    }
+    const random = `synthetic-unknown-${randomUUID().replaceAll('-', '')}`;
+    const absent = await h.call('GET', `/applications/${random}/releases/${random}@1.0.0`);
+    assert.equal(absent.status, 404, JSON.stringify(absent.data));
+    const reply = await h.call('GET', `/applications/${key}/releases/${key}@1.0.0`);
+    assert.equal(reply.status, absent.status, JSON.stringify(reply.data));
+    assert.deepEqual(reply.data, absent.data);
+    for (const header of ['cache-control', 'vary', 'content-type']) {
+      assert.equal(reply.response.headers.get(header), absent.response.headers.get(header), header);
+    }
+    assert.equal(reply.response.headers.get('cache-control'), 'no-store');
+    const catalog = await h.call('GET', '/applications');
+    assert.equal(catalog.data.items.some((item: {application_key: string}) => item.application_key === key), false);
+  });
+}
+
+test('r7 public release exposes an available reviewed guild offering without eligibility', async () => {
+  const reply = await h.call('GET', '/applications/synthetic-storefront/releases/synthetic-storefront@1.0.0');
+  assert.equal(reply.status, 200, JSON.stringify(reply.data));
+  assert.equal(reply.data.source_commit, WORK_CONTRACT_SOURCE_COMMIT);
+  assert.equal(reply.data.eligibility, undefined);
+  assert.equal(reply.response.headers.get('cache-control'), 'public, max-age=60');
+  assert.equal(reply.response.headers.get('vary'), 'Cookie');
 });
