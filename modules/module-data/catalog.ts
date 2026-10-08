@@ -2270,6 +2270,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "target_tenant_id",
             "display_name",
             "tenant_work_mode",
+            "target_message_image_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -2511,6 +2512,36 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "linked_at_version",
             "purpose",
             "asset_state",
+          ],
+          tenant_resolution: {
+            kind: "fk_chain" as const,
+            via: [
+              "assets",
+            ],
+          },
+          isolation: {
+            rls: "exempt" as const,
+            reason_code: "non_tenant_sidecar",
+            reason: "Personal or community asset sidecar with no tenant column. It is listed because a foreign key reaches an asset or scope row. Row security stays off so those flows still see every row.",
+          },
+        },
+        {
+          kind: "table" as const,
+          table: "member_message_image_asset_targets",
+          columns: [
+            "image_id",
+            "community_id",
+            "scope_id",
+            "scope_kind",
+            "owner_principal_id",
+            "owner_user_id",
+            "recipient_user_id",
+            "asset_id",
+            "linked_at_version",
+            "message_id",
+            "purpose",
+            "asset_state",
+            "created_at",
           ],
           tenant_resolution: {
             kind: "fk_chain" as const,
