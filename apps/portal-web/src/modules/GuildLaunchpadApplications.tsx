@@ -286,7 +286,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, r
   const [tenantsLoaded, setTenantsLoaded] = useState(false);
   const [unusable, setUnusable] = useState<Set<string>>(new Set());
   const unusableRef = useRef(new Set<string>());
-  const pollingStopped = useRef(false);
+  const [pollingStopped, setPollingStopped] = useState(false);
   const [canForget, setCanForget] = useState(false);
   const [changedKind, setChangedKind] = useState<'plan' | 'operation'>('plan');
   const [tenants, setTenants] = useState<TenantView[]>([]);
@@ -371,7 +371,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, r
     } catch (error) { if (call.live()) { setReadFailed(true); setProblem(problemText(error)); } }
   }
   function clearPrivate() {
-    pollingStopped.current = false; setCanForget(false);
+    setPollingStopped(false); setCanForget(false);
     setInstances({}); setInstallations([]); setChoices({}); setInstallationChoice(''); setPlan(null); setInstallation(null);
     setPending(null); pendingRef.current = null; setProblem(''); setChanged(''); setReady(false); setRetry(null); setReadFailed(false); attempt.current = null;
   }
@@ -430,10 +430,11 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, r
     }
     return result;
   }
-  function operationError(error: unknown) {
+  function operationError(error: unknown, reading = false) {
     if (!(error instanceof ApiError) || error.network) return;
-    if (error.status >= 400 && error.status < 500 && error.status !== 429) pollingStopped.current = true;
-    if (error.status === 403 || (error.status === 404 && ['not_found', 'tenant_not_found'].includes(error.code ?? ''))) setCanForget(true);
+    const refused = error.status === 403 || (error.status === 404 && ['not_found', 'tenant_not_found'].includes(error.code ?? ''));
+    if (refused || (reading && error.status >= 400 && error.status < 500 && error.status !== 429)) setPollingStopped(true);
+    if (refused) setCanForget(true);
   }
   function forget() {
     if (pendingRef.current) storeLaunch(userId, guildKey, pendingRef.current, true);
@@ -493,6 +494,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, r
     try {
       const operation = RegistryOperationSchema.parse(await client.post(`/tenants/${held.tenant_id}/application-installations`, held.input, {idempotencyKey: held.key, signal: call.signal}));
       if (!call.live()) return;
+      setPollingStopped(false); setCanForget(false);
       const next = {...held, operation}; remember(next); await showInstallation(next, call);
     } catch (error) {
       if (!call.live()) return;
@@ -520,19 +522,20 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, canLeave, r
     try {
       const result = RegistryOperationSchema.parse(await client.get(`/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`, {signal: call.signal, background: true}));
       if (!call.live()) return;
+      setPollingStopped(false); setCanForget(false);
       const next = {...held, operation: result}; remember(next); await showInstallation(next, call);
-    } catch (error) { if (call.live()) { operationError(error); setProblem(problemText(error, true)); } }
+    } catch (error) { if (call.live()) { operationError(error, true); setProblem(problemText(error, true)); } }
   }
   useEffect(() => {
     if (!pending?.operation || !['requested','running'].includes(pending.operation.state)) return;
     let cancelled = false; let timer: ReturnType<typeof setTimeout>; let backoff = 2;
     const schedule = () => {
       const held = pendingRef.current;
-      if (cancelled || pollingStopped.current || !held?.operation || !['requested','running'].includes(held.operation.state)) return;
-      timer = setTimeout(() => { if (pollingStopped.current) return; void progress(held).finally(() => { backoff = Math.min(10, backoff * 2); schedule(); }); }, Math.max(2, backoff, held.operation.retry_after_seconds ?? 2) * 1000);
+      if (cancelled || pollingStopped || !held?.operation || !['requested','running'].includes(held.operation.state)) return;
+      timer = setTimeout(() => { if (pollingStopped) return; void progress(held).finally(() => { backoff = Math.min(10, backoff * 2); schedule(); }); }, Math.max(2, backoff, held.operation.retry_after_seconds ?? 2) * 1000);
     };
     schedule(); return () => { cancelled = true; clearTimeout(timer); };
-  }, [pending?.key, operation?.state, tenantId]);
+  }, [pending?.key, operation?.state, tenantId, pollingStopped]);
   async function control(kind: 'reconcile' | 'cancel') {
     const held = pendingRef.current;
     if (!held?.operation || busyRef.current || attempt.current) return;

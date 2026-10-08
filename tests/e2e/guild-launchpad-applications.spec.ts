@@ -457,6 +457,53 @@ test('forbidden progress stops polling and forgetting removes the original pendi
   expect(JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId))).toEqual([]);
 });
 
+test('stale cancel reloads a running operation and keeps automatic polling active', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'持續核對空間',workspace_name:'核對區'});
+  const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); held.operation={...held.operation,state:'running',version:'999'};
+  await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([held])),{userId,held,guild:GUILD});
+  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now()+1000));
+  let reads=0; let cancels=0;
+  const operationPath=`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`;
+  await page.route(url=>url.pathname===operationPath,async route=>{
+    reads++; const response=await route.fetch(); expect(response.status()).toBe(200); const body=await response.json();
+    await route.fulfill({response,json:reads<=2?{...body,state:'running',...(reads===1?{version:'999'}:{})}:body});
+  });
+  await page.route(url=>url.pathname===`${operationPath}/cancel`,async route=>{
+    cancels++; expect(route.request().headers()['if-match']).toBe('"999"');
+    const response=await route.fetch(); expect(response.status()).toBe(412); expect((await response.json()).code).toBe('version_conflict');
+    await route.fulfill({response});
+  });
+  await open(page); await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('配置中'); expect(reads).toBe(1);
+  await flow(page).getByRole('button',{name:'停止後續步驟',exact:true}).click();
+  await expect(flow(page)).toContainText('操作狀態已更新，已重新載入。');
+  await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('版本 1');
+  await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('配置中'); expect(reads).toBe(2); expect(cancels).toBe(1);
+  await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toHaveCount(0);
+  await page.clock.runFor(3000); await expect.poll(()=>reads,{timeout:5000}).toBe(3);
+  await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('已啟用');
+  await page.clock.runFor(30000); expect(reads).toBe(3);
+});
+
+test('successful manual progress after a refusal hides forgetting and restarts automatic polling', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'重新追蹤空間',workspace_name:'追蹤區'});
+  const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); held.operation={...held.operation,state:'running'};
+  await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([held])),{userId,held,guild:GUILD});
+  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now()+1000)); let reads=0;
+  await page.route(url=>url.pathname===`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`,async route=>{
+    reads++; const response=await route.fetch(); expect(response.status()).toBe(200); const body=await response.json();
+    if(reads===1) {await route.fulfill({response,status:403,json:{code:'capability_denied',detail:'目前沒有這個操作的權限。'}}); return;}
+    await route.fulfill({response,json:{...body,state:'running'}});
+  });
+  await open(page); await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toBeVisible();
+  await page.clock.runFor(30000); expect(reads).toBe(1);
+  await flow(page).getByRole('button',{name:'查看進度',exact:true}).click();
+  await expect(flow(page).getByRole('alert')).toHaveCount(0);
+  await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toHaveCount(0);
+  await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText('配置中'); expect(reads).toBe(2);
+  await page.clock.runFor(3000); await expect.poll(()=>reads,{timeout:5000}).toBe(3);
+  await expect(flow(page).getByRole('button',{name:'不再追蹤',exact:true})).toHaveCount(0);
+});
+
 test('signed-in non-member receives the join-guild next step and no enabled launch', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2`,[userId,GUILD]);
   await open(page); await expect(cards(page)).toContainText('先加入這個公會，才能啟動應用。');
