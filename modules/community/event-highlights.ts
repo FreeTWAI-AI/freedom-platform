@@ -12,6 +12,7 @@ import {youtubeThumbnailUrl, youtubeVideoId} from '../../packages/shared/youtube
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {privateHost} from '../identity-membership/social-links.js';
 import {rasterFormat, rejectAnimation} from '../skill-submissions/payload.js';
+import {discoveryEventSql} from './public-discovery.js';
 
 const PAGE_SIZE = 12;
 const IMAGE_MAX = 10 * 1024 * 1024;
@@ -222,13 +223,13 @@ async function visibleItems(q: Pick<Pool, 'query'>, eventIds: string[], viewerId
   return grouped;
 }
 
-export async function listHighlightEvents(pool: Pool, scope: {communityId: string | null; viewerId: string | null; mode: HighlightMode; cursor: {endsAt: string; eventId: string} | null}) {
+export async function listHighlightEvents(pool: Pool, scope: {communityId: string | null; viewerId: string | null; publicOnly?:boolean; mode: HighlightMode; cursor: {endsAt: string; eventId: string} | null}) {
   const rows = (await pool.query(`SELECT e.event_id,e.title,e.starts_at,e.ends_at,e.mode,e.event_kind,u.display_name AS organizer_name,
     to_char(e.ends_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS ends_cursor,
     (SELECT orientation FROM community_event_banners b WHERE b.event_id=e.event_id) AS banner_orientation,
     ${attendanceSql} AS attending_count
     FROM community_events e JOIN users u ON u.user_id=e.organizer_ref
-    WHERE ${listedSql} AND ($3::text='all' OR e.mode=$3 OR e.mode='hybrid')
+    WHERE ${listedSql}${scope.publicOnly ? ` AND ${discoveryEventSql} AND e.community_id=$1` : ''} AND ($3::text='all' OR e.mode=$3 OR e.mode='hybrid')
       AND ($4::timestamptz IS NULL OR (e.ends_at,e.event_id)<($4::timestamptz,$5::uuid))
     ORDER BY e.ends_at DESC, e.event_id DESC LIMIT ${PAGE_SIZE + 1}`,
   [scope.communityId, scope.viewerId, scope.mode, scope.cursor?.endsAt ?? null, scope.cursor?.eventId ?? null])).rows as CardRow[];

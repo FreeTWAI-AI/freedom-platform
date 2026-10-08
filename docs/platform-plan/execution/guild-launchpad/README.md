@@ -6,40 +6,42 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f release.staging=e8cd72e8112a7460f4c29bad4feb1a6a2aeffe1f flag.production=absent flag.staging=absent repo_max_migration=130 applied_migration.production=125 applied_migration.staging=125 capacity_policy_rows=0 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-08 release.production=c84829e21a2b43753b32bb18ebb8f4ac739175eb release.staging=c84829e21a2b43753b32bb18ebb8f4ac739175eb flag.production=absent flag.staging=true repo_max_migration=130 applied_migration.production=127 applied_migration.staging=127 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第四輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+2026-10-08 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout 與 staging 試開。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
-狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 130（#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130），兩個環境都已套用到 125，126～130 尚未套用。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 130（#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130），兩個環境都已套用到 127（2026-10-08 第五輪），128～130 尚未套用。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 `accepted_m1`／`accepted_full` 只有在驗證無失敗、里程碑指定 `candidate_sha`，且每案都已通過並有該 SHA 在 ci、staging 或 production 的有效、未被較晚非通過結果推翻的通過證據時才為 true。T-015 與 T-023 依 `acceptance-progress.json` 的 `scope` 採 M1 變體驗收。M1 變體結果記在該案的 `variants.M1`，沿用相同的 `status`／`evidence` 格式，只計入 M1，不計入完整計畫。沒有 `variants.M1` 時，M1 使用該案本身的結果。新增 migration 的 PR 必須重跑 `python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status`。
 
-- 部署：main `e8cd72e8` 自 2026-10-07 22:46Z 在 staging、23:07Z 在 production 執行；migration 125（#206，tenant 表的 row security）兩邊都已套用，120–124 在第三輪（`687dee87`）已套用。
-- 啟用：`FREEDOM_GUILD_LAUNCHPAD_ENABLED` 在 staging 與 production 都沒有設定（停用），啟動台相關路由不會掛載。
-- 政策列：兩邊的 `tenant_capacity_policies` 與 `tenant_authority_policies` 都是 0 列，所以即使開啟 flag，tenant 寫入也會回 `policy_unconfigured`。
-- 驗收：沒有。只跑過發布時選定的檢查（網站回報 launchpad 停用；匿名呼叫 guild-categories 路由得到 401），沒有 guild-work 流程的產品驗收；[60 項驗收](acceptance.md)仍全部 not_run。
+- 部署：main `c84829e2`（M1 候選版本 X，#227 的 merge）自 2026-10-08 05:08Z 在 staging、05:32Z 在 production 執行；migration 126、127 兩邊都已套用，125 在第四輪（`e8cd72e8`）、120–124 在第三輪（`687dee87`）已套用。
+- 啟用：staging 自 2026-10-08 06:11Z 起試開（`FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`，同一個 X、同一份 dist，Worker 版本 `7b7050c2`）；production 沒有設定（停用），啟動台相關路由不會掛載。
+- 政策列：staging 有 1 列 `tenant_capacity_policies`（預設範圍、暫時值 10／3／2／1000／104857600／2／0、plan_ref `interim-default-20261007`、revision 1，2026-10-08 05:51Z 由 staging migrator 以 #227 的工具寫入）；production 是 0 列，所以 production 的 tenant 寫入會回 `policy_unconfigured`。`tenant_authority_policies` 兩邊都是 0 列，經營權移交與復原會回 403 `policy_unconfigured`。狀態行的 `capacity_policy_rows` 記的是 staging 的列數。
+- 驗收：沒有。production 只跑過發布時選定的檢查（網站回報 launchpad 停用；匿名呼叫 guild-categories 路由得到 401）。staging 試開跑了 47 個選定的檢查：網站回報 launchpad 啟用，公開分類清單已掛載（catalog revision 18：3 個區塊、12 個已核准、6 個待審）。guild-work 流程的產品驗收尚未執行；[60 項驗收](acceptance.md)仍全部 not_run。
 
 M0 規格包（SP-00–SP-12）由 #153（merge `c6f4a2cf`）合併。M1 各部分如下；PR 與 SP 的對應取自各 merge commit 的標題，migration 取自各 merge 對 `migrations/` 的差異。
 
 | M1 部分 | 已合併 | 已部署 | 已啟用 | 已驗收 | 下一步 |
 | --- | --- | --- | --- | --- | --- |
-| P-A 公會分類與主力偏好（SP-01） | #163，merge `eb4e348e`，migration 120 | 是，`e8cd72e8`；120 兩邊已套用 | 否 | 否 | 2、4、7 |
-| P-B1 業務空間授權核心（SP-02） | #164，merge `93e1470b`，migration 121 | 是，`e8cd72e8`；121 兩邊已套用 | 否 | 否 | 4、6、7 |
-| P-B2a 經營權移交與受控復原（SP-02） | #175，merge `137ace26`，migration 124 | 是，`e8cd72e8`；124 兩邊已套用 | 否 | 否 | 3、4、6、7 |
-| P-C1 啟動台殼層與版本化設定（SP-03） | #160，merge `12a2a83c`，migration 122 | 是，`e8cd72e8`；122 兩邊已套用 | 否 | 否 | 4、7 |
-| P-C2 業務空間手動工作與人工成果（SP-03／SP-04／SP-06） | #181，merge `57b610ab`，migration 123 | 是，`e8cd72e8`；123 兩邊已套用 | 否 | 否 | 1、4、5、6、7 |
-| P-C2-UI「我的工作」畫面（SP-03） | #190，merge `31df6ddb`，無 migration | 是，`e8cd72e8` | 否 | 否 | 4、5、7 |
-| P-K／P-K2 啟動台契約（SP-12） | #188，merge `6596263d`；#209，merge `5ccd76c3`；無 migration | 是，包含在 `e8cd72e8` | 不適用，沒有獨立開關 | 否 | 隨上列各部分 |
-| P-E1 tenant 表的 row security（SP-06） | #206，merge `70fb6ae7`，migration 125 | 是，`e8cd72e8`；125 兩邊已套用 | 資料庫層已生效，不受 flag 控制 | 否 | 6、7 |
+| P-A 公會分類與主力偏好（SP-01） | #163，merge `eb4e348e`，migration 120 | 是，`c84829e2`；120 兩邊已套用 | 僅 staging 試開 | 否 | 2、4、7 |
+| P-B1 業務空間授權核心（SP-02） | #164，merge `93e1470b`，migration 121 | 是，`c84829e2`；121 兩邊已套用 | 僅 staging 試開 | 否 | 4、6、7 |
+| P-B2a 經營權移交與受控復原（SP-02） | #175，merge `137ace26`，migration 124 | 是，`c84829e2`；124 兩邊已套用 | 僅 staging 試開 | 否 | 3、4、6、7 |
+| P-C1 啟動台殼層與版本化設定（SP-03） | #160，merge `12a2a83c`，migration 122 | 是，`c84829e2`；122 兩邊已套用 | 僅 staging 試開 | 否 | 4、7 |
+| P-C2 業務空間手動工作與人工成果（SP-03／SP-04／SP-06） | #181，merge `57b610ab`，migration 123 | 是，`c84829e2`；123 兩邊已套用 | 僅 staging 試開 | 否 | 1、4、5、6、7 |
+| P-C2-UI「我的工作」畫面（SP-03） | #190，merge `31df6ddb`，無 migration | 是，`c84829e2` | 僅 staging 試開 | 否 | 4、5、7 |
+| P-K／P-K2 啟動台契約（SP-12） | #188，merge `6596263d`；#209，merge `5ccd76c3`；無 migration | 是，包含在 `c84829e2` | 不適用，沒有獨立開關 | 否 | 隨上列各部分 |
+| P-E1 tenant 表的 row security（SP-06） | #206，merge `70fb6ae7`，migration 125 | 是，`c84829e2`；125 兩邊已套用 | 資料庫層已生效，不受 flag 控制 | 否 | 6、7 |
+| P-E2 分頁游標綁定與跨業務空間矩陣（SP-06） | #245，merge `87f9fe51`，無 migration | 是，`c84829e2` | 僅 staging 試開 | 否 | 4、5、7 |
+| capacity policy operator 工具 | #227，merge `c84829e2`，無 migration | 是，`c84829e2`（operator 工具，不隨 Worker 執行） | 不適用；staging 已寫入暫時值（revision 1），production 尚未寫入 | 否 | 3、4、7 |
 
 下一步相依（都是未完成事項，不是承諾）：
 
-1. PR #227：有界的 capacity policy operator 工具；截至 2026-10-07 為 open，當天已有修正、重新審查中。
+1. PR #227：有界的 capacity policy operator 工具；已合併（merge `c84829e2`，即候選版本 X），2026-10-08 第五輪隨 X 部署；staging 已用它寫入暫時預設值（05:51Z，revision 1），production 尚未寫入。
 2. PR #226：#163 的唯讀 backfill／切換狀態；已合併（merge `3e33c736`），包含在 `e8cd72e8`。
 3. 缺口：兩邊的 `tenant_authority_policies` 都是 0 列，所以經營權移交與復原會回 403 `policy_unconfigured`。這需要 owner 選定的政策值（[決策待辦](decision-log.md)的 OPEN-02／03），以及類似 #227 的 operator 工具。OPEN-04／13 的 staging 暫時容量值已於 2026-10-07 選定；OPEN-07 保留期也已於當天決定（見決策待辦），但備份到期清除尚未實作。
-4. 只在 staging 的啟用試驗，搭配有界的暫時 capacity policy。
-5. 在 staging 以真實 R2 做 guild-work 驗收；verifier 製作中。
-6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已合併（merge `70fb6ae7`），2026-10-07 第四輪隨 `e8cd72e8` 部署到兩個環境。備份角色依 owner 選定的路徑取得 BYPASSRLS；兩邊部署後的備份，18 張 row security 表的列數都與 owner 相同。P-E2（#245，不含 P-D1 的部分）已於 2026-10-07 23:47Z 合併（`87f9fe51`）；#244（migration 126、127）已於 2026-10-08 02:40Z 合併（`32899577`），尚未部署。M1 候選版本在 #227 合併後切出，P-D1（#239）在候選版本切出之後才合併。production 啟用會使用附 gate 證據的候選版本。
+4. 只在 staging 的啟用試驗：2026-10-08 06:11Z 起以 X 試開，暫時 capacity policy 已寫入，試開前的備份做過隔離還原與遠端讀回；guild-work verifier 與試開後的備份尚未執行。主力偏好的 backfill 狀態是 blocked（還有 28 位舊會員未對應，其中 27 位的舊主力公會沒有已核准的分類），所以三分類看板在 staging 仍然隱藏。
+5. 在 staging 以真實 R2 做 guild-work 驗收：verifier（#242）已合併，執行前需要一個示範帳號先有公會的完整成員資格。
+6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已合併（merge `70fb6ae7`），2026-10-07 第四輪隨 `e8cd72e8` 部署到兩個環境。備份角色依 owner 選定的路徑取得 BYPASSRLS；兩邊部署後的備份，18 張 row security 表的列數都與 owner 相同。P-E2（#245，不含 P-D1 的部分）已於 2026-10-07 23:47Z 合併（`87f9fe51`）；#244（migration 126、127）已於 2026-10-08 02:40Z 合併（`32899577`），2026-10-08 第五輪隨 X 套用並部署到兩個環境。M1 候選版本 X 是 #227 的 merge `c84829e2`；P-D1（#239，`e3f3b59c`，migration 128）與 P-D2a（#269，`ed6e47c1`，migration 129）都在 X 之後合併，不在 X 內，尚未部署。production 啟用會使用附 gate 證據的候選版本。
 7. production 啟用由 owner 決定。
 
 本目錄其他文件是 2026-10-05 以 `567ae8d3` 為基線的規格紀錄，文中的「目前／現行」指當時。`traceability.json` 的 `planning_only` 與各需求的 `planned` 是當時的規劃追蹤，保留不改；60 項驗收至今仍是 `not_run`，進度記在 `acceptance-progress.json`，不記在 `traceability.json`。SP-01–SP-04 與 SP-06 的狀態行保留原文，另加 2026-10-07 註記指回本節。
