@@ -10,7 +10,7 @@
 
 2026-10-07 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 7 日第四輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
-狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 125，兩個環境都已套用到 125。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 127（#244 於 2026-10-08 合併，帶進 126、127），兩個環境都已套用到 125，126、127 尚未套用。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 `accepted_m1`／`accepted_full` 只有在驗證無失敗、里程碑指定 `candidate_sha`，且每案都已通過並有該 SHA 在 ci、staging 或 production 的有效、未被較晚非通過結果推翻的通過證據時才為 true。T-015 與 T-023 依 `acceptance-progress.json` 的 `scope` 採 M1 變體驗收。M1 變體結果記在該案的 `variants.M1`，沿用相同的 `status`／`evidence` 格式，只計入 M1，不計入完整計畫。沒有 `variants.M1` 時，M1 使用該案本身的結果。新增 migration 的 PR 必須重跑 `python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status`。
 
@@ -39,7 +39,7 @@ M0 規格包（SP-00–SP-12）由 #153（merge `c6f4a2cf`）合併。M1 各部�
 3. 缺口：兩邊的 `tenant_authority_policies` 都是 0 列，所以經營權移交與復原會回 403 `policy_unconfigured`。這需要 owner 選定的政策值（[決策待辦](decision-log.md)的 OPEN-02／03），以及類似 #227 的 operator 工具。OPEN-04／13 的 staging 暫時容量值已於 2026-10-07 選定；OPEN-07 保留期也已於當天決定（見決策待辦），但備份到期清除尚未實作。
 4. 只在 staging 的啟用試驗，搭配有界的暫時 capacity policy。
 5. 在 staging 以真實 R2 做 guild-work 驗收；verifier 製作中。
-6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已合併（merge `70fb6ae7`），2026-10-07 第四輪隨 `e8cd72e8` 部署到兩個環境。備份角色依 owner 選定的路徑取得 BYPASSRLS；兩邊部署後的備份，18 張 row security 表的列數都與 owner 相同。P-E2（#245，不含 P-D1 的部分）已於 2026-10-07 23:47Z 合併（`87f9fe51`）；M1 候選版本在 #227 合併後切出，P-D1（#239）在候選版本切出之後才合併。production 啟用會使用附 gate 證據的候選版本。
+6. PR #206（P-E1：tenant 表的 row security，SP-06，migration 125）已合併（merge `70fb6ae7`），2026-10-07 第四輪隨 `e8cd72e8` 部署到兩個環境。備份角色依 owner 選定的路徑取得 BYPASSRLS；兩邊部署後的備份，18 張 row security 表的列數都與 owner 相同。P-E2（#245，不含 P-D1 的部分）已於 2026-10-07 23:47Z 合併（`87f9fe51`）；#244（migration 126、127）已於 2026-10-08 02:40Z 合併（`32899577`），尚未部署。M1 候選版本在 #227 合併後切出，P-D1（#239）在候選版本切出之後才合併。production 啟用會使用附 gate 證據的候選版本。
 7. production 啟用由 owner 決定。
 
 本目錄其他文件是 2026-10-05 以 `567ae8d3` 為基線的規格紀錄，文中的「目前／現行」指當時。`traceability.json` 的 `planning_only` 與各需求的 `planned` 是當時的規劃追蹤，保留不改；60 項驗收至今仍是 `not_run`，進度記在 `acceptance-progress.json`，不記在 `traceability.json`。SP-01–SP-04 與 SP-06 的狀態行保留原文，另加 2026-10-07 註記指回本節。
