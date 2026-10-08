@@ -320,4 +320,25 @@ production 不受影響：flag 仍未設定，也沒有 capacity policy 列。
   （X 沒有匯出路由，匯出還原沒有執行）。
 - 06:33Z 開始的試開後備份做過隔離還原與遠端讀回。
 
-M1 仍未接受：28 個 M1 案例中其餘 26 個尚未執行，M1 也還沒有指定 candidate_sha。production 的 flag 仍未設定，是否開啟由 owner 決定。
+M1 仍未接受：28 個 M1 案例中其餘 26 個尚未執行，M1 也還沒有指定 candidate_sha。production 的開啟見下一節。
+
+### 10 月 8 日：production 開啟 guild launchpad（X）
+
+owner 在 06:47Z 看過 staging 的 guild-work 結果後決定開啟 production（「271 合 , production 開」），容量值選「跟 staging 一樣」。
+staging 不受影響：仍是 X、flag 開啟。
+
+- 06:55Z：production migrator 以 #227 的 `scripts/tenant-policy.ts`（status → plan → `apply --execute`，expect revision `none`）
+  寫入預設範圍的暫時 capacity policy：10／3／2／1000／104857600／2／0，plan_ref `interim-default-20261007`，revision 1，與 staging 相同。
+- 主力偏好的 backfill 狀態唯讀記錄為 blocked：還有 305 位舊會員未對應，其中 156 位的舊主力公會沒有已核准的分類
+  （`unknown_category`）。三分類看板在 production 同樣隱藏。
+- 06:56Z 開始的開啟前備份做過隔離還原與遠端讀回。
+- 07:05Z 以第五輪同一份 dist 重新部署 production，唯一的變更是 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`（Worker 版本 `2871eefe`）。
+  部署前後的 live readback 都確認 staging 仍是 X、flag 開啟。29 個公開的 selected checks 通過：網站回報 launchpad 啟用，
+  匿名讀得到公開分類清單（catalog revision 24：3 個區塊、12 個已核准、12 個待審）；
+  其餘檢查與第五輪相同。新的 DNS 解析下 4 次 health 讀回都是 X。production 沒有建立任何帳號。
+- 07:05Z 開始的開啟後備份做過隔離還原與遠端讀回。
+
+回滾是把 production 以同一份 dist 重新部署、不設 flag；policy 列與開啟期間建立的 tenant 資料會保留。
+
+production 沒有示範帳號，所以 guild-work verifier 只在 staging 執行；production 的開啟不是 M1 驗收，M1 仍未接受。
+`tenant_authority_policies` 兩邊都是 0 列，經營權移交與復原會回 403 `policy_unconfigured`，政策值（OPEN-02／03）由 owner 決定。
