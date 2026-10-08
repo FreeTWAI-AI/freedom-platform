@@ -670,7 +670,7 @@ test('impact reports bounded ordered consumers/workspaces and true totals; activ
   assert.equal((await detail(ctx)).impact.consumer_count, 53);
 });
 
-test('suspended bound workspace still returns strict launchpad context and an idempotent manual-work binding', async () => {
+test('suspended bound workspace still returns strict launchpad context and refuses manual-work enable with 409', async () => {
   const ctx = await ready();
   assert.equal((await suspend(ctx)).status, 200);
   const context = await get(`/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/launchpad-context?guild_key=${guild}`, ctx.owner);
@@ -678,11 +678,10 @@ test('suspended bound workspace still returns strict launchpad context and an id
   const body = LaunchpadContextSchema.parse(context.data);
   assert.equal(body.instances.find(instance => instance.instance_id === ctx.instanceId)?.status, 'suspended');
   assert.deepEqual(body.connection_summary, []);
+  const before = await enableSnapshot();
   const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild);
-  assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
-  const binding = ManualWorkBindingSchema.parse(enabled.data);
-  assert.equal(binding.reused, true);
-  assert.equal(binding.instance_id, ctx.instanceId);
+  unavailableEnable(enabled, suspendedNotice);
+  assert.deepEqual(await enableSnapshot(), before);
   assert.equal((await detail(ctx)).status, 'suspended');
 });
 
@@ -692,4 +691,112 @@ test('resume takes no capacity advisory even when another connection holds it', 
   const gate = await holder('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`tenant.capacity/v1/${ctx.tenantId}/policy`]);
   try { assert.equal((await resume(ctx)).status, 200); }
   finally { await gate.release(); }
+});
+
+const suspendedNotice = '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。';
+const unavailableNotice = '這個工作區的模組目前無法寫入，舊的工作仍可查看。';
+function unavailableEnable(reply: Reply, notice: string) {
+  error(reply, 409, 'work_instance_unavailable');
+  assert.equal(reply.data.detail, notice);
+  assert.equal(reply.response.headers.get('cache-control'), 'private, no-store');
+}
+async function enableSnapshot() {
+  const rows: Record<string, unknown> = {};
+  for (const table of ['workspace_module_bindings', 'module_instances', 'deployment_bindings', 'module_launch_plans',
+    'module_provision_operations', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox']) {
+    rows[table] = (await h.pool.query(`SELECT to_jsonb(t) AS row FROM ${table} t ORDER BY to_jsonb(t)::text`)).rows;
+  }
+  return rows;
+}
+
+test('manual-work enable on a member-suspended binding has no effects or receipt and the same key succeeds after resume', async () => {
+  const ctx = await ready(), key = randomUUID();
+  assert.equal((await suspend(ctx)).status, 200);
+  const before = await enableSnapshot();
+  unavailableEnable(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild, undefined, key), suspendedNotice);
+  assert.deepEqual(await enableSnapshot(), before);
+  assert.equal(await h.count('scoped_command_receipts', 'WHERE idempotency_key=$1', [key]), 0);
+  assert.equal((await resume(ctx)).status, 200);
+  const resumed = await enableSnapshot();
+  const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild, undefined, key);
+  assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
+  const binding = ManualWorkBindingSchema.parse(enabled.data);
+  assert.equal(binding.reused, true);
+  assert.equal(binding.instance_id, ctx.instanceId);
+  const after = await enableSnapshot();
+  for (const table of Object.keys(resumed).filter(table => table !== 'scoped_command_receipts')) {
+    assert.deepEqual(after[table], resumed[table], table);
+  }
+  assert.equal(await h.count('scoped_command_receipts', 'WHERE idempotency_key=$1', [key]), 1);
+});
+
+test('manual-work enable on a platform-held bound instance returns the suspended notice without effects', async () => {
+  const ctx = await ready();
+  assert.equal((await suspend(ctx)).status, 200);
+  await h.pool.query(`UPDATE module_instances SET suspension_operation_id=NULL WHERE instance_id=$1`, [ctx.instanceId]);
+  assert.equal((await physical(ctx)).binding_state, 'suspended');
+  assert.equal((await detail(ctx)).suspension?.kind, 'platform');
+  const before = await enableSnapshot();
+  unavailableEnable(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild), suspendedNotice);
+  assert.deepEqual(await enableSnapshot(), before);
+});
+
+for (const state of ['pending', 'retired'] as const) {
+  test(`manual-work enable on an active bound instance with a ${state} deployment returns the unavailable notice without effects`, async () => {
+    const ctx = await ready();
+    await h.pool.query(`UPDATE deployment_bindings SET state=$1 WHERE instance_id=$2`, [state, ctx.instanceId]);
+    assert.equal((await physical(ctx)).status, 'active');
+    const before = await enableSnapshot();
+    unavailableEnable(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild), unavailableNotice);
+    assert.deepEqual(await enableSnapshot(), before);
+  });
+}
+
+test('manual-work enable preserves binding-conflict precedence over a suspended bound instance', async () => {
+  const ctx = await ready();
+  const secondWorkspace = await h.workspace(ctx.owner, ctx.tenantId, '另一個工作區');
+  const second = await h.enable(ctx.owner, ctx.tenantId, secondWorkspace, guild, { kind: 'create_new' });
+  assert.equal(second.status, 200, JSON.stringify(second.data));
+  assert.equal((await suspend(ctx)).status, 200);
+  const before = await enableSnapshot();
+  error(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild, {
+    kind: 'reuse', instance_id: second.data.instance_id, expected_version: '1',
+  }), 409, 'workspace_binding_conflict');
+  unavailableEnable(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild, {
+    kind: 'reuse', instance_id: ctx.instanceId, expected_version: (await detail(ctx)).version,
+  }), suspendedNotice);
+  assert.deepEqual(await enableSnapshot(), before);
+});
+
+test('manual-work enable rechecks an unwritable binding that appears while waiting for the installation fingerprint', { timeout: 30_000 }, async t => {
+  const ctx = await ready(), version = (await detail(ctx)).version;
+  const workspaceId = await h.workspace(ctx.owner, ctx.tenantId, '等待中綁定的工作區');
+  assert.equal(await h.count('workspace_module_bindings', 'WHERE workspace_id=$1', [workspaceId]), 0);
+  const gate = await holder('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+    `module-registry/installation/v1/${ctx.tenantId}/${workspaceId}/manual-workspace`,
+  ]);
+  const key = randomUUID();
+  let enabling: Promise<Reply> | undefined;
+  try {
+    enabling = h.enable(ctx.owner, ctx.tenantId, workspaceId, guild, { kind: 'reuse', instance_id: ctx.instanceId, expected_version: version }, key);
+    const blocked = await waitBlocked(gate.pid, ['pg_advisory_xact_lock']);
+    const lock = (await h.admin.query(`SELECT 1 FROM pg_locks waiting JOIN pg_locks held
+      ON waiting.locktype=held.locktype AND waiting.database=held.database
+      AND waiting.classid=held.classid AND waiting.objid=held.objid AND waiting.objsubid=held.objsubid
+      WHERE waiting.pid=$1 AND held.pid=$2 AND waiting.locktype='advisory' AND NOT waiting.granted AND held.granted`, [blocked.pid, gate.pid])).rows;
+    assert.equal(lock.length, 1, 'enable must be waiting for this fingerprint advisory');
+    await h.pool.query(`INSERT INTO workspace_module_bindings(tenant_id,workspace_id,entry_capability,instance_id)
+      VALUES($1,$2,'work:create',$3)`, [ctx.tenantId, workspaceId, ctx.instanceId]);
+    assert.equal((await suspend(ctx)).status, 200);
+    const before = await enableSnapshot();
+    await gate.commit();
+    const refused = await enabling;
+    t.diagnostic(JSON.stringify({ status: refused.status, code: refused.data.code ?? null, reused: refused.data.reused ?? null }));
+    unavailableEnable(refused, suspendedNotice);
+    assert.deepEqual(await enableSnapshot(), before);
+    assert.equal(await h.count('scoped_command_receipts', 'WHERE idempotency_key=$1', [key]), 0);
+  } finally {
+    await gate.release();
+    await Promise.allSettled(enabling ? [enabling] : []);
+  }
 });

@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { InstanceDetailSchema, RegistryOperationSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
-import { LaunchpadContextSchema, ManualWorkBindingSchema } from '../../contracts/guild-launchpad/v1/tenant-work.js';
+import { LaunchpadContextSchema } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 import { launchApplication, advanceOperation, sweepDueOperations } from '../../modules/module-registry/service.js';
 import { bindTenantContext } from '../../packages/resource-scopes/tenant-transaction.js';
 import { authenticate } from '../../modules/identity-membership/service.js';
@@ -294,7 +294,7 @@ test('archive operations read/reconcile, refuse cancel/by-operation, and never a
   } finally { await gate.release(); }
 });
 
-test('archived bound workspace still returns strict launchpad context and an idempotent manual-work binding', async () => {
+test('archived bound workspace still returns strict launchpad context and refuses manual-work enable with 409', async () => {
   const ctx = await ready();
   const saved = await createWork(ctx, '封存前工作');
   assert.equal(saved.status, 201);
@@ -310,11 +310,12 @@ test('archived bound workspace still returns strict launchpad context and an ide
   assert.equal(retained.status, 200, JSON.stringify(retained.data));
   assert.deepEqual(retained.data, { tenant_id: ctx.tenantId, workspace_id: ctx.workspaceId,
     binding: { entry_capability: 'work:create', instance_id: ctx.instanceId, instance_status: 'archived', writable: false } });
+  const before = { registry: await snapshot(ctx), counts: await workCounts(), plans: await h.count('module_launch_plans') };
   const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild);
-  assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
-  const binding = ManualWorkBindingSchema.parse(enabled.data);
-  assert.equal(binding.reused, true);
-  assert.equal(binding.instance_id, ctx.instanceId);
+  error(enabled, 409, 'work_instance_unavailable');
+  assert.equal(enabled.data.detail, '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。');
+  assert.equal(enabled.response.headers.get('cache-control'), 'private, no-store');
+  assert.deepEqual({ registry: await snapshot(ctx), counts: await workCounts(), plans: await h.count('module_launch_plans') }, before);
   assert.equal((await detail(ctx)).status, 'archived');
 });
 
