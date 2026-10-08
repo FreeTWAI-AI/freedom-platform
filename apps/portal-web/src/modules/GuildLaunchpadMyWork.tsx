@@ -2,8 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } f
 import { hasLoneSurrogate, type Config } from '../../../../contracts/guild-launchpad/v1/config';
 import type { TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
 import type { WorkspaceModuleBindingView } from '../../../../contracts/guild-launchpad/v1/module-registry';
-import { OperationSchema } from '../../../../contracts/guild-launchpad/v1/tenant-work';
-import type { LaunchpadContext, Operation, ResultView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
+import { OperationSchema, WorkSchema, type LaunchpadContext, type Operation, type ResultView, type WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
 import { ApiError, type InstanceSelectionCandidate, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { TenantSelector } from './TenantSelector';
@@ -95,12 +94,13 @@ function workUnavailable(error: ApiError) {
   return error.status === 404 || (error.status === 409 && error.code === 'work_archived');
 }
 
-export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }: {
+export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, canNavigate }: {
   client: PortalClient;
   guildKey: string;
   userId?: string;
   starter: Config['starter'];
   registerLeave: (guard: (() => boolean) | null) => void;
+  canNavigate?: () => boolean;
 }) {
   const isProduction = guildKey === 'guild_commercial_production';
   const isPositioning = guildKey === 'guild_talent_direction';
@@ -167,16 +167,16 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [quotaHit, setQuotaHit] = useState(false);
   const [storageDown, setStorageDown] = useState(false);
   const [banner, setBanner] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const busyRef = useRef(false);
+  function setBusy(value: boolean) { busyRef.current = value; setBusyState(value); }
   const [candidates, setCandidates] = useState<InstanceSelectionCandidate[] | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftObjective, setDraftObjective] = useState('');
   const [draftProgress, setDraftProgress] = useState<Progress>('todo');
-  const heldCreateRef = useRef<{ body: { title: string; objective: string; progress: Progress }; key: string; fingerprint: string } | null>(null);
-  const [createPending, setCreatePending] = useState(false);
-  function clearCreateAttempt() { heldCreateRef.current = null; setCreatePending(false); }
   const [createError, setCreateError] = useState('');
+  const createAttempt = useRef<{ tenantId: string; workspaceId: string; instanceId: string; body: { title: string; objective: string; progress: Progress }; key: string; fingerprint: string; unknown: boolean } | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editObjective, setEditObjective] = useState('');
   const [editProgress, setEditProgress] = useState<Progress>('todo');
@@ -198,9 +198,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [stage, setStage] = useState('尚未儲存');
   const [attempt, setAttemptState] = useState<SaveAttempt | null>(null);
   const attemptRef = useRef<SaveAttempt | null>(null);
-  const savingRef = useRef(false);
   function setAttempt(value: SaveAttempt | null) { attemptRef.current = value; setAttemptState(value); }
-  const [awaitingAck, setAwaitingAck] = useState(false);
+  const [awaitingAck, setAwaitingAckState] = useState(false);
+  const awaitingAckRef = useRef(false);
+  function setAwaitingAck(value: boolean) { awaitingAckRef.current = value; setAwaitingAckState(value); }
   const [resave, setResave] = useState<SaveAttempt | null>(null);
   const [resultText, setResultText] = useState<{ id: string; text: string } | null>(null);
   const [resultError, setResultError] = useState('');
@@ -222,11 +223,13 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     return { signal: abortRef.current?.signal, live: () => generation.current === ticket };
   }
   function leaveOk(includeCreate = true) {
-    const now = draft.current;
-    if (isPositioning && (savingRef.current || attemptRef.current || heldCreateRef.current)) {
-      setBanner('方向卡操作尚未確認，請先留在這裡重試原操作，再離開。');
+    // A checkpoint owns the original key/body/bytes until its outcome is known.
+    // Update these refs at mutation time, before React has rendered disabled UI.
+    if (isDocument && (busyRef.current || createAttempt.current || attemptRef.current || awaitingAckRef.current)) {
+      setBanner(busyRef.current ? '正在確認原操作，請等候完成後再離開。' : createAttempt.current ? CREATE_UNCONFIRMED : '尚未確認儲存結果，請按「重試」確認後再離開。');
       return false;
     }
+    const now = draft.current;
     if (now.note === now.saved && !now.file && !now.pending && !now.editDirty && !now.documentDirty && (!includeCreate || !now.createDirty)) return true;
     return window.confirm(LEAVE);
   }
@@ -249,7 +252,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     setEditBase(null);
   }
   function clearPrivate() {
-    clearDraft(); savingRef.current = false; clearCreateAttempt();
+    clearDraft(); createAttempt.current = null;
     setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo'); setCreateError('');
     setEditTitle(''); setEditObjective(''); setEditProgress('todo'); setEditBase(null); setEditError('');
     setOrphanNote(null);
@@ -275,16 +278,17 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }, [registerLeave]);
 
   useEffect(() => {
-    if (!isPositioning) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => {
+    if (!isDocument) return;
+    const unloading = (event: BeforeUnloadEvent) => {
       const now = draft.current;
-      if (savingRef.current || attemptRef.current || heldCreateRef.current || now.pending || now.createDirty || now.editDirty || now.documentDirty || now.file || now.note !== now.saved) {
+      if (busyRef.current || createAttempt.current || attemptRef.current || awaitingAckRef.current || now.note !== now.saved || now.file
+        || now.pending || now.editDirty || now.documentDirty || now.createDirty) {
         event.preventDefault(); event.returnValue = '';
       }
     };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, [isPositioning]);
+    window.addEventListener('beforeunload', unloading);
+    return () => window.removeEventListener('beforeunload', unloading);
+  }, [isDocument]);
 
   useEffect(() => {
     clearPrivate(); keys.current.clear();
@@ -439,35 +443,40 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function createWork(event: FormEvent) {
     event.preventDefault();
-    if (!tenantId || !workspaceId || !bound || busy || writeLocked || !canCreateWork) return;
-    if (work && !(isPositioning && heldCreateRef.current) && !leaveOk(false)) return;
+    if (!tenantId || !workspaceId || !bound || busyRef.current || writeLocked || !canCreateWork) return;
+    if (work && !createAttempt.current && !leaveOk(false)) return;
     const titleError = textProblem(draftTitle, 'title');
     const objectiveError = textProblem(draftObjective, 'objective');
     setCreateError(titleError ?? objectiveError ?? '');
     if (titleError || objectiveError) return;
-    const body = isPositioning && heldCreateRef.current ? heldCreateRef.current.body : { title: draftTitle, objective: draftObjective, progress: draftProgress };
-    const held = isPositioning ? heldCreateRef.current : null;
-    const fingerprint = held?.fingerprint ?? `create:${tenantId}:${workspaceId}:${JSON.stringify(body)}`;
-    const key = held?.key ?? keyFor(fingerprint);
+    const body = createAttempt.current?.body ?? { title: draftTitle, objective: draftObjective, progress: draftProgress };
+    const fingerprint = createAttempt.current?.fingerprint ?? `create:${tenantId}:${workspaceId}:${JSON.stringify(body)}`;
+    const key = createAttempt.current?.key ?? keyFor(fingerprint);
+    if (isDocument && !createAttempt.current) createAttempt.current = { tenantId, workspaceId, instanceId: workspaceBinding!.instance_id, body, fingerprint, key, unknown: false };
+    const held = createAttempt.current;
     const call = currentCall();
     setBusy(true); setBanner('');
     let posted = false;
-    if (isPositioning) { heldCreateRef.current = { body, key, fingerprint }; setCreatePending(true); }
     try {
-      const operation = await client.post<Operation>(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, body, { idempotencyKey: key, signal: call.signal });
+      const response = await client.post<Operation>(`/tenants/${held?.tenantId ?? tenantId}/workspaces/${held?.workspaceId ?? workspaceId}/works`, body, { idempotencyKey: key, signal: call.signal });
       posted = true;
       if (!call.live()) return;
-      if (isPositioning) {
-        const parsed = OperationSchema.safeParse(operation);
-        if (!parsed.success || parsed.data.resource_ref.resource_type !== 'work.work' || parsed.data.resource_ref.tenant_id !== tenantId || parsed.data.resource_ref.instance_id !== workspaceBinding?.instance_id)
-          throw new ApiError({ message: '建立回應未完整確認，請重試原操作。', network: true });
-      }
-      const created = await client.get<WorkView>(`/tenants/${tenantId}/works/${operation.resource_ref.resource_id}`, { signal: call.signal });
+      const operation = held ? OperationSchema.parse(response) : response;
+      if (held && (operation.resource_ref.resource_type !== 'work.work' || operation.resource_ref.tenant_id !== held.tenantId
+        || operation.resource_ref.instance_id !== held.instanceId)) throw new Error('建立工作回應尚未確認。');
+      const created = await client.get<WorkView>(`/tenants/${held?.tenantId ?? tenantId}/works/${operation.resource_ref.resource_id}`, { signal: call.signal });
       if (!call.live()) return;
-      if (isPositioning && (created.work_id !== operation.resource_ref.resource_id || created.tenant_id !== tenantId || created.workspace_id !== workspaceId || created.instance_id !== workspaceBinding?.instance_id))
-        throw new ApiError({ message: '建立回應未完整確認，請重試原操作。', network: true });
+      if (held) {
+        // Work's server title validators use Buffer. Validate its metadata with
+        // the same schema and its text through the existing browser validators.
+        const { title, objective, ...metadata } = created;
+        WorkSchema.omit({ title: true, objective: true }).parse(metadata);
+        if (typeof title !== 'string' || typeof objective !== 'string' || textProblem(title, 'title') || textProblem(objective, 'objective')
+          || created.work_id !== operation.resource_ref.resource_id || created.tenant_id !== held.tenantId
+          || created.workspace_id !== held.workspaceId || created.instance_id !== held.instanceId) throw new Error('建立工作回應尚未確認。');
+        createAttempt.current = null;
+      }
       keys.current.delete(fingerprint);
-      if (isPositioning) clearCreateAttempt();
       setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo');
       await loadContext(tenantId, workspaceId, call);
       if (!call.live()) return;
@@ -479,16 +488,19 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         if (initial.profile === POSITIONING_CARD_PROFILE) initial.desired_change = body.objective; setWorkDocument(initial); setDocumentBaseline(JSON.stringify(initial)); setDocumentRead({ kind: 'empty' }); }
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (held) {
+        const definite = !posted && !held.unknown && error instanceof ApiError && !error.network && error.status >= 400 && error.status < 500;
+        if (!definite) { held.unknown = true; setBanner(CREATE_UNCONFIRMED); return; }
+        createAttempt.current = null;
+      }
       if (await reloadUnavailableInstance(error, call)) return;
-      if (!posted && error instanceof ApiError && !error.network) { keys.current.delete(fingerprint); if (isPositioning) clearCreateAttempt(); }
-      else if (!posted && !isPositioning && !(error instanceof ApiError)) keys.current.delete(fingerprint);
+      if (!posted && (!(error instanceof ApiError) || !error.network)) keys.current.delete(fingerprint);
       if (posted) {
         if (error instanceof ApiError && [403, 404, 429].includes(error.status)) applyAccess(error);
         else setBanner(CREATE_UNCONFIRMED);
         return;
       }
-      if (isPositioning && heldCreateRef.current) setBanner(CREATE_UNCONFIRMED);
-      else if (error instanceof ApiError) applyAccess(error);
+      if (error instanceof ApiError) applyAccess(error);
       else setBanner('工作沒有建立。');
     } finally { if (call.live()) setBusy(false); }
   }
@@ -566,10 +578,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     } finally { if (call.live()) setDocumentLoading(false); }
   }
   async function saveDocument() {
-    if (!workDocument || !tenantId || !work || busy || documentLoading || writeLocked || !canSaveResults || attempt || resave || documentConflict
+    if (!workDocument || !tenantId || !work || busyRef.current || documentLoading || writeLocked || !canSaveResults || attempt || resave || documentConflict
       || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')) return;
     const call = currentCall();
-    savingRef.current = true;
     setNoteError(''); setBusy(true);
     try {
       const text = workDocument.profile === POSITIONING_CARD_PROFILE ? serializePositioningActionCard(workDocument) : serializeProductionDossier(workDocument);
@@ -582,7 +593,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       await startSave({ phase: 'prepare', key: crypto.randomUUID(), bytes, sha256, contentType: 'text/markdown', displayName: documentFilename, expectedWorkVersion: heldVersion, sourceText: text }, call);
     } catch (error) {
       if (call.live() && !isAbort(error)) setNoteError(error instanceof Error && 'issues' in error ? (isPositioning ? '請確認活動選擇、日期與內容長度；未填完可先取消本人確認再儲存草稿。' : '請完成必填欄位、網址與版本引用，並確認內容未超過上限。') : error instanceof Error ? error.message : `${documentLabel}未儲存。`);
-    } finally { if (call.live()) { savingRef.current = false; setBusy(false); } }
+    } finally { if (call.live()) setBusy(false); }
   }
   function resolveDocumentConflict(useServer: boolean) {
     if (!work || documentLoading || (documentRead?.kind !== 'found' && documentRead?.kind !== 'empty')) return;
@@ -710,27 +721,31 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     }, call);
   }
   async function beginFileSave() {
-    if (!work || !file || busy || writeLocked || !canSaveResults || attempt || (isDocument && (resave || documentConflict || documentLoading))) return;
+    if (!work || !file || busyRef.current || writeLocked || !canSaveResults || attempt || (isDocument && (resave || documentConflict || documentLoading))) return;
     const contentType = contentTypeFor(file.name);
     if (!contentType) { setFileError('只接受 .txt 或 .md 檔案。'); return; }
     if (file.size < 1 || file.size > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
     const nameProblem = displayNameProblem(file.name);
     if (nameProblem) { setFileError(nameProblem); return; }
     const call = currentCall();
-    const buffer = await file.arrayBuffer();
-    if (!call.live()) return;
-    const bytes = new Uint8Array(buffer);
-    if (bytes.byteLength < 1 || bytes.byteLength > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
-    const hash = await sha256Hex(bytes);
-    if (!call.live()) return;
-    setFileError('');
-    await startSave({
-      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType,
-      displayName: file.name, expectedWorkVersion: heldVersion, sourceText: null,
-    }, call);
+    if (isDocument) setBusy(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      if (!call.live()) return;
+      const bytes = new Uint8Array(buffer);
+      if (bytes.byteLength < 1 || bytes.byteLength > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
+      const hash = await sha256Hex(bytes);
+      if (!call.live()) return;
+      setFileError('');
+      await startSave({
+        phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType,
+        displayName: file.name, expectedWorkVersion: heldVersion, sourceText: null,
+      }, call);
+    } catch (error) {
+      if (call.live() && !isAbort(error)) setFileError('附件暫時無法讀取，請重試。');
+    } finally { if (isDocument && call.live()) setBusy(false); }
   }
   async function startSave(next: SaveAttempt, call: Call) {
-    savingRef.current = true;
     setAttempt(next); setResave(null); setAwaitingAck(false); setStorageDown(false); setBanner('');
     await runSave(next, call);
   }
@@ -738,7 +753,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     if (!tenantId || !work) return;
     const workId = work.work_id;
     let current = next;
-    savingRef.current = true; setBusy(true);
+    setBusy(true);
     try {
       const advanced = await advanceWorkResultSave(client, { tenantId, workId }, current, call,
         value => { current = value; setAttempt(value); }, setStage);
@@ -801,7 +816,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       if (unconfirmed(error) || error.network) { setAwaitingAck(true); setStage(UNCONFIRMED); return; }
       setAttempt(null); setAwaitingAck(false);
       applyAccess(error); setStage('尚未儲存');
-    } finally { if (call.live()) { savingRef.current = false; setBusy(false); } }
+    } finally { if (call.live()) setBusy(false); }
   }
   async function saveAgain() {
     if (!resave || !work || busy) return;
@@ -825,7 +840,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     }
   }
   function goBusiness(event: MouseEvent<HTMLAnchorElement>) {
-    if (!leaveOk()) event.preventDefault();
+    if (!(canNavigate ? canNavigate() : leaveOk())) event.preventDefault();
   }
 
   if (unavailable) return <div className="stack">
@@ -871,13 +886,13 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         <h4 id={createHeadingId}>{isPositioning ? '建立我的方向卡' : isProduction ? '建立製作專案' : '新增工作'}</h4>
         <form className="stack" aria-labelledby={createHeadingId} onSubmit={event => void createWork(event)}>
           <label className="field" htmlFor="my-work-title">{titleLabel}
-            <input id="my-work-title" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftTitle} maxLength={120} disabled={busy || writeLocked || createPending} onChange={event => setDraftTitle(event.target.value)}/>
+            <input id="my-work-title" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftTitle} maxLength={120} disabled={busy || writeLocked || (isDocument && createAttempt.current !== null)} onChange={event => setDraftTitle(event.target.value)}/>
           </label>
           <label className="field" htmlFor="my-work-objective">{objectiveLabel}
-            <textarea id="my-work-objective" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftObjective} disabled={busy || writeLocked || createPending} onChange={event => setDraftObjective(event.target.value)}/>
+            <textarea id="my-work-objective" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftObjective} disabled={busy || writeLocked || (isDocument && createAttempt.current !== null)} onChange={event => setDraftObjective(event.target.value)}/>
           </label>
           <label className="field" htmlFor="my-work-progress">進度
-            <select id="my-work-progress" value={draftProgress} disabled={busy || writeLocked || createPending} onChange={event => setDraftProgress(event.target.value as Progress)}>
+            <select id="my-work-progress" value={draftProgress} disabled={busy || writeLocked || (isDocument && createAttempt.current !== null)} onChange={event => setDraftProgress(event.target.value as Progress)}>
               <option value="todo">待辦</option>
               <option value="in_progress">進行中</option>
               <option value="done">完成</option>

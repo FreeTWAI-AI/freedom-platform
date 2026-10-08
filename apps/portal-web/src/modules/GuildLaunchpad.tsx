@@ -158,7 +158,7 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, onLogin}: {
+function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, canNavigate, onLogin}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
@@ -174,6 +174,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   registerLeave: (guard: (() => boolean) | null) => void;
   registerPendingLeave: (guard: (() => boolean) | null) => void;
   canLeave: () => boolean;
+  canNavigate: () => boolean;
 }) {
   const [workRefresh, setWorkRefresh] = useState(0);
   const workSection = useRef<HTMLElement | null>(null);
@@ -184,7 +185,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
     rememberActing(userId, tenantId, workspaceId); setWorkRefresh(value => value + 1); return true;
   };
   const showStore = (tenantId: string, instanceId: string) => {
-    if (!canLeave()) return false;
+    if (!canNavigate()) return false;
     window.location.hash = `stores/${tenantId}/${instanceId}`; return true;
   };
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
@@ -203,10 +204,10 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
         : <MyStoreAction client={client} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
           onCreate={() => {if (canLeave()) setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});}}
-          onEnter={path => {if (canLeave()) window.location.hash = path;}}/> : <>
+          onEnter={path => {if (canNavigate()) window.location.hash = path;}}/> : <>
         {primary.eligibility.tenant_action !== 'denied' && <div className="actions"><button type="button" className="btn btn-primary" disabled={!primary.eligibility.can_launch} onClick={() => setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1})}>{primary.eligibility.tenant_action === 'continue' ? '繼續使用' : '啟動'}{primary.display_name}</button></div>}
         {primary.eligibility.reason_codes.map(code => <p key={code} className="field-hint">{REASONS[code]}</p>)}
-        {primary.eligibility.reason_codes.includes('tenant_manage_required') && <div className="actions"><a className="btn btn-ghost" href="#business" onClick={event => {if (!canLeave()) event.preventDefault();}}>建立或選擇業務空間</a></div>}
+        {primary.eligibility.reason_codes.includes('tenant_manage_required') && <div className="actions"><a className="btn btn-ghost" href="#business" onClick={event => {if (!canNavigate()) event.preventDefault();}}>建立或選擇業務空間</a></div>}
       </>}
     </section>}
     {blocks.map(block => <section key={block.kind} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
@@ -226,7 +227,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
         : memberTier === 'full'
-          ? <MyWorkPanel key={workRefresh} client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave}/>
+          ? <MyWorkPanel key={workRefresh} client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave} canNavigate={(guildKey === 'guild_commercial_production' || guildKey === 'guild_talent_direction') ? canNavigate : undefined}/>
           : <p className="field-hint" role="status">{INTERN_HINT}</p>)}
       {block.kind === 'support' && <SupportLine support={config.support}/>}
     </section>)}
@@ -287,20 +288,21 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
   const keys = useRef(new Map<string, string>());
   const generation = useRef(0);
   const leaveGuard = useRef<(() => boolean) | null>(null);
+  const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
   const launchLeaveGuard = useRef<(() => boolean) | null>(null);
-  // Direction-card drafts share the existing accepted-location guard. Other guilds retain their current Work navigation.
-  const updateAppLeave = useCallback(() => {
-    registerPendingLeave?.(() => (!launchLeaveGuard.current || launchLeaveGuard.current())
-      && (guildKey !== 'guild_talent_direction' || !leaveGuard.current || leaveGuard.current()));
-  }, [guildKey, registerPendingLeave]);
-  const registerLeave = useCallback((guard: (() => boolean) | null) => {
-    leaveGuard.current = guard; updateAppLeave();
-  }, [updateAppLeave]);
   const registerLaunchLeave = useCallback((guard: (() => boolean) | null) => {
-    launchLeaveGuard.current = guard; updateAppLeave();
-  }, [updateAppLeave]);
-  useEffect(() => () => registerPendingLeave?.(null), [registerPendingLeave]);
+    launchLeaveGuard.current = guard;
+  }, []);
+  useEffect(() => {
+    // Keep tenant creation and production / direction-card Result checkpoints in the existing
+    // App guard; either child clearing its guard must not erase the other.
+    registerPendingLeave?.(() => (!launchLeaveGuard.current || launchLeaveGuard.current())
+      && ((guildKey !== 'guild_commercial_production' && guildKey !== 'guild_talent_direction') || !leaveGuard.current || leaveGuard.current()));
+    return () => registerPendingLeave?.(null);
+  }, [guildKey, registerPendingLeave]);
   const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
+  // Route changes are checked once by App; local context switches still check here.
+  const canNavigate = () => (guildKey === 'guild_commercial_production' || guildKey === 'guild_talent_direction') && registerPendingLeave ? true : canLeave();
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
@@ -519,7 +521,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (!canLeave()) return; onBack?.(); }}>返回公會列表</button></div>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (!canNavigate()) return; onBack?.(); }}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
@@ -527,7 +529,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} onLogin={onLogin}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} canNavigate={canNavigate} onLogin={onLogin}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}
