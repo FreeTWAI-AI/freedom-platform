@@ -17,7 +17,13 @@
     "contracts/guild-launchpad/v1/storefront.schema.json",
     "migrations/134_hosted_storefronts.sql",
     "tests/runtime/hosted-store.test.ts",
-    "tests/runtime/hosted-store-isolation.test.ts"
+    "tests/runtime/hosted-store-isolation.test.ts",
+    "apps/portal-web/src/modules/HostedStore.tsx",
+    "apps/portal-web/src/modules/HostedStore.css",
+    "apps/portal-web/src/modules/MyStoreAction.tsx",
+    "migrations/135_hosted_store_offering.sql",
+    "tests/e2e/hosted-store.spec.ts",
+    "tests/runtime/hosted-store-offering.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -129,6 +135,26 @@
         "store.public.page"
       ],
       "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "commerce.hosted-store-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/HostedStore.tsx",
+      "operations": [
+        "store.mine",
+        "store.read",
+        "store.setup",
+        "store.update",
+        "store.slug-availability",
+        "store.products.list",
+        "store.product.add",
+        "store.product.update",
+        "store.product.remove",
+        "store.preview",
+        "store.publish",
+        "store.unpublish"
+      ],
+      "auth_profile": "member-session"
     }
   ]
 }

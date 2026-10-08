@@ -14589,8 +14589,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 19374,
-      "sha256": "45005ac912a7b46af73b0bfada06b94e02b83ccb0b4e750d0e15d2d9b17f13bc"
+      "bytes": 19456,
+      "sha256": "689e2303dfa051e97d84dd916528571d8acffddddd85e1476baeddc1b6783843"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16009,8 +16009,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 3859,
-      "sha256": "eefe5b2cca7360a113779a06c8ecd73dbe1161fdc9fad789752a02e2c0750310"
+      "bytes": 4694,
+      "sha256": "aa9a6f53ff5cdacb8883da1e3a060ab39394794aa6b6e892f151a381c96ff9ca"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
