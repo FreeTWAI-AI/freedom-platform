@@ -144,8 +144,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24803,
-      "sha256": "5263f89ff2115c765a0301221e16f114bd17bc133ae8a9ae9b1e10f8a007b028"
+      "bytes": 24962,
+      "sha256": "6867714842b1eeadbf2e0b6b7f54b193a3690d8980bb47d0de11a5b892436950"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13264,8 +13264,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 15166,
-      "sha256": "31a46e8e058d3d5936c6632ac993dcf5b72a1635cb916915c7ed3541e457ee5e"
+      "bytes": 17092,
+      "sha256": "02680dce94dcdb1b43db5eb52b489bd06018dccc037779c76f96a79a85cc9f4e"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -17769,8 +17769,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 9245,
-      "sha256": "508eaf2ae7af93959b384303519eda9bbcb4ed1bb8fc4d13542d5c017b118f54"
+      "bytes": 9481,
+      "sha256": "f10ca3ab8315078bf09b52752d90806562b31ac8bcacd72baa0cab2d80c3235f"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -18004,8 +18004,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 18731,
-      "sha256": "63a50627ba8638316271f74b8ec02c28a5fb5295df308c56a0393847f6b6fdfe"
+      "bytes": 22449,
+      "sha256": "4e40162e72e9c706467fc7d65623038f92ef8c1007382c6b920e5e6aa5a2ff11"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -18914,8 +18914,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 7021,
-      "sha256": "a6c572c8de3c987ce113284c9b11087ea2c0c24b20d1d955f609fe32eb0d2013"
+      "bytes": 7063,
+      "sha256": "2959ce61352b1173937cd1ee504691422df7e75e122cd6cd0d56e62abb9027c2"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
