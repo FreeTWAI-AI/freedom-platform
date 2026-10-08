@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
@@ -52,21 +53,29 @@ function eligibilityView(full: boolean, manages: boolean, policy: boolean, insta
   });
 }
 
-function encodeCursor(platform: boolean, order: number, id: string) {
-  return Buffer.from(`${platform ? 0 : 1}\n${order}\n${id}`).toString('base64url');
+function encodeCursor(platform: boolean, order: number, id: string, filter: string) {
+  return Buffer.from(JSON.stringify({ filter, platform: platform ? 0 : 1, order, id })).toString('base64url');
 }
 
-function decodeCursor(raw?: string): { platform: number; order: number; id: string } | null {
+function decodeCursor(raw: string | undefined, filter: string): { platform: number; order: number; id: string } | null {
   if (!raw) return null;
-  let text = '';
-  try { text = Buffer.from(raw, 'base64url').toString('utf8'); } catch {
+  let parsed: Record<string, unknown>;
+  try {
+    const bytes = Buffer.from(raw, 'base64url');
+    if (bytes.toString('base64url') !== raw) throw new Error('Invalid base64url');
+    parsed = JSON.parse(bytes.toString('utf8'));
+  } catch {
     throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
   }
-  const [flag, order, id] = text.split('\n');
-  if ((flag !== '0' && flag !== '1') || !/^\d+$/.test(order ?? '') || !OpaqueId.safeParse(id).success) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || Object.keys(parsed).sort().join(',') !== 'filter,id,order,platform'
+    || parsed.filter !== filter
+    || (parsed.platform !== 0 && parsed.platform !== 1)
+    || typeof parsed.order !== 'number' || !Number.isInteger(parsed.order) || parsed.order < 0 || parsed.order > 2147483647
+    || !OpaqueId.safeParse(parsed.id).success) {
     throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
   }
-  return { platform: Number(flag), order: Number(order), id };
+  return { platform: parsed.platform, order: parsed.order, id: parsed.id as string };
 }
 
 const SELECT_OFFERING = `SELECT o.offering_id, d.application_key, d.release_ref, d.display_name, d.module_requirements,
@@ -82,7 +91,9 @@ export async function assertGuildKey(q: PoolClient, guildKey: string) {
 export async function listApplications(q: PoolClient, query: CatalogQuery) {
   if (query.guildKey) await assertGuildKey(q, query.guildKey);
   const limit = query.limit ?? 20;
-  const cursor = decodeCursor(query.cursor);
+  const filter = createHash('sha256').update(JSON.stringify({ list: 'applications', guild_key: query.guildKey ?? null,
+    community_id: query.guildKey && query.communityId ? query.communityId : null })).digest('hex');
+  const cursor = decodeCursor(query.cursor, filter);
   const params: unknown[] = [];
   let guildParam = '';
   if (query.guildKey) {
@@ -120,7 +131,7 @@ export async function listApplications(q: PoolClient, query: CatalogQuery) {
   )).rows[0].v;
   return {
     items: page.map(row => applicationView(row)),
-    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id) : null,
+    next_cursor: rows.length > limit ? encodeCursor(page[page.length - 1].platform, page[page.length - 1].display_order, page[page.length - 1].offering_id, filter) : null,
     source_version: source && source !== '0' ? source : '1',
   };
 }
