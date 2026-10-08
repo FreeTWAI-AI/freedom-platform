@@ -1,3 +1,5 @@
+import {writeFile} from 'node:fs/promises';
+import type {TestInfo} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
@@ -48,6 +50,25 @@ async function launchApi(page: Page, tenantId: string, workspaceId: string) {
   return {tenant_id:tenantId,workspace_id:workspaceId,application_key:'manual-workspace',release_ref:RELEASE,key,input,operation};
 }
 
+async function capture(page: Page, testInfo: TestInfo, state: string) {
+  await page.emulateMedia({reducedMotion:'reduce'});
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(value => {localStorage.setItem('freedom-theme',value); document.documentElement.dataset.theme=value; document.documentElement.dataset.experienceProfile=value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.effect instanceof KeyframeEffect && animation.effect.getTiming().iterations !== Infinity && animation.playState === 'running').length), {timeout:3000}).toBe(0);
+    for (const width of [1280,360]) {
+      await page.setViewportSize({width,height:900});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const buttons = await page.locator('.btn').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().height > 0).map(element => {
+        const box = element.getBoundingClientRect();
+        return {text:element.textContent?.trim(),width:box.width,height:box.height,primary:element.classList.contains('btn-primary'),inApplications:Boolean(element.closest('.launchpad-applications'))};
+      }));
+      for (const button of buttons.filter(button => button.inApplications)) {expect(button.height).toBeGreaterThanOrEqual(44); expect(button.width).toBeLessThanOrEqual(width);}
+      await writeFile(testInfo.outputPath(`${state}-${theme}-${width}-buttons.json`), JSON.stringify(buttons,null,2));
+      await page.screenshot({path:testInfo.outputPath(`${state}-${theme}-${width}.png`),fullPage:true});
+    }
+  }
+}
+
 test('visitor sees application cards and public release details without launch controls', async ({page}) => {
   await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await page.goto(`/#guilds/${GUILD}`); await expect(cards(page)).toContainText('可用');
@@ -66,10 +87,11 @@ test('intern keeps the card and the full-member reason with disabled launch', as
 });
 
 test('catalog status mapping and pagination require the explicit load-more action', async ({page}) => {
-  let reads=0;
+  let reads=0; let failedMore=false;
   await page.route('**/api/v1/applications?*',async route=>{
     reads++; const url=new URL(route.request().url()); const next=url.searchParams.has('cursor'); url.searchParams.delete('cursor');
     const response=await route.fetch({url:url.toString()}); const body=await response.json(); const app=body.items[0];
+    if(next && !failedMore) {failedMore=true; await route.fulfill({response,status:503,json:{code:'dependency_unavailable',detail:'目錄暫時無法讀取。'}}); return;}
     await route.fulfill({response,json:{...body,items:next?[{...app,application_key:'last-page',display_name:'最後一頁'}]:[
       app,{...app,application_key:'review-page',display_name:'審查版本',release_status:'reviewed'},
       {...app,application_key:'external-page',display_name:'外部版本',runtime_profiles:['external-supported']},
@@ -79,7 +101,11 @@ test('catalog status mapping and pagination require the explicit load-more actio
   await page.goto(`/#guilds/${GUILD}`); await expect(cards(page).locator('.application-card')).toHaveCount(4);
   for(const status of ['可用','審核中','外部／試用','停用／版本需更新']) await expect(cards(page).getByText(status,{exact:true})).toBeVisible();
   expect(reads).toBe(1); await cards(page).getByRole('button',{name:'載入更多',exact:true}).click();
-  await expect(cards(page).locator('.application-card')).toHaveCount(5); expect(reads).toBe(2);
+  await expect(cards(page).getByRole('button',{name:'重試',exact:true})).toBeVisible();
+  await expect(cards(page).locator('.application-card')).toHaveCount(4);
+  await cards(page).getByRole('button',{name:'重試',exact:true}).click();
+  await expect(cards(page).locator('.application-card')).toHaveCount(5); expect(reads).toBe(3);
+  await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible();
   await expect(cards(page).getByRole('button',{name:'載入更多',exact:true})).toHaveCount(0);
 });
 
@@ -107,8 +133,11 @@ test('stale plan preserves the draft and reloads the new installation before reu
   await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
   await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click();
   await expect(flow(page)).toContainText('方案已過期，請重新產生');
-  await expect(flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true})).toBeChecked();
-  await flow(page).getByRole('radio',{name:/沿用這個安裝/}).check(); await review(page); await confirm(page);
+  await expect(flow(page).getByRole('radio',{name:/沿用這個安裝/})).toBeChecked();
+  await expect(flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true})).toBeDisabled();
+  await expect(flow(page)).toContainText('這個工作區已經有這個應用的安裝，已改為沿用它。');
+  await expect(flow(page).getByRole('radio',{name:/將共用既有的人工工作/})).toBeChecked();
+  await review(page); await confirm(page);
   expect(await installations(page,made.tenant.tenant_id)).toHaveLength(1);
 });
 
@@ -133,7 +162,7 @@ test('second launch explicitly reuses the installation without duplicating insta
   await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await begin(page);
   await expect(flow(page).getByRole('radio',{name:/沿用這個安裝/})).toBeChecked();
   await expect(flow(page).getByRole('button',{name:'另建新的安裝',exact:true})).toBeDisabled();
-  await review(page); await expect(flow(page)).toContainText('不增加實例容量'); await confirm(page);
+  await review(page); await expect(flow(page)).toContainText('不增加實例容量'); await expect(flow(page).getByRole('region',{name:'確認啟動方案',exact:true})).toContainText(`沿用安裝（${RELEASE}，ID 尾碼`); await confirm(page);
   const after = await installations(page,made.tenant.tenant_id); expect(after.map(item=>item.installation_id)).toEqual(before.map(item=>item.installation_id)); expect(after[0].modules).toEqual(before[0].modules);
 });
 
@@ -171,7 +200,7 @@ test('lost launch response, Back, Forward and reload reopen one original request
   await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await page.reload(); await expect(flow(page)).toHaveCount(0);
 });
 
-test('quota rejection names the dimension and preserves existing work and choices', async ({page,e2eAuthPool}) => {
+test('quota rejection names the dimension and preserves existing work and choices', async ({page,e2eAuthPool},testInfo) => {
   await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'容量測試空間',workspace_name:'既有區'});
   await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
   await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'額外區'});
@@ -181,7 +210,10 @@ test('quota rejection names the dimension and preserves existing work and choice
   await open(page); await begin(page); await flow(page).getByRole('button',{name:'額外區',exact:true}).click();
   await flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true}).check(); await review(page);
   await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click();
-  await expect(flow(page)).toContainText('容量維度：模組實例數'); await expect(flow(page)).toContainText('既有工作仍可使用');
+  await expect(flow(page)).toContainText('容量維度：模組實例數。既有工作仍可使用');
+  await expect(flow(page).getByRole('alert')).not.toContainText('module_instances');
+  await expect(flow(page).getByRole('alert')).not.toContainText(/。 /);
+  await capture(page,testInfo,'quota');
   await expect(flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true})).toBeChecked();
   expect(await installations(page,made.tenant.tenant_id)).toHaveLength(1);
   const context=await page.request.get(`/api/v1/tenants/${made.tenant.tenant_id}/workspaces/${made.workspace.workspace_id}/launchpad-context?guild_key=${GUILD}`);
@@ -193,7 +225,7 @@ for (const action of ['核對原操作','查看進度','停止後續步驟'] as 
   test(`unknown operation shows three actions and ${action} uses the real operation`, async ({page,e2eAuthPool}) => {
     const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'核對業務空間',workspace_name:'核對區'});
     const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
-    await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([held])),{userId,held,guild:GUILD});
+    await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([{...held,unknown_key:true},held])),{userId,held,guild:GUILD});
     let mocked=false; let command=false;
     page.on('request',request=>{if(request.method()==='POST' && /\/(reconcile|cancel)$/.test(new URL(request.url()).pathname)) command=true;});
     await page.route(url=>url.pathname===`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`,async route=>{
@@ -220,6 +252,9 @@ test('stale operation CAS reloads its current real state', async ({page,e2eAuthP
   });
   await open(page); await expect(flow(page)).toContainText('結果未確認'); await flow(page).getByRole('button',{name:'核對原操作',exact:true}).click();
   await expect(flow(page).getByRole('region',{name:'啟動進度'})).toContainText('已啟用');
+  await expect(flow(page)).toContainText('操作狀態已更新，已重新載入。');
+  await expect(flow(page).getByRole('region',{name:'啟動進度'}).locator('ul')).not.toContainText('最新版本');
+  await expect(flow(page)).not.toContainText('選擇已保留，請核對最新候選與版本');
 });
 
 test('tenant switch clears the plan and drops a late private response', async ({page,e2eAuthPool}) => {
@@ -238,7 +273,7 @@ test('tenant switch clears the plan and drops a late private response', async ({
 });
 
 test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({page,e2eAuthPool},testInfo) => {
-  await member(e2eAuthPool,page); await post(page,'/tenants',{display_name:'鍵盤業務空間',workspace_name:'鍵盤區'}); await open(page);
+  await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'鍵盤業務空間',workspace_name:'鍵盤區'}); await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一鍵盤區'}); await open(page);
   await page.emulateMedia({reducedMotion:'reduce'}); await page.setViewportSize({width:360,height:780});
   const launch=cards(page).getByRole('button',{name:'啟動應用',exact:true}); await launch.focus(); await page.keyboard.press('Enter');
   await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
@@ -248,6 +283,15 @@ test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({pa
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const targets=await cards(page).locator('button,.application-choice').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
   for(const height of targets) expect(height).toBeGreaterThanOrEqual(44);
+  for(const theme of ['light','dark']) {
+    await page.evaluate(value=>{document.documentElement.dataset.theme=value;document.documentElement.dataset.experienceProfile=value;window.dispatchEvent(new Event('freedom-theme-changed'));},theme);
+    await flow(page).getByRole('button',{name:'另一鍵盤區',exact:true}).click();
+    const selected=flow(page).getByRole('group',{name:'工作區',exact:true}).locator('[aria-current="true"]');
+    const other=flow(page).getByRole('button',{name:'鍵盤區',exact:true});
+    await expect.poll(async()=>{const a=await selected.evaluate(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderColor})); const b=await other.evaluate(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderColor})); return a.bg!==b.bg && a.border!==b.border;},{timeout:3000}).toBe(true);
+  }
+  await capture(page,testInfo,'pickers');
+  await flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true}).focus();
   // Follow the actual tab order from the heading to the plan action.
   for(let count=0;count<12;count++) {
     if(await flow(page).getByRole('button',{name:'產生啟動方案',exact:true}).evaluate(element=>element===document.activeElement)) break;
@@ -294,16 +338,21 @@ test('post-commit authorization error and delisted catalog recover the original 
   expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]); expect(await installations(page,made.tenant.tenant_id)).toHaveLength(1);
 });
 
-test('existing installation still requires a dependency decision when two instances are active', async ({page,e2eAuthPool}) => {
+test('existing installation locks the dependency to its linked instance when two instances are active', async ({page,e2eAuthPool},testInfo) => {
   await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'明確沿用空間',workspace_name:'沿用目標區'});
   const other=await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一實例區'});
   await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); await launchApi(page,made.tenant.tenant_id,other.workspace_id);
   await open(page); await begin(page); await flow(page).getByRole('button',{name:'沿用目標區',exact:true}).click();
   await expect(flow(page).getByRole('radio',{name:/將共用既有的人工工作/})).toHaveCount(2);
-  await expect(flow(page).locator('input[name=dependency-work]:checked')).toHaveCount(0);
-  await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeDisabled();
+  await expect(flow(page).locator('input[name=dependency-work]:checked')).toHaveCount(1);
+  await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
   const target=(await installations(page,made.tenant.tenant_id)).find(item=>item.workspace_id===made.workspace.workspace_id)!;
-  await flow(page).getByRole('radio',{name:new RegExp(`將共用既有的人工工作.*${target.modules[0].instance_id.slice(-6)}`)}).check();
+  const linked=flow(page).getByRole('radio',{name:new RegExp(`將共用既有的人工工作.*${target.modules[0].instance_id.slice(-6)}`)});
+  await expect(linked).toBeChecked(); await expect(linked).toBeEnabled();
+  await expect(flow(page).locator('input[name=dependency-work]:not(:checked)')).toHaveCount(2);
+  for(const radio of await flow(page).locator('input[name=dependency-work]:not(:checked)').all()) await expect(radio).toBeDisabled();
+  await expect(flow(page)).toContainText(`沿用這個安裝時，會繼續共用它連結的人工工作（ID 尾碼 ${target.modules[0].instance_id.slice(-6)}）。`);
+  await capture(page,testInfo,'locked-reuse');
   await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled(); await review(page); await confirm(page);
   expect(await installations(page,made.tenant.tenant_id)).toHaveLength(2);
 });
@@ -316,6 +365,151 @@ test('a lost tenant-list read retries the list and can continue the original flo
     if(dropped) return route.fallback(); dropped=true; await route.abort();
   });
   await begin(page); await expect(flow(page).getByRole('button',{name:'重新載入清單',exact:true})).toBeVisible();
+  await expect(flow(page)).not.toContainText('你還沒有業務空間。');
   await flow(page).getByRole('button',{name:'重新載入清單',exact:true}).click();
   await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled(); await review(page); await confirm(page);
+});
+
+
+test('stored operator acting context selects the owned tenant without registry reads for the operator tenant', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page);
+  const p=await post(page,'/tenants',{display_name:'本人空間',workspace_name:'本人區'});
+  const t=await post(page,'/tenants',{display_name:'團隊空間',workspace_name:'團隊區'});
+  const principal=(await e2eAuthPool.query('SELECT principal_id FROM principals WHERE user_ref=$1',[userId])).rows[0].principal_id;
+  const other=randomUUID();
+  await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required) VALUES($1,$2,$3,'另一擁有者',$4,$5,false)`,[other,DEMO_COMMUNITY,`owner-${other}@example.test`,hashPassword(DEMO_PASSWORD),randomUUID()]);
+  // Reuse the existing person mapping helper through the invite-candidate API.
+  const candidate=await page.request.get(`/api/v1/tenants/invite-candidates?user_id=${other}`); expect(candidate.ok()).toBe(true);
+  const otherPrincipal=(await candidate.json()).principal_id;
+  await e2eAuthPool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,[t.tenant.tenant_id,otherPrincipal]);
+  await e2eAuthPool.query(`UPDATE tenant_memberships SET role='operator',version=version+1 WHERE tenant_id=$1 AND principal_id=$2`,[t.tenant.tenant_id,principal]);
+  await page.evaluate(({userId,p})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:p.tenant.tenant_id,workspace_id:p.workspace.workspace_id})),{userId,p});
+  await open(page); await expect(page.locator('.my-work')).toContainText('本人空間');
+  await page.evaluate(({userId,t})=>sessionStorage.setItem(`freedom-acting-tenant:${userId}`,JSON.stringify({tenant_id:t.tenant.tenant_id,workspace_id:t.workspace.workspace_id})),{userId,t});
+  const requests:string[]=[]; page.on('request',request=>requests.push(new URL(request.url()).pathname));
+  await begin(page); await expect(flow(page)).toContainText('目前業務空間：本人空間 · 擁有者／本人區');
+  await expect(flow(page).getByRole('button',{name:'團隊空間・操作者',exact:true})).toHaveCount(0);
+  await expect(flow(page)).toContainText('只列出你擁有或管理、目前可使用的業務空間。');
+  await expect(flow(page).getByRole('alert')).toHaveCount(0); await review(page);
+  expect(requests.filter(path=>path.startsWith(`/api/v1/tenants/${t.tenant.tenant_id}/`) && /\/(application-installations|module-instances|application-launch-plans)$/.test(path))).toEqual([]);
+  expect(JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`)!,userId)).tenant_id).toBe(t.tenant.tenant_id);
+  await flow(page).getByRole('button',{name:'取消',exact:true}).click();
+  await e2eAuthPool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,[p.tenant.tenant_id,otherPrincipal]);
+  await e2eAuthPool.query(`UPDATE tenant_memberships SET role='operator',version=version+1 WHERE tenant_id=$1 AND principal_id=$2`,[p.tenant.tenant_id,principal]);
+  await page.reload(); await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await expect(cards(page)).toContainText('你目前沒有可管理的業務空間');
+  expect(requests.filter(path=>path.startsWith(`/api/v1/tenants/${t.tenant.tenant_id}/`) && /\/(application-installations|module-instances|application-launch-plans)$/.test(path))).toEqual([]);
+});
+
+test('go to My Work preserves dirty content on decline and switches context only on acceptance', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'離開確認空間',workspace_name:'原工作區'});
+  await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
+  await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'新啟動區'});
+  await open(page); const myWork=page.locator('.my-work'); await expect(myWork.locator('#my-work-title')).toBeVisible();
+  await myWork.locator('#my-work-title').fill('尚未儲存的工作');
+  const acting=await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId);
+  await begin(page); await flow(page).getByRole('button',{name:'新啟動區',exact:true}).click(); await review(page); await confirm(page);
+  page.once('dialog',dialog=>{expect(dialog.message()).toBe('有尚未儲存的內容，確定要離開嗎？'); void dialog.dismiss();});
+  await flow(page).getByRole('button',{name:'前往我的工作',exact:true}).click();
+  await expect(flow(page)).toBeVisible(); await expect(myWork.locator('#my-work-title')).toHaveValue('尚未儲存的工作');
+  expect(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId)).toBe(acting);
+  page.once('dialog',dialog=>void dialog.accept()); await flow(page).getByRole('button',{name:'前往我的工作',exact:true}).click();
+  await expect(flow(page)).toHaveCount(0); await expect(myWork).toContainText('離開確認空間／新啟動區');
+});
+
+test('archived saved workspace shows a removable notice without opening or focusing the panel', async ({page,e2eAuthPool},testInfo) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'無法還原空間',workspace_name:'仍可用區'});
+  const workspace=await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'將封存區'});
+  await open(page); await begin(page); await flow(page).getByRole('button',{name:'將封存區',exact:true}).click(); await review(page);
+  let dropped=false; let committed=false;
+  await page.route(url=>url.pathname===`/api/v1/tenants/${made.tenant.tenant_id}/application-installations`,async route=>{
+    if(route.request().method()!=='POST' || dropped) return route.fallback(); dropped=true; const response=await route.fetch(); expect(response.status()).toBe(200); await route.abort(); committed=true;
+  });
+  await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click(); await expect(flow(page)).toContainText('結果未確認');
+  await expect.poll(()=>committed,{timeout:5000}).toBe(true);
+  await e2eAuthPool.query(`UPDATE workspaces SET status='archived',version=version+1 WHERE workspace_id=$1`,[workspace.workspace_id]);
+  await page.reload(); const notice=cards(page).getByRole('status').filter({hasText:'上次的啟動結果目前無法在這裡查看'});
+  await expect(notice).toContainText('人工工作空間'); await expect(notice).toContainText('尚未取得操作識別碼');
+  await expect(flow(page)).toHaveCount(0); expect(await cards(page).evaluate(el=>el.contains(document.activeElement))).toBe(false);
+  await capture(page,testInfo,'restore-notice');
+  await notice.getByRole('button',{name:'不再追蹤',exact:true}).click(); await expect(notice).toHaveCount(0);
+  await page.reload(); await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible(); await expect(flow(page)).toHaveCount(0);
+  await expect(cards(page)).not.toContainText('上次的啟動結果目前無法在這裡查看');
+});
+
+test('forbidden progress stops polling and forgetting removes the original pending launch', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'停止追蹤空間',workspace_name:'追蹤區'});
+  const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); held.operation={...held.operation,state:'running'};
+  await page.evaluate(({userId,held})=>sessionStorage.setItem(`freedom-application-launch:${userId}:guild_ai_field`,JSON.stringify([held])),{userId,held});
+  await page.clock.install(); let reads=0;
+  await page.route(url=>url.pathname===`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`,async route=>{
+    reads++; const response=await route.fetch(); expect(response.status()).toBe(200);
+    await route.fulfill({response,status:403,json:{code:'capability_denied',detail:'目前沒有這個操作的權限。'}});
+  });
+  await open(page); await expect(flow(page).getByRole('alert')).toContainText('目前沒有這個操作的權限。');
+  await expect(flow(page)).toContainText(held.operation.operation_id); await expect(flow(page)).toContainText('不再追蹤只會讓這個分頁不再自動開啟這個操作；操作本身不會停止，請保留操作識別碼。');
+  expect(reads).toBe(1); await page.clock.runFor(30000); expect(reads).toBe(1);
+  await flow(page).getByRole('button',{name:'不再追蹤',exact:true}).click(); await expect(flow(page)).toHaveCount(0);
+  expect(JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId))).toEqual([]);
+});
+
+test('signed-in non-member receives the join-guild next step and no enabled launch', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2`,[userId,GUILD]);
+  await open(page); await expect(cards(page)).toContainText('先加入這個公會，才能啟動應用。');
+  await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+});
+
+test('rejected reuse candidates stay disabled for the panel session', async ({page,e2eAuthPool}) => {
+  await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'無法共用空間',workspace_name:'既有區'});
+  await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'新方案區'});
+  await open(page); await begin(page); await flow(page).getByRole('button',{name:'新方案區',exact:true}).click();
+  await expect(flow(page).getByRole('radio',{name:/將共用既有的人工工作/})).toBeChecked();
+  await page.route(url=>url.pathname===`/api/v1/tenants/${made.tenant.tenant_id}/application-launch-plans`,async route=>{
+    const response=await route.fetch(); expect(response.status()).toBe(201); await route.fulfill({response,status:404,json:{code:'not_found',detail:'找不到這個模組實例。'}});
+  });
+  await flow(page).getByRole('button',{name:'產生啟動方案',exact:true}).click();
+  await expect(flow(page).getByRole('radio',{name:/目前無法共用/})).toBeDisabled(); await expect(flow(page).getByRole('radio',{name:/目前無法共用/})).not.toBeChecked();
+  await expect(flow(page)).toContainText('請選擇另一個可用實例，或建立獨立空白實例。');
+  await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeDisabled();
+  await flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true}).check(); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
+});
+
+
+test('My Work workspace selection leaves the independent launch panel and focus in place', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'獨立選擇空間',workspace_name:'原選擇區'});
+  await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一選擇區'});
+  await open(page); await expect(page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true})).toBeVisible();
+  const acting=await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId);
+  await begin(page); await flow(page).getByRole('button',{name:'另一選擇區',exact:true}).click();
+  await expect(flow(page)).toContainText('目前業務空間：獨立選擇空間 · 擁有者／另一選擇區');
+  expect(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId)).toBe(acting);
+  const switcher=page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true}); await switcher.click();
+  await expect(switcher).toBeFocused(); await expect(flow(page)).toBeVisible();
+  await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeFocused();
+});
+
+test('release detail retry repeats its failed action and retains catalog pages', async ({page}) => {
+  let releases=0; let catalogs=0;
+  await page.route('**/api/v1/applications?*',async route=>{catalogs++; await route.fallback();});
+  await page.route('**/api/v1/applications/manual-workspace/releases/*',async route=>{
+    releases++; const response=await route.fetch();
+    if(releases===1) {await route.fulfill({response,status:503,contentType:'application/problem+json',json:{code:'dependency_unavailable',detail:'版本暫時無法讀取。'}}); return;}
+    await route.fulfill({response});
+  });
+  await page.goto(`/#guilds/${GUILD}`); await cards(page).getByRole('button',{name:'版本資料',exact:true}).click();
+  await expect(cards(page).getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。'); await cards(page).getByRole('button',{name:'重試',exact:true}).click();
+  await expect(cards(page)).toContainText('來源提交：'); expect(releases).toBe(2); expect(catalogs).toBe(1);
+});
+
+test('restore opens the newest readable row and removes only unavailable terminal outcomes', async ({page,e2eAuthPool}) => {
+  const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'逐筆還原空間',workspace_name:'第一還原區'});
+  const second=await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'最新還原區'});
+  const old=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
+  const newest=await launchApi(page,made.tenant.tenant_id,second.workspace_id);
+  const removed={...old,key:randomUUID(),workspace_id:randomUUID()};
+  await page.evaluate(({userId,rows})=>sessionStorage.setItem(`freedom-application-launch:${userId}:guild_ai_field`,JSON.stringify(rows)),{userId,rows:[old,newest,removed]});
+  await open(page); await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText(newest.operation.operation_id);
+  await expect(flow(page)).toContainText('逐筆還原空間 · 擁有者／最新還原區');
+  const rows=JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId));
+  expect(rows).toHaveLength(2); expect(rows[0]).toEqual(old);
 });
