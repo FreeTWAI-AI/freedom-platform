@@ -226,3 +226,35 @@ staging 的 `json_stream_limit_413` check 則證明有界路徑已上線。
 #162 的具名 prepared statement 只在 Private AI 開啟（兩邊都關）或尚未部署的 credential broker 才會執行，這一輪仍沒有在 Hyperdrive 上驗到它；
 selected checks 不是完整 foundation acceptance，production checks 是唯讀 HTTP。
 細節見[現況快照](current-state.json)。
+
+### 10 月 7 日：第四輪 staging／production rollout（main e8cd72e8，migration 125）
+
+owner 於 22:22Z 核准：staging 立即部署 main `e8cd72e8`（第一個包含 migration 125 的版本），staging 通過後 production 部署同一個 SHA，
+兩邊都不設定 `FREEDOM_GUILD_LAUNCHPAD_ENABLED`；部署後在 Discord 公告重新登入（文字由 owner 核准）。
+`e8cd72e8` 是 `687dee87` 之後合併的 #228、#229、#206、#226、#235、#243、#241；#243 一起合併 #231／#240，#241 一起合併 #205／#207。
+
+- staging：migration 前的備份做過隔離還原與遠端 readback，125 由 staging migrator 套用並重套 runtime grants、通過唯讀驗證。
+  在部署新版本前，先對已 migrate 的 staging 跑舊版 `687dee87` 的 acceptance，43／43 通過，作為回滾證據。
+  22:46Z 部署 `e8cd72e8`，47 個 selected checks 通過（含新的 cookie 檢查），部署後 cron 有寫入。
+- production：migration 前的備份同樣做過隔離還原與遠端 readback，125 由 production migrator 套用；media operator 的權限快照前後相同。
+  23:07Z 以同一份 dist 部署，29 個唯讀公開 checks 通過，5 次 fresh health 都是 `e8cd72e8`，部署後 cron 有寫入。
+- 兩個環境的 after-rollout 備份都做過隔離還原與遠端 readback，backup pin 都改成 `e8cd72e8`。
+  production 的 after-rollout 備份到第 4 次才通過：第 1、3 次執行中 pg 連線出錯（socket 逾時；exporter 被自己 120 秒的 idle-in-transaction 上限終止），程序直接結束、沒跑 cleanup，`asset_maintenance_policy` 停在 enabled，第 2 次因此在 preflight 失敗。每次都由 migrator 執行 adapter 自己的 cleanup 語句關回去，期間沒有任何 tombstone、deletion fence 或物件刪除。coordinator 的修正（延長 exporter 上限、加 error listener）另開 PR。
+  備份裡 snapshot evidence 的列數，在 18 張 row security 表上都與 migrator 讀到的相同。
+
+Row security：125 在 18 張表啟用（不 FORCE）row security，共 29 條 policy，另加 4 個 invoker STABLE 的 context 讀取函式。
+migration 前兩邊都沒有 row security 表，18 張表都由 migrator 擁有，runtime 角色沒有 BYPASSRLS，備份角色有 BYPASSRLS（owner 選定，當天下午授予）。
+兩邊都還沒有任何 tenant 列，所以 probe 只能證明「沒有綁定 context 的 runtime 看得到全部非 tenant 列」與「備份角色看得到全部列」，
+沒有實際綁定過 tenant。
+
+登入 Cookie：HTTPS 網站改為只讀 `__Host-freedom_session`（#241 的 #207）。舊名稱 `freedom_local_session` 回 401，
+重複的 `__Host-` cookie 回 403 `credential_kind_rejected`；所以部署後每位會員都會被登出一次。23:07Z 已在 Discord #📜│公告 發出重新登入公告。
+
+回滾是把受影響的 Worker 重新部署成 `687dee87`，不需要還原 schema：沒有綁定 context 的請求仍看得到所有非 tenant 列，
+`687dee87` 從不綁定 context，flag 關閉時也不寫 tenant 列，而且它的 acceptance 已在 migrate 後的 staging 通過。
+若要還原資料，從 migration 前的備份開始（production `5cc20f05`、staging `914c5e68`）。
+
+限制：guild launchpad 仍未啟用，row security 只由 migration probe 與 CI 驗證，沒有真實 tenant 流量；
+每日備份的 operator source `c3e5a537` 早於 `packages/db/snapshot-evidence.ts` 的 fail-closed `row_security = off`，完整性靠備份角色的 BYPASSRLS 與上面的列數比對；
+selected checks 不是完整 foundation acceptance，production checks 是唯讀 HTTP。
+細節見[現況快照](current-state.json)。
