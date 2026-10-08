@@ -3,12 +3,15 @@
 .chat-extras>.btn{justify-self:start}
 .chat-sticker{display:inline-block;position:relative;width:128px;max-width:100%;aspect-ratio:1;overflow:hidden;vertical-align:middle;flex-shrink:0}
 .chat-sticker>img{position:absolute;width:200%;height:200%;max-width:none;pointer-events:none}
+.chat-sticker>img.chat-sticker-image{position:static;width:100%;height:100%;object-fit:contain;border-radius:8px}
+.chat-sticker-packs{display:flex;gap:.4rem;flex-wrap:wrap}
+.chat-sticker-packs [aria-pressed=true]{background:var(--green-soft);border-color:var(--focus)}
 .chat-sticker-picker{padding:.7rem;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev);display:grid;gap:.5rem;min-width:0}
 .chat-picker-heading,.chat-reply-draft{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0}
-.chat-sticker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem}
+.chat-sticker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;max-height:min(320px,35dvh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .chat-sticker-choice{display:grid;justify-items:center;gap:.2rem;background:transparent;border:1px solid var(--line);border-radius:8px;color:inherit;min-height:44px;min-width:0;padding:.35rem;cursor:pointer;font:inherit}
 .chat-sticker-choice .chat-sticker{width:72px}
-.chat-sticker-choice span:last-child{font-size:14px}
+.chat-sticker-choice span:last-child{font-size:14px;overflow-wrap:anywhere}
 .chat-sticker-choice:hover,.chat-sticker-choice[aria-pressed=true]{background:var(--green-soft)}
 .chat-sticker-choice:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .chat-sticker-choice:disabled{opacity:.55;cursor:wait}

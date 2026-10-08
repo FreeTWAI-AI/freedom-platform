@@ -124,6 +124,9 @@ const FOUNDATION_NAMES = [
   // Ordinary per-instance member grants (export and purpose-bound grants stay
   // closed); a module instance's release reference becomes immutable.
   '131_tenant_module_permissions.sql',
+  // Member-only native posts and original sticker pack; name recognition is not release approval.
+  '132_social_feed_interactions.sql',
+  '133_workshop_sticker_pack.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

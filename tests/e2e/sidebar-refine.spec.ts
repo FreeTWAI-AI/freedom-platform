@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.js';
+import {openFeatureSearch} from './navigation.js';
 
 async function login(page: Page) {
   await page.goto('/');
@@ -12,10 +13,10 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/me/github', route => route.fulfill({ json: { configured: false, connected: false, github_user: null } }));
 });
 
-// Light themes only: the dark theme keeps its own sidebar look.
+// Primary actions stay visible; secondary groups and search open from More.
 for (const width of [1280, 390]) {
   for (const theme of ['light', 'versefolk']) {
-    test(`sidebar is quiet and still touch-sized at ${width}px in ${theme} theme`, async ({ page }) => {
+    test(`navigation is quiet and still touch-sized at ${width}px in ${theme} theme`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await login(page);
       await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
@@ -23,18 +24,20 @@ for (const width of [1280, 390]) {
       if (await menu.isVisible()) await menu.click();
       const nav = page.getByRole('navigation', { name: '主要工作區' });
       await expect(nav).toBeVisible();
+      await openFeatureSearch(page);
 
       const active = nav.locator('.nav-item.is-active');
       await expect(active).toHaveCount(1);
       const style = (selector: string, prop: string) => nav.locator(selector).first().evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
 
       // Active state: heavier text and no left bar. Inactive items stay medium weight.
-      expect(await active.evaluate(el => getComputedStyle(el).fontWeight)).toBe('600');
+      expect(await active.evaluate(el => getComputedStyle(el).fontWeight)).toBe('700');
       expect(await active.evaluate(el => getComputedStyle(el).boxShadow)).toBe('none');
       expect(await style('.nav-item:not(.is-active)', 'font-weight')).toBe('500');
 
-      // Groups are separated by spacing, not by a rule above each one.
-      expect(await style('.nav-section', 'border-top-width')).toBe('0px');
+      // More stays quiet; nested groups use a thin divider inside its menu.
+      expect(await style('.nav-more', 'border-top-width')).toBe('0px');
+      expect(await style('.nav-more-content .nav-section', 'border-top-width')).toBe('1px');
       expect(await style('.nav-search input', 'background-image')).toContain('data:image/svg+xml');
 
       // The search icon takes room on the left; the placeholder must still fit unclipped.
@@ -48,7 +51,7 @@ for (const width of [1280, 390]) {
       expect(fit.text, `${theme} ${width}px placeholder width`).toBeLessThanOrEqual(fit.room);
 
       // Every visible target is at least 44px tall.
-      for (const selector of ['.nav-item', '.nav-section > summary', '.nav-search input']) {
+      for (const selector of ['.nav-item', '.nav-more > summary', '.nav-section > summary', '.nav-search input']) {
         for (const box of await nav.locator(selector).evaluateAll(els => els.filter(el => (el as HTMLElement).offsetParent).map(el => el.getBoundingClientRect().height))) {
           expect(box, `${theme} ${width}px ${selector} height`).toBeGreaterThanOrEqual(44);
         }

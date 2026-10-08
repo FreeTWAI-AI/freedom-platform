@@ -1,4 +1,6 @@
 import {useEffect,useId,useRef,useState} from 'react';
+import {useLanguage} from '../language';
+import {useLocalAction} from '../useLocalAction';
 import './SkillDiscovery.css';
 
 export type SkillShareContent={introductions:string[];illustration_url:string;illustration_alt:string};
@@ -41,14 +43,15 @@ type Tracked={path:string;week:number;all:number};
 export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissionId?:string;title:string}){
   const key=submissionId?`submission:${submissionId}`:bookId;
   const [loading,setLoading]=useState(false),[loaded,setLoaded]=useState<Loaded|null>(null),[index,setIndex]=useState(0);
-  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[manual,setManual]=useState(false);
+  const [open,setOpen]=useState(false),[status,setStatus]=useState(''),[manual,setManual]=useState(false);
   const [tracked,setTracked]=useState<Tracked|'plain'|null>(null);
+  const {t}=useLanguage(),action=useLocalAction([key,title,open,index,tracked,loading]),busy=action.pending!==null;
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),manualField=useRef<HTMLTextAreaElement>(null);
   // Every reroll, close, book change or unmount bumps the generation so late async results are ignored.
   const generation=useRef(0),request=useRef<AbortController|null>(null),trackRequest=useRef<AbortController|null>(null);
   useEffect(()=>{
     generation.current++;request.current?.abort();request.current=null;trackRequest.current?.abort();trackRequest.current=null;
-    setLoaded(null);setLoading(false);setOpen(false);setBusy(false);setStatus('');setManual(false);setTracked(null);
+    setLoaded(null);setLoading(false);setOpen(false);setStatus('');setManual(false);setTracked(null);
     return()=>{generation.current++;request.current?.abort();request.current=null;trackRequest.current?.abort();trackRequest.current=null;};
   },[key]);
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();else if(!open&&dialog.current?.open)dialog.current.close();},[open]);
@@ -71,7 +74,7 @@ export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissio
       if(!controller.signal.aborted)setTracked(link?.path?{path:link.path,week:link.points?.week??0,all:link.points?.all??0}:'plain');
     }catch{if(!controller.signal.aborted)setTracked('plain');}
   }
-  function resetStatus(){generation.current++;setStatus('');setManual(false);setBusy(false);}
+  function resetStatus(){generation.current++;setStatus('');setManual(false);}
   async function load(show:boolean){
     const target=key!,controller=new AbortController(),run=++generation.current;
     request.current?.abort();request.current=controller;setLoading(true);setStatus('');setManual(false);void track();
@@ -89,23 +92,20 @@ export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissio
   function reroll(){resetStatus();setIndex(value=>randomIntroductionIndex(introductions.length,value));}
   function fallback(message:string){setManual(true);setStatus(message);}
   async function copy(value:Payload,run:number){
-    if(!navigator.clipboard?.writeText){fallback('無法自動複製，請選取並複製下方內容');return;}
-    try{await navigator.clipboard.writeText(value.copy);if(run===generation.current)setStatus(value.text?'已複製介紹與連結':'已複製技能連結');}
-    catch{if(run===generation.current)fallback('無法自動複製，請選取並複製下方內容');}
+    const result=await action.run('copy',()=>{setStatus('');setManual(false);return navigator.clipboard.writeText(value.copy);});
+    if(run!==generation.current)return;
+    if(result.status==='done')setStatus(value.text?'已複製介紹與連結':'已複製技能連結');
+    else if(result.status==='failed')fallback('無法自動複製，請選取並複製下方內容');
   }
   async function send(){
-    const value=payload;resetStatus();const run=generation.current;setBusy(true);
-    try{
-      if(typeof navigator.share==='function'){
-        // Called directly inside the click so browsers keep the user activation.
-        try{await navigator.share(value.text?{title:value.title,text:value.text,url:value.url}:{title:value.title,url:value.url});if(run===generation.current)setStatus('分享已送出');}
-        catch(error){if(run!==generation.current||(error as {name?:string}|null)?.name==='AbortError')return;fallback('系統分享沒有完成，請選取並複製下方內容');}
-        return;
-      }
-      await copy(value,run);
-    }finally{if(run===generation.current)setBusy(false);}
+    const value=payload,run=generation.current;
+    if(typeof navigator.share!=='function'){await copy(value,run);return;}
+    const result=await action.run('share',()=>{setStatus('');setManual(false);return navigator.share(value.text?{title:value.title,text:value.text,url:value.url}:{title:value.title,url:value.url});});
+    if(run!==generation.current)return;
+    if(result.status==='done')setStatus('分享已送出');
+    else if(result.status==='failed'&&(result.error as {name?:string}|null)?.name!=='AbortError')fallback('系統分享沒有完成，請選取並複製下方內容');
   }
-  async function copyOnly(){const value=payload;resetStatus();const run=generation.current;setBusy(true);try{await copy(value,run);}finally{if(run===generation.current)setBusy(false);}}
+  async function copyOnly(){await copy(payload,generation.current);}
   return <div className="skill-share">
     <button ref={trigger} type="button" className="btn btn-ghost" disabled={loading&&!open} aria-haspopup="dialog" onClick={()=>void load(true)}>{loading&&!open?'正在準備分享…':'分享技能'}</button>
     <dialog ref={dialog} className="skill-share-dialog" aria-labelledby={`${id}-title`} aria-describedby={`${id}-text`} data-book-id={submissionId?undefined:bookId} data-submission-id={submissionId} onCancel={event=>{event.stopPropagation();event.preventDefault();close();}} onClose={event=>{event.stopPropagation();setOpen(false);}}>
@@ -120,8 +120,8 @@ export function SkillShare({bookId,submissionId,title}:{bookId?:string;submissio
         {tracked&&tracked!=='plain'&&<p className="promotion-share-points">這個連結：本週 {tracked.week} 分・累計 {tracked.all} 分</p>}
         <div className="skill-share-actions">
           {introductions.length>1&&<button type="button" className="btn btn-ghost" disabled={busy} onClick={reroll}><span aria-hidden="true">🎲 </span>換一句</button>}
-          <button type="button" className="btn btn-primary" disabled={busy||loading||tracked===null} onClick={()=>void send()}>{current.content?'分享':'分享連結'}</button>
-          <button type="button" className="btn btn-ghost" disabled={busy||loading||tracked===null} onClick={()=>void copyOnly()}>{current.content?'複製介紹與連結':'複製連結'}</button>
+          <button type="button" className="btn btn-primary" aria-busy={action.pending==='share'} disabled={busy||loading||tracked===null} onClick={()=>void send()}>{action.pending==='share'?t('action.sharing'):current.content?'分享':'分享連結'}</button>
+          <button type="button" className="btn btn-ghost" aria-busy={action.pending==='copy'} disabled={busy||loading||tracked===null} onClick={()=>void copyOnly()}>{action.pending==='copy'?t('action.copying'):current.content?'複製介紹與連結':'複製連結'}</button>
         </div>
         {status&&<p className="skill-share-status" role="status">{status}</p>}
         {manual&&<div className="field"><label htmlFor={`${id}-manual`}>手動複製分享內容</label><textarea ref={manualField} id={`${id}-manual`} value={payload.copy} readOnly rows={4} onFocus={event=>event.currentTarget.select()}/></div>}

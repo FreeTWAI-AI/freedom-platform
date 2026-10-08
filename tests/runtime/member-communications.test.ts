@@ -48,6 +48,77 @@ const notify=(input:NotifyMemberInput)=>transaction(pool,q=>notifyMember(q,input
 const count=async(sql:string,values:unknown[]=[])=>(await pool.query(`SELECT count(*)::int AS n FROM ${sql}`,values)).rows[0].n as number;
 const noPrivate=(data:unknown)=>{const text=JSON.stringify(data);for(const needle of ['@local.test','@example.invalid','password','csrf','token_hash','email'])assert.ok(!text.includes(needle),`leaked ${needle}: ${text}`);};
 
+test('conversation search finds older literal text with stable ties and never marks it read',async()=>{
+  const [a]=await signInAll(),ids:string[]=[];
+  for(let i=0;i<26;i++){
+    const id=randomUUID();ids.push(id);
+    await pool.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+      VALUES($1,$2,$3,$4,$5,timestamptz '2026-10-07T00:00:00.123456Z')`,[id,DEMO_COMMUNITY,B,A,`合成 Partner 100%_\\ 訊息 ${i}`]);
+  }
+  await pool.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body) VALUES($1,$2,$3,$4)',[DEMO_COMMUNITY,C,B,'其他人的 Partner 100%_\\']);
+  const path=`/me/conversations/${B}/messages/search`,query=new URLSearchParams({q:'100%_\\',limit:'10'});
+  const first=await request(`${path}?${query}`,a);assert.equal(first.status,200,JSON.stringify(first.data));
+  const expected=ids.sort().reverse();assert.deepEqual(first.data.items.map((item:any)=>item.message_id),expected.slice(0,10));
+  const newer=(await pool.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$2,$3,$4,timestamptz '2026-10-08T00:00:00Z') RETURNING message_id`,[DEMO_COMMUNITY,B,A,'較新的 Partner 100%_\\'])).rows[0].message_id;
+  const all=[...first.data.items];let cursor=first.data.next_cursor;
+  while(cursor){query.set('cursor',cursor);const next=await request(`${path}?${query}`,a);assert.equal(next.status,200);all.push(...next.data.items);cursor=next.data.next_cursor;}
+  assert.deepEqual(all.map(item=>item.message_id),expected);assert.equal(all.some(item=>item.message_id===newer),false);
+  assert.equal((await request(`${path}?q=partner`,a)).data.items.length,20);
+  assert.equal((await request(`${path}?q=其他人的`,a)).data.items.length,0);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);assert.equal(await count('command_receipts'),0);noPrivate(first.data);
+});
+
+test('conversation search rejects foreign cursors, unavailable identities and invalid queries',async()=>{
+  const [a]=await signInAll(),path=`/me/conversations/${B}/messages/search`;
+  const foreign=(await pool.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body) VALUES($1,$2,$3,$4) RETURNING message_id',[DEMO_COMMUNITY,B,C,'合成外部對話'])).rows[0].message_id;
+  assert.equal((await request(`${path}?q=合成&cursor=${foreign}`,a)).status,404);
+  for(const query of ['q=','q=%20','q='+ 'a'.repeat(101),'q=a&limit=51','q=a&cursor=bad','q=a&extra=1'])assert.equal((await request(`${path}?${query}`,a)).status,422,query);
+  assert.equal((await request(`${path}?q=合成`)).status,401);
+  const other=await extraMember('search-foreign',randomUUID());
+  assert.equal((await request(`/me/conversations/${other.id}/messages/search?q=合成`,a)).status,404);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);
+  assert.equal((await request(`${path}?q=合成`,a)).status,401);
+});
+
+test('one bulk inbox command clears all pages and incoming DMs while preserving history and other members',async()=>{
+  const [a,b]=await signInAll();
+  for(let n=0;n<27;n++)await notify(notice(A));
+  await notify(notice(B));
+  await request(`/me/conversations/${A}/messages`,b,{body:'給 A 的未讀訊息'});
+  await request(`/me/conversations/${B}/messages`,a,{body:'給 B 的未讀訊息'});
+  const first=await request('/me/inbox/read-all',a,{});assert.equal(first.status,200,JSON.stringify(first.data));
+  assert.equal(first.data.notifications_updated,27);assert.equal(first.data.direct_messages_updated,1);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,0);
+  assert.equal((await request('/me/conversations',a)).data.unread_count,0);
+  assert.equal((await request('/me/notifications',b)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',b)).data.unread_count,1);
+  assert.equal(await count('member_notifications'),28);assert.equal(await count('member_direct_messages'),2);noPrivate(first.data);
+});
+
+test('bulk inbox replay cannot clear new arrivals and revoked sessions cannot replay it',async()=>{
+  const [a,b]=await signInAll(),key=randomUUID();
+  await notify(notice(A));
+  const first=await request('/me/inbox/read-all',a,{},{key});assert.equal(first.status,200);
+  await notify(notice(A));await request(`/me/conversations/${A}/messages`,b,{body:'第一次標記後的新訊息'});
+  const replay=await request('/me/inbox/read-all',a,{},{key});assert.deepEqual(replay.data,first.data);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',a)).data.unread_count,1);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);
+  assert.equal((await request('/me/inbox/read-all',a,{},{key})).status,401);
+});
+
+test('bulk inbox denies missing authentication, CSRF, key, unfinished onboarding and actor overrides',async()=>{
+  const [a]=await signInAll();await notify(notice(A));
+  assert.equal((await request('/me/inbox/read-all',undefined,{})).status,401);
+  assert.equal((await request('/me/inbox/read-all',a,{},{csrf:'wrong'})).status,403);
+  assert.equal((await request('/me/inbox/read-all',a,{},{key:''})).status,400);
+  assert.equal((await request('/me/inbox/read-all',a,{recipient_ref:B})).status,422);
+  const pending=await extraMember('bulk-pending',DEMO_COMMUNITY,{ready:false});
+  assert.equal((await request('/me/inbox/read-all',await signIn(pending.email),{})).status,403);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+});
+
 test('notification inbox pages newest first with stable ties, counts unread across pages and GET never marks read',async()=>{
   const [a,b]=await signInAll();
   const ids:string[]=[];for(let i=0;i<5;i++)ids.push((await notify(notice(A,{title:`通知 ${i}`})))!.notification_id);
@@ -205,6 +276,38 @@ test('conversations show only own pairs sorted by latest message, with per-pair 
   assert.deepEqual(aThread.data.items.map((m:any)=>[m.body,m.read_at===null]),[['B1',true],['A2',false],['A1',false]]);
   assert.equal((await request(`/me/conversations/${C}/read`,a,{})).data.updated_count,0);
   assert.equal((await pool.query("SELECT read_at FROM member_direct_messages WHERE body='C1'")).rows[0].read_at,null);
+});
+
+test('snapshot-bounded private reads preserve later arrivals, other peers and stable timestamp ties',async()=>{
+  const [a,b,c]=await signInAll(),path=`/me/conversations/${A}/read`;
+  const sent=[];
+  for(let i=0;i<3;i++)sent.push((await request(`/me/conversations/${B}/messages`,a,{body:`boundary ${i}`})).data);
+  const ids=sent.map(item=>item.message_id).sort();
+  await pool.query("UPDATE member_direct_messages SET created_at=timestamptz '2026-09-24T09:00:00Z' WHERE message_id=ANY($1)",[ids]);
+  const foreign=(await request(`/me/conversations/${B}/messages`,c,{body:'another peer'})).data;
+  const outsidePair=(await request(`/me/conversations/${C}/messages`,a,{body:'another pair'})).data;
+  const key=randomUUID(),body={through_message_id:ids[1]};
+  assert.equal((await request(path,b,body,{key:''})).data.code,'idempotency_required');
+  assert.equal((await request(path,b,body,{csrf:'x'.repeat(43)})).data.code,'csrf_rejected');
+  for(const invalid of [{through_message_id:'invalid'},{through_message_id:1},{...body,read_at:'now'}])assert.equal((await request(path,b,invalid)).status,422);
+  for(const unavailable of [foreign.message_id,outsidePair.message_id,randomUUID()])assert.equal((await request(path,b,{through_message_id:unavailable})).status,404);
+  assert.equal(await count('member_direct_messages WHERE read_at IS NOT NULL'),0);
+  const first=await request(path,b,body,{key});assert.equal(first.status,200,JSON.stringify(first.data));assert.equal(first.data.updated_count,2);
+  assert.deepEqual((await request(path,b,body,{key})).data,first.data);
+  assert.equal((await request(path,b,{through_message_id:ids[2]},{key})).data.code,'idempotency_conflict');
+  const rows=(await pool.query('SELECT message_id,read_at FROM member_direct_messages WHERE message_id=ANY($1) ORDER BY message_id',[ids])).rows;
+  assert.deepEqual(rows.map(row=>row.read_at!==null),[true,true,false]);
+  assert.equal((await request(`/me/conversations/${A}/messages`,b)).data.unread_count,1);
+  assert.equal((await request('/me/conversations',b)).data.unread_count,2);
+  assert.equal((await request(path,b,{through_message_id:ids[0]})).data.updated_count,0,'older boundary never consumes the newer message');
+  const later=(await request(`/me/conversations/${B}/messages`,a,{body:'arrived after snapshot'})).data;
+  assert.equal((await request(path,b,body)).data.updated_count,0,'a new command still uses the displayed boundary');
+  assert.equal((await pool.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[later.message_id])).rows[0].read_at,null);
+  // An own outgoing bubble is also a valid displayed pair boundary.
+  const outgoing=(await request(`/me/conversations/${A}/messages`,b,{body:'viewer reply'})).data;
+  assert.equal((await request(path,b,{through_message_id:outgoing.message_id})).data.updated_count,2);
+  assert.equal((await pool.query('SELECT read_at FROM member_direct_messages WHERE message_id=$1',[foreign.message_id])).rows[0].read_at,null);
+  assert.equal((await request(path,b,{})).data.updated_count,0,'legacy empty-body command is still supported');
 });
 
 test('message and conversation pages are stable and counts stay constant across pages',async()=>{

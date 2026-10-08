@@ -137,7 +137,7 @@ const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openMessages(page:Page){
   await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息'}).click();await expect(page).toHaveURL(/#messages$/);
 }
-const tab=(page:Page,name:string)=>page.getByRole('tab',{name:new RegExp(`^${name}`)});
+const tab=(page:Page,name:string)=>page.locator('.messages-categories').getByRole('tab',{name:new RegExp(`^${name}`),includeHidden:true});
 const panel=(page:Page,name:string)=>page.getByRole('tabpanel',{name:new RegExp(`^${name}`)});
 const channelButton=(page:Page,kind:Kind,key:string)=>panel(page,copy[kind].tab).locator(`.member-channel-list button[data-channel-key="${key}"]`);
 const thread=(page:Page,kind:Kind)=>panel(page,copy[kind].tab).locator('.messages-thread');
@@ -178,14 +178,14 @@ test('two synthetic members chat in their own guild and squad through the real U
     // Four tabs in order; opening a chat tab lists channels only - no history GET, no read.
     for(const m of [sender,receiver,third])await openMessages(m.page);
     await expect(settings(sender.page)).toHaveAttribute('aria-expanded','false');await expect(settings(sender.page).locator('.settings-dot')).toHaveCount(0);
-    await expect(receiver.page.getByRole('tab')).toHaveText([/^通知/,/^公會閒聊/,/^小隊閒聊/,/^私人訊息/,/^世界聊天/]);
+    await expect(receiver.page.getByRole('tab')).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/,/^通知/]);
     for(const kind of ['guild','squad'] as const){
       const {key,name}=room[kind],r=receiver.page,s=sender.page,label=copy[kind].tab;
       receiver.channelRequests.length=0;
       // The previous guild remains selected until the squad click commits. Its
       // activity poll is valid during that interval; exercise the boundary with
       // a real focus refresh so a timing-dependent poll cannot break this test.
-      const previousActivity=kind==='squad'?`GET /api/v1/me/channels/guild/${room.guild.key}/activity`:null;
+      const previousActivity=kind==='squad'&&await thread(r,'guild').isVisible()?`GET /api/v1/me/channels/guild/${room.guild.key}/activity`:null;
       if(previousActivity){
         const priorPoll=r.waitForResponse(response=>`${response.request().method()} ${new URL(response.url()).pathname}`===previousActivity&&response.status()===200);
         await r.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -223,17 +223,19 @@ test('two synthetic members chat in their own guild and squad through the real U
       const rThread=thread(r,kind);await expect(rThread.getByRole('heading',{name:`${name}・${label}`})).toBeFocused();
       await expect(rThread.locator(`li[data-message-id="${rows[0].message_id}"] .messages-body`)).toHaveText(text);
       await expect(rThread.locator('.messages-bubbles b, .messages-bubbles img')).toHaveCount(0);
-      // Opening the history marked nothing read, on the API or in PostgreSQL.
-      expect(receiver.channelRequests.filter(entry=>entry.startsWith('POST'))).toEqual([]);
-      expect(await cursor(db,receiver,kind,key)).toBeUndefined();expect(await receiver.unread(`/me/channels/${kind}/${key}/messages?limit=1&offset=0`)).toBe(1);
+      // Entering the visible room synchronizes read state through its displayed message.
+      await expect.poll(()=>cursor(db,receiver,kind,key)).toBe(rows[0].sequence);
+      expect(receiver.channelRequests.filter(entry=>entry.startsWith('POST'))).toEqual([`POST /api/v1/me/channels/${kind}/${key}/read`]);
+      expect(await receiver.unread(`/me/channels/${kind}/${key}/messages?limit=1&offset=0`)).toBe(0);
       await noOverflow(r);
       const rBox=rThread.getByLabel(`在 ${name} 發言`);
       expect(await rBox.evaluate(node=>getComputedStyle(node).fontSize)).toBe('16px');
       await expect(r.locator(`#messages-panel-${kind} .messages-side`)).toBeHidden();
-      await tall([tab(r,label),r.getByRole('button',{name:`← 返回${kind==='guild'?'公會':'小隊'}列表`,exact:true}),rThread.getByRole('button',{name:'重新讀取訊息',exact:true}),rThread.getByRole('button',{name:'標為已讀',exact:true}),rThread.getByRole('button',{name:'送出',exact:true})]);
+      await expect(r.locator('.messages-categories')).toBeHidden();await expect(r.locator('.game-console-ticker')).toBeHidden();await expect(r.locator('.game-console-expanded')).toBeHidden();
+      expect((await rThread.getByRole('log').boundingBox())!.height).toBeGreaterThanOrEqual(844/2);
+      await tall([r.getByRole('button',{name:`← 返回${kind==='guild'?'公會':'小隊'}列表`,exact:true}),rThread.getByRole('button',{name:'重新讀取訊息',exact:true}),rThread.getByRole('button',{name:'送出',exact:true})]);
 
-      // Explicit read: PostgreSQL cursor, API and badges move together; private and notification unread stay.
-      await rThread.getByRole('button',{name:'標為已讀',exact:true}).click();
+      // PostgreSQL cursor, API and badges agree; private and notification unread stay.
       await expect(tab(r,label)).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
       expect(await cursor(db,receiver,kind,key)).toBe(rows[0].sequence);
       expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
@@ -248,19 +250,21 @@ test('two synthetic members chat in their own guild and squad through the real U
       await expect(rThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);await expect(rBox).toHaveValue('');
       expect(await receiver.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
       await expect(sThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);
-      await expect(tab(s,label).locator('.messages-count')).toHaveText('1 則未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveText('1 則未讀');
-      expect(await cursor(db,sender,kind,key),'automatic receipt never marks read').toBeUndefined();
+      const replySequence=(await db.query('SELECT sequence::text FROM member_channel_messages WHERE kind=$1 AND channel_key=$2 AND sender_ref=$3',[kind,key,receiver.id])).rows[0].sequence;
+      await expect.poll(()=>cursor(db,sender,kind,key)).toBe(replySequence);
+      await expect(tab(s,label)).toContainText('沒有未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveCount(0);
       await sThread.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
       await expect(sThread.getByRole('list',{name:'頻道訊息'}).locator('li').last().locator('.messages-body')).toHaveText(reply);
       await expect(sThread.locator('.messages-bubbles i')).toHaveCount(0);
-      expect(await sender.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(1);
-      // A manual re-read preserves the same real unread facts without marking read.
-      await expect(tab(s,label).locator('.messages-count')).toHaveText('1 則未讀');await expect(channelButton(s,kind,key).locator('.messages-count')).toHaveText('1 則未讀');
+      expect(await sender.unread(`/me/channels?kind=${kind}&limit=1&offset=0`)).toBe(0);
+      // A subsequent GET cannot undo the confirmed cursor.
+      expect(await cursor(db,sender,kind,key)).toBe(replySequence);await expect(tab(s,label)).toContainText('沒有未讀');
       // The profile menu stays closed; the channel badge is the relevant unread indicator.
       if(kind==='guild')await expect(settings(s)).toHaveAttribute('aria-expanded','false');
       expect(await count(db,'member_channel_messages WHERE kind=$1 AND channel_key=$2',[kind,key])).toBe(2);
       await noOverflow(r);
       await shot(r,`${kind}-320`);await shot(s,`${kind}-desktop`);
+      await rThread.getByRole('button',{name:`← 返回${kind==='guild'?'公會':'小隊'}列表`,exact:true}).click();await expect(r.locator('.messages-categories')).toBeVisible();await tall([tab(r,label)]);
     }
 
     // A third room member sees both rooms but never the private pair.
@@ -301,6 +305,9 @@ test('after leaving a guild and a squad through the real API, the open chat clea
       await openMessages(l);await tab(l,label).click();await channelButton(l,kind,key).click();
       const lThread=thread(l,kind);
       await expect(lThread.locator(`li[data-message-id="${earlier.message_id}"] .messages-body`)).toHaveText(secret);
+      await expect.poll(()=>cursor(db,leaver,kind,key)).toBe(earlier.sequence);
+      await expect(lThread.getByText('正在同步已讀…',{exact:true})).toHaveCount(0);
+      const beforeLeave=await cursor(db,leaver,kind,key);
       await lThread.getByLabel(`在 ${name} 發言`).fill('退出後不應送出的草稿');
       const mine=await expectOk(leaver.post(`/me/channels/${kind}/${key}/messages`,{body:`${kind} 退出者自己的話`}),201);
 
@@ -324,7 +331,7 @@ test('after leaving a guild and a squad through the real API, the open chat clea
 
       // The room keeps both messages for the stayer; nothing was written after the leave.
       expect(await count(db,'member_channel_messages WHERE kind=$1 AND channel_key=$2 AND sender_ref=$3',[kind,key,leaver.id])).toBe(1);
-      expect(await cursor(db,leaver,kind,key)).toBeUndefined();
+      expect(await cursor(db,leaver,kind,key)).toBe(beforeLeave);
       await openMessages(stayer.page);await tab(stayer.page,label).click();await channelButton(stayer.page,kind,key).click();
       await expect(thread(stayer.page,kind).locator(`li[data-message-id="${mine.message_id}"]`)).toHaveCount(1);
       await shot(stayer.page,`revoked-${kind}-desktop`);

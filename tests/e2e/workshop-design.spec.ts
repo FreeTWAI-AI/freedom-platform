@@ -1,4 +1,4 @@
-import { navigate } from './navigation.js';
+import { navigate, expandHomeSections,openPageTools } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 async function fits(page: Page, label: string) {
@@ -24,6 +24,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
+  await expandHomeSections(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   for(const cover of await page.locator('.home-module-cover').all()){
     const box=await cover.boundingBox();expect(box!.width).toBeLessThanOrEqual(112);expect(box!.height).toBeLessThanOrEqual(112);
@@ -40,6 +41,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await navigate(page, button);
       await expect(page.getByRole('heading', { name: heading, level: 1, exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+      await openPageTools(page);
       await expect(page.locator('.topbar').getByRole('button',{name:'參與編修'})).toBeVisible();
       await expect(page.locator('.development-context')).toHaveCount(0);
       await expect(page.locator('.expedition-banner-art,.positioning-heading,.home-direction,.home-cooperation')).toHaveCount(0);
@@ -47,6 +49,7 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
       await expect(page.getByRole('main').getByRole('status').filter({ hasText: /載入|讀取/ })).toHaveCount(0);
       await expect(page.getByRole('alert')).toHaveCount(0);
       if(button==='會員首頁'){
+        await expandHomeSections(page);
         await expect(page.locator('.home-module-card')).toHaveCount(4);
         for(const label of await page.locator('.home-member-skills > span,.home-next-eyebrow,.home-member-name > .positioning-title,.home-partner-heading h2,.home-partner-swap').all()){
           expect(await label.evaluate(element=>parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
@@ -81,12 +84,19 @@ test('logo stays whole and RPG modules remain navigable across desktop and narro
     }
   }
   await navigate(page, '會員首頁');
+  await expandHomeSections(page);
   await page.screenshot({ path: 'test-results/design-home-phone.png', fullPage: true });
   await page.screenshot({ path: 'test-results/design-home-phone-viewport.png' });
   for (const file of ['workshop-hub', 'skill-codex', 'cooperation-forge', 'market-network']) {
     const response = await page.request.get(`/art/rpg/${file}.webp`);
     expect(response.status()).toBe(200);expect(response.headers()['content-type']).toContain('image/webp');
   }
-  await expect.poll(async () => page.locator('img[src^="/art/rpg/"]').evaluateAll(images => images.every(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  // Lazy artwork loads when a member opens the section and scrolls to it.
+  await expect(page.locator('.home-module-cover img[src^="/art/rpg/"]')).toHaveCount(4);
+  for (const image of await page.locator('img[src^="/art/rpg/"]').all()) {
+    if (!await image.isVisible()) continue;
+    await image.scrollIntoViewIfNeeded();
+    await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  }
   expect(errors).toEqual([]);
 });

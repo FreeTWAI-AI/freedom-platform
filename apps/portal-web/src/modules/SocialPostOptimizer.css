@@ -1,0 +1,15 @@
+.social-composer-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.social-composer-tools .btn{min-height:44px;width:auto;padding:8px 12px;font-size:.875rem}
+.social-composer-tools .btn[aria-pressed="true"],.optimizer-modes .btn[aria-pressed="true"]{background:var(--green-soft);color:var(--ink);border-color:var(--line)}
+.social-post-optimizer{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev);color:var(--ink)}
+.social-post-optimizer :is(h3,h4,p){margin:0}
+.social-post-optimizer h3,.social-post-optimizer h4{font-size:1rem;line-height:1.5}
+.social-post-optimizer header p,.optimizer-fine-print{color:var(--muted);font-size:.875rem;line-height:1.6}
+.optimizer-modes,.optimizer-actions{display:flex;flex-wrap:wrap;gap:6px}
+.social-post-optimizer .btn{min-height:44px;width:auto;justify-self:start;padding:8px 12px;font-size:.875rem}
+.social-post-optimizer :is(input,select,textarea){width:100%;min-width:0;font-size:16px}
+.social-post-optimizer textarea{min-height:96px}
+.optimizer-export summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:.875rem}
+.optimizer-export pre,.optimizer-result{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.6;font:inherit;margin:0}
+.optimizer-preview{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px;min-width:0}
+@media(max-width:440px){.social-post-optimizer{padding:12px}.social-post-optimizer .optimizer-modes .btn{flex:1;padding-inline:6px}}

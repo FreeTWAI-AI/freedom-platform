@@ -5,6 +5,8 @@ import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {MessageContentInput,messageContents,storedMessageBody} from './content.js';
+import {markAllMemberChannelsRead} from './channels.js';
+import {MessageSearchQuery,messageSearchPattern,boundedMessageSearch,type MessageSearchPage} from './message-search.js';
 import {
   COMMUNICATION_PAGE_DEFAULT_LIMIT,COMMUNICATION_PAGE_MAX_LIMIT,DIRECT_MESSAGE_BODY_MAX,
   type ConversationActivity,type ConversationPage,type Message,type MessagePage,type Notification,type NotificationList,type Participant,
@@ -15,6 +17,7 @@ export const CommunicationPageQuery=z.object({
   offset:z.coerce.number().int().min(0).max(10000).default(0),
 }).strict();
 const Empty=z.object({}).strict();
+const ConversationReadInput=z.object({through_message_id:z.uuid().optional()}).strict();
 const MessageInput=MessageContentInput;
 export const DIRECT_MESSAGE_RATE_LIMIT=20,DIRECT_MESSAGE_RATE_WINDOW_SECONDS=60;
 
@@ -85,6 +88,20 @@ export async function markNotificationRead(pool:Pool,input:Command,rawId:string)
     const row=(await q.query(`UPDATE member_notifications SET read_at=COALESCE(read_at,now()) WHERE notification_id=$1 AND community_id=$2 AND recipient_ref=$3
       RETURNING notification_id,read_at`,[id,input.actor.community_id,input.actor.user_id])).rows[0];
     return {notification_id:row.notification_id as string,read_at:iso(row.read_at)!};
+  });
+}
+
+/** One explicit command clears the viewer's inbox across pages and rooms.
+ * Replaying the receipt never consumes messages that arrived afterwards. */
+export async function markAllInboxRead(pool:Pool,input:Command){
+  Empty.parse(input.body);
+  return command(pool,input,q=>currentMember(q,input.actor,false),async q=>{
+    const {community_id,user_id}=input.actor;
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`member-inbox-read-all/${community_id}/${user_id}`]);
+    const notices=await q.query('UPDATE member_notifications SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
+    const messages=await q.query('UPDATE member_direct_messages SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
+    const channels=await markAllMemberChannelsRead(q,input.actor);
+    return {notifications_updated:notices.rowCount??0,direct_messages_updated:messages.rowCount??0,channels_updated:channels};
   });
 }
 
@@ -165,6 +182,26 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
   });
 }
 
+export async function searchConversationMessages(pool:Pool,actor:Actor,rawPeer:string,raw:unknown):Promise<MessageSearchPage<Message>>{
+  const {q:query,limit,cursor}=MessageSearchQuery.parse(raw),id=peerId(actor,rawPeer);
+  return snapshot(pool,actor,async q=>{
+    await resolvePeer(q,actor,id);
+    return boundedMessageSearch(q,async()=>{
+      // Resolve the cursor from this same pair, keeping PostgreSQL microseconds.
+      // A cursor from another conversation never provides a pagination boundary.
+      if(cursor)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
+        AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
+        [cursor,actor.community_id,actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
+      const rows=(await q.query(`SELECT message_id,sender_ref,recipient_ref,body,created_at,read_at,sticker_id,reply_to_message_id FROM member_direct_messages
+        WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
+          AND body ILIKE $4 AND ($5::uuid IS NULL OR (created_at,message_id)<(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$5))
+        ORDER BY created_at DESC,message_id DESC LIMIT $6`,[actor.community_id,actor.user_id,id,messageSearchPattern(query),cursor??null,limit+1])).rows;
+      const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'direct',actor.user_id);
+      return {items:shown.map((row,index)=>({...message(row),...contents[index]})),next_cursor:rows.length>limit?shown[shown.length-1].message_id:null};
+    });
+  });
+}
+
 export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):Promise<Message>{
   const body=MessageInput.parse(input.body),id=peerId(input.actor,rawPeer);
   // Receipts keep only the message id; replay rereads the sender's own row, so
@@ -199,12 +236,19 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):
 }
 
 export async function markConversationRead(pool:Pool,input:Command,rawPeer:string){
-  Empty.parse(input.body);const id=peerId(input.actor,rawPeer);
-  return command(pool,input,async q=>{await currentMember(q,input.actor,false);await resolvePeer(q,input.actor,id);},async q=>{
-    // Only messages the peer sent to the viewer and already committed are marked.
+  const {through_message_id}=ConversationReadInput.parse(input.body),through=through_message_id?.toLowerCase(),id=peerId(input.actor,rawPeer);
+  return command(pool,input,async q=>{
+    await currentMember(q,input.actor,false);await resolvePeer(q,input.actor,id);
+    if(through)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
+      AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,
+      [through,input.actor.community_id,input.actor.user_id,id])).rowCount===1,404,'message_not_found','找不到這則訊息。');
+  },async q=>{
+    // Opening a thread marks only through its displayed snapshot. A later arrival stays unread.
+    // The empty-body legacy command remains compatible; the portal always supplies a boundary.
     const row=(await q.query(`WITH marked AS (UPDATE member_direct_messages SET read_at=now()
-        WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL RETURNING 1)
-      SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id])).rows[0];
+        WHERE community_id=$1 AND recipient_ref=$2 AND sender_ref=$3 AND read_at IS NULL
+          AND ($4::uuid IS NULL OR (created_at,message_id)<=(SELECT created_at,message_id FROM member_direct_messages WHERE message_id=$4)) RETURNING 1)
+      SELECT now() AS read_at,(SELECT count(*)::int FROM marked) AS updated_count`,[input.actor.community_id,input.actor.user_id,id,through??null])).rows[0];
     return {user_id:id,read_at:iso(row.read_at)!,updated_count:row.updated_count as number};
   });
 }

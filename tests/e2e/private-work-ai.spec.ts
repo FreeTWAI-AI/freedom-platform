@@ -1,8 +1,44 @@
 import { test, expect, type Page } from './fixtures.js';
 import { Pool } from 'pg';
-import { navigate } from './navigation.js';
+import { navigate,openPageTools } from './navigation.js';
 
 const fixtureEnabled = process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1';
+test.describe('Social Post uses the existing isolated member model pipeline',()=>{
+  test.skip(!fixtureEnabled,'Requires the existing isolated synthetic private-AI fixture; no real provider or account tokens.');
+  for(const lostAck of [false,true])test(`one approved optimization previews copy and survives dialog close, lost execute ACK=${lostAck}`,async({page,e2eAuthPool})=>{
+    await login(page);await readyStep(page,`合成測試：文案連線 ${lostAck}`);
+    await page.goto('/#home');await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'建立貼文',exact:true}),draft='這是本人真實草稿的合成演練，想找夥伴一起做作品。';
+    const sent:string[]=[];let workId='';
+    page.on('request',request=>{if(/\/me\/model-steps\/.+:execute$/.test(new URL(request.url()).pathname))sent.push(request.headers()['idempotency-key']);});
+    page.on('response',async response=>{if(response.request().method()==='POST'&&response.url().endsWith('/me/private-work')&&response.ok())workId=(await response.json()).workId;});
+    if(lostAck)await page.route('**/api/v1/me/model-steps/*:execute',async route=>{await route.fetch();await route.abort('failed');});
+    await dialog.getByLabel('貼文內容',{exact:true}).fill(draft);
+    await dialog.getByRole('button',{name:'✦ Social Post 優化',exact:true}).click();
+    await dialog.getByRole('combobox',{name:'我的模型',exact:true}).selectOption({index:1});
+    await dialog.getByRole('button',{name:'同意送出草稿，優化一次',exact:true}).click();
+    if(lostAck){
+      await expect(dialog.getByRole('button',{name:'確認原請求結果',exact:true})).toBeVisible();
+      await dialog.getByRole('button',{name:'關閉發文',exact:true}).click();
+      await navigate(page,'社群分享');
+      await page.getByRole('button',{name:'建立貼文',exact:true}).click();
+      await dialog.getByRole('button',{name:'✦ Social Post 優化',exact:true}).click();
+      await dialog.getByRole('button',{name:'取回這次優化的原稿',exact:true}).click();
+      await dialog.getByRole('button',{name:'確認原請求結果',exact:true}).click();
+    }
+    const preview=dialog.getByRole('region',{name:'優化文案預覽'});await expect(preview).toBeVisible();
+    await expect(preview).toContainText('本機合成測試，未使用真實模型');
+    await expect(dialog.getByLabel('貼文內容',{exact:true})).toHaveValue(draft);
+    expect(sent).toHaveLength(1);expect(sent[0]).toBeTruthy();
+    await expect.poll(async()=>Number((await e2eAuthPool.query('SELECT count(*)::int n FROM private_model_work_results WHERE work_item_id=$1',[workId])).rows[0].n)).toBe(1);
+    await dialog.getByRole('button',{name:'採用這版文案',exact:true}).click();
+    await expect(dialog.getByLabel('貼文內容',{exact:true})).not.toHaveValue(draft);
+    await dialog.getByRole('button',{name:'復原原稿',exact:true}).click();await expect(dialog.getByLabel('貼文內容',{exact:true})).toHaveValue(draft);
+    expect(sent).toHaveLength(1);
+    const saved=(await e2eAuthPool.query('SELECT objective FROM work_items WHERE work_item_id=$1',[workId])).rows[0].objective;
+    expect(saved).toContain(JSON.stringify({draft}));
+  });
+});
 async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
@@ -12,6 +48,7 @@ async function login(page: Page) {
   await navigate(page, '私人工作與 AI');
   await expect(page.getByRole('heading', { level: 1, name: '私人工作與 AI' })).toBeVisible();
   const tools = page.getByRole('group', { name: '私人工作與 AI頁面工具', exact: true });
+  await openPageTools(page);
   await expect(tools.getByRole('button')).toHaveCount(3);
   for (const name of ['提出想法', '頁面說明', '參與編修']) await expect(tools.getByRole('button', { name, exact: true })).toBeVisible();
 }
@@ -86,6 +123,7 @@ test.describe('isolated SQL and loopback synthetic model fixture', () => {
     for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
       await page.setViewportSize({ width, height });
       await page.evaluate(() => scrollTo(0, 0));
+      await openPageTools(page);
       for (const name of ['提出想法', '頁面說明', '參與編修']) await expect(page.getByRole('group', { name: '私人工作與 AI頁面工具', exact: true }).getByRole('button', { name, exact: true })).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`private-ai-${width}.png`), fullPage: true });

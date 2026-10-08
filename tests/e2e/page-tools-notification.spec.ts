@@ -1,4 +1,5 @@
 import {test,expect,type Page} from './fixtures.js';
+import {openPageTools} from './navigation.js';
 
 const widths=[320,390,820,1280] as const;
 const themes=[['light','自由工坊－明亮'],['dark','自由工坊－夜航']] as const;
@@ -20,15 +21,16 @@ async function selectTheme(page:Page,id:(typeof themes)[number][0],label:(typeof
   await expect(page.getByRole('menu',{name:'個人檔案'})).toBeHidden();
 }
 
-test('all three page tools show their labels and the account buttons match them in height',async({page})=>{
+test('page tools expose labels on demand and preserve touch targets, icons and theme colours',async({page})=>{
   await page.setViewportSize({width:320,height:720});
   await page.goto('/');
+  await openPageTools(page);
   for(const [kind,name] of toolNames){
-    const tool=page.locator(`.login-page-tools .page-tool-button--${kind}`);
+    const tool=page.locator(`.login-card-heading .page-tool-button--${kind}`);
     await expect(tool.locator('.page-tool-label')).toHaveText(name);
     await expect(tool).toHaveAccessibleName(name);
   }
-  const signedOut=page.locator('.login-page-tools .page-tool-button--idea');
+  const signedOut=page.locator('.login-card-heading .page-tool-button--idea');
   const signedOutBox=await signedOut.boundingBox();
   expect(signedOutBox!.width).toBeGreaterThanOrEqual(40);
   expect(signedOutBox!.height).toBeGreaterThanOrEqual(40);
@@ -44,6 +46,7 @@ test('all three page tools show their labels and the account buttons match them 
     await page.setViewportSize({width,height:width<500?720:900});
     for(const [id,label] of themes){
       await selectTheme(page,id,label);
+      await openPageTools(page);
       const where=`${id} ${width}`;
       for(const [kind,name] of toolNames){
         const tool=page.locator(`.topbar .page-tool-button--${kind}`);
@@ -64,9 +67,12 @@ test('all three page tools show their labels and the account buttons match them 
         };
         const title=document.querySelector('.topbar h1')!.getBoundingClientRect();
         const ideaBox=document.querySelector('.page-tool-button--idea')!.getBoundingClientRect();
-        const actions=[...document.querySelectorAll('.topbar-actions .btn')].map(node=>{
+        // Closed dialogs stay in the DOM; only their visible toolbar triggers
+        // belong to the row, while dialog controls have separate coverage.
+        const actions=[...document.querySelectorAll('.topbar-actions .btn')].filter(node=>node.getClientRects().length>0).map(node=>{
           const box=node.getBoundingClientRect();
-          return {name:node.getAttribute('aria-label')||(node.textContent??'').trim().slice(0,12),width:box.width,height:box.height,top:box.top};
+          const group=[...document.querySelectorAll('.topbar-actions')].indexOf(node.closest('.topbar-actions')!);
+          return {name:node.getAttribute('aria-label')||(node.textContent??'').trim().slice(0,12),width:box.width,height:box.height,top:box.top,group};
         });
         return {
           overflow:document.documentElement.scrollWidth-innerWidth,
@@ -85,16 +91,22 @@ test('all three page tools show their labels and the account buttons match them 
       expect(metrics.overlap,where).toBe(false);
       const bell=metrics.actions.find(action=>action.name.startsWith('通知'));
       expect(bell,where).toBeTruthy();
+      const share=metrics.actions.find(action=>action.name==='分享或提交');
+      expect(share,where).toBeTruthy();
+      expect(share!.group,where).not.toBe(bell!.group);
       for(const action of metrics.actions){
+        // Account controls and the page's share action occupy separate rows.
+        // Check alignment within each real row and consistent sizes across both.
+        const anchor=metrics.actions.find(item=>item.group===action.group)!;
         expect(Math.abs(action.height-bell!.height),`${where} ${action.name}`).toBeLessThanOrEqual(1);
-        expect(Math.abs(action.top-bell!.top),`${where} ${action.name}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(action.top-anchor.top),`${where} ${action.name}`).toBeLessThanOrEqual(1);
         expect(action.width,`${where} ${action.name}`).toBeGreaterThanOrEqual(40);
         expect(action.height,`${where} ${action.name}`).toBeGreaterThanOrEqual(40);
       }
       for(const tool of metrics.tools){
         expect(tool,where).toBeTruthy();
         expect(Math.abs(tool!.height-bell!.height),where).toBeLessThanOrEqual(1);
-        expect(Math.abs(tool!.top-metrics.tools[0]!.top),where).toBeLessThanOrEqual(1);
+        expect(tool!.top,where).toBeGreaterThan(metrics.actions[0].top);
         expect(tool!.radius,where).toBe(metrics.tools[0]!.radius);
       }
       for(const icon of [metrics.icons.help,metrics.icons.edit,metrics.icons.bell]){

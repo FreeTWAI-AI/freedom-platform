@@ -1,0 +1,1514 @@
+{
+  "schema": "freedom.supplied-sticker-pack/v1",
+  "pack": "freetwai-v2",
+  "provenance": "48 images supplied by Hao in this task for submission to freedom-platform. Existing artwork, text and white background preserved; no generation or authorship claim.",
+  "encoder": {
+    "pillow": "11.3.0",
+    "webp": "1.5.0",
+    "method": 6,
+    "resample": "LANCZOS",
+    "metadata": "omitted"
+  },
+  "budgets": {
+    "combined_ratio_max": 0.25,
+    "image_bytes_max": 98304,
+    "thumbnail_bytes_max": 12288
+  },
+  "totals": {
+    "count": 48,
+    "source_bytes": 16262574,
+    "image_bytes": 2892096,
+    "thumbnail_bytes": 354702,
+    "combined_ratio": 0.19964846893240887
+  },
+  "items": [
+    {
+      "id": "freetwai-v2-lol",
+      "label": "笑死",
+      "keywords": "哈哈 搞笑 laugh lol",
+      "source_sha256": "5f2bf39bb0152e4effbb33e5743776cfdff3f038518685b0c0cf28e3b565ce2f",
+      "source_bytes": 329637,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-lol-image-99611cbee7e6.webp",
+        "bytes": 58754,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "99611cbee7e6f0f5fbbb68881e37b82df096d2f0a935fc176fea32a9898d3e44"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-lol-thumbnail-1d9f8f118792.webp",
+        "bytes": 7328,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "1d9f8f118792189f81c20b39c2213dec86ed1357c70bafc4cfc9d4e936541dd2"
+      }
+    },
+    {
+      "id": "freetwai-v2-morning",
+      "label": "早安",
+      "keywords": "招呼 morning",
+      "source_sha256": "2496a4674eef513ce884d1ec977be2f85e120c3a2b42deb8c2af783e9a94f006",
+      "source_bytes": 301676,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-morning-image-e097117c6b21.webp",
+        "bytes": 53792,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "e097117c6b214cde9f669d1fea3b9113406d0db59fef2846c38b0e7a8d41a644"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-morning-thumbnail-6391ad5ca900.webp",
+        "bytes": 7002,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "6391ad5ca90084adf5e2084bc6aebde1ec259f58e94a985af1d72b51e790da7d"
+      }
+    },
+    {
+      "id": "freetwai-v2-thanks",
+      "label": "謝謝",
+      "keywords": "感謝 thank",
+      "source_sha256": "2e4611ad99e5081c6ef4631ba141d00f7d86e0a4bbfb3276e07bd8798b990b9e",
+      "source_bytes": 287084,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-thanks-image-134583382590.webp",
+        "bytes": 51214,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "1345833825908264d28748c81b21cff79d30890241d752d6986cb059151380f8"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-thanks-thumbnail-350864b9f5ba.webp",
+        "bytes": 6480,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "350864b9f5ba34212a00de6df1e52fdcf4b3b00213f8a30930393e9825cae76a"
+      }
+    },
+    {
+      "id": "freetwai-v2-cheer",
+      "label": "加油",
+      "keywords": "鼓勵 cheer",
+      "source_sha256": "82f9b6b5ad82cf9d30d257c113609e9fe17033c0d887026e38b3fa1431b133f8",
+      "source_bytes": 324839,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-cheer-image-85c2d0bc3852.webp",
+        "bytes": 57496,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "85c2d0bc3852c7b9338e1d07c46af39495bb11e467bc44596db490d09e88c900"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-cheer-thumbnail-60bad922d0ed.webp",
+        "bytes": 7254,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "60bad922d0ed674ac1c6bb22bd603f1d6e2d59a04ea911cbb3950e98c0e60437"
+      }
+    },
+    {
+      "id": "freetwai-v2-received",
+      "label": "收到",
+      "keywords": "明白 received",
+      "source_sha256": "2cce3a21016f968bb16b3ee42acbc8b7bd1acd6846388951adcc770ba744dfe7",
+      "source_bytes": 319631,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-received-image-73321d85361d.webp",
+        "bytes": 57352,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "73321d85361d40ccac6948fa8d958686f6817a20c125fd0641955281af520c98"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-received-thumbnail-18ad37a45942.webp",
+        "bytes": 7226,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "18ad37a459429d60b064520d6bcb482e1f36219177ba4589b5a08bd9316fa03c"
+      }
+    },
+    {
+      "id": "freetwai-v2-night",
+      "label": "晚安",
+      "keywords": "睡覺 good night",
+      "source_sha256": "3e2978828560e1513b3568f04d57c05f94deee928f54ed4c129ec4353e6aa621",
+      "source_bytes": 317106,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-night-image-0198e0b8ab81.webp",
+        "bytes": 56578,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "0198e0b8ab81cad9ceae46703b3b3fb1b27e92fa6ac6c9b7439841fb4394e419"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-night-thumbnail-37c864ee88ec.webp",
+        "bytes": 7186,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "37c864ee88ece8749abd303e4664e30988d0732a9f624eaeb9f305adc5d10322"
+      }
+    },
+    {
+      "id": "freetwai-v2-hello",
+      "label": "哈囉",
+      "keywords": "招呼 hello hi",
+      "source_sha256": "f7f4415fa7296a8714009b63ce51189de29883b3b5b7c496e9b5e9981611000c",
+      "source_bytes": 314483,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-hello-image-71a0812b7dd0.webp",
+        "bytes": 56544,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "71a0812b7dd0658d27cf61866cc5eb33d29ed0b7b914780704030e9548fb97a3"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-hello-thumbnail-7a4311ac0743.webp",
+        "bytes": 7378,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "7a4311ac0743a849bbf9d0c39b6209681e3b0e1ddbbb47416bcd5f5c65155d1a"
+      }
+    },
+    {
+      "id": "freetwai-v2-welcome",
+      "label": "歡迎加入",
+      "keywords": "新朋友 welcome",
+      "source_sha256": "66cd441d25fea8e5e38fd632a21957d5696af66e18e6b8da7a2f527803ec34fc",
+      "source_bytes": 321638,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-welcome-image-798f1ee55b46.webp",
+        "bytes": 57278,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "798f1ee55b460dfb305524e47feab3083d53734fcb98b0a95286e6fc334a14fc"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-welcome-thumbnail-9c78a08c24c0.webp",
+        "bytes": 7108,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "9c78a08c24c06041bc2e43d1df89f4c37a4ed1cd0974b636d60f5bd97698a42d"
+      }
+    },
+    {
+      "id": "freetwai-v2-awesome",
+      "label": "讚",
+      "keywords": "太棒了 awesome like",
+      "source_sha256": "7e0f25ba5c46a2e6dfb1cdc4b411d81b2ff1a30779178c5082ca331b9f0a8a5c",
+      "source_bytes": 337680,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-awesome-image-18216700c334.webp",
+        "bytes": 59170,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "18216700c33430ae3b92c339e91549e918b10c77b6cbc2c8cba5c3b764ace0a1"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-awesome-thumbnail-224e3d84d47a.webp",
+        "bytes": 7040,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "224e3d84d47ac521569d195b2b5c614ef6648ef7f0be6bed036c5b02f08c38ee"
+      }
+    },
+    {
+      "id": "freetwai-v2-afternoon",
+      "label": "午安",
+      "keywords": "招呼 afternoon",
+      "source_sha256": "d0caa091094180ac29d89fe4250e97b0eca164a999ab28e11181286c1c526b23",
+      "source_bytes": 329558,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-afternoon-image-a34781b71733.webp",
+        "bytes": 58424,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "a34781b717339768870d88bac887393429fc63ed71e408d5a989ef09edc5a72d"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-afternoon-thumbnail-e702aa030cbf.webp",
+        "bytes": 7352,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "e702aa030cbf7898ed931467a80374023258ed46723c11cb7d091d0f2059a61f"
+      }
+    },
+    {
+      "id": "freetwai-v2-opensource",
+      "label": "開源",
+      "keywords": "程式 免費 open source",
+      "source_sha256": "05b78cf957fa3cccce503bc477dd788f69007a370bacbb7775ee17e243dac6f2",
+      "source_bytes": 367043,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-opensource-image-b1aa70e7834b.webp",
+        "bytes": 65992,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "b1aa70e7834b03744770b1b81c6928ca04e0d3906942e9c65cc91d421744dc3b"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-opensource-thumbnail-8c971397c735.webp",
+        "bytes": 8136,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "8c971397c7355e056a3d410dcf18cb3a4ff95f7ca7ebc4247b54c9d47ee568cb"
+      }
+    },
+    {
+      "id": "freetwai-v2-go",
+      "label": "衝呀",
+      "keywords": "行動 go",
+      "source_sha256": "db5ad5069fcc6ef620fe3a23d41f9a357b152241dcdd8cadf2380ee8120b1756",
+      "source_bytes": 370051,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-go-image-288235b64a32.webp",
+        "bytes": 66322,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "288235b64a327809112f58f159aca03b972b3b784726e47245a864db2772e316"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-go-thumbnail-9643a3fee12d.webp",
+        "bytes": 7766,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "9643a3fee12d68c5d7df4845c613c7973d2bdae79d7a2092c4030ed77e863776"
+      }
+    },
+    {
+      "id": "freetwai-v2-gone",
+      "label": "跪了",
+      "keywords": "佩服 尊敬 wow",
+      "source_sha256": "2267ab39b1c197a55d605c4bd673430a5901b924c0db2e89e3059d1f5711c718",
+      "source_bytes": 326044,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-gone-image-8a573351722a.webp",
+        "bytes": 57768,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "8a573351722acc59cd41f8c690c98612be332249f6eea1e1e971188cf197beb0"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-gone-thumbnail-309e9e52696a.webp",
+        "bytes": 6920,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "309e9e52696a2cd828b159343810379ee7b371b845bbeaebc1345dfcb4dfaa7b"
+      }
+    },
+    {
+      "id": "freetwai-v2-master",
+      "label": "大神",
+      "keywords": "高手 master",
+      "source_sha256": "f3f49f3dd29ea70e1ca3e42a78c4dec91e1c363d445787b7c1f12e0efcddbb26",
+      "source_bytes": 347127,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-master-image-a13bf8f3263e.webp",
+        "bytes": 61518,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "a13bf8f3263e338530ad9e5e520d17ebe1a6a6894db0331e5e72dbb43b401c75"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-master-thumbnail-a01010b077cc.webp",
+        "bytes": 7244,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "a01010b077cc70cbb4bd4acc03094053f390fc1811ef2236c48382667571dfe3"
+      }
+    },
+    {
+      "id": "freetwai-v2-follow",
+      "label": "跟緊了",
+      "keywords": "跟隨 follow",
+      "source_sha256": "98fdadf0c0676853665d278f82f9ed389c2b2a6d594b8fd373258cc70f4afd9c",
+      "source_bytes": 340827,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-follow-image-a50b7d1d7154.webp",
+        "bytes": 60674,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "a50b7d1d7154c804ec4721a41aeacf6441c85d21d83da49a84ce46873dec6f03"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-follow-thumbnail-5e1872327911.webp",
+        "bytes": 7398,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "5e1872327911e103685e2694d1c82774e5b322d17bafe31ffbe77185e7c69a5e"
+      }
+    },
+    {
+      "id": "freetwai-v2-zen",
+      "label": "超佛",
+      "keywords": "放鬆 relax",
+      "source_sha256": "bc580afcc80615b3ee61012de3775eed754b17e3718965d056f558900d2d0af4",
+      "source_bytes": 335792,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-zen-image-1f522b620310.webp",
+        "bytes": 58494,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "1f522b620310acc4b818efdf010542ba61fcfad87d31ca1f3774004604d63800"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-zen-thumbnail-36642e0b07c2.webp",
+        "bytes": 7046,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "36642e0b07c2c92c3a00ebf285d25de94a7d50796f76de66e252d94b1c3d89b5"
+      }
+    },
+    {
+      "id": "freetwai-v2-question",
+      "label": "問號",
+      "keywords": "疑問 question",
+      "source_sha256": "fd5f80bf54b5bf395131e01d7934fa2f6f3b0b67dbd26e9fae8a7c23bb843cbb",
+      "source_bytes": 370269,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-question-image-278a78a4024e.webp",
+        "bytes": 65086,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "278a78a4024eaf0b0ae602f428087c609e27b526bee481f3439e08115bf4eb4a"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-question-thumbnail-85dfd7ffd97c.webp",
+        "bytes": 7502,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "85dfd7ffd97c249c04dbf3e3cca7ec1cd1490b545c189694bba292c20c8b3d18"
+      }
+    },
+    {
+      "id": "freetwai-v2-confused",
+      "label": "完全搞不懂",
+      "keywords": "困惑 confused",
+      "source_sha256": "20162fed8b14c09442aecf67af02cfd7a5a0ff23ea56a01e98ff7f5cb8ab83b9",
+      "source_bytes": 392038,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-confused-image-e047b0f19d0d.webp",
+        "bytes": 70092,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "e047b0f19d0dd6056cbdb4df4f82401e8277b6b718aa51962ddc4821205bb263"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-confused-thumbnail-6572289f70c7.webp",
+        "bytes": 8218,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "6572289f70c7d7f9ecbbb26b841d08e098e561b367d342161ae11461a8235829"
+      }
+    },
+    {
+      "id": "freetwai-v2-money",
+      "label": "想幹嘛",
+      "keywords": "疑問 what",
+      "source_sha256": "87138f4ea5d1845bf5f03744c1bed988fc4160f95b23492e2303d51ea0eac444",
+      "source_bytes": 355078,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-money-image-d31ac9109d56.webp",
+        "bytes": 63062,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "d31ac9109d5617d44c11918d598f4291c73a32bf26ade3c035698aa20725e408"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-money-thumbnail-b5e1c8579ea8.webp",
+        "bytes": 7438,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "b5e1c8579ea89ee3217f1b1204b16c0f8f02b0c2b3e9421648e7c82e6c0c27d6"
+      }
+    },
+    {
+      "id": "freetwai-v2-playful",
+      "label": "欠揍",
+      "keywords": "調皮 playful",
+      "source_sha256": "e7198cf8f60a347fd4579b590c56765d1372a4b94f56a837c162999109ad7f7b",
+      "source_bytes": 335648,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-playful-image-f610e48dbf9c.webp",
+        "bytes": 59910,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "f610e48dbf9c96febdccb48630a99fc1a2e94e4ada65c5f3e3192932db57ce24"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-playful-thumbnail-fc86ea9a0b61.webp",
+        "bytes": 7140,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "fc86ea9a0b614a9a7624f272dc18c1f7612cb9f5c293d49812b5537183837257"
+      }
+    },
+    {
+      "id": "freetwai-v2-angry",
+      "label": "生氣",
+      "keywords": "怒 angry",
+      "source_sha256": "491a4c58c608f260db7d0b1d0a14121c966d12f56a7260728ec310c41bb7d157",
+      "source_bytes": 349473,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-angry-image-fc0153944884.webp",
+        "bytes": 61716,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "fc015394488479de2865fbc8c88f27cab690c7f48b348ff62a95cbfa195db218"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-angry-thumbnail-dbd07ad5ec66.webp",
+        "bytes": 7294,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "dbd07ad5ec66768e7604a2bbaa20a42467604affae156b68dd6165f784f520a1"
+      }
+    },
+    {
+      "id": "freetwai-v2-wake",
+      "label": "醒來",
+      "keywords": "提醒 起床 wake",
+      "source_sha256": "8ca3ab2b298d7e41c305abc03638b821329c037a18f3a5d0deb639d7607ea256",
+      "source_bytes": 332115,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-wake-image-4c3fd3bab958.webp",
+        "bytes": 58672,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "4c3fd3bab95805ef22af30d99ba7d4b32e8d22399fa04ab48bc3fd057e117a29"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-wake-thumbnail-4a0853a94b4e.webp",
+        "bytes": 7244,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "4a0853a94b4e09e625c992f8fbeba30f29241ee96ece46a198e980e3925cde33"
+      }
+    },
+    {
+      "id": "freetwai-v2-bigshot",
+      "label": "大佬",
+      "keywords": "高手 大神 expert",
+      "source_sha256": "0a570333835e1a65ae57727d71f2e468dee86f3f01a71697953bf01533c455e3",
+      "source_bytes": 377322,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-bigshot-image-dbd9745fa8ce.webp",
+        "bytes": 66348,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "dbd9745fa8ce4100627bf34f47829acbf3ce9934d08602ab0024a4388d23ed2e"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-bigshot-thumbnail-6e4959d22777.webp",
+        "bytes": 7542,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "6e4959d22777ec277110f92b59dfcd951e5fe7e22cf4a2b561c8cd545a801208"
+      }
+    },
+    {
+      "id": "freetwai-v2-remember",
+      "label": "紅了記得帶帶我",
+      "keywords": "合作 夥伴 together",
+      "source_sha256": "fc1627db19f6818673772a2e85b5861cc2429e04091d38ce96a11b72aa71c471",
+      "source_bytes": 339229,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-remember-image-a7e101945164.webp",
+        "bytes": 60004,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "a7e1019451640f6107601f2987ad922a4b958ce19aa8f442b13979fd60948d65"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-remember-thumbnail-661db74df576.webp",
+        "bytes": 7584,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "661db74df576df88f1bf23e56482d3a69bdfb30ee706bab706a5817d13f96953"
+      }
+    },
+    {
+      "id": "freetwai-v2-newbie",
+      "label": "我是新人",
+      "keywords": "新朋友 自我介紹 newbie",
+      "source_sha256": "5fe5ebe87fd9ce14116409324071450107c2e1feab2d602140a9f6f3f07359c9",
+      "source_bytes": 333081,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-newbie-image-f721b93025ab.webp",
+        "bytes": 59362,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "f721b93025abfdec6f383cb2989c600b669653228b6c7ba0e5f744f42af84005"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-newbie-thumbnail-add7b946e34b.webp",
+        "bytes": 7366,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "add7b946e34bffb82902463d7d43bb11a465a1a379fceb69cd02b384f98fd978"
+      }
+    },
+    {
+      "id": "freetwai-v2-love",
+      "label": "愛了",
+      "keywords": "喜歡 love",
+      "source_sha256": "6649bf918a1b8109543025918f3feadcdef1534c69b406d6c9d95629f226a0eb",
+      "source_bytes": 297144,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-love-image-a99620146975.webp",
+        "bytes": 52292,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "a99620146975c2d21d6458f7486e7062a96e69a4399ff747e63cfb7bb0e3528f"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-love-thumbnail-735afc38cb79.webp",
+        "bytes": 6390,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "735afc38cb7971604db9fb166959b05b4ae44e227b1dadd8587ab00479276a07"
+      }
+    },
+    {
+      "id": "freetwai-v2-what",
+      "label": "什麼鬼",
+      "keywords": "驚訝 what",
+      "source_sha256": "42ce08c0887f8286639cca89311bc06e6fafe934a17d6878bb2909c87f2f3b47",
+      "source_bytes": 355425,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-what-image-ea5187b5c531.webp",
+        "bytes": 61730,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "ea5187b5c53127bbbf8008cfbac86866998ebece96f9d97e219e1c0db1e6e4a7"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-what-thumbnail-8136d4ab1cad.webp",
+        "bytes": 7552,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "8136d4ab1cad715fb43ddafc6b82090b05e3c01a5fa07c94e89b17089a3ff129"
+      }
+    },
+    {
+      "id": "freetwai-v2-ai-use",
+      "label": "AI 不是這樣用的吧",
+      "keywords": "人工智慧 疑問 ai",
+      "source_sha256": "ad687c4c0cd4fac42f8663a993cf0f306efdf4ba33fe0256e56b1caca8562dc4",
+      "source_bytes": 351881,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-ai-use-image-c6587b38d70e.webp",
+        "bytes": 62990,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "c6587b38d70efeb39b6ac305bb82fd97d5d5436bb054da7b10c7893894ceb75b"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-ai-use-thumbnail-8a34c94db689.webp",
+        "bytes": 7896,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "8a34c94db68934c3692e02f8b4bc04d446690cf01e44b39a68eeacffd44ce303"
+      }
+    },
+    {
+      "id": "freetwai-v2-nope",
+      "label": "並沒有",
+      "keywords": "否定 nope",
+      "source_sha256": "81428208ec76a882ab8784060c4fca6f5575da12a62a19f72b006472faf48800",
+      "source_bytes": 317913,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-nope-image-143bd97a376b.webp",
+        "bytes": 54690,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "143bd97a376bfbf9ead665f38181fb6965e5c7c62778e7a3de7e2aeacd224e8f"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-nope-thumbnail-5ecdb5c1c074.webp",
+        "bytes": 6774,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "5ecdb5c1c074d8d4d93529447767aaa40fd7b2a53a3cf2180e6361656beb0b20"
+      }
+    },
+    {
+      "id": "freetwai-v2-huh",
+      "label": "蛤",
+      "keywords": "疑問 huh",
+      "source_sha256": "a224ce42c65d4f12b1cde6251192af0a22125acf7a8a315e1ef5eeabb2403901",
+      "source_bytes": 319987,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-huh-image-876a20766911.webp",
+        "bytes": 56162,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "876a20766911bd3fd59e398de98f99a5a9cd34d398842a675abf05f4b0415070"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-huh-thumbnail-20ccc1c2077a.webp",
+        "bytes": 7030,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "20ccc1c2077a17150cd750d81e94910cb121952fef873ca2dd41a5260db581a0"
+      }
+    },
+    {
+      "id": "freetwai-v2-impossible",
+      "label": "沒可能",
+      "keywords": "否定 no way",
+      "source_sha256": "c3cf8c9edf180d0ec608e180e067c9001ecdeec457d2316947c598fb91296b41",
+      "source_bytes": 338069,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-impossible-image-7b25490b54c6.webp",
+        "bytes": 59808,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "7b25490b54c6f8588666660b5c7c3408958b162d9a882bd8de08ecad6883668b"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-impossible-thumbnail-8585fd0ecf82.webp",
+        "bytes": 7382,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "8585fd0ecf826b13497ebf663f0823e4dc5d70b0f842589a3903badd0b689b29"
+      }
+    },
+    {
+      "id": "freetwai-v2-hahaha",
+      "label": "哈哈哈",
+      "keywords": "開心 laugh",
+      "source_sha256": "ba2f1dfe3ace2e9b1cdfb300403ac1cd8ebe3e3892777bd6912161427084c02f",
+      "source_bytes": 353642,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-hahaha-image-7fcb352eb34e.webp",
+        "bytes": 61474,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "7fcb352eb34eff3f5d34c59f9d64605568f647f22333b398e7ff7202d3b4681f"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-hahaha-thumbnail-6fbbf0f03134.webp",
+        "bytes": 7406,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "6fbbf0f031349e93d06c701c46c6f1605ee3500c8d4dd84a1b890a8fda72a2d9"
+      }
+    },
+    {
+      "id": "freetwai-v2-wild",
+      "label": "好狂",
+      "keywords": "驚訝 awesome",
+      "source_sha256": "b01d405f5d9ed2876a9086df52f4ab3ceae9b4786b950d16b9bf043c5f14ec91",
+      "source_bytes": 353362,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-wild-image-8a4df98b7e05.webp",
+        "bytes": 62018,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "8a4df98b7e057b18fe02883b438c9d9874be70bec36eb8034c534f59d5e93c1a"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-wild-thumbnail-35ef48d1f511.webp",
+        "bytes": 7668,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "35ef48d1f5113f6f4773d9d898399b8f129bc0f018ce339e7a98fbea1a8f4d86"
+      }
+    },
+    {
+      "id": "freetwai-v2-overkill",
+      "label": "太扯了",
+      "keywords": "驚訝 wow",
+      "source_sha256": "8c79e4a38fc131cd5c3f945b515d512fabf50f16673ad1c8a7233acf9ae68031",
+      "source_bytes": 349012,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-overkill-image-0c5888d914d3.webp",
+        "bytes": 61198,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "0c5888d914d3e28f72d84a89d7ace9a1bcbdf281453f23bc0f8972602f9f07c9"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-overkill-thumbnail-cd3c168ea9d1.webp",
+        "bytes": 7462,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "cd3c168ea9d176c56bde71989a1a9ef736341170c6931e4dec52359dfd7ec64a"
+      }
+    },
+    {
+      "id": "freetwai-v2-surprised",
+      "label": "什麼！？",
+      "keywords": "疑問 surprised",
+      "source_sha256": "e6e606599b4e94514c626a5083ba71a282d4af2da9f55f360fe5f2785fb16be5",
+      "source_bytes": 359649,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-surprised-image-85f11b667580.webp",
+        "bytes": 63792,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "85f11b66758041550436af745784d3ae3f4e36d6dc8fcdd1cde5819ca6cb2bb4"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-surprised-thumbnail-32dd7186f24d.webp",
+        "bytes": 7914,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "32dd7186f24d45d80f27bb67ac44a88777e4a30bc1285833c8e5b5f6528f8b3e"
+      }
+    },
+    {
+      "id": "freetwai-v2-great",
+      "label": "你真棒",
+      "keywords": "鼓勵 讚 great",
+      "source_sha256": "23baa3c284f8ba8e38089d2db4c39d92e47025f3d6f2c6d3769af26d36243330",
+      "source_bytes": 341425,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-great-image-23f86dd30eb2.webp",
+        "bytes": 60780,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "23f86dd30eb2df8f3f1ae23284505fedb321676d61b273f66ea2e463ba3e0557"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-great-thumbnail-44eb6bf7cf5a.webp",
+        "bytes": 7508,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "44eb6bf7cf5a2792e3df343f090fb12560b0f21da1bf306480d9205a5418a677"
+      }
+    },
+    {
+      "id": "freetwai-v2-yes",
+      "label": "當然可以",
+      "keywords": "答應 yes",
+      "source_sha256": "b45755af3f1b4d37a1ce1712a5f0b977322e0f8ff744dcdfffea9b26fbb11723",
+      "source_bytes": 336440,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-yes-image-6df8b9cd9713.webp",
+        "bytes": 59312,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "6df8b9cd9713517976367f3c0e460a75d2ca84ba616215d9d0ef3a4132551733"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-yes-thumbnail-cc27f9b5dc47.webp",
+        "bytes": 7454,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "cc27f9b5dc47ac69af99bda922454898fbc010706e678d6560718fac1f34fccc"
+      }
+    },
+    {
+      "id": "freetwai-v2-ok",
+      "label": "OK",
+      "keywords": "同意 明白 ok",
+      "source_sha256": "ff3ed0a8dd93b6db02fdceae8eecd781409049c7d6df02fd7cd93e7603e448ee",
+      "source_bytes": 353134,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-ok-image-c93341d4669a.webp",
+        "bytes": 61594,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "c93341d4669a17a0e8ea3a8b9ff97b3ea104c30fe2b52e2e5c8b76508e5b8f69"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-ok-thumbnail-f9514c86d4b3.webp",
+        "bytes": 7346,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "f9514c86d4b3cade537ccbdfaf4556324338d6364320daf3005f091b7d597c07"
+      }
+    },
+    {
+      "id": "freetwai-v2-stuck",
+      "label": "卡",
+      "keywords": "卡住了 loading stuck",
+      "source_sha256": "bae960f0428eacf00ca1436584658a4adb8b34f738d5f82c527f996683aeb611",
+      "source_bytes": 340515,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-stuck-image-28474ce43f9c.webp",
+        "bytes": 60222,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "28474ce43f9c079ee6c7e3b4a7753009e4ecebeb03f8bf779e61926f44cff934"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-stuck-thumbnail-adf4199e59ff.webp",
+        "bytes": 7096,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "adf4199e59ffd8b561975d377b96a534a6f8486544f837d8ac800bfdc0883bac"
+      }
+    },
+    {
+      "id": "freetwai-v2-unboxing",
+      "label": "坐等開箱",
+      "keywords": "期待 unboxing",
+      "source_sha256": "3cff906a1f7393843cc9736ef767fe53d17fbcd4b65fa2e9343e89ffec31c356",
+      "source_bytes": 377829,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-unboxing-image-ad0b4993d315.webp",
+        "bytes": 67776,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "ad0b4993d3152265695fbabf8ef88488388942351d85a6ac015b77734dbc193d"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-unboxing-thumbnail-89367ea60d4f.webp",
+        "bytes": 7988,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "89367ea60d4f22bc0b94cdbcd3b0a29a2e589f1a86e3b3441c121dd5bd64b341"
+      }
+    },
+    {
+      "id": "freetwai-v2-omg",
+      "label": "天啊",
+      "keywords": "驚訝 omg",
+      "source_sha256": "3da0e2cd9d3ba21aca0fadc8a7869d2f98754307f41032c315a75439d21f2263",
+      "source_bytes": 352986,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-omg-image-7dda0efdf688.webp",
+        "bytes": 62106,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "7dda0efdf688e590d2a84a6dcbfd83565e5fabdcaf973ed5f6e170d2ada66e0a"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-omg-thumbnail-3bd3cd5861bf.webp",
+        "bytes": 7686,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "3bd3cd5861bfe31f48348978b0caca559867ae04492a416353f474fbf6e4511e"
+      }
+    },
+    {
+      "id": "freetwai-v2-useful",
+      "label": "好實用",
+      "keywords": "好棒 useful",
+      "source_sha256": "9cdc2e6898e9cac54d79c72f2bf5bcf2a0d82f014738b26214ef0d681e12bfb0",
+      "source_bytes": 355288,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-useful-image-2730c8e2cf58.webp",
+        "bytes": 62990,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "2730c8e2cf58cc168d14f5878f774fdc9487f230a55a49659acce01dd75a01fc"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-useful-thumbnail-29fbf774c57a.webp",
+        "bytes": 7774,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "29fbf774c57aa0ba0388aa8a495d54f5e8be0257c6902e0de8de36eb42573e21"
+      }
+    },
+    {
+      "id": "freetwai-v2-please",
+      "label": "拜託",
+      "keywords": "請求 please",
+      "source_sha256": "6852cce3843746499cf746c5593aac1697de1f994b166d2d412e65f7be72dc2f",
+      "source_bytes": 350294,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-please-image-ead46d6e6934.webp",
+        "bytes": 61614,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "ead46d6e6934bd7d67bae3d2eca73c80a08b8a055668c7b72f6eb3e5fccd2cb9"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-please-thumbnail-c437714cd90e.webp",
+        "bytes": 7652,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "c437714cd90ebb523c903701d2b4e5bf5c0e1633da2b681021b409b033344ccd"
+      }
+    },
+    {
+      "id": "freetwai-v2-thinking",
+      "label": "思考",
+      "keywords": "想想 thinking",
+      "source_sha256": "9bbb5f0bc5c3d7869deb07fafeccae8abbbc767417ab5c347729f6b1dbdbd144",
+      "source_bytes": 317925,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-thinking-image-44a4e6f5e06a.webp",
+        "bytes": 58640,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "44a4e6f5e06aaf76d2832aeea9c3afb87209ac81c12141f69f71c0fdc63c42c4"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-thinking-thumbnail-eb43830939c8.webp",
+        "bytes": 7490,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "eb43830939c8b21662d07b69b56daea76b827b6bb57e2e104743e7fea4ff88fc"
+      }
+    },
+    {
+      "id": "freetwai-v2-sad",
+      "label": "難過",
+      "keywords": "傷心 sad",
+      "source_sha256": "07115e6fd1b9566dc29165bee4f387b830be5dc63f9af22738f2d8011d5fee03",
+      "source_bytes": 305306,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-sad-image-4658efce766f.webp",
+        "bytes": 56482,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "4658efce766fa629b7996e1ffa1f6c04f9c11798a2abeb87a449e944a8f7846a"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-sad-thumbnail-c1f2038f9f1f.webp",
+        "bytes": 7314,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "c1f2038f9f1f60a7904a425723e7630e830a7d19086b627357e9525ba78d8dc1"
+      }
+    },
+    {
+      "id": "freetwai-v2-trust",
+      "label": "我信",
+      "keywords": "相信 trust",
+      "source_sha256": "d30dcb10b7fdd3129e5a64b46e5be058823c67509e3ecc8ad340223671a206d0",
+      "source_bytes": 324748,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-trust-image-3e10cc5ebbbf.webp",
+        "bytes": 60398,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "3e10cc5ebbbf4e4a6840754d1e38bc69dbc8d3194086c13ca1cb765f1eeab3f7"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-trust-thumbnail-5a3d7e6bd701.webp",
+        "bytes": 7586,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "5a3d7e6bd701d4b5560bd987970d09d027c90c7ff7bc3b4131ee839d0ec59600"
+      }
+    },
+    {
+      "id": "freetwai-v2-ponder",
+      "label": "我想想",
+      "keywords": "思考 ponder",
+      "source_sha256": "0ec9a109711c5369faa3acde00c52c8ab2024f97145591a367fb50a8a1117ea0",
+      "source_bytes": 323795,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-ponder-image-8cda6e314edc.webp",
+        "bytes": 60818,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "8cda6e314edc763f76966f9bcb08fa052c5a7924a15fd4e947ea7498dc5e61a1"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-ponder-thumbnail-f634ef40c239.webp",
+        "bytes": 7596,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "f634ef40c239e13b41f318d2f63446d2d0d0379f7baf1aea2bc42e22387fe221"
+      }
+    },
+    {
+      "id": "freetwai-v2-cry",
+      "label": "哭了",
+      "keywords": "難過 cry",
+      "source_sha256": "51772cd5408b61e1180eafd04c81efc111486fe025429e4f107f33c46421174a",
+      "source_bytes": 332336,
+      "source_dimensions": [
+        1280,
+        1280
+      ],
+      "image": {
+        "file": "freetwai-v2-cry-image-7510b67bb904.webp",
+        "bytes": 61588,
+        "dimensions": [
+          512,
+          512
+        ],
+        "quality": 88,
+        "sha256": "7510b67bb904ac8f6a538f6d6019059bee9c0da296f7099d79808497d3731df0"
+      },
+      "thumbnail": {
+        "file": "freetwai-v2-cry-thumbnail-e45bb349a48c.webp",
+        "bytes": 7546,
+        "dimensions": [
+          144,
+          144
+        ],
+        "quality": 82,
+        "sha256": "e45bb349a48c4f3e76ed1f0c747526ccb1bfc6ccdb6fa892829e39993df279d7"
+      }
+    }
+  ]
+}

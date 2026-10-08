@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {mkdir} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
@@ -184,7 +185,7 @@ test('character selector is only disclosed by its action, restores keyboard focu
   await change.click();await select.selectOption('claude');await expect(select).toHaveCount(0);await expect(change).toBeFocused();
   await change.click();await openGuide(page);await expect(select).toHaveCount(0);await expect(panel(page)).toBeVisible();
   await change.click();await expect(panel(page)).toHaveCount(0);await expect(select).toBeVisible();
-  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await help.click();
+  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await openPageTools(page); await help.click();
   const dialog=page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true});await expect(dialog).toBeVisible();await expect(select).toHaveCount(0);await expect(change).toBeDisabled();
-  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(help).toBeFocused();await expect(select).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(page.locator('.page-tools-menu > summary')).toBeFocused();await expect(select).toHaveCount(0);
 });

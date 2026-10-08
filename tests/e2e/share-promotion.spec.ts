@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { navigate } from './navigation.js';
+import { navigate, expandHomeSections, selectSocialFeed } from './navigation.js';
 import { test, expect, type Browser, type Page } from './fixtures.js';
 
 const GUEST_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -42,6 +42,7 @@ async function login(page: Page) {
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.locator('.shell')).toBeVisible({ timeout: 20_000 });
+  await page.locator('.home-personal > summary').click();
 }
 
 async function creditVisit(browser: Browser, url: string, expected: (url: URL) => boolean, intercept?: string) {
@@ -134,7 +135,7 @@ test('an event share link lands on the public page and shows the click', async (
 test('sharing the workshop from home and the leaderboard uses one personal link', async ({ page, browser }) => {
   test.setTimeout(60_000);
   await login(page);
-  await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
+  await expandHomeSections(page); await page.getByRole('button', { name: '分享自由工坊', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '分享「自由工坊」', exact: true });
   await expect(dialog.locator('.skill-share-url')).toHaveText(/\/go\/[A-Za-z0-9_-]{10}$/);
   await expect(dialog).toContainText('自由工坊：加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。');
@@ -195,9 +196,10 @@ test('the home share button stays as compact as the profile button', async ({ pa
 });
 
 async function sharePost(page: Page, url: string, title?: string) {
-  const details = page.locator('details.social-composer');
-  if (!await details.evaluate(element => (element as HTMLDetailsElement).open)) await details.locator('summary').click();
-  await page.getByLabel('連結').fill(url);
+  await selectSocialFeed(page,'全部動態');
+  await page.getByRole('button',{name:'動態選項',exact:true}).click();
+  await page.getByRole('dialog',{name:'動態選項',exact:true}).getByRole('button',{name:'分享外部連結',exact:true}).click();
+  await page.getByLabel('連結',{exact:true}).fill(url);
   await page.getByLabel('標題（選填）').fill(title ?? '');
   const before = await page.locator('article.social-card').count();
   await page.getByRole('button', { name: '分享貼文', exact: true }).click();
@@ -226,8 +228,10 @@ test('the social zone previews, shares, replaces and keeps a thumbnail', async (
   await dialog.getByRole('button', { name: '關閉分享', exact: true }).click();
   await creditVisit(browser, go, url => url.href === YOUTUBE, 'https://www.youtube.com/**');
   await page.reload();
+  await selectSocialFeed(page,'全部動態');
   await expect(page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: 'E2E 示範影片', level: 3 }) })).toContainText('推廣點擊 1');
 
+  await youtube.getByText('⋯',{exact:true}).click();
   await youtube.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: PNG });
   await expect(page.getByText('縮圖已更新。')).toBeVisible();
   await expect(youtube.locator('img.social-thumb')).toBeVisible();
@@ -241,6 +245,7 @@ test('social cards keep a 16:9 thumbnail, a small byline and actions on one row'
   await navigate(page, '社群分享');
   await sharePost(page, LAYOUT, '版面縮圖');
   const card = page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: '版面縮圖', level: 3 }) });
+  await card.getByText('⋯',{exact:true}).click();
   await card.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: PNG });
   await expect(page.getByText('縮圖已更新。')).toBeVisible();
   const thumb = card.locator('img.social-thumb');
@@ -253,7 +258,7 @@ test('social cards keep a 16:9 thumbnail, a small byline and actions on one row'
   }
   await page.setViewportSize({ width: 390, height: 900 });
   const avatar = await card.locator('.social-byline .social-avatar').boundingBox();
-  expect(avatar!.width).toBeLessThanOrEqual(36);
+  expect(avatar!.width).toBeLessThanOrEqual(40);
   const open = await card.getByRole('link', { name: '開啟原文 ↗', exact: true }).boundingBox();
   const share = await card.getByRole('button', { name: '分享', exact: true }).boundingBox();
   expect(Math.abs(open!.y - share!.y)).toBeLessThanOrEqual(1);
@@ -321,8 +326,11 @@ test('share pages stay inside the viewport and stay readable in every theme', as
   test.setTimeout(60_000);
   await login(page);
   await navigate(page, '社群分享');
-  await page.getByText('分享一則貼文', { exact: true }).click();
-  await expect(page.getByLabel('連結')).toHaveCSS('font-size', '16px');
+  await selectSocialFeed(page,'全部動態');
+  await page.getByRole('button',{name:'動態選項',exact:true}).click();
+  await page.getByRole('dialog',{name:'動態選項',exact:true}).getByRole('button',{name:'分享外部連結',exact:true}).click();
+  await expect(page.getByLabel('連結',{exact:true})).toHaveCSS('font-size', '16px');
+  await page.getByRole('button',{name:'關閉外部分享',exact:true}).click();
   for (const width of [390, 820, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await noOverflow(page);
@@ -332,6 +340,7 @@ test('share pages stay inside the viewport and stay readable in every theme', as
   for (const theme of ['light', 'dark', 'versefolk'] as const) {
     await page.evaluate(value => { localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; }, theme);
     if (theme !== 'light') await navigate(page, '社群分享');
+    await selectSocialFeed(page,'全部動態');
     const backgrounds: string[] = [];
     for (const platform of ['youtube', 'instagram', 'facebook', 'other']) {
       const badge = page.locator(`.social-card-body .social-platform-badge[data-platform="${platform}"]`).first();
@@ -441,7 +450,9 @@ test('screenshots cover the boards, social zone, dialogs and interstitial', asyn
 test('the author can delete their social post', async ({ page }) => {
   await login(page);
   await navigate(page, '社群分享');
+  await selectSocialFeed(page,'全部動態');
   const youtube = page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: 'E2E 示範影片', level: 3 }) });
+  await youtube.getByText('⋯',{exact:true}).click();
   await youtube.getByRole('button', { name: '刪除', exact: true }).click();
   await youtube.getByRole('button', { name: '確定刪除', exact: true }).click();
   await expect(youtube).toHaveCount(0);

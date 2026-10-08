@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 // Browser regressions adapted from mars-tw PR #106 (46a4034) and inline follow-up 99b9045, plus opt-in/release isolation.
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -279,11 +280,11 @@ test('console drafts, the existing page dialog and outside form focus keep the c
   const original = page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true});
   // The native dialog must return focus before React unmounts it, both with
   // the helper closed and when opening the modal suppresses an active helper.
-  await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
+  await openPageTools(page); await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
   await original.getByRole('button',{name:'關閉',exact:true}).click();
   await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
-  await expect(help).toBeFocused();
+  await expect(page.locator('.page-tools-menu > summary')).toBeFocused();
   await openSpirit(page);
   await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
   const dock = page.getByRole('complementary',{name:'訊息控制台',exact:true});
@@ -302,14 +303,14 @@ test('console drafts, the existing page dialog and outside form focus keep the c
   await expect(dock.getByRole('textbox',{name:'在 AI 開發公會 發言',exact:true})).toHaveValue(draft);
   await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
   await openSpirit(page);
-  await help.click();
+  await openPageTools(page); await help.click();
   await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
   await original.getByRole('button',{name:'關閉',exact:true}).click(); await expect(original).toHaveCount(0);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
-  await expect(help).toBeFocused();
+  await expect(page.locator('.page-tools-menu > summary')).toBeFocused();
   await expect(widget(page).locator('.page-spirit-launcher')).not.toBeFocused();
-  await openSpirit(page); await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
-  await page.keyboard.press('Escape'); await expect(original).toHaveCount(0); await expect(help).toBeFocused();
+  await openSpirit(page); await openPageTools(page); await help.click(); await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
+  await page.keyboard.press('Escape'); await expect(original).toHaveCount(0); await expect(page.locator('.page-tools-menu > summary')).toBeFocused();
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await navigate(page,'工坊夥伴'); await openSpirit(page);
   const search = page.getByLabel('搜尋夥伴',{exact:true}), privateSearch = `unsent-profile-${randomUUID()}`;
@@ -564,10 +565,10 @@ test('guide target invalidation restores original attributes and never resumes w
     await expect(target).not.toHaveAttribute('data-page-spirit-guide-target','true'); await openSpirit(page);
   }
   await ask(page,'免費預覽'); await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
-  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await help.click();
+  const help=page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});await openPageTools(page); await help.click();
   const original=page.getByRole('dialog',{name:'技能書架：頁面說明',exact:true});await expect(original).toBeVisible();
   await expect(page.locator('[data-page-spirit-guide-target="true"]')).toHaveCount(0);
-  await page.keyboard.press('Escape');await expect(original).toHaveCount(0);await expect(help).toBeFocused();
+  await page.keyboard.press('Escape');await expect(original).toHaveCount(0);await expect(page.locator('.page-tools-menu > summary')).toBeFocused();
   await openSpirit(page);await ask(page,'免費預覽');await panel(page).getByRole('button',{name:definition.label,exact:true}).click();
   const removed=await target.elementHandle();await target.evaluate(element=>element.remove());
   await expect(guide(page)).toHaveAttribute('data-guide-found','false');
@@ -670,7 +671,7 @@ for(const [profile,label] of [['light','自由工坊－明亮'],['dark','自由�
   page.on('request',request=>{if(/guide-packs|GuideEngine|GuideGallery|newcomer-guides|ai-sister-|page-guides-|dragon-|\/content\/[^/]+\.json/.test(request.url())||contentChunk.test(new URL(request.url()).pathname))guideRequests.push(request.url())});
   await registerJoined(page,profile);
   await navigate(page,'技能書架');await navigate(page,'會員首頁');
-  await page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true}).click();
+  await openPageTools(page); await page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'會員首頁：頁面說明',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');await expect(widget(page)).toHaveCount(0);
   await expect(page.locator('.workspace-companion')).toHaveCount(0);

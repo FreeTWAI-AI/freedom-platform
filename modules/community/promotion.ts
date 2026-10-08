@@ -137,7 +137,7 @@ async function assertTarget(pool: Pool, actor: Actor, kind: PromotionKind, targe
   }
   if (kind === 'social_post') {
     requireCondition(z.uuid().safeParse(target).success, 422, 'validation_failed', '貼文目標不正確。');
-    const row = (await pool.query(`SELECT title FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND state='active'`, [target, actor.community_id])).rows[0];
+    const row = (await pool.query(`SELECT title FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND state='active' AND kind='link'`, [target, actor.community_id])).rows[0];
     requireCondition(row, 404, 'not_found', '找不到可分享的貼文。');
     return { title: row.title as string, key: target };
   }
@@ -405,7 +405,7 @@ async function openTarget(pool: Pool, link: LinkRow, introRaw: string | undefine
       : { url: origin + platformOg.image, width: platformOg.width, height: platformOg.height };
     return { href: `/services/${link.target_key}`, title: service.title, description: service.summary, image };
   }
-  const post = (await pool.query(`SELECT post_id,url,title,platform FROM community_social_posts WHERE post_id=$1 AND state='active'`, [link.target_key])).rows[0] as { post_id: string; url: string; title: string; platform: SocialPlatform } | undefined;
+  const post = (await pool.query(`SELECT post_id,url,title,platform FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND state='active' AND kind='link'`, [link.target_key, link.community_id])).rows[0] as { post_id: string; url: string; title: string; platform: SocialPlatform } | undefined;
   if (!post) return null;
   const thumb = (await pool.query('SELECT 1 FROM community_social_post_thumbnails WHERE post_id=$1', [post.post_id])).rowCount;
   return {

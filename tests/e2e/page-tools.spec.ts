@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 import {test,expect} from './fixtures.js';
 import {navigate} from './navigation.js';
 
@@ -9,7 +10,7 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible({timeout:20000});
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:true,github_user:{id:'123',login:'maker'}})}));
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea).toBeVisible();
   await expect(idea.getByRole('link',{name:/#14/})).toBeVisible();
@@ -36,13 +37,13 @@ test('every workspace page exposes contextual tools, filtered issues and agent g
   await page.screenshot({path:'test-results/page-tools-idea-desktop.png'});
   await idea.getByRole('button',{name:'關閉'}).click();
   await navigate(page,'我的定位');
-  await page.getByRole('button',{name:'頁面說明'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'頁面說明'}).click();
   const help=page.getByRole('dialog',{name:'我的定位：頁面說明'});
   await expect(help.getByText('「我的定位」顯示你最後確認的方向與合作偏好')).toBeVisible();
   await expect(help.getByText('重新填寫草稿不會立刻覆蓋原本確認的定位。')).toBeVisible();
   await expect(help.locator('pre')).toContainText('常見問題');
   await help.getByRole('button',{name:'關閉'}).click();
-  await page.getByRole('button',{name:'參與編修'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'參與編修'}).click();
   const edit=page.getByRole('dialog',{name:'我的定位：參與編修'});
   await expect(edit).toContainText('Fork 平台 Repo');
   await expect(edit.locator('pre')).toContainText('page:positioning');
@@ -68,7 +69,8 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
-  await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await openPageTools(page); await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible(); await page.locator('.page-tools-menu > summary').click();
   await page.getByRole('button',{name:'展開訊息控制台'}).click();
   await expect(page.getByRole('button',{name:'在獨立視窗開啟訊息控制台'})).toBeHidden();
   await page.getByRole('tab',{name:/^世界聊天/}).click();
@@ -76,12 +78,13 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
   await page.screenshot({path:'test-results/page-tools-mobile-chat.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:'收合訊息控制台'}).click();
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   await page.screenshot({path:'test-results/page-tools-idea-mobile.png'});
   await page.getByRole('dialog',{name:'會員首頁：提出想法'}).getByRole('button',{name:'關閉'}).click();
   await page.goto('/admin');
   await expect(page.getByRole('button',{name:'展開訊息控制台'})).toBeVisible();
   await expect(page.getByRole('button',{name:'提出想法'})).toBeVisible();
+  await expect(page.locator('.page-tools-menu')).toHaveCount(0);
 });
 
 test('unlinked member gets GitHub guidance and screenshot handoff',async({page})=>{
@@ -93,7 +96,7 @@ test('unlinked member gets GitHub guidance and screenshot handoff',async({page})
   await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
   await page.getByRole('button',{name:'登入',exact:true}).click();
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible({timeout:20000});
-  await page.getByRole('button',{name:'提出想法'}).click();
+  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
   await expect(idea.getByText('站內發布前，先連結 GitHub')).toBeVisible();
   await idea.getByRole('button',{name:'複製給 AI 的連結指引'}).click();

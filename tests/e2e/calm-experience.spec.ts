@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
 import {DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
-import {navigate} from './navigation.js';
+import {navigate,openFeatureSearch} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 
 async function login(page:Page,email='maker@local.test'){
@@ -50,8 +50,8 @@ test('synthetic entry budget: two required fields and one guild choice reach use
   await next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 開發公會・公會閒聊',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'在 AI 開發公會 發言'})).toBeVisible();
 });
 test('feature search finds chat and selling functions, and all themes work at 320 pixels',async({page})=>{
-  await login(page);const search=page.getByLabel('搜尋功能');await search.fill('聊天室');await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();await expect(page.getByRole('heading',{name:'我的訊息',level:1})).toBeVisible();
-  await search.fill('電商');await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我可以賣東西',exact:true}).click();await expect(page.getByRole('heading',{name:'我可以賣東西',level:1})).toBeVisible();
+  await login(page);await openFeatureSearch(page);const search=page.getByLabel('搜尋功能');await search.fill('聊天室');await page.locator('.nav-search-results').getByRole('button',{name:'我的訊息',exact:true}).click();await expect(page.getByRole('heading',{name:'我的訊息',level:1})).toBeVisible();
+  await openFeatureSearch(page);await search.fill('電商');await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我可以賣東西',exact:true}).click();await expect(page.getByRole('heading',{name:'我可以賣東西',level:1})).toBeVisible();
   await navigate(page,'會員首頁');await page.setViewportSize({width:320,height:720});
   for(const [label,theme] of [['自由工坊－明亮','light'],['自由工坊－夜航','dark'],['自由工坊－敘生','versefolk']]){
     const settings=page.getByRole('button',{name:'設定',exact:true});if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();await page.getByRole('menuitemradio',{name:label,exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-theme',theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -86,7 +86,11 @@ test('private chat checks cheaply while idle, receives within two seconds, and s
     const sendPeer=async(body:string)=>{const response=await peerContext.request.post(`/api/v1/me/conversations/${DEMO_USERS[0].user_id}/messages`,{headers:{Origin:origin,'X-CSRF-Token':session.csrf_token,'Idempotency-Key':randomUUID()},data:{body}});expect(response.status()).toBe(201)};
     await sendPeer('私訊起點');let historyReads=0,checks=0;
     page.on('request',request=>{if(request.method()==='GET'&&request.url().includes(`/me/conversations/${session.user.user_id}/messages?`))historyReads++;if(request.url().endsWith(`/me/conversations/${session.user.user_id}/activity`))checks++});
-    await login(page);await page.goto('/#messages');await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.getByRole('tabpanel',{name:/^私人訊息/});await panel.locator('[aria-label="對話列表"] button').first().click();const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('私訊起點');
+    await login(page);await page.goto('/#messages');await page.getByRole('tab',{name:/^私人訊息/}).click();const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
+    // Settle the initial auto-read and its authoritative history reconciliation
+    // before measuring additional full-history reads while the chat is idle.
+    const initialReadConfirmed=page.waitForResponse(async response=>response.request().method()==='GET'&&response.url().includes(`/me/conversations/${session.user.user_id}/messages?`)&&response.ok()&&(await response.json()).unread_count===0);
+    await panel.locator('[aria-label="對話列表"] button').first().click();const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('私訊起點');await initialReadConfirmed;
     const before=historyReads;await expect.poll(()=>checks).toBeGreaterThanOrEqual(3);expect(historyReads).toBe(before);
     await page.bringToFront();const start=Date.now();await sendPeer('每秒檢查收到的新私訊');await expect(thread.getByRole('log')).toContainText('每秒檢查收到的新私訊',{timeout:2000});const arrivalMs=Date.now()-start;expect(arrivalMs).toBeLessThan(2000);
     const gate=new Promise<void>(resolve=>{release=resolve;});

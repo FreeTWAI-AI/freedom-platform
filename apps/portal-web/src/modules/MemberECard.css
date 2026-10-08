@@ -46,6 +46,10 @@ html:has(.public-member-page[data-design]),body:has(.public-member-page[data-des
 .ecard-copy-fallback{width:100%;box-sizing:border-box;margin-top:.35rem;min-height:44px;font-size:16px}
 .ecard-copy-status:empty{display:none}
 .ecard-copy-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.ecard[data-design] .ecard-link[aria-busy="true"]{opacity:1;cursor:progress}
+.ecard-link-text>.ecard-link-feedback-row{display:flex;align-items:center;gap:.5rem}
+.ecard-link-feedback-row>.ecard-link-label{flex:1;min-width:0}
+.ecard[data-design] .ecard-link-feedback-row>.ecard-copy-visible{flex:none;color:var(--ecard-button-ink);font-size:.75rem;line-height:1.35}
 .ecard-link:focus-visible,.ecard-design-option:focus-visible,.ecard-icon-btn:focus-visible,.ecard-import-add:focus-visible,.ecard-text-btn:focus-visible{outline:2px solid var(--ecard-focus,#17653f);outline-offset:3px}
 .ecard[data-design=classic]{background:var(--ecard-page);border:0;padding:0;text-align:left}
 .ecard[data-design=classic] .ecard-identity{flex-direction:row;flex-wrap:nowrap;align-items:center;text-align:left;gap:.9rem;padding:1rem;background:#ffffff;color:#1c2636;border:1px solid #dce3eb;border-top:4px solid #10243d;border-radius:12px}

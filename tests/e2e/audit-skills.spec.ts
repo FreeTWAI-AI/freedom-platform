@@ -1,3 +1,4 @@
+import {openPageTools} from './navigation.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { navigate } from './navigation.js';
@@ -35,7 +36,7 @@ async function readableText(scope: Locator, selector: string) {
   return sizes.length;
 }
 async function developmentFooter(page: Page) {
-  const trigger = page.locator('.topbar').getByRole('button',{name:'參與編修'});
+  await openPageTools(page); const trigger = page.locator('.topbar').getByRole('button',{name:'參與編修'});
   await expect(trigger).toBeVisible();
   expect((await trigger.boundingBox())!.height, '共用開發入口觸控高度').toBeGreaterThanOrEqual(44);
   await trigger.focus();

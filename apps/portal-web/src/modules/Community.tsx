@@ -4,6 +4,7 @@ import type { TabId } from '../types';
 import { SkillBookCard, type IntroBook } from './SkillBookIntro';
 import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery,type SkillDiscoveryBook} from './skill-discovery-client';
+import {useLanguage} from '../language';
 
 export type SiteConfig = { registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean; community_discovery_enabled?: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
@@ -16,7 +17,8 @@ export const communityLinks = [
   { label: 'LINE・Grok', url: 'https://line.me/ti/g2/83dpd53WEvKWbgDROTV2t0z5hXnNSZTUTq17tg' },
 ];
 export function CommunityLinks() {
-  return <footer className="community-footer"><div><strong>自由工坊</strong><p>自由創作，讓每一種專業都有位置。</p></div><nav aria-label="自由工坊社群" data-guide-anchor="community:links">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
+  const {t}=useLanguage();
+  return <footer className="community-footer"><div><strong>自由工坊</strong><p>{t('community.tagline')}</p></div><nav aria-label={t('community.links')} data-guide-anchor="community:links">{communityLinks.map(link => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{link.label} <span aria-hidden="true">↗</span></a>)}</nav></footer>;
 }
 
 export type CatalogBook = IntroBook & { id: string; fork_url: string | null; license_status: string };

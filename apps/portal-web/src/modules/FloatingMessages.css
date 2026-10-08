@@ -1,0 +1,6 @@
+.floating-messages{position:fixed;z-index:80;inset-inline-end:max(16px,var(--app-safe-right,env(safe-area-inset-right,0px)));bottom:calc(68px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:60px;height:60px;min-height:44px;padding:6px;border:1px solid var(--line);border-radius:50%;background:var(--bg-elev);color:var(--text);box-shadow:0 4px 16px #0002;cursor:pointer;font:inherit}
+.floating-messages:hover{border-color:var(--focus);background:var(--green-soft)}
+.floating-messages:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+.floating-messages-label{font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.floating-messages-badge{position:absolute;top:-3px;inset-inline-end:-3px;min-width:22px;min-height:22px;display:grid;place-items:center;padding:2px 4px;border-radius:99px;background:var(--green);color:#10140a;font-size:12px;font-weight:800;border:2px solid var(--bg-elev)}
+body:has(.game-console-expanded:not([hidden])) .floating-messages,body:has(dialog[open]) .floating-messages{display:none}

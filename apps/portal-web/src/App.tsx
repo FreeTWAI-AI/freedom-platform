@@ -1,41 +1,23 @@
 import { client, PortalContext, describeError, isOwnRef, type ActionError, type PortalContextValue } from './portal-session'
 import { ErrorPanel } from './portal-feedback'
-import { WorkbenchPanel } from './modules/WorkbenchPanel'
-import { ShowcasePanel } from './modules/ShowcasePanel'
-import { EngagementPanel } from './modules/EngagementPanel'
 import { Navigation, TAB_TITLES } from './Navigation'
-import { SkillsPanel } from './modules/SkillsPanel'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PageLoadBoundary } from './LazyPage'
+import { RequestFeedback } from './RequestFeedback'
 import { MEMBER_ACCESS_EXPIRED_MESSAGE } from './access-fetch'
 import { ApiError } from './api'
-import { MemberHome } from './modules/MemberHome'
 import {EntryResources} from './modules/EntryResources'
 import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
-import {FriendsPanel} from './modules/FriendsPanel'
-import {PublicMemberPage} from './modules/PublicMemberPage'
-import { Onboarding, type OnboardingView } from './modules/Onboarding'
-import { AccountPanel, MembersPanel, type MemberCardData } from './modules/Membership'
+import type { OnboardingView } from './modules/Onboarding'
+import type { MemberCardData } from './modules/Membership'
 import { MemberAvatar } from './modules/MemberAvatar'
-import { SquadsPanel } from './modules/Squads'
-import { CoCreationPanel } from './modules/CoCreationPanel'
-import { AdminPanel } from './modules/AdminPanel'
-import { GitHubCallback } from './modules/GitHubCallback'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { AuthorClaimProvider } from './modules/AuthorClaim'
 import { SettingsMenu } from './modules/SettingsMenu'
 import {NotificationBell,type BellAction} from './modules/NotificationBell'
-import { MemberTasks } from './modules/MemberTasks'
-import { MemberMessages } from './modules/MemberMessages'
-import { EventsPanel } from './modules/EventsPanel'
-import { SocialZone } from './modules/SocialZone'
-import { MemberServices } from './modules/MemberServices'
-import { PromotionBoards } from './modules/PromotionBoards'
-import { EventHighlights } from './modules/EventHighlights'
-import {PublicEventPage} from './modules/PublicEventPage'
-import { TaskBoardPanel } from './modules/TaskBoardPanel'
-import { WelcomePreview } from './modules/WelcomePreview'
-import {MemberGuildWorkspace} from './modules/GuildWorkspace'
-import {TenantSettings} from './modules/TenantSettings'
+import {FloatingMessages} from './modules/FloatingMessages'
+import './SocialLayout.css'
+import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -44,12 +26,46 @@ import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
-import { PositioningPanel, GuildsPanel } from './modules/PositioningPanels'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
-import { SupplierPanel, RetailPanel } from './modules/CommercePanels'
-import { OpenSourcePanel, MarketingPanel } from './modules/OpenSourcePanels'
-import { PrivateWorkAI } from './modules/PrivateWorkAI'
+import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
+import {LanguageProvider,LanguagePicker,useLanguage} from './language'
+import {authErrorMessage} from './auth-messages'
+import {AppInstallProvider,InstallAppButton} from './AppInstall'
+
+const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
+const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
+const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m => ({default: m.EngagementPanel})))
+const SkillsPanel = lazy(() => import('./modules/SkillsPanel').then(m => ({default: m.SkillsPanel})))
+const MemberHome = lazy(() => import('./modules/MemberHome').then(m => ({default: m.MemberHome})))
+const FriendsPanel = lazy(() => import('./modules/FriendsPanel').then(m => ({default: m.FriendsPanel})))
+const PublicMemberPage = lazy(() => import('./modules/PublicMemberPage').then(m => ({default: m.PublicMemberPage})))
+const Onboarding = lazy(() => import('./modules/Onboarding').then(m => ({default: m.Onboarding})))
+const AccountPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.AccountPanel})))
+const MembersPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.MembersPanel})))
+const SquadsPanel = lazy(() => import('./modules/Squads').then(m => ({default: m.SquadsPanel})))
+const CoCreationPanel = lazy(() => import('./modules/CoCreationPanel').then(m => ({default: m.CoCreationPanel})))
+const AdminPanel = lazy(() => import('./modules/AdminPanel').then(m => ({default: m.AdminPanel})))
+const GitHubCallback = lazy(() => import('./modules/GitHubCallback').then(m => ({default: m.GitHubCallback})))
+const MemberTasks = lazy(() => import('./modules/MemberTasks').then(m => ({default: m.MemberTasks})))
+const MemberMessages = lazy(() => import('./modules/MemberMessages').then(m => ({default: m.MemberMessages})))
+const EventsPanel = lazy(() => import('./modules/EventsPanel').then(m => ({default: m.EventsPanel})))
+const SocialZone = lazy(() => import('./modules/SocialZone').then(m => ({default: m.SocialZone})))
+const MemberServices = lazy(() => import('./modules/MemberServices').then(m => ({default: m.MemberServices})))
+const PromotionBoards = lazy(() => import('./modules/PromotionBoards').then(m => ({default: m.PromotionBoards})))
+const EventHighlights = lazy(() => import('./modules/EventHighlights').then(m => ({default: m.EventHighlights})))
+const PublicEventPage = lazy(() => import('./modules/PublicEventPage').then(m => ({default: m.PublicEventPage})))
+const TaskBoardPanel = lazy(() => import('./modules/TaskBoardPanel').then(m => ({default: m.TaskBoardPanel})))
+const WelcomePreview = lazy(() => import('./modules/WelcomePreview').then(m => ({default: m.WelcomePreview})))
+const MemberGuildWorkspace = lazy(() => import('./modules/GuildWorkspace').then(m => ({default: m.MemberGuildWorkspace})))
+const TenantSettings = lazy(() => import('./modules/TenantSettings').then(m => ({default: m.TenantSettings})))
+const PositioningPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.PositioningPanel})))
+const GuildsPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.GuildsPanel})))
+const SupplierPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.SupplierPanel})))
+const RetailPanel = lazy(() => import('./modules/CommercePanels').then(m => ({default: m.RetailPanel})))
+const OpenSourcePanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.OpenSourcePanel})))
+const MarketingPanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.MarketingPanel})))
+const PrivateWorkAI = lazy(() => import('./modules/PrivateWorkAI').then(m => ({default: m.PrivateWorkAI})))
 
 const DEMO_ACCOUNTS = [
   { email: 'maker@local.test', label: '作者示範帳號' },
@@ -86,15 +102,16 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   events: '查看社群活動、審核結果與報名狀態。',
   highlights: '活動結束後會自動出現在這裡。這一頁是公開的，參加過的夥伴可以補上照片、海報和影片連結。',
   tasks: '探索工坊工作、GitHub Issue／PR 歷史與已連結 GitHub 的會員排行，查看有來源的驗收紀錄。',
-  social: '分享社群貼文連結。每次有人點開只顯示在社群推廣排行榜。',
+  social: '發布近況與作品、按讚留言，也能分享外部社群連結。',
   services: '列出社員的本業服務。用你的連結分享出去，點擊計入業務推廣排行榜。服務頁是公開的。',
   promotion: '查看六種分享的點擊排行。分數只供比較，不計入經驗或驗收。',
 }
 
 export function App() {
-  if(new URLSearchParams(window.location.search).get('game-console')==='popout')return <GameConsolePopout client={client}/>
-  if(window.location.pathname==='/github/callback')return <GitHubCallback/>
-  return window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+  const page = new URLSearchParams(window.location.search).get('game-console')==='popout' ? <GameConsolePopout client={client}/>
+    : window.location.pathname==='/github/callback' ? <GitHubCallback/>
+    : window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+  return <LanguageProvider><AppInstallProvider><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></AppInstallProvider></LanguageProvider>
 }
 
 const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null
@@ -116,6 +133,7 @@ function AdminConsoleShell(){
 }
 
 function MemberApp() {
+  const {t}=useLanguage()
   const [phase, setPhase] = useState<'boot' | 'login' | 'ready'>('boot')
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [bootError, setBootError] = useState<ActionError | null>(null)
@@ -129,6 +147,7 @@ function MemberApp() {
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
   const [locationHash,setLocationHash]=useState(() => window.location.hash)
+  const [entryIntent,setEntryIntent]=useState<EntryIntent|null>(entryIntentFromHash)
   const [siteLoaded,setSiteLoaded]=useState(false)
   const [launchpadLoginRequested,setLaunchpadLoginRequested]=useState(false)
   const [sharedCardToken,setSharedCardToken]=useState(memberCardFromLocation)
@@ -137,7 +156,7 @@ function MemberApp() {
   const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
-  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
+  useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
     const generation = sessionGeneration.current
@@ -147,6 +166,13 @@ function MemberApp() {
   }, [])
   useEffect(() => { void client.get<SiteConfig>('/site').then(value => { setSite(value); setSiteLoaded(true) }).catch(() => { setSite(null); setSiteLoaded(true) }) }, [])
   useEffect(() => { if (session) void loadOnboarding(); else setOnboarding(null) }, [session, loadOnboarding])
+  useEffect(() => {
+    if (!session || !onboarding || onboarding.required && !onboarding.completed || !entryIntent) return
+    // Only a chosen entry is forwarded, after the server confirms that the joining gate is complete.
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${entryIntent}`)
+    setEntryIntent(null)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }, [session, onboarding, entryIntent])
 
   const applySession = useCallback((next: SessionPayload) => {
     sessionGeneration.current += 1
@@ -249,6 +275,8 @@ function MemberApp() {
           bootError={bootError}
           onRetrySession={() => void bootstrap()}
           onLoggedIn={(next, returnNotice) => { applySession(next); setPublicReturnNotice(returnNotice ?? null) }}
+          entryIntent={entryIntent}
+          onChooseEntry={intent=>{setEntryIntent(intent);window.location.hash=`join/${intent}`}}
           resetToken={resetToken}
           onCancelReset={()=>{clearResetHash();setResetToken(null)}}
           onPasswordReset={next=>{clearResetHash();setResetToken(null);applySession(next)}}
@@ -262,8 +290,8 @@ function MemberApp() {
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
-      ? <WelcomePreview client={client} name={session.user.display_name} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
-      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?t(`intent.${entryIntent}`):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent)window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
@@ -279,9 +307,10 @@ function MemberApp() {
 }
 
 function DemoBanner() {
+  const {t}=useLanguage()
   return (
     <div className="demo-banner" role="status">
-      這是內部示範工作區。紀錄保存在示範資料庫，沒有實際轉帳或銀行核對。示範帳號為虛構身分，不是真實人士。
+      {t('auth.demoBanner')}
     </div>
   )
 }
@@ -292,6 +321,8 @@ function LoginView({
   bootError,
   onRetrySession,
   onLoggedIn,
+  entryIntent,
+  onChooseEntry,
   resetToken,
   onCancelReset,
   onPasswordReset,
@@ -301,6 +332,8 @@ function LoginView({
   bootError: ActionError | null
   onRetrySession: () => void
   onLoggedIn: (session: SessionPayload, returnNotice?: string) => void
+  entryIntent: EntryIntent | null
+  onChooseEntry: (intent: EntryIntent) => void
   resetToken:string|null
   onCancelReset:()=>void
   onPasswordReset:(session:SessionPayload)=>void
@@ -322,7 +355,9 @@ function LoginView({
   const [confirmPassword,setConfirmPassword]=useState('')
   const [resetNotice,setResetNotice]=useState('')
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<ActionError | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const {language,t}=useLanguage()
+  const errorDetails=error?{...describeError(error),message:authErrorMessage(error,language)}:null
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -355,36 +390,41 @@ function LoginView({
         onLoggedIn(session, '帳號已建立。原本的公開內容目前無法確認或已停止公開，你仍可繼續逛工坊。')
       } else onLoggedIn(session)
     } catch (err) {
-      setError(describeError(err))
+      setError(err)
     } finally {
       setPending(false)
     }
   }
 
-  const accessExpired = Boolean(bootError?.accessExpired || error?.accessExpired)
+  const accessExpired = Boolean(bootError?.accessExpired || errorDetails?.accessExpired)
   return (
     <main className={`login-layout${discoveryEnabled ? ' discovery-login-layout' : ''}`}>
-      {discoveryEnabled ? <section className="login-story discovery-story"><BrandPoster/><PublicDiscovery onJoin={join} registrationEnabled={Boolean(site?.registration_enabled)}/></section> : <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>加入公會、領取 Repo 技能書，和夥伴一起供貨、開店與做開源作品。</h1><EntryResources client={client}/></div></section>}
+      <div className="login-entry-tools"><LanguagePicker className="login-language-row"/><InstallAppButton/></div>
+      {discoveryEnabled ? <section className="login-story discovery-story"><BrandPoster/><PublicDiscovery onJoin={join} registrationEnabled={Boolean(site?.registration_enabled)}/></section> : <section className="login-story"><BrandPoster/><div className="login-story-copy"><h1>{t('auth.headline')}</h1><p className="login-purpose-intro">{t('auth.intro')}</p><PlatformPurpose variant="public" disabled={pending||accessExpired||activeMode==='confirm-reset'} onAction={target=>{
+        if(target!=='supplier'&&target!=='showcase'&&target!=='tasks')return
+        onChooseEntry(target);setMode(site?.registration_enabled?'register':'login');setError(null);setResetNotice('')
+        requestAnimationFrame(()=>emailInput.current?.focus())
+      }}/></div></section>}
       <div className="login-form-area">
       <section className="card login-card" aria-labelledby="login-heading">
-        <div className="login-page-tools"><PageTools pageId="registration"/></div>
-        {!accessExpired && activeMode!=='confirm-reset'&&<div className="auth-switch" role="group" aria-label="登入或建立帳號"><button type="button" className={activeMode==='login'?'selected':''} aria-pressed={activeMode==='login'} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>會員登入</button>{site?.registration_enabled&&<button type="button" className={activeMode==='register'?'selected':''} aria-pressed={activeMode==='register'} onClick={()=>{setMode('register');setError(null);setResetNotice('')}}>建立帳號</button>}</div>}
-        <h2 id="login-heading">{accessExpired ? '網站登入已過期' : activeMode==='register'?'加入自由工坊':activeMode==='request-reset'?'忘記密碼':activeMode==='confirm-reset'?'設定新密碼':'登入'}</h2>
+        {!accessExpired && activeMode!=='confirm-reset'&&<div className="auth-switch" role="group" aria-label={t('auth.switch')}><button type="button" className={activeMode==='login'?'selected':''} aria-pressed={activeMode==='login'} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>{t('auth.memberLogin')}</button>{site?.registration_enabled&&<button type="button" className={activeMode==='register'?'selected':''} aria-pressed={activeMode==='register'} onClick={()=>{setMode('register');setError(null);setResetNotice('')}}>{t('auth.create')}</button>}</div>}
+        <header className="login-card-heading"><h2 id="login-heading">{t(accessExpired?'auth.accessExpired':activeMode==='register'?'auth.join':activeMode==='request-reset'?'auth.forgot':activeMode==='confirm-reset'?'auth.newPasswordTitle':'auth.login')}</h2><PageTools pageId="registration" compact/></header>
+        {entryIntent&&!accessExpired&&activeMode!=='confirm-reset'&&activeMode!=='request-reset'&&<p className="purpose-next-destination" role="status">{language==='zh-Hant'?`${activeMode==='register'?'加入':'登入'}後前往：${entryIntentLabel(entryIntent)}。`:t('auth.destination',{destination:t(`intent.${entryIntent}`)})}</p>}
         {discoveryEnabled && returnPath && activeMode === 'register' && <p className="muted">建立帳號後，會先確認並返回原本的公開內容；選公會與完整定位可以稍後再做。</p>}
         {notice && !accessExpired && (
           <p className="banner banner-info" role="status">
-            {notice}
+            {language==='zh-Hant'?notice:authErrorMessage({message:notice},language)}
           </p>
         )}
         {bootError && (
-          <ErrorPanel error={bootError} onReload={onRetrySession} reloadLabel="重新確認登入狀態" />
+          <ErrorPanel error={{...bootError,message:authErrorMessage(bootError,language)}} onReload={onRetrySession} reloadLabel={t('auth.checkSession')} />
         )}
-        {error && <ErrorPanel error={error} />}
-        {resetNotice&&<p className="banner banner-info" role="status">{resetNotice}</p>}
+        {errorDetails && <ErrorPanel error={errorDetails} />}
+        {resetNotice&&<p className="banner banner-info" role="status">{t('auth.resetNotice')}</p>}
         {!accessExpired && <form ref={authForm} className="stack" onSubmit={(event) => void onSubmit(event)}>
-          {activeMode==='register'&&<p className="registration-progress">1 · 建立帳號　2 · 選公會　3 · 開始參與</p>}
+          {activeMode==='register'&&<p className="registration-progress">{t('auth.progress')}</p>}
           {activeMode!=='confirm-reset'&&<label className="field">
-            <span className="field-label">電子郵件</span>
+            <span className="field-label">{t('auth.email')}</span>
             <input
               ref={emailInput}
               name="email"
@@ -397,7 +437,7 @@ function LoginView({
             />
           </label>}
           {activeMode!=='request-reset'&&<label className="field">
-            <span className="field-label">{activeMode==='confirm-reset'?'新密碼':'密碼'}</span>
+            <span className="field-label">{t(activeMode==='confirm-reset'?'auth.newPassword':'auth.password')}</span>
             <input
               name="password"
               type="password"
@@ -410,22 +450,24 @@ function LoginView({
               disabled={pending}
             />
           </label>}
-          {activeMode==='confirm-reset'&&<label className="field">再次輸入新密碼<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
-          {activeMode==='register'&&<><label className="field"><span className="field-label" id="register-nickname-label">社群顯示名稱</span><input name="nickname" maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" placeholder="選填，可以稍後再改" value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">選填；留白會先使用隨機暱稱，不會公開你的 Email。</span></label><p className="field-hint">只需 Email 和密碼。密碼至少 12 個字元，建議使用密碼管理員。{site?.password_recovery_enabled?'忘記密碼可從登入頁重設。':'請保存密碼，目前未開放信箱找回。'}</p></>}
-          {activeMode==='request-reset'&&<p className="field-hint">輸入註冊信箱；若帳號存在，重設連結會寄到信箱，30 分鐘內有效。</p>}
+          {activeMode==='confirm-reset'&&<label className="field">{t('auth.confirmPassword')}<input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} disabled={pending}/></label>}
+          {activeMode==='register'&&<><label className="field"><span className="field-label" id="register-nickname-label">{t('auth.nickname')}</span><input name="nickname" maxLength={60} autoComplete="nickname" aria-labelledby="register-nickname-label" aria-describedby="register-nickname-hint" placeholder={t('auth.optionalName')} value={nickname} onChange={event=>setNickname(event.target.value)} disabled={pending}/><span className="field-hint" id="register-nickname-hint">{t('auth.nicknameHint')}</span></label><p className="field-hint">{t('auth.passwordHint')} {t(site?.password_recovery_enabled?'auth.recoveryAvailable':'auth.recoveryUnavailable')}</p></>}
+          {activeMode==='request-reset'&&<p className="field-hint">{t('auth.resetHint')}</p>}
           <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-            {pending ? '處理中…' : activeMode==='register'?'建立帳號，先逛工坊':activeMode==='request-reset'?'寄送重設連結':activeMode==='confirm-reset'?'儲存新密碼':'登入'}
+            {t(pending?'auth.pending':activeMode==='register'?'auth.createExplore':activeMode==='request-reset'?'auth.sendReset':activeMode==='confirm-reset'?'auth.savePassword':'auth.login')}
           </button>
         </form>}
-        {!accessExpired&&site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>忘記密碼？</button>}
-        {!accessExpired&&activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>返回登入</button>}
-        {!accessExpired&&activeMode==='confirm-reset'&&<button type="button" className="btn btn-ghost" onClick={onCancelReset}>返回登入</button>}
-        {!accessExpired && site?.demo_accounts_enabled&&activeMode==='login'&&<aside className="help-box" aria-label="示範帳號">
+        {!accessExpired&&<div className="login-secondary-actions">
+          {site?.password_recovery_enabled&&activeMode==='login'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('request-reset');setError(null);setResetNotice('')}}>{t('auth.forgotButton')}</button>}
+          {activeMode==='request-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={()=>{setMode('login');setError(null);setResetNotice('')}}>{t('auth.backLogin')}</button>}
+          {activeMode==='confirm-reset'&&<button type="button" className="btn btn-ghost" disabled={pending} onClick={onCancelReset}>{t('auth.backLogin')}</button>}
+        </div>}
+        {!accessExpired && site?.demo_accounts_enabled&&activeMode==='login'&&<aside className="help-box" aria-label={t('auth.demo')}>
           <p>
-            示範帳號（虛構身分，不是真實人士）。密碼皆為 <code>{DEMO_PASSWORD}</code>。
+            {language==='zh-Hant'?<>示範帳號（虛構身分，不是真實人士）。密碼皆為 </>:t('auth.demoHint')} <code>{DEMO_PASSWORD}</code>。
           </p>
           <div className="chip-row">
-            {DEMO_ACCOUNTS.map((account) => (
+            {DEMO_ACCOUNTS.map((account,index) => (
               <button
                 key={account.email}
                 type="button"
@@ -436,13 +478,15 @@ function LoginView({
                   setPassword(DEMO_PASSWORD)
                 }}
               >
-                {account.label}
+                {t(index===0?'auth.demoMaker':index===1?'auth.demoReviewer':'auth.demoClient')}
                 <span className="chip-email">{account.email}</span>
               </button>
             ))}
           </div>
         </aside>}
       </section></div>
+      <p className="login-language-scope field-hint">{t('language.scope')}</p>
+      <div className="login-public-resources"><EntryResources client={client}/></div>
       <CommunityLinks/>
     </main>
   )
@@ -459,6 +503,7 @@ function Workspace({
   onLoggedOut: () => void
   onSessionExpired: () => void
 }) {
+  const {t}=useLanguage()
   const [headerMember,setHeaderMember]=useState<MemberCardData|null>(null)
   const [canManageGuild,setCanManageGuild]=useState(false)
   useEffect(()=>{
@@ -483,6 +528,13 @@ function Workspace({
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
+  const notificationSequence=useRef(0)
+  const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
+  const chatEntrySequence=useRef(0)
+  const [messageView,setMessageView]=useState<{view:'direct'|'notifications';request:number}>({view:'direct',request:0})
+  const [shareEntry,setShareEntry]=useState<{target:ShareTarget;tab:TabId;sequence:number}|null>(null)
+  const [shareNotice,setShareNotice]=useState('')
+  const shareSequence=useRef(0)
   const menuToggle = useRef<HTMLButtonElement>(null)
   const mainContent = useRef<HTMLElement>(null)
   const workspaceTopbar = useRef<HTMLElement>(null)
@@ -490,6 +542,11 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
+    if(tab!=='messages'){
+      setChatEntry(null)
+      setNotificationTarget(current=>current?.tab==='messages'?null:current)
+      setMessageView(current=>({view:'direct',request:current.request+1}))
+    }
     logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
@@ -499,15 +556,48 @@ function Workspace({
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
+    if(next==='messages'){
+      setChatEntry(null)
+      setNotificationTarget(current=>current?.tab==='messages'?null:current)
+      setMessageView(current=>({view:'direct',request:current.request+1}))
+    }
     if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
       window.history.replaceState(null,'',`/#${next}`)
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     }
     else window.location.hash = next
   }, [])
-  const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
+  function chooseShare(target:ShareTarget){
+    const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
+    setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination)
+  }
   useEffect(()=>{
-    const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;setChatEntry(current=>({...value,request:(current?.request??0)+1}));selectTab('messages')}
+    if(!shareEntry)return
+    if(tab!==shareEntry.tab){setShareEntry(null);return}
+    const root=mainContent.current;if(!root)return
+    let done=false
+    const definition=SHARE_TARGETS[shareEntry.target]
+    const settle=()=>{
+      if(done)return
+      const target=root.querySelector<HTMLElement>(definition.selector)
+      if(target&&!target.matches(':disabled')){
+        done=true;observer.disconnect()
+        if(definition.activate)target.click()
+        else{target.scrollIntoView({block:'center',behavior:'instant'});target.focus({preventScroll:true})}
+        setShareEntry(current=>current?.sequence===shareEntry.sequence?null:current)
+      }else if(root.querySelector('[role="alert"]')){
+        done=true;observer.disconnect();setShareNotice('分享入口暫時無法載入，請使用頁面的重新載入。')
+        setShareEntry(current=>current?.sequence===shareEntry.sequence?null:current)
+      }
+    }
+    // The existing lazy page and data load own their requests. Only move focus
+    // after the chosen real control mounts; never submit a form or upload here.
+    const observer=new MutationObserver(settle)
+    observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});settle()
+    return()=>{done=true;observer.disconnect()}
+  },[shareEntry,tab])
+  useEffect(()=>{
+    const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;selectTab('messages');setChatEntry({...value,request:++chatEntrySequence.current})}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
   const launchpadEnabled = site?.guild_launchpad_enabled === true
@@ -590,12 +680,13 @@ function Workspace({
 
   return (
     <PortalContext.Provider value={value}>
-      <div className="app-frame">
+      <div className="app-frame social-layout">
         {site?.demo_accounts_enabled && <DemoBanner />}
         <a className="skip" href="#main-content" onClick={event => { event.preventDefault(); mainContent.current?.focus(); }}>
           跳到主要內容
         </a>
         <div className="shell">
+          <header className="community-header">
           <aside className="sidebar" onKeyDown={event => { if (event.key === 'Escape' && mobileOpen) { setMobileOpen(false); menuToggle.current?.focus(); } }}>
             <div className="sidebar-heading"><div className="brand">
               <img className="sidebar-brand-art" src="/brand/freedom-workshop.webp" alt="" width="1280" height="720"/>
@@ -604,38 +695,42 @@ function Workspace({
                 <strong>自由工坊</strong>
               </div>
             </div>
-            <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{mobileOpen ? '關閉選單' : '開啟選單'}</button></div>
+            <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
+          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+          </header>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
               <div>
-                {launchpadOpen ? null : <h1 id="workspace-page-title">{tabTitle(tab)}</h1>}
+                {launchpadOpen ? null : <h1 id="workspace-page-title">{t(`nav.${tab}`)}</h1>}
               </div>
-              <PageTools pageId={tab} client={client}/>
-              <div className="topbar-actions"><NotificationBell client={client} onOpen={()=>selectTab('messages')} onNavigate={action=>{setNotificationTarget(current=>({...action,sequence:(current?.sequence??0)+1}));selectTab(action.tab)}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+              <PageTools pageId={tab} client={client} compact/>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
                 memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (tab !== 'business' || site?.guild_launchpad_enabled === true)}/>
               <main ref={mainContent} className="workspace-page" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
+            {(shareEntry||shareNotice)&&<p className="share-entry-status" role="status">{shareEntry?`正在開啟${SHARE_TARGETS[shareEntry.target].label}…`:shareNotice}</p>}
             {error && (
               <ErrorPanel
                 error={error}
                 onReload={() => window.location.reload()}
               />
             )}
+            <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
-            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} />}
-            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{setNotificationTarget(current=>({tab:'messages',resource_id:id,sequence:(current?.sequence??0)+1}));selectTab('messages');}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'events' && <EventsPanel client={client} session={session} />}
             {tab === 'highlights' && <EventHighlights client={client} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
-            {tab === 'social' && <SocialZone client={client} />}
+            {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}}/>}
             {tab === 'services' && <MemberServices client={client} />}
             {tab === 'promotion' && <PromotionBoards client={client} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
@@ -653,11 +748,13 @@ function Workspace({
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
+            </PageLoadBoundary>
               </main>
             </div>
           </section>
         </div>
       </div>
+      {tab!=='messages'&&!mobileOpen&&!error?.accessExpired&&<FloatingMessages client={client} onOpen={()=>selectTab('messages')}/>}
     </PortalContext.Provider>
   )
 }

@@ -10,6 +10,7 @@
 | --- | --- |
 | `GET /api/v1/me/notifications` | `{items: Notification[], unread_count, next_offset}` |
 | `POST /api/v1/me/notifications/:id/read` `{}` | `{notification_id, read_at}`；只能標自己的通知，已讀再標回原時間 |
+| `POST /api/v1/me/inbox/read-all` `{}` | `{notifications_updated, direct_messages_updated, channels_updated}`；一次標記本人所有頁的通知、收到的私訊及目前可存取的公會／小隊／世界聊天室 |
 | `GET /api/v1/me/conversations` | `{items:[{participant, can_send, last_message, unread_count}], unread_count, next_offset}`，依最後一則訊息排序 |
 | `GET /api/v1/me/conversations/:userId/messages` | `{participant, can_send, items: Message[], unread_count, next_offset}`；還沒對話時回空陣列，可直接開始撰寫 |
 | `POST /api/v1/me/conversations/:userId/messages` `{body}` | `201 Message` |
@@ -18,6 +19,8 @@
 DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；`avatar_url` 只在對方目前可見且有頭像時給既有的 `/api/v1/members/:id/avatar?v=` 路徑。回應不含 email、聯絡方式或任何 token。
 
 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再回相同結果。
+
+「全部標為已讀」在通知鈴與訊息頁都可使用。它是一個明確的 POST 操作；開啟通知、切換頁面和 GET 不會自動消耗未讀。既有內容與歷史不刪除，也不改其他會員的未讀狀態。聊天室只更新本人目前成員資格允許的頻道；沿用既有成員鎖、channel sequence 鎖及單調 cursor。這些寫入與 command receipt 在同一個交易，任一失敗全部回滾。收到 ACK 後重新讀取各分區的真實未讀數；失敗顯示錯誤，同一 key 重試只回第一次結果，之後的新通知和聊天仍是未讀。
 
 ## 服務層授權、鎖與快照
 
