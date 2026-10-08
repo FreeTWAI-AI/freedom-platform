@@ -1,6 +1,8 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import type { PoolClient, QueryResult } from 'pg';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { InstanceDetailSchema, RegistryOperationSchema } from '../../contracts/guild-launchpad/v1/module-registry.js';
@@ -798,5 +800,348 @@ test('manual-work enable rechecks an unwritable binding that appears while waiti
   } finally {
     await gate.release();
     await Promise.allSettled(enabling ? [enabling] : []);
+  }
+});
+
+
+type HoldBlock = 'read' | 'hold' | 'release-active' | 'release-member';
+function runbookSql(document: string, block: HoldBlock, variables: Record<string, string>) {
+  const lines = document.split('\n');
+  const marker = lines.indexOf(`<!-- platform-hold:${block} -->`);
+  if (marker < 0) throw new Error(`missing runbook marker: ${block}`);
+  if (lines[marker + 1] !== '```sql') throw new Error(`missing SQL fence: ${block}`);
+  const end = lines.indexOf('```', marker + 2);
+  if (end < 0) throw new Error(`missing closing fence: ${block}`);
+  const used = new Set<string>();
+  // Ignore SQL literals/comments and casts; only quoted psql values are allowed.
+  const tokens = /'(?:''|[^'])*'|--[^\n]*|\/\*[\s\S]*?\*\/|:'([a-zA-Z_]\w*)'|::[a-zA-Z_]\w*|:[a-zA-Z_]\w*|:['"]/g;
+  const sql = lines.slice(marker + 2, end).join('\n').replace(tokens, (token, name: string | undefined) => {
+    if (name !== undefined) {
+      if (!Object.hasOwn(variables, name)) throw new Error(`unknown runbook variable: ${name}`);
+      used.add(name);
+      return "'" + variables[name].replaceAll("'", "''") + "'";
+    }
+    if (token.startsWith(':') && !token.startsWith('::')) throw new Error(`unsupported psql interpolation: ${token}`);
+    return token;
+  });
+  for (const name of Object.keys(variables)) {
+    if (!used.has(name)) throw new Error(`unused runbook variable: ${name}`);
+  }
+  // Check the substituted SQL too, without interpreting colons inside literals.
+  for (const token of sql.matchAll(tokens)) {
+    if (token[0].startsWith(':') && !token[0].startsWith('::')) throw new Error('psql interpolation left over');
+  }
+  return sql;
+}
+function holdVariables(ctx: { tenantId: string; instanceId: string }, block: HoldBlock, operationId?: string) {
+  return { tenant_id: ctx.tenantId, instance_id: ctx.instanceId,
+    ...(block === 'read' ? {} : { expected_database: new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1) }),
+    ...(block === 'release-member' ? { suspension_operation_id: operationId ?? randomUUID() } : {}),
+  };
+}
+async function runHoldBlock<T>(block: HoldBlock, variables: Record<string, string>,
+  finish: (rows: QueryResult['rows'], q: PoolClient) => Promise<T>, options: { role?: string; omitBinding?: boolean } = {}) {
+  const document = await readFile(new URL('../../modules/module-registry/platform-hold.md', import.meta.url), 'utf8');
+  let sql = runbookSql(document, block, variables);
+  if (options.omitBinding) {
+    const binding = /^SELECT set_config\('freedom\.tenant_id', '[^']*', true\);\n/m;
+    assert.equal([...sql.matchAll(new RegExp(binding.source, 'gm'))].length, 1);
+    sql = sql.replace(binding, '');
+  }
+  const q = await h.pool.connect();
+  try {
+    if (options.role) {
+      assert.match(options.role, /^fp_hold_[a-z0-9_]+$/);
+      await q.query(`SET ROLE ${options.role}`);
+      const state = (await q.query(`SELECT current_user AS role, row_security_active('module_instances'::regclass) AS rls,
+        NULLIF(current_setting('freedom.tenant_id',true),'') AS tenant`)).rows[0];
+      assert.equal(state.role, options.role);
+      assert.equal(state.rls, true);
+      assert.equal(state.tenant, null);
+    }
+    // No parameters: pg sends this complete block as one simple query.
+    const result = await q.query(sql) as unknown as QueryResult[];
+    const last = block === 'read' ? result.at(-2)! : result.at(-1)!;
+    if (block === 'read') {
+      assert.equal(result.at(-1)!.command, 'ROLLBACK');
+      assert.equal(last.command, 'SELECT');
+    }
+    return await finish(last.rows, q);
+  } finally {
+    try { await q.query('ROLLBACK'); }
+    finally {
+      try { if (options.role) await q.query('RESET ROLE'); }
+      finally { q.release(); }
+    }
+  }
+}
+async function readHold(ctx: { tenantId: string; instanceId: string }) {
+  return runHoldBlock('read', holdVariables(ctx, 'read'), async rows => {
+    assert.equal(rows.length, 1);
+    return rows[0];
+  });
+}
+async function holdAction(ctx: { tenantId: string; instanceId: string }, block: Exclude<HoldBlock, 'read'>,
+  operationId?: string, options: { role?: string } = {}) {
+  return runHoldBlock(block, holdVariables(ctx, block, operationId), async (rows, q) => {
+    assert.equal(rows.length, 1, `${block} must return exactly one incident row`);
+    await q.query('COMMIT');
+    return rows[0];
+  }, options);
+}
+async function holdSnapshot(ctx: { tenantId: string; instanceId: string }) {
+  return { lifecycle: await lifecycleSnapshot(ctx), registry: await enableSnapshot(),
+    audit: (await h.pool.query('SELECT to_jsonb(a) AS row FROM platform_admin_audit a ORDER BY to_jsonb(a)::text')).rows };
+}
+async function refusedHold(ctx: { tenantId: string; instanceId: string }, block: Exclude<HoldBlock, 'read'>,
+  overrides: Record<string, string> = {}, options: { role?: string; omitBinding?: boolean } = {}) {
+  const before = await holdSnapshot(ctx);
+  await runHoldBlock(block, { ...holdVariables(ctx, block), ...overrides }, async (rows, q) => {
+    assert.deepEqual(rows, [], `${block} refusal must return no row`);
+    await q.query('ROLLBACK');
+  }, options);
+  assert.deepEqual(await holdSnapshot(ctx), before);
+}
+const nextVersion = (version: string) => String(BigInt(version) + 1n);
+function incidentVersions(row: QueryResult['rows'][number], current: Awaited<ReturnType<typeof physical>>) {
+  assert.equal(row.instance_version, current.version);
+  assert.equal(row.deployment_version, current.binding_version);
+}
+async function assertOnlyHoldRowsChanged(before: Awaited<ReturnType<typeof holdSnapshot>>, ctx: { tenantId: string; instanceId: string }) {
+  const after = await holdSnapshot(ctx);
+  assert.deepEqual(after.lifecycle.capacity, before.lifecycle.capacity);
+  assert.deepEqual(after.lifecycle.counts, before.lifecycle.counts);
+  assert.deepEqual(after.audit, before.audit);
+  for (const table of Object.keys(before.registry).filter(table => !['module_instances', 'deployment_bindings'].includes(table))) {
+    assert.deepEqual(after.registry[table], before.registry[table], table);
+  }
+}
+
+test('platform hold runbook extraction rejects missing fences and invalid or unused interpolation', () => {
+  const doc = (sql: string) => `<!-- platform-hold:hold -->\n\`\`\`sql\n${sql}\n\`\`\``;
+  assert.throws(() => runbookSql('', 'hold', {}), /missing runbook marker/);
+  assert.throws(() => runbookSql('<!-- platform-hold:hold -->\n```psql\nSELECT 1;\n```', 'hold', {}), /missing SQL fence/);
+  assert.throws(() => runbookSql('<!-- platform-hold:hold -->\n```sql\nSELECT 1;', 'hold', {}), /missing closing fence/);
+  assert.throws(() => runbookSql(doc("SELECT :'unknown';"), 'hold', {}), /unknown runbook variable/);
+  assert.throws(() => runbookSql(doc('SELECT 1;'), 'hold', { unused: 'x' }), /unused runbook variable/);
+  for (const interpolation of [':tenant_id', ':"tenant_id"', ":'bad-name'"]) {
+    assert.throws(() => runbookSql(doc(`SELECT ${interpolation};`), 'hold', {}), /unsupported psql interpolation/);
+  }
+  assert.equal(runbookSql(doc("SELECT :'value'::text, ':name', ':\"quoted\"', ':''literal';"), 'hold', { value: "operator's :name" }),
+    "SELECT 'operator''s :name'::text, ':name', ':\"quoted\"', ':''literal';");
+});
+
+test('platform hold runbook preserves a prior member suspension until release-member restores its latest operation', async () => {
+  const ctx = await ready();
+  const old = await suspend(ctx);
+  assert.equal(old.status, 200);
+  assert.equal((await resume(ctx)).status, 200);
+  const suspended = await suspend(ctx);
+  assert.equal(suspended.status, 200);
+  const member = (await detail(ctx)).suspension;
+  assert.equal(member?.operation_id, suspended.data.operation_id);
+  assert.equal(member?.reason, reason);
+  const otherSpace = await h.workspace(ctx.owner, ctx.tenantId, '另一個暫停實例');
+  const other = await h.enable(ctx.owner, ctx.tenantId, otherSpace, guild, { kind: 'create_new' });
+  assert.equal(other.status, 200);
+  const otherSuspend = await suspend({ ...ctx, workspaceId: otherSpace, instanceId: other.data.instance_id });
+  assert.equal(otherSuspend.status, 200);
+  const read = await readHold(ctx), original = await physical(ctx), before = await holdSnapshot(ctx);
+  assert.equal(read.database, new URL(process.env.TEST_DATABASE_URL!).pathname.slice(1));
+  assert.equal(read.status, original.status);
+  assert.equal(read.instance_version, original.version);
+  assert.equal(read.suspension_operation_id, original.suspension_operation_id);
+  assert.equal(read.deployment_state, original.binding_state);
+  assert.equal(read.deployment_version, original.binding_version);
+  assert.equal(read.classification, 'member_suspension');
+  assert.equal(read.latest_lifecycle_kind, 'module.instance.suspend');
+  assert.equal(read.latest_lifecycle_operation_id, suspended.data.operation_id);
+  assert.equal(read.latest_lifecycle_at.toISOString(), member?.suspended_at);
+  assert.equal(read.unfinished_launch, false);
+  const row = await holdAction(ctx, 'hold');
+  assert.deepEqual(row, { tenant_id: ctx.tenantId, instance_id: ctx.instanceId,
+    previous_status: 'suspended', previous_suspension_operation_id: suspended.data.operation_id,
+    previous_deployment_state: 'suspended', instance_version: nextVersion(original.version), deployment_version: original.binding_version });
+  const held = await physical(ctx);
+  assert.equal((await readHold(ctx)).classification, 'platform_hold');
+  assert.deepEqual(held, { ...original, suspension_operation_id: null, version: nextVersion(original.version) });
+  assert.deepEqual((await detail(ctx)).suspension, { kind: 'platform', operation_id: null, suspended_at: null, reason: null });
+  await assertOnlyHoldRowsChanged(before, ctx);
+  const refused = await holdSnapshot(ctx);
+  error(await resume(ctx), 409, 'instance_security_hold');
+  error(await post(`${path(ctx.tenantId, ctx.instanceId)}/archive`, ctx.owner, { reason }, `"${held.version}"`), 409, 'instance_security_hold');
+  error(await createWork(ctx), 409, 'work_instance_unavailable');
+  unavailableEnable(await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild), suspendedNotice);
+  assert.deepEqual(await holdSnapshot(ctx), refused);
+  await refusedHold(ctx, 'release-active');
+  for (const operation of [randomUUID(), otherSuspend.data.operation_id, old.data.operation_id]) {
+    await refusedHold(ctx, 'release-member', { suspension_operation_id: operation });
+  }
+  const restored = await holdAction(ctx, 'release-member', row.previous_suspension_operation_id);
+  const restoredPhysical = await physical(ctx);
+  assert.deepEqual(restoredPhysical, { ...original, version: nextVersion(held.version) });
+  incidentVersions(restored, restoredPhysical);
+  assert.equal(restored.suspension_operation_id, suspended.data.operation_id);
+  assert.deepEqual((await detail(ctx)).suspension, member);
+  assert.equal((await readHold(ctx)).classification, 'member_suspension');
+  await assertOnlyHoldRowsChanged(before, ctx);
+  assert.equal((await resume(ctx)).status, 200);
+  assert.equal((await createWork(ctx)).status, 201);
+});
+
+for (const history of ['none', 'resume'] as const) {
+  test(`platform hold runbook returns an active instance to writable state with latest lifecycle ${history}`, async () => {
+    const ctx = await ready();
+    let operationId: string | undefined;
+    if (history === 'resume') {
+      assert.equal((await suspend(ctx)).status, 200);
+      const resumed = await resume(ctx);
+      assert.equal(resumed.status, 200);
+      operationId = resumed.data.operation_id;
+    }
+    const original = await physical(ctx), before = await holdSnapshot(ctx), read = await readHold(ctx);
+    assert.equal(read.classification, 'active');
+    assert.equal(read.latest_lifecycle_kind, history === 'none' ? null : 'module.instance.resume');
+    assert.equal(read.latest_lifecycle_operation_id, operationId ?? null);
+    const row = await holdAction(ctx, 'hold');
+    assert.deepEqual(row, { tenant_id: ctx.tenantId, instance_id: ctx.instanceId, previous_status: 'active',
+      previous_suspension_operation_id: null, previous_deployment_state: 'active',
+      instance_version: nextVersion(original.version), deployment_version: nextVersion(original.binding_version) });
+    const held = await physical(ctx);
+    assert.deepEqual(held, { ...original, status: 'suspended', binding_state: 'suspended',
+      version: nextVersion(original.version), binding_version: nextVersion(original.binding_version) });
+    assert.equal((await readHold(ctx)).classification, 'platform_hold');
+    const refused = await holdSnapshot(ctx);
+    error(await suspend(ctx), 409, 'instance_not_active');
+    error(await resume(ctx), 409, 'instance_security_hold');
+    error(await post(`${path(ctx.tenantId, ctx.instanceId)}/archive`, ctx.owner, { reason }, `"${held.version}"`), 409, 'instance_security_hold');
+    assert.deepEqual(await holdSnapshot(ctx), refused);
+    const otherSpace = await h.workspace(ctx.owner, ctx.tenantId, '釋放指標對照');
+    const other = await h.enable(ctx.owner, ctx.tenantId, otherSpace, guild, { kind: 'create_new' });
+    assert.equal(other.status, 200);
+    const otherSuspended = await suspend({ ...ctx, workspaceId: otherSpace, instanceId: other.data.instance_id });
+    assert.equal(otherSuspended.status, 200);
+    await refusedHold(ctx, 'release-member', { suspension_operation_id: otherSuspended.data.operation_id });
+    // The extra instance above is a fixture; snapshot only subsequent operator effects.
+    const releaseBefore = await holdSnapshot(ctx);
+    const released = await holdAction(ctx, 'release-active');
+    const active = await physical(ctx);
+    assert.deepEqual(active, { ...original, version: nextVersion(held.version), binding_version: nextVersion(held.binding_version) });
+    incidentVersions(released, active);
+    assert.equal((await detail(ctx)).suspension, null);
+    assert.equal((await readHold(ctx)).classification, 'active');
+    await assertOnlyHoldRowsChanged(releaseBefore, ctx);
+    assert.deepEqual(before.lifecycle.capacity, refused.lifecycle.capacity);
+    assert.deepEqual(before.lifecycle.counts, refused.lifecycle.counts);
+    assert.equal((await createWork(ctx)).status, 201);
+    const enabled = await h.enable(ctx.owner, ctx.tenantId, ctx.workspaceId, guild);
+    assert.equal(enabled.status, 200, JSON.stringify(enabled.data));
+    assert.equal(ManualWorkBindingSchema.parse(enabled.data).reused, true);
+  });
+}
+
+test('platform hold runbook refuses wrong targets and incompatible states without changing any rows', async () => {
+  const ctx = await ready();
+  await refusedHold(ctx, 'hold', { expected_database: 'fp_wrong_target' });
+  const other = await h.createTenant(ctx.owner, '另一個業務');
+  await refusedHold(ctx, 'hold', { tenant_id: other.tenantId });
+  for (const block of ['release-active', 'release-member'] as const) await refusedHold(ctx, block);
+  assert.equal((await suspend(ctx)).status, 200);
+  for (const block of ['release-active', 'release-member'] as const) {
+    await refusedHold(ctx, block, block === 'release-member' ? { suspension_operation_id: (await physical(ctx)).suspension_operation_id } : {});
+  }
+  assert.equal((await resume(ctx)).status, 200);
+  await h.pool.query(`UPDATE deployment_bindings SET state='pending' WHERE instance_id=$1`, [ctx.instanceId]);
+  await refusedHold(ctx, 'hold');
+  await h.pool.query(`UPDATE deployment_bindings SET state='active' WHERE instance_id=$1`, [ctx.instanceId]);
+  await holdAction(ctx, 'hold');
+  await refusedHold(ctx, 'hold');
+  for (const block of ['release-active', 'release-member'] as const) {
+    await refusedHold(ctx, block, { expected_database: 'fp_wrong_target' });
+    await refusedHold(ctx, block, { tenant_id: other.tenantId });
+  }
+  await holdAction(ctx, 'release-active');
+  const archived = await post(`${path(ctx.tenantId, ctx.instanceId)}/archive`, ctx.owner, { reason }, `"${(await physical(ctx)).version}"`);
+  assert.equal(archived.status, 200);
+  assert.equal((await readHold(ctx)).classification, 'archived');
+  await refusedHold(ctx, 'hold');
+  for (const block of ['release-active', 'release-member'] as const) await refusedHold(ctx, block);
+});
+
+test('platform hold runbook refuses unfinished launch steps and reused installation links', async () => {
+  const owner = await h.signIn(DEMO_USERS[0].email);
+  await h.fullMember(owner.user.user_id, guild);
+  const made = await h.createTenant(owner, '未完成啟用的安全暫停');
+  await setSyntheticFault(h.pool, 'synthetic-storefront', 'timeout');
+  const planned = await h.plan(owner, made.tenantId, h.planBody(guild, made.workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0'));
+  assert.equal(planned.status, 201);
+  const launched = await h.launch(owner, made.tenantId, planned);
+  assert.equal(launched.status, 202);
+  const instanceId = (await h.pool.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1 AND module_key='synthetic-inventory'`, [made.tenantId])).rows[0].instance_id;
+  const ctx = { owner, ...made, instanceId };
+  assert.equal((await readHold(ctx)).unfinished_launch, true);
+  assert.equal((await physical(ctx)).status, 'active');
+  await refusedHold(ctx, 'hold');
+  const op = await get(`/tenants/${ctx.tenantId}/operations/${launched.data.operation_id}`, owner);
+  await setSyntheticFault(h.pool, 'synthetic-storefront', null);
+  assert.equal((await post(`/tenants/${ctx.tenantId}/operations/${op.data.operation_id}/reconcile`, owner, {}, `"${op.data.version}"`)).status, 202);
+  // An absent effect becomes a pending retry; advance at its due time without sleeping.
+  const due = (await h.pool.query(`SELECT max(next_attempt_at) + interval '1 second' AS at FROM module_provision_steps
+    WHERE operation_id=$1 AND state='pending'`, [launched.data.operation_id])).rows[0].at as Date;
+  assert.ok(due instanceof Date);
+  await advanceOperation(h.pool, ctx.tenantId, launched.data.operation_id, { providers: h.providers, clock: () => due });
+  assert.equal((await get(`/tenants/${ctx.tenantId}/operations/${launched.data.operation_id}`, owner)).data.state, 'succeeded');
+  assert.equal((await readHold(ctx)).unfinished_launch, false);
+  const secondSpace = await h.workspace(owner, ctx.tenantId, '重用啟用的安全暫停');
+  await setSyntheticFault(h.pool, 'synthetic-storefront', 'timeout');
+  const reusedPlan = await h.plan(owner, ctx.tenantId, h.planBody(guild, secondSpace, 'synthetic-storefront', 'synthetic-storefront@1.0.0', {
+    dependencies: [{ requirement_key: 'inventory', choice: 'reuse', instance_id: ctx.instanceId, expected_version: (await detail(ctx)).version }],
+  }));
+  assert.equal(reusedPlan.status, 201, JSON.stringify(reusedPlan.data));
+  const reused = await h.launch(owner, ctx.tenantId, reusedPlan);
+  assert.equal(reused.status, 202, JSON.stringify(reused.data));
+  assert.equal(await h.count('module_provision_steps', 'WHERE operation_id=$1 AND instance_id=$2', [reused.data.operation_id, instanceId]), 0);
+  assert.equal((await readHold(ctx)).unfinished_launch, true);
+  await refusedHold(ctx, 'hold');
+});
+
+test('platform hold runbook binds tenant rows for a non-owner runtime role and refuses the no-binding control', async t => {
+  const ctx = await ready(), role = `fp_hold_${randomUUID().replaceAll('-', '')}`;
+  const schema = (await h.pool.query('SELECT current_schema() AS schema')).rows[0].schema as string;
+  assert.match(schema, /^fp_mil_[0-9_]+$/);
+  let created = false;
+  try {
+    await h.admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`);
+    created = true;
+    await h.pool.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role};
+      GRANT SELECT ON module_instances, deployment_bindings, module_provision_operations, module_provision_steps, application_module_links TO ${role};
+      GRANT UPDATE(status, suspension_operation_id, version) ON module_instances TO ${role};
+      GRANT UPDATE(state, version) ON deployment_bindings TO ${role}`);
+    const metadata = (await h.admin.query(`SELECT r.rolsuper,r.rolbypassrls,c.relrowsecurity,c.relforcerowsecurity,
+      pg_get_userbyid(c.relowner) AS owner FROM pg_roles r CROSS JOIN pg_class c
+      JOIN pg_namespace n ON n.oid=c.relnamespace WHERE r.rolname=$1 AND n.nspname=$2 AND c.relname='module_instances'`, [role, schema])).rows[0];
+    assert.equal(metadata.rolsuper, false);
+    assert.equal(metadata.rolbypassrls, false);
+    assert.equal(metadata.relrowsecurity, true);
+    assert.equal(metadata.relforcerowsecurity, false);
+    assert.notEqual(metadata.owner, role);
+    const original = await physical(ctx), before = await holdSnapshot(ctx);
+    const held = await holdAction(ctx, 'hold', undefined, { role });
+    incidentVersions(held, await physical(ctx));
+    assert.equal(held.previous_status, 'active');
+    assert.equal((await physical(ctx)).version, nextVersion(original.version));
+    assert.equal((await physical(ctx)).binding_version, nextVersion(original.binding_version));
+    const released = await holdAction(ctx, 'release-active', undefined, { role });
+    const active = await physical(ctx);
+    incidentVersions(released, active);
+    assert.deepEqual(active, { ...original, version: nextVersion(held.instance_version), binding_version: nextVersion(held.deployment_version) });
+    await assertOnlyHoldRowsChanged(before, ctx);
+    await refusedHold(ctx, 'hold', {}, { role, omitBinding: true });
+    t.diagnostic('Non-owner NOBYPASSRLS role: bound hold/release each returned one row; identical hold without tenant set_config returned zero rows and changed nothing.');
+  } finally {
+    if (created) {
+      await h.pool.query(`DROP OWNED BY ${role}`);
+      await h.admin.query(`DROP ROLE ${role}`);
+    }
   }
 });
