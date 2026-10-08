@@ -139,10 +139,11 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
         </section>}
       </article>;
     })}
-    {unavailable.map(row => <p role="status" key={row.key}>
-      {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。
-      <button type="button" className="btn btn-ghost" onClick={() => { storeLaunch(userId!, guildKey, row, true); setUnavailable(old => old.filter(item => item.key !== row.key)); }}>不再追蹤</button>
-    </p>)}
+    {unavailable.map(row => <div role="status" key={row.key}>
+      <p>
+      {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。</p>
+      <div className="application-actions"><button type="button" className="btn btn-ghost" onClick={() => { storeLaunch(userId!, guildKey, row, true); setUnavailable(old => old.filter(item => item.key !== row.key)); }}>不再追蹤</button></div>
+    </div>)}
     {launch && userId && <LaunchFlow key={`${launch.application_key}:${launch.release_ref}`} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} restoredRow={restoredRow}/>}
     {cursor && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(cursor)}>載入更多</button>}
     {publicMode && items.length > 0 && <p>登入後可確認啟動資格。{onLogin && <button type="button" className="btn btn-ghost" onClick={onLogin}>登入查看資格</button>}</p>}
@@ -538,6 +539,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
       body: kind === 'cancel' ? {reason: 'member_cancelled'} : {}, ifMatch: held.operation.version, kind});
   }
   const selectedInstallation = installations.find(item => item.installation_id === installationChoice);
+  const createDisabled = busy || Boolean(retry) || Boolean(selectedInstallation);
   const installationValid = installations.length === 0 ? installationChoice === 'create_new' : Boolean(selectedInstallation);
   const decided = app.module_requirements.every(item => {
     const choice = choices[item.requirement_key];
@@ -548,15 +550,15 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
     <p>{app.release_ref}</p>
     {!tenantsLoaded && !readFailed && <p role="status">正在載入業務空間…</p>}
     {tenantsLoaded && tenants.some(launchable) && <fieldset className="fieldset"><legend>業務空間</legend><div className="application-actions">
-      {tenants.filter(launchable).map(item => <button type="button" key={item.tenant_id} className="btn btn-ghost" aria-current={item.tenant_id === tenantId ? 'true' : undefined} onClick={() => { if (item.tenant_id !== tenantId) void selectTenant(item.tenant_id); }}>{item.display_name}・{roleLabel(item.my_membership.role)}</button>)}
+      {tenants.filter(launchable).map(item => <button type="button" key={item.tenant_id} className={item.tenant_id === tenantId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={item.tenant_id === tenantId ? 'true' : undefined} onClick={() => { if (item.tenant_id !== tenantId) void selectTenant(item.tenant_id); }}>{item.display_name}・{roleLabel(item.my_membership.role)}</button>)}
     </div>{tenants.some(item => !launchable(item)) && <p className="field-hint">只列出你擁有或管理、目前可使用的業務空間。</p>}</fieldset>}
     {tenant && <p>目前業務空間：{tenant.display_name} · {roleLabel(tenant.my_membership.role)}{workspace && `／${workspace.name}`}</p>}
-    {tenantsLoaded && !readFailed && !tenants.some(launchable) && <p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}<a className="btn btn-ghost" href="#business">建立或選擇業務空間</a></p>}
+    {tenantsLoaded && !readFailed && !tenants.some(launchable) && <div><p>{!tenants.length ? '你還沒有業務空間。' : tenants.some(item => ['owner', 'admin'].includes(item.my_membership.role)) ? '你擁有或管理的業務空間目前無法使用，請先到業務空間頁處理。' : '你在現有業務空間的角色不能啟動應用。請擁有者或管理員啟動，或建立自己的業務空間。'}</p><div className="application-actions"><a className="btn btn-ghost" href="#business">建立或選擇業務空間</a></div></div>}
     {problem && <p role="alert" className="banner banner-error">{problem}</p>}
     {changed && <div role="status"><p>{changed}</p>{changedKind === 'plan' && <ul>{Object.entries(instances).flatMap(([key, rows]) => rows.map(row => <li key={`${key}:${row.instance_id}`}>{moduleWord(key)}：ID 尾碼 {row.instance_id.slice(-6)}，最新版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}</li>))}</ul>}</div>}
     {retry && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void runAction(retry)}>重試</button>}
     {readFailed && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { setProblem(''); setReadFailed(false); if (!tenantsLoaded || !tenantId) void loadTenants(); else if (!workspaceId) void selectTenant(tenantId); else void candidates(true); }}>重新載入清單</button>}
-    {canManage && <fieldset className="fieldset"><legend>工作區</legend><div className="application-actions">{workspaces.map(item => <button type="button" key={item.workspace_id} className="btn btn-ghost" aria-current={item.workspace_id === workspaceId ? 'true' : undefined} onClick={() => { if (item.workspace_id !== workspaceId) void selectWorkspace(tenantId, item.workspace_id); }}>{item.name}</button>)}</div></fieldset>}
+    {canManage && <fieldset className="fieldset"><legend>工作區</legend><div className="application-actions">{workspaces.map(item => <button type="button" key={item.workspace_id} className={item.workspace_id === workspaceId ? 'btn btn-primary' : 'btn btn-ghost'} aria-current={item.workspace_id === workspaceId ? 'true' : undefined} onClick={() => { if (item.workspace_id !== workspaceId) void selectWorkspace(tenantId, item.workspace_id); }}>{item.name}</button>)}</div></fieldset>}
     {tenantsLoaded && tenants.some(launchable) && !workspace && !readFailed && <p role="status">正在載入工作區…</p>}
     {canManage && workspace && !pending && !plan && <>
       {!ready && <p role="status">正在載入可用實例…</p>}
@@ -567,13 +569,13 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
         </fieldset>}
         {app.module_requirements.map(requirement => <fieldset className="fieldset" key={requirement.requirement_key}><legend>{moduleWord(requirement.module_key)}（{requirement.required ? '必要' : '選用'}）</legend>
           {requirement.allow_reuse && (instances[requirement.requirement_key] ?? []).map(row => <label key={row.instance_id} className="application-choice"><input type="radio" name={`dependency-${requirement.requirement_key}`} disabled={busy || Boolean(retry) || unusable.has(row.instance_id) || Boolean(selectedInstallation && !selectedInstallation.modules.some(link => link.requirement_key === requirement.requirement_key && link.instance_id === row.instance_id))} checked={choices[requirement.requirement_key]?.choice === 'reuse' && (choices[requirement.requirement_key] as Extract<Dependency, {choice: 'reuse'}>).instance_id === row.instance_id && (choices[requirement.requirement_key] as Extract<Dependency, {choice: 'reuse'}>).expected_version === row.version} onChange={() => setChoices(old => ({...old, [requirement.requirement_key]: {requirement_key: requirement.requirement_key, choice: 'reuse', instance_id: row.instance_id, expected_version: row.version}}))}/><span>將共用既有的{moduleWord(requirement.module_key)}（ID 尾碼 {row.instance_id.slice(-6)}，版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}）{unusable.has(row.instance_id) && '（目前無法共用）'}</span></label>)}
-          <label className="application-choice"><input type="radio" name={`dependency-${requirement.requirement_key}`} disabled={busy || Boolean(retry) || Boolean(selectedInstallation)} checked={choices[requirement.requirement_key]?.choice === 'create'} onChange={() => setChoices(old => ({...old, [requirement.requirement_key]: {requirement_key: requirement.requirement_key, choice: 'create', configuration: {}}}))}/><span>另建獨立空白的{moduleWord(requirement.module_key)}</span></label>
+          <label className="application-choice"><input type="radio" name={`dependency-${requirement.requirement_key}`} disabled={createDisabled} checked={choices[requirement.requirement_key]?.choice === 'create'} onChange={() => setChoices(old => ({...old, [requirement.requirement_key]: {requirement_key: requirement.requirement_key, choice: 'create', configuration: {}}}))}/><span>另建獨立空白的{moduleWord(requirement.module_key)}</span></label>
           {selectedInstallation && (() => {
             const link = selectedInstallation.modules.find(item => item.requirement_key === requirement.requirement_key);
             const available = link && instances[requirement.requirement_key]?.some(row => row.instance_id === link.instance_id && !unusable.has(row.instance_id));
             return <p className="field-hint">{available ? `沿用這個安裝時，會繼續共用它連結的${moduleWord(requirement.module_key)}（ID 尾碼 ${link.instance_id.slice(-6)}）。` : `這個安裝連結的${moduleWord(requirement.module_key)}目前無法使用（ID 尾碼 ${link?.instance_id.slice(-6) ?? '未知'}），請選擇另一個工作區。`}</p>;
           })()}
-          <p className="field-hint">新實例不複製既有資料，會使用額外容量。</p>
+          {!createDisabled && <p className="field-hint">新實例不複製既有資料，會使用額外容量。</p>}
         </fieldset>)}
         <button type="button" className="btn btn-primary application-primary" disabled={busy || Boolean(attempt.current) || !installationValid || !decided} onClick={() => void makePlan()}>產生啟動方案</button>
       </>}

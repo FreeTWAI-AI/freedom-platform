@@ -290,6 +290,7 @@ test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({pa
     const other=flow(page).getByRole('button',{name:'鍵盤區',exact:true});
     await expect.poll(async()=>{const a=await selected.evaluate(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderColor})); const b=await other.evaluate(el=>({bg:getComputedStyle(el).backgroundColor,border:getComputedStyle(el).borderColor})); return a.bg!==b.bg && a.border!==b.border;},{timeout:3000}).toBe(true);
   }
+  await expect(flow(page).getByText('新實例不複製既有資料，會使用額外容量。',{exact:true})).toBeVisible();
   await capture(page,testInfo,'pickers');
   await flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true}).focus();
   // Follow the actual tab order from the heading to the plan action.
@@ -352,6 +353,7 @@ test('existing installation locks the dependency to its linked instance when two
   await expect(flow(page).locator('input[name=dependency-work]:not(:checked)')).toHaveCount(2);
   for(const radio of await flow(page).locator('input[name=dependency-work]:not(:checked)').all()) await expect(radio).toBeDisabled();
   await expect(flow(page)).toContainText(`沿用這個安裝時，會繼續共用它連結的人工工作（ID 尾碼 ${target.modules[0].instance_id.slice(-6)}）。`);
+  await expect(flow(page).getByText('新實例不複製既有資料，會使用額外容量。',{exact:true})).toHaveCount(0);
   await capture(page,testInfo,'locked-reuse');
   await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled(); await review(page); await confirm(page);
   expect(await installations(page,made.tenant.tenant_id)).toHaveLength(2);
@@ -431,6 +433,8 @@ test('archived saved workspace shows a removable notice without opening or focus
   await page.reload(); const notice=cards(page).getByRole('status').filter({hasText:'上次的啟動結果目前無法在這裡查看'});
   await expect(notice).toContainText('人工工作空間'); await expect(notice).toContainText('尚未取得操作識別碼');
   await expect(flow(page)).toHaveCount(0); expect(await cards(page).evaluate(el=>el.contains(document.activeElement))).toBe(false);
+  await expect(notice.locator(':scope > p')).toHaveCount(1);
+  await expect(notice.locator(':scope > .application-actions').getByRole('button',{name:'不再追蹤',exact:true})).toBeVisible();
   await capture(page,testInfo,'restore-notice');
   await notice.getByRole('button',{name:'不再追蹤',exact:true}).click(); await expect(notice).toHaveCount(0);
   await page.reload(); await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible(); await expect(flow(page)).toHaveCount(0);
