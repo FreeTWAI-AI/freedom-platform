@@ -12709,8 +12709,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 41464,
-      "sha256": "628b28664a3dbffe0967cc31918e1d3c157972463a1a4cdc5cde6dc62b71ad76"
+      "bytes": 41465,
+      "sha256": "d647e56c798d09bd1150a1da56d5a18c49bc7a40618eff81a12d38108cc249f7"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13369,8 +13369,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 15978,
-      "sha256": "f04dd83c9b2f56825104a3ac8bc9d876307ca2406acbce8df010c390bfa1c1d3"
+      "bytes": 16139,
+      "sha256": "752acc669d22397d487d8ba44541368479accfac8dd99c2d271dbc37d7e1eeef"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -20404,8 +20404,8 @@
     },
     {
       "path": "tests/runtime/member-blocking.test.ts",
-      "bytes": 22195,
-      "sha256": "e2a26c52b67544078efdbde3818fd33da823ed66823a5dec247851be13150c88"
+      "bytes": 22814,
+      "sha256": "2fc3553c0da122e6c92bcfba3cc0104b9163aeecb8073c0fc2a00d322598c418"
     },
     {
       "path": "tests/runtime/member-card-qr.test.ts",

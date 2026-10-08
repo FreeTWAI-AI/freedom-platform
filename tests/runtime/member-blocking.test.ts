@@ -94,6 +94,7 @@ test('pending invitation removed without decline notice; own list private and in
 
 test('flag OFF unregisters management but saved blocks protect real API consumers; strict empty input and canonical receipt path',async()=>{
   const [a,b]=actors,enabled=createApp(pool,origin,'local',{memberBlockingEnabled:true}),disabled=createApp(pool,origin,'local',{memberBlockingEnabled:false});
+  const sharedSquad=await squadFor(a),sharedInvite=await squadInvite(a,sharedSquad,B);await squadAccept(b,sharedInvite.invitation_id);
   const headers={Origin:origin,Cookie:`freedom_session=${''}`};
   // Use the actual login endpoint to obtain the deployed cookie shape.
   const session=await enabled.request(origin+'/api/v1/auth/login',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({email:DEMO_USERS[0].email,password:DEMO_PASSWORD})});
@@ -107,6 +108,10 @@ test('flag OFF unregisters management but saved blocks protect real API consumer
   assert.equal((await (await enabled.request(origin+'/api/v1/site')).json() as any).member_blocking_enabled,true);
   for(const action of ['block','unblock'])assert.equal((await disabled.request(origin+`/api/v1/me/blocks/${B}/${action}`,{method:'POST',headers:writeHeaders,body:'{}'})).status,404);
   assert.equal((await disabled.request(origin+'/api/v1/me/blocks',{headers})).status,404);
+  const shared=await disabled.request(origin+`/api/v1/squads/${sharedSquad}`,{headers});assert.equal(shared.status,200);
+  assert.ok((await shared.json() as any).members.some((member:any)=>member.user_id===B&&member.state==='active'));
+  const channel=await sendChannelMessage(pool,cmd(b,'shared-squad',{body:'既有共同小隊保留'}),'squad',sharedSquad);
+  assert.ok((await channelMessages(pool,a,'squad',sharedSquad,{})).items.some(item=>item.message_id===channel.message_id));
   const blocked=await disabled.request(origin+`/api/v1/me/conversations/${B}/messages`,{method:'POST',headers:{...writeHeaders,'Idempotency-Key':randomUUID()},body:JSON.stringify({body:'不應寫入'})});assert.equal(blocked.status,409);
   await assert.rejects(dm(b,A),problem('recipient_unavailable'));
   assert.equal((await enabled.request(origin+path,{method:'POST',headers:{...writeHeaders,'Idempotency-Key':randomUUID()},body:'{"reason":"private"}'})).status,422);
