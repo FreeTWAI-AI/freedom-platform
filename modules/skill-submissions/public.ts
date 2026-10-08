@@ -8,14 +8,14 @@ import { publicPath } from './service.js';
 // visible only while its owner is active and onboarded and the pinned project
 // version it was published with still exists. No owner ids, emails, drafts or
 // grant/key metadata ever leave through these functions.
-const PUBLISHED = `FROM skill_submissions s
+export const PUBLISHED = `FROM skill_submissions s
   JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
   JOIN oss_projects p ON p.project_id=s.project_id AND p.owner_ref=s.owner_ref AND p.community_id=s.community_id
   JOIN oss_project_versions v ON v.version_id=s.project_version_id AND v.project_id=s.project_id
   WHERE s.status='published' AND s.consent_to_share AND NOT p.official
     AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
     AND NOT is_verification_test_account(u.user_id)`;
-const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
+const COLUMNS = `s.submission_id,s.payload,s.project_id,s.published_at,u.display_name AS author_name,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
 
 // Art the workshop drew for works whose submitters supplied none (docs/design/community-skill-art-manifest.json),
@@ -34,6 +34,7 @@ function summary(row: any) {
     submission_id: row.submission_id as string,
     title: payload.title as string,
     description: payload.description as string,
+    author_name: row.author_name as string,
     repository_url: row.repository_url as string,
     relationship: payload.relationship as 'author' | 'maintainer' | 'contributor' | 'curator',
     relationship_verification: 'self_declared' as const,
@@ -55,14 +56,15 @@ function summary(row: any) {
 }
 export type PublishedSkillSubmission = ReturnType<typeof summary>;
 
-export async function listPublishedSkillSubmissions(pool: Pool, limit = 100): Promise<PublishedSkillSubmission[]> {
+export async function listPublishedSkillSubmissions(pool: Pool, limit = 100, communityId?: string): Promise<PublishedSkillSubmission[]> {
   const bounded = Math.max(1, Math.min(100, Number.isSafeInteger(limit) ? limit : 100));
   // A published upgrade replaces its simple submission. Catalog books already occupy the shelf for these repositories.
   // Both filters stay in SQL so LIMIT still fills.
   return (await pool.query(`SELECT ${COLUMNS} ${PUBLISHED}
     AND NOT EXISTS (SELECT 1 FROM skill_submissions d WHERE d.upgrades_submission_id=s.submission_id AND d.status='published')
     AND lower(v.repository_full_name) <> ALL($2::text[])
-    ORDER BY s.published_at DESC,s.submission_id LIMIT $1`, [bounded, catalogRepositoryKeys])).rows.map(summary);
+    AND ($3::uuid IS NULL OR s.community_id=$3)
+    ORDER BY s.published_at DESC,s.submission_id LIMIT $1`, [bounded, catalogRepositoryKeys, communityId ?? null])).rows.map(summary);
 }
 
 /** The published full skill book that upgrades this submission, if one exists. */

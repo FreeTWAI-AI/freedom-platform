@@ -18,6 +18,7 @@ import { InstanceSelectionRequired } from '../../../modules/module-registry/prob
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
+import {PUBLIC_REVALIDATION_SCRIPT} from '../../../packages/shared/public-revalidation.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
 import { createCommerceRoutes } from './routes/commerce.js';
@@ -26,6 +27,7 @@ import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
 import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
+import {publicDiscovery,discoveryReadAllowed} from '../../../modules/community/public-discovery.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
 import { createAdminRoutes } from './routes/admin.js';
 import { createCoCreationRoutes } from './routes/co-creation.js';
@@ -189,7 +191,15 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         try { JSON.parse(raw); } catch { throw new Problem(400,'invalid_json','JSON 格式不正確。'); }
       }
     }
+    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+    }
     await next();
+    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+      if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
+      if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
+      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+    }
     // A native cross-origin form uses the source document's referrer policy
     // when deriving Origin. Suppressing all referrers makes that Origin null.
     // Only installed HTML documents disclose the origin, never path or query;
@@ -207,7 +217,16 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id)));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true}));
+  app.get('/api/v1/public/community-discovery',async c=>{
+    requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
+    return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
+  });
+  app.get('/public-revalidation.js',c=>{
+    c.header('Content-Type','text/javascript; charset=utf-8');
+    c.header('Cache-Control','no-store');
+    return c.body(PUBLIC_REVALIDATION_SCRIPT);
+  });
   if(runtime.guildLaunchpadEnabled===true)app.get('/api/v1/guild-categories',async c=>c.json(await listGuildCategories(pool)));
   app.get('/api/v1/community',c=>c.json(communityCatalog));
   app.get('/api/v1/public/member-cards/:token',async c=>{
@@ -220,7 +239,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('Content-Length',String(bytes.length));
     return c.body(new Uint8Array(bytes));
   });
-  app.get('/api/v1/public/events/:id',async c=>c.json(await publicEvent(pool,z.uuid().parse(c.req.param('id')))));
+  app.get('/api/v1/public/events/:id',async c=>{
+    const event=await publicEvent(pool,z.uuid().parse(c.req.param('id')));
+    if(event.visibility==='referral')c.header('X-Robots-Tag','noindex, nofollow');
+    return c.json(event);
+  });
   app.get('/api/v1/public/events/:id/banner',async c=>{
     const bytes=await publicEventBanner(pool,z.uuid().parse(c.req.param('id')),runtime.eventBannerAssetStore);
     c.header('Content-Type','image/webp');c.header('Cache-Control','public, max-age=300');c.header('Cross-Origin-Resource-Policy','same-origin');

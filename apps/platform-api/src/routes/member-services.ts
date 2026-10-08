@@ -58,7 +58,7 @@ export function registerPublicMemberServices(app: Hono<PlatformEnv>, pool: Pool,
     return c.body(new Uint8Array(bytes));
   });
   app.get('/services', async c => {
-    const html = await publicServiceListDocument(pool, await resolvePublicCommunity(pool, runtime.registrationCommunityId()), runtime.publicOrigin, c.req.query('category'), c.req.query('before'));
+    const html = await publicServiceListDocument(pool, await resolvePublicCommunity(pool, runtime.registrationCommunityId()), runtime.publicOrigin, c.req.query('category'), c.req.query('before'),runtime.communityDiscoveryEnabled===true);
     c.header('Cache-Control', 'public, max-age=60');
     return c.html(html);
   });

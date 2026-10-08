@@ -1,9 +1,11 @@
 import {useEffect,useState,type FormEvent} from 'react';
+import {z} from 'zod';
 import type {PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import './PublicEventPage.css';
 
-type PublicEvent={event_id:string;title:string;description:string;starts_at:string;ends_at:string;mode:'online'|'in_person'|'hybrid';location:string;online_url:string|null;event_kind:string;topic:string|null;visibility:'referral'|'open';capacity:number|null;attending_count:number;organizer_name:string;banner_url:string|null;video_url:string|null;video_mime:'video/mp4'|'video/webm'|null};
+const publicEventSchema=z.object({event_id:z.string(),title:z.string(),description:z.string(),starts_at:z.string(),ends_at:z.string(),mode:z.enum(['online','in_person','hybrid']),location:z.string(),online_url:z.string().nullable(),event_kind:z.string(),topic:z.string().nullable(),visibility:z.enum(['referral','open']),capacity:z.number().nullable(),attending_count:z.number(),organizer_name:z.string(),banner_url:z.string().nullable(),video_url:z.string().nullable(),video_mime:z.enum(['video/mp4','video/webm']).nullable()});
+type PublicEvent=z.infer<typeof publicEventSchema>;
 const safeUrl=(value:string|null)=>{try{const url=new URL(value??'');return url.protocol==='https:'&&!url.username&&!url.password?url.href:null}catch{return null}};
 const savedCode=(id:string)=>{
   const match=/^#events\/([0-9a-f-]{36})(?:\?(.*))?$/.exec(window.location.hash);
@@ -13,11 +15,36 @@ const savedCode=(id:string)=>{
   try{return linkCode??localStorage.getItem(`freedom-event-referral:${id}`)}catch{return linkCode}
 };
 
-export function PublicEventPage({client,id,onLogin}:{client:PortalClient;id:string;onLogin:()=>void}){
+export function PublicEventPage({client,id,onLogin,revalidatePublic=false}:{client:PortalClient;id:string;onLogin:()=>void;revalidatePublic?:boolean}){
   const [event,setEvent]=useState<PublicEvent|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [name,setName]=useState(''),[email,setEmail]=useState(''),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
   const [code,setCode]=useState(()=>savedCode(id));
-  useEffect(()=>{setCode(savedCode(id));let active=true;setLoading(true);setError('');void client.get<PublicEvent>(`/public/events/${id}`,{skipAuthHandler:true}).then(value=>{if(active)setEvent(value)}).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:'活動暫時無法載入。')}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[client,id]);
+  useEffect(()=>{
+    setCode(savedCode(id));
+    let active=true,generation=0,controller:AbortController|null=null;
+    const refresh=()=>{
+      const current=++generation;
+      controller?.abort();controller=new AbortController();
+      setEvent(null);setLoading(true);setError('');
+      const read=revalidatePublic
+        ? fetch(`/api/v1/public/events/${id}`,{cache:'no-store',credentials:'omit',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error('活動目前無法公開查看。');return publicEventSchema.parse(await response.json())})
+        : client.get<PublicEvent>(`/public/events/${id}`,{skipAuthHandler:true,signal:controller.signal});
+      void read.then(value=>{
+        if(revalidatePublic){
+          const hash=/^#events\/([0-9a-f-]{36})(?:\?(.*))?$/.exec(window.location.hash);
+          const referral=new URLSearchParams(hash?.[1]===id?hash[2]??'':window.location.search).get('ref');
+          if(value.visibility!=='open'&&!(value.visibility==='referral'&&referral&&/^[A-Za-z0-9_-]{16,32}$/.test(referral)))throw new Error('活動目前無法公開查看。');
+        }
+        if(active&&current===generation)setEvent(value);
+      })
+        .catch(cause=>{if(active&&current===generation)setError(cause instanceof Error?cause.message:'活動暫時無法載入。')})
+        .finally(()=>{if(active&&current===generation)setLoading(false)});
+    };
+    const visible=()=>{if(document.visibilityState==='visible')refresh()};
+    refresh();
+    if(revalidatePublic){window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh);document.addEventListener('visibilitychange',visible)}
+    return()=>{active=false;generation++;controller?.abort();window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh);document.removeEventListener('visibilitychange',visible)};
+  },[client,id,revalidatePublic]);
   async function register(e:FormEvent){e.preventDefault();if(!event||saving)return;setSaving(true);setError('');try{await client.post(`/public/events/${id}/register`,{name,email,referral_code:code},{skipAuthHandler:true});setNotice('報名資料已送出，參與資訊已寄到你的 Email。請檢查收件匣。');}
     catch(cause){setError(cause instanceof Error?cause.message:'報名未完成，請稍後再試。')}finally{setSaving(false)}}
   const started=Boolean(event&&Date.parse(event.starts_at)<=Date.now()),ended=Boolean(event&&Date.parse(event.ends_at)<=Date.now()),full=Boolean(event&&event.capacity!==null&&event.attending_count>=event.capacity);

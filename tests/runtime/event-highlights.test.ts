@@ -479,7 +479,7 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   const list = await call('/highlights');
   assert.equal(list.status, 200);
   assert.match(list.headers.get('content-type') ?? '', /text\/html/);
-  assert.equal(list.text.includes('<script'), false);
+  assert.equal(list.text.includes(nasty), false);
   assert.equal(list.text.includes('noindex'), false);
   assert.match(list.text, /&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;/);
   assert.match(list.text, new RegExp(`<link rel="canonical" href="${LIVE}/highlights">`));
@@ -488,7 +488,7 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.match(list.text, /name="twitter:card" content="summary_large_image"/);
   const detail = await call('/highlights/' + eventId);
   assert.equal(detail.status, 200);
-  assert.equal(detail.text.includes('<script'), false);
+  assert.equal(detail.text.includes(nasty), false);
   assert.match(detail.text, new RegExp(`<link rel="canonical" href="${LIVE}/highlights/${eventId}">`));
   assert.match(detail.text, /property="og:image" content="https:\/\/freetwai\.com\/brand\/freedom-workshop\.webp"/);
   assert.match(detail.text, /加入自由工坊/);
@@ -501,7 +501,7 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   const link = await post(`/api/v1/event-highlights/${eventId}/links`, maker, {url: 'https://www.youtube.com/watch?v=abcdefghijk', title: nasty});
   assert.equal(link.status, 201, link.text);
   const withVideo = await call('/highlights/' + eventId);
-  assert.equal(withVideo.text.includes('<script'), false);
+  assert.equal(withVideo.text.includes(nasty), false);
   assert.match(withVideo.text, /property="og:image" content="https:\/\/i\.ytimg\.com\/vi\/abcdefghijk\/hqdefault\.jpg"/);
   assert.match(withVideo.text, /rel="noopener noreferrer"/);
   const photo = await upload(`/api/v1/event-highlights/${eventId}/photos`, maker, jpeg, 'image/jpeg', 'landscape');
@@ -536,7 +536,7 @@ test('public html escapes member text, pages with a cursor, and chooses the og i
   assert.match(older.text, new RegExp(`canonical" href="${LIVE}/highlights\\?before=`));
   const invalid = await call('/highlights?before=not-a-cursor&mode=sideways');
   assert.equal(invalid.status, 200);
-  assert.equal(invalid.text.includes('<script'), false);
+  assert.equal(invalid.text.includes(nasty), false);
   assert.match(invalid.text, /&lt;script&gt;/);
   assert.match(invalid.text, new RegExp(`canonical" href="${LIVE}/highlights"`));
 });
@@ -595,7 +595,6 @@ test('descriptions are public for every visibility while meeting links stay hidd
     const token = `hl-${visibility}-secret`;
     const page = await call('/highlights/' + ids[visibility]);
     assert.equal(page.status, 200, page.text);
-    assert.equal(page.text.includes('<script'), false, visibility);
     assert.equal(page.text.includes(token), true, `public html ${visibility}`);
     assert.equal(page.text.includes(hiddenNotice), false, visibility);
     assert.equal(page.text.includes(MEETING_TOKEN), false, `public meeting ${visibility}`);

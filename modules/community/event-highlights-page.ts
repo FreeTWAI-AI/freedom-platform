@@ -1,5 +1,6 @@
 import type {Pool} from 'pg';
 import {highlightShareImage, listHighlightEvents, readHighlightCursor, readHighlightEvent, readHighlightMode} from './event-highlights.js';
+import {PUBLIC_REVALIDATION_MARKUP} from '../../packages/shared/public-revalidation.js';
 
 const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const modeLabel: Record<string, string> = {online: '線上', in_person: '實體', hybrid: '線上＋實體'};
@@ -25,7 +26,7 @@ function head(origin: string, path: string, title: string, description: string, 
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><link rel="canonical" href="${escape(url)}"><meta name="description" content="${escape(description)}"><meta property="og:type" content="${type}"><meta property="og:site_name" content="自由工坊"><meta property="og:locale" content="zh_TW"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta name="twitter:description" content="${escape(description)}"><meta property="og:url" content="${escape(url)}"><meta property="og:image" content="${src}"><meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}"><meta property="og:image:alt" content="${escape(image.alt)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${src}"><meta name="twitter:image:alt" content="${escape(image.alt)}"><link rel="stylesheet" href="/highlights.css"></head>`;
 }
 function shell(inner: string, footer: string) {
-  return `<body><header class="hl-top"><a href="/"><img class="hl-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a href="/highlights">活動集錦</a></header><main>${inner}</main><footer class="hl-foot">${footer}<p>自由工坊活動集錦</p></footer></body></html>`;
+  return `<body>${PUBLIC_REVALIDATION_MARKUP}<header class="hl-top"><a href="/"><img class="hl-logo" src="/brand/freedom-workshop.webp" alt="自由工坊" width="1280" height="720"></a><a href="/highlights">活動集錦</a></header><main>${inner}</main><footer class="hl-foot">${footer}<p>自由工坊活動集錦</p></footer></body></html>`;
 }
 const brandImage = {url: '/brand/freedom-workshop.webp', width: 1280, height: 720, alt: '自由工坊'};
 
@@ -35,10 +36,10 @@ function cover(item: {cover: {kind: string; url: string} | null; mode: string; s
   return `<img src="${escape(item.cover.url)}" alt="" loading="lazy"${referrer}>`;
 }
 
-export async function highlightsListHtml(pool: Pool, origin: string, query: {mode?: string; before?: string}) {
+export async function highlightsListHtml(pool: Pool, origin: string, query: {mode?: string; before?: string}, publicScope?:{communityId:string|null;publicOnly:boolean}) {
   const mode = readHighlightMode(query.mode, true);
   const cursor = readHighlightCursor(query.before, true);
-  const page = await listHighlightEvents(pool, {communityId: null, viewerId: null, mode, cursor});
+  const page = await listHighlightEvents(pool, {communityId: null, viewerId: null, mode, cursor,...publicScope});
   const chips = (['all', 'online', 'in_person'] as const).map(value => {
     const href = value === 'all' ? '/highlights' : `/highlights?mode=${value}`;
     const label = value === 'all' ? '全部' : value === 'online' ? '線上' : '實體';
@@ -81,7 +82,7 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
   const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
   const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
   const body = `${summary}${posterSection}${linkSection}${photoSection}${empty}`;
-  const footer = `<a href="/">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
+  const footer = `<a href="/?join=1&amp;return_to=${encodeURIComponent(`/highlights/${eventId}`)}">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
   return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer);
 }
 

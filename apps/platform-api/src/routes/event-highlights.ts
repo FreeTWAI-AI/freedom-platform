@@ -9,6 +9,7 @@ import {boundedMedia} from './community-events.js';
 import {addHighlightImage, addHighlightLink, decodeMediaTitle, highlightBannerBytes, highlightImageBytes, highlightImageDigest, listHighlightEvents, normalizeHighlightImage, normalizeHighlightLink, readHighlightCursor, readHighlightEvent, readHighlightMode, removeHighlight} from '../../../../modules/community/event-highlights.js';
 import {highlightsCss, highlightsDetailHtml, highlightsListHtml, highlightsNotFoundHtml} from '../../../../modules/community/event-highlights-page.js';
 import {Problem} from '../../../../packages/shared/problem.js';
+import {resolvePublicCommunity} from '../../../../modules/community/member-services.js';
 
 const IMAGE_MAX = 10 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -34,10 +35,10 @@ function webp(c: {header: (name: string, value: string) => void}, bytes: Buffer)
   return new Uint8Array(bytes);
 }
 
-export function createEventHighlightPublicRoutes(pool: Pool, origin: string,runtime:Pick<PlatformRuntime,'eventHighlightAssetStore'|'eventBannerAssetStore'>={}) {
+export function createEventHighlightPublicRoutes(pool: Pool, origin: string,runtime:Pick<PlatformRuntime,'eventHighlightAssetStore'|'eventBannerAssetStore'|'communityDiscoveryEnabled'> & Partial<Pick<PlatformRuntime,'registrationCommunityId'>>={}) {
   const app = new Hono();
   app.get('/highlights.css', c => { c.header('Content-Type', 'text/css; charset=utf-8'); return c.body(highlightsCss); });
-  app.get('/highlights', async c => c.html(await highlightsListHtml(pool, origin, {mode: c.req.query('mode'), before: c.req.query('before')})));
+  app.get('/highlights', async c => c.html(await highlightsListHtml(pool, origin, {mode: c.req.query('mode'), before: c.req.query('before')},runtime.communityDiscoveryEnabled===true?{publicOnly:true,communityId:await resolvePublicCommunity(pool,runtime.registrationCommunityId?.())}:undefined)));
   app.get('/api/v1/public/event-highlights/:eventId/banner', async c => c.body(webp(c, await highlightBannerBytes(pool, z.uuid().parse(c.req.param('eventId')),runtime.eventBannerAssetStore))));
   app.get('/api/v1/public/event-highlights/media/:mediaId/image', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'image',runtime.eventHighlightAssetStore))));
   app.get('/api/v1/public/event-highlights/media/:mediaId/thumb', async c => c.body(webp(c, await highlightImageBytes(pool, z.uuid().parse(c.req.param('mediaId')), 'thumb',runtime.eventHighlightAssetStore))));

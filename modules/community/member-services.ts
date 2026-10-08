@@ -293,11 +293,11 @@ function cardOf(row: { service_id: string; title: string; category: ServiceCateg
   };
 }
 
-export async function publicServiceListDocument(pool: Pool, communityId: string | null, origin: string, categoryRaw?: string, cursorRaw?: string) {
+export async function publicServiceListDocument(pool: Pool, communityId: string | null, origin: string, categoryRaw?: string, cursorRaw?: string, eligibleOnly=false) {
   const category = categoryOf(categoryRaw, false);
   const cursor = cursorOf(cursorRaw, false);
   if (!communityId) return serviceListHtml(origin, category, [], null);
-  const rows = (await pool.query(`${PUBLIC_LIST} WHERE s.community_id=$1 AND ${PUBLIC_VISIBLE}
+  const rows = (await pool.query(`${PUBLIC_LIST} WHERE s.community_id=$1 AND ${PUBLIC_VISIBLE}${eligibleOnly?' AND u.community_id=s.community_id AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)':''}
     AND ($2::text IS NULL OR s.category=$2)
     AND ($3::timestamptz IS NULL OR (s.updated_at,s.service_id)<($3::timestamptz,$4::uuid))
     ORDER BY s.updated_at DESC,s.service_id DESC LIMIT 13`, [communityId, category || null, cursor?.updatedAt ?? null, cursor?.id ?? null])).rows as (Parameters<typeof cardOf>[0] & { updated_cursor: string })[];

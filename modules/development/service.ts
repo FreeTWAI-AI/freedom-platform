@@ -6,6 +6,7 @@ import type {GitHubMetrics} from '../github-social/service.js';
 import {getSkillCollaboration,type SkillCollaboration,type SkillEditorial} from '../community/skill-collaboration.js';
 import {getSkillShareContent} from '../community/skill-share-content.js';
 import type {PublicAuthorClaim} from '../community/repo-author-claims.js';
+import {PUBLIC_REVALIDATION_MARKUP} from '../../packages/shared/public-revalidation.js';
 export const platformRepository='FreeTWAI-AI/freedom-platform';
 /** Existing Node deployments link to the live site; candidate runtimes pass their own origin. */
 export const LIVE_SITE_ORIGIN='https://freetwai.com';
@@ -64,7 +65,8 @@ export type DevelopmentImage={url:string;width:number;height:number;alt:string};
 export function developmentHtml(title:string,body:string,meta?:{path:string;description:string;image?:string|DevelopmentImage;share?:boolean;shareQuery?:string;social?:boolean;origin?:string}){
  const origin=meta?.origin??LIVE_SITE_ORIGIN,url=meta?origin+meta.path:null,shared=url&&meta?.shareQuery?url+'?'+meta.shareQuery:url;
  const head=meta?'<link rel="canonical" href="'+escape(url!)+'"><meta name="description" content="'+escape(meta.description)+'"><meta property="og:type" content="article"><meta property="og:site_name" content="自由工坊"><meta property="og:locale" content="zh_TW"><meta property="og:title" content="'+escape(title)+'｜自由工坊"><meta property="og:description" content="'+escape(meta.description)+'"><meta property="og:url" content="'+escape(shared!)+'">'+(typeof meta.image==='string'?'<meta property="og:image" content="'+escape(origin+meta.image)+'"><meta name="twitter:card" content="summary_large_image">':meta.image?imageMeta(meta.image,origin):'')+(meta.share?'<script src="/development-share.js" defer></script>':'')+(meta.social?'<script src="/assets/skill-social.js" type="module"></script>':''):'';
- return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'｜自由工坊開發指引</title>'+head+'<link rel="stylesheet" href="/development.css"><link rel="alternate" type="application/json" href="/api/v1/development-map"></head><body><nav><a href="/">自由工坊</a><a href="/development">開發導覽</a><a href="/llms.txt">Agent 文字索引</a></nav><p class="brand-note">FREEDOM WORKSHOP / 自由工坊 · 共創指引</p><h1>'+escape(title)+'</h1>'+body+'<footer>這是公開開發文件，沒有會員資料、私人工作或管理權限。</footer></body></html>';
+ const returnPath=meta?.share&&/^\/development\/(?:skills\/[a-z0-9-]+|submissions\/[0-9a-f-]{36})$/.test(meta.path)?'/?return_to='+encodeURIComponent(meta.path):'/';
+ return '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escape(title)+'｜自由工坊開發指引</title>'+head+'<link rel="stylesheet" href="/development.css"><link rel="alternate" type="application/json" href="/api/v1/development-map"></head><body>'+(returnPath==='/'?'':PUBLIC_REVALIDATION_MARKUP)+'<nav><a href="'+returnPath+'">自由工坊</a><a href="/development">開發導覽</a><a href="/llms.txt">Agent 文字索引</a></nav><p class="brand-note">FREEDOM WORKSHOP / 自由工坊 · 共創指引</p><h1>'+escape(title)+'</h1>'+body+'<footer>這是公開開發文件，沒有會員資料、私人工作或管理權限。</footer></body></html>';
 }
 function imageMeta(image:DevelopmentImage,origin:string){
  const src=escape(origin+image.url),alt=escape(image.alt);
@@ -109,7 +111,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
  const markdownLink='<p><a href="'+escape(markdownUrl)+'">讀取 Markdown 原文</a> · <a href="'+escape(agentUrl)+'">下載 Agent SKILL.md</a></p>';
  if(book?.guide){
   const cover=book.cover_url?'<figure class="public-skill-cover"><img src="'+escape(book.cover_url)+'" alt="" width="768" height="512"></figure>':'';
-  const actions=[[book.upstream_url,'開啟原作 ↗'],[book.introduction_url,'前往作者網站 ↗'],[book.guide.reading_url,'閱讀技能書 ↗']].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/#skills">登入工坊 Star</a>';
+  const actions=[[book.upstream_url,'開啟原作 ↗'],[book.introduction_url,'前往作者網站 ↗'],[book.guide.reading_url,'閱讀技能書 ↗']].filter(([url])=>!!url).map(([url,label])=>'<a href="'+escape(url!)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>').join('')+'<a href="/?return_to='+encodeURIComponent('/development/skills/'+book.id)+'">登入工坊 Star</a>';
   const count=(value:number|null|undefined)=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0?String(value):'—';
   const date=(value:string|null|undefined)=>value&&!Number.isNaN(Date.parse(value))?escape(new Date(value).toISOString().slice(0,10)):'—';
   const original=escape(book.upstream_url),author=escape(new URL(book.upstream_url).origin+'/'+new URL(book.upstream_url).pathname.split('/')[1]);

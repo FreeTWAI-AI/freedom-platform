@@ -60,6 +60,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
+  FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -172,6 +173,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     health: { runtime: 'cloudflare-workers', release_sha: config.release },
     linkPreviewFetch: workerPreviewFetch,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }
