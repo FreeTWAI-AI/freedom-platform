@@ -6,6 +6,7 @@ import { WorkSharingEntry } from './WorkSharingEntry'
 import { looksLikeUrl, opportunityStateLabel, parseMajorToMinor } from '../format'
 import type { Opportunity, Showcase } from '../types'
 import {EventOutcomeBacklinks} from './EventOutcomeBacklinks';
+import { useAuthoringDraft } from './authoring-drafts'
 
 export function ShowcasePanel() {
   const { session, pending, mutate, isMe } = usePortal()
@@ -59,6 +60,7 @@ export function ShowcasePanel() {
       <WorkSharingEntry current="showcase" />
       <CreateShowcaseForm pending={pending} mutate={mutate} onCreated={created => setShowcases(items => [created, ...(items ?? []).filter(item => item.showcase_id !== created.showcase_id)])} />
       <Section title="社群作品" description="看看夥伴的作品，找到適合一起合作的人。">
+        <div data-share-entry="collaboration" tabIndex={-1}>
         {showcases.length === 0 ? (
           <EmptyState title="把第一件作品放上來" body="設計、影片、文章、工具都可以。分享後，社群成員可以向你提出合作需求。" />
         ) : (
@@ -75,6 +77,7 @@ export function ShowcasePanel() {
             ))}
           </div>
         )}
+        </div>
       </Section>
       <Section data-guide-anchor="showcase:opportunities" title="與你相關的商機" description="只顯示你是提出者或作品作者的商機。">
         {opportunities.length === 0 ? (
@@ -106,14 +109,16 @@ function CreateShowcaseForm({
   mutate: PortalContextValue['mutate']
   onCreated: (created: Showcase) => void
 }) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [artifactRef, setArtifactRef] = useState('')
-  const [publicUrl, setPublicUrl] = useState('')
-  const [published, setPublished] = useState<Showcase | null>(null)
+  const { session } = usePortal()
+  const userId = session.user.user_id
+  const [title, setTitle, current] = useAuthoringDraft(userId, 'showcase:title', '')
+  const [description, setDescription] = useAuthoringDraft(userId, 'showcase:description', '')
+  const [artifactRef, setArtifactRef] = useAuthoringDraft(userId, 'showcase:artifact', '')
+  const [publicUrl, setPublicUrl] = useAuthoringDraft(userId, 'showcase:url', '')
+  const [published, setPublished] = useAuthoringDraft<Showcase | null>(userId, 'showcase:published', null)
   const success = useRef<HTMLElement>(null)
   useEffect(() => { if (published) success.current?.focus() }, [published])
-  const [consent, setConsent] = useState(false)
+  const [consent, setConsent] = useAuthoringDraft(userId, 'showcase:consent', false)
   const [formError, setFormError] = useState<string | null>(null)
   const busy = Boolean(pending)
 
@@ -138,7 +143,7 @@ function CreateShowcaseForm({
           { idempotencyKey: key },
         )
       })
-      if (ok && created) {
+      if (ok && created && current()) {
         onCreated(created)
         setPublished(created)
         setTitle('')
@@ -148,7 +153,7 @@ function CreateShowcaseForm({
         setConsent(false)
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : '請檢查表單')
+      if (current()) setFormError(err instanceof Error ? err.message : '請檢查表單')
     }
   }
 
@@ -205,19 +210,30 @@ function ShowcaseCard({
   mutate: PortalContextValue['mutate']
   onChanged: () => Promise<void>
 }) {
-  const [need, setNeed] = useState('')
-  const [open, setOpen] = useState(false)
+  const { session } = usePortal()
+  const [need, setNeed, current] = useAuthoringDraft(session.user.user_id, `opportunity:${showcase.showcase_id}:need`, '')
+  const [open, setOpen] = useAuthoringDraft(session.user.user_id, `opportunity:${showcase.showcase_id}:open`, false)
+  const [submitted, setSubmitted] = useAuthoringDraft<Opportunity | null>(session.user.user_id, `opportunity:${showcase.showcase_id}:submitted`, null)
   const busy = Boolean(pending)
 
   async function propose(event: React.FormEvent) {
     event.preventDefault()
+    if (busy || !current()) return
+    let created: Opportunity | null = null
     const ok = await mutate(`opportunity:${showcase.showcase_id}`, async (key) => {
-      await client.post('/opportunities', { showcase_id: showcase.showcase_id, need: need.trim() }, { idempotencyKey: key })
+      created = await client.post<Opportunity>('/opportunities', { showcase_id: showcase.showcase_id, need: need.trim() }, { idempotencyKey: key })
     })
-    if (ok) {
+    if (ok && created && current()) {
       setNeed('')
       setOpen(false)
+      setSubmitted(created)
       await onChanged()
+      requestAnimationFrame(() => {
+        if (!current()) return
+        const card = document.getElementById(`opportunity-${created!.opportunity_id}`)
+        card?.scrollIntoView({ block: 'center', behavior: 'instant' })
+        card?.focus()
+      })
     }
   }
 
@@ -236,6 +252,7 @@ function ShowcaseCard({
       </dl>
       {showcase.public_url && <div className="actions"><a className="btn btn-ghost" href={showcase.public_url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">查看作品 ↗</a></div>}
       <details><summary>成果紀錄</summary><code>{showcase.artifact_ref}</code></details>
+      {submitted && <section className="stack" role="status" aria-label="合作需求已送出"><p>已送出合作需求。這是你與作品作者的合作需求，不是公開貼文。</p><div className="actions"><button type="button" className="btn btn-secondary btn-small" onClick={() => { const card = document.getElementById(`opportunity-${submitted.opportunity_id}`); card?.scrollIntoView({ block: 'center', behavior: 'instant' }); card?.focus(); }}>查看這份合作需求</button></div></section>}
       <EventOutcomeBacklinks client={client} kind="work" sourceId={showcase.showcase_id}/>
       {mine ? (
         <p className="hint">有人想合作時，需求會出現在下方「與你相關的商機」。</p>
@@ -314,7 +331,7 @@ function OpportunityCard({
   }
 
   return (
-    <article className="card">
+    <article className="card" id={`opportunity-${opportunity.opportunity_id}`} tabIndex={-1}>
       <div className="card-head">
         <h3>{opportunity.showcase_title}</h3>
         <span className="pill">{opportunityStateLabel(opportunity.state)}</span>

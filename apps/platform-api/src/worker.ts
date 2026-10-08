@@ -68,6 +68,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
+  FREEDOM_UNIFIED_SHARING_ENABLED?: string;
   FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
   FREEDOM_EVENT_PARTICIPATION_ENABLED?: string;
   FREEDOM_SQUAD_OUTCOMES_ENABLED?: string;
@@ -228,6 +229,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',
     personalContentEnabled: env.FREEDOM_PERSONAL_CONTENT_ENABLED === 'true',
+    unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
     notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
     eventParticipationEnabled: env.FREEDOM_EVENT_PARTICIPATION_ENABLED === 'true',
     squadOutcomesEnabled: env.FREEDOM_SQUAD_OUTCOMES_ENABLED === 'true',

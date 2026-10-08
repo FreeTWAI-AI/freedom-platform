@@ -6,6 +6,7 @@ import { categoriesForLabels, taskCategories, type TaskCategory } from '../../..
 import { logConsoleEvent } from '../game-console-core';
 import { consoleChannel } from '../game-console-routing';
 import './ModuleDiscovery.css';
+import { useAuthoringDraft } from './authoring-drafts';
 import './CoCreation.css';
 
 type Guild = { guild_key: string; name: string };
@@ -50,24 +51,27 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
   const [projects, setProjects] = useState<Project[]>([]);
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [guildFilter, setGuildFilter] = useState('');
-  const [selectedGuilds, setSelectedGuilds] = useState<string[]>([]);
+  const [selectedGuilds, setSelectedGuilds] = useAuthoringDraft<string[]>(session.user.user_id, 'cooperation:guilds', []);
   const [sources, setSources] = useState<SourceProject[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useAuthoringDraft<string | null>(session.user.user_id, 'cooperation:selected', null);
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [activityError, setActivityError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [notice, setNotice] = useAuthoringDraft(session.user.user_id, 'cooperation:notice', '');
+  const [showCreate, setShowCreate] = useAuthoringDraft(session.user.user_id, 'cooperation:open', false);
+  const [selectedRoles, setSelectedRoles] = useAuthoringDraft<string[]>(session.user.user_id, 'cooperation:roles', []);
+  const [invitation, setInvitation, current] = useAuthoringDraft(session.user.user_id, 'cooperation:input', { source_project_id: '', title: '', goal: '', contribution_notes: '' });
+  const [publishedInvitation, setPublishedInvitation] = useAuthoringDraft<Project|null>(session.user.user_id, 'cooperation:published', null);
   const [brief, setBrief] = useState<{ project_id: string; number: number | null; title: string; text: string } | null>(null);
   const [briefLoading, setBriefLoading] = useState<string | null>(null);
   const [briefError, setBriefError] = useState('');
   const requestSequence = useRef(0);
+  const catalogRequest = useRef(0);
   const searchInput = useRef<HTMLInputElement>(null);
   const [taskFilters, setTaskFilters] = useState<TaskFilters>({ ...emptyTaskFilters });
-  const { mutate, busy, error } = useModuleMutation(client);
+  const { mutate, busy, error } = useModuleMutation(client, { userId: session.user.user_id, type: 'cooperation' });
   const selected = projects.find(project => project.project_id === selectedId) ?? null;
   const matchesGuild = (project: Project, filter: string) => !filter || (filter === 'unclassified' ? project.guild_keys.length === 0 : project.guild_keys.includes(filter));
   const visibleProjects = projects.filter(project => matchesGuild(project, guildFilter));
@@ -98,18 +102,20 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
   const hasTaskFilters = Boolean(taskQuery || taskFilters.label || taskFilters.category || taskFilters.assignment !== 'all');
 
   async function loadProjects() {
+    const sequence = ++catalogRequest.current;
     setLoading(true); setLoadError('');
     try {
       const [catalog, ownSources] = await Promise.all([
         client.get<{ items: Project[]; guilds: Guild[] }>('/co-creation/projects'),
         client.get<{ items: SourceProject[] }>('/opensource/projects'),
       ]);
+      if (sequence !== catalogRequest.current || !current()) return;
       setProjects(catalog.items); setGuilds(catalog.guilds);
       setSources(ownSources.items.filter(source => source.owner_ref === session.user.user_id));
       const matching = catalog.items.filter(project => matchesGuild(project, guildFilter));
       setSelectedId(current => matching.some(project => project.project_id === current) ? current : matching[0]?.project_id ?? null);
-    } catch (cause) { setLoadError(message(cause)); }
-    finally { setLoading(false); }
+    } catch (cause) { if(sequence===catalogRequest.current&&current())setLoadError(message(cause)); }
+    finally { if(sequence===catalogRequest.current&&current())setLoading(false); }
   }
   async function loadActivity(projectId: string) {
     const sequence = ++requestSequence.current;
@@ -120,7 +126,7 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
     } catch (cause) { if (sequence === requestSequence.current) setActivityError(message(cause)); }
     finally { if (sequence === requestSequence.current) setActivityLoading(false); }
   }
-  useEffect(() => { void loadProjects(); }, [client, session.user.user_id]);
+  useEffect(() => { void loadProjects(); return()=>{catalogRequest.current++;}; }, [client, session.user.user_id, publishedInvitation?.project_id]);
   useEffect(() => {
     if (selectedId) void loadActivity(selectedId);
     return () => { requestSequence.current += 1; };
@@ -128,16 +134,18 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setNotice('');
+    if (busy || !current()) return;
     const form = event.currentTarget, data = new FormData(form);
     const result = await mutate<Project>('/co-creation/projects', {
       source_project_id: data.get('source_project_id'), title: data.get('title'), goal: data.get('goal'),
       help_wanted: selectedRoles, guild_keys: selectedGuilds, contribution_notes: data.get('contribution_notes'),
     });
-    if (result) {
+    if (result && current()) {
       logConsoleEvent({id:`project:${result.project_id}`,createdAt:result.created_at,channel:consoleChannel('project_published'),level:'success',kind:'broadcast',source:'共創任務',message:`共創任務「${result.title}」已發布。`});
-      form.reset(); setSelectedRoles([]); setSelectedGuilds([]); setShowCreate(false); setGuildFilter('');
-      setNotice('共創邀請已發布。到專案的 GitHub 建立具體任務，就能邀請夥伴一起參與。');
-      await loadProjects(); setSelectedId(result.project_id);
+      form.reset(); setInvitation({ source_project_id: '', title: '', goal: '', contribution_notes: '' }); setSelectedRoles([]); setSelectedGuilds([]); setShowCreate(false); setGuildFilter('');
+      setNotice(`共創邀請「${result.title}」已發布。到專案的 GitHub 建立具體任務，就能邀請夥伴一起參與。`);
+      setPublishedInvitation(result);
+      setSelectedId(result.project_id);
     }
   }
   async function copyBrief(issue?: Issue) {
@@ -156,10 +164,10 @@ export function CoCreationPanel({ client, session, onNavigate }: ModulePanelProp
     finally { if (sequence === requestSequence.current) setBriefLoading(null); }
   }
 
-  return <section className="module-panel cocreation-panel" aria-labelledby="cocreation-heading">
-    <ModuleBanner eyebrow="BUILD TOGETHER" title="共創任務" headingId="cocreation-heading" description="到 GitHub 任務留言認領；完成程式、測試、設計或文件後提交 PR，交由維護者審查。" art="/art/rpg/cooperation-forge.webp"><div className="actions"><button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>{showCreate ? '收起邀請表' : '發起共創邀請'}</button><button className="btn btn-ghost" onClick={() => onNavigate?.('opensource')}>登錄作品</button></div></ModuleBanner>
+  return <section className="module-panel cocreation-panel" aria-labelledby="cocreation-heading" inert={busy} aria-busy={busy}>
+    <ModuleBanner eyebrow="BUILD TOGETHER" title="共創任務" headingId="cocreation-heading" description="到 GitHub 任務留言認領；完成程式、測試、設計或文件後提交 PR，交由維護者審查。" art="/art/rpg/cooperation-forge.webp"><div className="actions"><button className="btn btn-primary" data-share-entry="cocreation" onClick={() => setShowCreate(!showCreate)}>{showCreate ? '收起邀請表' : '發起共創邀請'}</button><button className="btn btn-ghost" onClick={() => onNavigate?.('opensource')}>登錄作品</button></div></ModuleBanner>
     <Status error={loadError || error} notice={notice}/>
-    {showCreate && <form className="card stack" onSubmit={create}><h3>發起共創邀請</h3>{sources.length ? <><label className="field">選擇你已登錄的作品<select name="source_project_id" required>{sources.map(source => <option key={source.project_id} value={source.project_id}>{source.title} · {source.repository_full_name}</option>)}</select></label><label className="field">共創邀請名稱<input name="title" required maxLength={120} placeholder="例如：一起完善影片自動剪輯工具"/></label><label className="field">這一輪想完成什麼<textarea name="goal" required maxLength={2000} placeholder="說明具體成果，以及誰會因此受益。"/></label><fieldset className="fieldset"><legend>專案公會分類（可跨公會，最多 5 個）</legend><div className="selection-chips">{guilds.map(guild => <label className="selection-chip" key={guild.guild_key}><input type="checkbox" checked={selectedGuilds.includes(guild.guild_key)} disabled={selectedGuilds.length >= 5 && !selectedGuilds.includes(guild.guild_key)} onChange={() => setSelectedGuilds(current => current.includes(guild.guild_key) ? current.filter(key => key !== guild.guild_key) : [...current, guild.guild_key])}/>{guild.name}</label>)}</div></fieldset><fieldset className="fieldset"><legend>希望哪些夥伴加入？（可複選）</legend><div className="selection-chips">{roles.map(([key, label]) => <label className="selection-chip" key={key}><input type="checkbox" checked={selectedRoles.includes(key)} onChange={() => setSelectedRoles(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key])}/>{label}</label>)}</div></fieldset><label className="field">參與方式與注意事項<textarea name="contribution_notes" required maxLength={3000} placeholder="先讀哪些說明？任務如何協調？修改由誰審查？"/></label><p className="field-hint">發起邀請代表你願意協調參與，不會取得別人的 GitHub 管理權。若有費用或報酬，請由當事人另外確認。</p><button className="btn btn-primary" disabled={busy || selectedRoles.length === 0}>{busy ? '發布中…' : '發布共創邀請'}</button></> : <><p>先登錄一件作品，再邀請其他夥伴一起發展。</p><button className="btn btn-primary" type="button" onClick={() => onNavigate?.('opensource')}>登錄我的作品</button></>}</form>}
+    {showCreate && <form className="card stack" onSubmit={create}><h3>發起共創邀請</h3>{sources.length ? <><label className="field">選擇你已登錄的作品<select name="source_project_id" required value={invitation.source_project_id || sources[0]?.project_id || ''} onChange={event => setInvitation({ ...invitation, source_project_id: event.target.value })}>{sources.map(source => <option key={source.project_id} value={source.project_id}>{source.title} · {source.repository_full_name}</option>)}</select></label><label className="field">共創邀請名稱<input name="title" required maxLength={120} placeholder="例如：一起完善影片自動剪輯工具" value={invitation.title} onChange={event => setInvitation({ ...invitation, title: event.target.value })}/></label><label className="field">這一輪想完成什麼<textarea name="goal" required maxLength={2000} placeholder="說明具體成果，以及誰會因此受益。" value={invitation.goal} onChange={event => setInvitation({ ...invitation, goal: event.target.value })}/></label><fieldset className="fieldset"><legend>專案公會分類（可跨公會，最多 5 個）</legend><div className="selection-chips">{guilds.map(guild => <label className="selection-chip" key={guild.guild_key}><input type="checkbox" checked={selectedGuilds.includes(guild.guild_key)} disabled={selectedGuilds.length >= 5 && !selectedGuilds.includes(guild.guild_key)} onChange={() => setSelectedGuilds(current => current.includes(guild.guild_key) ? current.filter(key => key !== guild.guild_key) : [...current, guild.guild_key])}/>{guild.name}</label>)}</div></fieldset><fieldset className="fieldset"><legend>希望哪些夥伴加入？（可複選）</legend><div className="selection-chips">{roles.map(([key, label]) => <label className="selection-chip" key={key}><input type="checkbox" checked={selectedRoles.includes(key)} onChange={() => setSelectedRoles(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key])}/>{label}</label>)}</div></fieldset><label className="field">參與方式與注意事項<textarea name="contribution_notes" required maxLength={3000} placeholder="先讀哪些說明？任務如何協調？修改由誰審查？" value={invitation.contribution_notes} onChange={event => setInvitation({ ...invitation, contribution_notes: event.target.value })}/></label><p className="field-hint">發起邀請代表你願意協調參與，不會取得別人的 GitHub 管理權。若有費用或報酬，請由當事人另外確認。</p><button className="btn btn-primary" disabled={busy || selectedRoles.length === 0}>{busy ? '發布中…' : '發布共創邀請'}</button></> : <><p>先登錄一件作品，再邀請其他夥伴一起發展。</p><button className="btn btn-primary" type="button" onClick={() => onNavigate?.('opensource')}>登錄我的作品</button></>}</form>}
     {loading && <p role="status">正在尋找可以一起做的作品…</p>}
     {loadError && <button className="btn btn-ghost" onClick={() => void loadProjects()}>重新載入共創邀請</button>}
     {!loading && !loadError && projects.length === 0 && <div className="card expedition-empty"><h3>目前沒有共創邀請</h3></div>}

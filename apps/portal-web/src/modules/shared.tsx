@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef, useSyncExternalStore, type SetStateAction } from 'react';
 import { ApiError, type PortalClient } from '../api';
 import type { SessionPayload, TabId } from '../types';
+import { sharingMutationState, type SharingMutationScope, type SharingMutationState } from './authoring-drafts';
 
 export type ModulePanelProps = {
   client: PortalClient;
@@ -10,27 +11,40 @@ export type ModulePanelProps = {
 
 // Preserve the exact request's key on unknown network outcomes. A changed draft
 // gets a new key; a retry with the same body and version reuses its original key.
-export function useModuleMutation(client: PortalClient) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const pending = useRef(false);
-  const keys = useRef(new Map<string, string>());
+export function useModuleMutation(client: PortalClient, authorScope?: SharingMutationScope) {
+  const local = useRef<SharingMutationState | null>(null);
+  if (!local.current) local.current = { keys: new Map(), snapshot: { busy: false, error: null }, listeners: new Set(), live: () => true };
+  const state = authorScope ? sharingMutationState(authorScope) : local.current;
+  const { busy, error } = useSyncExternalStore(
+    notify => { state.listeners.add(notify); return () => { state.listeners.delete(notify); }; },
+    () => state.snapshot,
+  );
+  function update(patch: Partial<SharingMutationState['snapshot']>) {
+    if (!state.live()) return;
+    state.snapshot = { ...state.snapshot, ...patch };
+    for (const notify of state.listeners) notify();
+  }
+  function setError(next: SetStateAction<string | null>) {
+    update({ error: typeof next === 'function' ? next(state.snapshot.error) : next });
+  }
   async function mutate<T>(path: string, body: unknown, ifMatch?: number): Promise<T | undefined> {
-    if (pending.current) return undefined;
+    if (!state.live() || state.snapshot.busy) return undefined;
     const request = JSON.stringify([path, body, ifMatch]);
-    const key = keys.current.get(request) ?? crypto.randomUUID();
-    keys.current.set(request, key);
-    pending.current = true; setBusy(true); setError(null);
+    const key = state.keys.get(request) ?? crypto.randomUUID();
+    state.keys.set(request, key);
+    update({ busy: true, error: null });
     try {
       const result = await client.post<T>(path, body, { idempotencyKey: key, ifMatch });
-      keys.current.delete(request);
+      if (!state.live()) return undefined;
+      state.keys.delete(request);
       return result;
     } catch (cause) {
-      if (!(cause instanceof ApiError) || !cause.network) keys.current.delete(request);
-      setError(cause instanceof Error ? cause.message : '操作未完成，請重新整理後重試。');
+      if (!state.live()) return undefined;
+      if (!(cause instanceof ApiError) || !cause.network) state.keys.delete(request);
+      update({ error: cause instanceof Error ? cause.message : '操作未完成，請重新整理後重試。' });
       return undefined;
     } finally {
-      pending.current = false; setBusy(false);
+      update({ busy: false });
     }
   }
   return { mutate, busy, error, setError };

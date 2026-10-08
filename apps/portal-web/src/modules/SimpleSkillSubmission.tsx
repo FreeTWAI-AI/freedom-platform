@@ -3,6 +3,7 @@ import { requireItems, type PortalClient } from '../api';
 import { useModuleMutation } from './shared';
 import { relationshipLabels } from './SkillUpload';
 import './WorkSharing.css';
+import { useAuthoringDraft } from './authoring-drafts';
 
 type Relationship = keyof typeof relationshipLabels;
 type Draft = { repository_url: string; title: string; description: string; use_notes: string; demo_url: string; relationship: Relationship };
@@ -11,50 +12,54 @@ const blank: Draft = { repository_url: '', title: '', description: '', use_notes
 const defaultNotes = '請先閱讀原作 README，依其中的安裝步驟開始使用；使用條件與授權以原作文件為準。';
 const safePath = (path: string | null) => path && /^\/development\/submissions\/[0-9a-f-]{36}$/.test(path) ? path : null;
 
-export function SimpleSkillSubmission({ client, onPublished, onOpenDraft, resumeId = null }: { client: PortalClient; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void; resumeId?: string | null }) {
-  const [draft, setDraft] = useState<Draft>({ ...blank });
-  const [review, setReview] = useState(false), [consent, setConsent] = useState(false);
-  const [saved, setSaved] = useState<Submission | null>(null), [published, setPublished] = useState<Submission | null>(null);
+export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft, resumeId = null }: { client: PortalClient; userId: string; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void; resumeId?: string | null }) {
+  const [draft, setDraft, current] = useAuthoringDraft<Draft>(userId, 'skill:draft', { ...blank });
+  const [review, setReview] = useAuthoringDraft(userId, 'skill:review', false), [consent, setConsent] = useAuthoringDraft(userId, 'skill:consent', false);
+  const [saved, setSaved] = useAuthoringDraft<Submission | null>(userId, 'skill:saved', null), [published, setPublished] = useAuthoringDraft<Submission | null>(userId, 'skill:published', null);
   const [ready, setReady] = useState<Submission[]>([]), [loadError, setLoadError] = useState('');
   const [copied, setCopied] = useState('');
-  const [resumedId, setResumedId] = useState<string | null>(null), [resumeRetry, setResumeRetry] = useState(0);
-  const { mutate, busy, error, setError } = useModuleMutation(client);
-  const upgrade = useModuleMutation(client);
-  const lock = useRef(false), [working, setWorking] = useState(false);
+  const [resumedId, setResumedId] = useAuthoringDraft<string | null>(userId, 'skill:resumed', null), [resumeRetry, setResumeRetry] = useState(0);
+  const { mutate, busy, error, setError } = useModuleMutation(client, { userId, type: 'skill' });
+  const upgrade = useModuleMutation(client, { userId, type: 'skill:upgrade' });
+  const lock = useRef(false), [working, setWorking] = useAuthoringDraft(userId, 'skill:working', false);
   const previewHeading = useRef<HTMLHeadingElement>(null), success = useRef<HTMLElement>(null);
   async function loadDrafts() {
     setLoadError('');
-    try { setReady(requireItems<Submission>(await client.get('/me/skill-submissions'), '投稿草稿').filter(item => item.status === 'ready_for_review' && item.payload && !item.seed)); }
-    catch { setLoadError('私人草稿暫時無法載入。'); }
+    try {
+      const items = requireItems<Submission>(await client.get('/me/skill-submissions'), '投稿草稿');
+      if (current()) setReady(items.filter(item => item.status === 'ready_for_review' && item.payload && !item.seed));
+    } catch { if (current()) setLoadError('私人草稿暫時無法載入。'); }
   }
-  useEffect(() => { void loadDrafts(); }, [client]);
+  useEffect(() => { setReady([]); void loadDrafts(); }, [client, userId]);
   useEffect(() => {
-    if (!resumeId) return;
+    if (!resumeId || resumedId === resumeId || working || busy || upgrade.busy) return;
     let active = true;
     setLoadError('');
     void client.get<Submission>(`/me/skill-submissions/${encodeURIComponent(resumeId)}`).then(item => {
-      if (!active) return;
+      if (!active || !current()) return;
       if (item.status === 'ready_for_review' && item.payload && !item.seed) resume(item);
       else onOpenDraft?.(item.submission_id, 'preview');
       setResumedId(resumeId);
-    }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : '無法載入這份私人草稿。'); });
+    }).catch(cause => { if (active && current()) setLoadError(cause instanceof Error ? cause.message : '無法載入這份私人草稿。'); });
     return () => { active = false; };
-  }, [client, resumeId, resumeRetry]);
+  }, [client, userId, resumeId, resumeRetry, working, busy, upgrade.busy]);
   useEffect(() => { if (review) previewHeading.current?.focus(); }, [review]);
   useEffect(() => { if (published) success.current?.focus(); }, [published]);
-  const pending = busy || working;
+  const pending = busy || working || upgrade.busy;
   function preview(event: FormEvent) {
-    event.preventDefault(); setPublished(null); setError(null); setConsent(false); setReview(true);
+    event.preventDefault();
+    if (pending || !current()) return;
+    setPublished(null); setError(null); setConsent(false); setReview(true);
   }
   function resume(item: Submission) {
-    if (!item.payload) return;
+    if (!item.payload || pending || !current()) return;
     const payload = item.payload;
     setDraft({ repository_url: payload.repository_url, title: payload.title, description: payload.description, use_notes: payload.use_notes, demo_url: payload.demo_url ?? '', relationship: payload.relationship });
     setSaved(item); setPublished(null); setError(null); setConsent(false); setReview(true);
   }
   async function publish(event: FormEvent) {
     event.preventDefault();
-    if (lock.current || !consent) return;
+    if (lock.current || pending || !consent || !current()) return;
     lock.current = true; setWorking(true);
     try {
       const body = {
@@ -64,23 +69,23 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft, resume
       const changed = saved?.can_edit && saved.payload && Object.entries(body).some(([key, value]) => saved.payload?.[key as keyof Draft] !== value);
       const submission = saved ? changed ? await mutate<Submission>(`/me/skill-submissions/${saved.submission_id}/manual`, body, Number(saved.aggregate_version)) : saved
         : await mutate<Submission>('/me/skill-submissions/manual', body);
-      if (!submission) return;
+      if (!submission || !current()) return;
       setSaved(submission);
       const result = await mutate<Submission>(`/me/skill-submissions/${submission.submission_id}/publish`, { consent_to_share: true }, Number(submission.aggregate_version));
-      if (!result) return;
+      if (!result || !current()) return;
       setPublished(result); setReview(false); setSaved(null); setConsent(false); setCopied(''); setDraft({ ...blank });
       void loadDrafts(); await onPublished();
-    } finally { lock.current = false; setWorking(false); }
+    } finally { lock.current = false; if (current()) setWorking(false); }
   }
   async function startUpgrade() {
     if (!published) return;
     const draft = await upgrade.mutate<Submission>(`/me/skill-submissions/${published.submission_id}/upgrade`, {});
-    if (draft) onOpenDraft?.(draft.submission_id, 'complete');
+    if (draft && current()) onOpenDraft?.(draft.submission_id, 'complete');
   }
   async function withdraw() {
     if (!saved) return;
     const result = await upgrade.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(saved.submission_id)}/revoke`, {}, Number(saved.aggregate_version));
-    if (result) { setSaved(null); setReview(false); setConsent(false); await loadDrafts(); }
+    if (result && current()) { setSaved(null); setReview(false); setConsent(false); await loadDrafts(); }
   }
   async function copyLink() {
     const path = safePath(published?.public_path ?? null);
@@ -109,16 +114,18 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft, resume
       {saved && <div className="actions"><button type="button" className="btn btn-ghost" disabled={pending || upgrade.busy} onClick={() => void withdraw()}>撤銷這份私人投稿</button></div>}
     </form> : <form className="stack" onSubmit={preview}>
       <div className="section-head"><h2>投稿你的開源工具</h2><p>貼網址、寫一句用途，先預覽再公開。</p></div>
+      <fieldset disabled={pending} className="stack" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <label className="field">GitHub 專案網址<input required type="url" maxLength={300} placeholder="https://github.com/你的帳號/專案名稱" data-guide-anchor="opensource:repository" value={draft.repository_url} onChange={event => setDraft({ ...draft, repository_url: event.target.value })}/></label>
       <label className="field">作品名稱<input required maxLength={120} placeholder="例如：自動整理會議筆記" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })}/></label>
       <label className="field">一句話介紹<textarea required maxLength={2000} rows={3} placeholder="它能幫誰，解決什麼問題？" value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })}/></label>
       <label className="field">我與作品的關係<select value={draft.relationship} onChange={event => setDraft({ ...draft, relationship: event.target.value as Relationship })}>{Object.entries(relationshipLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select><span className="field-hint">推薦別人的工具也可以，原作者與授權都會保留。這是你的聲明，不是作者身分驗證。</span></label>
       <details><summary>補充使用說明與展示網址（選填）</summary><div className="stack"><label className="field">如何開始使用<textarea maxLength={3000} rows={3} placeholder={defaultNotes} value={draft.use_notes} onChange={event => setDraft({ ...draft, use_notes: event.target.value })}/></label><label className="field">展示網址（選填）<input type="url" maxLength={2000} placeholder="https://…" value={draft.demo_url} onChange={event => setDraft({ ...draft, demo_url: event.target.value })}/></label></div></details>
       <p className="hint">不會直接公開；下一步可檢查或修改內容。</p><div className="actions"><button className="btn btn-primary">預覽投稿</button></div>
+      </fieldset>
     </form>}
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     {upgrade.error && !published && <p className="banner banner-error" role="alert">{upgrade.error}</p>}
     {loadError && <p role="alert">{loadError} <button type="button" className="btn btn-ghost" onClick={() => void loadDrafts()}>重新載入草稿</button></p>}
-    {ready.length > 0 && !review && <details className="work-sharing-advanced"><summary>繼續未公開的草稿（{ready.length}）</summary><div className="stack">{ready.map(item => <div className="actions" key={item.submission_id}><span>{item.payload?.title}</span><button className="btn btn-ghost" type="button" onClick={() => resume(item)}>繼續投稿：{item.payload?.title}</button></div>)}</div></details>}
+    {ready.length > 0 && !review && <details className="work-sharing-advanced"><summary>繼續未公開的草稿（{ready.length}）</summary><div className="stack">{ready.map(item => <div className="actions" key={item.submission_id}><span>{item.payload?.title}</span><button className="btn btn-ghost" type="button" disabled={pending} onClick={() => resume(item)}>繼續投稿：{item.payload?.title}</button></div>)}</div></details>}
   </section>;
 }

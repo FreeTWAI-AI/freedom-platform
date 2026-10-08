@@ -87,6 +87,8 @@ export type PlatformRuntime = {
   communityRelationsEnabled?: boolean;
   /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
   personalContentEnabled?: boolean;
+  /** Additive sharing navigation only; original domain authorization remains authoritative. */
+  unifiedSharingEnabled?: boolean;
   /** Owner notification preference release setting; does not authorize Email digests. */
   notificationPreferencesEnabled?: boolean;
   /** Calendar, voluntary reminders and FIFO waitlists; absent or false keeps new surfaces unavailable. */

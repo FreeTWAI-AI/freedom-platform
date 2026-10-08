@@ -223,6 +223,40 @@ claim an actual Apple/Google Calendar import, external Email delivery, Worker
 cron deployment, attendance rate, XP, ticketing or payment completion.
 
 
+## Unified sharing entry (#258)
+
+There is a single sharing entry: the existing top-bar “＋分享” launcher. This
+candidate adds no second page, navigation item or home shortcut.
+`FREEDOM_UNIFIED_SHARING_ENABLED=true` (Node and Worker default off; `/site`
+exposes `unified_sharing_enabled`) only extends that dialog: each option states
+who can see the result and what is merely a draft, and two entries are added,
+“找人合作” (the original bilateral work-opportunity button on a community work)
+and “發起共創邀請” (the original registered-source co-creation form). With the
+flag off the dialog is unchanged. The candidate adds no database migration,
+unified publishing route or permission. The optional “my content” link
+independently requires the existing personal content flag.
+
+Every option only navigates to the original form and moves focus to its real
+control; nothing is submitted or prefilled. Original session/CSRF, ownership,
+license, publication consent, visibility, CAS and idempotency policies remain
+authoritative. Ordinary works do not require GitHub, Agent authorization or
+JSON. “發文” uses the existing native note: visible to members of the same
+community, published on send, with no draft state, typed question kind or
+reply notification. This change does not alter those #193 contracts; a private
+bilateral opportunity is not a public question.
+
+Unsent work, manual submission and invitation inputs, consent, in-flight
+mutation state and actual receipts survive same-account form unmounts only in
+the current document's login-session memory (not flag-controlled). Reload,
+logout, expiry or account switch clears it, including when forms are unmounted.
+Server-saved private drafts retain their original persistence rules. Late
+completions cannot update a new account or initiate its publication stage.
+Unknown network outcomes reuse the original command's Idempotency-Key.
+Successful receipts point to actual original work/submission/opportunity/
+project readers, not provisional drafts or inferred acceptance. The entry itself
+collects no content. Local verification is not deployment, flag-on or full #258
+acceptance evidence.
+
 ## Event highlights and published squad outcomes (#257)
 
 This source candidate adds `139_squad_outcomes.sql` and

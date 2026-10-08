@@ -71,6 +71,7 @@ const MarketingPanel = lazy(() => import('./modules/OpenSourcePanels').then(m =>
 const PrivateWorkAI = lazy(() => import('./modules/PrivateWorkAI').then(m => ({default: m.PrivateWorkAI})))
 const CommunitySearch = lazy(() => import('./modules/CommunitySearch').then(m => ({default: m.CommunitySearch})))
 const MyContent = lazy(() => import('./modules/MyContent').then(m => ({default: m.MyContent})))
+import { setSharingDraftAccount } from './modules/authoring-drafts'
 
 const DEMO_ACCOUNTS = [
   { email: 'maker@local.test', label: '作者示範帳號' },
@@ -182,6 +183,7 @@ function MemberApp() {
   }, [session, onboarding, entryIntent])
 
   const applySession = useCallback((next: SessionPayload) => {
+    setSharingDraftAccount(next.user.user_id)
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
     setOnboarding(null)
@@ -194,6 +196,7 @@ function MemberApp() {
   }, [])
 
   const toLogin = useCallback((notice?: string) => {
+    setSharingDraftAccount(null)
     window.dispatchEvent(new Event('freedom-game-console-session-end'))
     sessionGeneration.current += 1
     client.csrfToken = null
@@ -229,6 +232,7 @@ function MemberApp() {
   useEffect(() => {
     client.onUnauthorized = () => {
       if (client.accessExpired) {
+        setSharingDraftAccount(null)
         window.dispatchEvent(new Event('freedom-game-console-session-end'))
         sessionGeneration.current += 1
         client.csrfToken = null
@@ -724,7 +728,7 @@ function Workspace({
                 {launchpadOpen ? null : <h1 id="workspace-page-title">{t(`nav.${tab}`)}</h1>}
               </div>
               <PageTools pageId={tab} client={client} compact/>
-              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)}/></div>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true} personalContentEnabled={site?.personal_content_enabled===true}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
