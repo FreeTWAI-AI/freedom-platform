@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { PortalClient } from '../api';
 import type { SessionPayload } from '../types';
 import { formatIsoLocal, hoursFromNowLocalInput, localInputToIso } from '../format';
@@ -82,6 +82,14 @@ export function EventsPanel({client,session}:{client:PortalClient;session:Sessio
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{if(!selectedId||items.some(item=>item.event_id===selectedId)){setSelectedItem(null);return;}let active=true;void client.get<CommunityEvent>(`/events/${selectedId}`).then(item=>{if(active)setSelectedItem(item)}).catch(()=>{if(active)setSelectedItem(null)});return()=>{active=false}},[client,items,selectedId]);
   useEffect(()=>{if(selectedId)referralCode(selectedId)},[selectedId]);
+  const resumedEvent=useRef<string|null>(null);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.hash.split('?')[1]??'');
+    if(params.get('edit')!=='1'||!selectedId||resumedEvent.current===selectedId)return;
+    const item=items.find(value=>value.event_id===selectedId);
+    if(!item||item.organizer_ref!==session.user.user_id||item.state!=='pending'||Date.parse(item.starts_at)<=Date.now()||internExchange(item,guilds))return;
+    resumedEvent.current=selectedId;setEditing(item.event_id);setEditDraft(fromEvent(item));setCreating(false);
+  },[selectedId,items,guilds,session.user.user_id]);
   function chooseBanner(file:File|null,editingFile=false){
     setBannerError('');
     if(file&&(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>512*1024||file.size===0)){

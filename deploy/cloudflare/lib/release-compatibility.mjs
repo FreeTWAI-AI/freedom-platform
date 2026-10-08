@@ -131,6 +131,8 @@ const FOUNDATION_NAMES = [
   '134_community_content_topics.sql',
   // Private references only: targets deliberately have no FK so withdrawn content stays removable.
   '135_community_content_relations.sql',
+  // Existing showcases retain their original community publication semantics.
+  '136_personal_content.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

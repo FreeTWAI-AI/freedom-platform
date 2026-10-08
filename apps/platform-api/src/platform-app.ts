@@ -12,6 +12,8 @@ import { readSessionCookie, sessionCookieName } from './session-cookie.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
+import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
+import { listPersonalContent } from '../../../modules/community/personal-content.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
 import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
@@ -222,7 +224,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -244,6 +246,15 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     requireCondition(runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,404,'not_found','找不到這個頁面。');
     await next();
   });
+  const personalContentEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');
+    c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.personalContentEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  };
+  app.use('/api/v1/me/content',personalContentEnabled);
+  app.use('/api/v1/me/showcases',personalContentEnabled);
+  app.use('/api/v1/me/showcases/*',personalContentEnabled);
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -367,6 +378,15 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.get('/api/v1/community-relations/follows',async c=>c.json(await listCommunityFollows(pool,c.get('actor'))));
     app.post('/api/v1/community-relations/follows',async c=>respond(c,await changeCommunityFollow(pool,await cmd(c))));
     app.get('/api/v1/community-relations/updates',async c=>c.json(await listCommunityFollowUpdates(pool,c.get('actor'),c.req.query())));
+  }
+  if(runtime.personalContentEnabled===true){
+    app.get('/api/v1/me/content',async c=>c.json(await listPersonalContent(pool,c.get('actor'))));
+    app.get('/api/v1/me/showcases',async c=>c.json({items:await listOwnShowcases(pool,c.get('actor'))}));
+    app.get('/api/v1/me/showcases/:id',async c=>respond(c,await readOwnShowcase(pool,c.get('actor'),routeId(c))));
+    app.post('/api/v1/me/showcases',async c=>respond(c,await createShowcaseDraft(pool,await cmd(c)),201));
+    app.patch('/api/v1/me/showcases/:id',async c=>respond(c,await updateOwnShowcase(pool,await cmd(c),routeId(c))));
+    app.post('/api/v1/me/showcases/:id/publish',async c=>respond(c,await publishOwnShowcase(pool,await cmd(c),routeId(c))));
+    app.post('/api/v1/me/showcases/:id/withdraw',async c=>respond(c,await withdrawOwnShowcase(pool,await cmd(c),routeId(c))));
   }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
   app.post('/api/v1/me/client-errors',async c=>{

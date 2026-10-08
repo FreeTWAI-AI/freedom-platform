@@ -146,7 +146,7 @@ async function showcaseRows(pool: SearchDatabase, actor: Actor, text: string, cu
     COALESCE(tags.topics,'{}'::text[]) AS topics,${sort} AS sort_key
     FROM showcases s JOIN users u ON u.user_id=s.owner_ref AND u.community_id=s.community_id
     LEFT JOIN community_content_topic_sets tags ON tags.content_kind='work' AND tags.content_id=s.showcase_id::text
-    WHERE s.community_id=$8::uuid AND (s.owner_ref=$9::uuid OR NOT is_verification_test_account(s.owner_ref))
+    WHERE s.community_id=$8::uuid AND s.status='published' AND (s.owner_ref=$9::uuid OR NOT is_verification_test_account(s.owner_ref))
       AND ${textSql(['s.title', 's.description'])} AND ${topicSql('work', 's.showcase_id::text')}
       AND ${cursorSql(sort, 'work', 's.showcase_id')} AND ${relationSql('work', 's.showcase_id', 's.owner_ref')}
     ORDER BY s.created_at DESC,s.showcase_id LIMIT $7`;
@@ -184,7 +184,7 @@ async function owned(q: PoolClient, actor: Actor, kind: Kind, id: string) {
     return;
   }
   requireCondition(z.uuid().safeParse(id).success, 404, 'not_found', '找不到這份內容。');
-  if (kind === 'work' && (await q.query(`SELECT 1 FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND owner_ref=$3 FOR SHARE`, [id, actor.community_id, actor.user_id])).rowCount === 1) return;
+  if (kind === 'work' && (await q.query(`SELECT 1 FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND owner_ref=$3 AND status='published' FOR SHARE`, [id, actor.community_id, actor.user_id])).rowCount === 1) return;
   const sql = kind === 'post'
     ? `SELECT 1 FROM community_social_posts WHERE post_id=$1 AND community_id=$2 AND author_user_id=$3 AND state='active'`
     : kind === 'work'
@@ -221,7 +221,7 @@ export async function listTaggableContent(pool: Pool, actor: Actor) {
       SELECT submission_id::text AS id,payload->>'title' AS title,published_at AS created_at
       FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published'
       UNION ALL
-      SELECT showcase_id::text AS id,title,created_at FROM showcases WHERE community_id=$1 AND owner_ref=$2
+      SELECT showcase_id::text AS id,title,created_at FROM showcases WHERE community_id=$1 AND owner_ref=$2 AND status='published'
     ) owned_works ORDER BY created_at DESC,id LIMIT 20`, [actor.community_id, actor.user_id]),
     pool.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]),
     pool.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active ORDER BY book_id LIMIT 20`, [actor.community_id, actor.user_id]),

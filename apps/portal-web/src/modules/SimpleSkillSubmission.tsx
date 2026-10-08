@@ -11,12 +11,13 @@ const blank: Draft = { repository_url: '', title: '', description: '', use_notes
 const defaultNotes = '請先閱讀原作 README，依其中的安裝步驟開始使用；使用條件與授權以原作文件為準。';
 const safePath = (path: string | null) => path && /^\/development\/submissions\/[0-9a-f-]{36}$/.test(path) ? path : null;
 
-export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { client: PortalClient; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void }) {
+export function SimpleSkillSubmission({ client, onPublished, onOpenDraft, resumeId = null }: { client: PortalClient; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void; resumeId?: string | null }) {
   const [draft, setDraft] = useState<Draft>({ ...blank });
   const [review, setReview] = useState(false), [consent, setConsent] = useState(false);
   const [saved, setSaved] = useState<Submission | null>(null), [published, setPublished] = useState<Submission | null>(null);
   const [ready, setReady] = useState<Submission[]>([]), [loadError, setLoadError] = useState('');
   const [copied, setCopied] = useState('');
+  const [resumedId, setResumedId] = useState<string | null>(null), [resumeRetry, setResumeRetry] = useState(0);
   const { mutate, busy, error, setError } = useModuleMutation(client);
   const upgrade = useModuleMutation(client);
   const lock = useRef(false), [working, setWorking] = useState(false);
@@ -27,6 +28,18 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
     catch { setLoadError('私人草稿暫時無法載入。'); }
   }
   useEffect(() => { void loadDrafts(); }, [client]);
+  useEffect(() => {
+    if (!resumeId) return;
+    let active = true;
+    setLoadError('');
+    void client.get<Submission>(`/me/skill-submissions/${encodeURIComponent(resumeId)}`).then(item => {
+      if (!active) return;
+      if (item.status === 'ready_for_review' && item.payload && !item.seed) resume(item);
+      else onOpenDraft?.(item.submission_id, 'preview');
+      setResumedId(resumeId);
+    }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : '無法載入這份私人草稿。'); });
+    return () => { active = false; };
+  }, [client, resumeId, resumeRetry]);
   useEffect(() => { if (review) previewHeading.current?.focus(); }, [review]);
   useEffect(() => { if (published) success.current?.focus(); }, [published]);
   const pending = busy || working;
@@ -64,12 +77,18 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
     const draft = await upgrade.mutate<Submission>(`/me/skill-submissions/${published.submission_id}/upgrade`, {});
     if (draft) onOpenDraft?.(draft.submission_id, 'complete');
   }
+  async function withdraw() {
+    if (!saved) return;
+    const result = await upgrade.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(saved.submission_id)}/revoke`, {}, Number(saved.aggregate_version));
+    if (result) { setSaved(null); setReview(false); setConsent(false); await loadDrafts(); }
+  }
   async function copyLink() {
     const path = safePath(published?.public_path ?? null);
     if (!path) return;
     try { await navigator.clipboard.writeText(`${window.location.origin}${path}`); setCopied('已複製作品連結。'); }
     catch { setCopied('請開啟作品頁，複製瀏覽器網址即可分享。'); }
   }
+  if (resumeId && resumedId !== resumeId) return <section className="card stack" aria-label="載入私人投稿">{loadError ? <><p role="alert">{loadError}</p><button type="button" className="btn btn-secondary btn-small community-search-action" onClick={() => setResumeRetry(value => value + 1)}>重試載入私人投稿</button></> : <p role="status">正在載入這份私人投稿，完成後才可編輯。</p>}</section>;
   return <section className="card stack work-sharing-form" aria-label="投稿開源工具">
     <ol className="work-sharing-progress" data-guide-anchor="opensource:progress" aria-label="投稿進度"><li aria-current={!review && !published ? 'step' : undefined}>1 填寫介紹</li><li aria-current={review ? 'step' : undefined}>2 預覽並公開</li><li aria-current={published ? 'step' : undefined}>3 分享連結</li></ol>
     {published ? <section ref={success} tabIndex={-1} className="work-sharing-success stack" aria-label="投稿完成">
@@ -87,6 +106,7 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
       <label className="choice"><input type="checkbox" required checked={consent} disabled={pending} onChange={event => setConsent(event.target.checked)}/>我同意公開這份作品介紹與來源關係</label>
       <div className="actions"><button className="btn btn-primary" disabled={pending || !consent}>{pending ? '正在確認公開來源與授權…' : saved ? '重試公開投稿' : '確認並公開'}</button>{(!saved || saved.can_edit) && <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => { setReview(false); setError(null); }}>修改內容</button>}</div>
       {saved && <p className="hint">已保存私人草稿；公開未完成時，可留在這裡重試，或稍後從下方草稿繼續。</p>}
+      {saved && <div className="actions"><button type="button" className="btn btn-ghost" disabled={pending || upgrade.busy} onClick={() => void withdraw()}>撤銷這份私人投稿</button></div>}
     </form> : <form className="stack" onSubmit={preview}>
       <div className="section-head"><h2>投稿你的開源工具</h2><p>貼網址、寫一句用途，先預覽再公開。</p></div>
       <label className="field">GitHub 專案網址<input required type="url" maxLength={300} placeholder="https://github.com/你的帳號/專案名稱" data-guide-anchor="opensource:repository" value={draft.repository_url} onChange={event => setDraft({ ...draft, repository_url: event.target.value })}/></label>
@@ -97,6 +117,7 @@ export function SimpleSkillSubmission({ client, onPublished, onOpenDraft }: { cl
       <p className="hint">不會直接公開；下一步可檢查或修改內容。</p><div className="actions"><button className="btn btn-primary">預覽投稿</button></div>
     </form>}
     {error && <p className="banner banner-error" role="alert">{error}</p>}
+    {upgrade.error && !published && <p className="banner banner-error" role="alert">{upgrade.error}</p>}
     {loadError && <p role="alert">{loadError} <button type="button" className="btn btn-ghost" onClick={() => void loadDrafts()}>重新載入草稿</button></p>}
     {ready.length > 0 && !review && <details className="work-sharing-advanced"><summary>繼續未公開的草稿（{ready.length}）</summary><div className="stack">{ready.map(item => <div className="actions" key={item.submission_id}><span>{item.payload?.title}</span><button className="btn btn-ghost" type="button" onClick={() => resume(item)}>繼續投稿：{item.payload?.title}</button></div>)}</div></details>}
   </section>;

@@ -26,7 +26,6 @@ import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
-import { CommunitySearch } from './modules/CommunitySearch'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
@@ -67,6 +66,8 @@ const RetailPanel = lazy(() => import('./modules/CommercePanels').then(m => ({de
 const OpenSourcePanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.OpenSourcePanel})))
 const MarketingPanel = lazy(() => import('./modules/OpenSourcePanels').then(m => ({default: m.MarketingPanel})))
 const PrivateWorkAI = lazy(() => import('./modules/PrivateWorkAI').then(m => ({default: m.PrivateWorkAI})))
+const CommunitySearch = lazy(() => import('./modules/CommunitySearch').then(m => ({default: m.CommunitySearch})))
+const MyContent = lazy(() => import('./modules/MyContent').then(m => ({default: m.MyContent})))
 
 const DEMO_ACCOUNTS = [
   { email: 'maker@local.test', label: '作者示範帳號' },
@@ -99,6 +100,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
   'community-search': '依關鍵字、類型與主題搜尋目前可閱讀的社群內容。',
+  'my-content': '找回私人草稿，查看本人內容的發布與審核狀態。',
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
@@ -700,7 +702,7 @@ function Workspace({
               </div>
             </div>
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
-            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} mobileOpen={mobileOpen}/>
+            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
           <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
@@ -732,7 +734,8 @@ function Workspace({
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch client={client} authKey={session.user.user_id + ':' + session.csrf_token} relationsEnabled={site.community_relations_enabled===true}/> : <p>社群內容搜尋尚未開放。</p>)}
-            {tab === 'events' && <EventsPanel client={client} session={session} />}
+            {tab === 'my-content' && (site?.personal_content_enabled===true ? <MyContent key={session.user.user_id+':'+session.csrf_token}/> : <p>我的內容尚未開放。</p>)}
+            {tab === 'events' && <EventsPanel key={session.user.user_id+':'+session.csrf_token} client={client} session={session} />}
             {tab === 'highlights' && <EventHighlights client={client} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}}/>}
@@ -751,7 +754,7 @@ function Workspace({
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'opensource' && <OpenSourcePanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'opensource' && <OpenSourcePanel key={session.user.user_id+':'+session.csrf_token} client={client} session={session} onNavigate={selectTab} />}
             {tab === 'marketing' && <MarketingPanel client={client} session={session} onNavigate={selectTab} />}
             </PageLoadBoundary>
               </main>
@@ -771,6 +774,8 @@ function tabTitle(tab: TabId): string {
 function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
   if(value.split('?')[0]==='community-search')return 'community-search'
+  if(value==='my-content'||value.startsWith('my-content/'))return 'my-content'
+  if(value.split('?')[0]==='opensource')return 'opensource'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'

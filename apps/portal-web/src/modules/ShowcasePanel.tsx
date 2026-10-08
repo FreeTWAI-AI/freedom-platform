@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { requireItems } from '../api'
+import { ApiError, requireItems } from '../api'
 import { client, usePortal, describeError, type ActionError, type PortalContextValue } from '../portal-session'
 import { Section, EmptyState, ErrorPanel } from '../portal-feedback'
 import { WorkSharingEntry } from './WorkSharingEntry'
@@ -373,5 +373,102 @@ function OpportunityCard({
       )}
     </article>
   )
+}
+
+export type PersonalShowcase = Omit<Showcase, 'aggregate_version'> & { status: 'draft' | 'published' | 'withdrawn'; aggregate_version: number | string }
+type ShowcaseInput = { title: string; description: string; artifact_ref: string; public_url: string }
+type ShowcaseRequest = { method: 'POST' | 'PATCH'; path: string; body: object; version?: number | string; key: string }
+const emptyShowcase: ShowcaseInput = { title: '', description: '', artifact_ref: '', public_url: '' }
+const showcaseInput = (row: PersonalShowcase): ShowcaseInput => ({ title: row.title, description: row.description, artifact_ref: row.artifact_ref ?? '', public_url: row.public_url ?? '' })
+const showcaseBody = (input: ShowcaseInput) => ({ title: input.title.trim(), description: input.description.trim(), ...(input.artifact_ref.trim() ? { artifact_ref: input.artifact_ref.trim() } : {}), public_url: input.public_url.trim() || null })
+
+export function ShowcaseDraftEditor({ id, onChanged, onClose }: { id: string | null; onChanged: () => void; onClose: () => void }) {
+  const [row, setRow] = useState<PersonalShowcase | null>(null)
+  const [input, setInput] = useState<ShowcaseInput>({ ...emptyShowcase })
+  const [loading, setLoading] = useState(Boolean(id)), [busy, setBusy] = useState(false)
+  const [error, setError] = useState(''), [notice, setNotice] = useState('')
+  const [conflict, setConflict] = useState(false), [confirm, setConfirm] = useState(false), [consent, setConsent] = useState(false)
+  const [retry, setRetry] = useState<ShowcaseRequest | null>(null)
+  const generation = useRef(0), locked = useRef(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    const current = ++generation.current
+    heading.current?.focus()
+    setRow(null); setInput({ ...emptyShowcase }); setError(''); setNotice(''); setRetry(null); setConflict(false); setConfirm(false); setConsent(false)
+    setLoading(Boolean(id))
+    if (id) void client.get<PersonalShowcase>(`/me/showcases/${encodeURIComponent(id)}`).then(result => {
+      if (generation.current !== current) return
+      setRow(result); setInput(showcaseInput(result))
+    }).catch(cause => { if (generation.current === current) setError(describeError(cause).message) })
+      .finally(() => { if (generation.current === current) setLoading(false) })
+    return () => { generation.current++ }
+  }, [id])
+  const dirty = !row || JSON.stringify(showcaseBody(input)) !== JSON.stringify(showcaseBody(showcaseInput(row)))
+  async function reload(preserve: boolean) {
+    if (!row && !id) return
+    const current = generation.current
+    setLoading(true)
+    try {
+      const result = await client.get<PersonalShowcase>(`/me/showcases/${encodeURIComponent(row?.showcase_id ?? id!)}`)
+      if (current !== generation.current) return
+      setRow(result); if (!preserve) setInput(showcaseInput(result))
+      setConflict(false); setError(''); setRetry(null); setConfirm(false); setConsent(false)
+      setNotice(preserve ? '已載入最新版本；你的輸入保留，請核對後再儲存。' : '已載入伺服器保存的內容。')
+    } catch (cause) { if (current === generation.current) setError(describeError(cause).message) }
+    finally { if (current === generation.current) setLoading(false) }
+  }
+  async function execute(request: ShowcaseRequest) {
+    if (locked.current) return
+    locked.current = true; setBusy(true); setError(''); setNotice('')
+    const current = generation.current
+    try {
+      const options = { idempotencyKey: request.key, ifMatch: request.version }
+      const result = request.method === 'PATCH'
+        ? await client.patch<PersonalShowcase>(request.path, request.body, options)
+        : await client.post<PersonalShowcase>(request.path, request.body, options)
+      if (current !== generation.current) return
+      setRow(result); setInput(showcaseInput(result)); setRetry(null); setConflict(false); setConfirm(false); setConsent(false)
+      setNotice(result.status === 'published' ? '已發布；只有本社群會員可見。' : result.status === 'withdrawn' ? '已撤下；現在只有你可見。' : '私人草稿已儲存；尚未發布。')
+      onChanged()
+    } catch (cause) {
+      if (current !== generation.current) return
+      setError(describeError(cause).message)
+      setConflict(cause instanceof ApiError && cause.conflict)
+      setRetry(cause instanceof ApiError && cause.network ? request : null)
+    } finally {
+      locked.current = false
+      if (current === generation.current) setBusy(false)
+    }
+  }
+  function save(event: React.FormEvent) {
+    event.preventDefault()
+    if (retry || conflict || row?.status === 'published') return
+    if (input.artifact_ref.trim() && looksLikeUrl(input.artifact_ref.trim())) { setError('成果引用須為不透明代號'); return }
+    void execute({ method: row ? 'PATCH' : 'POST', path: row ? `/me/showcases/${encodeURIComponent(row.showcase_id)}` : '/me/showcases', body: showcaseBody(input), version: row?.aggregate_version, key: crypto.randomUUID() })
+  }
+  function command(kind: 'publish' | 'withdraw') {
+    if (!row || retry || conflict || (kind === 'publish' && (!consent || dirty))) return
+    void execute({ method: 'POST', path: `/me/showcases/${encodeURIComponent(row.showcase_id)}/${kind}`, body: kind === 'publish' ? { consent_to_share: true } : {}, version: row.aggregate_version, key: crypto.randomUUID() })
+  }
+  const disabled = loading || busy || Boolean(retry)
+  return <section className="card stack work-sharing-form personal-content" aria-label="私人作品編輯">
+    <div className="section-head"><h2 ref={heading} tabIndex={-1}>{row?.status === 'published' ? '已發布作品' : '私人作品草稿'}</h2><button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={onClose}>回到內容清單</button></div>
+    {loading && <p role="status">載入作品…</p>}
+    {error && <p role="alert" className="banner banner-error">{error}（你的輸入已保留）</p>}
+    {notice && <p role="status">{notice}</p>}
+    {retry && <div className="stack"><p>結果尚未確認。重試會使用同一份內容、版本與請求代號，不會另建草稿。</p><div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={() => void execute(retry)}>重試原請求</button></div></div>}
+    {conflict && <div className="stack"><p>版本已改變。先載入最新版本，再核對你的輸入。</p><div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={disabled} onClick={() => void reload(true)}>載入版本並保留輸入</button><button type="button" className="btn btn-secondary btn-small" disabled={disabled} onClick={() => void reload(false)}>改用伺服器內容</button></div></div>}
+    {!loading && (row || !id) && <form className="stack" onSubmit={save} aria-busy={busy}>
+      <p className="hint">{row?.status === 'published' ? '本社群會員可見；須先撤下才能修改。' : '僅本人可見。儲存不會發布；撤下的作品修改後會回到草稿。'}{row && ` 版本 ${row.aggregate_version}`}</p>
+      <label className="field">作品標題<input required maxLength={120} value={input.title} disabled={disabled || row?.status === 'published'} onChange={event => { setInput({ ...input, title: event.target.value }); setConfirm(false); setConsent(false) }}/></label>
+      <label className="field">一句話介紹<textarea required maxLength={2000} rows={3} value={input.description} disabled={disabled || row?.status === 'published'} onChange={event => { setInput({ ...input, description: event.target.value }); setConfirm(false); setConsent(false) }}/></label>
+      <label className="field">作品外部連結（選填）<input type="url" maxLength={2000} value={input.public_url} disabled={disabled || row?.status === 'published'} onChange={event => { setInput({ ...input, public_url: event.target.value }); setConfirm(false); setConsent(false) }}/><span className="field-hint">外部網站的公開範圍由該網站決定；填入連結不代表本平台作品公開可索引。</span></label>
+      <details><summary>成果引用（進階選填）</summary><label className="field">成果代號<input maxLength={231} value={input.artifact_ref} disabled={disabled || row?.status === 'published'} onChange={event => { setInput({ ...input, artifact_ref: event.target.value }); setConfirm(false); setConsent(false) }}/></label></details>
+      <div className="actions">{row?.status !== 'published' && <button className="btn btn-secondary btn-small" disabled={disabled || conflict}>儲存私人草稿</button>}{row && row.status !== 'published' && <button type="button" className="btn btn-secondary btn-small" disabled={disabled || conflict || dirty} onClick={() => { setConfirm(true); setConsent(false) }}>確認發布範圍</button>}{row && row.status !== 'withdrawn' && <button type="button" className="btn btn-secondary btn-small" disabled={disabled || conflict} onClick={() => command('withdraw')}>撤下作品</button>}</div>
+      {row?.status !== 'published' && dirty && <p className="hint">先儲存目前輸入，才可確認發布。</p>}
+      {confirm && <section className="stack" aria-label="確認作品發布"><h3>發布為會員可見</h3><p>只有本社群會員可見，不提供「僅分享連結」或「公開可索引」發布範圍。</p><label className="choice"><input type="checkbox" checked={consent} disabled={disabled} onChange={event => setConsent(event.target.checked)}/>我同意將已儲存版本分享給本社群會員</label><div className="actions"><button type="button" className="btn btn-primary btn-small" disabled={disabled || !consent || dirty || conflict} onClick={() => command('publish')}>確認發布</button><button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={() => { setConfirm(false); setConsent(false) }}>取消發布</button></div></section>}
+    </form>}
+    {!loading && id && !row && <div className="actions"><button type="button" className="btn btn-secondary btn-small" onClick={() => void reload(false)}>重新載入作品</button></div>}
+  </section>
 }
 

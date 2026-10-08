@@ -85,4 +85,6 @@ export type PlatformRuntime = {
   communitySearchEnabled?: boolean;
   /** Private bookmarks and follows require both this setting and community search. */
   communityRelationsEnabled?: boolean;
+  /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
+  personalContentEnabled?: boolean;
 };
