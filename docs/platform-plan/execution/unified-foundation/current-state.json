@@ -25,7 +25,7 @@
       "head": "413b588d4680bc1c0cf5a520ea57782ef92119dd",
       "note": "verify of the merged PR head; strict up-to-date, so its tree equals the merge commit"
     },
-    "limitation": "This main commit (the #287 merge) is the production and staging release (operator receipts 2026-10-08, round 8): it adds the #193 community integration (#284: social feed likes, comments and note posts, migration 132; sticker pack, migration 133) and the P-D3a catalog follow-ups (#287) to the round-7 release 3685d626, with the guild launchpad flag on in both (#286, the round-7 receipt, merged after it). The installed central workflow source is unchanged (governance_pins). Later main commits are not deployed."
+    "limitation": "This main commit (the #287 merge) is the production and staging release (operator receipts 2026-10-08, round 8): it adds the #193 community integration (#284: social feed likes, comments and note posts, migration 132; sticker pack, migration 133) and the P-D3a catalog follow-ups (#287) to the round-7 release 3685d626, with the guild launchpad flag on in both (#286, the round-7 receipt, is not part of release e89cd0c8; this PR carries that receipt for planned integration). The round-8 rollout did not change the installed central workflow source (governance_pins); the later 2026-10-08 pin switch to 709600a0 (#288) is recorded separately. Later main commits are not deployed."
   },
   "deployment": {
     "production": {

@@ -394,7 +394,7 @@ production 由 owner 於 12:31Z 決定照第六輪的方式直接發（「直接
 ### 10 月 8 日：第八輪 staging／production rollout（main e89cd0c8，migration 132、133）
 
 `e89cd0c8` 是 #287 的 merge。它在第七輪（`3685d626`）之後帶進 #193 的社群整合（#284，migration 132：社群貼文的按讚、留言與純文字貼文；
-migration 133：新貼圖）與 P-D3a 的目錄修正（#287，無 migration）。第七輪的收據 #286 在 #287 之後才合併，不在本輪範圍內。
+migration 133：新貼圖）與 P-D3a 的目錄修正（#287，無 migration）。第七輪的收據 #286 不在本輪發布的 `e89cd0c8` 內；本 PR 承接該收據，計畫隨本 PR 一起合併。
 兩個環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED` 都維持 `true`；#284 的會員功能不受這個 flag 控制，隨部署上線。staging 依 owner 的委派部署；
 production 由 owner 於 13:49Z 決定在 #287 合併後照第七輪的方式直接發（「#287 合併後直接發 (Recommended)」），不跑 staging 驗收，到 live 再測。
 
