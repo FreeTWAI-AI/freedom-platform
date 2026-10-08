@@ -11,6 +11,8 @@ const GUILD = 'guild_ai_field';
 const RELEASE = 'manual-workspace@1.0.0';
 const flow = (page: Page) => page.getByRole('region', {name: '啟動應用', exact: true});
 const cards = (page: Page) => page.locator('.launchpad-applications');
+// The platform now offers both stores and manual work; these launch-flow cases target manual work.
+const manualCard = (page: Page) => cards(page).locator('.application-card').filter({has: page.getByRole('heading', {name: '人工工作空間', exact: true})});
 async function post(page: Page, path: string, data: unknown, status = 201) {
   const session = await page.request.get('/api/v1/session');
   const csrf = (await session.json()).csrf_token as string;
@@ -33,7 +35,7 @@ async function open(page: Page) {
   await page.evaluate(key => {window.location.hash=`guilds/${key}`;},GUILD);
   await expect(cards(page).getByRole('heading',{name:'人工工作空間',exact:true})).toBeVisible();
 }
-async function begin(page: Page) {await cards(page).getByRole('button',{name:'啟動應用',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();}
+async function begin(page: Page) {await manualCard(page).getByRole('button',{name:'啟動應用',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();}
 async function review(page: Page) {await flow(page).getByRole('button',{name:'產生啟動方案',exact:true}).click(); await expect(flow(page).getByRole('heading',{name:'確認啟動方案',exact:true})).toBeVisible();}
 async function confirm(page: Page) {await flow(page).getByRole('button',{name:'確認啟動',exact:true}).click(); await expect(flow(page).getByRole('region',{name:'啟動進度'})).toContainText('已啟用');}
 async function installations(page: Page, tenantId: string) {
@@ -73,7 +75,7 @@ async function capture(page: Page, testInfo: TestInfo, state: string) {
 test('visitor sees application cards and public release details without launch controls', async ({page}) => {
   await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await page.goto(`/#guilds/${GUILD}`); await expect(cards(page)).toContainText('可用');
-  await cards(page).getByRole('button',{name:'版本資料',exact:true}).click();
+  await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click();
   await expect(cards(page)).toContainText('來源提交：'); await expect(cards(page)).toContainText('成品摘要：');
   await expect(cards(page)).toContainText('人工工作：必要，允許共用既有實例');
   await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toHaveCount(0);
@@ -83,8 +85,9 @@ test('visitor sees application cards and public release details without launch c
 test('intern keeps the card and the full-member reason with disabled launch', async ({page,e2eAuthPool}) => {
   await member(e2eAuthPool,page,'intern'); await open(page);
   await expect(cards(page)).toContainText('需要這個公會的正式會員身分');
-  await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
-  await cards(page).getByRole('button',{name:'版本資料',exact:true}).click(); await expect(cards(page)).toContainText('來源提交：');
+  await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await expect(cards(page).locator('.application-card').filter({has: page.getByRole('heading',{name:'線上商店',exact:true})}).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click(); await expect(cards(page)).toContainText('來源提交：');
 });
 
 test('catalog status mapping and pagination require the explicit load-more action', async ({page}) => {
@@ -296,7 +299,7 @@ test('tenant switch clears the plan and drops a late private response', async ({
 test('360px keyboard launch, cancel focus and light/RPG screenshots', async ({page,e2eAuthPool},testInfo) => {
   await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'鍵盤業務空間',workspace_name:'鍵盤區'}); await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一鍵盤區'}); await open(page);
   await page.emulateMedia({reducedMotion:'reduce'}); await page.setViewportSize({width:360,height:780});
-  const launch=cards(page).getByRole('button',{name:'啟動應用',exact:true}); await launch.focus(); await page.keyboard.press('Enter');
+  const launch=manualCard(page).getByRole('button',{name:'啟動應用',exact:true}); await launch.focus(); await page.keyboard.press('Enter');
   await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeFocused();
   await page.keyboard.press('Escape'); await expect(launch).toBeFocused(); await page.keyboard.press('Enter');
   await page.keyboard.press('Tab'); await expect(flow(page).getByRole('button',{name:'取消',exact:true})).toBeFocused(); await page.keyboard.press('Enter'); await expect(launch).toBeFocused();
@@ -418,8 +421,9 @@ test('stored operator acting context selects the owned tenant without registry r
   await flow(page).getByRole('button',{name:'取消',exact:true}).click();
   await e2eAuthPool.query(`INSERT INTO tenant_memberships(tenant_id,principal_id,role,status,accepted_at) VALUES($1,$2,'owner','active',clock_timestamp())`,[p.tenant.tenant_id,otherPrincipal]);
   await e2eAuthPool.query(`UPDATE tenant_memberships SET role='operator',version=version+1 WHERE tenant_id=$1 AND principal_id=$2`,[p.tenant.tenant_id,principal]);
-  await page.reload(); await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await page.reload(); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeEnabled();
   await expect(cards(page)).toContainText('你目前沒有可管理的業務空間');
+  await begin(page); await expect(flow(page).getByLabel('業務空間名稱',{exact:true})).toHaveValue('');
   expect(requests.filter(path=>path.startsWith(`/api/v1/tenants/${t.tenant.tenant_id}/`) && /\/(application-installations|module-instances|application-launch-plans)$/.test(path))).toEqual([]);
 });
 
@@ -527,7 +531,8 @@ test('successful manual progress after a refusal hides forgetting and restarts a
 test('signed-in non-member receives the join-guild next step and no enabled launch', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2`,[userId,GUILD]);
   await open(page); await expect(cards(page)).toContainText('先加入這個公會，才能啟動應用。');
-  await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
+  await expect(cards(page).locator('.application-card').filter({has: page.getByRole('heading',{name:'線上商店',exact:true})}).getByRole('button',{name:'啟動應用',exact:true})).toBeDisabled();
 });
 
 test('rejected reuse candidates stay disabled for the panel session', async ({page,e2eAuthPool}) => {
@@ -555,7 +560,7 @@ test('My Work workspace selection leaves the independent launch panel and focus 
   expect(await page.evaluate(userId=>sessionStorage.getItem(`freedom-acting-tenant:${userId}`),userId)).toBe(acting);
   const switcher=page.locator('.my-work').getByRole('button',{name:'另一選擇區',exact:true}); await switcher.click();
   await expect(switcher).toBeFocused(); await expect(flow(page)).toBeVisible();
-  await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(cards(page).getByRole('button',{name:'啟動應用',exact:true})).toBeFocused();
+  await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(manualCard(page).getByRole('button',{name:'啟動應用',exact:true})).toBeFocused();
 });
 
 test('release detail retry repeats its failed action and retains catalog pages', async ({page}) => {
@@ -566,7 +571,7 @@ test('release detail retry repeats its failed action and retains catalog pages',
     if(releases===1) {await route.fulfill({response,status:503,contentType:'application/problem+json',json:{code:'dependency_unavailable',detail:'版本暫時無法讀取。'}}); return;}
     await route.fulfill({response});
   });
-  await page.goto(`/#guilds/${GUILD}`); await cards(page).getByRole('button',{name:'版本資料',exact:true}).click();
+  await page.goto(`/#guilds/${GUILD}`); await manualCard(page).getByRole('button',{name:'版本資料',exact:true}).click();
   await expect(cards(page).getByRole('alert')).toContainText('服務暫時無法回應（503）。請稍後重試。'); await cards(page).getByRole('button',{name:'重試',exact:true}).click();
   await expect(cards(page)).toContainText('來源提交：'); expect(releases).toBe(2); expect(catalogs).toBe(1);
 });

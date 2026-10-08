@@ -99,7 +99,7 @@ test('member, public and leader defaults use revision 3 with pointer 1 and scope
     for (const config of [view.data.config, pub.data.config]) {
       assert.equal(config.revision, '3');
       assert.deepEqual(config.body.blocks.map((block: {kind: string}) => block.kind), orders[key] ?? BLOCK_KINDS);
-      assert.deepEqual(config.body.application_refs, key === other ? [] : (key === commerce ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order}))); 
+      assert.deepEqual(config.body.application_refs, key === other ? [] : (key === commerce ? [hosted, manual] : [manual]).map((ref, order) => ({...ref, order})));
     }
     assert.equal(view.data.config.pointer_version, '1');
     const applications = LaunchpadApplicationSchema.array().parse(view.data.applications);
