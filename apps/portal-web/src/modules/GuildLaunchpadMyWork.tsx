@@ -45,8 +45,8 @@ type SaveAttempt = {
 type Call = { signal?: AbortSignal; live: () => boolean };
 
 // Same sessionStorage key TenantSettings writes. This screen also reads workspace_id.
-function actingKey(userId: string) { return `freedom-acting-tenant:${userId}`; }
-function readActing(userId: string): { tenant_id: string | null; workspace_id: string | null } {
+export function actingKey(userId: string) { return `freedom-acting-tenant:${userId}`; }
+export function readActing(userId: string): { tenant_id: string | null; workspace_id: string | null } {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(actingKey(userId)) ?? '') as { tenant_id?: unknown; workspace_id?: unknown };
     return {
@@ -55,8 +55,9 @@ function readActing(userId: string): { tenant_id: string | null; workspace_id: s
     };
   } catch { return { tenant_id: null, workspace_id: null }; }
 }
-function rememberActing(userId: string, tenantId: string, workspaceId: string) {
+export function rememberActing(userId: string, tenantId: string, workspaceId: string, announce = false) {
   try { sessionStorage.setItem(actingKey(userId), JSON.stringify({ tenant_id: tenantId, workspace_id: workspaceId })); } catch { /* The screen still shows the current choice. */ }
+  if (announce) window.dispatchEvent(new CustomEvent('freedom-acting-change', {detail: {userId, tenantId, workspaceId}}));
 }
 function byteLength(value: string) { return new TextEncoder().encode(value).length; }
 function textProblem(value: string, kind: 'title' | 'objective'): string | null {
@@ -348,6 +349,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     inactiveRef.current = false;
     setTenant(null); setWorkspaces([]); setWorkspaceId(null); setTenantId(next); setInactive(false);
     place.current = { tenantId: next, workspaceId: '' };
+    if (userId) rememberActing(userId, next, '', true);
     const call = nextGen();
     void loadWorkspaces(next, null, call);
   }
@@ -357,7 +359,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     clearPrivate();
     setWorkspaceId(next);
     place.current = { tenantId, workspaceId: next };
-    if (userId) rememberActing(userId, tenantId, next);
+    if (userId) rememberActing(userId, tenantId, next, true);
     const call = nextGen();
     void loadContext(tenantId, next, call);
   }
