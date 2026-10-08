@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { test, expect, type Browser, type Dialog, type Page, type Route } from './fixtures.js';
 
+import { navigate } from './navigation.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
 
@@ -1404,3 +1405,140 @@ test('NP-004 production grants independently control read, result write and arch
     for (const member of [owner, viewer, writer, archiver]) await cleanup(e2eAuthPool, member.userId);
   }
 });
+
+
+// Forward every command to the real HTTP server, then damage only its successful
+// acknowledgement. App navigation must never discard its original retry material.
+for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
+  test(`NP-005 production ${phase} unknown outcome survives main navigation, logout and hash`, async ({ browser, baseURL, e2eAuthPool }) => {
+    test.setTimeout(180_000);
+    const guildKey = 'guild_commercial_production';
+    const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+    const member = await person(e2eAuthPool, `production-leave-${phase}`, [{ guild_key: guildKey, tier: 'full' }], guildKey);
+    const session = await login(browser, baseURL!, member.email), page = session.page;
+    let release = () => {};
+    const released = new Promise<void>(resolve => { release = resolve; });
+    const prompts: string[] = [];
+    let allowDraftLeave = false;
+    page.on('dialog', async dialog => { prompts.push(dialog.message()); await (allowDraftLeave ? dialog.accept() : dialog.dismiss()); });
+    try {
+      const made = await postJson(page, '/tenants', { display_name: `離開防護${phase}`, workspace_name: '原工作區' });
+      const tenantId = made.tenant.tenant_id as string, workspaceId = made.workspace.workspace_id as string;
+      await postJson(page, `/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, { guild_key: guildKey }, 200);
+      await openGuild(page, guildKey, guild.name);
+      const title = `原始製作專案${phase}`;
+      if (phase !== 'create') {
+        await page.locator('#my-work-title').fill(title);
+        await page.locator('#my-work-objective').fill('核對原始工作與成果');
+        await page.getByRole('button', { name: '建立', exact: true }).click();
+        await page.getByLabel('目標受眾', { exact: true }).fill('必須保留的原始製作版本');
+      } else {
+        await page.locator('#my-work-title').fill(title);
+        await page.locator('#my-work-objective').fill('只能建立一次');
+      }
+      let committed = false, canonicalDamaged = false;
+      const writes: { path: string; method: string; key: string; body: string; resource?: string }[] = [];
+      await page.route(url => url.pathname.startsWith(`/api/v1/tenants/${tenantId}/`), async route => {
+        const request = route.request(), method = request.method(), path = new URL(request.url()).pathname;
+        if (phase === 'create' && method === 'GET' && /\/works\/[0-9a-f-]{36}$/.test(path) && committed && !canonicalDamaged) {
+          const response = await route.fetch();
+          expect(response.ok()).toBe(true);
+          canonicalDamaged = true;
+          return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+        }
+        if (!['POST', 'PUT'].includes(method)) return route.fallback();
+        const record = { path, method, key: request.headers()['idempotency-key'], body: request.postDataBuffer()?.toString('base64') ?? '', resource: undefined as string | undefined };
+        writes.push(record);
+        const response = await route.fetch();
+        expect(response.ok(), await response.text()).toBe(true);
+        const responseBody = await response.json();
+        record.resource = responseBody.resource_ref?.resource_id ?? responseBody.upload_id;
+        const selected = phase === 'create' ? path.endsWith(`/workspaces/${workspaceId}/works`)
+          : phase === 'prepare' ? path.endsWith('/results/uploads')
+          : phase === 'put' ? method === 'PUT' && path.endsWith('/content') : path.endsWith('/finalize');
+        if (selected && !committed) {
+          committed = true;
+          await released;
+          // A successful status with a truncated JSON body is an unknown outcome.
+          await route.fulfill({ status: response.status(), contentType: 'application/json', body: phase === 'create' ? '{}' : '{' });
+        } else await route.fulfill({ response });
+      });
+      await page.getByRole('button', { name: phase === 'create' ? '建立' : '儲存製作版本', exact: true }).click();
+      await expect.poll(() => committed).toBe(true);
+      const attemptLeave = async () => {
+        await navigate(page, '會員首頁');
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        const settings = page.getByRole('button', { name: '設定', exact: true });
+        if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        await expect(page.getByRole('heading', { name: '登入', exact: true })).toHaveCount(0);
+        await page.evaluate(() => { window.location.hash = 'home'; });
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        await expect(page.locator('.my-work')).toBeVisible();
+        await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        expect(prompts).toEqual([]);
+        // beforeunload warns; it is not used as a promise of recovery after reload.
+        expect(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; })).toBe(true);
+      };
+      await attemptLeave(); // While the real committed response remains in flight.
+      release();
+      const retry = page.getByRole('button', { name: phase === 'create' ? '建立' : '重試', exact: true });
+      await expect(retry).toBeEnabled();
+      if (phase === 'create') {
+        await expect(page.locator('#my-work-title')).toBeDisabled();
+        await expect(page.locator('#my-work-objective')).toBeDisabled();
+        await expect(page.locator('#my-work-progress')).toBeDisabled();
+        await expect(page.locator('#my-work-title')).toHaveValue(title);
+      } else await expect(page.getByLabel('目標受眾', { exact: true })).toHaveValue('必須保留的原始製作版本');
+      await attemptLeave(); // After the damaged response, without accepting a confirm.
+      await retry.click();
+      if (phase === 'create') {
+        await expect.poll(() => canonicalDamaged).toBe(true);
+        await expect(retry).toBeEnabled();
+        await expect(page.locator('#my-work-title')).toBeDisabled();
+        await attemptLeave();
+        await retry.click();
+      }
+      if (phase === 'create') await expect(page.getByRole('heading', { name: '製作專案企劃與版本', exact: true })).toBeVisible();
+      else await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+      await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+      const replay = writes.filter(row => phase === 'create' ? row.path.endsWith(`/workspaces/${workspaceId}/works`)
+        : phase === 'prepare' ? row.path.endsWith('/results/uploads') : phase === 'put' ? row.method === 'PUT' : row.path.endsWith('/finalize'));
+      expect(replay).toHaveLength(phase === 'create' ? 3 : 2);
+      for (const repeated of replay.slice(1)) expect(repeated).toEqual(replay[0]); // Exact key, raw body/bytes and real resource ID.
+      const works = (await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND workspace_id=$2', [tenantId, workspaceId])).rows;
+      expect(works).toHaveLength(1);
+      const results = (await e2eAuthPool.query('SELECT result_id,content_sha256,byte_size FROM tenant_work_results WHERE work_item_id=$1', [works[0].work_item_id])).rows;
+      expect(results).toHaveLength(phase === 'create' ? 0 : 1);
+      if (phase !== 'create') {
+        const put = writes.find(row => row.method === 'PUT')!;
+        const bytes = Buffer.from(put.body, 'base64');
+        expect(results[0].content_sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+        expect(results[0].byte_size).toBe(bytes.length);
+        expect(writes.find(row => row.path.endsWith('/finalize'))!.resource).toBe(results[0].result_id);
+      }
+      // Ordinary unsent edits still allow the member to choose to leave.
+      await page.getByLabel('核心訊息', { exact: true }).fill('尚未送出的新草稿');
+      allowDraftLeave = true;
+      if (phase === 'put') {
+        const settings = page.getByRole('button', { name: '設定', exact: true });
+        if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        await expect(page.getByRole('button', { name: '會員登入', exact: true }).or(page.getByRole('heading', { name: '登入', exact: true }))).toBeVisible();
+      } else if (phase === 'finalize') {
+        await page.evaluate(() => { window.location.hash = 'home'; });
+        await expect(page).toHaveURL(/#home$/);
+        await expect(page.locator('.my-work')).toHaveCount(0);
+      } else {
+        if (phase === 'create') {
+          await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+          await expect(page).toHaveURL(/#guilds$/);
+        } else await navigate(page, '會員首頁');
+        await expect(page.locator('.my-work')).toHaveCount(0);
+      }
+      expect(prompts).toEqual([LEAVE]);
+      assertLocal(session.urls);
+    } finally { release(); await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+  });
+}
