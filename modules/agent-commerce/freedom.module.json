@@ -9,7 +9,15 @@
     "tests/runtime/agent-commerce.test.ts",
     "tests/runtime/agent-commerce-key-expiry.test.ts",
     "tests/runtime/shop-service-command.test.ts",
-    "tests/runtime/shop-key-exit.test.ts"
+    "tests/runtime/shop-key-exit.test.ts",
+    "apps/platform-api/src/routes/hosted-store.ts",
+    "apps/platform-api/src/routes/tenant-http.ts",
+    "apps/portal-web/public/shops.css",
+    "contracts/guild-launchpad/v1/storefront.ts",
+    "contracts/guild-launchpad/v1/storefront.schema.json",
+    "migrations/134_hosted_storefronts.sql",
+    "tests/runtime/hosted-store.test.ts",
+    "tests/runtime/hosted-store-isolation.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -19,7 +27,9 @@
   "dependencies": [
     "command-core",
     "resource-scopes",
-    "scoped-commands"
+    "scoped-commands",
+    "development",
+    "module-registry"
   ],
   "contract_families": [
     "common"
@@ -89,6 +99,36 @@
         "shop.key.legacy-exit.observe"
       ],
       "auth_profile": "operator-readonly-exact-target"
+    },
+    {
+      "surface_id": "commerce.hosted-store-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-store.ts",
+      "operations": [
+        "store.mine",
+        "store.read",
+        "store.setup",
+        "store.update",
+        "store.slug-availability",
+        "store.products.list",
+        "store.product.add",
+        "store.product.update",
+        "store.product.remove",
+        "store.preview",
+        "store.publish",
+        "store.unpublish"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-store-public",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-store.ts",
+      "operations": [
+        "store.public.read",
+        "store.public.page"
+      ],
+      "auth_profile": "public-anonymous-read"
     }
   ]
 }
