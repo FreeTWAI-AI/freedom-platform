@@ -330,6 +330,9 @@ for (const width of [1280, 360]) test(`pending and unknown store writes keep the
     await stays(message);
     await navigate(page, '職業公會');
     await stays(message);
+    const closeMenu = page.getByRole('button', {name: '關閉選單', exact: true});
+    if (await closeMenu.isVisible()) await closeMenu.click();
+    await page.evaluate(() => window.scrollTo(0, 0));
     await storePage(page).getByRole('link', {name: '返回我的商店', exact: true}).click();
     await stays(message);
     await page.evaluate(() => {window.location.hash = 'home';});
@@ -351,8 +354,10 @@ for (const width of [1280, 360]) test(`pending and unknown store writes keep the
     releaseResponse();
     const retry = storePage(page).getByRole('button', {name: '重試', exact: true});
     await expect(retry).toBeEnabled();
+    await expect(storePage(page).getByRole('alert')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
     await attemptNavigation('尚未確認原操作的結果，請按「重試」確認後再離開。');
-    await storePage(page).screenshot({path: testInfo.outputPath(`store-unknown-operation-${width}.png`)});
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({path: testInfo.outputPath(`store-unknown-operation-${width}.png`), fullPage: true});
     expect(await savedProducts()).toHaveLength(1);
     await retry.click();
     await expect(status).toContainText('已新增商品。');

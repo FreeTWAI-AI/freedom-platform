@@ -135,7 +135,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
       await load(); if (!signal.aborted) announce(attempt.notice);
     } catch (cause) {
       if (signal.aborted) return;
-      if (cause instanceof ApiError && cause.network) {setRetry(attempt); setError(errorText(cause)); return;}
+      if (cause instanceof ApiError && cause.network) {setRetry(attempt); setError('尚未確認原操作的結果，請按「重試」確認。'); return;}
       held.current = null;
       if (cause instanceof ApiError && cause.status === 404) {setMissing(true); return;}
       if (cause instanceof ApiError && cause.status === 412) {
