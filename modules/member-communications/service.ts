@@ -222,7 +222,7 @@ export async function sendDirectMessage(pool:Pool,input:Command,rawPeer:string):
     const recipient=await q.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND ${ready('u')} FOR SHARE`,[id,input.actor.community_id]);
     if(recipient.rowCount!==1){
       const peer=await resolvePeer(q,input.actor,id);
-      requireCondition(false,409,'recipient_unavailable',`${peer.participant.display_name} 目前無法接收訊息。`);
+      requireCondition(false,409,'recipient_unavailable','目前無法與這位會員聯絡。');
     }
     if(body.reply_to_message_id)requireCondition((await q.query(`SELECT 1 FROM member_direct_messages WHERE message_id=$1 AND community_id=$2
       AND least(sender_ref,recipient_ref)=least($3::uuid,$4::uuid) AND greatest(sender_ref,recipient_ref)=greatest($3::uuid,$4::uuid)`,

@@ -50,7 +50,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     moduleProviders:options.moduleProviders,
     guildLaunchpadEnabled:options.guildLaunchpadEnabled===true,
     communityDiscoveryEnabled:options.communityDiscoveryEnabled===true,
-    memberBlockingEnabled:options.memberBlockingEnabled??process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',
+    memberBlockingEnabled:options.memberBlockingEnabled===true,
     tenantWorkAssetStore:options.tenantWorkAssetStore,
   };
 }

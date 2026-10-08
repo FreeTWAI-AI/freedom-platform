@@ -10,9 +10,11 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {login} from '../../modules/identity-membership/service.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
 import {blockState,listBlocks,changeBlock} from '../../modules/identity-membership/blocks.js';
-import {changeFriendship,listFriends} from '../../modules/identity-membership/members.js';
+import {changeFriendship,listFriends,createSquad,changeSquadMembership,listMembers} from '../../modules/identity-membership/members.js';
 import {sendDirectMessage,conversationMessages,conversationActivity,listConversations,markConversationRead} from '../../modules/member-communications/service.js';
 import {sendChannelMessage,channelMessages,listChannels} from '../../modules/member-communications/channels.js';
+import {inviteToSquad,resolveSquadInvitation} from '../../modules/identity-membership/squad-invitations.js';
+import {memberRecommendations,friendDirectory} from '../../modules/identity-membership/member-connections.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {BlockStateSchema,BlockListSchema} from '../../packages/shared/member-blocking.js';
 
@@ -59,9 +61,9 @@ test('blocking removes accepted friendship silently; reciprocal sends/requests/a
   assert.equal(await count('member_notifications'),notices);
   assert.deepEqual(await listFriends(pool,a),[]);assert.deepEqual(await listFriends(pool,b),[]);
   for(const [actor,id] of [[a,B],[b,A]] as const){
-    await assert.rejects(dm(actor,id),problem('contact_unavailable'));
-    await assert.rejects(friend(actor,id,'request'),problem('contact_unavailable'));
-    await assert.rejects(friend(actor,id,'accept',3),problem('contact_unavailable'));
+    await assert.rejects(dm(actor,id),problem('recipient_unavailable'));
+    await assert.rejects(friend(actor,id,'request'),problem('recipient_unavailable'));
+    await assert.rejects(friend(actor,id,'accept',3),problem('recipient_unavailable'));
     assert.equal((await conversationMessages(pool,actor,id,{})).can_send,false);
     assert.equal((await conversationActivity(pool,actor,id)).can_send,false);
     assert.equal((await listConversations(pool,actor,{})).items[0].can_send,false);
@@ -69,7 +71,7 @@ test('blocking removes accepted friendship silently; reciprocal sends/requests/a
   assert.equal((await conversationMessages(pool,b,A,{})).items.length,1);
   await markConversationRead(pool,cmd(b,'read'),A);
   assert.equal((await conversationMessages(pool,a,B,{})).items[0].read_at!==null,true);
-  const removed=await unblock(a,B,1);assert.equal(removed.aggregate_version,2);assert.equal(removed.can_contact,true);
+  const removed=await unblock(a,B,1);assert.equal(removed.aggregate_version,2);assert.equal('can_contact' in removed,false);
   assert.deepEqual(await listFriends(pool,a),[]);assert.deepEqual(await listFriends(pool,b),[]);
   await dm(b,A);assert.equal(await count('member_direct_messages'),2);
 });
@@ -79,9 +81,9 @@ test('pending invitation removed without decline notice; own list private and in
   assert.equal(await count('member_notifications'),notices);assert.deepEqual(await listFriends(pool,b),[]);
   const mine=BlockListSchema.parse(await listBlocks(pool,a,{}));assert.deepEqual(mine.items.map(row=>row.user_id),[B]);
   assert.deepEqual(await listBlocks(pool,b,{}),{items:[],next_offset:null});assert.deepEqual(await listBlocks(pool,c,{}),{items:[],next_offset:null});
-  assert.deepEqual(await blockState(pool,b,A),{user_id:A,blocked_by_me:false,aggregate_version:null,can_contact:false});
-  await block(b,A);await unblock(a,B,1);assert.equal((await blockState(pool,a,B)).can_contact,false);
-  await assert.rejects(dm(a,B),problem('contact_unavailable'));
+  assert.deepEqual(await blockState(pool,b,A),{user_id:A,blocked_by_me:false,aggregate_version:null});
+  await block(b,A);await unblock(a,B,1);assert.deepEqual(await blockState(pool,a,B),{user_id:B,blocked_by_me:false,aggregate_version:2});
+  await assert.rejects(dm(a,B),problem('recipient_unavailable'));
   const outsider=randomUUID(),community=randomUUID();await pool.query('INSERT INTO communities VALUES($1,$2)',[community,'其他合成社群']);
   await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
     SELECT $1,$2,$3,'不可揭露',password_hash,$4 FROM users WHERE user_id=$5`,[outsider,community,`${outsider}@example.invalid`,randomUUID(),A]);
@@ -101,9 +103,12 @@ test('flag OFF unregisters management but saved blocks protect real API consumer
   const first=await enabled.request(origin+path,{method:'POST',headers:writeHeaders,body:'{}'});assert.equal(first.status,200);BlockStateSchema.parse(await first.json());
   const alias=await enabled.request(origin+path.replace(B,B.toUpperCase()),{method:'POST',headers:writeHeaders,body:'{}'});assert.equal(alias.status,200);assert.equal(await count('member_interaction_blocks'),1);
   assert.equal((await disabled.request(origin+'/api/v1/site')).status,200);
+  assert.equal((await (await disabled.request(origin+'/api/v1/site')).json() as any).member_blocking_enabled,false);
+  assert.equal((await (await enabled.request(origin+'/api/v1/site')).json() as any).member_blocking_enabled,true);
+  for(const action of ['block','unblock'])assert.equal((await disabled.request(origin+`/api/v1/me/blocks/${B}/${action}`,{method:'POST',headers:writeHeaders,body:'{}'})).status,404);
   assert.equal((await disabled.request(origin+'/api/v1/me/blocks',{headers})).status,404);
   const blocked=await disabled.request(origin+`/api/v1/me/conversations/${B}/messages`,{method:'POST',headers:{...writeHeaders,'Idempotency-Key':randomUUID()},body:JSON.stringify({body:'不應寫入'})});assert.equal(blocked.status,409);
-  await assert.rejects(dm(b,A),problem('contact_unavailable'));
+  await assert.rejects(dm(b,A),problem('recipient_unavailable'));
   assert.equal((await enabled.request(origin+path,{method:'POST',headers:{...writeHeaders,'Idempotency-Key':randomUUID()},body:'{"reason":"private"}'})).status,422);
   assert.equal(await count('member_direct_messages'),0);
   assert.equal((await pool.query("SELECT response FROM command_receipts WHERE operation LIKE '%/blocks/%' LIMIT 1")).rows[0].response.updated,true);
@@ -119,14 +124,14 @@ test('tombstone CAS, unknown-result same-key replay and stale key do not duplica
   await assert.rejects(block(a,B,1),problem('version_conflict'));await assert.rejects(block(a,B),problem('version_required'));
   assert.equal((await block(a,B,2)).aggregate_version,3);
   const messageKey=randomUUID();await unblock(a,B,3);await dm(a,B,messageKey);await block(a,B,4);
-  await assert.rejects(dm(a,B,messageKey),problem('contact_unavailable'));assert.equal(await count('member_direct_messages'),1);
+  await assert.rejects(dm(a,B,messageKey),problem('recipient_unavailable'));assert.equal(await count('member_direct_messages'),1);
 });
 
 test('live qualification/session, inactive own target removal and masked list profile',async()=>{
   const [a,b]=actors;await block(a,B);
   await pool.query('UPDATE users SET active=false WHERE user_id=$1',[B]);
   assert.equal((await listBlocks(pool,a,{})).items[0].nickname,null);
-  assert.equal((await unblock(a,B,1)).can_contact,false);await assert.rejects(block(a,B,2),problem('member_not_found'));
+  assert.equal((await unblock(a,B,1)).blocked_by_me,false);await assert.rejects(block(a,B,2),problem('member_not_found'));
   await pool.query('UPDATE users SET active=true WHERE user_id=$1',[B]);
   await pool.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[A]);
   await assert.rejects(listBlocks(pool,a,{}),problem('onboarding_required'));await assert.rejects(friend(a,B,'request'),problem('onboarding_required'));
@@ -138,7 +143,7 @@ test('pair barrier makes committed block deny waiting send and invite; reciproca
   const [a,b]=actors;
   for(const run of [()=>dm(b,A),()=>friend(b,A,'request')]){
     const held=await barrier(run);
-    const denial=assert.rejects(held.pending,problem('contact_unavailable'));
+    const denial=assert.rejects(held.pending,problem('recipient_unavailable'));
     try{await held.q.query(`INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active') ON CONFLICT(community_id,owner_ref,target_ref) DO UPDATE SET state='active'`,[DEMO_COMMUNITY,A,B]);await held.q.query('COMMIT');}finally{held.q.release();}
     await denial;
   }
@@ -174,7 +179,7 @@ test('actual queued block commits before concurrent send and pending accept, wit
   const [a,b]=actors;await friend(a,B,'request');
   const held=await barrier(()=>block(a,B));
   const send=dm(b,A),accept=friend(b,A,'accept',1);
-  const sendDenied=assert.rejects(send,problem('contact_unavailable')),acceptDenied=assert.rejects(accept,problem('contact_unavailable'));
+  const sendDenied=assert.rejects(send,problem('recipient_unavailable')),acceptDenied=assert.rejects(accept,problem('recipient_unavailable'));
   try{await held.q.query('COMMIT');}finally{held.q.release();}
   await held.pending;await Promise.all([sendDenied,acceptDenied]);
   assert.equal(await count('member_direct_messages'),0);
@@ -189,4 +194,72 @@ test('list pagination and strict bounded query are authoritative own settings on
   assert.equal(first.items.length,1);assert.equal(first.next_offset,1);assert.equal(second.next_offset,null);
   assert.deepEqual([...first.items,...second.items].map(item=>item.user_id).sort(),[B,C].sort());
   for(const query of [{limit:51},{offset:10001},{limit:0},{unknown:1}])await assert.rejects(listBlocks(pool,a,query));
+});
+
+const squadFor=async(actor:Actor)=>(await createSquad(pool,cmd(actor,'create-squad',{name:'封鎖測試小隊',kind:'project',purpose:'合成封鎖回歸'}))).squad_id as string;
+const squadInvite=(actor:Actor,squadId:string,target:string,key=randomUUID())=>inviteToSquad(pool,cmd(actor,`invite/${squadId}`,{recipient_ref:target},undefined,key),squadId);
+const squadAccept=(actor:Actor,id:string,key=randomUUID())=>resolveSquadInvitation(pool,cmd(actor,`accept/${id}`,{},1,key),id,'accept');
+
+test('block silently withdraws reciprocal pending squad invites; old invite/accept receipts cannot bypass it; accepted membership stays',async()=>{
+  const [a,b]=actors,sa=await squadFor(a),sb=await squadFor(b),shared=await squadFor(a);
+  const joined=await squadInvite(a,shared,B),acceptKey=randomUUID();await squadAccept(b,joined.invitation_id,acceptKey);
+  const key=randomUUID(),outbound=await squadInvite(a,sa,B,key),inbound=await squadInvite(b,sb,A);
+  const notices=await count('member_notifications');await block(a,B);
+  assert.equal(await count('member_notifications'),notices);
+  const rows=(await pool.query('SELECT invitation_id,state,aggregate_version FROM member_squad_invitations ORDER BY invitation_id')).rows;
+  for(const id of [outbound.invitation_id,inbound.invitation_id])assert.deepEqual(rows.find(row=>row.invitation_id===id),{invitation_id:id,state:'withdrawn',aggregate_version:'2'});
+  assert.equal(rows.find(row=>row.invitation_id===joined.invitation_id).state,'accepted');
+  assert.equal((await pool.query('SELECT state FROM member_squad_memberships WHERE squad_id=$1 AND user_id=$2',[shared,B])).rows[0].state,'active');
+  for(const run of [()=>squadInvite(a,sa,B,key),()=>squadInvite(b,sb,A),()=>squadAccept(b,outbound.invitation_id),()=>squadAccept(a,inbound.invitation_id),()=>squadAccept(b,joined.invitation_id,acceptKey)])await assert.rejects(run(),problem('recipient_unavailable'));
+  assert.equal(await count('member_notifications'),notices);
+  await unblock(a,B,1);
+  assert.equal((await squadInvite(a,sa,B)).state,'pending');
+});
+
+test('committed block denies an actually waiting squad invite and acceptance',async()=>{
+  const [a,b]=actors,sa=await squadFor(a),sb=await squadFor(b);
+  const invitation=await squadInvite(a,sa,B),notices=await count('member_notifications');
+  // Queue the real block first on the same pair lock, then both other commands.
+  const held=await barrier(()=>block(a,B));
+  const inviteDenied=assert.rejects(squadInvite(b,sb,A),problem('recipient_unavailable'));
+  const acceptDenied=assert.rejects(squadAccept(b,invitation.invitation_id),problem('recipient_unavailable'));
+  try{await held.q.query('COMMIT');}finally{held.q.release();}
+  await held.pending;await Promise.all([inviteDenied,acceptDenied]);
+  assert.equal(await count('member_notifications'),notices);
+  assert.equal((await pool.query('SELECT state FROM member_squad_invitations WHERE invitation_id=$1',[invitation.invitation_id])).rows[0].state,'withdrawn');
+  assert.equal((await pool.query('SELECT 1 FROM member_squad_memberships WHERE squad_id=$1 AND user_id=$2',[sa,B])).rowCount,0);
+});
+
+test('squad join requests and existing request acceptance/replay share the block barrier; leaving remains available',async()=>{
+  const [a,b]=actors,sa=await squadFor(a),key=randomUUID();
+  const request=()=>changeSquadMembership(pool,cmd(b,`join/${sa}`,{},undefined,key),sa,'request');
+  await request();await block(a,B);
+  await assert.rejects(request(),problem('recipient_unavailable'));
+  await assert.rejects(changeSquadMembership(pool,cmd(a,`approve/${sa}`,{},1),sa,'accept',B),problem('recipient_unavailable'));
+  assert.equal((await changeSquadMembership(pool,cmd(b,`leave/${sa}`,{},1),sa,'leave')).state,'left');
+  await unblock(a,B,1);
+  assert.equal((await changeSquadMembership(pool,cmd(b,`join/${sa}`,{},2),sa,'request')).state,'pending');
+});
+
+test('recommendations and member/friend search exclude either block direction before count/page; own setting has no inverse signal',async()=>{
+  const [a,b]=actors,beforeState=await blockState(pool,b,A);
+  await block(a,B);
+  assert.deepEqual(await blockState(pool,b,A),beforeState);
+  for(const [actor,target] of [[a,B],[b,A]] as const){
+    const page=await memberRecommendations(pool,actor,{limit:3});assert.equal(page.total,1);assert.deepEqual(page.items.map(row=>row.member.user_id),[C]);assert.equal(page.next_offset,0);
+    const search=await listMembers(pool,actor,20,0,{search:DEMO_USERS.find(row=>row.user_id===target)!.display_name});assert.equal(search.total,0);assert.deepEqual(search.items,[]);assert.equal(search.next_offset,null);
+    assert.deepEqual((await friendDirectory(pool,actor,{scope:'accepted',search:''})).items,[]);
+  }
+  await unblock(a,B,1);await block(b,A);
+  assert.equal((await memberRecommendations(pool,a,{limit:3})).items.some(row=>row.member.user_id===B),false);
+});
+
+test('recommendations recheck a block committed after candidate selection and before returning cards',async()=>{
+  const [a,b]=actors;let selected=false;
+  const lateBlockPool=new Proxy(pool,{get(target,prop){
+    if(prop!=='query'){const value=Reflect.get(target,prop);return typeof value==='function'?value.bind(target):value;}
+    return async(...args:any[])=>{const result=await (pool.query as any)(...args);if(!selected&&String(args[0]).includes('AS picks')){selected=true;await block(b,A);}return result;};
+  }});
+  const page=await memberRecommendations(lateBlockPool,a,{limit:3});assert.equal(selected,true);assert.equal(page.total,2,'count remains the candidate snapshot');
+  assert.deepEqual(page.items.map(row=>row.member.user_id),[C]);
 });

@@ -4,7 +4,6 @@ export const BlockStateSchema=z.object({
   user_id:z.uuid(),
   blocked_by_me:z.boolean(),
   aggregate_version:z.number().int().positive().nullable(),
-  can_contact:z.boolean(),
 }).strict();
 export type BlockState=z.infer<typeof BlockStateSchema>;
 

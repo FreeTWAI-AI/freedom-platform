@@ -48,7 +48,7 @@
 
 右上角「設定」集中我的名片、GitHub 必做待辦與我的訊息。訊息也可從主要導覽或功能搜尋找到，分為通知、公會閒聊、小隊閒聊、私人訊息與世界聊天，依當下成員資格開放；通知包含好友、小隊邀請、公會審核與任命結果。小隊邀請由受邀本人接受。詳見 [會員設定與訊息](./docs/development/member-settings-messages.md)。
 
-本分支提供獨立會員封鎖候選：阻止雙向私訊與好友邀請，保留本人歷史訊息與共同頻道；本人可管理私人封鎖名單。`FREEDOM_MEMBER_BLOCKING_ENABLED` 僅在精確值 `true` 時開放管理入口，預設關閉；部署本程式前仍須先套用 migration 134，即使旗標關閉也會保護已保存的封鎖。這是 #251 的封鎖切片，不含檢舉案件、政策核定或部署驗收。操作與回滾邊界見 [會員設定與訊息](./docs/development/member-settings-messages.md)及[通知與私訊服務](./docs/development/member-communications.md)。
+本分支提供獨立會員封鎖候選：阻止雙向私訊與好友邀請，保留本人歷史訊息與共同頻道；本人可管理私人封鎖名單。`FREEDOM_MEMBER_BLOCKING_ENABLED` 僅在精確值 `true` 時開放管理入口，預設關閉；部署本程式前仍須先套用 migration 136，即使旗標關閉也會保護已保存的封鎖。這是 #251 的封鎖切片，不含檢舉案件、政策核定或部署驗收。操作與回滾邊界見 [會員設定與訊息](./docs/development/member-settings-messages.md)及[通知與私訊服務](./docs/development/member-communications.md)。
 
 本分支新增工坊原創圖片貼圖與指定訊息回覆，公會、小隊、世界與私訊均可使用；重新載入後仍能讀取，未知傳送結果可用同一筆 key 重試。舊社群專案的採用對照、資料邊界、素材來源及部署步驟見 [社群設計與聊天升級](./docs/development/social-project-upgrade.md)。這是本分支提交範圍，尚未宣稱已部署。
 

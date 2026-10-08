@@ -10,7 +10,7 @@ import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 import { notifyFriendshipChange } from '../member-communications/events.js';
-import {lockInteractionPair,assertCanContact,assertInteractionMember} from './blocks.js';
+import {lockInteractionPair,assertCanContact,assertInteractionMember,contactableIds} from './blocks.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
 type Audience=typeof audienceKeys[number];
@@ -173,6 +173,8 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
         LIMIT 1
       ) display_primary ON $11::bool
     WHERE u.community_id=$1 AND u.active AND (NOT t.is_test_account OR u.user_id=$10) AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
+      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+        AND ((b.owner_ref=$10 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$10)))
       AND ($5='' OR EXISTS(SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=u.community_id
         AND m.user_id=u.user_id AND m.guild_key=$5 AND m.state='active'))
       AND ($8='' OR CASE WHEN $11::bool THEN EXISTS (
@@ -202,7 +204,8 @@ export async function listMembers(pool:Pool,actor:Actor,limit:number,offset:numb
     const byId=new Map(rows.map(row=>[row.user_id,row]));
     for(const item of items){const row=byId.get(item.user_id);if(row)item.guild_roster={member_tier:row.member_tier,aggregate_version:Number(row.aggregate_version),expert_aggregate_version:row.expert_aggregate_version==null?null:Number(row.expert_aggregate_version),expert_active:Boolean(row.expert_active)};}
   }
-  return {items,total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
+  const allowed=await contactableIds(pool,actor,items.map(item=>item.user_id));
+  return {items:items.filter(item=>allowed.has(item.user_id)),total:result.total,next_offset:input.offset+input.limit<result.total?input.offset+input.limit:null};
 }
 export async function memberPresence(pool:Pool,actor:Actor,raw:string){
   const ids=z.array(z.uuid()).max(50).parse(raw.split(',').filter(Boolean));
@@ -295,10 +298,17 @@ export async function updateSquadChannel(pool:Pool,input:Command,id:string) {
 export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:'request'|'accept'|'leave',targetId=input.actor.user_id) {
   // Normalized ids keep one advisory lock per (squad,member), shared with squad-invitations.ts.
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();targetId=z.uuid().parse(targetId).toLowerCase();
+  let peerId:string|undefined;
   return command(pool,input,async q=>{
     const squad=await squadExists(q,input.actor,id);
     if(action==='accept') {requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以接受加入申請。');await visibleMember(q,input.actor,targetId);}
     else requireCondition(targetId===input.actor.user_id,403,'squad_self_only','請本人提出加入或退出申請。');
+    if(action!=='leave'){
+      const other=action==='accept'?targetId:String(squad.owner_ref);
+      peerId=other;
+      await lockInteractionPair(q,input.actor,other);
+      await assertCanContact(q,input.actor,other);
+    }
     if(action==='leave')requireCondition(squad.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人目前不能退出自己建立的小隊。');
   },async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-membership/${id}/${targetId}`]);
@@ -310,5 +320,5 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     const state=action==='request'?'pending':action==='accept'?'active':'left';
     return (await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
       ON CONFLICT(squad_id,user_id) DO UPDATE SET state=$3,aggregate_version=member_squad_memberships.aggregate_version+1,updated_at=now() RETURNING *`,[id,targetId,state])).rows[0];
-  });
+  },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
 }

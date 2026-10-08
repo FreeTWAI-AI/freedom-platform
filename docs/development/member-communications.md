@@ -35,25 +35,25 @@ DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；
 
 - 雙方都必須是同一社群、啟用中且已完成目前加入資格、沒有任一方向有效封鎖的會員；不能傳給自己。不需要先成為好友。
 - 內容是純文字：前後空白會去掉，換行統一為 `\n`，長度 1–2000 字（以 Unicode 字元計）。不解析 HTML／Markdown，也不抓取網址；前端必須當文字顯示。
-- 找不到、跨社群、或未完成加入且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。任一方向封鎖時傳送與建立／接受好友邀請回通用 `409 contact_unavailable`，不回傳反向封鎖欄位。
+- 找不到、跨社群、或未完成加入且沒有往來紀錄的會員一律回 404，無法分辨。已有對話但對方已停用或尚未完成加入時，自己仍能讀取、標已讀，`can_send` 為 `false`，傳送回 `409 recipient_unavailable`。任一方向封鎖時傳送與建立／接受好友邀請回通用 `409 recipient_unavailable`，不回傳反向封鎖欄位。
 - 每位傳送者 60 秒內最多 20 則新訊息（`429 message_rate_limited`）。私訊先取得無序 pair lock，再取得傳送者頻率限制 advisory lock；同時送出也不會超過，雙向傳送使用相同 pair barrier。授權通過後重送既有 key 不計次；收件者以 `FOR SHARE` 鎖定。
 - 私訊不產生通知（避免未讀重複計算）。訊息內容不寫入 command receipt 或 transition journal；receipt 只保留 `message_id`。
 
 ## 獨立會員封鎖與部署邊界
 
-候選 `FREEDOM_MEMBER_BLOCKING_ENABLED` 精確為 `true` 才註冊 `/api/v1/me/blocks` 管理路由並顯示 UI；未設定或其他值均預設關閉，管理路由回 404。Node 與 Worker 使用相同旗標與服務；私訊、好友的封鎖守衛不依賴旗標，所以已保存的封鎖在 OFF 時仍有效。
+候選 `FREEDOM_MEMBER_BLOCKING_ENABLED` 精確為 `true` 才註冊 `/api/v1/me/blocks` 管理路由並顯示 UI；未設定或其他值均預設關閉，管理路由回 404。Node 與 Worker 使用相同旗標與服務；私訊、好友與小隊新互動的封鎖守衛不依賴旗標，所以已保存的封鎖在 OFF 時仍有效。
 
-`packages/shared/member-blocking.ts` 定義嚴格 DTO：單筆 `{user_id, blocked_by_me, aggregate_version, can_contact}`；本人名單 `{items:[{user_id, nickname, blocked_at, aggregate_version}], next_offset}`。不提供反向封鎖者名單。不可用會員的本人名單暱稱為 `null`，但原擁有者仍可解除；跨社群、對自己及未授權的目標不可操作。GET 採 `private, no-store`，單筆已有保存列時提供版本 ETag。
+`packages/shared/member-blocking.ts` 定義嚴格 DTO：單筆 `{user_id, blocked_by_me, aggregate_version}`；本人名單 `{items:[{user_id, nickname, blocked_at, aggregate_version}], next_offset}`。不提供反向封鎖者名單。不可用會員的本人名單暱稱為 `null`，但原擁有者仍可解除；跨社群、對自己及未授權的目標不可操作。GET 採 `private, no-store`，單筆已有保存列時提供版本 ETag。
 
-`POST /me/blocks/:userId/block|unblock` 僅接受 `{}`、Origin／CSRF 與 Idempotency-Key；已有列需帶引號格式的 `If-Match` 版本，沒有列時不帶版本。UUID 大小寫先正規化為同一指令目標。migration 134 保留同一 `block_id`、`active|removed` 狀態及遞增版本；解除不刪列，重複相同狀態不增版，舊 block 收據重播不重新封鎖。收據僅保存 `{updated}`，journal 使用保存列 ID 及空 body，不複製暱稱、聯絡資料或訊息正文；成功回應另依目前授權重讀狀態，不回放過時的封鎖狀態。
+`POST /me/blocks/:userId/block|unblock` 僅接受 `{}`、Origin／CSRF 與 Idempotency-Key；已有列需帶引號格式的 `If-Match` 版本，沒有列時不帶版本。UUID 大小寫先正規化為同一指令目標。migration 136 保留同一 `block_id`、`active|removed` 狀態及遞增版本；解除不刪列，重複相同狀態不增版，舊 block 收據重播不重新封鎖。收據僅保存 `{updated}`，journal 使用保存列 ID 及空 body，不複製暱稱、聯絡資料或訊息正文；成功回應另依目前授權重讀狀態，不回放過時的封鎖狀態。
 
-封鎖、好友建立／接受／移除及私訊共用既有 `friend/<community>/<low>/<high>` barrier，在 receipt 查詢之前取得。封鎖同一交易將已有或待接受好友關係移除，刻意不發 declined／封鎖通知。先完成的合法傳送可保留；封鎖先提交時，排隊傳送或接受邀請必須拒絕。好友移除、私訊歷史／已讀、公會／小隊資格及共同頻道不受此封鎖阻擋。
+封鎖、好友建立／接受／移除及私訊共用既有 `friend/<community>/<low>/<high>` barrier，在 receipt 查詢之前取得。封鎖同一交易將已有或待接受好友關係移除、靜默撤回雙方待處理小隊邀請；不發 declined／封鎖通知。小隊邀請／接受與申請加入／接受申請在授權與 receipt 重驗使用相同 pair barrier，舊 key 不能繞過。推薦、好友搜尋及會員目錄在分頁前排除雙向封鎖，卡片組成後再次重查；並行變更時 total 仍表示原候選快照。先完成的合法傳送可保留；封鎖先提交時，排隊傳送或接受邀請必須拒絕。好友移除、私訊歷史／已讀、已存在的公會／小隊資格、退出及共同頻道不受此封鎖阻擋。本人設定 DTO 沒有反向封鎖欄位；實際互動沿用不可用的一般錯誤碼與訊息。成員仍可能從原本可聯絡到不可聯絡、can_send 或推薦變化推論限制；本功能不承諾無法推論，也不隱藏既有歷史／共同頻道或公開名片。
 
-**部署本程式前必須先跑到 migration 134，即使旗標 OFF**：守衛會查新表，不能把 OFF 誤當成舊 schema 相容模式。沿用既有 migration／runtime grants 流程，先在隔離與 staging 資料庫驗證，再由獲授權的操作者決定啟用。此次沒有部署或修改 production 旗標。OFF 不會解除設定；舊版程式沒有守衛，回滾舊 binary 會忽略已保存封鎖，因此應 forward-fix 或採安全維護模式，不能把「舊 binary 回滾」當成維持封鎖承諾的退路。
+**部署本程式前必須先跑到 migration 136，即使旗標 OFF**：守衛會查新表，不能把 OFF 誤當成舊 schema 相容模式。沿用既有 migration／runtime grants 流程，先在隔離與 staging 資料庫驗證，再由獲授權的操作者決定啟用。此次沒有部署或修改 production 旗標。OFF 不會解除設定；舊版程式沒有守衛，回滾舊 binary 會忽略已保存封鎖，因此應 forward-fix 或採安全維護模式，不能把「舊 binary 回滾」當成維持封鎖承諾的退路。
 
-number 134 is provisional if another migration lands first.
+number 136 is provisional if another migration lands first.
 
-這是 #251 已授權的獨立封鎖切片；檢舉案件／證據／申訴仍等待 #193 的內容契約與 #261 的正式政策，不以此切片關閉整張 Issue。
+這是 #251 已授權的獨立封鎖切片；檢舉案件／證據／申訴不在本切片；正式政策另由 #261 追蹤，不以此切片關閉整張 Issue。
 
 ## 公會與小隊頻道
 

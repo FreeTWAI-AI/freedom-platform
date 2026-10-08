@@ -56,7 +56,7 @@ GitHub 連結固定列為必做待辦，以 `/me/github` 的真實狀態顯示�
 | `POST /me/conversations/:userId/messages` | 傳送 `{body}` 或 `{sticker_id}`，可選填 `reply_to_message_id` |
 | `POST /me/conversations/:userId/read` | 將對方傳給本人的訊息標為已讀 |
 | `GET /me/blocks` | 旗標開啟時讀取本人的有效封鎖名單 |
-| `GET /me/blocks/:userId` | 旗標開啟時讀取本人對指定會員的設定與目前可聯絡狀態 |
+| `GET /me/blocks/:userId` | 旗標開啟時讀取本人對指定會員的設定（僅 blocked_by_me 與本人版本） |
 | `POST /me/blocks/:userId/block` `{}` | 旗標開啟時本人確認封鎖；已有設定需帶其 `If-Match` 版本 |
 | `POST /me/blocks/:userId/unblock` `{}` | 旗標開啟時本人解除設定；已有設定需帶其 `If-Match` 版本 |
 | `GET /me/channels?kind=guild` 或 `kind=squad` | 本人目前可用的頻道及未讀數；不包含正文 |

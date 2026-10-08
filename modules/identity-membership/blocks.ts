@@ -29,18 +29,16 @@ export async function lockInteractionPair(q:PoolClient,actor:Actor,id:string){
 export async function assertCanContact(q:PoolClient,actor:Actor,id:string){
   const blocked=(await q.query(`SELECT 1 FROM member_interaction_blocks WHERE community_id=$1 AND state='active'
     AND ((owner_ref=$2 AND target_ref=$3) OR (owner_ref=$3 AND target_ref=$2)) LIMIT 1`,[actor.community_id,actor.user_id,id])).rowCount;
-  requireCondition(!blocked,409,'contact_unavailable','目前無法與這位會員聯絡。');
+  requireCondition(!blocked,409,'recipient_unavailable','目前無法與這位會員聯絡。');
 }
 async function ownState(q:PoolClient,actor:Actor,id:string):Promise<BlockState>{
   const row=(await q.query(`SELECT u.user_id,
     (${eligible('u')} AND NOT is_verification_test_account(u.user_id)) AS ready,
-    own.state AS own_state,own.aggregate_version,
-    EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
-      AND ((b.owner_ref=$2 AND b.target_ref=$3) OR (b.owner_ref=$3 AND b.target_ref=$2))) AS unavailable
+    own.state AS own_state,own.aggregate_version
     FROM users u LEFT JOIN member_interaction_blocks own ON own.community_id=$1 AND own.owner_ref=$2 AND own.target_ref=u.user_id
     WHERE u.community_id=$1 AND u.user_id=$3`,[actor.community_id,actor.user_id,id])).rows[0];
   requireCondition(row&&(row.ready||row.own_state),404,'member_not_found','找不到這位會員。');
-  return BlockStateSchema.parse({user_id:id,blocked_by_me:row.own_state==='active',aggregate_version:row.aggregate_version===null?null:Number(row.aggregate_version),can_contact:row.ready&&!row.unavailable});
+  return BlockStateSchema.parse({user_id:id,blocked_by_me:row.own_state==='active',aggregate_version:row.aggregate_version===null?null:Number(row.aggregate_version)});
 }
 async function privateRead<T>(pool:Pool,actor:Actor,run:(q:PoolClient)=>Promise<T>):Promise<T>{
   return transaction(pool,async q=>{await lockMemberSession(q,actor);await assertInteractionMember(q,actor);const result=await run(q);await assertCurrentSessionClock(q,actor);return result;});
@@ -84,10 +82,26 @@ export async function changeBlock(pool:Pool,input:Command,raw:string,action:'blo
       // Removal is deliberately silent: a decline notification would reveal the setting.
       await q.query(`UPDATE member_friendships SET state='removed',aggregate_version=aggregate_version+1,updated_at=clock_timestamp()
         WHERE community_id=$1 AND low_ref=$2 AND high_ref=$3 AND state<>'removed'`,[input.actor.community_id,low,high]);
+      // Pair barrier also serializes invite/accept; close pending invitations
+      // without a notification, retaining accepted invitations and memberships.
+      await q.query(`UPDATE member_squad_invitations SET state='withdrawn',aggregate_version=aggregate_version+1,
+        updated_at=clock_timestamp(),resolved_at=clock_timestamp()
+        WHERE community_id=$1 AND state='pending' AND ((owner_ref=$2 AND recipient_ref=$3) OR (owner_ref=$3 AND recipient_ref=$2))`,
+        [input.actor.community_id,low,high]);
     }
     await journal(q,input.actor,'member_interaction_block',row.block_id,row.aggregate_version,action,{});
     return {updated:true};
   },async q=>{await assertInteractionMember(q,input.actor);});
   // Receipts contain no private setting or peer profile; known success reads current authority.
   return blockState(pool,input.actor,id);
+}
+
+/** Recheck after asynchronous card projection so a newly committed block does not
+ * return a candidate selected before the block. Never expose the block direction. */
+export async function contactableIds(q:Pick<Pool,'query'>,actor:Actor,ids:string[]):Promise<Set<string>>{
+  if(!ids.length)return new Set();
+  const rows=(await q.query(`SELECT id FROM unnest($3::uuid[]) AS candidate(id)
+    WHERE NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+      AND ((b.owner_ref=$2 AND b.target_ref=id) OR (b.owner_ref=id AND b.target_ref=$2)))`,[actor.community_id,actor.user_id,ids])).rows;
+  return new Set(rows.map(row=>String(row.id)));
 }
