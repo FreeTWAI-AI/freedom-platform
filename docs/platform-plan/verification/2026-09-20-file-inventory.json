@@ -17154,18 +17154,18 @@
     },
     {
       "path": "modules/module-data/README.md",
-      "bytes": 1818,
-      "sha256": "e30424c3a7e149a20c2256f0f3737fc4e1b77d5a0e56ba6211c360d3565db906"
+      "bytes": 3276,
+      "sha256": "7f2c58f6d490ccc8a0449d5df18e83b41b1ddc304e15c977f9e8228d1ecc171a"
     },
     {
       "path": "modules/module-data/catalog-check.ts",
-      "bytes": 21517,
-      "sha256": "487b3aa63721900b2004e641fe3f51f41299b8175542e1279193a8b98f7b80d0"
+      "bytes": 25075,
+      "sha256": "7ce5f3426c155ad7416bd5a9c2178bce43cd6743aaced9d6ebf5f401ae243a9f"
     },
     {
       "path": "modules/module-data/catalog.ts",
-      "bytes": 93087,
-      "sha256": "62593f31fccb874b5a6dc7ca2cb36714bca7bc414482ff7c3298bd9d7cb963b1"
+      "bytes": 95896,
+      "sha256": "a7778019bb7cb66c67971b0a5cdb5dbc52dd0ce19faf809790d8b80825acc52d"
     },
     {
       "path": "modules/module-data/freedom.module.json",
@@ -21159,8 +21159,8 @@
     },
     {
       "path": "tests/runtime/tenant-data-catalog.test.ts",
-      "bytes": 30147,
-      "sha256": "455ef6aaa5ac4371355565aa32bdebca7a88d2f7ced55e908109b444ca50d405"
+      "bytes": 36243,
+      "sha256": "3806fb1ecafdf3f39df8936aeeb1dc4f80f215777d465d9c504e0d01c005d1f2"
     },
     {
       "path": "tests/runtime/tenant-data-isolation.test.ts",
