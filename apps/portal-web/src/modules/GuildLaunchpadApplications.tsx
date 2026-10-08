@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {ApplicationPageSchema, ApplicationReleaseViewSchema, type ApplicationView} from '../../../../contracts/guild-launchpad/v1/module-registry';
 import {z} from 'zod';
 import {OpaqueId} from '../../../../contracts/common/v1/identity';
@@ -32,9 +32,10 @@ export const startable = (app: Pick<ApplicationView, 'eligibility'>) => app.elig
     && app.eligibility.reason_codes.every(code => code === 'tenant_manage_required'));
 export type LaunchRequest = {application_key: string; release_ref: string; nonce: number};
 
-export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, onStore, canLeave, recommendedRefs = [], launchRequest}: {
+export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, onStore, canLeave, registerPendingLeave, recommendedRefs = [], launchRequest}: {
   client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean; onStore?: (tenantId: string, instanceId: string) => boolean;
   recommendedRefs?: readonly ApplicationRef[]; launchRequest?: LaunchRequest;
+  registerPendingLeave: (guard: (() => boolean) | null) => void;
 }) {
   const [items, setItems] = useState<ApplicationView[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -54,6 +55,10 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
   const extraPages = useRef(0);
   const handledLaunch = useRef<LaunchRequest | undefined>(undefined);
   const container = useRef<HTMLDivElement>(null);
+  const flowLeaveGuard = useRef<(() => boolean) | null>(null);
+  const registerFlowLeave = useCallback((guard: (() => boolean) | null) => {
+    flowLeaveGuard.current = guard; registerPendingLeave(guard);
+  }, [registerPendingLeave]);
   useEffect(() => {
     controller.current = new AbortController(); generation.current++;
     extraPages.current = 0; handledLaunch.current = undefined;
@@ -71,6 +76,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     if (!launchRequest || launchRequest === handledLaunch.current || publicMode || !userId) return;
     const app = items.find(item => item.application_key === launchRequest.application_key && item.release_ref === launchRequest.release_ref);
     if (!app) return;
+    if (flowLeaveGuard.current && !flowLeaveGuard.current()) return;
     handledLaunch.current = launchRequest;
     if (!startable(app)) return;
     opener.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
@@ -162,7 +168,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
         <p>版本：{app.release_ref} · 授權：{LICENSE[app.license_state]}</p>
         <p className="field-hint">來源以固定提交與成品摘要核對。</p>
         <div className="application-actions"><button type="button" className="btn btn-ghost" aria-expanded={openDetail === key} onClick={() => void release(app)}>版本資料</button>
-          {!publicMode && <button type="button" className="btn btn-ghost" disabled={!startable(app)} onClick={event => { opener.current = event.currentTarget; setLaunch(app); }}>啟動應用</button>}
+          {!publicMode && <button type="button" className="btn btn-ghost" disabled={!startable(app)} onClick={event => { if (flowLeaveGuard.current && !flowLeaveGuard.current()) return; opener.current = event.currentTarget; setLaunch(app); }}>啟動應用</button>}
         </div>
         {!publicMode && app.eligibility?.reason_codes.map(code => <p key={code} className="field-hint">{visitor && code === 'guild_full_member_required' ? '先加入這個公會，才能啟動應用。' : REASONS[code]}</p>)}
         {!publicMode && app.eligibility?.reason_codes.includes('tenant_manage_required') && <div className="application-actions"><a className="btn btn-ghost" href="#business" onClick={event => { if (!canLeave()) event.preventDefault(); }}>建立或選擇業務空間</a></div>}
@@ -188,7 +194,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。</p>
       <div className="application-actions"><button type="button" className="btn btn-ghost" onClick={() => { storeLaunch(userId!, guildKey, row, true); setUnavailable(old => old.filter(item => item.key !== row.key)); }}>不再追蹤</button></div>
     </div>)}
-    {launch && userId && <LaunchFlow key={applicationKey(launch)} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} onStore={onStore} canLeave={canLeave} restoredRow={restoredRow}/>}
+    {launch && userId && <LaunchFlow key={applicationKey(launch)} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} onStore={onStore} canLeave={canLeave} registerPendingLeave={registerFlowLeave} restoredRow={restoredRow}/>}
     {cursor && <div className="application-actions"><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(cursor)}>載入更多</button></div>}
     {publicMode && items.length > 0 && <div>登入後可確認啟動資格。{onLogin && <div className="application-actions"><button type="button" className="btn btn-ghost" onClick={onLogin}>登入查看資格</button></div>}</div>}
   </div>;
@@ -323,8 +329,9 @@ function dependencyWords(choice: Dependency) {
     : `共用既有的${moduleWord(choice.requirement_key)}（ID 尾碼 ${choice.instance_id.slice(-6)}，版本 ${choice.expected_version}）`;
 }
 
-function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, canLeave, restoredRow}: {
+function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, canLeave, registerPendingLeave, restoredRow}: {
   client: PortalClient; guildKey: string; userId: string; app: ApplicationView; onClose: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean; onStore?: (tenantId: string, instanceId: string) => boolean; restoredRow?: SavedLaunch;
+  registerPendingLeave: (guard: (() => boolean) | null) => void;
 }) {
   const [tenantName, setTenantName] = useState('');
   const [tenantError, setTenantError] = useState('');
@@ -378,10 +385,22 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, onStore, ca
     storeLaunch(userId, guildKey, next); pendingRef.current = next; setPending(next);
   }
   function close() {
+    if (!canLeaveCreate()) return;
     const held = pendingRef.current;
     if (held && terminal(held.operation)) storeLaunch(userId, guildKey, held, true);
     resetRequests(); onClose();
   }
+  function canLeaveCreate() {
+    if (!tenantAttempt.current) return true;
+    setTenantError(busyRef.current ? '正在確認原操作，請等候完成後再離開。' : '尚未確認原操作的結果，請按「重試」確認後再離開。');
+    return false;
+  }
+  useEffect(() => {
+    registerPendingLeave(canLeaveCreate);
+    const unloading = (event: BeforeUnloadEvent) => {if (tenantAttempt.current) {event.preventDefault(); event.returnValue = '';}};
+    window.addEventListener('beforeunload', unloading);
+    return () => {registerPendingLeave(null); window.removeEventListener('beforeunload', unloading);};
+  }, [registerPendingLeave]);
   async function loadTenants() {
     const call = ticket(); setReadFailed(false); setProblem(''); setTenantsLoaded(false);
     try {

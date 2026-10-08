@@ -158,7 +158,7 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, canLeave, onLogin}: {
+function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, onLogin}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
@@ -172,6 +172,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
   guildKey: string;
   userId?: string;
   registerLeave: (guard: (() => boolean) | null) => void;
+  registerPendingLeave: (guard: (() => boolean) | null) => void;
   canLeave: () => boolean;
 }) {
   const [workRefresh, setWorkRefresh] = useState(0);
@@ -220,7 +221,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         const upstream = httpsUrl(book.upstream_url);
         return <p key={book.book_id}>{book.title}{intro && <> · <a href={intro} rel="noopener noreferrer" target="_blank">閱讀介紹</a></>}{upstream && <> · <a href={upstream} rel="noopener noreferrer" target="_blank">上游</a></>}</p>;
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
-      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} onStore={showStore} canLeave={canLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
+      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} onStore={showStore} canLeave={canLeave} registerPendingLeave={registerPendingLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
@@ -245,8 +246,9 @@ export function PublicGuildLaunchpad({client, guildKey, onLogin}: {client: Porta
   </div>;
 }
 
-export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}: {
+export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId, registerPendingLeave}: {
   client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void; userId?: string;
+  registerPendingLeave?: (guard: (() => boolean) | null) => void;
 }) {
   const [guild, setGuild] = useState<{name: string; purpose: string} | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRef[]>([]);
@@ -286,6 +288,11 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   const generation = useRef(0);
   const leaveGuard = useRef<(() => boolean) | null>(null);
   const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
+  const launchLeaveGuard = useRef<(() => boolean) | null>(null);
+  const registerLaunchLeave = useCallback((guard: (() => boolean) | null) => {
+    launchLeaveGuard.current = guard; registerPendingLeave?.(guard);
+  }, [registerPendingLeave]);
+  const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
@@ -492,7 +499,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (leaveGuard.current && !leaveGuard.current()) return; onBack?.(); }}>返回公會列表</button></div>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (!canLeave()) return; onBack?.(); }}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
@@ -500,7 +507,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} canLeave={() => !leaveGuard.current || leaveGuard.current()} onLogin={onLogin}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} onLogin={onLogin}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}
