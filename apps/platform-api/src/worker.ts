@@ -19,6 +19,7 @@ import { assertDatabaseReady, ReadinessError } from './readiness.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
+import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
 import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
@@ -119,6 +120,28 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
 }
 
 /**
+ * Rate-limit key for an address that already passed `isIP`. IPv6 collapses to its /64,
+ * since one subscriber usually holds the whole prefix; only a true IPv4-mapped address
+ * (::ffff:a.b.c.d, first 80 bits zero) keeps its IPv4 budget, so a host inside some /64
+ * cannot mint IPv4 keys by choosing its last 32 bits.
+ */
+export function rateLimitNetworkKey(address: string): string {
+  if (isIP(address) === 4) return address;
+  const bare = address.split('%')[0].toLowerCase();
+  // A trailing dotted quad is the last two hextets written in decimal.
+  const quad = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(bare);
+  const hex = quad ? `${bare.slice(0, -quad[0].length)}${((+quad[1] << 8) | +quad[2]).toString(16)}:${((+quad[3] << 8) | +quad[4]).toString(16)}` : bare;
+  const [left, right] = hex.includes('::') ? hex.split('::') : [hex, undefined];
+  const l = left ? left.split(':') : [], r = right ? right.split(':') : [];
+  const hextets = right === undefined ? l : [...l, ...Array(8 - l.length - r.length).fill('0'), ...r];
+  if (hextets.length !== 8) return address;
+  const words = hextets.map(h => parseInt(h, 16));
+  // ::ffff:0:0/96 in either notation is an IPv4 client.
+  if (words.slice(0, 5).every(w => w === 0) && words[5] === 0xffff) return [words[6] >> 8, words[6] & 255, words[7] >> 8, words[7] & 255].join('.');
+  return `${words.slice(0, 4).map(w => w.toString(16)).join(':')}::/64`;
+}
+
+/**
  * Cloudflare's edge sets CF-Connecting-IP on requests to a custom domain, replacing
  * any client-supplied value. workerd, `wrangler dev` and Miniflare pass inbound
  * headers through and fabricate `request.cf`, so neither the header nor `cf` proves
@@ -126,12 +149,22 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
  * (non-local env, explicit binding), the request carries `cf`, and the worker
  * already required Host to equal the configured custom-domain origin. Otherwise
  * every client shares one conservative key. X-Forwarded-For is never read.
+ * Keep the full address for existing non-limiter consumers such as promotion scoring.
  */
 export function cloudflareSourceNetwork(trustConnectingIp: boolean) {
   return (c: Context): string => {
     if (!trustConnectingIp || !(c.req.raw as Request & { cf?: unknown }).cf) return SHARED_NETWORK_KEY;
     const address = c.req.header('CF-Connecting-IP')?.trim() ?? '';
     return isIP(address) ? address : SHARED_NETWORK_KEY;
+  };
+}
+
+/** Group only request budgets; never replace the visitor identity with a prefix. */
+export function cloudflareRateLimitNetwork(trustConnectingIp: boolean) {
+  const sourceNetwork = cloudflareSourceNetwork(trustConnectingIp);
+  return (c: Context): string => {
+    const address = sourceNetwork(c);
+    return isIP(address) ? rateLimitNetworkKey(address) : SHARED_NETWORK_KEY;
   };
 }
 
@@ -160,6 +193,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     maintainerWebhookSecret: () => maintainerWebhookSecret,
     adminVerifier: workerAdminVerifier(env),
     sourceNetwork: cloudflareSourceNetwork(config.trustConnectingIp),
+    rateLimitNetwork: cloudflareRateLimitNetwork(config.trustConnectingIp),
     allowedHosts: new Set([new URL(config.origin).hostname]),
     // Every Worker links, canonicalizes and documents its own configured origin;
     // only the existing Node deployments keep the live-site default.
@@ -210,6 +244,8 @@ export type WorkerDependencies = {
   syncGitHub?: typeof syncGitHubRepositories;
   githubFetcher?: typeof fetch;
   guildDiscovery?: typeof refreshGuildDiscoveryReports;
+  /** Test seam. Production uses pruneExpiredAuthRecords. */
+  authPrune?: typeof pruneExpiredAuthRecords;
 };
 
 /**
@@ -306,6 +342,8 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
             try{await (deps.guildDiscovery??refreshGuildDiscoveryReports)(pool,{communityId:env.FREEDOM_REGISTRATION_COMMUNITY_ID,reviewer:guildReviewerFromBindings(env)});}
             catch{console.error('guild_discovery_failed');}
           }
+          try{await (deps.authPrune??pruneExpiredAuthRecords)(pool);}
+          catch{console.error('auth_prune_failed');}
         } catch (error) {
           const name = error instanceof Error && /^[A-Za-z][A-Za-z0-9_]*$/.test(error.name) ? error.name : 'unknown';
           console.error('github_sync_failed', name);
