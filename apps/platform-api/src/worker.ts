@@ -74,6 +74,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SQUAD_OUTCOMES_ENABLED?: string;
   FREEDOM_EVENT_OUTCOMES_ENABLED?: string;
   FREEDOM_FIRST_PARTICIPATION_ENABLED?: string;
+  FREEDOM_PARTICIPATION_METRICS_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -126,6 +127,7 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Outcome publication flag must be true or false.');
   }
   if(env.FREEDOM_EVENT_OUTCOMES_ENABLED==='true'&&env.FREEDOM_SQUAD_OUTCOMES_ENABLED!=='true')throw new ReadinessError('Event outcomes require squad outcomes to expose all canonical sources.');
+  if(env.FREEDOM_PARTICIPATION_METRICS_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PARTICIPATION_METRICS_ENABLED))throw new ReadinessError('Participation metrics flag must be true or false.');
   if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new ReadinessError('First participation flag must be true or false.');
   if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new ReadinessError('First participation requires personal content.');
   for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED]){
@@ -238,6 +240,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     squadOutcomesEnabled: env.FREEDOM_SQUAD_OUTCOMES_ENABLED === 'true',
     eventOutcomesEnabled: env.FREEDOM_EVENT_OUTCOMES_ENABLED === 'true',
     firstParticipationEnabled: env.FREEDOM_FIRST_PARTICIPATION_ENABLED === 'true',
+    participationMetricsEnabled: env.FREEDOM_PARTICIPATION_METRICS_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }

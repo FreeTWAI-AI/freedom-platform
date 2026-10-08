@@ -98,4 +98,6 @@ export type PlatformRuntime = {
   /** Event summaries and current-authorized canonical outcome links. */
   eventOutcomesEnabled?: boolean;
   firstParticipationEnabled?: boolean;
+  /** Admin-only participation report and search outcome signals. */
+  participationMetricsEnabled?: boolean;
 };

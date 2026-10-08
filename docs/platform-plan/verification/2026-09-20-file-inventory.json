@@ -64,8 +64,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28900,
-      "sha256": "7fb10e37091bdfd5947a4ede41cb135bc1f57c4a4ed1331a9bb81626e9861c62"
+      "bytes": 29467,
+      "sha256": "7e34f618361c47b168dcba058091793873d3d874538a0c12120b21d84f18745b"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -214,8 +214,8 @@
     },
     {
       "path": "apps/platform-api/src/app.ts",
-      "bytes": 6867,
-      "sha256": "2853ab2659deac9ea2452b89e1496f8413b448dfc51d2cda3826a4135c0a4d88"
+      "bytes": 6980,
+      "sha256": "afcab0cb0862489c4df068f70ff5827a3c2516177407a4bf38605a5e329fe7b8"
     },
     {
       "path": "apps/platform-api/src/credential-ingest-client.ts",
@@ -279,8 +279,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 49994,
-      "sha256": "3ba55ae34921f6167ca70583e77a004a4151eaf3b00058d8e2a7adba49680d35"
+      "bytes": 50668,
+      "sha256": "4dfdb2902b31aa4e9e09fa27f42b256561bb6fefa47ef40d814f18e9389896a9"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -299,8 +299,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/admin.ts",
-      "bytes": 11993,
-      "sha256": "9afcbb55b532d2f2bcf3689593f32b3a202a0f8270add6240dc8eee024273fe4"
+      "bytes": 12400,
+      "sha256": "0ce60135f917745327e8b6bb71fb343aa97ef2010d1f9f4f801272d12fef8c1d"
     },
     {
       "path": "apps/platform-api/src/routes/agent-commerce.ts",
@@ -494,13 +494,13 @@
     },
     {
       "path": "apps/platform-api/src/runtime.ts",
-      "bytes": 6226,
-      "sha256": "b5682e5e6b34cdfc58268011f6728a1a22bce094955e48ed5420986510cfda47"
+      "bytes": 6336,
+      "sha256": "74d2b65949d6c424577eb83b6771bd71f3ed230df3b71110f84951b16e380ae7"
     },
     {
       "path": "apps/platform-api/src/server.ts",
-      "bytes": 3190,
-      "sha256": "8bebc9be8e3db93821a107072e42078d375448b4d77bb0ce224a4eb6e7351ced"
+      "bytes": 3476,
+      "sha256": "2c1fabd7b224f3066ae6bd3dc36b1372b439dc0df338bd501ea080738968d6f3"
     },
     {
       "path": "apps/platform-api/src/session-cookie.ts",
@@ -524,8 +524,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 28823,
-      "sha256": "3926e876820798dbfefd5e45da00ca39c97eb3915c5ae6d5133759f68a9c6165"
+      "bytes": 29169,
+      "sha256": "38554b602b364cde360fd314208470298b4c35ce969fc39bd7b36b3ab1cb13de"
     },
     {
       "path": "apps/portal-web/index.html",
@@ -1899,8 +1899,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySearch.tsx",
-      "bytes": 11297,
-      "sha256": "92080b4e169f6ba7ca596c4982d8de89b4b3104ea8314849dc41674291ae6223"
+      "bytes": 11507,
+      "sha256": "5bbdbcf8616757f6552eb625f46357332391dc39906d538d665fa2cce8a5f28d"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySkillBooks.tsx",
@@ -12595,7 +12595,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "67dbf6d0bc15c515769f5e237961305c6eecb6a548ce86b2c751341dbca381e2"
+      "sha256": "0e76b3887604a77cb7f3a9284634ebd0d396e0d56e77e5a592d13c72e5f3e121"
     },
     {
       "path": "deploy/cloudflare/lib/broker-wrangler.mjs",
@@ -12674,8 +12674,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 42282,
-      "sha256": "a79104790a11b3f94bfaf86db9831021266e399be5ffe6fec09232dee444fc59"
+      "bytes": 42407,
+      "sha256": "0a5f2c2270d82f3bdc716e2132967c9da3a6b41abbb0f70521d99ab3a43c4f7a"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12785,7 +12785,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "f433b5b6fc590f76c885c1a6ad7de563231b66069e77d02fc662e14846087980"
+      "sha256": "b04ddbf476087b217889b85f856d46c23aada0c15823ae2fbf13c1e2999e7eb4"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12819,8 +12819,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52229,
-      "sha256": "7745560c98939f65812e90ad3e049fd76ad976f451ab11a2f985706271a6cb0c"
+      "bytes": 52231,
+      "sha256": "1c42eada02e84a95e5fc128335d02c3e99a0be7498b481e9dc4b112a0f08b7b4"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",
@@ -13359,8 +13359,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 37373,
-      "sha256": "de7ddf84b0a01b069b0e0a220a8761be6380a8ca30bf6dcaa813d7bbdfb415e1"
+      "bytes": 39647,
+      "sha256": "6c8c4127c3fe0b7e0f99025ad840a375b8c5f3bc533a8b4a2767a1d7c6752580"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -15998,6 +15998,11 @@
       "sha256": "ed22f65802053af1ff65220f64d1e440b56db6dce950c01a8d523e229a9f6420"
     },
     {
+      "path": "migrations/142_participation_metrics.sql",
+      "bytes": 849,
+      "sha256": "70d230035f74f6e6a81ae462baf71cfcb240778eb0dfdb623d3c3a53098a40c9"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 5367,
       "sha256": "f03a4063b80c47bb7e39683854fa00d54ba22aee43abfd32d73957375041f755"
@@ -16701,6 +16706,11 @@
       "path": "modules/community/moderation.ts",
       "bytes": 606,
       "sha256": "058d383e7bcdd5cca6e1da3259a8ae2a336b11ef6e39700d0c79b9d902a7e205"
+    },
+    {
+      "path": "modules/community/participation-metrics.ts",
+      "bytes": 11159,
+      "sha256": "e7d91f59ab6095d4baececb80047db95b93b6bb243908e028e6cada5837892f6"
     },
     {
       "path": "modules/community/personal-content.ts",
@@ -18554,8 +18564,8 @@
     },
     {
       "path": "packages/shared/community-search.ts",
-      "bytes": 1187,
-      "sha256": "6ad7c7a24a11ce1efe1bcdcd2cc31f7b8a07d6307912c62e247bd94bb645fd32"
+      "bytes": 1226,
+      "sha256": "b1af8855da9805728a779783a656a750c0bc2ef1d5880dc4653773b770c2678b"
     },
     {
       "path": "packages/shared/freedom.module.json",
@@ -20911,6 +20921,11 @@
       "path": "tests/runtime/page-issue-label.test.ts",
       "bytes": 2257,
       "sha256": "2076eeb7ae18579cc764b491275d21fb13959bbc2bfa4dcf96aacfa332e63bf4"
+    },
+    {
+      "path": "tests/runtime/participation-metrics.test.ts",
+      "bytes": 13876,
+      "sha256": "3d820f90008a1d6482667fb0f4b5baeb9ade6676be8b4fd25d05f2e9dfb4b446"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",
