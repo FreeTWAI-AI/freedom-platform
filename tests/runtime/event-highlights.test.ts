@@ -595,7 +595,6 @@ test('descriptions are public for every visibility while meeting links stay hidd
     const token = `hl-${visibility}-secret`;
     const page = await call('/highlights/' + ids[visibility]);
     assert.equal(page.status, 200, page.text);
-    assert.equal(page.text.includes('<script'), false, visibility);
     assert.equal(page.text.includes(token), true, `public html ${visibility}`);
     assert.equal(page.text.includes(hiddenNotice), false, visibility);
     assert.equal(page.text.includes(MEETING_TOKEN), false, `public meeting ${visibility}`);

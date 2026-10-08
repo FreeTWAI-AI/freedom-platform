@@ -293,21 +293,21 @@ function cardOf(row: { service_id: string; title: string; category: ServiceCateg
   };
 }
 
-export async function publicServiceListDocument(pool: Pool, communityId: string | null, origin: string, categoryRaw?: string, cursorRaw?: string) {
+export async function publicServiceListDocument(pool: Pool, communityId: string | null, origin: string, categoryRaw?: string, cursorRaw?: string, eligibleOnly=false) {
   const category = categoryOf(categoryRaw, false);
   const cursor = cursorOf(cursorRaw, false);
-  if (!communityId) return serviceListHtml(origin, category, [], null);
-  const rows = (await pool.query(`${PUBLIC_LIST} WHERE s.community_id=$1 AND ${PUBLIC_VISIBLE}
+  if (!communityId) return serviceListHtml(origin, category, [], null, eligibleOnly);
+  const rows = (await pool.query(`${PUBLIC_LIST} WHERE s.community_id=$1 AND ${PUBLIC_VISIBLE}${eligibleOnly?' AND u.community_id=s.community_id AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)':''}
     AND ($2::text IS NULL OR s.category=$2)
     AND ($3::timestamptz IS NULL OR (s.updated_at,s.service_id)<($3::timestamptz,$4::uuid))
     ORDER BY s.updated_at DESC,s.service_id DESC LIMIT 13`, [communityId, category || null, cursor?.updatedAt ?? null, cursor?.id ?? null])).rows as (Parameters<typeof cardOf>[0] & { updated_cursor: string })[];
   const pageRows = rows.slice(0, PUBLIC_PAGE);
   const last = pageRows.at(-1);
-  return serviceListHtml(origin, category, pageRows.map(cardOf), rows.length > PUBLIC_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null);
+  return serviceListHtml(origin, category, pageRows.map(cardOf), rows.length > PUBLIC_PAGE && last ? encodeCursor(last.updated_cursor, last.service_id) : null, eligibleOnly);
 }
 
-export async function publicServiceDocument(pool: Pool, communityId: string | null, origin: string, id: string) {
-  const missing = { status: 404 as const, html: serviceMissingHtml(origin) };
+export async function publicServiceDocument(pool: Pool, communityId: string | null, origin: string, id: string, discoveryEnabled=false) {
+  const missing = { status: 404 as const, html: serviceMissingHtml(origin, discoveryEnabled) };
   if (!communityId || !z.uuid().safeParse(id).success) return missing;
   const row = (await pool.query(`SELECT s.service_id::text,s.title,s.category,s.summary,s.description,s.price_text,s.area_text,s.service_mode,s.contacts,
     u.display_name AS owner_name,c.service_id IS NOT NULL AS has_cover,s.updated_at
@@ -315,5 +315,5 @@ export async function publicServiceDocument(pool: Pool, communityId: string | nu
     WHERE s.service_id=$1 AND s.community_id=$2 AND ${PUBLIC_VISIBLE}`, [id, communityId])).rows[0];
   if (!row) return missing;
   const service: PublicServicePage = { ...cardOf(row), description: row.description, service_mode: row.service_mode, contacts: row.contacts };
-  return { status: 200 as const, html: serviceDetailHtml(origin, service) };
+  return { status: 200 as const, html: serviceDetailHtml(origin, service, discoveryEnabled) };
 }
