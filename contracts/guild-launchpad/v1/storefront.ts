@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { OpaqueId, Version } from './primitives.js';
 import { IsoTimeSchema } from './tenant.js';
 
-const text = (max: number, min = 0, multiline = false) => z.string().trim().min(min).max(max)
-  .regex(multiline ? /^[^\u0000-\u0009\u000b-\u001f\u007f]*$/ : /^[^\u0000-\u001f\u007f]*$/);
+const text = (max: number, min = 0, multiline = false) => z.string()
+  .regex(multiline ? /^[^\u0000-\u0009\u000b-\u001f\u007f]*$/ : /^[^\u0000-\u001f\u007f]*$/)
+  .trim().min(min).max(max);
 export const StoreSlugSchema = z.string().trim().regex(/^[a-zA-Z][a-zA-Z0-9-]{1,38}[a-zA-Z0-9]$/);
 export const CurrencySchema = z.enum(['TWD', 'USD']);
 const settings = { name: text(80, 1), brand: text(80, 1).nullable().optional(), description: text(2000, 0, true).optional(), slug: StoreSlugSchema };
