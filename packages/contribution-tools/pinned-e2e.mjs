@@ -37,6 +37,13 @@ squad-invitations.spec.ts squad-types-channel.spec.ts tenant-ownership.spec.ts
 tenant-workspaces.spec.ts text-autospace.spec.ts typed-line-breaks.spec.ts workshop-design.spec.ts
 `.trim().split(/\s+/).map(n => `tests/e2e/${n}`).sort());
 
+// Host-owned whole-pass bounds; candidate config and environment cannot enlarge them.
+export const E2E_PASS_TIMEOUT_MS = Object.freeze({
+  default: 40 * 60 * 1000,
+  'private-ai': 30 * 60 * 1000,
+  'avatar-asset': 30 * 60 * 1000,
+});
+
 export const E2E_PLAN = Object.freeze([
   { id: 'default', env: {}, files: [] },
   { id: 'private-ai', env: { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' }, files: ['tests/e2e/private-work-ai.spec.ts'] },

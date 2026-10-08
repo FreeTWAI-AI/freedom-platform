@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir, symlink } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { E2E_BASELINE, E2E_PLAN, evaluateE2ePasses } from '../pinned-e2e.mjs';
+import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses } from '../pinned-e2e.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
@@ -350,5 +350,73 @@ test('CLI cancellation sends SIGTERM and retains test_cancelled with a zero chil
       assert.equal(result.reason, 'test_cancelled');
       assert.equal(result.passes[0].exit_code, 0);
     } finally { child.kill('SIGTERM'); }
+  });
+});
+
+test('host pass budgets are finite and only the default capacity increases', async () => {
+  assert.deepEqual(E2E_PASS_TIMEOUT_MS, {
+    default: 40 * 60 * 1000,
+    'private-ai': 30 * 60 * 1000,
+    'avatar-asset': 30 * 60 * 1000,
+  });
+  assert.ok(Object.isFrozen(E2E_PASS_TIMEOUT_MS));
+  assert.deepEqual(Object.keys(E2E_PASS_TIMEOUT_MS), E2E_PLAN.map(pass => pass.id));
+  assert.ok(Object.values(E2E_PASS_TIMEOUT_MS).every(value => Number.isSafeInteger(value) && value > 0));
+  const workflow = await readFile(join(repoRoot, '.github/workflows/verify.yml'), 'utf8');
+  const ui = workflow.slice(workflow.indexOf('  ui-e2e:'), workflow.indexOf('  static-worker:'));
+  assert.match(ui, /timeout-minutes: 50\b/);
+});
+
+test('CLI default deadline remains failure after graceful zero exit and stops later passes', async () => {
+  await withFixture(async root => {
+    await baseline(root);
+    const runnerDir = join(root, 'node_modules/@playwright/test');
+    await mkdir(runnerDir, { recursive: true });
+    await writeFile(join(runnerDir, 'package.json'), JSON.stringify({ exports: { './cli': './cli.cjs' } }));
+    const ready = join(root, 'ready'), marker = join(root, 'terminated'), starts = join(root, 'starts');
+    const observed = join(root, 'scheduled-budget.json'), preload = join(root, 'accelerate-fixture.mjs');
+    await writeFile(join(runnerDir, 'cli.cjs'), `
+      const fs = require('node:fs');
+      fs.appendFileSync(${JSON.stringify(starts)}, 'started\\n');
+      process.on('SIGTERM', () => {
+        fs.writeFileSync(${JSON.stringify(marker)}, 'SIGTERM');
+        fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({
+          config: { rootDir: ${JSON.stringify(join(root, 'tests/e2e'))} }, suites: [], errors: [],
+          stats: { expected: 0, skipped: 0, unexpected: 0, flaky: 0 }
+        }));
+        process.exit(0);
+      });
+      fs.writeFileSync(${JSON.stringify(ready)}, 'ready');
+      setInterval(() => {}, 1000);
+    `);
+    // Test-only clock acceleration. Production has no argument/environment budget override.
+    // Return a native timer handle, so the runner's clearTimeout still cancels it.
+    // The real 20-second SIGKILL escalation timer is deliberately not intercepted.
+    await writeFile(preload, `
+      import { existsSync, writeFileSync } from 'node:fs';
+      import { setTimeout as realTimeout, setInterval, clearInterval } from 'node:timers';
+      globalThis.setTimeout = (callback, delay, ...args) => {
+        if (delay !== ${E2E_PASS_TIMEOUT_MS.default}) return realTimeout(callback, delay, ...args);
+        writeFileSync(${JSON.stringify(observed)}, JSON.stringify({ delay }));
+        const timer = setInterval(() => {
+          if (!existsSync(${JSON.stringify(ready)})) return;
+          clearInterval(timer); callback(...args);
+        }, 10);
+        return timer;
+      };
+    `);
+    const output = join(root, 'result.json');
+    const child = spawnSync(process.execPath, ['--import', preload, cli, '--root', root, '--output', output], {
+      encoding: 'utf8', env: cliEnv, timeout: 10000,
+    });
+    assert.equal(child.status, 1, child.stdout + child.stderr);
+    assert.equal(child.signal, null);
+    assert.deepEqual(JSON.parse(await readFile(observed, 'utf8')), { delay: 40 * 60 * 1000 });
+    assert.equal(await readFile(marker, 'utf8'), 'SIGTERM');
+    assert.equal(await readFile(starts, 'utf8'), 'started\n');
+    const result = JSON.parse(await readFile(output, 'utf8'));
+    assert.equal(result.status, 'failed');
+    assert.equal(result.reason, 'test_timeout');
+    assert.deepEqual(result.passes.map(({ id, exit_code }) => ({ id, exit_code })), [{ id: 'default', exit_code: 0 }]);
   });
 });
