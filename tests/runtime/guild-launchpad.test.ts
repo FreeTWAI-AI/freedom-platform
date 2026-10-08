@@ -59,7 +59,8 @@ function assertBlocks(body: any, key: string) {
   assert.equal(body.schema_version, 'guild-launchpad.config/v1');
   assert.equal(body.guild_key, key);
   assert.equal(body.mission_override, null);
-  assert.deepEqual(body.application_refs, []);
+  assert.deepEqual(body.application_refs, ['guild_commerce_sales', 'guild_commercial_production'].includes(key)
+    ? [{application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 0}] : []);
   assert.equal(body.blocks.length, BLOCK_KINDS.length);
   assert.deepEqual([...body.blocks.map((block: {kind: string}) => block.kind)].sort(), [...BLOCK_KINDS].sort());
   assert.ok(body.blocks.every((block: {enabled: boolean}) => block.enabled));
@@ -740,7 +741,7 @@ test('an unparsable published config falls back to the previous safe revision', 
   const deepMember = await request(`/guilds/${deepKey}/launchpad`, member);
   assert.deepEqual(deepPublic.data.config_problem, deepProblem);
   assert.deepEqual(deepMember.data.config_problem, deepProblem);
-  assert.equal(deepPublic.data.config.revision, '1');
+  assert.equal(deepPublic.data.config.revision, '2');
   assert.equal(deepPublic.data.config.body.mission_override, null);
   assert.equal(JSON.stringify(deepPublic.data).includes(deepMarker), false);
   assert.equal(deepMember.data.config.source, 'platform_default');

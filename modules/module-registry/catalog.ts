@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 import {
   ApplicationPageSchema, ApplicationReleaseViewSchema, ApplicationViewSchema, EligibilitySchema,
-  type ApplicationView, type Eligibility,
+  type ApplicationView, type Eligibility, type LaunchpadApplication,
 } from '../../contracts/guild-launchpad/v1/module-registry.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { bindPrincipalContext, bindTenantContext, clearTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
@@ -261,15 +261,24 @@ export async function assertOfferedApplications(q: PoolClient, guildKey: string,
   if (errors.length) throw new ConfigValidationError(errors);
 }
 
-export async function availableReleaseRefs(q: PoolClient, guildKey: string, communityId: string | null): Promise<Set<string>> {
-  const rows = (await q.query<{ release_ref: string }>(
-    `SELECT d.release_ref FROM guild_application_offerings o
-     JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
-     WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
-       AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))`,
+export async function availableReleases(q: PoolClient, guildKey: string, communityId: string | null): Promise<{ application_key: string; release_ref: string }[]> {
+  return (await q.query<{ application_key: string; release_ref: string }>(
+    `WITH offerings AS (
+       SELECT DISTINCT ON (d.application_key, d.release_ref)
+         d.application_key, d.release_ref, o.offering_id, o.display_order, (o.community_id IS NULL) AS platform
+       FROM guild_application_offerings o
+       JOIN application_definitions d ON d.application_key=o.application_key AND d.release_ref=o.release_ref
+       WHERE o.status='offered' AND d.release_status='available' AND d.license_state='reviewed'
+         AND ((o.community_id IS NULL AND o.guild_key IS NULL) OR (o.community_id=$2 AND (o.guild_key IS NULL OR o.guild_key=$1)))
+       ORDER BY d.application_key, d.release_ref, ${OFFERING_PRECEDENCE}
+     )
+     SELECT application_key, release_ref FROM offerings ORDER BY (NOT platform), display_order, offering_id`,
     [guildKey, communityId],
   )).rows;
-  return new Set(rows.map(row => row.release_ref));
+}
+
+export async function availableReleaseRefs(q: PoolClient, guildKey: string, communityId: string | null): Promise<Set<string>> {
+  return new Set((await availableReleases(q, guildKey, communityId)).map(row => row.release_ref));
 }
 
 async function personPrincipalId(q: PoolClient, userId: string): Promise<string | null> {
@@ -403,7 +412,7 @@ export async function readPublicRelease(pool: Pool, applicationKey: string, rele
   });
 }
 
-export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey: string) {
+export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey: string): Promise<LaunchpadApplication[]> {
   await assertGuildKey(q, guildKey);
   const rows = (await q.query<OfferingRow>(
     `WITH offerings AS (
@@ -420,7 +429,7 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
   if (!rows.some(isLaunchable)) {
     await assertCurrentSessionClock(q, actor);
     return rows.map(row => ({
-      application_key: row.application_key, release_ref: row.release_ref,
+      application_key: row.application_key, release_ref: row.release_ref, display_name: row.display_name,
       eligibility: unavailableEligibility(row.offering_policy.version),
     }));
   }
@@ -484,6 +493,7 @@ export async function applicationsForGuild(q: PoolClient, actor: Actor, guildKey
     return {
       application_key: row.application_key,
       release_ref: row.release_ref,
+      display_name: row.display_name,
       eligibility: isLaunchable(row)
         ? eligibilityView(full, manages, policy, installed, row.offering_policy.version)
         : unavailableEligibility(row.offering_policy.version),
