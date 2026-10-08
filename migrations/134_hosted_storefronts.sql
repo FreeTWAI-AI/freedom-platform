@@ -81,7 +81,7 @@ DO $$
 DECLARE
   store_contract jsonb := jsonb_build_object(
     'family','guild-launchpad.storefront','version','1',
-    'source_commit','9c0f5d4a319272caeb3b4e212828ab1d0ed28ba3',
+    'source_commit','a731461c4f1bc38aa5235db8a29cd3e047f1ab9b',
     'artifact_sha256','eb9a262e2914af0a8fac3631533f8e4350b4d602b7a682d4497774b60c4d8ac7',
     'behavior_profile','freedom.storefront/v1');
   launch_policy jsonb := jsonb_build_object('policy_key','hosted-store.launch','version','1');
@@ -93,7 +93,7 @@ BEGIN
     NULL,jsonb_build_array('hosted-shared'),'storefront.config/v1','[]'::jsonb,NULL,'reviewed','available',1);
   INSERT INTO application_definitions(application_key,release_ref,display_name,source_commit,artifact_digest,skill_book_refs,
     module_requirements,entry_capability,runtime_profiles,launch_policy_ref,license_state,release_status,customization_schema_ref,license_review_ref,version)
-  VALUES('hosted-store','hosted-store@1.0.0','線上商店','9c0f5d4a319272caeb3b4e212828ab1d0ed28ba3',
+  VALUES('hosted-store','hosted-store@1.0.0','線上商店','a731461c4f1bc38aa5235db8a29cd3e047f1ab9b',
     jsonb_build_object('algorithm','sha256','value','eb9a262e2914af0a8fac3631533f8e4350b4d602b7a682d4497774b60c4d8ac7'),'[]'::jsonb,
     jsonb_build_array(jsonb_build_object('requirement_key','storefront','module_key','storefront','module_release_ref','storefront@1.0.0',
       'capabilities',store_capabilities,'required',true,'cardinality','one','allow_reuse',true,'compatible_contracts',jsonb_build_array(store_contract))),

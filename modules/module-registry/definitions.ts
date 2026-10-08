@@ -68,7 +68,7 @@ export type Requirement = {
   compatible_contracts: readonly ContractRef[];
 };
 
-export const STOREFRONT_CONTRACT_SOURCE_COMMIT = '9c0f5d4a319272caeb3b4e212828ab1d0ed28ba3';
+export const STOREFRONT_CONTRACT_SOURCE_COMMIT = 'a731461c4f1bc38aa5235db8a29cd3e047f1ab9b';
 export const STOREFRONT_CONTRACT_ARTIFACT_SHA256 = 'eb9a262e2914af0a8fac3631533f8e4350b4d602b7a682d4497774b60c4d8ac7';
 export const HOSTED_STORE_RELEASE = 'hosted-store@1.0.0';
 export const STOREFRONT_MODULE_RELEASE = 'storefront@1.0.0';
