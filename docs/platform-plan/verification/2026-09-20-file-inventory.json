@@ -59,8 +59,8 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1566,
-      "sha256": "04d63dc5faedcdbfae683bc5c6ea17b8bd51e49cc6955a0f9018df65c41fc72b"
+      "bytes": 1602,
+      "sha256": "60dc5fd90337ebb96137f20bebc9c576c25991c55655d6425bcae1a5f774413a"
     },
     {
       "path": "repositories.lock.json",
@@ -13339,8 +13339,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 17092,
-      "sha256": "02680dce94dcdb1b43db5eb52b489bd06018dccc037779c76f96a79a85cc9f4e"
+      "bytes": 18456,
+      "sha256": "a4fcef8ef61acdff655146a0549e0e5722a13737cf9a38684b9069bfb7e8bd86"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -16069,8 +16069,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 6149,
-      "sha256": "315fad20ab3cba2f0ba375a9b9dab6632fd6f6b3cafadcb35910b912b784f06f"
+      "bytes": 6228,
+      "sha256": "9b5c9285bfd4ce4a7681f78707f07e220ff8db693e625bff0afe31f0c5fb227d"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -18864,8 +18864,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 11556,
-      "sha256": "32f765c31ec6a6c4c367ce49955915c249ae73244335b423671145921d55c635"
+      "bytes": 11635,
+      "sha256": "961747788a6eb29de588bb827f0f51d645f20b50e66d1d00eee7577b744bf09b"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -19461,6 +19461,16 @@
       "path": "tests/e2e/help-box-padding.spec.ts",
       "bytes": 9611,
       "sha256": "2be8b3ad993e6a92288a37afe7fe8a345eb0919f064becd32f312d00addf6a89"
+    },
+    {
+      "path": "tests/e2e/hosted-order-fixture.ts",
+      "bytes": 7626,
+      "sha256": "c6a3416b2eda81c02c1478b210ea6ddc5788247f5f3fbe9d4c26338768e19817"
+    },
+    {
+      "path": "tests/e2e/hosted-order.spec.ts",
+      "bytes": 14093,
+      "sha256": "c896fb81a17a94a860139574989effc83887e96c1980bfe06a8357669992a707"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
