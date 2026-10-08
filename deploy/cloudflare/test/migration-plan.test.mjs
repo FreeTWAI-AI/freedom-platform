@@ -156,10 +156,10 @@ test('host DAG profile argument returns planner dependencies; default scan stays
   assert.equal(dag.dependencies.length, dag.ledger.length);
   assert.deepEqual(dag.dependencies.find((entry) => entry.name === A).depends_on, [legacy.at(-1).name]);
   assert.deepEqual(dag.dependencies.find((entry) => entry.name === B).depends_on, [legacy.at(-1).name]);
-  const real = checkMigrations(join(root, 'migrations'), { first: 1, last: 128, known_gaps: [22] });
+  const real = checkMigrations(join(root, 'migrations'), { first: 1, last: 129, known_gaps: [22] });
   assert.equal(real.ok, true);
   assert.equal(Object.hasOwn(real, 'dependencies'), false);
-  assert.equal(real.ledger_digest, '26a1934a03a94b6ced8824432143f3e7e3fa03eefd44d7d0979b981cb3d7e2d3');
+  assert.equal(real.ledger_digest, '2532da699d27205a19f23865ff42477260a6a32b397d33a1351a40a7c92eb0c8');
   writeFileSync(join(dir, A), v2(A, [legacy.at(-1).name], 'CREATE ROLE forbidden;\n').sql);
   const privileged = checkMigrations(dir, legacyProfile, profile());
   assert.equal(privileged.ok, false);
