@@ -131,3 +131,7 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 有無；圖片 metadata 必須為 WebP、正整數且不超過 1 MiB。Message.image
 沒有 image_id，不要求虛構欄位。2xx 的空物件或錯誤對象仍視為 unknown，
 沿原 tuple 重試，不以 HTTP status 代替提交確認。上傳 ACK 使用同一 byte bounds。
+
+先前已是 unknown 的文字／貼圖，同 tuple 重試即使收到確定 4xx 也不能據此
+否定前一次可能已提交的操作；保留原 key／body 直到 canonical ACK。首次就
+收到確定拒絕的文字／貼圖仍可修改後重新送出，不把所有失敗一律鎖住。

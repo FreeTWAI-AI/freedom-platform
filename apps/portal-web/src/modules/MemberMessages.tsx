@@ -465,9 +465,11 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     }catch(cause){
       if(!alive.current||client.sessionGeneration!==sessionGeneration)return;
       if(image&&selections.current.get(id)!==image){setPending(({[id]:_,...rest})=>rest);return;}
-      if(image||unconfirmed(cause)){
+      // A later definite rejection cannot disprove an earlier unknown commit.
+      // Only a first, definitely rejected text/sticker attempt can become editable.
+      if(image||same||unconfirmed(cause)){
         setPending(value=>({...value,[id]:{...attempt,status:'unknown'}}));
-        setSendErrors(value=>({...value,[id]:attempt.stage==='upload'?`圖片上傳未完成：${fail(cause,'請重試。')} 圖片與文字已保留，可重試送出。`:`${unconfirmed(cause)?'傳送結果未確認':'訊息未送出'}：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
+        setSendErrors(value=>({...value,[id]:attempt.stage==='upload'?`圖片上傳未完成：${fail(cause,'請重試。')} 圖片與文字已保留，可重試送出。`:`${same||unconfirmed(cause)?'傳送結果未確認':'訊息未送出'}：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
       }else{
         setPending(({[id]:_,...rest})=>rest);
         setSendErrors(value=>({...value,[id]:`訊息未送出：${fail(cause,'請修改後重試。')}`}));

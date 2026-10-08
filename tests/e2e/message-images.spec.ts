@@ -116,6 +116,55 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await assertOneStoredImage(e2eAuthPool,caption,payloads[0]);
   });
 
+  for(const kind of ['text','sticker'] as const)test(`unknown ${kind} keeps its original tuple after a later definite rejection`,async({page,e2eAuthPool})=>{
+    const thread=await openDirect(page),draft=`Original ${kind} ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];let messageId='';
+    const storedCount=async()=>(await e2eAuthPool.query("SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=(SELECT user_id FROM users WHERE email='maker@local.test') AND recipient_ref=(SELECT user_id FROM users WHERE email='reviewer@local.test')")).rows[0].n as number;
+    const before=await storedCount();
+    await thread.getByRole('textbox').fill(draft);
+    if(kind==='sticker'){
+      await thread.getByRole('button',{name:'選擇貼圖',exact:true}).click();await thread.getByRole('button',{name:'工坊夥伴',exact:true}).click();
+      await thread.getByRole('button',{name:'選用貼圖：你好',exact:true}).click();
+    }
+    await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
+      if(route.request().method()!=='POST')return route.continue();
+      keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
+      if(keys.length===2)return route.fulfill({status:400,contentType:'application/problem+json',json:{type:'about:blank',title:'Bad Request',status:400,detail:'Synthetic definite retry rejection'}});
+      const response=await route.fetch();expect(response.status()).toBe(201);const canonical=await response.json();
+      if(keys.length===1){messageId=canonical.message_id;return route.fulfill({response,json:{}});}
+      expect(canonical.message_id).toBe(messageId);await route.fulfill({response});
+    });
+    await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('訊息回應未能核對');
+    await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('Synthetic definite retry rejection');
+    await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
+    await expect(thread.getByRole('button',{name:'選擇貼圖',exact:true})).toBeDisabled();
+    await expect(thread.locator('textarea')).toHaveValue(draft);
+    if(kind==='text')await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+    else {await expect(thread.getByLabel('待送出的貼圖')).toContainText('你好');await expect(thread.getByRole('button',{name:'改寫文字',exact:true})).toBeDisabled();}
+    await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
+    expect(keys).toHaveLength(3);expect(new Set(keys).size).toBe(1);expect(new Set(payloads).size).toBe(1);
+    expect(JSON.parse(payloads[0])).toEqual(kind==='text'?{body:draft}:{sticker_id:'workshop-v1-hello'});
+    const rows=(await e2eAuthPool.query('SELECT message_id,body,sticker_id FROM member_direct_messages WHERE message_id=$1',[messageId])).rows;
+    expect(rows).toEqual([{message_id:messageId,body:kind==='text'?draft:'[貼圖] 你好',sticker_id:kind==='text'?null:'workshop-v1-hello'}]);
+    const receipts=(await e2eAuthPool.query('SELECT count(*)::int AS n FROM command_receipts WHERE idempotency_key=$1',[keys[0]])).rows;
+    expect(receipts[0].n).toBe(1);expect(await storedCount()).toBe(before+1);
+    if(kind==='sticker'){await expect(thread.getByLabel('待送出的貼圖')).toHaveCount(0);await expect(thread.getByRole('textbox')).toHaveValue(draft);}
+    else await expect(thread.getByRole('textbox')).toHaveValue('');
+  });
+
+  test('a first definitely rejected text send stays editable and a changed intent gets a new key',async({page,e2eAuthPool})=>{
+    const thread=await openDirect(page),draft=`First rejection ${crypto.randomUUID()}`,changed=`${draft} changed`,keys:string[]=[],payloads:string[]=[];
+    await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
+      if(route.request().method()!=='POST')return route.continue();keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
+      if(keys.length===1)return route.fulfill({status:400,contentType:'application/problem+json',json:{type:'about:blank',title:'Bad Request',status:400,detail:'Synthetic first rejection'}});
+      const response=await route.fetch();expect(response.status()).toBe(201);await route.fulfill({response});
+    });
+    await thread.getByRole('textbox').fill(draft);await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('Synthetic first rejection');
+    await expect(thread.getByRole('textbox')).toBeEditable();await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
+    await thread.getByRole('textbox').fill(changed);await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
+    expect(keys).toHaveLength(2);expect(keys[1]).not.toBe(keys[0]);expect(payloads.map(value=>JSON.parse(value).body)).toEqual([draft,changed]);
+    expect((await e2eAuthPool.query('SELECT body FROM member_direct_messages WHERE body=ANY($1::text[])',[[draft,changed]])).rows).toEqual([{body:changed}]);
+  });
+
   for(const mode of ['page-navigation','dock-logout'] as const)test(`${mode} and unload are guarded synchronously inside the initial send event`,async({page,e2eAuthPool})=>{
     let thread=await openDirect(page);
     if(mode==='dock-logout'){

@@ -2349,8 +2349,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 58165,
-      "sha256": "6161e1f082c79b05a0c843c073a00e4dfa731da6adeaf9c9771fc2d863301532"
+      "bytes": 58341,
+      "sha256": "4fb738ebb9d16eb7a81cdb17221fe6729488af2182cef8c709a90267d23906eb"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -13429,8 +13429,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 18224,
-      "sha256": "7ec8261ac4bc7feb37ca0251ea1c661aa775f010515e4d8f1c53faa01de96f47"
+      "bytes": 18518,
+      "sha256": "2a7f8143348fc3b4fdf3643569712f63bb369252cbad6f3c8978275acdfcab79"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19579,8 +19579,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 16851,
-      "sha256": "bf9e482941555f19ccdd86076f4fbd9e8f4e74d6291d947773b88cfc9d81179e"
+      "bytes": 22311,
+      "sha256": "87b1a65fc3eaceb8750669b2c8f2ca754c4116068808c88ea973dd7d163805f3"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
