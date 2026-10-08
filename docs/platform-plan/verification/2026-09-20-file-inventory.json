@@ -2684,8 +2684,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 2323,
-      "sha256": "cf2298c91b033eec99436a1c0f66d86b0197ea6b5f11329525149c9d4a0424a1"
+      "bytes": 2861,
+      "sha256": "5f51a42131457b26c9a2fc29df3a6c6b4026cd02d2ce13fe0b182576e90de021"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -16689,8 +16689,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 12686,
-      "sha256": "c8e134ffb35f8a94469ee94f3ef73369842658bb64bab5c8f845b6b87a89fa5f"
+      "bytes": 13256,
+      "sha256": "aa1521b6b50ed54e49358276b3254998deb1489f71576ab9ce01acafe4a22144"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -17929,8 +17929,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 7789,
-      "sha256": "df651367343ffebe8f8217289627fb71cc8d96fe69af06476789901d73317958"
+      "bytes": 7822,
+      "sha256": "e3ef6b5ee5a5a9351b7fc5e886ba92ef25b576a41ea1dcf54bb2e5f3dfc6a4ce"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -18574,8 +18574,8 @@
     },
     {
       "path": "packages/shared/freedom.module.json",
-      "bytes": 2008,
-      "sha256": "75c59774130bc443771dc8072c40c2a604874738b4a3e4a33f7f44dbc9f0ffae"
+      "bytes": 2178,
+      "sha256": "71f6d8bde822eb63624526db6109048c044e10c11aabca37e147b42ef25fc86c"
     },
     {
       "path": "packages/shared/github-leaderboard.ts",

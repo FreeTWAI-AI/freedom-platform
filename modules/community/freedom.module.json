@@ -65,7 +65,11 @@
     "tests/runtime/skill-share-content.test.ts",
     "tests/runtime/social-thumbnail-assets.test.ts",
     "tests/e2e/event-highlights.spec.ts",
-    "tests/e2e/member-services.spec.ts"
+    "tests/e2e/member-services.spec.ts",
+    "modules/community/content-search.ts",
+    "apps/portal-web/src/modules/CommunitySearch.tsx",
+    "tests/runtime/community-search.test.ts",
+    "migrations/137_community_content_topics.sql"
   ],
   "public_exports": [
     "modules/community/catalog.ts",
@@ -88,7 +92,8 @@
     "modules/community/skill-book-guides.ts",
     "modules/community/skill-collaboration.ts",
     "modules/community/skill-share-content.ts",
-    "modules/community/social-posts.ts"
+    "modules/community/social-posts.ts",
+    "modules/community/content-search.ts"
   ],
   "dependencies": [
     "command-core",
@@ -362,6 +367,16 @@
         "community.author-claim-page.view"
       ],
       "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.content-search-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunitySearch.tsx",
+      "operations": [
+        "community.content-search.read",
+        "community.content-topics.update"
+      ],
+      "auth_profile": "public-anonymous-read-or-member-session"
     }
   ]
 }
