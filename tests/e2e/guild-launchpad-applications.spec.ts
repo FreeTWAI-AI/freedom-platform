@@ -372,7 +372,6 @@ test('a lost tenant-list read retries the list and can continue the original flo
   await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled(); await review(page); await confirm(page);
 });
 
-
 test('stored operator acting context selects the owned tenant without registry reads for the operator tenant', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page);
   const p=await post(page,'/tenants',{display_name:'本人空間',workspace_name:'本人區'});
@@ -444,7 +443,7 @@ test('archived saved workspace shows a removable notice without opening or focus
 test('forbidden progress stops polling and forgetting removes the original pending launch', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'停止追蹤空間',workspace_name:'追蹤區'});
   const held=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id); held.operation={...held.operation,state:'running'};
-  await page.evaluate(({userId,held})=>sessionStorage.setItem(`freedom-application-launch:${userId}:guild_ai_field`,JSON.stringify([held])),{userId,held});
+  await page.evaluate(({userId,held,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify([held])),{userId,held,guild:GUILD});
   await page.clock.install(); let reads=0;
   await page.route(url=>url.pathname===`/api/v1/tenants/${held.tenant_id}/operations/${held.operation.operation_id}`,async route=>{
     reads++; const response=await route.fetch(); expect(response.status()).toBe(200);
@@ -454,7 +453,7 @@ test('forbidden progress stops polling and forgetting removes the original pendi
   await expect(flow(page)).toContainText(held.operation.operation_id); await expect(flow(page)).toContainText('不再追蹤只會讓這個分頁不再自動開啟這個操作；操作本身不會停止，請保留操作識別碼。');
   expect(reads).toBe(1); await page.clock.runFor(30000); expect(reads).toBe(1);
   await flow(page).getByRole('button',{name:'不再追蹤',exact:true}).click(); await expect(flow(page)).toHaveCount(0);
-  expect(JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId))).toEqual([]);
+  expect(JSON.parse(await page.evaluate(({userId,guild})=>sessionStorage.getItem(`freedom-application-launch:${userId}:${guild}`)!,{userId,guild:GUILD}))).toEqual([]);
 });
 
 test('stale cancel reloads a running operation and keeps automatic polling active', async ({page,e2eAuthPool}) => {
@@ -525,7 +524,6 @@ test('rejected reuse candidates stay disabled for the panel session', async ({pa
   await flow(page).getByRole('radio',{name:'另建獨立空白的人工工作',exact:true}).check(); await expect(flow(page).getByRole('button',{name:'產生啟動方案',exact:true})).toBeEnabled();
 });
 
-
 test('My Work workspace selection leaves the independent launch panel and focus in place', async ({page,e2eAuthPool}) => {
   const userId=await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'獨立選擇空間',workspace_name:'原選擇區'});
   await post(page,`/tenants/${made.tenant.tenant_id}/workspaces`,{name:'另一選擇區'});
@@ -558,10 +556,10 @@ test('restore opens the newest readable row and removes only unavailable termina
   const old=await launchApi(page,made.tenant.tenant_id,made.workspace.workspace_id);
   const newest=await launchApi(page,made.tenant.tenant_id,second.workspace_id);
   const removed={...old,key:randomUUID(),workspace_id:randomUUID()};
-  await page.evaluate(({userId,rows})=>sessionStorage.setItem(`freedom-application-launch:${userId}:guild_ai_field`,JSON.stringify(rows)),{userId,rows:[old,newest,removed]});
+  await page.evaluate(({userId,rows,guild})=>sessionStorage.setItem(`freedom-application-launch:${userId}:${guild}`,JSON.stringify(rows)),{userId,rows:[old,newest,removed],guild:GUILD});
   await open(page); await expect(flow(page).getByRole('region',{name:'啟動進度',exact:true})).toContainText(newest.operation.operation_id);
   await expect(flow(page)).toContainText('逐筆還原空間 · 擁有者／最新還原區');
-  const rows=JSON.parse(await page.evaluate(userId=>sessionStorage.getItem(`freedom-application-launch:${userId}:guild_ai_field`)!,userId));
+  const rows=JSON.parse(await page.evaluate(({userId,guild})=>sessionStorage.getItem(`freedom-application-launch:${userId}:${guild}`)!,{userId,guild:GUILD}));
   expect(rows).toHaveLength(2); expect(rows[0]).toEqual(old);
 });
 
