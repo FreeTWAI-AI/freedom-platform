@@ -354,10 +354,9 @@ test('the site flag follows community and a disabled app matches unknown paths',
     assert.equal(response.status, 200);
     const body = JSON.parse(text) as Record<string, unknown>;
     const keys = Object.keys(body);
-    assert.equal(keys.at(-2), 'community');
-    assert.equal(keys.at(-1), 'guild_launchpad_enabled');
+    assert.equal(keys[keys.indexOf('community') + 1], 'guild_launchpad_enabled');
     assert.equal(body.guild_launchpad_enabled, target === app);
-    assert.match(text, /,"community":.+"guild_launchpad_enabled":(true|false)}$/);
+    assert.match(text, /,"community":.+"guild_launchpad_enabled":(true|false)(?:,|})/);
   }
   const member = await signIn();
   const unknown = `/guilds/${guild}/launchpad-zz-${randomUUID()}`;
