@@ -97,4 +97,5 @@ export type PlatformRuntime = {
   squadOutcomesEnabled?: boolean;
   /** Event summaries and current-authorized canonical outcome links. */
   eventOutcomesEnabled?: boolean;
+  firstParticipationEnabled?: boolean;
 };

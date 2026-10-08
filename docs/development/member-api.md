@@ -257,6 +257,67 @@ project readers, not provisional drafts or inferred acceptance. The entry itself
 collects no content. Local verification is not deployment, flag-on or full #258
 acceptance evidence.
 
+## Optional first participation (#259)
+
+This source candidate adds `141_first_participation.sql`.
+`FREEDOM_FIRST_PARTICIPATION_ENABLED` defaults off in Node and Worker;
+`/site` exposes `first_participation_enabled`. Enabling it requires
+`FREEDOM_PERSONAL_CONTENT_ENABLED` (the share launcher and its optional
+`FREEDOM_UNIFIED_SHARING_ENABLED` guidance are independent).
+Incomplete dependencies fail closed before pool/static work; disabled feature
+routes return 404 before authentication or feature database access. Apply
+migration 141 before enabling, without changing the inherited 139/140
+source-switch privacy requirements.
+
+The optional home card follows lawful quick guild entry, not a compulsory
+assessment, GitHub/AI binding or friendship. Its two available choices return
+to original consented showcase publishing or the selected primary guild's
+original chat. Native feed posts from the share launcher remain available but do not count
+as completion here, and there is no typed public question; guild chat is not a
+substitute public post. Teaching examples are explicitly
+fictional and neither prefill nor publish content.
+
+`GET /api/v1/me/first-participation` returns the fresh versioned choice,
+selection timestamp, state, current completion, original private-work draft
+resume and explicit reception preference. `POST` at the same path accepts only
+`{action:"choose",choice:"work"|"introduction"}` or an action of `skip`,
+`dismiss`, `resume`, `request_reception`, `stop_reception`, using the original
+If-Match and Idempotency-Key command contract. No client completion flag is
+accepted. Selection/suppression/opt-in survive relogin; original content is
+not copied. Unknown transport outcomes retry the exact original body/version/
+key. Late results cannot navigate a subsequent account.
+
+Only an original first showcase-publication journal fact or actual own guild
+message at/after selection completes a chosen path. Old first publications,
+private drafts and page opens do not. Every projection rechecks current
+ownership, community, source visibility and guild membership. Withdrawal or
+revocation gives `source_unavailable` with null completion; no cached private
+title/link is replayed. Work completion opens the actual original detail;
+guild completion opens `#messages?guild=<encoded actual guild key>`, including
+after reload. Draft resume opens original own content, not a duplicate form.
+
+`GET /api/v1/first-participation/reception?offset=0&limit=20` lists only
+explicitly opted-in, currently readable same-community requests. ACL predicates
+precede pagination: limit is 1–50 and offset 0–10000; `next_offset` is null at
+the end. `POST .../reception/:userId/claim` and `/release` accept only `{}` with
+the original target If-Match/key contract. Current eligible volunteers may
+claim someone else's request; concurrent claims have one winner, and a
+disabled/ineligible claimant is not presented as an active receptionist.
+Stopping removes the request. Responses contain no email/contact/private
+draft. Claims do not send messages, add friends, guarantee a response, confer
+authority or certify human identity/quality.
+
+Guild `reply_count` counts original other-author replies to the completed
+message. Own work counts original bilateral opportunities visible to its
+owner; volunteers receive null, not a fabricated zero or private demand count.
+Neither is a verified-human or meaningful-response metric.
+
+Local typecheck/build, isolated runtime tests and actual built Chromium
+work/chat, retry, draft/relogin, reception, account-isolation and mobile/theme/
+keyboard smoke are synthetic source evidence only. Consented real-human
+newcomer trial, operational receptionist handoff, native #193 paths,
+production activation and formal #261 policy acceptance remain unverified.
+
 ## Event highlights and published squad outcomes (#257)
 
 This source candidate adds `139_squad_outcomes.sql` and

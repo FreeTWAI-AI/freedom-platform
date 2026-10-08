@@ -141,6 +141,8 @@ const FOUNDATION_NAMES = [
   '139_squad_outcomes.sql',
   // Authored event recaps reference current canonical sources; no source prose is copied.
   '140_event_outcomes.sql',
+  // Candidate migration; name recognition is not release approval.
+  '141_first_participation.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

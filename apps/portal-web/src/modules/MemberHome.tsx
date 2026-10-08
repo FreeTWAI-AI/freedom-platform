@@ -13,6 +13,7 @@ import {SkillBookIntro, type IntroBook} from './SkillBookIntro';
 import {openMemberChat} from './chat-entry';
 import {SocialZone} from './SocialZone';
 import {PlatformPurpose} from '../PlatformPurpose';
+import {FirstParticipation} from './FirstParticipation';
 
 const shortcuts: { id: TabId; title: string }[] = [
   { id: 'social', title: '看社群動態' },
@@ -36,7 +37,7 @@ const taskActions = {
 
 type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
 
-export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
+export function MemberHome({ client, session, onNavigate, firstParticipationEnabled=false }: ModulePanelProps&{firstParticipationEnabled?:boolean}) {
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [onboarding, setOnboarding] = useState<HomeOnboarding | null>(null);
@@ -166,6 +167,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
         <button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => openMemberChat('guild', primaryGuild.guild_key)}>進入{primaryGuild.name}聊天室</button>
         {taskAction && <button type="button" className="btn btn-ghost" aria-describedby={taskActions[taskAction].hint ? 'home-next-step-description home-next-task-hint' : 'home-next-step-description'} onClick={() => onNavigate?.(taskActions[taskAction].tab)}>{taskActions[taskAction].label}</button>}
       </div> : <div className="home-next-actions"><button type="button" className="btn btn-ghost" aria-describedby="home-next-step-description" onClick={() => onNavigate?.(nextStep.action)}>{nextStep.label}</button></div>}
+      {primaryGuild && <FirstParticipation client={client} session={session} onNavigate={onNavigate} primaryGuild={primaryGuild} firstParticipationEnabled={firstParticipationEnabled}/>}
       </div>
       <img className="home-next-art" src="/art/rpg/skill-codex.webp" alt="" width="124" height="108"/>
     </section>}
