@@ -15778,6 +15778,11 @@
       "sha256": "7cd403540493a9c69df0aa4975f9edc37adf5e5104fc3b92a66d3adf73fa0783"
     },
     {
+      "path": "modules/community/freedom.module.json",
+      "bytes": 12686,
+      "sha256": "c8e134ffb35f8a94469ee94f3ef73369842658bb64bab5c8f845b6b87a89fa5f"
+    },
+    {
       "path": "modules/community/github-history.ts",
       "bytes": 10884,
       "sha256": "94363217e3a7109500e7589ee86ae72c9d2bc763aeed7332927ff5247499252d"
@@ -16063,6 +16068,11 @@
       "sha256": "6176e2d27005a58e9720f923ca09ca4bb2a02ebd6f084ef3553164abb5f70583"
     },
     {
+      "path": "modules/development/freedom.module.json",
+      "bytes": 1910,
+      "sha256": "29ef6e93fa60a0cd991aa0824465eb4da26e84cdeb84d33e590042a199151c02"
+    },
+    {
       "path": "modules/development/page-github.ts",
       "bytes": 9796,
       "sha256": "50328508a0f4a12ab5001a9a485bed3c4125fb3da0c4c0b593650736bd056530"
@@ -16144,8 +16154,8 @@
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
-      "bytes": 1653,
-      "sha256": "ad0f519747828217506816585d0e67de1ef48b1027d475e9849ba7b8ffa153a8"
+      "bytes": 1864,
+      "sha256": "ac94496c20cf5e73ce85b7d8d71dafe69029651ade9e0acb91d65527fa2b0ae4"
     },
     {
       "path": "modules/identity-membership/member-connections.ts",
@@ -16374,8 +16384,8 @@
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4483,
-      "sha256": "0130f430a33ac2d5c35a898fcb2905dbf9a35bdbf44a78be9f53f103916cbf43"
+      "bytes": 4591,
+      "sha256": "64c480eb41654cf4253c6133371d83582f5164eadddd1672aaccba15a57a6d2a"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -16561,6 +16571,11 @@
       "path": "modules/results/benefits.ts",
       "bytes": 6371,
       "sha256": "b49d03b8a172683114fff9a7ae830cd47593b8681014607cfe76b80653b06de7"
+    },
+    {
+      "path": "modules/skill-submissions/freedom.module.json",
+      "bytes": 4335,
+      "sha256": "624937b42dd42c63998cc74eabe9e12a342267aca08f9c8358bab8967233a9d4"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -17004,8 +17019,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 6662,
-      "sha256": "5abfff8794cedf6951c23c3d7ac35e16d2066be01c621248d8d7588ebd230bcd"
+      "bytes": 7678,
+      "sha256": "1d74e54b18058a735a171e48be7c1d56969a52efc5ca8bf2db51c9d0ffd48c00"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -17621,6 +17636,11 @@
       "path": "packages/shared/community-discovery.ts",
       "bytes": 634,
       "sha256": "066ed2e8a5874be95d1de494ad69697c50b4f30d3e0f492011175480be98aa4f"
+    },
+    {
+      "path": "packages/shared/freedom.module.json",
+      "bytes": 2008,
+      "sha256": "75c59774130bc443771dc8072c40c2a604874738b4a3e4a33f7f44dbc9f0ffae"
     },
     {
       "path": "packages/shared/github-leaderboard.ts",

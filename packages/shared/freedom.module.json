@@ -1,0 +1,61 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "shared",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "packages/shared/community-discovery.ts",
+    "packages/shared/github-leaderboard.ts",
+    "packages/shared/guild-topics.ts",
+    "packages/shared/image-cloudflare.ts",
+    "packages/shared/image-container.ts",
+    "packages/shared/image-node.ts",
+    "packages/shared/image-runtime.ts",
+    "packages/shared/image-webp.ts",
+    "packages/shared/keyset-timestamp.ts",
+    "packages/shared/member-service.ts",
+    "packages/shared/problem.ts",
+    "packages/shared/promotion-bots.ts",
+    "packages/shared/public-revalidation.ts",
+    "packages/shared/share-url.ts",
+    "packages/shared/sharp-unavailable.ts",
+    "packages/shared/task-categories.ts",
+    "packages/shared/validation.ts",
+    "packages/shared/youtube-video-id.ts",
+    "tests/runtime/image-runtime.test.ts",
+    "tests/runtime/image-cloudflare.test.ts"
+  ],
+  "public_exports": [
+    "packages/shared/community-discovery.ts",
+    "packages/shared/github-leaderboard.ts",
+    "packages/shared/guild-topics.ts",
+    "packages/shared/image-cloudflare.ts",
+    "packages/shared/image-container.ts",
+    "packages/shared/image-node.ts",
+    "packages/shared/image-runtime.ts",
+    "packages/shared/image-webp.ts",
+    "packages/shared/keyset-timestamp.ts",
+    "packages/shared/member-service.ts",
+    "packages/shared/problem.ts",
+    "packages/shared/promotion-bots.ts",
+    "packages/shared/public-revalidation.ts",
+    "packages/shared/share-url.ts",
+    "packages/shared/sharp-unavailable.ts",
+    "packages/shared/task-categories.ts",
+    "packages/shared/validation.ts",
+    "packages/shared/youtube-video-id.ts"
+  ],
+  "dependencies": [],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md"
+  ],
+  "invariants": [
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

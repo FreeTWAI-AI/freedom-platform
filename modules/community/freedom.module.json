@@ -1,0 +1,367 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "community",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/community/catalog.ts",
+    "modules/community/community-author-skills.ts",
+    "modules/community/discovery.ts",
+    "modules/community/event-highlights-page.ts",
+    "modules/community/event-highlights.ts",
+    "modules/community/events.ts",
+    "modules/community/github-history.ts",
+    "modules/community/github-sync.ts",
+    "modules/community/guild-discovery.ts",
+    "modules/community/link-preview.ts",
+    "modules/community/member-service-pages.ts",
+    "modules/community/member-services.ts",
+    "modules/community/member-skill-books.ts",
+    "modules/community/moderation.ts",
+    "modules/community/promotion.ts",
+    "modules/community/public-discovery.ts",
+    "modules/community/repo-author-claims.ts",
+    "modules/community/skill-book-guides.ts",
+    "modules/community/skill-collaboration.ts",
+    "modules/community/skill-share-content.ts",
+    "modules/community/social-posts.ts",
+    "modules/community/share-introductions/**",
+    "apps/platform-api/src/routes/community-events.ts",
+    "apps/platform-api/src/routes/event-highlights.ts",
+    "apps/platform-api/src/routes/member-services.ts",
+    "apps/platform-api/src/routes/promotion.ts",
+    "apps/platform-api/src/routes/repo-author-claims.ts",
+    "apps/platform-api/src/routes/skill-discovery.ts",
+    "apps/portal-web/src/modules/Community.tsx",
+    "apps/portal-web/src/modules/EventsPanel.tsx",
+    "apps/portal-web/src/modules/EventCalendar.tsx",
+    "apps/portal-web/src/modules/EventHighlights.tsx",
+    "apps/portal-web/src/modules/MemberServices.tsx",
+    "apps/portal-web/src/modules/PromotionBoards.tsx",
+    "apps/portal-web/src/modules/PromotionShare.tsx",
+    "apps/portal-web/src/modules/CommunityHistory.tsx",
+    "apps/portal-web/src/modules/PublicDiscovery.tsx",
+    "apps/portal-web/src/modules/PublicEventPage.tsx",
+    "apps/portal-web/src/modules/SkillDiscovery.tsx",
+    "apps/portal-web/src/modules/AuthorClaim.tsx",
+    "apps/portal-web/src/modules/AuthorClaim.css",
+    "apps/portal-web/src/modules/CommunityHistory.css",
+    "apps/portal-web/src/modules/EventCalendar.css",
+    "apps/portal-web/src/modules/EventHighlights.css",
+    "apps/portal-web/src/modules/MemberServices.css",
+    "apps/portal-web/src/modules/PromotionBoards.css",
+    "apps/portal-web/src/modules/PublicEventPage.css",
+    "apps/portal-web/src/modules/SkillDiscovery.css",
+    "apps/portal-web/src/modules/event-banner-client.ts",
+    "apps/portal-web/src/modules/highlight-media.ts",
+    "apps/portal-web/src/modules/skill-discovery-client.ts",
+    "tests/runtime/community-discovery.test.ts",
+    "tests/runtime/event-create-rate-limit.test.ts",
+    "tests/runtime/event-highlights.test.ts",
+    "tests/runtime/member-service-cursor.test.ts",
+    "tests/runtime/member-services.test.ts",
+    "tests/runtime/repo-author-claims.test.ts",
+    "tests/runtime/share-promotion.test.ts",
+    "tests/runtime/skill-discovery.test.ts",
+    "tests/runtime/skill-share-content.test.ts",
+    "tests/runtime/social-thumbnail-assets.test.ts",
+    "tests/e2e/event-highlights.spec.ts",
+    "tests/e2e/member-services.spec.ts"
+  ],
+  "public_exports": [
+    "modules/community/catalog.ts",
+    "modules/community/community-author-skills.ts",
+    "modules/community/discovery.ts",
+    "modules/community/event-highlights-page.ts",
+    "modules/community/event-highlights.ts",
+    "modules/community/events.ts",
+    "modules/community/github-history.ts",
+    "modules/community/github-sync.ts",
+    "modules/community/guild-discovery.ts",
+    "modules/community/link-preview.ts",
+    "modules/community/member-service-pages.ts",
+    "modules/community/member-services.ts",
+    "modules/community/member-skill-books.ts",
+    "modules/community/moderation.ts",
+    "modules/community/promotion.ts",
+    "modules/community/public-discovery.ts",
+    "modules/community/repo-author-claims.ts",
+    "modules/community/skill-book-guides.ts",
+    "modules/community/skill-collaboration.ts",
+    "modules/community/skill-share-content.ts",
+    "modules/community/social-posts.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "asset-storage",
+    "asset-lifecycle",
+    "scoped-commands",
+    "media-migration",
+    "shared"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community.community-events.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/community-events.ts",
+      "operations": [
+        "community.event.list",
+        "community.event-bulletin.list",
+        "community.event.read",
+        "community.event-referral.list",
+        "community.event-share-code.issue",
+        "community.event-banner.read",
+        "community.event.create",
+        "community.event-banner.replace",
+        "community.event-banner.remove",
+        "community.event-video.read",
+        "community.event-video.replace",
+        "community.event-video.remove",
+        "community.event.update",
+        "community.event.cancel",
+        "community.event.review",
+        "community.event-rsvp.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.event-highlights.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/event-highlights.ts",
+      "operations": [
+        "community.highlight-styles.read",
+        "community.public-highlight.list",
+        "community.public-highlight-banner.read",
+        "community.public-highlight-image.read",
+        "community.public-highlight-thumbnail.read",
+        "community.public-highlight.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.event-highlights.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/event-highlights.ts",
+      "operations": [
+        "community.highlight.list",
+        "community.highlight.read",
+        "community.highlight-link.create",
+        "community.highlight-photo.create",
+        "community.highlight-poster.create",
+        "community.highlight.remove"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.member-services.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/member-services.ts",
+      "operations": [
+        "community.public-service-cover.read",
+        "community.public-service.list",
+        "community.public-service.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.member-services.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/member-services.ts",
+      "operations": [
+        "community.own-service.list",
+        "community.service.list",
+        "community.service.create",
+        "community.service-cover.read",
+        "community.service-cover.replace",
+        "community.service-cover.remove",
+        "community.service.update",
+        "community.service.pause",
+        "community.service.resume",
+        "community.service.hide",
+        "community.service.remove"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.promotion.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/promotion.ts",
+      "operations": [
+        "community.promotion-page.read",
+        "community.public-social-thumbnail.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.promotion.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/promotion.ts",
+      "operations": [
+        "community.promotion-link.create",
+        "community.own-promotion-link.list",
+        "community.promotion-leaderboard.list",
+        "community.social-post.list",
+        "community.social-post.create",
+        "community.social-thumbnail.read",
+        "community.social-thumbnail.replace",
+        "community.social-post.remove",
+        "community.social-post.hide"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.repo-author-claims.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/repo-author-claims.ts",
+      "operations": [
+        "community.public-author-claim.list",
+        "community.public-author-claim.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.repo-author-claims.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/repo-author-claims.ts",
+      "operations": [
+        "community.author-claim.read",
+        "community.author-claim.create",
+        "community.author-claim.withdraw",
+        "community.author-claim.appeal"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.skill-discovery.public-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/skill-discovery.ts",
+      "operations": [
+        "community.skill-discovery.read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.catalog-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/Community.tsx",
+      "operations": [
+        "community.catalog-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.events-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EventsPanel.tsx",
+      "operations": [
+        "community.events-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.event-calendar-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EventCalendar.tsx",
+      "operations": [
+        "community.event-calendar-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.event-highlights-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EventHighlights.tsx",
+      "operations": [
+        "community.event-highlights-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.member-services-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/MemberServices.tsx",
+      "operations": [
+        "community.member-services-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.promotion-boards-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PromotionBoards.tsx",
+      "operations": [
+        "community.promotion-boards-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.promotion-share-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PromotionShare.tsx",
+      "operations": [
+        "community.promotion-share-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.github-history-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunityHistory.tsx",
+      "operations": [
+        "community.github-history-page.view"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community.discovery-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PublicDiscovery.tsx",
+      "operations": [
+        "community.discovery-page.view"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.event-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/PublicEventPage.tsx",
+      "operations": [
+        "community.event-page.view"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.skill-discovery-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/SkillDiscovery.tsx",
+      "operations": [
+        "community.skill-discovery-page.view"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community.author-claim-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/AuthorClaim.tsx",
+      "operations": [
+        "community.author-claim-page.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}
