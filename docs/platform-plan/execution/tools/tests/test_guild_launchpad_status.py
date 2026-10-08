@@ -22,6 +22,8 @@ README = (PACK / "README.md").read_text(encoding="utf-8")
 STATE = json.loads((EXECUTION / "unified-foundation" / "current-state.json").read_text(encoding="utf-8"))
 TRACE = json.loads((PACK / "traceability.json").read_text(encoding="utf-8"))
 PROGRESS = json.loads((PACK / "acceptance-progress.json").read_text(encoding="utf-8"))
+# Synthetic scenarios start from the case list with no recorded progress, so recording real evidence never changes them.
+NOT_RUN_PROGRESS = {**PROGRESS, "cases": [{"id": case["id"], "status": "not_run", "evidence": []} for case in PROGRESS["cases"]]}
 FIX_COMMAND = "run: python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status"
 # Tests derive from the declared value, so adding a migration never breaks them.
 DECLARED_MAX_MIGRATION = int(dict(token.split("=", 1) for token in vsp.STATUS_LINE.search(README).group(1).split())["repo_max_migration"])
@@ -206,7 +208,7 @@ def passing_evidence():
 
 
 def passed_progress(ids=None):
-    progress = copy.deepcopy(PROGRESS)
+    progress = copy.deepcopy(NOT_RUN_PROGRESS)
     for milestone in progress["milestones"].values():
         milestone["candidate_sha"] = "a" * 40
     for case in progress["cases"]:
@@ -291,7 +293,7 @@ def test_accepted_must_flip_when_no_case_is_not_run():
     "evidence_not_object"
 ])
 def test_invalid_progress_fails_closed(mutation):
-    progress = copy.deepcopy(PROGRESS)
+    progress = copy.deepcopy(NOT_RUN_PROGRESS)
     case = progress["cases"][0]
     if mutation == "missing_cases":
         del progress["cases"]
@@ -373,7 +375,7 @@ def test_any_invalid_entry_prevents_acceptance_even_with_passing_evidence():
 
 @pytest.mark.parametrize("status", ["failed", "partial", "blocked"])
 def test_non_passing_statuses_are_valid_but_not_accepted(status):
-    progress = copy.deepcopy(PROGRESS)
+    progress = copy.deepcopy(NOT_RUN_PROGRESS)
     for case in progress["cases"]:
         case["status"] = status
     assert vsp.progress_failures(progress, TRACE) == ([], {"M1": False, "full": False})
@@ -868,7 +870,7 @@ def test_nonpassing_variant_contradicts_full_case_pass(status):
 
 
 def test_status_source_counts_variant_status_only_for_m1():
-    progress = copy.deepcopy(PROGRESS)
+    progress = copy.deepcopy(NOT_RUN_PROGRESS)
     for case in progress["cases"]:
         if case["id"] in ("T-015", "T-023"):
             case["variants"] = {"M1": {"status": "passed", "evidence": [passing_evidence()]}}
