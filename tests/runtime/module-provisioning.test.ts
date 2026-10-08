@@ -320,25 +320,35 @@ for (const resolution of ['reconcile', 'executor'] as const) {
 }
 
 for (const selection of ['explicit-create', 'non-reusable-default'] as const) {
-  test(`launch rejects a retired module release after planning ${selection}`, async () => {
-    const { owner, tenantId, workspaceId } = await prepared();
+  test(`launch rejects a retired module release after planning ${selection}`, async t => {
+    // Definitions survive reset() and cannot be unretired; each case owns its schema.
+    const isolated = await createRegistryHarness('fp_mprov_retired', { synthetic: true });
+    t.after(async () => { await isolated.stop(); });
+    await isolated.reset();
+    const owner = await isolated.signIn(DEMO_USERS[0].email);
+    await isolated.fullMember(owner.user.user_id, 'guild_ai_field');
+    const { tenantId, workspaceId } = await isolated.createTenant(owner, '啟動品牌');
+    const effects = () => isolated.count('synthetic_module_effects');
     const extra = selection === 'explicit-create'
       ? { dependencies: [{ requirement_key: 'inventory', choice: 'create', configuration: {} }] }
       : {};
-    const planned = await h.plan(owner, tenantId, synthBody(workspaceId, extra));
+    const planned = await isolated.plan(owner, tenantId, isolated.planBody(
+      'guild_ai_field', workspaceId, 'synthetic-storefront', 'synthetic-storefront@1.0.0', extra,
+    ));
     assert.equal(planned.status, 201, JSON.stringify(planned.data));
     const moduleKey = selection === 'explicit-create' ? 'synthetic-inventory' : 'synthetic-storefront';
-    await h.pool.query(
-      "UPDATE module_definitions SET release_status='retired',version=version+1 WHERE module_key=$1", [moduleKey],
+    await isolated.pool.query(
+      "UPDATE module_definitions SET release_status='retired',version=version+1 WHERE module_key=$1 AND release_ref=$2",
+      [moduleKey, `${moduleKey}@1.0.0`],
     );
-    const receipts = await h.count('scoped_command_receipts');
-    const reply = await h.launch(owner, tenantId, planned);
+    const receipts = await isolated.count('scoped_command_receipts');
+    const reply = await isolated.launch(owner, tenantId, planned);
     assert.equal(reply.status, 409, JSON.stringify(reply.data));
     assert.equal(reply.data.code, 'application_not_available');
     for (const table of ['application_installations', 'module_instances', 'module_provision_operations', 'capacity_reservations', 'capacity_ledger', 'module_launch_plan_consumptions']) {
-      assert.equal(await h.count(table, 'WHERE tenant_id=$1', [tenantId]), 0, table);
+      assert.equal(await isolated.count(table, 'WHERE tenant_id=$1', [tenantId]), 0, table);
     }
-    assert.equal(await h.count('scoped_command_receipts'), receipts);
+    assert.equal(await isolated.count('scoped_command_receipts'), receipts);
     assert.equal(await effects(), 0);
   });
 }
