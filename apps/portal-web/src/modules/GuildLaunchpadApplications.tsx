@@ -25,6 +25,7 @@ export function applicationStatus(app: ApplicationView): string {
   return '可用';
 }
 type Release = z.infer<typeof ApplicationReleaseViewSchema>;
+function applicationKey(app: ApplicationView) { return `${app.application_key}:${app.release_ref}`; }
 
 export function GuildLaunchpadApplications({client, guildKey, publicMode, visitor, userId, onLogin, onWork, canLeave}: {
   client: PortalClient; guildKey: string; publicMode: boolean; visitor?: boolean; userId?: string; onLogin?: () => void; canLeave: () => boolean; onWork?: (tenantId: string, workspaceId: string) => boolean;
@@ -92,13 +93,22 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     try {
       const page = ApplicationPageSchema.parse(await client.get(`/applications?guild_key=${encodeURIComponent(guildKey)}${next ? `&cursor=${encodeURIComponent(next)}` : ''}`, {signal: controller.current?.signal, skipAuthHandler: publicMode}));
       if (ticket !== generation.current) return;
-      setItems(old => next ? [...old, ...page.items] : page.items); setCursor(page.next_cursor); setCatalogLoaded(true);
+      setItems(old => {
+        const merged = next ? [...old] : [];
+        const seen = new Set(merged.map(applicationKey));
+        for (const app of page.items) {
+          const key = applicationKey(app);
+          if (seen.has(key)) continue;
+          seen.add(key); merged.push(app);
+        }
+        return merged;
+      }); setCursor(page.next_cursor); setCatalogLoaded(true);
     } catch (error) {
       if (ticket === generation.current && !(error instanceof ApiError && error.code === 'aborted')) { setProblem(problemText(error)); setFailedAction({kind: 'catalog', cursor: next}); }
     } finally { if (ticket === generation.current) setLoading(false); }
   }
   async function release(app: ApplicationView) {
-    const key = `${app.application_key}:${app.release_ref}`;
+    const key = applicationKey(app);
     if (openDetail === key) { setOpenDetail(null); return; }
     const ticket = generation.current; setProblem(''); setFailedAction(null);
     try {
@@ -119,7 +129,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
     {loading && <p role="status">正在載入應用…</p>}
     {!loading && !problem && items.length === 0 && <p>此公會目前沒有已核准的應用</p>}
     {items.map(app => {
-      const key = `${app.application_key}:${app.release_ref}`;
+      const key = applicationKey(app);
       const detail = details[key];
       return <article key={key} className="application-card stack">
         <div className="application-heading"><h3>{app.display_name}</h3><span className="pill">{applicationStatus(app)}</span></div>
@@ -144,7 +154,7 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       {row.application?.display_name ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref)?.display_name ?? row.application_key}：上次的啟動結果目前無法在這裡查看（{row.operation ? `操作識別碼 ${row.operation.operation_id}` : '尚未取得操作識別碼'}）。你可能已不是該業務空間的擁有者或管理員，或業務空間、工作區已無法使用；操作本身不會因此停止。</p>
       <div className="application-actions"><button type="button" className="btn btn-ghost" onClick={() => { storeLaunch(userId!, guildKey, row, true); setUnavailable(old => old.filter(item => item.key !== row.key)); }}>不再追蹤</button></div>
     </div>)}
-    {launch && userId && <LaunchFlow key={`${launch.application_key}:${launch.release_ref}`} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} canLeave={canLeave} restoredRow={restoredRow}/>}
+    {launch && userId && <LaunchFlow key={applicationKey(launch)} client={client} guildKey={guildKey} userId={userId} app={launch} onClose={closeLaunch} onWork={onWork} canLeave={canLeave} restoredRow={restoredRow}/>}
     {cursor && <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void load(cursor)}>載入更多</button>}
     {publicMode && items.length > 0 && <p>登入後可確認啟動資格。{onLogin && <button type="button" className="btn btn-ghost" onClick={onLogin}>登入查看資格</button>}</p>}
   </div>;

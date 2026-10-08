@@ -110,6 +110,26 @@ test('catalog status mapping and pagination require the explicit load-more actio
   await expect(cards(page).getByRole('button',{name:'載入更多',exact:true})).toHaveCount(0);
 });
 
+test('repeated catalog rows render one card and one release detail', async ({page}) => {
+  let displayName = '';
+  await page.route(url => !['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
+  await page.route('**/api/v1/applications?*',async route=>{
+    const url=new URL(route.request().url()); const next=url.searchParams.has('cursor'); url.searchParams.delete('cursor');
+    const response=await route.fetch({url:url.toString()}); const body=await response.json(); const app=body.items[0];
+    displayName=app.display_name;
+    await route.fulfill({response,json:{...body,items:next?[app,{...app,application_key:'second-page',display_name:'第二頁'}]:[app,app],next_cursor:next?null:'synthetic-page'}});
+  });
+  await page.goto(`/#guilds/${GUILD}`);
+  await expect(cards(page).locator('.application-card')).toHaveCount(1);
+  await expect(cards(page).getByRole('heading',{name:'第二頁',exact:true})).toHaveCount(0);
+  await cards(page).getByRole('button',{name:'載入更多',exact:true}).click();
+  await expect(cards(page).locator('.application-card')).toHaveCount(2);
+  await expect(cards(page).getByRole('heading',{name:'第二頁',exact:true})).toBeVisible();
+  await cards(page).locator('.application-card').first().getByRole('button',{name:'版本資料',exact:true}).click();
+  await expect(cards(page).getByRole('region',{name:`${displayName}版本資料`,exact:true})).toHaveCount(1);
+  await expect(cards(page).getByRole('button',{name:'版本資料',exact:true,expanded:true})).toHaveCount(1);
+});
+
 test('lost plan response retries the original key and unchanged choices', async ({page,e2eAuthPool}) => {
   await member(e2eAuthPool,page); const made=await post(page,'/tenants',{display_name:'方案回復空間',workspace_name:'方案區'});
   await open(page); await begin(page);
