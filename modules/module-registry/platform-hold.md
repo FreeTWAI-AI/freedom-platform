@@ -12,10 +12,10 @@ suspended_at: null, reason: null }`. No HTTP route places or releases a hold.
 
 An operator with direct database access may use this runbook for an approved
 incident. Production writes require the platform owner's explicit approval.
-Connect with psql as the runtime role with the required table permissions, or
-as the database owner. Every block binds `freedom.tenant_id` for its own
-transaction: the runtime role is subject to tenant row security, while the
-owner is not, because row security is enabled but not forced. Select the
+Connect with psql using only this environment's migrator role, which owns the
+tables; do not use `postgres` or any other superuser. Every block binds
+`freedom.tenant_id` for its own transaction. The migrator is not subject to row
+security because it owns the tables and row security is not forced. Select the
 reviewed database and schema explicitly when connecting. Set `expected_database`
 from the approved environment configuration, independently of the connection
 string, as in the [capacity policy operator](../../docs/development/tenant-capacity-policy.md).
