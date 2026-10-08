@@ -79,6 +79,9 @@ async function call(method: string, path: string, session?: Session, body?: stri
   if (/\/module-instances\/[^/]+\/(suspend|resume)$/.test(path)) {
     console.log(JSON.stringify({ lifecycle_reply: { method, path, status: reply.status, code: reply.data?.code ?? null } }));
   }
+  if (/\/module-instances\/[^/]+\/archive$|\/module-binding$/.test(path)) {
+    console.log(JSON.stringify({ archive_matrix_reply: { method, path, status: reply.status, code: reply.data?.code ?? null } }));
+  }
   verifyHeaders(reply, method, path);
   await quiet(method, path);
   return reply;
@@ -248,6 +251,7 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/module-instances/:instance_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/suspend': 'tenant',
   'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/resume': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/archive': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations/by-operation/:operation_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/application-launch-plans': 'tenant',
@@ -256,6 +260,7 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/operations/:operation_id/reconcile': 'tenant',
   'POST /api/v1/tenants/:tenant_id/operations/:operation_id/cancel': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/module-binding': 'tenant',
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/workspaces/:workspace_id/works': 'tenant',
   'GET /api/v1/tenants/:tenant_id/works/:work_id': 'tenant',
@@ -345,6 +350,11 @@ async function buildFixture() {
       { guild_key: guild, choice: { kind: 'create_new' } });
     assert.equal(extraInstance.status, 200, JSON.stringify(extraInstance.data));
     assert.notEqual(extraInstance.data.instance_id, mw.data.instance_id);
+    const extraInstanceId = extraInstance.data.instance_id as string;
+    const extraDetail = await call('GET', `/tenants/${tenantId}/module-instances/${extraInstanceId}`, session);
+    assert.equal(extraDetail.status, 200, JSON.stringify(describe(extraDetail)));
+    const extraInstanceVersion = extraDetail.data.version as string;
+    assert.match(extraInstanceVersion, /^[1-9][0-9]{0,18}$/);
 
     // Work
     const w = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, session, { title: '同名工作', objective: 'O', progress: 'todo' });
@@ -410,6 +420,7 @@ async function buildFixture() {
     assert.equal(lifecycleBefore.instance.version, instanceVersion);
     assert.equal(lifecycleBefore.instance.status, 'active');
     assert.equal(lifecycleBefore.instance.suspension_operation_id, null);
+    assert.equal(lifecycleBefore.instance.archive_operation_id, null);
     assert.equal(lifecycleBefore.instance.binding_state, 'active');
     assert.equal(lifecycleBefore.operations, 0);
     const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
@@ -423,12 +434,12 @@ async function buildFixture() {
       else if (Array.isArray(value)) value.forEach(child => collectIds(child));
       else if (value && typeof value === 'object') Object.entries(value).forEach(([childKey, child]) => collectIds(child, childKey));
     };
-    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv, plan, inst, instance, installation]) collectIds(reply.data);
+    for (const reply of [mw, extraWorkspace, extraInstance, extraDetail, w, u1, putRes, f1, u2, inv, plan, inst, instance, installation]) collectIds(reply.data);
     for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, dependencyId, installation.data.installation_id, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
     const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, instanceVersion, lifecycleBefore, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      tenantId, workspaceId, principalId, instanceId, instanceVersion, extraInstanceId, extraInstanceVersion, lifecycleBefore, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
       etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version, instanceVersion].filter(Boolean) as string[],
       noteBytes, resourceIds: [...resourceIds]
     };
@@ -474,8 +485,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 43 });
-  assert.equal(selectedRoutes.length, 71);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 45 });
+  assert.equal(selectedRoutes.length, 73);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -530,6 +541,7 @@ const routes: Route[] = [
   { method: 'GET', path: '/tenants/:tenant_id/module-instances/:instance_id' },
   { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/suspend', body: { reason: 'synthetic suspend' }, version: ':instance_version' },
   { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/resume', body: {}, version: ':instance_version' },
+  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/archive', body: { reason: 'synthetic archive' }, version: ':instance_version' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations/by-operation/:operation_id' },
   { method: 'POST', path: '/tenants/:tenant_id/application-launch-plans', body: { guild_key: 'guild_ai_field', workspace_id: ':workspace_id', application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} } },
@@ -538,6 +550,7 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/reconcile', body: {}, version: ':operation_version' },
   { method: 'POST', path: '/tenants/:tenant_id/operations/:operation_id/cancel', body: { reason: 'member_cancelled' }, version: ':operation_version' },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/launchpad-context?guild_key=guild_ai_field' },
+  { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/module-binding' },
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/works', body: { title: 'T', objective: 'O', progress: 'todo' } },
   { method: 'GET', path: '/tenants/:tenant_id/workspaces/:workspace_id/works' },
   { method: 'GET', path: '/tenants/:tenant_id/works/:work_id' },
@@ -752,14 +765,17 @@ test('T-022 3e. Denied instance lifecycle commands left both tenants unchanged',
   for (const [tenant, data] of [['A', fixture.A], ['B', fixture.B]] as const) {
     const after = await instanceLifecycleSnapshot(data);
     assert.deepEqual(after, data.lifecycleBefore, `${tenant}: denied lifecycle commands changed tenant state`);
+    assert.equal(after.instance.archive_operation_id, null);
+    assert.equal(after.instance.status, 'active');
+    assert.equal(after.instance.binding_state, 'active');
     assert.equal(after.operations, 0, `${tenant}: denied lifecycle commands created operations`);
     console.log(JSON.stringify({ lifecycle_denials_unchanged: { tenant, before: data.lifecycleBefore, after } }));
   }
 });
 
 async function instanceLifecycleSnapshot(data: { tenantId: string; instanceId: string }) {
-  const instance = (await owner.query<{ status: string; version: string; suspension_operation_id: string | null; binding_state: string }>(
-    `SELECT i.status, i.version::text AS version, i.suspension_operation_id, d.state AS binding_state
+  const instance = (await owner.query<{ status: string; version: string; suspension_operation_id: string | null; archive_operation_id: string | null; binding_state: string }>(
+    `SELECT i.status, i.version::text AS version, i.suspension_operation_id, i.archive_operation_id, d.state AS binding_state
      FROM module_instances i JOIN deployment_bindings d
        ON d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id AND d.binding_id=i.binding_id
      WHERE i.tenant_id=$1 AND i.instance_id=$2`, [data.tenantId, data.instanceId],
@@ -767,9 +783,22 @@ async function instanceLifecycleSnapshot(data: { tenantId: string; instanceId: s
   assert.ok(instance, 'Manual-work instance and current deployment must exist');
   const operations = (await owner.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM module_provision_operations
-     WHERE tenant_id=$1 AND operation_kind IN ('module.instance.suspend','module.instance.resume')`, [data.tenantId],
+     WHERE tenant_id=$1 AND operation_kind IN ('module.instance.suspend','module.instance.resume','module.instance.archive')`, [data.tenantId],
   )).rows[0].n;
   return { instance, operations };
+}
+
+async function tenantArchiveSnapshot(data: TenantData) {
+  const main = await instanceLifecycleSnapshot(data);
+  const extra = await instanceLifecycleSnapshot({ tenantId: data.tenantId, instanceId: data.extraInstanceId });
+  const installations = (await owner.query<{ installation_id: string; status: string; version: string; uses_extra_instance: boolean }>(
+    `SELECT i.installation_id, i.status, i.version::text AS version,
+       EXISTS (SELECT 1 FROM application_module_links l
+         WHERE l.tenant_id=i.tenant_id AND l.installation_id=i.installation_id AND l.instance_id=$2) AS uses_extra_instance
+     FROM application_installations i WHERE i.tenant_id=$1 ORDER BY i.installation_id`,
+    [data.tenantId, data.extraInstanceId],
+  )).rows;
+  return { main, extra, installations };
 }
 
 async function count(table: string, tenantId: string, column = 'tenant_id') {
@@ -1309,6 +1338,101 @@ test('T-022 6. Idempotency across tenants', async () => {
       before: before.map(row => row.operations), after: after.map(row => row.operations),
     }, instances: { before: before.map(row => row.instance), after: after.map(row => row.instance) } });
   }
+  // Archive only the extra instances: later private reads still use the main manual-work bindings.
+  const archiveRoute = '/tenants/:tenant_id/module-instances/:instance_id/archive';
+  const archiveBody = { reason: 'synthetic archive' };
+  const archiveKey = randomUUID();
+  const archived: Reply[] = [];
+  const archiveBefore = await Promise.all([tenantArchiveSnapshot(A), tenantArchiveSnapshot(B)]);
+  const archiveTargets = [];
+  for (const [data, actor] of [[A, fixture.people.P], [B, fixture.people.N]] as const) {
+    const tenant = data === A ? 'A' : 'B';
+    const other = data === A ? B : A;
+    const freshId = archived[0]?.data.operation_id;
+    const extra = data === B && freshId ? [freshId] : [];
+    const ownBefore = await tenantArchiveSnapshot(data);
+    const otherBefore = await tenantArchiveSnapshot(other);
+    assert.equal(ownBefore.extra.instance.version, data.extraInstanceVersion);
+    assert.equal(ownBefore.extra.instance.status, 'active');
+    assert.equal(ownBefore.extra.instance.archive_operation_id, null);
+    assert.equal(ownBefore.extra.instance.binding_state, 'active');
+    const path = `/tenants/${data.tenantId}/module-instances/${data.extraInstanceId}/archive`;
+
+    const adminInstance = await call('GET', `/tenants/${data.tenantId}/module-instances/${data.extraInstanceId}`, W);
+    assert.equal(adminInstance.status, 200, JSON.stringify(describe(adminInstance)));
+    assert.equal(adminInstance.data.version, ownBefore.extra.instance.version);
+    scanForLeaks(adminInstance, `6 archive ${tenant} admin version`, other, extra);
+    const adminKey = randomUUID();
+    const adminDenied = await post(path, W, archiveBody, `"${adminInstance.data.version}"`, adminKey);
+    const adminMissing = await post(`/tenants/${data.tenantId}/module-instances/${randomUUID()}/archive`, W,
+      archiveBody, `"${adminInstance.data.version}"`, adminKey);
+    assert.equal(adminDenied.status, 403, `Archive must refuse admin: ${JSON.stringify(describe(adminDenied))}`);
+    assert.equal(adminDenied.data.code, 'capability_denied');
+    assertSameAsRandom('6 archive admin capability gate', 'W', adminDenied, adminMissing);
+    for (const reply of [adminDenied, adminMissing]) scanForLeaks(reply, `6 archive ${tenant} admin refusal`, other, extra);
+    assert.deepEqual(await tenantArchiveSnapshot(data), ownBefore, 'Admin archive changed own tenant');
+    assert.deepEqual(await tenantArchiveSnapshot(other), otherBefore, 'Admin archive changed the other tenant');
+
+    const instance = await call('GET', `/tenants/${data.tenantId}/module-instances/${data.extraInstanceId}`, actor);
+    assert.equal(instance.status, 200, JSON.stringify(describe(instance)));
+    assert.equal(instance.data.version, ownBefore.extra.instance.version);
+    scanForLeaks(instance, `6 archive ${tenant} owner version`, other, extra);
+    const expected = `"${instance.data.version}"`;
+    const reply = await post(path, actor, archiveBody, expected, archiveKey);
+    assert.equal(reply.status, 200, JSON.stringify(describe(reply)));
+    assert.match(reply.data.operation_id, /^[0-9a-f-]{36}$/);
+    assert.equal(operationIds.has(reply.data.operation_id), false, 'Archive must return a fresh operation id');
+    operationIds.add(reply.data.operation_id);
+    assert.deepEqual(reply.data, { operation_id: reply.data.operation_id, state: 'succeeded', version: '1' });
+    assert.equal(reply.headers.get('etag'), '"1"');
+    assert.equal(reply.headers.get('cache-control'), 'private, no-store');
+    scanForLeaks(reply, `6 archive ${tenant} owner success`, other, extra);
+    const ownAfter = await tenantArchiveSnapshot(data);
+    assert.ok(ownBefore.installations.some(row => row.uses_extra_instance && row.status === 'active'),
+      'Archive must exercise a linked live installation');
+    assert.deepEqual(ownAfter, {
+      main: { ...ownBefore.main, operations: ownBefore.main.operations + 1 },
+      extra: { instance: { ...ownBefore.extra.instance, status: 'archived', binding_state: 'retired',
+        version: String(BigInt(ownBefore.extra.instance.version) + 1n), archive_operation_id: reply.data.operation_id },
+        operations: ownBefore.extra.operations + 1 },
+      installations: ownBefore.installations.map(row => row.uses_extra_instance && !['archived', 'failed'].includes(row.status)
+        ? { ...row, status: 'archived', version: String(BigInt(row.version) + 1n) } : row),
+    });
+    assert.deepEqual(await tenantArchiveSnapshot(other), otherBefore, 'Owner archive changed the other tenant');
+
+    const replay = await post(path, actor, archiveBody, expected, archiveKey);
+    assert.equal(replay.status, reply.status, JSON.stringify(describe(replay)));
+    assert.deepEqual(replay.data, reply.data);
+    assert.equal(replay.headers.get('etag'), '"1"');
+    assert.equal(replay.headers.get('cache-control'), 'private, no-store');
+    scanForLeaks(replay, `6 archive ${tenant} owner replay`, other, extra);
+    assert.deepEqual(await tenantArchiveSnapshot(data), ownAfter, 'Archive receipt replay changed own tenant');
+    assert.deepEqual(await tenantArchiveSnapshot(other), otherBefore, 'Archive receipt replay changed the other tenant');
+
+    const hidden = await post(`/tenants/${data.tenantId}/module-instances/${other.extraInstanceId}/archive`, actor,
+      archiveBody, expected, archiveKey);
+    const missing = await post(`/tenants/${data.tenantId}/module-instances/${randomUUID()}/archive`, actor,
+      archiveBody, expected, archiveKey);
+    assertSameAsRandom('6 archive receipt target', tenant === 'A' ? 'P' : 'N', hidden, missing);
+    // The used command key is checked before either hidden or missing instance is looked up.
+    assert.equal(hidden.status, 409, JSON.stringify(describe(hidden)));
+    assert.equal(hidden.data.code, 'idempotency_conflict');
+    for (const denied of [hidden, missing]) scanForLeaks(denied, `6 archive ${tenant} receipt target`, other, extra);
+    assert.deepEqual(await tenantArchiveSnapshot(data), ownAfter, 'Denied archive receipt targets changed own tenant');
+    assert.deepEqual(await tenantArchiveSnapshot(other), otherBefore, 'Archive requests changed the other tenant');
+    archiveTargets.push({ tenant, admin: { real: describe(adminDenied), random: describe(adminMissing) },
+      replay: describe(replay), hidden: describe(hidden), missing: describe(missing) });
+    archived.push(reply);
+    data.resourceIds.push(reply.data.operation_id);
+  }
+  assert.notEqual(archived[0].data.operation_id, archived[1].data.operation_id);
+  const archiveAfter = await Promise.all([tenantArchiveSnapshot(A), tenantArchiveSnapshot(B)]);
+  assert.deepEqual(archiveAfter.map(row => row.main.instance), archiveBefore.map(row => row.main.instance));
+  assert.ok(archiveAfter.every(row => row.main.instance.status === 'active'));
+  assert.deepEqual(archiveAfter.map(row => row.main.operations), archiveBefore.map(row => row.main.operations + 1));
+  outcomes.push({ route: archiveRoute, A: describe(archived[0]), B: describe(archived[1]), targets: archiveTargets,
+    counts: { before: archiveBefore.map(row => row.main.operations), after: archiveAfter.map(row => row.main.operations) },
+    instances: { before: archiveBefore, after: archiveAfter } });
   console.log(JSON.stringify({ item6: outcomes }));
 });
 
@@ -1318,6 +1442,12 @@ test('T-022 7. Successful private reads and attachment headers', async () => {
       const reply = await execute(route, actor, ids(data, route));
       assert.equal(reply.status, 200, `${route.path}: ${JSON.stringify(describe(reply))}`);
       scanForLeaks(reply, `7 ${route.path}`, other);
+      if (route.path.endsWith('/module-binding')) {
+        assert.equal(reply.data.tenant_id, data.tenantId);
+        assert.equal(reply.data.workspace_id, data.workspaceId);
+        assert.equal(reply.data.binding.instance_id, data.instanceId);
+        console.log(JSON.stringify({ item7_module_binding: describe(reply) }));
+      }
       if (route.path.endsWith('/content')) assert.deepEqual(Buffer.from(reply.bytes), data.noteBytes);
     }
   }
