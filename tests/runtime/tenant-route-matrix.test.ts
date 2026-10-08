@@ -1,6 +1,6 @@
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { createLocalJWKSet } from 'jose';
@@ -970,6 +970,17 @@ function changedCursor(raw: string, changes: Record<string, unknown>) {
   return Buffer.from(JSON.stringify({ ...JSON.parse(decoded), ...changes })).toString('base64url');
 }
 
+// Only synthetic test authority signs these deliberately malformed positions, so
+// the original SQL-shape/timestamp vectors still reach the domain validator.
+function authenticatedTenantCursorFixture(raw: string, changes: Record<string, unknown>) {
+  const envelope = JSON.parse(Buffer.from(raw.split('.')[0], 'base64url').toString('utf8'));
+  envelope.p = { ...envelope.p, ...changes };
+  const body = Buffer.from(JSON.stringify(envelope)).toString('base64url');
+  const signature = createHmac('sha256', Buffer.from(TENANT_CURSOR_TEST_KEY, 'base64url'))
+    .update(JSON.stringify(['freedom.tenant-list-cursor/v1', 'local', origin])).update('\0').update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
 async function invalidCursor(path: string, cursor: string, actor?: Session) {
   const separator = path.includes('?') ? '&' : '?';
   const url = `${origin}/api/v1${path}${separator}cursor=${encodeURIComponent(cursor)}`;
@@ -1024,12 +1035,9 @@ test('T-022 4a. Same admin cursors reject tenant, workspace, caller and registry
     assert.ok(page.next_cursor, `${label} did not mint a cursor`);
     await t.test(`${label}: same admin across tenants`, () => invalidCursor(pathA, page.next_cursor, W));
     if (label === 'instances' || label === 'installations') {
-      await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, changedCursor(page.next_cursor, { unexpected: true }), W));
-      await t.test(`${label}: missing cursor field`, async () => {
-        const missing = JSON.parse(Buffer.from(page.next_cursor, 'base64url').toString('utf8'));
-        delete missing.filter;
-        await invalidCursor(pathB, Buffer.from(JSON.stringify(missing)).toString('base64url'), W);
-      });
+      await t.test(`${label}: unexpected cursor field`, () => invalidCursor(pathB, authenticatedTenantCursorFixture(page.next_cursor, { unexpected: true }), W));
+      await t.test(`${label}: missing cursor field`, () =>
+        invalidCursor(pathB, authenticatedTenantCursorFixture(page.next_cursor, { id: undefined }), W));
       await t.test(`${label}: different caller`, () => invalidCursor(pathB, page.next_cursor, N));
       await t.test(`${label}: authorization precedes cursor validation`, async () => {
         for (const [actor, status, code] of [
@@ -1129,10 +1137,14 @@ test('T-022 4c. Work and registry cursors reject noncanonical and impossible tim
   ]) {
     const page = await cursorPage(`${path}?limit=1`, W);
     assert.ok(page.next_cursor);
+    await t.test(`${path.split('/').at(-1)}: edited position without a new signature`, () => {
+      const altered = authenticatedTenantCursorFixture(page.next_cursor, { at: '2024-02-29T12:00:00.123456Z' }).split('.')[0];
+      return invalidCursor(path, `${altered}.${page.next_cursor.split('.')[1]}`, W);
+    });
     await t.test(`${path.split('/').at(-1)}: valid leap day and microseconds`, () =>
-      cursorPage(`${path}?cursor=${changedCursor(page.next_cursor, { at: '2024-02-29T12:00:00.123456Z' })}`, W));
+      cursorPage(`${path}?cursor=${authenticatedTenantCursorFixture(page.next_cursor, { at: '2024-02-29T12:00:00.123456Z' })}`, W));
     for (const at of ['1', '0000-01-01T00:00:00.000000Z', '2026-02-30T12:00:00.000000Z', '2026-01-01T24:00:00.000000Z', '2026-01-01T00:00:00.000Z']) {
-      await t.test(`${path.split('/').at(-1)}: ${at}`, () => invalidCursor(path, changedCursor(page.next_cursor, { at }), W));
+      await t.test(`${path.split('/').at(-1)}: ${at}`, () => invalidCursor(path, authenticatedTenantCursorFixture(page.next_cursor, { at }), W));
     }
   }
 });
