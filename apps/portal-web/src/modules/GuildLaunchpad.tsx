@@ -6,7 +6,8 @@ import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
 import {MyWorkPanel, rememberActing} from './GuildLaunchpadMyWork';
-import {GuildLaunchpadApplications, REASONS, type LaunchRequest} from './GuildLaunchpadApplications';
+import {GuildLaunchpadApplications, REASONS, startable, type LaunchRequest} from './GuildLaunchpadApplications';
+import {MyStoreAction} from './HostedStore';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
@@ -181,6 +182,10 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
     if (!canLeave() || !userId) return false;
     rememberActing(userId, tenantId, workspaceId); setWorkRefresh(value => value + 1); return true;
   };
+  const showStore = (tenantId: string, instanceId: string) => {
+    if (!canLeave()) return false;
+    window.location.hash = `stores/${tenantId}/${instanceId}`; return true;
+  };
   useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
   const primary = recommendedApplications(config.application_refs, applications)[0];
@@ -194,7 +199,10 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         <p>{config.starter.objective_hint}</p>
         {memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
           : <div className="actions"><button type="button" className="btn btn-primary" onClick={focusWork}>前往我的工作</button></div>}
-      </> : <>
+      </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
+        : <MyStoreAction client={client} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
+          onCreate={() => {if (canLeave()) setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});}}
+          onEnter={path => {if (canLeave()) window.location.hash = path;}}/> : <>
         {primary.eligibility.tenant_action !== 'denied' && <div className="actions"><button type="button" className="btn btn-primary" disabled={!primary.eligibility.can_launch} onClick={() => setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1})}>{primary.eligibility.tenant_action === 'continue' ? '繼續使用' : '啟動'}{primary.display_name}</button></div>}
         {primary.eligibility.reason_codes.map(code => <p key={code} className="field-hint">{REASONS[code]}</p>)}
         {primary.eligibility.reason_codes.includes('tenant_manage_required') && <div className="actions"><a className="btn btn-ghost" href="#business" onClick={event => {if (!canLeave()) event.preventDefault();}}>建立或選擇業務空間</a></div>}
@@ -212,7 +220,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
         const upstream = httpsUrl(book.upstream_url);
         return <p key={book.book_id}>{book.title}{intro && <> · <a href={intro} rel="noopener noreferrer" target="_blank">閱讀介紹</a></>}{upstream && <> · <a href={upstream} rel="noopener noreferrer" target="_blank">上游</a></>}</p>;
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
-      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} canLeave={canLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
+      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} onStore={showStore} canLeave={canLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
