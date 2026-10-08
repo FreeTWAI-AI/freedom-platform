@@ -17279,8 +17279,8 @@
     },
     {
       "path": "packages/media-migration/backup-coordinator.ts",
-      "bytes": 7310,
-      "sha256": "1c0d712f2240775a36736729aa4c1a1beb277bdcd1d72845b216861661d63cd5"
+      "bytes": 7923,
+      "sha256": "09747ab932abc01626ecfcb395034f33aaf8f532eaa30e84c4e679cd9ec9fa80"
     },
     {
       "path": "packages/media-migration/backup-daily.ts",
@@ -17314,8 +17314,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4567,
-      "sha256": "b89da755feebad7c66a3b2ec8a5c7b47ce359ab826c4f1e6bf12e79a4fe83403"
+      "bytes": 4621,
+      "sha256": "583f962367ca91ea4adea1bbf6bdc28a87786ab28b21cca86146410d39c51e4e"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -19251,6 +19251,11 @@
       "path": "tests/runtime/media-backup-archive.test.ts",
       "bytes": 22258,
       "sha256": "b49c210c85003142adcd5dd8a295c3a1bc5ea96f2c4f0f0f3a5769a0eb0f7150"
+    },
+    {
+      "path": "tests/runtime/media-backup-coordinator.test.ts",
+      "bytes": 6770,
+      "sha256": "dac6fddf7aa9a74681655b7b2a39636cd51bf18143d55679dc726fa8d86c505a"
     },
     {
       "path": "tests/runtime/media-backup-daily.test.ts",
