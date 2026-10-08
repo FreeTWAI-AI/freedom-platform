@@ -390,7 +390,7 @@ test('MEMBER-HTTP-ADV foreign owner and different trusted environment/client can
   for (const [transport, transportOrigin] of [[await createMemberExecutionHttpTransport(appPool, { ...options, origin: alternateOrigin, environment: 'staging-next', sourceNetwork: () => randomUUID() }), alternateOrigin],
     [await createMemberExecutionHttpTransport(appPool, { ...options, clientId: 'other-client', sourceNetwork: () => randomUUID() }), origin]] as const) {
     for (const path of [paths.models + '/' + f.model.modelConnectionId, paths.grants + '/' + consent.grantId, paths.attempts + '/' + attempt.attemptId])
-      failure(await send(transport, transportOrigin + path, f, { headers: { Origin: transportOrigin } }), 404);
+      failure(await send(transport, transportOrigin + path, f, { headers: { Origin: transportOrigin, ...(transportOrigin.startsWith('https:') ? { Cookie:f.cookie.replace('freedom_local_session=','__Host-freedom_session=') } : {}) } }), 404);
   }
 });
 

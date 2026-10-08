@@ -94,7 +94,7 @@ try {
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await homeReads;
   await expect(page.getByRole('heading', { name: '會員首頁', exact: true })).toBeVisible();
-  const cookie = (await context.cookies()).find(c => c.name === 'freedom_local_session');
+  const cookie = (await context.cookies()).find(c => c.name === '__Host-freedom_session');
   expect(cookie?.secure).toBe(true);
   expect(cookie?.httpOnly).toBe(true);
   // Arm after the reload commits. The old page can still be finishing its own reads,

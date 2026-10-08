@@ -55,7 +55,7 @@ function SubmissionBookCard({item}:{item:Submission}){
   return <article className="card skill-book skill-book-volume skill-library-book community-book" data-submission-id={item.submission_id}>
     <div className="skill-library-heading"><SkillBookCover book={{cover_url:item.cover_url}}/><div className="skill-library-copy"><p className="eyebrow skill-library-meta"><span>社群技能書</span></p><h3 className="skill-library-title">{item.title}</h3></div></div>
     <div className="skill-library-description"><p className="skill-library-purpose multiline-text">{item.description}</p><p className="field-hint">原作：{item.source.repository_full_name}</p><div className="skill-book-badges" aria-label="技能書徽章"><CommunityBadge/></div></div>
-    <div className="skill-library-actions"><SubmissionIntro item={item}/><SkillShare submissionId={item.submission_id} title={item.title}/></div>
+    <div className="skill-library-actions"><SubmissionIntro item={item}/><SkillShare submissionId={item.submission_id} title={item.title}/><a className="btn btn-ghost" href="#opensource">管理作品介紹</a></div>
     {repository&&<GitHubSourceLinks repositoryUrl={repository}/>}
   </article>;
 }

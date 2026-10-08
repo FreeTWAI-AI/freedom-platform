@@ -20,7 +20,7 @@ const resultEditBody = z.object({ text: z.string().min(1).max(16384) }).strict()
 const emptyBody = z.object({}).strict();
 const page = z.object({ limit: z.string().regex(/^[1-9][0-9]*$(?![\s\S])/).transform(Number).pipe(z.number().int().max(50)).optional(),
   offset: z.string().regex(/^(0|[1-9][0-9]*)$(?![\s\S])/).transform(Number).pipe(z.number().int().max(10000)).optional() }).strict();
-const errorCodes = new Set(['login_required', 'session_expired', 'csrf_rejected', 'onboarding_required', 'host_rejected', 'origin_rejected',
+const errorCodes = new Set(['login_required', 'session_expired', 'csrf_rejected', 'onboarding_required', 'host_rejected', 'origin_rejected', 'credential_kind_rejected',
   'json_required', 'encoding_rejected', 'body_too_large', 'body_timeout', 'invalid_json', 'invalid_body', 'idempotency_required', 'invalid_version',
   'version_required', 'version_conflict', 'version_overflow', 'not_found', 'resource_not_found', 'principal_disabled', 'scope_disabled',
   'foundation_mapping_unavailable', 'scope_kind_unavailable', 'personal_scope_required', 'idempotency_conflict',
@@ -100,7 +100,7 @@ export function createPrivateWorkTransport(pool: Pool, options: { origin: string
     if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) requireCondition(origins.has(c.req.header('Origin') ?? ''), 403, 'origin_rejected', 'Origin rejected.');
     await next();
   });
-  app.use('*', memberBoundary(pool));
+  app.use('*', memberBoundary(pool,options.origin));
   app.get('/me/private-work', async c => {
     const value = await listPrivateWork(pool, c.get('actor'), query(c));
     return c.json({ items: value.items.map(workDto), total: value.total, limit: value.limit, offset: value.offset });

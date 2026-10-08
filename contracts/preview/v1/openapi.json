@@ -3219,7 +3219,8 @@
       "MemberSession": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "freedom_local_session"
+        "name": "__Host-freedom_session",
+        "description": "HTTPS: Secure, HttpOnly, SameSite=Strict, Path=/ and no Domain. Explicit local HTTP loopback deployments use freedom_local_session instead. Duplicate selected session cookies are rejected."
       }
     }
   }

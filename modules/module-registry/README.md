@@ -2,6 +2,8 @@
 
 The registry is the launch engine for offered applications. It owns application and module definitions, guild offerings, installations, module instances, deployment bindings, workspace entry bindings, launch plans, provision operations, and capacity reservations. It does not own Work rows or Result bytes.
 
+Tenant routes mount only when `FREEDOM_GUILD_LAUNCHPAD_ENABLED` is `true`. On 2026-10-07 the flag was absent in staging and production (see `features.guild_launchpad` in the [current state](../../docs/platform-plan/execution/unified-foundation/current-state.json)). Enablement is a command, not a deployment state. The registry also owns the operator-managed `tenant_capacity_policies` table.
+
 `enableManualWork` is a facade over the same plan and launch core. The wire stays a `ManualWorkBinding`. An already-bound workspace returns inside the command with `reused: true` and writes no new domain rows. A missing capacity policy is still `policy_unconfigured` on that path. When the tenant already has an active `work` instance and the caller sends no choice, the command fails with `instance_selection_required` even if there is exactly one candidate. The workspace row is locked `FOR NO KEY UPDATE` inside launch, after the installation fingerprint and the policy advisory, not in authorize.
 
 First-party pins live in `definitions.ts`. `manual-workspace@1.0.0` requires `work@1.0.0`. The work `contract_ref` is pinned, including `behavior_profile` `freedom.tenant-work/v1`. That profile contains a slash, so it is not a StableKey; the SQL shape check allows it. There is no HTTP endpoint that creates or edits definitions or offerings.

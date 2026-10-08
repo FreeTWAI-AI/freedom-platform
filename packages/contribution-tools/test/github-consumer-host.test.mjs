@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { symlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { fixtureRoot, put, pretty } from './fixtures.mjs';
@@ -10,6 +11,43 @@ import { sha256 } from '../io.mjs';
 import { CONSUMER_LIBRARIES, LEGACY_LIBRARY_PROFILE, AGENT_KIT_DEVICE_LIBRARY_PROFILE, consumerLibraryProfile, LIBRARY_PREFIX } from '../consumer-libraries.mjs';
 import { verifyNativeConsumerSource } from '../github-consumer-host.mjs';
 import { verifyNativeConsumerRuntime } from '../github-consumer-runtime-host.mjs';
+import { CONSUMER_HOST_TUPLES } from '../consumer-host-tuples.mjs';
+import { CONSUMER_BEHAVIOR_PROFILES } from '../consumer-behavior-fixture.mjs';
+import { DIRECTORY_REPOSITORY } from '../directory-build-fixture.mjs';
+
+for (const [file, job] of [
+  ['trusted-consumer-libraries.yml', 'consumer-library-source'],
+  ['trusted-consumer-runtime.yml', 'consumer-runtime'],
+]) test(`${file} skips forks and runs every non-central FreeTWAI-AI repository`, () => {
+  const lines = readFileSync(new URL('../../../.github/workflows/' + file, import.meta.url), 'utf8').split('\n');
+  const expected = "${{ github.repository_owner == 'FreeTWAI-AI' && github.repository != 'FreeTWAI-AI/freedom-platform' }}";
+  const conditions = lines.filter(line => /^\s{4}if:/.test(line));
+  assert.equal(conditions.length, 1);
+  assert.equal(conditions[0].slice('    if: '.length), expected);
+  const start = lines.indexOf('  ' + job + ':');
+  assert.ok(start >= 0);
+  const end = lines.findIndex((line, index) => index > start && /^\S|^  \S/.test(line));
+  assert.ok(lines.slice(start + 1, end === -1 ? lines.length : end).includes(conditions[0]));
+  for (const line of lines) {
+    const exclusion = line.indexOf("github.repository != 'FreeTWAI-AI/freedom-platform' }}");
+    if (exclusion !== -1) assert.ok(line.slice(0, exclusion).includes("github.repository_owner == 'FreeTWAI-AI' && "));
+  }
+});
+
+test('workflow owner guard includes every approved source consumer', () => {
+  for (const repository of Object.keys(CONSUMER_HOST_TUPLES)) {
+    assert.ok(repository.startsWith('FreeTWAI-AI/'));
+    assert.notEqual(repository, 'FreeTWAI-AI/freedom-platform');
+  }
+});
+
+test('workflow owner guard includes every admitted runtime consumer', () => {
+  for (const repository of [...Object.keys(CONSUMER_BEHAVIOR_PROFILES), DIRECTORY_REPOSITORY]) {
+    assert.ok(repository.startsWith('FreeTWAI-AI/'));
+    assert.notEqual(repository, 'FreeTWAI-AI/freedom-platform');
+  }
+});
+
 function git(root, args) { return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, env: verificationEnvironment(), stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim(); }
 function commit(root) { git(root, ['add', '.']); git(root, ['-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Synthetic']); return git(root, ['rev-parse', 'HEAD']); }
 async function fixture(t, repository = 'FreeTWAI-AI/freedom-agent-kit', expectedLibraryProfile) {

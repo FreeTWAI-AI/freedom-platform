@@ -3,11 +3,12 @@ import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono } from 'hono';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
 import { login, sessionView, SESSION_LIFETIME_SECONDS, type Actor } from '../../../modules/identity-membership/service.js';
 import { memberBoundary } from './member-boundary.js';
+import { readSessionCookie, sessionCookieName } from './session-cookie.js';
 import { createWork,claimWork,changeClaim,listWorks,dashboard } from '../../../modules/opportunity-project-work/work.js';
 import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
@@ -61,7 +62,6 @@ import {checkSocialThumbnailHeaders,isSocialThumbnailUpload,registerMemberPromot
 import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,registerPublicMemberServices} from './routes/member-services.js';
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 
-const COOKIE='freedom_local_session';
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -91,7 +91,7 @@ export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
-  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.sourceNetwork;
+  const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
   const brokerFormOrigin=runtime.privateAiProduct?runtime.privateAiSetupOrigin?.():undefined;
   if(brokerFormOrigin!==undefined){
     const setup=new URL(brokerFormOrigin),main=new URL(origin);
@@ -100,6 +100,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   }
 
   const secureCookies=freedomEnv!=='local';
+  const COOKIE=sessionCookieName(origin);
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const pageGitHub=new PageGitHubReader(pool);
@@ -125,6 +126,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
+    readSessionCookie(c.req.header('Cookie'),origin);
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
     const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
     c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
@@ -227,7 +229,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     return c.body(new Uint8Array(bytes));
   });
   app.get('/api/v1/public/events/:id/video',async c=>eventAssetVideoResponse(c,pool,z.uuid().parse(c.req.param('id')),runtime.eventVideoAssetStore));
-  registerPublicPromotion(app,pool,runtime);
+  registerPublicPromotion(app,pool,runtime,origin);
   registerPublicMemberServices(app,pool,runtime);
   app.route('/',createEventHighlightPublicRoutes(pool,runtime.publicOrigin,runtime));
   app.post('/api/v1/public/events/:id/register',async c=>{
@@ -255,7 +257,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'registration-global','global',100,60);
     const raw=await c.req.json();
     const result=await registerMember(pool,raw,{communityId:runtime.registrationCommunityId(),allowSingleCommunity:freedomEnv==='local',publicMode:freedomEnv==='public'});
-    const old=getCookie(c,COOKIE);
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) {const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]);}
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor),201);
@@ -266,7 +268,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
     const result=await login(pool,body.email,body.password);
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
-    const old=getCookie(c,COOKIE);
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json(sessionView(result.actor));
@@ -286,14 +288,17 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await authRateLimit(pool,'password-reset-confirm-network',authNetwork(c),30,3600);
     await authRateLimit(pool,'password-reset-confirm-global','global',500,3600);
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
+    const old=readSessionCookie(c.req.header('Cookie'),origin);
     const result=await confirmPasswordReset(pool,body.token,body.password);
-    deleteCookie(c,COOKIE,{path:'/'});
-    return c.json(result);
+    // Replace any old session on reset, so changing accounts never keeps an active old cookie.
+    if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
+    setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
+    return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
-  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool));
-  app.use('/api/v1/*',memberBoundary(pool,onboardingAllowed));
+  if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicModuleRegistryRoutes(pool,origin));
+  app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
     if(ifMatch) requireCondition(/^"[1-9][0-9]*"$/.test(ifMatch),400,'invalid_version','If-Match 須為加引號的整數版本。');
@@ -310,7 +315,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     await pool.query('INSERT INTO member_client_errors(community_id,user_id,action,error_code,http_status) VALUES($1,$2,$3,$4,$5)',[actor.community_id,actor.user_id,body.action,body.error_code,body.http_status??null]);
     return c.json({recorded:true},201);
   });
-  app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/'});return c.json({logged_out:true});});
+  app.post('/api/v1/auth/logout',async c=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[c.get('actor').session_hash]);deleteCookie(c,COOKIE,{path:'/',secure:secureCookies,httpOnly:true,sameSite:'Strict'});return c.json({logged_out:true});});
   app.get('/api/v1/work-items',async c=>c.json({items:await listWorks(pool,c.get('actor'))}));
   app.route('/api/v1',createPrivateWorkRoutes(pool));
   app.post('/api/v1/work-items',async c=>respond(c,await createWork(pool,await cmd(c)),201));
@@ -351,7 +356,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createPositioningRoutes(pool,{guildLaunchpadEnabled:runtime.guildLaunchpadEnabled===true}));
   app.route('/api/v1',createCommerceRoutes(pool));
   app.route('/api/v1',createAgentCommerceRoutes(pool,origin,shopHost));
-  app.route('/api/v1',createOpenSourceRoutes(pool,runtime.githubMetricsToken));
+  app.route('/api/v1', createOpenSourceRoutes(pool,runtime.githubMetricsToken,loadSocial));
   app.route('/api/v1',createCoCreationRoutes(pool,options.coCreationGitHub));
   app.route('/api/v1',createBenefitRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
