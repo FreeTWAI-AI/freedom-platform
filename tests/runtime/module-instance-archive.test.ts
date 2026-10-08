@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { readFile } from 'node:fs/promises';
 import { Pool, type PoolClient } from 'pg';
 import { test, before, after, beforeEach } from 'node:test';
@@ -28,7 +29,7 @@ before(async () => { h = await createRegistryHarness('fp_mia', { synthetic: true
 after(async () => { await h.stop(); });
 beforeEach(async () => {
   await h.reset();
-  app = createApp(h.pool, h.origin, 'local', { guildLaunchpadEnabled: true, moduleProviders: h.providers, tenantWorkAssetStore: new FakeObjectStore() });
+  app = createApp(h.pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, moduleProviders: h.providers, tenantWorkAssetStore: new FakeObjectStore() });
 });
 function post(path: string, session: Session, body: unknown, version?: string, key = randomUUID()) {
   return h.post(path, session, body, version, key, app);
@@ -708,7 +709,7 @@ test('restricted runtime role archives and a max-1 pool alternating tenants expo
     } finally { await grantClient.query('ROLLBACK'); grantClient.release(); }
     const url = new URL(process.env.TEST_DATABASE_URL!); url.username = role; url.password = '';
     runtime = new Pool({ connectionString: url.toString(), options: `-c search_path=${h.schema}`, max: 1 });
-    const runtimeApp = createApp(runtime, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const runtimeApp = createApp(runtime, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
     const authority = (await runtime.query(`SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user`)).rows[0];
     assert.deepEqual(authority, { rolsuper: false, rolbypassrls: false });
     assert.equal((await runtime.query(`SELECT relrowsecurity AND relowner <> (SELECT oid FROM pg_roles WHERE rolname=current_user) AS restricted
@@ -825,7 +826,7 @@ test('module binding checks session expiry after its final binding query', async
       } });
     };
   } });
-  const target = createApp(controlled, h.origin, 'local', { guildLaunchpadEnabled: true });
+  const target = createApp(controlled, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
   const reply = await h.call('GET', `/tenants/${ctx.tenantId}/workspaces/${ctx.workspaceId}/module-binding`, ctx.owner, undefined, {}, target);
   error(reply, 401, 'session_expired');
   assert.equal(expired, true);

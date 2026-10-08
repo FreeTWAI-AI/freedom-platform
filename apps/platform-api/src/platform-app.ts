@@ -388,8 +388,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/api/v1',createBenefitRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
     app.route('/api/v1',createTenantWorkspaceRoutes(pool));
-    app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders));
-    app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore));
+    app.route('/api/v1',createModuleRegistryRoutes(pool,runtime.moduleProviders,runtime.tenantListCursors));
+    app.route('/api/v1',createTenantWorkRoutes(pool,runtime.tenantWorkAssetStore,runtime.tenantListCursors));
     app.route('/api/v1',createHostedStoreRoutes(pool));
   }
   // Unknown machine paths answer JSON 404 before any host serves the browser shell.

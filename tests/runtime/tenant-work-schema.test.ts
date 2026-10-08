@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -18,7 +19,7 @@ let capacityGrantQuery = '';
 const admin = createPool(databaseUrl);
 const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: 8 });
 const store = new FakeObjectStore();
-const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
 const ABC = new TextEncoder().encode('abc');
 const ABC_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
 type Session = { cookie: string; csrf: string; user: { user_id: string } };
@@ -351,7 +352,7 @@ test('a restricted runtime role can enable and create, and cannot change capacit
   runtimeUrl.username = runtimeRole;
   runtimeUrl.password = '';
   const runtime = new Pool({ connectionString: runtimeUrl.toString(), options: `-c search_path=${schema}`, max: 4 });
-  const runtimeApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+  const runtimeApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
   try {
     await assert.rejects(runtime.query(`INSERT INTO tenant_capacity_policies(
       policy_id, revision, plan_ref, max_active_instances, max_instances_per_module, max_concurrent_provisions,
