@@ -19854,8 +19854,8 @@
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 26311,
-      "sha256": "695380f258cb425e9e3b0c8b1551cf96ef11782913b7494f9c3d5e9a376d5fc2"
+      "bytes": 30657,
+      "sha256": "1ce823d408c66a3ef721248501fece877f16e224c4bb7830585d526880abda44"
     },
     {
       "path": "tests/integration/media-recovery-handover-producer.ts",
@@ -19904,8 +19904,8 @@
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
-      "bytes": 11391,
-      "sha256": "c98fc3cb8a1e7300bbbcb117359dfa10d21ddefd4d2d444934721ac55609bdd7"
+      "bytes": 11576,
+      "sha256": "436651a850a09c0fa335f5d1745c7b03d594587af47e1911bd2add1d0610c66c"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",
