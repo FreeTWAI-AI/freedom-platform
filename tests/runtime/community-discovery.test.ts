@@ -8,6 +8,7 @@ import {seedLocal,DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.j
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {z} from 'zod';
 import {PUBLIC_REVALIDATION_MARKUP} from '../../packages/shared/public-revalidation.js';
+import {publicDiscoveryPath} from '../../apps/portal-web/src/modules/PublicDiscovery.js';
 
 const discoverySchema=z.object({sections:z.array(z.object({kind:z.enum(['resources','works','events','highlights','services']),state:z.enum(['ready','unavailable']),items:z.array(z.object({id:z.string(),title:z.string(),summary:z.string(),author_name:z.string().nullable(),occurred_at:z.string().nullable(),path:z.string()}).strict())}).strict())}).strict();
 const siteSchema=z.object({community_discovery_enabled:z.boolean()});
@@ -33,6 +34,14 @@ async function service(title:string,state='active'){
   return id;
 }
 async function discovery(){const response=await app.request(origin+'/api/v1/public/community-discovery');assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');return discoverySchema.parse(await response.json());}
+
+test('public discovery return paths rebuild only the five exact content routes',()=>{
+  const id='12345678-abcd-1234-abcd-123456789abc';
+  const accepted=[`/development/skills/Skill_123-name`,`/development/submissions/${id}`,`/events/${id}`,`/highlights/${id}`,`/services/${id}`];
+  for(const path of accepted)assert.equal(publicDiscoveryPath(path),path,path);
+  const rejected=[null,'','//evil.example','/\\evil.example','javascript:alert(1)',`https://evil.example/events/${id}`,`/events/${id.toUpperCase()}`,`/events/${id}/`,`/events/${id}?x=1`,`/events/${id}#x`,`/events/${id}/extra`,'/development/skills/','/development/skills/a/b',`/Events/${id}`,`/events/${id}\n`,'/development/skills/a%2Fb',`/events%2F${id}`];
+  for(const path of rejected)assert.equal(publicDiscoveryPath(path),null,JSON.stringify(path));
+});
 
 test('OFF is failclosed and site reports the effective boolean',async()=>{
   const off=createApp(pool,origin);

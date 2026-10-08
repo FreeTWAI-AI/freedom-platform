@@ -76,6 +76,9 @@ async function call(method: string, path: string, session?: Session, body?: stri
   const type = response.headers.get('content-type') ?? '';
   const data = type.includes('application/json') && bytes.byteLength ? JSON.parse(Buffer.from(bytes).toString('utf8')) : null;
   const reply = { status: response.status, data, response, bytes, headers: response.headers };
+  if (/\/module-instances\/[^/]+\/(suspend|resume)$/.test(path)) {
+    console.log(JSON.stringify({ lifecycle_reply: { method, path, status: reply.status, code: reply.data?.code ?? null } }));
+  }
   verifyHeaders(reply, method, path);
   await quiet(method, path);
   return reply;
@@ -243,6 +246,8 @@ const routeTable: Record<string, string> = {
   'POST /api/v1/tenants/:tenant_id/workspaces/:workspace_id/manual-work': 'tenant',
   'GET /api/v1/tenants/:tenant_id/module-instances': 'tenant',
   'GET /api/v1/tenants/:tenant_id/module-instances/:instance_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/suspend': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/module-instances/:instance_id/resume': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations': 'tenant',
   'GET /api/v1/tenants/:tenant_id/application-installations/by-operation/:operation_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/application-launch-plans': 'tenant',
@@ -397,6 +402,16 @@ async function buildFixture() {
     assert.ok(operationId, 'operationId is empty');
     const instanceId = mw.data.instance_id as string;
     assert.ok(instanceId, 'manual-work instanceId is empty');
+    const instance = await call('GET', `/tenants/${tenantId}/module-instances/${instanceId}`, session);
+    assert.equal(instance.status, 200, JSON.stringify(describe(instance)));
+    const instanceVersion = instance.data.version as string;
+    assert.match(instanceVersion, /^[1-9][0-9]{0,18}$/);
+    const lifecycleBefore = await instanceLifecycleSnapshot({ tenantId, instanceId });
+    assert.equal(lifecycleBefore.instance.version, instanceVersion);
+    assert.equal(lifecycleBefore.instance.status, 'active');
+    assert.equal(lifecycleBefore.instance.suspension_operation_id, null);
+    assert.equal(lifecycleBefore.instance.binding_state, 'active');
+    assert.equal(lifecycleBefore.operations, 0);
     const installation = await call('GET', `/tenants/${tenantId}/application-installations/by-operation/${operationId}`, session);
     assert.equal(installation.status, 200, JSON.stringify(installation.data));
     const dependencyId = installation.data.modules.find((m: any) => m.requirement_key === 'inventory').instance_id as string;
@@ -408,13 +423,13 @@ async function buildFixture() {
       else if (Array.isArray(value)) value.forEach(child => collectIds(child));
       else if (value && typeof value === 'object') Object.entries(value).forEach(([childKey, child]) => collectIds(child, childKey));
     };
-    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv, plan, inst, installation]) collectIds(reply.data);
+    for (const reply of [mw, extraWorkspace, extraInstance, w, u1, putRes, f1, u2, inv, plan, inst, instance, installation]) collectIds(reply.data);
     for (const id of [tenantId, workspaceId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, operationId, planId, dependencyId, installation.data.installation_id, scopeId]) assert.match(id, /^[0-9a-f-]{36}$/);
     const etags = [w.response.headers.get('etag'), u1.response.headers.get('etag'), f1.response.headers.get('etag'), inv.response.headers.get('etag')].filter(Boolean) as string[];
 
     return {
-      tenantId, workspaceId, principalId, instanceId, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
-      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version].filter(Boolean) as string[],
+      tenantId, workspaceId, principalId, instanceId, instanceVersion, lifecycleBefore, workId, resultId, uploadId, unfinalizedUploadId, invitationId, transferId: "", operationId, operationVersion: inst.data.version as string, planId, planVersion, planDigest, dependencyId, installationId: installation.data.installation_id as string, scopeId, workVersion: updatedWorkVersion, uploadVersion,
+      etags, versions: [workVersion, uploadVersion, f1.data.work_version, inv.data.version, planVersion, inst.data.version, instanceVersion].filter(Boolean) as string[],
       noteBytes, resourceIds: [...resourceIds]
     };
   }
@@ -459,8 +474,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 41 });
-  assert.equal(selectedRoutes.length, 69);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 43 });
+  assert.equal(selectedRoutes.length, 71);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -513,6 +528,8 @@ const routes: Route[] = [
   { method: 'POST', path: '/tenants/:tenant_id/workspaces/:workspace_id/manual-work', body: { guild_key: 'guild_ai_field' } },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances' },
   { method: 'GET', path: '/tenants/:tenant_id/module-instances/:instance_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/suspend', body: { reason: 'synthetic suspend' }, version: ':instance_version' },
+  { method: 'POST', path: '/tenants/:tenant_id/module-instances/:instance_id/resume', body: {}, version: ':instance_version' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations' },
   { method: 'GET', path: '/tenants/:tenant_id/application-installations/by-operation/:operation_id' },
   { method: 'POST', path: '/tenants/:tenant_id/application-launch-plans', body: { guild_key: 'guild_ai_field', workspace_id: ':workspace_id', application_key: 'synthetic-storefront', release_ref: 'synthetic-storefront@1.0.0', installation_choice: 'create_new', dependencies: [], configuration: {} } },
@@ -551,7 +568,7 @@ function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
     principal_id: data.principalId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
-    plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`,
+    plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
 async function verify(session: Session, tenantId: string, purpose: string) {
@@ -730,6 +747,30 @@ test('T-022 3d. Anonymous', async () => {
     for (const reply of replies) { scanForLeaks(reply, `3d ${key}`, fixture.A); scanForLeaks(reply, `3d ${key}`, fixture.B); }
   }
 });
+
+test('T-022 3e. Denied instance lifecycle commands left both tenants unchanged', async () => {
+  for (const [tenant, data] of [['A', fixture.A], ['B', fixture.B]] as const) {
+    const after = await instanceLifecycleSnapshot(data);
+    assert.deepEqual(after, data.lifecycleBefore, `${tenant}: denied lifecycle commands changed tenant state`);
+    assert.equal(after.operations, 0, `${tenant}: denied lifecycle commands created operations`);
+    console.log(JSON.stringify({ lifecycle_denials_unchanged: { tenant, before: data.lifecycleBefore, after } }));
+  }
+});
+
+async function instanceLifecycleSnapshot(data: { tenantId: string; instanceId: string }) {
+  const instance = (await owner.query<{ status: string; version: string; suspension_operation_id: string | null; binding_state: string }>(
+    `SELECT i.status, i.version::text AS version, i.suspension_operation_id, d.state AS binding_state
+     FROM module_instances i JOIN deployment_bindings d
+       ON d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id AND d.binding_id=i.binding_id
+     WHERE i.tenant_id=$1 AND i.instance_id=$2`, [data.tenantId, data.instanceId],
+  )).rows[0];
+  assert.ok(instance, 'Manual-work instance and current deployment must exist');
+  const operations = (await owner.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM module_provision_operations
+     WHERE tenant_id=$1 AND operation_kind IN ('module.instance.suspend','module.instance.resume')`, [data.tenantId],
+  )).rows[0].n;
+  return { instance, operations };
+}
 
 async function count(table: string, tenantId: string, column = 'tenant_id') {
   assert.match(table, /^[a-z_]+$/); assert.match(column, /^[a-z_]+$/);
@@ -1200,6 +1241,73 @@ test('T-022 6. Idempotency across tenants', async () => {
     const after = await Promise.all([count('module_provision_operations', A.tenantId), count('module_provision_operations', B.tenantId)]);
     assert.deepEqual(after, before);
     outcomes.push({ route: `/tenants/:tenant_id/operations/:operation_id/${action}`, A: describe(replies[0]), B: describe(replies[1]), counts: { before, after } });
+  }
+  // Reuse plans above require the initial instance version; lifecycle positive controls run only after them.
+  const operationIds = new Set<string>((await owner.query<{ operation_id: string }>(
+    'SELECT operation_id FROM module_provision_operations WHERE tenant_id=ANY($1::uuid[])', [[A.tenantId, B.tenantId]],
+  )).rows.map(row => row.operation_id));
+  for (const action of ['suspend', 'resume'] as const) {
+    const route = `/tenants/:tenant_id/module-instances/:instance_id/${action}`;
+    const body = action === 'suspend' ? { reason: 'synthetic suspend' } : {};
+    const key = randomUUID();
+    const replies: Reply[] = [];
+    const before = await Promise.all([instanceLifecycleSnapshot(A), instanceLifecycleSnapshot(B)]);
+    const targets = [];
+    for (const data of [A, B]) {
+      const other = data === A ? B : A;
+      const freshId = replies[0]?.data.operation_id;
+      const extra = data === B && freshId ? [freshId] : [];
+      const ownBefore = await instanceLifecycleSnapshot(data);
+      const otherBefore = await instanceLifecycleSnapshot(other);
+      const instance = await call('GET', `/tenants/${data.tenantId}/module-instances/${data.instanceId}`, W);
+      assert.equal(instance.status, 200, JSON.stringify(describe(instance)));
+      assert.equal(instance.data.version, ownBefore.instance.version);
+      scanForLeaks(instance, `6 lifecycle ${action} version`, other, extra);
+      const expected = `"${instance.data.version}"`;
+      const path = substitute(route, ids(data, { method: 'POST', path: route }));
+      const reply = await post(path, W, body, expected, key);
+      assert.equal(reply.status, 200, JSON.stringify(describe(reply)));
+      assert.match(reply.data.operation_id, /^[0-9a-f-]{36}$/);
+      assert.equal(operationIds.has(reply.data.operation_id), false, 'Lifecycle must return a fresh operation id');
+      operationIds.add(reply.data.operation_id);
+      assert.deepEqual(reply.data, { operation_id: reply.data.operation_id, state: 'succeeded', version: '1' });
+      assert.equal(reply.headers.get('etag'), '"1"');
+      assert.equal(reply.headers.get('cache-control'), 'private, no-store');
+      scanForLeaks(reply, `6 lifecycle ${action}`, other, extra);
+      const ownAfter = await instanceLifecycleSnapshot(data);
+      const status = action === 'suspend' ? 'suspended' : 'active';
+      assert.deepEqual(ownAfter, { instance: { ...ownBefore.instance, status, binding_state: status,
+        version: String(BigInt(ownBefore.instance.version) + 1n),
+        suspension_operation_id: action === 'suspend' ? reply.data.operation_id : null }, operations: ownBefore.operations + 1 });
+
+      const replay = await post(path, W, body, expected, key);
+      assert.equal(replay.status, reply.status, JSON.stringify(describe(replay)));
+      assert.deepEqual(replay.data, reply.data);
+      assert.equal(replay.headers.get('etag'), '"1"');
+      assert.equal(replay.headers.get('cache-control'), 'private, no-store');
+      scanForLeaks(replay, `6 lifecycle ${action} replay`, other, extra);
+      assert.deepEqual(await instanceLifecycleSnapshot(data), ownAfter, 'Receipt replay changed instance or operation count');
+
+      const hidden = await post(`/tenants/${data.tenantId}/module-instances/${other.instanceId}/${action}`, W, body, expected, key);
+      const missing = await post(`/tenants/${data.tenantId}/module-instances/${randomUUID()}/${action}`, W, body, expected, key);
+      assertSameAsRandom(`6 lifecycle ${action} receipt target`, 'W', hidden, missing);
+      // The used command key is checked before either hidden or missing instance is looked up.
+      assert.equal(hidden.status, 409, JSON.stringify(describe(hidden)));
+      assert.equal(hidden.data.code, 'idempotency_conflict');
+      scanForLeaks(hidden, `6 lifecycle ${action} receipt target`, other, extra);
+      scanForLeaks(missing, `6 lifecycle ${action} random target`, other, extra);
+      assert.deepEqual(await instanceLifecycleSnapshot(data), ownAfter, 'Denied receipt targets changed own tenant');
+      assert.deepEqual(await instanceLifecycleSnapshot(other), otherBefore, 'Lifecycle commands changed the other tenant');
+      targets.push({ tenant: data === A ? 'A' : 'B', hidden: describe(hidden), missing: describe(missing) });
+      replies.push(reply);
+      data.resourceIds.push(reply.data.operation_id);
+    }
+    assert.notDeepEqual(replies[0].data, replies[1].data);
+    const after = await Promise.all([instanceLifecycleSnapshot(A), instanceLifecycleSnapshot(B)]);
+    assert.deepEqual(after.map(row => row.operations), before.map(row => row.operations + 1));
+    outcomes.push({ route, A: describe(replies[0]), B: describe(replies[1]), targets, counts: {
+      before: before.map(row => row.operations), after: after.map(row => row.operations),
+    }, instances: { before: before.map(row => row.instance), after: after.map(row => row.instance) } });
   }
   console.log(JSON.stringify({ item6: outcomes }));
 });

@@ -9,21 +9,33 @@ const sections: { kind: PublicDiscoverySection['kind']; title: string; empty: st
   { kind: 'highlights', title: '活動回顧', empty: '目前沒有可公開探索的活動回顧。' },
   { kind: 'services', title: '會員服務', empty: '目前沒有可公開探索的會員服務。' },
 ];
-const publicContentUuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const publicDiscoveryPathPattern = new RegExp(`^/(?:development/skills/[A-Za-z0-9_-]+|(?:development/submissions|events|highlights|services)/${publicContentUuid})$`);
-
 // Only content routes, never referral codes, tokens, hashes or arbitrary destinations.
 export function publicDiscoveryPath(value: string | null): string | null {
   if (!value) return null;
-  return publicDiscoveryPathPattern.test(value) ? value : null;
+  const separator = value.lastIndexOf('/');
+  const route = value.slice(0, separator);
+  const id = value.slice(separator + 1);
+  if (route === '/development/skills') {
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return null;
+    return `/development/skills/${id}`;
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return null;
+  switch (route) {
+    case '/development/submissions': return `/development/submissions/${id}`;
+    case '/events': return `/events/${id}`;
+    case '/highlights': return `/highlights/${id}`;
+    case '/services': return `/services/${id}`;
+    default: return null;
+  }
 }
 
 export async function validatePublicReturn(path: string): Promise<boolean> {
-  if (publicDiscoveryPath(path) !== path) return false;
+  const returnPath = publicDiscoveryPath(path);
+  if (returnPath !== path) return false;
   const site = await fetch('/api/v1/site', { cache: 'no-store', credentials: 'omit', redirect: 'error' });
   if (!site.ok || z.object({ community_discovery_enabled: z.boolean() }).parse(await site.json()).community_discovery_enabled !== true) return false;
-  const eventId = /^\/events\/([^/]+)$/.exec(path)?.[1];
-  const response = await fetch(eventId ? `/api/v1/public/events/${eventId}` : path, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+  const eventId = /^\/events\/([^/]+)$/.exec(returnPath)?.[1];
+  const response = await fetch(eventId ? `/api/v1/public/events/${eventId}` : returnPath, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
   if (!response.ok) return false;
   if (eventId) {
     const event = z.object({ visibility: z.string() }).parse(await response.json());

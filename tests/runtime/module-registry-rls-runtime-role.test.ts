@@ -747,4 +747,53 @@ describe('module registry as the non-owner runtime role', { concurrency: 1 }, ()
     }
     await quiet();
   });
+
+  test('runtime role suspends/resumes and a max-1 pool alternating tenants keeps lifecycle rows private', async () => {
+    const a = await person('生命週期甲'), b = await person('生命週期乙');
+    const first = await createTenant(a, '生命週期業務甲'), second = await createTenant(b, '生命週期業務乙');
+    for (const [session, space] of [[a, first], [b, second]] as const) {
+      const launched = await planAndLaunch(session, space.tenantId, space.workspaceId, 'manual-workspace');
+      assert.equal(launched.launched.status, 200, JSON.stringify(launched.launched.data));
+    }
+    const instanceA = (await owner.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [first.tenantId])).rows[0].instance_id;
+    const instanceB = (await owner.query(`SELECT instance_id FROM module_instances WHERE tenant_id=$1`, [second.tenantId])).rows[0].instance_id;
+    const suspensions = [];
+    for (const [session, tenantId, instanceId] of [[a, first.tenantId, instanceA], [b, second.tenantId, instanceB]] as const) {
+      const detail = await call('GET', `/tenants/${tenantId}/module-instances/${instanceId}`, session);
+      assert.equal(detail.status, 200);
+      const suspended = await post(`/tenants/${tenantId}/module-instances/${instanceId}/suspend`, session, { reason: '受限角色暫停' }, `"${detail.data.version}"`);
+      assert.equal(suspended.status, 200, JSON.stringify(suspended.data));
+      suspensions.push(suspended.data.operation_id);
+      await quiet();
+    }
+    for (const [session, tenantId, instanceId, operationId, foreignTenant, foreignInstance, foreignOperation] of [
+      [a, first.tenantId, instanceA, suspensions[0], second.tenantId, instanceB, suspensions[1]],
+      [b, second.tenantId, instanceB, suspensions[1], first.tenantId, instanceA, suspensions[0]],
+      [a, first.tenantId, instanceA, suspensions[0], second.tenantId, instanceB, suspensions[1]],
+    ] as const) {
+      const detail = await call('GET', `/tenants/${tenantId}/module-instances/${instanceId}`, session);
+      assert.equal(detail.status, 200);
+      assert.equal(detail.data.suspension.kind, 'member');
+      assert.equal(detail.data.suspension.operation_id, operationId);
+      assert.equal(detail.data.suspension.reason, '受限角色暫停');
+      assert.equal((await call('GET', `/tenants/${tenantId}/operations/${foreignOperation}`, session)).status, 404);
+      assert.equal((await call('GET', `/tenants/${tenantId}/module-instances/${foreignInstance}`, session)).status, 404);
+      assert.equal((await post(`/tenants/${foreignTenant}/module-instances/${foreignInstance}/resume`, session, {}, '"2"')).status, 404);
+      await withTenant(tenantId, async q => {
+        const rows = (await q.query(`SELECT operation_id,instance_id,reason FROM module_provision_operations WHERE operation_kind='module.instance.suspend'`)).rows;
+        assert.deepEqual(rows, [{ operation_id: operationId, instance_id: instanceId, reason: '受限角色暫停' }]);
+      });
+      await quiet();
+    }
+    for (const [session, space, instanceId] of [[b, second, instanceB], [a, first, instanceA]] as const) {
+      const detail = await call('GET', `/tenants/${space.tenantId}/module-instances/${instanceId}`, session);
+      const resumed = await post(`/tenants/${space.tenantId}/module-instances/${instanceId}/resume`, session, {}, `"${detail.data.version}"`);
+      assert.equal(resumed.status, 200, JSON.stringify(resumed.data));
+      const active = await call('GET', `/tenants/${space.tenantId}/module-instances/${instanceId}`, session);
+      assert.equal(active.data.status, 'active');
+      assert.equal(active.data.suspension, null);
+      await quiet();
+    }
+  });
+
 });
