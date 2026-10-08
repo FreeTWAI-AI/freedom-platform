@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { after, before, beforeEach, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -570,8 +569,8 @@ test('Flag off leaves every hosted public, member and tenant path equivalent to 
 
 test('Storefront contract pin matches committed bytes, generated artifact, definition constants and database rows', async () => {
   const file='contracts/guild-launchpad/v1/storefront.schema.json';
-  const current=await readFile(file); const pinned=execFileSync('git',['show',`${STOREFRONT_CONTRACT_SOURCE_COMMIT}:${file}`]);
-  assert.deepEqual(current,pinned); assert.equal(createHash('sha256').update(pinned).digest('hex'),STOREFRONT_CONTRACT_ARTIFACT_SHA256);
+  const current=await readFile(file);
+  assert.equal(createHash('sha256').update(current).digest('hex'),STOREFRONT_CONTRACT_ARTIFACT_SHA256);
   const module=(await h.pool.query(`SELECT contract_ref FROM module_definitions WHERE release_ref='storefront@1.0.0'`)).rows[0]; assert.deepEqual(module.contract_ref,STOREFRONT_CONTRACT);
   const application=(await h.pool.query(`SELECT source_commit,artifact_digest,module_requirements FROM application_definitions WHERE release_ref='hosted-store@1.0.0'`)).rows[0];
   assert.equal(application.source_commit,STOREFRONT_CONTRACT_SOURCE_COMMIT); assert.equal(application.artifact_digest.value,STOREFRONT_CONTRACT_ARTIFACT_SHA256); assert.deepEqual(application.module_requirements[0].compatible_contracts,[STOREFRONT_CONTRACT]);

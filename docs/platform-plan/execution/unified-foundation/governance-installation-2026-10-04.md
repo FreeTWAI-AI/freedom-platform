@@ -1,6 +1,6 @@
 # 中央 main 與九個 consumer 的實際治理門檻（2026-10-04）
 
-這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-07 11:20 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`，review 與 App-bound checks 不變；required 的 node:test、pytest 與瀏覽器 suites 改由固定 commit 的 runner 執行。見文末「10 月 7 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-07.json)；「10 月 6 日」一節的 d1c9 為當時紀錄。**2026-10-06 17:06 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `d1c9e18fffabebbdceaba233a34f3605220e2dd7`，review 與 App-bound checks 不變；見文末「10 月 6 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-06.json)。下一段的 c3e 為 10 月 5 日當時紀錄。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
+這份紀錄接續 [P2](post-migration-plan-2026-10-04.md)。**2026-10-08 17:10 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `709600a086897d3a5b3ee3e039bc22e168ad84ba`（#288 合併後的 main：#288 放寬 UI e2e 時間上限，完整 pin 也同步了已審查的 runtime baseline，判定規則不變），review 與 App-bound checks 不變。見文末「10 月 8 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-08.json)；「10 月 7 日」一節的 6ffdf94a 為當時紀錄。**2026-10-07 11:20 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba`，review 與 App-bound checks 不變；required 的 node:test、pytest 與瀏覽器 suites 改由固定 commit 的 runner 執行。見文末「10 月 7 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-07.json)；「10 月 6 日」一節的 d1c9 為當時紀錄。**2026-10-06 17:06 UTC 現況：** 中央 `24469536` 的 required workflow 已固定 `d1c9e18fffabebbdceaba233a34f3605220e2dd7`，review 與 App-bound checks 不變；見文末「10 月 6 日」一節及[本次升級證據](../../verification/main-ruleset-2026-10-06.json)。下一段的 c3e 為 10 月 5 日當時紀錄。**2026-10-05 05:22 UTC 現況：** 九倉來源規則 `24473806` 與三倉 runtime 規則 `24476100` 都已固定至 `92a58db9948c4c56a9d81d1450b9a856fb94a944`，增加執行入口登錄檢查與 storefront／supplier 真實 CLI。中央 `24469536` 的 c3e workflow、review 與 App-bound checks 完整保留。21 個一次性 branch probes 和 3 個 main-target probes 已完成並清理；精確配置與 native jobs 見[本次實裝證據](../../verification/consumer-entry-cli-enforcement-2026-10-05.json)。下方 source55／c42／c3e consumer 紀錄為各次安裝歷史；不代表現行 consumer workflow pin。完整 P2、所有 runtime 入口與 durable App publisher 仍未驗收。
 
 中央首次安裝的非秘密[配置 artifact](../../verification/main-ruleset-2026-10-04.json)隨本紀錄提交；九倉後續配置與驗證範圍見下節。安裝後另以 `freedom-agent-kit:main` 為目標，實際驗到正常 native job 成功及竄改／偽造綠燈的 merge 被新規則拒絕，main 未變。
 
@@ -385,3 +385,56 @@ pinned 檢查摘要、rule suite、HTTP 結果與邊界。
   完整 P2 未完成。consumer rules `24473806`／`24476100`／`24516222` 與目錄站 queue 本次均未改動。
 - 切換時仍開著、上一次 run 用 d1c9 的 main PR，需要新的 pull_request 事件（push 或 close／reopen）
   才會取得 6ffdf94a 的 run。
+
+## 10 月 8 日：中央 required workflow 升級至 709600a0（UI e2e 時間上限與已審查的 runtime baseline）
+
+中央 ruleset **`24469536`** 於 2026-10-08 17:09:27 UTC 將 `.github/workflows/verify.yml`
+的固定 SHA 從 `6ffdf94ad7ef4f1fbf1d533c2391cb248f5904ba` 更新為
+**`709600a086897d3a5b3ee3e039bc22e168ad84ba`**，即 [#288](https://github.com/FreeTWAI-AI/freedom-platform/pull/288)
+合併後的 main commit；PUT 時 main 就是這個 commit。PUT 前回讀與 10 月 7 日紀錄相同；fresh readback 確認唯一政策變更是
+`/rules/3/parameters/workflows/0/sha`，main 範圍、active、空 bypass、`verify@15368`／`CodeQL@57789`、strict freshness、
+一位 reviewer、last-push approval、stale review 失效與禁止刪除／force push 均保留。
+完整非秘密配置、probe run／job、pinned 檢查摘要、rule suite 與清理紀錄見
+[10 月 8 日 main ruleset 與 probes](../../verification/main-ruleset-2026-10-08.json)。
+
+#288 的原因是容量：10 月 8 日起完整 UI suite 約需 29～33 分鐘，6ffdf94a 的預設 pass 上限是 30 分鐘，多數 run 以 `test_timeout`
+結束（例如 #288 自己的 run 37793517498 停在 659／680）。#288 把預設 pass 上限從 30 分鐘放寬到 40 分鐘（private-AI 與 avatar
+fixture pass 仍是 30 分鐘），`ui-e2e` job 從 40 分鐘放寬到 50 分鐘；單一測試的 timeout、1 個 worker、0 次 retry、
+expected-skip 規則與證據格式都沒變。
+
+完整 pin（6ffdf94a→709600a0）也帶入期間已審查合併的 main。與 runner 相關的是 runtime baseline：
+`packages/contribution-tools/runtime-suites.mjs` 的 `FULL_RUNTIME_BASELINE` 從 217 項增為 283 項（+66、−0），
+來自 #206、#229、#245、#264、#227、#239、#269、#278、#274 與 #279；另有 #243 為 github-consumer-host 加的說明與測試。
+兩個 pin 的 `runtime.full` 都會找出候選的 direct runtime tests，所以同一個候選不會因此多跑 66 個測試檔；
+實際變化是這些檔案現在也受固定 baseline 的刪除保護，較舊、缺檔的候選會 fail closed。判定規則不變。
+不同日期 probe 的 case 數來自各自的候選，不能當成 pin 改變的工作量。
+
+Ted 同意這次只跑必要的 probe（2026-10-08 約 15:59 UTC）。E2、E3 先在兩個一次性 base（`ops/trust-pin-709600a0-base`／`-script-base`，
+後綴 `-20261008`）的臨時 org rule `24736518` 下執行；它與 main 的差別只有：只要求 `verify@15368`、不要求 CodeQL、review count 為 0、
+沒有 last-push approval。規則先固定 6ffdf94a，再只改 workflow SHA 為 709600a0。
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#293 E2](https://github.com/FreeTWAI-AI/freedom-platform/pull/293) | 每個家族各刪一個審查過的基準檔案：governance（source-integrity 與 governance-consumers）、worker、deploy preflight 回 `suite_files_unavailable`，e2e 回 `e2e_files_unavailable`，runtime aggregate 回 `runtime_partition_artifacts_unavailable`，verify aggregate 回 `source_integrity_not_success`；merge 405（`4430988166`）。 |
+| [#294 E3](https://github.com/FreeTWAI-AI/freedom-platform/pull/294) | 每個家族各在一個審查過的檔案加 skip：governance、worker、deploy preflight 與 runtime partition 0 回 `incomplete_test_results`（其他五個 partition 通過），e2e 回 `skipped_test_never_expected`，runtime aggregate 回 `runtime_partition_incomplete`；merge 405（`4430989102`）。 |
+
+E2、E3 都沒有跑到 `ci.contracts-pytest`：同一個 job 裡第一個失敗的 pinned suite 會結束該 job；pytest 家族由 10 月 7 日的 E2p／E3p 涵蓋。
+
+切換後再以 main 為目標：
+
+| Probe | 實際結果 |
+| --- | --- |
+| [#295 MN](https://github.com/FreeTWAI-AI/freedom-platform/pull/295) | 只新增一份合成文件，故意不更新 inventory；[run 37814768499](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37814768499) 由 709600a0 執行（docs 模式），`source-integrity` 在 `verify:inventory` 失敗（多出該文件），aggregate 回 `source_integrity_not_success`。實際 merge 405（`4431135639`），同時列出 verify 失敗、required workflow 失敗與缺少非 last pusher 的 approval；main 未變。關閉且未 merge，head ref 已刪除。 |
+| [#291 MP](https://github.com/FreeTWAI-AI/freedom-platform/pull/291) | 真正的第七／八輪收據 PR（原樣帶入 #286），同步 main 後經 detna 核准；[run 37819659316](https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37819659316) 由 709600a0 執行並成功（`ui-e2e` job 約 35 分鐘），`verify@15368` 與 `CodeQL@57789` 均 success；18:39 UTC 依一般流程 merge（`8c8fe896`）。 |
+
+清理：E2／E3 關閉且未 merge；臨時規則先刪除並回讀確認不存在，再刪除 4 個 probe refs；main ruleset 在清理後回讀，與切換後相同。
+操作者私有 journal `freedom-trust-pin-20261008` 保存 API receipts、logs 與規則前後配置；公開 JSON 只含配置、run／job、
+pinned 檢查摘要、rule suite、HTTP 結果與邊界。
+
+本次升級不涵蓋：
+
+- S（舊綠燈失效）、E0／E1b（候選改 test scripts 與敵意設定）、E2p／E3p（pytest）與 fork 探測都沒有重做；
+  709600a0 沒有改 runner 的判定邏輯，這些結果保留在 10 月 7 日（6ffdf94a）與 10 月 6 日（d1c9）證據。
+- 其餘邊界同 10 月 7 日：build、typecheck、dry-run 與 `check:*` 等步驟仍由候選定義，候選程式仍與 trusted runner 在同一個 runner 上執行；
+  選中 job 被 skipped／cancelled 的 hosted 反例未單獨執行；中央 main 沒有 merge queue；durable App publisher 未安裝；完整 P2 未完成；
+  consumer rules `24473806`／`24476100`／`24516222` 與目錄站 queue 未改動。
