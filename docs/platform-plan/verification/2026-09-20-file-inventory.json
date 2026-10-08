@@ -12810,7 +12810,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12359,
-      "sha256": "871c902098665b072b3ca0eb0a29eabd6093c9995848f5843793e0c0f07b336c"
+      "sha256": "b05ab5da60350c5c0385880a89ec1d9cad0de46b0bd487f8881538619ac9657f"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12839,8 +12839,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 11087,
-      "sha256": "7504a9c28c89b1d74eb99709bb90cdc68b5d6050f8f32a46419de5e358b5650b"
+      "bytes": 11149,
+      "sha256": "765853b943c9c911d63fe99db8ae7c5a683bf6245bc05b22176b9516b781a9ea"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
@@ -14579,8 +14579,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 19324,
-      "sha256": "6a6ab6d7e28ff900e1d5f3b0efd21f1fbeba22f4592a315ebef396227d29b8b5"
+      "bytes": 19374,
+      "sha256": "45005ac912a7b46af73b0bfada06b94e02b83ccb0b4e750d0e15d2d9b17f13bc"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15979,8 +15979,8 @@
     },
     {
       "path": "migrations/134_hosted_storefronts.sql",
-      "bytes": 6496,
-      "sha256": "d958135a31f1b987e63066f753a928f465dd3902a550dc64fc4656e9a6e8b074"
+      "bytes": 6519,
+      "sha256": "6f027d7fa8ee96d531fb76dc8e52f1d40962a6f91b036094146430d23a7e8511"
     },
     {
       "path": "modules/agent-commerce/README.md",
@@ -16059,8 +16059,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/store.ts",
-      "bytes": 15987,
-      "sha256": "3d73c5fac22895dc0d562012fdaf5dfa6d649d924058ee7dba62445566a18a06"
+      "bytes": 16023,
+      "sha256": "68885c12d172fe680b7fd305cb96baf46c4d188fc7a6452e2931575e4532fade"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -17144,8 +17144,8 @@
     },
     {
       "path": "modules/module-registry/README.md",
-      "bytes": 29193,
-      "sha256": "0e0c45dc07b3049b4328995c98a00084091230f47cf2c16391bb9bab9f80de76"
+      "bytes": 29215,
+      "sha256": "d830bbfabc6db50134c6cfe6153c1f3328ffedaae0ea809178be9fc3d08a0a38"
     },
     {
       "path": "modules/module-registry/canonical.ts",
@@ -20250,7 +20250,7 @@
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
       "bytes": 51368,
-      "sha256": "fa56ece72a2d3ea7a5f46ff7ac2f6e997519567868903b64b734fba4c6130bc4"
+      "sha256": "2f29f72026d12babdf55a667db4d5423e64cf81a1edc9179f7104f7d2c0efe96"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -20294,8 +20294,8 @@
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",
-      "bytes": 43319,
-      "sha256": "a5216db5cc294c0e0c377900d22c02c9a701be48987103e37448be8f890571b8"
+      "bytes": 50636,
+      "sha256": "c9df1170b1a349c5b47c913711575b6ee8c225fdd017e5ca7673a01cf7339293"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
