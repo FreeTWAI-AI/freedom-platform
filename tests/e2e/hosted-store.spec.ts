@@ -210,3 +210,74 @@ test('store pages stay readable in every theme and width', async ({page, browser
   await expect(storePage(page)).toContainText('找不到這間商店。');
   await expect(page.getByRole('form', {name: '建立商店', exact: true})).toHaveCount(0);
 });
+
+test('unsaved store settings survive publication controls until saved', async ({page, e2eAuthPool}, testInfo) => {
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '草稿保護工作室');
+  const originalSlug = slugFor().toLowerCase(), nextSlug = slugFor().toLowerCase();
+  await post(page, ready.root + '/setup', {name: '原商店名稱', description: '原介紹', slug: originalSlug, currency: 'TWD'}, 201);
+  await post(page, ready.root + '/products', {title: '茶杯', price_minor: 35000, stock: 1, description: ''}, 201);
+  await open(page, ready.hash);
+  const settings = page.getByRole('form', {name: '商店資料', exact: true});
+  await settings.getByLabel('商店名稱', {exact: true}).fill('尚未儲存的新名稱');
+  await settings.getByRole('textbox', {name: '商店介紹', exact: true}).fill('尚未儲存的新介紹');
+  await settings.getByLabel('商店網址', {exact: true}).fill(nextSlug);
+  const publish = storePage(page).getByRole('button', {name: '發布展示頁', exact: true});
+  await expect(publish).toBeDisabled();
+  const publication = page.getByRole('region', {name: '預覽與發布', exact: true});
+  await expect(publication).toContainText('還有尚未儲存的內容。');
+  for (const mode of ['light', 'dark']) {await theme(page, mode); for (const width of [360, 1280]) {
+    await page.setViewportSize({width, height: 900});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await publication.screenshot({path: testInfo.outputPath(`store-draft-${mode}-${width}.png`)});
+  }}
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('尚未儲存的新名稱');
+  await expect(settings.getByRole('textbox', {name: '商店介紹', exact: true})).toHaveValue('尚未儲存的新介紹');
+  await expect(settings.getByLabel('商店網址', {exact: true})).toHaveValue(nextSlug);
+  await settings.getByRole('button', {name: '儲存商店資料', exact: true}).click();
+  await expect(publish).toBeEnabled();
+  await publish.click();
+  await expect(storePage(page).getByRole('status')).toContainText('已發布・第 1 版');
+  const publicPage = await page.request.get(`/shops/${nextSlug}`);
+  expect(publicPage.status()).toBe(200);
+  const publicHtml = await publicPage.text();
+  expect(publicHtml).toContain('尚未儲存的新名稱');
+  expect(publicHtml).toContain('尚未儲存的新介紹');
+  expect((await page.request.get(`/shops/${originalSlug}`)).status()).toBe(404);
+  await settings.getByLabel('商店名稱', {exact: true}).fill('停止公開前的草稿');
+  const unpublish = storePage(page).getByRole('button', {name: '停止公開', exact: true});
+  await expect(unpublish).toBeDisabled();
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('停止公開前的草稿');
+  await settings.getByRole('button', {name: '儲存商店資料', exact: true}).click();
+  await expect(unpublish).toBeEnabled();
+  page.once('dialog', dialog => dialog.accept());
+  await unpublish.click();
+  await expect(storePage(page).getByRole('status')).toContainText('已停止公開');
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('停止公開前的草稿');
+});
+
+test('store drafts ask before main navigation and retain edits when leaving is declined', async ({page, e2eAuthPool}) => {
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '導覽草稿工作室');
+  await post(page, ready.root + '/setup', {name: '導覽商店', description: '', slug: slugFor().toLowerCase(), currency: 'TWD'}, 201);
+  await open(page, ready.hash);
+  const settings = page.getByRole('form', {name: '商店資料', exact: true});
+  await settings.getByLabel('商店名稱', {exact: true}).fill('留下這份草稿');
+  let prompts = 0, allowLeave = false;
+  page.on('dialog', async dialog => {prompts++; expect(dialog.message()).toBe('還有尚未儲存的內容，要離開嗎？'); if (allowLeave) await dialog.accept(); else await dialog.dismiss();});
+  await navigate(page, '職業公會');
+  await expect(page).toHaveURL(new RegExp('#' + ready.hash + '$'));
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('留下這份草稿');
+  expect(prompts).toBe(1);
+  await page.evaluate(() => {window.location.hash = 'home';});
+  await expect.poll(() => prompts).toBe(2);
+  await expect(page).toHaveURL(new RegExp('#' + ready.hash + '$'));
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('留下這份草稿');
+  allowLeave = true;
+  await navigate(page, '職業公會');
+  await expect(page).toHaveURL(/#guilds$/);
+  await expect(settings).toHaveCount(0);
+  expect(prompts).toBe(3);
+  await open(page, ready.hash);
+  await expect(settings.getByLabel('商店名稱', {exact: true})).toHaveValue('導覽商店');
+});

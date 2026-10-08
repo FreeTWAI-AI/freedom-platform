@@ -528,6 +528,9 @@ function Workspace({
   },[session.user.user_id]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
+  const storeLeaveGuard = useRef<(() => boolean) | null>(null)
+  const acceptedHash = useRef(window.location.hash)
+  const registerStoreLeave = useCallback((guard: (() => boolean) | null) => { storeLeaveGuard.current = guard }, [])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const notificationSequence=useRef(0)
@@ -555,6 +558,9 @@ function Workspace({
     workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
   const selectTab = useCallback((next: TabId) => {
+    const nextHash = `#${next}`
+    if (nextHash !== acceptedHash.current && storeLeaveGuard.current && !storeLeaveGuard.current()) return
+    acceptedHash.current = nextHash
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
@@ -608,7 +614,15 @@ function Workspace({
     setTab(tabFromHash(launchpadEnabled))
   }, [launchpadEnabled])
   useEffect(() => {
-    const changed = () => { setLocationHash(window.location.hash); setTab(tabFromHash(launchpadEnabled)) }
+    const changed = () => {
+      const nextHash = window.location.hash
+      if (nextHash !== acceptedHash.current && storeLeaveGuard.current && !storeLeaveGuard.current()) {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${acceptedHash.current}`)
+        return
+      }
+      acceptedHash.current = nextHash
+      setLocationHash(nextHash); setTab(tabFromHash(launchpadEnabled))
+    }
     window.addEventListener('hashchange', changed)
     window.addEventListener('popstate', changed)
     return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
@@ -671,6 +685,7 @@ function Workspace({
   )
 
   async function logout() {
+    if (storeLeaveGuard.current && !storeLeaveGuard.current()) return
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
     })
@@ -745,7 +760,7 @@ function Workspace({
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
-            {tab === 'stores' && <HostedStore client={client} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} />}
+            {tab === 'stores' && <HostedStore client={client} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerStoreLeave} />}
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}

@@ -34,12 +34,13 @@ function errorText(error: unknown) {
   return '暫時無法確認回應。請重新載入後再試一次。';
 }
 type Preview = z.infer<typeof StorePreviewSchema>;
-export function HostedStore({client, enabled, locationHash, userId}: {client: PortalClient; enabled: boolean; locationHash: string; userId: string}) {
+type RegisterLeave = (guard: (() => boolean) | null) => void;
+export function HostedStore({client, enabled, locationHash, userId, registerLeave}: {client: PortalClient; enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
   if (!enabled) return <p className="banner" role="status">這個頁面目前未開放。</p>;
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
-  return valid ? <StorePage key={`${userId}:${path[1]}:${path[2]}`} client={client} tenantId={path[1]} instanceId={path[2]}/> : <MissingStore/>;
+  return valid ? <StorePage key={`${userId}:${path[1]}:${path[2]}`} client={client} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave}/> : <MissingStore/>;
 }
 function BackLink() { return <div className="actions"><a href="#stores" className="btn btn-ghost">返回我的商店</a></div>; }
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
@@ -60,7 +61,7 @@ function StoreList({client}: {client: PortalClient}) {
 
 type Attempt = {method: 'post' | 'patch'; path: string; body: unknown; version?: string; schema: z.ZodType;
   key: string; success: (value: unknown) => void; notice: string; product?: boolean; fieldError?: (error: ApiError) => void};
-function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenantId: string; instanceId: string}) {
+function StorePage({client, tenantId, instanceId, registerLeave}: {client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave}) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [view, setView] = useState<StoreView | null>(null);
   const [products, setProducts] = useState<ProductView[]>([]);
@@ -72,7 +73,8 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState<Attempt | null>(null);
   const [dirtyForms, setDirtyForms] = useState<Record<string, boolean>>({});
-  const dirty = Object.values(dirtyForms).some(Boolean) || busy || retry !== null;
+  const hasDraft = Object.values(dirtyForms).some(Boolean);
+  const dirty = hasDraft || busy || retry !== null;
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const controller = useRef(new AbortController());
   const readGeneration = useRef(0);
@@ -81,6 +83,10 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
   const statusLine = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   function leaveOk() {return !dirtyRef.current || window.confirm(LEAVE);}
+  useEffect(() => {
+    registerLeave(() => !dirtyRef.current || window.confirm(LEAVE));
+    return () => registerLeave(null);
+  }, [registerLeave]);
   useEffect(() => {
     controller.current = new AbortController();
     const unloading = (event: BeforeUnloadEvent) => {if (dirtyRef.current) {event.preventDefault(); event.returnValue = '';}};
@@ -144,9 +150,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
   const publication = view?.publication;
   const publicationText = publication?.state === 'published' ? `已發布・第 ${publication.current_revision} 版・${formatIsoLocal(publication.published_at)}`
     : publication?.state === 'unpublished' ? '已停止公開' : '尚未發布';
-  return <div className="hosted-store stack" onClickCapture={event => {
-    if (event.target instanceof Element && event.target.closest('a') && !leaveOk()) {event.preventDefault(); event.stopPropagation();}
-  }}>
+  return <div className="hosted-store stack">
     <BackLink/>
     <p ref={statusLine} tabIndex={-1} role="status" aria-live="polite">{loading && !view ? '正在載入商店…' : [status, store ? publicationText : ''].filter(Boolean).join(' ')}</p>
     {error && <p className="banner banner-error" role="alert">{error}</p>}
@@ -176,9 +180,10 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更。</p>}
           {preview && <Projection projection={preview.projection}/>}
           {can('store:publish') && <div className="actions">
-            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || !products.length || !preview} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
-            {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
+            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || hasDraft || !products.length || !preview} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
+            {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={locked || hasDraft} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
           </div>}
+          {can('store:publish') && hasDraft && <p className="field-hint">還有尚未儲存的內容。請先儲存商店資料與商品，再發布或停止公開。</p>}
           {can('store:publish') && !products.length && <p className="field-hint">至少上架一件商品才能發布。</p>}
           {publication?.state === 'published' && publication.public_path && <div className="actions"><a href={publication.public_path} target="_blank" rel="noopener">查看公開頁：{publication.public_path}</a></div>}
           {store.slug_locked && <p className="field-hint">網址已固定。</p>}
