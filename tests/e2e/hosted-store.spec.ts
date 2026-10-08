@@ -130,6 +130,23 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   } finally {await anonymous.close();}
   await signOut(page); await login(page, member.email); await open(page, `guilds/${commerce}`);
   await expect(primary(page)).toContainText('小島選物・已發布');
+  const applications = page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '應用', exact: true})});
+  const storeCard = applications.locator('.application-card').filter({has: page.getByRole('heading', {name: '線上商店', exact: true})});
+  await storeCard.getByRole('button', {name: '啟動應用', exact: true}).click();
+  const space = flow(page).getByRole('group', {name: '業務空間', exact: true}).getByRole('button', {name: /^小島選物工作室・/});
+  await expect(space).toBeVisible();
+  if (await space.getAttribute('aria-current') !== 'true') await space.click();
+  await expect(space).toHaveAttribute('aria-current', 'true');
+  const workspace = flow(page).getByRole('group', {name: '工作區', exact: true}).getByRole('button', {name: '小島選物工作室', exact: true});
+  await expect(workspace).toBeVisible();
+  if (await workspace.getAttribute('aria-current') !== 'true') await workspace.click();
+  await expect(workspace).toHaveAttribute('aria-current', 'true');
+  await expect(flow(page).getByRole('radio', {name: '另建獨立空白的商店', exact: true})).toBeDisabled();
+  await expect(flow(page).getByText('這個業務空間已經有商店，請沿用它。', {exact: true})).toBeVisible();
+  await expect(flow(page)).not.toContainText('新實例不複製既有資料，會使用額外容量。');
+  await expect(flow(page).getByRole('radio', {name: /^將共用既有的商店（ID 尾碼 /})).toBeVisible();
+  await flow(page).getByRole('button', {name: '取消', exact: true}).click();
+  await expect(flow(page)).toHaveCount(0);
   await primary(page).getByRole('button', {name: '進入我的商店', exact: true}).click();
   await expect(page).toHaveURL(new RegExp(hash + '$'));
   await expect(storePage(page).getByRole('heading', {level: 2})).toHaveText('小島選物');
