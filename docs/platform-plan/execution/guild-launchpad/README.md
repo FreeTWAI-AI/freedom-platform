@@ -6,38 +6,38 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=e89cd0c82ff171b146d1c2fba3b19c4908bea49c release.staging=e89cd0c82ff171b146d1c2fba3b19c4908bea49c flag.production=true flag.staging=true repo_max_migration=133 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-08 release.production=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 release.staging=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 flag.production=true flag.staging=true repo_max_migration=133 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-2026-10-08 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第八輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+2026-10-08 的紀錄。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
 狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。Repository 最新的 migration 是 133（#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 `accepted_m1`／`accepted_full` 只有在驗證無失敗、里程碑指定 `candidate_sha`，且每案都已通過並有該 SHA 在 ci、staging 或 production 的有效、未被較晚非通過結果推翻的通過證據時才為 true。T-015 與 T-023 依 `acceptance-progress.json` 的 `scope` 採 M1 變體驗收。M1 變體結果記在該案的 `variants.M1`，沿用相同的 `status`／`evidence` 格式，只計入 M1，不計入完整計畫。沒有 `variants.M1` 時，M1 使用該案本身的結果。新增 migration 的 PR 必須重跑 `python3 docs/platform-plan/execution/guild-launchpad/validate-spec-pack.py --write-status`。
 
-- 部署：main `e89cd0c8`（#287 的 merge，第八輪）自 2026-10-08 14:32Z 在 staging、14:34Z 在 production 執行；migration 132、133 兩邊都已套用，131 在第七輪（`3685d626`）、128～130 在第六輪（`d2900cf4`）、126、127 在第五輪（`c84829e2`，M1 候選版本 X）、125 在第四輪（`e8cd72e8`）、120–124 在第三輪（`687dee87`）已套用。
-- 啟用：兩個環境都設定 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`：staging 自 2026-10-08 06:11Z 起（在 X 上試開），production 自 07:05Z 起（owner 於 06:47Z 決定開啟）。第六輪（`d2900cf4`）、第七輪（`3685d626`）與第八輪（`e89cd0c8`，Worker 版本 staging `f9284c0b`、production `4c40169a`）都以同一份 dist 部署到兩個環境，flag 維持開啟：第六輪 P-D1、P-D2a、P-D2b，第七輪 P-B2b、P-D3a，第八輪 P-D3a 的目錄修正（#287）隨部署上線。
+- 部署：main `cc72c3fd`（#297 的 merge，第九輪，無 migration）自 2026-10-08 19:19Z 在 staging、19:20Z 在 production 執行；migration 132、133 在第八輪（`e89cd0c8`）兩邊都已套用，131 在第七輪（`3685d626`）、128～130 在第六輪（`d2900cf4`）、126、127 在第五輪（`c84829e2`，M1 候選版本 X）、125 在第四輪（`e8cd72e8`）、120–124 在第三輪（`687dee87`）已套用。
+- 啟用：兩個環境都設定 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`：staging 自 2026-10-08 06:11Z 起（在 X 上試開），production 自 07:05Z 起（owner 於 06:47Z 決定開啟）。第六輪（`d2900cf4`）、第七輪（`3685d626`）、第八輪（`e89cd0c8`）與第九輪（`cc72c3fd`，Worker 版本 staging `3a5a5308`、production `d80f2817`）都以同一份 dist 部署到兩個環境，flag 維持開啟：第六輪 P-D1、P-D2a、P-D2b，第七輪 P-B2b、P-D3a，第八輪 P-D3a 的目錄修正（#287），第九輪公會首頁設定（D1，#297）隨部署上線。
 - 政策列：兩個環境各有 1 列 `tenant_capacity_policies`，值相同（預設範圍、暫時值 10／3／2／1000／104857600／2／0、plan_ref `interim-default-20261007`、revision 1）：staging 於 2026-10-08 05:51Z、production 於 06:55Z 由各自的 migrator 以 #227 的工具寫入，production 依 owner 選擇沿用 staging 的值。`tenant_authority_policies` 兩邊都是 0 列，經營權移交與復原會回 403 `policy_unconfigured`。狀態行的 `capacity_policy_rows` 記的是每個環境各自的列數（兩邊相同）。
-- 驗收：M1 尚未接受。第六～第八輪都依 owner 選擇直接上線，沒有跑 staging 驗收，P-D1／P-D2a／P-D2b、P-B2b／P-D3a 與 P-D3a 的目錄修正沒有 T-ID 證據；第八輪部署後 production 的 33 個公開選定檢查與 4 次新 DNS 解析的 health 讀回都通過（第六、第七輪都是 29 與 4）。X 上 production 開啟後跑了 29 個公開的選定檢查：網站回報 launchpad 啟用，公開分類清單已掛載（catalog revision 24：3 個區塊、12 個已核准、12 個待審）；production 沒有示範帳號，guild-work verifier 只在 staging 執行。staging 試開跑了 47 個選定的檢查：網站回報 launchpad 啟用，公開分類清單已掛載（catalog revision 18：3 個區塊、12 個已核准、6 個待審）。2026-10-08 06:32Z guild-work verifier（#242）在 staging 以真實 R2 通過：T-005 通過；T-023 的 M1 變體（權限半部）通過，完整案例記為 partial（X 沒有匯出路由，匯出還原沒有執行）。M1 的 28 案中有 2 案有通過證據，M1 尚未指定 candidate_sha；[60 項驗收](acceptance.md)的其餘案例仍是 not_run。
+- 驗收：M1 尚未接受。第六～第九輪都依 owner 選擇直接上線，沒有跑 staging 驗收，P-D1／P-D2a／P-D2b、P-B2b／P-D3a、P-D3a 的目錄修正與 D1 公會首頁設定沒有 T-ID 證據；第九輪部署後 production 的 33 個公開選定檢查與 4 次新 DNS 解析的 health 讀回都通過（第八輪是 33 與 4，第六、第七輪都是 29 與 4）。X 上 production 開啟後跑了 29 個公開的選定檢查：網站回報 launchpad 啟用，公開分類清單已掛載（catalog revision 24：3 個區塊、12 個已核准、12 個待審）；production 沒有示範帳號，guild-work verifier 只在 staging 執行。staging 試開跑了 47 個選定的檢查：網站回報 launchpad 啟用，公開分類清單已掛載（catalog revision 18：3 個區塊、12 個已核准、6 個待審）。2026-10-08 06:32Z guild-work verifier（#242）在 staging 以真實 R2 通過：T-005 通過；T-023 的 M1 變體（權限半部）通過，完整案例記為 partial（X 沒有匯出路由，匯出還原沒有執行）。M1 的 28 案中有 2 案有通過證據，M1 尚未指定 candidate_sha；[60 項驗收](acceptance.md)的其餘案例仍是 not_run。
 
 M0 規格包（SP-00–SP-12）由 #153（merge `c6f4a2cf`）合併。M1 各部分如下；PR 與 SP 的對應取自各 merge commit 的標題，migration 取自各 merge 對 `migrations/` 的差異。
 
 | M1 部分 | 已合併 | 已部署 | 已啟用 | 已驗收 | 下一步 |
 | --- | --- | --- | --- | --- | --- |
-| P-A 公會分類與主力偏好（SP-01） | #163，merge `eb4e348e`，migration 120 | 是，`e89cd0c8`；120 兩邊已套用 | 是，兩個環境 | 否 | 2、4、7 |
-| P-B1 業務空間授權核心（SP-02） | #164，merge `93e1470b`，migration 121 | 是，`e89cd0c8`；121 兩邊已套用 | 是，兩個環境 | 否 | 4、6、7 |
-| P-B2a 經營權移交與受控復原（SP-02） | #175，merge `137ace26`，migration 124 | 是，`e89cd0c8`；124 兩邊已套用 | 是，兩個環境；沒有 authority policy 列，移交與復原回 403 | 否 | 3、4、6、7 |
-| P-C1 啟動台殼層與版本化設定（SP-03） | #160，merge `12a2a83c`，migration 122 | 是，`e89cd0c8`；122 兩邊已套用 | 是，兩個環境 | 否 | 4、7 |
-| P-C2 業務空間手動工作與人工成果（SP-03／SP-04／SP-06） | #181，merge `57b610ab`，migration 123 | 是，`e89cd0c8`；123 兩邊已套用 | 是，兩個環境 | 否 | 1、4、5、6、7 |
-| P-C2-UI「我的工作」畫面（SP-03） | #190，merge `31df6ddb`，無 migration | 是，`e89cd0c8` | 是，兩個環境 | 否 | 4、5、7 |
-| P-K／P-K2 啟動台契約（SP-12） | #188，merge `6596263d`；#209，merge `5ccd76c3`；無 migration | 是，包含在 `e89cd0c8` | 不適用，沒有獨立開關 | 否 | 隨上列各部分 |
-| P-E1 tenant 表的 row security（SP-06） | #206，merge `70fb6ae7`，migration 125 | 是，`e89cd0c8`；125 兩邊已套用 | 資料庫層已生效，不受 flag 控制 | 否 | 6、7 |
-| P-D1 應用目錄、模組實例登錄、啟動操作與容量保留（SP-04） | #239，merge `e3f3b59c`，migration 128 | 是，`e89cd0c8`；128 兩邊已套用 | 是，兩個環境 | 否 | 8 |
-| P-D2a 模組實例的暫停與恢復（SP-04） | #269，merge `ed6e47c1`，migration 129 | 是，`e89cd0c8`；129 兩邊已套用 | 是，兩個環境 | 否 | 8 |
-| P-D2b 模組實例的封存（SP-04） | #278，merge `d2900cf4`，migration 130 | 是，`e89cd0c8`；130 兩邊已套用 | 是，兩個環境 | 否 | 8 |
-| P-B2b 成員的模組實例權限（SP-02） | #279，merge `59cfe68c`，migration 131 | 是，`e89cd0c8`；131 兩邊已套用 | 是，兩個環境 | 否 | 9 |
-| P-D3a 公會應用卡與啟動流程（SP-04） | #282，merge `3685d626`；目錄修正 #287，merge `e89cd0c8`；無 migration | 是，`e89cd0c8` | 是，兩個環境 | 否 | 9、10 |
-| P-E2 分頁游標綁定與跨業務空間矩陣（SP-06） | #245，merge `87f9fe51`，無 migration | 是，`e89cd0c8` | 是，兩個環境 | 否 | 4、5、7 |
-| capacity policy operator 工具 | #227，merge `c84829e2`，無 migration | 是，`e89cd0c8`（operator 工具，不隨 Worker 執行） | 不適用；兩個環境都已寫入相同的暫時值（revision 1） | 否 | 3、4、7 |
+| P-A 公會分類與主力偏好（SP-01） | #163，merge `eb4e348e`，migration 120 | 是，`cc72c3fd`；120 兩邊已套用 | 是，兩個環境 | 否 | 2、4、7 |
+| P-B1 業務空間授權核心（SP-02） | #164，merge `93e1470b`，migration 121 | 是，`cc72c3fd`；121 兩邊已套用 | 是，兩個環境 | 否 | 4、6、7 |
+| P-B2a 經營權移交與受控復原（SP-02） | #175，merge `137ace26`，migration 124 | 是，`cc72c3fd`；124 兩邊已套用 | 是，兩個環境；沒有 authority policy 列，移交與復原回 403 | 否 | 3、4、6、7 |
+| P-C1 啟動台殼層與版本化設定（SP-03） | #160，merge `12a2a83c`，migration 122 | 是，`cc72c3fd`；122 兩邊已套用 | 是，兩個環境 | 否 | 4、7 |
+| P-C2 業務空間手動工作與人工成果（SP-03／SP-04／SP-06） | #181，merge `57b610ab`，migration 123 | 是，`cc72c3fd`；123 兩邊已套用 | 是，兩個環境 | 否 | 1、4、5、6、7 |
+| P-C2-UI「我的工作」畫面（SP-03） | #190，merge `31df6ddb`，無 migration | 是，`cc72c3fd` | 是，兩個環境 | 否 | 4、5、7 |
+| P-K／P-K2 啟動台契約（SP-12） | #188，merge `6596263d`；#209，merge `5ccd76c3`；無 migration | 是，包含在 `cc72c3fd` | 不適用，沒有獨立開關 | 否 | 隨上列各部分 |
+| P-E1 tenant 表的 row security（SP-06） | #206，merge `70fb6ae7`，migration 125 | 是，`cc72c3fd`；125 兩邊已套用 | 資料庫層已生效，不受 flag 控制 | 否 | 6、7 |
+| P-D1 應用目錄、模組實例登錄、啟動操作與容量保留（SP-04） | #239，merge `e3f3b59c`，migration 128 | 是，`cc72c3fd`；128 兩邊已套用 | 是，兩個環境 | 否 | 8 |
+| P-D2a 模組實例的暫停與恢復（SP-04） | #269，merge `ed6e47c1`，migration 129 | 是，`cc72c3fd`；129 兩邊已套用 | 是，兩個環境 | 否 | 8 |
+| P-D2b 模組實例的封存（SP-04） | #278，merge `d2900cf4`，migration 130 | 是，`cc72c3fd`；130 兩邊已套用 | 是，兩個環境 | 否 | 8 |
+| P-B2b 成員的模組實例權限（SP-02） | #279，merge `59cfe68c`，migration 131 | 是，`cc72c3fd`；131 兩邊已套用 | 是，兩個環境 | 否 | 9 |
+| P-D3a 公會應用卡與啟動流程（SP-04） | #282，merge `3685d626`；目錄修正 #287，merge `e89cd0c8`；無 migration | 是，`cc72c3fd` | 是，兩個環境 | 否 | 9、10 |
+| P-E2 分頁游標綁定與跨業務空間矩陣（SP-06） | #245，merge `87f9fe51`，無 migration | 是，`cc72c3fd` | 是，兩個環境 | 否 | 4、5、7 |
+| capacity policy operator 工具 | #227，merge `c84829e2`，無 migration | 是，`cc72c3fd`（operator 工具，不隨 Worker 執行） | 不適用；兩個環境都已寫入相同的暫時值（revision 1） | 否 | 3、4、7 |
 
 下一步相依（都是未完成事項，不是承諾）：
 
@@ -51,6 +51,7 @@ M0 規格包（SP-00–SP-12）由 #153（merge `c6f4a2cf`）合併。M1 各部�
 8. 第六輪：P-D1、P-D2a、P-D2b 上線。owner 於 2026-10-08 選擇直接部署、到 live 再測，不跑 staging 驗收。兩個環境各自在 migration 前做了備份（隔離還原與遠端讀回），由 migrator 套用 128～130、重套 runtime grants 並通過唯讀驗證，接著立刻部署 `d2900cf4`。128 對 X 不相容（X 建立新的 manual-work 實例會失敗），所以 migration 與部署連續執行，回滾是關閉 flag 或修正後再部署。staging 08:22Z、production 08:24Z 部署；production 的 29 個公開檢查與 4 次 health 讀回都通過，兩邊部署後的備份也做過隔離還原與遠端讀回。P-D1／P-D2a／P-D2b 的 T-ID 案例（T-008、T-016、T-017、T-018、T-021、T-022、T-024、T-051、T-055、T-057、T-058）沒有執行。
 9. 第七輪：P-B2b（#279，migration 131）與 P-D3a（#282，無 migration）上線。owner 於 2026-10-08 12:31Z 選擇照第六輪的方式直接發，不跑 staging 驗收。兩個環境各自在 migration 前做了備份（隔離還原與遠端讀回），由 migrator 套用 131、重套 runtime grants 並通過唯讀驗證，接著立刻部署 `3685d626`。131 對 `d2900cf4` 相容（新增表，並讓實例的 module_release_ref 不可變更，`d2900cf4` 不會改它），回滾是重新部署 `d2900cf4` 或關閉 flag，不需要退回 migration。staging 12:57Z、production 12:59Z 部署；production 的 29 個公開檢查與 4 次 health 讀回都通過，兩邊部署後的備份也做過隔離還原與遠端讀回。P-B2b 的 T-ID 案例（T-013、T-015、T-022、T-047）與 P-D3a 的畫面流程都沒有執行驗收。
 10. 第八輪：#193 的社群整合（#284，migration 132、133：社群貼文的按讚、留言與純文字貼文，以及新貼圖）與 P-D3a 的目錄修正（#287，無 migration）上線。owner 於 2026-10-08 13:49Z 選擇在 #287 合併後照第七輪的方式直接發，不跑 staging 驗收。兩個環境各自在 migration 前做了備份（隔離還原與遠端讀回），由 migrator 套用 132、133，重套 runtime grants 並通過唯讀驗證，接著立刻部署 `e89cd0c8`。132、133 對 `3685d626` 只是新增或放寬，回滾是重新部署 `3685d626`，不需要退回 migration；但部署後新增的純文字貼文、按讚、留言與新貼圖，舊版只能部分顯示。staging 14:32Z、production 14:34Z 部署；production 的 33 個公開檢查與 4 次 health 讀回都通過，兩邊部署後的備份也做過隔離還原與遠端讀回。#284 與 #287 都沒有執行驗收。
+11. 第九輪：公會首頁設定（D1，#297，無 migration）上線。沒有自訂首頁的電商公會與廣告攝影公會，改用各自的預設區塊順序與推薦應用，正式成員看到主要動作，見習成員看到提示，公會長可以編輯推薦。owner 於 2026-10-08 19:00Z 選擇在 #297 合併後照第八輪的方式直接發，不跑 staging 驗收。部署前兩邊的資料庫都唯讀確認仍在 133、沒有待套用的 migration。staging 19:19Z、production 19:20Z 部署；production 的 33 個公開檢查與 4 次 health 讀回都通過，部署後公開首頁讀回：電商公會是 使命→應用→我的工作→公告→技能書→社群任務→支援，廣告攝影公會是 使命→我的工作→技能書→公告→應用→社群任務→支援，兩邊都是 revision 2。兩邊部署後的備份也做過隔離還原與遠端讀回。回滾是重新部署 `e89cd0c8`，沒有資料變更。#297 沒有執行驗收；部署後另一個 session 用 staging 示範帳號實測：電商公會的正式成員看到主要動作「選品／營運待辦」，非成員看到加入提示，公會長存的推薦草稿重新進入後仍在、公開首頁不變；production 沒有登入實測。
 
 本目錄其他文件是 2026-10-05 以 `567ae8d3` 為基線的規格紀錄，文中的「目前／現行」指當時。`traceability.json` 的 `planning_only` 與各需求的 `planned` 是當時的規劃追蹤，保留不改；60 項驗收在 `traceability.json` 裡維持 `not_run`；實際進度記在 `acceptance-progress.json`，不記在 `traceability.json`。SP-01–SP-04 與 SP-06 的狀態行保留原文，另加 2026-10-07 註記指回本節。
 
