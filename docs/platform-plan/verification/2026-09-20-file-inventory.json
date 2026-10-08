@@ -12884,8 +12884,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
-      "bytes": 52231,
-      "sha256": "e97cde7fc3d9aba20311aabb4321c3c7a4b2fd484ad2966eae6065a22dde1bfc"
+      "bytes": 52319,
+      "sha256": "d1dc97d926e5b064914c020ba0760836efeb3848590c69db4c1e1e8c2fd25446"
     },
     {
       "path": "deploy/cloudflare/test/release-credential-broker.test.mjs",

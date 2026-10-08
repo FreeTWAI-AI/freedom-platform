@@ -556,7 +556,6 @@ test('114 fences generic ingest writers while schema alone does not assert OpenR
   assert.equal(evaluate(f).status, 'compatible', 'original pre-114 ingest contract remains representable');
 });
 
-const FRONTIER_NAME = '139_member_message_images.sql';
 const NODE_A = 'v2_20261005T000000001Z_0000000000000001_alpha.sql';
 const NODE_B = 'v2_20261005T000000002Z_0000000000000002_beta.sql';
 const NODE_C = 'v2_20261005T000000000Z_0000000000000003_child.sql';
@@ -571,18 +570,21 @@ function sortedLedger(rows) {
 let dagCatalogs;
 function catalogs() {
   if (dagCatalogs) return dagCatalogs;
+  const expected = loadManifest().database_defaults.migrations;
+  const legacyScan = checkMigrations(join(ROOT, 'migrations'), expected);
+  assert.equal(legacyScan.ok, true, 'DAG fixtures require the validated current legacy catalog');
+  const frontierName = legacyScan.last;
   const root = mkdtempSync(join(tmpdir(), 'fp-c5c-floor-'));
-  const legacyScan = checkMigrations(join(ROOT, 'migrations'), loadManifest().database_defaults.migrations);
   const profile = {
     format: DAG_MIGRATIONS,
-    legacy: { format: LEGACY_MIGRATIONS, first: 1, last: 139, known_gaps: [22] },
+    legacy: { format: LEGACY_MIGRATIONS, first: expected.first, last: expected.last, known_gaps: [...expected.known_gaps] },
     legacy_ledger: legacyScan.ledger.map(({ name, sha256 }) => ({ name, sha256 })),
   };
   const files = {
-    [NODE_A]: v2Sql([FRONTIER_NAME], 'CREATE TABLE alpha_floor(id integer PRIMARY KEY);\n'),
-    [NODE_B]: v2Sql([FRONTIER_NAME], 'CREATE TABLE beta_floor(id integer PRIMARY KEY);\n'),
+    [NODE_A]: v2Sql([frontierName], 'CREATE TABLE alpha_floor(id integer PRIMARY KEY);\n'),
+    [NODE_B]: v2Sql([frontierName], 'CREATE TABLE beta_floor(id integer PRIMARY KEY);\n'),
     [NODE_C]: v2Sql([NODE_A], 'CREATE TABLE child_floor(id integer PRIMARY KEY);\n'),
-    [INTERNAL_V2_SHAPE.migration_name]: v2Sql([FRONTIER_NAME], 'CREATE TABLE shape_floor(id integer PRIMARY KEY);\n'),
+    [INTERNAL_V2_SHAPE.migration_name]: v2Sql([frontierName], 'CREATE TABLE shape_floor(id integer PRIMARY KEY);\n'),
   };
   const fill = (dir, names) => {
     mkdirSync(dir, { recursive: true });
@@ -591,7 +593,6 @@ function catalogs() {
   };
   const ab = join(root, 'ab'), ba = join(root, 'ba'), abc = join(root, 'abc'), shape = join(root, 'shape');
   fill(ab, [NODE_A, NODE_B]); fill(ba, [NODE_B, NODE_A]); fill(abc, [NODE_A, NODE_B, NODE_C]); fill(shape, [INTERNAL_V2_SHAPE.migration_name]);
-  const expected = loadManifest().database_defaults.migrations;
   const scan = (dir) => checkMigrations(dir, expected, profile);
   dagCatalogs = { root, profile, legacyScan, ab: scan(ab), ba: scan(ba), abc: scan(abc), shape: scan(shape) };
   return dagCatalogs;
