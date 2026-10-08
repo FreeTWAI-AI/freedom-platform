@@ -19864,8 +19864,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 47887,
-      "sha256": "24f8e160a7d954a4f487b22194cef8c050d4f790f186950c8d0125a1496056a0"
+      "bytes": 56832,
+      "sha256": "11c4d0dc0d6f385c0d32a442b81b645e74ffb725ab66ffdd4fb485dd4e87abbf"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -21324,8 +21324,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 38662,
-      "sha256": "386fd9d20945a25a93f470c63cf347f35a3610d57ec9a4051586be32200cffff"
+      "bytes": 47653,
+      "sha256": "7a547e20e721bb299544f5761c0f9c55876aef318837171d50593fe77c32006e"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
