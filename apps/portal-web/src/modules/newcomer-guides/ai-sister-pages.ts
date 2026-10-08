@@ -28,6 +28,7 @@ export const AI_SISTER_PAGE_SUPPORT={
   retail:{...DRAGON_PAGE_SUPPORT.retail,characterId:'member-selected',outfitId:'travel'},
   marketing:{...DRAGON_PAGE_SUPPORT.marketing,characterId:'member-selected',outfitId:'media'},
   'guild-workspace':{...DRAGON_PAGE_SUPPORT['guild-workspace'],characterId:'member-selected',outfitId:'politics'},
+  reservations:{status:'disabled',reason:'預留頁的導覽內容與操作定位尚未完成審核'},
   stores:{status:'disabled',reason:'商店的 AI Sister 內容與定位尚未完成審核'},
   business:{status:'disabled',reason:'業務空間的 AI Sister 內容與定位尚未完成審核'},
   community:{...DRAGON_PAGE_SUPPORT.community,characterId:'member-selected',outfitId:'environment'},
