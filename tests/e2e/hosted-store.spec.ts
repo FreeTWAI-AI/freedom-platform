@@ -187,4 +187,9 @@ test('store pages stay readable in every theme and width', async ({page, browser
     expect(await pub.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await pub.screenshot({path: testInfo.outputPath(`store-public-${width}.png`), fullPage: true});
   }} finally {await anonymous.close();}
+  // A store can disappear after entry; a slug read must also use the uniform missing state.
+  await page.route('**/api/v1' + setup.root + '/slug-availability?*', route => route.fulfill({status: 404, contentType: 'application/problem+json', json: {code: 'not_found', detail: '找不到這間商店。'}}));
+  await page.getByRole('form', {name: '建立商店', exact: true}).getByLabel('商店網址', {exact: true}).fill('lost-store');
+  await expect(storePage(page)).toContainText('找不到這間商店。');
+  await expect(page.getByRole('form', {name: '建立商店', exact: true})).toHaveCount(0);
 });

@@ -184,7 +184,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
     {view && <>
       <h2>{store?.name ?? '設定我的商店'}</h2>
       {!view.writable && <p>{view.capabilities.some(key => key !== 'store:read') ? '這間商店目前暫停，無法修改。' : '你可以檢視這間商店，但不能修改。'}</p>}
-      {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
+      {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>
         <p className="banner" role="note">{NOTICE}</p>
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
@@ -213,7 +213,7 @@ function StorePage({client, tenantId, instanceId}: {client: PortalClient; tenant
           {store.slug_locked && <p className="field-hint">網址已固定。</p>}
         </section>
         <section className="stack" aria-labelledby="store-settings-title"><h3 id="store-settings-title">商店資料</h3>
-          {can('store:manage') ? <SettingsForm key={view.version} client={client} root={root} store={store} busy={locked} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'patch', path: root, body, version: view.version!, schema: StoreViewSchema, notice: `已儲存。${publication?.state === 'published' ? '重新發布後，公開頁才會更新。' : ''}`, success, fieldError})}/>
+          {can('store:manage') ? <SettingsForm key={view.version} client={client} root={root} store={store} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'patch', path: root, body, version: view.version!, schema: StoreViewSchema, notice: `已儲存。${publication?.state === 'published' ? '重新發布後，公開頁才會更新。' : ''}`, success, fieldError})}/>
             : <dl className="detail-list"><div><dt>商店名稱</dt><dd>{store.name}</dd></div><div><dt>品牌</dt><dd>{store.brand ?? '未填寫'}</dd></div><div><dt>商店介紹</dt><dd>{store.description}</dd></div><div><dt>商店網址</dt><dd>/shops/{store.slug}</dd></div><div><dt>幣別</dt><dd>{currencyLabel(store.currency)}</dd></div></dl>}
         </section>
       </>}
@@ -229,8 +229,8 @@ function Projection({projection}: {projection: PublicStoreProjection}) {
       {product.description.split(/\n+/).filter(line => line.trim()).map((line, index) => <p key={index}>{line}</p>)}</article>)}
   </section>;
 }
-function SettingsForm({client, root, store, busy, onDirty, onSave}: {
-  client: PortalClient; root: string; store?: NonNullable<StoreView['store']>; busy: boolean; onDirty: (dirty: boolean) => void;
+function SettingsForm({client, root, store, busy, onMissing, onDirty, onSave}: {
+  client: PortalClient; root: string; store?: NonNullable<StoreView['store']>; busy: boolean; onMissing: () => void; onDirty: (dirty: boolean) => void;
   onSave: (body: unknown, success: (value: unknown) => void, fieldError: (error: ApiError) => void) => Promise<void>;
 }) {
   const initial = {name: store?.name ?? '', brand: store?.brand ?? '', description: store?.description ?? '', slug: store?.slug ?? '', currency: store?.currency ?? 'TWD'};
@@ -240,6 +240,7 @@ function SettingsForm({client, root, store, busy, onDirty, onSave}: {
   const [slugError, setSlugError] = useState('');
   const [availability, setAvailability] = useState('');
   const id = useId();
+  const onMissingRef = useRef(onMissing); onMissingRef.current = onMissing;
   const dirty = JSON.stringify(fields) !== JSON.stringify(saved);
   const onDirtyRef = useRef(onDirty); onDirtyRef.current = onDirty;
   useEffect(() => {onDirtyRef.current(dirty);}, [dirty]);
@@ -252,7 +253,11 @@ function SettingsForm({client, root, store, busy, onDirty, onSave}: {
       void client.get(root + '/slug-availability?slug=' + encodeURIComponent(fields.slug), {signal: controller.signal}).then(raw => {
         const result = SlugAvailabilitySchema.parse(raw); if (controller.signal.aborted) return;
         setAvailability(result.available ? `可以使用：/shops/${result.slug}` : result.reason === 'taken' ? '這個網址已被使用。' : result.reason === 'reserved' ? '這個網址是保留字，請換一個。' : '網址格式不符。');
-      }).catch(cause => {if (!controller.signal.aborted) setAvailability(errorText(cause));});
+      }).catch(cause => {
+        if (controller.signal.aborted) return;
+        if (cause instanceof ApiError && cause.status === 404) onMissingRef.current();
+        else setAvailability(errorText(cause));
+      });
     }, 400);
     return () => {clearTimeout(timer); controller.abort();};
   }, [client, root, fields.slug, store?.slug_locked]);
