@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { checkVersion, command, journal, type Command } from '../../packages/db/index.js';
+import { checkVersion, command, journal, transaction, type Command } from '../../packages/db/index.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { communitySearchKinds, communitySearchTopics, type CommunitySearchPage } from '../../packages/shared/community-search.js';
 import type { Actor } from '../identity-membership/service.js';
@@ -9,6 +9,9 @@ import { catalogRepositoryKeys } from '../skill-submissions/repository-match.js'
 import { publishedWorkFrom, publishedWorkPayload } from '../skill-submissions/public.js';
 import { communityCatalog } from './catalog.js';
 import { getSkillCollaboration } from './skill-collaboration.js';
+import { requireSkillBookMaintainer } from '../guild-workspace/service.js';
+import { activeDevelopmentGuilds } from '../development-access/guild-eligibility.js';
+import { lockMemberSession, assertCurrentSessionClock } from '../../packages/db/member-session.js';
 
 const SORT = `to_char(%s AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const TOPIC = communitySearchTopics;
@@ -143,8 +146,9 @@ const topicBody = z.object({
 
 async function owned(q: PoolClient, actor: Actor, kind: Kind, id: string) {
   if (kind === 'skill_book') {
-    requireCondition(communityCatalog.skill_books.some(book => book.id === id), 404, 'not_found', '找不到這份內容。');
-    requireCondition((await q.query(`SELECT 1 FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND book_id=$3 AND active FOR SHARE`, [actor.community_id, actor.user_id, id])).rowCount === 1, 404, 'not_found', '找不到這份內容。');
+    // Reuse the editor's appointment + current full AI-guild authority. It takes
+    // the member-guild barrier before membership/appointment row locks.
+    await requireSkillBookMaintainer(q, actor, id);
     return;
   }
   requireCondition(z.uuid().safeParse(id).success, 404, 'not_found', '找不到這份內容。');
@@ -162,32 +166,42 @@ export async function assignContentTopics(pool: Pool, input: Command) {
   const topics = [...new Set(body.topics)].sort();
   return command(pool, input, async q => { await owned(q, input.actor, body.kind, body.id); }, async q => {
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`content-topic/${body.kind}/${body.id}`]);
-    const prior = (await q.query(`SELECT set_id,aggregate_version FROM community_content_topic_sets WHERE content_kind=$1 AND content_id=$2 FOR UPDATE`, [body.kind, body.id])).rows[0];
+    const prior = (await q.query(`SELECT set_id,aggregate_version FROM community_content_topic_sets WHERE content_kind=$1 AND content_id=$2 AND community_id=$3 FOR UPDATE`, [body.kind, body.id, input.actor.community_id])).rows[0];
     if (prior) checkVersion(String(prior.aggregate_version), input.expected);
     else requireCondition(!input.expected, 412, 'version_conflict', '主題已變更，請重新整理。');
     if (!topics.length && !prior) return { kind: body.kind, id: body.id, topics, aggregate_version: null };
     const setId = prior?.set_id ?? randomUUID();
-    const row = prior
-      ? (await q.query(`UPDATE community_content_topic_sets SET topics=$2,updated_by=$3,updated_at=now(),aggregate_version=aggregate_version+1 WHERE set_id=$1 RETURNING aggregate_version`, [setId, topics, input.actor.user_id])).rows[0]
-      : (await q.query(`INSERT INTO community_content_topic_sets(set_id,community_id,content_kind,content_id,topics,updated_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING aggregate_version`, [setId, input.actor.community_id, body.kind, body.id, topics, input.actor.user_id])).rows[0];
+    // Like saveSkillEditorial, scope both the prior and the unique-conflict
+    // update: a matching public book/version is not community authority.
+    const row = (await q.query(`INSERT INTO community_content_topic_sets(set_id,community_id,content_kind,content_id,topics,updated_by)
+      VALUES($1,$2,$3,$4,$5,$6)
+      ON CONFLICT(content_kind,content_id) DO UPDATE SET topics=$5,updated_by=$6,updated_at=now(),aggregate_version=community_content_topic_sets.aggregate_version+1
+      WHERE community_content_topic_sets.community_id=$2 RETURNING aggregate_version`,
+    [setId, input.actor.community_id, body.kind, body.id, topics, input.actor.user_id])).rows[0];
+    requireCondition(row, 403, 'editorial_scope_denied', '這份內容由另一個社群維護。');
     await journal(q, input.actor, 'community_content_topics', setId, row.aggregate_version, prior ? 'update' : 'assign', { kind: body.kind, id: body.id, topics });
     return { kind: body.kind, id: body.id, topics, aggregate_version: Number(row.aggregate_version) };
   });
 }
 
 export async function listTaggableContent(pool: Pool, actor: Actor) {
-  const topics = new Map((await pool.query(`SELECT content_kind,content_id,topics,aggregate_version FROM community_content_topic_sets WHERE community_id=$1`, [actor.community_id])).rows.map(row => [`${row.content_kind}:${row.content_id}`, row]));
-  const tag = (kind: Kind, id: string) => { const row = topics.get(`${kind}:${id}`); return { topics: (row?.topics ?? []) as string[], aggregate_version: row ? Number(row.aggregate_version) : null }; };
-  const [posts, works, events, books] = await Promise.all([
-    pool.query(`SELECT post_id::text AS id,title FROM community_social_posts WHERE community_id=$1 AND author_user_id=$2 AND state='active' ORDER BY created_at DESC,post_id LIMIT 20`, [actor.community_id, actor.user_id]),
-    pool.query(`SELECT submission_id::text AS id,payload->>'title' AS title FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published' ORDER BY published_at DESC,submission_id LIMIT 20`, [actor.community_id, actor.user_id]),
-    pool.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]),
-    pool.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active ORDER BY book_id LIMIT 20`, [actor.community_id, actor.user_id]),
-  ]);
-  return { items: [
-    ...posts.rows.map(row => ({ kind: 'post' as const, id: String(row.id), title: String(row.title), ...tag('post', row.id) })),
-    ...works.rows.map(row => ({ kind: 'work' as const, id: String(row.id), title: String(row.title ?? '作品'), ...tag('work', row.id) })),
-    ...events.rows.map(row => ({ kind: 'event' as const, id: String(row.id), title: String(row.title), ...tag('event', row.id) })),
-    ...books.rows.flatMap(row => { const book = communityCatalog.skill_books.find(item => item.id === row.book_id); return book ? [{ kind: 'skill_book' as const, id: book.id, title: book.title, ...tag('skill_book', book.id) }] : []; }),
-  ] };
+  return transaction(pool, async q => {
+    await lockMemberSession(q, actor);
+    const eligibleBooks = (await activeDevelopmentGuilds(q, actor, 'skill')).length > 0;
+    const topics = new Map((await q.query(`SELECT content_kind,content_id,topics,aggregate_version FROM community_content_topic_sets WHERE community_id=$1`, [actor.community_id])).rows.map(row => [`${row.content_kind}:${row.content_id}`, row]));
+    const tag = (kind: Kind, id: string) => { const row = topics.get(`${kind}:${id}`); return { topics: (row?.topics ?? []) as string[], aggregate_version: row ? Number(row.aggregate_version) : null }; };
+    const [posts, works, events, books] = await Promise.all([
+      q.query(`SELECT post_id::text AS id,title FROM community_social_posts WHERE community_id=$1 AND author_user_id=$2 AND state='active' ORDER BY created_at DESC,post_id LIMIT 20`, [actor.community_id, actor.user_id]),
+      q.query(`SELECT submission_id::text AS id,payload->>'title' AS title FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2 AND status='published' ORDER BY published_at DESC,submission_id LIMIT 20`, [actor.community_id, actor.user_id]),
+      q.query(`SELECT event_id::text AS id,title FROM community_events WHERE community_id=$1 AND organizer_ref=$2 AND state='published' ORDER BY created_at DESC,event_id LIMIT 20`, [actor.community_id, actor.user_id]),
+      q.query(`SELECT book_id FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND active AND $3::boolean ORDER BY book_id LIMIT 20 FOR SHARE`, [actor.community_id, actor.user_id, eligibleBooks]),
+    ]);
+    await assertCurrentSessionClock(q, actor);
+    return { items: [
+      ...posts.rows.map(row => ({ kind: 'post' as const, id: String(row.id), title: String(row.title), ...tag('post', row.id) })),
+      ...works.rows.map(row => ({ kind: 'work' as const, id: String(row.id), title: String(row.title ?? '作品'), ...tag('work', row.id) })),
+      ...events.rows.map(row => ({ kind: 'event' as const, id: String(row.id), title: String(row.title), ...tag('event', row.id) })),
+      ...books.rows.flatMap(row => { const book = communityCatalog.skill_books.find(item => item.id === row.book_id); return book ? [{ kind: 'skill_book' as const, id: book.id, title: book.title, ...tag('skill_book', book.id) }] : []; }),
+    ] };
+  });
 }

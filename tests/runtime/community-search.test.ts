@@ -4,10 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal, DEMO_USERS, DEMO_COMMUNITY } from '../../packages/testing/seed.js';
-import { searchCommunityContent, listTaggableContent } from '../../modules/community/content-search.js';
-import { login } from '../../modules/identity-membership/service.js';
+import { searchCommunityContent, listTaggableContent, assignContentTopics } from '../../modules/community/content-search.js';
+import { login, type Actor } from '../../modules/identity-membership/service.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { DEMO_PASSWORD } from '../../packages/testing/seed.js';
+
+import { communityCatalog } from '../../modules/community/catalog.js';
+import { Problem } from '../../packages/shared/problem.js';
+import { lockMemberGuilds } from '../../modules/positioning/onboarding.js';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) throw new Error('TEST_DATABASE_URL must name a disposable database');
@@ -122,4 +126,94 @@ test('cross-community private titles and topics are absent while public events r
   assert.equal(JSON.stringify(page).includes('不可洩漏摘要'),false);
   await pool.query("UPDATE community_events SET visibility='workshop' WHERE event_id=$1",[event]);
   assert.deepEqual((await searchCommunityContent(pool,actor,{q:'跨社群'})).items,[]);
+});
+
+async function editorFixture(bookId?: string) {
+  const community = randomUUID(), user = randomUUID(), adminId = randomUUID();
+  const email = `search-editor-${user}@local.test`;
+  await pool.query('INSERT INTO communities VALUES($1,$2)', [community, '搜尋授權反例']);
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
+    SELECT $1,$2,$3,'搜尋編輯者',password_hash,$4 FROM users WHERE user_id=$5`, [user, community, email, randomUUID(), DEMO_USERS[0].user_id]);
+  await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)', [adminId, community, `admin-${user}@local.test`, '合成管理員']);
+  const actor = (await login(pool, email, DEMO_PASSWORD)).actor;
+  await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+    VALUES($1,$2,$3,'guild_ai_vibe','active','full')`, [randomUUID(), community, user]);
+  if (bookId) {
+    await pool.query('INSERT INTO skill_editorial_ownership(book_id,community_id) VALUES($1,$2)', [bookId, community]);
+    await pool.query('INSERT INTO skill_book_maintainers(book_id,community_id,user_id,appointed_by,active) VALUES($1,$2,$3,$4,true)', [bookId, community, user, adminId]);
+  }
+  return { actor, adminId };
+}
+const topicCommand = (actor: Actor, bookId: string, expected?: string) => ({ actor, operation: 'search-topics-review', key: randomUUID(), expected, body: { kind: 'skill_book', id: bookId, topics: ['tools'] } });
+const deniedCode = (code: string) => (error: unknown) => error instanceof Problem && error.code === code;
+
+test('book topics and mine require current full AI guild membership; leave, intern and appointment revocation deny replay', async () => {
+  const bookId = communityCatalog.skill_books[0].id;
+  const { actor } = await editorFixture(bookId);
+  const input = topicCommand(actor, bookId);
+  const created = await assignContentTopics(pool, input);
+  assert.equal(created.aggregate_version, 1);
+  assert.deepEqual(await assignContentTopics(pool, input), created);
+  assert.ok((await listTaggableContent(pool, actor)).items.some(row => row.id === bookId));
+  for (const [state, tier, code] of [['left', 'full', 'skill_editor_guild_required'], ['active', 'intern', 'guild_full_member_required']] as const) {
+    await pool.query('UPDATE positioning_profession_memberships SET state=$2,member_tier=$3 WHERE user_id=$1', [actor.user_id, state, tier]);
+    await assert.rejects(assignContentTopics(pool, input), deniedCode(code));
+    await assert.rejects(assignContentTopics(pool, topicCommand(actor, bookId, '1')), deniedCode(code));
+    assert.equal((await listTaggableContent(pool, actor)).items.some(row => row.id === bookId), false);
+  }
+  await pool.query("UPDATE positioning_profession_memberships SET state='active',member_tier='full' WHERE user_id=$1", [actor.user_id]);
+  assert.equal((await assignContentTopics(pool, topicCommand(actor, bookId, '1'))).aggregate_version, 2);
+  await pool.query('UPDATE skill_book_maintainers SET active=false WHERE book_id=$1 AND user_id=$2', [bookId, actor.user_id]);
+  await assert.rejects(assignContentTopics(pool, input), deniedCode('skill_maintainer_required'));
+  assert.equal((await listTaggableContent(pool, actor)).items.some(row => row.id === bookId), false);
+});
+
+test('topic sets preserve their owning community on both guessed-version and unique-conflict writes', async () => {
+  const bookId = communityCatalog.skill_books[1].id;
+  const a = await editorFixture(bookId), b = await editorFixture();
+  const created = await assignContentTopics(pool, topicCommand(a.actor, bookId));
+  const before = (await pool.query('SELECT * FROM community_content_topic_sets WHERE content_kind=\'skill_book\' AND content_id=$1', [bookId])).rows[0];
+  // Legal fixture: editorial ownership is reassigned without changing the old
+  // topic set's owner. Never disable the maintainer FK to invent two owners.
+  await pool.query('DELETE FROM skill_book_maintainers WHERE book_id=$1', [bookId]);
+  await pool.query('UPDATE skill_editorial_ownership SET community_id=$2 WHERE book_id=$1', [bookId, b.actor.community_id]);
+  await pool.query('INSERT INTO skill_book_maintainers(book_id,community_id,user_id,appointed_by,active) VALUES($1,$2,$3,$4,true)', [bookId, b.actor.community_id, b.actor.user_id, b.adminId]);
+  await assert.rejects(assignContentTopics(pool, topicCommand(b.actor, bookId, String(created.aggregate_version))), deniedCode('version_conflict'));
+  await assert.rejects(assignContentTopics(pool, topicCommand(b.actor, bookId)), deniedCode('editorial_scope_denied'));
+  assert.deepEqual((await pool.query('SELECT * FROM community_content_topic_sets WHERE set_id=$1', [before.set_id])).rows[0], before);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM command_receipts WHERE user_id=$1', [b.actor.user_id])).rows[0].n, 0);
+  await pool.query('DELETE FROM skill_book_maintainers WHERE book_id=$1', [bookId]);
+  await pool.query('UPDATE skill_editorial_ownership SET community_id=$2 WHERE book_id=$1', [bookId, a.actor.community_id]);
+  await pool.query('INSERT INTO skill_book_maintainers(book_id,community_id,user_id,appointed_by,active) VALUES($1,$2,$3,$4,true)', [bookId, a.actor.community_id, a.actor.user_id, a.adminId]);
+  assert.equal((await assignContentTopics(pool, topicCommand(a.actor, bookId, '1'))).aggregate_version, 2);
+});
+
+test('book topic authorization waits behind the member-guild barrier and observes a committed demotion', async () => {
+  const bookId = communityCatalog.skill_books[2].id;
+  const { actor } = await editorFixture(bookId);
+  const locker = await pool.connect();
+  const workerName = `${schema}_topic_racer`;
+  const racer = new Pool({ connectionString: url, options: `-c search_path=${schema}`, application_name: workerName, max: 1 });
+  let pending: Promise<unknown> | undefined;
+  try {
+    await locker.query('BEGIN');
+    await lockMemberGuilds(locker, actor);
+    pending = assignContentTopics(racer, topicCommand(actor, bookId)).then(value => ({ value }), error => ({ error }));
+    let waiting = false;
+    for (let count = 0; count < 2000; count += 1) {
+      waiting = (await admin.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock' AND wait_event='advisory'", [workerName])).rowCount === 1;
+      if (waiting) break;
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.ok(waiting, 'topic command must wait on the existing member-guild barrier');
+    await locker.query("UPDATE positioning_profession_memberships SET member_tier='intern' WHERE user_id=$1", [actor.user_id]);
+    await locker.query('COMMIT');
+    const outcome = await pending as { error?: unknown };
+    assert.ok(deniedCode('guild_full_member_required')(outcome.error));
+    assert.equal((await pool.query('SELECT count(*)::int n FROM community_content_topic_sets WHERE content_id=$1', [bookId])).rows[0].n, 0);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM command_receipts WHERE user_id=$1', [actor.user_id])).rows[0].n, 0);
+  } finally {
+    await locker.query('ROLLBACK'); locker.release();
+    await pending; await racer.end();
+  }
 });

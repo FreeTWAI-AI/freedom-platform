@@ -16494,8 +16494,8 @@
     },
     {
       "path": "modules/community/content-search.ts",
-      "bytes": 16427,
-      "sha256": "3298a98dda908f48e1a6eb8668dbbbbfef4ebb429d8f5a007c79d0f1bc2ddf5c"
+      "bytes": 17083,
+      "sha256": "adb2168f2959d91526edc7c0bb398d1234751d01a81445337fb05510d3fec44d"
     },
     {
       "path": "modules/community/discovery.ts",
@@ -16874,8 +16874,8 @@
     },
     {
       "path": "modules/guild-workspace/service.ts",
-      "bytes": 21285,
-      "sha256": "074139c2b251ef6d80fa15c8928cd61bee84e14445f876c15f464836688de82f"
+      "bytes": 21340,
+      "sha256": "dd0fecdcb5170733bf582733e975290273a4173dd9af0f235b3e67652dae5f38"
     },
     {
       "path": "modules/identity-membership/auth-pruning.ts",
@@ -19884,8 +19884,8 @@
     },
     {
       "path": "tests/runtime/community-search.test.ts",
-      "bytes": 13227,
-      "sha256": "bafc971a844adda785ee9280ce195267661ccbe95159c4892cb04f2b305e8a15"
+      "bytes": 20732,
+      "sha256": "1b9e711fbe34c2bd4fe4dfe7bc5e3f88e426440b924d71e58c2a92bb3a2c159e"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",
