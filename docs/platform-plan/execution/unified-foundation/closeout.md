@@ -342,3 +342,27 @@ staging 不受影響：仍是 X、flag 開啟。
 
 production 沒有示範帳號，所以 guild-work verifier 只在 staging 執行；production 的開啟不是 M1 驗收，M1 仍未接受。
 `tenant_authority_policies` 兩邊都是 0 列，經營權移交與復原會回 403 `policy_unconfigured`，政策值（OPEN-02／03）由 owner 決定。
+
+### 10 月 8 日：第六輪 staging／production rollout（main d2900cf4，migration 128～130）
+
+`d2900cf4` 是 #278 的 merge。它在 X（`c84829e2`）之後帶進 P-D1（#239，migration 128：應用目錄、模組實例登錄、啟動操作與容量保留）、
+P-D2a（#269，129：實例暫停與恢復）與 P-D2b（#278，130：實例封存），以及 #273、#271（#265、#266）、#275、#277。
+兩個環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED` 都維持 `true`，所以這些路由隨部署上線。staging 依 owner 的委派部署；
+production 由 owner 決定直接上線（「太囉嗦了 你全部把它做一做就 go live 不用測這麼多 浪費時間  去live 測就好 死不了人」、「我選 直接部署直接上線」），不跑 staging 驗收，到 live 再測。
+
+- 兩個環境各自先做 migration 前的備份（staging `469c43e9`、production `a972e586`），都做過隔離還原與遠端讀回。
+- 128 對 X 不相容：它把 `module_instances.module_release_ref`／`contract_ref` 與 `deployment_bindings.contract_ref` 改成 NOT NULL，
+  X 建立新的 manual-work 實例會失敗。所以每個環境都是 migration 後立刻部署 `d2900cf4`。
+- staging：migrator 套用 128～130，重套 runtime grants（含 128 的 definition 表授權段落）並通過唯讀驗證，08:22Z 部署（Worker 版本 `eafb925e`）。
+  128 的 backfill 寫入 1 個 installation、1 個模組連結（對應 1 個既有的 manual-work 綁定）。
+- production：同樣由 migrator 套用並驗證，media operator 的權限快照前後相同；08:24Z 以同一份 dist 部署（Worker 版本 `2114352b`），
+  29 個唯讀公開 checks 通過，4 次 fresh health 都是 `d2900cf4`。128 的 backfill 寫入 0 個 installation、0 個模組連結（對應 0 個既有的 manual-work 綁定）。
+- row security：128 在 9 張新 tenant 表啟用（不強制），每張一條 policy，合計 27 張表、38 條 policy；三張 definition 表對 runtime 只有 SELECT。
+  兩邊 migrate 後，runtime 與備份角色在同一個 snapshot 的登入 probe 都通過。
+- 兩個環境部署後的備份（staging `9cc41da1`、production `98b497d5`）都做過隔離還原與遠端讀回，backup pin 都改成 `d2900cf4`。
+  staging 部署後 cron 有寫入（最後同步 08:40Z，last_error 8→8）；production 部署後 cron 有寫入（最後同步 08:41Z，last_error 6→6）。
+
+回滾：128 之後不能再部署 X。可以關閉 flag，或修正後再部署；schema 只能從 migration 前的備份還原。
+
+限制：P-D1／P-D2a／P-D2b 的 T-ID 案例（T-008、T-016、T-017、T-018、T-021、T-022、T-024、T-051、T-055）沒有執行，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
+這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
