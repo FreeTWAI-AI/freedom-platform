@@ -1,6 +1,7 @@
 /** Human-facing help for the current screen. Development instructions live in the Agent section. */
 export type PageHelp={summary:string;steps:string[];note?:string};
 export const pageHelp:Record<string,PageHelp>={
+  'community-search':{summary:'依關鍵字、內容類型與主題搜尋目前可閱讀的社群內容。',steps:['輸入中文詞句，可同時複選類型與主題。','開啟結果的原頁，使用瀏覽器返回即可回到查詢。','會員可展開我的內容，選填最多三個主題並儲存。'],note:'搜尋不會授予權限；未補主題的舊內容仍可用文字搜尋。'},
   friends:{summary:'集中查看好友、收到與送出的邀請。',steps:['切換好友名單範圍，或搜尋名字。','接受或婉拒邀請；送出的邀請可以取消。','從好友名片進入私訊，聯絡資料仍依對方設定顯示。']},
   home:{summary:'首頁直接看動態、發文，也能接續公會進度。',steps:['按建立貼文，分享近況或作品。','在貼文上按讚、留言；長文可展開全文。','用開始聊天、找夥伴或公會下一步接續參與。']},
   events:{summary:'社群活動由會員提交，經平台管理員或主辦公會長審核後公開，讓大家報名參加。',steps:['填寫時間、形式、地點及主辦公會後送出審核。','在待審核區查看自己的活動；審核結果會出現在通知與系統公告欄。','活動核准後，其他會員才可報名；主辦者可取消活動。','已結束的活動可在行事曆與「過去的活動」查看。'],note:'提交、報名與實際出席是不同紀錄，均不直接產生工作分數。'},

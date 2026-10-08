@@ -127,6 +127,8 @@ const FOUNDATION_NAMES = [
   // Member-only native posts and original sticker pack; name recognition is not release approval.
   '132_social_feed_interactions.sql',
   '133_workshop_sticker_pack.sql',
+  // Optional topic tags for community search. Publication does not require a tag,
+  '134_community_content_topics.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

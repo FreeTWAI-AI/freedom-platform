@@ -63,6 +63,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
+  FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -210,6 +211,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
+    communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }

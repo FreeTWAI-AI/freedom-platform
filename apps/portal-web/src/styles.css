@@ -737,3 +737,11 @@ input,textarea,select{background:#0c1017;border-color:#404959;color:var(--ink)}i
 .discovery-card p{font-size:.9rem;margin:0 0 .6rem;line-height:1.6}
 .discovery-card-meta{display:flex;flex-wrap:wrap;gap:.3rem .7rem;color:var(--muted);font-size:.8rem}
 @media(max-width:860px){.discovery-login-layout{max-width:720px;padding:1rem;gap:1.25rem}.discovery-story .brand-poster{width:160px}.discovery-login-layout .login-form-area{width:100%;min-width:0}}
+.community-content-search { min-width: 0; }
+.community-content-search fieldset { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.community-content-search fieldset label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.community-content-search fieldset input { width: auto; accent-color: var(--focus); }
+.community-content-search h2, .community-content-search h3, .community-content-search p { overflow-wrap: anywhere; }
+.community-content-search .btn-small { justify-self: start; min-height: 44px; padding: 8px 14px; }
+.community-search-action, .community-content-search .btn-secondary { width: fit-content; max-width: 100%; justify-self: start; align-self: start; min-height: 44px; padding: 8px 14px; background: var(--bg-elev); color: var(--ink); border: 1px solid var(--line); }
+.community-search-action:hover, .community-search-action:focus-visible, .community-content-search .btn-secondary:hover:not(:disabled), .community-content-search .btn-secondary:focus-visible { background: var(--bg-elev); color: var(--ink); border-color: var(--focus); }

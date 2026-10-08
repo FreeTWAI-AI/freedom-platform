@@ -81,4 +81,6 @@ export type PlatformRuntime = {
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
   communityDiscoveryEnabled?: boolean;
+  /** Explicit release setting for community content search. Absent or false leaves routes unregistered. */
+  communitySearchEnabled?: boolean;
 };

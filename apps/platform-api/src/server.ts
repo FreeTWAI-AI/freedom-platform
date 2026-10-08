@@ -20,7 +20,7 @@ if(freedomEnv==='public')await assertPublicDatabase(pool,{registrationCommunityI
 if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED))throw new Error('invalid_guide_fixture_flag');
 if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
 const publicGuideAssets=process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'?await createLocalGuideCatalog(freedomEnv):undefined;
-const app = createApp(pool, origin, freedomEnv,{publicGuideAssets,guildLaunchpadEnabled:process.env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true',communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true'});
+const app = createApp(pool, origin, freedomEnv,{publicGuideAssets,guildLaunchpadEnabled:process.env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true',communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',communitySearchEnabled:process.env.FREEDOM_COMMUNITY_SEARCH_ENABLED==='true'});
 app.use('/*', serveStatic({ root: './apps/portal-web/dist' }));
 app.get('*', serveStatic({ path: './apps/portal-web/dist/index.html' }));
 
