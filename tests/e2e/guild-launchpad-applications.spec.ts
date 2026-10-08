@@ -135,6 +135,82 @@ test('repeated catalog rows render one card and one release detail', async ({pag
   await expect(cards(page).getByRole('button',{name:'版本資料',exact:true,expanded:true})).toHaveCount(1);
 });
 
+test('leader configuration cannot remove a committed pending tenant creation or its retry', async ({page,e2eAuthPool},testInfo) => {
+  const userId=await member(e2eAuthPool,page);
+  await e2eAuthPool.query(`INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3)
+    ON CONFLICT (community_id,guild_key) DO UPDATE SET user_id=$3`,[DEMO_COMMUNITY,GUILD,userId]);
+  await open(page);
+  const editor=page.locator('.guild-launchpad-editor');
+  const appBlock=editor.locator('.guild-launchpad-block').filter({has:page.getByText('應用',{exact:true})});
+  const enabled=appBlock.getByRole('checkbox',{name:'顯示這個區塊',exact:true});
+  const input=flow(page).getByLabel('業務空間名稱',{exact:true});
+  const name='會長原操作空間';
+  let releaseConfig!:()=>void;
+  const configGate=new Promise<void>(resolve=>{releaseConfig=resolve;});
+  let saved=false;
+  await page.route(`**/api/v1/guilds/${GUILD}/launchpad-config/drafts`,async route=>{
+    // The disabled configuration really saves BEFORE tenant creation begins.
+    const response=await route.fetch(); expect(response.status()).toBe(201);
+    saved=true; await configGate; await route.fulfill({response});
+  });
+  let releaseTenant!:()=>void;
+  const tenantGate=new Promise<void>(resolve=>{releaseTenant=resolve;});
+  const attempts:{key:string;body:string|null}[]=[];
+  const results:{tenant_id:string;workspace_id:string}[]=[];
+  await page.route(url=>url.pathname==='/api/v1/tenants',async route=>{
+    if(route.request().method()!=='POST') return route.fallback();
+    attempts.push({key:route.request().headers()['idempotency-key'],body:route.request().postData()});
+    const response=await route.fetch(); expect(response.status()).toBe(201);
+    const made=CreateResultSchema.parse(await response.json());
+    results.push({tenant_id:made.tenant.tenant_id,workspace_id:made.workspace.workspace_id});
+    if(attempts.length===1) {await tenantGate; await route.fulfill({response,json:{tenant:made.tenant}});}
+    else await route.fulfill({response});
+  });
+  const ownsOnePair=async()=>expect((await e2eAuthPool.query(`SELECT t.tenant_id,w.workspace_id,w.is_default
+    FROM tenants t JOIN principals p ON p.principal_id=t.created_by_principal_id
+    JOIN workspaces w ON w.tenant_id=t.tenant_id WHERE p.user_ref=$1`,[userId])).rows).toEqual([{...results[0],is_default:true}]);
+  const preserved=async(message:string)=>{
+    await expect(enabled).toBeChecked(); await expect(input).toBeDisabled(); await expect(input).toHaveValue(name);
+    await expect(flow(page).locator('#launch-space-error')).toHaveText(message);
+  };
+  try {
+    await enabled.uncheck(); await expect(cards(page)).toHaveCount(0);
+    await editor.getByRole('button',{name:'儲存草稿',exact:true}).click(); await expect.poll(()=>saved).toBe(true);
+    await enabled.check(); await begin(page); await input.fill(name);
+    await flow(page).getByRole('button',{name:'建立業務空間',exact:true}).click();
+    await expect.poll(()=>results.length).toBe(1); await ownsOnePair();
+    await enabled.click(); await preserved('正在確認原操作，請等候完成後再離開。');
+    // Unrelated text remains editable while the original create is pending.
+    await editor.getByLabel('公會使命補充').fill('保留的版面草稿');
+    releaseConfig();
+    await expect(page.getByRole('alert').filter({hasText:'最新配置尚未套用'})).toBeVisible();
+    await preserved('正在確認原操作，請等候完成後再離開。');
+    await expect(editor.getByLabel('公會使命補充')).toHaveValue('保留的版面草稿');
+    releaseTenant();
+    const retry=flow(page).getByRole('button',{name:'重試',exact:true}); await expect(retry).toBeEnabled();
+    await enabled.click(); await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await page.getByRole('button',{name:'重新載入最新版本',exact:true}).click();
+    await expect(page.getByRole('alert').filter({hasText:'最新配置尚未套用'})).toBeVisible();
+    await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await expect(editor.getByLabel('公會使命補充')).toHaveValue('保留的版面草稿');
+    await editor.getByRole('button',{name:'上移應用',exact:true}).click();
+    await preserved('尚未確認原操作的結果，請按「重試」確認後再離開。');
+    await ownsOnePair(); await capture(page,testInfo,'leader-config-unknown');
+    await retry.click(); await expect(flow(page)).toContainText(`目前業務空間：${name}`);
+    expect(attempts).toHaveLength(2); expect(attempts[0].key).toBeTruthy();
+    expect(JSON.parse(attempts[0].body!)).toEqual({display_name:name}); expect(attempts[1]).toEqual(attempts[0]);
+    expect(results[1]).toEqual(results[0]); await ownsOnePair();
+    // Once confirmed, the actual saved configuration can hide the flow normally.
+    await page.getByRole('button',{name:'重新載入最新版本',exact:true}).click();
+    await expect(enabled).not.toBeChecked(); await expect(cards(page)).toHaveCount(0);
+    await enabled.check(); await expect(manualCard(page)).toBeVisible();
+    await page.unroute(`**/api/v1/guilds/${GUILD}/launchpad-config/drafts`);
+    await editor.getByLabel('公會使命補充').fill('確認後正常編輯');
+    await editor.getByRole('button',{name:'儲存草稿',exact:true}).click();
+    await expect(page.getByText(/已儲存草稿版本/)).toBeVisible();
+  } finally {releaseConfig(); releaseTenant();}
+});
+
 test('unreadable committed tenant creation retains its name and key across two retries', async ({page,e2eAuthPool},testInfo) => {
   const userId=await member(e2eAuthPool,page); await open(page); await begin(page);
   const name='原操作業務空間';
