@@ -1,3 +1,5 @@
+import { createHostedOrderRoutes } from './routes/hosted-orders.js';
+import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
 import { createHostedStoreRoutes, createPublicHostedStoreRoutes } from './routes/hosted-store.js';
 import {installedPrivateAiResponse} from './private-ai-path.js';
 import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js';
@@ -347,7 +349,11 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.route('/',createPublicModuleRegistryRoutes(pool,origin));
     app.route('/',createPublicHostedStoreRoutes(pool));
   }
+  for (const path of ['/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*']) app.use(path, async (c, next) => {
+    try { await next(); } finally { hostedOrderPrivateCache(c); }
+  });
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  app.route('/api/v1', createHostedOrderRoutes(pool, { discoveryInstalled: runtime.guildLaunchpadEnabled === true, admissionEnabled: runtime.hostedReservationsEnabled === true }));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;
     if(ifMatch) requireCondition(/^"[1-9][0-9]*"$/.test(ifMatch),400,'invalid_version','If-Match 須為加引號的整數版本。');

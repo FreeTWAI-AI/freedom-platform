@@ -241,9 +241,16 @@ test('100 polls use bounded ID receipts and a cached read reference still expire
     FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
   await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
   assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'reserved');
+  // A projection started before expiry may correctly reject its stale reserved
+  // view at the final clock fence. Retry only that domain conflict, keeping the
+  // exact read identity; all other errors and a second failure still fail.
+  const readAcrossDeadline = async (read: () => Promise<unknown>) => {
+    try { await read(); }
+    catch (error) { assert.equal((error as { code?: string }).code, 'reservation_clock_changed'); await read(); }
+  };
   for (let n = 0; n < 100; n++) {
-    await readDirectOrder(runtime, s.buyer, orderId);
-    await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent);
+    await readAcrossDeadline(() => readDirectOrder(runtime, s.buyer, orderId));
+    await readAcrossDeadline(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent));
   }
   assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_command_receipts WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])", [[orderId, intent]])).rows[0].n, 2);
   const end = Date.now() + 5000;
