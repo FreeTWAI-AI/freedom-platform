@@ -1159,7 +1159,7 @@ for (const lifecycle of ['suspend', 'archive'] as const) {
       const message = lifecycle === 'suspend'
         ? '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。'
         : '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。';
-      await expect(session.page.getByText(message, { exact: true })).toBeVisible();
+      await expect(session.page.locator('.my-work').getByText(message, { exact: true })).toBeVisible();
       await expect(enable).toHaveCount(0);
       await expect(session.page.locator('#my-work-title')).toHaveCount(0);
       await expect(session.page.getByRole('alert')).toHaveCount(0);
