@@ -7,7 +7,7 @@ import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
 import {MyWorkPanel, rememberActing} from './GuildLaunchpadMyWork';
 import {GuildLaunchpadApplications, REASONS, startable, type LaunchRequest} from './GuildLaunchpadApplications';
-import {MyStoreAction} from './HostedStore';
+import {MyStoreAction} from './MyStoreAction';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
