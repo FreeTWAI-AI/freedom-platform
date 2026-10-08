@@ -943,13 +943,13 @@
       ],
       "observations": [
         "Formal main ruleset24469536 pins verify.yml 709600a0 (the #288 merge); the readback changed only the workflow SHA, and review, App-bound checks, strict freshness and no bypass are retained.",
-        "709600a0 changes only capacity: the UI default pass budget 30 -> 40 min (private-AI and avatar fixture passes stay 30 min) and the ui-e2e job 40 -> 50 min; per-test timeout, one worker, zero retries, every file and case, the expected-skip policy and the evidence format are unchanged.",
+        "#288 relaxes capacity: the UI default pass budget 30 -> 40 min (private-AI and avatar fixture passes stay 30 min) and the ui-e2e job 40 -> 50 min; per-test timeout, one worker, zero retries, the expected-skip policy and the evidence format are unchanged. The full pin move from 6ffdf94a also syncs the reviewed runtime baseline (FULL_RUNTIME_BASELINE +66, -0), so those files are now deletion-protected by the pin; decision rules are unchanged.",
         "Removing one reviewed baseline file per family made the pinned suites fail (files unavailable, runtime_partition_artifacts_unavailable) and the merge was refused (E2).",
         "Skip markers in reviewed files made the pinned suites fail (incomplete_test_results, skipped_test_never_expected, runtime_partition_incomplete) and the merge was refused (E3).",
         "On formal main, a docs change without an inventory update failed source integrity and its merge was refused with workflow, check and approval violations (MN, closed unmerged); the real receipt PR #291 ran green under 709600a0 (verify and CodeQL success) and merged normally after approval (MP)."
       ],
       "limitations": [
-        "Reduced probe set approved for this capacity-only change: S, E0/E1b, E2p/E3p and fork probes were not repeated on 709600a0; those results remain evidence for 6ffdf94a (central-pin-6ffdf94a) and d1c9 (central-pin-d1c9).",
+        "Reduced probe set approved for this pin (#288 capacity plus the reviewed baseline sync; decision rules unchanged): S, E0/E1b, E2p/E3p and fork probes were not repeated on 709600a0; those results remain evidence for 6ffdf94a (central-pin-6ffdf94a) and d1c9 (central-pin-d1c9).",
         "Build, typecheck, dry-run, check:*, verify:inventory and test:media-restore steps stay candidate-defined and can be replaced by no-ops; candidate code, including the tests the pinned runners execute, still runs on the same runner.",
         "Selected skipped and cancelled hosted jobs were not exercised on 709600a0.",
         "Within one job the first failing pinned suite ends the job; E2/E3 did not reach contracts pytest.",
@@ -3108,7 +3108,7 @@
           "evidence_id": "central-pin-709600a0",
           "source_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24736518 and branches, and formal main ruleset24469536 after the pin switch",
-          "covered_part": "Installed 709600a0 pin (capacity-only change from 6ffdf94a): removed reviewed test files and skip markers still made verify fail and the merge was refused (E2, E3); on main a source-integrity failure was refused (MN) and a reviewed PR merged under the pin (MP). No-op script and hostile-configuration integrity (E0/E1b) and the pytest probes (E2p/E3p) were not repeated.",
+          "covered_part": "Installed 709600a0 pin (#288 capacity plus the reviewed runtime baseline sync from 6ffdf94a; decision rules unchanged): removed reviewed test files and skip markers still made verify fail and the merge was refused (E2, E3); on main a source-integrity failure was refused (MN) and a reviewed PR merged under the pin (MP). No-op script and hostile-configuration integrity (E0/E1b) and the pytest probes (E2p/E3p) were not repeated.",
           "limitations_reference": "evidence_catalog.central-pin-709600a0.limitations"
         }
       ],
@@ -5346,7 +5346,7 @@
           "evidence_id": "central-pin-709600a0",
           "source_sha": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
           "environment": "FreeTWAI-AI/freedom-platform: owned temporary probe ruleset24736518 and branches, and formal main ruleset24469536 after the pin switch",
-          "covered_part": "Installed 709600a0 pin (capacity-only change from 6ffdf94a): removed reviewed test files and skip markers still made verify fail and the merge was refused (E2, E3); on main a source-integrity failure was refused (MN) and a reviewed PR merged under the pin (MP). No-op script and hostile-configuration integrity (E0/E1b) and the pytest probes (E2p/E3p) were not repeated.",
+          "covered_part": "Installed 709600a0 pin (#288 capacity plus the reviewed runtime baseline sync from 6ffdf94a; decision rules unchanged): removed reviewed test files and skip markers still made verify fail and the merge was refused (E2, E3); on main a source-integrity failure was refused (MN) and a reviewed PR merged under the pin (MP). No-op script and hostile-configuration integrity (E0/E1b) and the pytest probes (E2p/E3p) were not repeated.",
           "limitations_reference": "evidence_catalog.central-pin-709600a0.limitations"
         }
       ],

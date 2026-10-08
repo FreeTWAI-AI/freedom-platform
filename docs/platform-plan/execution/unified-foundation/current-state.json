@@ -1149,7 +1149,7 @@
       "dismiss_stale_reviews": true,
       "bypass_actors": [],
       "evidence": "docs/platform-plan/verification/main-ruleset-2026-10-08.json",
-      "limitation": "Capacity-only change from 6ffdf94a (#288: UI default pass 30 -> 40 min, ui-e2e job 40 -> 50 min; test sets, per-test timeout, workers, retries and skip policy unchanged). Re-verified with a reduced probe set: E2/E3 refused on a temporary ruleset, MN refused and the real receipt PR #291 merged on main (MP). S, E0/E1b, E2p/E3p and fork probes were not repeated; their results stay with 6ffdf94a (main-ruleset-2026-10-07.json) and d1c9 (GOV-15 evidence stays d1c9 F2). Build, typecheck, dry-run and check scripts stay candidate-defined, and candidate code still runs on the same runner; selected skipped/cancelled hosted jobs were not exercised.",
+      "limitation": "#288 relaxes capacity (UI default pass 30 -> 40 min, ui-e2e job 40 -> 50 min; per-test timeout, workers, retries and skip policy unchanged); the full pin move from 6ffdf94a also syncs the reviewed runtime baseline (FULL_RUNTIME_BASELINE +66, -0), decision rules unchanged. Re-verified with a reduced probe set: E2/E3 refused on a temporary ruleset, MN refused and the real receipt PR #291 merged on main (MP). S, E0/E1b, E2p/E3p and fork probes were not repeated; their results stay with 6ffdf94a (main-ruleset-2026-10-07.json) and d1c9 (GOV-15 evidence stays d1c9 F2). Build, typecheck, dry-run and check scripts stay candidate-defined, and candidate code still runs on the same runner; selected skipped/cancelled hosted jobs were not exercised.",
       "publication_ref": "refs/heads/main",
       "selection": "The exact configured SHA fixes workflow bytes; main is a mutable ref descriptor, not an immutable branch claim."
     },

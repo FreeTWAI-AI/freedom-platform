@@ -19,7 +19,14 @@
     ],
     "configuration_verified": true,
     "before_matched_2026_10_07_record": true,
-    "reason": "Capacity only: from 2026-10-08 the full UI suite ran about 29-33 min, so most runs under 6ffdf94a ended with test_timeout at its 30-min default-pass cap (for example #288 run 37793517498 at 659/680, and #286). #288 raises the default pass to 40 min and the ui-e2e job to 50 min; per-test timeout, 1 worker, 0 retries, every file and case, the expected-skip policy and the evidence format are unchanged. Ted approved the switch with a reduced probe set on 2026-10-08 ~15:59Z.",
+    "reason": "#288 relaxes capacity: from 2026-10-08 the full UI suite ran about 29-33 min, so most runs under 6ffdf94a ended with test_timeout at its 30-min default-pass cap (for example #288 run 37793517498 at 659/680, and #286). #288 raises the default pass to 40 min and the ui-e2e job to 50 min; per-test timeout, 1 worker, 0 retries, the expected-skip policy and the evidence format are unchanged. The full pin move 6ffdf94a -> 709600a0 also brings the reviewed main merges in between, which synced the reviewed runtime baseline (pin_delta); the decision rules are unchanged. Ted approved the switch with a reduced probe set on 2026-10-08 ~15:59Z.",
+    "pin_delta": {
+      "range": "6ffdf94a..709600a0: 34 reviewed first-parent main merges (#221 to #288)",
+      "capacity": "#288 only: verify.yml ui-e2e 40 -> 50 min; pinned-e2e.mjs and run-pinned-e2e.mjs default pass 30 -> 40 min; their test and the e2e-harness doc.",
+      "runtime_baseline": "FULL_RUNTIME_BASELINE in packages/contribution-tools/runtime-suites.mjs: 217 -> 283 entries (+66, -0), added by the reviewed merges #206, #229, #245, #264, #227, #239, #269, #278, #274 and #279. runtime.full discovers the candidate's direct runtime tests under both pins, so the same candidate does not run 66 more files; those files are now also deletion-protected by the pinned baseline, and an older candidate that lacks them fails closed.",
+      "other_runner_paths": "#243 added a github-consumer-host note and test under packages/contribution-tools; no runner decision code changed.",
+      "decision_rules": "unchanged: selection, suite discovery, result parsing, skip policy and aggregate verdicts are the same code as 6ffdf94a apart from the baseline list."
+    },
     "main_at_intent": "709600a086897d3a5b3ee3e039bc22e168ad84ba",
     "main_relation_to_pin": "identical"
   },
@@ -804,8 +811,9 @@
     "main_after_cleanup": "709600a086897d3a5b3ee3e039bc22e168ad84ba"
   },
   "boundaries": {
-    "reduced_probe_set": "Ted approved a reduced set for this pin (2026-10-08 ~15:59Z): E2 and E3 on the temporary ruleset, MP and MN on main. S (supersession), E0/E1b (hostile config), E2p/E3p (pytest-only) and fork probes were not repeated; main-ruleset-2026-10-07.json and main-ruleset-2026-10-06.json keep those results for 6ffdf94a and d1c9.",
-    "what_changed_in_the_pin": "#288 (merge 709600a0): .github/workflows/verify.yml ui-e2e timeout 40 -> 50 min; packages/contribution-tools/pinned-e2e.mjs and scripts/ci/run-pinned-e2e.mjs default-pass budget 30 -> 40 min (private-AI and avatar fixture passes stay 30 min); tests in packages/contribution-tools/test/pinned-e2e.test.mjs; docs/development/e2e-harness.md.",
+    "reduced_probe_set": "Ted approved a reduced set for this pin (2026-10-08 ~15:59Z; capacity in #288 plus the reviewed baseline sync, decision rules unchanged): E2 and E3 on the temporary ruleset, MP and MN on main. S (supersession), E0/E1b (hostile config), E2p/E3p (pytest-only) and fork probes were not repeated; main-ruleset-2026-10-07.json and main-ruleset-2026-10-06.json keep those results for 6ffdf94a and d1c9.",
+    "what_changed_in_the_pin": "#288 (merge 709600a0): .github/workflows/verify.yml ui-e2e timeout 40 -> 50 min; packages/contribution-tools/pinned-e2e.mjs and scripts/ci/run-pinned-e2e.mjs default-pass budget 30 -> 40 min (private-AI and avatar fixture passes stay 30 min); tests in packages/contribution-tools/test/pinned-e2e.test.mjs; docs/development/e2e-harness.md. The pin also carries the reviewed runtime baseline sync (FULL_RUNTIME_BASELINE +66, -0 from #206, #229, #245, #264, #227, #239, #269, #278, #274 and #279) and the #243 github-consumer-host note and test; decision rules unchanged (change.pin_delta).",
+    "case_counts": "Case counts in probe summaries come from different candidates on different dates (10-06, 10-07, 10-08) and follow each candidate's own test files; they do not measure work added by the pin change.",
     "candidate_defined_steps": "Unchanged from 6ffdf94a: npm ci, contracts:build, build, typecheck, worker dry-runs, check:* scripts, verify:inventory, test:media-restore and checkout-repositories stay candidate-defined. Candidate code, including the test files the pinned runners execute and the e2e web server, still runs on the same runner; this is not a sandbox against a hostile candidate.",
     "job_step_ordering": "Within one job the first failing pinned suite ends the job, so later suites in that job are not reached.",
     "probe_review_and_codeql": "The temporary ruleset differs from main as recorded above; main keeps 1 approval, last-push approval and CodeQL.",
