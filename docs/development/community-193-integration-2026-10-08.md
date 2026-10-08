@@ -70,3 +70,20 @@ explicit gaps to be covered by exact-candidate hosted CI, not local passes.
 No live database, provider credentials, deployment, production flag or acceptance
 status was changed. Local evidence does not replace independent review or the
 required hosted checks for the exact candidate.
+
+## Later local main sync: guild applications
+
+The follow-up local integration includes main
+`3685d6266a6cd9c1dbe023bf595140f5035a02f5` (#282). Its guild application cards,
+launch dialog and duplicate-card correction are carried unchanged. The merge
+has no source conflicts and adds no SQL. The original reviewed integration
+`4464e68c53846351abb260c9e5c5bcc9869077fb` remains an ancestor and is preserved
+separately; its interrupted publication payload is not replaced or retried.
+
+For this combined tree, typecheck and portal build pass; the guild-launchpad
+contracts, portal-client recovery and work-result client suites pass all 42
+cases without skips. Source inventory and relative links pass. The earlier
+ACK fix, its regression, resize synchronization, App/MemberHome integration and
+all SQL bodies are byte-identical to their reviewed inputs. These local checks
+do not replace the outstanding browser/DB hosted checks. Remote publication
+remains paused pending the unresolved approval from the original upload.

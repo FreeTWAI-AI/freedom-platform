@@ -1,0 +1,11 @@
+.launchpad-applications{min-width:0;overflow-wrap:anywhere}
+.application-card{padding-block:12px;border-bottom:1px solid var(--line)}
+.application-heading,.application-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.application-heading h3{margin:0}
+.launchpad-applications .btn{min-height:44px;width:fit-content;max-width:100%;padding:8px 16px;font-size:inherit}
+.launchpad-applications .field,.launchpad-applications fieldset{min-width:0}
+.application-choice{display:flex;align-items:center;gap:12px;min-height:44px;padding-block:8px;cursor:pointer}
+.application-flow{border-top:1px solid var(--line);padding-top:16px}
+.application-flow ul{padding-left:20px}
+.application-flow h3:focus,.application-flow h4:focus{outline:2px solid var(--focus);outline-offset:4px}
+@media(max-width:420px){.launchpad-applications select{font-size:16px}.application-flow .application-primary{width:100%}}

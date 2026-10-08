@@ -24,7 +24,11 @@
     "tests/runtime/module-instance-lifecycle.test.ts",
     "tests/runtime/module-instance-archive.test.ts",
     "scripts/tenant-policy.ts",
-    "tests/runtime/tenant-policy-operator.test.ts"
+    "tests/runtime/tenant-policy-operator.test.ts",
+    "apps/portal-web/src/modules/GuildLaunchpadApplications.tsx",
+    "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
+    "apps/portal-web/src/modules/module-words.ts",
+    "tests/e2e/guild-launchpad-applications.spec.ts"
   ],
   "public_exports": [
     "modules/module-registry/service.ts",
