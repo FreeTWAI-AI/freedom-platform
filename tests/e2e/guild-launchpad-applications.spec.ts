@@ -3,9 +3,11 @@ import type {TestInfo} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
+import {navigate} from './navigation.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import type {InstallationView, RegistryOperation, LaunchPlan} from '../../contracts/guild-launchpad/v1/module-registry.js';
+import {CreateResultSchema, TenantPageSchema, WorkspacePageSchema} from '../../contracts/guild-launchpad/v1/tenant.js';
 
 const GUILD = 'guild_ai_field';
 const RELEASE = 'manual-workspace@1.0.0';
@@ -131,6 +133,94 @@ test('repeated catalog rows render one card and one release detail', async ({pag
   await cards(page).locator('.application-card').first().getByRole('button',{name:'版本資料',exact:true}).click();
   await expect(cards(page).getByRole('region',{name:`${displayName}版本資料`,exact:true})).toHaveCount(1);
   await expect(cards(page).getByRole('button',{name:'版本資料',exact:true,expanded:true})).toHaveCount(1);
+});
+
+test('unreadable committed tenant creation retains its name and key across two retries', async ({page,e2eAuthPool},testInfo) => {
+  const userId=await member(e2eAuthPool,page); await open(page); await begin(page);
+  const name='原操作業務空間';
+  const input=flow(page).getByLabel('業務空間名稱',{exact:true});
+  const create=flow(page).getByRole('button',{name:'建立業務空間',exact:true});
+  const retry=flow(page).getByRole('button',{name:'重試',exact:true});
+  const attempts:{key:string;body:string|null}[]=[];
+  const results:{tenant_id:string;workspace_id:string}[]=[];
+  let releaseResponse!:()=>void;
+  const gate=new Promise<void>(resolve=>{releaseResponse=resolve;});
+  let committed=false;
+  let prompts=0;
+  page.on('dialog',async dialog=>{prompts++; await dialog.accept();});
+  await page.route(url=>url.pathname==='/api/v1/tenants',async route=>{
+    if(route.request().method()!=='POST') return route.fallback();
+    attempts.push({key:route.request().headers()['idempotency-key'],body:route.request().postData()});
+    // Every attempt reaches the actual command and receipt replay; only the response is damaged.
+    const response=await route.fetch(); expect(response.status()).toBe(201);
+    const made=CreateResultSchema.parse(await response.json());
+    results.push({tenant_id:made.tenant.tenant_id,workspace_id:made.workspace.workspace_id});
+    if(attempts.length===1) {committed=true; await gate;}
+    if(attempts.length<=2) await route.fulfill({response,json:{tenant:made.tenant}});
+    else await route.fulfill({response});
+  });
+  const ownedRows=async()=>(await e2eAuthPool.query(`SELECT t.tenant_id,w.workspace_id,w.is_default
+    FROM tenants t JOIN principals p ON p.principal_id=t.created_by_principal_id
+    JOIN workspaces w ON w.tenant_id=t.tenant_id WHERE p.user_ref=$1`,[userId])).rows;
+  const stays=async(message:string)=>{
+    await expect(page).toHaveURL(new RegExp(`#guilds/${GUILD}$`));
+    await expect(flow(page).locator('#launch-space-error')).toHaveText(message);
+    await expect(input).toBeDisabled(); await expect(input).toHaveValue(name);
+    await expect(flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true})).toBeVisible();
+    expect(prompts).toBe(0);
+  };
+  const attemptNavigation=async(message:string)=>{
+    await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await stays(message);
+    await flow(page).getByRole('heading',{name:'啟動人工工作空間',exact:true}).focus();
+    await page.keyboard.press('Escape'); await stays(message);
+    await cards(page).locator('.application-card').filter({has:page.getByRole('heading',{name:'線上商店',exact:true})}).getByRole('button',{name:'啟動應用',exact:true}).click(); await stays(message);
+    await page.getByRole('button',{name:'返回公會列表',exact:true}).click(); await stays(message);
+    await navigate(page,'技能書架'); await stays(message);
+    const closeMenu=page.getByRole('button',{name:'關閉選單',exact:true}); if(await closeMenu.isVisible()) await closeMenu.click();
+    await page.evaluate(()=>{window.location.hash='guilds/guild_commerce_sales';}); await stays(message);
+    await page.evaluate(key=>{history.replaceState(null,'','#home');history.pushState(null,'',`#guilds/${key}`);},GUILD);
+    await page.goBack(); await stays(message);
+    await flow(page).getByRole('link',{name:'建立或選擇業務空間',exact:true}).click(); await stays(message);
+    const settings=page.getByRole('button',{name:'設定',exact:true}); if(await settings.getAttribute('aria-expanded')!=='true') await settings.click();
+    await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click(); await stays(message);
+    await expect(page.getByRole('heading',{name:'登入',exact:true})).toHaveCount(0);
+  };
+  try {
+    await input.fill(name); await create.click();
+    await expect.poll(()=>committed).toBe(true);
+    await expect(input).toBeDisabled(); await expect(input).toHaveValue(name); await expect(create).toBeDisabled();
+    expect(await ownedRows()).toEqual([{...results[0],is_default:true}]);
+    await attemptNavigation('正在確認原操作，請等候完成後再離開。');
+    releaseResponse();
+    for(let attempt=0;attempt<2;attempt++) {
+      await expect(retry).toBeEnabled();
+      await expect(flow(page).locator('#launch-space-error')).toHaveText('回應未完整收到，請重試確認原操作。');
+      await expect(input).toBeDisabled(); await expect(input).toHaveValue(name); await expect(create).toBeDisabled();
+      if(attempt===0) {
+        await page.setViewportSize({width:360,height:900});
+        await attemptNavigation('尚未確認原操作的結果，請按「重試」確認後再離開。');
+        await capture(page,testInfo,'tenant-create-unknown');
+      }
+      expect(await ownedRows()).toEqual([{...results[0],is_default:true}]);
+      await retry.click();
+    }
+    await expect(flow(page)).toContainText(`目前業務空間：${name} · 擁有者／${name}`);
+    await expect(flow(page).getByRole('group',{name:'工作區',exact:true}).getByRole('button',{name,exact:true})).toHaveAttribute('aria-current','true');
+    expect(attempts).toHaveLength(3); expect(attempts[0].key).toBeTruthy();
+    expect(JSON.parse(attempts[0].body!)).toEqual({display_name:name});
+    for(const attempt of attempts) expect(attempt).toEqual(attempts[0]);
+    expect(results).toHaveLength(3); for(const result of results) expect(result).toEqual(results[0]);
+    const tenantsResponse=await page.request.get('/api/v1/tenants?limit=100'); expect(tenantsResponse.status()).toBe(200);
+    const tenants=TenantPageSchema.parse(await tenantsResponse.json());
+    expect(tenants.items.map(item=>item.tenant_id)).toEqual([results[0].tenant_id]); expect(tenants.next_cursor).toBeNull();
+    const workspacesResponse=await page.request.get(`/api/v1/tenants/${results[0].tenant_id}/workspaces?limit=100`); expect(workspacesResponse.status()).toBe(200);
+    const workspaces=WorkspacePageSchema.parse(await workspacesResponse.json());
+    expect(workspaces.items.map(item=>({workspace_id:item.workspace_id,name:item.name}))).toEqual([{workspace_id:results[0].workspace_id,name}]);
+    expect(workspaces.next_cursor).toBeNull();
+    expect(await ownedRows()).toEqual([{...results[0],is_default:true}]);
+    await flow(page).getByRole('button',{name:'取消',exact:true}).click(); await expect(flow(page)).toHaveCount(0);
+    await navigate(page,'技能書架'); await expect(page).toHaveURL(/#skills$/); expect(prompts).toBe(0);
+  } finally {releaseResponse();}
 });
 
 test('lost plan response retries the original key and unchanged choices', async ({page,e2eAuthPool}) => {
