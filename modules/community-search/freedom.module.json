@@ -1,0 +1,60 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "community-search",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/community/content-search.ts",
+    "apps/portal-web/src/modules/CommunitySearch.tsx",
+    "tests/runtime/community-search.test.ts",
+    "migrations/137_community_content_topics.sql"
+  ],
+  "public_exports": [
+    "modules/community/content-search.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "shared",
+    "community",
+    "skill-submissions",
+    "guild-workspace",
+    "work"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community-search.public-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunitySearch.tsx",
+      "operations": [
+        "community.content-search.public-read"
+      ],
+      "auth_profile": "public-anonymous-read"
+    },
+    {
+      "surface_id": "community-search.member-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunitySearch.tsx",
+      "operations": [
+        "community.content-search.member-read",
+        "community.content-search.mine-read",
+        "community.content-topics.update"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}
