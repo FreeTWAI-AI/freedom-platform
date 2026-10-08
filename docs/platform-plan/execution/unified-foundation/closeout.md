@@ -415,3 +415,13 @@ schema 只能從 migration 前的備份還原。
 
 限制：#284 與 #287 沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP，兩邊都沒有建立帳號。
 這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。
+
+### 10 月 8 日：installed workflow pin 升級至 709600a0
+
+中央 `24469536` 的 required workflow 於 17:09:27 UTC 改固定到 `709600a0`（#288 合併後的 main）。
+#288 放寬容量：UI e2e 預設 pass 上限 30→40 分鐘、`ui-e2e` job 40→50 分鐘；單一測試 timeout、worker 數、retry 與 skip 規則都沒變。
+完整 pin 也同步了已審查的 runtime baseline（`FULL_RUNTIME_BASELINE` +66、−0），判定規則不變。
+依 Ted 同意的精簡 probe：刪除基準檔（E2）與加 skip（E3）都失敗且 merge 405；以 main 為目標的負例（MN）merge 405，
+正例是第七／八輪收據 #291，在新 pin 下通過並依一般流程合併。S、E0／E1b、E2p／E3p 與 fork 探測沒有重做，沿用 10 月 7 日與 10 月 6 日的證據；
+GOV-16／R2:D04 附加證據但不改狀態，accepted 仍是 3 列。這次只改 CI 規則，沒有部署；production 與 staging 仍是 `e89cd0c8`。
+細節見[治理安裝紀錄](governance-installation-2026-10-04.md)與[本次證據](../../verification/main-ruleset-2026-10-08.json)。
