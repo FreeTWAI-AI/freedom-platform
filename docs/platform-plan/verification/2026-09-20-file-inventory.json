@@ -12344,8 +12344,8 @@
     },
     {
       "path": "contracts/guild-launchpad/README.md",
-      "bytes": 1697,
-      "sha256": "cf8771568a96122e01bf2c2a7a786d63c768340c13ac35512ed5e93188401865"
+      "bytes": 2239,
+      "sha256": "729d73264bc7b5954f3a2ae955eab2064fb80a8df97b141cedfb16940313a5c5"
     },
     {
       "path": "contracts/guild-launchpad/v1/classification-input.schema.json",
@@ -12371,6 +12371,16 @@
       "path": "contracts/guild-launchpad/v1/guild-preferences.ts",
       "bytes": 3712,
       "sha256": "0f7784dd1e8f0d288d28ec5205d8046be717bfad16fd42c1365c73cc9800479f"
+    },
+    {
+      "path": "contracts/guild-launchpad/v1/hosted-order.schema.json",
+      "bytes": 62029,
+      "sha256": "a3aa672b906f8855fd8ee964143dfd34151d12d4bdfc8650718694fcdc95700c"
+    },
+    {
+      "path": "contracts/guild-launchpad/v1/hosted-order.ts",
+      "bytes": 5161,
+      "sha256": "53da89cc0b83b5108e0e464d07fb8701464eb56fbbb558b872a60e506a9c8e16"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
@@ -14649,8 +14659,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-10-domain-upstream-integration.md",
-      "bytes": 48783,
-      "sha256": "b5558aebea750471303f8dedb02bbf3657c459aafd54889052e8ce2a275dbdba"
+      "bytes": 50002,
+      "sha256": "c2aa9fe50825703dff88e65365f6c9dfd92277e8851f636bbb5933285722f68b"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-11-ai-usage-operations.md",
@@ -16009,8 +16019,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 8947,
-      "sha256": "23374d462a40ca4b2489ee2502b9bcdd89348c0f1a650da138fa84930534600c"
+      "bytes": 9372,
+      "sha256": "932dea067a9070abc8799b6ef570bcc6aada3ffee7955602d2967bf914e886de"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16019,8 +16029,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 4694,
-      "sha256": "aa9a6f53ff5cdacb8883da1e3a060ab39394794aa6b6e892f151a381c96ff9ca"
+      "bytes": 4859,
+      "sha256": "6528b1e7360d6e19fc7716cd0cb006cd52efda5692f09ace2f75c0f898bde77f"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -16056,6 +16066,11 @@
       "path": "modules/agent-commerce/hosted/capabilities.ts",
       "bytes": 2284,
       "sha256": "d0fd0b0a2178807eb4069f199bc17b1f854c188b0c7f9ba7e992587f135690a9"
+    },
+    {
+      "path": "modules/agent-commerce/hosted/direct-order-contract.md",
+      "bytes": 17833,
+      "sha256": "4764b605e686d30d714dddcba45b3dc97922edc85766186f5037c853ef94465f"
     },
     {
       "path": "modules/agent-commerce/hosted/format.ts",
@@ -17009,8 +17024,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 10551,
-      "sha256": "1b1ad2bfe4670ff56e2215578a47258fe332704e100cccf8848606dd324994e2"
+      "bytes": 11848,
+      "sha256": "0abe8b66e035396049b36ed09f3593804e812d997c028a0af25eabe512149b83"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -17899,8 +17914,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 7789,
-      "sha256": "df651367343ffebe8f8217289627fb71cc8d96fe69af06476789901d73317958"
+      "bytes": 7812,
+      "sha256": "2cde49e4f6e73cb16b7ccff0fe19c575ebeaeb71bbb0082e64a860518e890a52"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -20295,7 +20310,7 @@
     {
       "path": "tests/runtime/guild-launchpad-contracts.test.ts",
       "bytes": 51368,
-      "sha256": "2f29f72026d12babdf55a667db4d5423e64cf81a1edc9179f7104f7d2c0efe96"
+      "sha256": "8401e6e36bc9df274ab3ecf01592def220cb56f34e838ee796753afc6277b360"
     },
     {
       "path": "tests/runtime/guild-launchpad-deadline.test.ts",
@@ -20336,6 +20351,11 @@
       "path": "tests/runtime/guild-workspace.test.ts",
       "bytes": 34768,
       "sha256": "f5e3ffd6615e1f17d4035e71d268e42a9695e957e111d8a8885539740236835b"
+    },
+    {
+      "path": "tests/runtime/hosted-order-contracts.test.ts",
+      "bytes": 7292,
+      "sha256": "5b323c69098614b6344bef59e35056c5ad75743d14d0261eb206093745a983d9"
     },
     {
       "path": "tests/runtime/hosted-store-isolation.test.ts",

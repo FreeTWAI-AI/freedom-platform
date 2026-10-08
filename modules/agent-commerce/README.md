@@ -31,3 +31,7 @@ Ordering is not enabled. Hosted shops remain test mode with `accepting_orders=fa
 For cleanup, delete selections first, then items, then both shops. The profile and its publications cascade from the shops, and resource mappings cascade from each shop. Profile identity/slug and publication immutability triggers only reject updates; deletes remain available for erasure and test cleanup. The migration registers the module/application without a guild offering; a later slice provides the member launch UI and offering. All new routes require the existing guild-launchpad release flag.
 
 Member UI: commerce members enter from the launchpad’s 「建立我的商店」 primary action, the 「我的商店」 tab, or 「設定我的商店」 after the existing launch flow succeeds. `#stores` lists readable stores; `#stores/<tenant_id>/<instance_id>` provides setup, product editing, preview and publication. This UI only calls the existing hosted-store API; ordering remains disabled.
+
+## Direct-sale reservation candidate
+
+[HO-0](hosted/direct-order-contract.md) defines proposed member quote/submit/read/cancel DTOs for hosted own goods on the same orders/stock authority. It registers no route, migration, application release or capability. Buyer membership in the seller tenant is not required or created. Payment/refund/fulfilment remain disabled; no supplier acceptance, transfer or payable is invented.

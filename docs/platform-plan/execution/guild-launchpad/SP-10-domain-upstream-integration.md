@@ -148,6 +148,12 @@ Command 成功／受理回 `operation={operation_id,state,version,resource_ref?,
 
 `POST /commerce/shops/{shop_id}/orders/{order_id}/cancel` input `{reason:member_cancelled}`＋If-Match；已無外部／付款不可逆效果才開始 cancel/release；回 Operation。pay/refund/shipment 的既有參數與 provenance 不由本包擴權；未支援外部 consume 時返回 409 `inventory_capability_incomplete`。
 
+### 5.3.1 Hosted 自有商品 direct-sale 預留增量（HO-0）
+
+2026-10-08 的 bounded 下一階段採 direct sale：一般會員買家可在 seller tenant 之外，使用既有 `commerce_orders`／`commerce_items` 的唯一訂單與庫存權威，不建立第三套 core。具體 [HO-0 契約與 locking／expiry 設計](../../../../modules/agent-commerce/hosted/direct-order-contract.md) 及 [canonical DTO](../../../../contracts/guild-launchpad/v1/hosted-order.ts) 區分五分鐘報價（不占庫存）、三十分鐘 `reserved` 訂單、取消／到期。付款、退款、履約與 money movement 永遠關閉於此 profile；沒有 contact／PII dataset，不偽造 supplier acceptance／transfer／payable。
+
+HO-0 只提供可 review 的 shape、規則、generated structural schema 與契約測試，沒有 route、DB migration、module application release 或功能啟用。既有 imported reseller 流程與本節上方 proposed external-inventory adapter 各自保留；direct slice 仍以現有 stock/reserved 單一 writer 接軌，未宣稱 inventory port 已實作。Applied 134 不改，136／137 尚未真正整合前不建立假 138 ledger row。HO-1..3 等本契約 root review 後才實作。
+
 ### 5.4 最小 CRM 與人工 Work／Result
 
 | Proposed route | 完整輸入／回傳 | 認證／限制 |
