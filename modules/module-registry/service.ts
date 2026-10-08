@@ -34,7 +34,18 @@ function bindingView(tenantId: string, workspaceId: string, row: { instance_id: 
   });
 }
 
-/** Already-bound workspaces return inside the command. The workspace row is locked only inside launch, after the installation fingerprint. */
+function requireWritableEntry(row: { instance_status: string; deployment_state: string | null }) {
+  if (isWorkInstanceWritable(row.instance_status, row.deployment_state ?? undefined)) return;
+  const detail = row.instance_status === 'suspended'
+    ? '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。'
+    : row.instance_status === 'archived'
+      ? '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。'
+      : '這個工作區的模組目前無法寫入，舊的工作仍可查看。';
+  throw new Problem(409, 'work_instance_unavailable', detail);
+}
+
+/** Already-bound workspaces return only while their instance and current deployment are writable; refusal stores no receipt.
+ * The workspace row is locked only inside launch, after the installation fingerprint. */
 export async function enableManualWork(pool: Pool, actor: Actor, tenantId: string, workspaceId: string, body: unknown, key: string) {
   OpaqueId.parse(tenantId);
   OpaqueId.parse(workspaceId);
@@ -56,6 +67,7 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
         throw new Problem(409, 'workspace_binding_conflict', '這個工作區已經綁定另一個工作實例。');
       }
       await assertFullGuildMember(q, context.community_id, actor.user_id, input.guild_key, true);
+      requireWritableEntry(existing);
       return bindingView(tenantId, workspaceId, existing, true);
     }
     const workspace = (await q.query<{ status: string }>(
@@ -73,6 +85,7 @@ export async function enableManualWork(pool: Pool, actor: Actor, tenantId: strin
         throw new Problem(409, 'workspace_binding_conflict', '這個工作區已經綁定另一個工作實例。');
       }
       await assertFullGuildMember(q, context.community_id, actor.user_id, input.guild_key, true);
+      requireWritableEntry(again);
       return bindingView(tenantId, workspaceId, again, true);
     }
     if (!input.choice) {
