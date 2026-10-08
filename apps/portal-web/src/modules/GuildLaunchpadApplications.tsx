@@ -67,7 +67,13 @@ export function GuildLaunchpadApplications({client, guildKey, publicMode, visito
       for (const row of rows) {
         const tenant = tenants.find(item => item.tenant_id === row.tenant_id && launchable(item));
         const app = row.application ?? items.find(item => item.application_key === row.application_key && item.release_ref === row.release_ref);
-        if (tenant && !workspaces.has(tenant.tenant_id)) workspaces.set(tenant.tenant_id, await workspaceList(client, tenant.tenant_id, signal));
+        if (tenant && !workspaces.has(tenant.tenant_id)) {
+          try { workspaces.set(tenant.tenant_id, await workspaceList(client, tenant.tenant_id, signal)); }
+          catch (error) {
+            if (!(error instanceof ApiError) || error.network || ![403, 404].includes(error.status)) throw error;
+            workspaces.set(tenant.tenant_id, []);
+          }
+        }
         if (ticket !== generation.current || signal?.aborted) return;
         if (tenant && app && workspaces.get(tenant.tenant_id)?.some(item => item.workspace_id === row.workspace_id)) newest = {row, app};
         else if (terminal(row.operation)) storeLaunch(userId, guildKey, row, true);
@@ -369,7 +375,7 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
   }
   async function selectWorkspace(id: string, workspace: string) {
     resetRequests(); clearPrivate(); place.current = {tenantId: id, workspaceId: workspace}; setWorkspaceId(workspace);
-    const held = savedLaunches(userId, guildKey).find(item => item.tenant_id === id && item.workspace_id === workspace && item.application_key === app.application_key);
+    const held = savedLaunches(userId, guildKey).filter(item => item.tenant_id === id && item.workspace_id === workspace && item.application_key === app.application_key && item.release_ref === app.release_ref).at(-1);
     if (held) { pendingRef.current = held; setPending(held); if (held.operation) await progress(held); return; }
     await candidates(false);
   }
@@ -549,11 +555,10 @@ function LaunchFlow({client, guildKey, userId, app, onClose, onWork, restoredRow
     {problem && <p role="alert" className="banner banner-error">{problem}</p>}
     {changed && <div role="status"><p>{changed}</p>{changedKind === 'plan' && <ul>{Object.entries(instances).flatMap(([key, rows]) => rows.map(row => <li key={`${key}:${row.instance_id}`}>{moduleWord(key)}：ID 尾碼 {row.instance_id.slice(-6)}，最新版本 {row.version}，{INSTANCE_STATUS_WORDS[row.status]}</li>))}</ul>}</div>}
     {retry && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void runAction(retry)}>重試</button>}
-    {readFailed && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { setProblem(''); setReadFailed(false); if (!tenantsLoaded) void loadTenants(); else if (!workspaceId) void selectTenant(tenantId); else void candidates(true); }}>重新載入清單</button>}
+    {readFailed && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => { setProblem(''); setReadFailed(false); if (!tenantsLoaded || !tenantId) void loadTenants(); else if (!workspaceId) void selectTenant(tenantId); else void candidates(true); }}>重新載入清單</button>}
     {canManage && <fieldset className="fieldset"><legend>工作區</legend><div className="application-actions">{workspaces.map(item => <button type="button" key={item.workspace_id} className="btn btn-ghost" aria-current={item.workspace_id === workspaceId ? 'true' : undefined} onClick={() => { if (item.workspace_id !== workspaceId) void selectWorkspace(tenantId, item.workspace_id); }}>{item.name}</button>)}</div></fieldset>}
-    {canManage && !workspace && !readFailed && <p role="status">正在載入工作區…</p>}
+    {tenantsLoaded && tenants.some(launchable) && !workspace && !readFailed && <p role="status">正在載入工作區…</p>}
     {canManage && workspace && !pending && !plan && <>
-
       {!ready && <p role="status">正在載入可用實例…</p>}
       {ready && <>
         {installations.length > 0 && <fieldset className="fieldset"><legend>安裝選擇</legend>
