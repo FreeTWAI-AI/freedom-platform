@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -175,7 +176,7 @@ test('a restricted runtime role can launch and cannot edit definitions, and a ma
     runtimeUrl.username = runtimeRole;
     runtimeUrl.password = '';
     const runtime = new Pool({ connectionString: runtimeUrl.toString(), options: `-c search_path=${h.schema}`, max: 1 });
-    const runtimeApp = createApp(runtime, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const runtimeApp = createApp(runtime, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
     try {
       await assert.rejects(runtime.query(`INSERT INTO application_definitions(
           application_key, release_ref, display_name, source_commit, artifact_digest, skill_book_refs, module_requirements,
@@ -311,7 +312,7 @@ test('migration 129 preserves a launch row seeded under schema 128', async () =>
       max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
       SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
         max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
-    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
     const owner = await h.signIn(DEMO_USERS[0].email, app);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
@@ -396,7 +397,7 @@ test('migration 130 preserves pre-seeded launch, suspend and resume rows from sc
       max_instances_per_module,max_concurrent_provisions,max_work_items,max_retained_bytes,max_concurrent_jobs,status)
       SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
         max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
-    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true });
+    const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
     const owner = await h.signIn(DEMO_USERS[0].email, app);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);

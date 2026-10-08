@@ -2,6 +2,50 @@
 
 The registry is the launch engine for offered applications. It owns application and module definitions, guild offerings, installations, module instances, deployment bindings, workspace entry bindings, launch plans, provision operations, capacity reservations, and the operator-owned `tenant_capacity_policies` table. It does not own Work rows or Result bytes. Launching an application or enabling manual Work (`enableManualWork`, below) is a command, not a deployment state: the registry's public and tenant routes mount only when `FREEDOM_GUILD_LAUNCHPAD_ENABLED` is `true`, and on 2026-10-07 the flag was absent in staging and production (see `features.guild_launchpad` in the [current state](../../docs/platform-plan/execution/unified-foundation/current-state.json)).
 
+## Signed tenant-list cursors and release configuration (#247)
+
+Work, Result revisions, module instances and application installations use bounded
+HMAC-SHA-256 continuations. The runtime receives the dedicated
+`FREEDOM_TENANT_CURSOR_SIGNING_KEY`: exactly 32 independently generated random
+bytes encoded as canonical, unpadded base64url (43 characters). Node reads its
+server environment (or the explicit test/host option); Worker reads only its own
+secret binding. This key must differ across local, staging and production and
+must not reuse a cookie, CSRF, webhook, encryption or bootstrap key. There is no
+unsigned compatibility mode or generated runtime fallback.
+
+The authenticated envelope binds list purpose, current person principal, tenant,
+resolved tenant scope, workspace/Work parent and normalized filters. Page size
+may change while continuing the same filtered ordering. PostgreSQL microseconds
+remain intact. Host-configured environment and origin are also bound; request
+headers and cookies do not select the signing key or origin. The token is opaque
+continuation data, not encryption or access authority. Each request still checks
+current session, tenant membership, parent/instance access and database scope
+before decoding or checking signer availability. Existing query-shape validation
+(e.g. duplicate parameters and the 512-character bound) remains at the HTTP edge.
+A malformed or mismatched continuation returns 422 `invalid_cursor` only after
+resource authorization; inaccessible resources retain their existing response.
+
+A missing or malformed key returns 503 `tenant_cursor_unavailable` for authorized
+list requests, including page one and the Work list in `launchpad-context`.
+Authentication, unrelated detail/command routes and public application catalog
+routes do not require this key. Old unsigned cursors and cursors from before key
+rotation return 422; restart pagination without a cursor. Rotation changes no
+stored records and uses no schema migration. There is no automatic old-key grace
+period or cross-environment token acceptance.
+
+Deployment is a separate operator prerequisite, not completed by this source
+change. Before releasing this revision where launchpad is enabled, obtain the
+specific release/configuration approval, provision independent secrets into the
+staging and production server/Worker environments through their normal secret
+store, and verify binding presence/format without printing values. Deploy and
+verify staging first: an authorized list must paginate, a tampered cursor must
+return 422, and an inaccessible tenant must still return 404. Only then proceed
+with the approved production release. Do not release the source ahead of this
+configuration: it would turn existing authorized lists into 503. Keep an existing
+working release available for rollback; never roll back a key by placing it in
+source, logs, URLs or ordinary Worker vars. Synthetic keys in runtime tests and
+the disposable e2e server are public test data and are forbidden for deployments.
+
 `enableManualWork` is a facade over the same plan and launch core. The wire stays a `ManualWorkBinding`. An already-bound workspace returns inside the command with `reused: true` only while its entry instance and that instance's current deployment are both `active`. Otherwise it returns 409 `work_instance_unavailable` with the suspended, archived, or generic read-only detail. Refusal writes nothing and stores no receipt, so the same `Idempotency-Key` succeeds after a resume. A missing capacity policy is still `policy_unconfigured` on that path. When the tenant already has an active `work` instance and the caller sends no choice, the command fails with `instance_selection_required` even if there is exactly one candidate. The workspace row is locked `FOR NO KEY UPDATE` inside launch, after the installation fingerprint and the policy advisory, not in authorize.
 
 `availableReleases` returns scoped launchable release pairs in catalog order; `availableReleaseRefs` derives its filtering set from those rows, and member launchpad applications carry the winning `display_name`.
