@@ -179,3 +179,36 @@ test('a profile revalidate that starts rejecting during the receipt-step wait ro
 test('assertCurrentTime that starts throwing during the receipt-step wait rolls the tenant command back', { timeout: 30_000 }, async () => {
   await waitCase('clock');
 });
+
+test('optional tenant runner projects on the exact command client and keeps existing ID receipt digest on replay', async () => {
+  const { actor, tenantId, scopeId } = await tenantMember(), key = `runner-${randomUUID()}`;
+  const input = commandInput(actor, tenantId, key);
+  let effectPid = 0, projection = 0, effectsRun = 0;
+  const execute = () => scopedTenantCommand(pool, input, async () => {}, async (q, context) => {
+    effectsRun++; effectPid = Number((await q.query('SELECT pg_backend_pid() pid')).rows[0].pid);
+    await q.query('UPDATE fixture_domain_effects SET version=version+1 WHERE scope_id=$1', [context.scope.scope_id]); return { id: scopeId };
+  }, undefined, undefined, async (source, command) => {
+    const { isolatedTransaction } = await import('../../packages/resource-scopes/tenant-transaction.js');
+    return isolatedTransaction(source, async q => {
+      const reference = await command(q);
+      if (effectsRun === 1 && projection === 0) assert.equal(Number((await q.query('SELECT pg_backend_pid() pid')).rows[0].pid), effectPid);
+      projection = Number((await q.query('SELECT version FROM fixture_domain_effects WHERE scope_id=$1', [(reference as { id: string }).id])).rows[0].version);
+      return reference;
+    });
+  });
+  assert.deepEqual(await execute(), { id: scopeId }); assert.equal(projection, 2);
+  await pool.query('UPDATE fixture_domain_effects SET version=3 WHERE scope_id=$1', [scopeId]);
+  assert.deepEqual(await execute(), { id: scopeId }); assert.equal(projection, 3); assert.equal(effectsRun, 1);
+  assert.deepEqual((await pool.query('SELECT response FROM scoped_command_receipts WHERE scope_id=$1 AND operation=$2', [scopeId, operation])).rows[0].response, { id: scopeId });
+});
+
+test('post-receipt tenant projection failure rolls back the command effect and success receipt', async () => {
+  const { actor, tenantId, scopeId } = await tenantMember();
+  await assert.rejects(scopedTenantCommand(pool, commandInput(actor,tenantId,`rollback-${randomUUID()}`), async()=>{}, async(q,context)=>{
+    await q.query('UPDATE fixture_domain_effects SET version=2 WHERE scope_id=$1',[context.scope.scope_id]);return {id:scopeId};
+  }, undefined, undefined, async(source,command)=>{
+    const { isolatedTransaction } = await import('../../packages/resource-scopes/tenant-transaction.js');
+    return isolatedTransaction(source,async q=>{await command(q);throw new Problem(403,'fixture_projection_denied','Synthetic current projection refused.');});
+  }), (error:any)=>error.code==='fixture_projection_denied');
+  assert.deepEqual(await effects(scopeId),{version:1,receipts:0});
+});

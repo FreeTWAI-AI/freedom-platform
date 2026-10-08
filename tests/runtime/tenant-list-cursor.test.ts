@@ -21,7 +21,7 @@ test('signed cursor preserves exact keyset values, is bounded, and permits only 
   assert.deepEqual(codec.decode(token, binding), position);
   assert.equal(codec.decode(undefined, binding), null);
   for (const change of [
-    { purpose: 'results' as const }, { purpose: 'instances' as const }, { purpose: 'installations' as const },
+    { purpose: 'seller-orders' as const }, { purpose: 'results' as const }, { purpose: 'instances' as const }, { purpose: 'installations' as const },
     { tenantId: 'tenant-b' }, { principalId: 'principal-b' }, { scopeId: 'scope-b' },
     { resourceId: 'workspace-b' }, { filter: '另一個篩選' },
   ]) rejects(() => codec.decode(token, { ...binding, ...change }));

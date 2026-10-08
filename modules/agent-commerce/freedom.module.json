@@ -31,7 +31,8 @@
     "tests/runtime/hosted-direct-orders.test.ts",
     "apps/platform-api/src/routes/hosted-orders.ts",
     "tests/runtime/hosted-order-http.test.ts",
-    "tests/runtime/hosted-order-http-contracts.test.ts"
+    "tests/runtime/hosted-order-http-contracts.test.ts",
+    "tests/runtime/hosted-seller-orders.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -43,7 +44,8 @@
     "resource-scopes",
     "scoped-commands",
     "development",
-    "module-registry"
+    "module-registry",
+    "shared"
   ],
   "contract_families": [
     "common"
@@ -174,7 +176,10 @@
         "storefront.order.submit",
         "storefront.order.read",
         "storefront.order.intent.read",
-        "storefront.order.cancel"
+        "storefront.order.cancel",
+        "storefront.seller.orders.list",
+        "storefront.seller.order.read",
+        "storefront.seller.order.cancel"
       ],
       "auth_profile": "member-session"
     }
