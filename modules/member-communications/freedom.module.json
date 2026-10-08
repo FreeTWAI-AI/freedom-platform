@@ -20,7 +20,8 @@
     "scoped-commands",
     "asset-lifecycle",
     "asset-storage",
-    "shared"
+    "shared",
+    "media-migration"
   ],
   "contract_families": [],
   "client_profiles": [

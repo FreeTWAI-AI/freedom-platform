@@ -13429,8 +13429,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 16883,
-      "sha256": "c8aff206780b4b7401ddf1ef7a40682155e3109305b13ff5c15fa5bae58f0448"
+      "bytes": 17319,
+      "sha256": "03847b110c75821db3c7661833b315f15cd1f32d9e44e0b7d6ec449528bc2b14"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -17214,8 +17214,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 1074,
-      "sha256": "d66b8402a76e2d792eaf2b052695cb4abf82ccb2e1488d646109bcac8ea77b60"
+      "bytes": 1097,
+      "sha256": "4a4663706093ac3c47f3f5be17c439a71c49ae6d46cc15a19254590bfad34f6d"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19579,8 +19579,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 9814,
-      "sha256": "cebccfdc885edbbc9deca5b8ce878dd57ccba790f20932d47d59002269abc7d3"
+      "bytes": 10459,
+      "sha256": "dfbf5c2b5143e0efba3b6886db7fe8c54916ed768214e094722a7a373fd33e60"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20769,8 +20769,8 @@
     },
     {
       "path": "tests/runtime/message-images.test.ts",
-      "bytes": 34105,
-      "sha256": "7ba6d5c10de89c22cc4f63eb524b935d535bcd2f2beea0212b2d08fef4659353"
+      "bytes": 35356,
+      "sha256": "1e206172deeab75d32ab12b45adcd66eb5f4a93113973a912b535f388bafc6e2"
     },
     {
       "path": "tests/runtime/migration-runner-plan.test.ts",

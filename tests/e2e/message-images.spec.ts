@@ -25,7 +25,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE !== '1') {
   });
 }
 if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
-  test('image upload and message retries reuse keys without another upload after its acknowledgement',async({page})=>{
+  test('image upload and message retries reuse keys without another upload after its acknowledgement',async({page},testInfo)=>{
     const thread=await openDirect(page),uploads:string[]=[],sends:string[]=[],caption=`圖片說明 ${crypto.randomUUID()}`;
     await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/images$/,async route=>{
       uploads.push(route.request().headers()['idempotency-key']);const response=await route.fetch();expect(response.status()).toBe(201);
@@ -42,6 +42,8 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
     await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();
     await expect(thread.getByRole('button',{name:'附加圖片',exact:true})).toBeDisabled();
+    for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath(`dm-unknown-${width}.png`)});}
+    await page.setViewportSize({width:1440,height:900});
     const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
     await panel.getByLabel('搜尋會員').fill('示範合作方');await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
     await panel.getByRole('button',{name:'傳訊給 示範合作方',exact:true}).click();
@@ -60,7 +62,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
 
   test('dock unknown send blocks intentional logout and survives collapse until original retry confirms',async({page})=>{
     await openDirect(page);await page.getByRole('button',{name:'展開訊息控制台'}).click();
-    const dock=page.locator('.game-console-expanded');await dock.getByRole('tab',{name:'私訊',exact:true}).click();
+    const dock=page.locator('.game-console-expanded');await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();
     await dock.getByLabel('搜尋會員').fill('示範需求者');await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();
     await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
     const thread=dock.locator('.messages-thread'),caption=`Console original ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];
@@ -74,7 +76,9 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
     await dock.getByRole('button',{name:'收合訊息控制台'}).click();
     let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
-    await signOut(page);expect(blocked).toBe(1);
+    let logouts=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/auth/logout'))logouts++;});
+    await page.getByRole('button',{name:'設定',exact:true}).click();
+    await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();expect(blocked).toBe(1);expect(logouts).toBe(0);
     expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
     await page.getByRole('button',{name:'展開訊息控制台'}).click();await expect(thread.getByRole('textbox')).toHaveValue(caption);
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');

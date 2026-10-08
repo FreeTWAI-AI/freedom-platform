@@ -112,3 +112,10 @@ node --import tsx --test --test-concurrency=1 tests/runtime/member-blocking.test
 整合候選以既有商店 migration 134／135 為父線，新增 136（會員封鎖）與 137（社群搜尋標籤）。001～135 的 SQL 不變，136／137 都是新增社群表，沿用既有 runtime grants 與目前會員命令授權；不新增 tenant 權限或 RLS。兩個功能開關仍預設關閉，合併不代表部署或產品驗收。
 
 回退到不認得封鎖的舊 binary 會忽略已保存的封鎖關係，失去聯絡保護；不能把新增資料表的 schema 相容當成安全回退承諾。本候選即使關閉封鎖管理介面，已保存的封鎖仍保護好友、邀請及私訊。回退應保留這項保護或以修復版前進，不把關閉介面當成刪除設定。
+
+### 私訊圖片的 metadata 歸屬
+
+`member-communications` descriptor 僅登錄這次新增的圖片 reader/client、139 migration
+與圖片 runtime/browser 測試，不以目錄 wildcard 吸收舊 communications、App 或 routes。
+既有未映射 surface 仍回報 unavailable；descriptor 是來源 metadata，不是模組安裝
+或 application release。圖片沿 [既有 Asset adapter](../../modules/assets/message-image.md)。

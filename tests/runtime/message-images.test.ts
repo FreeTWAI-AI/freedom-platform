@@ -368,3 +368,18 @@ test('every prepared image lifecycle phase rejects a newly blocked pair without 
   assert.deepEqual(await counts(),before);
   assert.equal((await fixture.query('SELECT state FROM asset_upload_intents WHERE intent_id=$1',[prepared.intentId])).rows[0].state,'processing');
 });
+
+test('a committed block wins against an upload receipt actually waiting on the pair barrier',async()=>{
+  const s=setup(),a=await member(),b=await member(),key=randomUUID();
+  assert.equal((await s.upload(a,b,png,'image/png',key)).status,201);const before=await counts();
+  const q=await fixture.connect();await q.query('BEGIN');const [low,high]=[a.id,b.id].sort();
+  await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`friend/${community}/${low}/${high}`]);
+  const pid=(await q.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+  const pending=s.upload(a,b,png,'image/png',key);
+  try{
+    const deadline=Date.now()+5000;
+    for(;;){if((await fixture.query('SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))',[pid])).rowCount)break;assert(Date.now()<deadline,'upload replay must actually wait on the pair');await fixture.query('SELECT pg_sleep(0.005)');}
+    await q.query("INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active')",[community,b.id,a.id]);await q.query('COMMIT');
+    await code(await pending,409,'recipient_unavailable');assert.deepEqual(await counts(),before);
+  }finally{await q.query('ROLLBACK');q.release();await pending.catch(()=>{});}
+});
