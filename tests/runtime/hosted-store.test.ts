@@ -377,6 +377,31 @@ test('T-006 T-024 public stores derive tenant context only from the slug regardl
   } finally { for (const q of clients) q.release(); }
 });
 
+test('T-016 a disabled setup admin does not hide a store with a current active owner', async () => {
+  const s = await open();
+  const setupAdmin = (await h.person('合成設定管理者')).session;
+  await join(s, setupAdmin, 'admin');
+  expect(await post(s.root + '/setup', setupAdmin, settings), 201);
+  await add(s); expect(await publish(s));
+  const profile = (await h.pool.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [s.instanceId])).rows[0];
+  assert.equal((await h.pool.query('SELECT owner_id FROM commerce_shops WHERE shop_id=$1', [profile.storefront_shop_id])).rows[0].owner_id, setupAdmin.user.user_id);
+  const id = randomUUID();
+  const admin: AdminActor = { admin_id:id, community_id:DEMO_COMMUNITY, email:'synthetic-admin@example.test', display_name:'合成管理員', role:'super_admin', subject:id };
+  await h.pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)', [id,DEMO_COMMUNITY,admin.email,admin.display_name]);
+  await changeMemberStatus(h.pool, { admin, operation:'member.status', key:randomUUID(), body:{active:false,reason:'合成設定者停用'}, expected:'1' }, setupAdmin.user.user_id);
+  assert.equal((await h.pool.query('SELECT status FROM tenants WHERE tenant_id=$1', [s.tenantId])).rows[0].status, 'active');
+  assert.equal((await h.pool.query('SELECT status FROM module_instances WHERE instance_id=$1', [s.instanceId])).rows[0].status, 'active');
+  const shown = await publicPair(settings.slug);
+  assert.equal(shown.json.status, 200); assert.equal(shown.html.status, 200);
+  expect(await publish(s));
+  await changeMemberStatus(h.pool, { admin, operation:'member.status', key:randomUUID(), body:{active:false,reason:'合成最後店主停用'}, expected:'1' }, s.owner.user.user_id);
+  const hidden = await publicPair(settings.slug), missing = await publicPair('unknown-shop');
+  assert.equal(hidden.json.status, 404); assert.equal(hidden.html.status, 404);
+  assert.equal(hidden.jsonText, missing.jsonText); assert.equal(hidden.htmlText, missing.htmlText);
+  assert.deepEqual([...hidden.json.headers], [...missing.json.headers]);
+  assert.deepEqual([...hidden.html.headers], [...missing.html.headers]);
+});
+
 test('T-016 account closure revokes sessions, tenant and instance liveness hide public pages, and FK cleanup cascades', async () => {
   const s = await ready(); await add(s); expect(await publish(s));
   const id = randomUUID(); const admin: AdminActor = { admin_id:id,community_id:DEMO_COMMUNITY,email:'synthetic-admin@example.test',display_name:'合成管理員',role:'super_admin',subject:id };
