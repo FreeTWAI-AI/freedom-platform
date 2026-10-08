@@ -1694,8 +1694,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/PublicDiscovery.tsx",
-      "bytes": 5752,
-      "sha256": "7f2146afa927d0033cfb5d3b993c1b141e2db378f4cdf5004caa4620d6af566a"
+      "bytes": 6105,
+      "sha256": "7d914010df54f40691b079feb791a9c22a7fa907ca0e37bcec5f23a91121ce61"
     },
     {
       "path": "apps/portal-web/src/modules/PublicEventPage.css",
@@ -18974,8 +18974,8 @@
     },
     {
       "path": "tests/runtime/community-discovery.test.ts",
-      "bytes": 11934,
-      "sha256": "512e6c9cd77512d8f0e7e44fefb579ebb6d8b30cd266dbedb49f41895735df3f"
+      "bytes": 12843,
+      "sha256": "158867cd28e37adeec7b4b8036a318b5d0a9a95237793ccce673e1488fd51caa"
     },
     {
       "path": "tests/runtime/credential-broker-adversarial.test.ts",
