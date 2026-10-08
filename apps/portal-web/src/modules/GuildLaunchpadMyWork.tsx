@@ -872,9 +872,11 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </div>}
           <div className="my-work-actions">
             <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || Boolean(conflict)}>儲存變更</button>
-            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked || !canArchiveWork} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
           </div>
         </form>}
+        {canArchiveWork && <div className="my-work-actions">
+          <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
+        </div>}
         {!isProduction && <form className="stack" aria-label="筆記" onSubmit={event => { event.preventDefault(); void beginNoteSave(); }}>
           <label className="field" htmlFor="my-work-note">{noteLabel}
             <textarea id="my-work-note" aria-describedby={noteError ? 'my-work-note-error' : undefined} value={note} disabled={busy || writeLocked} onChange={event => { setNote(event.target.value); if (!attempt) setStage('尚未儲存'); }}/>

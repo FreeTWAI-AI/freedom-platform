@@ -1320,13 +1320,14 @@ test('NP-003 failed first save recovers the same Work, 412 preserves production 
   } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
 });
 
-test('NP-004 read-only production viewer keeps readable data without writes; an explicit result writer can save', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+test('NP-004 production grants independently control read, result write and archive', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
   test.setTimeout(180_000);
   const guildKey = 'guild_commercial_production';
   const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
   const owner = await person(e2eAuthPool, 'production-owner', [{ guild_key: guildKey, tier: 'full' }], guildKey);
   const viewer = await person(e2eAuthPool, 'production-viewer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
   const writer = await person(e2eAuthPool, 'production-writer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const archiver = await person(e2eAuthPool, 'production-archiver', [{ guild_key: guildKey, tier: 'full' }], guildKey);
   const session = await login(browser, baseURL!, owner.email);
   const contexts = [session.context];
   try {
@@ -1346,7 +1347,7 @@ test('NP-004 read-only production viewer keeps readable data without writes; an 
     await expect(session.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
     const works = await (await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
     const work = works.items[0];
-    for (const entry of [{ person: viewer, role: 'viewer', capabilities: ['work:read'] }, { person: writer, role: 'operator', capabilities: ['work:read', 'work:result.write'] }]) {
+    for (const entry of [{ person: viewer, role: 'viewer', capabilities: ['work:read'] }, { person: writer, role: 'operator', capabilities: ['work:read', 'work:result.write'] }, { person: archiver, role: 'operator', capabilities: ['work:read', 'work:archive'] }]) {
       const candidate = await (await session.page.request.get(`/api/v1/tenants/invite-candidates?user_id=${entry.person.userId}`)).json();
       const invite = await postJson(session.page, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: entry.role,
         instance_capabilities: [{ instance_id: work.instance_id, capabilities: entry.capabilities }], expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
@@ -1361,7 +1362,7 @@ test('NP-004 read-only production viewer keeps readable data without writes; an 
       await openGuild(member.page, guildKey, guild.name);
       await member.page.getByRole('button', { name: '唯讀製作企劃', exact: true }).click();
       await expect(member.page.getByLabel('目標受眾', { exact: true })).toHaveValue('可閱讀的私人企劃');
-      await expect(member.page.getByLabel('核心訊息', { exact: true })).toHaveValue('唯讀會員不應失去工作畫面');
+      await expect(member.page.getByLabel('核心訊息', { exact: true })).toHaveValue(entry.person === archiver ? '依明確成果寫入權限完成修改' : '唯讀會員不應失去工作畫面');
       await expect(member.page.getByRole('heading', { name: '建立製作專案', exact: true })).toHaveCount(0);
       await expect(member.page.locator('#my-work-edit-title')).toHaveCount(0);
       if (entry.role === 'viewer') {
@@ -1377,17 +1378,29 @@ test('NP-004 read-only production viewer keeps readable data without writes; an 
           await member.page.evaluate(() => window.scrollBy(0, -96));
           await member.page.screenshot({ path: testInfo.outputPath(`production-viewer-${skin}-${width}.png`) });
         }
-      } else {
+      } else if (entry.person === writer) {
+        await expect(member.page.getByRole('button', { name: '封存', exact: true })).toHaveCount(0);
         await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
         await member.page.getByLabel('核心訊息', { exact: true }).fill('依明確成果寫入權限完成修改');
         await member.page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
         await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
         expect(writes.length).toBeGreaterThan(0);
+      } else {
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '儲存附件', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '封存', exact: true })).toBeEnabled();
+        expect(writes).toEqual([]);
+        await member.page.getByRole('button', { name: '封存', exact: true }).click();
+        await member.page.getByRole('dialog').getByRole('button', { name: '確認封存', exact: true }).click();
+        await expect(member.page.locator('.my-work-open')).toHaveCount(0);
+        expect(writes).toEqual(['POST']);
+        const archived = await member.page.request.get(`/api/v1/tenants/${tenantId}/works/${work.work_id}`);
+        expect(archived.status()).toBe(404);
       }
       assertLocal(member.urls);
     }
   } finally {
     for (const context of contexts) await context.close();
-    for (const member of [owner, viewer, writer]) await cleanup(e2eAuthPool, member.userId);
+    for (const member of [owner, viewer, writer, archiver]) await cleanup(e2eAuthPool, member.userId);
   }
 });
