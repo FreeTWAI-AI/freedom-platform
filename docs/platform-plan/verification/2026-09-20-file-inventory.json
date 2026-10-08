@@ -59,8 +59,8 @@
     },
     {
       "path": "playwright.config.ts",
-      "bytes": 1533,
-      "sha256": "f5308bd7170faa957395ee7459cde51598e5884950cbf469e56d66885d19d50f"
+      "bytes": 1566,
+      "sha256": "04d63dc5faedcdbfae683bc5c6ea17b8bd51e49cc6955a0f9018df65c41fc72b"
     },
     {
       "path": "repositories.lock.json",
@@ -16979,8 +16979,8 @@
     },
     {
       "path": "modules/community-search/freedom.module.json",
-      "bytes": 1580,
-      "sha256": "33de60be57a158d96e7de78c9f436b9db909b0a37edc8d24da439d49be5de1cf"
+      "bytes": 1622,
+      "sha256": "2322ea99f078f273d01f322230a11011139ba9a901c577c74f9b4bbbb3257173"
     },
     {
       "path": "modules/development/freedom.module.json",
@@ -18809,8 +18809,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 11389,
-      "sha256": "8f89668aa96f24848e9264728daf4a1cbbb60117b1264cc5a7a2275b74dfdf5b"
+      "bytes": 11556,
+      "sha256": "32f765c31ec6a6c4c367ce49955915c249ae73244335b423671145921d55c635"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -19266,6 +19266,11 @@
       "path": "tests/e2e/community-erp-demo.spec.ts",
       "bytes": 1404,
       "sha256": "aa2aa3b6c9450d106c91a819f8986ca244fcc276bb9b36f52c7bb48194029532"
+    },
+    {
+      "path": "tests/e2e/community-search.spec.ts",
+      "bytes": 11120,
+      "sha256": "f639ba37f90093f80a19a71cc838a734e6e679e57a1c1efa4a5ae2773fd322ec"
     },
     {
       "path": "tests/e2e/connection-feedback-layout.spec.ts",
