@@ -58,6 +58,7 @@ const PublicEventPage = lazy(() => import('./modules/PublicEventPage').then(m =>
 const TaskBoardPanel = lazy(() => import('./modules/TaskBoardPanel').then(m => ({default: m.TaskBoardPanel})))
 const WelcomePreview = lazy(() => import('./modules/WelcomePreview').then(m => ({default: m.WelcomePreview})))
 const MemberGuildWorkspace = lazy(() => import('./modules/GuildWorkspace').then(m => ({default: m.MemberGuildWorkspace})))
+const HostedStore = lazy(() => import('./modules/HostedStore').then(m => ({default: m.HostedStore})))
 const TenantSettings = lazy(() => import('./modules/TenantSettings').then(m => ({default: m.TenantSettings})))
 const PositioningPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.PositioningPanel})))
 const GuildsPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.GuildsPanel})))
@@ -95,6 +96,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   retail: '挑商品、下載 MD，讓 AI 製作公開商店。',
   marketing: '撰寫介紹草稿並記錄分享成果。',
   'guild-workspace': '管理你有權負責的公會資訊與技能書。',
+  stores: '建立與管理你的商店：上架商品、預覽並發布展示頁；交易尚未啟用。',
   business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
   todos: '查看會員待辦事項與可直接前往的操作。',
@@ -526,6 +528,9 @@ function Workspace({
   },[session.user.user_id]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
+  const pageLeaveGuard = useRef<(() => boolean) | null>(null)
+  const acceptedHash = useRef(window.location.hash)
+  const registerPageLeave = useCallback((guard: (() => boolean) | null) => { pageLeaveGuard.current = guard }, [])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const notificationSequence=useRef(0)
@@ -553,6 +558,9 @@ function Workspace({
     workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
   const selectTab = useCallback((next: TabId) => {
+    const nextHash = `#${next}`
+    if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) return
+    acceptedHash.current = nextHash
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
@@ -606,7 +614,15 @@ function Workspace({
     setTab(tabFromHash(launchpadEnabled))
   }, [launchpadEnabled])
   useEffect(() => {
-    const changed = () => { setLocationHash(window.location.hash); setTab(tabFromHash(launchpadEnabled)) }
+    const changed = () => {
+      const nextHash = window.location.hash
+      if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${acceptedHash.current}`)
+        return
+      }
+      acceptedHash.current = nextHash
+      setLocationHash(nextHash); setTab(tabFromHash(launchpadEnabled))
+    }
     window.addEventListener('hashchange', changed)
     window.addEventListener('popstate', changed)
     return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
@@ -669,6 +685,7 @@ function Workspace({
   )
 
   async function logout() {
+    if (pageLeaveGuard.current && !pageLeaveGuard.current()) return
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
     })
@@ -710,7 +727,7 @@ function Workspace({
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
-                memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (tab !== 'business' || site?.guild_launchpad_enabled === true)}/>
+                memberAccess={!error?.accessExpired && !mobileOpen && !pending && (tab !== 'guild-workspace' || canManageGuild) && (!['business', 'stores'].includes(tab) || site?.guild_launchpad_enabled === true)}/>
               <main ref={mainContent} className="workspace-page" id="main-content" tabIndex={-1} aria-labelledby="workspace-page-title">
             {(shareEntry||shareNotice)&&<p className="share-entry-status" role="status">{shareEntry?`正在開啟${SHARE_TARGETS[shareEntry.target].label}…`:shareNotice}</p>}
             {error && (
@@ -741,8 +758,9 @@ function Workspace({
             {tab === 'engagement' && <EngagementPanel />}
             {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} />}
+            {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
+            {tab === 'stores' && <HostedStore client={client} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
@@ -768,6 +786,7 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
+  if(value === 'stores' || value.startsWith('stores/'))return launchpadEnabled ? 'stores' : 'home'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'

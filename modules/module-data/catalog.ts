@@ -1,4 +1,4 @@
-import { deepFreeze, type TenantDataCatalog } from './catalog-check.js';
+import { COMMERCE_RESOURCE_PATHS, deepFreeze, type TenantDataCatalog } from './catalog-check.js';
 
 /** Tenant purposes come only from pg_get_constraintdef of asset_scope_purpose,
  * the scope_kind = 'tenant' branch. Today that purpose is work.tenant-result.
@@ -2073,6 +2073,15 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       dataset_key: "DC-08",
       catalog_version: "1",
       physical_locations: [
+        { kind: "table" as const, table: "commerce_shops", columns: ["shop_id", "community_id", "owner_id", "kind", "mode", "accepting_orders", "name", "description", "website_url", "contact", "currency", "aggregate_version", "manifest_sha256", "created_at", "origin"],
+          tenant_resolution: COMMERCE_RESOURCE_PATHS.commerce_shops,
+          isolation: { rls: "exempt" as const, reason_code: "commerce_confirmed_mapping_reader", reason: "Shared legacy/hosted commerce table. Hosted private reads use confirmed shop mappings under tenant RLS and module capability checks; imported shops retain their existing owner ACL. Schema coverage grants no read or export authority." } },
+        { kind: "table" as const, table: "commerce_items", columns: ["item_id", "shop_id", "sku", "title", "description", "photo_url", "price_minor", "shipping_minor", "stock", "reserved", "shipping_terms", "return_terms"],
+          tenant_resolution: COMMERCE_RESOURCE_PATHS.commerce_items,
+          isolation: { rls: "exempt" as const, reason_code: "commerce_confirmed_mapping_reader", reason: "Hosted product source remains the existing agent-commerce item. Private reads join its supply shop and confirmed tenant/instance mapping; listing a selection does not grant access to another supplier's item. Legacy owner/participant ACLs remain separate." } },
+        { kind: "table" as const, table: "commerce_selections", columns: ["selection_id", "shop_id", "item_id", "retail_price_minor", "sale_terms", "snapshot", "listing_sha256", "acceptance_state", "current_acceptance_id", "aggregate_version"],
+          tenant_resolution: COMMERCE_RESOURCE_PATHS.commerce_selections,
+          isolation: { rls: "exempt" as const, reason_code: "commerce_confirmed_mapping_reader", reason: "Hosted private reads resolve the seller shop's confirmed tenant/instance mapping and separately check the supply shop mapping. The item FK is a source reference, not ownership of supplier data. Legacy distribution ACLs remain separate." } },
         { kind: "table" as const, table: "commerce_storefront_profiles", columns: ["instance_id", "tenant_id", "supply_shop_id", "storefront_shop_id", "slug", "brand", "current_publication_id", "first_published_at", "product_seq", "version", "created_by_principal_id", "created_at", "updated_at"],
           tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "exempt" as const, reason_code: "public_projection_reader", reason: "hosted/public.ts readPublicStore reads the immutable public projection before binding principal-less tenant context. All private reads join module_instances or confirmed commerce_resource_tenants under tenant RLS." } },
         { kind: "table" as const, table: "commerce_storefront_publications", columns: ["publication_id", "instance_id", "tenant_id", "revision", "slug", "projection", "projection_sha256", "published_by_principal_id", "published_at"],
@@ -2080,13 +2089,13 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       ],
       classification: "tenant_private_with_explicit_public_projection",
       authoritative_module: "agent-commerce",
-      tenant_resolution: "Profile and publication tenant_id; private reads join the bound module instance or confirmed commerce resource mapping.",
-      identity_keys: ["instance_id", "publication_id"],
+      tenant_resolution: "Profile/publication tenant_id; shops resolve through commerce_resource_tenants.resource_id -> commerce_shops.shop_id, items and selections through their own shop_id first. Only resource_kind=shop, mapping_state=confirmed with the authorized tenant and instance establishes row scope. Missing/ambiguous mappings and imported/unmapped rows are not assigned by owner_id, community_id, slug or a selection's item reference. Schema FK evidence alone is not row authorization.",
+      identity_keys: ["instance_id", "publication_id", "shop_id", "item_id", "selection_id"],
       readable_by: ["store:read", "anonymous:current-live-publication"],
       writable_by: ["store:manage", "store:write", "store:publish"],
-      export_scope: "No store export endpoint exists in this slice. Bulk module export requires separately authorized module.data.export and must exclude platform authentication.",
-      dependency_refs: ["DC-04", "DC-07"],
-      sensitivity: "Store drafts and publisher principal references are private; only the explicit publication allowlist is public.",
+      export_scope: "Coverage only: no store export, import, restore or external migration capability is implemented by this catalog. Bulk export requires separately authorized module.data.export, confirmed row mappings and field policy; it must exclude platform authentication, imported/unmapped shops and another supplier's private item data.",
+      dependency_refs: ["DC-04", "DC-07", "DC-10"],
+      sensitivity: "Store drafts, item costs/stock and publisher principal references are private; only the explicit publication allowlist is public. commerce_items is listed once for hosted source coverage; product/offer responsibility remains DC-07 and stock/reserved responsibility remains DC-10 under the existing agent-commerce writer.",
       sharing_purpose: "Member-approved product display with ordering disabled.",
       field_allowlist: ["slug", "name", "brand", "description", "currency", "products.sku", "products.title", "products.description", "products.price_minor", "revision", "published_at", "transaction_state"],
       central_retention: { state: "policy_undecided" as const, decision_refs: ["OPEN-07"] },

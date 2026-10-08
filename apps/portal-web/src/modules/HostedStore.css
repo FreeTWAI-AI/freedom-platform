@@ -1,0 +1,15 @@
+.hosted-store { min-width: 0; overflow-wrap: anywhere; }
+.hosted-store .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.hosted-store .btn { width: fit-content; max-width: 100%; min-height: 44px; flex: none; }
+.hosted-store-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.hosted-store-form { max-width: 680px; min-width: 0; }
+.hosted-store :is(input, textarea, select) { min-width: 0; max-width: 100%; }
+.hosted-store-slug { display: flex; gap: 8px; align-items: center; }
+.hosted-store-slug input { flex: 1; width: 0; }
+.hosted-store-products { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.hosted-store-product { min-width: 0; border-bottom: 1px solid var(--line); padding-block: 16px; }
+.hosted-store-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-line; }
+.hosted-store-preview { border-block: 1px solid var(--line); padding-block: 16px; }
+.hosted-store [role="status"]:focus { outline: 2px solid var(--focus); outline-offset: 4px; }
+@media (min-width: 768px) { .hosted-store-products { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .hosted-store :is(input, textarea, select), .application-flow input { font-size: 16px; } }

@@ -26,6 +26,7 @@ export const DRAGON_PAGE_SUPPORT = {
   'retail': {status:'supported',characterId:'retail',contentId:'retail',guideIds:["retail:topic-1", "retail:topic-2"],anchorContractVersion:1},
   'marketing': {status:'supported',characterId:'marketing',contentId:'marketing',guideIds:["marketing:topic-1", "marketing:topic-2"],anchorContractVersion:1},
   'guild-workspace': {status:'supported',characterId:'guild-workspace',contentId:'guild-workspace',guideIds:["guild-workspace:topic-1"],anchorContractVersion:1},
+  'stores': {status: 'disabled', reason: '商店導覽尚未完成審核'},
   'business': {status:'disabled',reason:'業務空間導覽尚未完成審核'},
   'community': {status:'supported',characterId:'community',contentId:'community',guideIds:["community:topic-1", "community:topic-2"],anchorContractVersion:1},
   'account': {status:'supported',characterId:'account',contentId:'account',guideIds:["account:topic-1", "account:topic-2"],anchorContractVersion:1},
