@@ -404,8 +404,8 @@ export async function messageImageMemberCommand<T>(pool: Pool, input: Command, i
   const actor = Object.freeze({ ...input.actor });
   const snapshot: Command = Object.freeze({ actor, operation: input.operation, key: input.key,
     body, expected: input.expected, lockUser: input.lockUser });
-  const receipts = legacyMemberReceiptPorts<T>(snapshot);
   let context: MemberScopeContext;
+  const receipts = legacyMemberReceiptPorts<T>(snapshot, async q => { await authorize(q, context); });
   try {
     return await runCommandCore(pool, {
       ...receipts,

@@ -7,9 +7,11 @@ import {
 import {authRateLimit} from '../../../../modules/identity-membership/members.js';
 import {MESSAGE_IMAGE_INPUT_BYTES,MESSAGE_IMAGE_MIME_TYPES} from '../../../../modules/assets/message-image.js';
 import {readMessageImage,uploadMessageImage} from '../../../../modules/member-communications/images.js';
-import {requireCondition} from '../../../../packages/shared/problem.js';
+import {Problem,requireCondition} from '../../../../packages/shared/problem.js';
+import {AssetStorageError,readBounded} from '../../../../packages/asset-storage/index.js';
 import type {PlatformRuntime} from '../runtime.js';
 import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead,searchChannelMessages} from '../../../../modules/member-communications/channels.js';
+import {listBlocks,blockState,changeBlock} from '../../../../modules/identity-membership/blocks.js';
 
 type ImageRuntime=Pick<PlatformRuntime,'messageImageAssets'|'messageImageAssetStore'>;
 /** Both the lifecycle service and the object store must be installed (#230). */
@@ -20,24 +22,21 @@ export function checkMessageImageHeaders(contentType?:string,contentLength?:stri
   if(contentLength!==undefined)requireCondition(/^\d+$/.test(contentLength)&&Number(contentLength)<=MESSAGE_IMAGE_INPUT_BYTES,413,'message_image_too_large','圖片需為 2 MB 以下的檔案。');
 }
 /** The request stream is capped while it is read; Content-Length is only an early hint. */
-async function boundedImageUpload(request:Request){
-  const reader=request.body?.getReader();
-  requireCondition(reader,422,'invalid_message_image','請先選擇圖片。');
-  const chunks:Uint8Array[]=[];let size=0;
+export async function boundedImageUpload(request:Request){
+  requireCondition(request.body,422,'invalid_message_image','請先選擇圖片。');
+  let bytes:Uint8Array;
   try{
-    for(;;){
-      const {value,done}=await reader!.read();if(done)break;
-      size+=value.byteLength;
-      requireCondition(size<=MESSAGE_IMAGE_INPUT_BYTES,413,'message_image_too_large','圖片需為 2 MB 以下的檔案。');
-      chunks.push(value);
-    }
-  }catch(error){await reader!.cancel().catch(()=>{});throw error;}finally{reader!.releaseLock();}
-  requireCondition(size>0,422,'invalid_message_image','請先選擇圖片。');
-  return Buffer.concat(chunks,size);
+    bytes=await readBounded(request.body!,MESSAGE_IMAGE_INPUT_BYTES);
+  }catch(error){
+    if(error instanceof AssetStorageError&&error.code==='too_large')throw new Problem(413,'message_image_too_large','圖片需為 2 MB 以下的檔案。');
+    throw new Problem(422,'invalid_message_image','圖片讀取未完成，請重試。');
+  }
+  requireCondition(bytes.length>0,422,'invalid_message_image','請先選擇圖片。');
+  return Buffer.from(bytes);
 }
 
 // Mounted after the shared session, Origin, CSRF and onboarding middleware.
-// Writes use Idempotency-Key; If-Match is not required for these commands.
+// Writes use Idempotency-Key; existing block aggregates also require If-Match.
 // Receipts key on the decoded, canonical target, not the raw path, so case or
 // percent-encoded UUID aliases replay instead of inserting again. Guild keys
 // keep their exact case; the service still validates every id.
@@ -49,11 +48,24 @@ function channelCommand(c:Context<PlatformEnv>,action:'messages'|'read'){
   const kind=c.req.param('kind')??'',key=c.req.param('key')??'';
   return canonicalCommand(c,`/me/channels/${kind}/${kind==='squad'?key.toLowerCase():key}/${action}`);
 }
-export function createMemberCommunicationRoutes(pool:Pool,runtime?:ImageRuntime) {
+export function createMemberCommunicationRoutes(pool:Pool,runtime?:ImageRuntime,memberBlockingEnabled=false) {
   const app=new Hono<PlatformEnv>();
   const installed=()=>requireCondition(messagesImagesOn(),404,'not_found','找不到這個頁面。');
   const messagesImagesOn=()=>messageImagesInstalled(runtime);
   app.post('/me/inbox/read-all',async c=>c.json(await markAllInboxRead(pool,await canonicalCommand(c,'/me/inbox/read-all'))));
+  if(memberBlockingEnabled){
+    app.get('/me/blocks',async c=>{c.header('Cache-Control','private, no-store');return c.json(await listBlocks(pool,c.get('actor'),c.req.query()));});
+    app.get('/me/blocks/:userId',async c=>{
+      const state=await blockState(pool,c.get('actor'),c.req.param('userId'));
+      c.header('Cache-Control','private, no-store');
+      if(state.aggregate_version!==null)c.header('ETag',`"${state.aggregate_version}"`);
+      return c.json(state);
+    });
+    for(const action of ['block','unblock'] as const)app.post(`/me/blocks/:userId/${action}`,async c=>{
+      c.header('Cache-Control','private, no-store');
+      return c.json(await changeBlock(pool,await canonicalCommand(c,`/me/blocks/${uuidParam(c,'userId')}/${action}`),c.req.param('userId'),action));
+    });
+  }
   app.get('/me/notifications',async c=>c.json(await listNotifications(pool,c.get('actor'),c.req.query())));
   app.post('/me/notifications/:id/read',async c=>c.json(await markNotificationRead(pool,await canonicalCommand(c,`/me/notifications/${uuidParam(c,'id')}/read`),c.req.param('id'))));
   app.get('/me/conversations',async c=>c.json(await listConversations(pool,c.get('actor'),c.req.query())));

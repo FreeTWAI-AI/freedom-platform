@@ -61,7 +61,7 @@ type CategoryBoard={view:PreferenceView;catalog:CategoryCatalog};
 type PreferenceDraft={category:CategoryName;guild_key:string|null;catalog_revision:string;guildName:string;actionGuild:string};
 const CATEGORY_ORDER=['internal','external','professional_industry'] as const;
 
-export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{site?:{guild_launchpad_enabled?:boolean}|null}) {
+export function GuildsPanel({client,session,onNavigate,site,locationHash,registerPendingLeave}:ModulePanelProps&{site?:{guild_launchpad_enabled?:boolean}|null;locationHash:string;registerPendingLeave:(guard:(()=>boolean)|null)=>void}) {
   const [query,setQuery]=useState(''),[scope,setScope]=useState<'all'|'joined'>('all'),[topic,setTopic]=useState<GuildTopic|''>('');
   const [guilds,setGuilds]=useState<GuildSummary[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null),[notice,setNotice]=useState(''),[answerGuild,setAnswerGuild]=useState('');
   const [preferences,setPreferences]=useState<GuildPreferences|null>(null),[editing,setEditing]=useState(false),[secondaryDraft,setSecondaryDraft]=useState<string[]>([]);
@@ -70,7 +70,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
   const launchpadEnabled=site?.guild_launchpad_enabled===true;
   const [board,setBoard]=useState<CategoryBoard|null>(null),[categoryBusy,setCategoryBusy]=useState(false),[categoryNote,setCategoryNote]=useState(''),[held,setHeld]=useState<PreferenceDraft|null>(null),[unknownDraft,setUnknownDraft]=useState<{draft:PreferenceDraft;version:number}|null>(null),[leaveDraft,setLeaveDraft]=useState<{guild:GuildSummary;section:string}|null>(null),[focusAction,setFocusAction]=useState<string|null>(null);
   const generation=useRef(0),successRef=useRef<HTMLParagraphElement>(null),nameRef=useRef<HTMLInputElement>(null),preferenceKeys=useRef(new Map<string,string>());
-  const [launchpadKey,setLaunchpadKey]=useState(()=>launchpadEnabled?guildKeyFromHash(window.location.hash):null);
+  const launchpadKey=launchpadEnabled?guildKeyFromHash(locationHash):null;
   const {mutate,busy,error,setError}=useModuleMutation(client);
   // A roster change refreshes expert counts without unmounting the open members dialog.
   // The v2 read stays outside this Promise.all: a 503 must not fail the guild page.
@@ -92,7 +92,6 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
     finally{if(sequence===generation.current)setLoading(false);}
   },[client,launchpadEnabled,setError]);
   useEffect(()=>{if(launchpadKey)return()=>{generation.current++;};void load();return()=>{generation.current++;};},[load,launchpadKey]);
-  useEffect(()=>{const sync=()=>setLaunchpadKey(launchpadEnabled?guildKeyFromHash(window.location.hash):null);sync();window.addEventListener('hashchange',sync);window.addEventListener('popstate',sync);return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync);};},[launchpadEnabled]);
   useEffect(()=>{if(applicationSuccess)successRef.current?.focus();},[applicationSuccess]);
   useEffect(()=>{if(showApply&&focusDraft){nameRef.current?.focus();setFocusDraft(false);}},[showApply,focusDraft]);
   useEffect(()=>{
@@ -224,7 +223,7 @@ export function GuildsPanel({client,session,onNavigate,site}:ModulePanelProps&{s
     const result=await mutate('/me/guild-preferences/secondary',{secondary_guild_keys:next},preferences?.aggregate_version??undefined);
     if(result){setEditing(false);announce(removing?`已取消${g.name}的次要公會。`:`已將${g.name}設為次要公會。`);await load();window.dispatchEvent(new Event('freedom-profile-updated'));}
   }
-  if(launchpadKey)return <GuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" userId={session.user.user_id} onBack={()=>{window.location.hash='guilds';}}/>;
+  if(launchpadKey)return <GuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} mode="member" userId={session.user.user_id} registerPendingLeave={registerPendingLeave} onBack={()=>{window.location.hash='guilds';}}/>;
   return <section className="module-panel guilds-panel" aria-label="公會目錄">
     <header className="guild-hub-heading">
       {!loading&&!loadError&&<p className="guild-overview" aria-label="我的公會概況"><span>已加入 <strong>{joinedCount}</strong> 個公會</span><span>共 {guilds.length} 個公會</span></p>}

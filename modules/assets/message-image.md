@@ -41,7 +41,7 @@ readable.
 Authority is the message row, not the Asset scope:
 `GET /api/v1/me/conversations/:peer/messages/:messageId/image` returns the bytes
 only when the caller is the sender or recipient of that exact message in their
-community, the session is live and the Asset is ready. Everyone else, including
+community, the caller is active and onboarded, the session is live and the Asset is ready. Everyone else, including
 members of other communities and callers who name the wrong peer, gets `404
 media_not_found`. The same query runs before and after object I/O, so a session
 revoked during the read yields no bytes. There is no public URL, no signed URL and
@@ -67,7 +67,7 @@ message, which is what previews and search see.
   state, not the DB policy: an installed port with persistence disabled returns
   503 for new uploads, while currently authorized existing-image reads and
   original successful upload receipts remain available.
-- Release capability `media.message-image.asset.v1` (migration 134).
+- Release capability `media.message-image.asset.v1` (provisional migration 139).
 
 ## Retention and deletion
 
@@ -89,7 +89,23 @@ This change defines the rules; it does **not** run any cleanup.
 
 ## Not covered
 
-- Blocking and reporting (#251): when member blocking lands, its read rule must be
-  applied to `imageSnapshot` the same way it is applied to message text.
+- Reporting remains outside this change. Existing blocks deny new uploads, all
+  lifecycle phases, upload receipt replay and sends in either direction. Pair
+  locking and current contact checks run before and after receipts. Blocking or
+  disabling the peer does not remove a current caller’s historical message read
+  access; caller session/onboarding checks still run before and after object I/O.
 - Bulk deletion, retention windows and orphan cleanup (see above).
 - Remote Workers/R2 acceptance: only local tests and Miniflare R2 were run.
+
+## Candidate integration
+
+Unapplied DM SQL is renamed byte-for-byte to provisional 139 after the real
+134–138 parent chain; 138 and 139 remain candidates, not deployed migrations.
+Unknown browser sends retain the original caption, attachment bytes/image ID
+and keys in session memory across conversation changes. Caption/attachment
+edits are disabled until the original attempt is confirmed; no media is put
+in localStorage. Page navigation and closing the document guard unresolved
+image attempts. The page and dock guard intentional logout; actual session
+revocation clears private memory. A main-window logout cannot currently consult
+another popout’s pending attempt; cross-window pending coordination is not
+implemented. Beforeunload is a best-effort prompt, not crash durability.

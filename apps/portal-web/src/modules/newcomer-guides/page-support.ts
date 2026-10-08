@@ -3,6 +3,7 @@ import type {PageGuideSupport} from './contracts';
 export type GuidePageId = TabId | 'registration' | 'onboarding' | 'admin' | 'skillbooks';
 // Every real page must explicitly opt in or give a reason. CI also checks developmentPages.
 export const DRAGON_PAGE_SUPPORT = {
+  'community-search': {status:'disabled',reason:'社群內容搜尋導覽尚未完成審核，沿用頁面說明'},
   'home': {status:'supported',characterId:'home',contentId:'home',guideIds:["home:topic-1", "home:topic-3"],anchorContractVersion:1},
   'guilds': {status:'supported',characterId:'guilds',contentId:'guilds',guideIds:["guilds:topic-1", "guilds:topic-3"],anchorContractVersion:1},
   'skills': {status:'supported',characterId:'skills',contentId:'skills',guideIds:["skills:topic-1", "skills:topic-2"],anchorContractVersion:1},
@@ -26,6 +27,7 @@ export const DRAGON_PAGE_SUPPORT = {
   'retail': {status:'supported',characterId:'retail',contentId:'retail',guideIds:["retail:topic-1", "retail:topic-2"],anchorContractVersion:1},
   'marketing': {status:'supported',characterId:'marketing',contentId:'marketing',guideIds:["marketing:topic-1", "marketing:topic-2"],anchorContractVersion:1},
   'guild-workspace': {status:'supported',characterId:'guild-workspace',contentId:'guild-workspace',guideIds:["guild-workspace:topic-1"],anchorContractVersion:1},
+  'stores': {status: 'disabled', reason: '商店導覽尚未完成審核'},
   'business': {status:'disabled',reason:'業務空間導覽尚未完成審核'},
   'community': {status:'supported',characterId:'community',contentId:'community',guideIds:["community:topic-1", "community:topic-2"],anchorContractVersion:1},
   'account': {status:'supported',characterId:'account',contentId:'account',guideIds:["account:topic-1", "account:topic-2"],anchorContractVersion:1},

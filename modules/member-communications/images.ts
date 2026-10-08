@@ -75,6 +75,7 @@ async function imageSnapshot(pool:Pool,actor:Actor,peer:string,messageId:string)
     JOIN assets a ON a.asset_id=t.asset_id AND a.purpose='member.message-image' AND a.state='ready' AND a.deletion_fence=0
     JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='member.message-image'
     JOIN users v ON v.user_id=$3 AND v.community_id=$2 AND v.active
+      AND (NOT v.onboarding_required OR v.onboarding_completed_at IS NOT NULL)
     JOIN sessions s ON s.token_hash=$5 AND s.user_id=$3 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
     WHERE m.message_id=$1 AND m.community_id=$2
       AND ((m.sender_ref=$3 AND m.recipient_ref=$4) OR (m.sender_ref=$4 AND m.recipient_ref=$3))`,

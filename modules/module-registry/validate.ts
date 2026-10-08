@@ -74,6 +74,9 @@ export function planStale(): Problem {
 export function mapRegistryError(error: unknown): never {
   const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : '';
   const message = typeof error === 'object' && error && 'message' in error ? String((error as { message: unknown }).message) : '';
+  if (code === '23505' && message.includes('module_instances_one_storefront')) {
+    throw new Problem(409, 'storefront_exists', '這個業務空間已經有商店了。');
+  }
   if (code === '23505' && message.includes('application_installations_one_live')) throw planStale();
   if (code === '23505' && message.includes('workspace_module_bindings')) {
     throw new Problem(409, 'workspace_binding_conflict', '這個工作區已經綁定另一個工作實例。');

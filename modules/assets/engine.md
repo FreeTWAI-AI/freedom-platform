@@ -22,7 +22,7 @@ not enable private writes. The tenant profile requires migration 123 and
 `tenant-lifecycle-authority.ts`. The domain media profiles (service cover, event
 banner/video/highlight, social thumbnail, skill image) and
 member.message-image/member.message-image/image (2 MiB input, 1 MiB canonical
-WebP output with an `inside` fit, sender-owned personal scope; migration 134,
+WebP output with an `inside` fit, sender-owned personal scope; provisional migration 139,
 see [message-image.md](message-image.md)) are closed in the same way.
 
 The profile owns strict domain input parsing, representation processing,

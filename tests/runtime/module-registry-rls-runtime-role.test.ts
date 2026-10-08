@@ -26,6 +26,7 @@ const runtimeRole = `d1ra_${stamp}`;
 const guild = 'guild_ai_field';
 const digest = '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a';
 const tenantTables = [
+  'commerce_resource_tenants',
   'application_installations', 'application_module_links', 'module_dependencies', 'module_launch_plans',
   'module_provision_operations', 'module_launch_plan_consumptions', 'module_provision_steps',
   'capacity_reservations', 'capacity_ledger', 'module_instances', 'deployment_bindings', 'workspace_module_bindings',
@@ -480,6 +481,11 @@ describe('module registry as the non-owner runtime role', { concurrency: 1 }, ()
     const instances = (await owner.query<{ instance_id: string; module_key: string }>(
       `SELECT instance_id, module_key FROM module_instances WHERE tenant_id=$1 ORDER BY module_key`, [second.tenantId])).rows;
     assert.equal(instances.length, 2);
+    const shopId = randomUUID();
+    await owner.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256)
+      VALUES($1,$2,$3,'internal','合成映射','','','','TWD',$4)`, [shopId, DEMO_COMMUNITY, session.user.user_id, digest]);
+    await owner.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
+      VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, second.tenantId, instances[0].instance_id, principal]);
     const sparePlan = randomUUID();
     const spareOperation = randomUUID();
     await owner.query(`INSERT INTO module_launch_plans(
@@ -507,6 +513,8 @@ describe('module registry as the non-owner runtime role', { concurrency: 1 }, ()
         assert.ok(owned > 0, table);
       }
       const inserts: [string, string, unknown[]][] = [
+        ['commerce_resource_tenants', `INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
+          VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, second.tenantId, instances[0].instance_id, principal]],
         ['application_installations', `INSERT INTO application_installations(
             installation_id, tenant_id, workspace_id, application_key, release_ref, configuration, configuration_digest,
             status, created_by_principal_id, origin_guild_key)

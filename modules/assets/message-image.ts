@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import type {Actor} from '../identity-membership/service.js';
+import {lockInteractionPair,assertCanContact} from '../identity-membership/blocks.js';
 import type {MemberScopeContext} from '../../packages/resource-scopes/index.js';
 import {OpaqueId} from '../../contracts/common/v1/identity.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
@@ -59,6 +60,8 @@ export async function resolveMessageImageUploadPolicy(q:PoolClient):Promise<Life
 /** A recipient must be a current, onboarded member of the sender's community. */
 export async function lockMessageRecipient(q:PoolClient,actor:Actor,recipientId:string){
   requireCondition(recipientId!==actor.user_id,404,'member_not_found','找不到這位會員。');
+  await lockInteractionPair(q,actor,recipientId);
+  await assertCanContact(q,actor,recipientId);
   const row=await q.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) FOR SHARE`,[recipientId,actor.community_id]);
   requireCondition(row.rowCount===1,404,'member_not_found','找不到這位會員。');
 }
@@ -67,8 +70,10 @@ interface ValidatedSource {readonly mime:string;readonly byteSize:number;readonl
 function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipientId:string,source:ValidatedSource){
   async function lockTarget(q:PoolClient,context:MemberScopeContext,actor:Actor,id:string,create:boolean):Promise<LifecycleTarget>{
     requireCondition(context.scope.kind==='personal',403,'asset_scope_required','需要本人的私人範圍。');
+    // Every lifecycle phase, including its receipt replay, locks the pair before
+    // the target. A block cannot race a later write/finalize of an old draft.
+    await lockMessageRecipient(q,actor,recipientId);
     if(create){
-      await lockMessageRecipient(q,actor,recipientId);
       await q.query('INSERT INTO member_message_image_asset_targets(image_id,community_id,scope_id,owner_principal_id,owner_user_id,recipient_user_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',
         [id,actor.community_id,context.scope.scope_id,context.subject_principal.principal_id,actor.user_id,recipientId]);
     }

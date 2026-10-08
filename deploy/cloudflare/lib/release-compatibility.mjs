@@ -30,7 +30,7 @@ const SHAPES = Object.freeze({
   'media.social-thumbnail.asset.v1': { migration: 102, capabilities: ['media.social-thumbnail.asset.v1', 'media.server-policy.v1'] },
   'media.event-highlight.asset.v1': { migration: 104, capabilities: ['media.event-highlight.asset.v1', 'media.server-policy.v1'] },
   'media.skill-image.asset.v1': { migration: 103, capabilities: ['media.skill-image.asset.v1', 'media.server-policy.v1'] },
-  'media.message-image.asset.v1': { migration: 134, capabilities: ['media.message-image.asset.v1', 'media.server-policy.v1'] },
+  'media.message-image.asset.v1': { migration: 139, capabilities: ['media.message-image.asset.v1', 'media.server-policy.v1'] },
   'media.service-cover.asset.v1': { migration: 100, capabilities: ['media.service-cover.asset.v1', 'media.server-policy.v1'] },
   'media.event-banner.asset.v1': { migration: 100, capabilities: ['media.event-banner.asset.v1', 'media.server-policy.v1'] },
   'media.event-video.asset.v1': { migration: 101, capabilities: ['media.event-video.asset.v1', 'media.server-policy.v1'] },
@@ -128,8 +128,12 @@ const FOUNDATION_NAMES = [
   // Member-only native posts and original sticker pack; name recognition is not release approval.
   '132_social_feed_interactions.sql',
   '133_workshop_sticker_pack.sql',
-  // Direct-message image attachments (#230). Additive only: no backfill, no flag and
-  '134_member_message_images.sql',
+  '134_hosted_storefronts.sql',
+  '135_hosted_store_offering.sql',
+  '136_member_interaction_blocks.sql',
+  '137_community_content_topics.sql',
+  '138_hosted_direct_reservations.sql',
+  '139_member_message_images.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

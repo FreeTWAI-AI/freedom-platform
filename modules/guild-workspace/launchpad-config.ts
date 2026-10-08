@@ -6,13 +6,16 @@ import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem, requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {
-  ConfigValidationError, VERSION_PATTERN, assertStoredVersion, hasLoneSurrogate, parseConfig, parseFieldErrors,
+  BLOCK_KINDS, ConfigValidationError, VERSION_PATTERN, assertStoredVersion, hasLoneSurrogate, parseConfig, parseFieldErrors,
   type Config, type ConfigView,
 } from '../../contracts/guild-launchpad/v1/config.js';
-import {assertOfferedApplications} from '../module-registry/catalog.js';
+import {assertOfferedApplications, availableReleases} from '../module-registry/catalog.js';
+import {LAUNCHPAD_PROFILES} from './launchpad-profiles.js';
 
-/** Virtual published revision shown when a guild has no stored published row. */
-export const PLATFORM_DEFAULT_REVISION = '1';
+/** Revision 3 recommends the hosted store first for commerce members. */
+export const PLATFORM_DEFAULT_REVISION = '3';
+/** Initial pointer CAS remains 1 independently of the default content revision. */
+export const DEFAULT_POINTER_VERSION = '1';
 export const PUBLISHED_EVENT = 'freedom.guild.launchpad.config.published.v1';
 const CAPABILITIES = ['guild.content.edit', 'guild.config.preview', 'guild.config.publish'] as const;
 export type LaunchpadCapability = typeof CAPABILITIES[number];
@@ -58,22 +61,28 @@ type StoredRevision = {
   status: 'draft' | 'published' | 'superseded'; source: 'platform_default' | 'guild_editor'; created_at: Date | string;
 };
 
-export function defaultConfigFor(guild: CatalogGuild): Config {
+export function defaultConfigFor(guild: CatalogGuild, offered: readonly {application_key: string; release_ref: string}[] = []): Config {
   requireCondition(typeof guild.name === 'string' && typeof guild.purpose === 'string', 404, 'guild_not_found', '找不到這個公會。');
+  const profile = LAUNCHPAD_PROFILES[guild.guild_key];
+  const application_refs: Config['application_refs'] = [];
+  for (const key of profile?.preferred_applications ?? []) {
+    const release = offered.find(item => item.application_key === key);
+    if (release) application_refs.push({application_key: release.application_key, release_ref: release.release_ref, order: application_refs.length});
+  }
   return {
     schema_version: 'guild-launchpad.config/v1',
     guild_key: guild.guild_key,
     mission_override: null,
-    blocks: (['mission', 'announcements', 'skill_books', 'applications', 'community_tasks', 'my_work', 'support'] as const).map((kind, order) => ({id: kind, kind, order, enabled: true, title: null})),
-    application_refs: [],
+    blocks: (profile?.block_order ?? BLOCK_KINDS).map((kind, order) => ({id: kind, kind, order, enabled: true, title: null})),
+    application_refs,
     starter: starterCopy(guild.guild_key),
     support: {kind: 'platform_help', public_url: null},
     extensions: {},
   };
 }
 
-export function platformDefaultView(guild: CatalogGuild, pointerVersion = PLATFORM_DEFAULT_REVISION): ConfigView {
-  const body = defaultConfigFor(guild);
+export function platformDefaultView(guild: CatalogGuild, pointerVersion = DEFAULT_POINTER_VERSION, offered: readonly {application_key: string; release_ref: string}[] = []): ConfigView {
+  const body = defaultConfigFor(guild, offered);
   return {config_id: null, revision: PLATFORM_DEFAULT_REVISION, pointer_version: pointerVersion, source: 'platform_default', status: 'published', body, body_sha256: digest(body), updated_at: null};
 }
 
@@ -197,7 +206,7 @@ async function lockedPointer(q: PoolClient, communityId: string, guildKey: strin
 }
 export async function readPointerVersion(q: PoolClient, communityId: string, guildKey: string): Promise<string> {
   const row = (await q.query('SELECT pointer_version::text AS pointer_version FROM guild_launchpad_config_pointers WHERE community_id=$1 AND guild_key=$2', [communityId, guildKey])).rows[0];
-  return row?.pointer_version ?? PLATFORM_DEFAULT_REVISION;
+  return row?.pointer_version ?? DEFAULT_POINTER_VERSION;
 }
 async function nextRevision(q: PoolClient, communityId: string, guildKey: string): Promise<string> {
   const row = (await q.query('SELECT COALESCE(MAX(revision),0)::text AS revision FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2', [communityId, guildKey])).rows[0];
@@ -271,7 +280,7 @@ export async function createDraft(pool: Pool, input: Command, guildKey: string) 
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
     if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.content.edit');
-    checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
+    checkVersion(current?.pointer_version ?? DEFAULT_POINTER_VERSION, input.expected);
     const revision = await nextRevision(q, input.actor.community_id, guildKey);
     const stored = await insertRevision(q, {configId: randomUUID(), communityId: input.actor.community_id, guildKey, revision, body: config, hash, status: 'draft', principalId});
     let move = true;
@@ -317,7 +326,7 @@ export async function publishLaunchpad(pool: Pool, input: Command, guildKey: str
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
     if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.config.publish');
-    checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
+    checkVersion(current?.pointer_version ?? DEFAULT_POINTER_VERSION, input.expected);
     const row = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
       FROM guild_launchpad_config_revisions WHERE config_id=$1 AND community_id=$2 AND guild_key=$3 FOR UPDATE`, [configId, input.actor.community_id, guildKey])).rows[0] as StoredRevision | undefined;
     requireCondition(row, 404, 'config_not_found', '找不到這份啟動台配置。');
@@ -351,7 +360,7 @@ export async function revertLaunchpad(pool: Pool, input: Command, guildKey: stri
     await lockGuild(q, input.actor.community_id, guildKey);
     const current = await lockedPointer(q, input.actor.community_id, guildKey);
     if (delegated) await requireFreshDelegate(q, input.actor, guildKey, 'guild.config.publish');
-    checkVersion(current?.pointer_version ?? PLATFORM_DEFAULT_REVISION, input.expected);
+    checkVersion(current?.pointer_version ?? DEFAULT_POINTER_VERSION, input.expected);
     const prior = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at
       FROM guild_launchpad_config_revisions WHERE community_id=$1 AND guild_key=$2 AND revision=$3::bigint FOR SHARE`, [input.actor.community_id, guildKey, body.to_revision])).rows[0] as StoredRevision | undefined;
     requireCondition(prior, 404, 'config_revision_not_found', '找不到這個啟動台版本。');
@@ -488,7 +497,7 @@ export async function readPublishedRevision(q: PoolClient, communityId: string, 
 const EARLIER_REVISION_LIMIT = 20;
 export async function resolvePublishedView(q: PoolClient, guild: CatalogGuild, communityId: string, pointerVersion: string): Promise<{view: ConfigView; problem: ConfigProblem}> {
   const current = await readPublishedRevision(q, communityId, guild.guild_key);
-  if (!current) return {view: platformDefaultView(guild, pointerVersion), problem: null};
+  if (!current) return {view: platformDefaultView(guild, pointerVersion, await availableReleases(q, guild.guild_key, communityId)), problem: null};
   const parsed = tryView(current, guild.guild_key, pointerVersion);
   if (parsed) return {view: parsed, problem: null};
   const problem: ConfigProblem = {code: 'config_schema_unsupported', revision: String(current.revision)};
@@ -500,7 +509,7 @@ export async function resolvePublishedView(q: PoolClient, guild: CatalogGuild, c
     const view = tryView(row, guild.guild_key, pointerVersion);
     if (view) return {view, problem};
   }
-  return {view: platformDefaultView(guild, pointerVersion), problem};
+  return {view: platformDefaultView(guild, pointerVersion, await availableReleases(q, guild.guild_key, communityId)), problem};
 }
 export async function readSolePublicRevision(q: PoolClient, guildKey: string): Promise<(StoredRevision & {community_id: string}) | undefined> {
   const rows = (await q.query(`SELECT config_id, revision::text AS revision, schema_version, body, body_sha256, status, source, created_at, community_id

@@ -4,6 +4,7 @@ import type {PageGuideSupport} from './contracts';
 // Shared content IDs/anchors
 // retain the reviewed product facts, access boundaries and safe focus behavior.
 export const AI_SISTER_PAGE_SUPPORT={
+  'community-search':{status:'disabled',reason:'社群內容搜尋導覽尚未完成審核，沿用頁面說明'},
   home:{...DRAGON_PAGE_SUPPORT.home,characterId:'member-selected',outfitId:'education'},
   guilds:{...DRAGON_PAGE_SUPPORT.guilds,characterId:'member-selected',outfitId:'international'},
   skills:{...DRAGON_PAGE_SUPPORT.skills,characterId:'member-selected',outfitId:'education'},
@@ -27,6 +28,7 @@ export const AI_SISTER_PAGE_SUPPORT={
   retail:{...DRAGON_PAGE_SUPPORT.retail,characterId:'member-selected',outfitId:'travel'},
   marketing:{...DRAGON_PAGE_SUPPORT.marketing,characterId:'member-selected',outfitId:'media'},
   'guild-workspace':{...DRAGON_PAGE_SUPPORT['guild-workspace'],characterId:'member-selected',outfitId:'politics'},
+  stores:{status:'disabled',reason:'商店的 AI Sister 內容與定位尚未完成審核'},
   business:{status:'disabled',reason:'業務空間的 AI Sister 內容與定位尚未完成審核'},
   community:{...DRAGON_PAGE_SUPPORT.community,characterId:'member-selected',outfitId:'environment'},
   account:{...DRAGON_PAGE_SUPPORT.account,characterId:'member-selected',outfitId:'family'},

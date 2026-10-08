@@ -1,11 +1,13 @@
 import {useCallback,useEffect,useId,useRef,useState} from 'react';
-import {hasLoneSurrogate, type Config, type ConfigView, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
+import {hasLoneSurrogate, recommendedApplications, type Config, type ConfigView, type FieldError} from '../../../../contracts/guild-launchpad/v1/config';
+import {LaunchpadApplicationSchema, type LaunchpadApplication} from '../../../../contracts/guild-launchpad/v1/module-registry';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
 import {MyWorkPanel, rememberActing} from './GuildLaunchpadMyWork';
-import {GuildLaunchpadApplications} from './GuildLaunchpadApplications';
+import {GuildLaunchpadApplications, REASONS, startable, type LaunchRequest} from './GuildLaunchpadApplications';
+import {MyStoreAction} from './MyStoreAction';
 import './GuildLaunchpad.css';
 
 const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
@@ -25,6 +27,7 @@ const FIELD_MESSAGE: Record<string, string> = {
   block_kind_missing: '缺少必要的區塊',
   block_set_invalid: '版面必須包含七種區塊各一次',
   application_release_unknown: '這個應用版本尚未核准',
+  application_duplicate: '這個應用已在推薦清單中',
   guild_key_mismatch: '公會代碼與網址不一致',
   schema_version_invalid: '配置版本不正確',
   config_too_large: '配置內容過大',
@@ -39,6 +42,7 @@ const BLOCK_LABEL: Record<Config['blocks'][number]['kind'], string> = {
   community_tasks: '公共任務', my_work: '我的工作', support: '協助',
 };
 const OPTIONAL = new Set<Config['blocks'][number]['kind']>(['announcements', 'community_tasks', 'applications']);
+const INTERN_HINT = '你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。';
 const CAPABILITY_LABEL: Record<string, string> = {
   'guild.content.edit': '編輯內容', 'guild.config.preview': '預覽配置', 'guild.config.publish': '發布配置',
 };
@@ -75,6 +79,7 @@ type MemberView = {
   membership: {state: string; member_tier: string};
   announcements: AnnouncementRef[];
   skill_books: BookRef[];
+  applications: LaunchpadApplication[];
   viewer_can_edit_config: boolean;
   viewer_can_preview_config: boolean;
   viewer_can_publish_config: boolean;
@@ -97,20 +102,20 @@ function httpsUrl(value: string | null): string | null {
     return url.href;
   } catch { return null; }
 }
-function asConfig(guildKey: string, body: {mission_override?: string | null; blocks: Config['blocks']; starter?: Config['starter']; support?: Config['support']}): Config {
+function asConfig(guildKey: string, body: {mission_override?: string | null; blocks: Config['blocks']; application_refs: Config['application_refs']; starter?: Config['starter']; support?: Config['support']}): Config {
   return {
     schema_version: 'guild-launchpad.config/v1',
     guild_key: guildKey,
     mission_override: body.mission_override ?? null,
     blocks: [...body.blocks].sort((a, b) => a.order - b.order).map((block, order) => ({...block, order})),
-    application_refs: [],
+    application_refs: [...body.application_refs].sort((a, b) => a.order - b.order).map((ref, order) => ({...ref, order})),
     starter: body.starter ?? {title_label: '', objective_hint: '', note_hint: ''},
     support: body.support ?? {kind: 'platform_help', public_url: null},
     extensions: {},
   };
 }
 function fieldHits(errors: FieldError[], path: string): FieldError[] {
-  return errors.filter(error => error.path === path || error.path.endsWith(`.${path}`));
+  return errors.filter(error => error.path === path || error.path.endsWith(`.${path}`) || error.path.startsWith(`${path}.`) || error.path.startsWith(`body.${path}.`));
 }
 function fieldMessage(code: string): string {
   return FIELD_MESSAGE[code] ?? '這個欄位格式不正確';
@@ -131,6 +136,9 @@ function looseText(error: FieldError, draft: Config): string {
     return `${label}：${message}`;
   }
   if (path === 'blocks' || path.startsWith('blocks.')) return `版面區塊：${message}`;
+  const application = /^application_refs\.(\d+)(?:\.|$)/.exec(path);
+  if (application) return `推薦應用 ${draft.application_refs[Number(application[1])]?.application_key ?? ''}：${message}`;
+  if (path === 'application_refs' || path.startsWith('application_refs.')) return `推薦應用清單：${message}`;
   return message;
 }
 function blockedReason(value: string): boolean {
@@ -138,7 +146,7 @@ function blockedReason(value: string): boolean {
 }
 
 export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter?: Config['starter'] | null}) {
-  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。業務空間尚未在此環境啟用。</p>;
+  if (visitor) return <p>登入並加入公會後，可以在這裡看到自己的工作。</p>;
   return <div className="stack">
     <p>業務空間尚未在此環境啟用</p>
     <p>這個環境還沒有開啟公會業務空間，所以這裡不能建立或保存工作。</p>
@@ -150,11 +158,12 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, visitor, memberTier, mode, client, guildKey, userId, registerLeave, canLeave, onLogin}: {
+function Reading({guild, config, announcements, skillBooks, applications, visitor, memberTier, mode, client, guildKey, userId, registerLeave, registerPendingLeave, canLeave, onLogin}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
   skillBooks: BookRef[];
+  applications: LaunchpadApplication[];
   visitor: boolean;
   onLogin?: () => void;
   memberTier?: string;
@@ -163,18 +172,43 @@ function Reading({guild, config, announcements, skillBooks, visitor, memberTier,
   guildKey: string;
   userId?: string;
   registerLeave: (guard: (() => boolean) | null) => void;
+  registerPendingLeave: (guard: (() => boolean) | null) => void;
   canLeave: () => boolean;
 }) {
   const [workRefresh, setWorkRefresh] = useState(0);
   const workSection = useRef<HTMLElement | null>(null);
+  const [launchRequest, setLaunchRequest] = useState<LaunchRequest | undefined>();
+  const focusWork = () => {workSection.current?.focus(); workSection.current?.scrollIntoView({block: 'start'});};
   const showWork = (tenantId: string, workspaceId: string) => {
     if (!canLeave() || !userId) return false;
     rememberActing(userId, tenantId, workspaceId); setWorkRefresh(value => value + 1); return true;
   };
-  useEffect(() => { if (workRefresh) { workSection.current?.focus(); workSection.current?.scrollIntoView({block: 'start'}); } }, [workRefresh]);
+  const showStore = (tenantId: string, instanceId: string) => {
+    if (!canLeave()) return false;
+    window.location.hash = `stores/${tenantId}/${instanceId}`; return true;
+  };
+  useEffect(() => { if (workRefresh) focusWork(); }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
+  const primary = recommendedApplications(config.application_refs, applications)[0];
+  const showPrimary = !visitor && mode === 'member' && Boolean(userId) && primary
+    && (primary.application_key === 'manual-workspace' || blocks.some(block => block.kind === 'applications'));
   return <>
     {memberTier && <p className="field-hint">成員身分：{memberTier === 'intern' ? '實習成員' : memberTier === 'full' ? '正式成員' : memberTier}</p>}
+    {showPrimary && <section className="card guild-launchpad-primary" aria-label="主要動作">
+      <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : primary.display_name}</h2>
+      {primary.application_key === 'manual-workspace' ? <>
+        <p>{config.starter.objective_hint}</p>
+        {memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
+          : <div className="actions"><button type="button" className="btn btn-primary" onClick={focusWork}>前往我的工作</button></div>}
+      </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
+        : <MyStoreAction client={client} canStart={startable(primary)} reasons={primary.eligibility.reason_codes.map(code => REASONS[code])}
+          onCreate={() => {if (canLeave()) setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1});}}
+          onEnter={path => {if (canLeave()) window.location.hash = path;}}/> : <>
+        {primary.eligibility.tenant_action !== 'denied' && <div className="actions"><button type="button" className="btn btn-primary" disabled={!primary.eligibility.can_launch} onClick={() => setLaunchRequest({application_key: primary.application_key, release_ref: primary.release_ref, nonce: (launchRequest?.nonce ?? 0) + 1})}>{primary.eligibility.tenant_action === 'continue' ? '繼續使用' : '啟動'}{primary.display_name}</button></div>}
+        {primary.eligibility.reason_codes.map(code => <p key={code} className="field-hint">{REASONS[code]}</p>)}
+        {primary.eligibility.reason_codes.includes('tenant_manage_required') && <div className="actions"><a className="btn btn-ghost" href="#business" onClick={event => {if (!canLeave()) event.preventDefault();}}>建立或選擇業務空間</a></div>}
+      </>}
+    </section>}
     {blocks.map(block => <section key={block.kind} className="guild-launchpad-block" ref={block.kind === 'my_work' ? workSection : undefined} tabIndex={block.kind === 'my_work' ? -1 : undefined}>
       <h2>{BLOCK_LABEL[block.kind]}</h2>
       {block.title && <p>{block.title}</p>}
@@ -187,13 +221,13 @@ function Reading({guild, config, announcements, skillBooks, visitor, memberTier,
         const upstream = httpsUrl(book.upstream_url);
         return <p key={book.book_id}>{book.title}{intro && <> · <a href={intro} rel="noopener noreferrer" target="_blank">閱讀介紹</a></>}{upstream && <> · <a href={upstream} rel="noopener noreferrer" target="_blank">上游</a></>}</p>;
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
-      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} canLeave={canLeave} visitor={visitor}/>}
+      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} onStore={showStore} canLeave={canLeave} registerPendingLeave={registerPendingLeave} visitor={visitor} recommendedRefs={config.application_refs} launchRequest={launchRequest}/>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
         : memberTier === 'full'
           ? <MyWorkPanel key={workRefresh} client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave}/>
-          : <p className="field-hint" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>)}
+          : <p className="field-hint" role="status">{INTERN_HINT}</p>)}
       {block.kind === 'support' && <SupportLine support={config.support}/>}
     </section>)}
   </>;
@@ -212,12 +246,15 @@ export function PublicGuildLaunchpad({client, guildKey, onLogin}: {client: Porta
   </div>;
 }
 
-export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}: {
+export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId, registerPendingLeave}: {
   client: PortalClient; guildKey: string; mode: 'public' | 'member'; onBack?: () => void; onLogin?: () => void; userId?: string;
+  registerPendingLeave?: (guard: (() => boolean) | null) => void;
 }) {
   const [guild, setGuild] = useState<{name: string; purpose: string} | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementRef[]>([]);
   const [skillBooks, setSkillBooks] = useState<BookRef[]>([]);
+  const [applications, setApplications] = useState<LaunchpadApplication[]>([]);
+  const [recommendationChoice, setRecommendationChoice] = useState('');
   const [visitor, setVisitor] = useState(mode === 'public');
   const [memberTier, setMemberTier] = useState<string | undefined>();
   const [configProblem, setConfigProblem] = useState<ConfigProblem>(null);
@@ -251,6 +288,11 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   const generation = useRef(0);
   const leaveGuard = useRef<(() => boolean) | null>(null);
   const registerLeave = useCallback((guard: (() => boolean) | null) => { leaveGuard.current = guard; }, []);
+  const launchLeaveGuard = useRef<(() => boolean) | null>(null);
+  const registerLaunchLeave = useCallback((guard: (() => boolean) | null) => {
+    launchLeaveGuard.current = guard; registerPendingLeave?.(guard);
+  }, [registerPendingLeave]);
+  const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);
@@ -259,8 +301,15 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
 
   function remember(view: ConfigView, announce = true) {
     const next = asConfig(guildKey, view.body);
+    // Check at adoption: this response may predate a now-pending tenant creation.
+    if (!next.blocks.some(block => block.kind === 'applications' && block.enabled)
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) {
+      setBanner('最新配置尚未套用。請先確認原操作，再重新載入最新版本。'); setConflict(true);
+      return false;
+    }
     setDraft(next); setSaved(view); setSavedJson(JSON.stringify(next)); setPointer(view.pointer_version); setErrors([]); setConflict(false);
     if (announce && view.status === 'published' && view.source === 'guild_editor') setStatus(`已發布版本 ${view.revision}`);
+    return true;
   }
   function openDialog(dialog: HTMLDialogElement | null, button: HTMLButtonElement) {
     opener.current = button; dialog?.showModal();
@@ -270,11 +319,12 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
   useEffect(() => {
     const controller = new AbortController();
     const current = ++generation.current;
-    setLoading(true); setBanner(''); setGuild(null);
+    setLoading(true); setBanner(''); setGuild(null); setApplications([]); setRecommendationChoice('');
     const signal = controller.signal;
     const applyPublic = (value: PublicView) => {
       setGuild(value.guild); setAnnouncements(value.announcements); setSkillBooks(value.skill_books); setConfigProblem(value.config_problem);
       setVisitor(true); setMemberTier(undefined); setAccess({edit: false, preview: false, publish: false, delegate: false}); setLeader(null);
+      setApplications([]);
       const next = asConfig(guildKey, value.config.body);
       setDraft(next); setSaved(null); setSavedJson(JSON.stringify(next));
     };
@@ -290,6 +340,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
         if (current !== generation.current) return;
         setGuild(member.guild); setAnnouncements(member.announcements); setSkillBooks(member.skill_books); setConfigProblem(member.config_problem);
         setVisitor(false); setMemberTier(member.membership.member_tier);
+        setApplications(LaunchpadApplicationSchema.array().parse(member.applications));
         const flags = {edit: member.viewer_can_edit_config, preview: member.viewer_can_preview_config, publish: member.viewer_can_publish_config, delegate: member.viewer_can_manage_delegations};
         setAccess(flags);
         if (flags.edit || flags.preview || flags.publish) {
@@ -322,6 +373,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
       if (mode === 'public' || visitor) return;
       const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`);
       setAnnouncements(member.announcements); setSkillBooks(member.skill_books); setMemberTier(member.membership.member_tier); setConfigProblem(member.config_problem);
+      setApplications(LaunchpadApplicationSchema.array().parse(member.applications));
       if (access.edit || access.preview || access.publish) {
         const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
         setLeader(config); setConfigProblem(config.config_problem); remember(config);
@@ -353,7 +405,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('draft', `/guilds/${guildKey}/launchpad-config/drafts`, {body: draft}, pointer);
-      remember(view, false); setStatus(`已儲存草稿版本 ${view.revision}`);
+      if (!remember(view, false)) return;
+      setStatus(`已儲存草稿版本 ${view.revision}`);
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -363,11 +416,13 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('publish', `/guilds/${guildKey}/launchpad-config/${saved.config_id}/publish`, {expected_body_sha256: saved.body_sha256}, pointer);
-      remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      const adopted = remember(view); closeDialog(publishDialog.current); setConfirmPublish(false);
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
       const member = await client.get<MemberView>(`/guilds/${guildKey}/launchpad`);
       setAnnouncements(member.announcements); setSkillBooks(member.skill_books);
+      setApplications(LaunchpadApplicationSchema.array().parse(member.applications));
     } catch (error) { fail(error); } finally { setBusy(false); }
   }
   async function revert() {
@@ -375,7 +430,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     setBusy(true); setBanner(''); setErrors([]);
     try {
       const view = await command<ConfigView>('revert', `/guilds/${guildKey}/launchpad-config/revert`, {to_revision: revertTarget, reason: revertReason.trim()}, pointer);
-      remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      const adopted = remember(view); closeDialog(revertDialog.current); setRevertTarget(null); setRevertReason('');
+      if (!adopted) return;
       const config = await client.get<LeaderConfig>(`/guilds/${guildKey}/launchpad-config`);
       setLeader(config); setPointer(view.pointer_version);
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -422,6 +478,8 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     } catch (error) { fail(error); }
   }
   function updateBlock(index: number, patch: Partial<Config['blocks'][number]>) {
+    if (draft?.blocks[index]?.kind === 'applications' && patch.enabled === false
+      && launchLeaveGuard.current && !launchLeaveGuard.current()) return;
     setDraft(current => current && {...current, blocks: current.blocks.map((block, blockIndex) => blockIndex === index ? {...block, ...patch} : block)});
   }
   function moveBlock(index: number, delta: number) {
@@ -435,13 +493,25 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
       return {...current, blocks: blocks.map((block, order) => ({...block, order}))};
     });
   }
+  function moveRecommendation(index: number, delta: number) {
+    setDraft(current => {
+      if (!current || index + delta < 0 || index + delta >= current.application_refs.length) return current;
+      const refs = [...current.application_refs];
+      const [ref] = refs.splice(index, 1);
+      refs.splice(index + delta, 0, ref);
+      return {...current, application_refs: refs.map((item, order) => ({...item, order}))};
+    });
+  }
+  const addableApplications = applications.filter(app => !app.eligibility.reason_codes.includes('application_not_available')
+    && !draft?.application_refs.some(ref => ref.application_key === app.application_key));
+  const selectedApplication = addableApplications.find(app => JSON.stringify([app.application_key, app.release_ref]) === recommendationChoice);
   const title = guild?.name ?? (loading ? '公會啟動台' : '找不到這個公會');
   const titleId = mode === 'member' ? 'workspace-page-title' : headingId;
   const readingConfig = draft;
   const looseErrors = errors.filter(error => !['mission_override', 'starter.title_label', 'starter.objective_hint', 'starter.note_hint', 'support.public_url', 'reason'].some(path => error.path === path || error.path.endsWith(`.${path}`)) && !/blocks\.\d+\.(title|enabled|order)/.test(error.path));
 
   return <section className="guild-launchpad" aria-labelledby={titleId}>
-    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (leaveGuard.current && !leaveGuard.current()) return; onBack?.(); }}>返回公會列表</button></div>}
+    {mode === 'member' && <div className="actions"><button type="button" className="btn btn-ghost" onClick={() => { if (!canLeave()) return; onBack?.(); }}>返回公會列表</button></div>}
     <h1 id={titleId}>{title}</h1>
     <p role="status" aria-live="polite">{loading ? '正在載入啟動台…' : status}</p>
     {configProblem && <p className="banner" role="status">這個公會的啟動台設定版本目前無法顯示，先顯示上一個可用版本。</p>}
@@ -449,7 +519,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} canLeave={() => !leaveGuard.current || leaveGuard.current()} onLogin={onLogin}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} applications={applications} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} registerPendingLeave={registerLaunchLeave} canLeave={canLeave} onLogin={onLogin}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}
@@ -472,6 +542,33 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
           <label className="field" htmlFor={`launchpad-block-title-${index}`}>區塊標題<input id={`launchpad-block-title-${index}`} aria-describedby={describedBy(errors, `blocks.${index}.title`, `launchpad-block-title-${index}-error`)} value={block.title ?? ''} maxLength={120} onChange={event => updateBlock(index, {title: event.target.value === '' ? null : event.target.value})}/></label>
           <FieldNote id={`launchpad-block-title-${index}-error`} errors={errors} path={`blocks.${index}.title`}/>
         </div>)}</div>
+      </fieldset>
+      <fieldset className="fieldset">
+        <legend>推薦應用</legend>
+        <p className="field-hint" id="launchpad-recommendations-hint">排在第一個的應用會成為會員看到的主要動作。</p>
+        {!draft.blocks.find(block => block.kind === 'applications')?.enabled && <p className="field-hint">應用區塊關閉時，會員看不到推薦應用；主要動作只保留我的工作。</p>}
+        <ol className="guild-launchpad-ref-list">{draft.application_refs.map((ref, index) => {
+          const label = applications.find(app => app.application_key === ref.application_key && app.release_ref === ref.release_ref)?.display_name ?? `${ref.application_key} · ${ref.release_ref}`;
+          const path = `application_refs.${index}`;
+          const errorId = `launchpad-recommendation-${index}-error`;
+          return <li className="guild-launchpad-ref-row" key={`${ref.application_key}:${ref.release_ref}`} aria-describedby={describedBy(errors, path, errorId)}>
+            <span>{label}</span>
+            <div className="guild-launchpad-block-actions">
+              <button type="button" className="btn btn-ghost" aria-label={`上移${label}`} aria-describedby={describedBy(errors, path, errorId)} disabled={busy || index === 0} onClick={() => moveRecommendation(index, -1)}>上移</button>
+              <button type="button" className="btn btn-ghost" aria-label={`下移${label}`} aria-describedby={describedBy(errors, path, errorId)} disabled={busy || index === draft.application_refs.length - 1} onClick={() => moveRecommendation(index, 1)}>下移</button>
+              <button type="button" className="btn btn-ghost" aria-label={`移除${label}`} aria-describedby={describedBy(errors, path, errorId)} disabled={busy} onClick={() => setDraft({...draft, application_refs: draft.application_refs.filter((_, at) => at !== index).map((item, order) => ({...item, order}))})}>移除</button>
+            </div>
+            <FieldNote id={errorId} errors={errors} path={path}/>
+          </li>;
+        })}</ol>
+        <label className="field">加入推薦應用<select value={selectedApplication ? recommendationChoice : ''} aria-describedby="launchpad-recommendations-hint" disabled={busy || draft.application_refs.length >= 30} onChange={event => setRecommendationChoice(event.target.value)}>
+          <option value="">選擇應用</option>{addableApplications.map(app => <option key={`${app.application_key}:${app.release_ref}`} value={JSON.stringify([app.application_key, app.release_ref])}>{app.display_name} · {app.release_ref}</option>)}
+        </select></label>
+        <div className="guild-launchpad-actions"><button type="button" className="btn btn-ghost" disabled={busy || !selectedApplication || draft.application_refs.length >= 30} onClick={() => {
+          if (!selectedApplication || draft.application_refs.length >= 30) return;
+          setDraft({...draft, application_refs: [...draft.application_refs, {application_key: selectedApplication.application_key, release_ref: selectedApplication.release_ref, order: draft.application_refs.length}]});
+          setRecommendationChoice('');
+        }}>加入推薦</button></div>
       </fieldset>
       <fieldset className="fieldset">
         <legend>起步提示</legend>

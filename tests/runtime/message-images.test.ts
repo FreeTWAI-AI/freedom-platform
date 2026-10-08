@@ -321,3 +321,50 @@ test('the same pipeline works against native R2 and stores exactly the verified 
   const journal=(await fixture.query("SELECT aggregate_type,operation FROM scoped_transition_journal WHERE operation='member.message-image.upload'")).rows;assert.deepEqual(journal,[{aggregate_type:'member_message_image',operation:'member.message-image.upload'}]);
   assert.equal((await fixture.query("SELECT count(*)::int n FROM scoped_outbox")).rows[0].n,0,'private images never reach the community outbox');
 });
+
+test('current pair blocks deny new upload, committed upload replay and send replay while historical images remain readable',async()=>{
+  const s=setup(),a=await member(),b=await member(),uploadKey=randomUUID(),sendKey=randomUUID();
+  const uploaded=await s.upload(a,b,png,'image/png',uploadKey);assert.equal(uploaded.status,201);
+  const image=await uploaded.json() as {image_id:string};
+  const sent=await s.send(a,b,{image_id:image.image_id},sendKey);assert.equal(sent.status,201);const message=await sent.json() as {message_id:string};
+  const before=await counts();
+  await fixture.query("INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active')",[community,b.id,a.id]);
+  await code(await s.upload(a,b,png,'image/png',uploadKey),409,'recipient_unavailable');
+  await code(await s.upload(a,b,png),409,'recipient_unavailable');
+  await code(await s.upload(b,a,png),409,'recipient_unavailable');
+  await code(await s.send(a,b,{image_id:image.image_id},sendKey),409,'recipient_unavailable');
+  assert.deepEqual(await counts(),before);
+  assert.equal((await s.read(a,b.id,message.message_id)).status,200);
+  assert.equal((await s.read(b,a.id,message.message_id)).status,200);
+  await fixture.query('UPDATE users SET active=false WHERE user_id=$1',[a.id]);
+  assert.equal((await s.read(b,a.id,message.message_id)).status,200,'historical read does not require the peer to remain active');
+});
+
+test('current caller onboarding is rechecked after object I/O; peer onboarding does not erase history',async()=>{
+  const s=setup(),a=await member(),b=await member(),{message}=await sendImage(s,a,b);
+  await fixture.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[a.id]);
+  assert.equal((await s.read(b,a.id,message.message_id)).status,200);
+  const get=s.store.get.bind(s.store);
+  s.store.get=async(...args)=>{const value=await get(...args);await fixture.query('UPDATE users SET onboarding_required=true,onboarding_completed_at=NULL WHERE user_id=$1',[b.id]);return value;};
+  await code(await s.read(b,a.id,message.message_id),404,'media_not_found');
+});
+
+test('every prepared image lifecycle phase rejects a newly blocked pair without changing asset state',async()=>{
+  const s=setup(),a=await member(),b=await member();
+  const user=(await fixture.query('SELECT * FROM users WHERE user_id=$1',[a.id])).rows[0];
+  const actor={...user,session_hash:a.hash,csrf_token:'synthetic'};
+  const api=await s.assets.forRecipient(b.id,{mime:'image/png',bytes:png});
+  const prepare={key:randomUUID(),targetImageId:randomUUID(),expectedVersion:'1',contentType:'image/png' as const,byteSize:png.length,sha256:createHash('sha256').update(png).digest('hex')};
+  const prepared=await api.prepare(actor,prepare),lease=await api.resumeUpload(actor,{key:randomUUID(),intentId:prepared.intentId});
+  const binding={key:randomUUID(),intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
+  await fixture.query("INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active')",[community,a.id,b.id]);
+  const rejected=(e:unknown)=>Boolean(e&&typeof e==='object'&&'code' in e&&e.code==='recipient_unavailable');
+  const before=await counts();
+  await assert.rejects(api.prepare(actor,prepare),rejected);
+  await assert.rejects(api.resumeUpload(actor,{key:randomUUID(),intentId:prepared.intentId}),rejected);
+  await assert.rejects(api.claim(actor,{key:randomUUID(),intentId:prepared.intentId}),rejected);
+  await assert.rejects(api.write(actor,binding,new ReadableStream({start(c){c.enqueue(png);c.close();}})),rejected);
+  await assert.rejects(api.finalize(actor,binding),rejected);
+  assert.deepEqual(await counts(),before);
+  assert.equal((await fixture.query('SELECT state FROM asset_upload_intents WHERE intent_id=$1',[prepared.intentId])).rows[0].state,'processing');
+});

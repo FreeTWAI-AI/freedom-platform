@@ -169,7 +169,7 @@ New uploads also require the operator's `domain_media_storage_policy` row
 at least 1 MiB retained capacity and `persistence_allowed=true`. If that policy
 is unavailable, a new upload answers 503 while the site installation flag stays
 true. Stopping new persistence does not revoke authorized reads of existing
-images or erase an upload whose result is unknown. Apply migration `134_member_message_images.sql` before switching the
+images or erase an upload whose result is unknown. Apply migration `139_member_message_images.sql` before switching the
 source, even with the feature off.
 
 - `POST /me/conversations/:userId/images`: raw `image/jpeg|png|webp` bytes,
@@ -194,7 +194,8 @@ source, even with the feature off.
 
 Retention, orphan drafts and deletion are documented in
 [`modules/assets/message-image.md`](../../modules/assets/message-image.md); no cleanup
-runs and member blocking/reporting (#251) is not part of this change.
+runs. Existing member blocks deny new upload phases, receipt replay and send;
+current callers retain authorized historical reads. Reporting remains out of scope.
 
 ## Primary, secondary and other joined guilds
 

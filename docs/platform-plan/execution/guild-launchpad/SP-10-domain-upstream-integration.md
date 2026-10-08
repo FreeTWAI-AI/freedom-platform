@@ -148,6 +148,12 @@ Command 成功／受理回 `operation={operation_id,state,version,resource_ref?,
 
 `POST /commerce/shops/{shop_id}/orders/{order_id}/cancel` input `{reason:member_cancelled}`＋If-Match；已無外部／付款不可逆效果才開始 cancel/release；回 Operation。pay/refund/shipment 的既有參數與 provenance 不由本包擴權；未支援外部 consume 時返回 409 `inventory_capability_incomplete`。
 
+### 5.3.1 Hosted 自有商品 direct-sale 預留增量（HO-0）
+
+2026-10-08 的 bounded 下一階段採 direct sale：一般會員買家可在 seller tenant 之外，使用既有 `commerce_orders`／`commerce_items` 的唯一訂單與庫存權威，不建立第三套 core。具體 [HO-0 契約與 locking／expiry 設計](../../../../modules/agent-commerce/hosted/direct-order-contract.md) 及 [canonical DTO](../../../../contracts/guild-launchpad/v1/hosted-order.ts) 區分五分鐘報價（不占庫存）、三十分鐘 `reserved` 訂單、取消／到期。付款、退款、履約與 money movement 永遠關閉於此 profile；沒有 contact／PII dataset，不偽造 supplier acceptance／transfer／payable。
+
+HO-0 契約經 root review 後，HO-1/2 候選已沿真正 local 136／137 parents 加入 additive 138 與封閉後端（非 main／已部署宣告）。Applied 001..137 不改。`reservation_enabled` 預設 false，134 的 hosted `accepting_orders=false` guard 保留；沒有公開 route、UI、application release 或 seller order capability 啟用。買家可跨賣方 community，仍只持自己的 personal receipt scope；closed adapter 核對單一公開商店或 persisted buyer/order relation 後才綁 exact tenant RLS，不建立 seller TenantScopeContext。訂單 receipt 僅保存 ID，再於同交易重新核對並投影當前狀態；報價到期只阻擋新 effect，不遮蔽已提交的 intent。所有 hosted 庫存／價格／publication writers 共用 instance→community→profile→quote/order→item locks，取消與到期只釋放一次。詳見 [backend ownership/限制](../../../../modules/agent-commerce/README.md#direct-sale-reservation-candidate)。既有 imported reseller 與 proposed external-inventory adapter 保留；未宣稱 inventory port、完整交易或 live 驗收已完成。HO-3 公開 API／UI 仍需另行 review，會員文字應稱「預留」，不能稱已付款或已出貨。
+
 ### 5.4 最小 CRM 與人工 Work／Result
 
 | Proposed route | 完整輸入／回傳 | 認證／限制 |

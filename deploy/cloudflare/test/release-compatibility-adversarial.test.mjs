@@ -61,8 +61,8 @@ test('RELEASE recognized social-feed migration still needs exact independent sch
 test('RELEASE unknown migration names remain refused even with recomputed host digests', () => {
   for (const mode of ['rename-known', 'append-unknown']) {
     const f = fixture();
-    if (mode === 'rename-known') f.scan.ledger.at(-1).name = `${f.scan.ledger.at(-1).name.slice(0, 3)}_unreviewed_stickers.sql`;
-    else f.scan.ledger.push({name: `${Number(f.scan.ledger.at(-1).name.slice(0, 3)) + 1}_unreviewed_future.sql`, sha256: 'e'.repeat(64)});
+    if (mode === 'rename-known') f.scan.ledger.at(-1).name = `${String(last).padStart(3, '0')}_unreviewed_stickers.sql`;
+    else f.scan.ledger.push({name: `${String(last + 1).padStart(3, '0')}_unreviewed_future.sql`, sha256: 'e'.repeat(64)});
     f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
     f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
     f.host.observation.schema_ledger_digest = f.scan.ledger_digest;

@@ -1,5 +1,6 @@
 import {test,expect,type Page} from './fixtures.js';
 import sharp from 'sharp';
+import {signOut} from './navigation.js';
 
 // Requires seeded demo members and FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1 (in-memory store, enabled policy row).
 const png=await sharp({create:{width:8,height:8,channels:3,background:{r:255,g:255,b:255}}}).png().toBuffer();
@@ -38,11 +39,47 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);
     await expect(thread.getByLabel('待送出的圖片')).toContainText('screenshot.png');await thread.getByRole('button',{name:'送出',exact:true}).click();
     await expect(thread.getByRole('alert')).toContainText('圖片上傳未完成');await expect(thread.getByRole('textbox')).toHaveValue(caption);
+    await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+    await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();
+    await expect(thread.getByRole('button',{name:'附加圖片',exact:true})).toBeDisabled();
+    const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
+    await panel.getByLabel('搜尋會員').fill('示範合作方');await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
+    await panel.getByRole('button',{name:'傳訊給 示範合作方',exact:true}).click();
+    await expect(thread.getByRole('textbox')).toHaveValue('');
+    await panel.getByLabel('搜尋會員').fill('示範需求者');await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
+    await panel.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+    await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByLabel('待送出的圖片')).toContainText('screenshot.png');
+    let notices=0;page.on('dialog',async dialog=>{notices++;await dialog.accept();});
+    await page.evaluate(()=>{window.location.hash='home';});await expect(page).toHaveURL(/#messages$/);expect(notices).toBe(1);
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
     await expect(thread.getByRole('textbox')).toHaveValue('');expect(uploads).toHaveLength(2);expect(uploads[1]).toBe(uploads[0]);expect(sends).toHaveLength(2);expect(sends[1]).toBe(sends[0]);
     const bubble=thread.locator('.messages-bubbles>li').filter({hasText:caption});await expect(bubble).toHaveCount(1);
     await expect(bubble.getByAltText('傳送的圖片')).toBeVisible();await expect.poll(()=>bubble.getByAltText('傳送的圖片').evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
+  });
+
+  test('dock unknown send blocks intentional logout and survives collapse until original retry confirms',async({page})=>{
+    await openDirect(page);await page.getByRole('button',{name:'展開訊息控制台'}).click();
+    const dock=page.locator('.game-console-expanded');await dock.getByRole('tab',{name:'私訊',exact:true}).click();
+    await dock.getByLabel('搜尋會員').fill('示範需求者');await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();
+    await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+    const thread=dock.locator('.messages-thread'),caption=`Console original ${crypto.randomUUID()}`,keys:string[]=[],payloads:string[]=[];
+    await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
+      if(route.request().method()!=='POST')return route.continue();
+      keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
+      const response=await route.fetch();expect(response.status()).toBe(201);
+      if(keys.length===1)return route.abort();await route.fulfill({response});
+    });
+    await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);await thread.getByRole('button',{name:'送出',exact:true}).click();
+    await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
+    await dock.getByRole('button',{name:'收合訊息控制台'}).click();
+    let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
+    await signOut(page);expect(blocked).toBe(1);
+    expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
+    await page.getByRole('button',{name:'展開訊息控制台'}).click();await expect(thread.getByRole('textbox')).toHaveValue(caption);
+    await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
+    expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);
+    await dock.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();
   });
 
   test('attachment validation, clipboard image and plain text paste remain distinct at phone width',async({page})=>{
