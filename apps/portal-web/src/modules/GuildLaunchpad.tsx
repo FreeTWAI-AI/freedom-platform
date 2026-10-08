@@ -4,7 +4,7 @@ import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
 import type {GuildSummary} from './Onboarding';
 import {useModuleMutation} from './shared';
-import {MyWorkPanel} from './GuildLaunchpadMyWork';
+import {MyWorkPanel, rememberActing} from './GuildLaunchpadMyWork';
 import {GuildLaunchpadApplications} from './GuildLaunchpadApplications';
 import './GuildLaunchpad.css';
 
@@ -150,7 +150,7 @@ export function MyWorkUnavailable({visitor, starter}: {visitor: boolean; starter
   </div>;
 }
 
-function Reading({guild, config, announcements, skillBooks, visitor, memberTier, mode, client, guildKey, userId, registerLeave, onLogin}: {
+function Reading({guild, config, announcements, skillBooks, visitor, memberTier, mode, client, guildKey, userId, registerLeave, canLeave, onLogin}: {
   guild: {name: string; purpose: string};
   config: Config;
   announcements: AnnouncementRef[];
@@ -163,10 +163,14 @@ function Reading({guild, config, announcements, skillBooks, visitor, memberTier,
   guildKey: string;
   userId?: string;
   registerLeave: (guard: (() => boolean) | null) => void;
+  canLeave: () => boolean;
 }) {
   const [workRefresh, setWorkRefresh] = useState(0);
   const workSection = useRef<HTMLElement | null>(null);
-  const showWork = () => { setWorkRefresh(value => value + 1); };
+  const showWork = (tenantId: string, workspaceId: string) => {
+    if (!canLeave() || !userId) return false;
+    rememberActing(userId, tenantId, workspaceId); setWorkRefresh(value => value + 1); return true;
+  };
   useEffect(() => { if (workRefresh) { workSection.current?.focus(); workSection.current?.scrollIntoView({block: 'start'}); } }, [workRefresh]);
   const blocks = [...config.blocks].sort((a, b) => a.order - b.order).filter(block => block.enabled || !OPTIONAL.has(block.kind));
   return <>
@@ -183,7 +187,7 @@ function Reading({guild, config, announcements, skillBooks, visitor, memberTier,
         const upstream = httpsUrl(book.upstream_url);
         return <p key={book.book_id}>{book.title}{intro && <> · <a href={intro} rel="noopener noreferrer" target="_blank">閱讀介紹</a></>}{upstream && <> · <a href={upstream} rel="noopener noreferrer" target="_blank">上游</a></>}</p>;
       }) : <p className="muted">目前沒有可顯示的技能書。</p>}</div>}
-      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork}/>}
+      {block.kind === 'applications' && <GuildLaunchpadApplications client={client} guildKey={guildKey} publicMode={mode === 'public' || !userId} userId={userId} onLogin={onLogin} onWork={showWork} visitor={visitor}/>}
       {block.kind === 'community_tasks' && <p>目前沒有可顯示的公共任務。</p>}
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
@@ -445,7 +449,7 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId}
     {conflict && <p><button type="button" className="btn btn-ghost" onClick={() => void reload()} disabled={busy}>重新載入最新版本</button></p>}
     {visitor && mode === 'member' && guild && <div className="actions"><button type="button" className="btn btn-primary" disabled={busy || joining} onClick={() => void join()}>加入{guild.name}</button></div>}
     {visitor && joinError && <p className="banner banner-error" role="alert">{joinError}</p>}
-    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} onLogin={onLogin}/>}
+    {readingConfig && guild && <Reading guild={guild} config={readingConfig} announcements={visitor ? [] : announcements} skillBooks={skillBooks} visitor={visitor} memberTier={visitor ? undefined : memberTier} mode={mode} client={client} guildKey={guildKey} userId={userId} registerLeave={registerLeave} canLeave={() => !leaveGuard.current || leaveGuard.current()} onLogin={onLogin}/>}
     {showEditor && draft && <form className="card guild-launchpad-editor" onSubmit={event => event.preventDefault()}>
       <h2>調整版面</h2>
       {looseErrors.length > 0 && <ul>{looseErrors.map(error => <li key={`${error.path}:${error.code}`}>{looseText(error, draft)}</li>)}</ul>}
