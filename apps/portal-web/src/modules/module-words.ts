@@ -1,7 +1,7 @@
 import type {InstanceView} from '../../../../contracts/guild-launchpad/v1/module-registry';
 
 export function moduleWord(key: string): string {
-  return key === 'work' ? '人工工作' : key;
+  return key === 'work' ? '人工工作' : key === 'storefront' ? '商店' : key;
 }
 
 export const INSTANCE_STATUS_WORDS: Record<InstanceView['status'], string> = {
