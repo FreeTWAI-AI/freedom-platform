@@ -13,6 +13,7 @@ import {tokenHash} from '../../modules/identity-membership/service.js';
 import {createMessageImageAssetService} from '../../modules/assets/message-image.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {inspectCanonicalWebp} from '../../packages/shared/image-webp.js';
+import {runWithImageProcessor,createUnavailableImageProcessor} from '../../packages/shared/image-runtime.js';
 
 const url=process.env.TEST_DATABASE_URL;if(!url)throw new Error('Explicit isolated TEST_DATABASE_URL required');
 const schema=`fp_message_images_${process.pid}_${Date.now()}`,role=`${schema}_app`,admin=new Pool({connectionString:url});
@@ -178,6 +179,20 @@ test('format, size and content-type spoofing are refused with Chinese errors bef
   assert.equal((await fixture.query("SELECT count(*)::int n FROM asset_objects")).rows[0].n,0,'rejected normalization leaves no stored object');
 });
 
+test('decoder rejection leaves no retained reservation and a valid image still fits the minimum quota',async()=>{
+  const s=setup(),a=await member(community,'Alice'),b=await member(community,'Bob');
+  await fixture.query("UPDATE domain_media_storage_policy SET retained_byte_limit=1048576 WHERE purpose='member.message-image'");
+  const huge=await sharp({create:{width:5000,height:100,channels:3,background:'#000'}}).png({compressionLevel:9}).toBuffer();
+  // Both pass the cheap MIME/signature gate; the full decoder must reject them
+  // before prepare/claim commits anything, including a quota reservation.
+  for(const [bytes,mime] of [[huge,'image/png'],[Buffer.from([0xff,0xd8,0xff,0xe0,0,16]),'image/jpeg']] as const){
+    await code(await s.upload(a,b,bytes,mime),422,'invalid_message_image');
+    assert.deepEqual(await counts(),{assets:0,objects:0,intents:0,targets:0,messages:0,attached:0});
+  }
+  assert.equal((await s.upload(a,b,png)).status,201,'rejected inputs must not exhaust the 1 MiB quota');
+  assert.deepEqual(await counts(),{assets:1,objects:1,intents:1,targets:1,messages:0,attached:0});
+});
+
 test('a fresh database ships the policy OFF with no persistence, and bridge and r2_only are the same ON state',async()=>{
   assert.deepEqual(defaultPolicy,{mode:'legacy',persistence_allowed:false,policy_revision:null,retained_byte_limit:null});
   const s=setup(),a=await member(community,'Alice'),b=await member(community,'Bob');
@@ -225,6 +240,12 @@ test('same Idempotency-Key replays: one upload, one message, and a lost response
   let puts=0;const put=s.store.putImmutable.bind(s.store);s.store.putImmutable=async(...args)=>{puts++;return put(...args);};
   const key=randomUUID(),first=await (await s.upload(a,b,png,'image/png',key)).json() as {image_id:string;byte_size:number};
   const again=await s.upload(a,b,png,'image/png',key);assert.equal(again.status,201);assert.deepEqual(await again.json(),first);
+  // A committed upload remains recoverable even if today's decoder is down.
+  // The original byte digest still refuses a changed body before new decoding.
+  await runWithImageProcessor(createUnavailableImageProcessor(),async()=>{
+    const replay=await s.upload(a,b,png,'image/png',key);assert.equal(replay.status,201);assert.deepEqual(await replay.json(),first);
+    await code(await s.upload(a,b,jpeg,'image/jpeg',key),409,'idempotency_conflict');
+  });
   assert.equal(puts,1);assert.deepEqual(await counts(),{assets:1,objects:1,intents:1,targets:1,messages:0,attached:0});
   const other=await (await s.upload(a,b,png,'image/png',randomUUID())).json() as {image_id:string};assert.notEqual(other.image_id,first.image_id);
   const messageKey=randomUUID(),one=await (await s.send(a,b,{image_id:first.image_id},messageKey)).json() as {message_id:string};

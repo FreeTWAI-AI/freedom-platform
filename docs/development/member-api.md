@@ -160,12 +160,16 @@ SVG, animated upload or anonymous avatar endpoint is enabled.
 
 ## Direct-message images (#230)
 
-Optional and **off by default**. Both the installed Worker flag
-`FREEDOM_MESSAGE_IMAGE_ENABLED="true"` (or injected Node ports) and the operator's
-`domain_media_storage_policy` row `member.message-image` (non-legacy `mode`, `r2_only`
-recommended; policy revision, retained byte limit, `persistence_allowed=true`) are required;
-otherwise `/site` reports `message_images_enabled:false` and every route below
-answers 404. Apply migration `134_member_message_images.sql` before switching the
+Optional and **off by default**. The Worker flag
+`FREEDOM_MESSAGE_IMAGE_ENABLED="true"` (with MEDIA/IMAGES), or both injected Node
+ports, installs the image routes. `/site` reports this installation state as
+`message_images_enabled`; absent ports mean false and image routes answer 404.
+New uploads also require the operator's `domain_media_storage_policy` row
+`member.message-image`: non-legacy `mode` (`r2_only` recommended), policy revision,
+at least 1 MiB retained capacity and `persistence_allowed=true`. If that policy
+is unavailable, a new upload answers 503 while the site installation flag stays
+true. Stopping new persistence does not revoke authorized reads of existing
+images or erase an upload whose result is unknown. Apply migration `134_member_message_images.sql` before switching the
 source, even with the feature off.
 
 - `POST /me/conversations/:userId/images`: raw `image/jpeg|png|webp` bytes,

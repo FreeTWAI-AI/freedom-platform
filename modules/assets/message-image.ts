@@ -1,11 +1,12 @@
 import {z} from 'zod';
+import {createHash} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import type {Actor} from '../identity-membership/service.js';
 import type {MemberScopeContext} from '../../packages/resource-scopes/index.js';
 import {OpaqueId} from '../../contracts/common/v1/identity.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import {normalizeImage} from '../../packages/shared/image-runtime.js';
-import {readBounded,prepareLegacyMediaRepresentation,type ObjectStore} from '../../packages/asset-storage/index.js';
+import {readBounded,snapshotBoundedBytes,prepareLegacyMediaRepresentation,type ObjectStore} from '../../packages/asset-storage/index.js';
 import {COVER_MAX_DIMENSION,COVER_MAX_PIXELS,rasterFormat,rejectAnimation} from '../skill-submissions/payload.js';
 import {assetCommandKey,assetVersion,createAssetLifecycle,type LifecyclePolicy,type LifecycleTarget} from './engine.js';
 
@@ -62,7 +63,8 @@ export async function lockMessageRecipient(q:PoolClient,actor:Actor,recipientId:
   requireCondition(row.rowCount===1,404,'member_not_found','找不到這位會員。');
 }
 
-function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipientId:string){
+interface ValidatedSource {readonly mime:string;readonly byteSize:number;readonly sha256:string;readonly webp:Buffer}
+function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipientId:string,source:ValidatedSource){
   async function lockTarget(q:PoolClient,context:MemberScopeContext,actor:Actor,id:string,create:boolean):Promise<LifecycleTarget>{
     requireCondition(context.scope.kind==='personal',403,'asset_scope_required','需要本人的私人範圍。');
     if(create){
@@ -79,15 +81,24 @@ function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipien
   }
   return createAssetLifecycle<MessageImagePrepareInput,{intentId:string;assetId:string;imageId:string}>(pool,dependencies,{
     purpose:'member.message-image',targetKind:'member.message-image',variant:'image',inputMaxBytes:MESSAGE_IMAGE_INPUT_BYTES,outputMaxBytes:MESSAGE_IMAGE_OUTPUT_BYTES,retireReplacedAsset:false,
-    parsePrepare:raw=>input.parse(raw),targetId:value=>value.targetImageId,lockTarget,
+    parsePrepare:raw=>{
+      const value=input.parse(raw);
+      requireCondition(value.contentType===source.mime&&value.byteSize===source.byteSize&&value.sha256===source.sha256,
+        409,'asset_source_mismatch','上傳內容與準備紀錄不同。');
+      return value;
+    },targetId:value=>value.targetImageId,lockTarget,
     resolvePolicy:(q)=>resolveMessageImageUploadPolicy(q),
     async requireCapacity(q,context,_actor,_target,policy,reserve){
       const used=(await q.query("SELECT COALESCE(sum(COALESCE(o.byte_size,i.reserved_bytes,1048576)::bigint),0) AS used FROM assets a LEFT JOIN asset_objects o USING(asset_id) LEFT JOIN asset_upload_intents i USING(asset_id) WHERE a.scope_id=$1 AND a.purpose='member.message-image'",[context.scope.scope_id])).rows[0];
       requireCondition(BigInt(used.used)+BigInt(reserve)<=BigInt(policy.retainedByteLimit),409,'asset_retained_quota','圖片儲存容量已達上限。');
     },
     async prepareRepresentation(body,mime,policy){
-      const raw=await readBounded(body,MESSAGE_IMAGE_INPUT_BYTES),webp=await normalizeMessageImage(mime,Buffer.from(raw));
-      return prepareLegacyMediaRepresentation(new ReadableStream({start(c){c.enqueue(webp);c.close();}}),'image/webp','member.message-image',policy);
+      const raw=await readBounded(body,MESSAGE_IMAGE_INPUT_BYTES);
+      requireCondition(mime===source.mime&&raw.length===source.byteSize&&createHash('sha256').update(raw).digest('hex')===source.sha256,
+        409,'asset_source_mismatch','上傳內容與準備紀錄不同。');
+      // Reuse only this request's fully decoded representation. Source binding
+      // still matches the intent; no caller-supplied canonical bytes are accepted.
+      return prepareLegacyMediaRepresentation(new ReadableStream({start(c){c.enqueue(Buffer.from(source.webp));c.close();}}),'image/webp','member.message-image',policy);
     },
     async lockPublication(q,_context,actor){await lockMessageRecipient(q,actor,recipientId);return messageImageStorageMode(q);},
     async publish(q,_context,_actor,row,target,mode){
@@ -100,9 +111,17 @@ function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipien
     },
   });
 }
-/** One lifecycle per recipient: the draft target is bound to its recipient. */
+/** One lifecycle per request/recipient. Decode before prepare can commit quota;
+ * failed input must not leave a permanently retained pending Asset. The upload
+ * facade checks its original receipt before asking for this new-effect port. */
 export function createMessageImageAssetService(pool:Pool,dependencies:MessageImageAssetDependencies){
   if(!dependencies?.store)throw unavailable();
-  return Object.freeze({forRecipient:(recipientId:string)=>lifecycle(pool,dependencies,OpaqueId.parse(recipientId))});
+  return Object.freeze({async forRecipient(recipientId:string,file:{mime:string;bytes:Buffer}){
+    const id=OpaqueId.parse(recipientId),mime=file.mime;
+    const bytes=Buffer.from(snapshotBoundedBytes(file.bytes,MESSAGE_IMAGE_INPUT_BYTES));
+    const sha256=createHash('sha256').update(bytes).digest('hex');
+    const webp=Buffer.from(await normalizeMessageImage(mime,bytes));
+    return lifecycle(pool,dependencies,id,Object.freeze({mime,byteSize:bytes.length,sha256,webp}));
+  }});
 }
 export type MessageImageAssetService=ReturnType<typeof createMessageImageAssetService>;

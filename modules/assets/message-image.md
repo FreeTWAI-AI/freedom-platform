@@ -18,8 +18,11 @@ Groups, channels, public pages and external image URLs are out of scope.
 - Composite keys bind `community_id`, sender and recipient of the draft to the
   message, `UNIQUE(message_id)` allows one image per message, and triggers make a
   linked/attached target immutable. A draft links one Asset once.
-- Upload runs the common lifecycle (prepare → claim → write → finalize) on the
-  server inside one request. The browser never holds an upload lease. The draft id
+- Full decoding and canonical re-encoding finish before prepare can persist an
+  Asset, target, intent or retained-byte reservation; invalid input leaves none.
+  The canonical WebP stays request-local and bound to the original source hash,
+  size and MIME. Upload then runs the common lifecycle (prepare → claim → write
+  → finalize) on the server inside one request. The browser never holds an upload lease. The draft id
   is derived from sender, recipient and `Idempotency-Key`, so a lost response
   replays to the same image and never creates a second Asset.
 
@@ -60,7 +63,10 @@ message, which is what previews and search see.
 - Worker flag `FREEDOM_MESSAGE_IMAGE_ENABLED` defaults off and, when `"true"`,
   requires `MEDIA` and `IMAGES`. Node/tests inject `messageImageAssets` and
   `messageImageAssetStore`. `/api/v1/site` reports `message_images_enabled`;
-  every image route answers 404 until both ports exist.
+  every image route answers 404 until both ports exist. This is installation
+  state, not the DB policy: an installed port with persistence disabled returns
+  503 for new uploads, while currently authorized existing-image reads and
+  original successful upload receipts remain available.
 - Release capability `media.message-image.asset.v1` (migration 134).
 
 ## Retention and deletion

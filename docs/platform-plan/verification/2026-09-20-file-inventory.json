@@ -64,8 +64,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 20662,
-      "sha256": "e192b47b8f60976dcc3c3f27b46aecdc651c7201e7a73fe0fea99b3a40e9a58e"
+      "bytes": 20906,
+      "sha256": "7ec874b3ea7894a67d4fa26ea5dae23ba08bcc1f32b6a8eecef660de75934724"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13289,8 +13289,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 22314,
-      "sha256": "ba8cba94c11fde75eedcc236e5ad634fbf5e0e3050e782b17271f78212703851"
+      "bytes": 22627,
+      "sha256": "98f39ab7d48a5956827f0d619356f800844d0489e439215c6a65a0287dd6bfc3"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -16394,13 +16394,13 @@
     },
     {
       "path": "modules/assets/message-image.md",
-      "bytes": 5108,
-      "sha256": "a1cf72a279a9aa4e54ce67f40a293edaa4ba621fb33453290c70cd45d4427086"
+      "bytes": 5600,
+      "sha256": "5975b3e0a83cdfa09a19be67bacd9257ee8a5ca16f394d0c3764ae82cddc73af"
     },
     {
       "path": "modules/assets/message-image.ts",
-      "bytes": 9524,
-      "sha256": "5600114411e559193545396791c9af344ca9d3991163f75aa3167a091b98962c"
+      "bytes": 10840,
+      "sha256": "a386c51aff022e69fe0f4c90f8690807ffb48de5c6bdc8e3308b217fd7862e86"
     },
     {
       "path": "modules/assets/object-write-effects.ts",
@@ -16974,8 +16974,8 @@
     },
     {
       "path": "modules/member-communications/images.ts",
-      "bytes": 7314,
-      "sha256": "dd401e2d5fdcfec986113e86ca268592d5fbb1fff8b5a2c1d78578a10b5b1bbd"
+      "bytes": 7505,
+      "sha256": "a46fc652e54cf393fb0f59348ca35ba4ef5eb3f33c00f80f5f7bdc94b7c0ac01"
     },
     {
       "path": "modules/member-communications/message-search.ts",
@@ -20504,8 +20504,8 @@
     },
     {
       "path": "tests/runtime/message-images.test.ts",
-      "bytes": 28514,
-      "sha256": "f4e26eaecdf1264d22fb50182719a9662370ad51d41eeec7957247532674b868"
+      "bytes": 30197,
+      "sha256": "f600a3bdb52bb579d8e3b6b9f5850cd2a2456423411d30d36dd94a532e726ff1"
     },
     {
       "path": "tests/runtime/migration-runner-plan.test.ts",

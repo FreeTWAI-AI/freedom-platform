@@ -42,8 +42,11 @@ export async function uploadMessageImage(pool:Pool,raw:Command,rawPeer:string,fi
   // A committed original request replays without rereading or rewriting bytes.
   const replay=await probe();if(replay)return replay;
   requireCondition(assets,503,'media_upload_unavailable','圖片傳送暫時無法使用。');
-  const key=digest({operation,key:raw.key}),api=assets!.forRecipient(peer);
+  const key=digest({operation,key:raw.key});
   try{
+    // Successful original receipts already returned above. Fully validate new
+    // input before prepare persists an Asset/intent and reserves retained quota.
+    const api=await assets!.forRecipient(peer,{bytes,mime});
     const prepared=await api.prepare(actor,{key,targetImageId:imageId,expectedVersion:'1',contentType:mime as 'image/png'|'image/jpeg'|'image/webp',byteSize:bytes.length,sha256});
     const lease=await api.resumeUpload(actor,{key,intentId:prepared.intentId});
     const binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
