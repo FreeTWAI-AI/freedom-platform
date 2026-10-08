@@ -354,7 +354,7 @@ for (const width of [1280, 360]) test(`pending and unknown store writes keep the
     releaseResponse();
     const retry = storePage(page).getByRole('button', {name: '重試', exact: true});
     await expect(retry).toBeEnabled();
-    await expect(storePage(page).getByRole('alert')).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
+    await expect(storePage(page).getByRole('alert').filter({hasText: '尚未確認原操作'})).toHaveText('尚未確認原操作的結果，請按「重試」確認。');
     await attemptNavigation('尚未確認原操作的結果，請按「重試」確認後再離開。');
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({path: testInfo.outputPath(`store-unknown-operation-${width}.png`), fullPage: true});
