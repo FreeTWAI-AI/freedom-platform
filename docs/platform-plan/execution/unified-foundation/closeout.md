@@ -258,3 +258,47 @@ migration 前兩邊都沒有 row security 表，18 張表都由 migrator 擁有�
 每日備份的 operator source `c3e5a537` 早於 `packages/db/snapshot-evidence.ts` 的 fail-closed `row_security = off`，完整性靠備份角色的 BYPASSRLS 與上面的列數比對；
 selected checks 不是完整 foundation acceptance，production checks 是唯讀 HTTP。
 細節見[現況快照](current-state.json)。
+
+### 10 月 8 日：第五輪 staging／production rollout（main c84829e2，migration 126、127）
+
+`c84829e2` 是 #227 的 merge，也就是 M1 候選版本 X。它包含 `e8cd72e8` 之後合併的 #238、#245、#264、#244、#248、#246、#242、#227；
+#244 一起合併 #204、#222、#236、#237，帶進 migration 126（`oss_projects.public_metadata_revised`）與 127（`sessions.prune_retained_at` 加三個外鍵索引）。
+staging 依 owner 的委派部署；production 由 owner 在看過 staging 證據與 #237 的刪除筆數後核准（2026-10-08T05:20Z，「Deploy X now」）。兩邊都不設定 `FREEDOM_GUILD_LAUNCHPAD_ENABLED`。
+
+- staging：migration 前的備份做過隔離還原與遠端 readback，126、127 由 staging migrator 套用並重套 runtime grants、通過唯讀驗證。
+  部署前先對已 migrate 的 staging 跑舊版 `e8cd72e8` 的 acceptance，47／47 通過，作為回滾證據。
+  05:08Z 部署 `c84829e2`，47 個 selected checks 通過，部署後 cron 有寫入。
+- production：migration 前的備份同樣做過隔離還原與遠端 readback，126、127 由 production migrator 套用；media operator 的權限快照前後相同。
+  05:32Z 以同一份 dist 部署，29 個唯讀公開 checks 通過，5 次 fresh health 都是 `c84829e2`，部署後 cron 有寫入。
+- 兩個環境的 after-rollout 備份都做過隔離還原與遠端 readback，backup pin 都改成 `c84829e2`。
+
+#237 的定期清除：每次 cron 從 `auth_rate_limits`、`login_attempts`（視窗超過 1 天）、`password_reset_tokens`（過期超過 1 天）與 `sessions`
+（過期或撤銷超過 1 天；保留每位會員最新的一個 session，以及仍被外鍵參照的 session）各刪最多 500 筆。驗證方式是在舊版仍執行時固定一個 cutoff 計算可清除的筆數，
+X 的 cron 跑過後在同一個 cutoff 重算：staging sessions 137→0、rate limit 50→0、login attempts 16→0、reset tokens 2→0；因外鍵保留的 session 0 筆；持有 session 的會員 30→32；production sessions 429→0、rate limit 1711→710、login attempts 197→0、reset tokens 13→0；因外鍵保留的 session 0 筆；持有 session 的會員 410→410。這些刪除只能從 migration 前的備份還原。
+
+回滾是把受影響的 Worker 重新部署成 `e8cd72e8`，不需要還原 schema：126、127 只新增欄位與索引，`e8cd72e8` 不讀寫它們，
+而且它的 acceptance 已在 migrate 後的 staging 通過。回滾後清除就停止；已刪除的資料只能從 migration 前的備份（production `bdc249cd`、staging `2e0c96e2`）還原。
+
+限制：guild launchpad 仍未啟用，tenant 路由沒有掛載，row security 只由 migration probe 與 CI 驗證；
+每日備份的 operator source 仍是 `c3e5a537`，#264 已合併但要等 operator source 重新 pin 才生效；
+selected checks 不是完整 foundation acceptance，production checks 是唯讀 HTTP。
+細節見[現況快照](current-state.json)。
+
+### 10 月 8 日：staging 啟動台試開（X，flag 只在 staging 開啟）
+
+owner 在 2026-10-07 核准只在 staging 試開的計畫與暫時容量值。第五輪讓兩個環境都執行 X 之後，整合負責人依同一份核准把試開改到 X。
+production 不受影響：flag 仍未設定，也沒有 capacity policy 列。
+
+- 05:51Z：staging migrator 以 #227 的 `scripts/tenant-policy.ts`（status → plan → `apply --execute`，expect revision `none`）寫入預設範圍的暫時
+  capacity policy：10／3／2／1000／104857600／2／0，plan_ref `interim-default-20261007`，revision 1。
+- 主力偏好的 backfill 狀態唯讀記錄為 blocked：還有 28 位舊會員未對應，其中 27 位的舊主力公會沒有已核准的分類（`unknown_category`）。
+  這不是 gate；三分類看板只在 `migration_state` 為 `switched` 時顯示，是否切換由 owner 另外決定。
+- 06:03Z 開始的試開前備份做過隔離還原與遠端讀回。
+- 06:11Z 以第五輪同一份 dist 重新部署 staging，唯一的變更是 `FREEDOM_GUILD_LAUNCHPAD_ENABLED=true`（Worker 版本 `7b7050c2`）。
+  部署前後的 live readback 都確認 production 仍是 X、flag 未設定。47 個 selected checks 通過：網站回報 launchpad 啟用，
+  匿名讀得到公開分類清單（catalog revision 18：3 個區塊、12 個已核准、6 個待審）；其餘檢查與第五輪相同。
+
+回滾是把 staging 以同一份 dist 重新部署、不設 flag；policy 列與試開期間建立的 tenant 資料會保留。
+
+尚未完成：guild-work verifier（#242）需要示範帳號先有一個公會的完整成員資格，試開後的備份排在 verifier 之後。
+這次試開不是 guild launchpad 的驗收，60 項驗收仍全部 not_run。
