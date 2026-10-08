@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -47,7 +48,7 @@ const runtime = new Pool({
 });
 for (const pool of [admin, owner, runtime]) pool.on('error', () => undefined);
 const providers = syntheticModuleProviders(runtime);
-const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, moduleProviders: providers });
+const app = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, moduleProviders: providers });
 type Session = { cookie: string; csrf: string; user: { user_id: string } };
 type Reply = { status: number; data: any; response: Response };
 let created = false;

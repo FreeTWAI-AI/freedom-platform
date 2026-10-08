@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -27,7 +28,7 @@ before(async () => { h = await createRegistryHarness('fp_mil', { synthetic: true
 after(async () => { await h.stop(); });
 beforeEach(async () => {
   await h.reset();
-  app = createApp(h.pool, h.origin, 'local', { guildLaunchpadEnabled: true, moduleProviders: h.providers, tenantWorkAssetStore: new FakeObjectStore() });
+  app = createApp(h.pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, moduleProviders: h.providers, tenantWorkAssetStore: new FakeObjectStore() });
 });
 function post(path: string, session: Session, body: unknown, version?: string, key = randomUUID()) {
   return h.post(path, session, body, version, key, app);

@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -27,7 +28,7 @@ async function ownerOn(guilds: string[]) {
 test('HTTPS catalog eligibility uses the configured secure session cookie', async () => {
   const { owner } = await ownerOn(['guild_ai_field']);
   const origin = 'https://registry.example.test';
-  const app = createApp(h.pool, origin, 'staging', { guildLaunchpadEnabled: true });
+  const app = createApp(h.pool, origin, 'staging', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
   const path = `${origin}/api/v1/applications?guild_key=guild_ai_field`;
   const signed = await app.request(path, { headers: { Cookie: owner.cookie.replace('freedom_local_session=', '__Host-freedom_session=') } });
   assert.equal(signed.status, 200);
@@ -320,4 +321,48 @@ test('an expired plan and a changed policy revision are plan_stale', async () =>
   await h.pool.query(`UPDATE tenant_capacity_policies SET revision = revision + 1 WHERE status='active'`);
   const shifted = await h.launch(owner, tenantId, planned);
   problem(shifted, 409, 'plan_stale');
+});
+
+
+test('signed registry continuations bind purpose, caller and filters; missing signer stays behind authorization', async () => {
+  const { owner, tenantId, workspaceId } = await ownerOn(['guild_ai_field']);
+  assert.equal((await h.enable(owner, tenantId, workspaceId, 'guild_ai_field')).status, 200);
+  const workspace = await h.workspace(owner, tenantId, '第二個工作區');
+  assert.equal((await h.enable(owner, tenantId, workspace, 'guild_ai_field', { kind: 'create_new' })).status, 200);
+  const admin = await h.person('另一位管理員');
+  const principalId = await h.candidate(owner, admin.id);
+  await h.accept(admin.session, tenantId, await h.invite(owner, tenantId, principalId, 'admin'));
+  const stranger = await h.signIn(DEMO_USERS[1].email);
+  const closedSigner = createApp(h.pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: '' });
+  const pages = [];
+  for (const [list, filter] of [['module-instances', 'module_key=work'], ['application-installations', 'application_key=manual-workspace']]) {
+    const path = `/tenants/${tenantId}/${list}`;
+    const first = await h.call('GET', path + '?limit=1', owner);
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    const token = first.data.next_cursor as string;
+    assert.match(token, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+    pages.push({ path, token });
+    const next = await h.call('GET', path + '?limit=1&cursor=' + token, owner);
+    assert.equal(next.status, 200, JSON.stringify(next.data));
+    assert.equal(next.data.items.length, 1);
+    assert.notDeepEqual(first.data.items, next.data.items);
+    problem(await h.call('GET', path + '?cursor=' + token, admin.session), 422, 'invalid_cursor');
+    problem(await h.call('GET', path + '?' + filter + '&cursor=' + token, owner), 422, 'invalid_cursor');
+    const [body, signature] = token.split('.');
+    const envelope = JSON.parse(Buffer.from(body, 'base64url').toString());
+    envelope.p.at = '2000-01-01T00:00:00.000000Z';
+    const tampered = Buffer.from(JSON.stringify(envelope)).toString('base64url') + '.' + signature;
+    problem(await h.call('GET', path + '?cursor=' + tampered, owner), 422, 'invalid_cursor');
+    for (const target of [h.app, closedSigner]) {
+      const hidden = await h.call('GET', path + '?cursor=abc', stranger, undefined, {}, target);
+      const absent = await h.call('GET', path.replace(tenantId, randomUUID()) + '?cursor=abc', stranger, undefined, {}, target);
+      assert.equal(hidden.status, 404, JSON.stringify(hidden.data));
+      assert.deepEqual(hidden.data, absent.data);
+    }
+    for (const suffix of ['', '?cursor=abc']) {
+      problem(await h.call('GET', path + suffix, owner, undefined, {}, closedSigner), 503, 'tenant_cursor_unavailable');
+    }
+  }
+  problem(await h.call('GET', pages[0].path + '?cursor=' + pages[1].token, owner), 422, 'invalid_cursor');
+  problem(await h.call('GET', pages[1].path + '?cursor=' + pages[0].token, owner), 422, 'invalid_cursor');
 });

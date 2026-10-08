@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -72,7 +73,7 @@ function startApp() {
     max: 1, idleTimeoutMillis: 0, connectionTimeoutMillis: 8000,
   });
   app = createApp(runtime, origin, 'local', {
-    guildLaunchpadEnabled: true, tenantWorkAssetStore: store, adminVerifier: createAdminAccessVerifier(accessOptions),
+    guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store, adminVerifier: createAdminAccessVerifier(accessOptions),
   });
   instances.push({ pool: runtime, pids: new Set(), requests: 0, closed: false });
 }
