@@ -18904,8 +18904,8 @@
     },
     {
       "path": "scripts/update-inventory.py",
-      "bytes": 1004,
-      "sha256": "b7dec5dbdc192c9e940637ef3e4f363d25e163ac5c990fa615a112d14a193e97"
+      "bytes": 1230,
+      "sha256": "8c7d890f67a1837f2f89b73e5d145ee8b7ddd45fdc5a22e1cac49d9b0c80594b"
     },
     {
       "path": "scripts/verify-cloud-candidate-lib.ts",
