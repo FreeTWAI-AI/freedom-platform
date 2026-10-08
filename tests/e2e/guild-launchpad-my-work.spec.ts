@@ -1131,3 +1131,39 @@ for (const write of ['create', 'edit', 'result'] as const) {
     } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
   });
 }
+
+for (const lifecycle of ['suspend', 'archive'] as const) {
+  test(`enabling manual work on a stale page after the bound instance was ${lifecycle === 'suspend' ? 'suspended' : 'archived'} shows the read-only notice`, async ({ browser, baseURL, e2eAuthPool }) => {
+    test.setTimeout(120_000);
+    const [guild] = await guildsByCategory(e2eAuthPool);
+    const member = await person(e2eAuthPool, `enable-${lifecycle}`, [{ guild_key: guild.guild_key, tier: 'full' }], guild.guild_key);
+    const session = await login(browser, baseURL!, member.email);
+    try {
+      const made = await postJson(session.page, '/tenants', { display_name: '啟用競態業務', workspace_name: '啟用競態工作區' });
+      const tenantId = made.tenant.tenant_id as string, workspaceId = made.workspace.workspace_id as string;
+      await openGuild(session.page, guild.guild_key, guild.name);
+      const enable = session.page.getByRole('button', { name: '啟用手動工作', exact: true });
+      await expect(enable).toBeVisible();
+      await postJson(session.page, `/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, { guild_key: guild.guild_key }, 200);
+      await changeBoundInstance(session.page, tenantId, workspaceId, guild.guild_key, lifecycle);
+      await expect(enable).toBeVisible();
+      const enabled = session.page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === `/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`);
+      const bindingRead = session.page.waitForResponse(response => response.request().method() === 'GET'
+        && new URL(response.url()).pathname === `/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/module-binding`);
+      await enable.click();
+      const refused = await enabled;
+      expect(refused.status()).toBe(409);
+      expect((await refused.json()).code).toBe('work_instance_unavailable');
+      expect((await bindingRead).status()).toBe(200);
+      const message = lifecycle === 'suspend'
+        ? '這個工作區的模組已暫停，舊的工作仍可查看；恢復後才能新增或修改。'
+        : '這個工作區的模組已封存，舊的工作仍可查看；請改用其他工作區建立新工作。';
+      await expect(session.page.getByText(message, { exact: true })).toBeVisible();
+      await expect(enable).toHaveCount(0);
+      await expect(session.page.locator('#my-work-title')).toHaveCount(0);
+      await expect(session.page.getByRole('alert')).toHaveCount(0);
+      assertLocal(session.urls);
+    } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+  });
+}

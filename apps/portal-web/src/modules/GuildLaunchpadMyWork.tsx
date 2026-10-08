@@ -376,6 +376,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       await loadContext(tenantId, workspaceId, call);
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (error instanceof ApiError && error.status === 409 && error.code === 'work_instance_unavailable') {
+        keys.current.delete(fingerprint);
+        setCandidates(null);
+        await reloadUnavailableInstance(error, call);
+        return;
+      }
       if (error instanceof ApiError && error.status === 409 && error.code === 'instance_selection_required') {
         if (error.candidates?.length) setCandidates(error.candidates);
         else setBanner(error.message);
