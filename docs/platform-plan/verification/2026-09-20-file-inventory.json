@@ -16689,8 +16689,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 13256,
-      "sha256": "aa1521b6b50ed54e49358276b3254998deb1489f71576ab9ce01acafe4a22144"
+      "bytes": 13086,
+      "sha256": "62a03ec5478ba90a5d76cd9c6889ace44ac10aba974db77c9fcdf5e46acf69d6"
     },
     {
       "path": "modules/community/github-history.ts",
