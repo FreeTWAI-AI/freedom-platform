@@ -105,8 +105,8 @@
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 80,
-              "pattern": "^[a-z][a-z0-9._-]{0,79}$(?![\\s\\S])"
+              "maxLength": 160,
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$(?![\\s\\S])"
             }
           }
         },

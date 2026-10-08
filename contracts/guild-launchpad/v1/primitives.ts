@@ -48,6 +48,9 @@ export const NonNegativeDecimal = z.string().max(19).regex(NON_NEGATIVE_DECIMAL_
 export const STABLE_KEY_PATTERN = /^[a-z][a-z0-9_.-]{0,159}$(?![\s\S])/;
 export const StableKey = z.string().max(160).regex(STABLE_KEY_PATTERN);
 
+export const CAPABILITY_KEY_PATTERN = /^[a-z][a-z0-9_.:-]{0,159}$(?![\s\S])/;
+export const CapabilityKey = z.string().max(160).regex(CAPABILITY_KEY_PATTERN);
+
 /** Catalog keys (`guild_…`) and custom keys (`guild_custom_` + 32 hex). Existing catalog keys match unchanged. */
 export const GUILD_KEY_PATTERN = /^(?:guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$(?![\s\S])/;
 export const GuildKey = z.string().min(1).max(100).regex(GUILD_KEY_PATTERN);

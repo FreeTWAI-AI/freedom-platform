@@ -1,7 +1,7 @@
 import type { InviteRole, TenantRole } from '../../contracts/guild-launchpad/v1/tenant.js';
 
-// Role templates for this slice. Operator and viewer receive only the metadata
-// and workspace reads below. There are no module instances to grant against.
+// Tenant role templates. Ordinary module keys for operators/viewers come from
+// explicit instance grants, independently of these tenant metadata permissions.
 export const TENANT_CAPABILITIES = Object.freeze([
   'tenant.metadata.read',
   'tenant.metadata.edit',

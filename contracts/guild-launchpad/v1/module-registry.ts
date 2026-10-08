@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { OpaqueId } from '../../common/v1/identity.js';
-import { GuildKey, StableKey, Version, page } from './primitives.js';
+import { CapabilityKey, GuildKey, StableKey, Version, page } from './primitives.js';
 import { IsoTimeSchema, ReasonSchema } from './tenant.js';
 
-const CAPABILITY_KEY = /^[a-z][a-z0-9_.:-]{0,159}$(?![\s\S])/;
-export const CapabilityKey = z.string().max(160).regex(CAPABILITY_KEY);
+export { CapabilityKey } from './primitives.js';
 export const ReleaseRef = z.string().min(1).max(160);
 export const ContractRefSchema = z.object({
   family: z.string().min(1).max(160),

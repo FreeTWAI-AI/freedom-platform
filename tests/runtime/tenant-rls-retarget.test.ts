@@ -202,6 +202,7 @@ async function buildFixture() {
   const F = (await extraUser('Synthetic F')).session;
   const Anon = undefined;
   const invitee = (await extraUser('Synthetic pending invitee')).session;
+  const scopedMember = (await extraUser('Synthetic scoped member')).session;
 
   const guild = 'guild_ai_field';
   const q = await owner.connect();
@@ -251,6 +252,17 @@ async function buildFixture() {
     // Enable manual work
     const mw = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, session, { guild_key: guild });
     assert.equal(mw.status, 200, `enable manual work: ${JSON.stringify(mw.data)}`);
+
+    // Real ordinary grants in both tenants exercise retarget protection in test 8.
+    const scopedPrincipal = await getPrincipal(session, scopedMember.user.user_id);
+    const granted = await post(`/tenants/${tenantId}/invitations`, session, {
+      invitee_principal_id: scopedPrincipal, role: 'operator',
+      instance_capabilities: [{ instance_id: mw.data.instance_id, capabilities: ['work:read'] }],
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+    });
+    assert.equal(granted.status, 201, `invite scoped member: ${JSON.stringify(granted.data)}`);
+    const joined = await post(`/tenants/${tenantId}/invitations/${granted.data.invitation_id}/accept`, scopedMember, {}, `"${granted.data.version}"`);
+    assert.equal(joined.status, 200, `accept scoped member: ${JSON.stringify(joined.data)}`);
 
     // Work
     const w = await post(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, session, { title: '同名工作', objective: 'O', progress: 'todo' });
@@ -419,7 +431,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);

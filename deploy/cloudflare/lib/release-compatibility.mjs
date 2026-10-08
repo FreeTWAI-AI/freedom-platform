@@ -121,6 +121,9 @@ const FOUNDATION_NAMES = [
   '129_module_instance_lifecycle.sql',
   // Member archive of module instances: an archive operation kind and an archive pointer.
   '130_module_instance_archive.sql',
+  // Ordinary per-instance member grants (export and purpose-bound grants stay
+  // closed); a module instance's release reference becomes immutable.
+  '131_tenant_module_permissions.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

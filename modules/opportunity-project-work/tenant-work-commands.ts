@@ -6,7 +6,7 @@ import { scopedJournal, scopedTenantCommand } from '../../packages/scoped-comman
 import type { TenantScopeContext } from '../../packages/resource-scopes/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import type { Actor } from '../identity-membership/service.js';
-import { requireTenantCapability, tenantWorkCapabilities } from './tenant-capabilities.js';
+import { requireWorkCapability, requireWorkInstance, tenantWorkCapabilities } from './tenant-capabilities.js';
 import { lockCapacityPolicy, lockDimension, rejectAtLimit, requirePolicy } from './tenant-capacity.js';
 import { loadWork, lockWritableInstance, requireActiveWorkspace, type TenantWorkRow } from './tenant-work.js';
 
@@ -40,13 +40,15 @@ async function journal(q: PoolClient, context: TenantScopeContext, row: TenantWo
 export function createTenantWorkCommands(pool: Pool) {
   async function create(actor: Actor, tenantId: string, workspaceId: string, body: unknown, key: string) {
     const input = WorkWriteSchema.parse(body);
+    let instanceId!: string;
     return scopedTenantCommand(pool, {
       actor, tenantId, operation: 'work.tenant.create', key, tenantLock: 'share', body: input,
       target: { kind: 'tenant_workspace', id: workspaceId }, capabilitiesForRole: tenantWorkCapabilities,
     }, async (q, context) => {
-      requireTenantCapability(context, 'work:create', true);
+      await requireWorkCapability(q, context, 'work:create', true);
+      instanceId = await boundInstance(q, tenantId, workspaceId);
+      await requireWorkInstance(q, context, instanceId, 'work:create');
     }, async (q, context) => {
-      const instanceId = await boundInstance(q, tenantId, workspaceId);
       await lockWritableInstance(q, tenantId, instanceId);
       const policy = requirePolicy(await lockCapacityPolicy(q, tenantId));
       await lockDimension(q, tenantId, 'work_items');
@@ -71,9 +73,10 @@ export function createTenantWorkCommands(pool: Pool) {
       actor, tenantId, operation: 'work.tenant.update', key, tenantLock: 'share', expected, body: input,
       target: { kind: 'tenant_work', id: workId }, capabilitiesForRole: tenantWorkCapabilities,
     }, async (q, context) => {
-      requireTenantCapability(context, 'work:write', true);
+      await requireWorkCapability(q, context, 'work:write', true);
       const preview = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(preview, 404, 'not_found', '找不到這個工作。');
+      await requireWorkInstance(q, context, preview.instance_id, 'work:write', '找不到這個工作。');
       requireCondition(preview.state === 'draft', 409, 'work_archived', '這個工作已封存。');
       await requireActiveWorkspace(q, tenantId, preview.workspace_id);
       await lockWritableInstance(q, tenantId, preview.instance_id);
@@ -99,9 +102,10 @@ export function createTenantWorkCommands(pool: Pool) {
       actor, tenantId, operation: 'work.tenant.archive', key, tenantLock: 'share', expected, body: {},
       target: { kind: 'tenant_work', id: workId }, capabilitiesForRole: tenantWorkCapabilities,
     }, async (q, context) => {
-      requireTenantCapability(context, 'work:archive', true);
+      await requireWorkCapability(q, context, 'work:archive', true);
       const row = await loadWork(q, tenantId, context.scope.scope_id, workId, true);
       requireCondition(row, 404, 'not_found', '找不到這個工作。');
+      await requireWorkInstance(q, context, row.instance_id, 'work:archive', '找不到這個工作。');
       await requireActiveWorkspace(q, tenantId, row.workspace_id);
       locked = row;
     }, async (q, context) => {

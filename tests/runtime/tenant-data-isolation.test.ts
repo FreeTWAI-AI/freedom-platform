@@ -40,7 +40,7 @@ const DEFINERS = [
   'publish_media_backfill_skill', 'publish_media_backfill_social', 'publish_media_backfill_video',
 ].sort();
 const RLS_TABLES = [
-  'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
+  'tenants', 'tenant_memberships', 'tenant_module_permissions', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans',
