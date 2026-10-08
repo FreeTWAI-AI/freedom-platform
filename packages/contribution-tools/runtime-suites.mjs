@@ -59,6 +59,6 @@ media-backup-archive media-backup-daily media-backup-evidence media-backup-reten
 media-verify member-service-cursor migration-runner-plan model-step-revocation-races native-text-invocation native-text-process openrouter-byok operator-avatar-backfill
 operator-banner-social-backfill operator-event-video-backfill operator-media-backfill operator-media-runtime-grants operator-skill-highlight-backfill organization-project-editing platform-json-body private-ai-preflight
 session-cookie-security social-preview-assets social-thumbnail-assets verify-guild-work worker-private-ai-ingest
-hosted-store hosted-store-isolation
+hosted-store hosted-store-isolation hosted-store-offering
 guild-launchpad-profiles
 `.trim().split(/\s+/)).sort());

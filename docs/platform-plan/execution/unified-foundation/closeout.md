@@ -425,3 +425,23 @@ schema 只能從 migration 前的備份還原。
 正例是第七／八輪收據 #291，在新 pin 下通過並依一般流程合併。S、E0／E1b、E2p／E3p 與 fork 探測沒有重做，沿用 10 月 7 日與 10 月 6 日的證據；
 GOV-16／R2:D04 附加證據但不改狀態，accepted 仍是 3 列。這次只改 CI 規則，沒有部署；production 與 staging 仍是 `e89cd0c8`。
 細節見[治理安裝紀錄](governance-installation-2026-10-04.md)與[本次證據](../../verification/main-ruleset-2026-10-08.json)。
+
+### 10 月 8 日：第九輪 staging／production rollout（main cc72c3fd，無 migration）
+
+`cc72c3fd` 是 #297 的 merge。它在第八輪（`e89cd0c8`）之後帶進公會首頁設定（D1）：沒有自訂首頁的公會改用平台預設 revision 2，
+電商公會（`guild_commerce_sales`）與廣告攝影公會（`guild_commercial_production`）各有自己的區塊順序，並推薦平台已提供的應用；
+會員看到推薦應用的名稱，正式成員看到主要動作，公會長可以編輯推薦。同一範圍內的 #288（CI 容量）、#296（inventory 順序）與 #291（第七／八輪收據）不改 runtime。
+兩個環境的 `FREEDOM_GUILD_LAUNCHPAD_ENABLED` 都維持 `true`。staging 依 owner 的委派部署；production 由 owner 於 19:00Z 決定在 #297 合併後
+照第八輪的方式直接發（「#297 合併後直接發 (Recommended)」），不跑 staging 驗收，到 live 再測。
+
+- 沒有 migration：部署前兩邊的資料庫都唯讀確認仍在 133、沒有待套用或不一致的 migration，row security 仍是 28 張表、39 條 policy。
+- staging 19:19Z 部署（Worker 版本 `3a5a5308`）；production 19:20Z 以同一份 dist 部署（Worker 版本 `d80f2817`），33 個唯讀公開 checks 通過，4 次 fresh health 都是 `cc72c3fd`。
+- staging 與 production 兩個公會的公開首頁都是 revision 2、區塊順序符合各自的設定（推薦應用：manual-workspace）。
+- 兩個環境部署後的備份（staging `fc6da97b`、production `f12747a0`）都做過隔離還原與遠端讀回，backup pin 都改成 `cc72c3fd`。
+  staging 部署後 cron 有寫入（最後同步 19:41Z，last_error 8→8）；production 部署後 cron 有寫入（最後同步 19:41Z，last_error 6→6）。另有 1 次備份失敗後清理 maintenance policy，經過記在私人收據。
+
+回滾：重新部署 `e89cd0c8`，沒有 migration，也沒有資料變更；部署後公會長存的草稿或發布仍是同一個 v1 格式，`e89cd0c8` 可以讀。128 之後仍然不能部署 X（`c84829e2`）。
+
+限制：#297 沒有執行驗收，staging 也沒有跑驗收；production checks 是唯讀 HTTP 與兩個公會的公開首頁，兩邊都沒有建立帳號。
+部署後另一個 session 用 staging 示範帳號做了會員實測：電商公會的正式成員看到主要動作「選品／營運待辦」，非成員看到加入提示，公會長存的推薦草稿重新進入後仍在、公開首頁不變；廣告攝影公會沒有正式成員的示範帳號，production 沒有登入實測。
+這次 rollout 不是 M1 驗收，M1 仍未接受。每日備份的 operator source 仍是 `c3e5a537`。細節見[現況快照](current-state.json)。

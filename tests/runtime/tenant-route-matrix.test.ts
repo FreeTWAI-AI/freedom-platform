@@ -978,11 +978,11 @@ test('T-022 4. Body, header and query substitution', async () => {
     const other = actor === N ? A : B;
     scanForLeaks(launchpad, '4 launchpad eligibility', other);
     const manages = actor === P || actor === N;
-    const expectedApplications = ['manual-workspace', 'synthetic-storefront'].map(application_key => ({
+    const expectedApplications = ['manual-workspace', 'hosted-store', 'synthetic-storefront'].map(application_key => ({
       application_key, release_ref: `${application_key}@1.0.0`,
-      display_name: application_key === 'manual-workspace' ? '人工工作空間' : '合成店面',
+      display_name: application_key === 'manual-workspace' ? '人工工作空間' : application_key === 'hosted-store' ? '線上商店' : '合成店面',
       eligibility: { can_launch: manages, reason_codes: manages ? [] : ['tenant_manage_required'],
-        policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? 'continue' : 'create' },
+        policy_revision: '1', required_guild_tier: 'full', tenant_action: manages ? (application_key === 'hosted-store' ? 'select' : 'continue') : 'create' },
     }));
     assert.deepEqual(launchpad.data.applications, expectedApplications);
     const substituted = await call('GET', `/guilds/guild_ai_field/launchpad?tenant_id=${other.tenantId}&workspace_id=${other.workspaceId}`, actor);

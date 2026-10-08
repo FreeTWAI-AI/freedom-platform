@@ -179,4 +179,4 @@ export type Engagement = {
   receipt: Receipt | null
 }
 
-export type TabId = 'private-ai' | 'skills' | 'guild-workspace' | 'business' | 'cocreation' | 'account' | 'members' | 'highlights' | 'community' | 'squads' | 'home' | 'positioning' | 'supplier' | 'retail' | 'opensource' | 'marketing' | 'guilds' | 'workbench' | 'showcase' | 'engagement' | 'todos' | 'messages' | 'events' | 'tasks' | 'friends' | 'social' | 'services' | 'promotion'
+export type TabId = 'private-ai' | 'skills' | 'guild-workspace' | 'business' | 'stores' | 'cocreation' | 'account' | 'members' | 'highlights' | 'community' | 'squads' | 'home' | 'positioning' | 'supplier' | 'retail' | 'opensource' | 'marketing' | 'guilds' | 'workbench' | 'showcase' | 'engagement' | 'todos' | 'messages' | 'events' | 'tasks' | 'friends' | 'social' | 'services' | 'promotion'

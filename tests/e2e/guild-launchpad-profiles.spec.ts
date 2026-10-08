@@ -9,7 +9,7 @@ import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
 const profiles = [
-  {key: commerce, title: '選品／營運待辦', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
+  {key: commerce, title: '線上商店', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
   {key: production, title: '拍攝brief／分鏡／交付', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
 ];
 const primary = (page: Page) => page.getByRole('region', {name: '主要動作', exact: true});
@@ -67,9 +67,14 @@ test('members see distinct purpose orders and their primary action focuses My Wo
     await expect(page.locator('.guild-launchpad > .guild-launchpad-block > h2')).toHaveText(profile.headings);
     await expect(primary(page).getByRole('heading', {level: 2})).toHaveText(profile.title);
     await expect(page.locator('.launchpad-applications')).toHaveCount(1);
-    await primary(page).getByRole('button', {name: '前往我的工作', exact: true}).click();
-    await expect(page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})})).toBeFocused();
-    await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
+    if (profile.key === commerce) {
+      await expect(primary(page).getByRole('button', {name: '建立我的商店', exact: true})).toBeEnabled();
+      await expect(recommendations(page).locator('.application-card').first()).toContainText('線上商店');
+    } else {
+      await primary(page).getByRole('button', {name: '前往我的工作', exact: true}).click();
+      await expect(page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})})).toBeFocused();
+      await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
+    }
   }
   await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
     WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, commerce]);
@@ -105,6 +110,7 @@ test('a leader publishes recommendations and the member primary action opens the
     await editor.getByRole('combobox', {name: '加入推薦應用', exact: true}).selectOption(JSON.stringify([appKey, releaseRef]));
     await editor.getByRole('button', {name: '加入推薦', exact: true}).click();
     await editor.getByRole('button', {name: `上移${displayName}`, exact: true}).click();
+    await editor.getByRole('button', {name: `上移${displayName}`, exact: true}).click();
     await expect(primary(page).getByRole('heading')).toHaveText(displayName);
     await expect(recommendations(page).locator('.application-card').first()).toContainText(displayName);
     await editor.getByRole('button', {name: '預覽會員', exact: true}).click();
@@ -116,7 +122,7 @@ test('a leader publishes recommendations and the member primary action opens the
     await page.getByRole('button', {name: '確認發布', exact: true}).click();
     await expect(page.getByRole('status').filter({hasText: /^已發布版本 /})).toBeVisible();
     const published = await (await page.request.get(`/api/v1/guilds/${commerce}/launchpad`)).json();
-    expect(published.config.body.application_refs.map((ref: {application_key: string}) => ref.application_key)).toEqual([appKey, 'manual-workspace']);
+    expect(published.config.body.application_refs.map((ref: {application_key: string}) => ref.application_key)).toEqual([appKey, 'hosted-store', 'manual-workspace']);
 
     await login(memberPage, member.email);
     await post(memberPage, '/tenants', {display_name: '推薦啟動測試空間', workspace_name: '測試區'}, 201);
