@@ -2,6 +2,7 @@ import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypt
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {transaction} from '../../packages/db/index.js';
+import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {communityCatalog} from '../community/catalog.js';
@@ -240,7 +241,8 @@ export class GitHubSocial {
       const connection=await this.connection(q,actor);
       if(!this.config||!connection)return {username,connected:false,following:null};
       await this.rate(q,actor,'follow-read',90);
-      const following=await this.withToken(q,actor,connection,token=>this.provider.following(username,token));
+      const following=await this.withToken(q,actor,connection,async token=>{await assertCurrentSessionClock(q,actor);return this.provider.following(username,token);});
+      await assertCurrentSessionClock(q,actor);
       return {username,connected:true,following};
     });
   }
@@ -249,7 +251,11 @@ export class GitHubSocial {
     return this.member(actor,async q=>{
       await this.rate(q,actor,'follow-write',30);
       const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
-      await this.withToken(q,actor,connection,token=>this.provider.follow(username,token,desired));
+      await this.withToken(q,actor,connection,async token=>{
+        // Refresh the decision clock after connection-lock/token-refresh waits.
+        await assertCurrentSessionClock(q,actor);
+        await this.provider.follow(username,token,desired);
+      });
       return {username,connected:true,following:desired,confirmed:true};
     });
   }
