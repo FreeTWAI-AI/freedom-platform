@@ -355,7 +355,7 @@ for(const surface of ['page','dock'] as const)for(const status of [403,404])test
   await page.evaluate(()=>{location.hash='home';});
   if(surface==='page'){
     await expect(page).toHaveURL(/#messages$/);expect(notices).toBeGreaterThan(0);
-    await returnToList(page);
+    await panel.getByRole('button', { name: '← 返回公會列表', exact: true }).click();
     await page.getByRole('tab',{name:/^私人訊息/}).click();
   }else{
     // Console stays mounted across page navigation; its original command remains reachable.
