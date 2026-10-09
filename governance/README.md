@@ -61,6 +61,7 @@ The fixed registry in `runtime-suites.mjs` maps these existing IDs:
 | `runtime.member-card` | `member-ecard`, `member-directory`, `social-links`, `member-card-qr` |
 | `runtime.work` | `flows`, `benefits`, `co-creation` |
 | `runtime.work-privacy` | `work-privacy` |
+| `runtime.personal-content` | `personal-content`, `community-relations`, `community-search`, `work-privacy` |
 | `runtime.full` | All baseline runtime files **plus newly added** direct `tests/runtime/*.test.ts` files |
 
 `e2e.harness` is a separate fixed adapter. It is not a runtime file, so it is not a row in the table above. It runs exactly `scripts/run-e2e.test.mjs` with the same bounded Node reporter, the 60-second non-runtime budget, and no database environment. Neighboring `scripts/**/*.test.mjs` files are not discovered. Deleting that baseline is `suite_files_unavailable` (`not_run`), not a pass. An empty file, a zero-test run, or any skip, TODO, cancellation, or failure does not pass. The verifier report accepts that one `scripts/run-e2e.test.mjs` path and no other `scripts/` test path. This suite checks the Playwright orchestrator. It does not launch a browser. CI's `ui-e2e` job runs `npm run test:e2e` after `npm run build`; that job is the browser evidence, and `verify` does not substitute for it.

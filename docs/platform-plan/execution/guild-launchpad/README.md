@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-09 release.production=8a98bb14d0ba024ac94fb704aa41272a775b0775 release.staging=8a98bb14d0ba024ac94fb704aa41272a775b0775 flag.production=true flag.staging=true repo_max_migration=141 applied_migration.production=140 applied_migration.staging=140 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-09 release.production=8a98bb14d0ba024ac94fb704aa41272a775b0775 release.staging=8a98bb14d0ba024ac94fb704aa41272a775b0775 flag.production=true flag.staging=true repo_max_migration=143 applied_migration.production=140 applied_migration.staging=140 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 2026-10-09 更新（operator 私有收據的去敏摘要，非本文件獨立 live 查驗）：production 與 staging 都已部署 reviewed runtime `8a98bb14`（#339），同一份 dist；兩邊 ledger 已到 140，共 139 筆（保留 022 歷史缺號）。staging 於 16:16Z、production 於 16:29Z 觀察到該版本。既有 guild launchpad flag 保持開啟，新預設關閉功能維持關閉。staging 為 34 項公開＋61 項 authenticated HTTP 檢查，production 為 34＋19；production 不宣稱四種清單 continuation 或 merchant/payment 流程通過。本輪沒有 live browser automation，完整 Foundation／M1／第二操作者復原均未接受。詳見 [10 月 9 日發布收據](../unified-foundation/rollout-2026-10-09.json)；後續 docs／CI-source merge #340 `bb9f42d5` 不同於 runtime，installed CI pin 未改。
 

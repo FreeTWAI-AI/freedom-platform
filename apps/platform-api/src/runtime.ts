@@ -99,4 +99,8 @@ export type PlatformRuntime = {
   communitySearchEnabled?: boolean;
   /** Additive sharing navigation only; domain authorization remains authoritative. */
   unifiedSharingEnabled?: boolean;
+  /** Private bookmarks and follows require both this setting and community search. */
+  communityRelationsEnabled?: boolean;
+  /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
+  personalContentEnabled?: boolean;
 };

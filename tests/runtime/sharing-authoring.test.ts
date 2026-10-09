@@ -126,3 +126,75 @@ test('setError identity and equal snapshots do not retrigger the Guilds dependen
  latest.setError(null);render();assert.equal(latest.error,null);assert.equal(loads,1);
  for(const slot of slots)slot?.unsubscribe?.();
 });
+
+async function skillResumeHost(initialResume: string | null) {
+ const {transformSync}=await import('esbuild');
+ const {readFileSync}=await import('node:fs');
+ const {runInNewContext}=await import('node:vm');
+ const {requireItems}=await import('../../apps/portal-web/src/api.js');
+ // Narrow React hook-host model. The production resume effect and the real
+ // authoring/mutation stores run here; this is not browser/layout evidence.
+ const slots:any[]=[];let cursor=0,dirty=false,resumeId=initialResume;
+ const effects:(()=>void)[]=[];
+ const same=(a:unknown[],b:unknown[])=>a.length===b.length&&a.every((value,index)=>Object.is(value,b[index]));
+ const hooks={
+  useRef:(initial:unknown)=>{const index=cursor++;return slots[index]??(slots[index]={current:initial});},
+  useState:(initial:unknown)=>{const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};const slot=slots[index];return [slot.value,(next:unknown)=>{const value=typeof next==='function'?next(slot.value):next;if(!Object.is(value,slot.value)){slot.value=value;dirty=true;}}];},
+  useEffect:(effect:()=>undefined|(()=>void),deps:unknown[])=>{const index=cursor++,previous=slots[index];if(previous&&same(previous.deps,deps))return;const slot={deps,cleanup:undefined as undefined|(()=>void)};slots[index]=slot;effects.push(()=>{previous?.cleanup?.();slot.cleanup=effect();});},
+ };
+ const {client,calls,pending}=transport();(client as any).sessionGeneration=1;
+ const reads:{path:string;resolve:(value:unknown)=>void}[]=[];
+ (client as any).get=(path:string)=>path==='/me/skill-submissions'?Promise.resolve({items:[]}):new Promise(resolve=>reads.push({path,resolve}));
+ const source=readFileSync(new URL('../../apps/portal-web/src/modules/SimpleSkillSubmission.tsx',import.meta.url),'utf8');
+ const compiled=transformSync(source,{loader:'tsx',format:'cjs',target:'es2023',jsx:'automatic'}).code;
+ const module={exports:{} as any};
+ runInNewContext(compiled,{module,exports:module.exports,AbortController,require:(name:string)=>{
+  if(name==='react')return hooks;
+  if(name==='react/jsx-runtime')return {jsx:()=>null,jsxs:()=>null,Fragment:'fragment'};
+  if(name==='../api')return {requireItems};
+  if(name==='./WorkSharing.css')return {};
+  if(name==='./SkillUpload')return {relationshipLabels:{curator:'推薦／整理者'}};
+  if(name==='./SkillPublication')return {skillPublicationPath,PublishedSkillLinks:()=>null};
+  if(name==='./authoring-drafts')return {authoringDraftState,sharingMutationState,useAuthoringDraft:(userId:string,key:string,initial:unknown)=>{const draft=authoringDraftState(userId,key,initial);return [draft.read(),draft.write,draft.live];}};
+  if(name==='./shared')return {useModuleMutation:(_client:PortalClient,scope:{userId:string;type:string})=>{const mutation=sharingMutationState(scope);return {...mutation.snapshot,setError:()=>{},mutate:(path:string,body:unknown,version?:number)=>performModuleMutation(client,mutation,path,body,version)};}};
+  throw Error('Unexpected skill resume dependency '+name);
+ }});
+ function render(){cursor=0;dirty=false;module.exports.SimpleSkillSubmission({client,userId:'owner',resumeId,onPublished:async()=>{}});while(effects.length)effects.shift()!();}
+ async function flush(){await new Promise<void>(resolve=>setImmediate(resolve));let renders=0;while(dirty){assert(++renders<20,'resume effects must settle');render();await new Promise<void>(resolve=>setImmediate(resolve));}}
+ return {client,calls,pending,reads,render,flush,resume:(id:string|null)=>{resumeId=id;render();},dispose:()=>{for(const slot of slots)slot?.cleanup?.();}};
+}
+const pureResumeItem=(title:string)=>({submission_id:'resume-draft',status:'ready_for_review',can_edit:true,aggregate_version:7,public_path:null,payload:{repository_url:'https://github.com/synthetic/repo',title,description:'Saved description',use_notes:'Saved notes',demo_url:null,relationship:'curator'}});
+
+for(const blocker of ['skill','skill:working','skill:upgrade'] as const){
+ test(`URL resume starts only after ${blocker} settles and does not reload its consumed target`,async()=>{
+  const host=await skillResumeHost('resume-draft');
+  const working=authoringDraftState('owner','skill:working',false);
+  const operation=blocker==='skill:working'?(working.write(true),null):performModuleMutation(host.client,sharingMutationState({userId:'owner',type:blocker}),'/synthetic-operation',{});
+  try{
+   host.render();await host.flush();assert.equal(host.reads.length,0,'pending authoring must block fetch initiation');
+   if(operation){host.pending[0].resolve({done:true});await operation;}else working.write(false);
+   host.render();await host.flush();assert.equal(host.reads.length,1);assert.equal(host.reads[0].path,'/me/skill-submissions/resume-draft');
+   host.reads[0].resolve(pureResumeItem('Fresh draft'));await host.flush();
+   assert.equal(authoringDraftState<any>('owner','skill:saved',null).read().aggregate_version,7);
+   assert.equal(authoringDraftState<any>('owner','skill:draft',null).read().title,'Fresh draft');
+   working.write(true);host.render();working.write(false);host.render();await host.flush();
+   assert.equal(host.reads.length,1,'consumed URL must not overwrite draft state when a later operation settles');
+  }finally{host.dispose();}
+ });
+ test(`URL resume response cannot overwrite authoring when ${blocker} begins before React rerenders`,async()=>{
+  const draft=authoringDraftState<any>('owner','skill:draft',null);draft.write({...pureResumeItem('Keep local input').payload,demo_url:''});
+  const host=await skillResumeHost('resume-draft'),working=authoringDraftState('owner','skill:working',false);
+  try{
+   host.render();await host.flush();assert.equal(host.reads.length,1);
+   const operation=blocker==='skill:working'?(working.write(true),null):performModuleMutation(host.client,sharingMutationState({userId:'owner',type:blocker}),'/synthetic-operation',{});
+   host.reads[0].resolve(pureResumeItem('Stale response'));
+   // Deliberately do not render or clean up the effect before the result arrives.
+   await new Promise<void>(resolve=>setImmediate(resolve));
+   assert.equal(draft.read().title,'Keep local input');assert.equal(authoringDraftState('owner','skill:saved',null).read(),null);
+   host.render();
+   if(operation){host.pending[0].resolve({done:true});await operation;}else working.write(false);
+   host.render();await host.flush();assert.equal(host.reads.length,2,'settled operation must retry the still-requested URL');
+   host.reads[1].resolve(pureResumeItem('Fresh after operation'));await host.flush();assert.equal(draft.read().title,'Fresh after operation');
+  }finally{host.dispose();}
+ });
+}

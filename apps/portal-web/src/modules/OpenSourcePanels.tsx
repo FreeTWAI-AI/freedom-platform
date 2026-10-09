@@ -25,6 +25,8 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null);
   const openNonce=useRef(0);
   const openSkill=(submissionId:string,mode: 'preview'|'complete')=>{openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});};
+  const [resumeId,setResumeId]=useState<string|null>(()=>new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));
+  useEffect(()=>{const change=()=>setResumeId(new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
   const refresh=useCallback(async()=>{
     setLoading(true);setLoadError(null);
     try{setProjects(requireItems<Project>(await client.get('/opensource/projects'),'開源作品'));}
@@ -34,7 +36,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   useEffect(()=>{void refresh();},[refresh]);
   return <div className="stack">
     <WorkSharingEntry current="opensource"/>
-    <SimpleSkillSubmission key={session.user.user_id} userId={session.user.user_id} client={client} onPublished={refresh} onOpenDraft={openSkill}/>
+    <SimpleSkillSubmission key={`${session.user.user_id}:${client.sessionGeneration}`} userId={session.user.user_id} resumeId={resumeId} client={client} onPublished={refresh} onOpenDraft={openSkill}/>
     <details className="card work-sharing-advanced"><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh} openRequest={openRequest}/></div></div></details>
     <LoadError error={loadError} retry={()=>void refresh()}/>
       <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
