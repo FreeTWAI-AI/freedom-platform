@@ -2324,8 +2324,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 40912,
-      "sha256": "fa3e60577ef1526160283e6e421ddbadbeec5d7bca2cd9d38602635402ff7869"
+      "bytes": 41559,
+      "sha256": "6f5a4223ea495b716078015bcc190c8dfaa67643d6b1ab88f5f16354175a0240"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2364,8 +2364,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 59387,
-      "sha256": "7074f37bcc5b47a0402ae564963957243b5d24306f4e80b86e28f260b5ac7595"
+      "bytes": 60033,
+      "sha256": "889755b852bdfc5123815d2b91361d24d1ff082208aede8732a7b19a94810064"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2691,6 +2691,11 @@
       "path": "apps/portal-web/src/modules/WorkbenchPanel.tsx",
       "bytes": 22551,
       "sha256": "eeb88b6a31b5dcd81afd04f6eb0be81f82db73b7e64c03c98f6cc32176bc9b63"
+    },
+    {
+      "path": "apps/portal-web/src/modules/adaptive-chat-poll.ts",
+      "bytes": 569,
+      "sha256": "30fa952dd9c30879451bbf0a62539b6dd1545c39610dfed0f29f5d0377508d02"
     },
     {
       "path": "apps/portal-web/src/modules/admin-client.ts",
@@ -13514,8 +13519,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 23602,
-      "sha256": "b1c56ed2b2bd9490d2bf8dd517bed69c36d22e4f49738f22d82a71de555885d6"
+      "bytes": 23848,
+      "sha256": "f55d2044a129a2c2935cd523423b0912af5cd43496773a846c273460df19bd5a"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19664,8 +19669,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 68070,
-      "sha256": "819a50322280bd12b2bc404daeacb6402f09ce39975b241fe40594c60105f5f3"
+      "bytes": 70708,
+      "sha256": "d706a35d707075cd10e3e4577fb64b3ea716ba5236af47df7e8781dde2e948d8"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
@@ -21239,8 +21244,8 @@
     },
     {
       "path": "tests/runtime/portal-client-recovery.test.ts",
-      "bytes": 23847,
-      "sha256": "c5c845599e9876105f33c243828ad0b0292e7ab4caed7e6938333b62145bde36"
+      "bytes": 25066,
+      "sha256": "ce4551468f24bfb5f82438e94e9074a91d6fb41d0d256ded8b437601760c036c"
     },
     {
       "path": "tests/runtime/positioning-action-card.test.ts",
