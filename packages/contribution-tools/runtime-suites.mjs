@@ -61,4 +61,5 @@ operator-banner-social-backfill operator-event-video-backfill operator-media-bac
 session-cookie-security social-preview-assets social-thumbnail-assets verify-guild-work worker-private-ai-ingest
 hosted-store hosted-store-isolation hosted-order-contracts hosted-direct-orders hosted-store-offering
 guild-launchpad-profiles production-dossier
+message-images message-image-ack message-image-upload-reader
 `.trim().split(/\s+/)).sort());
