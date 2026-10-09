@@ -65,10 +65,19 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
   const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
   await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
   const page = await context.newPage();
+  let releaseChunk: () => void = () => undefined;
+  const chunkReleased = new Promise<void>(resolve => { releaseChunk = resolve; });
+  await page.route(/\/assets\/GuildLaunchpad-[^/]+\.js$/, async route => {
+    await chunkReleased;
+    await route.continue();
+  });
   try {
     const payload = await (await page.request.get(`/api/v1/public/guilds/${music}/launchpad`)).json() as {guild: {name: string; purpose: string}; config: {body: {mission_override: string | null}}};
     const mission = payload.config.body.mission_override ?? payload.guild.purpose;
-    await page.goto(`/#guilds/${music}`);
+    await page.goto(`/#guilds/${music}`, {waitUntil: 'domcontentloaded'});
+    await expect(page.locator('.page-loading[role="status"]')).toBeVisible();
+    await expect(page.locator('.guild-launchpad')).toHaveCount(0);
+    releaseChunk();
     await expect(page.getByRole('heading', {level: 1, name: payload.guild.name})).toBeVisible();
     await expect(page.getByText(mission, {exact: true}).first()).toBeVisible();
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
@@ -77,7 +86,9 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
     await expect(page.locator('body')).not.toContainText('業務空間尚未在此環境啟用');
     await expect(page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveCount(0);
     await noOverflow(page);
-  } finally { await context.close(); }
+    await page.getByRole('button', {name: '會員登入', exact: true}).click();
+    await expect(page.getByLabel('電子郵件', {exact: true})).toBeVisible();
+  } finally { releaseChunk(); await context.close(); }
 });
 
 test('a late response from guild A never renders inside guild B', async ({browser, baseURL, e2eAuthPool}) => {

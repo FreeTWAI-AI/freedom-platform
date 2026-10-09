@@ -7,7 +7,8 @@ import { Onboarding, guildMasterLabel, type GuildSummary, type OnboardingView } 
 import { loadLabels, type MemberCardData } from './Membership';
 import './GuildDesign.css';
 import {GuildCard,useUniformGuildCards,type GuildCategorySlot} from './GuildCard';
-import {GuildLaunchpad,guildKeyFromHash} from './GuildLaunchpad';
+import {GuildLaunchpad} from './GuildLaunchpad';
+import {guildKeyFromHash} from './guild-launchpad-route';
 import {GuildAnswersSection} from './GuildQuestions';
 import {GuildTopicFilter} from './GuildFilters';
 import {formatIsoLocal} from '../format';
