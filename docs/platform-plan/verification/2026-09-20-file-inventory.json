@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 22323,
-      "sha256": "d94cb7eb6cce672e5689db1b55d92a33b19a377976d8b5515dc5638f439fc572"
+      "bytes": 22890,
+      "sha256": "1c1477f58c81482faf15aaf2bcb76f97506e6c061cb70a4581952a4dce98fa75"
     },
     {
       "path": "compose.yaml",
@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 36565,
-      "sha256": "a47249053e67685fdf3dd159e775d748c1decd42c774e59875740bd100f0ec7e"
+      "bytes": 37257,
+      "sha256": "6c631f9ce576fa2dee53f91725b3e6ae0b62616e8ed4cc79cf96a1c4bdd49258"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -21204,8 +21204,8 @@
     },
     {
       "path": "tests/runtime/platform-json-body.test.ts",
-      "bytes": 2202,
-      "sha256": "80ef28902f2e27f072d2c2520bbe246acc23ad973ec645edda4b595ad36f7e0a"
+      "bytes": 7675,
+      "sha256": "b9ebcca1ab2d4954a75c6cdcabd17ae70879b5d0db282eef7c896e96f2832fde"
     },
     {
       "path": "tests/runtime/portal-build-benchmark.test.ts",

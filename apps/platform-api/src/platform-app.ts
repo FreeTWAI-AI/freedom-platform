@@ -6,6 +6,7 @@ import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono, type MiddlewareHandler } from 'hono';
+import { routePath } from 'hono/route';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -68,6 +69,8 @@ import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,reg
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 import { searchCommunityContent, assignContentTopics, listTaggableContent } from '../../../modules/community/content-search.js';
 
+const SLOW_REQUEST_THRESHOLD_MS=1000;
+
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -126,6 +129,16 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     // Never echo SQL, request bodies, credentials, raw errors, or stack traces.
     console.error('request_failed', err instanceof Error ? err.name : 'unknown');
     return c.json({type:'about:blank',title:'Internal error',status:500,code:'internal_error',detail:'操作未完成，請重新整理並查看目前狀態。'},500);
+  });
+  // Outermost: Hono resolves downstream onError responses before next() returns.
+  app.use('*',async(c,next)=>{
+    const started=performance.now();
+    await next();
+    const duration_ms=performance.now()-started,status=c.res.status;
+    if(duration_ms<SLOW_REQUEST_THRESHOLD_MS&&status<500)return;
+    // Use the responding handler's pattern, not later host asset middleware.
+    const pattern=routePath(c),route=pattern&&pattern!=='*'&&pattern!=='/*'?pattern:'unmatched';
+    console.warn(JSON.stringify({event:status>=500?'server_error':'slow_request',method:c.req.method,route,status,duration_ms}));
   });
   app.use('/api/v1/me/onboarding/*',onboardingDiagnostics());
   app.use('*',async(c,next)=>{
