@@ -18,7 +18,7 @@ const schema = `e1cat_${process.pid}_${Date.now()}`;
 const admin = new Pool({ connectionString });
 const pool = new Pool({ connectionString, options: `-c search_path=${schema}`, max: 2 });
 const ENABLED = [
-  'commerce_resource_tenants',
+  'commerce_resource_tenants', 'commerce_order_quotes',
   'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
   'deployment_bindings', 'module_dependencies', 'module_instances', 'module_launch_plan_consumptions', 'module_launch_plans',
   'module_provision_operations', 'module_provision_steps',
@@ -503,7 +503,7 @@ test('T-021 tenant modules do not import the legacy transaction helper or call p
 
 const MAPPED_COMMERCE = ['commerce_shops', 'commerce_items', 'commerce_selections'];
 
-test('T-021 hosted commerce coverage follows only the explicit shop mapping paths', async () => {
+test('T-021 hosted coverage distinguishes shop mapping from direct quote FK closure', async () => {
   await rolled(async (_q, snapshot) => {
     assert.deepEqual(checkTenantCatalog(snapshot, TENANT_DATA_CATALOG), []);
     for (const table of MAPPED_COMMERCE) {
@@ -518,8 +518,11 @@ test('T-021 hosted commerce coverage follows only the explicit shop mapping path
       && edge.referenced === 'commerce_shops'
       && JSON.stringify(edge.columns) === '["resource_id"]'
       && JSON.stringify(edge.referenced_columns) === '["shop_id"]'));
-    for (const table of ['communities', 'users', 'principals', 'commerce_shop_keys', 'commerce_orders',
-      'commerce_transfers', 'commerce_order_lines', 'commerce_payment_events', 'commerce_distribution_acceptances']) {
+    for (const table of ['commerce_order_quotes', 'commerce_orders', 'commerce_transfers', 'commerce_order_lines',
+      'commerce_payment_events', 'commerce_supplier_payables', 'commerce_obligation_reversals', 'commerce_settlement_records']) {
+      assert.equal(snapshot.detected.includes(table), true, `direct quote FK closure covers ${table}`);
+    }
+    for (const table of ['communities', 'users', 'principals', 'commerce_shop_keys', 'commerce_distribution_acceptances']) {
       assert.equal(snapshot.detected.includes(table), false, `mapping does not assign ${table}`);
     }
   });

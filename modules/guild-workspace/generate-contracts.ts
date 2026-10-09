@@ -18,6 +18,7 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
 import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
+import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
@@ -100,6 +101,17 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
+  ['hosted-order', 'HO-0 direct-sale order reservation candidate. No routes or releases enabled; payment/refund/fulfilment disabled.', [
+    ['readiness', hostedOrder.ReadinessSchema, 'output', ['current_readiness_authority']],
+    ['quote-input', hostedOrder.QuoteInputSchema, 'input', ['unique_skus']],
+    ['quote', hostedOrder.QuoteSchema, 'output', ['unique_skus', 'line_and_merchandise_totals', 'five_minute_quote', 'current_buyer_publication_price_stock_authority']],
+    ['submit-input', hostedOrder.SubmitInputSchema, 'input', ['current_buyer_quote_binding', 'same_intent_dedupe']],
+    ['cancel-input', hostedOrder.CancelInputSchema, 'input', ['current_order_party', 'current_order_version']],
+    ['order', hostedOrder.OrderSchema, 'output', ['unique_skus', 'line_and_merchandise_totals', 'thirty_minute_reservation', 'closure_ordering', 'authoritative_state']],
+    ['intent-lookup-query', hostedOrder.IntentLookupQuerySchema, 'input', ['exact_buyer_shop_intent']],
+    ['order-page-query', hostedOrder.OrderPageQuerySchema, 'input', ['unique_query_keys', 'signed_cursor']],
+    ['order-page', hostedOrder.OrderPageSchema, 'output', ['current_party_filter', 'signed_cursor', 'order_semantics']],
+  ]],
   ['storefront', 'Hosted store inputs, private views and allowlisted public projection. Ordering is not enabled.', [
     ['store-setup-input', storefront.StoreSetupInputSchema, 'input', ['text_trim_and_control_characters', 'slug_lowercase_reserved_unique']],
     ['store-update-input', storefront.StoreUpdateInputSchema, 'input', ['at_least_one_field', 'text_trim_and_control_characters']],

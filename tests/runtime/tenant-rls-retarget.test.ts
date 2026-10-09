@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { after, before, test } from 'node:test';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { FakeObjectStore } from '../../packages/asset-storage/fake-store.js';
 import { migrate } from '../../scripts/database.js';
+import { digest } from '../../packages/db/index.js';
+import { HOSTED_ORDER_PROFILE, QuoteSchema } from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
+import { projectionDigest } from '../../modules/agent-commerce/hosted/publish.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD, DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
 import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProviders } from '../../packages/testing/synthetic-module-provider.js';
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
@@ -191,6 +195,60 @@ async function extraUser(name: string) {
     SELECT $1,$2,$3,$4,password_hash,$5,true,false FROM users WHERE email=$6`,
   [id, DEMO_COMMUNITY, email, name, randomUUID(), DEMO_USERS[0].email]);
   return { id, email, session: await signIn(email) };
+}
+
+/** Synthetic retained quote with real hosted identities and unchanged production constraints.
+ * This SQL fixture does not activate reservations or claim service admission. */
+async function insertHostedQuote(q: PoolClient, data: { tenantId: string; principalId: string; instanceId: string }, buyerPrincipalId = data.principalId) {
+  const instanceId = randomUUID(), bindingId = randomUUID(), supplyId = randomUUID(), shopId = randomUUID();
+  const itemId = randomUUID(), selectionId = randomUUID(), publicationId = randomUUID(), quoteId = randomUUID();
+  const slug = `s-${instanceId}`, name = 'Synthetic retained store', title = 'Synthetic retained item';
+  const inserted = await q.query(`INSERT INTO module_instances(instance_id,tenant_id,module_key,application_release_ref,module_release_ref,
+      data_schema_version,contract_ref,status,binding_id,created_by_principal_id,origin_guild_key)
+    SELECT $1,$2,'storefront','hosted-store@1.0.0',d.release_ref,d.data_schema_version,d.contract_ref,'active',$3,$4,source_instance.origin_guild_key
+    FROM module_definitions d JOIN module_instances source_instance ON source_instance.instance_id=$5 AND source_instance.tenant_id=$2
+    WHERE d.module_key='storefront' AND d.release_ref='storefront@1.0.0'`,
+  [instanceId, data.tenantId, bindingId, data.principalId, data.instanceId]);
+  assert.equal(inserted.rowCount, 1);
+  await q.query(`INSERT INTO deployment_bindings(binding_id,tenant_id,instance_id,mode,environment,endpoint_ref,service_principal_id,contract_ref,state)
+    SELECT $1,$2,$3,'hosted','hosted-shared',NULL,NULL,contract_ref,'active'
+    FROM module_definitions WHERE module_key='storefront' AND release_ref='storefront@1.0.0'`, [bindingId, data.tenantId, instanceId]);
+  for (const [id, kind] of [[supplyId, 'internal'], [shopId, 'public']] as const) {
+    await q.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,origin,mode,accepting_orders,name,description,website_url,contact,currency,manifest_sha256)
+      SELECT $1,t.community_id,p.user_ref,$2,'hosted','test',false,$3,'','','','TWD',$4
+      FROM tenants t JOIN principals p ON p.principal_id=$5 WHERE t.tenant_id=$6`,
+    [id, kind, name, digest({ instanceId, kind }), data.principalId, data.tenantId]);
+    await q.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
+      VALUES('shop',$1,$2,$3,$4,'confirmed')`, [id, data.tenantId, instanceId, data.principalId]);
+  }
+  await q.query(`INSERT INTO commerce_storefront_profiles(instance_id,tenant_id,supply_shop_id,storefront_shop_id,slug,product_seq,created_by_principal_id)
+    VALUES($1,$2,$3,$4,$5,1,$6)`, [instanceId, data.tenantId, supplyId, shopId, slug, data.principalId]);
+  const product = { sku: 'P0001', title, description: '', price_minor: 100, currency: 'TWD',
+    shipping_minor: 0, shipping_terms: '交易尚未啟用；運送方式尚未設定。', return_terms: '交易尚未啟用；退換貨規則尚未設定。' };
+  await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,stock,reserved,shipping_minor,shipping_terms,return_terms)
+    VALUES($1,$2,'P0001',$3,'',100,1,0,0,$4,$5)`, [itemId, supplyId, title, product.shipping_terms, product.return_terms]);
+  await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot)
+    VALUES($1,$2,$3,100,'交易尚未啟用。',$4)`, [selectionId, shopId, itemId, product]);
+  const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
+  const projection = PublicStoreProjectionSchema.parse({ slug, name, brand: null, description: '', currency: 'TWD',
+    products: [{ sku: 'P0001', title, description: '', price_minor: 100 }], revision: '1', published_at: now.toISOString(), transaction_state: 'not_enabled' });
+  await q.query(`INSERT INTO commerce_storefront_publications(publication_id,instance_id,tenant_id,revision,slug,projection,projection_sha256,published_by_principal_id,published_at)
+    VALUES($1,$2,$3,1,$4,$5,$6,$7,$8)`, [publicationId, instanceId, data.tenantId, slug, projection, projectionDigest(projection), data.principalId, now]);
+  await q.query(`UPDATE commerce_storefront_profiles SET current_publication_id=$2,first_published_at=$3,version=version+1 WHERE instance_id=$1`, [instanceId, publicationId, now]);
+  const bindings = [{ selection_id: selectionId, item_id: itemId, version: '1', sku: 'P0001', quantity: 1 }];
+  const terms = { profile: HOSTED_ORDER_PROFILE, store: { slug, name }, publication_revision: '1', currency: 'TWD',
+    items: [{ sku: 'P0001', title, quantity: 1, unit_price_minor: 100, line_total_minor: 100 }], merchandise_total_minor: 100,
+    amount_due_minor: null, shipping_state: 'not_configured', tax_state: 'not_assessed', payment_state: 'not_enabled',
+    payment_enabled: false, refund_enabled: false, fulfilment_enabled: false, money_movement_enabled: false };
+  const hash = digest({ terms, buyer: buyerPrincipalId, tenant_id: data.tenantId, instance_id: instanceId,
+    shop_id: shopId, publication_id: publicationId, bindings });
+  const quote = QuoteSchema.parse({ ...terms, terms_sha256: hash, quote_id: quoteId, quoted_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 300000).toISOString(), reserves_stock: false });
+  await q.query(`INSERT INTO commerce_order_quotes(quote_id,tenant_id,instance_id,public_shop_id,buyer_principal_id,publication_id,
+      terms,bindings,terms_sha256,quoted_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+  [quoteId, data.tenantId, instanceId, shopId, buyerPrincipalId, publicationId, quote, JSON.stringify(bindings), hash, now, quote.expires_at]);
+  assert.equal((await q.query('SELECT reservation_enabled FROM commerce_storefront_profiles WHERE instance_id=$1', [instanceId])).rows[0].reservation_enabled, false);
+  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
 }
 
 async function buildFixture() {
@@ -432,7 +490,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'commerce_resource_tenants', 'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'commerce_resource_tenants', 'commerce_order_quotes', 'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -445,16 +503,14 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       FROM scoped_transition_journal WHERE scope_id=$2 AND scope_kind='tenant' ORDER BY transition_id LIMIT 1
       ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
   }
-  // Confirmed A/B commerce mappings exercise the same tenant policy as hosted setup.
-  for (const data of [A, B]) {
-    const shopId = randomUUID();
-    await owner.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256)
-      SELECT $1,t.community_id,p.user_ref,'internal','同名供貨','','','','TWD',$2
-      FROM tenants t JOIN principals p ON p.principal_id=$3 WHERE t.tenant_id=$4`,
-    [shopId, sha(Buffer.from(shopId)), data.principalId, data.tenantId]);
-    await owner.query(`INSERT INTO commerce_resource_tenants(resource_kind,resource_id,tenant_id,instance_id,source_owner_id,mapping_state)
-      VALUES('shop',$1,$2,$3,$4,'confirmed')`, [shopId, data.tenantId, data.instanceId, data.principalId]);
-  }
+  // Exact A/B hosted quote graphs also provide confirmed shop-mapping rows.
+  const fixtureClient = await owner.connect();
+  try {
+    await fixtureClient.query('BEGIN');
+    for (const data of [A, B]) await insertHostedQuote(fixtureClient, data);
+    await fixtureClient.query('COMMIT');
+  } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
+  finally { fixtureClient.release(); }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
     update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];
   for (const { relname: table } of tables) {
@@ -502,13 +558,50 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     } catch (error) {
       const code = (error as { code?: string }).code;
       assert.ok(code && ['42501', '23503', '23514', 'P0001', '23505'].includes(code), `${table}: unexpected SQLSTATE ${code}: ${String(error)}`);
+      if (table === 'commerce_order_quotes') assert.equal(code, '23514', 'quote UPDATE must retain its immutable guard');
       updateCovered = isRlsRejection(error);
       outcome = `${code}: ${(error as Error).message}`;
     }
     let mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' = 'rls_update';
     let policies: string[] | undefined;
     if (!updateCovered) {
-      if (scopeKeyed) {
+      if (table === 'commerce_order_quotes') {
+        const quotePolicies = (await owner.query<Policy>(`SELECT policyname,cmd,permissive,qual,with_check FROM pg_policies
+          WHERE schemaname=current_schema() AND tablename=$1 ORDER BY policyname`, [table])).rows;
+        assert.deepEqual(quotePolicies, [{ policyname: 'commerce_order_quotes_target', cmd: 'ALL', permissive: 'PERMISSIVE',
+          qual: '((tenant_id = freedom_ctx_tenant()) OR (buyer_principal_id = freedom_ctx_principal()))',
+          with_check: '((tenant_id = freedom_ctx_tenant()) AND (buyer_principal_id = freedom_ctx_principal()))' }]);
+        policies = quotePolicies.map(row => row.policyname);
+        // UPDATE is intentionally immutable. Exercise each half of the actual
+        // INSERT policy with a structurally valid B quote and a fresh identity.
+        const fields = columns.filter(row => !row.attgenerated).map(row => row.attname);
+        const insert = async (q: PoolClient) => {
+          const quoteId = randomUUID(), inserted: Record<string, unknown> = { ...bRow, quote_id: quoteId, bindings: JSON.stringify(bRow.bindings),
+            terms: QuoteSchema.parse({ ...bRow.terms, quote_id: quoteId }) };
+          return q.query(`INSERT INTO ${quoted} (${fields.map(identifier).join(',')}) VALUES (${fields.map((_, i) => `$${i + 1}`).join(',')})`, fields.map(field => inserted[field]));
+        };
+        for (const [principal, tenant] of [[B.principalId, A], [A.principalId, B]] as const) {
+          await assert.rejects(isolatedTransaction(runtime, async q => {
+            await bindPrincipalContext(q, principal);
+            await bindTenantContext(q, { tenantId: tenant.tenantId, tenantScopeId: tenant.scopeId });
+            await insert(q);
+          }), isRlsRejection, 'quote INSERT needs both the exact tenant and the exact buyer');
+        }
+        await isolatedTransaction(runtime, async q => {
+          await bindPrincipalContext(q, B.principalId);
+          await bindTenantContext(q, { tenantId: B.tenantId, tenantScopeId: B.scopeId });
+          await q.query('SAVEPOINT valid_quote_insert');
+          assert.equal((await insert(q)).rowCount, 1, 'valid quote INSERT positive control');
+          await q.query('ROLLBACK TO SAVEPOINT valid_quote_insert');
+        });
+        await isolatedTransaction(runtime, async q => {
+          assert.equal((await q.query(`SELECT 1 FROM ${quoted}`)).rowCount, 0, 'unbound quote SELECT must be empty');
+          await bindPrincipalContext(q, B.principalId);
+          assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE ${where(1)}`, bParams)).rowCount, 1, 'buyer-only quote SELECT must succeed');
+          assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE ${where(1)}`, aParams)).rowCount, 0, 'buyer-only quote SELECT cannot see another buyer');
+        });
+        mechanism = 'rls_insert';
+      } else if (scopeKeyed) {
         // These append-only tables have BEFORE UPDATE guards but no BEFORE INSERT
         // guard. Clone a structurally valid B row so RLS runs before unique/FK checks.
         const inserted = { ...bRow };
