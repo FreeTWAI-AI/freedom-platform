@@ -120,31 +120,49 @@ function holder(){
 const openPages=(log:{history:Info[]},kind:Kind,key:string)=>log.history.filter(item=>item.kind===kind&&item.key===key&&item.limit>1&&item.offset===0).length;
 
 test('idle activity requests slow down and typing, focus, visibility and manual reload resume promptly',async({page})=>{
-  test.setTimeout(90000);
+  await page.clock.install({time:new Date('2026-10-09T12:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-09T12:00:01Z'));
   const server=await channelServer(page,{guild:[['idle-room','閒置測試頻道',0]]});
-  await open(page,server);await tab(page,'公會閒聊').click();
+  await open(page,server);
+  // React's lazy-module fallback also uses timers; let it settle before opening
+  // a room, instead of freezing navigation while the chunk is still loading.
+  await expect.poll(async()=>{await page.clock.runFor(1000);return tab(page,'公會閒聊').count();}).toBe(1);
+  await tab(page,'公會閒聊').click();
   await page.getByRole('button',{name:/閒置測試頻道/}).click();
   const room=panel(page,'公會閒聊');
   await expect(room.getByRole('log')).toBeVisible();
   let requests=0;
   page.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/me/channels/guild/idle-room/activity')requests++;});
-  await page.waitForTimeout(30000);
-  console.log(`idle activity requests over 30s: ${requests}`);
-  expect(requests).toBeGreaterThanOrEqual(5);expect(requests).toBeLessThanOrEqual(12);
-  const resume=async(action:()=>Promise<unknown>)=>{
-    const before=requests;
-    await action();
-    await expect.poll(()=>requests,{timeout:2000}).toBeGreaterThan(before);
+  // Each tick is advanced separately so fetch responses settle before the next
+  // tick; one large fastForward would skip timers rather than exercise the schedule.
+  const tick=async()=>{
+    await page.clock.runFor(1000);
+    await page.evaluate(()=>Promise.resolve());
   };
+  const resume=async(action:()=>Promise<unknown>,immediate=false)=>{
+    const before=requests;
+    await action();if(!immediate)await tick();
+    await expect.poll(()=>requests).toBe(before+1);
+  };
+  await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))),true);
+  const start=requests;
+  for(let second=1;second<=30;second++){
+    await tick();
+    const due=[1,2,4,7,12,17,22,27].filter(at=>at<=second).length;
+    await expect.poll(()=>requests).toBe(start+due);
+  }
+  expect(requests-start).toBe(8);
   await resume(()=>room.getByLabel('在 閒置測試頻道 發言').fill('輸入中'));
-  await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))));
+  await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))),true);
   await visibility(page,'hidden');const hidden=requests;
-  await page.waitForTimeout(2500);expect(requests).toBe(hidden);
-  await resume(()=>visibility(page,'visible'));
+  await page.clock.runFor(30000);expect(requests).toBe(hidden);
+  await resume(()=>visibility(page,'visible'),true);
   await room.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await expect(room.getByRole('button',{name:'重新讀取訊息',exact:true})).toHaveAttribute('aria-disabled','false');
   await resume(()=>Promise.resolve());
   const channel=server.get('guild','idle-room');
   channel.messages.unshift(server.message(channel,'閒置之後的新訊息'));
+  await tick();
   await expect(room.getByText('閒置之後的新訊息',{exact:true})).toBeVisible({timeout:6000});
 });
 
