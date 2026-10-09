@@ -106,12 +106,12 @@ function SkillDraftCallout({ client, revision, onOpen }: { client: ModulePanelPr
       }
       const seeded = newestDraft(items.filter(item => item.status === 'awaiting_upload' && Boolean(item.seed)));
       if (seeded?.seed) {
-        setView({ text: `「${seeded.seed.title}」還差 100 則分享介紹，就能升級成完整技能書。`, label: '補上分享介紹', submissionId: seeded.submission_id, mode: 'complete' });
+        setView({ text: `「${seeded.seed.title}」需補齊 100 則分享介紹，示意圖選填；完成後由你預覽並公開。`, label: '補上分享介紹', submissionId: seeded.submission_id, mode: 'complete' });
         return;
       }
       const simple = newestDraft(items.filter(item => item.status === 'published' && item.can_upgrade));
       if (simple) {
-        setView({ text: `「${simple.payload?.title ?? ''}」目前是簡易版。補上 100 則分享介紹和示意圖，就能升級成完整技能書。`, label: '升級成完整技能書', submissionId: simple.submission_id, mode: 'complete', upgrade: true });
+        setView({ text: `「${simple.payload?.title ?? ''}」已公開為社群技能書。可再補充 100 則分享介紹，示意圖選填。`, label: '補充分享介紹', submissionId: simple.submission_id, mode: 'complete', upgrade: true });
         return;
       }
       setView(null);

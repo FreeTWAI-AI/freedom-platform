@@ -66,7 +66,7 @@ test('simple tool submission previews without writes, edits freely, then publish
   const completed = page.getByRole('region', { name: '投稿完成' });
   await expect(completed).toBeFocused();
   expect(writes).toHaveLength(2);
-  const path = await completed.getByRole('link', { name: '查看作品頁 ↗' }).getAttribute('href');
+  const path = await completed.getByRole('link', { name: '閱讀已公開技能書 ↗' }).getAttribute('href');
   const response = await page.request.get(path!);
   expect(response.status()).toBe(200); expect(await response.text()).toContain('一起完成作品');
   await completed.getByRole('button', { name: '複製作品連結' }).click();

@@ -114,7 +114,7 @@ test('a ready draft callout opens the preview with 送出技能 already in view'
     const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
     const order = await dialog.evaluate(element => {
       const headings = [...element.querySelectorAll('h3')].map(node => node.textContent);
-      return headings.indexOf('我的私人技能草稿') >= 0 && headings.indexOf('我的私人技能草稿') < headings.indexOf('交給 Agent 讀取專案');
+      return headings.indexOf('我的技能投稿') >= 0 && headings.indexOf('我的技能投稿') < headings.indexOf('交給 Agent 讀取專案');
     });
     expect(order).toBe(true);
     await expect(dialog.getByRole('region', { name: '預覽：流程整理技能', exact: true })).toBeVisible();
@@ -170,7 +170,7 @@ test('a seeded draft is completed in chat, and a different repository does not r
   await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
 
   const callout = page.locator('.skill-draft-callout');
-  await expect(callout).toContainText('「種子技能」還差 100 則分享介紹，就能升級成完整技能書。');
+  await expect(callout).toContainText('「種子技能」需補齊 100 則分享介紹，示意圖選填；完成後由你預覽並公開。');
   await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
   await expect(dialog.getByText('正在補完：種子技能', { exact: true })).toBeVisible();
   await expect(dialog.getByLabel('給聊天 AI 的說明', { exact: true })).toHaveValue(/種子技能/);
@@ -185,7 +185,7 @@ test('a seeded draft is completed in chat, and a different repository does not r
   await expect(dialog.getByRole('region', { name: '預覽：流程整理技能', exact: true })).toBeVisible();
   await expect(dialog.getByText('送出後會取代簡易版；原本的作品連結會自動轉到完整版。', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
-  await expect(dialog.getByRole('status').filter({ hasText: '技能已送出' })).toBeVisible();
+  await expect(dialog.getByRole('status').filter({ hasText: '技能書已公開' })).toBeVisible();
 });
 
 test('an agent upload while the private instruction is open opens the preview', async ({ page }) => {
@@ -247,7 +247,7 @@ test('a paste still reaches a seeded draft after its grant expired', async ({ pa
   await login(page);
   await navigate(page, '技能書架');
   const callout = page.locator('.skill-draft-callout');
-  await expect(callout).toContainText('「種子技能」還差 100 則分享介紹，就能升級成完整技能書。');
+  await expect(callout).toContainText('「種子技能」需補齊 100 則分享介紹，示意圖選填；完成後由你預覽並公開。');
   await callout.getByRole('button', { name: '補上分享介紹', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await expect(dialog.getByText('正在補完：種子技能', { exact: true })).toBeVisible();
@@ -279,10 +279,10 @@ test('publishing the last ready draft keeps the drafts section above the agent i
   await page.locator('.skill-draft-callout').getByRole('button', { name: '預覽並送出', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
-  await expect(dialog.getByText('技能已送出，公開介紹頁已建立。', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('技能書已公開，可以閱讀與分享。', { exact: true })).toBeVisible();
   const order = await dialog.evaluate(element => {
     const headings = [...element.querySelectorAll('h3')].map(node => node.textContent);
-    return headings.indexOf('我的私人技能草稿') >= 0 && headings.indexOf('我的私人技能草稿') < headings.indexOf('交給 Agent 讀取專案');
+    return headings.indexOf('我的技能投稿') >= 0 && headings.indexOf('我的技能投稿') < headings.indexOf('交給 Agent 讀取專案');
   });
   expect(order).toBe(true);
 });
@@ -477,8 +477,8 @@ test('publish, revoke, and chat upload show their results inside the drafts sect
     const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
     await settleIllustration(dialog);
     await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
-    const drafts = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true });
-    const publishedNotice = drafts.getByText('技能已送出，公開介紹頁已建立。', { exact: true });
+    const drafts = dialog.getByRole('region', { name: '我的技能投稿', exact: true });
+    const publishedNotice = drafts.getByText('技能書已公開，可以閱讀與分享。', { exact: true });
     await expectInsideDialog(publishedNotice);
     await expect(dialog.getByRole('alert')).toHaveCount(0);
     await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
@@ -489,7 +489,7 @@ test('publish, revoke, and chat upload show their results inside the drafts sect
     await navigate(page, '技能書架');
     await page.getByRole('button', { name: '上傳技能', exact: true }).click();
     await dialog.getByRole('button', { name: '撤銷草稿：流程整理技能', exact: true }).click();
-    const revokedNotice = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true }).getByText('草稿已撤銷，憑證無法再上傳。', { exact: true });
+    const revokedNotice = dialog.getByRole('region', { name: '我的技能投稿', exact: true }).getByText('草稿已撤銷，憑證無法再上傳。', { exact: true });
     await expectInsideDialog(revokedNotice);
     await expect(dialog.getByRole('alert')).toHaveCount(0);
     await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
@@ -503,7 +503,7 @@ test('publish, revoke, and chat upload show their results inside the drafts sect
     await paste.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest' }));
     await paste.fill(JSON.stringify({ repository_url: 'https://github.com/example/skill-demo', title: '流程整理技能' }));
     await dialog.getByRole('button', { name: '用這份 JSON 建立草稿', exact: true }).click();
-    const uploadedNotice = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true }).getByText('草稿已上傳，請預覽內容後再送出。', { exact: true });
+    const uploadedNotice = dialog.getByRole('region', { name: '我的技能投稿', exact: true }).getByText('草稿已上傳，請預覽內容後再送出。', { exact: true });
     await expectInsideDialog(uploadedNotice);
     await expect(dialog.getByRole('alert')).toHaveCount(0);
     await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
@@ -601,12 +601,12 @@ test('a phone shows a publish conflict in the drafts section', async ({ page }) 
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await settleIllustration(dialog);
   await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
-  const drafts = dialog.getByRole('region', { name: '我的私人技能草稿', exact: true });
+  const drafts = dialog.getByRole('region', { name: '我的技能投稿', exact: true });
   const alert = drafts.getByRole('alert');
   await expect(alert).toHaveText(`${problem.title}：${problem.detail}`);
   await expect(alert).toHaveClass('banner banner-error');
   await expectInsideDialog(alert);
-  await expect(drafts.getByText('技能已送出，公開介紹頁已建立。')).toHaveCount(0);
+  await expect(drafts.getByText('技能書已公開，可以閱讀與分享。')).toHaveCount(0);
   await expect(dialog.getByRole('region', { name: '交給 Agent 讀取專案', exact: true }).getByRole('alert')).toHaveCount(0);
 });
 
@@ -682,7 +682,9 @@ async function publishSimple(page: Page, title: string) {
   await page.getByRole('button', { name: '確認並公開', exact: true }).click();
   const completed = page.getByRole('region', { name: '投稿完成' });
   await expect(completed).toBeVisible();
-  const path = await completed.getByRole('link', { name: '查看作品頁 ↗' }).getAttribute('href');
+  const path = await completed.getByRole('link', { name: '閱讀已公開技能書 ↗' }).getAttribute('href');
+  await expect(completed.getByRole('link', { name: '前往技能書架', exact: true })).toHaveAttribute('href', '/#skills');
+  await expect(completed).toContainText('已公開為社群技能書');
   return { completed, path: path! };
 }
 
@@ -692,9 +694,9 @@ test('the simple form upgrades into a full skill book and the old link follows i
   const fullTitle = `完整技能書 ${stamp}`;
   await login(page);
   const { completed, path } = await publishSimple(page, simpleTitle);
-  await expect(completed).toContainText('想讓更多人看懂這個工具？補上 100 則分享介紹和示意圖，就能升級成完整技能書。送出前，現在的版本保持不變。');
+  await expect(completed).toContainText('這本技能書已可使用。可再補上 100 則分享介紹，示意圖選填；新版公開前，現在的版本保持不變。');
   await expect(page.getByRole('button', { name: '上傳技能', exact: true })).toBeHidden();
-  await completed.getByRole('button', { name: '補上 100 則分享介紹和示意圖', exact: true }).click();
+  await completed.getByRole('button', { name: '補充分享介紹（示意圖選填）', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await expect(dialog.getByText(`正在補完：${simpleTitle}`, { exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: '複製給聊天 AI', exact: true })).toBeFocused();
@@ -710,7 +712,7 @@ test('the simple form upgrades into a full skill book and the old link follows i
   await expect(preview).toBeVisible();
   await expect(preview.getByText('送出後會取代簡易版；原本的作品連結會自動轉到完整版。', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: '送出技能', exact: true }).click();
-  await expect(dialog.getByText('技能已送出，公開介紹頁已建立。', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('技能書已公開，可以閱讀與分享。', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: '關閉上傳技能', exact: true }).click();
   await navigate(page, '技能書架');
   const library = page.locator('.community-skill-library');
@@ -733,8 +735,8 @@ test('the shelf callout upgrades a published simple submission into a new draft'
   await publishSimple(page, title);
   await navigate(page, '技能書架');
   const callout = page.locator('.skill-draft-callout');
-  await expect(callout).toContainText(`「${title}」目前是簡易版。補上 100 則分享介紹和示意圖，就能升級成完整技能書。`);
-  await callout.getByRole('button', { name: '升級成完整技能書', exact: true }).click();
+  await expect(callout).toContainText(`「${title}」已公開為社群技能書。可再補充 100 則分享介紹，示意圖選填。`);
+  await callout.getByRole('button', { name: '補充分享介紹', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '上傳技能', exact: true });
   await expect(dialog.getByText(`正在補完：${title}`, { exact: true })).toBeVisible();
   await expect(dialog.getByText(`升級：${title}`, { exact: true })).toBeVisible();
