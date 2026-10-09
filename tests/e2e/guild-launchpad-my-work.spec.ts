@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { test, expect, type Browser, type Dialog, type Page, type Route } from './fixtures.js';
 
+import { navigate } from './navigation.js';
 import { DEMO_COMMUNITY, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
 
@@ -1165,5 +1166,379 @@ for (const lifecycle of ['suspend', 'archive'] as const) {
       await expect(session.page.getByRole('alert')).toHaveCount(0);
       assertLocal(session.urls);
     } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+  });
+}
+
+test('NP-003 production brief, exact material versions, delivery and feedback reopen after a fresh login', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+  test.setTimeout(240_000);
+  const guildKey = 'guild_commercial_production';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const member = await person(e2eAuthPool, 'production', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, member.email);
+  const errors: string[] = [];
+  session.page.on('pageerror', error => errors.push(error.message));
+  const page = session.page;
+  try {
+    await postJson(page, '/tenants', { display_name: `製作空間${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await page.locator('#my-work-title').fill('飲品拍攝企劃');
+    await page.locator('#my-work-objective').fill('完成三張品牌照片與短片規劃');
+    await page.getByRole('button', { name: '建立', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '製作專案企劃與版本', exact: true })).toBeVisible();
+    await page.getByLabel('目標受眾', { exact: true }).fill('戶外愛好者');
+    await page.getByLabel('使用渠道／用途', { exact: true }).fill('品牌自有網站');
+    await page.getByLabel('拍攝主體／產品事實', { exact: true }).fill('無糖飲品，依包裝核對成分');
+    await page.getByRole('button', { name: '新增交付規格', exact: true }).click();
+    await page.getByLabel('尺寸／比例', { exact: true }).fill('4:5');
+    await page.getByRole('button', { name: '新增鏡位', exact: true }).click();
+    await page.getByLabel('鏡位內容', { exact: true }).fill('逆光下瓶身與水滴特寫');
+    await page.getByLabel('景別／構圖', { exact: true }).fill('近景');
+    await page.getByLabel('光線／道具', { exact: true }).fill('窗光、白卡、水霧');
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    await page.locator('#my-work-file').setInputFiles({ name: '拍攝清單.txt', mimeType: 'text/plain', buffer: Buffer.from('現場清單 v1') });
+    await page.getByRole('button', { name: '儲存附件', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    const materialOption = page.getByLabel('已儲存文字成果', { exact: true }).locator('option').filter({ hasText: '拍攝清單.txt' });
+    const materialId = (await materialOption.getAttribute('value', { timeout: 5000 }))!;
+    await page.getByLabel('已儲存文字成果', { exact: true }).selectOption(materialId);
+    await page.getByRole('button', { name: '登記文字版本', exact: true }).click();
+    await page.getByRole('button', { name: '登記外部素材', exact: true }).click();
+    await page.getByLabel('素材名稱', { exact: true }).last().fill('外部分鏡參考');
+    await page.getByLabel('素材 HTTPS 網址', { exact: true }).fill(`https://example.invalid/production/${'long-version-reference-'.repeat(30)}`);
+    await page.getByLabel('素材版本標記', { exact: true }).fill('分鏡 v1');
+    await page.getByLabel('來源／使用權說明', { exact: true }).last().fill('僅登記參考位置，尚待自行核對使用權');
+    await page.getByLabel('交付版本名稱', { exact: true }).fill('拍攝準備 v1');
+    await page.getByLabel('交付素材：拍攝清單.txt', { exact: true }).check();
+    await page.getByLabel('交付素材：外部分鏡參考', { exact: true }).check();
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.getByText('先完成所選文字版本、交付清單或回饋的新增，或清空尚未新增的選擇，再儲存。', { exact: true })).toBeVisible();
+    await expect(page.locator('.my-work-result')).toHaveCount(2);
+    await page.getByRole('button', { name: '固定此版交付清單', exact: true }).click();
+    const deliveryId = (await page.getByLabel('回饋對應版本', { exact: true }).locator('option').filter({ hasText: '拍攝準備 v1' }).getAttribute('value'))!;
+    await page.getByLabel('回饋對應版本', { exact: true }).selectOption(deliveryId);
+    await page.getByRole('button', { name: '新增版本回饋', exact: true }).click();
+    await page.getByLabel('回饋內容', { exact: true }).fill('加拍瓶蓋細節');
+    await page.getByLabel('後續修改', { exact: true }).fill('補一個鏡位');
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 3 版');
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    const latest = page.locator('.my-work-result').first();
+    const href = (await latest.getByRole('link', { name: '下載', exact: true }).getAttribute('href'))!;
+    const stored = await page.request.get(href);
+    const bytes = await stored.body();
+    expect(stored.ok()).toBe(true);
+    expect(bytes.toString('utf8')).toContain('freedom.production-dossier/v1');
+    expect(bytes.toString('utf8')).toContain(materialId);
+    expect(bytes.toString('utf8')).toContain(deliveryId);
+    await expect(latest).toContainText(createHash('sha256').update(bytes).digest('hex').slice(0, 12));
+    await relogin(page, member.email);
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '飲品拍攝企劃', exact: true }).click();
+    await expect(page.getByLabel('目標受眾', { exact: true })).toHaveValue('戶外愛好者');
+    await expect(page.getByLabel('鏡位內容', { exact: true })).toHaveValue('逆光下瓶身與水滴特寫');
+    await expect(page.getByLabel('回饋內容', { exact: true })).toHaveValue('加拍瓶蓋細節');
+    await expect(page.locator('.my-work-result')).toHaveCount(3);
+    expect(Buffer.from(await (await page.request.get(href)).body()).equals(bytes)).toBe(true);
+    await page.locator('.my-work-result').first().getByRole('button', { name: '查看內容', exact: true }).click();
+    await expect(page.locator('.my-work-result').first().locator('pre')).toContainText('freedom.production-dossier/v1');
+    for (const skin of ['light', 'dark'] as const) {
+      await theme(page, skin);
+      for (const width of [1440, 768, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await noOverflow(page);
+        await page.locator('.my-work-open').screenshot({ path: testInfo.outputPath(`production-${skin}-${width}.png`) });
+        await page.getByRole('heading', { name: '製作專案企劃與版本', exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+        await page.evaluate(() => window.scrollBy(0, -96));
+        await page.screenshot({ path: testInfo.outputPath(`production-${skin}-${width}-viewport.png`) });
+      }
+    }
+    assertLocal(session.urls);
+    expect(errors).toEqual([]);
+  } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+});
+
+test('NP-003 failed first save recovers the same Work, 412 preserves production draft, future profile locks editing', async ({ browser, baseURL, e2eAuthPool }) => {
+  test.setTimeout(240_000);
+  const guildKey = 'guild_commercial_production';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const member = await person(e2eAuthPool, 'production-recovery', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, member.email);
+  const page = session.page;
+  try {
+    const made = await postJson(page, '/tenants', { display_name: `製作復原${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id;
+    const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await page.locator('#my-work-title').fill('製作復原專案');
+    await page.locator('#my-work-objective').fill('保留已建立的專案與未儲存資料');
+    await page.getByRole('button', { name: '建立', exact: true }).click();
+    await page.getByLabel('目標受眾', { exact: true }).fill('第一份製作草稿');
+    let failed = false;
+    await page.route('**/results/uploads', async route => {
+      if (!failed && route.request().method() === 'POST') {
+        failed = true;
+        await route.fulfill({ status: 503, contentType: 'application/problem+json', body: JSON.stringify({ detail: 'fixture storage unavailable' }) });
+      } else await route.continue();
+    });
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.getByRole('button', { name: '重試', exact: true })).toBeVisible();
+    await expect(page.getByLabel('目標受眾', { exact: true })).toHaveValue('第一份製作草稿');
+    await page.getByRole('button', { name: '重試', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    const works = await (await page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
+    expect(works.items).toHaveLength(1);
+    const work = works.items[0];
+    await page.getByLabel('核心訊息', { exact: true }).fill('衝突後仍須保留的訊息');
+    await patchJson(page, `/tenants/${tenantId}/works/${work.work_id}`, { title: work.title, objective: '另一分頁更新摘要', progress: work.progress }, work.version);
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.getByRole('button', { name: '保留我的製作草稿', exact: true })).toBeEnabled();
+    await expect(page.getByLabel('核心訊息', { exact: true })).toHaveValue('衝突後仍須保留的訊息');
+    await page.getByRole('button', { name: '保留我的製作草稿', exact: true }).click();
+    await page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    await page.locator('#my-work-file').setInputFiles({ name: '新格式.md', mimeType: 'text/markdown', buffer: Buffer.from('<!-- freedom.production-dossier/v99 -->\n新版欄位不能覆寫') });
+    await page.getByRole('button', { name: '儲存附件', exact: true }).click();
+    await expect(page.getByText(/製作資料使用未知格式/)).toBeVisible();
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeDisabled();
+    await expect(page.locator('.my-work-result')).toHaveCount(3);
+    // Fresh authenticated session must still stop at the newer unknown profile, not fall back to revision 2.
+    await relogin(page, member.email);
+    await openGuild(page, guildKey, guild.name);
+    await page.getByRole('button', { name: '製作復原專案', exact: true }).click();
+    await expect(page.getByText(/製作資料使用未知格式/)).toBeVisible();
+    await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toHaveCount(0);
+    await expect(page.locator('.my-work-result')).toHaveCount(3);
+    assertLocal(session.urls);
+  } finally { await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
+});
+
+test('NP-004 production grants independently control read, result write and archive', async ({ browser, baseURL, e2eAuthPool }, testInfo) => {
+  test.setTimeout(180_000);
+  const guildKey = 'guild_commercial_production';
+  const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+  const owner = await person(e2eAuthPool, 'production-owner', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const viewer = await person(e2eAuthPool, 'production-viewer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const writer = await person(e2eAuthPool, 'production-writer', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const archiver = await person(e2eAuthPool, 'production-archiver', [{ guild_key: guildKey, tier: 'full' }], guildKey);
+  const session = await login(browser, baseURL!, owner.email);
+  const contexts = [session.context];
+  try {
+    const made = await postJson(session.page, '/tenants', { display_name: `製作權限${randomUUID().slice(0, 8)}`, workspace_name: '主工作區' });
+    const tenantId = made.tenant.tenant_id;
+    const workspaceId = made.tenant.default_workspace_id;
+    await openGuild(session.page, guildKey, guild.name);
+    await session.page.getByRole('button', { name: '啟用手動工作', exact: true }).click();
+    await expect(session.page.getByText('繼續工作', { exact: true })).toBeVisible();
+    await session.page.locator('#my-work-title').fill('唯讀製作企劃');
+    await session.page.locator('#my-work-objective').fill('閱讀保存資料與依明確授權寫入');
+    await session.page.getByRole('button', { name: '建立', exact: true }).click();
+    await session.page.getByLabel('目標受眾', { exact: true }).fill('可閱讀的私人企劃');
+    await session.page.getByLabel('核心訊息', { exact: true }).fill('唯讀會員不應失去工作畫面');
+    await session.page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+    await expect(session.page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+    await expect(session.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+    const works = await (await session.page.request.get(`/api/v1/tenants/${tenantId}/workspaces/${workspaceId}/works`)).json();
+    const work = works.items[0];
+    for (const entry of [{ person: viewer, role: 'viewer', capabilities: ['work:read'] }, { person: writer, role: 'operator', capabilities: ['work:read', 'work:result.write'] }, { person: archiver, role: 'operator', capabilities: ['work:read', 'work:archive'] }]) {
+      const candidate = await (await session.page.request.get(`/api/v1/tenants/invite-candidates?user_id=${entry.person.userId}`)).json();
+      const invite = await postJson(session.page, `/tenants/${tenantId}/invitations`, { invitee_principal_id: candidate.principal_id, role: entry.role,
+        instance_capabilities: [{ instance_id: work.instance_id, capabilities: entry.capabilities }], expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
+      const member = await login(browser, baseURL!, entry.person.email); contexts.push(member.context);
+      const auth = await (await member.page.request.get('/api/v1/session')).json();
+      const accepted = await member.page.request.post(`/api/v1/tenants/${tenantId}/invitations/${invite.invitation_id}/accept`, { data: {}, headers: {
+        Origin: new URL(member.page.url()).origin, 'X-CSRF-Token': auth.csrf_token, 'Idempotency-Key': randomUUID(), 'If-Match': `"${invite.version}"`,
+      } });
+      expect(accepted.status(), await accepted.text()).toBe(200);
+      const writes: string[] = [];
+      member.page.on('request', request => { if (/\/works(?:\/|$)/.test(new URL(request.url()).pathname) && ['POST', 'PUT', 'PATCH'].includes(request.method())) writes.push(request.method()); });
+      await openGuild(member.page, guildKey, guild.name);
+      await member.page.getByRole('button', { name: '唯讀製作企劃', exact: true }).click();
+      await expect(member.page.getByLabel('目標受眾', { exact: true })).toHaveValue('可閱讀的私人企劃');
+      await expect(member.page.getByLabel('核心訊息', { exact: true })).toHaveValue(entry.person === archiver ? '依明確成果寫入權限完成修改' : '唯讀會員不應失去工作畫面');
+      await expect(member.page.getByRole('heading', { name: '建立製作專案', exact: true })).toHaveCount(0);
+      await expect(member.page.locator('#my-work-edit-title')).toHaveCount(0);
+      if (entry.role === 'viewer') {
+        await expect(member.page.getByLabel('目標受眾', { exact: true })).toBeDisabled();
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '儲存附件', exact: true })).toHaveCount(0);
+        await member.page.locator('.my-work-result').first().getByRole('button', { name: '查看內容', exact: true }).click();
+        await expect(member.page.locator('.my-work-result pre')).toContainText('可閱讀的私人企劃');
+        expect(writes).toEqual([]);
+        for (const [skin, width] of [['light', 390], ['dark', 1440]] as const) {
+          await theme(member.page, skin); await member.page.setViewportSize({ width, height: 900 }); await noOverflow(member.page);
+          await member.page.getByRole('heading', { name: '製作專案企劃與版本', exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+          await member.page.evaluate(() => window.scrollBy(0, -96));
+          await member.page.screenshot({ path: testInfo.outputPath(`production-viewer-${skin}-${width}.png`) });
+        }
+      } else if (entry.person === writer) {
+        await expect(member.page.getByRole('button', { name: '封存', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+        await member.page.getByLabel('核心訊息', { exact: true }).fill('依明確成果寫入權限完成修改');
+        await member.page.getByRole('button', { name: '儲存製作版本', exact: true }).click();
+        await expect(member.page.locator('.my-work-stage')).toContainText('已儲存・第 2 版');
+        expect(writes.length).toBeGreaterThan(0);
+      } else {
+        await expect(member.page.getByRole('button', { name: '儲存製作版本', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '儲存附件', exact: true })).toHaveCount(0);
+        await expect(member.page.getByRole('button', { name: '封存', exact: true })).toBeEnabled();
+        expect(writes).toEqual([]);
+        await member.page.getByRole('button', { name: '封存', exact: true }).click();
+        await member.page.getByRole('dialog').getByRole('button', { name: '確認封存', exact: true }).click();
+        await expect(member.page.locator('.my-work-open')).toHaveCount(0);
+        expect(writes).toEqual(['POST']);
+        const archived = await member.page.request.get(`/api/v1/tenants/${tenantId}/works/${work.work_id}`);
+        expect(archived.status()).toBe(404);
+      }
+      assertLocal(member.urls);
+    }
+  } finally {
+    for (const context of contexts) await context.close();
+    for (const member of [owner, viewer, writer, archiver]) await cleanup(e2eAuthPool, member.userId);
+  }
+});
+
+
+// Forward every command to the real HTTP server, then damage only its successful
+// acknowledgement. App navigation must never discard its original retry material.
+for (const phase of ['prepare', 'put', 'finalize', 'create'] as const) {
+  test(`NP-005 production ${phase} unknown outcome survives main navigation, logout and hash`, async ({ browser, baseURL, e2eAuthPool }) => {
+    test.setTimeout(180_000);
+    const guildKey = 'guild_commercial_production';
+    const guild = (await e2eAuthPool.query<{ name: string }>('SELECT name FROM positioning_guild_catalog WHERE guild_key=$1', [guildKey])).rows[0];
+    const member = await person(e2eAuthPool, `production-leave-${phase}`, [{ guild_key: guildKey, tier: 'full' }], guildKey);
+    const session = await login(browser, baseURL!, member.email), page = session.page;
+    let release = () => {};
+    const released = new Promise<void>(resolve => { release = resolve; });
+    const prompts: string[] = [];
+    let allowDraftLeave = false;
+    page.on('dialog', async dialog => { prompts.push(dialog.message()); await (allowDraftLeave ? dialog.accept() : dialog.dismiss()); });
+    try {
+      const made = await postJson(page, '/tenants', { display_name: `離開防護${phase}`, workspace_name: '原工作區' });
+      const tenantId = made.tenant.tenant_id as string, workspaceId = made.workspace.workspace_id as string;
+      await postJson(page, `/tenants/${tenantId}/workspaces/${workspaceId}/manual-work`, { guild_key: guildKey }, 200);
+      await openGuild(page, guildKey, guild.name);
+      const title = `原始製作專案${phase}`;
+      if (phase !== 'create') {
+        await page.locator('#my-work-title').fill(title);
+        await page.locator('#my-work-objective').fill('核對原始工作與成果');
+        await page.getByRole('button', { name: '建立', exact: true }).click();
+        await page.getByLabel('目標受眾', { exact: true }).fill('必須保留的原始製作版本');
+      } else {
+        await page.locator('#my-work-title').fill(title);
+        await page.locator('#my-work-objective').fill('只能建立一次');
+      }
+      let committed = false, canonicalDamaged = false;
+      const writes: { path: string; method: string; key: string; body: string; resource?: string }[] = [];
+      await page.route(url => url.pathname.startsWith(`/api/v1/tenants/${tenantId}/`), async route => {
+        const request = route.request(), method = request.method(), path = new URL(request.url()).pathname;
+        if (phase === 'create' && method === 'GET' && /\/works\/[0-9a-f-]{36}$/.test(path) && committed && !canonicalDamaged) {
+          const response = await route.fetch();
+          expect(response.ok()).toBe(true);
+          canonicalDamaged = true;
+          return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+        }
+        if (!['POST', 'PUT'].includes(method)) return route.fallback();
+        const record = { path, method, key: request.headers()['idempotency-key'], body: request.postDataBuffer()?.toString('base64') ?? '', resource: undefined as string | undefined };
+        writes.push(record);
+        const response = await route.fetch();
+        expect(response.ok(), await response.text()).toBe(true);
+        const responseBody = await response.json();
+        record.resource = responseBody.resource_ref?.resource_id ?? responseBody.upload_id;
+        const selected = phase === 'create' ? path.endsWith(`/workspaces/${workspaceId}/works`)
+          : phase === 'prepare' ? path.endsWith('/results/uploads')
+          : phase === 'put' ? method === 'PUT' && path.endsWith('/content') : path.endsWith('/finalize');
+        if (selected && !committed) {
+          committed = true;
+          await released;
+          // A successful status with a truncated JSON body is an unknown outcome.
+          await route.fulfill({ status: response.status(), contentType: 'application/json', body: phase === 'create' ? '{}' : '{' });
+        } else await route.fulfill({ response });
+      });
+      await page.getByRole('button', { name: phase === 'create' ? '建立' : '儲存製作版本', exact: true }).click();
+      await expect.poll(() => committed).toBe(true);
+      const attemptLeave = async () => {
+        await navigate(page, '會員首頁');
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        const settings = page.getByRole('button', { name: '設定', exact: true });
+        if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        await expect(page.getByRole('heading', { name: '登入', exact: true })).toHaveCount(0);
+        await page.evaluate(() => { window.location.hash = 'home'; });
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        await expect(page.locator('.my-work')).toBeVisible();
+        await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`#guilds/${guildKey}$`));
+        expect(prompts).toEqual([]);
+        // beforeunload warns; it is not used as a promise of recovery after reload.
+        expect(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; })).toBe(true);
+      };
+      await attemptLeave(); // While the real committed response remains in flight.
+      release();
+      const retry = page.getByRole('button', { name: phase === 'create' ? '建立' : '重試', exact: true });
+      await expect(retry).toBeEnabled();
+      if (phase === 'create') {
+        await expect(page.locator('#my-work-title')).toBeDisabled();
+        await expect(page.locator('#my-work-objective')).toBeDisabled();
+        await expect(page.locator('#my-work-progress')).toBeDisabled();
+        await expect(page.locator('#my-work-title')).toHaveValue(title);
+      } else await expect(page.getByLabel('目標受眾', { exact: true })).toHaveValue('必須保留的原始製作版本');
+      await attemptLeave(); // After the damaged response, without accepting a confirm.
+      await retry.click();
+      if (phase === 'create') {
+        await expect.poll(() => canonicalDamaged).toBe(true);
+        await expect(retry).toBeEnabled();
+        await expect(page.locator('#my-work-title')).toBeDisabled();
+        await attemptLeave();
+        await retry.click();
+      }
+      if (phase === 'create') await expect(page.getByRole('heading', { name: '製作專案企劃與版本', exact: true })).toBeVisible();
+      else await expect(page.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+      await expect(page.getByRole('button', { name: '儲存製作版本', exact: true })).toBeEnabled();
+      const replay = writes.filter(row => phase === 'create' ? row.path.endsWith(`/workspaces/${workspaceId}/works`)
+        : phase === 'prepare' ? row.path.endsWith('/results/uploads') : phase === 'put' ? row.method === 'PUT' : row.path.endsWith('/finalize'));
+      expect(replay).toHaveLength(phase === 'create' ? 3 : 2);
+      for (const repeated of replay.slice(1)) expect(repeated).toEqual(replay[0]); // Exact key, raw body/bytes and real resource ID.
+      const works = (await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND workspace_id=$2', [tenantId, workspaceId])).rows;
+      expect(works).toHaveLength(1);
+      const results = (await e2eAuthPool.query('SELECT result_id,content_sha256,byte_size FROM tenant_work_results WHERE work_item_id=$1', [works[0].work_item_id])).rows;
+      expect(results).toHaveLength(phase === 'create' ? 0 : 1);
+      if (phase !== 'create') {
+        const put = writes.find(row => row.method === 'PUT')!;
+        const bytes = Buffer.from(put.body, 'base64');
+        expect(results[0].content_sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+        expect(results[0].byte_size).toBe(bytes.length);
+        expect(writes.find(row => row.path.endsWith('/finalize'))!.resource).toBe(results[0].result_id);
+      }
+      // Ordinary unsent edits still allow the member to choose to leave.
+      await page.getByLabel('核心訊息', { exact: true }).fill('尚未送出的新草稿');
+      allowDraftLeave = true;
+      if (phase === 'put') {
+        const settings = page.getByRole('button', { name: '設定', exact: true });
+        if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+        await page.getByRole('menu', { name: '個人檔案' }).getByRole('menuitem', { name: '登出', exact: true }).click();
+        await expect(page.getByRole('button', { name: '會員登入', exact: true }).or(page.getByRole('heading', { name: '登入', exact: true }))).toBeVisible();
+      } else if (phase === 'finalize') {
+        await page.evaluate(() => { window.location.hash = 'home'; });
+        await expect(page).toHaveURL(/#home$/);
+        await expect(page.locator('.my-work')).toHaveCount(0);
+      } else {
+        if (phase === 'create') {
+          await page.getByRole('button', { name: '返回公會列表', exact: true }).click();
+          await expect(page).toHaveURL(/#guilds$/);
+        } else await navigate(page, '會員首頁');
+        await expect(page.locator('.my-work')).toHaveCount(0);
+      }
+      expect(prompts).toEqual([LEAVE]);
+      assertLocal(session.urls);
+    } finally { release(); await session.context.close(); await cleanup(e2eAuthPool, member.userId); }
   });
 }
