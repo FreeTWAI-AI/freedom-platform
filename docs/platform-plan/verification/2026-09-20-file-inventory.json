@@ -1709,8 +1709,8 @@
     },
     {
       "path": "apps/portal-web/src/Navigation.tsx",
-      "bytes": 6177,
-      "sha256": "d8d968500af993b30e91dc647492df8cd501d297e55e13394d575484333bc1ee"
+      "bytes": 6196,
+      "sha256": "9f569818926e7a7e0d43a52c4e3a80d42663aac7e3c2f278328645d09f4e9537"
     },
     {
       "path": "apps/portal-web/src/PageTools.css",
@@ -19334,8 +19334,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 17937,
-      "sha256": "75d3b27589e5d6bf419fd3022305b06c80919070ec947d5d5e96c9bdd0a386f2"
+      "bytes": 19992,
+      "sha256": "e5d19fe5f24240c00a7c3630e0df337b625264cc8382622c8604a00917c9de86"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",

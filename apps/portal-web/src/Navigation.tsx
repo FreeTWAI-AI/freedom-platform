@@ -40,7 +40,7 @@ export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEn
   useEffect(() => { setMoreOpen(false); }, [current]);
   useEffect(() => { const close=(event:PointerEvent)=>{if(!nav.current?.contains(event.target as Node))setMoreOpen(false)};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close)},[]);
   const item = (id: TabId) => <button key={id} type="button" className={`nav-item${current === id ? ' is-active' : ''}`}
-    aria-current={current === id ? 'page' : undefined} onClick={() => {setQuery('');onSelect(id)}}>
+    aria-current={current === id ? 'page' : undefined} onClick={() => {setMoreOpen(false);setQuery('');onSelect(id)}}>
     <WorkshopIcon name={id}/><span>{t(`nav.${id}`)}</span>
   </button>;
   return <nav ref={nav} id="workspace-navigation" className={`nav workspace-navigation${mobileOpen ? ' is-open' : ''}`} aria-label={t('nav.main')} onKeyDown={event=>{if(event.key==='Escape'&&moreOpen){setMoreOpen(false);moreTrigger.current?.focus()}}}>
