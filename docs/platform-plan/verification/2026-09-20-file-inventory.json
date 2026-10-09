@@ -2184,8 +2184,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpad.tsx",
-      "bytes": 48963,
-      "sha256": "8976c433e0ce0217cf7a0252c432418d564600c4e19f07a72b2c5ed0baf8f852"
+      "bytes": 49732,
+      "sha256": "d97a0f8f11de2776c36e2259bd133ec368792f0a794157a26825ded632025bd6"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadApplications.css",
@@ -2199,13 +2199,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
-      "bytes": 1716,
-      "sha256": "8385c49046d46fb3eb5c814a8aedb95183113e04381609c4884b830749d5b5cd"
+      "bytes": 2442,
+      "sha256": "586063e5112dddb661bb2befd2300823ebb64f0831c0d1b3f55daedaf037c394"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
-      "bytes": 51444,
-      "sha256": "b3eaffc76299e31f42cdac24033f72ecfd86b65227df70c3a766fa7cbf92e155"
+      "bytes": 64671,
+      "sha256": "4a00d46dba677f5b3aad8ba24fb0186f4628d321e92a4ebec1925ac3a652d7dc"
     },
     {
       "path": "apps/portal-web/src/modules/GuildLeadership.css",
@@ -2473,6 +2473,11 @@
       "sha256": "a81e7f07e92b95c9742a6a9a92c3cc95265e83fe8ef9fb1b9504b53cbe7d9bf3"
     },
     {
+      "path": "apps/portal-web/src/modules/ProductionProject.tsx",
+      "bytes": 15661,
+      "sha256": "7ad0c8968382efc911a3efefb41f364fdaceea6b408f0522895dffe0d968de15"
+    },
+    {
       "path": "apps/portal-web/src/modules/PromotionBoards.css",
       "bytes": 2247,
       "sha256": "d3462192c7a76501c39ca428dfdcaf912b457b4b2c693840c9f4018361e207c3"
@@ -2723,6 +2728,11 @@
       "sha256": "1819d485ae38405c4344b5223b7ca227efad8c8ea3e318fb4cd592be9a8ab80a"
     },
     {
+      "path": "apps/portal-web/src/modules/production-result-reader.ts",
+      "bytes": 4226,
+      "sha256": "db853511dc15c4daeb75f2dd97c315c411c4cabb742368fbe211ba2960da180d"
+    },
+    {
       "path": "apps/portal-web/src/modules/review-center-shared.tsx",
       "bytes": 13608,
       "sha256": "1fee59a6f80349fb60bb566fab86416d57e60549b8f351ce3177073c5cbb359a"
@@ -2754,8 +2764,18 @@
     },
     {
       "path": "apps/portal-web/src/modules/work-result-client.ts",
-      "bytes": 6976,
-      "sha256": "7e6fde748cf84767db55850e550d5ca07df29cb81691719ad7312c041102362d"
+      "bytes": 7307,
+      "sha256": "218ec2419b5290734b1c98fd30afe4d868574df7fc2fdfdc2be18e3726aad94a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/work-result-save.ts",
+      "bytes": 3115,
+      "sha256": "6e31f49fa59274713fd3bcca320ad498a537228b14ef255755a526ae75c151c8"
+    },
+    {
+      "path": "apps/portal-web/src/modules/work-ui-capabilities.ts",
+      "bytes": 709,
+      "sha256": "4791e67f44b448f0fdf6d12e6bf7c35274ff189f56d871659af1e85976ba0ef5"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/GuideHost.tsx",
@@ -14644,8 +14664,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-03-all-guild-launchpad.md",
-      "bytes": 31096,
-      "sha256": "36c2a31696e7b8de275e318972a5226a8c820cda6da6f7239979121f7c395c07"
+      "bytes": 32762,
+      "sha256": "7d313ed96be286bb3e11df923b64ca3816139b66a1ec9a8b19bbe7fc2c81c9ed"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-04-applications-instances.md",
@@ -17094,13 +17114,13 @@
     },
     {
       "path": "modules/guild-workspace/README.md",
-      "bytes": 1044,
-      "sha256": "db34ca287c9455a8e0b79d1d228b7b28b93c629c80a0b9658d3041889ebca707"
+      "bytes": 3176,
+      "sha256": "98bfb0f16a88efd6fb00f3a730906bd6010ddbdda26937e4920bf7add7cb7ec7"
     },
     {
       "path": "modules/guild-workspace/freedom.module.json",
-      "bytes": 3746,
-      "sha256": "388e7d6b25272d530312dc3fca7a78e8f8090b74b58af1a2921642b71c061821"
+      "bytes": 4523,
+      "sha256": "8774d08c27f47a67ead1693e8d6cfd49b74cc8298b1fbcb995abc670c2861c11"
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
@@ -17121,6 +17141,16 @@
       "path": "modules/guild-workspace/launchpad-view.ts",
       "bytes": 8603,
       "sha256": "2840f1549138c99c67367e5494632857a76d8a1413bd0b99277f1e3c54de8009"
+    },
+    {
+      "path": "modules/guild-workspace/production-dossier.md",
+      "bytes": 3185,
+      "sha256": "22500a9c493bd505c2939c86c689ccfba06f678bf4687011a962943dc4a286f5"
+    },
+    {
+      "path": "modules/guild-workspace/production-dossier.ts",
+      "bytes": 6568,
+      "sha256": "111ab1cb6fae31fda0939e2ca2958bdc96db766272b4cdb945d839beeece885b"
     },
     {
       "path": "modules/guild-workspace/service.ts",
@@ -17389,8 +17419,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 13550,
-      "sha256": "6636a7d514f83d85f18648dee10d39c7ff7ac632d18a5ea9cfbea1e4a26d5384"
+      "bytes": 15027,
+      "sha256": "e947203e2236924962a6e9360b65c3a927e46dd70eb510d341ffefd9bc0d6f9e"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -18009,8 +18039,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 7866,
-      "sha256": "918e49078c70da2fc19fefe3e3f6a9734e4e521cb03a5e87fefead87a72c5c70"
+      "bytes": 7885,
+      "sha256": "893036772e96cec63c64c52b9b230c0d38ad8eeb622628a8c16cc2f89fa32df0"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19284,8 +19314,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 17609,
-      "sha256": "1cdafe8fd19e7e4a1b0f1364709c1569436613d0b4828031857ea61e1cf2ce9d"
+      "bytes": 17937,
+      "sha256": "75d3b27589e5d6bf419fd3022305b06c80919070ec947d5d5e96c9bdd0a386f2"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -19444,8 +19474,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-my-work.spec.ts",
-      "bytes": 77448,
-      "sha256": "629be0eb22e904039bf55053e4ee40f8048eb2e40dba57b353f70306b3679033"
+      "bytes": 106985,
+      "sha256": "2babe55961ccf2f60e7668c23063960b9523e0ec6270ac2c9594e0fd14ae5e66"
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
@@ -19724,8 +19754,8 @@
     },
     {
       "path": "tests/e2e/simple-social-experience.spec.ts",
-      "bytes": 5940,
-      "sha256": "065e4650ab63c95011b0c5a3f51388329001f85c9b2a54a74c2bea9d658f573d"
+      "bytes": 6105,
+      "sha256": "d2075c175f4f9e1c34886cc1f5420772fde1a82b7d03e366725a41f96eea50cf"
     },
     {
       "path": "tests/e2e/simple-work-sharing.spec.ts",
@@ -21111,6 +21141,11 @@
       "path": "tests/runtime/private-work-policy.test.ts",
       "bytes": 22060,
       "sha256": "eebaaee2c859b9715bd98086f4ca7ee150a2473469899e32b9fd3bccf9115cb9"
+    },
+    {
+      "path": "tests/runtime/production-dossier.test.ts",
+      "bytes": 12181,
+      "sha256": "5d99e7b38e8ca719ed03c5779d168177ab5c79086eb3b4a8e24cbaed2f4d11e9"
     },
     {
       "path": "tests/runtime/published-skills.test.ts",
