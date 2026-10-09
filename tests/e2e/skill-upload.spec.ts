@@ -70,7 +70,12 @@ async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
-  await page.getByRole('button', { name: '登入', exact: true }).click();
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST'),
+    page.getByRole('button', { name: '登入', exact: true }).click(),
+  ]);
+  expect(response.status()).toBe(200);
+  await expect(page.getByLabel('電子郵件', { exact: true })).toHaveCount(0);
 }
 
 async function expectNoStoredSecret(page: Page, secret: string) {
@@ -221,17 +226,17 @@ test('owner previews all 100 share introductions and explicitly sends with CSRF,
   const texts = await list.locator('li').allTextContents();
   expect(texts).toHaveLength(100); expect(new Set(texts).size).toBe(100);
   expect(await list.locator('ol').evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
-  await expect(preview).toContainText('介紹、示意圖與分享短文會公開在網路上');
-  await expect(preview).toContainText('社群候選作品；正式收錄另由工坊審核');
+  await expect(preview).toContainText('送出後即公開為社群技能書，任何人都能閱讀介紹與分享短文');
+  await expect(preview).toContainText('有附示意圖時也會一併公開');
 
   await preview.getByRole('button', { name: '送出技能', exact: true }).click();
-  await expect(dialog.getByRole('status').filter({ hasText: '技能已送出' })).toBeVisible();
+  await expect(dialog.getByRole('status').filter({ hasText: '技能書已公開' })).toBeVisible();
   const send = requests.find(request => request.path === '/me/skill-submissions/sub-ready/publish')!;
   expect(send.body).toEqual({ consent_to_share: true });
   expect(send.headers['if-match']).toBe('"3"');
   expect(send.headers['x-csrf-token']).toBeTruthy();
   expect(send.headers['idempotency-key']).toBeTruthy();
-  await expect(dialog.locator('.skill-upload-item[data-status="published"]')).toContainText('已送出');
+  await expect(dialog.locator('.skill-upload-item[data-status="published"]')).toContainText('已公開為社群技能書');
   await expect.poll(() => published).toBeGreaterThan(0);
 });
 
@@ -421,3 +426,90 @@ for (const viewport of [
     expect(Math.min(...layout.fonts)).toBeGreaterThanOrEqual(16);
   });
 }
+
+
+// Controlled API responses verify the browser bridge and explicit owner action;
+// this case does not stand in for the backend's ownership/transaction tests.
+test('320px registered project resumes its exact off-list draft, then explicitly publishes and opens the real book', async ({page}) => {
+  await page.setViewportSize({width:320,height:900});
+  await mockUploads(page);await login(page);
+  const sessionResponse=await page.request.get('/api/v1/session');
+  expect(sessionResponse.status()).toBe(200);
+  const session=await sessionResponse.json();
+  const id='10000000-0000-4000-8000-000000000041',projectId='10000000-0000-4000-8000-000000000042';
+  const publicPath=`/development/submissions/${id}`;
+  let current={...submission(id,'ready_for_review',3,true),illustration_url:null,can_edit:false};
+  current.payload!.share_introductions=['一則已足夠開始分享的介紹。'];
+  let attached=false;
+  const writes:Recorded[]=[];
+  const project={project_id:projectId,owner_ref:session.user.user_id,owner_name:'作品登錄者',title:'原有開源作品',description:'已登錄而尚未成書。',use_notes:'先閱讀文件。',demo_url:null,repository_url:'https://github.com/example/skill-demo',repository_full_name:'example/skill-demo',repository_id:'42',relationship:'curator',aggregate_version:7,current_version:{version_id:'v',commit_sha:'a'.repeat(40),license_spdx:'MIT',license_evidence_url:null,is_fork:false,archived:false,readme_url:'https://github.com/example/skill-demo/blob/main/README.md',inspected_at:'2026-10-09T00:00:00Z'}};
+  await page.route('**/api/v1/opensource/projects**',route=>{
+    const request=route.request(),path=new URL(request.url()).pathname.replace('/api/v1','');
+    if(request.method()==='GET')return route.fulfill({json:{items:[
+      {...project,skill_book:attached?{status:current.status,submission_id:id,public_path:current.status==='published'?publicPath:null,catalog_book:null,can_edit:false}:null},
+      {...project,project_id:'foreign',owner_ref:'another-member',title:'別人的開源作品',skill_book:null},
+      {...project,project_id:'catalog',owner_ref:'another-member',title:'既有指定技能書',skill_book:{status:'published',submission_id:null,public_path:'/development/skills/video-autopilot',catalog_book:{book_id:'video-autopilot',title:'指定書',public_path:'/development/skills/video-autopilot'},can_edit:false}},
+    ]}});
+    writes.push({method:request.method(),path,headers:request.headers(),body:request.postDataJSON()});
+    expect(path).toBe(`/opensource/projects/${projectId}/skill-submission`);
+    attached=true;return route.fulfill({status:200,json:{submission:current,created:false}});
+  });
+  await page.route('**/api/v1/me/skill-submissions**',route=>{
+    const request=route.request(),path=new URL(request.url()).pathname.replace('/api/v1','');
+    // Omit the requested draft as a bounded list can do; the exact-ID GET must work.
+    if(request.method()==='GET')return route.fulfill({json:path==='/me/skill-submissions'?{items:[]}:current});
+    writes.push({method:request.method(),path,headers:request.headers(),body:request.postDataJSON()});
+    expect(path).toBe(`/me/skill-submissions/${id}/publish`);
+    current={...current,status:'published',aggregate_version:4,public_path:publicPath};
+    return route.fulfill({json:current});
+  });
+  await navigate(page,'開源投稿');
+  const owner=page.getByRole('article',{name:'開源作品：原有開源作品',exact:true});
+  const foreign=page.getByRole('article',{name:'開源作品：別人的開源作品',exact:true});
+  await expect(foreign.getByRole('button',{name:'製作技能書',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('article',{name:'開源作品：既有指定技能書',exact:true}).getByRole('link',{name:'閱讀已公開技能書 ↗',exact:true})).toHaveAttribute('href','/development/skills/video-autopilot');
+  expect(writes).toEqual([]);
+  await owner.getByRole('button',{name:'製作技能書',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'上傳技能',exact:true});
+  await expect(dialog.getByRole('region',{name:'預覽：流程整理技能',exact:true})).toBeVisible();
+  await expect(dialog.getByText('分享短文 1 則',{exact:true})).toBeVisible();
+  await expect(dialog.locator('.skill-upload-preview img')).toHaveCount(0);
+  expect(writes).toHaveLength(1);expect(writes[0].body).toEqual({});expect(writes[0].headers['if-match']).toBe('"7"');expect(writes[0].headers['x-csrf-token']).toBeTruthy();
+  await dialog.getByRole('button',{name:'關閉上傳技能',exact:true}).click();
+  await owner.getByRole('button',{name:'繼續製作技能書',exact:true}).click();
+  await expect(dialog.getByRole('region',{name:'預覽：流程整理技能',exact:true})).toBeVisible();expect(writes).toHaveLength(1);
+  await dialog.getByRole('button',{name:'送出技能',exact:true}).click();
+  await expect(dialog.getByRole('link',{name:'閱讀已公開技能書 ↗',exact:true})).toHaveAttribute('href',publicPath);
+  expect(writes).toHaveLength(2);expect(writes[1].headers['if-match']).toBe('"3"');expect(writes[1].body).toEqual({consent_to_share:true});
+  await dialog.getByRole('button',{name:'關閉上傳技能',exact:true}).click();
+  await expect(owner.getByRole('link',{name:'閱讀已公開技能書 ↗',exact:true})).toHaveAttribute('href',publicPath);
+  await expect(owner.getByRole('button',{name:'製作技能書',exact:true})).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/registered-project-skill-book-320.png',fullPage:true});
+});
+
+
+test('registered project continues an awaiting Agent draft through an exact-ID GET without creating another draft',async({page})=>{
+  await mockUploads(page);await login(page);
+  const sessionResponse=await page.request.get('/api/v1/session');
+  expect(sessionResponse.status()).toBe(200);
+  const session=await sessionResponse.json();
+  const id='10000000-0000-4000-8000-000000000051',repo='https://github.com/example/skill-demo';
+  const draft={...submission(id,'awaiting_upload',2),seed:{repository_url:repo,title:'已修改的草稿',description:'保留會員修改',use_notes:'先讀文件',relationship:'curator',demo_url:null},can_edit:false};
+  const reads:string[]=[],writes:string[]=[];
+  await page.route('**/api/v1/me/skill-submissions**',route=>{
+    const request=route.request(),path=new URL(request.url()).pathname;
+    if(request.method()!=='GET'){writes.push(path);return route.fulfill({status:500,json:{detail:'此步不應寫入'}});}
+    reads.push(path);return route.fulfill({json:path.endsWith('/skill-submissions')?{items:[]}:draft});
+  });
+  await page.route('**/api/v1/opensource/projects',route=>route.fulfill({json:{items:[{project_id:'legacy-awaiting',owner_ref:session.user.user_id,owner_name:'本人',title:'待補內容作品',description:'原作品介紹',use_notes:'閱讀文件',demo_url:null,repository_url:repo,repository_full_name:'example/skill-demo',repository_id:'51',relationship:'curator',aggregate_version:9,current_version:{commit_sha:'a'.repeat(40),license_spdx:'MIT',is_fork:false,archived:false,readme_url:repo+'/blob/main/README.md'},skill_book:{status:'awaiting_upload',submission_id:id,public_path:null,catalog_book:null,can_edit:false}}]}}));
+  await navigate(page,'開源投稿');
+  const card=page.getByRole('article',{name:'開源作品：待補內容作品',exact:true});
+  await card.getByRole('button',{name:'繼續製作技能書',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'上傳技能',exact:true});
+  await expect(dialog.getByLabel('公開儲存庫網址',{exact:true})).toHaveValue(repo);
+  await expect(dialog.getByRole('button',{name:'複製給聊天 AI',exact:true})).toBeFocused();
+  await expect(dialog.getByText('正在補完：已修改的草稿',{exact:true})).toBeVisible();
+  expect(reads).toContain(`/api/v1/me/skill-submissions/${id}`);expect(writes).toEqual([]);
+  await expect(dialog.getByRole('button',{name:'送出技能',exact:true})).toHaveCount(0);
+});

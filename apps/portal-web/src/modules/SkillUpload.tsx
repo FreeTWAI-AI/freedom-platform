@@ -7,6 +7,7 @@ import { consoleChannel } from '../game-console-routing';
 import { useModuleMutation } from './shared';
 import { CHAT_JSON_MAX_BYTES, chatSkillInstruction, parseChatSkillJson, repositoryKey, seedCopyBlock, type ChatSkillSeed } from './skill-upload-chat';
 import './SkillUpload.css';
+import { PublishedSkillLinks, skillPublicationPath } from './SkillPublication';
 
 type Relationship = 'author' | 'maintainer' | 'contributor' | 'curator';
 type SubmissionPayload = { repository_url: string; title: string; description: string; use_notes: string; demo_url: string | null; relationship: Relationship; share_introductions: string[] };
@@ -20,7 +21,7 @@ type UploadKey = { key_id: string; label: string; scope: 'skill:submit'; expires
 type Secret = { submissionId: string; token: string; expiresAt: string; submitUrl: string; seed: Seed | null };
 type HeldGrant = { id: string; token: string; submitUrl: string; version: number };
 
-const statusLabels: Record<Submission['status'], string> = { awaiting_upload: '等待 Agent 上傳', ready_for_review: '待你預覽送出', published: '已送出', revoked: '已撤銷' };
+const statusLabels: Record<Submission['status'], string> = { awaiting_upload: '等待 Agent 上傳', ready_for_review: '待你預覽送出', published: '已公開為社群技能書', revoked: '已撤銷' };
 export const relationshipLabels: Record<Relationship, string> = { author: '原作者', maintainer: '維護者', contributor: '貢獻者', curator: '推薦／整理者' };
 const GUIDE = '/development/skill-upload';
 
@@ -108,7 +109,7 @@ function bringDialogNoteIntoView(note: HTMLElement) {
   if (foot.top < noteBox.bottom - 1 && foot.bottom > noteBox.top + 1) dialogNode.scrollTop += noteBox.bottom - foot.top + 8;
 }
 
-function SubmissionPreview({ submission, busy, onPublish }: { submission: Submission; busy: boolean; onPublish: () => void }) {
+function SubmissionPreview({ submission, busy, onPublish, onShelf }: { submission: Submission; busy: boolean; onPublish: () => void; onShelf: () => void }) {
   const region = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const node = region.current;
@@ -150,10 +151,11 @@ function SubmissionPreview({ submission, busy, onPublish }: { submission: Submis
     </dl>
     <details className="skill-upload-blurbs"><summary>分享短文 {blurbs.length} 則</summary><ol>{blurbs.map((text, index) => <li className="multiline-text" key={index}>{text}</li>)}</ol></details>
     {submission.status === 'ready_for_review' && <div className="skill-upload-submit">
-      <p className="field-hint">送出後，介紹、示意圖與分享短文會公開在網路上。此投稿列為社群候選作品；正式收錄另由工坊審核。</p>
+      <p className="field-hint">送出後即公開為社群技能書，任何人都能閱讀介紹與分享短文；有附示意圖時也會一併公開。公會指定技能書另有選書流程。</p>
       {(submission.seed || submission.upgrades_submission_id) && <p className="field-hint">送出後會取代簡易版；原本的作品連結會自動轉到完整版。</p>}
       <div className="actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={onPublish}>送出技能</button></div>
     </div>}
+    <PublishedSkillLinks submission={submission} onShelf={onShelf}/>
   </section>;
 }
 
@@ -286,7 +288,7 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     const saved = await rowActions.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(item.submission_id)}/publish`, { consent_to_share: true }, Number(item.aggregate_version));
     if (!saved) return;
     logConsoleEvent({id:`skill:${saved.submission_id}`,createdAt:saved.updated_at,channel:consoleChannel('skill_published'),level:'success',kind:'broadcast',source:'技能書發布',message:`技能書「${saved.payload?.title??'未命名技能'}」已建立公開介紹頁。`});
-    setPreview(saved); setNotice(null); setDraftResult('技能已送出，公開介紹頁已建立。'); await refresh(); onChanged?.(); await onPublished?.();
+    setPreview(saved); setNotice(null); setDraftResult('技能書已公開，可以閱讀與分享。'); await refresh(); onChanged?.(); await onPublished?.();
   }
   // Chat upload keeps the one-time grant in memory. It must not open the Agent instruction.
   function rememberGrant(result: GrantResult | undefined): HeldGrant | null {
@@ -405,8 +407,14 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     void (async () => {
       const loaded = await actions.current.refresh();
       if (cancelled || !actions.current.sessionActive(session) || !loaded) return;
-      const draft = loaded.find(item => item.submission_id === request.submissionId);
-      if (!draft) return;
+      // A project may point to a draft older than the bounded list page.
+      let draft = loaded.find(item => item.submission_id === request.submissionId);
+      if (!draft) {
+        try { draft = await client.get<Submission>(`/me/skill-submissions/${encodeURIComponent(request.submissionId)}`); }
+        catch (cause) { if (!cancelled && actions.current.sessionActive(session)) setPreviewError(cause instanceof Error ? cause.message : '無法載入草稿內容。'); return; }
+        if (cancelled || !actions.current.sessionActive(session)) return;
+        setItems(current => [draft!, ...current.filter(item => item.submission_id !== draft!.submission_id)]);
+      }
       if (request.mode === 'preview') await actions.current.showPreview(draft);
       else {
         setChatTargetId(draft.submission_id);
@@ -505,12 +513,12 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
     pendingChatFocus.current = true;
   }
   const draftsSection = <section className="stack" aria-labelledby={`${titleId}-drafts`}>
-    <div className="skill-upload-row"><h3 id={`${titleId}-drafts`}>我的私人技能草稿</h3><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void refresh()}>重新整理草稿</button></div>
+    <div className="skill-upload-row"><h3 id={`${titleId}-drafts`}>我的技能投稿</h3><button type="button" className="btn btn-ghost" disabled={loading} onClick={() => void refresh()}>重新整理草稿</button></div>
     {loadError && <p role="alert" className="banner banner-error">{loadError}</p>}
     {loading && <p role="status">正在載入草稿…</p>}
     {!loading && !loadError && items.length === 0 && <p className="field-hint">還沒有草稿。</p>}
     <ul className="skill-upload-list">{items.map(item => {
-      const path = localPath(item.public_path), name = item.payload?.title ?? formatIsoLocal(item.created_at);
+      const path = skillPublicationPath(item), name = item.payload?.title ?? formatIsoLocal(item.created_at);
       const seededWaiting = item.status === 'awaiting_upload' && Boolean(item.seed);
       const upgradeDraft = Boolean(item.seed) && (item.status === 'awaiting_upload' || item.status === 'ready_for_review');
       const seededName = item.seed?.title ?? name;
@@ -527,13 +535,13 @@ export function SkillUpload({ client, onPublished, openRequest = null, onChanged
           {item.status === 'ready_for_review' && <button type="button" className="btn btn-primary" aria-label={`預覽並送出：${item.payload?.title ?? name}`} onClick={() => void showPreview(item)}>預覽並送出</button>}
           {item.payload && item.status !== 'ready_for_review' && <button type="button" className="btn btn-ghost" aria-label={`預覽：${name}`} onClick={() => void showPreview(item)}>預覽</button>}
           {(item.status === 'awaiting_upload' || item.status === 'ready_for_review') && <button type="button" className="btn btn-ghost" disabled={writing} aria-label={`撤銷草稿：${seededWaiting ? seededName : name}`} onClick={() => void revoke(item)}>撤銷</button>}
-          {item.status === 'published' && path && <a href={path} target="_blank" rel="noopener noreferrer">查看 ↗</a>}
+          {item.status === 'published' && path && <a href={path} target="_blank" rel="noopener noreferrer">閱讀已公開技能書 ↗</a>}
         </div>
       </li>;
     })}</ul>
     {draftOutcome(false)}
     {previewError && <p role="alert" className="banner banner-error">{previewError}</p>}
-    {preview && <SubmissionPreview submission={preview} busy={writing} onPublish={() => void publish(preview)}/>}
+    {preview && <SubmissionPreview submission={preview} busy={writing} onPublish={() => void publish(preview)} onShelf={close}/>}
     {draftOutcome(true)}
   </section>;
   const dialogNode = <dialog ref={dialog} className="skill-upload-dialog" aria-labelledby={titleId} onCancel={event => { if (event.target === event.currentTarget) { event.preventDefault(); close(); } }} onClose={event => {
