@@ -17,3 +17,7 @@ The commerce purpose profile recommends 「線上商店」 first, followed by th
 文字附件使用既有私有 Asset；原始照片／影片只登記外部 HTTPS 位置與自填版本，沒有保存媒體 bytes。交接、外部回饋、負責人與使用權說明都是填寫者的私人紀錄，不是外部身分驗證、收到證明、客戶核准或權利核實。沒有外寄、公開或新 commerce/order 權威。
 
 純 source 回歸為 `tests/runtime/production-dossier.test.ts` 與 `work-result-client.test.ts`；真 API 保存／重登、partial recovery、412 草稿與 viewer／明確授權 writer 的本機 browser 路徑在 `tests/e2e/guild-launchpad-my-work.spec.ts` 的 NP-003／004。實跑與部署證據分列，不把本機 fixture 當 live 驗收。
+
+## 我的方向卡
+
+`guild_talent_direction` 的 My Work 提供本人填寫的[方向卡](positioning-action-card.md)，沿 `career-guide` 的小活動、完成條件與回顧步驟。`freedom.positioning-action-card/v1` 是同一 Work 的 immutable 文字 Result 內容格式，不是另一份會員定位、資料表或 API。可保存半填草稿並重新登入還原；不自動複製 assessment、小問答或私人補充筆記。資料沿目前業務空間與 Work 讀取權限，不因加入公會而公開，也不把共享空間說成只有本人可看。
