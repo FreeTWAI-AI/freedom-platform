@@ -66,6 +66,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   EMAIL?: {send(message:{to:string;from:string;subject:string;text:string}):Promise<{messageId:string}>};
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
+  FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
@@ -217,6 +218,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     linkPreviewFetch: workerPreviewFetch,
     moduleProviders: undefined,
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
+    hostedReservationsEnabled: env.FREEDOM_HOSTED_RESERVATIONS_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',

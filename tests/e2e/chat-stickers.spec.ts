@@ -387,3 +387,37 @@ for(const surface of ['page','dock'] as const)for(const status of [403,404])test
   expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
   await page.screenshot({path:testInfo.outputPath('canonical-retry-drafts-retained.png'),fullPage:true});
 });
+
+for(const surface of ['page','dock'] as const)test(`${surface} direct retains its first post-commit onboarding refusal and confirms the original key`,async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0);let panel:Locator;
+  if(surface==='page')panel=await direct(page,accounts[1]);
+  else{
+    await page.getByRole('button',{name:'展開訊息控制台'}).click();const dock=page.locator('.game-console-expanded');
+    await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();await dock.getByLabel('搜尋會員').fill(accounts[1].name);
+    await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();await dock.getByRole('button',{name:`傳訊給 ${accounts[1].name}`,exact:true}).click();panel=dock.locator('.messages-thread');
+  }
+  const path=`/api/v1/me/conversations/${accounts[1].id}/messages`,sends:{key:string;body:unknown}[]=[];
+  await page.route(`**${path}`,async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});
+    const response=await route.fetch();expect(response.status()).toBe(201);
+    // Real committed message plus a controlled response from the fresh member check.
+    if(sends.length===1)return route.fulfill({status:403,json:{code:'onboarding_required',detail:'Controlled post-commit onboarding refusal'}});
+    await route.fulfill({response});
+  });
+  await choose(panel,'謝謝');await expect(panel.getByRole('alert')).toContainText('傳送結果未確認');
+  await expect(panel.getByRole('button',{name:'選擇貼圖',exact:true})).toBeDisabled();
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
+  let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
+  if(surface==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#messages$/);}
+  else{
+    await page.getByRole('button',{name:'收合訊息控制台'}).click();await page.getByRole('button',{name:'設定',exact:true}).click();
+    await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
+    expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);await page.getByRole('button',{name:'展開訊息控制台'}).click();
+  }
+  expect(blocked).toBe(1);expect(sends).toHaveLength(1);
+  await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);
+  expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);
+  expect((await db.query("SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1 AND sticker_id='workshop-v1-thanks'",[accounts[0].id])).rows[0].n).toBe(1);
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+});

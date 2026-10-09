@@ -31,7 +31,7 @@ function harness(mode:'direct'|'channel'){
     drafts,richDrafts:{get:()=>extras,clear:()=>{state.cleared++;}},cleared:0,
     selections:{current:new Map([[target,image]])},selectionRef:{current:image},messageImagesEnabled:true,
     receiptRefresh:{current:new Map()},conversations:[],thread:null,stick:{current:false},logs:[],uploads:0,
-    setPendingState:()=>{},setDrafts:(update:any)=>{state.drafts=update(state.drafts);},setSendErrors:()=>{},setSelection:()=>{},setThread:()=>{},setHistory:()=>{},setConversations:()=>{},setChannels:()=>{},rereadAfterWrite:()=>{},
+    setPendingState:()=>{},setDrafts:(update:any)=>{state.drafts=update(state.drafts);},setSendErrors:(update:any)=>{state.sendErrors=update(state.sendErrors??{});},setSelection:()=>{},setThread:()=>{},setHistory:()=>{},setConversations:()=>{},setChannels:()=>{},rereadAfterWrite:()=>{},
     path:(key:string,rest:string)=>`/me/channels/guild/${key}/${rest}`,crypto:{randomUUID},ApiError,findChatSticker,isFirstImageDecoderRejection,matchesDirectMessageAck,matchesChannelMessageAck,
     chatPayload:runInNewContext(`${sourceFunction('ChatContent.tsx','chatPayload')};chatPayload`),
     consoleChannel:(value:string)=>value,logConsoleEvent:(value:unknown)=>state.logs.push(value),
@@ -191,4 +191,19 @@ for(const file of ['MemberMessages.tsx','../GameConsoleComposer.tsx'])test(`${fi
   for(const child of children.filter(node=>node!==pending)){child.props.registerLeave(()=>true);child.props.registerLeave(null);assert.equal(parent.current!(),false);}
   pending.props.registerLeave(null);assert.equal(parent.current!(),true);
   effects.forEach(cleanup=>cleanup());assert.equal(parent.current,null);
+});
+
+test('direct: first post-commit onboarding refusal retains the original sticker tuple',async()=>{
+  const h=harness('direct'),sent=h.send(h.target,first);
+  h.calls[0].reject(new ApiError({message:'onboarding changed after commit',status:403,code:'onboarding_required'}));await sent;
+  assert.equal(h.state.held.current[h.target].status,'unknown');assert.equal(h.state.cleared,0);
+  assert.match(h.state.sendErrors[h.target],/^傳送結果未確認：/);
+  await h.send(h.target,second);assert.equal(h.calls.length,1);
+  const retry=h.send(h.target);assert.equal(h.calls[1].key,h.calls[0].key);assert.deepEqual(h.calls[1].payload,h.calls[0].payload);
+  h.calls[1].resolve(h.ack(1));await retry;assert.equal(h.state.held.current[h.target],undefined);
+});
+test('direct: an unrelated first definite refusal remains editable',async()=>{
+  const h=harness('direct'),sent=h.send(h.target,first);
+  h.calls[0].reject(new ApiError({message:'unrelated refusal',status:403,code:'different_refusal'}));await sent;
+  assert.equal(h.state.held.current[h.target],undefined);
 });

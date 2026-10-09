@@ -473,9 +473,11 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       // A later definite rejection cannot disprove an earlier unknown commit.
       // The first upload decoder rejection also precedes any prepared image.
       const rejectedImage=image&&isFirstImageDecoderRejection(cause,attempt.stage,same);
-      if((image&&!rejectedImage)||same||unconfirmed(cause)){
+      // A fresh post-commit member check may refuse onboarding without revoking the session.
+      const uncertainMember=cause instanceof ApiError&&cause.status===403&&cause.code==='onboarding_required';
+      if((image&&!rejectedImage)||same||unconfirmed(cause)||uncertainMember){
         setPending(value=>({...value,[id]:{...attempt,status:'unknown'}}));
-        setSendErrors(value=>({...value,[id]:attempt.stage==='upload'?`圖片上傳未完成：${fail(cause,'請重試。')} 圖片與文字已保留，可重試送出。`:`${same||unconfirmed(cause)?'傳送結果未確認':'訊息未送出'}：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
+        setSendErrors(value=>({...value,[id]:attempt.stage==='upload'?`圖片上傳未完成：${fail(cause,'請重試。')} 圖片與文字已保留，可重試送出。`:`${same||unconfirmed(cause)||uncertainMember?'傳送結果未確認':'訊息未送出'}：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
       }else{
         setPending(({[id]:_,...rest})=>rest);
         setSendErrors(value=>({...value,[id]:`訊息未送出：${fail(cause,'請修改後重試。')}`}));
