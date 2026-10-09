@@ -34,6 +34,8 @@ For stores without order history, delete selections first, then items, then both
 
 Member UI: commerce members enter from the launchpad’s 「建立我的商店」 primary action, the 「我的商店」 tab, or 「設定我的商店」 after the existing launch flow succeeds. `#stores` lists readable stores; `#stores/<tenant_id>/<instance_id>` provides setup, product editing, preview and publication. This UI only calls the existing hosted-store API; ordering remains disabled.
 
+「我的商店」列表（#352）在初次 membership 查詢併讀 tenant 名稱；每個可讀 instance 只查一次 capability 與 confirmed-mapping profile，不為列表未使用的商品數或完整詳頁 DTO 重查。每個 tenant 的 `lockTenantScope`、context 綁定及 instance 查詢仍保留：`module_instances`／`deployment_bindings` 的 RLS 僅接受目前單一 tenant，不能以跨 tenant `ANY` 查詢取代而不擴大授權面。列表形狀、tenant 排序、100-tenant 上限與隔離政策不變。
+
 ## Direct-sale reservation candidate
 
 [HO-0](hosted/direct-order-contract.md) defines the member quote/submit/read/cancel DTOs. HO-1/2 adds provisional migration 138 and closed backend services in `hosted/direct-authority.ts`, `direct-quotes.ts`, `direct-orders.ts` and `direct-effects.ts`. The candidate parents include real 136/137; no applied migration is rewritten. The migration adds immutable quotes and a direct discriminator/private buyer relation to the SAME orders/lines authority; stock remains `commerce_items.stock/reserved`. Default `reservation_enabled=false`, the original hosted `accepting_orders=false` CHECK and every public/UI transaction-disabled flag remain intact. The following HO-3 candidate adds only member buyer HTTP routes; no application release, seller order capability, payment or fulfilment activation is registered.

@@ -138,6 +138,45 @@ test('T-024 restricted runtime launches, sets up, edits, previews, publishes and
   assert.ok(!quiet.t && !quiet.p); assert.equal(quiet.n, 0);
 });
 
+test('my stores preserves multi-tenant detail projections without redundant name, capability or product-count queries', async () => {
+  const owner = (await h.person('列表店主')).session, reader = (await h.person('列表讀者')).session;
+  const stores: Store[] = [];
+  for (let n = 0; n < 5; n++) {
+    const s = await open(owner, `列表業務${n}`); stores.push(s);
+    await join(s, reader, 'operator', n < 4 ? ['store:read'] : []);
+    if (n > 0) expect(await post(s.root + '/setup', owner, { ...settings, slug: `list-shop-${n}` }), 201);
+    if (n === 2 || n === 3) { await add(s); expect(await publish(s)); }
+    if (n === 3) expect(await publish(s, 'unpublish'));
+  }
+  const expected = [];
+  for (const [n, s] of stores.slice(0, 4).entries()) {
+    const v = await view(s, reader);
+    expected.push({ tenant_id: s.tenantId, tenant_display_name: `列表業務${n}`, instance_id: s.instanceId,
+      setup_state: v.setup_state, name: v.store?.name ?? null, slug: v.store?.slug ?? null,
+      publication_state: v.publication.state, public_path: v.publication.public_path, version: v.version });
+  }
+  expected.sort((a, b) => a.tenant_id.localeCompare(b.tenant_id));
+  const queries: string[] = [], clients = new Map<PoolClient, PoolClient['query']>();
+  const instrument = (q: PoolClient) => {
+    if (clients.has(q)) return;
+    const original = q.query; clients.set(q, original);
+    q.query = ((...args: unknown[]) => { queries.push(String(args[0])); return Reflect.apply(original, q, args); }) as typeof q.query;
+  };
+  runtime.on('acquire', instrument);
+  try {
+    assert.deepEqual(expect(await call('GET', '/me/stores', reader)), { items: expected, truncated: false });
+    const names = queries.filter(sql => /^SELECT display_name FROM tenants/.test(sql)).length;
+    const counts = queries.filter(sql => /count\(\*\)::int AS n FROM commerce_items/.test(sql)).length;
+    const capabilities = queries.filter(sql => /SELECT capabilities FROM tenant_module_permissions/.test(sql)).length;
+    const profiles = queries.filter(sql => /FROM commerce_storefront_profiles p/.test(sql)).length;
+    console.log(`my stores: 5 tenants, 4 readable stores; ${queries.length} queries; names=${names}, counts=${counts}, capabilities=${capabilities}, profiles=${profiles}`);
+    assert.equal(names, 0); assert.equal(counts, 0); assert.equal(capabilities, 5); assert.equal(profiles, 4);
+  } finally {
+    runtime.off('acquire', instrument);
+    for (const [q, original] of clients) q.query = original;
+  }
+});
+
 test('T-017 twenty concurrent launches across workspaces leave exactly one live storefront', async () => {
   const owner = (await h.person('併發會員')).session; await h.fullMember(owner.user.user_id, guild);
   const made = expect(await post('/tenants', owner, { display_name: '併發業務', workspace_name: '櫃檯' }), 201);
