@@ -155,7 +155,7 @@ test('Node static assets have the same immutable policy and preserve platform se
   const app = createApp(db, origin, 'local');
   app.use('/*', serveStatic({ root: assetsDir, onFound: onBuildAssetFound }));
   app.get('*', serveStatic({ path: resolve(assetsDir, 'index.html') }));
-  await assertBuildAssetHeaders((path, init) => app.request(origin + path, init));
+  await assertBuildAssetHeaders(async (path, init) => app.request(origin + path, init));
 });
 
 test('workerd marks only the member-card page noindex', async () => {
