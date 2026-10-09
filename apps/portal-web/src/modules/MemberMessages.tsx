@@ -343,7 +343,8 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     // Other conversations remain discoverable without reloading their previews every second.
     if(convInFlight.current===null&&Date.now()-listCheckedAt.current>=8000)void loadConversations(true);
     if(!shown.readingThread||!id||shown.threadStatus!=='ready'||!shown.thread||shown.reading||shown.sending||threadInFlight.current||moreState.current.loading)return;
-    if(!chatPollDue(idlePoll.current,Date.now(),retryAt.current))return;
+    const refreshDue=receiptRefresh.current.has(id)||directMessageReceiptRefreshDue(shown.thread.items,me,receiptCheckedAt.current.get(id)??0,Date.now());
+    if(!refreshDue&&!chatPollDue(idlePoll.current,Date.now(),retryAt.current))return;
     polling.current=true;const generation=threadGeneration.current,schedule=idlePoll.current,checkedAt=Date.now();
     try{
       const activity=await client.get<ConversationActivity>(`/me/conversations/${encodeURIComponent(id)}/activity`,{background:true});

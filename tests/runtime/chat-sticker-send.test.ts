@@ -5,6 +5,8 @@ import {runInNewContext} from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {transformSync} from 'esbuild';
 import {createChatLeaveGuards} from '../../apps/portal-web/src/modules/chat-leave-guards.js';
+import {chatPollDue,idleChatPoll,resetChatPoll} from '../../apps/portal-web/src/modules/adaptive-chat-poll.js';
+import {directMessageReceiptRefreshDue,hasDirectMessageChanges} from '../../apps/portal-web/src/modules/direct-message-receipts.js';
 import {ApiError} from '../../apps/portal-web/src/api.js';
 import {findChatSticker} from '../../modules/member-communications/stickers.js';
 import {isFirstImageDecoderRejection,matchesChannelMessageAck,matchesDirectMessageAck} from '../../apps/portal-web/src/modules/message-image-client.js';
@@ -28,6 +30,7 @@ function harness(mode:'direct'|'channel'){
   const image={user:sender,key:randomUUID(),url:'blob:fixture',file:{name:'draft.webp'}};
   const state:any={held:{current:{}},sendLocks:{current:new Set()},alive:{current:true},current:{current:target},currentPeer:{current:target},gone:{current:new Set()},epoch:{current:1},me:sender,kind:'guild',text:{unit:'公會'},MAX_BODY:2000,
     snapshot:{current:{status:'ready',threadStatus:'ready',history:{channel:{kind:'guild',channel_key:target,name:'原頻道'}},thread:{participant:{user_id:target},can_send:true}}},
+    idlePoll:{current:resetChatPoll()},resetChatPoll,
     drafts,richDrafts:{get:()=>extras,clear:()=>{state.cleared++;}},cleared:0,
     selections:{current:new Map([[target,image]])},selectionRef:{current:image},messageImagesEnabled:true,
     receiptRefresh:{current:new Map()},conversations:[],thread:null,stick:{current:false},logs:[],uploads:0,
@@ -206,4 +209,27 @@ test('direct: an unrelated first definite refusal remains editable',async()=>{
   const h=harness('direct'),sent=h.send(h.target,first);
   h.calls[0].reject(new ApiError({message:'unrelated refusal',status:403,code:'different_refusal'}));await sent;
   assert.equal(h.state.held.current[h.target],undefined);
+});
+
+for(const scenario of [
+  {name:'overdue receipt bypasses idle interval',now:8000,read:null,expected:1},
+  {name:'retry deadline still blocks overdue receipt',now:8000,read:null,retry:9000,expected:0},
+  {name:'receipt not due retains idle interval',now:7999,read:null,expected:0},
+  {name:'already-read receipt retains idle interval',now:8000,read:'done',expected:0},
+  {name:'hidden tab cannot refresh overdue receipt',now:8000,read:null,hidden:true,expected:0},
+  {name:'in-flight thread blocks overdue receipt',now:8000,read:null,inFlight:true,expected:0},
+  {name:'inactive chat blocks overdue receipt',now:8000,read:null,inactive:true,expected:0},
+  {name:'dirty receipt bypasses idle interval',now:1000,read:null,dirty:true,expected:1},
+])test(`direct polling: ${scenario.name}`,async()=>{
+  let calls=0,refreshes=0;
+  const state:any={chatPollDue,idleChatPoll,resetChatPoll,directMessageReceiptRefreshDue,hasDirectMessageChanges,
+    snapshot:{current:{active:!scenario.inactive,readingThread:true,threadStatus:'ready',thread:{items:[{message_id:'latest',sender_ref:sender,read_at:scenario.read}],unread_count:0,can_send:true},reading:false,sending:false}},
+    currentPeer:{current:peer},document:{visibilityState:scenario.hidden?'hidden':'visible'},navigator:{onLine:true},polling:{current:false},retryAt:{current:scenario.retry??0},Date:{now:()=>scenario.now},
+    convInFlight:{current:true},listCheckedAt:{current:0},threadInFlight:{current:scenario.inFlight?{}:null},moreState:{current:{loading:false}},idlePoll:{current:{idle:5,nextAt:12000}},
+    receiptRefresh:{current:new Map(scenario.dirty?[[peer,Symbol()]]:[])},receiptCheckedAt:{current:new Map([[peer,0]])},me:sender,threadGeneration:{current:0},alive:{current:true},failures:{current:0},
+    client:{get:async()=>{calls++;return {last_message_id:'latest',last_outgoing:{message_id:'latest',read_at:scenario.read},unread_count:0,can_send:true};}},
+    loadThread:async()=>{refreshes++;state.threadGeneration.current++;return true;},setLiveError:()=>{},announceInboxChange:()=>{},ApiError,
+  };
+  await runInNewContext(`${sourceFunction('MemberMessages.tsx','pullLatest')};pullLatest`,state)();
+  assert.equal(calls,scenario.expected);assert.equal(refreshes,scenario.expected);
 });
