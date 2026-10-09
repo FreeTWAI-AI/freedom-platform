@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 38747,
-      "sha256": "79985ba202d2398423b46718591195d09ebf4924376d3bafb0998452a660d4ea"
+      "bytes": 38787,
+      "sha256": "8f0dcdf7647155f960bedaa391668ed8efa3d1c002f4d75dc2c0489eb03e284a"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -549,8 +549,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/members.ts",
-      "bytes": 5542,
-      "sha256": "2deb51073a926480fac2f08313d4cac4043ae9e3a7efe84fbfed99b2a7485a16"
+      "bytes": 5743,
+      "sha256": "6d6fc4237ed8a6c28f04b1458474c67cf24f584aa20640a693c2bc97d996e45b"
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
@@ -2429,8 +2429,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 30317,
-      "sha256": "ff32baecedbcbb366bc482305fbbab2341c1037489a521980d8bccb79f5d834a"
+      "bytes": 31733,
+      "sha256": "84680fb695f37619e5c07e5c22a90918545d6d10ee7d513daac240c702c3d861"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -13559,8 +13559,8 @@
     },
     {
       "path": "docs/development/member-settings-messages.md",
-      "bytes": 11249,
-      "sha256": "14a594072e4394d8e13c1016e395cef2775ee3543f2e3fe030969b266aafa286"
+      "bytes": 12493,
+      "sha256": "ebb5e0f71826e802f95c2f3f640ac695a9be61ad0d139fd6ec4fdf7d2ffe7e34"
     },
     {
       "path": "docs/development/member-skill-registration.md",
@@ -17298,6 +17298,11 @@
       "sha256": "393a735274886d92501922774375d39916901ded238ce24639d9b50d7f67b0b5"
     },
     {
+      "path": "modules/identity-membership/deactivation.ts",
+      "bytes": 2446,
+      "sha256": "862f0d79ff8ab0687f5f77904f16db355cd54556db2daeb2f29bc0344550bd26"
+    },
+    {
       "path": "modules/identity-membership/freedom.module.json",
       "bytes": 1864,
       "sha256": "ac94496c20cf5e73ce85b7d8d71dafe69029651ade9e0acb91d65527fa2b0ae4"
@@ -20131,6 +20136,11 @@
       "path": "tests/media-fixtures/manifest.json",
       "bytes": 1799,
       "sha256": "55a828af1d623fc413e086ee42cc141bac9bf98a92251f9f00fb8960d20f4700"
+    },
+    {
+      "path": "tests/runtime/account-deactivation.test.ts",
+      "bytes": 5986,
+      "sha256": "01ca8b5dd267a1e5a5062eade2575d033725e7d412ac65ae5e7ca31626956edc"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
