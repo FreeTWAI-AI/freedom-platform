@@ -20744,8 +20744,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-photo.test.ts",
-      "bytes": 7830,
-      "sha256": "c4b346b8fa22880b848d21cedbbcb9e68308b62682d2f1bab9d807f636322ff3"
+      "bytes": 11254,
+      "sha256": "c5847fbb65ee7911d61329a14ade980f5fd6a8b1072e08cb8548aaf45352cff3"
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",

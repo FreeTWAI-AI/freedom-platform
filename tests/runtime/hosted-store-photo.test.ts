@@ -84,3 +84,39 @@ test('PHOTO-DOMAIN-04 foreign product/session and invalid decoding cause no reta
   assert.equal((await f.app.request(f.h.origin+path,{headers:{Cookie:fresh.cookie}})).status,200);
   assert.equal((await f.h.closed.request(f.h.origin+'/api/v1'+s.root+'/product-media',{headers:{Cookie:fresh.cookie}})).status,404);
 });
+
+test('PHOTO-DOMAIN-05 an unknown immutable PUT retries the same original tuple without a second intent or version',async()=>{
+  const s=await f.openStore();await enable();const key=randomUUID();
+  f.store.failNext('put-after');
+  const first=await upload(s,'1',key);assert.equal(first.status,503);
+  const pending=(await f.h.pool.query('SELECT intent_id,asset_id,state FROM asset_upload_intents WHERE target_product_id=$1',[s.productId])).rows;
+  assert.equal(pending.length,1);
+  const retry=f.ok(await upload(s,'1',key));assert.equal(retry.completed_version,'2');
+  const final=(await f.h.pool.query('SELECT intent_id,asset_id,state FROM asset_upload_intents WHERE target_product_id=$1',[s.productId])).rows;
+  assert.equal(final.length,1);assert.equal(final[0].intent_id,pending[0].intent_id);assert.equal(final[0].asset_id,pending[0].asset_id);assert.equal(final[0].state,'finalized');
+  const replay=f.ok(await upload(s,'1',key));assert.equal(replay.completed_version,'2');assert.equal(replay.current.version,'2');
+});
+
+test('PHOTO-DOMAIN-06 current exact-instance permissions protect receipt replay and private bytes after uploader revocation',async()=>{
+  const s=await f.openStore();await enable();
+  async function join(name:string,keys:string[]){
+    const person=(await f.h.person(name)).session;
+    const principal=f.ok(await f.call('GET',`/tenants/invite-candidates?user_id=${person.user.user_id}`,s.owner)).principal_id;
+    const invitation=f.ok(await f.post(`/tenants/${s.tenantId}/invitations`,s.owner,{invitee_principal_id:principal,role:'operator',instance_capabilities:[{instance_id:s.instanceId,capabilities:keys}],expires_at:new Date(Date.now()+86400000).toISOString()}),201);
+    f.ok(await f.post(`/tenants/${s.tenantId}/invitations/${invitation.invitation_id}/accept`,person,{},invitation.version));
+    return {person,principal};
+  }
+  const viewer=await join('照片只讀會員',['store:read']);
+  assert.equal((await upload({...s,owner:viewer.person},'1')).status,403);
+  const writer=await join('照片寫入會員',['store:read','store:write']),key=randomUUID();
+  const first=f.ok(await upload({...s,owner:writer.person},'1',key));await publish(s);
+  const page=await(await media(s)).json() as any;
+  const membership=f.ok(await f.call('GET',`/tenants/${s.tenantId}/members`,s.owner)).items.find((m:any)=>m.principal_id===writer.principal);
+  f.ok(await f.post(`/tenants/${s.tenantId}/members/${writer.principal}/change`,s.owner,{role:'operator',status:'active',instance_capabilities:[],reason:'撤銷照片寫入'},membership.version));
+  assert.equal((await upload({...s,owner:writer.person},'1',key)).status,404);
+  assert.equal((await f.app.request(f.h.origin+first.current.photo.read_path,{headers:{Cookie:writer.person.cookie}})).status,404);
+  assert.equal((await f.app.request(f.h.origin+first.current.photo.read_path,{headers:{Cookie:viewer.person.cookie}})).status,200);
+  assert.equal((await f.app.request(f.h.origin+page.photos[0].photo.read_path)).status,200);
+  await f.h.pool.query("UPDATE commerce_resource_tenants SET mapping_state='ambiguous' WHERE resource_id=(SELECT supply_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1)",[s.instanceId]);
+  for(const route of ['/shops/'+s.slug,'/api/v1/public/stores/'+s.slug,'/api/v1/public/stores/'+s.slug+'/media',page.photos[0].photo.read_path])assert.equal((await f.app.request(f.h.origin+route)).status,404);
+});
