@@ -234,11 +234,15 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole('link', { name: '跳到主要內容', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(nav.getByRole('button',{name:'會員首頁',exact:true})).toBeFocused();
-      for (const name of ['社群分享', '我的訊息', '職業公會', '技能書架']) {
+      for (const name of ['社群分享', '我的訊息', '職業公會', '技能書架', '搜尋社群內容']) {
         await page.keyboard.press('Tab');
         await expect(nav.getByRole('button', { name, exact: true })).toBeFocused();
         expect(await focusedIsVisiblyOutlined(page)).toBe(true);
       }
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/#community-search$/);
+      await expect(page.getByRole('heading', { name: '搜尋社群內容', level: 1, exact: true })).toBeVisible();
+      await nav.getByRole('button', { name: '搜尋社群內容', exact: true }).focus();
       // A collapsed group opens from the keyboard and its first page is the next stop.
       await page.keyboard.press('Tab');
       await expect(page.locator(':focus')).toHaveText(/更多功能/);
