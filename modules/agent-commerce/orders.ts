@@ -106,8 +106,8 @@ async function orderViews(q:PoolClient,shop:QueryResultRow,ids:string[]){
  const byId=new Map(orders.map(o=>[o.order_id,o]));
  for(const id of ids)requireCondition(byId.has(id),404,'order_not_found','找不到此商店的訂單。');
  const allTransfers=(await q.query(`SELECT t.*,s.website_url AS internal_website_url,s.name AS internal_shop_name FROM commerce_transfers t
- JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE s.origin='imported' AND t.order_id=ANY($1::uuid[])${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[ids,shop.shop_id]:[ids])).rows;
- const lines=(await q.query('SELECT transfer_id,selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=ANY($1::uuid[])',[allTransfers.map(t=>t.transfer_id)])).rows;
+ JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE s.origin='imported' AND t.order_id=ANY($1::uuid[])${shop.kind==='internal'?' AND t.internal_shop_id=$2':''} ORDER BY t.transfer_id`,shop.kind==='internal'?[ids,shop.shop_id]:[ids])).rows;
+ const lines=(await q.query('SELECT transfer_id,selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=ANY($1::uuid[]) ORDER BY selection_id',[allTransfers.map(t=>t.transfer_id)])).rows;
  const linesByTransfer=new Map<string,QueryResultRow[]>(),payablesByTransfer=new Map<string,PayableView[]>();
  for(const {transfer_id,...line} of lines){const group=linesByTransfer.get(transfer_id)??[];group.push(line);linesByTransfer.set(transfer_id,group);}
  for(const payable of await payablesForOrders(q,ids)){const group=payablesByTransfer.get(payable.transfer_id)??[];group.push(payable);payablesByTransfer.set(payable.transfer_id,group);}
