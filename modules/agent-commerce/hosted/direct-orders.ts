@@ -12,9 +12,10 @@ import { closeDirectOrder, directOrderView, expireDirectForItems, lockDirectOrde
 
 /** Backend-only direct sale. Existing imported create/payment/shipment functions
  * cannot reach this profile; no supplier acceptance, transfer or payable exists. */
-export async function submitDirectOrder(pool: Pool, actor: Actor, rawSlug: string, raw: unknown, key: string) {
+export async function submitDirectOrderOutcome(pool: Pool, actor: Actor, rawSlug: string, raw: unknown, key: string) {
   const slug = StoreSlugSchema.parse(rawSlug), input = SubmitInputSchema.parse(raw);
-  return directCommand(pool, actor, { slug }, 'storefront.order.submit', { slug, ...input }, key, input.client_order_id, undefined,
+  let created = false;
+  const order = await directCommand(pool, actor, { slug }, 'storefront.order.submit', { slug, ...input }, key, input.client_order_id, undefined,
     async (q, context) => {
       const p = context.profile, buyer = context.member.subject_principal.principal_id, hash = digest(input);
       const quote = await ownQuote(q, context, input.quote_id);
@@ -55,8 +56,14 @@ export async function submitDirectOrder(pool: Pool, actor: Actor, rawSlug: strin
         await q.query('UPDATE commerce_items SET reserved=reserved+$2 WHERE item_id=$1', [binding.item_id, binding.quantity]);
       }
       await directFact(q, context, id, '1', 'reserved');
+      created = true;
       return { id };
     }, directOrderView);
+  return { order, created };
+}
+/** Preserve the existing closed service DTO; transport status is not receipted. */
+export async function submitDirectOrder(pool: Pool, actor: Actor, rawSlug: string, raw: unknown, key: string) {
+  return (await submitDirectOrderOutcome(pool, actor, rawSlug, raw, key)).order;
 }
 export async function readDirectOrder(pool: Pool, actor: Actor, orderId: string) {
   OpaqueId.parse(orderId);

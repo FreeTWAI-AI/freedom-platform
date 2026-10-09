@@ -28,7 +28,10 @@
     "contracts/guild-launchpad/v1/hosted-order.schema.json",
     "tests/runtime/hosted-order-contracts.test.ts",
     "migrations/138_hosted_direct_reservations.sql",
-    "tests/runtime/hosted-direct-orders.test.ts"
+    "tests/runtime/hosted-direct-orders.test.ts",
+    "apps/platform-api/src/routes/hosted-orders.ts",
+    "tests/runtime/hosted-order-http.test.ts",
+    "tests/runtime/hosted-order-http-contracts.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -158,6 +161,20 @@
         "store.preview",
         "store.publish",
         "store.unpublish"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-order-buyer-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-orders.ts",
+      "operations": [
+        "storefront.order.readiness",
+        "storefront.quote.create",
+        "storefront.order.submit",
+        "storefront.order.read",
+        "storefront.order.intent.read",
+        "storefront.order.cancel"
       ],
       "auth_profile": "member-session"
     }

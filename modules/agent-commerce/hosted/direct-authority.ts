@@ -1,11 +1,13 @@
 import type { Pool, PoolClient } from 'pg';
 import { performance } from 'node:perf_hooks';
 import type { Actor } from '../../identity-membership/service.js';
-import type { MemberScopeContext } from '../../../packages/resource-scopes/index.js';
+import { lockMemberScope, type MemberScopeContext } from '../../../packages/resource-scopes/index.js';
+import { HOSTED_ORDER_PROFILE, ReadinessSchema } from '../../../contracts/guild-launchpad/v1/hosted-order.js';
+import { StoreSlugSchema } from '../../../contracts/guild-launchpad/v1/storefront.js';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../../packages/resource-scopes/tenant-transaction.js';
 import { scopedMemberCommand, scopedJournal } from '../../../packages/scoped-commands/index.js';
 import { assertCurrentSessionClock } from '../../../packages/db/member-session.js';
-import { requireCondition } from '../../../packages/shared/problem.js';
+import { Problem, requireCondition } from '../../../packages/shared/problem.js';
 import { profile, ready, type Profile } from './store.js';
 
 export type DirectOperation = 'storefront.quote.create' | 'storefront.order.submit' | 'storefront.order.cancel' | 'storefront.order.read';
@@ -21,15 +23,19 @@ export async function lockCommerceCommunity(q: PoolClient, communityId: string) 
   await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`commerce-orders/${communityId}`]);
 }
 
+async function eligibleMember(q: PoolClient, actor: Actor) {
+  const eligible = await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND active
+    AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(user_id)`, [actor.user_id]);
+  requireCondition(eligible.rowCount === 1, 403, 'member_unavailable', '目前無法使用會員訂單。');
+}
+
 /** Closed exact-store adapter. The member remains on their personal scope;
  * transaction-local tenant settings are a domain-selected RLS bound, not a
  * TenantScopeContext, tenant membership, or transferable authorization. */
 async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext, target: Target, requireLive: boolean): Promise<Profile> {
   const principal = member.subject_principal.principal_id;
   await bindPrincipalContext(q, principal);
-  const eligible = await q.query(`SELECT 1 FROM users WHERE user_id=$1 AND active
-    AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND NOT is_verification_test_account(user_id)`, [actor.user_id]);
-  requireCondition(eligible.rowCount === 1, 403, 'member_unavailable', '目前無法使用會員訂單。');
+  await eligibleMember(q, actor);
   const row = 'slug' in target
     ? (await q.query(`SELECT tenant_id,instance_id FROM commerce_storefront_profiles WHERE slug=$1`, [target.slug])).rows[0]
     : (await q.query(`SELECT quote.tenant_id,quote.instance_id FROM commerce_orders o
@@ -109,4 +115,27 @@ export async function directCommand<T>(pool: Pool, actor: Actor, target: Target,
     return reference;
   }));
   return output;
+}
+
+/** Readiness is a current private observation, not a command or an activation.
+ * The host supplies admissionEnabled; no request field can enable reservations. */
+export async function readDirectReadiness(pool: Pool, actor: Actor, rawSlug: string, admissionEnabled: boolean) {
+  const slug = StoreSlugSchema.parse(rawSlug);
+  return isolatedTransaction(pool, async q => {
+    const member = await lockMemberScope(q, { actor, scope: 'personal' });
+    await eligibleMember(q, actor);
+    let enabled = false, reason: 'not_configured' | 'store_unavailable' | null = 'not_configured';
+    if (admissionEnabled === true) {
+      try { await authorize(q, actor, member, { slug }, true); enabled = true; reason = null; }
+      catch (error) {
+        if (!(error instanceof Problem) || !['hosted_order_not_found', 'storefront_not_set_up', 'storefront_unavailable', 'publication_required', 'reservation_not_enabled'].includes(error.code)) throw error;
+        // A private/unpublished store must not disclose its configuration.
+        reason = 'store_unavailable';
+      }
+    }
+    const view = ReadinessSchema.parse({ profile: HOSTED_ORDER_PROFILE, reservation_enabled: enabled, reason,
+      payment_enabled: false, refund_enabled: false, fulfilment_enabled: false, money_movement_enabled: false });
+    await assertCurrentSessionClock(q, actor);
+    return view;
+  });
 }
