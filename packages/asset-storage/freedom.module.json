@@ -12,7 +12,8 @@
   ],
   "public_exports": [
     "packages/asset-storage/index.ts",
-    "packages/asset-storage/r2.ts"
+    "packages/asset-storage/r2.ts",
+    "packages/asset-storage/profiles.ts"
   ],
   "dependencies": [
     "resource-scopes"

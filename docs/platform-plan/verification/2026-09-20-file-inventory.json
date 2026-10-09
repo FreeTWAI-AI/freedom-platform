@@ -16143,6 +16143,11 @@
       "sha256": "a996cd1314910774ccfcd5b30c03c5e6db30779dc61cfb38e0651628d9c6237b"
     },
     {
+      "path": "migrations/141_storefront_product_photos.sql",
+      "bytes": 28354,
+      "sha256": "130e50ee37ab89d6ce7701be7ffb503adec12907bfc254ade7ce3029b2097d01"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 20579,
       "sha256": "100f3c233b7f6fef10274bf7972c985727ba2734a3db4d991198aeecfe247729"
@@ -16639,8 +16644,8 @@
     },
     {
       "path": "modules/assets/README.md",
-      "bytes": 11185,
-      "sha256": "97faf0faff94bcc85d08148d2215c5c7980915825ccdb484b56c1468369daf6e"
+      "bytes": 11584,
+      "sha256": "d9d4e308a12609c2952eb497ba5b8ffd03cdf4ee2acd764a912e300ed769dfa1"
     },
     {
       "path": "modules/assets/avatar-policy.ts",
@@ -16669,13 +16674,13 @@
     },
     {
       "path": "modules/assets/engine.md",
-      "bytes": 5656,
-      "sha256": "c80af891b45fa2a129ab5535b2d072134c011567eee827b65aff987bced02937"
+      "bytes": 6259,
+      "sha256": "4081d3b071716948bde958fa16b499787ff79e800d723b1a1ddc12361af75d2a"
     },
     {
       "path": "modules/assets/engine.ts",
-      "bytes": 32162,
-      "sha256": "f4194632a574da62dc538e63e1b0fc21d56f8cb6a6d89ff84dea953d73875069"
+      "bytes": 33737,
+      "sha256": "c20f9f21d20a744a6dc9b44977ed2554742eaa015fceb56884e2c8bb5cf481b6"
     },
     {
       "path": "modules/assets/event-banner.ts",
@@ -16704,8 +16709,8 @@
     },
     {
       "path": "modules/assets/freedom.module.json",
-      "bytes": 1517,
-      "sha256": "8754aa81f774eac4c6f68efbdfd2778abd5af2ce4a367978016502b81b14b277"
+      "bytes": 1926,
+      "sha256": "7c2f889dc831b26e6c6602f36b3f45937dd341993f5e1f23620636eb3b337b76"
     },
     {
       "path": "modules/assets/index.ts",
@@ -16744,8 +16749,8 @@
     },
     {
       "path": "modules/assets/object-write-effects.ts",
-      "bytes": 4889,
-      "sha256": "6bb82eca2cf97eed11d03ecc85e300bd33fde2f1df05bb1fe087dc4ffad2ed9b"
+      "bytes": 4916,
+      "sha256": "e5cdbdcb3b32b2f2d608826d63ce94600e05f7ed22a0b4d1af4d502850af807d"
     },
     {
       "path": "modules/assets/schema.ts",
@@ -16776,6 +16781,21 @@
       "path": "modules/assets/social-thumbnail.ts",
       "bytes": 11928,
       "sha256": "7881cf84c2485844783dbb3f1834d2e5eef4ba56239dbc017cd8f23c94b893cb"
+    },
+    {
+      "path": "modules/assets/storefront-lifecycle-authority.ts",
+      "bytes": 2642,
+      "sha256": "403b05a9a1e94095f001cf222bfae89b1d67c7f1538d385c32ffc7c06b320579"
+    },
+    {
+      "path": "modules/assets/storefront-product-photo.md",
+      "bytes": 4021,
+      "sha256": "5296e3b149f6ddcc61e8b5cb7b05fb71e83f9e01b95ab344b7080287f8372018"
+    },
+    {
+      "path": "modules/assets/storefront-product-photo.ts",
+      "bytes": 9385,
+      "sha256": "a2e40f068d3b3f1bb63345ce593fe3ad88f7b27625fcf37690c66f4cb1afec24"
     },
     {
       "path": "modules/assets/tenant-lifecycle-authority.ts",
@@ -17409,8 +17429,8 @@
     },
     {
       "path": "modules/module-data/catalog.ts",
-      "bytes": 103618,
-      "sha256": "d7e68c345a4e8925d6326d94abcb385394d69281d15f9575b5f7c1775944afdc"
+      "bytes": 105305,
+      "sha256": "1b12fdd41655e32b79e95757fac09dc89523b27198b0196d2f5cc2e0b4244eac"
     },
     {
       "path": "modules/module-data/freedom.module.json",
@@ -17559,8 +17579,8 @@
     },
     {
       "path": "modules/opportunity-project-work/tenant-capacity.ts",
-      "bytes": 3579,
-      "sha256": "09279631544c1ee683ddb8ada5b321254b5e2f06422f845d7de48050786c51fb"
+      "bytes": 3781,
+      "sha256": "2c10b3b2981a3047384f648756943b5ba876e9ff3dbc7095d37edcb6f77a7b00"
     },
     {
       "path": "modules/opportunity-project-work/tenant-command.ts",
@@ -17824,8 +17844,8 @@
     },
     {
       "path": "packages/asset-storage/freedom.module.json",
-      "bytes": 1071,
-      "sha256": "8a86e78a340986a7193786d6d9c7a7668e5b6530d3505789b4453cc0f230eb65"
+      "bytes": 1113,
+      "sha256": "02c0f30ea66420fb31c028652e68a5f4685997bf456bfae8cdc5b455ab2015a0"
     },
     {
       "path": "packages/asset-storage/http-range.ts",
@@ -17834,13 +17854,13 @@
     },
     {
       "path": "packages/asset-storage/index.ts",
-      "bytes": 19538,
-      "sha256": "e699bcacd00152b9629635d332ff949aefa09b35d69ed29e7b8e63e489405c25"
+      "bytes": 19874,
+      "sha256": "ed2316fda654815540fd9796884c6613e4ea018d9587816dd5bd7957767335d4"
     },
     {
       "path": "packages/asset-storage/profiles.ts",
-      "bytes": 2546,
-      "sha256": "87009e227ccddb9592916ac9889a44d6b0405bb079e1e4e3d581b60ac05312fd"
+      "bytes": 2769,
+      "sha256": "13c957058f86e4209aecdc76e6397b431530fdef4e1f4b0709bfd21829e768dc"
     },
     {
       "path": "packages/asset-storage/r2.ts",
@@ -18819,8 +18839,8 @@
     },
     {
       "path": "packages/shared/image-runtime.ts",
-      "bytes": 3220,
-      "sha256": "e9d13475301b3b01f19bc10e2e9f12961bba7ec92ad4de2017f4212e90ea5108"
+      "bytes": 3249,
+      "sha256": "03fb56e249e001ea4e5686b63b0d1e8ce93af1668a063c5a026ed2a37a2760fb"
     },
     {
       "path": "packages/shared/image-webp.ts",
@@ -21521,6 +21541,11 @@
       "path": "tests/runtime/storefront-presentation-contracts.test.ts",
       "bytes": 2741,
       "sha256": "e52821f3d88fec859d5c291c15b4c6d7619f427f3feeda907e2cc1f8cf4db427"
+    },
+    {
+      "path": "tests/runtime/storefront-product-photo-core.test.ts",
+      "bytes": 8395,
+      "sha256": "9a3702cc20258f081ba619e2906bb29b23815360fcb9371c13901b624bd961a9"
     },
     {
       "path": "tests/runtime/tenant-authority-policy-grants.test.ts",

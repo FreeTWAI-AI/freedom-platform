@@ -1,7 +1,7 @@
 import { COMMERCE_RESOURCE_PATHS, deepFreeze, type TenantDataCatalog } from './catalog-check.js';
 
 /** Tenant purposes come only from pg_get_constraintdef of asset_scope_purpose,
- * the scope_kind = 'tenant' branch. Today that purpose is work.tenant-result.
+ * the scope_kind = 'tenant' branch. The closed tenant purposes are Work results and storefront product photos.
  * Column lists are the installed attnum order. FORCE is not used (OPEN-14).
  */
 export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
@@ -36,7 +36,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       table: "assets",
       dataset_ref: "DC-13",
       reason_code: "asset_maintenance_visible",
-      reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+      reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
     },
     {
       table: "asset_upload_intents",
@@ -48,7 +48,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       table: "asset_objects",
       dataset_ref: "DC-13",
       reason_code: "asset_maintenance_visible",
-      reason: "Object inventory must see every byte pointer. An RLS-filtered inventory could delete a live object. Tenant objects are isolated by purpose work.tenant-result and the parent asset scope.",
+      reason: "Object inventory must see every byte pointer. An RLS-filtered inventory could delete a live object. Tenant objects are isolated by the closed tenant purposes and the parent asset scope.",
     },
     {
       table: "resource_scopes",
@@ -2100,8 +2100,12 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           tenant_resolution: { kind: "fk_chain" as const, via: ["commerce_supplier_payables", "commerce_orders", "commerce_order_quotes"] }, isolation: { rls: "exempt" as const, reason_code: "commerce_profile_participant_acl", reason: "Mixed historical commerce authority: only hosted_direct_reservation orders resolve through their exact quote/shop/buyer relation. Imported rows have null quote_id and keep existing owner/participant ACLs; FK coverage never assigns those rows to a tenant. Financial tables remain imported-only by composite profile FK, with zero direct-reservation rows." } },
         { kind: "table" as const, table: "commerce_storefront_profiles", columns: ["instance_id", "tenant_id", "supply_shop_id", "storefront_shop_id", "slug", "brand", "current_publication_id", "first_published_at", "product_seq", "version", "created_by_principal_id", "created_at", "updated_at", "reservation_enabled", "template_id"],
           tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "exempt" as const, reason_code: "public_projection_reader", reason: "hosted/public.ts readPublicStore reads the immutable public projection before binding principal-less tenant context. All private reads join module_instances or confirmed commerce_resource_tenants under tenant RLS." } },
-        { kind: "table" as const, table: "commerce_storefront_publications", columns: ["publication_id", "instance_id", "tenant_id", "revision", "slug", "projection", "projection_sha256", "published_by_principal_id", "published_at", "template_id"],
+        { kind: "table" as const, table: "commerce_storefront_publications", columns: ["publication_id", "instance_id", "tenant_id", "revision", "slug", "projection", "projection_sha256", "published_by_principal_id", "published_at", "template_id", "media_sha256"],
           tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "exempt" as const, reason_code: "public_projection_reader", reason: "hosted/public.ts readPublicStore reads the immutable public projection before binding principal-less tenant context. All private reads join module_instances or confirmed commerce_resource_tenants under tenant RLS." } },
+        { kind: "table" as const, table: "commerce_product_photo_targets", columns: ["tenant_id", "instance_id", "product_id", "scope_id", "scope_kind", "asset_id", "representation_id", "policy_revision", "linked_at_product_version", "purpose", "asset_state", "created_at"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["commerce_product_photo_targets_tenant"] } },
+        { kind: "table" as const, table: "commerce_publication_photo_refs", columns: ["publication_id", "sku", "tenant_id", "instance_id", "scope_id", "scope_kind", "asset_id", "representation_id", "policy_revision", "purpose", "asset_state", "content_type", "byte_size", "content_sha256", "transform_version", "width", "height"],
+          tenant_resolution: { kind: "direct" as const, column: "tenant_id" }, isolation: { rls: "enabled" as const, policies: ["commerce_publication_photo_refs_tenant"] } },
       ],
       classification: "tenant_private_with_explicit_public_projection",
       authoritative_module: "agent-commerce",
@@ -2145,7 +2149,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2170,7 +2174,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2195,7 +2199,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2216,17 +2220,20 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "verified_at",
             "purpose",
             "profile_id",
+            "pixel_width",
+            "pixel_height",
           ],
           tenant_resolution: {
             kind: "asset_purpose" as const,
             purposes: [
               "work.tenant-result",
+              "storefront.product-photo",
             ],
           },
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2271,6 +2278,8 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "display_name",
             "tenant_work_mode",
             "target_message_image_id",
+            "target_product_id",
+            "target_instance_id",
           ],
           tenant_resolution: {
             kind: "direct" as const,
@@ -2279,7 +2288,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2311,7 +2320,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2471,7 +2480,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
           isolation: {
             rls: "exempt" as const,
             reason_code: "asset_maintenance_visible",
-            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result.",
+            reason: "Maintenance, backup and deletion inventory must see every asset row. Tenant bytes stay on scoped queries, composite foreign keys, asset_scope_purpose, and the purpose allow-list that never GC-claims work.tenant-result or storefront.product-photo.",
           },
         },
         {
@@ -2590,10 +2599,11 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
             "draft",
           ],
         },
+        { kind: "object" as const, purpose: "storefront.product-photo", target_kind: "storefront.product-photo", variants: ["image"] },
       ],
       classification: "attachment",
       authoritative_module: "asset-lifecycle",
-      tenant_resolution: "assets.tenant_ref, asset_upload_intents.target_tenant_id, and asset purpose work.tenant-result on asset_objects; other asset rows resolve by foreign key to assets",
+      tenant_resolution: "assets.tenant_ref, asset_upload_intents.target_tenant_id, and closed tenant purposes work.tenant-result and storefront.product-photo on asset_objects; other asset rows resolve by foreign key to assets",
       identity_keys: [
         "asset_id",
         "intent_id",
@@ -2611,8 +2621,8 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
         "work",
         "tenant-workspaces",
       ],
-      sensitivity: "tenant-private bytes for purpose work.tenant-result; other purposes are personal or community",
-      sharing_purpose: "Deliver one tenant result attachment to a member who can read that work.",
+      sensitivity: "tenant-private Work results and storefront photo drafts; only explicit current publication photo refs are public",
+      sharing_purpose: "Deliver Work attachments under Work ACL and product photos under current store ACL or the exact live publication; immutable media refs do not authorize arbitrary Asset reads.",
       field_allowlist: {
         state: "undecided" as const,
         decision_refs: [
