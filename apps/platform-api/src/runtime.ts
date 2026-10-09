@@ -94,4 +94,6 @@ export type PlatformRuntime = {
   communitySearchEnabled?: boolean;
   /** Additive sharing navigation only; domain authorization remains authoritative. */
   unifiedSharingEnabled?: boolean;
+  /** Admin-only participation report and search outcome signals. */
+  participationMetricsEnabled?: boolean;
 };

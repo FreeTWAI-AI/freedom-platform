@@ -17,11 +17,16 @@ import {startGitHubAppSetup,completeGitHubAppSetup,githubAppSetupStatus} from '.
 import {listAdminEventQueue,reviewEventAsAdmin} from '../../../../modules/community/events.js';
 import {acknowledgeAuthorClaimIdentity,adminAuthorClaims,refreshAuthorClaimObservation,reviewAuthorClaim} from '../../../../modules/community/repo-author-claims.js';
 import {guildDiscoveryReport,refreshGuildDiscoveryReports,type GuildReviewer} from '../../../../modules/community/guild-discovery.js';
+import {participationMetrics} from '../../../../modules/community/participation-metrics.js';
 import {listCredentials,requestCloudflareRenewal} from '../../../../modules/platform-admin/credentials.js';
 import {approveRecoveryCase,closeRecoveryCase,executeRecoveryCase,getRecoveryCase,openRecoveryCase} from '../../../../modules/tenant-workspaces/recovery.js';
 type AdminEnv={Variables:{admin:AdminActor;adminCsrf:string}};
-export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'},guildLaunchpadEnabled=false){
+export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=verifyAdminAccess,github:{origin:string;tokenKey?:string;fetcher?:typeof fetch;readToken?:()=>string|undefined;guildReviewer?:GuildReviewer}={origin:'http://127.0.0.1:4310'},guildLaunchpadEnabled=false,participationMetricsEnabled=false){
   const app=new Hono<AdminEnv>();
+  app.use('/participation-metrics',async(_c,next)=>{
+    requireCondition(participationMetricsEnabled===true,404,'not_found','找不到這個頁面。');
+    await next();
+  });
   app.use('*',async(c,next)=>{
     const identity=await verifyAccess(c.req.raw),admin=await authenticateAdmin(pool,identity);
     c.set('admin',admin);c.set('adminCsrf',identity.csrfToken);
@@ -32,6 +37,8 @@ export function createAdminRoutes(pool:Pool,verifyAccess:AdminAccessVerifier=ver
     await next();
   });
   app.route('/',createGuildWorkspaceAdminRoutes(pool));
+  // Read-only, recomputed per request, scoped to the verified admin's own community.
+  if(participationMetricsEnabled===true)app.get('/participation-metrics',async c=>{c.header('Cache-Control','no-store');return c.json(await participationMetrics(pool,c.get('admin'),c.req.query()));});
   const command=async(c:Context<AdminEnv>):Promise<AdminCommand>=>{
     const version=c.req.header('If-Match');
     if(version)requireCondition(/^"[1-9][0-9]*"$/.test(version),400,'invalid_version','If-Match 須為加引號的整數版本。');
