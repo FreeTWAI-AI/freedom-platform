@@ -141,3 +141,10 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 仍保留選取圖片、說明與回覆草稿，會員可修改、移除或離開。曾有 unknown 的同 tuple
 重試，或已進入 message 階段的同碼 422，仍保留原 file／upload key／message key 與
 離開保護。這不擴大到其他 4xx，不清理已上傳素材，也不承諾重新整理後恢復記憶體草稿。
+
+本機待送圖片以 `createImageBitmap(originalFile)` 解碼後直接畫入 64px canvas；
+原始檔案不建立供 DOM 使用的 object URL／data URL，也不以預覽像素取代上傳 bytes。
+選取項目換人、移除、改用貼圖或 session 卸載時，layout cleanup 取消舊預覽；晚完成
+的 bitmap 只關閉，不畫回目前項目。預覽失敗只顯示提示，不自動 POST，也不清除
+原 File、upload key、正文或 held unknown。傳送仍由會員明確操作，沿上列 ACK 與首次
+server decoder 422 規則處理。
