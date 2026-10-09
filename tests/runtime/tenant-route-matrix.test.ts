@@ -215,6 +215,8 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/preview': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/appearance': 'tenant',
@@ -507,8 +509,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 62, middleware: 2 });
-  assert.equal(selectedRoutes.length, 92);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 64, middleware: 2 });
+  assert.equal(selectedRoutes.length, 94);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
