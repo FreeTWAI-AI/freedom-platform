@@ -509,8 +509,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 6684,
-      "sha256": "7216a98002791c81e1de6683ebaa9453d17fb63848cfe0880f980b68147e5ca2"
+      "bytes": 6815,
+      "sha256": "36eebc45a4e60cf67c7a412790965ea41eb0907f88425e3b862de4a629b400ff"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -2294,8 +2294,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStore.tsx",
-      "bytes": 29161,
-      "sha256": "84f74a1e3cab109d551ae474df8b78d43da146ec3c2ecfa6d8fdac53023c9ac5"
+      "bytes": 29449,
+      "sha256": "90855846139bb1c0b60c2f996ea5cadebfebeac323cb8434658c6238d75d6193"
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
@@ -2459,8 +2459,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MyStoreAction.tsx",
-      "bytes": 2445,
-      "sha256": "c46252698d67efa1670068c32926b31d3f3826a86da3d77672e1d04be1216506"
+      "bytes": 3863,
+      "sha256": "3ea31fa6f0a72dceeaa4bc1ffdfbf7e6c70e7b4684813844d3dd0bfc7c82bb7f"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
@@ -12583,6 +12583,11 @@
       "sha256": "190495cb5e0f6a1cd07d1d8436eb1f02e763c03b5932668528b2b69bedc11c12"
     },
     {
+      "path": "contracts/guild-launchpad/v1/storefront-pagination.ts",
+      "bytes": 390,
+      "sha256": "aab14cedfed43a337bb1c7d848d54d9b1c3abdc2defb4e1c58d461eb2c73bca3"
+    },
+    {
       "path": "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
       "bytes": 2360,
       "sha256": "9d77626f85dbde565d0d9005e957c2422c7e46096d65ed22be961d9db8973160"
@@ -16179,8 +16184,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 21265,
-      "sha256": "daab413f7d4af0089fc53c70d82a75e8e8d55bfe3478a15bf7a6dc4bffd618fc"
+      "bytes": 21906,
+      "sha256": "6f30fd594a9203e275f4d4e8eba6a459610b31f2e0faa6a2f9e26fb0f3625399"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16289,8 +16294,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/store.ts",
-      "bytes": 16548,
-      "sha256": "388e6e3bbb3035684f703feb97ec212e088cf9abd84bf103360e8bf5e750b3fb"
+      "bytes": 16956,
+      "sha256": "ade0d6f0b09679f4659dcafa5d350c29a68cbe9c200e90f0f33d66d5fe68f6da"
     },
     {
       "path": "modules/agent-control/README.md",
@@ -20719,8 +20724,8 @@
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",
-      "bytes": 57892,
-      "sha256": "74cb4678f79c68dbb80114f6bdb1e383ae86e409fa015e733c665c8f781bfc9b"
+      "bytes": 60122,
+      "sha256": "a7acbc0810efa7d3e00bde82fc22b9a7ae732e7c01a9ba7b3c46d34b7cd77cca"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
