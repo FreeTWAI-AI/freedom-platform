@@ -2,7 +2,8 @@
 // runs the ordinary Playwright suite first, then the private-AI spec with
 // FREEDOM_E2E_PRIVATE_AI_FIXTURE=1, then the shared-asset avatar spec with
 // FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1, then the direct-message image spec with
-// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1. Each extra pass is a new process and
+// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1, then notification preferences enabled.
+// Each extra pass is a new process and
 // schema. Explicit test filters and an already requested fixture stay one
 // Playwright invocation. The fixture flags are never set on the same pass.
 import { spawn } from 'node:child_process';
@@ -13,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const PRIVATE_AI_SPEC = 'tests/e2e/private-work-ai.spec.ts';
 export const AVATAR_ASSET_SPEC = 'tests/e2e/member-avatar-asset.spec.ts';
 export const MESSAGE_IMAGE_SPEC = 'tests/e2e/message-images.spec.ts';
+export const NOTIFICATION_PREFERENCES_SPEC = 'tests/e2e/notification-preferences.spec.ts';
 
 const TAKES_VALUE = new Set([
   '--add-reporter', '--browser', '--config', '-c', '--global-timeout', '--grep', '-g',
@@ -68,12 +70,13 @@ function terminalFlag(argv) {
 
 export function planE2e(argv, env = {}) {
   const args = [...argv];
-  if (env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
+  if (env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_E2E_NOTIFICATION_PREFERENCES === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
   return [
     { args, env },
     { args: [...args, PRIVATE_AI_SPEC], env: { ...env, FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' } },
     { args: [...args, AVATAR_ASSET_SPEC], env: { ...env, FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' } },
     { args: [...args, MESSAGE_IMAGE_SPEC], env: { ...env, FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' } },
+    { args: [...args, NOTIFICATION_PREFERENCES_SPEC], env: { ...env, FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' } },
   ];
 }
 

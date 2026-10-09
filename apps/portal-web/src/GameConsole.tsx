@@ -84,6 +84,14 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const dmSessionEnd=useRef<(()=>boolean)|null>(null)
   const registerDmSessionEnd=useCallback((guard:(()=>boolean)|null)=>{dmSessionEnd.current=guard},[])
   const canEndSession=useCallback(()=>dmSessionEnd.current?.()??true,[])
+  const [preferencesEnabled,setPreferencesEnabled]=useState<boolean|null>(client?null:false)
+  useEffect(()=>{
+    let active=true
+    if(!client){setPreferencesEnabled(false);return}
+    const load=()=>void client.get<{notification_preferences_enabled?:boolean}>('/site',{background:true}).then(site=>{if(active)setPreferencesEnabled(site.notification_preferences_enabled===true)}).catch(()=>{/* Retry on focus; do not emit unchecked reminders. */})
+    load();window.addEventListener('focus',load)
+    return()=>{active=false;window.removeEventListener('focus',load)}
+  },[client,userId])
   const [expanded, setExpanded] = useState(variant === 'popout')
   const [activeChannel, setActiveChannel] = useState<GameConsoleChannel>('all')
   const [visibility,setVisibility]=useState<ConsoleVisibility>(()=>loadVisibility(userId))
@@ -141,25 +149,26 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   },[variant])
 
   useEffect(()=>{
-    if(!client||!userId||!feedEnabled)return
-    let active=true,loading=false
+    if(!client||!userId||!feedEnabled||preferencesEnabled===null)return
+    let active=true,loading=false,generation=0
     const refresh=async()=>{
       if(!active||loading||document.visibilityState==='hidden')return
-      loading=true
-      try { for(const event of await readConsoleFeed(client,userId,true)) if(active)append(event,true) }
+      loading=true;const request=++generation
+      try { for(const event of await readConsoleFeed(client,userId,true,preferencesEnabled)) if(active&&request===generation)append(event,true) }
       catch { /* PortalClient sends the actionable API error to the system channel. */ }
-      finally {loading=false}
+      finally {if(request===generation)loading=false}
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),30000)
     const focus=()=>void refresh()
-    const update=()=>void refresh()
+    const update=()=>{++generation;loading=false;void refresh()}
     window.addEventListener('focus',focus)
     window.addEventListener('visibilitychange',focus)
     window.addEventListener('freedom-world-facts-updated',update)
     window.addEventListener('freedom-profile-updated',focus)
-    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
-  },[client,userId,feedEnabled,append])
+    window.addEventListener('freedom-notification-preferences-updated',update)
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus);window.removeEventListener('freedom-notification-preferences-updated',update)}
+  },[client,userId,feedEnabled,append,preferencesEnabled])
 
   useEffect(() => {
     const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'page_error')}
@@ -190,7 +199,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
     {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={memberBlockingEnabled} preferencesEnabled={preferencesEnabled}/>
   </ConsoleContext.Provider>
 }
 
@@ -226,11 +235,30 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession} memberBlockingEnabled={memberBlockingEnabled}/>
 }
 
-function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean}) {
+function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled,preferencesEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean;preferencesEnabled:boolean|null}) {
   const {registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
   const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
-  const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>setChatUnread(value=>({...value,[channel]:count})),[])
+  const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>{if(preferencesEnabled===false||channel==='direct')setChatUnread(value=>({...value,[channel]:count}))},[preferencesEnabled])
+  useEffect(()=>{
+    if(!client||!enabled||preferencesEnabled!==true)return
+    let active=true,loading=false,generation=0
+    const refresh=async()=>{
+      if(!active||loading)return
+      loading=true;const request=++generation
+      try{
+        const counts=await client.get<{guild:number;squad:number;world:number}>('/me/notification-preferences/channel-reminders',{background:true})
+        if(active&&request===generation)setChatUnread(value=>({...value,guild:counts.guild,squad:counts.squad,world_chat:counts.world}))
+      }catch{if(active&&request===generation)setChatUnread(value=>({...value,guild:null,squad:null,world_chat:null}))}
+      finally{if(request===generation)loading=false}
+    }
+    const update=()=>{++generation;loading=false;void refresh()}
+    void refresh();const timer=window.setInterval(()=>void refresh(),30000)
+    window.addEventListener('freedom-notification-preferences-updated',update)
+    window.addEventListener('freedom-inbox-updated',update)
+    window.addEventListener('focus',update)
+    return()=>{active=false;++generation;window.clearInterval(timer);window.removeEventListener('freedom-notification-preferences-updated',update);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('focus',update)}
+  },[client,enabled,preferencesEnabled])
   const navigate=useCallback((id:TabId)=>{if(variant==='popout')window.open(`/#${id}`,'_blank','noopener');else window.location.hash=id},[variant])
   const isChat=['guild','squad','direct','world_chat'].includes(activeChannel)
   const availableChannels=GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id])
@@ -294,7 +322,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
     <div className="game-console-tabs" role="tablist" aria-label="訊息頻道" onKeyDown={tabKeys}>
       {availableChannels.map(channel => <button type="button" role="tab" id={`game-console-tab-${channel.id}`} key={channel.id} data-channel={channel.id}
         aria-selected={activeChannel === channel.id} aria-controls={['guild','squad','direct','world_chat'].includes(channel.id)?'game-console-chats':'game-console-history'} tabIndex={activeChannel === channel.id ? 0 : -1}
-        onClick={() => setActiveChannel(channel.id)}>{channel.label}{(chatUnread[channel.id]??unread[channel.id])! > 0 && <span className="game-console-unread" aria-label={`${chatUnread[channel.id]??unread[channel.id]} 則新訊息`}>{chatUnread[channel.id]??unread[channel.id]}</span>}</button>)}
+        onClick={() => setActiveChannel(channel.id)}>{channel.label}{preferencesEnabled!==false&&['guild','squad','world_chat'].includes(channel.id)&&chatUnread[channel.id]==null?<span className="game-console-unread" aria-label="提醒數未確認">?</span>:(chatUnread[channel.id]??unread[channel.id])! > 0 && <span className="game-console-unread" aria-label={`${chatUnread[channel.id]??unread[channel.id]} 則新訊息`}>{chatUnread[channel.id]??unread[channel.id]}</span>}</button>)}
     </div>
     <div hidden={isChat} ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}${showEventSource(event) ? ' has-source' : ''}`} data-channel={event.channel} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}>

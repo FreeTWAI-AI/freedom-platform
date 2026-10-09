@@ -974,7 +974,8 @@ Guild lifecycle是`draft→active↔degraded→archived`。`POST/PATCH /guilds`�
 | `POST /api/v1/execution-grants`、`POST /api/v1/execution-grants/{grantId}:mint-token`、`POST /api/v1/execution-grants/{grantId}:revoke` | 人類建立bounded A0–A3 grant；connection token依同一Connection/grant換短效execution token。A4永不成為standing grant |
 | `POST /api/v1/action-intents`、`POST /api/v1/action-intents/{actionIntentId}:sign`、`POST /api/v1/action-intents/{actionIntentId}:execute` | external effect先建冪等typed intent；execute重驗grant/lease/fence，A4綁exact artifact與consequence digest及human authority |
 | `POST /api/v1/draft-artifacts`、`GET /api/v1/draft-artifacts/{draftArtifactId}`、`POST /api/v1/draft-artifacts/{draftArtifactId}/revisions` | 建立／讀取／修訂非code platform-native PR；每個ID是一個immutable revision aggregate，以lineage_id串successors。修訂原子supersede path所指舊版並建立新ID，draft不直接套用 |
-| `GET /api/v1/me/notification-preferences`、`PATCH /api/v1/me/notification-preferences` | 依 category/destination 控制通知與 quiet hours |
+| `GET /api/v1/me/notification-preferences`、`PATCH /api/v1/me/notification-preferences` | 本人社群提醒方式、IANA quiet hours 與可存取頻道靜音；寫入須帶版本與冪等鍵。`FREEDOM_NOTIFICATION_PREFERENCES_ENABLED` 預設 OFF，關閉時在 auth 前回 404；不刪通知、不標已讀、不停用必要通知 |
+| `GET /api/v1/me/notification-preferences/summary`、`GET /api/v1/me/notification-preferences/channel-reminders` | 依已儲存偏好與當前存取權產生站內摘要／頻道提醒數。Email 摘要尚未交付，不訂閱、不假寄送；瀏覽器以獨立 `FREEDOM_E2E_NOTIFICATION_PREFERENCES=1` pass 驗證 |
 | `GET /api/v1/me/data-sharing-consents`、`PATCH /api/v1/me/data-sharing-consents` | 明確 purpose/scope 的授權與撤回；保留 audit |
 | `POST /api/v1/me/data-exports`、`GET /api/v1/me/data-exports/{id}` | 建立／取得本人 machine-readable export；短效單次下載，不同步打包大檔 |
 | `POST /api/v1/me:deactivate` | 冪等停用本人帳號、撤 session／user-owned grants，排程 owned Connection cleanup |
