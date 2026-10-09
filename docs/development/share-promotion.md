@@ -83,12 +83,12 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `GET /api/v1/promotion/leaderboards?period=` | 會員 | 六塊榜，`week`／`month`／`all` |
 | `GET /api/v1/social-posts` | 會員 | 同社群有效貼文，每頁 24；`kind=note/link`，外部平台篩選不混入原生貼文 |
 | `POST /api/v1/social-posts` | 會員 | 新增貼文，需 Idempotency-Key |
-| `POST /api/v1/social-posts/notes` | 會員 | `{text}`，1–2,000 字；不取外部預覽 |
+| `POST /api/v1/social-posts/notes` | 會員 | `{text, image?}`，1–2,000 字；不取外部預覽。`image` 是 `{mime_type, data_base64}`，PNG／JPEG／WebP 原檔 2 MB（2,097,152 bytes）以下，與文字同一個 command 發布；這條路由的 JSON 上限因此放寬到約 2.8 MB，其他 JSON 命令仍是 32 KiB |
 | `POST /api/v1/social-posts/:id/like` | 會員 | `{liked:boolean}`；設為讚／未讚，與推廣點擊分開 |
 | `GET /api/v1/social-posts/:id/comments` | 會員 | 同社群有效貼文的留言，每頁 24；`cursor` 依時間／ID 向後取 |
 | `POST /api/v1/social-posts/:id/comments` | 會員 | `{text}`，1–1,000 字；每日最多 100 則 |
 | `DELETE /api/v1/social-posts/:id/comments/:commentId` | 作者／平台管理員 | 軟刪除留言；公會職務不授予此管理權 |
-| `PUT /api/v1/social-posts/:id/thumbnail` | 作者 | PNG／JPEG／WebP，512 KiB 以下 |
+| `PUT /api/v1/social-posts/:id/thumbnail` | 作者 | 只限外部連結貼文換縮圖，PNG／JPEG／WebP，512 KiB 以下；原生貼文回 422 `social_note_image_fixed` |
 | `GET /api/v1/social-posts/:id/thumbnail` | 會員 | 有效貼文的縮圖 |
 | `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 只開放外部連結貼文；原生、隱藏或刪除為 404 |
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |
@@ -103,6 +103,8 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 2026-10-07 社群互動候選增加 `kind=link/note` 與 likes／comments，沿用同一張 posts 表、會員 session／CSRF／Origin／command receipt 及圖片管線。原生貼文沒有外部網址，`note` 保存純文字，`title` 由第一行產生，不取得公開 promotion link。創建 receipt 的重播也須當前貼文／留言有效；隱藏或刪除後不返回原文字。原生與外部發布共用交易內每日 budget lock，並行請求不能超額。
 
 此整合候選使用 `132_social_feed_interactions.sql`；原 #193 曾順延為 125，現在同步至 main `59cfe68c`（已占用至 131）後暫重編為 132，並同步 manifest、frontier、名稱登錄與 inventory。發布前須再核對當時編號，並非預占。不能改舊 migration 的 bytes。只實作會員 HTTP 路由，沒有擴充固定 preview SDK。詳見 [本輪盤點](social-platform-audit-2026-10-07.md)。
+
+2026-10-10 發文附圖（#387）使用 `145_social_note_image_creation.sql`，只放寬 `community_social_thumbnail_asset_targets.create_source` 接受 `upload`，不改任何舊 bytes。legacy 模式在同一交易寫入貼文與 640×360 WebP；Asset 模式沿用自動預覽的 reservation→上傳→finalize 流程（`create_source='upload'`），物件上傳失敗時不會留下貼文。貼文發布後不再提供「加入圖片／換圖片」，刪除改用站內對話框確認。
 
 資料表在 `migrations/066_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
