@@ -1664,8 +1664,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 55566,
-      "sha256": "4c5e77616326b010526b05ed14c5d644b6a15ffb000fbcb25da46680a6bbc147"
+      "bytes": 55568,
+      "sha256": "ec0ee8861c96b3b1d07eb124d313eeb55698c7d8adc03aa20c7d7318b330db12"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",

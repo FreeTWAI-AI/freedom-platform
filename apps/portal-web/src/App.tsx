@@ -396,7 +396,7 @@ function LoginView({
           onPasswordReset()
           return
         }
-        if(!session||'reset' in session)throw new Error('登入回應不完整')
+        if(!session||!('user' in session))throw new Error('登入回應不完整')
         if(!session?.user||!session.csrf_token)throw new Error('登入回應不完整')
         onPasswordReset(session)
         return
