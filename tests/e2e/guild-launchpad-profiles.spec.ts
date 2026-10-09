@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
+import {signOut} from './navigation.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
@@ -88,7 +89,7 @@ test('members see distinct purpose orders and their primary action focuses My Wo
   }
 });
 
-test('talent entry focuses the existing workspace, then starts and reopens the same direction card', async ({page, e2eAuthPool}) => {
+test('talent entry focuses the existing workspace, then saves and reopens the same direction card after fresh login', async ({page, e2eAuthPool}) => {
   const member = await person(e2eAuthPool), title = `入口方向卡 ${randomUUID()}`;
   await login(page, member.email); await open(page, talent);
   const work = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
@@ -110,12 +111,16 @@ test('talent entry focuses the existing workspace, then starts and reopens the s
   await expect(card.getByRole('button', {name: '儲存方向卡', exact: true})).toBeEnabled();
   const rows = (await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND title=$2', [created.tenant.tenant_id, title])).rows;
   expect(rows).toHaveLength(1);
-  await page.reload(); await open(page, talent);
+  const results = (await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows;
+  expect(results).toHaveLength(1);
+  await signOut(page); expect((await page.request.get('/api/v1/session')).status()).toBe(401);
+  await login(page, member.email); await open(page, talent);
   await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
   await work.getByRole('button', {name: title, exact: true}).click();
   await expect(work.getByRole('form', {name: '我的方向卡', exact: true})).toBeVisible();
   await expect(card.getByLabel('目前的情境', {exact: true})).toHaveValue('從公會入口選一個小活動');
   expect((await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND title=$2', [created.tenant.tenant_id, title])).rows).toEqual(rows);
+  expect((await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows).toEqual(results);
 });
 
 test('a leader publishes recommendations and the member primary action opens the existing launch flow', async ({page, browser, baseURL, e2eAuthPool}) => {
@@ -220,7 +225,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         document.documentElement.dataset.experienceProfile = value;
         window.dispatchEvent(new Event('freedom-theme-changed'));
       }, theme);
-      for (const width of [1280, 360, 768]) {
+      for (const width of [1440, 360, 768]) {
         await page.setViewportSize({width, height: 900});
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         const bounds = await primary(page).evaluate(card => ({
@@ -230,7 +235,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         for (const button of bounds.buttons) {
           expect(button.width).toBeLessThanOrEqual(bounds.width);
           expect(button.height).toBeGreaterThanOrEqual(44);
-          if (width === 1280) expect(button.width).toBeLessThan(bounds.width / 2);
+          if (width === 1440) expect(button.width).toBeLessThan(bounds.width / 2);
         }
         const myWorkBounds = await myWork.evaluate(block => ({
           width: block.getBoundingClientRect().width,
@@ -239,7 +244,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         expect(myWorkBounds.buttons.length).toBeGreaterThan(0);
         for (const button of myWorkBounds.buttons) {
           expect(button.width).toBeLessThanOrEqual(myWorkBounds.width);
-          if (width === 1280) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
+          if (width === 1440) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
         }
         await writeFile(testInfo.outputPath(`${profile.key}-${theme}-${width}-my-work-buttons.json`), JSON.stringify(myWorkBounds, null, 2));
         const colours = await recommendations(page).locator('.pill').first().evaluate(element => ({
