@@ -90,6 +90,8 @@ export type PlatformRuntime = {
   communityDiscoveryEnabled?: boolean;
   /** Management surface only; saved blocks continue protecting contact when false. */
   memberBlockingEnabled?: boolean;
+  /** Explicit release setting; reporting routes remain unavailable unless exactly true. */
+  memberReportingEnabled?: boolean;
   /** Explicit release setting for community content search. Absent or false leaves routes unregistered. */
   communitySearchEnabled?: boolean;
   /** Additive sharing navigation only; domain authorization remains authoritative. */

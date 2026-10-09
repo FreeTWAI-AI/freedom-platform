@@ -2,9 +2,9 @@
 // runs the ordinary Playwright suite first, then the private-AI spec with
 // FREEDOM_E2E_PRIVATE_AI_FIXTURE=1, then the shared-asset avatar spec with
 // FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1, then the direct-message image spec with
-// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1. Each extra pass is a new process and
-// schema. Explicit test filters and an already requested fixture stay one
-// Playwright invocation. The fixture flags are never set on the same pass.
+// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1, then member reporting with its release
+// flag enabled. Each extra pass is a new process and schema. Explicit test
+// filters and an already requested fixture stay one Playwright invocation.
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const PRIVATE_AI_SPEC = 'tests/e2e/private-work-ai.spec.ts';
 export const AVATAR_ASSET_SPEC = 'tests/e2e/member-avatar-asset.spec.ts';
 export const MESSAGE_IMAGE_SPEC = 'tests/e2e/message-images.spec.ts';
+export const MEMBER_REPORTING_SPEC = 'tests/e2e/member-reporting.spec.ts';
 
 const TAKES_VALUE = new Set([
   '--add-reporter', '--browser', '--config', '-c', '--global-timeout', '--grep', '-g',
@@ -68,12 +69,14 @@ function terminalFlag(argv) {
 
 export function planE2e(argv, env = {}) {
   const args = [...argv];
-  if (env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
+  if (explicitFileArgs(args).some(file => file.includes('member-reporting'))) return [{ args, env: { ...env, FREEDOM_MEMBER_REPORTING_ENABLED: 'true' } }];
+  if (env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_MEMBER_REPORTING_ENABLED === 'true' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
   return [
     { args, env },
     { args: [...args, PRIVATE_AI_SPEC], env: { ...env, FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' } },
     { args: [...args, AVATAR_ASSET_SPEC], env: { ...env, FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' } },
     { args: [...args, MESSAGE_IMAGE_SPEC], env: { ...env, FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' } },
+    { args: [...args, MEMBER_REPORTING_SPEC], env: { ...env, FREEDOM_MEMBER_REPORTING_ENABLED: 'true' } },
   ];
 }
 

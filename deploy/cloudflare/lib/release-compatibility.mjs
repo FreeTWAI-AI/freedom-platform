@@ -135,6 +135,7 @@ const FOUNDATION_NAMES = [
   '138_hosted_direct_reservations.sql',
   '139_member_message_images.sql',
   '140_storefront_presentation.sql',
+  '141_member_reports.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

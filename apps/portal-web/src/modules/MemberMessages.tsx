@@ -1,3 +1,4 @@
+import {ReportButton} from './MemberReporting';
 import {MemberBlockingAction} from './MemberBlocking';
 import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type FormEvent,type KeyboardEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
@@ -544,6 +545,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}
               {messageImagesEnabled===true&&message.image&&<DirectMessageImage peer={peer} messageId={message.message_id}/>}
               {!(messageImagesEnabled===true&&message.image&&message.body==='[圖片]')&&<ChatBody message={message}/>}
+              <ReportButton kind="direct_message" id={message.message_id} label="私人訊息"/>
               {thread.can_send&&<div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[peer])return;richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>}
             </li>;})}
           </ol>}

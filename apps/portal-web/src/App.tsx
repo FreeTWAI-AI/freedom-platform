@@ -26,6 +26,7 @@ import {PageTools} from './PageTools'
 import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
+import {AdminReports,MemberReportingProvider} from './modules/MemberReporting'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { CommunitySearch } from './modules/CommunitySearch'
@@ -300,6 +301,7 @@ function MemberApp() {
   }
 
   return (
+    <MemberReportingProvider key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} enabled={site?.member_reporting_enabled===true}>
     <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
@@ -314,9 +316,11 @@ function MemberApp() {
       onLoggedOut={() => leaveCurrentSession()}
       onSessionExpired={() => leaveCurrentSession('登入已過期，請重新登入。')}
     />
+    <AdminReports client={client}/>
     </DevelopmentAccessProvider></AuthorClaimProvider></GitHubSocialProvider>
     </>}
     </GameConsoleProvider>
+    </MemberReportingProvider>
   )
 }
 

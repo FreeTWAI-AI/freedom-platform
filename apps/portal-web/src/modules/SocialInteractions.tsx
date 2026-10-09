@@ -1,3 +1,4 @@
+import {ReportButton} from './MemberReporting';
 import {useEffect, useRef, useState, type FormEvent} from 'react';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -83,6 +84,7 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
     <div className="social-actions">
       <button type="button" className="btn btn-ghost" aria-pressed={post.liked ?? false} disabled={liking} onClick={() => void like()}>{liking ? '處理中…' : pendingLike.current ? '重試按讚' : post.liked ? '已讚' : '讚'} · {post.like_count ?? 0}</button>
       <button type="button" className="btn btn-ghost" aria-expanded={open} aria-controls={`social-comments-${post.post_id}`} onClick={() => { setOpen(!open); if (!open) void load(); else { ++sequence.current; setLoading(false); } }}>留言 · {post.comment_count ?? 0}</button>
+      <ReportButton kind="post" id={post.post_id} label="貼文"/>
     </div>
     {error && <p className="banner banner-error" role="alert">{error}</p>}
     {open && <section id={`social-comments-${post.post_id}`} className="social-comments stack" aria-label="貼文留言">
@@ -91,6 +93,7 @@ export function SocialInteractions({client, post, canHide, onUpdate}: {client: P
       {comments.map(comment => <article className="social-comment" key={comment.comment_id}>
         <div className="social-comment-meta"><strong>{comment.author.display_name}</strong><time dateTime={comment.created_at}>{formatIsoLocal(comment.created_at)}</time></div>
         <p className="multiline-text">{comment.body}</p>
+        <ReportButton kind="comment" id={comment.comment_id} label="留言"/>
         {(comment.mine || canHide) && <div className="social-actions">{confirmDelete === comment.comment_id ? <>
           <button type="button" className="btn btn-ghost" disabled={sending} onClick={() => void remove(comment)}>確定刪除留言</button><button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>取消</button>
         </> : <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(comment.comment_id)}>刪除留言</button>}</div>}

@@ -106,7 +106,7 @@ export async function saveAccount(pool:Pool,input:Command) {
   return accountView(pool,input.actor);
 }
 const pair=(a:string,b:string)=>[a,b].sort();
-async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
+export async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT user_id,display_name FROM users WHERE user_id=$1 AND community_id=$2 AND active AND (NOT onboarding_required OR onboarding_completed_at IS NOT NULL) AND ($1=$3 OR NOT is_verification_test_account(user_id)) ${lock?'FOR SHARE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;

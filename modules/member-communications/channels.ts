@@ -48,7 +48,7 @@ function room(rawKind:string,rawKey:string):Room{
  * Live eligibility from the locked user row, never the Actor snapshot; same as
  * service.ts. Commands already hold user and session, so they pass session=false.
  */
-async function currentMember(q:PoolClient,actor:Actor,session:boolean){
+export async function currentMember(q:PoolClient,actor:Actor,session:boolean){
   const user=(await q.query(`SELECT ${ready('u')} AS ready FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active FOR SHARE`,[actor.user_id,actor.community_id])).rows[0];
   requireCondition(user,401,'session_expired','請重新登入。');
   if(session)requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',
@@ -85,7 +85,7 @@ const squadLock=(squadId:string,userId:string)=>`squad-membership/${squadId}/${u
 const advisory=(q:PoolClient,name:string)=>q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[name]);
 
 /** Locks and returns the viewer's active membership of one room, else 404. */
-async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channel>{
+export async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channel>{
   if(kind==='world')return {kind,channel_key:'world',name:'世界聊天'};
   let row:{name:string}|undefined;
   if(kind==='guild'){

@@ -13,7 +13,7 @@ import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
 import { taipeiDayStart } from './promotion.js';
 import type { LinkPreview } from './link-preview.js';
-import { canHideMemberContent as canHideSocialPosts } from './moderation.js';
+import { canHideMemberContent as canHideSocialPosts, moderateSocialContent, requireMemberContentAdmin } from './moderation.js';
 export { canHideSocialPosts };
 
 export class SocialPostExists extends Error {
@@ -253,13 +253,11 @@ export async function deleteSocialPost(pool: Pool, inputCommand: Command, id: st
 
 export async function hideSocialPost(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
   z.object({}).strict().parse(inputCommand.body ?? {});
-  return command(pool, inputCommand, async () => { requireCondition(await canHideSocialPosts(pool, inputCommand.actor), 403, 'social_post_admin_required', '只有平台管理員能隱藏貼文。'); }, async q => {
-    requireCondition(await canHideSocialPosts(pool, inputCommand.actor), 403, 'social_post_admin_required', '只有平台管理員能隱藏貼文。');
-    const row = (await q.query(`SELECT post_id,state FROM community_social_posts WHERE post_id=$1 AND community_id=$2 FOR UPDATE`, [id, inputCommand.actor.community_id])).rows[0];
-    requireCondition(row && row.state !== 'deleted', 404, 'not_found', '找不到這則貼文。');
-    if (row.state !== 'hidden') await q.query(`UPDATE community_social_posts SET state='hidden',updated_at=$2 WHERE post_id=$1`, [id, now]);
+  const authorize=(q:PoolClient)=>requireMemberContentAdmin(q,inputCommand.actor);
+  return command(pool, inputCommand, authorize, async q => {
+    await moderateSocialContent(q,inputCommand.actor,'post',id,'hide',now);
     return { post_id: id, state: 'hidden' as const };
-  });
+  },authorize);
 }
 
 export async function saveSocialThumbnail(pool: Pool, inputCommand: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date(),assets?:SocialThumbnailAssetService) {

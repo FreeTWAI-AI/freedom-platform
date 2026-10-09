@@ -3,6 +3,8 @@
   "module_id": "member-communications",
   "owner_role": "foundation",
   "owned_paths": [
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/service.ts",
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts",
     "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -15,6 +17,8 @@
     "docs/development/member-communications.md"
   ],
   "public_exports": [
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/service.ts",
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts"
   ],

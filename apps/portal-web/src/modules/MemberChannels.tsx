@@ -1,3 +1,4 @@
+import {ReportButton} from './MemberReporting';
 import {useEffect,useLayoutEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -404,6 +405,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':message.sender_name} · <ChatTime value={message.created_at}/>{mine?' · 已送出':''}</p>
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
+              <ReportButton kind="channel_message" id={message.message_id} label="頻道訊息"/>
               <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[selected.key])return;richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
             </li>;})}
           </ol>}
