@@ -61,9 +61,11 @@ export async function updateProduct(pool: Pool, actor: Actor, tenantId: string, 
     const next = ProductViewSchema.parse({ ...old, ...input, version: String(BigInt(old.version) + 1n) });
     const stock = (await q.query<{ reserved: number }>('SELECT reserved FROM commerce_items WHERE item_id=$1 FOR UPDATE', [productId])).rows[0];
     requireCondition(stock && next.stock >= stock.reserved, 409, 'stock_below_reserved', '庫存不能低於已保留的數量。');
-    await q.query(`UPDATE commerce_items i SET title=$4,description=$5,price_minor=$6,stock=$7
+    // Retail pricing belongs to the selection. Editing it must not overwrite
+    // the supplier's cost on the single inventory item.
+    await q.query(`UPDATE commerce_items i SET title=$4,description=$5,stock=$6
       FROM commerce_resource_tenants m WHERE m.resource_id=i.shop_id AND m.tenant_id=$1 AND m.instance_id=$2 AND i.item_id=$3`,
-    [tenantId, instanceId, productId, next.title, next.description, next.price_minor, next.stock]);
+    [tenantId, instanceId, productId, next.title, next.description, next.stock]);
     await q.query(`UPDATE commerce_selections l SET retail_price_minor=$4,snapshot=$5,aggregate_version=l.aggregate_version+1
       FROM commerce_resource_tenants m WHERE m.resource_id=l.shop_id AND m.tenant_id=$1 AND m.instance_id=$2 AND l.item_id=$3`,
     [tenantId, instanceId, productId, next.price_minor, productSnapshot(next)]);
