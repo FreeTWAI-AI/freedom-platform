@@ -549,8 +549,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/opensource.ts",
-      "bytes": 2486,
-      "sha256": "83b9f079018f568a328ed938eb68174780c3b425269ad6df3295c63f82cfe727"
+      "bytes": 3206,
+      "sha256": "1b3ddb2b9c2d32f6e6eb4125a807960a3d685e419e7a5ac648a9451129fed52b"
     },
     {
       "path": "apps/platform-api/src/routes/positioning.ts",
@@ -17704,8 +17704,8 @@
     },
     {
       "path": "modules/skill-submissions/freedom.module.json",
-      "bytes": 4335,
-      "sha256": "624937b42dd42c63998cc74eabe9e12a342267aca08f9c8358bab8967233a9d4"
+      "bytes": 4994,
+      "sha256": "1d2e5ee416d0389fb998ed9f3d162e249a2446e142d54fad1dd96119d3e55c9c"
     },
     {
       "path": "modules/skill-submissions/limits.ts",
@@ -17716,6 +17716,11 @@
       "path": "modules/skill-submissions/payload.ts",
       "bytes": 11580,
       "sha256": "04ee7ec7269f43dc2191a1708a099a805fa296e083f509be3dcb50517800bb62"
+    },
+    {
+      "path": "modules/skill-submissions/project-books.ts",
+      "bytes": 3412,
+      "sha256": "db488e4a076de9bb2590263360d8efcc99822bc2061978e4ebf0201d5c5c8981"
     },
     {
       "path": "modules/skill-submissions/public.ts",
@@ -17729,8 +17734,8 @@
     },
     {
       "path": "modules/skill-submissions/service.ts",
-      "bytes": 33511,
-      "sha256": "98d126b49a0c0b49f6ba33a85f3a453e90a1d5ffa04ca8594fccbd3ab5cb35d5"
+      "bytes": 37492,
+      "sha256": "cbb0e9303ae415dc6455465e5314e9807e51eee6454a84dd9cc1afcd90d6a59c"
     },
     {
       "path": "modules/skill-submissions/upload-authority.ts",
@@ -21136,6 +21141,11 @@
       "path": "tests/runtime/opensource-marketing.test.ts",
       "bytes": 17797,
       "sha256": "ec4f0b646df6762180e4a01d2907cdbd73239541d70b23327e014bf4d2f34aad"
+    },
+    {
+      "path": "tests/runtime/opensource-skill-books.test.ts",
+      "bytes": 20742,
+      "sha256": "051e8e2dd42f1cda4ff4cb119b77751060e4d39441f145d4de75ab242203085c"
     },
     {
       "path": "tests/runtime/operator-avatar-backfill.test.ts",

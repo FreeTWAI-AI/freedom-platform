@@ -14,6 +14,7 @@
     "apps/platform-api/src/routes/published-skills.ts",
     "apps/platform-api/src/routes/opensource.ts",
     "apps/portal-web/src/modules/OpenSourcePanels.tsx",
+    "apps/portal-web/src/modules/SkillPublication.tsx",
     "apps/portal-web/src/modules/SkillUpload.tsx",
     "apps/portal-web/src/modules/SkillUpload.css",
     "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
