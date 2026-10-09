@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Pool, PoolClient } from 'pg';
-import { command,checkVersion,digest,journal,type Command } from '../../packages/db/index.js';
+import { command,checkVersion,digest,journal,transaction,type Command } from '../../packages/db/index.js';
+import { lockMemberSession,assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { text,opaqueRef,money,currency,isoTime } from '../../packages/shared/validation.js';
 import type { Actor } from '../identity-membership/service.js';
 import { externalLink } from '../opensource-marketing/github.js';
 
 export const showcaseInput=z.object({title:text(120),description:text(2000),artifact_ref:opaqueRef.optional(),public_url:externalLink.nullable().default(null),consent_to_share:z.literal(true)}).strict();
+export const showcaseDraftInput=showcaseInput.omit({consent_to_share:true});
 export const opportunityInput=z.object({showcase_id:z.uuid(),need:text(2000)}).strict();
 export const engagementInput=z.object({scope:text(3000),acceptance_criteria:text(2000),amount_minor:money,currency}).strict();
 export const receiptInput=z.object({amount_minor:money,currency,evidence_ref:opaqueRef,received_at:isoTime}).strict();
@@ -15,7 +17,7 @@ const termsInput=z.object({terms_sha256:z.string().regex(/^[a-f0-9]{64}$/)}).str
 
 export async function listShowcases(pool:Pool,actor:Actor) {
   return (await pool.query(`SELECT s.*,u.display_name AS owner_name FROM showcases s JOIN users u ON u.user_id=s.owner_ref
-    WHERE s.community_id=$1 AND (s.owner_ref=$2 OR NOT is_verification_test_account(s.owner_ref)) ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id,actor.user_id])).rows;
+    WHERE s.community_id=$1 AND s.status='published' AND (s.owner_ref=$2 OR NOT is_verification_test_account(s.owner_ref)) ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id,actor.user_id])).rows;
 }
 export async function createShowcase(pool:Pool,input:Command) {
   const body=showcaseInput.parse(input.body);
@@ -27,8 +29,74 @@ export async function createShowcase(pool:Pool,input:Command) {
     return {...row,owner_name:input.actor.display_name};
   });
 }
+
+async function ownedShowcase(q:Pick<Pool,'query'>,actor:Actor,id:string,lock=false) {
+  requireCondition(z.uuid().safeParse(id).success,404,'not_found','找不到這件作品。');
+  const row=(await q.query(`SELECT * FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND owner_ref=$3${lock?' FOR UPDATE':''}`,[id,actor.community_id,actor.user_id])).rows[0];
+  requireCondition(row,404,'not_found','找不到這件作品。');return row;
+}
+export async function listOwnShowcases(pool:Pool,actor:Actor) {
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    const result=(await q.query(`SELECT s.*,u.display_name AS owner_name FROM showcases s JOIN users u ON u.user_id=s.owner_ref
+      WHERE s.community_id=$1 AND s.owner_ref=$2 ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id,actor.user_id])).rows;
+    await assertCurrentSessionClock(q,actor);
+    return result;
+  });
+}
+export async function readOwnShowcase(pool:Pool,actor:Actor,id:string) {
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    const result={...await ownedShowcase(q,actor,id),owner_name:actor.display_name};
+    await assertCurrentSessionClock(q,actor);
+    return result;
+  });
+}
+export async function createShowcaseDraft(pool:Pool,input:Command) {
+  const body=showcaseDraftInput.parse(input.body);
+  return command(pool,input,async()=>{},async q=>{
+    const artifact=body.artifact_ref??`artifact:${randomUUID()}`;
+    const row=(await q.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,public_url,status,visibility,consent_recorded_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,'draft','private',NULL) RETURNING *`,[randomUUID(),input.actor.community_id,input.actor.user_id,body.title,body.description,artifact,body.public_url])).rows[0];
+    await journal(q,input.actor,'showcase',row.showcase_id,row.aggregate_version,'save_draft');
+    return {...row,owner_name:input.actor.display_name};
+  });
+}
+export async function updateOwnShowcase(pool:Pool,input:Command,id:string) {
+  const body=showcaseDraftInput.parse(input.body);
+  return command(pool,input,q=>ownedShowcase(q,input.actor,id),async q=>{
+    const current=await ownedShowcase(q,input.actor,id,true);checkVersion(String(current.aggregate_version),input.expected);
+    requireCondition(current.status==='draft'||current.status==='withdrawn',409,'showcase_not_editable','請先撤回已發佈的作品，再修改草稿。');
+    const row=(await q.query(`UPDATE showcases SET title=$2,description=$3,artifact_ref=$4,public_url=$5,status='draft',visibility='private',
+      aggregate_version=aggregate_version+1,updated_at=now() WHERE showcase_id=$1 RETURNING *`,[id,body.title,body.description,body.artifact_ref??current.artifact_ref,body.public_url])).rows[0];
+    await journal(q,input.actor,'showcase',id,row.aggregate_version,'save_draft');
+    return {...row,owner_name:input.actor.display_name};
+  });
+}
+export async function publishOwnShowcase(pool:Pool,input:Command,id:string) {
+  z.object({consent_to_share:z.literal(true)}).strict().parse(input.body);
+  return command(pool,input,q=>ownedShowcase(q,input.actor,id),async q=>{
+    const current=await ownedShowcase(q,input.actor,id,true);checkVersion(String(current.aggregate_version),input.expected);
+    requireCondition(current.status==='draft'||current.status==='withdrawn',409,'showcase_already_published','這件作品已發佈，請重新整理。');
+    const row=(await q.query(`UPDATE showcases SET status='published',visibility='community',consent_recorded_at=now(),
+      aggregate_version=aggregate_version+1,updated_at=now() WHERE showcase_id=$1 RETURNING *`,[id])).rows[0];
+    await journal(q,input.actor,'showcase',id,row.aggregate_version,'share_with_community',{artifact_ref:row.artifact_ref});
+    return {...row,owner_name:input.actor.display_name};
+  });
+}
+export async function withdrawOwnShowcase(pool:Pool,input:Command,id:string) {
+  z.object({}).strict().parse(input.body);
+  return command(pool,input,q=>ownedShowcase(q,input.actor,id),async q=>{
+    const current=await ownedShowcase(q,input.actor,id,true);checkVersion(String(current.aggregate_version),input.expected);
+    requireCondition(current.status!=='withdrawn',409,'showcase_withdrawn','這件作品已撤回，請重新整理。');
+    const row=(await q.query(`UPDATE showcases SET status='withdrawn',visibility='private',aggregate_version=aggregate_version+1,
+      updated_at=now() WHERE showcase_id=$1 RETURNING *`,[id])).rows[0];
+    await journal(q,input.actor,'showcase',id,row.aggregate_version,'withdraw');
+    return {...row,owner_name:input.actor.display_name};
+  });
+}
 async function visibleShowcase(q:PoolClient,actor:Actor,id:string) {
-  const row=(await q.query('SELECT * FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND (owner_ref=$3 OR NOT is_verification_test_account(owner_ref))',[id,actor.community_id,actor.user_id])).rows[0];
+  const row=(await q.query("SELECT * FROM showcases WHERE showcase_id=$1 AND community_id=$2 AND status='published' AND (owner_ref=$3 OR NOT is_verification_test_account(owner_ref)) FOR SHARE",[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'not_found','找不到這件作品。');return row;
 }
 export async function createOpportunity(pool:Pool,input:Command) {
@@ -36,14 +104,14 @@ export async function createOpportunity(pool:Pool,input:Command) {
   return command(pool,input,q=>visibleShowcase(q,input.actor,body.showcase_id),async q=>{
     const showcase=await visibleShowcase(q,input.actor,body.showcase_id);
     requireCondition(showcase.owner_ref!==input.actor.user_id,403,'self_opportunity','請向另一位成員的作品提出合作需求。');
-    const row=(await q.query(`INSERT INTO opportunities(opportunity_id,community_id,showcase_id,provider_ref,client_ref,need)
-      VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[randomUUID(),input.actor.community_id,showcase.showcase_id,showcase.owner_ref,input.actor.user_id,body.need])).rows[0];
+    const row=(await q.query(`INSERT INTO opportunities(opportunity_id,community_id,showcase_id,provider_ref,client_ref,need,showcase_title)
+      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[randomUUID(),input.actor.community_id,showcase.showcase_id,showcase.owner_ref,input.actor.user_id,body.need,showcase.title])).rows[0];
     await journal(q,input.actor,'opportunity',row.opportunity_id,1,'raise_need',{showcase_id:showcase.showcase_id});return row;
   });
 }
 export async function listOpportunities(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT o.*,s.title AS showcase_title,p.display_name AS provider_name,c.display_name AS client_name
-    FROM opportunities o JOIN showcases s USING(showcase_id) JOIN users p ON p.user_id=o.provider_ref JOIN users c ON c.user_id=o.client_ref
+  return (await pool.query(`SELECT o.*,p.display_name AS provider_name,c.display_name AS client_name
+    FROM opportunities o JOIN users p ON p.user_id=o.provider_ref JOIN users c ON c.user_id=o.client_ref
     WHERE o.community_id=$1 AND ($2=o.provider_ref OR $2=o.client_ref) ORDER BY o.created_at DESC`,[actor.community_id,actor.user_id])).rows;
 }
 async function scopedOpportunity(q:PoolClient,actor:Actor,id:string,lock=false) {

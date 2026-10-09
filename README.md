@@ -48,6 +48,10 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 #260 的[公開內容盤點及營運交接](docs/development/community-curation-handoff.md)保留 2026-10-08 的具日期觀察與原作者來源，不新增 CMS、不搬運私人內容或把合成互動當成真人回饋。正式新精選、作者同意、志工接待及營運更新仍未完成，不由文件或開源軟體授權推定。
 
+本分支的 #254「我的內容」直接聚合本人作品、開源投稿、活動與外部分享動態的原始狀態，不另建發布核心。一般作品可先存私人草稿、重新登入續寫，再本人確認分享給本社群會員；既有直接分享仍保留，外部連結不代表平台作品公開可索引。作品撤下後才可改寫，搜尋／書籤即時遵循原來源；既有合作需求保留當時已分享的作品標題，避免後續私人改稿外洩。投稿與活動沿用原編輯、公開、撤回及審核權限，推薦連結活動頁可公開閱讀、報名才需推薦連結。新入口及分享選單的「我的內容」需 `FREEDOM_PERSONAL_CONTENT_ENABLED=true`（預設關閉）及 migration 142；私人介面以會員及登入世代隔離，登出後的延遲回應不得帶入下一個工作階段。#193 原生草稿不在本案範圍，本機驗證不授予部署或啟用權。
+
+此候選堆疊在 #318，須先合併 #318；其 SQL 原樣改名為 `141_community_content_relations.sql`，本案使用 `142_personal_content.sql`，接續主線 140，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

@@ -12,6 +12,8 @@
 .work-sharing-success a { overflow-wrap: anywhere; }
 .work-sharing-form .actions { flex-wrap: wrap; }
 .work-sharing-form .field-hint { font-size: 14px; }
+.personal-content .btn-secondary { width: fit-content; max-width: 100%; min-height: 44px; padding: 8px 14px; color: var(--ink); background: var(--bg-elev); border: 1px solid var(--line); }
+.personal-content .btn-secondary:hover:not(:disabled), .personal-content .btn-secondary:focus-visible { color: var(--ink); background: var(--bg-elev); border-color: var(--focus); }
 @media (max-width: 480px) {
   .work-sharing-entry { gap: 6px; }
   .work-sharing-entry a { flex: 1; justify-content: center; padding-inline: 10px; }
