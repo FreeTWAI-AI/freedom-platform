@@ -25,6 +25,7 @@
     "tests/runtime/operator-avatar-backfill.test.ts",
     "tests/integration/media-backup-restore.test.ts",
     "tests/integration/helpers/media-restore-fixtures.ts",
+    "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
     "scripts/media-backup-daily.ts",
     "scripts/media-backup-retention.ts",
     "tests/runtime/media-backup-daily.test.ts",
