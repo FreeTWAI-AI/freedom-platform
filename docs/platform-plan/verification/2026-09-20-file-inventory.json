@@ -12458,6 +12458,16 @@
       "sha256": "53da89cc0b83b5108e0e464d07fb8701464eb56fbbb558b872a60e506a9c8e16"
     },
     {
+      "path": "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
+      "bytes": 6536,
+      "sha256": "4c139b4f3040b6a49c85124950ff5285080d3bc75d71230dd2f661efa5a1ccf6"
+    },
+    {
+      "path": "contracts/guild-launchpad/v1/hosted-store-media.ts",
+      "bytes": 2893,
+      "sha256": "a514597aeea9b08ec1f8ac9677c8f73b8b6bedf54d5cd8384cdd7219b54e83b3"
+    },
+    {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
       "bytes": 5979,
       "sha256": "953c43775b8d6dfc2199051d2ebbb2dbe8e74bf416a3ccf77fc7cab869bc6663"
@@ -16144,8 +16154,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 7235,
-      "sha256": "0be7648f7e925ab1311268562755673b17ca0837c6423fa3f2c64678d4a9447c"
+      "bytes": 7418,
+      "sha256": "cbf0c51551ffc8d416047e8b6672b37c90c5ea5e53129ee6815c57ad9e900566"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -16211,6 +16221,16 @@
       "path": "modules/agent-commerce/hosted/format.ts",
       "bytes": 850,
       "sha256": "872e99fbc12d4dd896a7b24003d5ffbd3b31337e2c46491c37b053d7bb4d5f62"
+    },
+    {
+      "path": "modules/agent-commerce/hosted/media-contract.md",
+      "bytes": 6318,
+      "sha256": "609bfde88ef0b16edd075c55280ed5f7905021ffd573cccfef3e22471b558de2"
+    },
+    {
+      "path": "modules/agent-commerce/hosted/media.ts",
+      "bytes": 6023,
+      "sha256": "f790132d19bdd437fc05951a6ee8b85897d3f1ca047ecf28bc5fcad3220fb95e"
     },
     {
       "path": "modules/agent-commerce/hosted/page.ts",
@@ -17189,8 +17209,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 12308,
-      "sha256": "b01262d2cd0713aafeae392a69965b73b8ba7715668ad0c40cf31fc5de2693b8"
+      "bytes": 13090,
+      "sha256": "b2bf22d21c7d25e5d9787ca774cfeca550238687ebbf9b0e2b40e2a4a1bf8575"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -20636,6 +20656,11 @@
       "path": "tests/runtime/hosted-store-isolation.test.ts",
       "bytes": 9074,
       "sha256": "d05093a451f9f20c9b423b14d89848158d96746183562c0fdd6779e0ddfe9c11"
+    },
+    {
+      "path": "tests/runtime/hosted-store-media-contracts.test.ts",
+      "bytes": 8407,
+      "sha256": "3d623d0e99b52f812178d343583edb380fd0a8cc46bf1fdf6e2cc96633e1cfc3"
     },
     {
       "path": "tests/runtime/hosted-store-offering.test.ts",

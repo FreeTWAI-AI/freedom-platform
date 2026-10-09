@@ -45,7 +45,10 @@
     "contracts/guild-launchpad/v1/storefront-presentation.ts",
     "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
     "migrations/140_storefront_presentation.sql",
-    "tests/runtime/storefront-presentation-contracts.test.ts"
+    "tests/runtime/storefront-presentation-contracts.test.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
+    "tests/runtime/hosted-store-media-contracts.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
