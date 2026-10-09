@@ -51,6 +51,22 @@ mutation body or creating, replacing or revoking sessions.
   with the same session cookie/lifetime as login; the session cookie already sent
   by this browser is also revoked, as on login. Invalid, expired and inactive
   proofs are rejected. See [password-recovery.md](password-recovery.md).
+- `POST /me/account/email-verification/request`: `{}`; authenticated member with
+  CSRF, including before onboarding completion. The account page exposes send/resend.
+  Uses the existing transactional `eventEmailSender` adapter (Worker `EMAIL`
+  binding; Node injection), with a verification-specific subject/body. Missing
+  configuration returns 503 `email_verification_unavailable`; delivery failure
+  returns 503 `email_verification_send_failed` and removes that proof.
+  Persistent budgets: 3/member/hour, 12/network/hour, 500/global/hour.
+- `POST /auth/email-verification/confirm`: `{token}`; same-origin JSON request,
+  no login required. The mail link `/#verify-email/<token>` opens a confirmation
+  page. A 30-minute, hashed, single-use proof marks only the issued login email
+  verified; changed email, inactive user, expired/reused proof return 422
+  `email_verification_link_invalid`. Successful confirmation consumes all
+  outstanding verification proofs for that user, without logging in or changing
+  passwords/sessions. Confirmation budgets: 30/network/hour, 500/global/hour.
+  Apply migration `143_email_verification.sql` before using these routes; no
+  deployment or mail-provider availability is implied by this implementation.
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**

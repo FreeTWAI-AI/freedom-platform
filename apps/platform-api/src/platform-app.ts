@@ -30,6 +30,7 @@ import { createMemberRoutes } from './routes/members.js';
 import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './routes/avatars.js';
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
 import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
+import { requestEmailVerification,confirmEmailVerification } from '../../../modules/identity-membership/email-verification.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
 import {publicDiscovery,discoveryReadAllowed} from '../../../modules/community/public-discovery.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
@@ -79,6 +80,7 @@ function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/notifications'&&method==='GET')return true;
   if(method==='POST'&&/^\/api\/v1\/me\/notifications\/[0-9a-f-]+\/read$/.test(path))return true;
   if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account')return true;
+  if(path==='/api/v1/me/account/email-verification/request'&&method==='POST')return true;
   if(method==='GET'&&['/api/v1/assessment-definition','/api/v1/career-tracks','/api/v1/guilds','/api/v1/me/skill-books','/api/v1/me/guild-preferences','/api/v1/guilds/directory','/api/v1/events','/api/v1/task-board/preview'].includes(path))return true;
   if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete|quick-start))?$/.test(path))return true;
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
@@ -386,6 +388,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });
+  app.post('/api/v1/auth/email-verification/confirm',async c=>{
+    const body=z.object({token:z.string().max(100)}).strict().parse(await c.req.json());
+    await authRateLimit(pool,'email-verification-confirm-network',authNetwork(c),30,3600);
+    await authRateLimit(pool,'email-verification-confirm-global','global',500,3600);
+    return c.json(await confirmEmailVerification(pool,body.token));
+  });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
@@ -396,6 +404,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
   app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  app.post('/api/v1/me/account/email-verification/request',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_verification_unavailable','驗證信郵件服務尚未設定完成。');
+    z.object({}).strict().parse(await c.req.json());
+    await authRateLimit(pool,'email-verification-network',authNetwork(c),12,3600);
+    await authRateLimit(pool,'email-verification-global','global',500,3600);
+    return c.json(await requestEmailVerification(pool,c.get('actor'),origin,runtime.eventEmailSender));
+  });
   app.route('/api/v1', createHostedOrderRoutes(pool, { discoveryInstalled: runtime.guildLaunchpadEnabled === true, admissionEnabled: runtime.hostedReservationsEnabled === true, cursors: runtime.tenantListCursors }));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;

@@ -135,6 +135,9 @@ const FOUNDATION_NAMES = [
   '138_hosted_direct_reservations.sql',
   '139_member_message_images.sql',
   '140_storefront_presentation.sql',
+  null, // 141 and 142 are reserved by parallel feature PRs, not in this catalog.
+  null,
+  '143_email_verification.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
@@ -206,7 +209,7 @@ function ledger(value, digest) {
   for (const row of value) {
     exact(row, ['name', 'sha256']); text(row.name, /^[0-9]{3}_[a-z0-9_]+\.sql$/); text(row.sha256, HEX64, 64);
     const number = Number(row.name.slice(0, 3));
-    if (number !== previous + (previous === 21 ? 2 : 1)) reject('schema_ledger_invalid');
+    if (number !== previous + (previous === 21 ? 2 : previous === 140 ? 3 : 1)) reject('schema_ledger_invalid');
     if (number >= 76 && FOUNDATION_NAMES[number - 76] !== row.name) reject('schema_unknown');
     previous = number;
   }
@@ -255,7 +258,7 @@ function validateMixed(value, digest) {
   let previous = 0;
   for (const row of legacy) {
     const number = Number(row.name.slice(0, 3));
-    if (number !== previous + (previous === 21 ? 2 : 1)) reject('schema_ledger_invalid');
+    if (number !== previous + (previous === 21 ? 2 : previous === 140 ? 3 : 1)) reject('schema_ledger_invalid');
     if (number >= 76 && FOUNDATION_NAMES[number - 76] !== row.name) reject('schema_unknown');
     previous = number;
   }
