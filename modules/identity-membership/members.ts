@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { command,checkVersion,journal,transaction,type Command } from '../../packages/db/index.js';
 import { requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync,SESSION_LIFETIME_SECONDS,tokenHash,type Actor } from './service.js';
-import { memberPositioningSummary } from '../positioning/onboarding.js';
+import { memberPositioningSummaries } from '../positioning/onboarding.js';
 import { ensureRegisteredPreferenceSet } from '../positioning/guild-categories.js';
 import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
@@ -112,7 +112,12 @@ async function visibleMember(q:Pool|PoolClient,actor:Actor,id:string,lock=false)
   requireCondition(row,404,'member_not_found','找不到這位會員。');return row;
 }
 export async function memberCard(pool:Pool,actor:Actor,id:string) {
-  id=z.uuid().parse(id).toLowerCase();const isSelf=id===actor.user_id,[low,high]=pair(id,actor.user_id);
+  const cards=await memberCards(pool,actor,[id]);
+  requireCondition(cards[0],404,'member_not_found','找不到這位會員。');return cards[0];
+}
+export async function memberCards(pool:Pool,actor:Actor,ids:string[]) {
+  ids=ids.map(id=>z.uuid().parse(id).toLowerCase());
+  if(!ids.length)return [];
   // Contact values and their audience predicates must share ONE database snapshot.
   // Split reads can combine an old friendship with a newly changed private value.
   const [projection,positioning]=await Promise.all([
@@ -120,24 +125,25 @@ export async function memberCard(pool:Pool,actor:Actor,id:string) {
       (SELECT max(coalesce(s.last_seen_at,s.created_at)) FROM sessions s WHERE s.user_id=u.user_id) AS last_seen_at,
       EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.user_id AND s.revoked_at IS NULL AND s.expires_at>now()
         AND s.last_seen_at>now()-interval '2 minutes') AS is_online,
-      (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=$2 AND f.high_ref=$3) AS friendship,
-      EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS guild,
-      EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$4 AND b.user_id=$5 AND a.state='active' AND b.state='active') AS squad
+      (SELECT jsonb_build_object('state',f.state,'requester_ref',f.requester_ref,'aggregate_version',f.aggregate_version) FROM member_friendships f WHERE f.community_id=$1 AND f.low_ref=least(u.user_id,$2::uuid) AND f.high_ref=greatest(u.user_id,$2::uuid)) AS friendship,
+      EXISTS(SELECT 1 FROM positioning_profession_memberships a JOIN positioning_profession_memberships b USING(community_id,guild_key) WHERE a.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS guild,
+      EXISTS(SELECT 1 FROM member_squad_memberships a JOIN member_squad_memberships b USING(squad_id) JOIN member_squads s USING(squad_id) WHERE s.community_id=$1 AND a.user_id=$2 AND b.user_id=u.user_id AND a.state='active' AND b.state='active') AS squad
       FROM users u LEFT JOIN member_accounts account ON account.user_id=u.user_id AND account.community_id=u.community_id
       LEFT JOIN member_avatar_presence avatar ON avatar.user_id=u.user_id AND avatar.community_id=u.community_id
-      WHERE u.user_id=$5 AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND ($5=$4 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,low,high,actor.user_id,id]),
-    memberPositioningSummary(pool,actor.community_id,id),
+      WHERE u.user_id=ANY($3::uuid[]) AND u.community_id=$1 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (u.user_id=$2 OR NOT is_verification_test_account(u.user_id))`,[actor.community_id,actor.user_id,ids]),
+    memberPositioningSummaries(pool,actor.community_id,ids),
   ]);
-  const relation=projection.rows[0];requireCondition(relation,404,'member_not_found','找不到這位會員。');
-  const contacts:Record<string,string>={};
+  const tiers=ids.includes(actor.user_id)?(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,actor.user_id])).rows:undefined;
+  const cards=new Map(projection.rows.map(relation=>{
+  const id=relation.user_id,isSelf=id===actor.user_id,contacts:Record<string,string>={};
   for(const [key,field] of Object.entries(normalizedContacts(relation.contacts,relation.email))) {
     const audience=field.audiences;
     if(field.value&&(isSelf||audience.includes('public')||audience.includes('friends')&&relation.friendship?.state==='accepted'||audience.includes('guild')&&relation.guild||audience.includes('squad')&&relation.squad))contacts[key]=field.value;
   }
-  const card={user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_seen_at:relation.last_seen_at?new Date(relation.last_seen_at).toISOString():null,is_online:relation.is_online,...positioning,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
-  if(!isSelf)return card;
-  const tiers=(await pool.query("SELECT guild_key,member_tier FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND state='active' ORDER BY guild_key",[actor.community_id,id])).rows;
-  return {...card,member_tiers:tiers};
+  const card={user_id:id,nickname:relation.display_name,identity_label:relation.identity_label??null,joined_at:relation.created_at?new Date(relation.created_at).toISOString():null,joined_at_source:relation.created_at_source,last_seen_at:relation.last_seen_at?new Date(relation.last_seen_at).toISOString():null,is_online:relation.is_online,...positioning.get(id)!,avatar_url:avatarUrl(id,relation.avatar_version,relation.avatar_present),contacts,is_self:isSelf,friendship:relation.friendship??{state:'none'}};
+  return [id,isSelf?{...card,member_tiers:tiers}:card] as const;
+  }));
+  return ids.flatMap(id=>{const card=cards.get(id);return card?[card]:[];});
 }
 export const MemberDirectoryQuery=z.object({
  limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0),
