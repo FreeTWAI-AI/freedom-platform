@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-08T20:08:33.678128+00:00",
+  "recorded_at": "2026-10-09T16:52:54.243571+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -14,62 +14,109 @@
   },
   "merged_source": {
     "repository": "FreeTWAI-AI/freedom-platform",
-    "sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-    "tree": "109330c9743767290e38bd6fd4dbe8fdfde57157",
-    "pull_request": 297,
-    "merge_at": "2026-10-08T19:17:47Z",
+    "sha": "bb9f42d5600b256e498dc991ca77f1bad2291097",
+    "tree": "4ab9a151c9b9341d8a610736fde0022b64bd0461",
+    "pull_request": 340,
+    "merge_at": "2026-10-09T16:47:17Z",
     "verify": {
-      "run": 37826592639,
+      "head": "8bf6b76c0cc5d208acac7872a6299412334ad269",
       "conclusion": "success",
-      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37826592639",
-      "head": "01bf3739eafeca59781e08b9d5f4efa5efb467ed",
-      "note": "verify of the merged PR head; strict up-to-date, so its tree equals the merge commit"
+      "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37956979409/job/113925348083"
     },
-    "limitation": "This main commit (the #297 merge) is the production and staging release (operator receipts 2026-10-08, round 9): it adds the D1 guild launchpad profiles (#297: the commerce and commercial-production guilds get their own default block order and recommended applications) to the round-8 release e89cd0c8, with the guild launchpad flag on in both and no migration. #288 (CI capacity), #296 (inventory walk order) and #291 (the rounds 7/8 receipt) are in range and runtime-free. The installed central workflow source (governance_pins) is recorded separately. Later main commits are not deployed."
+    "runtime_release_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "limitation": "#340 is docs/CI-source only; the production and staging runtime remains the reviewed8a98 artifact. This receipt is a subsequent documentation change."
   },
   "deployment": {
     "production": {
       "url": "https://freetwai.com/",
-      "observed_release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "fresh_health": {
-        "origin": "https://freetwai.com",
-        "path": "/api/v1/health",
-        "resolver": "fresh Cloudflare DNS-over-HTTPS, per-request --resolve; TLS hostname verification retained",
-        "exitCode": 0,
-        "status": 200,
-        "observed": {
-          "status": "ok",
-          "mode": "public",
-          "version": "0.13.0-member-messages",
-          "money_movement_enabled": false,
-          "official": false,
-          "runtime": "cloudflare-workers",
-          "release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-          "shop_key_policy": "legacy-compatible",
-          "shop_key_issuer_profile": "freedom.shop-service-key/v1"
-        },
-        "sha256": "7868c9dd5039174f4035191b42bd50510088d5a58c00ee565faa3df8b11b374c"
+      "observed_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "observed_at": "2026-10-09T16:29:39.740Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "cache_control_no_store": true
       },
-      "observed_at": "2026-10-08T19:20:31.852551+00:00",
-      "limitation": "Public health proves this endpoint/release identity, not every feature, private DB schema, or cloud private-AI acceptance."
+      "worker_version": "e8df68ff-c914-4cb2-b297-653c7e00707b",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
+      "limitation": "Authenticated/public selected HTTP checks; full Foundation and production merchant workflows not accepted."
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
-      "last_operator_release_sha": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "operator_observed_at": "2026-10-08T19:19:33.551Z",
-      "fresh_http": {
-        "origin": "https://staging.freetwai.com",
-        "path": "/api/v1/health",
-        "resolver": "fresh Cloudflare DNS-over-HTTPS, per-request --resolve; TLS hostname verification retained",
-        "exitCode": 0,
-        "status": 302,
-        "authenticatedHealth": "not_obtained",
-        "reason": "Access response"
+      "observed_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "observed_at": "2026-10-09T16:16:20.482Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "cache_control_no_store": true
       },
-      "fresh_http_at": "2026-10-06T17:02:47.200041+00:00",
-      "limitation": "Fresh Access 302 is not authenticated health; release identity comes from the operator live readback in the staging rollout receipt."
+      "worker_version": "ef4b4d25-85a7-4ad8-a196-18232bee478c",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
+      "limitation": "Authenticated/public selected HTTP checks; full Foundation and production merchant workflows not accepted."
     },
     "last_operator_rollout": {
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:52:54.243571+00:00",
+      "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
+      "scope": "Staging then production, exact same source and built dist, migrations through 140 and unique required cursor key per target. Existing feature flags preserved.",
+      "status": "complete",
+      "receipt": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json",
+      "receipt_sha256": "229dd95a38a6994b77818ed7e6c1c67642153e9f6130a28fc3683f0df05c7146",
+      "selected_checks": {
+        "staging": {
+          "public": 34,
+          "authenticated": 61,
+          "all_passed": true,
+          "synthetic_fixture_cleanup": true
+        },
+        "production": {
+          "public": 34,
+          "authenticated": 19,
+          "all_passed": true,
+          "synthetic_fixture_cleanup": true
+        }
+      },
+      "database_migrations_applied": {
+        "staging": [
+          "135_hosted_store_offering.sql",
+          "136_member_interaction_blocks.sql",
+          "137_community_content_topics.sql",
+          "138_hosted_direct_reservations.sql",
+          "139_member_message_images.sql",
+          "140_storefront_presentation.sql"
+        ],
+        "production": [
+          "134_hosted_storefronts.sql",
+          "135_hosted_store_offering.sql",
+          "136_member_interaction_blocks.sql",
+          "137_community_content_topics.sql",
+          "138_hosted_direct_reservations.sql",
+          "139_member_message_images.sql",
+          "140_storefront_presentation.sql"
+        ]
+      },
+      "worker_versions": {
+        "staging": "ef4b4d25-85a7-4ad8-a196-18232bee478c",
+        "production": "e8df68ff-c914-4cb2-b297-653c7e00707b"
+      },
+      "limitation": "No full Foundation, M1 or financial/payment acceptance. See receipt for failed operator attempts, cleanup and exact test limits."
+    },
+    "last_production_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:29:39.740Z"
+    },
+    "last_staging_rollout": {
+      "same_as": "last_operator_rollout",
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:16:20.482Z"
+    },
+    "previous_production_rollout": {
       "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
       "prs": [
         "https://github.com/FreeTWAI-AI/freedom-platform/pull/288",
@@ -126,84 +173,10 @@
       "rollback": "redeploy e89cd0c8; no migration and no data change. Drafts or publications a leader saves after the deploy use the same guild-launchpad.config/v1 schema and stay readable by e89cd0c8. Never redeploy X (c84829e2) after 128.",
       "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for #297; production checks are public read-only HTTP plus the public launchpad of both purpose guilds, and no account was created. After the deploy a teammate session checked members on staging with demo accounts: a full member of the commerce guild sees the primary action 選品／營運待辦, a non-member sees the join hint, and a guild master's recommendation draft survives re-entry without changing the public page; no staging demo account is a full member of the commercial-production guild, and production was not checked signed in. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
     },
-    "last_production_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "at": "2026-10-08T19:46:06.114345+00:00"
-    },
-    "last_staging_rollout": {
-      "same_as": "last_operator_rollout",
-      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "at": "2026-10-08T19:46:06.114345+00:00"
-    },
-    "previous_production_rollout": {
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "prs": [
-        "https://github.com/FreeTWAI-AI/freedom-platform/pull/284",
-        "https://github.com/FreeTWAI-AI/freedom-platform/pull/287"
-      ],
-      "batch_components": [
-        {
-          "pull_request": 284,
-          "prs": [
-            "https://github.com/FreeTWAI-AI/freedom-platform/pull/193"
-          ]
-        }
-      ],
-      "kind": "operator_observed_private_receipt",
-      "scope": "staging, then production (same SHA and dist); the guild launchpad flag stays on in both",
-      "at": "2026-10-08T15:13:18.810737+00:00",
-      "receipt_sha256": "1e6c5fb8891259050867423d82e1cc060732d14f51ebe8422cd8e52e5630619a",
-      "previous_release": {
-        "production": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
-        "staging": "3685d6266a6cd9c1dbe023bf595140f5035a02f5"
-      },
-      "owner_approval": "staging: the orchestrator delegation (Ted, 2026-10-07T14:00Z: merge, push and deploy to staging and live); production: Ted, Claude Code session 76af2ef7 (AskUserQuestion, 2026-10-08T13:49:19Z): \"#287 合併後直接發 (Recommended)\" to \"r8：#284（#193 社群整合：貼文按讚／留言、純文字貼文、新貼圖，migration 132/133）已在 main，#287（應用目錄修正）CI 跑完就能合併。要照 r7 的方式直接發到 staging + 正式環境嗎？\" (option text: \"#287 合併後就發 r8：先備份，套用 132/133，部署兩邊，flag 維持開啟。回滾到 3685d626 不需要退回 migration，但部署後新增的純文字貼文、按讚、留言和新貼圖，舊版只能部分顯示。\"); direct rollout with the flag on, no staging acceptance gate, verify on live",
-      "selected_checks": {
-        "staging": "not run (owner chose the direct rollout)",
-        "production": 33
-      },
-      "production_health_samples": "4/4 e89cd0c8",
-      "worker_versions": {
-        "staging": "f9284c0b-3240-498f-9487-b27c793ac370",
-        "production": "4c40169a-3c19-4bb5-812a-ef58b90037c3"
-      },
-      "database_migrations_applied": {
-        "production": [
-          132,
-          133
-        ],
-        "staging": [
-          132,
-          133
-        ]
-      },
-      "migration_effects": {
-        "132_social_feed_interactions.sql": "community_social_posts gains kind (link default, or note: url NULL, platform other, 1-2000 chars) with the 066 note CHECK replaced by social_post_content and a (post_id, community_id) UNIQUE; new community_social_likes and community_social_comments (FK to the post within its community, ON DELETE CASCADE). Additive for 3685d626: existing rows are link posts and satisfy the new CHECK",
-        "133_workshop_sticker_pack.sql": "both sticker_id CHECKs (channel and direct messages) re-created with 52 ids, a superset of the 4 from 113; existing rows stay valid"
-      },
-      "social_feed_and_stickers": {
-        "staging": "community_social_posts has kind (default link; 1 posts, 0 not link) with url nullable and the constraints social_post_community and social_post_content (the 066 note check dropped); community_social_likes (0 rows) and community_social_comments (0 rows) exist with SELECT/INSERT/UPDATE/DELETE for the runtime role; both sticker CHECKs list the 52 ids (133)",
-        "production": "community_social_posts has kind (default link; 2 posts, 0 not link) with url nullable and the constraints social_post_community and social_post_content (the 066 note check dropped); community_social_likes (0 rows) and community_social_comments (0 rows) exist with SELECT/INSERT/UPDATE/DELETE for the runtime role; both sticker CHECKs list the 52 ids (133)"
-      },
-      "ledger_check": "after migrating, staging at 2026-10-08T14:32:21.096Z and production at 2026-10-08T14:33:58.345Z: 132 migration files through 133_workshop_sticker_pack.sql (known gap 22), all applied, nothing pending or mismatched; 1 capacity and 0 authority policy rows in production, 1 and 0 in staging",
-      "row_security": "132 and 133 add no row security: still 28 tables, 39 policies, the four freedom_ctx_* readers unchanged; neither has a GRANT, so the generic runtime grants (20-runtime-grants.psql, rerun) give the runtime role SELECT/INSERT/UPDATE/DELETE on the two new tables; the 128 and 131 checks still pass; after migrating, the runtime and backup login probes on one exported snapshot passed on both databases (backup counts equal the owner's with row_security=off).",
-      "worker_config_change": "None besides FREEDOM_RELEASE_SHA; FREEDOM_GUILD_LAUNCHPAD_ENABLED stays true and FREEDOM_SHOP_KEY_POLICY stays legacy-compatible on both.",
-      "private_ai_enabled": false,
-      "backup_release_pins_updated": true,
-      "production_accounts_created": 0,
-      "cron_after_rollout": {
-        "staging": "Under e89cd0c8 the */10 cron (it also runs the P-D1 provision sweep) wrote to the staging GitHub sync table after the deploy (14:32:48Z): last sync 2026-10-08T14:51:21.517Z, rows 49->49, last_error count 8->8 (read 14:54:02Z).",
-        "production": "Under e89cd0c8 the */10 cron (it also runs the P-D1 provision sweep) wrote to the production GitHub sync table after the deploy (14:34:37Z): last sync 2026-10-08T14:51:17.457Z, rows 61->61, last_error count 6->6 (read 14:54:06Z)."
-      },
-      "production_backup_attempts": "2 crashed after-rollout attempt(s) (production, staging) needed a maintenance-policy cleanup before the re-run passed; see the private receipt",
-      "rollback": "redeploy 3685d626 (132/133 only add or widen; no migration rollback). It does not know note posts, likes, comments or the 48 new sticker ids, so rows created after the deploy stay in the database and are only partly shown by it. The launchpad flag off hides the #287 catalog change with the rest of the launchpad. Never redeploy X (c84829e2) after 128; schema only from the before-migration backups (before-migration sets: production 87d02a52, staging 9492971b).",
-      "limitation": "Private originals retained by operator; no credentials/member data included. Ted chose the direct rollout, so no staging acceptance and no T-ID evidence exist for #284/#287; production checks are public read-only HTTP and no account was created. Selected checks are not full foundation acceptance; M1 is not accepted. The pinned daily operator source c3e5a537 is unchanged: #264 is merged but not effective until the operator source is re-pinned."
-    },
     "previous_staging_rollout": {
-      "same_as": "previous_production_rollout",
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "at": "2026-10-08T15:13:18.810737+00:00"
+      "source": "487d66e1b203c4dd3a537547f6069e62a5a8c574",
+      "observed_at": "2026-10-09T15:53:31.721Z",
+      "kind": "fresh pre-rollout operator readback"
     },
     "earlier_production_rollout": {
       "source": "3685d6266a6cd9c1dbe023bf595140f5035a02f5",
@@ -796,43 +769,85 @@
     },
     "staging_observed": {
       "environment": "staging",
-      "ledger_rows": 132,
-      "through_number": 133,
+      "ledger_rows": 139,
+      "through_number": 140,
       "applied": [
-        132,
-        133
+        "135_hosted_store_offering.sql",
+        "136_member_interaction_blocks.sql",
+        "137_community_content_topics.sql",
+        "138_hosted_direct_reservations.sql",
+        "139_member_message_images.sql",
+        "140_storefront_presentation.sql"
       ],
       "pending": [],
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "at": "2026-10-08T14:32:18.263Z",
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:15:04.432Z",
       "kind": "operator_observed_private_receipt",
       "role": "staging migrator",
-      "post_checks": "Runtime grants re-applied (20-runtime-grants.psql; 132/133 add no GRANT and the generic grants cover the two new tables); read-only verification passed; community_social_posts has kind (default link; 1 posts, 0 not link) with url nullable and the constraints social_post_community and social_post_content (the 066 note check dropped); community_social_likes (0 rows) and community_social_comments (0 rows) exist with SELECT/INSERT/UPDATE/DELETE for the runtime role; both sticker CHECKs list the 52 ids (133); the 128 and 131 checks still pass; row security on 28 tables (none forced) with 39 policies; runtime and backup login probes on one exported snapshot passed. No executor or operator role exists in this staging database, so the operator grant check does not apply.",
-      "pre_migration_backup": "9492971b-2547-4340-9cdb-d38355381a3c (source 3685d626; isolated restore and remote readback verified)"
+      "source_digest_drift": 0,
+      "post_checks": "Canonical runtime grants and read-only privilege verification; runtime has no BYPASSRLS and cannot read six private operator/vault tables. Backup login has BYPASSRLS and can read all tables. New columns/tables queried. Image persistence remains legacy/off.",
+      "pre_migration_backup": "32f5b09f-8c01-42f8-8fee-a95211f08506",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
     },
     "production_observed": {
       "environment": "production",
-      "ledger_rows": 132,
-      "through_number": 133,
+      "ledger_rows": 139,
+      "through_number": 140,
       "applied": [
-        132,
-        133
+        "134_hosted_storefronts.sql",
+        "135_hosted_store_offering.sql",
+        "136_member_interaction_blocks.sql",
+        "137_community_content_topics.sql",
+        "138_hosted_direct_reservations.sql",
+        "139_member_message_images.sql",
+        "140_storefront_presentation.sql"
       ],
       "pending": [],
-      "source": "e89cd0c82ff171b146d1c2fba3b19c4908bea49c",
-      "at": "2026-10-08T14:33:55.634Z",
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:28:05.284Z",
       "kind": "operator_observed_private_receipt",
       "role": "production migrator",
-      "post_checks": "Runtime grants re-applied (20-runtime-grants.psql; 132/133 add no GRANT and the generic grants cover the two new tables); read-only verification passed; community_social_posts has kind (default link; 2 posts, 0 not link) with url nullable and the constraints social_post_community and social_post_content (the 066 note check dropped); community_social_likes (0 rows) and community_social_comments (0 rows) exist with SELECT/INSERT/UPDATE/DELETE for the runtime role; both sticker CHECKs list the 52 ids (133); the 128 and 131 checks still pass; row security on 28 tables (none forced) with 39 policies; runtime and backup login probes on one exported snapshot passed. The dedicated media operator role kept its privileges apart from the derived column rows its table-level grants give on the new community_social_posts.kind column (SELECT), checked against the before snapshot.",
-      "pre_migration_backup": "87d02a52-926c-4c58-b2b8-a6d20cda3e28 (source 3685d626; isolated restore and remote readback verified)"
+      "source_digest_drift": 0,
+      "post_checks": "Canonical runtime grants and read-only privilege verification; runtime has no BYPASSRLS and cannot read six private operator/vault tables. Backup login has BYPASSRLS and can read all tables. New columns/tables queried. Image persistence remains legacy/off.",
+      "pre_migration_backup": "a13d5e4f-7bad-488d-a019-a5ec33d022a3",
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
     },
-    "production_last_reported": "Production migrations 132-133 were applied 2026-10-08T14:33:55.634Z (round 8); migration 131 was applied 2026-10-08T12:58:40.698Z (round 7); migrations 128-130 were applied 2026-10-08T08:23:39.495Z (round 6); migrations 126-127 were applied 2026-10-08T05:32:04.184Z (round 5); migration 125 was applied 2026-10-07T23:06:41.204Z, 120-124 on 2026-10-07T14:24:14.781Z and 114-119 on 2026-10-06T21:12:53Z (operator receipts); the 2026-10-05 fe93730d, 2026-10-06 e07d61d2 and 2026-10-06 round-2 8d2213d7 production rollouts applied none.",
+    "production_last_reported": "Migrations 134–140 applied and all 139 names/digests verified on 2026-10-09; historical gap 022 unchanged.",
     "fresh_live_ledger_read": {
-      "staging": "operator ledger check 2026-10-08T19:19:11.298Z right before the round-9 deploy (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)",
-      "production": "operator ledger check 2026-10-08T19:19:51.254Z right before the round-9 deploy (132 rows through 133_workshop_sticker_pack.sql, nothing pending or mismatched)"
+      "staging": {
+        "at": "2026-10-09T16:15:04.432Z",
+        "rows": 139,
+        "last_applied": "140_storefront_presentation.sql",
+        "source_digest_drift": 0,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
+      },
+      "production": {
+        "at": "2026-10-09T16:28:05.284Z",
+        "rows": 139,
+        "last_applied": "140_storefront_presentation.sql",
+        "source_digest_drift": 0,
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
+      }
     },
-    "limitation": "Health and the main manifest do not prove the current SQL ledger. Both ledgers come from the 2026-10-08 round-9 operator receipts (pre-deploy ledger reads; round 9 had no migration); re-read exact names/digests/roles before the next schema or recovery operation.",
-    "row_security_observed": "Round-9 read-only preflight, both databases: row security on 28 tables (forced on 0) with 39 policies, unchanged since round 7 (round 9 has no migration; 132/133 added none); 131 added tenant_module_permissions with one tenant policy and 128 added 9 tenant tables with one policy each (all created by the migrator, like the 18 from 125); the runtime roles have no BYPASSRLS and are not superuser; the backup roles have BYPASSRLS (granted 2026-10-07T16:56Z). Migration 125 enabled it in round 4.",
+    "limitation": "Ledger evidence is the authenticated operator query, separate from HTTP health. Re-read before future schema/recovery operations.",
+    "row_security_observed": {
+      "staging": {
+        "tables": 30,
+        "policies": 41,
+        "forced": 0,
+        "security_definers_referencing_rls": 0,
+        "runtime_bypass": false,
+        "backup_bypass": true
+      },
+      "production": {
+        "tables": 30,
+        "policies": 41,
+        "forced": 0,
+        "security_definers_referencing_rls": 0,
+        "runtime_bypass": false,
+        "backup_bypass": true
+      }
+    },
     "declared_historical_number_gaps": [
       22
     ],
@@ -876,31 +891,47 @@
         "production": "true",
         "staging": "true"
       },
-      "observed": "Round 9 (2026-10-08T19:46Z): both Workers run cc72c3fd with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so the D1 launchpad profiles (#297) went live with the deploy: guilds without a published guild_editor revision get the platform default at revision 2 with a purpose-specific block order and recommended applications. Production public launchpad (19:20:33Z): guild_commerce_sales revision 2, blocks mission > applications > my_work > announcements > skill_books > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; guild_commercial_production revision 2, blocks mission > my_work > skill_books > announcements > applications > community_tasks > support, recommended manual-workspace@manual-workspace@1.0.0; the two guilds differ. Production: 33 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 8 (2026-10-08T15:13Z): both Workers run e89cd0c8 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so the P-D3a catalog follow-ups (#287: offering precedence guild > community > platform, one card per release, reviewed/retired releases shown to members as not launchable) went live with the deploy. Production: 33 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 7 (2026-10-08T13:17Z): both Workers run 3685d626 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-B2b (ordinary per-instance member grants) and P-D3a (guild application cards and the launch flow) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Round 6 (2026-10-08T08:43Z): both Workers run d2900cf4 with FREEDOM_GUILD_LAUNCHPAD_ENABLED=true, so P-D1 (module registry, launch plans, provision operations and the */10 provision sweep), P-D2a (instance suspend/resume) and P-D2b (instance archive) went live with the deploy. Production: 29 public read-only selected checks and 4 fresh-DNS health reads passed; no staging acceptance was run (owner choice). Before round 6: Staging: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T06:11Z (trial on X with the round-5 dist, Worker version 7b7050c2); the trial acceptance (47 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 18: 3 sections, 12 approved items, 6 pending). Production: FREEDOM_GUILD_LAUNCHPAD_ENABLED=true since 2026-10-08T07:05Z (same X and dist, Worker version 2871eefe); the public acceptance (29 selected checks) saw /api/v1/site report guild_launchpad_enabled=true and the public category list mounted (catalog revision 24: 3 sections, 12 approved items, 12 pending), and 4 fresh-DNS health reads returned X. X carries the launchpad, workspaces, module-registry, tenant-work and the #227 policy operator behind the same flag.",
+      "observed": "2026-10-09: enabled in both environments. Reviewed hosted store, noncommercial manual work, storefront templates and open-source skill-book continuation are in the deployed source; migration135 offers hosted-store@1.0.0. Staging four signed-list continuations passed; production synthetic registration/onboarding, private tenant and two signed-list first pages passed.",
       "policy_rows": {
         "capacity": 1,
         "authority": 0
       },
       "if_enabled": "Each environment has one tenant_capacity_policies row with the same values: default scope, plan_ref interim-default-20261007, revision 1 (10 active instances, 3 per module, 2 concurrent provisions, 1000 work items, 104857600 retained bytes, 2 concurrent jobs, model budget 0). Staging's was written 2026-10-08T05:51Z by the staging migrator under the owner's 2026-10-07 trial approval; production's was written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts after the owner chose the staging values on 2026-10-08. Neither environment has a tenant_authority_policies row, so ownership transfer and recovery return 403 policy_unconfigured. policy_rows counts the rows in each environment (the same in both).",
-      "source": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "at": "2026-10-08T19:46:06.114345+00:00",
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "at": "2026-10-09T16:52:54.243571+00:00",
       "evidence": [
         "docs/platform-plan/execution/unified-foundation/closeout.md",
-        "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json"
+        "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json",
+        "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
       ],
-      "limitation": "Rounds 6 to 9 went out without staging acceptance or T-ID evidence for P-D1/P-D2a/P-D2b (round 6), P-B2b/P-D3a (round 7), the P-D3a catalog follow-ups (round 8) and the D1 launchpad profiles (round 9); the owner chose the direct rollout. On in both environments with interim capacity values. Production was turned on by the owner on 2026-10-08 and is checked only by public read-only selected checks; it has no demo accounts, so the guild-work verifier ran on staging only. The guild-work verifier (#242) passed on staging at 06:32Z (receipt 20261008T063130038Z-83185463): T-005 passed and T-023 passed its M1 permission variant (export/restore not run), recorded in the guild-launchpad acceptance-progress.json. M1 is not accepted: 26 of its 28 cases have not run and M1 has no candidate_sha. The guild preference backfill is blocked (27 of 28 remaining legacy members have a legacy primary guild without an approved category); production is blocked the same way (156 of 305). The three-category board stays hidden in both environments."
+      "limitation": "Selected live checks are not full M1 acceptance or production merchant-flow acceptance. Original guild-launchpad T-ID gaps, interim capacity settings and absent authority policy remain unchanged."
     },
-    "limitation": "media and private_ai: no fresh authenticated feature/DB/R2 inspection in this research. guild_launchpad comes from the 2026-10-08 operator receipts: round 9, round 8, round 7, round 6, round 5, the staging trial, the staging guild-work verifier run (authenticated, real R2, staging only) and the production flag-on (public read-only checks and fresh-DNS health only)."
+    "limitation": "Merged or deployed source does not enable default-off features or establish full acceptance; see the release flags and receipt.",
+    "release_flags": {
+      "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "observed_at": "2026-10-09T16:52:54.243571+00:00",
+      "off": [
+        "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
+        "FREEDOM_HOSTED_RESERVATIONS_ENABLED",
+        "FREEDOM_MEMBER_BLOCKING_ENABLED",
+        "FREEDOM_COMMUNITY_SEARCH_ENABLED",
+        "FREEDOM_UNIFIED_SHARING_ENABLED",
+        "FREEDOM_MESSAGE_IMAGE_ENABLED"
+      ],
+      "preserved": true,
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
+    }
   },
   "recovery": {
-    "daily_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+    "daily_operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
     "last_rollout_backup_release_pins": {
-      "production": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "staging": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
-      "wrapper_sha256": "a561f39d51f663c833d3dffd7fe2e60cdb983d9576da820e34ca7713be28d1f8",
-      "at": "2026-10-08T19:20:20.606083+00:00",
-      "operator_source_preserved": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
-      "schedules_unchanged": true
+      "production": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "staging": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "wrapper_sha256": "fb1351898d21c50f5bf58b2d4eac1ea3f2e05a3abe27c0edc31ddc61c343123f",
+      "at": "2026-10-09T16:29:40.720385+00:00",
+      "operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "schedules_unchanged": true,
+      "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
     },
     "production_rollout_backups": [
       {
@@ -1054,6 +1085,30 @@
         "created_at": "2026-10-08T19:36:17.375Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
+      },
+      {
+        "label": "before-migration (2026-10-09 r12)",
+        "set": "a13d5e4f-7bad-488d-a019-a5ec33d022a3",
+        "source_release": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+        "created_at": "2026-10-09T16:16:21.927Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
+      },
+      {
+        "label": "after-rollout (2026-10-09 r12)",
+        "set": "4c5e0257-2423-4dc3-bdc3-9b5bb83e4ae0",
+        "source_release": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "created_at": "2026-10-09T16:32:15.981Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
       }
     ],
     "staging_rollout_backups": [
@@ -1200,6 +1255,30 @@
         "created_at": "2026-10-08T19:28:21.878Z",
         "restore": "database_and_objects_restored",
         "remote_readback": "verified"
+      },
+      {
+        "label": "before-migration (2026-10-09 r12)",
+        "set": "32f5b09f-8c01-42f8-8fee-a95211f08506",
+        "source_release": "487d66e1b203c4dd3a537547f6069e62a5a8c574",
+        "created_at": "2026-10-09T16:04:23.339Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
+      },
+      {
+        "label": "after-rollout (2026-10-09 r12)",
+        "set": "8d872751-af8e-4eb0-a6c0-b2588cb64ac5",
+        "source_release": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "created_at": "2026-10-09T16:42:57.293Z",
+        "restore": "database_and_objects_restored",
+        "remote_readback": "verified",
+        "cleanup_verified": true,
+        "disk_restore": true,
+        "operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-09.json"
       }
     ],
     "scheduled_drill_source": "89f64ace3b9c24e493fc367b1b489dc8749ee20e",
@@ -1209,11 +1288,11 @@
       "Host-dependent schedule and operator credentials",
       "Same Cloudflare account; no independent account disaster boundary",
       "Not PITR or production failover",
-      "No fresh restore of source567/current full schema",
-      "Second authorized operator in a new environment not yet accepted",
-      "Daily adapter requires GC OFF; retention executor and historical unsettled PUT remain open"
+      "Same-host isolated current-schema restore passed; a second authorized operator in a new environment is not yet accepted",
+      "GC/OFF daily mode remains selected; retention executor and historical unsettled PUT remain open"
     ],
-    "operator_source_note": "The coordinator and native workflow intentionally use the same c3e commit for different purposes; daily-scheduled-2026-10-05.json records operator_source independently."
+    "operator_source_note": "2026-10-09: re-pinned daily operator to reviewed merged8a98, including #264 timeout/client-error cleanup. Private adapter restore uses disk volume and removes it. GC/retention safety activation remains disabled; timers unchanged. The installed CI workflow source is independent and unchanged.",
+    "current_operator_scheduled_run": "not_run: next timer occurrence is after this rollout; manual live-backed capture/readback/restore receipts are listed separately"
   },
   "governance_pins": [
     {
