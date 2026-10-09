@@ -236,7 +236,7 @@ export class PortalClient {
     const requestCsrfToken = this.csrfToken
     const requestAuthGeneration = this.authGeneration
     const headers: Record<string, string> = { Accept: 'application/json' }
-    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
+    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm', '/auth/email-verification/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
     const needsCsrf = method !== 'GET' && !publicAuth
 
     if (options.body !== undefined) {

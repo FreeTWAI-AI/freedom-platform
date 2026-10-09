@@ -1784,8 +1784,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 21299,
-      "sha256": "f709a3dfa6c289e4dde51df1828c9b8db8eeb5c8fd58ec328d99219f8b05a02f"
+      "bytes": 21335,
+      "sha256": "e207c5019e83989cef1cb9a315cba29de150f634da384a678e2b3a1062b4e052"
     },
     {
       "path": "apps/portal-web/src/auth-messages.ts",
@@ -21311,6 +21311,11 @@
       "path": "tests/runtime/portal-client-recovery.test.ts",
       "bytes": 25066,
       "sha256": "ce4551468f24bfb5f82438e94e9074a91d6fb41d0d256ded8b437601760c036c"
+    },
+    {
+      "path": "tests/runtime/portal-email-verification.test.ts",
+      "bytes": 1501,
+      "sha256": "0a06b5b8ca7c1e3ae0a61584b29e38ccc5f8f88ff20d76581672a4194ab147f8"
     },
     {
       "path": "tests/runtime/positioning-action-card.test.ts",
