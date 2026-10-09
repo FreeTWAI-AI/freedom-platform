@@ -16179,8 +16179,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 21265,
-      "sha256": "daab413f7d4af0089fc53c70d82a75e8e8d55bfe3478a15bf7a6dc4bffd618fc"
+      "bytes": 21759,
+      "sha256": "4c92734e8959ff5aaae152e436f4358cf22fc9c5c15bb155df09821b555a18c8"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16194,8 +16194,8 @@
     },
     {
       "path": "modules/agent-commerce/imports.ts",
-      "bytes": 7127,
-      "sha256": "d6983cb177f20b66bb699fcbc76232b441a0f5bff211af41a0bc4796003d3f15"
+      "bytes": 7559,
+      "sha256": "14af05acd7c8a2b241af6536457256dce0e08f05b7330eafef8ee8164b264200"
     },
     {
       "path": "modules/agent-commerce/key-exit.ts",
@@ -20169,8 +20169,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 31709,
-      "sha256": "8a769e9a0d84a882b89ef587093954fd77bc7f69ce05fe3e2ab40fa7ed10fa2c"
+      "bytes": 36507,
+      "sha256": "9034f9509166c7a71a7a0505c59c45bad89685b0c24a74a827b7550669d8d6d9"
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
