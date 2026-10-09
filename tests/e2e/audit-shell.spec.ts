@@ -277,3 +277,42 @@ for (const viewport of VIEWPORTS) {
     await expect(page.getByLabel('電子郵件', { exact: true })).toBeVisible();
   });
 }
+
+
+test('selecting the current page closes More and leaves the legacy commerce control reachable', async ({ page }) => {
+  await page.goto('/');
+  await signIn(page);
+  await navigate(page, '我可以賣東西');
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const activation of ['pointer', 'keyboard']) {
+      // Keep the current hash through reload: selecting this item cannot rely on a tab change.
+      await page.reload();
+      await expect(page.getByRole('heading', { name: '我可以賣東西', level: 1, exact: true })).toBeVisible();
+      const phoneMenu = page.getByRole('button', { name: '開啟選單', exact: true });
+      if (await phoneMenu.isVisible()) await phoneMenu.click();
+      const nav = page.getByRole('navigation', { name: '主要工作區', includeHidden: true });
+      await expect(nav).toBeVisible();
+      const more = nav.locator('.nav-more');
+      await more.locator(':scope > summary').click();
+      await expect(more).toHaveJSProperty('open', true);
+      const current = nav.getByRole('button', { name: '我可以賣東西', exact: true });
+      await expect(current).toHaveAttribute('aria-current', 'page');
+      if (activation === 'keyboard') {
+        await current.focus();
+        await page.keyboard.press('Enter');
+      } else await current.click();
+      if (width === 390) await expect(nav).toBeHidden();
+      await expect(more).toHaveJSProperty('open', false);
+      await expect(page).toHaveURL(/#retail$/);
+      await expect(page.locator('#main-content')).toBeFocused();
+      // A real click proves the menu no longer intercepts the original commerce entry.
+      const legacy = page.getByText('查看舊版商品與合作資料', { exact: true });
+      await expect(legacy).toBeVisible();
+      await legacy.click();
+      await expect(page.getByRole('heading', { name: '建立商店，挑選商品並請供貨商確認', exact: true })).toBeVisible();
+      await noHorizontalOverflow(page, `current retail ${width} ${activation}`);
+    }
+    await page.screenshot({ path: `test-results/audit-shell-current-page-${width}.png`, fullPage: true });
+  }
+});

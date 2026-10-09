@@ -9,6 +9,8 @@ import {
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores, stateWord} from './MyStoreAction';
+import {HostedSellerOrders, SellerOrdersLink} from './HostedSellerOrders';
+import {sellerOrdersRoute} from './hosted-seller-order-state';
 import './HostedStore.css';
 
 const NOTICE = '店鋪／商品展示已就緒，交易尚未啟用';
@@ -36,7 +38,9 @@ function errorText(error: unknown) {
 type Preview = z.infer<typeof StorePreviewSchema>;
 type RegisterLeave = (guard: (() => boolean) | null) => void;
 export function HostedStore({client, enabled, locationHash, userId, registerLeave}: {client: PortalClient; enabled: boolean; locationHash: string; userId: string; registerLeave: RegisterLeave}) {
-  if (!enabled) return <p className="banner" role="status">這個頁面目前未開放。</p>;
+  const retained = sellerOrdersRoute(locationHash) ?? (!enabled ? sellerOrdersRoute(locationHash + '/orders') : null);
+  if (retained) return <HostedSellerOrders key={`${userId}:${client.sessionGeneration}:${retained.tenantId}:${retained.instanceId}`} client={client} route={retained} registerLeave={registerLeave}/>;
+  if (!enabled) return <p className="banner" role="status">目前不開放商店設定。若要查看或取消既有預留，請開啟你保存的店主管理連結；登入後會重新確認目前權限。</p>;
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
@@ -164,6 +168,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
       : error && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void load()}>重新載入</button>}</div>
     {view && <>
       <h2>{store?.name ?? '設定我的商店'}</h2>
+      {store && <SellerOrdersLink client={client} tenantId={tenantId} instanceId={instanceId}/>}
       {!view.writable && <p>{view.capabilities.some(key => key !== 'store:read') ? '這間商店目前暫停，無法修改。' : '你可以檢視這間商店，但不能修改。'}</p>}
       {!store ? can('store:manage') ? <SettingsForm key="setup" client={client} root={root} busy={locked} onMissing={() => setMissing(true)} onDirty={value => markDirty('settings', value)} onSave={(body, success, fieldError) => command({method: 'post', path: root + '/setup', body, schema: StoreViewSchema, notice: '已建立商店。', success, fieldError})}/>
         : <p>這間商店還沒完成設定，請業務空間擁有者或管理員設定。</p> : <>

@@ -91,7 +91,7 @@ export async function cancelDirectOrder(pool: Pool, actor: Actor, orderId: strin
   return directCommand(pool, actor, { order_id: orderId }, 'storefront.order.cancel', {}, key, orderId, expected,
     async (q, context) => {
       const row = await lockDirectOrder(q, context, orderId); checkVersion(row.reservation_version, expected);
-      await closeDirectOrder(q, context, row, true);
+      await closeDirectOrder(q, context, row, 'buyer_cancelled');
       return { id: orderId };
     }, directOrderView);
 }

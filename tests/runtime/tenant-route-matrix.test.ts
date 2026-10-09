@@ -202,6 +202,12 @@ async function installSyntheticCatalog() {
 }
 
 const routeTable: Record<string, string> = {
+  // Cache middleware is inventoried separately, never sent as a synthetic ALL request.
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'middleware',
+  'ALL /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*': 'middleware',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id': 'tenant',
+  'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/setup': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id': 'tenant',
@@ -498,8 +504,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 56 });
-  assert.equal(selectedRoutes.length, 84);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 59, middleware: 2 });
+  assert.equal(selectedRoutes.length, 89);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -537,6 +543,9 @@ function assertSameAsRandom(route: string, actor: string, real: Reply, random: R
 
 type Route = { method: string; path: string; body?: any; version?: string; isRaw?: boolean };
 const routes: Route[] = [
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id' },
+  { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/orders/:order_id/cancel', body: {}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id' },
   { method: 'POST', path: '/tenants/:tenant_id/edit', body: { display_name: 'new name', public_slug: null }, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/members' },
@@ -600,11 +609,13 @@ test('T-022 Matrix route matching routeTable', () => {
     Object.entries(routeTable).filter(([, kind]) => kind === 'tenant').map(([key]) => key).sort());
 });
 
+const isSellerOrderRoute = (path: string) => path.includes('/storefronts/') && path.includes('/orders');
+
 type TenantData = Awaited<ReturnType<typeof buildFixture>>['A'];
 function ids(data: TenantData, route: Route): Record<string, string> {
   return { tenant_id: data.tenantId, workspace_id: data.workspaceId, work_id: data.workId, result_id: data.resultId,
     upload_id: data.unfinalizedUploadId, id: route.path.includes('ownership-transfers') ? data.transferId : data.invitationId,
-    principal_id: data.principalId, product_id: data.workId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
+    principal_id: data.principalId, product_id: data.workId, order_id: data.workId, instance_id: data.instanceId, operation_id: data.operationId, plan_id: data.planId,
     plan_version: data.planVersion, plan_digest: data.planDigest.value, operation_version: `"${data.operationVersion}"`, instance_version: `"${data.instanceVersion}"`,
     work_version: data.workVersion, m_principal_id: fixture.mPrincipalId, guild_key: 'guild_ai_field' };
 }
@@ -726,6 +737,13 @@ test('T-022 3c. P as viewer of B', async () => {
         [key, ['id'].includes(key) ? randomUUID() : value]));
       const random = await execute(route, fixture.people.P, randomIds);
       assertSameAsRandom(`${route.method} ${route.path}`, 'P viewer recipient gate', reply, random);
+      scanForLeaks(random, `3c ${route.path} random`, fixture.A);
+    } else if (isSellerOrderRoute(route.path)) {
+      // Seller authority is owner-only and checked before the instance/order lookup.
+      assert.equal(reply.status, 403, `${route.method} ${route.path}: ${JSON.stringify(describe(reply))}`);
+      assert.equal(reply.data.code, 'seller_owner_required');
+      const random = await execute(route, fixture.people.P, { ...realIds, instance_id: randomUUID(), order_id: randomUUID() });
+      assertSameAsRandom(`${route.method} ${route.path}`, 'P non-owner seller gate', reply, random);
       scanForLeaks(random, `3c ${route.path} random`, fixture.A);
     } else if (route.path.includes('/storefronts/')) {
       assert.equal(reply.status, 404, `${route.method} ${route.path}: ${JSON.stringify(describe(reply))}`);
@@ -1486,7 +1504,7 @@ test('T-022 7. Successful private reads and attachment headers', async () => {
       if (route.path.includes('/storefronts/')) {
         // This fixture's instance is Work. Storefront endpoints must conceal it.
         assert.equal(reply.status, 404, `${route.path}: ${JSON.stringify(describe(reply))}`);
-        assert.equal(reply.data.code, 'not_found');
+        assert.equal(reply.data.code, isSellerOrderRoute(route.path) ? 'hosted_order_not_found' : 'not_found');
       } else assert.equal(reply.status, 200, `${route.path}: ${JSON.stringify(describe(reply))}`);
       scanForLeaks(reply, `7 ${route.path}`, other);
       if (route.path.endsWith('/module-binding')) {
