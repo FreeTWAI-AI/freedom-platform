@@ -17,6 +17,8 @@ import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProvider
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { advanceOperation } from '../../modules/module-registry/operations.js';
 import type { ProvisionEffect } from '../../modules/module-registry/providers.js';
+import { createStorefrontProductPhotoLifecycle } from '../../modules/assets/storefront-product-photo.js';
+import { photoSourcePng } from '../helpers/hosted-store-photo.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -248,7 +250,7 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
       terms,bindings,terms_sha256,quoted_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
   [quoteId, data.tenantId, instanceId, shopId, buyerPrincipalId, publicationId, quote, JSON.stringify(bindings), hash, now, quote.expires_at]);
   assert.equal((await q.query('SELECT reservation_enabled FROM commerce_storefront_profiles WHERE instance_id=$1', [instanceId])).rows[0].reservation_enabled, false);
-  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
+  return { instanceId, itemId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
 }
 
 async function buildFixture() {
@@ -490,7 +492,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'commerce_resource_tenants', 'commerce_order_quotes', 'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+    'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -504,13 +507,42 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
   }
   // Exact A/B hosted quote graphs also provide confirmed shop-mapping rows.
+  const hosted: { tenantId: string; instanceId: string; itemId: string; session: Session }[] = [];
   const fixtureClient = await owner.connect();
   try {
     await fixtureClient.query('BEGIN');
-    for (const data of [A, B]) await insertHostedQuote(fixtureClient, data);
+    for (const [data, session] of [[A, fixture.people.P], [B, fixture.people.N]] as const) {
+      const retained = await insertHostedQuote(fixtureClient, data);
+      hosted.push({ tenantId: data.tenantId, instanceId: retained.instanceId, itemId: retained.itemId, session });
+    }
     await fixtureClient.query('COMMIT');
   } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
   finally { fixtureClient.release(); }
+  // Populate both photo RLS tables through the real lifecycle and publication
+  // commands. Keep their triggers/FKs active and add no uncovered-table exception.
+  const photoAssets = createStorefrontProductPhotoLifecycle(runtime, { store });
+  const photoApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true,
+    tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, storePhotoAssetStore: store,
+    storePhotoAssets: photoAssets, storePhotoUploadsEnabled: true });
+  await owner.query("UPDATE domain_media_storage_policy SET mode='r2_only',persistence_allowed=true,policy_revision='synthetic-rls-photo-1',retained_byte_limit=16777216 WHERE purpose='storefront.product-photo'");
+  try {
+    for (const data of hosted) {
+      const root = `/tenants/${data.tenantId}/storefronts/${data.instanceId}`;
+      const uploaded = await photoApp.request(origin + '/api/v1' + root + `/products/${data.itemId}/photo`, {
+        method: 'POST', headers: { Origin: origin, Cookie: data.session.cookie,
+          'X-CSRF-Token': data.session.csrf, 'Content-Type': 'image/png',
+          'Idempotency-Key': randomUUID(), 'If-Match': '"1"' }, body: new Uint8Array(photoSourcePng),
+      });
+      assert.equal(uploaded.status, 200, await uploaded.text());
+      await quiet();
+      const view = await call('GET', root, data.session);
+      assert.equal(view.status, 200, JSON.stringify(view.data));
+      const published = await post(root + '/publish', data.session, {}, view.data.version);
+      assert.equal(published.status, 200, JSON.stringify(published.data));
+    }
+  } finally {
+    await owner.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");
+  }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
     update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];
   for (const { relname: table } of tables) {
