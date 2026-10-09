@@ -10,7 +10,7 @@ function shell(name: string, description: string, content: string) {
 }
 export function storeHtml(store: PublicStoreProjection) {
   const items = store.products.map(p => `<li><article><h3>${escapeHtml(p.title)}</h3><p class="shop-price">${escapeHtml(formatMinor(p.price_minor, store.currency))}</p>${paragraphs(p.description)}</article></li>`).join('');
-  return shell(store.name, store.description, `<p class="shop-notice" role="note">店鋪／商品展示已就緒，交易尚未啟用</p><h1>${escapeHtml(store.name)}</h1>${store.brand ? `<p class="shop-brand">${escapeHtml(store.brand)}</p>` : ''}${paragraphs(store.description)}<section aria-labelledby="products"><h2 id="products">商品</h2><ul class="shop-products">${items}</ul></section>`);
+  return shell(store.name, store.description, `<p class="shop-notice" role="note">商品展示頁不提供付款或出貨；預留狀態請登入查看。</p><div class="shop-actions"><a href="/#reservations/${encodeURIComponent(store.slug)}">登入查看預留狀態</a> · <a href="/#reservations">查詢我的預留</a></div><h1>${escapeHtml(store.name)}</h1>${store.brand ? `<p class="shop-brand">${escapeHtml(store.brand)}</p>` : ''}${paragraphs(store.description)}<section aria-labelledby="products"><h2 id="products">商品</h2><ul class="shop-products">${items}</ul></section>`);
 }
 export function storeMissingHtml() {
   return shell('找不到這間商店', '這間商店目前沒有公開。', '<h1>找不到這間商店</h1><p>這間商店目前沒有公開。</p>');

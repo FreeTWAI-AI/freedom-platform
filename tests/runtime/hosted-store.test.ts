@@ -295,7 +295,7 @@ test('T-006 public allowlist hides identifiers and all hidden cases return ident
   for (const secret of [s.tenantId,s.instanceId,p.supply_shop_id,p.storefront_shop_id,p.created_by_principal_id,s.owner.user.user_id,s.owner.user.email,item.product_id,'"stock"']) {
     assert.equal(shown.jsonText.includes(secret), false, secret); assert.equal(shown.htmlText.includes(secret), false, secret);
   }
-  assert.doesNotMatch(shown.htmlText, /<form|<button|<script|checkout|cart/i); assert.match(shown.htmlText, /店鋪／商品展示已就緒，交易尚未啟用/); assert.match(shown.htmlText, /name="robots" content="noindex"/);
+  assert.doesNotMatch(shown.htmlText, /<form|<button|<script|checkout|cart/i); assert.match(shown.htmlText, /商品展示頁不提供付款或出貨/); assert.match(shown.htmlText, /name="robots" content="noindex"/);
   const missing = await publicPair('unknown-shop');
   async function hidden(slug = settings.slug) {
     const r = await publicPair(slug); assert.equal(r.json.status, 404); assert.equal(r.html.status, 404);

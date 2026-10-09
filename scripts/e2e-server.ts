@@ -9,7 +9,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { createPool,LOCAL_DATABASE_URL } from '../packages/db/index.js';
 import { createApp } from '../apps/platform-api/src/app.js';
 import { migrate } from './database.js';
-import { seedLocal } from '../packages/testing/seed.js';
+import { seedLocal, DEMO_COMMUNITY } from '../packages/testing/seed.js';
 import { collaborationGitHubFixture } from '../packages/testing/github-collaboration.js';
 import { syncGitHubRepositories } from '../modules/community/github-sync.js';
 import { e2eSchema } from '../packages/testing/e2e-auth-isolation.js';
@@ -98,6 +98,9 @@ try{
   if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'&&process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1')throw Error('Avatar asset and private AI browser fixtures are mutually exclusive.');
   await migrate(pool);
   await seedLocal(pool);
+  // This local harness seeds DEMO; foreign fixtures must not change where new members register.
+  // Use the supported runtime configuration without changing the product fallback or deleting fixture identities.
+  process.env.FREEDOM_REGISTRATION_COMMUNITY_ID=DEMO_COMMUNITY;
   // Synthetic local capacity only. Production does not seed a policy row.
   await pool.query(`INSERT INTO tenant_capacity_policies(
       policy_id, revision, tenant_id, plan_ref,
@@ -153,6 +156,7 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',
   // Explicit browser-harness option; product server/Worker release flags remain default OFF.
   communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
+  hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
