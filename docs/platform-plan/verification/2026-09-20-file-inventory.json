@@ -19609,8 +19609,8 @@
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
-      "bytes": 38082,
-      "sha256": "abc27cf94842e0d01ca31d94fb0012cd5e55601eba1f96ba543fb995735a2e15"
+      "bytes": 38785,
+      "sha256": "4d7eb3100c300a34defa8866948b5b57fd819a05cdcb7044108021bcbdba7528"
     },
     {
       "path": "tests/e2e/instant-feedback.spec.ts",

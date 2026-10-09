@@ -478,6 +478,8 @@ test('unknown appearance response retains the original key and selection until c
   expect(requests).toHaveLength(2); expect(requests[0].key).toBeTruthy(); expect(requests[1]).toEqual(requests[0]);
   expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '2', template_id: 'catalog-list-v1'}]);
   await page.unroute('**/api/v1' + ready.root + '/appearance');
+  const casAttempts: {key: string | undefined; body: string | null; version: string | undefined}[] = [];
+  page.on('request', request => {if (request.method() === 'PATCH' && new URL(request.url()).pathname === '/api/v1' + ready.root + '/appearance') casAttempts.push({key: request.headers()['idempotency-key'], body: request.postData(), version: request.headers()['if-match']});});
   const session = await (await page.request.get('/api/v1/session')).json();
   const changed = await page.request.patch('/api/v1' + ready.root, {data: {name: '另一視窗更新'}, headers: {Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID(), 'If-Match': '"2"'}});
   expect(changed.status()).toBe(200);
@@ -485,9 +487,12 @@ test('unknown appearance response retains the original key and selection until c
   await page.getByRole('button', {name: '儲存版型', exact: true}).click();
   await expect(storePage(page).getByRole('status')).toContainText('你的版型選擇仍保留');
   await expect(grid).toBeChecked(); await expect(grid).toBeEnabled();
+  expect(casAttempts).toHaveLength(1); expect(casAttempts[0].version).toBe('"2"');
   expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '3', template_id: 'catalog-list-v1'}]);
   // Only this explicit second click adopts the refreshed version, never an automatic retry.
   await page.getByRole('button', {name: '儲存版型', exact: true}).click();
   await expect(storePage(page).getByRole('status')).toContainText('已儲存版型');
   expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '4', template_id: 'catalog-grid-v1'}]);
+  expect(casAttempts).toHaveLength(2); expect(casAttempts[1].body).toBe(casAttempts[0].body);
+  expect(casAttempts[1].version).toBe('"3"'); expect(casAttempts[1].key).toBeTruthy(); expect(casAttempts[1].key).not.toBe(casAttempts[0].key);
 });
