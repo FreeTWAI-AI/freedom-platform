@@ -2789,8 +2789,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/hosted-store-photo-client.ts",
-      "bytes": 2497,
-      "sha256": "d8d49b0c0673dadff4eba918e015b20437edb576188152fa4285e0029f827d84"
+      "bytes": 2855,
+      "sha256": "7d4e445ef5c24ee1c8fb8f6632b0de06a605247d2fa9f8459906cf57e27cf913"
     },
     {
       "path": "apps/portal-web/src/modules/hosted-store-photo-state.ts",
@@ -20829,8 +20829,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-photo-state.test.ts",
-      "bytes": 5604,
-      "sha256": "ea8ade25cd4a4f88725a9ae35a3ab2b2d0004f83a859f347aef89a808f24674e"
+      "bytes": 7311,
+      "sha256": "df65c1108ddad44875013d903a417b2edb245943be2bf8e839b40783c8811571"
     },
     {
       "path": "tests/runtime/hosted-store-photo.test.ts",

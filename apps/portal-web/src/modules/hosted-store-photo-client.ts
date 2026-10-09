@@ -21,6 +21,13 @@ export async function sendProductPhoto(client:PortalClient,attempt:PhotoAttempt)
     throw new ApiError({message:MEMBER_ACCESS_EXPIRED_MESSAGE,status,accessExpired:true});
   }
   if(client.sessionGeneration!==generation)throw new ApiError({message:'登入狀態已改變，照片操作結果尚未確認。',network:true});
+  // A platform JSON 401 is distinct from Cloudflare Access expiry. Notify the
+  // shell before reading the error body, while fencing out an older session.
+  client.accessExpired=false;
+  if(response.status===401){
+    client.csrfToken=null;client.onUnauthorized?.();
+    throw new ApiError({message:'登入已過期，請重新登入。',status:401});
+  }
   let payload:unknown;try{payload=await response.json();}catch{throw new ApiError({message:'照片回應未完整收到，請重試原操作。',network:true});}
   if(!response.ok){const problem=payload as {detail?:string;code?:string};throw new ApiError({message:typeof problem?.detail==='string'?problem.detail:'照片操作未完成。',status:response.status,code:problem?.code,network:response.status>=500});}
   const ack=photoAcknowledgement(payload,attempt);

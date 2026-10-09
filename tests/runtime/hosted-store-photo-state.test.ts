@@ -2,10 +2,30 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {photoAcknowledgement,retainedPhotoFailure,reviewPhotoAttempt,holdPhotoAttempt,heldPhotoAttempt,restorePhotoAttempt,releasePhotoAttempt,forgetRefusedPhotoAttempt,photoBlocksLeaving,type PhotoAttempt} from '../../apps/portal-web/src/modules/hosted-store-photo-state.js';
 import {HOSTED_STORE_MEDIA_PROFILE} from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
+import {ApiError,PortalClient} from '../../apps/portal-web/src/api.js';
+import {sendProductPhoto} from '../../apps/portal-web/src/modules/hosted-store-photo-client.js';
 const tenantId='10000000-0000-4000-8000-000000000001',instanceId='10000000-0000-4000-8000-000000000002',productId='10000000-0000-4000-8000-000000000003';
 const file={name:'same-original.png',type:'image/png'} as File;
 const attempt:PhotoAttempt=Object.freeze({tenantId,instanceId,productId,expected:'7',key:'same-original-key',file,action:'upload',hadUnknown:false});
 const ack={profile:HOSTED_STORE_MEDIA_PROFILE,product_id:productId,completed_version:'8',changed:true,current:{profile:HOSTED_STORE_MEDIA_PROFILE,product_id:productId,version:'10',photo:null}};
+test('PHOTO-STATE-07 platform JSON 401 invokes member login while retaining the original unknown operation',async t=>{
+  const client=new PortalClient();client.csrfToken='synthetic-session';client.accessExpired=true;
+  let notified=0;client.onUnauthorized=()=>{notified++;assert.equal(client.csrfToken,null);assert.equal(client.accessExpired,false);};
+  const pending=retainedPhotoFailure(attempt,true);holdPhotoAttempt(client,'member',pending);
+  t.mock.method(globalThis,'fetch',async()=>Response.json({code:'unauthorized'}, {status:401}));
+  await assert.rejects(sendProductPhoto(client,pending),(e:unknown)=>e instanceof ApiError&&e.status===401&&!e.accessExpired);
+  assert.equal(notified,1);assert.equal(heldPhotoAttempt(client,'member',pending)?.key,pending.key);
+  assert.equal(heldPhotoAttempt(client,'member',pending)?.file,file);releasePhotoAttempt(client,'member',pending);
+});
+test('PHOTO-STATE-08 an old photo response cannot log out a newer member session',async t=>{
+  const client=new PortalClient();client.csrfToken='synthetic-old';let notified=0;client.onUnauthorized=()=>{notified++;};
+  let reply!:(response:Response)=>void;
+  t.mock.method(globalThis,'fetch',()=>new Promise<Response>(resolve=>{reply=resolve;}));
+  const request=sendProductPhoto(client,attempt);client.csrfToken='synthetic-new';
+  reply(Response.json({code:'unauthorized'}, {status:401}));
+  await assert.rejects(request,(e:unknown)=>e instanceof ApiError&&e.network);
+  assert.equal(client.csrfToken,'synthetic-new');assert.equal(notified,0);
+});
 test('PHOTO-STATE-01 unknown remains sticky across later known errors and refuses a new key/version',()=>{
   const unknown=retainedPhotoFailure(attempt,true),later=retainedPhotoFailure(unknown,false);
   assert.equal(later.hadUnknown,true);assert.equal(later.file,file);assert.equal(later.key,attempt.key);assert.equal(later.expected,'7');
