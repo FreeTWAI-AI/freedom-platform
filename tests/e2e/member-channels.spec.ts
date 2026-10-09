@@ -23,7 +23,7 @@ test.beforeEach(async({page})=>{
 });
 
 async function channelServer(page:Page,setup:{guild?:[string,string,number][];squad?:[string,string,number][]}){
-  const me={id:''},store=new Map<string,Channel>();
+  const me={id:''},store=new Map<string,Channel>(),sendReceipts=new Map<string,Message>();
   const log={lists:[] as Info[],history:[] as Info[],sends:[] as {key:string;body:string;idempotency:string;csrf:string;ifMatch?:string}[],reads:[] as {key:string;through:string;idempotency:string;csrf:string}[]};
   const control:{fail?:(what:What,info:Info)=>'500'|'503'|'403'|'404'|'abort'|undefined;gate?:(what:What,info:Info)=>Promise<void>|undefined}={};
   const message=(channel:Channel,body:string,sender=other,name='合成夥伴'):Message=>{
@@ -74,8 +74,9 @@ async function channelServer(page:Page,setup:{guild?:[string,string,number][];sq
       log.sends.push({key,body,idempotency:headers['idempotency-key'],csrf:headers['x-csrf-token'],ifMatch:headers['if-match']});
       if(!channel?.member)return denied();
       const outcome=control.fail?.('send',info);
-      let sent=channel.messages.find(item=>item.message_id===`sent-${headers['idempotency-key']}`);
-      if(!sent&&outcome!=='abort'){sent={...message(channel,body,me.id,'我'),message_id:`sent-${headers['idempotency-key']}`};channel.messages.unshift(sent);}
+      const receiptKey=JSON.stringify([me.id,kind,key,headers['idempotency-key']]),normalizedBody=body.replace(/\r\n?/g,'\n').trim();
+      let sent=sendReceipts.get(receiptKey);if(sent)expect(sent.body).toBe(normalizedBody);
+      if(!sent&&outcome!=='abort'){sent={...message(channel,normalizedBody,me.id,'我'),message_id:randomUUID()};sendReceipts.set(receiptKey,sent);channel.messages.unshift(sent);}
       await control.gate?.('send',info);
       if(outcome==='abort')return route.abort();
       // '500' commits the message but loses the response, like a proxy failure after the write.
@@ -92,7 +93,7 @@ async function channelServer(page:Page,setup:{guild?:[string,string,number][];sq
     }
     return route.fulfill({status:404,json:{}});
   });
-  return {me,store,log,control,get,message};
+  return {me,store,log,control,get,message,sendReceipts};
 }
 
 async function login(page:Page,hash:string){
@@ -332,15 +333,19 @@ test('sending is plain text, retries an unknown result once, and never lets an o
   expect(server.log.sends.map(({key,body,idempotency})=>({key,body,idempotency}))).toEqual([{key:'builders',body:'<b>純文字</b> 你好',idempotency:server.log.sends[0].idempotency},{key:'builders',body:'<b>純文字</b> 你好',idempotency:server.log.sends[0].idempotency}]);
   expect(server.log.sends.every(item=>item.csrf&&item.idempotency&&item.ifMatch===undefined)).toBe(true);
   await expect(thread.locator('.messages-bubbles li.is-mine')).toHaveCount(1);
-  // A committed write whose answer was lost: the same text reuses its key; changed text is a new message.
+  // A committed write whose answer was lost: confirm the original key before a new message.
   outcomes.push('500');await box.fill('第二則');await thread.getByRole('button',{name:'送出',exact:true}).click();
   await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
   await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(box).toHaveValue('');
   expect(server.log.sends[3].idempotency).toBe(server.log.sends[2].idempotency);await expect(thread.getByText('第二則',{exact:true})).toHaveCount(1);
   outcomes.push('abort');await box.fill('原稿');await thread.getByRole('button',{name:'送出',exact:true}).click();
   await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
-  await box.fill('改稿');await expect(thread.getByRole('button',{name:'送出',exact:true})).toBeVisible();await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(box).toHaveValue('');
-  expect(server.log.sends.slice(4).map(item=>item.body)).toEqual(['原稿','改稿']);expect(server.log.sends[5].idempotency).not.toBe(server.log.sends[4].idempotency);
+  await expect(box).toHaveValue('原稿');await expect(box).not.toBeEditable();
+  await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(box).toHaveValue('');await expect(box).toBeEditable();
+  expect(server.log.sends[5]).toEqual(server.log.sends[4]);
+  await box.fill('改稿');await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(box).toHaveValue('');
+  expect(server.log.sends.slice(4).map(item=>item.body)).toEqual(['原稿','原稿','改稿']);expect(server.log.sends[6].idempotency).not.toBe(server.log.sends[4].idempotency);
+  for(const body of ['原稿','改稿'])expect(server.get('guild','builders').messages.filter(item=>item.sender_ref===server.me.id&&item.body===body)).toHaveLength(1);
   // The limit counts code points: 2000 emoji are allowed, 2001 are not sent.
   const sendsBefore=server.log.sends.length;
   await box.fill('😀'.repeat(2001));await thread.getByRole('button',{name:'送出',exact:true}).click();
@@ -433,6 +438,35 @@ test('leaving a channel clears its history and composer at once, and a late answ
   await tab(page,'小隊閒聊').click();const squad=panel(page,'小隊閒聊');
   await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();
   await expect(squad.getByRole('alert')).toContainText('目前無法使用此頻道。');await expect(squad.locator('.messages-bubbles, textarea')).toHaveCount(0);
+  // The hidden guild still owns its first refused send. Even though this fixture
+  // refused before creating a receipt, the client cannot infer that from a 404.
+  expect(server.log.sends).toHaveLength(1);const original={...server.log.sends[0]};
+  expect(original.key).toBe('builders');expect(original.body).toBe('離會前的草稿');
+  expect(server.sendReceipts.size).toBe(0);
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
+  const alerts:string[]=[];page.once('dialog',async dialog=>{alerts.push(dialog.message());await dialog.accept();});
+  await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();
+  await expect.poll(()=>alerts.length).toBe(1);expect(alerts[0]).toContain('頻道訊息傳送結果尚未確認');
+  await expect(page).toHaveURL(/#messages$/);expect(server.log.sends).toEqual([original]);
+
+  // Restore only this synthetic membership. A read-only authority recheck must
+  // not submit the pending command; confirmation remains an explicit action.
+  server.get('guild','builders').member=true;await tab(page,'公會閒聊').click();
+  const refreshed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/me/channels/guild/builders/messages'&&response.request().method()==='GET');
+  await thread.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();expect((await refreshed).status()).toBe(200);
+  await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
+  expect(server.log.sends).toEqual([original]);expect(server.sendReceipts.size).toBe(0);
+  await expect(box).toHaveValue(original.body);await expect(box).not.toBeEditable();
+  const confirmed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/me/channels/guild/builders/messages'&&response.request().method()==='POST');
+  await thread.getByRole('button',{name:'重試送出',exact:true}).click();const response=await confirmed;expect(response.status()).toBe(201);
+  const canonical=await response.json();expect(canonical.message_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  expect(server.log.sends).toEqual([original,original]);expect(server.sendReceipts.size).toBe(1);
+  expect(server.sendReceipts.get(JSON.stringify([server.me.id,'guild','builders',original.idempotency]))).toEqual(canonical);
+  expect(server.get('guild','builders').messages.filter(item=>item.sender_ref===server.me.id&&item.body===original.body)).toEqual([canonical]);
+  await expect(thread.locator('.messages-pending')).toHaveCount(0);await expect(box).toBeEditable();await expect(box).toHaveValue('');
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
+  await tab(page,'小隊閒聊').click();
   await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
   await page.goBack();await tab(page,'公會閒聊').click();
   await panel(page,'公會閒聊').getByRole('button',{name:'合成公會乙',exact:true}).click();await expect(panel(page,'公會閒聊').locator('.messages-bubbles .messages-body')).toHaveCount(1);

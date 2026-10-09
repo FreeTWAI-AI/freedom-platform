@@ -1684,8 +1684,8 @@
     },
     {
       "path": "apps/portal-web/src/GameConsoleComposer.tsx",
-      "bytes": 3987,
-      "sha256": "8ce46e07c511349b80adc08cfa27426cd6e98b893b4936dfbe32000862caf415"
+      "bytes": 4294,
+      "sha256": "65db92151dcf7baa86e42211fce302745b30285e4b7138b480a4db068eca06d4"
     },
     {
       "path": "apps/portal-web/src/GameConsoleThemes.css",
@@ -2009,8 +2009,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ChatContent.tsx",
-      "bytes": 6295,
-      "sha256": "9c4a79ca2dbf91e7d6f8d27df6c8ca58052cedec336f82a8d80dae30384fed79"
+      "bytes": 6370,
+      "sha256": "182ad9e5e5f3fa8709a25656e8d56764e26d57ba15040e6412b1caee673fa51a"
     },
     {
       "path": "apps/portal-web/src/modules/ChatSearch.tsx",
@@ -2324,8 +2324,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 37535,
-      "sha256": "f63f5fc9271f0f94b4f57d2753c29b8b3f747fe1635ac4ab219eb4e7f730378f"
+      "bytes": 40912,
+      "sha256": "fa3e60577ef1526160283e6e421ddbadbeec5d7bca2cd9d38602635402ff7869"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2364,8 +2364,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 58342,
-      "sha256": "c2e59002389ec3425970396316f69a2855a1b979c107f3ea0078e267f0aa874b"
+      "bytes": 59387,
+      "sha256": "7074f37bcc5b47a0402ae564963957243b5d24306f4e80b86e28f260b5ac7595"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2703,6 +2703,11 @@
       "sha256": "aba01898c83b28abac4bb1df6b4d389bbcedf9c7c156f0931d72f442737d16f6"
     },
     {
+      "path": "apps/portal-web/src/modules/chat-leave-guards.ts",
+      "bytes": 1052,
+      "sha256": "d2ed5b2a2dc504163d4952c9ad8ba8b10239e9b15330db1dfdb6b1512d8a806a"
+    },
+    {
       "path": "apps/portal-web/src/modules/direct-message-receipts.ts",
       "bytes": 3097,
       "sha256": "e88136bc3850dc90ba25340345c07472de783a47787f3b15fac6ced850027222"
@@ -2754,8 +2759,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/message-image-client.ts",
-      "bytes": 6100,
-      "sha256": "cb8f9dbd29ea8fb1e674fa3a69619582a91bb9fed4a213b33c1eed7b1912834a"
+      "bytes": 7131,
+      "sha256": "830778e97d9a17aed125599b3342cca2ff48a1ef2e51392843d5c05c3156ec07"
     },
     {
       "path": "apps/portal-web/src/modules/module-words.ts",
@@ -13489,8 +13494,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 19672,
-      "sha256": "7a610d79422c8678aa9f88d440db09897889c674cf833aeeab6f91aefc197501"
+      "bytes": 23602,
+      "sha256": "b1c56ed2b2bd9490d2bf8dd517bed69c36d22e4f49738f22d82a71de555885d6"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19398,14 +19403,19 @@
       "sha256": "c16671c706fc0e330e3b6af2d51b0cb0c75d507f657ff62e9741b521820be05a"
     },
     {
+      "path": "tests/e2e/chat-leave-guards.spec.ts",
+      "bytes": 3074,
+      "sha256": "8386a51e5fdbbe3e746a2686a0af6e066c09a4cc0c5b44bcaf7c5fb119304d99"
+    },
+    {
       "path": "tests/e2e/chat-search.spec.ts",
       "bytes": 12034,
       "sha256": "27afc54b16f6f3cbad184bd24058dfe96cb00418e7d07fcd8e1be481ff229f3f"
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 28269,
-      "sha256": "8e6b6329ffcb7cf0f42bac5eccee503ddeef8cd79bfbdbb17e9566bb145034fb"
+      "bytes": 45560,
+      "sha256": "d05861b92887bdaaf2ee1aec40f0ce7301a8693437080f4ce67e2f29c4bcac34"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -19619,8 +19629,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 64489,
-      "sha256": "c14f768b210909d140662e4966a5affce55ff120322452ddd238cd302fc25ca2"
+      "bytes": 68070,
+      "sha256": "819a50322280bd12b2bc404daeacb6402f09ce39975b241fe40594c60105f5f3"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
@@ -19689,8 +19699,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 39778,
-      "sha256": "abec6fe092347c22f4e4d590a35e0ca3aa4cfd616187f39e25d00d60aa56c63a"
+      "bytes": 45624,
+      "sha256": "6c2bed21e8e5d5e69de8d5a0850d65dfd9f2f8ff3f5d12b7837f8648a27939ae"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20231,6 +20241,11 @@
       "path": "tests/runtime/chat-content.test.ts",
       "bytes": 15046,
       "sha256": "3ba295ab7f2c7cea8e6ef72287a7f56a25a11eb35d0483f0b4d78986dbf2cce2"
+    },
+    {
+      "path": "tests/runtime/chat-sticker-send.test.ts",
+      "bytes": 19020,
+      "sha256": "9a9cf1f6d41188d364c562d3c7b54e602cebf4d3708f32a073ca836815090934"
     },
     {
       "path": "tests/runtime/client-connections.test.ts",

@@ -38,7 +38,7 @@ export function ChatQuote({reply}:{reply:MessageReply}){
     <strong>{reply.sender_name}</strong><span>{reply.sticker?`[貼圖] ${reply.sticker.label}`:reply.body}</span>
   </blockquote>;
 }
-export function ChatExtras({draft,onChange,disabled,target}:{draft:RichChatDraft;onChange:(value:Partial<RichChatDraft>)=>void;disabled:boolean;target:string}){
+export function ChatExtras({draft,onChange,onSendSticker,disabled,target}:{draft:RichChatDraft;onChange:(value:Partial<RichChatDraft>)=>void;onSendSticker:(id:string)=>void;disabled:boolean;target:string}){
   const [open,setOpen]=useState(false),[search,setSearch]=useState(''),[pack,setPack]=useState('freetwai-v2');
   const id=useId(),toggle=useRef<HTMLButtonElement>(null),input=useRef<HTMLInputElement>(null);
   useEffect(()=>{setOpen(false);setSearch('');},[target]);
@@ -51,9 +51,10 @@ export function ChatExtras({draft,onChange,disabled,target}:{draft:RichChatDraft
     <button className="btn btn-ghost" ref={toggle} type="button" aria-label="選擇貼圖" title="選擇貼圖" disabled={disabled} aria-expanded={open} aria-controls={id} onClick={()=>open?close():setOpen(true)}><svg className="chat-sticker-trigger" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 14.5q4 4 8 0"/><path d="M8.5 9h.01M15.5 9h.01" strokeWidth="3"/></svg><span>選擇貼圖</span></button>
     {open&&<section className="chat-sticker-picker" id={id} aria-label="工坊貼圖" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}}}>
       <div className="chat-picker-heading"><strong>自由工坊貼圖</strong><button className="btn btn-ghost" type="button" onClick={close}>關閉貼圖</button></div>
+      <p className="messages-meta">點選即傳送，保留其他草稿。</p>
       <div className="chat-sticker-packs" role="group" aria-label="貼圖包">{[['freetwai-v2','自由工坊'],['workshop-v1','工坊夥伴']].map(([key,label])=><button className="btn btn-ghost" key={key} type="button" aria-pressed={pack===key} onClick={()=>{setPack(key);setSearch('')}}>{label}</button>)}</div>
       <label className="field">搜尋貼圖<input ref={input} type="search" value={search} maxLength={80} onKeyDown={event=>{if(event.key==='Enter')event.preventDefault();}} onChange={event=>setSearch(event.target.value)} placeholder="例如：加油、合作"/></label>
-      <div className="chat-sticker-grid">{matches.map(item=><button key={item.id} className="chat-sticker-choice" type="button" disabled={disabled} aria-label={`選用貼圖：${item.label}`} aria-pressed={draft.sticker_id===item.id} onClick={()=>{onChange({sticker_id:item.id});close();}}><ChatSticker id={item.id} thumbnail/><span>{item.label}</span></button>)}</div>
+      <div className="chat-sticker-grid">{matches.map(item=><button key={item.id} className="chat-sticker-choice" type="button" disabled={disabled} aria-label={`傳送貼圖：${item.label}`} onClick={()=>{onSendSticker(item.id);close();}}><ChatSticker id={item.id} thumbnail/><span>{item.label}</span></button>)}</div>
       {matches.length===0&&<p role="status">沒有符合的貼圖，請換個關鍵字。</p>}
     </section>}
   </div>;
