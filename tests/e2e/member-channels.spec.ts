@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
+import {chatPollClock} from './chat-poll-clock.js';
 
 // Synthetic data only, served by route fixtures that follow the backend channel DTO. The real
 // API is covered by tests/e2e/member-channels-real.spec.ts; these cases pin the UI boundaries.
@@ -131,39 +132,44 @@ test('idle activity requests slow down and typing, focus, visibility and manual 
   await page.getByRole('button',{name:/閒置測試頻道/}).click();
   const room=panel(page,'公會閒聊');
   await expect(room.getByRole('log')).toBeVisible();
-  let requests=0;
-  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/me/channels/guild/idle-room/activity')requests++;});
-  // Each tick is advanced separately so fetch responses settle before the next
-  // tick; one large fastForward would skip timers rather than exercise the schedule.
-  const tick=async()=>{
-    await page.clock.runFor(1000);
-    await page.evaluate(()=>Promise.resolve());
-  };
-  const resume=async(action:()=>Promise<unknown>,immediate=false)=>{
-    const before=requests;
-    await action();if(!immediate)await tick();
-    await expect.poll(()=>requests).toBe(before+1);
-  };
-  await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))),true);
-  const start=requests;
-  for(let second=1;second<=30;second++){
-    await tick();
-    const due=[1,2,4,7,12,17,22,27].filter(at=>at<=second).length;
-    await expect.poll(()=>requests).toBe(start+due);
+  const clock=chatPollClock(page,'/api/v1/me/channels/guild/idle-room/activity');
+  const historyBefore=server.log.history.length;
+  await clock.poll(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))));
+  const start=clock.requests;
+  for(let second=1;second<=30;second++)await clock.tick([1,2,4,7,12,17,22,27].includes(second));
+  expect(clock.requests-start).toBe(8);expect(server.log.history).toHaveLength(historyBefore);
+  await clock.tick(false);await clock.tick(true); // Completed capped empty poll at second32.
+  // The last empty poll has reached the five-second cap. No focus, typing,
+  // visibility or manual-refresh event occurs before this peer arrival.
+  const channel=server.get('guild','idle-room');
+  const incoming=server.message(channel,'閒置之後的新訊息');channel.messages.unshift(incoming);
+  // Another same-member client may already have read it; avoid auto-read writes
+  // obscuring the isolated arrival schedule under test.
+  channel.read=BigInt(incoming.sequence);
+  for(let second=1;second<5;second++){
+    await clock.tick(false);await expect(room.getByText(incoming.body,{exact:true})).toHaveCount(0);
   }
-  expect(requests-start).toBe(8);
+  const history=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname==='/api/v1/me/channels/guild/idle-room/messages');
+  await clock.tick(true);expect(await (await history).finished()).toBeNull();
+  await expect(room.getByText(incoming.body,{exact:true})).toBeVisible();
+  await clock.tick(true); // A detected arrival restores the one-second cadence.
+  const resume=async(action:()=>Promise<unknown>,immediate=false)=>{
+    if(immediate)await clock.poll(action);
+    else{await action();await clock.tick(true);}
+  };
+  // Reach the cap again: typing must override a future five-second deadline,
+  // not merely coincide with an already-fast poll after the detected arrival.
+  for(let second=1;second<=12;second++)await clock.tick([1,2,4,7,12].includes(second));
   await resume(()=>room.getByLabel('在 閒置測試頻道 發言').fill('輸入中'));
   await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))),true);
-  await visibility(page,'hidden');const hidden=requests;
-  await page.clock.runFor(30000);expect(requests).toBe(hidden);
+  await visibility(page,'hidden');const hidden=clock.requests;
+  await page.clock.runFor(30000);expect(clock.requests).toBe(hidden);
   await resume(()=>visibility(page,'visible'),true);
+  const reloaded=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname==='/api/v1/me/channels/guild/idle-room/messages');
   await room.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  expect(await (await reloaded).finished()).toBeNull();
   await expect(room.getByRole('button',{name:'重新讀取訊息',exact:true})).toHaveAttribute('aria-disabled','false');
-  await resume(()=>Promise.resolve());
-  const channel=server.get('guild','idle-room');
-  channel.messages.unshift(server.message(channel,'閒置之後的新訊息'));
-  await tick();
-  await expect(room.getByText('閒置之後的新訊息',{exact:true})).toBeVisible({timeout:6000});
+  await clock.tick(true);
 });
 
 test('five tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{

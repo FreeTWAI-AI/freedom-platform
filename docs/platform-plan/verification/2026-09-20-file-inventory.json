@@ -13379,8 +13379,8 @@
     },
     {
       "path": "docs/development/calm-member-experience.md",
-      "bytes": 5068,
-      "sha256": "e3a2ec5f6ec1790b56822ea75ec0586c84fca1b19c2fb1cdaf5d26c26f4676b2"
+      "bytes": 5872,
+      "sha256": "a3ffe2e5d40042d4c9a5add6002c5de005b085846f548231bf9dea420829357b"
     },
     {
       "path": "docs/development/client-read-connections.md",
@@ -13459,8 +13459,8 @@
     },
     {
       "path": "docs/development/game-console.md",
-      "bytes": 3666,
-      "sha256": "4b5e7e3b029c8bf456451c63e10293a3005f67e7bddfcc6cf600a773142e10ae"
+      "bytes": 3860,
+      "sha256": "0d2995182a3fb20fcdae24588b2ddee3175f39a3766c3b32b53e80a81b59dba2"
     },
     {
       "path": "docs/development/github-grant-reconnect-race.md",
@@ -13549,8 +13549,8 @@
     },
     {
       "path": "docs/development/member-settings-messages.md",
-      "bytes": 10889,
-      "sha256": "4550381a2ef4a64f5dccb2044915903eb38a07148fe421fffac81df41e21683f"
+      "bytes": 11249,
+      "sha256": "14a594072e4394d8e13c1016e395cef2775ee3543f2e3fe030969b266aafa286"
     },
     {
       "path": "docs/development/member-skill-registration.md",
@@ -19444,8 +19444,8 @@
     },
     {
       "path": "tests/e2e/calm-experience.spec.ts",
-      "bytes": 16106,
-      "sha256": "3cdae6257e9aac1877a2a19fe97ef81db5b83b13a413446a215fc081c4fe77db"
+      "bytes": 21449,
+      "sha256": "2b046be504dfc640e449fd62c1aa6e09c46e523e3c374c89b218264883845be0"
     },
     {
       "path": "tests/e2e/campaign-draft-newlines.spec.ts",
@@ -19456,6 +19456,11 @@
       "path": "tests/e2e/chat-leave-guards.spec.ts",
       "bytes": 3074,
       "sha256": "8386a51e5fdbbe3e746a2686a0af6e066c09a4cc0c5b44bcaf7c5fb119304d99"
+    },
+    {
+      "path": "tests/e2e/chat-poll-clock.ts",
+      "bytes": 1217,
+      "sha256": "e026b8845b29c1a2d3f6faf14b0729620d4104a7fce8f2d76d3fb013c2014d5f"
     },
     {
       "path": "tests/e2e/chat-search.spec.ts",
@@ -19679,8 +19684,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 70708,
-      "sha256": "d706a35d707075cd10e3e4577fb64b3ea716ba5236af47df7e8781dde2e948d8"
+      "bytes": 71756,
+      "sha256": "dcb0305d267e17a291888ee32491f0e095a16d9f52d10dc0844d956b246ace2f"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
