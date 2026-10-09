@@ -155,3 +155,22 @@ message UUID、合法 bigint sequence、時間及完整內容；離會不會把�
 涵蓋同步連點、草稿保留、錯誤 ACK、未知後拒絕、精確重試、收件人／session 變更與
 頻道撤權。這是 source／pure tier；`chat-stickers.spec.ts` 與 `message-images.spec.ts`
 保留真實瀏覽器／DB 的驗收入口，不能用 pure 測試取代 browser／HTTP／DB 證據。
+
+
+訊息頁與 Console 分別用 `useChatLeaveGuards` 聚合私訊、公會、小隊與世界四個子元件。
+每個子元件只登記／移除自己的守衛，其他子元件有 pending 時仍阻擋離開；頻道的
+layout 註冊與 beforeunload 直接讀同步 held ref，不等 React 下一次 render。既有
+App 的頁面導覽／hash／登出，以及 Console 的 session-end 檢查沿用同一父守衛。
+只保留普通文字／圖片／回覆草稿時不提示離開。隱藏分區、收合 Console、切換房間
+保留原掛載；頻道列表另有「回到待確認訊息」入口，原房間被移出可用列表也能返回。
+
+撤權後仍不顯示 cached history／pending 正文；「重新檢查頻道存取」只呼叫既有 GET，
+成功恢復可讀歷史後才開放手動重試原 key，不自動送出。若存取永久撤銷，原結果
+仍無法確認，App 離開守衛仍會阻擋；沒有繞過授權的確認或丟棄入口。tuple 只存在
+目前 session／分頁記憶體，不能保證 crash、強制關閉、本人確認瀏覽器離開提示或
+已撤銷 session 後仍可恢復；主視窗無法同步查詢另一 popout 的 pending 狀態。
+
+`chat-leave-guards.spec.ts` 以實際 React layout effect 掛載／移除子元件驗聚合獨立性；
+`chat-stickers.spec.ts` 另驗首次送出事件內 beforeunload、ACK 前離開、隱藏分區／收合
+Console 後登出，以及撤權／恢復存取時的原 tuple 重試。這些 browser 案例需另行執行，
+source／pure 測試不代表已完成瀏覽器驗收。

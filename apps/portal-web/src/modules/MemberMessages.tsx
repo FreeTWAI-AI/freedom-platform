@@ -5,6 +5,7 @@ import {formatIsoLocal} from '../format';
 import type {SessionPayload,TabId} from '../types';
 import {MemberAvatar} from './MemberAvatar';
 import {MemberChannels} from './MemberChannels';
+import {useChatLeaveGuards} from './chat-leave-guards';
 import {announceInboxChange,INBOX_ALL_READ,useReadAllInbox,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
@@ -52,6 +53,7 @@ const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人�
 
 export function MemberMessages({client,session,messageImagesEnabled=false,memberBlockingEnabled=false,onNavigate,onNotificationPeer,chatEntry,initialView,registerLeave}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
   const all=useReadAllInbox(client);
+  const leaveGuards=useChatLeaveGuards(registerLeave);
   const [view,setView]=useState<View>(initialView?.view??'direct');
   const [listRequest,setListRequest]=useState(0);
   const hub=useRef<HTMLElement>(null);usePhoneChatBounds(hub);
@@ -84,15 +86,15 @@ export function MemberMessages({client,session,messageImagesEnabled=false,member
       <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
     </div>
     <div id="messages-panel-guild" role="tabpanel" aria-labelledby="messages-tab-guild" hidden={view!=='guild'}>
-      <MemberChannels client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate} active={view==='guild'} openChannel={chatEntry?.kind==='guild'?chatEntry:null}/>
+      <MemberChannels registerLeave={leaveGuards.guild} key={session.user.user_id} client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate} active={view==='guild'} openChannel={chatEntry?.kind==='guild'?chatEntry:null}/>
     </div>
     <div id="messages-panel-squad" role="tabpanel" aria-labelledby="messages-tab-squad" hidden={view!=='squad'}>
-      <MemberChannels client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
+      <MemberChannels registerLeave={leaveGuards.squad} key={session.user.user_id} client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
     </div>
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
-      <DirectMessages key={session.user.user_id} client={client} session={session} messageImagesEnabled={messageImagesEnabled} registerLeave={registerLeave} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest} memberBlockingEnabled={memberBlockingEnabled}/>
+      <DirectMessages key={session.user.user_id} client={client} session={session} messageImagesEnabled={messageImagesEnabled} registerLeave={leaveGuards.direct} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest} memberBlockingEnabled={memberBlockingEnabled}/>
     </div>
-    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
+    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels registerLeave={leaveGuards.world} key={session.user.user_id} client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
   </section>;
 }
 

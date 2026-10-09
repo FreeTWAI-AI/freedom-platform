@@ -1679,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/GameConsoleComposer.tsx",
-      "bytes": 3987,
-      "sha256": "8ce46e07c511349b80adc08cfa27426cd6e98b893b4936dfbe32000862caf415"
+      "bytes": 4294,
+      "sha256": "65db92151dcf7baa86e42211fce302745b30285e4b7138b480a4db068eca06d4"
     },
     {
       "path": "apps/portal-web/src/GameConsoleThemes.css",
@@ -2309,8 +2309,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 39222,
-      "sha256": "4f5cf837c239967c258709f6b2566df2c93c74ee7146ffb6436cc5bab1ac83a1"
+      "bytes": 40802,
+      "sha256": "26703f563102cd35c97e3118f2f82f2454f9f1a871c5f1e0b588ae8ff57f877d"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -2349,8 +2349,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 58848,
-      "sha256": "78b081ca5b6bd5da0f7b940d1047c57866ada431f776e6a841dacb7824048954"
+      "bytes": 59147,
+      "sha256": "a0c58701838e1a756262e0128fda38b30e2d896ee599484376e4b91ab9baaa03"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2676,6 +2676,11 @@
       "path": "apps/portal-web/src/modules/chat-entry.ts",
       "bytes": 732,
       "sha256": "aba01898c83b28abac4bb1df6b4d389bbcedf9c7c156f0931d72f442737d16f6"
+    },
+    {
+      "path": "apps/portal-web/src/modules/chat-leave-guards.ts",
+      "bytes": 1052,
+      "sha256": "d2ed5b2a2dc504163d4952c9ad8ba8b10239e9b15330db1dfdb6b1512d8a806a"
     },
     {
       "path": "apps/portal-web/src/modules/direct-message-receipts.ts",
@@ -13449,8 +13454,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 19979,
-      "sha256": "2cd53a8f2e280dfcf3485fe9b34abe74c805dfa8e0dbd0c638d4abff643802fc"
+      "bytes": 21541,
+      "sha256": "ddc9a1f2f9dc4b5f79cd84c06dbfbdfeea8b0d6be7c7206b2c564a17b52f475a"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19343,14 +19348,19 @@
       "sha256": "c16671c706fc0e330e3b6af2d51b0cb0c75d507f657ff62e9741b521820be05a"
     },
     {
+      "path": "tests/e2e/chat-leave-guards.spec.ts",
+      "bytes": 3074,
+      "sha256": "8386a51e5fdbbe3e746a2686a0af6e066c09a4cc0c5b44bcaf7c5fb119304d99"
+    },
+    {
       "path": "tests/e2e/chat-search.spec.ts",
       "bytes": 12034,
       "sha256": "27afc54b16f6f3cbad184bd24058dfe96cb00418e7d07fcd8e1be481ff229f3f"
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 29004,
-      "sha256": "8ec0fd32d9327af42fbf4a0ea7a634e315148fabb7dec44e99a20037a1f2bea6"
+      "bytes": 35073,
+      "sha256": "4a9d4272af044ccf5cb9fbfae035a2f12f97c3e7bd747673f0ee96fddab500bb"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -20164,8 +20174,8 @@
     },
     {
       "path": "tests/runtime/chat-sticker-send.test.ts",
-      "bytes": 10743,
-      "sha256": "4b6091ed9a33856c764e75be8bb3a8cca05d732621aab42f1d1360935fc9e6da"
+      "bytes": 15268,
+      "sha256": "9dd88108866d58048a58439ad87b3f07fdcbe4c11ddf92961f7525a06eb65d46"
     },
     {
       "path": "tests/runtime/client-connections.test.ts",

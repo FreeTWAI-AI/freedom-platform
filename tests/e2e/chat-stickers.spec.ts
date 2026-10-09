@@ -129,7 +129,7 @@ test('mobile guild stickers send immediately while reply drafts remain; picker i
   await choose(b,'一起共創');
   const received=a.locator('.messages-bubbles>li').filter({has:sender.locator('[data-sticker-id="workshop-v1-together"]')});await expect(received).toHaveCount(1);
   await expect(received.getByLabel('回覆的訊息')).toHaveCount(0);await expect(b.locator('.chat-reply-draft')).toContainText('一起完成第一個作品？');
-  await b.locator('textarea').fill('一起完成');await b.getByRole('button',{name:'送出',exact:true}).click();await expect(a.locator('.messages-bubbles>li').filter({hasText:'一起完成'}).last().getByLabel('回覆的訊息')).toContainText('一起完成第一個作品？');
+  await b.locator('textarea').fill('一起完成');await b.getByRole('button',{name:'送出',exact:true}).click();await expect(a.locator('.messages-bubbles>li').filter({has:sender.getByText('一起完成',{exact:true})}).getByLabel('回覆的訊息')).toContainText('一起完成第一個作品？');
   await receiver.reload();await receiver.getByRole('tab',{name:/^公會閒聊/}).click();await b.locator(`[data-channel-key="${guild}"]`).click();
   await expect(b.locator('.messages-bubbles [data-sticker-id="workshop-v1-together"]')).toHaveCount(1);
   expect(await receiver.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -250,4 +250,66 @@ test('phone public chat returns to the conversation list and keeps private and p
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
   await expect(world.locator('.messages-compose')).toBeVisible();await expect(world.locator('textarea')).toHaveValue('公開草稿');await expect(page.locator('.messages-categories')).toBeHidden();
   expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1',[accounts[0].id])).rows[0].n).toBe(0);
+});
+
+for(const surface of ['page','dock'] as const)test(`${surface}: channel send blocks exit before ACK and hidden pending still blocks logout`,async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0);let panel:Locator;
+  if(surface==='page')panel=await group(page);
+  else{
+    await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();const dock=page.locator('.game-console-expanded');
+    await dock.getByRole('tab',{name:'公會聊天',exact:true}).click();panel=dock.locator('[data-channel-kind="guild"]');
+    await panel.locator(`[data-channel-key="${guild}"]`).click();await expect(panel.locator('.messages-compose')).toBeVisible();
+  }
+  const path=`/api/v1/me/channels/guild/${guild}/messages`,sends:{key:string;body:unknown}[]=[];
+  let release!:()=>void;const barrier=new Promise<void>(resolve=>{release=resolve;});
+  await page.route(`**${path}`,async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});
+    const response=await route.fetch();expect(response.status()).toBe(201);
+    if(sends.length===1){await barrier;return route.abort();}return route.fulfill({response});
+  });
+  try{
+  let notices=0,logouts=0;page.on('dialog',async dialog=>{notices++;await dialog.accept();});
+  page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/auth/logout'))logouts++;});
+  await panel.getByRole('button',{name:'選擇貼圖',exact:true}).click();await panel.getByRole('button',{name:'工坊夥伴',exact:true}).click();
+  await panel.getByRole('button',{name:'傳送貼圖：你好',exact:true}).evaluate(button=>{
+    (button as HTMLButtonElement).click();
+    const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);document.body.dataset.sendBeforeUnload=String(event.defaultPrevented);
+  });
+  await expect(page.locator('body')).toHaveAttribute('data-send-before-unload','true');
+  if(surface==='page'){
+    await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#messages$/);expect(notices).toBeGreaterThan(0);
+    await returnToList(page);await page.getByRole('tab',{name:/^私人訊息/}).click();
+  }else await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
+  const beforeLogout=notices;await page.getByRole('button',{name:'設定',exact:true}).click();
+  await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
+  expect(notices).toBe(beforeLogout+1);expect(logouts).toBe(0);expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
+  release();
+  if(surface==='page'){await page.getByRole('tab',{name:/^公會閒聊/}).click();await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();}
+  else await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
+  await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();await panel.getByRole('button',{name:'重試送出',exact:true}).click();
+  await expect(panel.locator('.messages-pending')).toHaveCount(0);expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+  }finally{release();}
+});
+
+test('revoked channel keeps its pending command reachable and read-only access rechecks never send',async({browser,baseURL})=>{
+  const page=await member(browser,baseURL!,0),panel=await group(page),path=`/api/v1/me/channels/guild/${guild}/messages`,sends:{key:string;body:unknown}[]=[];
+  await page.route(`**${path}`,async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});const response=await route.fetch();expect(response.status()).toBe(201);
+    if(sends.length===1)return route.abort();return route.fulfill({response});
+  });
+  await choose(panel,'謝謝');await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
+  await db.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+  await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+  await expect(panel.locator('.messages-bubbles')).toHaveCount(0);await expect(panel.locator('.messages-pending')).toHaveCount(0);
+  await expect(panel.getByText('先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。')).toBeVisible();
+  await group(page,'world');await page.getByRole('tab',{name:/^公會閒聊/}).click();
+  await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');expect(sends).toHaveLength(1);
+  await db.query("UPDATE positioning_profession_memberships SET state='active' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();expect(sends).toHaveLength(1);
+  await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);
+  expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1 AND sticker_id IS NOT NULL',[accounts[0].id])).rows[0].n).toBe(1);
 });

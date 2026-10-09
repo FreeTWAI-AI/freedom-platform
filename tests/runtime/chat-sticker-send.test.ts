@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {transformSync} from 'esbuild';
+import {createChatLeaveGuards} from '../../apps/portal-web/src/modules/chat-leave-guards.js';
 import {ApiError} from '../../apps/portal-web/src/api.js';
 import {findChatSticker} from '../../modules/member-communications/stickers.js';
 import {matchesChannelMessageAck,matchesDirectMessageAck} from '../../apps/portal-web/src/modules/message-image-client.js';
@@ -109,4 +110,52 @@ test('picker invokes the send callback directly and preserves quote state',()=>{
   const nodes:any[]=[];function walk(value:any){if(!value)return;if(Array.isArray(value)){value.forEach(walk);return;}if(typeof value==='object'){nodes.push(value);walk(value.children);}}walk(tree);
   const button=nodes.find(value=>value.props?.['aria-label']==='傳送貼圖：你好');assert.ok(button);button.props.onClick();
   assert.deepEqual(sent,[first]);assert.deepEqual(changes,[]);assert.equal(states[0],false);
+});
+
+test('channel leave guards observe the held command before the first await and ignore ordinary drafts',async()=>{
+  const h=harness('channel');let alerts=0;
+  const context={...h.state,window:{alert:()=>alerts++}};
+  const canLeave=runInNewContext(`${sourceFunction('MemberChannels.tsx','canLeave')};canLeave`,context);
+  const beforeUnload=runInNewContext(`${sourceFunction('MemberChannels.tsx','onBeforeUnload')};onBeforeUnload`,context);
+  let prevented=0;const event={returnValue:undefined,preventDefault:()=>prevented++};
+  assert.equal(canLeave(),true);beforeUnload(event);assert.equal(prevented,0);assert.equal(alerts,0);
+  const sending=h.send(h.target,first);
+  assert.equal(canLeave(),false);beforeUnload(event);assert.equal(prevented,1);assert.equal(event.returnValue,'');
+  h.calls[0].reject(new ApiError({message:'lost response',network:true}));await sending;
+  h.state.current.current='another-room';assert.equal(canLeave(),false);
+  h.state.current.current=h.target;const retry=h.send(h.target);h.calls[1].resolve(h.ack(1));await retry;
+  assert.equal(canLeave(),true);beforeUnload(event);assert.equal(prevented,1);assert.equal(h.state.drafts[h.target],'保留的文字');
+});
+
+test('AND composition retains every sibling guard when a child unregisters',()=>{
+  const guards=createChatLeaveGuards();let directPending=true,guildPending=true;
+  guards.direct(()=>!directPending);guards.guild(()=>!guildPending);guards.squad(()=>true);guards.world(()=>true);
+  assert.equal(guards.canLeave(),false);guards.world(null);assert.equal(guards.canLeave(),false);
+  directPending=false;assert.equal(guards.canLeave(),false);guards.direct(null);assert.equal(guards.canLeave(),false);
+  guildPending=false;assert.equal(guards.canLeave(),true);
+  guards.guild(()=>false);guards.squad(null);assert.equal(guards.canLeave(),false);
+  guards.guild(null);assert.equal(guards.canLeave(),true);
+});
+
+for(const file of ['MemberMessages.tsx','../GameConsoleComposer.tsx'])test(`${file}: real parent wires all four distinct child slots into its layout-registered aggregate`,()=>{
+  const parent={current:null as (()=>boolean)|null};const effects:(()=>void)[]=[],guards=createChatLeaveGuards();
+  const useChatLeaveGuards=runInNewContext(`${sourceFunction('chat-leave-guards.ts','useChatLeaveGuards')};useChatLeaveGuards`,{
+    useState:()=>[guards],createChatLeaveGuards,useLayoutEffect:(effect:()=>()=>void)=>effects.push(effect()),
+  });
+  const jsx=(type:any,props:any,...children:any[])=>({type,props:props??{},children});
+  const MemberChannels=Symbol('MemberChannels'),DirectMessages=Symbol('DirectMessages');
+  const consoleParent=file.startsWith('../'),name=consoleParent?'GameConsoleComposer':'MemberMessages';let stateIndex=0;
+  const render=runInNewContext(`${sourceFunction(file,name)};${name}`,{
+    React:{createElement:jsx},useChatLeaveGuards,useState:(initial:any)=>[consoleParent&&stateIndex++===0?['guild','squad','direct','world_chat']:typeof initial==='function'?initial():initial,()=>{}],
+    useRef:(value:any)=>({current:value}),useEffect:()=>{},useCallback:(callback:any)=>callback,usePhoneChatBounds:()=>{},useReadAllInbox:()=>({}),VIEWS:[],WorkshopIcon:()=>{},Notifications:()=>{},PageLoadBoundary:()=>{},MemberChannels,DirectMessages,isChat:()=>true,
+  });
+  const tree=render({client:{},session:{user:{user_id:sender}},enabled:true,channel:'guild',active:true,onUnread:()=>{},onNavigate:()=>{},registerLeave:(guard:any)=>{parent.current=guard;},registerSessionEnd:(guard:any)=>{parent.current=guard;}});
+  const nodes:any[]=[];function walk(value:any){if(!value)return;if(Array.isArray(value)){value.forEach(walk);return;}if(typeof value==='object'){nodes.push(value);walk(value.children);}}walk(tree);
+  const children=nodes.filter(node=>node.type===MemberChannels||node.type===DirectMessages);assert.equal(children.length,4);
+  const registrations=children.map(node=>node.props.registerLeave);assert.equal(new Set(registrations).size,4);
+  assert.equal(parent.current,guards.canLeave);
+  const pending=children.find(node=>node.props.kind==='guild');pending.props.registerLeave(()=>false);
+  for(const child of children.filter(node=>node!==pending)){child.props.registerLeave(()=>true);child.props.registerLeave(null);assert.equal(parent.current!(),false);}
+  pending.props.registerLeave(null);assert.equal(parent.current!(),true);
+  effects.forEach(cleanup=>cleanup());assert.equal(parent.current,null);
 });

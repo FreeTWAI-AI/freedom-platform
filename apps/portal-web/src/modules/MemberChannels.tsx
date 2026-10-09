@@ -20,7 +20,7 @@ type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;seque
 type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
 type Activity={latest_sequence:string;unread_count:number};
 type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
-type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null;onReturnToChats?:()=>void};
+type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null;onReturnToChats?:()=>void;registerLeave?:(guard:(()=>boolean)|null)=>void};
 
 const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
 const copy={
@@ -39,7 +39,7 @@ const compare=(a:string,b:string)=>{const x=BigInt(a),y=BigInt(b);return x<y?-1:
 const newestFirst=(items:ChannelMessage[])=>[...items].sort((a,b)=>compare(b.sequence,a.sequence));
 
 /** One guild or squad chat tab: the list is read on its own; a channel's history only after the member picks it. */
-export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,compact=false,openChannel,onReturnToChats}:Props){
+export function MemberChannels({client,session,kind,onUnread,onNavigate,active=true,compact=false,openChannel,onReturnToChats,registerLeave}:Props){
   const me=session.user.user_id,text=copy[kind],uid=useId();
   const mobile=useChatViewport(),singlePane=compact||mobile;
   const richDrafts=useRichChatDraft();
@@ -56,6 +56,21 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   function setPending(update:(value:Record<string,Pending>)=>Record<string,Pending>){
     held.current=update(held.current);setPendingState(held.current);
   }
+  function canLeave(){
+    if(Object.keys(held.current).length===0)return true;
+    window.alert('頻道訊息傳送結果尚未確認。請回到待確認訊息重試；若已失去存取權，需先恢復頻道存取才能確認結果。');return false;
+  }
+  function onBeforeUnload(event:BeforeUnloadEvent){
+    if(Object.keys(held.current).length>0){event.preventDefault();event.returnValue='';}
+  }
+  useLayoutEffect(()=>{
+    registerLeave?.(canLeave);
+    return()=>registerLeave?.(null);
+  },[registerLeave]);
+  useEffect(()=>{
+    window.addEventListener('beforeunload',onBeforeUnload);
+    return()=>window.removeEventListener('beforeunload',onBeforeUnload);
+  },[]);
   const [reading,setReading]=useState(false),[readError,setReadError]=useState(''),[newerUnseen,setNewerUnseen]=useState(false);
   // The read itself was confirmed; only the unread count after it is not known yet.
   const [countUnconfirmed,setCountUnconfirmed]=useState('');
@@ -197,6 +212,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       if(generation===threadGeneration.current)threadInFlight.current=null;
       // A slower answer for an earlier selection must never replace the open channel.
       if(generation!==threadGeneration.current||current.current!==key)return;
+      gone.current.delete(key);
       setHistory(existing=>quiet&&existing?{...value,items:newestFirst(merge(value.items,existing.items,item=>item.message_id)),next_offset:existing.next_offset===null?value.next_offset:Math.max(existing.next_offset,value.next_offset??0)+value.items.filter(item=>!existing.items.some(known=>known.message_id===item.message_id)).length}:{...value,items:newestFirst(value.items)});setStatus('ready');setRefresh({loading:false,error:''});setNewerUnseen(false);setCountUnconfirmed('');setLiveError('');
       if(kind==='world')onUnread(value.unread_count);
       // A re-read can show newer unread messages; the tab and list totals come from the kind list, never from this channel.
@@ -210,7 +226,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     }
   }
   function select(item:ChannelSummary){
-    current.current=item.channel_key;epoch.current++;gone.current.delete(item.channel_key);focusThread.current=true;
+    current.current=item.channel_key;epoch.current++;focusThread.current=true;
     stick.current=true;anchor.current=null;setHasNew(false);setLiveError('');retryAt.current=0;
     setSelected({key:item.channel_key,name:item.name});setPicking(false);void loadThread(item.channel_key);
     setReading(readLocks.current.has(item.channel_key));
@@ -332,6 +348,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     {kind==='world'&&mobile&&!compact&&<section hidden={Boolean(selected)&&!picking} className="messages-side stack" aria-labelledby={ids.list}><h2 id={ids.list} className="member-section-title">公開聊天室</h2><button type="button" className="messages-peer" aria-label="世界聊天" onClick={()=>select({kind,channel_key:'world',name:'世界聊天',unread_count:history?.unread_count??0,last_message_at:null})}><span className="chat-room-icon" aria-hidden="true">#</span><span className="chat-peer-copy"><strong>世界聊天</strong><span className="chat-peer-preview">所有會員可見</span></span></button></section>}
     {kind!=='world'&&<section id={`${uid}-picker`} hidden={singlePane&&Boolean(selected)&&!picking} className="messages-side stack" aria-labelledby={ids.list}>
       <h2 id={ids.list} tabIndex={-1} className="member-section-title">{text.unit}頻道</h2>
+      {Object.keys(pending).length>0&&<div className="stack" aria-label="待確認的頻道訊息"><p className="messages-meta">待確認的傳送仍保留，可返回原頻道。</p>{Object.keys(pending).map((channelKey,index)=><button key={channelKey} className="btn btn-ghost" type="button" onClick={()=>select({kind,channel_key:channelKey,name:channels.find(item=>item.channel_key===channelKey)?.name??`${text.unit}頻道`,unread_count:0,last_message_at:null})}>回到待確認訊息（{index+1}）</button>)}</div>}
       <label className="field">搜尋{text.unit}頻道<input type="search" value={roomQuery} maxLength={100} onChange={event=>setRoomQuery(event.target.value)} placeholder="輸入頻道名稱"/></label>
       {listStatus==='loading'&&<p role="status">正在讀取{text.unit}頻道…</p>}
       {listStatus==='error'&&<div className="banner banner-error" role="alert">{text.unit}頻道讀取失敗：{listError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadList()}>重新讀取{text.unit}頻道</button></div></div>}
@@ -358,6 +375,8 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       {selected&&status==='gone'&&<>
         {singlePane&&(kind!=='world'||onReturnToChats)&&<button type="button" className="btn btn-ghost messages-switch" onClick={kind==='world'?returnFromWorld:switchPane}>{backLabel}</button>}
         <h2 id={ids.title}>{selected.name}</h2>
+        {attempt&&<p className="messages-meta" role="status">先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。</p>}
+        <button className="btn btn-ghost" type="button" onClick={()=>void loadThread(selected.key)}>重新檢查頻道存取</button>
         <div className="banner banner-error" role="alert">目前無法使用此頻道。<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>onNavigate(text.home)}>{text.back}</button></div></div>
       </>}
       {selected&&status!=='gone'&&<>
