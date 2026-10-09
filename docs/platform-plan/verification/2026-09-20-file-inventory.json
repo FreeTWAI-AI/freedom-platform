@@ -144,8 +144,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24962,
-      "sha256": "6867714842b1eeadbf2e0b6b7f54b193a3690d8980bb47d0de11a5b892436950"
+      "bytes": 24983,
+      "sha256": "66e61dc851ea943805d3b5ea4f058002c67b24618997ea7a861990535083560e"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -19239,8 +19239,8 @@
     },
     {
       "path": "scripts/ci/affected-jobs.md",
-      "bytes": 4287,
-      "sha256": "591cb11eab27a7913f389af547633a7557efeea7624af0748c7ca01059ef6570"
+      "bytes": 4560,
+      "sha256": "42efbd8810fc3349636e14027a21cc94bfa68b25cf28c19a1d7f5fc1f651853a"
     },
     {
       "path": "scripts/ci/broker-bridge-check.mjs",
@@ -19309,8 +19309,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 55990,
-      "sha256": "de62ef5035ea741622c9e793a4878ecdbf0fb5647d19d4073cc7684f46724350"
+      "bytes": 56323,
+      "sha256": "b1936ccdd952d27236bc4794ae3646c62c9bcbdf71a6c88ad9d97e4e1b716896"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",

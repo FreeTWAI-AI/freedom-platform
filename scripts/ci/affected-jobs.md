@@ -43,6 +43,11 @@ fallback alone does not supply a missing conformance adapter. Release/archive
 inventory replacement is a separate packet. Until its complete archive and
 restore integrity checks exist, daily `verify:inventory` remains unchanged.
 
+The `deploy-preflight` job enables setup-node's npm download cache before
+`npm ci --ignore-scripts`; it still performs a clean install and runs the same
+pinned preflight and migration suites. A hosted second-run cache hit and timing
+improvement remain unverified locally.
+
 ## Root README documentation policy proposal
 
 An ordinary `M` content change to the exact root `README.md` may use the existing
