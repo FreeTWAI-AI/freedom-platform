@@ -1664,8 +1664,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 54029,
-      "sha256": "0707864f384ca52cc777d3743f8e8ddbb2c8ebdb0fc6d9e2e533b3ecf58724f2"
+      "bytes": 53980,
+      "sha256": "cd83c520695b598ff8facd518ab93203603b84eb8466bcfce1fd91e58faef5a0"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1689,13 +1689,13 @@
     },
     {
       "path": "apps/portal-web/src/GameConsole.tsx",
-      "bytes": 23426,
-      "sha256": "cfaa12aa99fe64390e32f738423a3939fb048beadc46b61d432a580415441182"
+      "bytes": 23777,
+      "sha256": "4c780120600749185b720159f5629cf355e15c9aef23c560195d98e0bd3f203e"
     },
     {
       "path": "apps/portal-web/src/GameConsoleComposer.tsx",
-      "bytes": 4294,
-      "sha256": "65db92151dcf7baa86e42211fce302745b30285e4b7138b480a4db068eca06d4"
+      "bytes": 3769,
+      "sha256": "ee0e2759b9219198377ae0be7e4a6ea2c57e7df10246bec784c38f26cc394b25"
     },
     {
       "path": "apps/portal-web/src/GameConsoleThemes.css",
@@ -13559,8 +13559,8 @@
     },
     {
       "path": "docs/development/member-settings-messages.md",
-      "bytes": 11249,
-      "sha256": "14a594072e4394d8e13c1016e395cef2775ee3543f2e3fe030969b266aafa286"
+      "bytes": 11640,
+      "sha256": "e2dfa78d9702c1508eacd049f495c8aacd4bde80241150b515fcb87c36ae740e"
     },
     {
       "path": "docs/development/member-skill-registration.md",
@@ -19574,8 +19574,8 @@
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
-      "bytes": 12326,
-      "sha256": "ea9cd9d91bda7da090ec2e6f2f11f5807984ec0d10f71a3f731da403abc2db52"
+      "bytes": 14296,
+      "sha256": "b2c1f4537239716172295a4e7ba9f9a8f60813be8ef400dcb7d0520275c28f71"
     },
     {
       "path": "tests/e2e/github-setup.spec.ts",
