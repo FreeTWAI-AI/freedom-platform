@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 38747,
-      "sha256": "79985ba202d2398423b46718591195d09ebf4924376d3bafb0998452a660d4ea"
+      "bytes": 39891,
+      "sha256": "37064d60cfe247009f36a56cbb2a6b6a2d6cd288e8c2bab8440dac65e7eb388c"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -1664,8 +1664,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 54029,
-      "sha256": "0707864f384ca52cc777d3743f8e8ddbb2c8ebdb0fc6d9e2e533b3ecf58724f2"
+      "bytes": 54611,
+      "sha256": "a78780193e8bc553ce57003299a60b6ecc552cf1e6aa64c6ec3a49c273d77b34"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1784,8 +1784,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 21056,
-      "sha256": "87b97667c3b9ce6f514fc700daec8f50f00030687b669b70781520f18f1bbf64"
+      "bytes": 21299,
+      "sha256": "f709a3dfa6c289e4dde51df1828c9b8db8eeb5c8fd58ec328d99219f8b05a02f"
     },
     {
       "path": "apps/portal-web/src/auth-messages.ts",
@@ -2101,6 +2101,11 @@
       "path": "apps/portal-web/src/modules/DeviceConnections.tsx",
       "bytes": 25806,
       "sha256": "17c7900cd65d0778f6c2f16d5fee4253c24a68457b8d755d0af9ed90d72ece1c"
+    },
+    {
+      "path": "apps/portal-web/src/modules/EmailVerification.tsx",
+      "bytes": 2609,
+      "sha256": "743d231a975d6a63d7b2d3390b41652e4ffa7af034efb54c55f1fc77a6d59314"
     },
     {
       "path": "apps/portal-web/src/modules/EngagementPanel.tsx",
@@ -2429,8 +2434,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 30317,
-      "sha256": "ff32baecedbcbb366bc482305fbbab2341c1037489a521980d8bccb79f5d834a"
+      "bytes": 30496,
+      "sha256": "fea00b0fce7ba8d40f2810249a7720f105e854cb6c025a116a7684d38c8d314b"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -12744,8 +12749,8 @@
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 30992,
-      "sha256": "c40e43d2778b174c94e094819bdaae52455d15e5390e3d45185ea43c1a3f86cb"
+      "bytes": 31002,
+      "sha256": "02fd9cb6dcad5604e2a3045b728df70bacf3d841117aee52c0b3684bbf5d2b8a"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -12874,8 +12879,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 41778,
-      "sha256": "ac5c7f7056249cd7114df38eb3d0ed02ccd8be7bad4efaa373f3cb398d293d8b"
+      "bytes": 41946,
+      "sha256": "4f2e608f7d674f0a566bb7ad25006e4790c4e2071ecb2889b37b97567b5eb628"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12954,8 +12959,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 12359,
-      "sha256": "328eab9180969b514685aed2d537eaf187ecda04c70de9e16fbe7e3a2f4cd5ce"
+      "bytes": 12369,
+      "sha256": "dffa708450e454e6333478bb91c7aede544f0fb1b46cf1d823bd06abcd13c628"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12964,8 +12969,8 @@
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 74721,
-      "sha256": "c400fa3d843d16f23ca0425810c87c6ddb2defc35d9563b2624e89575be8b8d5"
+      "bytes": 74736,
+      "sha256": "229bec2009e4e7bc27f7c7cfb02f48bb1c9b51381fcaf93ff6fdc421893f1463"
     },
     {
       "path": "deploy/cloudflare/test/release-agent-connections.test.mjs",
@@ -12984,8 +12989,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 11149,
-      "sha256": "765853b943c9c911d63fe99db8ae7c5a683bf6245bc05b22176b9516b781a9ea"
+      "bytes": 11145,
+      "sha256": "c6988e12e1b491278a23aa4a94adcd4f412cc4531f01df9262954755a9c23ca0"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
@@ -13534,8 +13539,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 24956,
-      "sha256": "ac9d71dee0534070c79f137e93f39c8d3ecd84375006ef5732ab729c57044d52"
+      "bytes": 26202,
+      "sha256": "8556acd245b28b1f048beb53776b259045fe88271bfc857690e62bf723dae7aa"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -16178,6 +16183,11 @@
       "sha256": "a996cd1314910774ccfcd5b30c03c5e6db30779dc61cfb38e0651628d9c6237b"
     },
     {
+      "path": "migrations/143_email_verification.sql",
+      "bytes": 439,
+      "sha256": "9512718aa3104b0cf7d58ee6b7a9cbbde99e0b41b1113bc77145c863badfcec8"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 21265,
       "sha256": "daab413f7d4af0089fc53c70d82a75e8e8d55bfe3478a15bf7a6dc4bffd618fc"
@@ -17296,6 +17306,11 @@
       "path": "modules/identity-membership/blocks.ts",
       "bytes": 8766,
       "sha256": "393a735274886d92501922774375d39916901ded238ce24639d9b50d7f67b0b5"
+    },
+    {
+      "path": "modules/identity-membership/email-verification.ts",
+      "bytes": 3538,
+      "sha256": "8198833d53de56b7e3c94f3ce6bef176e449b0f5a1e508fb5d6f6d727d6ee885"
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
@@ -19543,6 +19558,11 @@
       "sha256": "b2f20f748c08365132eafcd8468e085cf6c941104d05929949ca7fbf9cf226c1"
     },
     {
+      "path": "tests/e2e/email-verification.spec.ts",
+      "bytes": 2454,
+      "sha256": "7ae1212aea046143a2dc1c146feb6f2b144a39a67467aef6670ff44d343fcf0e"
+    },
+    {
       "path": "tests/e2e/event-highlights.spec.ts",
       "bytes": 28804,
       "sha256": "029af7a62a74fb82c2eebe924a8bf53b0b236cd612a2db60dbc2f9fbc5a60585"
@@ -20461,6 +20481,11 @@
       "path": "tests/runtime/e2e-auth-isolation.test.ts",
       "bytes": 3769,
       "sha256": "e9bf8d3516d476761c55f7d9676c9927fead92304dff19466027492904835bfe"
+    },
+    {
+      "path": "tests/runtime/email-verification.test.ts",
+      "bytes": 6638,
+      "sha256": "0949ef0c1bc3367e44606b88637264c7e6562848cddfae4ddb25610bc0aaa7fc"
     },
     {
       "path": "tests/runtime/event-banner-assets.test.ts",
