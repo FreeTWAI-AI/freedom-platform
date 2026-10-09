@@ -16,7 +16,8 @@
     "tests/runtime/asset-maintenance.test.ts",
     "tests/runtime/asset-authority-compatibility.test.ts",
     "migrations/141_storefront_product_photos.sql",
-    "tests/runtime/storefront-product-photo-core.test.ts"
+    "tests/runtime/storefront-product-photo-core.test.ts",
+    "tests/runtime/storefront-product-photo-sql.test.ts"
   ],
   "public_exports": [
     "modules/assets/index.ts",
