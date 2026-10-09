@@ -55,7 +55,9 @@
     "apps/portal-web/src/modules/hosted-store-photo-state.ts",
     "tests/helpers/hosted-store-photo.ts",
     "tests/runtime/hosted-store-photo.test.ts",
-    "tests/runtime/hosted-store-photo-state.test.ts"
+    "tests/runtime/hosted-store-photo-state.test.ts",
+    "tests/e2e/hosted-store-fixture.ts",
+    "tests/e2e/hosted-store-photo.spec.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",

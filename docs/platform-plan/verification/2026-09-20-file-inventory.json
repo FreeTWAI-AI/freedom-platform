@@ -16179,8 +16179,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 7804,
-      "sha256": "bbb22600e684f85d51be28004c7dbf830b79cd4bbc1fba9c24fef447e4e81eee"
+      "bytes": 7889,
+      "sha256": "354f5a766936a8ddffcdd5b53e9d2ea201b75a4510f762b40235024ca9c83482"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -18199,8 +18199,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 8262,
-      "sha256": "23e9d639ee3e8c3cd71035482fc40a068e7f7e0aa2f91e92a6a5f9bca4f4097c"
+      "bytes": 8291,
+      "sha256": "6159cf059b14673a612921d429558dbbe595d19efe6c5faea7b7805975b795cc"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19079,8 +19079,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 13054,
-      "sha256": "9ba5776afb28bee335c5e0fec0e088c8c6dd5abeb00133785a23fb1f0ce53217"
+      "bytes": 14792,
+      "sha256": "37ac6bd34d67825d8fd15dd30806a134f94d8fea0b51672c34f01bb79962d598"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -19179,13 +19179,13 @@
     },
     {
       "path": "scripts/run-e2e.mjs",
-      "bytes": 5084,
-      "sha256": "3d382ad43a5009e254493b6874715829cce953832491392abc0b3b1235e2404a"
+      "bytes": 5369,
+      "sha256": "c972571df541e311509b65f345a0c118ea29886bed975d87bf9f89cf659229e9"
     },
     {
       "path": "scripts/run-e2e.test.mjs",
-      "bytes": 9145,
-      "sha256": "c897038126fa5d848b005a29b33e44cce9a64c75e68ced8ba3c345b53695d8ce"
+      "bytes": 9832,
+      "sha256": "9d82ed0c9fcb8f65a363977d778126b50868d10bd31b4fe7e085a963974b3894"
     },
     {
       "path": "scripts/run-media-restore-test.mjs",
@@ -19693,9 +19693,19 @@
       "sha256": "a6366cffd7793ad460b1214b5ba231aefa23cd3e2d5f9ad70da04a24deb541fb"
     },
     {
+      "path": "tests/e2e/hosted-store-fixture.ts",
+      "bytes": 4041,
+      "sha256": "4f7ad0307c0fbdfdd2a4b74bf587451a2f57d9015f2cc3b6e95c9fd4dd185580"
+    },
+    {
+      "path": "tests/e2e/hosted-store-photo.spec.ts",
+      "bytes": 15293,
+      "sha256": "71e695a02591299151e5edcf79705013916599d4f57a794ad8302ff6e33e0b74"
+    },
+    {
       "path": "tests/e2e/hosted-store.spec.ts",
-      "bytes": 38785,
-      "sha256": "4d7eb3100c300a34defa8866948b5b57fd819a05cdcb7044108021bcbdba7528"
+      "bytes": 35082,
+      "sha256": "22a18781096a5f3960fa615e2d61520e367864cb1988cb94a8f4f5ed0e1c407a"
     },
     {
       "path": "tests/e2e/instant-feedback.spec.ts",
