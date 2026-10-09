@@ -83,6 +83,7 @@ test('members see distinct purpose orders and their primary action focuses My Wo
       WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, key]);
     await open(page, key);
     await expect(primary(page)).toContainText('你是這個公會的實習成員');
+    await expect(primary(page)).not.toContainText('建立新方向卡或繼續原卡');
     await expect(primary(page).getByRole('button')).toHaveCount(0);
   }
 });
@@ -91,7 +92,7 @@ test('talent entry focuses the existing workspace, then starts and reopens the s
   const member = await person(e2eAuthPool), title = `入口方向卡 ${randomUUID()}`;
   await login(page, member.email); await open(page, talent);
   const work = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
-  await expect(primary(page)).toContainText('選擇有權使用的業務空間');
+  await expect(primary(page)).toContainText('選擇可使用的工作空間');
   await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click();
   await expect(work).toBeFocused(); await expect(work).toContainText('你還沒有業務空間');
   await expect(work.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();

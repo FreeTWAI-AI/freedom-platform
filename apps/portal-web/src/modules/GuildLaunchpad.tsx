@@ -199,7 +199,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       <h2>{primary.application_key === 'manual-workspace' ? config.starter.title_label : primary.display_name}</h2>
       {primary.application_key === 'manual-workspace' ? <>
         <p>{config.starter.objective_hint}</p>
-        {guildKey === 'guild_talent_direction' && <p className="field-hint">在下方選擇有權使用的業務空間，建立新方向卡或繼續原卡；尚未有空間或啟用手動工作時，先完成原有設定。</p>}
+        {guildKey === 'guild_talent_direction' && memberTier === 'full' && <p className="field-hint">在下方選擇可使用的工作空間，再建立新方向卡或繼續原卡；尚未完成設定時，依下方提示完成設定。</p>}
         {memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
           : <div className="actions"><button type="button" className="btn btn-primary" onClick={focusWork}>{guildKey === 'guild_talent_direction' ? '前往方向卡' : '前往我的工作'}</button></div>}
       </> : primary.application_key === 'hosted-store' ? memberTier === 'intern' ? <p className="field-hint">{INTERN_HINT}</p>
