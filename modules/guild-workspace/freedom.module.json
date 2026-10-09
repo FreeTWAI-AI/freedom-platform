@@ -45,11 +45,16 @@
     "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
     "apps/portal-web/src/modules/GuildLaunchpadMyWork.css",
     "apps/portal-web/src/modules/work-result-client.ts",
+    "apps/portal-web/src/modules/ProductionProject.tsx",
+    "apps/portal-web/src/modules/production-result-reader.ts",
+    "apps/portal-web/src/modules/work-result-save.ts",
+    "apps/portal-web/src/modules/work-ui-capabilities.ts",
     "tests/runtime/guild-launchpad.test.ts",
     "tests/runtime/guild-launchpad-deadline.test.ts",
     "tests/runtime/guild-launchpad-contracts.test.ts",
     "tests/runtime/guild-launchpad-profiles.test.ts",
     "tests/runtime/work-result-client.test.ts",
+    "tests/runtime/production-dossier.test.ts",
     "tests/e2e/guild-launchpad.spec.ts",
     "tests/e2e/guild-launchpad-my-work.spec.ts",
     "tests/e2e/guild-launchpad-profiles.spec.ts"
@@ -60,7 +65,10 @@
     "apps/platform-api/src/routes/guild-launchpad.ts",
     "contracts/guild-launchpad/v1/config.ts"
   ],
-  "dependencies": ["command-core", "module-registry"],
+  "dependencies": [
+    "command-core",
+    "module-registry"
+  ],
   "contract_families": [],
   "client_profiles": [],
   "instructions": [
@@ -68,7 +76,29 @@
     "DESIGN.md",
     "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
   ],
-  "invariants": ["current-authority-before-replay", "public-launchpad-has-no-drafts"],
-  "tests": ["runtime.full"],
-  "surfaces": []
+  "invariants": [
+    "current-authority-before-replay",
+    "public-launchpad-has-no-drafts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "guild-workspace.my-work",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/GuildLaunchpadMyWork.tsx",
+      "operations": [
+        "work.tenant.list",
+        "work.tenant.read",
+        "work.tenant.create",
+        "work.tenant.update",
+        "work.tenant.archive",
+        "work.tenant.prepare",
+        "work.tenant.write",
+        "work.tenant.finalize"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
 }
