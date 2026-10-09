@@ -179,6 +179,9 @@ test('batched pages match single views with multiple lines, transfers and scoped
    for(const row of list){
     assert.equal(row.transfers.length,shopId===sid?2:1);
     assert.equal(row.transfers.reduce((n,t)=>n+t.lines.length,0),shopId===sid?3:1);
+    const sorted=(values:string[])=>assert.deepEqual(values,[...values].sort());
+    sorted(row.transfers.map(t=>t.transfer_id));
+    for(const transfer of row.transfers){sorted(transfer.lines.map((l:{selection_id:string})=>l.selection_id));sorted(transfer.supplier_payables.map((p:{payable_id:string})=>p.payable_id));}
     for(const transfer of row.transfers){
      assert.equal(transfer.supplier_payables.length,transfer.lines.length);
      assert.ok(transfer.supplier_payables.every((p:{transfer_id:string})=>p.transfer_id===transfer.transfer_id));
