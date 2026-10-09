@@ -48,7 +48,7 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 #260 的[公開內容盤點及營運交接](docs/development/community-curation-handoff.md)保留 2026-10-08 的具日期觀察與原作者來源，不新增 CMS、不搬運私人內容或把合成互動當成真人回饋。正式新精選、作者同意、志工接待及營運更新仍未完成，不由文件或開源軟體授權推定。
 
-#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 143）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間因尚無檢舉流程標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
+#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 141）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間因尚無檢舉流程標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 

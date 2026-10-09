@@ -365,7 +365,7 @@ acceptance evidence.
 
 ## Participation metrics (#262)
 
-This source candidate adds `143_participation_metrics.sql` (number provisional
+This source candidate adds `141_participation_metrics.sql` (number provisional
 until merge order is known) and `FREEDOM_PARTICIPATION_METRICS_ENABLED`
 (default off in Node and Worker; a non-boolean value fails closed). With the
 flag off the report route does not exist and search records nothing.

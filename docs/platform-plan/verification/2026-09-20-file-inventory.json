@@ -35,7 +35,7 @@
     {
       "path": "README.md",
       "bytes": 25725,
-      "sha256": "d8abcbdb96a6a2b59b778d62b69044a4943a7d12f0471c640e378dd8c9fb0fec"
+      "sha256": "f11ea33512d06014f120a3a4b838b739356180ddaa88a366e2b35ebad61cedc8"
     },
     {
       "path": "compose.yaml",
@@ -12744,8 +12744,8 @@
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 31002,
-      "sha256": "02fd9cb6dcad5604e2a3045b728df70bacf3d841117aee52c0b3684bbf5d2b8a"
+      "bytes": 30992,
+      "sha256": "67dbf6d0bc15c515769f5e237961305c6eecb6a548ce86b2c751341dbca381e2"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -12874,8 +12874,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 42020,
-      "sha256": "0355ff739676030084e11f14ea2caf344641feb34d3995eb703fe265337e4733"
+      "bytes": 41813,
+      "sha256": "9cdec1823f7a7057751f89e4a2c4e13558ae00c0c444989e8848aaa8bddd42af"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12954,8 +12954,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 12369,
-      "sha256": "7a7db06524329e71507a4e3b1023d2fc9b21b5d8331a49e3d7965bcd7c1b5ffa"
+      "bytes": 12359,
+      "sha256": "154a244b4f6854df979b337545475cd7618dfa2381ed2968d4e5374ad51fc9e4"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13535,7 +13535,7 @@
     {
       "path": "docs/development/member-api.md",
       "bytes": 27453,
-      "sha256": "e8362b5417fcbf59626191883bbb5abc5d0295eb8b0ec61fe456b128b88c9dc0"
+      "sha256": "859e5227eb140538fe20117f12538485c26864d1188dac555b8ede4224bfb7db"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -16173,7 +16173,7 @@
       "sha256": "a996cd1314910774ccfcd5b30c03c5e6db30779dc61cfb38e0651628d9c6237b"
     },
     {
-      "path": "migrations/143_participation_metrics.sql",
+      "path": "migrations/141_participation_metrics.sql",
       "bytes": 849,
       "sha256": "70d230035f74f6e6a81ae462baf71cfcb240778eb0dfdb623d3c3a53098a40c9"
     },
