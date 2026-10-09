@@ -19229,8 +19229,8 @@
     },
     {
       "path": "scripts/ci/affected-jobs.md",
-      "bytes": 2714,
-      "sha256": "17e0745950ee5e41081ee437fe0ddf5a10fc38b713b410c95f33b63e8cb27fe7"
+      "bytes": 4287,
+      "sha256": "591cb11eab27a7913f389af547633a7557efeea7624af0748c7ca01059ef6570"
     },
     {
       "path": "scripts/ci/broker-bridge-check.mjs",
@@ -19294,13 +19294,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 25961,
-      "sha256": "85dcb8370e2652d7600dd0f709234a11a573195647e802ef1b94c7d18afbcc94"
+      "bytes": 27519,
+      "sha256": "b7f38f3efbb88b55144b2cbf650ee85184e55dc639205545e81e613a73fa9c5c"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 46564,
-      "sha256": "2ee31928ce3adb844803aeff72c95cb19c50995a004dd907c17528a3230f3074"
+      "bytes": 55990,
+      "sha256": "de62ef5035ea741622c9e793a4878ecdbf0fb5647d19d4073cc7684f46724350"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
