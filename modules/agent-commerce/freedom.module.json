@@ -45,7 +45,19 @@
     "contracts/guild-launchpad/v1/storefront-presentation.ts",
     "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
     "migrations/140_storefront_presentation.sql",
-    "tests/runtime/storefront-presentation-contracts.test.ts"
+    "tests/runtime/storefront-presentation-contracts.test.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
+    "tests/runtime/hosted-store-media-contracts.test.ts",
+    "apps/platform-api/src/routes/hosted-store-media.ts",
+    "apps/portal-web/src/modules/HostedStorePhoto.tsx",
+    "apps/portal-web/src/modules/hosted-store-photo-client.ts",
+    "apps/portal-web/src/modules/hosted-store-photo-state.ts",
+    "tests/helpers/hosted-store-photo.ts",
+    "tests/runtime/hosted-store-photo.test.ts",
+    "tests/runtime/hosted-store-photo-state.test.ts",
+    "tests/e2e/hosted-store-fixture.ts",
+    "tests/e2e/hosted-store-photo.spec.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",

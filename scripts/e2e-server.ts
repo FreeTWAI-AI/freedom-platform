@@ -17,6 +17,7 @@ import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
 import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { FakeObjectStore } from '../packages/asset-storage/fake-store.js';
+import { createStorefrontProductPhotoLifecycle } from '../modules/assets/storefront-product-photo.js';
 import { createMessageImageAssetService } from '../modules/assets/message-image.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
@@ -44,7 +45,8 @@ let productPool:Pool|undefined,productRole:string|undefined;
 let productRoleCreated=false;
 let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/private-ai-product-fixture.js')['createPrivateAiBrowserFixture']>>|undefined;
 let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
-// Direct-message images run in their own pass: an in-memory store and a local-only enabled policy row.
+// Asset fixtures run in separate passes with a local-only enabled policy row.
+let storePhotoFixture:{store:FakeObjectStore;assets:ReturnType<typeof createStorefrontProductPhotoLifecycle>}|undefined;
 let messageImageFixture:{store:FakeObjectStore;assets:ReturnType<typeof createMessageImageAssetService>}|undefined;
 // Installed before migrate. Playwright's graceful SIGTERM must drop the schema even if startup is still running.
 // npx/tsx dies on the group SIGTERM and SIGKILLs this process at its first await, so the
@@ -95,7 +97,7 @@ async function stop(code=0){
 process.on('SIGTERM',()=>{releaseOwnedResources();void stop();});process.on('SIGINT',()=>{releaseOwnedResources();void stop();});
 process.on('SIGHUP',()=>{releaseOwnedResources();void stop();});
 try{
-  if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'&&process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1')throw Error('Avatar asset and private AI browser fixtures are mutually exclusive.');
+  if(['FREEDOM_E2E_AVATAR_ASSET_FIXTURE','FREEDOM_E2E_PRIVATE_AI_FIXTURE','FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE','FREEDOM_E2E_STORE_PHOTO_FIXTURE'].filter(key=>process.env[key]==='1').length>1)throw Error('Browser asset fixture passes are mutually exclusive.');
   await migrate(pool);
   await seedLocal(pool);
   // This local harness seeds DEMO; foreign fixtures must not change where new members register.
@@ -117,7 +119,7 @@ try{
   // One fixture sync fills github_items before the browser opens. No timer.
   // Events run before repositories. 200 leaves every tracked repository inside one fixture pass.
   if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1') await syncGitHubRepositories(pool,{fetcher:input=>Promise.resolve(collaborationGitHubFixture(input)),budget:200,token:undefined});
-  if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1') {
+  if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1'||process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1') {
     productRole=`${schema}_app`;
     await admin.query(`CREATE ROLE ${productRole} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT;
       GRANT USAGE ON SCHEMA ${schema} TO ${productRole}`);
@@ -129,17 +131,36 @@ try{
       .replaceAll(":'runtime'",`'${productRole}'`).replace("n.nspname='public'",`n.nspname='${schema}'`);
     const q=await pool.connect();
     try{await q.query(prefix);const rows=await q.query(grants);if(rows.rowCount!==2)throw Error('Expected both operator policy grants.');
-      for(const row of rows.rows)await q.query(Object.values(row)[0] as string);await q.query('COMMIT');}
+      for(const row of rows.rows)await q.query(Object.values(row)[0] as string);
+      if(process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1'){
+        // Apply the remaining reviewed runtime restrictions, including media and tenant policy locks.
+        for(const block of template.matchAll(/-- BEGIN ([A-Z ]+)\n([\s\S]*?)\n\\gexec\n-- END /g)){
+          if(block[1]==='PRIVATE POLICY GRANTS')continue;
+          const sql=block[2].replaceAll(":'runtime'",`'${productRole}'`).replaceAll("n.nspname='public'",`n.nspname='${schema}'`);
+          const statements=await q.query(sql);
+          for(const row of statements.rows)await q.query(Object.values(row)[0] as string);
+        }
+      }
+      await q.query('COMMIT');}
     catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
     const runtimeUrl=new URL(url);runtimeUrl.username=productRole;runtimeUrl.password='';
     productPool=new Pool({connectionString:runtimeUrl.toString(),options:`-c search_path=${schema} -c application_name=${schema}`});
     productPool.on('error',()=>{});
-    const {createPrivateAiBrowserFixture}=await import('../packages/testing/private-ai-product-fixture.js');
-    privateAiFixture=await createPrivateAiBrowserFixture(pool,productPool,origin);
+    if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1'){
+      const {createPrivateAiBrowserFixture}=await import('../packages/testing/private-ai-product-fixture.js');
+      privateAiFixture=await createPrivateAiBrowserFixture(pool,productPool,origin);
+    }
   }
   if(process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1'){
     const {createAvatarAssetBrowserFixture}=await import('../packages/testing/e2e-avatar-asset-fixture.js');
     avatarAssetFixture=await createAvatarAssetBrowserFixture(pool,origin);
+  }
+  if(process.env.FREEDOM_E2E_STORE_PHOTO_FIXTURE==='1'){
+    if(!productPool)throw Error('Photo browser fixture requires the restricted runtime role.');
+    await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-store-photo-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='storefront.product-photo'");
+    const store=new FakeObjectStore();
+    // Real native Sharp normalization; only the object provider is synthetic.
+    storePhotoFixture={store,assets:createStorefrontProductPhotoLifecycle(productPool,{store})};
   }
   if(process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE==='1'){
     if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1'||process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1')throw Error('Fixture passes are mutually exclusive.');
@@ -159,6 +180,7 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
+  ...(storePhotoFixture?{storePhotoAssets:storePhotoFixture.assets,storePhotoAssetStore:storePhotoFixture.store,storePhotoUploadsEnabled:true}:{}),
   ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));

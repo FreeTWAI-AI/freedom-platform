@@ -44,7 +44,8 @@ const runnerOwned = details.Config.Labels?.['freedom.task'] === 'media-restore-d
   && details.Config.Labels?.['freedom.owner'] === 'run-media-restore-test'
   && details.HostConfig.NetworkMode === 'none'
   && Object.keys(details.HostConfig.PortBindings ?? {}).length === 0
-  && Boolean(details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
+  && Boolean(details.Mounts?.some((mount:{Type:string;Destination:string})=>mount.Type==='volume'&&mount.Destination==='/var/lib/postgresql'))
+  && !details.HostConfig.Tmpfs?.['/var/lib/postgresql'];
 const localServer = /^\/fp-[a-z0-9-]+$/.test(details.Name)
   && JSON.stringify(details.HostConfig.PortBindings?.['5432/tcp']) === JSON.stringify([{ HostIp: '127.0.0.1', HostPort: url.port }])
   && !url.searchParams.has('host') && url.pathname.startsWith('/fp_job_');

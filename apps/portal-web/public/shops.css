@@ -39,3 +39,6 @@ p { margin: .4rem 0; }
   .shop-products-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: .8rem; }
   .shop-products-list article > p:not(.shop-price) { grid-column: 1 / -1; }
 }
+
+.shop-product-photo { display: block; width: auto; height: auto; max-width: 100%; max-height: 360px; object-fit: contain; margin-bottom: .8rem; border-radius: 12px; }
+.shop-products-list .shop-product-photo { grid-column: 1 / -1; }
