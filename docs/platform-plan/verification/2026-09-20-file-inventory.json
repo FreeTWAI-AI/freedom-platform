@@ -13544,8 +13544,8 @@
     },
     {
       "path": "docs/development/member-connections.md",
-      "bytes": 17841,
-      "sha256": "67e391555deda77fe6f70a28922af51d1d89330b56a4e5eba3029a926ef5fec3"
+      "bytes": 18281,
+      "sha256": "4fb66795841f5d10517b8ca936ebe2bc92feb402407fe06b789a68bfb838590c"
     },
     {
       "path": "docs/development/member-editorial-card.md",
@@ -17304,8 +17304,8 @@
     },
     {
       "path": "modules/identity-membership/member-connections.ts",
-      "bytes": 5598,
-      "sha256": "3865cc07a3a6120ba89f100c28b7662609e310dff929be89086c4edcda3820e4"
+      "bytes": 5343,
+      "sha256": "3d8a16671581fbb8d4a5510606b6dc009164531ac839ed16f859a62a48bbdcd9"
     },
     {
       "path": "modules/identity-membership/member-sharing.ts",
@@ -17314,8 +17314,8 @@
     },
     {
       "path": "modules/identity-membership/members.ts",
-      "bytes": 32360,
-      "sha256": "e4e115c127278d03524817ca6a298e101d2b5d724f84b8730bb0d7d4431a90c5"
+      "bytes": 32764,
+      "sha256": "8251dc2a9e44f2163796f5cf3e55897320ca50b308193090382bb6245d53c913"
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
@@ -17644,8 +17644,8 @@
     },
     {
       "path": "modules/positioning/guild-categories.ts",
-      "bytes": 36616,
-      "sha256": "141af56240c0bcb87978a31e22c1908aa49ff5359a52c5f21928de389c510ab9"
+      "bytes": 36878,
+      "sha256": "e9809b1d0456d90afad21f10cda47786619974bc67b2444320ff3f2337f8246d"
     },
     {
       "path": "modules/positioning/guild-questions.ts",
@@ -17659,8 +17659,8 @@
     },
     {
       "path": "modules/positioning/onboarding.ts",
-      "bytes": 36328,
-      "sha256": "1e69648b479e03a12a684dce0d9437091d19f3a068c737290ccec2ca0bb8d626"
+      "bytes": 39209,
+      "sha256": "7db4458cd3b95d1b0d08aa94474f9b5fe5930f6d4114a00bf3a406b51b98d048"
     },
     {
       "path": "modules/positioning/service.ts",
@@ -20894,8 +20894,8 @@
     },
     {
       "path": "tests/runtime/member-connections.test.ts",
-      "bytes": 18949,
-      "sha256": "103367ad6b2f000602d0da3fa572ce9d3ad1b96cc99e321ba2563501373e7b21"
+      "bytes": 22837,
+      "sha256": "730418e9f7e586c777eb5de11857857942eb2d1f2f00d96270dbb1e004dff3ff"
     },
     {
       "path": "tests/runtime/member-device-bootstrap-adversarial.test.ts",
