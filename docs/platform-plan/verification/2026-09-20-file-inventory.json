@@ -20199,8 +20199,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 56967,
-      "sha256": "898d27164c0dbd4e7c3bf9312ae8182cae7eacd6456b2f7d9463d15c14e68dd8"
+      "bytes": 57257,
+      "sha256": "8d3361811010ba578b08e3087b0b40ebb5a749dcefd59731db8ba2978f624f44"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -20209,8 +20209,8 @@
     },
     {
       "path": "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
-      "bytes": 15507,
-      "sha256": "7de202824f54bf7b38249a5046e1cf86df13c7cc1c9019de7b939b8cd4f6bab3"
+      "bytes": 15534,
+      "sha256": "f6d317e939b2fcbdd3ff88dd56607b65422d01a94af1176c155b0249e7b2b090"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",

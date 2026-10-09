@@ -134,7 +134,7 @@ export async function assertRestoredStorefrontPhotos(owner:Pool,runtime:Pool,sto
   async function read(path:string,bytes:Buffer,member?:RestoreMember){
     for(const method of ['GET','HEAD']){
       const response=await app.request(origin+path,{method,headers:member?memberHeaders(member):{}});
-      assert.equal(response.status,200,await response.clone().text());assert.equal(response.headers.get('cache-control'),'no-store');
+      assert.equal(response.status,200,await response.clone().text());assert.equal(response.headers.get('cache-control'),member?'private, no-store':'no-store');
       assert.equal(response.headers.get('content-type'),'image/webp');assert.equal(response.headers.get('x-content-type-options'),'nosniff');
       assert.equal(response.headers.get('content-length'),String(bytes.length));
       assert.deepEqual(Buffer.from(await response.arrayBuffer()),method==='HEAD'?Buffer.alloc(0):bytes);
