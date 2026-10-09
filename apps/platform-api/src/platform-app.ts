@@ -81,16 +81,35 @@ function onboardingAllowed(path:string,method:string) {
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
 }
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
-function wireVersions(value:any):any {
-  if(Array.isArray(value))return value.map(wireVersions);
-  if(value && typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>{
-    if(k==='aggregate_version' && typeof v==='string') {
-      const n=Number(v);requireCondition(Number.isSafeInteger(n)&&n>=0,500,'version_overflow','版本超出此 API 可表示範圍。');return [k,n];
-    }
-    return [k,wireVersions(v)];
-  }));
+function wireVersion(key:string,value:unknown):unknown {
+  if(key==='aggregate_version' && typeof value==='string') {
+    const n=Number(value);requireCondition(Number.isSafeInteger(n)&&n>=0,500,'version_overflow','版本超出此 API 可表示範圍。');return n;
+  }
   return value;
 }
+export const wireVersionResponses:MiddlewareHandler=async(c,next)=>{
+  const api=c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/');
+  if(!api){await next();return;}
+  const json=c.json;
+  const serialized=new WeakSet<ReadableStream>();
+  // Hono can recreate a Response while merging headers; its body identity survives.
+  // Match Hono's c.json header/status handling, but convert bigint strings in its single serialization.
+  c.json=((object,arg,headers)=>{
+    let body:string|undefined;
+    try{body=JSON.stringify(object,wireVersion);}catch(err){
+      // Previously overflow was detected after the route response set its headers.
+      if(err instanceof Problem&&err.code==='version_overflow')c.res=json(object,arg,headers);
+      throw err;
+    }
+    const response=c.newResponse(body,arg,{'Content-Type':'application/json',...headers});
+    if(response.body)serialized.add(response.body);return response;
+  }) as typeof c.json;
+  await next();
+  if(!(c.res.body&&serialized.has(c.res.body))&&c.res.headers.get('Content-Type')?.includes('application/json')){
+    const data=await c.res.json();
+    c.res=new Response(JSON.stringify(data,wireVersion),{status:c.res.status,headers:c.res.headers});
+  }
+};
 /** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
@@ -205,22 +224,21 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
       requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
     }
-    await next();
-    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
-      if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
-      if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
-      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
-    }
-    // A native cross-origin form uses the source document's referrer policy
-    // when deriving Origin. Suppressing all referrers makes that Origin null.
-    // Only installed HTML documents disclose the origin, never path or query;
-    // API replies and hosts without the genuine broker keep no-referrer.
-    if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
-      &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
-    if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
-      const data=wireVersions(await c.res.json());
-      c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
-    }
+    // Terminal host transports above retain their own response handling.
+    await wireVersionResponses(c,async()=>{
+      await next();
+      if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+        if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
+        if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
+        requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+      }
+      // A native cross-origin form uses the source document's referrer policy
+      // when deriving Origin. Suppressing all referrers makes that Origin null.
+      // Only installed HTML documents disclose the origin, never path or query;
+      // API replies and hosts without the genuine broker keep no-referrer.
+      if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
+        &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
+    });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));
