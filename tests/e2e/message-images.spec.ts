@@ -35,6 +35,94 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE !== '1') {
   });
 }
 if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
+  for(const mode of ['page','dock'] as const){
+    async function openComposer(page:Page){
+      const thread=await openDirect(page);
+      if(mode==='page')return thread;
+      await page.getByRole('button',{name:'展開訊息控制台'}).click();const dock=page.locator('.game-console-expanded');
+      await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
+      await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+      return dock.locator('.messages-thread');
+    }
+    test(`${mode} first real image decoder rejection keeps an editable image, caption and reply`,async({page,e2eAuthPool})=>{
+      const thread=await openComposer(page),quote=`Decoder quote ${crypto.randomUUID()}`,caption=`Rejected image ${crypto.randomUUID()}`;
+      await thread.getByRole('textbox').fill(quote);await thread.getByRole('button',{name:'送出',exact:true}).click();
+      await expect(thread.getByRole('textbox')).toHaveValue('');
+      await thread.locator('.messages-bubbles>li').filter({hasText:quote}).getByRole('button',{name:'回覆你的訊息',exact:true}).click();
+      const counts=async()=>(await e2eAuthPool.query(`SELECT (SELECT count(*)::int FROM assets) assets,
+        (SELECT count(*)::int FROM asset_objects) objects,(SELECT count(*)::int FROM asset_upload_intents) intents,
+        (SELECT count(*)::int FROM member_message_image_asset_targets) targets,(SELECT count(*)::int FROM member_direct_messages) messages`)).rows[0];
+      const before=await counts(),wide=await sharp({create:{width:4097,height:1,channels:3,background:{r:255,g:255,b:255}}}).png().toBuffer();
+      expect(wide.byteLength).toBeLessThan(2*1024*1024);let rejects=0;
+      await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/images$/,async route=>{
+        const response=await route.fetch();expect(response.status()).toBe(422);expect((await response.json()).code).toBe('invalid_message_image');rejects++;await route.fulfill({response});
+      });
+      await thread.locator('input[type=file]').setInputFiles({name:'too-wide.png',mimeType:'image/png',buffer:wide});
+      await thread.getByRole('textbox').fill(caption);await thread.getByRole('button',{name:'送出',exact:true}).click();
+      await expect(thread.getByRole('alert')).toContainText('訊息未送出');expect(rejects).toBe(1);
+      await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
+      await expect(thread.getByRole('textbox')).toBeEditable();await expect(thread.getByRole('textbox')).toHaveValue(caption);
+      await expect(thread.getByLabel('待送出的圖片')).toContainText('too-wide.png');await expect(thread.locator('.chat-reply-draft')).toContainText(quote);
+      await expect(thread.getByRole('button',{name:'取消回覆',exact:true})).toBeEnabled();
+      await expect(thread.getByRole('button',{name:'附加圖片',exact:true})).toBeEnabled();
+      expect(await counts()).toEqual(before);
+      await thread.getByRole('textbox').fill(`${caption} edited`);await thread.getByRole('button',{name:'取消回覆',exact:true}).click();
+      await thread.getByRole('button',{name:'移除',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
+      await thread.locator('input[type=file]').setInputFiles(image);await expect(thread.getByLabel('待送出的圖片')).toContainText(image.name);
+      expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+      let dialogs=0;page.on('dialog',async dialog=>{dialogs++;await dialog.accept();});
+      if(mode==='dock'){await page.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
+      else {await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#home$/);}
+      expect(dialogs).toBe(0);expect(await counts()).toEqual(before);
+    });
+
+    test(`${mode} unknown upload followed by decoder 422 retains the original tuple through message-stage 422`,async({page,e2eAuthPool})=>{
+      const thread=await openComposer(page),caption=`Unknown decoder ${crypto.randomUUID()}`,quote=`Unknown reply ${crypto.randomUUID()}`;
+      await thread.getByRole('textbox').fill(quote);await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
+      await thread.locator('.messages-bubbles>li').filter({hasText:quote}).getByRole('button',{name:'回覆你的訊息',exact:true}).click();
+      const uploads:{key:string;bytes:Buffer}[]=[],keys:string[]=[],payloads:string[]=[];let imageId='';
+      const rejection={status:422,contentType:'application/problem+json',json:{type:'about:blank',title:'Unprocessable Entity',status:422,code:'invalid_message_image',detail:'Controlled later decoder rejection'}};
+      await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/images$/,async route=>{
+        uploads.push({key:route.request().headers()['idempotency-key'],bytes:route.request().postDataBuffer()!});
+        if(uploads.length===2)return route.fulfill(rejection);
+        const response=await route.fetch();expect(response.status()).toBe(201);const canonical=await response.json();
+        if(uploads.length===1){imageId=canonical.image_id;return route.abort();}
+        expect(canonical.image_id).toBe(imageId);await route.fulfill({response});
+      });
+      await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
+        if(route.request().method()!=='POST')return route.continue();keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
+        const response=await route.fetch();expect(response.status()).toBe(201);
+        if(keys.length===1)return route.fulfill(rejection);await route.fulfill({response});
+      });
+      await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);await thread.getByRole('button',{name:'送出',exact:true}).click();
+      await expect(thread.getByRole('alert')).toContainText('圖片上傳未完成');
+      await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('Controlled later decoder rejection');
+      await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+      await expect(thread.getByLabel('待送出的圖片')).toContainText(image.name);await expect(thread.locator('.chat-reply-draft')).toContainText(quote);
+      for(const name of ['移除','附加圖片','取消回覆'])await expect(thread.getByRole('button',{name,exact:true})).toBeDisabled();
+      expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
+      let blocked=0;page.on('dialog',async dialog=>{blocked++;await dialog.accept();});
+      if(mode==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#messages$/);}
+      else {
+        await page.getByRole('button',{name:'收合訊息控制台'}).click();await page.getByRole('button',{name:'設定',exact:true}).click();
+        await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
+        expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);await page.getByRole('button',{name:'展開訊息控制台'}).click();
+      }
+      expect(blocked).toBe(1);await expect(thread.getByRole('textbox')).toHaveValue(caption);
+      await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');
+      await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();
+      await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
+      expect(uploads).toHaveLength(3);expect(new Set(uploads.map(row=>row.key)).size).toBe(1);for(const upload of uploads)expect(upload.bytes.equals(png)).toBe(true);
+      expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);expect(JSON.parse(payloads[0]).image_id).toBe(imageId);
+      expect(JSON.parse(payloads[0]).reply_to_message_id).toBeTruthy();await assertOneStoredImage(e2eAuthPool,caption,payloads[0]);
+      expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM member_message_image_asset_targets WHERE image_id=$1',[imageId])).rows[0].n).toBe(1);
+      await expect(thread.getByRole('textbox')).toHaveValue('');await expect(thread.locator('.chat-reply-draft')).toHaveCount(0);
+      if(mode==='page'){await page.evaluate(()=>{location.hash='home';});await expect(page).toHaveURL(/#home$/);}
+      else {await page.getByRole('button',{name:'收合訊息控制台'}).click();await signOut(page);await expect(page.getByRole('button',{name:'登入',exact:true})).toBeVisible();}
+      expect(blocked).toBe(1);
+    });
+  }
+
   test('image upload and message retries reuse keys without another upload after its acknowledgement',async({page},testInfo)=>{
     const thread=await openDirect(page),uploads:string[]=[],sends:string[]=[],caption=`圖片說明 ${crypto.randomUUID()}`;
     await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/images$/,async route=>{

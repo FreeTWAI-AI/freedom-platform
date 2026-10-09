@@ -2349,8 +2349,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 58341,
-      "sha256": "4fb738ebb9d16eb7a81cdb17221fe6729488af2182cef8c709a90267d23906eb"
+      "bytes": 58470,
+      "sha256": "677844f504871397aaf9a6671171215e2129538fa9640ff64ac6a6406c5b5ca9"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2719,8 +2719,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/message-image-client.ts",
-      "bytes": 5633,
-      "sha256": "26dc7666c36400d74940a0faafc2d0492372f638b6cac409f28be2cfd544d2af"
+      "bytes": 6100,
+      "sha256": "cb8f9dbd29ea8fb1e674fa3a69619582a91bb9fed4a213b33c1eed7b1912834a"
     },
     {
       "path": "apps/portal-web/src/modules/module-words.ts",
@@ -13449,8 +13449,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 18518,
-      "sha256": "2a7f8143348fc3b4fdf3643569712f63bb369252cbad6f3c8978275acdfcab79"
+      "bytes": 19115,
+      "sha256": "6a944cbaa9acc924e601c3c66ea70cd6a34c802cc9620022e59165eab9c0b0f6"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19619,8 +19619,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 22311,
-      "sha256": "87b1a65fc3eaceb8750669b2c8f2ca754c4116068808c88ea973dd7d163805f3"
+      "bytes": 31661,
+      "sha256": "c37019f6e490c2abc00fa4c3287b11e35836cad5136978efdc783cfb054cb47e"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20804,8 +20804,8 @@
     },
     {
       "path": "tests/runtime/message-image-ack.test.ts",
-      "bytes": 3076,
-      "sha256": "2b176daacf27a4c7991e7bc5d3f6769a26f9c9bd6cdffb4920801eff04dd05e0"
+      "bytes": 4205,
+      "sha256": "be8613f5642546d576f48e287ed4e012da483bdc8ab1c9d72d008c8f474047fe"
     },
     {
       "path": "tests/runtime/message-image-upload-reader.test.ts",
