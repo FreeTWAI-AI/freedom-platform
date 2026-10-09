@@ -20,7 +20,7 @@ game-console.spec.ts github-setup.spec.ts github-social.spec.ts guild-alias.spec
 guild-category-preferences.spec.ts guild-entry-questions.spec.ts guild-launchpad.spec.ts
 guild-launchpad-my-work.spec.ts
 guild-member-tiers.spec.ts guild-members.spec.ts guild-organization.spec.ts guild-reviews.spec.ts
-guild-workspace.spec.ts help-box-padding.spec.ts journeys.spec.ts member-avatar-asset.spec.ts
+guild-workspace.spec.ts help-box-padding.spec.ts hosted-store-photo.spec.ts journeys.spec.ts member-avatar-asset.spec.ts
 member-channels-real.spec.ts member-channels.spec.ts member-connections-51.spec.ts
 member-connections.spec.ts member-directory.spec.ts member-ecard.spec.ts
 member-editorial-card.spec.ts member-experience.spec.ts member-home-next-step.spec.ts
@@ -43,13 +43,15 @@ export const E2E_PASS_TIMEOUT_MS = Object.freeze({
   'private-ai': 30 * 60 * 1000,
   'avatar-asset': 30 * 60 * 1000,
   'message-image': 30 * 60 * 1000,
+  'store-photo': 30 * 60 * 1000,
 });
 
 export const E2E_PLAN = Object.freeze([
   { id: 'default', env: {}, files: [] },
   { id: 'private-ai', env: { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' }, files: ['tests/e2e/private-work-ai.spec.ts'] },
   { id: 'avatar-asset', env: { FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' }, files: ['tests/e2e/member-avatar-asset.spec.ts'] },
-  { id: 'message-image', env: { FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' }, files: ['tests/e2e/message-images.spec.ts'] }
+  { id: 'message-image', env: { FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' }, files: ['tests/e2e/message-images.spec.ts'] },
+  { id: 'store-photo', env: { FREEDOM_E2E_STORE_PHOTO_FIXTURE: '1' }, files: ['tests/e2e/hosted-store-photo.spec.ts'] }
 ]);
 
 const SPEC_NAME = /^[a-z0-9][a-z0-9-]*\.spec\.ts$/;

@@ -145,7 +145,7 @@
     {
       "path": ".github/workflows/verify.yml",
       "bytes": 25300,
-      "sha256": "2b9979436460b114c327e64ee2d41dffc4e8baa1ae6ece468d93c5ec95f10078"
+      "sha256": "95c5b79f7056d15b5648ed9d79da46b4fc661ab4202733176a604fae19e66dbb"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13484,8 +13484,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 20309,
-      "sha256": "cb58f6b107871f00658373a730d6adfcee54ece581edf756bf338ff3fc50e103"
+      "bytes": 21682,
+      "sha256": "b4e838fc8d3c5001e1c2e08fbf11724d4351e7518bc5429b50b19c7ab088b43c"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -18244,8 +18244,8 @@
     },
     {
       "path": "packages/contribution-tools/pinned-e2e.mjs",
-      "bytes": 9660,
-      "sha256": "76f0a912cc675f419772c64d322ea839734099d17f43f6e26b38330efa46bc23"
+      "bytes": 9841,
+      "sha256": "904778b44de08fbfa5b8e208ae76feaf5b4b13f5972c6c3c4bafd964f351affd"
     },
     {
       "path": "packages/contribution-tools/pinned-suites.mjs",
@@ -18479,8 +18479,8 @@
     },
     {
       "path": "packages/contribution-tools/test/pinned-e2e.test.mjs",
-      "bytes": 23945,
-      "sha256": "4466e2f73123fbdbcc77cc835b32aebcb1776fd01ce87bd3c45faee8d58f47ff"
+      "bytes": 25428,
+      "sha256": "854cbcc63ebcc079b2372aa5047c18b64604e9521fc439ddca8b66faee21ea16"
     },
     {
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
@@ -19384,8 +19384,8 @@
     },
     {
       "path": "scripts/ci/pinned-playwright.config.mjs",
-      "bytes": 2383,
-      "sha256": "2074055af3f61fe611d023110487d5a6eebe96510feda1b4f4c05e8df4c6aa95"
+      "bytes": 2417,
+      "sha256": "409f1b45b0fde521c9b20fe06ff4aa23a5a95d0c7f2933612c0c3a57856000b1"
     },
     {
       "path": "scripts/ci/pinned_pytest_evidence.py",
@@ -19404,8 +19404,8 @@
     },
     {
       "path": "scripts/ci/run-pinned-e2e.mjs",
-      "bytes": 7114,
-      "sha256": "6d5a33a32857b41088cf607125763701dc284b6c1943b7d01f9b9d2febd3bc9c"
+      "bytes": 7164,
+      "sha256": "f3ceabdc3a297c47b128fb62ee6a179ac1fd58500b6b38f4bf0d537050b2d2de"
     },
     {
       "path": "scripts/ci/run-pinned-suite.mjs",
