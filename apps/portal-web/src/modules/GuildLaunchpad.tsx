@@ -227,7 +227,7 @@ function Reading({guild, config, announcements, skillBooks, applications, visito
       {block.kind === 'my_work' && (visitor || mode === 'public'
         ? <MyWorkUnavailable visitor={visitor || mode === 'public'} starter={visitor || mode === 'public' ? null : config.starter}/>
         : memberTier === 'full'
-          ? <MyWorkPanel key={workRefresh} client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave} canNavigate={guildKey === 'guild_commercial_production' ? canNavigate : undefined}/>
+          ? <MyWorkPanel key={workRefresh} client={client} guildKey={guildKey} userId={userId} starter={config.starter} registerLeave={registerLeave} canNavigate={(guildKey === 'guild_commercial_production' || guildKey === 'guild_talent_direction') ? canNavigate : undefined}/>
           : <p className="field-hint" role="status">{INTERN_HINT}</p>)}
       {block.kind === 'support' && <SupportLine support={config.support}/>}
     </section>)}
@@ -294,15 +294,15 @@ export function GuildLaunchpad({client, guildKey, mode, onBack, onLogin, userId,
     launchLeaveGuard.current = guard;
   }, []);
   useEffect(() => {
-    // Keep tenant creation and production Result checkpoints in the existing
+    // Keep tenant creation and production / direction-card Result checkpoints in the existing
     // App guard; either child clearing its guard must not erase the other.
     registerPendingLeave?.(() => (!launchLeaveGuard.current || launchLeaveGuard.current())
-      && (guildKey !== 'guild_commercial_production' || !leaveGuard.current || leaveGuard.current()));
+      && ((guildKey !== 'guild_commercial_production' && guildKey !== 'guild_talent_direction') || !leaveGuard.current || leaveGuard.current()));
     return () => registerPendingLeave?.(null);
   }, [guildKey, registerPendingLeave]);
   const canLeave = () => (!launchLeaveGuard.current || launchLeaveGuard.current()) && (!leaveGuard.current || leaveGuard.current());
   // Route changes are checked once by App; local context switches still check here.
-  const canNavigate = () => guildKey === 'guild_commercial_production' && registerPendingLeave ? true : canLeave();
+  const canNavigate = () => (guildKey === 'guild_commercial_production' || guildKey === 'guild_talent_direction') && registerPendingLeave ? true : canLeave();
   const headingId = useId();
   const {mutate, busy: joining, error: joinError} = useModuleMutation(client);
   const dirty = Boolean(draft && JSON.stringify(draft) !== savedJson);

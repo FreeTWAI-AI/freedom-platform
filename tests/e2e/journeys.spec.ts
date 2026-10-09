@@ -62,7 +62,9 @@ test('showcase and opportunity become a bilateral cooperation and attributed rec
   await page.getByRole('button',{name:'發布作品',exact:true}).click();
   await expect(page.getByRole('heading',{name:'瀏覽器驗證的週報模板',exact:true})).toBeVisible();
   await switchAccount(page,'client@local.test');await navigate(page, '作品與需求');
-  await page.getByRole('button',{name:'我想找你合作',exact:true}).click();
+  const showcase=page.locator('article.card').filter({has:page.getByRole('heading',{name:'瀏覽器驗證的週報模板',exact:true})});
+  await expect(showcase).toHaveCount(1);
+  await showcase.getByRole('button',{name:'我想找你合作',exact:true}).click();
   await page.getByLabel('你的需求',{exact:true}).fill('希望調整三個週報欄位。');
   await page.getByRole('button',{name:'送出合作需求',exact:true}).click();
   await expect(page.getByText('希望調整三個週報欄位。',{exact:true})).toBeVisible();
