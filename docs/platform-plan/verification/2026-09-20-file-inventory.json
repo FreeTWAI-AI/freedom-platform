@@ -19264,8 +19264,8 @@
     },
     {
       "path": "tests/e2e/calm-experience.spec.ts",
-      "bytes": 15995,
-      "sha256": "7fef83acb67319a4191423fb9c1949ed0b975833ad2d2894b4fd49f0ec26e060"
+      "bytes": 16106,
+      "sha256": "3cdae6257e9aac1877a2a19fe97ef81db5b83b13a413446a215fc081c4fe77db"
     },
     {
       "path": "tests/e2e/campaign-draft-newlines.spec.ts",
@@ -19459,8 +19459,8 @@
     },
     {
       "path": "tests/e2e/journeys.spec.ts",
-      "bytes": 8600,
-      "sha256": "f3269bd9a0dce3234542c1f59b96599196aa47f8a50980f564c851c4bf5f9021"
+      "bytes": 8783,
+      "sha256": "d4affd598f5837a6ba9f1c8ec259bb214f7702b426215990384486ee99e5a8c0"
     },
     {
       "path": "tests/e2e/local-action-feedback.spec.ts",
