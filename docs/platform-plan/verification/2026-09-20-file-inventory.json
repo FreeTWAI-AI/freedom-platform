@@ -19894,8 +19894,8 @@
     },
     {
       "path": "tests/e2e/skill-upload.spec.ts",
-      "bytes": 37104,
-      "sha256": "be3974f51d97a833628dd48fd9c989de366c7791f84db56a44b41f7df6eee2b2"
+      "bytes": 37577,
+      "sha256": "572ddc33a4a049d73b95dccb8ee54082affaf6780e5840fc7cece5e99a5102d9"
     },
     {
       "path": "tests/e2e/social-cross-platform-share.spec.ts",
@@ -21144,8 +21144,8 @@
     },
     {
       "path": "tests/runtime/opensource-skill-books.test.ts",
-      "bytes": 20742,
-      "sha256": "051e8e2dd42f1cda4ff4cb119b77751060e4d39441f145d4de75ab242203085c"
+      "bytes": 20720,
+      "sha256": "2afc00591640808e15677443a8a864274f20a32b604219e1bebebad35557eff4"
     },
     {
       "path": "tests/runtime/operator-avatar-backfill.test.ts",

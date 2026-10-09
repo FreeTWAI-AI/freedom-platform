@@ -70,7 +70,12 @@ async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('電子郵件', { exact: true }).fill('maker@local.test');
   await page.getByLabel('密碼', { exact: true }).fill('freedom-local-demo');
-  await page.getByRole('button', { name: '登入', exact: true }).click();
+  const [response] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/auth/login' && response.request().method() === 'POST'),
+    page.getByRole('button', { name: '登入', exact: true }).click(),
+  ]);
+  expect(response.status()).toBe(200);
+  await expect(page.getByLabel('電子郵件', { exact: true })).toHaveCount(0);
 }
 
 async function expectNoStoredSecret(page: Page, secret: string) {
@@ -428,7 +433,9 @@ for (const viewport of [
 test('320px registered project resumes its exact off-list draft, then explicitly publishes and opens the real book', async ({page}) => {
   await page.setViewportSize({width:320,height:900});
   await mockUploads(page);await login(page);
-  const session=await (await page.request.get('/api/v1/session')).json();
+  const sessionResponse=await page.request.get('/api/v1/session');
+  expect(sessionResponse.status()).toBe(200);
+  const session=await sessionResponse.json();
   const id='10000000-0000-4000-8000-000000000041',projectId='10000000-0000-4000-8000-000000000042';
   const publicPath=`/development/submissions/${id}`;
   let current={...submission(id,'ready_for_review',3,true),illustration_url:null,can_edit:false};
@@ -484,7 +491,9 @@ test('320px registered project resumes its exact off-list draft, then explicitly
 
 test('registered project continues an awaiting Agent draft through an exact-ID GET without creating another draft',async({page})=>{
   await mockUploads(page);await login(page);
-  const session=await(await page.request.get('/api/v1/session')).json();
+  const sessionResponse=await page.request.get('/api/v1/session');
+  expect(sessionResponse.status()).toBe(200);
+  const session=await sessionResponse.json();
   const id='10000000-0000-4000-8000-000000000051',repo='https://github.com/example/skill-demo';
   const draft={...submission(id,'awaiting_upload',2),seed:{repository_url:repo,title:'已修改的草稿',description:'保留會員修改',use_notes:'先讀文件',relationship:'curator',demo_url:null},can_edit:false};
   const reads:string[]=[],writes:string[]=[];

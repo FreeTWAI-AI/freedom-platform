@@ -212,8 +212,8 @@ test('an awaiting-upload upgrade keeps its seeded identity and does not turn int
   // Simulate operator withdrawal of the original public book; the retained private upgrade is still the owner's work.
   await pool.query("UPDATE skill_submissions SET status='revoked',consent_to_share=false,revoked_at=now() WHERE submission_id=$1", [first.submission_id]);
   const result = await prepare(owner, project), draft = expectPrepared(result);
-  assert.equal(result.data.created, false); assert.equal(draft.submission_id, upgrade.data.submission.submission_id);
-  assert.equal(draft.status, 'awaiting_upload'); assert.deepEqual(draft.seed, upgrade.data.submission.seed);
+  assert.equal(result.data.created, false); assert.equal(draft.submission_id, upgrade.data.submission_id);
+  assert.equal(draft.status, 'awaiting_upload'); assert.deepEqual(draft.seed, upgrade.data.seed);
   assert.equal(draft.payload, null); assert.equal(draft.can_edit, false);
   const projection = (await listed(owner, project.project_id)).skill_book;
   minimalProjection(projection); assert.equal(projection.status, 'awaiting_upload'); assert.equal(projection.can_edit, false);
