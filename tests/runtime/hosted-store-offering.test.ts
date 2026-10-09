@@ -36,7 +36,7 @@ test('commerce recommends hosted-store then manual-workspace while production ke
     const result = await h.call('GET', `/guilds/${guild}/launchpad`, session);
     assert.equal(result.status, 200);
     assert.deepEqual(result.data.config.body.application_refs.map((ref: {application_key: string}) => ref.application_key), expected);
-    assert.equal(result.data.config.revision, '3'); assert.equal(result.data.config.pointer_version, '1');
+    assert.equal(result.data.config.revision, '4'); assert.equal(result.data.config.pointer_version, '1');
   }
 });
 test('full commerce members can start with no space and can launch after creating one; interns are refused', async () => {
