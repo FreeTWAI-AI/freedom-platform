@@ -19214,8 +19214,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 17609,
-      "sha256": "1cdafe8fd19e7e4a1b0f1364709c1569436613d0b4828031857ea61e1cf2ce9d"
+      "bytes": 17937,
+      "sha256": "75d3b27589e5d6bf419fd3022305b06c80919070ec947d5d5e96c9bdd0a386f2"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -19649,8 +19649,8 @@
     },
     {
       "path": "tests/e2e/simple-social-experience.spec.ts",
-      "bytes": 5940,
-      "sha256": "065e4650ab63c95011b0c5a3f51388329001f85c9b2a54a74c2bea9d658f573d"
+      "bytes": 6105,
+      "sha256": "d2075c175f4f9e1c34886cc1f5420772fde1a82b7d03e366725a41f96eea50cf"
     },
     {
       "path": "tests/e2e/simple-work-sharing.spec.ts",
