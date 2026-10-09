@@ -1,6 +1,8 @@
 // Conservative job selection for .github/workflows/verify.yml.
 // A pull request narrows only inside the explicit docs allowlist or the fixed
-// frontend leaf profiles below. Leaf edits retain all runtime/browser/static
+// frontend leaf profiles below. An ordinary modification of the exact root
+// README may use docs mode; its mandatory context role remains unchanged.
+// Leaf edits retain all runtime/browser/static
 // jobs and require unchanged, compatible baseline/candidate descriptor graphs.
 // The exact generated inventory manifest may accompany qualifying edits; owning that one metadata file does not widen the decision, and the file
 // is not itself an allowlisted document. source-integrity still verifies the
@@ -154,12 +156,19 @@ export function decideAffectedJobs(input) {
   const reasons = [];
   const paths = [];
   let inventoryCompanion = false;
+  let rootReadme = false;
   for (const change of input.changes) {
     const status = statusReason(change);
     if (status) { reasons.push(status); continue; }
     // A content edit of the generated manifest is metadata. It is omitted from
     // selectImpact so ownership of that metadata cannot veto qualifying edits.
     if (change.path === GENERATED_INVENTORY_PATH) { inventoryCompanion = true; continue; }
+    // CI documentation eligibility is separate from mandatory Agent context.
+    // Never generalize this to another root instruction, a new README, runtime
+    // text, or a destructive/status change. The trusted tree diff proves M.
+    if (change.path === 'README.md' && change.status === 'M' && !RUNTIME_TEXT.has(change.path)) {
+      rootReadme = true; paths.push(change.path); continue;
+    }
     if (leafProfile(change.path) && change.status !== 'M') { reasons.push('untrusted_change_status'); continue; }
     const reason = rejectionReason(change.path);
     if (reason) reasons.push(reason);
@@ -174,7 +183,17 @@ export function decideAffectedJobs(input) {
   if (input.descriptorsProven === false || !baseline?.length || !candidate?.length) return full('descriptors_unproven');
   let impact;
   try {
-    impact = selectImpact({ baseline, candidate, changedPaths: paths });
+    if (rootReadme) {
+      // Only the existing docs profile gets this exception. Preserve every
+      // explicit owner in both revisions; removing ownership cannot narrow CI.
+      for (const descriptors of [baseline, candidate]) validatedDescriptorGraph(descriptors);
+      if ([...baseline, ...candidate].some(descriptor => owns(descriptor, 'README.md'))) return full('baseline_candidate_union');
+      if (paths.some(path => leafProfile(path))) return full('root_instruction');
+    }
+    // Keep ROOT_INSTRUCTIONS/selectImpact unchanged for all context callers.
+    // The exact unowned README contributes no runtime impact to this docs-only
+    // decision; every accompanying document still uses the original union.
+    impact = selectImpact({ baseline, candidate, changedPaths: rootReadme ? paths.filter(path => path !== 'README.md') : paths });
   } catch (error) {
     return full(error?.code === 'invalid_artifact_path' ? 'unknown_path' : 'descriptors_unproven');
   }
@@ -186,30 +205,34 @@ export function decideAffectedJobs(input) {
   return docs();
 }
 
+// Shared bounded validation for the two explicitly narrowed CI profiles.
+// This is the existing leaf graph check, also required for README eligibility.
+function validatedDescriptorGraph(descriptors) {
+  if (descriptors.length > DESCRIPTOR_LIMIT) throw new Error('invalid_module_graph');
+  const byId = new Map();
+  for (const descriptor of descriptors) {
+    validateDescriptor(descriptor);
+    if (byId.has(descriptor.module_id)) throw new Error('invalid_module_graph');
+    byId.set(descriptor.module_id, descriptor);
+  }
+  const active = new Set(), done = new Set();
+  const visit = id => {
+    if (active.has(id) || !byId.has(id)) throw new Error('invalid_module_graph');
+    if (done.has(id)) return;
+    active.add(id);
+    for (const dependency of byId.get(id).dependencies) visit(dependency);
+    active.delete(id); done.add(id);
+  };
+  for (const id of byId.keys()) visit(id);
+  return byId;
+}
+
 function compatibleLeafImpact(paths, baseline, candidate, impact) {
   // Drift cannot subtract baseline obligations. Validate the whole bounded graph
   // because an unrelated module can add a reverse dependency on a changed leaf.
   const graphs = [];
   try {
-    for (const descriptors of [baseline, candidate]) {
-      if (descriptors.length > DESCRIPTOR_LIMIT) return false;
-      const byId = new Map();
-      for (const descriptor of descriptors) {
-        validateDescriptor(descriptor);
-        if (byId.has(descriptor.module_id)) return false;
-        byId.set(descriptor.module_id, descriptor);
-      }
-      const active = new Set(), done = new Set();
-      const visit = id => {
-        if (active.has(id) || !byId.has(id)) throw new Error('invalid_module_graph');
-        if (done.has(id)) return;
-        active.add(id);
-        for (const dependency of byId.get(id).dependencies) visit(dependency);
-        active.delete(id); done.add(id);
-      };
-      for (const id of byId.keys()) visit(id);
-      graphs.push(byId);
-    }
+    for (const descriptors of [baseline, candidate]) graphs.push(validatedDescriptorGraph(descriptors));
     if (!sameSet([...graphs[0].keys()], [...graphs[1].keys()])) return false;
     for (const [id, value] of graphs[0]) if (JSON.stringify(value) !== JSON.stringify(graphs[1].get(id))) return false;
     const profiles = [...new Set(paths.map(leafProfile).filter(Boolean))];

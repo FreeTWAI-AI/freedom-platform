@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 24670,
-      "sha256": "bfac08e1b2f826038bf1214b1cc40445eb5a1216881f3ce7f43d410eedf402cd"
+      "bytes": 25013,
+      "sha256": "000c79d8333daa226a9a7e845fc37e65f0fab3229ef3c5c06ee1417241807bf9"
     },
     {
       "path": "compose.yaml",
@@ -13428,6 +13428,11 @@
       "sha256": "ebbf399c846712d6d9456754c16966fc63905133fbf2ed3ef4c4d83045f9672a"
     },
     {
+      "path": "docs/development/community-curation-handoff.md",
+      "bytes": 8580,
+      "sha256": "4b03b15c347dd6f04049358dd3acb96dc288d9e3603a795d93cca5195a29c645"
+    },
+    {
       "path": "docs/development/daily-recovery-backup-installation.md",
       "bytes": 14610,
       "sha256": "1e6fa54344f357620252b1d031fb8c94dd4745b99618c44ddfecbebbe55eff0d"
@@ -19229,8 +19234,8 @@
     },
     {
       "path": "scripts/ci/affected-jobs.md",
-      "bytes": 2714,
-      "sha256": "17e0745950ee5e41081ee437fe0ddf5a10fc38b713b410c95f33b63e8cb27fe7"
+      "bytes": 4287,
+      "sha256": "591cb11eab27a7913f389af547633a7557efeea7624af0748c7ca01059ef6570"
     },
     {
       "path": "scripts/ci/broker-bridge-check.mjs",
@@ -19294,13 +19299,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 25961,
-      "sha256": "85dcb8370e2652d7600dd0f709234a11a573195647e802ef1b94c7d18afbcc94"
+      "bytes": 27519,
+      "sha256": "b7f38f3efbb88b55144b2cbf650ee85184e55dc639205545e81e613a73fa9c5c"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 46564,
-      "sha256": "2ee31928ce3adb844803aeff72c95cb19c50995a004dd907c17528a3230f3074"
+      "bytes": 55990,
+      "sha256": "de62ef5035ea741622c9e793a4878ecdbf0fb5647d19d4073cc7684f46724350"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
