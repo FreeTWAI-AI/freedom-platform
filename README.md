@@ -22,6 +22,8 @@
 
 本 workspace 保存 Freedom 大平台的完整規格，以及 **0.13.0-member-messages 自由工坊會員入口**。內建目錄為 18 個公會、41 本技能書（47 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後選擇主要公會並取得 Repo 技能書（定位測驗可稍後補做），再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
+API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最終 status ≥ 500 時，以 `console.warn` 輸出一行 JSON：`{event, method, route, status, duration_ms}`。5xx 優先使用 `server_error`，其餘為 `slow_request`；耗時包含 I/O 等待，`route` 是含 sub-app prefix 的 Hono 路由樣板，未匹配時為 `unmatched`，不記錄實際 path／params、query、headers、cookie、body、user ID 或錯誤內容。快速 2xx／4xx 不新增 log，既有錯誤回應與 `request_failed` 保留；此候選不代表已部署。
+
 技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；41 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；公開的作品列在技能書架的「社群技能書」，不自動成為公會指定技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
 歷史（2026-09-24 第一批）：新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，當時目錄 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
