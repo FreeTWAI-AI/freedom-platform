@@ -2,12 +2,14 @@ import {test,expect,type Page} from './fixtures.js';
 import sharp from 'sharp';
 import type {Pool} from 'pg';
 import {signOut} from './navigation.js';
+import {DEMO_COMMUNITY,DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {hashPassword} from '../../modules/identity-membership/service.js';
 
 // Requires seeded demo members and FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1 (in-memory store, enabled policy row).
 const png=await sharp({create:{width:8,height:8,channels:3,background:{r:255,g:255,b:255}}}).png().toBuffer();
 const image={name:'screenshot.png',mimeType:'image/png',buffer:png};
-async function openDirect(page:Page,controls=true){
-  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+async function openDirect(page:Page,controls=true,email='maker@local.test'){
+  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill(DEMO_PASSWORD);
   await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
   await page.goto('/#messages');const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
   await panel.getByLabel('搜尋會員').fill('示範需求者');await panel.getByRole('button',{name:'搜尋會員',exact:true}).click();
@@ -16,13 +18,25 @@ async function openDirect(page:Page,controls=true){
   if(controls)await expect(thread.getByRole('button',{name:'附加圖片',exact:true})).toBeVisible();return thread;
 }
 
-async function assertOneStoredImage(db:Pool,caption:string,payload:string){
+async function assertOneStoredImage(db:Pool,caption:string,payload:string,senderEmail='maker@local.test'){
   const rows=(await db.query(`SELECT m.message_id,m.sender_ref,m.recipient_ref,t.image_id FROM member_direct_messages m
     JOIN member_message_image_asset_targets t ON t.message_id=m.message_id WHERE m.body=$1`,[caption])).rows;
   expect(rows).toHaveLength(1);expect(rows[0].image_id).toBe(JSON.parse(payload).image_id);
-  const users=(await db.query("SELECT user_id,email FROM users WHERE email=ANY($1::text[])",[['maker@local.test','reviewer@local.test']])).rows;
-  expect(rows[0].sender_ref).toBe(users.find(row=>row.email==='maker@local.test')?.user_id);
+  const users=(await db.query("SELECT user_id,email FROM users WHERE email=ANY($1::text[])",[[senderEmail,'reviewer@local.test']])).rows;
+  expect(rows[0].sender_ref).toBe(users.find(row=>row.email===senderEmail)?.user_id);
   expect(rows[0].recipient_ref).toBe(users.find(row=>row.email==='reviewer@local.test')?.user_id);
+}
+
+// Match the existing synthetic-member fixture pattern. The harness owns this
+// run's schema and tears down these rows; prior messages and rate windows stay intact.
+async function isolatedGuardSender(db:Pool){
+  const id=crypto.randomUUID(),email=`image-guard-${id}@example.test`,guild='guild_ai_vibe';
+  await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+    VALUES($1,$2,$3,$4,$5,$6,false)`,[id,DEMO_COMMUNITY,email,`合成圖片守衛 ${id}`,hashPassword(DEMO_PASSWORD),crypto.randomUUID()]);
+  await db.query("INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active')",[crypto.randomUUID(),DEMO_COMMUNITY,id,guild]);
+  await db.query('INSERT INTO guild_member_preferences(community_id,user_id,primary_guild_key) VALUES($1,$2,$3)',[DEMO_COMMUNITY,id,guild]);
+  expect((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE community_id=$1 AND sender_ref=$2',[DEMO_COMMUNITY,id])).rows[0].n).toBe(0);
+  return {id,email};
 }
 
 // The ordinary pass runs with the feature uninstalled and proves it is invisible; the image flows run only in the dedicated fixture pass.
@@ -383,7 +397,9 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
   });
 
   for(const mode of ['page-navigation','dock-logout'] as const)test(`${mode} and unload are guarded synchronously inside the initial send event`,async({page,e2eAuthPool})=>{
-    let thread=await openDirect(page);
+    // Earlier cases share maker's real 20-per-minute send budget; each guard case owns a fresh sender.
+    const sender=await isolatedGuardSender(e2eAuthPool);let thread=await openDirect(page,true,sender.email);
+    expect((await (await page.request.get('/api/v1/session')).json()).user.user_id).toBe(sender.id);
     if(mode==='dock-logout'){
       await page.getByRole('button',{name:'展開訊息控制台'}).click();const dock=page.locator('.game-console-expanded');
       await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();await dock.getByLabel('搜尋會員').fill('示範需求者');
@@ -417,7 +433,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     expect(await page.locator('html').getAttribute('data-dm-immediate-unload')).toBe('true');expect(notices).toBe(1);expect(logouts).toBe(0);
     await expect(page).toHaveURL(/#messages$/);await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByLabel('待送出的圖片')).toBeVisible();
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('textbox')).toHaveValue('');
-    expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);await assertOneStoredImage(e2eAuthPool,caption,payloads[0]);
+    expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(payloads[1]).toBe(payloads[0]);await assertOneStoredImage(e2eAuthPool,caption,payloads[0],sender.email);
   });
 
   test('attachment validation, clipboard image and plain text paste remain distinct at phone width',async({page})=>{
