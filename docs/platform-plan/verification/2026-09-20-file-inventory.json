@@ -19584,8 +19584,8 @@
     },
     {
       "path": "tests/e2e/member-channels.spec.ts",
-      "bytes": 65039,
-      "sha256": "eb9f8716697a362d38fbd8bc78705c65a209d17a4a2604dbb45515cf68f04628"
+      "bytes": 67984,
+      "sha256": "8b7555eeb1cd607f0b797dd8f7a2f5c8efc1a3b9f0393ed20b25ee3ac0a0de7f"
     },
     {
       "path": "tests/e2e/member-connections-51.spec.ts",
