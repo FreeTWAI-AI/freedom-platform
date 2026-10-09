@@ -19634,8 +19634,8 @@
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",
-      "bytes": 49309,
-      "sha256": "8fd4c690a8ed1afca1c182fcb3cff39f2d92e4e52ee31e3b0bf4f29ccfafcbed"
+      "bytes": 51815,
+      "sha256": "89e78755f8289d7a1579946e368f3c4c2557b8ae0b1b5b8aae83d9d64ca0e34c"
     },
     {
       "path": "tests/e2e/member-todos-real.spec.ts",
