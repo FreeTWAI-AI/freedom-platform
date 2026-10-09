@@ -13389,8 +13389,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 20308,
-      "sha256": "b56181a5b725cfeaa089bfb0ccf31e02a7a7d9ce3f6a9e917ae15b6434bd0453"
+      "bytes": 20309,
+      "sha256": "cb58f6b107871f00658373a730d6adfcee54ece581edf756bf338ff3fc50e103"
     },
     {
       "path": "docs/development/event-banner-worker.md",
