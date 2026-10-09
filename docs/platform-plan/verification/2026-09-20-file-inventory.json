@@ -394,8 +394,8 @@
     },
     {
       "path": "apps/platform-api/src/static-assets.ts",
-      "bytes": 459,
-      "sha256": "dc41452ce5d1e60a3ac3fa12e9e2d8b53f099c40bba88c86c0cfc6eba5a2e2ea"
+      "bytes": 1284,
+      "sha256": "27b310f853c3a9a4e7cac13b6b0a93e49cd8a0ec2435f60824a20a3ebcd4fae1"
     },
     {
       "path": "apps/platform-api/src/worker-preview-fetch.ts",
@@ -414,8 +414,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 28543,
-      "sha256": "25e61f668ab3dba7bfa6211415dd62b634cc28ad67c8da9f6e0f6b73cf062657"
+      "bytes": 28492,
+      "sha256": "5759232c652084c3d78a4419f372eb65515974c4e2f4ad00e6da1f71044d696f"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -21909,8 +21909,8 @@
     },
     {
       "path": "tests/worker/static-fast-path.test.ts",
-      "bytes": 5069,
-      "sha256": "2fcedcc7d17150ca7a12f98ab84abc3e56e0e56d073b9cbf4bd4092052dd0957"
+      "bytes": 6505,
+      "sha256": "62ce128c9d338c265633c6ce0e70de6c78a702485447e9ed565ee7b865ce3381"
     },
     {
       "path": "tests/worker/workerd.test.ts",

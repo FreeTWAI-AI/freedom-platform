@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type {Pool} from 'pg';
 import {createWorkerHandler,workerRuntime,type WorkerEnv} from '../../apps/platform-api/src/worker.js';
 import {createPlatformApp} from '../../apps/platform-api/src/platform-app.js';
+import {isFastPathBuildAsset} from '../../apps/platform-api/src/static-assets.js';
 
 const origin='http://127.0.0.1:8787',file='/assets/app-abcdefgh.js';
 function harness({full=false,fail=false,missing=false}:{full?:boolean;fail?:boolean;missing?:boolean}={}){
@@ -41,4 +42,26 @@ test('404 file probes preserve shell fallback and ambiguous cookies preserve mid
 test('readiness and host failures still block file delivery before assets/runtime/app',async()=>{
   const h=harness({fail:true});const response=await h.call(file);assert.equal(response.status,503);assert.deepEqual(h.seen,[]);assert.deepEqual(h.counts(),{runtimes:0,apps:0,ended:1});
   const fast=harness();fast.env.APP_ORIGIN='http://localhost:8787';const handler=createWorkerHandler({createPool:()=>{throw new Error('must not open');}});const rejected=await handler.fetch(new Request(origin+file),fast.env,{waitUntil(){}});assert.equal(rejected.status,403);assert.deepEqual(fast.seen,[]);
+});
+
+test('fast-path filenames retain the supported extensions and base64url hash alphabet',()=>{
+  for(const extension of ['js','css','woff','woff2','png','jpg','jpeg','webp','svg','ico']){
+    for(const stem of ['app-abcdefgh','app-ab_cd-12','-app-abcdefgh','app-abcdefghijk','----------']){
+      assert.equal(isFastPathBuildAsset(`/assets/${stem}.${extension}`),true,`${stem}.${extension}`);
+    }
+  }
+  for(const path of ['/assets/app-abcdefg.js','/assets/-abcdefgh.js','/assets/app-abcdefgh.html','/assets/app-abcdefgh.js.map','/assets/nested/app-abcdefgh.js','/assets/a%2fb-abcdefgh.js','/assets/app-abcdefgh.JS','/assets/app-abcdefgh.js\n','/other/app-abcdefgh.js','/assets/app.js','/assets/app-abcdefgh']){
+    assert.equal(isFastPathBuildAsset(path),false,path);
+  }
+});
+
+test('long ambiguous filenames preserve fast-path and full-app routing',async()=>{
+  const stem='-'.repeat(32768);
+  for(const [path,apps] of [[`/assets/${stem}!`,1],[`/assets/${stem}!.js`,1],[`/assets/${stem}.js`,0]] as const){
+    const fast=harness(),full=harness({full:true});
+    const a=await fast.call(path),b=await full.call(path);
+    assert.equal(a.status,b.status);assert.deepEqual([...a.headers],[...b.headers]);
+    assert.deepEqual(new Uint8Array(await a.arrayBuffer()),new Uint8Array(await b.arrayBuffer()));
+    assert.equal(fast.counts().apps,apps);
+  }
 });

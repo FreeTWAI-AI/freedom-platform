@@ -18,7 +18,7 @@ import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.j
 import { createPlatformApp, isMemberCardPage, platformResponseHeaders } from './platform-app.js';
 import { readSessionCookie } from './session-cookie.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
-import { IMMUTABLE_ASSET_CACHE_CONTROL, isHashedBuildAsset } from './static-assets.js';
+import { IMMUTABLE_ASSET_CACHE_CONTROL, isFastPathBuildAsset, isHashedBuildAsset } from './static-assets.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
@@ -323,7 +323,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         // can be shadowed. Genuine private-AI installations keep the full path,
         // whose browser CSP depends on validated, request-scoped broker ports.
         if(['GET','HEAD'].includes(request.method)&&env.FREEDOM_PRIVATE_AI_ENABLED!=='true'
-          &&(url.pathname==='/favicon.ico'||/^\/assets\/[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8,}\.(?:js|css|woff2?|png|jpe?g|webp|svg|ico)$/.test(url.pathname))){
+          &&(url.pathname==='/favicon.ico'||isFastPathBuildAsset(url.pathname))){
           let validCookie=true;
           try{readSessionCookie(request.headers.get('Cookie')??undefined,config.origin);}catch{validCookie=false;}
           if(validCookie){
