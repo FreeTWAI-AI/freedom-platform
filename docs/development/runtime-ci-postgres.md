@@ -29,13 +29,25 @@ checks or merge review. A local pull is not a hosted Verify pass. The following
 sections retain historical measurements from the earlier tmpfs configuration;
 they do not establish performance of this disk configuration.
 
+The first hosted disk rehearsal (run 38000643429, partition 2) passed all 749
+cases but failed cleanup. Its final checkpoint took 0.041 seconds; later the
+cleanup backend did not settle within its termination wait. A real PostgreSQL
+regression separately reproduced the six-second DROP cap with 6.5 seconds of
+server work. This establishes the deadline problem, not the exact hosted I/O
+cause. DROP now receives its fair share of the remaining absolute 20-second
+cleanup budget, with four seconds still reserved for fresh reconciliation. The
+suite's 24-second reserve, positive absence proof, identity/ownership checks and
+failure for a live unsettled backend remain unchanged. The regression fails
+with the old cap; all 11 cleanup integration cases pass with the repair. Hosted
+revalidation is still required.
+
 ## Historical storage and runtime measurements
 
 The failed f900595 runtime-full run 37168543325 exhausted its existing test deadline. Its PostgreSQL logs recorded checkpoint synchronization of hundreds of thousands of files, including a 194-second checkpoint; cleanup then hit the former two-second DROP DATABASE timeout. The artifact has no completed shard JSON results: its zero test_count does not mean no cases executed. Storage/checkpoint overhead is a supported contributor, not an independently isolated measurement of every timeout cause.
 
 The earlier disposable runtime-full GitHub service used a bounded 4 GiB tmpfs at `/var/lib/postgresql`. The pinned PostgreSQL 18 image places PGDATA at `/var/lib/postgresql/18/docker`; mounting the earlier `/data` path would miss it. Its read-only prerequisite checked the exact service ID/image, Docker tmpfs configuration, actual filesystem type/size/used space, PGDATA, and runner RAM (at least 6 GiB). Checkpoint completion target zero removed pacing on this disposable service. `fsync` and `full_page_writes` stayed on. This historical configuration was not a persistent database or recovery recommendation.
 
-Cleanup retains the suite's 24-second reserve and uses one absolute 20-second deadline across connections, queries, backend settlement and verification. Each DROP gets at most six seconds within that shared deadline, further divided fairly across remaining registered names while reserving four seconds for final reconciliation. Exact invocation names and owner/session identities remain required. A lost DROP acknowledgement is reconciled on a fresh identity-checked connection after settling the prior cleanup backend; success requires all registered names absent. Changed ownership fails closed and preserves the foreign database. The supplied database is never deleted.
+The earlier cleanup retained the suite's 24-second reserve and used one absolute 20-second deadline across connections, queries, backend settlement and verification. Each DROP received at most six seconds within that shared deadline, further divided fairly across remaining registered names while reserving four seconds for final reconciliation. The October 9 disk candidate removes that separate six-second cap as described above. Exact invocation names and owner/session identities remain required. A lost DROP acknowledgement is reconciled on a fresh identity-checked connection after settling the prior cleanup backend; success requires all registered names absent. Changed ownership fails closed and preserves the foreign database. The supplied database is never deleted.
 
 Local verification on an owned network-none PostgreSQL 18.6 tmpfs container: existing five integration cases plus lost-ack and foreign-owner counterexamples passed 7/7; governance passed 251/251 under its original 60-second cap. The lost-ack case failed against the prior cleanup implementation and passed after the fix. Storage readback passed with the actual 4 GiB tmpfs and PGDATA; the helper's GitHub-hosted environment guard was explicitly simulated locally. These checks do not establish the remote runner's RAM, tmpfs peak use, whole-suite duration or a GitHub pass. The next actual GitHub run must supply those results. Product runtime sources and the 900-second full-suite deadline are unchanged.
 
