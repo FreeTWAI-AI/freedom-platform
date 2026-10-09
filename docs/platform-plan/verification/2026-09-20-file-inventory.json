@@ -16744,8 +16744,8 @@
     },
     {
       "path": "modules/assets/freedom.module.json",
-      "bytes": 1926,
-      "sha256": "7c2f889dc831b26e6c6602f36b3f45937dd341993f5e1f23620636eb3b337b76"
+      "bytes": 1984,
+      "sha256": "b6bafd484e3ac3def61019815a80df09225551135a471c8746b517e94b78d871"
     },
     {
       "path": "modules/assets/index.ts",
@@ -21596,6 +21596,11 @@
       "path": "tests/runtime/storefront-product-photo-core.test.ts",
       "bytes": 8395,
       "sha256": "b891ef3112efb3ab8ea5c993d1a7b9702b28952c04fdac0d83bb4cad1ec0d1e2"
+    },
+    {
+      "path": "tests/runtime/storefront-product-photo-sql.test.ts",
+      "bytes": 22399,
+      "sha256": "e825d5f2f5c60b2a81e3205ccde072dec8409969fd2cacb93a1f53c2418c51cc"
     },
     {
       "path": "tests/runtime/tenant-authority-policy-grants.test.ts",
