@@ -83,7 +83,7 @@ export function createPublicHostedStoreRoutes(pool: Pool) {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
     const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
-    c.header('Cache-Control', 'public, max-age=60'); return c.html(storeHtml(store.projection, store.template_id));
+    c.header('Cache-Control', store.media.photos.length ? 'no-store' : 'public, max-age=60'); return c.html(storeHtml(store.projection, store.template_id, store.media.photos));
   });
   return app;
 }

@@ -112,3 +112,16 @@ test('public mapping is publication-bound, strips Asset identity and keeps exist
   assert.equal(rendered[0].photo, null); assert.deepEqual(rendered[1].photo, media.photos[0].photo);
   assert.ok(publicStoreMediaRenderProducts(projection, { profile, photos: [] }, EMPTY_PUBLICATION_MEDIA_SHA256).every(product => product.photo === null));
 });
+
+test('both HTML templates render only bounded platform paths and escape photo labels', async () => {
+  const {storeHtml}=await import('../../modules/agent-commerce/hosted/page.js');
+  const view=PublicStoreProjectionSchema.parse({...projection,products:projection.products.map(p=>({...p,title:'<img onerror="bad">'}))});
+  const snapshot=publicationMediaSnapshot(manifest),media=projectPublicStoreMedia(view,snapshot.manifest,snapshot.sha256);
+  for(const template of ['catalog-grid-v1','catalog-list-v1'] as const){
+    const html=storeHtml(view,template,media.photos);
+    assert.match(html,/class="shop-product-photo"/);assert.match(html,/width="640" height="480"/);assert.match(html,/alt="&lt;img/);
+    assert.equal((html.match(/class="shop-product-photo"/g)??[]).length,1);
+    assert.throws(()=>storeHtml(view,template,[{sku:'P0001',photo:{...media.photos[0].photo,read_path:'https://evil.test/photo'}}]));
+    assert.throws(()=>storeHtml(view,template,[{sku:'P9999',photo:media.photos[0].photo}]));
+  }
+});

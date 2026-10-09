@@ -6,7 +6,7 @@ import { loadManifest } from '../lib/manifest.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.social-preview-create.v1'];
+const media = ['media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1'];
 function fixture() {
   const scan = checkMigrations(`${root}migrations`, loadManifest().database_defaults.migrations);
   assert.equal(scan.ok, true);
@@ -58,7 +58,7 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
 });
 
 test('retained media capabilities cannot replace missing prerequisite migrations or a restored lower schema', () => {
-  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.social-preview-create.v1', 105]]) {
+  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.storefront-product-photo.asset.v1', 140], ['media.social-preview-create.v1', 105]]) {
     const f = fixture(); prefix(f, missing); f.host.rollback_floor.capabilities = [capability];
     const result = run(f); assert.equal(result.status, 'incompatible');
     assert(result.issues.some(issue => issue.code === 'shape_schema_missing'));
