@@ -254,7 +254,11 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     const quote=thread.locator('.messages-bubbles>li').filter({hasText:original});await expect(quote).toHaveCount(1);
     const replyId=await quote.getAttribute('data-message-id');await quote.getByRole('button',{name:'回覆你的訊息',exact:true}).click();
     await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);
-    const preview=thread.getByLabel('待送出的圖片'),previewUrl=await preview.locator('img').getAttribute('src');
+    const preview=thread.getByLabel('待送出的圖片'),canvas=preview.locator('canvas');
+    await expect(canvas).toBeVisible();
+    await expect.poll(()=>canvas.evaluate((node:HTMLCanvasElement)=>Array.from(node.getContext('2d')!.getImageData(64,64,1,1).data))).toEqual([255,255,255,255]);
+    const previewCanvas=await canvas.elementHandle(),previewPixels=await canvas.evaluate((node:HTMLCanvasElement)=>node.toDataURL());
+    expect(previewCanvas).not.toBeNull();
     const sends:{key:string;payload:any}[]=[];let uploads=0,stickerMessage='';
     page.on('request',request=>{if(request.method()==='POST'&&/\/images$/.test(request.url()))uploads++;});
     await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
@@ -273,7 +277,9 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     }
     await expect(thread.locator('.messages-pending')).toHaveCount(0);await expect(thread.locator(`[data-message-id="${stickerMessage}"] [data-sticker-id="workshop-v1-hello"]`)).toHaveCount(1);
     expect(sends).toHaveLength(outcome==='lost-ack'?2:1);for(const send of sends)expect(send).toEqual({key:sends[0].key,payload:{sticker_id:'workshop-v1-hello'}});expect(uploads).toBe(0);
-    await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(preview.locator('img')).toHaveAttribute('src',previewUrl!);await expect(thread.locator('.chat-reply-draft')).toContainText(original);
+    await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(canvas).toBeVisible();
+    expect(await canvas.evaluate((node,original)=>node===original,previewCanvas)).toBe(true);
+    expect(await canvas.evaluate((node:HTMLCanvasElement)=>node.toDataURL())).toBe(previewPixels);await previewCanvas!.dispose();await expect(thread.locator('.chat-reply-draft')).toContainText(original);
     const stored=(await e2eAuthPool.query('SELECT body,sticker_id,reply_to_message_id FROM member_direct_messages WHERE message_id=$1',[stickerMessage])).rows;
     expect(stored).toEqual([{body:'[貼圖] 你好',sticker_id:'workshop-v1-hello',reply_to_message_id:null}]);
     await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(preview).toHaveCount(0);await expect(thread.getByRole('textbox')).toHaveValue('');await expect(thread.locator('.chat-reply-draft')).toHaveCount(0);
