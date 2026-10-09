@@ -510,6 +510,9 @@ export async function switchedPositioningCard(q: Queryable, communityId: string,
     FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING (guild_key)
     WHERE m.community_id=$1 AND m.user_id=$2 AND m.state='active' ORDER BY g.guild_key`, [communityId, userId])).rows as Array<{guild_key: string; name: string; alias: string; profession_title: string; joined_at: string}>;
   const chosen = (await q.query(`SELECT category::text AS category, guild_key FROM guild_category_preferences WHERE community_id=$1 AND user_id=$2`, [communityId, userId])).rows as {category: string; guild_key: string}[];
+  return positioningCardFromRows(memberships,chosen);
+}
+export function positioningCardFromRows(memberships: Array<{guild_key: string; name: string; alias: string; profession_title: string; joined_at: string}>, chosen: {category: string; guild_key: string}[]) {
   const byKey = new Map(memberships.map(row => [row.guild_key, row]));
   const select = (guild: typeof memberships[number]) => ({guild_key: guild.guild_key, name: guild.name, alias: guild.alias ?? '', joined_at: new Date(guild.joined_at).toISOString()});
   const categoryPrimaries = CATEGORY_ORDER.map(category => {

@@ -166,22 +166,23 @@ export async function listMyStores(pool: Pool, actor: Actor) {
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
     await bindPrincipalContext(q, principal.principal_id);
-    const tenants = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t USING(tenant_id)
+    const tenants = (await q.query<{ tenant_id: string; display_name: string }>(`SELECT t.tenant_id,t.display_name FROM tenant_memberships m JOIN tenants t USING(tenant_id)
       WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 ORDER BY t.tenant_id LIMIT 101`, [principal.principal_id, actor.community_id])).rows;
     const items = [];
     for (const t of tenants.slice(0, 100)) {
       try {
         const context = await lockTenantScope(q, { actor, tenantId: t.tenant_id, capabilitiesForRole: storeCapabilities });
-        const name = (await q.query<{ display_name: string }>('SELECT display_name FROM tenants WHERE tenant_id=$1', [t.tenant_id])).rows[0].display_name;
         const instances = (await q.query<Instance>(`SELECT i.instance_id,i.status,d.state AS deployment_state FROM module_instances i
           LEFT JOIN deployment_bindings d ON d.binding_id=i.binding_id AND d.tenant_id=i.tenant_id AND d.instance_id=i.instance_id
           WHERE i.tenant_id=$1 AND i.module_key='storefront' AND i.status NOT IN ('archived','failed')`, [t.tenant_id])).rows;
         for (const inst of instances) {
           if (!(await effectiveStoreCapabilities(q, context, inst.instance_id)).includes('store:read')) continue;
-          const view = await storeView(q, context, inst);
-          items.push({ tenant_id: t.tenant_id, tenant_display_name: name, instance_id: inst.instance_id, setup_state: view.setup_state,
-            name: view.store?.name ?? null, slug: view.store?.slug ?? null, publication_state: view.publication.state,
-            public_path: view.publication.public_path, version: view.version });
+          // The list needs no product count or second capability read. Keep the
+          // confirmed profile mappings and per-tenant RLS context authoritative.
+          const p = await profile(q, context.tenant_id, inst.instance_id);
+          items.push({ tenant_id: t.tenant_id, tenant_display_name: t.display_name, instance_id: inst.instance_id, setup_state: p ? 'ready' : 'setup_required',
+            name: p?.name ?? null, slug: p?.slug ?? null, publication_state: p?.current_publication_id ? 'published' : p?.first_published_at ? 'unpublished' : 'never_published',
+            public_path: p?.current_publication_id ? `/shops/${p.slug}` : null, version: p?.version ?? null });
         }
       } catch (e) { if (!(e instanceof Problem && ['tenant_not_found','scope_disabled'].includes(e.code))) throw e; }
       await clearTenantContext(q); await bindPrincipalContext(q, principal.principal_id);

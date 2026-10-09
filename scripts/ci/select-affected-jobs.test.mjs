@@ -640,6 +640,11 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.migration-postgres/);
 });
 
+test('deploy preflight caches npm downloads before its clean install', async () => {
+  const preflight = jobBlock(await readFile(workflowPath, 'utf8'), 'deploy-preflight');
+  assert.match(preflight, /- uses: actions\/setup-node@[^\n]+\n {8}with:\n {10}node-version: '24'\n {10}cache: npm\n {6}- run: npm ci --ignore-scripts/u);
+});
+
 function leafDescriptors() {
   return [
     ...FRONTEND_LEAF_PROFILES.map(profile => moduleDescriptor(profile.module, [...profile.paths], { dependencies: [...profile.dependencies], tests: [...profile.tests] })),
