@@ -81,7 +81,7 @@
 .message-image-controls{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0}
 .message-image-controls .btn,.message-image-preview .btn{min-height:44px;padding:6px 12px;font-size:14px;flex:none}
 .message-image-preview{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--bg-elev)}
-.message-image-preview img{width:64px;height:64px;object-fit:contain;border-radius:8px;flex:none}
+.message-image-preview canvas{width:64px;height:64px;object-fit:contain;border-radius:8px;flex:none}
 .message-image-preview>span{min-width:0;flex:1;overflow-wrap:anywhere;font-size:14px}
 .message-image-preview small{display:block;color:var(--muted)}
 /* Image controls keep their own rows even in the phone's compact sticker layout. */

@@ -365,7 +365,10 @@ for(const surface of ['page','dock'] as const)for(const status of [403,404])test
   await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
   expect(notices).toBe(beforeLogout+1);expect(logouts).toBe(0);expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
   if(surface==='page'){
-    await page.getByRole('tab',{name:/^公會閒聊/}).click();await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();
+    await page.getByRole('tab',{name:/^公會閒聊/}).click();
+    // Mobile keeps the revoked thread selected; open its picker before using recovery.
+    await panel.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
+    await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();
   }else await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
   await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
   const denied=page.waitForResponse(response=>new URL(response.url()).pathname===path&&response.request().method()==='GET');

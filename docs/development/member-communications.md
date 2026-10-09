@@ -190,3 +190,10 @@ source／pure 測試不代表已完成瀏覽器驗收。
 首次撤權反例先讓真 HTTP POST／DB 提交，再以受控回應替換為 403／404，並改變合成
 會員的實際頻道資格，驗頁面與 Console 的隱藏、守衛、GET-only 重檢及同 key 單筆確認。
 此為提交後回應控制，不宣稱重現原生資料庫鎖時序 race；圖片草稿沿既有私訊反例驗證。
+
+本機待送圖片以 `createImageBitmap(originalFile)` 解碼後直接畫入 64px canvas；
+原始檔案不建立供 DOM 使用的 object URL／data URL，也不以預覽像素取代上傳 bytes。
+選取項目換人、移除或 session 卸載時，layout cleanup 取消舊預覽；晚完成
+的 bitmap 只關閉，不畫回目前項目。預覽失敗只顯示提示，不自動 POST，也不清除
+原 File、upload key、正文或 held unknown。傳送仍由會員明確操作，沿上列 ACK 與首次
+server decoder 422 規則處理。

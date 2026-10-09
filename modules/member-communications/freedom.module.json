@@ -5,9 +5,11 @@
   "owned_paths": [
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts",
+    "apps/portal-web/src/modules/MessageImagePreview.tsx",
     "tests/runtime/message-images.test.ts",
     "tests/runtime/message-image-upload-reader.test.ts",
     "tests/runtime/message-image-ack.test.ts",
+    "tests/runtime/message-image-preview.test.ts",
     "tests/e2e/message-images.spec.ts",
     "migrations/139_member_message_images.sql",
     "docs/development/member-communications.md"

@@ -8,8 +8,10 @@ import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
 
 const commerce = 'guild_commerce_sales';
 const production = 'guild_commercial_production';
+const talent = 'guild_talent_direction';
 const profiles = [
   {key: commerce, title: '線上商店', headings: ['使命', '應用', '我的工作', '公告', '技能書', '公共任務', '協助']},
+  {key: talent, title: '我的方向卡', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
   {key: production, title: '拍攝brief／分鏡／交付', headings: ['使命', '我的工作', '技能書', '公告', '應用', '公共任務', '協助']},
 ];
 const primary = (page: Page) => page.getByRole('region', {name: '主要動作', exact: true});
@@ -21,7 +23,7 @@ async function person(db: Pool, leader = false) {
   const email = `profile-${id}@example.test`;
   await db.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
     VALUES($1,$2,$3,'用途配置測試會員',$4,$5,false)`, [id, DEMO_COMMUNITY, email, hashPassword(DEMO_PASSWORD), randomUUID()]);
-  for (const key of [commerce, production]) {
+  for (const key of [commerce, production, talent]) {
     await db.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,$4,'active','full')`, [randomUUID(), DEMO_COMMUNITY, id, key]);
   }
@@ -71,16 +73,56 @@ test('members see distinct purpose orders and their primary action focuses My Wo
       await expect(primary(page).getByRole('button', {name: '建立我的商店', exact: true})).toBeEnabled();
       await expect(recommendations(page).locator('.application-card').first()).toContainText('線上商店');
     } else {
-      await primary(page).getByRole('button', {name: '前往我的工作', exact: true}).click();
+      await primary(page).getByRole('button', {name: profile.key === talent ? '前往方向卡' : '前往我的工作', exact: true}).click();
       await expect(page.locator('.guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})})).toBeFocused();
       await expect(recommendations(page).locator('.application-card').first()).toContainText('人工工作空間');
     }
   }
-  await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
-    WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, commerce]);
-  await open(page, commerce);
-  await expect(primary(page)).toContainText('你是這個公會的實習成員');
-  await expect(primary(page).getByRole('button')).toHaveCount(0);
+  for (const key of [commerce, talent]) {
+    await e2eAuthPool.query(`UPDATE positioning_profession_memberships SET member_tier='intern',aggregate_version=aggregate_version+1
+      WHERE community_id=$1 AND user_id=$2 AND guild_key=$3`, [DEMO_COMMUNITY, member.id, key]);
+    await open(page, key);
+    await expect(primary(page)).toContainText('你是這個公會的實習成員');
+    await expect(primary(page)).not.toContainText('建立新方向卡或繼續原卡');
+    await expect(primary(page).getByRole('button')).toHaveCount(0);
+  }
+});
+
+test('talent entry focuses the existing workspace, then saves and reopens the same direction card after fresh login', async ({page, e2eAuthPool}) => {
+  const member = await person(e2eAuthPool), title = `入口方向卡 ${randomUUID()}`;
+  await login(page, member.email); await open(page, talent);
+  const work = page.locator('.guild-launchpad > .guild-launchpad-block').filter({has: page.getByRole('heading', {level: 2, name: '我的工作', exact: true})});
+  await expect(primary(page)).toContainText('選擇可使用的工作空間');
+  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click();
+  await expect(work).toBeFocused(); await expect(work).toContainText('你還沒有業務空間');
+  await expect(work.getByRole('link', {name: '前往業務空間', exact: true})).toBeVisible();
+  // Use the same existing member API; the entry action itself creates nothing.
+  const created = await post(page, '/tenants', {display_name: '方向卡入口空間', workspace_name: '主工作區'}, 201);
+  await page.reload(); await open(page, talent);
+  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
+  await work.getByRole('button', {name: '啟用手動工作', exact: true}).click(); await expect(work.getByText('繼續工作', {exact: true})).toBeVisible();
+  await work.getByLabel('方向卡名稱', {exact: true}).fill(title); await work.getByLabel('這週想改變的一件事', {exact: true}).fill('選一件小事開始');
+  await work.getByRole('button', {name: '建立', exact: true}).click();
+  const card = work.getByRole('form', {name: '我的方向卡', exact: true}); await expect(card).toBeVisible();
+  await card.getByLabel('目前的情境', {exact: true}).fill('從公會入口選一個小活動');
+  await card.getByRole('button', {name: '儲存方向卡', exact: true}).click();
+  await expect(work.locator('.my-work-stage')).toContainText('已儲存・第 1 版');
+  await expect(card.getByRole('button', {name: '儲存方向卡', exact: true})).toBeEnabled();
+  const rows = (await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND title=$2', [created.tenant.tenant_id, title])).rows;
+  expect(rows).toHaveLength(1);
+  const results = (await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows;
+  expect(results).toHaveLength(1);
+  // A signed-out guild can render its public page; session revocation is the authority.
+  await page.getByRole('button', {name: '設定', exact: true}).click();
+  await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
+  await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
+  await login(page, member.email); await open(page, talent);
+  await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
+  await work.getByRole('button', {name: title, exact: true}).click();
+  await expect(work.getByRole('form', {name: '我的方向卡', exact: true})).toBeVisible();
+  await expect(card.getByLabel('目前的情境', {exact: true})).toHaveValue('從公會入口選一個小活動');
+  expect((await e2eAuthPool.query('SELECT work_item_id FROM work_items WHERE tenant_id=$1 AND title=$2', [created.tenant.tenant_id, title])).rows).toEqual(rows);
+  expect((await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows).toEqual(results);
 });
 
 test('a leader publishes recommendations and the member primary action opens the existing launch flow', async ({page, browser, baseURL, e2eAuthPool}) => {
@@ -185,7 +227,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         document.documentElement.dataset.experienceProfile = value;
         window.dispatchEvent(new Event('freedom-theme-changed'));
       }, theme);
-      for (const width of [1280, 360, 768]) {
+      for (const width of [1440, 360, 768]) {
         await page.setViewportSize({width, height: 900});
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         const bounds = await primary(page).evaluate(card => ({
@@ -195,7 +237,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         for (const button of bounds.buttons) {
           expect(button.width).toBeLessThanOrEqual(bounds.width);
           expect(button.height).toBeGreaterThanOrEqual(44);
-          if (width === 1280) expect(button.width).toBeLessThan(bounds.width / 2);
+          if (width === 1440) expect(button.width).toBeLessThan(bounds.width / 2);
         }
         const myWorkBounds = await myWork.evaluate(block => ({
           width: block.getBoundingClientRect().width,
@@ -204,7 +246,7 @@ test('profile pages remain readable in light and RPG at mobile and desktop width
         expect(myWorkBounds.buttons.length).toBeGreaterThan(0);
         for (const button of myWorkBounds.buttons) {
           expect(button.width).toBeLessThanOrEqual(myWorkBounds.width);
-          if (width === 1280) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
+          if (width === 1440) expect(button.width).toBeLessThan(myWorkBounds.width / 2);
         }
         await writeFile(testInfo.outputPath(`${profile.key}-${theme}-${width}-my-work-buttons.json`), JSON.stringify(myWorkBounds, null, 2));
         const colours = await recommendations(page).locator('.pill').first().evaluate(element => ({

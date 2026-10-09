@@ -438,6 +438,22 @@ test('leaving a channel clears its history and composer at once, and a late answ
   await tab(page,'小隊閒聊').click();const squad=panel(page,'小隊閒聊');
   await squad.getByRole('button',{name:'合成小隊甲',exact:true}).click();
   await expect(squad.getByRole('alert')).toContainText('目前無法使用此頻道。');await expect(squad.locator('.messages-bubbles, textarea')).toHaveCount(0);
+  // The earlier dispatched guild POST remains unknown even while its panel is hidden.
+  const refused=page.waitForEvent('dialog');
+  const leave=squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();
+  const notice=await refused;expect(notice.message()).toContain('頻道訊息傳送結果尚未確認');await notice.accept();await leave;
+  await expect(page).toHaveURL(/#messages$/);expect(server.log.sends).toHaveLength(1);
+  const original={...server.log.sends[0]};
+  server.get('guild','builders').member=true;
+  await tab(page,'公會閒聊').click();
+  await thread.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();
+  await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
+  expect(server.log.sends).toHaveLength(1);await expect(box).toHaveValue('離會前的草稿');await expect(box).not.toBeEditable();
+  await thread.getByRole('button',{name:'重試送出',exact:true}).click();
+  await expect(box).toHaveValue('');await expect(box).toBeEditable();
+  expect(server.log.sends).toEqual([original,original]);
+  expect(server.get('guild','builders').messages.filter(item=>item.sender_ref===server.me.id&&item.body===original.body)).toHaveLength(1);
+  await tab(page,'小隊閒聊').click();
   await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
   await page.goBack();await tab(page,'公會閒聊').click();
   await panel(page,'公會閒聊').getByRole('button',{name:'合成公會乙',exact:true}).click();await expect(panel(page,'公會閒聊').locator('.messages-bubbles .messages-body')).toHaveCount(1);
