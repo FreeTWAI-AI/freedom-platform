@@ -75,6 +75,25 @@ These leaf modules never import `App.tsx` or create a second client/session.
 The shell retains the mutation lock, idempotency-key lifetime and session expiry
 callback. Feature extraction does not create a new authorization boundary.
 
+### 社群工作清單查詢（#349）
+
+`listWorks` 使用明確欄位與原排序 `created_at DESC, work_item_id`；本人 Claim
+以 `work_item_id = ANY(...) AND claimant_ref = ...` 批次讀取，再以
+`DISTINCT ON (claim_id)`／`revision DESC` 讀取最新 Submission。有工作的清單最多
+三次 SQL（沒有本人 Claim 時兩次，空清單一次），DTO、回饋、條款、驗收安排
+與社群／工作模式可見性不變，Submission 的內部 `claim_id` 不加入回應。
+
+本次保留 `GET /api/v1/work-items` 的完整 `{items}` 契約，**未加入分頁或上限**。
+`WorkbenchPanel` 與 `TaskBoardPanel` 都將它當成完整清單；`dashboard` 也共用
+此函式，從全清單挑本人未完成認領，且待回饋項目以全清單查找工作 DTO。
+直接加 LIMIT 會讓較舊認領與待回饋工作消失；其他私人／tenant 分頁清單有自己的
+契約與呼叫流程，不能原樣套在此完整投影。這次只消除清單的 N+1 查詢，
+不宣稱回應大小或記憶體使用已受限；dashboard 自己的待回饋逐筆讀取也未改動。
+`flows.test.ts` 用真實 PostgreSQL 比對逐筆版本與批次 DTO，涵蓋一筆／十七筆、
+無 Claim／無 Submission、多次 revision、他人 Claim、過期／撤銷 Review 與空社群；
+HTTP 包裝仍是 `{items}`。
+
+
 ## Tenant manual Work
 
 Tenant Work is the `tenant_execution` mode of the same `work_items` table. It is not a personal draft and not a community collaboration. `tenant-work.ts` reads and `tenant-work-commands.ts` creates, replaces, and archives. The author is `owner_ref`; `owner_principal_id` and `community_id` stay null. Placement (`tenant_id`, `instance_id`, `workspace_id`, `created_by_principal_id`) is frozen. Archive is retained and terminal. HTTP is `apps/platform-api/src/routes/tenant-work.ts`, mounted only while guild launchpad is enabled. Owners and admins use the existing Work role template. Operators and viewers require active ordinary grants on the addressed instance; tenant-wide admission happens before lookup, unreadable id-addressed targets use the existing 404, and a missing requested instance key is 403. Workspace routes check their bound instance. Commands authorize before receipt lookup; Result commands also repeat target authorization after each receipt read/write and after external storage I/O.
