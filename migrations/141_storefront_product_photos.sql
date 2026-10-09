@@ -184,6 +184,15 @@ CREATE FUNCTION preserve_commerce_publication_photo() RETURNS trigger LANGUAGE p
 DECLARE object asset_objects%ROWTYPE;
 BEGIN
  IF TG_OP<>'INSERT' THEN RAISE EXCEPTION 'Published photos are immutable' USING ERRCODE='23514'; END IF;
+ -- Membership is in THIS immutable snapshot, never another publication or the
+ -- current item/pointer. Old published photos survive live product deletion.
+ IF NOT EXISTS (
+  SELECT 1 FROM commerce_storefront_publications p
+  CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(p.projection->'products')='array'
+    THEN p.projection->'products' ELSE '[]'::jsonb END) AS product
+  WHERE p.publication_id=NEW.publication_id AND p.tenant_id=NEW.tenant_id AND p.instance_id=NEW.instance_id
+   AND jsonb_typeof(product->'sku')='string' AND product->>'sku'=NEW.sku
+ ) THEN RAISE EXCEPTION 'Photo SKU must belong to its exact publication' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT object FROM asset_objects WHERE asset_id=NEW.asset_id AND scope_id=NEW.scope_id
   AND representation_id=NEW.representation_id AND policy_revision=NEW.policy_revision AND purpose='storefront.product-photo';
  IF (NEW.content_type IS NOT NULL AND NEW.content_type IS DISTINCT FROM object.content_type)
