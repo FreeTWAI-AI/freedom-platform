@@ -2107,7 +2107,7 @@ export const TENANT_DATA_CATALOG: TenantDataCatalog = deepFreeze({
       authoritative_module: "agent-commerce",
       tenant_resolution: "Profile/publication tenant_id; shops resolve through commerce_resource_tenants.resource_id -> commerce_shops.shop_id, items and selections through their own shop_id first. Only resource_kind=shop, mapping_state=confirmed with the authorized tenant and instance establishes row scope. Missing/ambiguous mappings and imported/unmapped rows are not assigned by owner_id, community_id, slug or a selection's item reference. Schema FK evidence alone is not row authorization.",
       identity_keys: ["instance_id", "publication_id", "shop_id", "item_id", "selection_id", "quote_id", "order_id", "buyer_principal_id", "client_order_id"],
-      readable_by: ["store:read", "anonymous:current-live-publication"],
+      readable_by: ["store:read", "store:write for private supplier cost and terms", "anonymous:current-live-publication"],
       writable_by: ["store:manage", "store:write", "store:publish"],
       export_scope: "Coverage only: no store export, import, restore or external migration capability is implemented by this catalog. Bulk export requires separately authorized module.data.export, confirmed row mappings and field policy; it must exclude platform authentication, imported/unmapped shops and another supplier's private item data.",
       dependency_refs: ["DC-04", "DC-07", "DC-10"],

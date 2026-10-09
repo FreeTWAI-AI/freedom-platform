@@ -20,6 +20,7 @@ import {
 import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
 import * as presentation from '../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import * as supplyTerms from '../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
 const displayName = ['display_name_control_character'] as const;
@@ -101,6 +102,10 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
+  ['hosted-supply-terms', 'Private supplier terms on the existing inventory item. No supply offer, acceptance or transaction is enabled.', [
+    ['input', supplyTerms.SupplyTermsInputSchema, 'input', ['current_same_instance_store_write_capability', 'product_version_cas']],
+    ['view', supplyTerms.SupplyTermsSchema, 'output', ['available_equals_stock_minus_reserved', 'private_cost_and_terms']],
+  ]],
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['storefront-presentation', 'Additive saved store presentation. Existing storefront/v1 content, releases and capabilities remain unchanged.', [
     ['appearance-input', presentation.StoreAppearanceInputSchema, 'input', []],

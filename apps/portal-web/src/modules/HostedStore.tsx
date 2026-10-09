@@ -7,6 +7,8 @@ import {
   type ProductView, type StoreView,
 } from '../../../../contracts/guild-launchpad/v1/storefront';
 import {StoreAppearanceSchema, type StoreAppearance, type StoreTemplate} from '../../../../contracts/guild-launchpad/v1/storefront-presentation';
+import {SupplyTermsSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
+import {HostedSupplyTerms} from './HostedSupplyTerms';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores, stateWord} from './MyStoreAction';
@@ -89,6 +91,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
   const busyRef = useRef(false);
   const statusLine = useRef<HTMLParagraphElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [supplyEditing, setSupplyEditing] = useState<string | null>(null);
   function leaveOk() {
     if (busyRef.current || held.current) {
       announce(busyRef.current ? '正在確認原操作，請等候完成後再離開。' : '尚未確認原操作的結果，請按「重試」確認後再離開。');
@@ -147,7 +150,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
       held.current = null;
       if (cause instanceof ApiError && cause.status === 404) {setMissing(true); return;}
       if (cause instanceof ApiError && cause.status === 412) {
-        setEditing(null); markDirty('edit', false); await load();
+        setEditing(null); setSupplyEditing(null); markDirty('edit', false); markDirty('supply', false); await load();
         announce(attempt.path.endsWith('/appearance') ? '商店資料剛剛被更新，已重新載入。你的版型選擇仍保留，請確認後再儲存。' : attempt.product ? '這件商品剛剛被更新，已重新載入。' : '商店資料剛剛被更新，已重新載入。');
       } else if (cause instanceof ApiError && cause.code === 'storefront_already_set_up') {
         await load(); announce('這間商店已經設定過，已重新載入。');
@@ -181,9 +184,11 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
           <p>{view.product_count}／{view.product_limit} 件商品</p>
           {!products.length && <p>還沒有商品。新增第一件商品後就能發布。</p>}
           <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id}>
-            {editing === product.product_id && can('store:write') ? <ProductForm key={product.version} product={product} currency={store.currency} busy={locked} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({method: 'patch', path: root + '/products/' + product.product_id, body, version: product.version, schema: ProductViewSchema, product: true, notice: '已儲存。', success: value => {success(value); setEditing(null); markDirty('edit', false);}})}/>
+            {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}/>
+              : editing === product.product_id && can('store:write') ? <ProductForm key={product.version} product={product} currency={store.currency} busy={locked} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({method: 'patch', path: root + '/products/' + product.product_id, body, version: product.version, schema: ProductViewSchema, product: true, notice: '已儲存。', success: value => {success(value); setEditing(null); markDirty('edit', false);}})}/>
               : <><h4>{product.title}</h4><p>{formatMinor(product.price_minor, product.currency)}</p><p>庫存 {product.stock}</p><p className="hosted-store-description">{product.description}</p>
-                {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
+                {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
+                  <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(null); setSupplyEditing(product.product_id);}}}>供貨條件</button>
                   <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (window.confirm(`要移除「${product.title}」嗎？已發布的展示頁要重新發布後才會更新。`)) void command({method: 'post', path: root + '/products/' + product.product_id + '/remove', body: {}, version: product.version, schema: ProductRemovedSchema, product: true, notice: '已移除商品。', success: () => {}});}}>移除</button></div>}
               </>}
           </article>)}</div>
