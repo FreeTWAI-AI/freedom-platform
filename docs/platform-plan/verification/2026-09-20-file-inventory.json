@@ -19864,8 +19864,8 @@
     },
     {
       "path": "tests/e2e/sharing-authoring-fixture.ts",
-      "bytes": 21016,
-      "sha256": "c9da3e4abd8659f128b740e47f0e8dc5467300b4592ecc02a53021373c508187"
+      "bytes": 21058,
+      "sha256": "f195dd45e539f28179a993d2d319eaa19a233239450821fcb51498eaee70c322"
     },
     {
       "path": "tests/e2e/sharing-authoring.spec.ts",
