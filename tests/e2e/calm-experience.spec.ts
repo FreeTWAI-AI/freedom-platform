@@ -25,7 +25,8 @@ test('a resumed private conversation keeps older history and pages through every
   expect(offsets).toEqual([0,0,20,40,60]);expect(await thread.locator('.messages-body').allTextContents()).toEqual(Array.from({length:70},(_,index)=>item(index+1).body));
 });
 test('anonymous visitors can preview a real free resource before creating an account',async({page})=>{
-  await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByText('先看免費資源，不用註冊',{exact:true}).click();
+  await page.setViewportSize({width:390,height:844});await page.goto('/');const resources=page.locator('.entry-resources > details > summary');
+  await expect(resources).toHaveText('先看免費資源，不用註冊 · 搜尋社群內容');await resources.click();
   await expect(page.locator('.entry-resource-list article')).toHaveCount(3);await page.locator('.entry-resource-list').getByRole('button',{name:'免費預覽',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

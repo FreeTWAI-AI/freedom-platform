@@ -194,6 +194,7 @@ export const interfaceMessages = {
   'nav.services': ['社員服務', 'Member services', 'メンバーのサービス', '회원 서비스', 'Servicios de miembros'],
   'nav.promotion': ['推廣排行榜', 'Promotion rankings', '紹介ランキング', '홍보 순위', 'Clasificación de difusión'],
   'nav.highlights': ['活動集錦', 'Event highlights', 'イベントの記録', '행사 모음', 'Momentos de eventos'],
+  'nav.community-search': ['搜尋社群內容', 'Search community', 'コミュニティ内を検索', '커뮤니티 검색', 'Buscar en la comunidad'],
   'nav.main': ['主要工作區', 'Main workspace', 'メインスペース', '주 작업 공간', 'Espacio principal'],
   'nav.more': ['更多功能', 'More', 'その他の機能', '더 보기', 'Más funciones'],
   'nav.search': ['搜尋功能', 'Find a feature', '機能を探す', '기능 찾기', 'Buscar una función'],

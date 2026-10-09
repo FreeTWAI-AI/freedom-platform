@@ -21,10 +21,15 @@
     "apps/portal-web/public/licenses/member-card/dijkstrajs-MIT.txt",
     "apps/portal-web/public/licenses/member-card/html-to-image-MIT.txt",
     "apps/portal-web/public/licenses/member-card/qrcode-MIT.txt",
-    "apps/portal-web/public/licenses/member-card/qrcode-core-notice.txt"
+    "apps/portal-web/public/licenses/member-card/qrcode-core-notice.txt",
+    "modules/identity-membership/blocks.ts",
+    "apps/portal-web/src/modules/MemberBlocking.tsx",
+    "tests/runtime/member-blocking.test.ts",
+    "migrations/136_member_interaction_blocks.sql"
   ],
   "public_exports": [
-    "modules/identity-membership/member-sharing.ts"
+    "modules/identity-membership/member-sharing.ts",
+    "modules/identity-membership/blocks.ts"
   ],
   "dependencies": [
     "command-core"
@@ -45,7 +50,8 @@
     "no-secrets-in-artifacts"
   ],
   "tests": [
-    "runtime.member-card"
+    "runtime.member-card",
+    "runtime.full"
   ],
   "surfaces": [
     {
@@ -66,6 +72,16 @@
         "member.card.share.read"
       ],
       "auth_profile": "revocable-share"
+    },
+    {
+      "surface_id": "member.blocking-controls",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/MemberBlocking.tsx",
+      "operations": [
+        "member.block.list",
+        "member.block.update"
+      ],
+      "auth_profile": "member-session"
     }
   ]
 }

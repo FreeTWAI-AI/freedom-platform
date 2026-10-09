@@ -26,6 +26,7 @@ import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
+import { CommunitySearch } from './modules/CommunitySearch'
 import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
@@ -99,6 +100,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   stores: '建立與管理你的商店：上架商品、預覽並發布展示頁；交易尚未啟用。',
   business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
+  'community-search': '依關鍵字、類型與主題搜尋目前可閱讀的社群內容。',
   todos: '查看會員待辦事項與可直接前往的操作。',
   messages: '查看收到的訊息與對話。',
   events: '查看社群活動、審核結果與報名狀態。',
@@ -263,6 +265,7 @@ function MemberApp() {
 
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
+    if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
     if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/>;
@@ -288,7 +291,7 @@ function MemberApp() {
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
@@ -488,7 +491,7 @@ function LoginView({
         </aside>}
       </section></div>
       <p className="login-language-scope field-hint">{t('language.scope')}</p>
-      <div className="login-public-resources"><EntryResources client={client}/></div>
+      <div className="login-public-resources"><EntryResources client={client} communitySearchEnabled={!resetToken&&site?.community_search_enabled===true}/></div>
       <CommunityLinks/>
     </main>
   )
@@ -713,7 +716,7 @@ function Workspace({
               </div>
             </div>
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
-            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} mobileOpen={mobileOpen}/>
+            <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
           <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
@@ -739,11 +742,12 @@ function Workspace({
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages client={client} session={session} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
-            {tab === 'friends' && <FriendsPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
-            {tab === 'members' && <MembersPanel client={client} session={session} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'messages' && <MemberMessages client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
+            {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
+            {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch client={client} authKey={session.user.user_id + ':' + session.csrf_token}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'events' && <EventsPanel client={client} session={session} />}
             {tab === 'highlights' && <EventHighlights client={client} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
@@ -783,8 +787,10 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
+  if(value.split('?')[0]==='community-search')return 'community-search'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
+  if(value.startsWith('showcase/'))return 'showcase'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'stores' || value.startsWith('stores/'))return launchpadEnabled ? 'stores' : 'home'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'

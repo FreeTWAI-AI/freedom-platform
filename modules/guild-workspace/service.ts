@@ -32,7 +32,7 @@ async function managedGuilds(q:PoolClient,actor:Actor){return (await q.query(`SE
 async function leader(q:PoolClient,actor:Actor,key?:string){const rows=await managedGuilds(q,actor);requireCondition(key?rows.some(g=>g.guild_key===key):rows.length>0,403,'guild_leader_required','此操作限目前在任的公會長。');}
 // Editing needs BOTH the named appointment and a current AI guild membership;
 // the guild lock is taken first so a concurrent leave commits before or after this check.
-async function maintainer(q:PoolClient,actor:Actor,bookId:string){book(bookId);const guilds=await activeDevelopmentGuilds(q,actor,'skill');requireCondition((await q.query('SELECT 1 FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND book_id=$3 AND active FOR SHARE',[actor.community_id,actor.user_id,bookId])).rowCount===1,403,'skill_maintainer_required','此操作限這本技能書的維護者。');if(!guilds.length&&(await internDevelopmentGuilds(q,actor,'skill')).length)requireFullGuildMember('intern');requireSkillEditorGuild(guilds);}
+export async function requireSkillBookMaintainer(q:PoolClient,actor:Actor,bookId:string){book(bookId);const guilds=await activeDevelopmentGuilds(q,actor,'skill');requireCondition((await q.query('SELECT 1 FROM skill_book_maintainers WHERE community_id=$1 AND user_id=$2 AND book_id=$3 AND active FOR SHARE',[actor.community_id,actor.user_id,bookId])).rowCount===1,403,'skill_maintainer_required','此操作限這本技能書的維護者。');if(!guilds.length&&(await internDevelopmentGuilds(q,actor,'skill')).length)requireFullGuildMember('intern');requireSkillEditorGuild(guilds);}
 
 // Lock order matches guild join/leave: users/sessions, then the member-guild advisory, then membership rows.
 // Taking managedGuilds' FOR SHARE OF m,o before the advisory would deadlock against a leave holding it.
@@ -73,13 +73,13 @@ function initialEditorial(bookId:string){
    milestone_id:collaboration.milestones.find(m=>m.task_ids.includes(task.id))?.id??null,status:'todo' as const})),
   updated_at:null,aggregate_version:0};
 }
-export async function skillEditor(pool:Pool,actor:Actor,bookId:string){return transaction(pool,async q=>{await activeMember(q,actor);await maintainer(q,actor,bookId);const row=(await q.query(`SELECT ${publicEditorialColumns} FROM skill_book_editorial WHERE book_id=$1 AND community_id=$2`,[bookId,actor.community_id])).rows[0];return {book_id:bookId,...(row?editorial(row):initialEditorial(bookId))};});}
+export async function skillEditor(pool:Pool,actor:Actor,bookId:string){return transaction(pool,async q=>{await activeMember(q,actor);await requireSkillBookMaintainer(q,actor,bookId);const row=(await q.query(`SELECT ${publicEditorialColumns} FROM skill_book_editorial WHERE book_id=$1 AND community_id=$2`,[bookId,actor.community_id])).rows[0];return {book_id:bookId,...(row?editorial(row):initialEditorial(bookId))};});}
 export async function saveSkillEditorial(pool:Pool,input:Command,bookId:string){
  const source=book(bookId),body=editorialInput.parse(input.body);
  requireCondition(Buffer.byteLength(JSON.stringify(body),'utf8')<=12000,422,'editorial_too_large','技能書摘要與待辦合計請控制在 12 KB 內。');
  const milestones=new Set(body.milestones.map(m=>m.id)),tasks=new Set(body.tasks.map(t=>t.id));requireCondition(milestones.size===body.milestones.length&&tasks.size===body.tasks.length,422,'editorial_duplicate_id','里程碑與任務代號不可重複。');
  for(const task of body.tasks){requireCondition(task.milestone_id===null||milestones.has(task.milestone_id),422,'editorial_milestone_missing','任務必須連到已列出的里程碑。');if(task.issue_url!==null){let valid=false;try{const u=new URL(task.issue_url);valid=[source.repository_url,source.upstream_url].some(url=>u.origin==='https://github.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&new RegExp('^'+new URL(url).pathname.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/issues/[1-9][0-9]*$').test(u.pathname));}catch{}requireCondition(valid,422,'editorial_issue_invalid','Issue 請連到這本技能書的工坊或原作者 GitHub 專案。');}}
- return command(pool,input,q=>maintainer(q,input.actor,bookId),async q=>{
+ return command(pool,input,q=>requireSkillBookMaintainer(q,input.actor,bookId),async q=>{
   await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`skill-editorial/${bookId}`]);
   const prior=(await q.query('SELECT aggregate_version FROM skill_book_editorial WHERE book_id=$1 AND community_id=$2 FOR UPDATE',[bookId,input.actor.community_id])).rows[0];
   if(prior)checkVersion(prior.aggregate_version,input.expected);else requireCondition(!input.expected,412,'version_conflict','技能書內容已變更，請重新整理。');

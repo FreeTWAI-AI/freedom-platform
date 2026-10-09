@@ -23,6 +23,8 @@
     "packages/shared/youtube-video-id.ts",
     "tests/runtime/image-runtime.test.ts",
     "tests/runtime/image-cloudflare.test.ts",
+    "packages/shared/community-search.ts",
+    "packages/shared/member-blocking.ts",
     "packages/shared/tenant-list-cursor.ts",
     "tests/runtime/tenant-list-cursor.test.ts",
     "tests/runtime/tenant-cursor-fixture.ts"
@@ -46,6 +48,8 @@
     "packages/shared/task-categories.ts",
     "packages/shared/validation.ts",
     "packages/shared/youtube-video-id.ts",
+    "packages/shared/community-search.ts",
+    "packages/shared/member-blocking.ts",
     "packages/shared/tenant-list-cursor.ts"
   ],
   "dependencies": [],

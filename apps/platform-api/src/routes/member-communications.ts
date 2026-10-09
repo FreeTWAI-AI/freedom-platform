@@ -5,9 +5,10 @@ import {
   listNotifications,markNotificationRead,markAllInboxRead,listConversations,conversationMessages,conversationActivity,sendDirectMessage,markConversationRead,searchConversationMessages,
 } from '../../../../modules/member-communications/service.js';
 import {listChannels,channelMessages,channelActivity,sendChannelMessage,markChannelRead,searchChannelMessages} from '../../../../modules/member-communications/channels.js';
+import {listBlocks,blockState,changeBlock} from '../../../../modules/identity-membership/blocks.js';
 
 // Mounted after the shared session, Origin, CSRF and onboarding middleware.
-// Writes use Idempotency-Key; If-Match is not required for these commands.
+// Writes use Idempotency-Key; existing block aggregates also require If-Match.
 // Receipts key on the decoded, canonical target, not the raw path, so case or
 // percent-encoded UUID aliases replay instead of inserting again. Guild keys
 // keep their exact case; the service still validates every id.
@@ -19,9 +20,22 @@ function channelCommand(c:Context<PlatformEnv>,action:'messages'|'read'){
   const kind=c.req.param('kind')??'',key=c.req.param('key')??'';
   return canonicalCommand(c,`/me/channels/${kind}/${kind==='squad'?key.toLowerCase():key}/${action}`);
 }
-export function createMemberCommunicationRoutes(pool:Pool) {
+export function createMemberCommunicationRoutes(pool:Pool,memberBlockingEnabled=false) {
   const app=new Hono<PlatformEnv>();
   app.post('/me/inbox/read-all',async c=>c.json(await markAllInboxRead(pool,await canonicalCommand(c,'/me/inbox/read-all'))));
+  if(memberBlockingEnabled){
+    app.get('/me/blocks',async c=>{c.header('Cache-Control','private, no-store');return c.json(await listBlocks(pool,c.get('actor'),c.req.query()));});
+    app.get('/me/blocks/:userId',async c=>{
+      const state=await blockState(pool,c.get('actor'),c.req.param('userId'));
+      c.header('Cache-Control','private, no-store');
+      if(state.aggregate_version!==null)c.header('ETag',`"${state.aggregate_version}"`);
+      return c.json(state);
+    });
+    for(const action of ['block','unblock'] as const)app.post(`/me/blocks/:userId/${action}`,async c=>{
+      c.header('Cache-Control','private, no-store');
+      return c.json(await changeBlock(pool,await canonicalCommand(c,`/me/blocks/${uuidParam(c,'userId')}/${action}`),c.req.param('userId'),action));
+    });
+  }
   app.get('/me/notifications',async c=>c.json(await listNotifications(pool,c.get('actor'),c.req.query())));
   app.post('/me/notifications/:id/read',async c=>c.json(await markNotificationRead(pool,await canonicalCommand(c,`/me/notifications/${uuidParam(c,'id')}/read`),c.req.param('id'))));
   app.get('/me/conversations',async c=>c.json(await listConversations(pool,c.get('actor'),c.req.query())));
