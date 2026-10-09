@@ -1,11 +1,20 @@
 import {randomUUID} from 'node:crypto';
-import type {Route, Browser} from '@playwright/test';
+import type {Route, Browser, TestInfo} from '@playwright/test';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {apiLogin, buyerLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
 import {OrderSchema, QuoteSchema} from '../../contracts/guild-launchpad/v1/hosted-order.js';
 const surface = (page: Page) => page.locator('.hosted-store');
+async function capture(page: Page, info: TestInfo, state: string) {
+  for (const theme of ['light', 'dark']) for (const width of [360, 768, 1440]) {
+    await page.evaluate(value => {localStorage.setItem('freedom-theme', value); document.documentElement.dataset.theme = value; document.documentElement.dataset.experienceProfile = value; window.dispatchEvent(new Event('freedom-theme-changed'));}, theme);
+    await page.setViewportSize({width, height: 900});
+    await page.evaluate(async () => {await document.fonts.ready; window.scrollTo(0, 0); await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({path: info.outputPath(`seller-${state}-${theme}-${width}.png`), fullPage: true, animations: 'disabled'});
+  }
+}
 function gate() {let resolve!: () => void; const promise = new Promise<void>(done => {resolve = done;}); return {promise, resolve};}
 function tuple(route: Route) {const r = route.request(); return {body: r.postData(), key: r.headers()['idempotency-key'], version: r.headers()['if-match']};}
 async function reserved(db: Pool, browser: Browser, origin: string) {
@@ -38,11 +47,13 @@ async function blocked(page: Page, hash: string) {
   if (await settings.getAttribute('aria-expanded') === 'true') await settings.click();
 }
 
-test('HO-SUI01 owner entry, committed stale cancel ACK, original tuple guards and one stock release', async ({page, browser, baseURL, e2eAuthPool}) => {
+test('HO-SUI01 owner entry, committed stale cancel ACK, original tuple guards and one stock release', async ({page, browser, baseURL, e2eAuthPool}, testInfo) => {
   test.setTimeout(120000);
   const s = await reserved(e2eAuthPool, browser, baseURL!); const hash = `#stores/${s.tenant}/${s.instance}/orders`;
   await buyerLogin(page, s.seller.email, `#stores/${s.tenant}/${s.instance}`);
   await surface(page).getByRole('link', {name: '預留訂單', exact: true}).click();
+  await expect(surface(page).getByRole('button', {name: '查看這筆預留'})).toBeEnabled();
+  await capture(page, testInfo, 'list');
   await surface(page).getByRole('button', {name: '查看這筆預留'}).click();
   await expect(page.getByRole('region', {name: '預留明細'})).toContainText('預留中');
   const committed = gate(), release = gate(); const sent: ReturnType<typeof tuple>[] = []; let damaged = false;
@@ -62,8 +73,10 @@ test('HO-SUI01 owner entry, committed stale cancel ACK, original tuple guards an
     await surface(page).getByRole('button', {name: '查詢原預留'}).click();
     await expect(surface(page).getByRole('button', {name: '重試原取消'})).toBeEnabled();
     await page.unroute(readPath);
+    await capture(page, testInfo, 'unknown-cancel');
     await surface(page).getByRole('button', {name: '重試原取消'}).click();
     await expect(page.getByRole('region', {name: '預留明細'})).toContainText('已取消');
+    await capture(page, testInfo, 'cancelled');
     expect(sent).toHaveLength(2); expect(sent[1]).toEqual(sent[0]); expect(sent[0].body).toBe('{}'); expect(sent[0].version).toBe(`"${s.order.version}"`);
     expect((await e2eAuthPool.query('SELECT reservation_version,reservation_state FROM commerce_orders WHERE order_id=$1', [s.order.order_id])).rows[0]).toEqual({reservation_version: '2', reservation_state: 'cancelled'});
     expect((await e2eAuthPool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved).toBe(0);

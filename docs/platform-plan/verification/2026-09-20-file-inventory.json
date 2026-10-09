@@ -19499,8 +19499,8 @@
     },
     {
       "path": "tests/e2e/hosted-seller-order.spec.ts",
-      "bytes": 8933,
-      "sha256": "ec89cc5e1b2553e3eb725d2b582cfce2dca5c897f94a31a25061275f4926999b"
+      "bytes": 10086,
+      "sha256": "8fc02315fd0c7bb2165ab7a823e52890801185790d12ae5ad09f11be8c767fa6"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
