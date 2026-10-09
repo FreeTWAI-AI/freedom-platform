@@ -44,7 +44,7 @@
     "tests/e2e/hosted-seller-order.spec.ts",
     "contracts/guild-launchpad/v1/storefront-presentation.ts",
     "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
-    "migrations/140_storefront_presentation.sql",
+    "migrations/141_storefront_presentation.sql",
     "tests/runtime/storefront-presentation-contracts.test.ts"
   ],
   "public_exports": [

@@ -80,7 +80,7 @@ remain authoritative. Neither registry release/config pins nor storefront/v1 DTO
 `GET/PATCH .../appearance` uses the existing session/command boundary; writes keep the
 original body, expected version and idempotency key when the result is unknown.
 
-Migration 140 adds presentation metadata to the existing profile and immutable publication
+Migration 141 adds presentation metadata to the existing profile and immutable publication
 rows. Existing projection JSON, content digests and historical revisions are not rewritten.
 Publication compares both content digest and template: a layout-only change creates a new
 revision; editing the saved draft does not alter the public page. The anonymous reader
@@ -90,7 +90,7 @@ current private read authority, is no-store, and renders the saved draft with th
 HTML renderer. It opens in a new tab; the global frame policy stays unchanged. Both layouts
 show every public product and retain the existing reservation links without payment controls.
 
-Apply 140 before this binary. Older binaries ignore the saved layout and cannot compare
+Apply 141 before this binary. Older binaries ignore the saved layout and cannot compare
 its publication state; rollback can revert visible layout to the grid and is not preservation
 of the selected presentation. DC-08 registers both new columns; this is schema coverage,
 not a new tenant export/restore permission. Existing backup of these same tables must include
