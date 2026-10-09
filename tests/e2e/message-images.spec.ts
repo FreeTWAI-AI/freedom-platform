@@ -35,6 +35,59 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE !== '1') {
   });
 }
 if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
+  test('native canvas preview keeps disguised HTML and SVG plus markup filenames inert',async({page})=>{
+    const thread=await openDirect(page),draft=`Native preview draft ${crypto.randomUUID()}`,originalUrl=page.url();
+    const posts:string[]=[],navigations:string[]=[];
+    page.on('request',request=>{if(request.method()==='POST'&&/\/api\/v1\/me\/conversations\/[^/]+\/(images|messages)$/.test(new URL(request.url()).pathname))posts.push(request.url());});
+    page.on('framenavigated',frame=>{if(frame===page.mainFrame()&&frame.url()!==originalUrl)navigations.push(frame.url());});
+    await page.evaluate(()=>{(window as unknown as {messagePreviewExecuted:boolean}).messagePreviewExecuted=false;});
+    await thread.evaluate(node=>{
+      // Observe transient raw-file URL sinks as well as the final preview DOM.
+      const state=window as unknown as {messagePreviewSinks:string[]};state.messagePreviewSinks=[];
+      const inspect=(element:Element)=>{for(const name of ['src','href','data','srcdoc','style']){
+        const value=element.getAttribute(name);if(value&&(/blob:|data:|<script/i.test(value)))state.messagePreviewSinks.push(`${name}:${value}`);
+      }};
+      new MutationObserver(records=>{for(const record of records){
+        if(record.type==='attributes'){
+          if(record.oldValue&&/blob:|data:|<script/i.test(record.oldValue))state.messagePreviewSinks.push(record.oldValue);
+          inspect(record.target as Element);
+        }
+        for(const added of record.addedNodes)if(added instanceof Element){inspect(added);added.querySelectorAll('*').forEach(inspect);}
+      }}).observe(node,{subtree:true,childList:true,attributes:true,attributeOldValue:true,attributeFilter:['src','href','data','srcdoc','style']});
+    });
+    await thread.getByRole('textbox').fill(draft);
+    const script="globalThis.messagePreviewExecuted=true;location.hash='preview-script-executed'";
+    for(const [kind,bytes] of [
+      ['html',`<!doctype html><html><body><script>${script}</script></body></html>`],
+      ['svg',`<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><script>${script}</script><rect width="8" height="8" fill="red"/></svg>`],
+    ]){
+      const name=`${kind}-<svg onload="globalThis.messagePreviewExecuted=true">.png`;
+      await thread.locator('input[type=file]').setInputFiles({name,mimeType:'image/png',buffer:Buffer.from(bytes)});
+      expect(await thread.locator('input[type=file]').evaluate((input:HTMLInputElement)=>input.files?.[0]?.type)).toBe('image/png');
+      const preview=thread.getByLabel('待送出的圖片'),canvas=preview.getByRole('img',{name:'待送出的圖片預覽',exact:true});
+      await expect(canvas).toHaveJSProperty('tagName','CANVAS');
+      expect(await preview.locator('span:has(> small)').evaluate(node=>node.firstChild?.textContent)).toBe(name);
+      // Native Chromium may reject the declared PNG or safely decode SVG pixels.
+      // Wait for an actual decoder outcome, never replace createImageBitmap/canvas.
+      await expect.poll(()=>preview.evaluate(node=>{
+        if(node.querySelector('[role=status]'))return 'rejected';
+        const canvas=node.querySelector('canvas')!,pixels=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;
+        return pixels.some((value,index)=>index%4===3&&value>0)?'pixels':'pending';
+      })).toMatch(/^(rejected|pixels)$/);
+      if(await preview.getByRole('status').count())await expect(preview.getByRole('status')).toHaveText('圖片預覽無法載入，原圖仍保留。');
+      await expect(preview.locator('script,svg,img,iframe,object,embed,a,[src],[href],[data],[srcdoc],[onload],[onerror]')).toHaveCount(0);
+      await expect(thread.getByRole('textbox')).toHaveValue(draft);await expect(thread.getByRole('textbox')).toBeEditable();
+      await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeEnabled();await expect(thread.getByRole('button',{name:'附加圖片',exact:true})).toBeEnabled();
+      await thread.getByRole('button',{name:'移除',exact:true}).click();await expect(preview).toHaveCount(0);
+      await thread.locator('input[type=file]').setInputFiles(image);
+      await expect.poll(()=>thread.getByLabel('待送出的圖片').locator('canvas').evaluate((node:HTMLCanvasElement)=>node.getContext('2d')!.getImageData(64,64,1,1).data[3])).toBe(255);
+      await expect(thread.getByRole('textbox')).toHaveValue(draft);
+      expect(await page.evaluate(()=>({executed:(window as unknown as {messagePreviewExecuted:boolean}).messagePreviewExecuted,sinks:(window as unknown as {messagePreviewSinks:string[]}).messagePreviewSinks}))).toEqual({executed:false,sinks:[]});
+      await expect(page).toHaveURL(originalUrl);expect(navigations).toEqual([]);expect(posts).toEqual([]);
+      await thread.getByRole('button',{name:'移除',exact:true}).click();
+    }
+  });
+
   test('failed local canvas preview preserves an unknown real upload and its original bytes',async({page,e2eAuthPool})=>{
     const thread=await openDirect(page),caption=`Canvas unknown ${crypto.randomUUID()}`;
     await page.evaluate(()=>{
