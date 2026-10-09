@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -203,7 +204,7 @@ test('local real product routes, PostgreSQL and native local R2: create, resume 
     await admin.query(`REVOKE INSERT, UPDATE, DELETE ON ${schema}.tenant_capacity_policies FROM ${role}`);
     await admin.query(`GRANT UPDATE(policy_lock) ON ${schema}.tenant_capacity_policies TO ${role}`);
     runtimePool = new Pool({ connectionString: database, options: `-c search_path=${schema} -c role=${role}`, max: 12 });
-    const runtime = nodeRuntime('local', origin, { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+    const runtime = nodeRuntime('local', origin, { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
     // Node has no release identity. Inject exactly the Worker health metadata field.
     runtime.health = { release_sha: SHA };
     app = createPlatformApp(runtimePool, origin, 'local', runtime);

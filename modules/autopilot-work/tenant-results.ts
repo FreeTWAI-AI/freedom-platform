@@ -9,6 +9,7 @@ import {
 import { digest } from '../../packages/db/index.js';
 import { checkVersion } from '../../packages/db/index.js';
 import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
+import { unavailableTenantListCursor, type TenantListCursorCodec } from '../../packages/shared/tenant-list-cursor.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import {
   AssetStorageError, objectKey, preparePrivateText, PRIVATE_TEXT_MAX_BYTES, readVerifiedObject, sha256,
@@ -61,7 +62,7 @@ interface IntentRow {
 }
 
 /** Human tenant Results. The closed engine owns upload state. Lease tokens never leave this module. */
-export function createTenantResultService(pool: Pool, store: ObjectStore | undefined) {
+export function createTenantResultService(pool: Pool, store: ObjectStore | undefined, cursors: TenantListCursorCodec = unavailableTenantListCursor) {
   const authority = createTenantLifecycleAuthority();
   const requireStore = () => { if (!store) throw new AssetStorageError('object_unavailable'); return store; };
   async function resolvePolicy(q: PoolClient, context: TenantScopeContext) {
@@ -325,30 +326,24 @@ export function createTenantResultService(pool: Pool, store: ObjectStore | undef
   }
   async function list(actor: Actor, tenantId: string, workId: string, query: { limit?: number; cursor?: string }) {
     const limit = query.limit ?? 20;
-    let cursor: string | null = null;
-    if (query.cursor) {
-      const invalid = () => new Problem(422, 'invalid_cursor', '分頁游標無效。');
-      let parsed: Record<string, unknown>;
-      try { parsed = JSON.parse(Buffer.from(query.cursor, 'base64url').toString('utf8')); }
-      catch { throw invalid(); }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
-        || Object.keys(parsed).sort().join(',') !== 'caller_id,revision,tenant_id,work_id'
-        || parsed.tenant_id !== tenantId || parsed.work_id !== workId || parsed.caller_id !== actor.user_id
-        || !assetVersion.safeParse(parsed.revision).success) throw invalid();
-      cursor = parsed.revision as string;
-    }
     return withTenantRead(pool, tenantWorkReadInput(actor, tenantId), async (q, context) => {
       await requireWorkCapability(q, context, 'work:read', false);
       const work = await loadWork(q, tenantId, context.scope.scope_id, workId, false);
       requireCondition(work && work.state === 'draft', 404, 'not_found', '找不到這個工作。');
       await requireWorkInstance(q, context, work.instance_id, 'work:read', '找不到這個工作。');
+      const cursorContext = { purpose: 'results' as const, tenantId, resourceId: workId,
+        principalId: context.subject_principal.principal_id, scopeId: context.scope.scope_id, filter: '' };
+      const cursor = cursors.decode(query.cursor, cursorContext);
+      if (cursor && (Object.keys(cursor).join(',') !== 'revision' || !assetVersion.safeParse(cursor.revision).success)) {
+        throw new Problem(422, 'invalid_cursor', '分頁游標無效。');
+      }
       const rows = (await q.query<ResultRow>(`SELECT ${resultFields} FROM tenant_work_results r
         WHERE r.work_item_id=$1 AND r.tenant_id=$2 AND r.scope_id=$3 AND ($4::bigint IS NULL OR r.revision < $4::bigint)
-        ORDER BY r.revision DESC LIMIT $5`, [workId, tenantId, context.scope.scope_id, cursor, limit + 1])).rows;
+        ORDER BY r.revision DESC LIMIT $5`, [workId, tenantId, context.scope.scope_id, cursor?.revision ?? null, limit + 1])).rows;
       const page = rows.slice(0, limit);
       return ResultPageSchema.parse({
         items: page.map(resultView),
-        next_cursor: rows.length > limit ? Buffer.from(JSON.stringify({ tenant_id: tenantId, work_id: workId, caller_id: actor.user_id, revision: page[page.length - 1].revision })).toString('base64url') : null,
+        next_cursor: rows.length > limit ? cursors.encode({ revision: page[page.length - 1].revision }, cursorContext) : null,
         source_version: work.aggregate_version,
       });
     });
