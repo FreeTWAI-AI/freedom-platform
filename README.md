@@ -108,6 +108,8 @@ npm run demo
 
 操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；筆電／手機入口見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍與驗證見 [模組版本紀錄](./docs/releases/2026-09-23-modules-preview.md)。舊版工作認領、交付驗收與合作流程保留。供貨與合作流程仍屬會員內部預覽，供貨回應屬演練，尚無正式結帳；示範收款紀錄不代表真實收入或銀行核實。
 
+靜態建置快取（#322，尚未部署）：Worker 與 Node 僅對成功找到的 `/assets/<name>-<8 字元 base64url hash>` JS／CSS／圖片／字型等建置檔回 `Cache-Control: public, max-age=31536000, immutable`。HTML／SPA shell、固定入口 `/assets/skill-social.js`、`/assets/` 外檔案、API、404 與缺檔 fallback 保持 `no-store`；CSP、nosniff 與 Referrer-Policy 不變。
+
 ## 完整計畫與營運驗證
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。

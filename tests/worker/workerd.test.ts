@@ -17,6 +17,9 @@ import { tokenHash } from '../../modules/identity-membership/service.js';
 import { trackedGitHubRepositories } from '../../modules/community/github-sync.js';
 import { catalogMetricTargets } from '../../modules/github-social/service.js';
 import { FREEDOM_PLATFORM_EVENTS_FEED } from '../../modules/development/page-github.js';
+import { serveStatic } from '@hono/node-server/serve-static';
+import { createApp } from '../../apps/platform-api/src/app.js';
+import { onBuildAssetFound } from '../../apps/platform-api/src/static-assets.js';
 
 const bundleDir = resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR ?? '.wrangler/dry-run/local');
 const assetsDir = resolve(`.wrangler/test-assets-${process.pid}`);
@@ -39,6 +42,12 @@ before(async () => {
   await mkdir(resolve(assetsDir, 'assets'), { recursive: true });
   await writeFile(resolve(assetsDir, 'index.html'), SHELL);
   await writeFile(resolve(assetsDir, 'assets/app.js'), 'console.log("asset")');
+  for (const [path, body] of Object.entries({
+    'assets/app-AbCdEf12.js': 'console.log("hashed")', 'assets/style-AbCd_f-2.css': 'body{color:red}',
+    'assets/icon-AbCdEf12.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>', 'assets/font-AbCdEf12.woff2': 'synthetic font',
+    'assets/skill-social.js': 'console.log("fixed")', 'outside-AbCdEf12.js': 'console.log("outside")',
+    'assets/short-AbCd.js': 'console.log("short")', 'assets/page-AbCdEf12.html': SHELL,
+  })) await writeFile(resolve(assetsDir, path), body);
   await server.query(`CREATE DATABASE ${database}`);
   db = new Pool({ connectionString: databaseUrl, max: 2 });
   // Pool.end() resolves after removing clients, before their sockets necessarily close.
@@ -113,6 +122,40 @@ test('workerd: strict host, JSON 404 for machine paths, assets with security hea
   assert.match(css.headers.get('content-type') ?? '', /text\/css/);
   assert.match(await css.text(), /\.hl-grid/);
   assert.equal(asset.headers.get('x-robots-tag'), null);
+});
+
+async function assertBuildAssetHeaders(fetch: (path: string, init?: RequestInit) => Promise<Response>) {
+  const security = await fetch('/');
+  const securityHeaders = ['content-security-policy', 'x-content-type-options', 'referrer-policy'];
+  assert.equal(security.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(security.headers.get('referrer-policy'), 'no-referrer');
+  assert.match(security.headers.get('content-security-policy') ?? '', /default-src 'self'/);
+  for (const method of ['GET', 'HEAD']) {
+    for (const path of ['/assets/app-AbCdEf12.js', '/assets/style-AbCd_f-2.css', '/assets/icon-AbCdEf12.svg', '/assets/font-AbCdEf12.woff2']) {
+      const response = await fetch(path, { method });
+      assert.equal(response.status, 200, path);
+      assert.equal(response.headers.get('cache-control'), 'public, max-age=31536000, immutable', path);
+      for (const name of securityHeaders) assert.equal(response.headers.get(name), security.headers.get(name), `${path}: ${name}`);
+      if (method === 'HEAD') assert.equal(await response.text(), '');
+    }
+    for (const path of ['/', '/guilds', '/assets/skill-social.js', '/outside-AbCdEf12.js', '/assets/short-AbCd.js', '/assets/page-AbCdEf12.html', '/assets/x-AbCdEf12.js', '/api/unknown', '/api/v1/health']) {
+      const response = await fetch(path, { method });
+      assert.equal(response.headers.get('cache-control'), 'no-store', path);
+      for (const name of securityHeaders) assert.equal(response.headers.get(name), security.headers.get(name), `${path}: ${name}`);
+      if (path === '/assets/x-AbCdEf12.js' && method === 'GET') assert.equal(await response.text(), SHELL, 'missing ASSETS 404 must fall through to the uncached shell');
+    }
+  }
+}
+
+test('workerd caches only successful content-hashed build assets, not missing files or the shell', async () => {
+  await assertBuildAssetHeaders(call);
+});
+
+test('Node static assets have the same immutable policy and preserve platform security headers', async () => {
+  const app = createApp(db, origin, 'local');
+  app.use('/*', serveStatic({ root: assetsDir, onFound: onBuildAssetFound }));
+  app.get('*', serveStatic({ path: resolve(assetsDir, 'index.html') }));
+  await assertBuildAssetHeaders((path, init) => app.request(origin + path, init));
 });
 
 test('workerd marks only the member-card page noindex', async () => {

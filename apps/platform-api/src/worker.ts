@@ -17,6 +17,7 @@ import { createAdminAccessVerifier, type AdminAccessVerifier } from '../../../mo
 import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.js';
 import { createPlatformApp, isMemberCardPage } from './platform-app.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
+import { IMMUTABLE_ASSET_CACHE_CONTROL, isHashedBuildAsset } from './static-assets.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
@@ -233,9 +234,10 @@ function problem(status: number, code: string, detail: string) {
 }
 // Security headers from the platform middleware win over asset metadata, like the Node static server.
 const ASSET_OVERRIDDEN = new Set(['cache-control', 'content-security-policy', 'x-content-type-options', 'referrer-policy', 'set-cookie']);
-function fromAsset(c: Context, asset: Response) {
+function fromAsset(c: Context, asset: Response, directAsset = false) {
   const headers: Record<string, string> = {};
   for (const [name, value] of asset.headers) if (!ASSET_OVERRIDDEN.has(name.toLowerCase())) headers[name] = value;
+  if (directAsset && [200, 206].includes(asset.status) && isHashedBuildAsset(c.req.path) && !/text\/html/i.test(asset.headers.get('content-type') ?? '')) headers['Cache-Control'] = IMMUTABLE_ASSET_CACHE_CONTROL;
   if (isMemberCardPage(new URL(c.req.url).pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
   return c.body(asset.body as ReadableStream, asset.status as 200, headers);
 }
@@ -245,7 +247,7 @@ export function mountAssets(app: Hono<any>, assets: WorkerEnv['ASSETS']) {
     if (!['GET', 'HEAD'].includes(c.req.method)) return next();
     const asset = await assets.fetch(c.req.raw);
     if (asset.status === 404) return next();
-    return fromAsset(c, asset);
+    return fromAsset(c, asset, true);
   });
   app.get('*', async c => {
     const shell = await assets.fetch(new Request(new URL('/', c.req.url), { method: c.req.method, headers: { Accept: 'text/html' } }));
