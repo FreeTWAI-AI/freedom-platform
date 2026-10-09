@@ -113,7 +113,7 @@ test('talent entry focuses the existing workspace, then saves and reopens the sa
   expect(rows).toHaveLength(1);
   const results = (await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows;
   expect(results).toHaveLength(1);
-  await signOut(page); expect((await page.request.get('/api/v1/session')).status()).toBe(401);
+  await signOut(page); await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
   await login(page, member.email); await open(page, talent);
   await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
   await work.getByRole('button', {name: title, exact: true}).click();
