@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 22323,
-      "sha256": "d94cb7eb6cce672e5689db1b55d92a33b19a377976d8b5515dc5638f439fc572"
+      "bytes": 22724,
+      "sha256": "1df2c02b523ce7a8921c5e6fd3d8a296fede887ca0aa191a62c52d3bc03090dc"
     },
     {
       "path": "compose.yaml",
@@ -379,13 +379,18 @@
     },
     {
       "path": "apps/platform-api/src/server.ts",
-      "bytes": 2334,
-      "sha256": "a77329aac0d90365a7a75a3d9c791bff078cf0a31603f4bb2586e50bfb5e41df"
+      "bytes": 2418,
+      "sha256": "95fc0ada290e98aaeabcbfd5569fdcdcf4c886dc24a260d66f6de6d4db5f8ae2"
     },
     {
       "path": "apps/platform-api/src/session-cookie.ts",
       "bytes": 821,
       "sha256": "c755b535e51e29e95438e8f963179df185d270a06c0737a3a8a1de10d53c3142"
+    },
+    {
+      "path": "apps/platform-api/src/static-assets.ts",
+      "bytes": 759,
+      "sha256": "9a9f8aa53ef68ba319bf7d9e16eb3a31d352790f50da61381214c439bea1a671"
     },
     {
       "path": "apps/platform-api/src/worker-preview-fetch.ts",
@@ -404,8 +409,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 28149,
-      "sha256": "5737dfb5f6930c5a2f136c5adaca99a36fc07a698b0402a5c263403cf039cd08"
+      "bytes": 28538,
+      "sha256": "2790d49ac09a32a38a2d661eefe6bb3b20b462551e382e0b4ac98a5ce976962d"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -21859,13 +21864,13 @@
     },
     {
       "path": "tests/worker/static-fast-path.test.ts",
-      "bytes": 4888,
-      "sha256": "afed13327d9a8dbf4e05bcb623b99b338a4c613fe9b713d416fed577cffbaed4"
+      "bytes": 5069,
+      "sha256": "2fcedcc7d17150ca7a12f98ab84abc3e56e0e56d073b9cbf4bd4092052dd0957"
     },
     {
       "path": "tests/worker/workerd.test.ts",
-      "bytes": 22722,
-      "sha256": "12b069b5f57266c2d3d6dd9aa85288a4effe06b9e962eecd0029f2e192b021e5"
+      "bytes": 25746,
+      "sha256": "62d11908e249943c9254fa3539b0aed7bc5b6141af945bebfd37ffa63ff385da"
     },
     {
       "path": "tests/worker/broker-fixtures/bundle-modules.ts",
