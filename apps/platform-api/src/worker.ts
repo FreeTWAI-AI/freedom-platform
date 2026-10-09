@@ -239,7 +239,7 @@ export function assetHeaders(request:Request,asset:Response,directAsset=false) {
   const headers: Record<string, string> = {};
   for (const [name, value] of asset.headers) if (!ASSET_OVERRIDDEN.has(name.toLowerCase())) headers[name] = value;
   const pathname = new URL(request.url).pathname;
-  if (directAsset && [200, 206].includes(asset.status) && isHashedBuildAsset(pathname) && !/text\/html/i.test(asset.headers.get('content-type') ?? '')) headers['Cache-Control'] = IMMUTABLE_ASSET_CACHE_CONTROL;
+  if (directAsset && [200, 206, 304].includes(asset.status) && isHashedBuildAsset(pathname) && !/text\/html/i.test(asset.headers.get('content-type') ?? '')) headers['Cache-Control'] = IMMUTABLE_ASSET_CACHE_CONTROL;
   if (isMemberCardPage(pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
   return headers;
 }

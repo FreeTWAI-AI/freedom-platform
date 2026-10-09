@@ -19,7 +19,7 @@ import { catalogMetricTargets } from '../../modules/github-social/service.js';
 import { FREEDOM_PLATFORM_EVENTS_FEED } from '../../modules/development/page-github.js';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createApp } from '../../apps/platform-api/src/app.js';
-import { onBuildAssetFound } from '../../apps/platform-api/src/static-assets.js';
+import { serveBuildAssets } from '../../apps/platform-api/src/static-assets-node.js';
 
 const bundleDir = resolve(process.env.FREEDOM_WORKERD_BUNDLE_DIR ?? '.wrangler/dry-run/local');
 const assetsDir = resolve(`.wrangler/test-assets-${process.pid}`);
@@ -153,7 +153,7 @@ test('workerd caches only successful content-hashed build assets, not missing fi
 
 test('Node static assets have the same immutable policy and preserve platform security headers', async () => {
   const app = createApp(db, origin, 'local');
-  app.use('/*', serveStatic({ root: assetsDir, onFound: onBuildAssetFound }));
+  app.use('/*', serveBuildAssets(assetsDir));
   app.get('*', serveStatic({ path: resolve(assetsDir, 'index.html') }));
   await assertBuildAssetHeaders(async (path, init) => app.request(origin + path, init));
 });
