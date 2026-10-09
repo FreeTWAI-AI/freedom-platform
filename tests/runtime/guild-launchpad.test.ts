@@ -61,7 +61,7 @@ function assertBlocks(body: any, key: string) {
   assert.equal(body.mission_override, null);
   assert.deepEqual(body.application_refs, key === 'guild_commerce_sales'
     ? [{application_key: 'hosted-store', release_ref: 'hosted-store@1.0.0', order: 0}, {application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 1}]
-    : key === 'guild_commercial_production' ? [{application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 0}] : []);
+    : (key === 'guild_commercial_production' || key === 'guild_talent_direction') ? [{application_key: 'manual-workspace', release_ref: 'manual-workspace@1.0.0', order: 0}] : []);
   assert.equal(body.blocks.length, BLOCK_KINDS.length);
   assert.deepEqual([...body.blocks.map((block: {kind: string}) => block.kind)].sort(), [...BLOCK_KINDS].sort());
   assert.ok(body.blocks.every((block: {enabled: boolean}) => block.enabled));
@@ -111,7 +111,7 @@ test('every catalog guild and one custom guild resolve the platform default on p
   const objective = '寫下這次工作的目標。';
   const note = '記下過程、來源與下一步。';
   const starterCells: Record<string, string> = {
-    guild_talent_direction: '私人方向筆記；目標、下一步',
+    guild_talent_direction: '我的方向卡；寫下一至兩個小活動，選一個開始，記錄完成條件與回顧。',
     guild_member_operations: '新人支援／活動準備',
     guild_platform_engineering: '問題重現／規格筆記',
     guild_ai_vibe: '開源作品需求／驗收',
@@ -742,7 +742,7 @@ test('an unparsable published config falls back to the previous safe revision', 
   const deepMember = await request(`/guilds/${deepKey}/launchpad`, member);
   assert.deepEqual(deepPublic.data.config_problem, deepProblem);
   assert.deepEqual(deepMember.data.config_problem, deepProblem);
-  assert.equal(deepPublic.data.config.revision, '3');
+  assert.equal(deepPublic.data.config.revision, '4');
   assert.equal(deepPublic.data.config.body.mission_override, null);
   assert.equal(JSON.stringify(deepPublic.data).includes(deepMarker), false);
   assert.equal(deepMember.data.config.source, 'platform_default');
