@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import type {PoolClient} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {grantGuildBooks,lockMemberGuilds} from '../positioning/onboarding.js';
 import {audit,type AdminActor} from './service.js';
@@ -17,7 +17,7 @@ export async function authorizeGuildAppointee(q:PoolClient,scope:{community_id:s
  * An already-active intern is promoted in a second bump. membership_joined stays
  * false when the person was already active. Callers hold the member-guild lock.
  */
-export async function writeFullMembership(q:PoolClient,communityId:string,userId:string,guildKey:string){
+export async function writeFullMembership(pool:Pool,q:PoolClient,communityId:string,userId:string,guildKey:string){
   let membership=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE',[communityId,userId,guildKey])).rows[0];
   const joined=membership?.state!=='active';
   if(joined){
@@ -27,14 +27,14 @@ export async function writeFullMembership(q:PoolClient,communityId:string,userId
   }else if(membership.member_tier!=='full'){
     membership=(await q.query("UPDATE positioning_profession_memberships SET member_tier='full',aggregate_version=aggregate_version+1 WHERE membership_id=$1 RETURNING *",[membership.membership_id])).rows[0];
   }
-  await grantGuildBooks(q,{community_id:communityId,user_id:userId},guildKey);
+  await grantGuildBooks(pool, q, {community_id:communityId,user_id:userId},guildKey);
   return {membership_joined:joined,membership_id:membership.membership_id as string,membership};
 }
 
 /** Called only inside an authorized admin command, after its version check. */
-export async function ensureGuildAppointeeMembership(q:PoolClient,admin:AdminActor,userId:string,guildKey:string,reason:string){
+export async function ensureGuildAppointeeMembership(pool:Pool,q:PoolClient,admin:AdminActor,userId:string,guildKey:string,reason:string){
   const beforeRow=(await q.query('SELECT * FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3',[admin.community_id,userId,guildKey])).rows[0];
-  const written=await writeFullMembership(q,admin.community_id,userId,guildKey);
+  const written=await writeFullMembership(pool, q, admin.community_id,userId,guildKey);
   if(written.membership_joined){
     const before=beforeRow?{membership_id:beforeRow.membership_id,user_id:userId,guild_key:guildKey,state:beforeRow.state,aggregate_version:beforeRow.aggregate_version}:null;
     // Attribute the join to the verified administrator, never to the member.

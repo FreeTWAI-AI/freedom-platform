@@ -8,6 +8,7 @@ import {GuildAnnouncements} from './GuildWorkspace';
 import {SkillBookIntro} from './SkillBookIntro';
 import {GuildTags} from './GuildFilters';
 import {openMemberChat} from './chat-entry';
+import {SkillBookStarGate} from './SkillBookCover';
 
 export type GuildCategorySlot={pending:boolean;selected:boolean;section:string;onToggle?:()=>void;actionId?:string};
 export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondary,secondaryFull=false,viewerId,onChanged,categorySlot,launchpadEnabled=false,onLaunchpad}:{guild:GuildSummary;client:PortalClient;busy:boolean;onPrimary:()=>void;onMembership:()=>void;onSecondary?:()=>void;secondaryFull?:boolean;viewerId?:string;onChanged?:()=>void;categorySlot?:GuildCategorySlot;launchpadEnabled?:boolean;onLaunchpad?:()=>void}) {
@@ -25,6 +26,7 @@ export function GuildCard({guild:g,client,busy,onPrimary,onMembership,onSecondar
       <GuildLeadership masterName={guildMasterLabel(g)} masterId={g.guild_master?.user_id} masterAvatarUrl={g.guild_master?.avatar_url} experts={g.guild_experts}/>
       <p className="guild-purpose multiline-text">{g.purpose}</p>{active&&g.membership?.member_tier==='intern'&&<p className="field-hint guild-intern-notice" role="status">你是這個公會的實習成員：可以閱讀公會內容、在公會聊天室聊天。想發布或編輯，可以在聊天室跟會長打聲招呼，會長能把你設為正式成員。</p>}<GuildTags tags={g.tags}/>
       <div className="guild-book-list"><strong>入門技能</strong>{firstBook?<SkillBookIntro book={firstBook} guildName={g.name} label={firstBook.title}/>:<p className="muted">技能書整理中</p>}</div>
+      <SkillBookStarGate books={g.skill_books}/>
     </div>
     <div className="guild-card-controls">
       {active&&<div className="guild-first-step"><p className="multiline-text">{g.first_step}</p><button type="button" className="btn btn-ghost" onClick={()=>openMemberChat('guild',g.guild_key)}>進入公會聊天室</button></div>}

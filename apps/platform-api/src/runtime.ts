@@ -94,4 +94,6 @@ export type PlatformRuntime = {
   communitySearchEnabled?: boolean;
   /** Additive sharing navigation only; domain authorization remains authoritative. */
   unifiedSharingEnabled?: boolean;
+  /** Opt-in linked GitHub Star prerequisite for skill grants and full-tier promotion. */
+  skillBookStarGateEnabled?: boolean;
 };

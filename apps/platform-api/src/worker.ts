@@ -75,6 +75,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_MEMBER_BLOCKING_ENABLED?: string;
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
+  FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -227,6 +228,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
     communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
+    skillBookStarGateEnabled: env.FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }
