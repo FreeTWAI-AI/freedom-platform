@@ -144,8 +144,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24983,
-      "sha256": "66e61dc851ea943805d3b5ea4f058002c67b24618997ea7a861990535083560e"
+      "bytes": 25300,
+      "sha256": "2b9979436460b114c327e64ee2d41dffc4e8baa1ae6ece468d93c5ec95f10078"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13729,8 +13729,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 17542,
-      "sha256": "8e5b7de8a07428c09ef52f33e54db5ac8d4546355d49430b39a23ba7747d0970"
+      "bytes": 20543,
+      "sha256": "3e103787f2d780625c78d501d11602a044cd05f468de5b0ba477619b0066bd5e"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -18294,8 +18294,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-databases.mjs",
-      "bytes": 9344,
-      "sha256": "842a20548e16f73541a7909248249c953f56f2d2f8cbba2cecd21222bbc249ef"
+      "bytes": 9564,
+      "sha256": "c85267c13c46b99328a384529f3f1e576cb140b2eb070ea332721e86a49a7f5e"
     },
     {
       "path": "packages/contribution-tools/runtime-file-weights.mjs",
@@ -19454,8 +19454,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 56323,
-      "sha256": "b1936ccdd952d27236bc4794ae3646c62c9bcbdf71a6c88ad9d97e4e1b716896"
+      "bytes": 60584,
+      "sha256": "f2447da9bd949262e037a688e746306fb48b9dc9a8f43302d04c1ad463a19a5e"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -19469,8 +19469,8 @@
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",
-      "bytes": 2264,
-      "sha256": "f0d369c2fd3886bc6c4f5193524f0d3dfc9d275831eb0df6f05553913be2d258"
+      "bytes": 2710,
+      "sha256": "6168a85ee8c9b2a63e802bddf8d7cf6b670fdb825945805414dd4217f3d34b28"
     },
     {
       "path": "scripts/lib/openrouter-acceptance-guard.ts",
@@ -19524,8 +19524,8 @@
     },
     {
       "path": "tests/contribution-tools/runtime-sharding.integration.test.mjs",
-      "bytes": 14741,
-      "sha256": "5551a5506eeaf32e5a00989fc06e5e7bb4ce08f37581edff14bdde078b5f1419"
+      "bytes": 16219,
+      "sha256": "042dbe41528fb64aeffc44dad193461c60d152f18d87a4d80efba25a98ed6b19"
     },
     {
       "path": "tests/contribution-tools/runtime-union.integration.test.mjs",
@@ -20244,8 +20244,8 @@
     },
     {
       "path": "tests/integration/migration-postgres-fixture.ts",
-      "bytes": 7542,
-      "sha256": "558aa1d81620165c6231b8fdafed080638fe7dee3b45ca64f3cdcf7156b58d83"
+      "bytes": 8068,
+      "sha256": "b19b2baae26952c59bf4fd6749f92e10faef1ad7bad1b68eda44805663f28477"
     },
     {
       "path": "tests/integration/native-consumer-runtime.test.ts",
