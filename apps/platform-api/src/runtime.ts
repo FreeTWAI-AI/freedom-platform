@@ -92,4 +92,6 @@ export type PlatformRuntime = {
   memberBlockingEnabled?: boolean;
   /** Explicit release setting for community content search. Absent or false leaves routes unregistered. */
   communitySearchEnabled?: boolean;
+  /** Additive sharing navigation only; domain authorization remains authoritative. */
+  unifiedSharingEnabled?: boolean;
 };

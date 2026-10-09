@@ -31,6 +31,7 @@ import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './mo
 import { CommunitySearch } from './modules/CommunitySearch'
 import { guildKeyFromHash } from './modules/guild-launchpad-route'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
+import { setSharingDraftAccount } from './modules/authoring-drafts'
 import type { SessionPayload, TabId } from './types'
 import {LanguageProvider,LanguagePicker,useLanguage} from './language'
 import {authErrorMessage} from './auth-messages'
@@ -186,6 +187,7 @@ function MemberApp() {
   const applySession = useCallback((next: SessionPayload) => {
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
+    setSharingDraftAccount(next.user.user_id, client.sessionGeneration)
     setOnboarding(null)
     setExploring(!onboardingStarted(next.user.user_id))
     setSession(next)
@@ -199,6 +201,7 @@ function MemberApp() {
     window.dispatchEvent(new Event('freedom-game-console-session-end'))
     sessionGeneration.current += 1
     client.csrfToken = null
+    setSharingDraftAccount(null, client.sessionGeneration)
     setOnboarding(null)
     setExploring(true)
     setSession(null)
@@ -234,6 +237,7 @@ function MemberApp() {
         window.dispatchEvent(new Event('freedom-game-console-session-end'))
         sessionGeneration.current += 1
         client.csrfToken = null
+        setSharingDraftAccount(null, client.sessionGeneration)
         setOnboarding(null)
         setSession(null)
         setLoginNotice(null)
@@ -304,7 +308,7 @@ function MemberApp() {
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash + '/orders'))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
-    <Workspace
+    <Workspace key={`${session.user.user_id}:${client.sessionGeneration}`}
       site={site}
       session={session}
       onLoggedOut={() => leaveCurrentSession()}
@@ -741,7 +745,7 @@ function Workspace({
                 {launchpadOpen ? null : <h1 id="workspace-page-title">{t(`nav.${tab}`)}</h1>}
               </div>
               <PageTools pageId={tab} client={client} compact/>
-              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)}/></div>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
