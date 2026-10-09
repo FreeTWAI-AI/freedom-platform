@@ -1,3 +1,4 @@
+import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
 import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js';
@@ -67,6 +68,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
+  FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
+  FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
@@ -122,6 +125,9 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
+  for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
+  if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
+  if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
@@ -327,6 +333,12 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if(env.FREEDOM_SKILL_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.skillImageAssetStore=runtime.avatarAssetStore;
           runtime.skillImageAssets=createSkillImageAssetService(pool,{store:runtime.avatarAssetStore});
+        }
+        if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.storePhotoAssetStore=runtime.avatarAssetStore;
+          runtime.storePhotoUploadsEnabled=env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true';
+          // Keep the closed service installed for retained original receipts; admission remains separate.
+          runtime.storePhotoAssets=createStorefrontProductPhotoLifecycle(pool,{store:runtime.avatarAssetStore});
         }
         if(env.FREEDOM_MESSAGE_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.messageImageAssetStore=runtime.avatarAssetStore;
