@@ -30,10 +30,15 @@ export async function putWorkResultContent(client: PortalClient, path: string, b
 
 /** Read result bytes as text. This route is not JSON, so PortalClient.get cannot be used. */
 export async function getWorkResultText(client: PortalClient, path: string, signal?: AbortSignal): Promise<string> {
+  return new TextDecoder().decode(await getWorkResultBytes(client, path, signal));
+}
+
+/** Preserve exact stored bytes (including a UTF-8 BOM) for digest verification before decoding. */
+export async function getWorkResultBytes(client: PortalClient, path: string, signal?: AbortSignal): Promise<Uint8Array> {
   return request(client, path, { method: 'GET', headers: { Accept: 'text/plain, text/markdown;q=0.9' }, signal }, async (response) => {
     if (!response.ok) throw await problemFrom(response, 'GET');
     try {
-      return await response.text();
+      return new Uint8Array(await response.arrayBuffer());
     } catch {
       throw new ApiError({ message: '回應未完整收到，請稍後重試。', status: 0, network: true });
     }
