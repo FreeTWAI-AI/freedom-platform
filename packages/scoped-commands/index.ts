@@ -190,16 +190,19 @@ export interface ScopedTenantCommand {
 /** Tenant-scoped member command. Personal and community adapters are unchanged.
  * Digest profile is freedom.scoped-tenant-command/v1. Authority is re-read
  * after the receipt lock and after the receipt insert. Optional revalidate and
- * assertCurrentTime run next to that recheck and are outside the digest. */
+ * assertCurrentTime run next to that recheck and are outside the digest. The
+ * optional server-owned runner keeps reference projection on this same client;
+ * existing callers retain isolatedTransaction and the original receipt DTO. */
 export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantCommand,
   authorize: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
   run: (q: PoolClient, context: TenantScopeContext) => Promise<T>,
   revalidate?: (q: PoolClient, context: TenantScopeContext) => Promise<unknown>,
-  assertCurrentTime?: () => void): Promise<T> {
+  assertCurrentTime?: () => void,
+  runner: <R>(pool: Pool, run: (q: PoolClient) => Promise<R>) => Promise<R> = isolatedTransaction): Promise<T> {
   // This server-owned port is outside the request/digest. Time-bounded domain
   // authority must survive the actual receipt read/write wait on this client.
   requireCondition((revalidate === undefined || typeof revalidate === 'function')
-    && (assertCurrentTime === undefined || typeof assertCurrentTime === 'function'),
+    && (assertCurrentTime === undefined || typeof assertCurrentTime === 'function') && typeof runner === 'function',
     400, 'invalid_scoped_command', '操作資料無效。');
   requireCondition(input && typeof input === 'object' && Object.keys(input).every(key =>
     ['actor', 'tenantId', 'operation', 'key', 'body', 'target', 'expected', 'lockUser', 'tenantLock', 'capabilitiesForRole'].includes(key)),
@@ -284,7 +287,7 @@ export async function scopedTenantCommand<T>(pool: Pool, input: ScopedTenantComm
       await authorize(q, context);
       await assertCurrentSessionClock(q, actor);
       authorizeScopedCommand(context);
-    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T, isolatedTransaction);
+    }, async q => jsonSnapshot(await run(q, context), MAX_JSON_BYTES).value as T, runner);
   } finally { if (context!) forgetScopedCommand(context); }
 }
 

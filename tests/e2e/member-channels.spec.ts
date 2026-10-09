@@ -453,6 +453,9 @@ test('leaving a channel clears its history and composer at once, and a late answ
   await expect(box).toHaveValue('');await expect(box).toBeEditable();
   expect(server.log.sends).toEqual([original,original]);
   expect(server.get('guild','builders').messages.filter(item=>item.sender_ref===server.me.id&&item.body===original.body)).toHaveLength(1);
+  // Recovery restores the phone conversation view; return to its list to expose category tabs.
+  await thread.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
+  await expect(tab(page,'小隊閒聊')).toBeVisible();
   await tab(page,'小隊閒聊').click();
   await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
   await page.goBack();await tab(page,'公會閒聊').click();
