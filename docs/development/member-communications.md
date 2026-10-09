@@ -102,7 +102,7 @@ node --import tsx --test --test-concurrency=1 tests/runtime/member-blocking.test
 
 ## 目前限制
 
-- 沒有即時推送。前端目前僅對可見、選定的對話每秒讀取輕量 activity；待確認的已載入私訊 outgoing receipts 另每 8 秒以原授權訊息分頁核對，保留手動重讀與失敗退避。詳見[訊息介面](member-settings-messages.md)；這些週期性核對不會自動標已讀。
+- 沒有即時推送。前端對可見、選定的對話保留每秒 timer tick，但連續無變化的輕量 activity 讀取逐步放慢（1、1、2、3、5 秒，上限 5 秒）。偵測變化、本人送出、切換對話、輸入、手動重讀、focus／恢復可見／online 都重設閒置間隔；既有失敗退避優先，隱藏分頁不輪詢。待確認的已載入私訊 outgoing receipts 另每 8 秒以原授權訊息分頁核對，保留手動重讀。詳見[訊息介面](member-settings-messages.md)；這些週期性核對不會自動標已讀。
 - 尚未提供檢舉、刪除或編輯訊息；也沒有通知「全部標為已讀」。獨立封鎖候選的預設 OFF 與部署邊界見上節，不代表檢舉／政策已完成。
 - 會員因退出公會而自動解除的專家或公會長身分不發通知，只有管理員操作與提名確認會發。
 - 分頁使用 offset；有新訊息寫入時，翻頁可能看到重複或跳過的項目，前端應以 id 去重。
@@ -134,7 +134,8 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 
 先前已是 unknown 的文字／貼圖，同 tuple 重試即使收到確定 4xx 也不能據此
 否定前一次可能已提交的操作；保留原 key／body 直到 canonical ACK。首次就
-收到確定拒絕的文字／貼圖仍可修改後重新送出，不把所有失敗一律鎖住。
+收到確定拒絕的文字／貼圖仍可修改後重新送出；頻道送出後的 403／404 例外見下，
+不能只憑這兩種狀態認定未寫入。
 
 圖片的唯一可解除例外：首次上傳階段、此前沒有 unknown，且收到非 network／timeout／Access 過期的
 `422 invalid_message_image`。這是解碼器在 upload prepare 前的明確拒絕；清除 pending 後
@@ -142,9 +143,57 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 重試，或已進入 message 階段的同碼 422，仍保留原 file／upload key／message key 與
 離開保護。這不擴大到其他 4xx，不清理已上傳素材，也不承諾重新整理後恢復記憶體草稿。
 
+### 貼圖點選即傳送（#303）
+
+私訊與公會／小隊／世界頻道的貼圖選單顯示「點選即傳送，保留其他草稿」。
+點選直接傳入該貼圖 ID，沿既有 message POST 與 idempotency key 送出，
+不先更新 React sticker state。該次 payload 只有 `sticker_id`；尚未送出的文字、
+圖片 bytes／預覽與回覆目標保留，成功後也不清除。圖片仍需預覽後明確送出。
+
+兩入口都在第一個 await 前同步保存 key、body、payload 與目標；sending／unknown
+期間不允許另一貼圖或文字／圖片送出覆蓋原操作。unknown 的「重試送出」只重播
+原貼圖，畫面顯示待確認貼圖及保留其他草稿的說明。首次非撤權的確定拒絕可重新選擇；
+unknown 後的拒絕仍保留原 tuple。頻道 ACK 另核對 sender、kind、channel key、
+message UUID、合法 bigint sequence、時間及完整內容；離會不會把未知提交當成未送出，
+目前不可讀的頻道仍沿原撤權流程隱藏。這不新增 API、schema 或 grants。
+
+頻道 command 提交後另做當下成員資格的 snapshot；即使第一次 POST 收到 403／404，
+也可能已寫入訊息與收據。客戶端先保存原 attempt 為 unknown，再隱藏已撤權的歷史與
+pending 正文，保留其他草稿及離開守衛。重新取得存取權後仍須 GET 重檢，再由本人以
+原 key／payload 手動重試；不自動送出、不跳過當下授權。首次非撤權的 validation 422
+仍可修改，先前 unknown 的任何拒絕仍不能釋放原 tuple。
+
+`tests/runtime/chat-sticker-send.test.ts` 在可控 Promise 下執行實際轉譯的送出 closure，
+涵蓋同步連點、草稿保留、錯誤 ACK、未知後拒絕、精確重試、收件人／session 變更與
+頻道撤權。這是 source／pure tier；`chat-stickers.spec.ts` 與 `message-images.spec.ts`
+保留真實瀏覽器／DB 的驗收入口，不能用 pure 測試取代 browser／HTTP／DB 證據。
+
+
+訊息頁與 Console 分別用 `useChatLeaveGuards` 聚合私訊、公會、小隊與世界四個子元件。
+每個子元件只登記／移除自己的守衛，其他子元件有 pending 時仍阻擋離開；頻道的
+layout 註冊與 beforeunload 直接讀同步 held ref，不等 React 下一次 render。既有
+App 的頁面導覽／hash／登出，以及 Console 的 session-end 檢查沿用同一父守衛。
+只保留普通文字／圖片／回覆草稿時不提示離開。隱藏分區、收合 Console、切換房間
+保留原掛載；頻道列表另有「回到待確認訊息」入口，原房間被移出可用列表也能返回。
+
+撤權後仍不顯示 cached history／pending 正文；「重新檢查頻道存取」只呼叫既有 GET，
+成功恢復可讀歷史後才開放手動重試原 key，不自動送出。若存取永久撤銷，原結果
+仍無法確認，App 離開守衛仍會阻擋；沒有繞過授權的確認或丟棄入口。tuple 只存在
+目前 session／分頁記憶體，不能保證 crash、強制關閉、本人確認瀏覽器離開提示或
+已撤銷 session 後仍可恢復；主視窗無法同步查詢另一 popout 的 pending 狀態。
+
+`chat-leave-guards.spec.ts` 以實際 React layout effect 掛載／移除子元件驗聚合獨立性；
+`chat-stickers.spec.ts` 另驗首次送出事件內 beforeunload、ACK 前離開、隱藏分區／收合
+Console 後登出，以及撤權／恢復存取時的原 tuple 重試。這些 browser 案例需另行執行，
+source／pure 測試不代表已完成瀏覽器驗收。
+
+首次撤權反例先讓真 HTTP POST／DB 提交，再以受控回應替換為 403／404，並改變合成
+會員的實際頻道資格，驗頁面與 Console 的隱藏、守衛、GET-only 重檢及同 key 單筆確認。
+此為提交後回應控制，不宣稱重現原生資料庫鎖時序 race；圖片草稿沿既有私訊反例驗證。
+
 本機待送圖片以 `createImageBitmap(originalFile)` 解碼後直接畫入 64px canvas；
 原始檔案不建立供 DOM 使用的 object URL／data URL，也不以預覽像素取代上傳 bytes。
-選取項目換人、移除、改用貼圖或 session 卸載時，layout cleanup 取消舊預覽；晚完成
+選取項目換人、移除或 session 卸載時，layout cleanup 取消舊預覽；晚完成
 的 bitmap 只關閉，不畫回目前項目。預覽失敗只顯示提示，不自動 POST，也不清除
 原 File、upload key、正文或 held unknown。傳送仍由會員明確操作，沿上列 ACK 與首次
 server decoder 422 規則處理。

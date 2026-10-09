@@ -22,6 +22,8 @@
 
 本 workspace 保存 Freedom 大平台的完整規格，以及 **0.13.0-member-messages 自由工坊會員入口**。內建目錄為 18 個公會、41 本技能書（47 個原作 repo 指引）；管理員另可核准會員申請的自訂公會。新會員註冊後選擇主要公會並取得 Repo 技能書（定位測驗可稍後補做），再進入供貨、商店、作品、行銷與小隊。會員名片有個別聯絡欄位的可見範圍。各模組共用中央會員與 PostgreSQL。
 
+API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最終 status ≥ 500 時，以 `console.warn` 輸出一行 JSON：`{event, method, route, status, duration_ms}`。5xx 優先使用 `server_error`，其餘為 `slow_request`；耗時包含 I/O 等待，`route` 是含 sub-app prefix 的 Hono 路由樣板，未匹配時為 `unmatched`，不記錄實際 path／params、query、headers、cookie、body、user ID 或錯誤內容。快速 2xx／4xx 不新增 log，既有錯誤回應與 `request_failed` 保留；此候選不代表已部署。
+
 技能書分享可從每本 100 則介紹擲骰子選文，再分享或複製介紹與連結；41 本技能各有功能示意圖，供介紹頁與分享縮圖使用。新增「上傳技能」私人 Agent 指令、60 分鐘一次性投稿授權，以及可撤銷的投稿專用 API 金鑰與 Node 客戶端。Agent 上傳後由本人預覽送出，公開介紹頁保留 GitHub 來源、固定版本與授權；公開的作品列在技能書架的「社群技能書」，不自動成為公會指定技能。詳見 [Agent 技能草稿上傳](./docs/development/agent-skill-upload.md) 與 [0.12 版本紀錄](./docs/releases/2026-09-23-agent-skill-sharing.md)。
 
 歷史（2026-09-24 第一批）：新增 Mini 的 Local Workspace MCP、Hao 的 Editkin、Jason 的定位小書僮與 David 的巫師公會交誼廳，當時目錄 29 本。保留原作署名、版本與授權觀察，詳見 [四位作者技能書登錄](./docs/development/member-skill-registration.md)。
@@ -44,7 +46,7 @@
 
 本分支新增 #252「搜尋社群內容」：沿用 PostgreSQL 即時讀取外部分享貼文、公開作品、技能書與活動，支援中文子串、類型與選填主題組合及游標分頁；不搜尋私訊或草稿；#193 原生短貼文與外部分享一樣只對同社群會員可見，標題取內文開頭、連到「社群分享」，不含留言或按讚。`FREEDOM_COMMUNITY_SEARCH_ENABLED=true` 才註冊入口，預設關閉，啟用前須套用 migration 137；本機驗證不表示部署或 flag-on 授權。搜尋只投影原可讀內容，不回傳 email、線上參與連結或私人位置；作者／技能書維護者可補至多三個主題，寫入沿用 command、If-Match 與稽核。
 
-私人書籤與作者／主題 opt-in 追蹤沿用目前內容 ACL，不增加存取權或發送通知。`FREEDOM_COMMUNITY_RELATIONS_ENABLED=true` 與搜尋旗標同時開啟才註冊入口，預設關閉；啟用前須套用 migration 140。本機驗證不表示部署或 flag-on 授權。
+#260 的[公開內容盤點及營運交接](docs/development/community-curation-handoff.md)保留 2026-10-08 的具日期觀察與原作者來源，不新增 CMS、不搬運私人內容或把合成互動當成真人回饋。正式新精選、作者同意、志工接待及營運更新仍未完成，不由文件或開源軟體授權推定。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
@@ -110,6 +112,8 @@ npm run demo
 
 操作方式、架構位置與重跑檢查見 [本機運行手冊](./docs/development/local-runtime.md)；筆電／手機入口見 [Staging＋Access 佈署清單](./docs/development/staging-access-deploy.md)；已完成範圍與驗證見 [模組版本紀錄](./docs/releases/2026-09-23-modules-preview.md)。舊版工作認領、交付驗收與合作流程保留。供貨與合作流程仍屬會員內部預覽，供貨回應屬演練，尚無正式結帳；示範收款紀錄不代表真實收入或銀行核實。
 
+靜態建置快取（#322，尚未部署）：Worker 與 Node 僅對成功找到的 `/assets/<name>-<8 字元 base64url hash>` JS／CSS／圖片／字型等建置檔回 `Cache-Control: public, max-age=31536000, immutable`。HTML／SPA shell、固定入口 `/assets/skill-social.js`、`/assets/` 外檔案、API、404 與缺檔 fallback 保持 `no-store`；CSP、nosniff 與 Referrer-Policy 不變。
+
 ## 完整計畫與營運驗證
 
 Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作索引、工作／商業事實帳本與狀態機。Discord 承接討論與讀書會，LINE 承接即時聯絡，GitHub 承接程式版本與 PR；money 的權威事實留在 Seller 的 provider／bank，客戶 raw data 留在 client／Squad storage，平台只保存必要的 ref、digest 與 fact。
@@ -141,3 +145,7 @@ Freedom Platform 是社群的接點、共同資料庫、核心 codebase 協作�
 會員可從「一起開發」找到專案缺少的角色，讀取 GitHub Issues、複製給 Agent 的任務說明，再由維護者審查 PR。詳見 [共創與貢獻紀錄](docs/development/co-creation.md)。示範 repo：[工坊 video-autopilot-kit](https://github.com/FreeTWAI-AI/video-autopilot-kit/issues)。
 
 會員註冊只填一個 Email；登入信箱即聯絡信箱，公開範圍於名片多選設定。目前有 18 個內建公會，包含資安、音樂創作與 MV、廣告攝影與影片，另可加入已核准的自訂公會；公會長未任命時如實顯示待任命。
+
+本分支的 #258 沒有另開分享頁，而是擴充標題列既有的「＋分享」單一入口，且預設關閉：`FREEDOM_UNIFIED_SHARING_ENABLED=true` 才在同一個選單說明各目的的可見範圍與草稿／發布差異，並加入「找人合作」「發起共創邀請」兩個原表單入口；沒開時維持原本的發文、分享作品、刊登商品、分享開源資源。不另建統一發布表、不增加一般作品的 GitHub／Agent／JSON 門檻，原本的來源、授權、本人公開同意與雙方合作隱私仍由各模組負責。「發文」使用既有原生短貼文，只有同社群會員可見、送出即發布；它沒有原生提問型別、草稿或留言通知，本分支不改動這些 #193 契約。
+
+切換入口時，原表單尚未送出的輸入、同意、待處理狀態與實際成功結果只保留在**目前登入工作階段的記憶體**（這部分不受旗標控制）；重新整理、登出或切換帳號會清除。原流程已保存的伺服器私人草稿仍依各自規則續寫。延遲回應不能替下一位會員公開，未知送出結果沿用原 Idempotency-Key 重試；成功只顯示真正已保存物件的原入口，不把草稿當成發布。詳見 [會員 API](docs/development/member-api.md#unified-sharing-entry-258)；本機驗證不代表全項 #258 驗收、部署或啟用完成。

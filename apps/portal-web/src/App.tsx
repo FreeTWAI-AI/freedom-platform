@@ -29,13 +29,15 @@ import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { CommunitySearch } from './modules/CommunitySearch'
-import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
+import { guildKeyFromHash } from './modules/guild-launchpad-route'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
+import { setSharingDraftAccount } from './modules/authoring-drafts'
 import type { SessionPayload, TabId } from './types'
 import {LanguageProvider,LanguagePicker,useLanguage} from './language'
 import {authErrorMessage} from './auth-messages'
 import {AppInstallProvider,InstallAppButton} from './AppInstall'
 
+const PublicGuildLaunchpad = lazy(() => import('./modules/GuildLaunchpad').then(m => ({default: m.PublicGuildLaunchpad})))
 const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
 const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
 const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m => ({default: m.EngagementPanel})))
@@ -185,6 +187,7 @@ function MemberApp() {
   const applySession = useCallback((next: SessionPayload) => {
     sessionGeneration.current += 1
     client.csrfToken = next.csrf_token
+    setSharingDraftAccount(next.user.user_id, client.sessionGeneration)
     setOnboarding(null)
     setExploring(!onboardingStarted(next.user.user_id))
     setSession(next)
@@ -198,6 +201,7 @@ function MemberApp() {
     window.dispatchEvent(new Event('freedom-game-console-session-end'))
     sessionGeneration.current += 1
     client.csrfToken = null
+    setSharingDraftAccount(null, client.sessionGeneration)
     setOnboarding(null)
     setExploring(true)
     setSession(null)
@@ -233,6 +237,7 @@ function MemberApp() {
         window.dispatchEvent(new Event('freedom-game-console-session-end'))
         sessionGeneration.current += 1
         client.csrfToken = null
+        setSharingDraftAccount(null, client.sessionGeneration)
         setOnboarding(null)
         setSession(null)
         setLoginNotice(null)
@@ -272,7 +277,7 @@ function MemberApp() {
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
-    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/>;
+    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
     return (
       <div className="app-frame">
@@ -303,7 +308,7 @@ function MemberApp() {
       : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash + '/orders'))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
-    <Workspace
+    <Workspace key={`${session.user.user_id}:${client.sessionGeneration}`}
       site={site}
       session={session}
       onLoggedOut={() => leaveCurrentSession()}
@@ -740,7 +745,7 @@ function Workspace({
                 {launchpadOpen ? null : <h1 id="workspace-page-title">{t(`nav.${tab}`)}</h1>}
               </div>
               <PageTools pageId={tab} client={client} compact/>
-              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)}/></div>
+              <div className="topbar-actions"><ShareLauncher onChoose={chooseShare} disabled={Boolean(pending)} guided={site?.unified_sharing_enabled===true}/></div>
             </header>
             <div className="workspace-content">
               <GuideHost pageId={tab} scopeKey={session.user.user_id}
@@ -761,7 +766,7 @@ function Workspace({
             {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
-            {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch client={client} authKey={session.user.user_id + ':' + session.csrf_token} relationsEnabled={site.community_relations_enabled===true}/> : <p>社群內容搜尋尚未開放。</p>)}
+            {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch client={client} authKey={session.user.user_id + ':' + session.csrf_token}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'events' && <EventsPanel client={client} session={session} />}
             {tab === 'highlights' && <EventHighlights client={client} />}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}

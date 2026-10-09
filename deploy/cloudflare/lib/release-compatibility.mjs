@@ -134,7 +134,7 @@ const FOUNDATION_NAMES = [
   '137_community_content_topics.sql',
   '138_hosted_direct_reservations.sql',
   '139_member_message_images.sql',
-  '140_community_content_relations.sql',
+  '140_storefront_presentation.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

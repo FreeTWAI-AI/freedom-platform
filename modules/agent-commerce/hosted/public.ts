@@ -1,15 +1,16 @@
 import type { Pool } from 'pg';
 import { isolatedTransaction, bindTenantContext } from '../../../packages/resource-scopes/tenant-transaction.js';
 import { publicProjection } from './publish.js';
+import { StoreTemplateSchema } from '../../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import { SLUG_PATTERN } from './store.js';
 
 /** The only unbound reader. It reads immutable projection bytes, then proves current RLS liveness. */
-export async function readPublicStore(pool: Pool, rawSlug: string) {
+export async function readPublicStorePage(pool: Pool, rawSlug: string) {
   return isolatedTransaction(pool, async q => {
     await q.query('SET TRANSACTION READ ONLY');
     const slug = rawSlug.toLowerCase();
     if (!SLUG_PATTERN.test(slug)) return null;
-    const row = (await q.query<{ tenant_id: string; instance_id: string; storefront_shop_id: string; projection: unknown }>(`SELECT p.tenant_id,p.instance_id,p.storefront_shop_id,pub.projection
+    const row = (await q.query<{ tenant_id: string; instance_id: string; storefront_shop_id: string; projection: unknown; template_id: unknown }>(`SELECT p.tenant_id,p.instance_id,p.storefront_shop_id,pub.projection,pub.template_id
       FROM commerce_storefront_profiles p JOIN commerce_storefront_publications pub ON pub.publication_id=p.current_publication_id AND pub.instance_id=p.instance_id AND pub.tenant_id=p.tenant_id
       JOIN commerce_shops s ON s.shop_id=p.storefront_shop_id AND s.origin='hosted'
       WHERE p.slug=$1`, [slug])).rows[0];
@@ -25,6 +26,11 @@ export async function readPublicStore(pool: Pool, rawSlug: string) {
         JOIN users u ON u.user_id=principal.user_ref AND u.active AND NOT is_verification_test_account(u.user_id)
         WHERE owner.tenant_id=t.tenant_id AND owner.role='owner' AND owner.status='active')
         AND m.tenant_id=$1 AND m.instance_id=$2 AND m.resource_kind='shop' AND m.resource_id=$3 AND m.mapping_state='confirmed'`, [row.tenant_id, row.instance_id, row.storefront_shop_id]);
-    return live.rowCount === 1 ? publicProjection(row.projection) : null;
+    return live.rowCount === 1 ? { projection: publicProjection(row.projection), template_id: StoreTemplateSchema.parse(row.template_id) } : null;
   });
+}
+
+/** Existing public JSON stays exactly storefront/v1. */
+export async function readPublicStore(pool: Pool, rawSlug: string) {
+  return (await readPublicStorePage(pool, rawSlug))?.projection ?? null;
 }

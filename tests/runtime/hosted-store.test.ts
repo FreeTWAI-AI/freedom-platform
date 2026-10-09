@@ -77,6 +77,8 @@ function commands(s: Store) {
     ['GET', s.root + '/products', undefined, undefined], ['POST', s.root + '/products', product, undefined],
     ['PATCH', s.root + '/products/' + randomUUID(), { title: '更新商品' }, '1'],
     ['POST', s.root + '/products/' + randomUUID() + '/remove', {}, '1'],
+    ['GET', s.root + '/appearance', undefined, undefined], ['PATCH', s.root + '/appearance', {template_id: 'catalog-list-v1'}, '1'],
+    ['GET', s.root + '/preview-page', undefined, undefined],
     ['GET', s.root + '/preview', undefined, undefined], ['POST', s.root + '/publish', {}, '1'], ['POST', s.root + '/unpublish', {}, '1'],
   ] as const;
 }
@@ -575,4 +577,58 @@ test('Storefront contract pin matches committed bytes, generated artifact, defin
   const application=(await h.pool.query(`SELECT source_commit,artifact_digest,module_requirements FROM application_definitions WHERE release_ref='hosted-store@1.0.0'`)).rows[0];
   assert.equal(application.source_commit,STOREFRONT_CONTRACT_SOURCE_COMMIT); assert.equal(application.artifact_digest.value,STOREFRONT_CONTRACT_ARTIFACT_SHA256); assert.deepEqual(application.module_requirements[0].compatible_contracts,[STOREFRONT_CONTRACT]);
   for(const currency of ['TWD','USD']) for(const amount of [1,100,12345,100000000]) assert.equal(formatMinor(amount,currency),portalFormatMinor(amount,currency));
+});
+
+test('saved appearance stays private until a new immutable publication, without changing v1 content or stock', async () => {
+  const s = await ready(); const item = await add(s); expect(await publish(s));
+  const old = (await h.pool.query('SELECT * FROM commerce_storefront_publications WHERE instance_id=$1', [s.instanceId])).rows[0];
+  const before = (await h.pool.query('SELECT item_id,shop_id,stock,reserved FROM commerce_items WHERE item_id=$1', [item.product_id])).rows;
+  const a = expect(await call('GET', s.root + '/appearance', s.owner)); assert.equal(a.template_id, 'catalog-grid-v1');
+  const key = randomUUID(), body = {template_id: 'catalog-list-v1'};
+  const saved = expect(await patch(s.root + '/appearance', s.owner, body, a.version, key));
+  assert.deepEqual(expect(await patch(s.root + '/appearance', s.owner, body, a.version, key)), saved);
+  expect(await patch(s.root + '/appearance', s.owner, {template_id: 'catalog-grid-v1'}, a.version, key), 409);
+  expect(await patch(s.root + '/appearance', s.owner, body, a.version), 412);
+  assert.equal(expect(await call('GET', s.root + '/preview', s.owner)).dirty, true);
+  const privatePage = await call('GET', s.root + '/preview-page', s.owner); expect(privatePage);
+  assert.match(privatePage.response.headers.get('cache-control')!, /private.*no-store/);
+  const previewHtml = await privatePage.response.text(); assert.match(previewHtml, /shop-products-list/);
+  const draftPublic = await publicPair('myshop'); assert.doesNotMatch(draftPublic.htmlText, /shop-products-list/);
+  assert.deepEqual(JSON.parse(draftPublic.jsonText), old.projection);
+  expect(await patch(s.root, s.owner, {brand: '另一品牌'}, saved.version));
+  assert.equal(expect(await call('GET', s.root + '/appearance', s.owner)).template_id, 'catalog-list-v1');
+  // Return to the original content so only the template differs at publication.
+  expect(await patch(s.root, s.owner, {brand: settings.brand}, (await view(s)).version));
+  expect(await publish(s)); expect(await publish(s));
+  const rows = (await h.pool.query('SELECT * FROM commerce_storefront_publications WHERE instance_id=$1 ORDER BY revision', [s.instanceId])).rows;
+  assert.equal(rows.length, 2); assert.deepEqual(rows[0], old); assert.equal(rows[1].template_id, 'catalog-list-v1');
+  assert.equal(rows[1].projection_sha256, old.projection_sha256);
+  assert.equal((await publicPair('myshop')).htmlText, previewHtml);
+  assert.deepEqual((await h.pool.query('SELECT item_id,shop_id,stock,reserved FROM commerce_items WHERE item_id=$1', [item.product_id])).rows, before);
+  assert.equal(expect(await call('GET', s.root + '/preview', s.owner)).dirty, false);
+  await assert.rejects(h.pool.query("UPDATE commerce_storefront_publications SET template_id='catalog-grid-v1' WHERE publication_id=$1", [rows[1].publication_id]));
+});
+
+test('appearance and private preview use current exact-store authorization, including replay after revoke', async () => {
+  const s = await ready(); await add(s);
+  const stranger = (await h.person('另一店主')).session;
+  for (const suffix of ['/appearance', '/preview-page']) expect(await call('GET', s.root + suffix, stranger), 404);
+  expect(await patch(s.root + '/appearance', stranger, {template_id: 'catalog-list-v1'}, '1'), 404);
+  const viewer = (await h.person('只讀會員')).session; await join(s, viewer, 'viewer', ['store:read']);
+  expect(await call('GET', s.root + '/preview-page', viewer));
+  expect(await patch(s.root + '/appearance', viewer, {template_id: 'catalog-list-v1'}, '1'), 403);
+  const operator = (await h.person('版型管理員')).session;
+  const principal = await join(s, operator, 'operator', ['store:read', 'store:manage']);
+  const version = (await view(s)).version, key = randomUUID(), body = {template_id: 'catalog-list-v1'};
+  expect(await patch(s.root + '/appearance', operator, body, version, key));
+  const membership = expect(await call('GET', `/tenants/${s.tenantId}/members`, s.owner)).items.find((m: {principal_id: string}) => m.principal_id === principal);
+  expect(await post(`/tenants/${s.tenantId}/members/${principal}/change`, s.owner, {role: 'operator', status: 'active', instance_capabilities: [], reason: '撤銷版型管理'}, membership.version));
+  expect(await patch(s.root + '/appearance', operator, body, version, key), 404);
+  for (const suffix of ['/appearance', '/preview-page']) expect(await call('GET', s.root + suffix, operator), 404);
+  expect(await call('GET', s.root + '/preview-page?unexpected=1', s.owner), 422);
+  expect(await call('GET', s.root + '/appearance?limit=1&limit=2', s.owner), 422);
+  expect(await patch(s.root + '/appearance', s.owner, {template_id: 'master-store'}, (await view(s)).version), 422);
+  expect(await patch(s.root + '/appearance', s.owner, {...body, supplier_price: 1}, (await view(s)).version), 422);
+  expect(await post('/auth/logout', s.owner, {}));
+  for (const suffix of ['/appearance', '/preview-page']) expect(await call('GET', s.root + suffix, s.owner), 401);
 });

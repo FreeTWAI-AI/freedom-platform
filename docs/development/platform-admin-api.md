@@ -4,6 +4,8 @@
 
 所有讀取重新驗證 Access JWT 和管理名單；所有修改還需要同源 JSON、`X-Admin-CSRF`（取自 bootstrap）與 `Idempotency-Key`（8–128 個英數、底線或連字號）。修改既有資料需要 `If-Match: "<aggregate_version>"`。缺版本回 428、版本過期 412、重用操作識別碼但內容不同 409。API 採 `Cache-Control: no-store`，失敗不回傳 JWT、SQL、密碼或 provider 原始錯誤。
 
+`/api/`、`/agent-api/`、`/client-api/` 與 `/admin/api/` 的 JSON `aggregate_version` 字串在序列化時轉為非負 safe integer；超出範圍仍回 500 `version_overflow`，其他 key 不轉換。一般 `c.json` 只序列化一次（含 `app.route` 子路由）；手動建立的 JSON Response 保留 body 讀回轉換 fallback。Status、Content-Type 與 ETag 等 headers 沿用 Hono 原有處理。
+
 | 方法與路徑（前綴 `/admin/api`） | 用途與回傳 |
 | --- | --- |
 | `GET /bootstrap` | `{admin, csrf_token, summary, available_skill_books, pending_guild_appointments}`；admin 包含 `admin_id, community_id, email, display_name, role`。summary 包含會員數、有效會員數、待審公會數、公會數、有效管理員數。 |

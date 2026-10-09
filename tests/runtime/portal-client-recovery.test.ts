@@ -3,6 +3,31 @@ import assert from 'node:assert/strict';
 import {ApiError,PortalClient} from '../../apps/portal-web/src/api.js';
 import {subscribeGameConsole} from '../../apps/portal-web/src/game-console-core.js';
 import {requestActivity} from '../../apps/portal-web/src/request-activity.js';
+import {chatPollDue,idleChatPoll,resetChatPoll} from '../../apps/portal-web/src/modules/adaptive-chat-poll.js';
+
+test('chat idle polls progress through 1s, 1s, 2s, 3s and stay capped at 5s',()=>{
+  let schedule=resetChatPoll(),now=0;
+  for(const interval of [1000,1000,2000,3000,5000,5000,5000]){
+    schedule=idleChatPoll(schedule,now);
+    assert.equal(schedule.nextAt-now,interval);
+    assert.equal(chatPollDue(schedule,schedule.nextAt-1),false);
+    assert.equal(chatPollDue(schedule,schedule.nextAt),true);
+    now=schedule.nextAt;
+  }
+});
+
+test('activity reset immediately makes an idle poll due but never bypasses failure backoff',()=>{
+  let schedule=resetChatPoll();
+  for(let i=0;i<8;i++)schedule=idleChatPoll(schedule,10000);
+  assert.equal(chatPollDue(schedule,10001),false);
+  const reset=resetChatPoll();
+  assert.equal(chatPollDue(reset,10001),true);
+  assert.equal(chatPollDue(reset,10001,12000),false);
+  assert.equal(chatPollDue(reset,12000,12000),true);
+  assert.equal(chatPollDue(schedule,12000,12000),true,'retry deadline supersedes idle delay');
+  assert.equal(idleChatPoll(reset,10001).nextAt,11001);
+  assert.equal(schedule.nextAt,15000,'an in-flight poll retains its old reset identity');
+});
 
 test('opted-in overlapping GETs share one transport, with no retained response cache', async t=>{
   let release!:()=>void;

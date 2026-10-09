@@ -6,16 +6,21 @@
     "modules/skill-submissions/limits.ts",
     "modules/skill-submissions/payload.ts",
     "modules/skill-submissions/public.ts",
+    "modules/skill-submissions/project-books.ts",
     "modules/skill-submissions/repository-match.ts",
     "modules/skill-submissions/service.ts",
     "modules/skill-submissions/upload-authority.ts",
     "apps/platform-api/src/routes/skill-submissions.ts",
     "apps/platform-api/src/routes/published-skills.ts",
+    "apps/platform-api/src/routes/opensource.ts",
+    "apps/portal-web/src/modules/OpenSourcePanels.tsx",
+    "apps/portal-web/src/modules/SkillPublication.tsx",
     "apps/portal-web/src/modules/SkillUpload.tsx",
     "apps/portal-web/src/modules/SkillUpload.css",
     "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",
     "apps/portal-web/src/modules/skill-upload-chat.ts",
     "tests/runtime/skill-submissions.test.ts",
+    "tests/runtime/opensource-skill-books.test.ts",
     "tests/runtime/published-skills.test.ts",
     "tests/runtime/skill-submission-upgrades.test.ts",
     "tests/runtime/skill-upload-chat.test.ts",
@@ -27,6 +32,7 @@
     "modules/skill-submissions/limits.ts",
     "modules/skill-submissions/payload.ts",
     "modules/skill-submissions/public.ts",
+    "modules/skill-submissions/project-books.ts",
     "modules/skill-submissions/repository-match.ts",
     "modules/skill-submissions/service.ts",
     "modules/skill-submissions/upload-authority.ts"
@@ -54,6 +60,16 @@
     "runtime.full"
   ],
   "surfaces": [
+    {
+      "surface_id": "skill-submissions.registered-project.member-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/opensource.ts",
+      "operations": [
+        "skill-submissions.registered-project.list",
+        "skill-submissions.registered-project.prepare"
+      ],
+      "auth_profile": "member-session"
+    },
     {
       "surface_id": "skill-submissions.member-api",
       "kind": "http",

@@ -2,6 +2,8 @@
 
 The member commerce routes manage an existing owner's shops and opaque credentials. The separate `/shop-api/v1` bearer routes act for that shop, never as the owner's login, private Work or model authority. [orders.ts](orders.ts) preserves the current create/payment business dedupe and dynamic projections. [service-command.ts](service-command.ts) connects the existing cancellation operation to the common transaction, receipt and scoped journal. This is not a new commerce feature or generic service framework.
 
+Order list hydration (#326) loads imported page orders, visible transfers, lines and recorded payables in four batch queries after the existing shop check and page-ID query. Single-order reads share the same assembler; internal views retain only their own transfers and each payable stays attached to its transfer. Hosted seller pages retain the existing sorted order/item locks and expiry effects, but batch persisted orders and immutable quote terms. A shared post-lock clock snapshot handles live reservations with the existing final deadline fence; expired reservations still perform their per-order stock release and journal writes, so those effect queries are not constant-size.
+
 The server resolver and schema constraints are documented in [resource-scopes](../../packages/resource-scopes/README.md). After schema 117 and 118, an upgraded issuer creates only purpose-bound v2 keys when the owner explicitly requests issuance. Its existing member receipt/digest stays unchanged and a replay still returns `token: null`. The application must receive an explicit `FREEDOM_SHOP_KEY_POLICY=legacy-compatible` or `purpose-bound-only`; absent configuration yields shop-only 503. The Worker config checker lists this as a required injection without changing deployed vars. `/api/v1/health` reports the actual selected policy and issuer profile, or `unconfigured`/null. A merged source SHA or configured example is not an installed policy observation.
 
 ## Controlled legacy exit
@@ -70,3 +72,29 @@ This is local candidate UI source, not activation or live acceptance. Runtime/br
 The existing store manager offers 「預留訂單」 only after a successful owner-only seller list read. `#stores/<tenant>/<instance>/orders` reads the current owner's retained history directly through the HO-4 API; its authority is never inferred from admin/operator templates, grants or guild titles. Pages forward the opaque signed server cursor unchanged. The UI labels reservations as unpaid/unfulfilled and shows their real status, immutable line items and merchandise amount, with no buyer contact, payment or shipping controls.
 
 The saved management URL and orders hash remain usable when discovery or admission is OFF; they do not depend on the GLP-gated store/tenant directory. Fresh login reads current authorized state without replaying a cancellation. Cancel holds the original order/version, empty body and key in memory; a matching newer terminal projection confirms it, while unreadable/stale reserved success remains unknown. Unknown retries retain that tuple, including after a later known refusal. A first known 412 requires a fresh read and explicit review before another cancellation. App navigation and full-page close use the existing guards; full-page close is only a warning, not durable recovery of the held command. Source/pure checks and future isolated HTTP/browser acceptance remain distinct; this UI is not activation or live acceptance.
+
+### Saved storefront presentation extension (#314)
+
+`freedom.hosted-store-presentation/v1` adds a closed choice between `catalog-grid-v1`
+(the historical default) and `catalog-list-v1`. The same saved shop/product identities,
+stock, current same-instance `store:read`/`store:manage` authorization and profile CAS
+remain authoritative. Neither registry release/config pins nor storefront/v1 DTOs change.
+`GET/PATCH .../appearance` uses the existing session/command boundary; writes keep the
+original body, expected version and idempotency key when the result is unknown.
+
+Migration 140 adds presentation metadata to the existing profile and immutable publication
+rows. Existing projection JSON, content digests and historical revisions are not rewritten.
+Publication compares both content digest and template: a layout-only change creates a new
+revision; editing the saved draft does not alter the public page. The anonymous reader
+selects projection and template from the same publication in its current liveness transaction.
+The v1 public JSON endpoint retains its old strict shape. `GET .../preview-page` requires
+current private read authority, is no-store, and renders the saved draft with the exact public
+HTML renderer. It opens in a new tab; the global frame policy stays unchanged. Both layouts
+show every public product and retain the existing reservation links without payment controls.
+
+Apply 140 before this binary. Older binaries ignore the saved layout and cannot compare
+its publication state; rollback can revert visible layout to the grid and is not preservation
+of the selected presentation. DC-08 registers both new columns; this is schema coverage,
+not a new tenant export/restore permission. Existing backup of these same tables must include
+the columns; this slice does not implement a new export or prove operational restore.
+This source depends on the unmerged #310/#311 parents and is not deployment or acceptance.

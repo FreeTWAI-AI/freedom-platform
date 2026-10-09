@@ -3,6 +3,7 @@ import {test,expect,type Page} from './fixtures.js';
 import {DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {navigate,openFeatureSearch} from './navigation.js';
 import {quickJoin} from './quick-join.js';
+import {chatPollClock} from './chat-poll-clock.js';
 
 async function login(page:Page,email='maker@local.test'){
   await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill(email);await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
@@ -58,7 +59,7 @@ test('feature search finds chat and selling functions, and all themes work at 32
     const settings=page.getByRole('button',{name:'設定',exact:true});if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();await page.getByRole('menuitemradio',{name:label,exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-theme',theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
 });
-test('console reads exactly the selected guild, keeps room drafts and receives new messages without refreshing',async({page,browser,e2eAuthPool})=>{
+test('active console preserves selected-room drafts and delivers within two seconds after input, focus and room switching',async({page,browser,e2eAuthPool})=>{
   for(const user of DEMO_USERS.slice(0,2))for(const key of ['guild_ai_vibe','guild_marketing'])await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state) VALUES($1,$2,$3,$4,'active') ON CONFLICT(community_id,user_id,guild_key) DO UPDATE SET state='active'`,[randomUUID(),DEMO_COMMUNITY,user.user_id,key]);
   const peerContext=await browser.newContext({baseURL:new URL(test.info().project.use.baseURL as string).origin}),peer=await peerContext.newPage();
   try{
@@ -71,15 +72,23 @@ test('console reads exactly the selected guild, keeps room drafts and receives n
     await dock.getByRole('button',{name:'AI 開發公會',exact:true}).click();await expect(dock.getByRole('log')).toContainText('只屬於 AI 公會的對話');await expect(dock.getByRole('log')).not.toContainText('行銷公會的對話');expect(reads.every(url=>url.includes('/guild/guild_ai_vibe/messages'))).toBe(true);
     await dock.getByRole('textbox',{name:'在 AI 開發公會 發言'}).fill('AI 公會草稿');await dock.getByRole('button',{name:'切換公會',exact:true}).click();await dock.getByRole('button',{name:'成長與行銷公會',exact:true}).click();await expect(dock.getByRole('log')).toContainText('只屬於行銷公會的對話');await expect(dock.getByRole('log')).not.toContainText('AI 公會的對話');
     await dock.getByRole('textbox',{name:'在 成長與行銷公會 發言'}).fill('行銷公會草稿');await dock.getByRole('button',{name:'切換公會',exact:true}).click();await dock.getByRole('button',{name:'AI 開發公會',exact:true}).click();const draft=dock.getByRole('textbox',{name:'在 AI 開發公會 發言'});await expect(draft).toHaveValue('AI 公會草稿');await draft.press('End');await draft.press('Shift+Enter');await draft.pressSequentially('第二行');await draft.press('Enter');await expect(dock.getByRole('log')).toContainText('AI 公會草稿\n第二行');await expect(draft).toHaveValue('');
-    await page.bringToFront();const idleReads=reads.length,idleChecks=checks.length;await expect.poll(()=>checks.length).toBeGreaterThanOrEqual(idleChecks+3);expect(reads.length).toBe(idleReads);
+    await page.bringToFront();const idleReads=reads.length;
+    const checked=page.waitForResponse(response=>response.url().endsWith('/channels/guild/guild_ai_vibe/activity')&&response.ok());
+    await draft.fill('仍在操作');expect(await (await checked).finished()).toBeNull();expect(reads.length).toBe(idleReads);
+    await draft.fill(''); // Real input restores fast polling before the peer POST.
     const arrivalStart=Date.now();await send('guild_ai_vibe','在選定頻道自動出現的新訊息');await expect(dock.getByRole('log')).toContainText('在選定頻道自動出現的新訊息',{timeout:2000});
-    const arrivalMs=Date.now()-arrivalStart;expect(arrivalMs).toBeLessThan(2000);await test.info().attach('guild-arrival-latency',{body:JSON.stringify({milliseconds:arrivalMs,scope:'local isolated API; receiver visible before peer POST; no focus refresh',idle_history_reads:reads.length-idleReads-1}),contentType:'application/json'});
+    const arrivalMs=Date.now()-arrivalStart;expect(arrivalMs).toBeLessThan(2000);await test.info().attach('guild-arrival-latency',{body:JSON.stringify({milliseconds:arrivalMs,scope:'local isolated API; actual input before peer POST; no focus refresh',idle_history_reads:reads.length-idleReads-1}),contentType:'application/json'});
+    await peer.bringToFront();await send('guild_ai_vibe','重新聚焦後立刻收到');
+    const focusStart=Date.now();await page.bringToFront();await expect(dock.getByRole('log')).toContainText('重新聚焦後立刻收到',{timeout:2000});expect(Date.now()-focusStart).toBeLessThan(2000);
+    await dock.getByRole('button',{name:'切換公會',exact:true}).click();await dock.getByRole('button',{name:'成長與行銷公會',exact:true}).click();
+    await send('guild_ai_vibe','切回對話後立刻收到');await dock.getByRole('button',{name:'切換公會',exact:true}).click();
+    const switchStart=Date.now();await dock.getByRole('button',{name:'AI 開發公會',exact:true}).click();await expect(dock.getByRole('log')).toContainText('切回對話後立刻收到',{timeout:2000});expect(Date.now()-switchStart).toBeLessThan(2000);
     await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(draft).toBeInViewport();await expect(dock.getByRole('button',{name:'送出',exact:true})).toBeInViewport();await dock.screenshot({path:'test-results/calm-chat-390.png'});
     await dock.getByRole('tab',{name:/^總頻道/}).click();await expect(dock.getByRole('log')).not.toContainText('只屬於');await expect(dock.getByRole('log')).not.toContainText('AI 公會草稿');
   }finally{await peerContext.close()}
 });
 
-test('private chat checks cheaply while idle, receives within two seconds, and shows pending before server acknowledgement',async({page,browser})=>{
+test('active private chat delivers within two seconds after input and shows pending before server acknowledgement',async({page,browser})=>{
   const origin=new URL(test.info().project.use.baseURL as string).origin,peerContext=await browser.newContext({baseURL:origin});
   let release=()=>{};
   try{
@@ -92,12 +101,57 @@ test('private chat checks cheaply while idle, receives within two seconds, and s
     // before measuring additional full-history reads while the chat is idle.
     const initialReadConfirmed=page.waitForResponse(async response=>response.request().method()==='GET'&&response.url().includes(`/me/conversations/${session.user.user_id}/messages?`)&&response.ok()&&(await response.json()).unread_count===0);
     await panel.locator('[aria-label="對話列表"] button').first().click();const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('私訊起點');await initialReadConfirmed;
-    const before=historyReads;await expect.poll(()=>checks).toBeGreaterThanOrEqual(3);expect(historyReads).toBe(before);
+    const before=historyReads,draft=thread.getByRole('textbox');
+    const checked=page.waitForResponse(response=>response.url().endsWith(`/me/conversations/${session.user.user_id}/activity`)&&response.ok());
+    await draft.fill('仍在操作');expect(await (await checked).finished()).toBeNull();expect(historyReads).toBe(before);
+    await draft.fill(''); // Quiet-idle timing is tested separately with a paused clock.
     await page.bringToFront();const start=Date.now();await sendPeer('每秒檢查收到的新私訊');await expect(thread.getByRole('log')).toContainText('每秒檢查收到的新私訊',{timeout:2000});const arrivalMs=Date.now()-start;expect(arrivalMs).toBeLessThan(2000);
     const gate=new Promise<void>(resolve=>{release=resolve;});
     await page.route(`**/api/v1/me/conversations/${session.user.user_id}/messages`,async route=>{if(route.request().method()!=='POST')return route.continue();const result=await route.fetch();await gate;await route.fulfill({response:result});});
-    const draft=thread.getByRole('textbox');await draft.fill('送出立刻出現傳送狀態');const clickStart=Date.now();await draft.press('Enter');await expect(thread.getByRole('status',{name:'傳送狀態'})).toContainText('傳送中…');const feedbackMs=Date.now()-clickStart;expect(feedbackMs).toBeLessThan(500);await expect(thread.getByRole('button',{name:'正在送出…',exact:true})).toBeDisabled();
+    await draft.fill('送出立刻出現傳送狀態');const clickStart=Date.now();await draft.press('Enter');await expect(thread.getByRole('status',{name:'傳送狀態'})).toContainText('傳送中…');const feedbackMs=Date.now()-clickStart;expect(feedbackMs).toBeLessThan(500);await expect(thread.getByRole('button',{name:'正在送出…',exact:true})).toBeDisabled();
     release();await expect(thread.getByRole('status',{name:'傳送狀態'})).toHaveCount(0);await expect(draft).toHaveValue('');await expect(thread.locator('.messages-bubbles .messages-body').filter({hasText:'送出立刻出現傳送狀態'})).toHaveCount(1);
     await test.info().attach('private-arrival-latency',{body:JSON.stringify({arrival_ms:arrivalMs,pending_feedback_ms:feedbackMs,idle_history_reads:0,scope:'local isolated API; server acknowledgement held; no focus refresh after peer POST'}),contentType:'application/json'});
   }finally{release();await peerContext.close()}
+});
+
+
+test('quiet private chat caps idle polling at five seconds, receives on the next due poll and returns to one second',async({page})=>{
+  await page.clock.install({time:new Date('2026-10-09T12:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-09T12:00:01Z'));
+  const participant={user_id:DEMO_USERS[1].user_id,display_name:'閒置私訊夥伴',is_online:false,last_seen_at:null};
+  const message=(number:number)=>({message_id:`30000000-0000-4000-8000-${String(number).padStart(12,'0')}`,sender_ref:participant.user_id,recipient_ref:DEMO_USERS[0].user_id,body:`閒置私訊 ${number}`,created_at:new Date(Date.UTC(2026,9,1)+number*1000).toISOString(),read_at:'2026-10-09T10:00:00Z'});
+  // Incoming-only, already-read fixture isolates idle activity checks from the
+  // independent eight-second outgoing-receipt reconciliation cadence.
+  const items=[message(1)];let historyReads=0;
+  const activityPath=`/api/v1/me/conversations/${participant.user_id}/activity`,historyPath=`/api/v1/me/conversations/${participant.user_id}/messages`;
+  await page.route(/\/api\/v1\/me\/conversations\?/,route=>route.fulfill({json:{items:[{participant,can_send:true,unread_count:0,last_message:items[0]}],unread_count:0,next_offset:null}}));
+  await page.route(`**${activityPath}`,route=>route.fulfill({json:{last_message_id:items[0].message_id,unread_count:0,can_send:true}}));
+  await page.route(`**${historyPath}?*`,route=>{historyReads++;return route.fulfill({json:{participant,can_send:true,items:[...items],unread_count:0,next_offset:null}});});
+  await page.goto('/#messages');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('button',{name:'設定',exact:true})).toBeVisible();
+  const direct=page.getByRole('tab',{name:/^私人訊息/});
+  await expect.poll(async()=>{await page.clock.runFor(1000);return direct.count();}).toBe(1);
+  await direct.click();const panel=page.getByRole('tabpanel',{name:/^私人訊息/});
+  await panel.locator('[aria-label="對話列表"]').getByRole('button').filter({hasText:participant.display_name}).click();
+  const thread=panel.locator('.messages-thread');await expect(thread.getByRole('log')).toContainText('閒置私訊 1');
+  const clock=chatPollClock(page,activityPath),before=historyReads;
+  await clock.poll(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))));
+  const initial=clock.requests;
+  for(let second=1;second<=12;second++)await clock.tick([1,2,4,7,12].includes(second));
+  expect(clock.requests-initial).toBe(5);expect(historyReads).toBe(before);
+  items.unshift(message(2)); // Arrive immediately after a completed capped empty poll.
+  for(let second=1;second<5;second++){
+    await clock.tick(false);await expect(thread.getByRole('log')).not.toContainText('閒置私訊 2');
+  }
+  const history=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname===historyPath);
+  await clock.tick(true);expect(await (await history).finished()).toBeNull();
+  await expect(thread.getByRole('log')).toContainText('閒置私訊 2');expect(historyReads).toBe(before+1);
+  await clock.tick(true);expect(historyReads).toBe(before+1);
+  for(let second=1;second<=12;second++)await clock.tick([1,2,4,7,12].includes(second));
+  await thread.getByRole('textbox').fill('重新操作');await clock.tick(true);
+  await clock.poll(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))));
+  await page.evaluate(()=>Object.defineProperty(navigator,'onLine',{configurable:true,value:false}));
+  const offline=clock.requests;await page.clock.runFor(30000);expect(clock.requests).toBe(offline);
+  await clock.poll(()=>page.evaluate(()=>{Object.defineProperty(navigator,'onLine',{configurable:true,value:true});window.dispatchEvent(new Event('online'));}));
+  expect(historyReads).toBe(before+1);
 });

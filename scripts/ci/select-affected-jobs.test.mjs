@@ -5,7 +5,7 @@ import { copyFile, mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateDescriptor } from '../../packages/contribution-tools/context.mjs';
+import { validateDescriptor, ROOT_INSTRUCTIONS, selectImpact } from '../../packages/contribution-tools/context.mjs';
 import {
   ALWAYS_ON_INTEGRITY_COMMANDS, DOCS_ALLOWLIST_PREFIXES, GENERATED_INVENTORY_PATH, JOB_OUTPUT_KEYS, SELECTABLE_JOBS, FRONTEND_LEAF_PROFILES, FRONTEND_LEAF_JOBS,
   changesFromTrees, collectRepositoryDecision, decideAffectedJobs, evaluateVerifyAggregate, githubOutput,
@@ -78,6 +78,77 @@ test('docs-only pull request skips heavy jobs and keeps runtime partitions tied'
   assert.equal(selection.jobs['runtime-full'], selection.jobs['runtime-aggregate']);
 });
 
+
+test('exact modified root README uses docs without reducing mandatory context', () => {
+  assert.equal(isDocsAllowlisted('README.md'), false, 'path-only helper cannot prove a modification');
+  for (const changes of [
+    [edited('README.md')],
+    [edited('README.md'), edited('docs/development/community-curation-handoff.md', 'A'), edited(GENERATED_INVENTORY_PATH)],
+  ]) {
+    const selection = pull(changes);
+    assert.equal(selection.mode, 'docs');
+    assert.equal(selection.reason, 'docs_allowlist');
+    assert.ok(Object.values(selection.jobs).every(value => value === false));
+    assert.equal(evaluateVerifyAggregate(needsFor(selection, allResults('skipped'))).ok, true);
+    for (const result of ['skipped', 'failure', 'cancelled']) {
+      assert.equal(evaluateVerifyAggregate(needsFor(selection, allResults('skipped'), { integrity: result })).ok, false);
+    }
+    const missing = needsFor(selection, allResults('skipped'));
+    delete missing['source-integrity'];
+    assert.equal(evaluateVerifyAggregate(missing).ok, false);
+  }
+  assert.ok(ROOT_INSTRUCTIONS.includes('README.md'));
+  const descriptors = [moduleDescriptor('one', ['modules/one/**']), moduleDescriptor('two', ['modules/two/**'])];
+  const impact = selectImpact({ baseline: descriptors, candidate: descriptors, changedPaths: ['README.md'] });
+  assert.deepEqual(impact.module_ids, ['one', 'two']);
+  assert.deepEqual(impact.tests, ['governance.unit']);
+});
+
+test('root README cannot erase ownership, invalid descriptors, mixed paths or full fallback', () => {
+  const readme = edited('README.md');
+  const owner = [moduleDescriptor('readme-owner', ['README.md'])];
+  for (const graphs of [{baseline: owner}, {baseline: owner, candidate: narrow()}, {baseline: narrow(), candidate: owner}]) {
+    assert.equal(pull([readme], graphs).reason, 'baseline_candidate_union');
+  }
+  const ownedDoc = [moduleDescriptor('doc-owner', ['docs/development/**'])];
+  assert.equal(pull([readme, edited('docs/development/guide.md')], {baseline: ownedDoc}).reason, 'baseline_candidate_union');
+  for (const graphs of [{baseline: []}, {candidate: []}, {descriptorsProven: false},
+    {baseline: [{}]}, {candidate: [{}]}]) {
+    assert.equal(pull([readme], graphs).reason, 'descriptors_unproven');
+  }
+  for (const path of ['AGENTS.md', 'CONTRIBUTING.md', '.github/workflows/verify.yml',
+    'scripts/ci/select-affected-jobs.mjs', 'governance/README.md', 'contracts/common/v1/ArtifactRef.json',
+    'migrations/137_example.sql', 'packages/db/index.ts', 'tests/runtime/example.test.ts',
+    'packages/example/freedom.module.json', 'package.json', 'apps/portal-web/src/App.tsx',
+    'packages/shop-agent/common.md', 'docs/platform-plan/execution/notes.md',
+    'docs/development/config.json', 'docs/development/example.test.md', 'UNKNOWN.md',
+    FRONTEND_LEAF_PROFILES[0].paths[0]]) {
+    assert.equal(pull([readme, edited(path)]).mode, 'full', path);
+  }
+  for (const status of ['A', 'D', 'R100', 'C100', 'T', 'U']) assert.equal(pull([edited('README.md', status)]).mode, 'full', status);
+  assert.equal(pull([{...readme, previousPath: 'old.md'}]).mode, 'full');
+  for (const path of ['readme.md', 'docs/../README.md', 'nested/README.md']) assert.equal(pull([edited(path)]).mode, 'full', path);
+  for (const event of ['push', 'merge_group', 'pull_request_target']) assert.equal(pull([readme], {event}).mode, 'full', event);
+  assert.equal(pull([readme], {diffComplete: false}).reason, 'diff_unproven');
+});
+
+test('root README requires valid bounded graphs in both revisions', () => {
+  const one = moduleDescriptor('one', ['modules/one/**']);
+  const badGraphs = [
+    [one, structuredClone(one)],
+    [moduleDescriptor('one', ['modules/one/**'], {dependencies: ['absent']})],
+    [moduleDescriptor('one', ['modules/one/**'], {dependencies: ['one']})],
+    [moduleDescriptor('one', ['modules/one/**'], {dependencies: ['two']}),
+      moduleDescriptor('two', ['modules/two/**'], {dependencies: ['one']})],
+    Array.from({length: 257}, (_, i) => moduleDescriptor(`mod-${i}`, [`modules/mod-${i}/**`])),
+  ];
+  for (const invalid of badGraphs) {
+    for (const [baseline, candidate] of [[invalid, narrow()], [narrow(), invalid], [invalid, invalid]]) {
+      assert.equal(pull([edited('README.md')], {baseline, candidate}).reason, 'descriptors_unproven');
+    }
+  }
+});
+
 test('merge_group, push, and any other event stay on the full set', () => {
   const docs = [edited('docs/development/runtime-ci-postgres.md')];
   assert.equal(decideAffectedJobs({ event: 'merge_group', diffComplete: true, changes: docs, baseline: narrow(), candidate: narrow() }).reason, 'merge_group');
@@ -111,7 +182,7 @@ test('unknown, root, governance, security, shared runtime, test, spec, and confi
   assert.equal(pull([edited('not a path.md')]).reason, 'unknown_path');
   assert.equal(pull([edited('docs/development/.hidden.md')]).reason, 'unknown_path');
   assert.equal(pull([edited('AGENTS.md')]).reason, 'root_instruction');
-  assert.equal(pull([edited('README.md')]).reason, 'root_instruction');
+  assert.equal(pull([edited('CONTRIBUTING.md')]).reason, 'root_instruction');
   assert.equal(pull([edited('.github/workflows/verify.yml')]).reason, 'governance_security_or_shared_runtime');
   assert.equal(pull([edited('scripts/ci/select-affected-jobs.mjs')]).reason, 'governance_security_or_shared_runtime');
   assert.equal(pull([edited('governance/README.md')]).reason, 'governance_security_or_shared_runtime');
@@ -711,4 +782,84 @@ test('actual Git leaf candidate and CLI narrow; co-edited safety, owner drift an
   assert.equal(reverse.mode, 'full'); assert.equal(reverse.reason, 'leaf_profile_unproven');
   git(['checkout', '-q', head]); git(['mv', leaf, leaf + '.renamed']);
   assert.equal(compare(commit('rename leaf')).mode, 'full');
+});
+
+
+test('trusted Git tree and CLI admit README docs and reject mixed, owned and non-content changes', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-select-readme-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const git = args => execFileSync('/usr/bin/git', ['-C', directory, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: {PATH: '/usr/bin:/bin', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'Selector Fixture', GIT_AUTHOR_EMAIL: 'selector@example.invalid', GIT_COMMITTER_NAME: 'Selector Fixture', GIT_COMMITTER_EMAIL: 'selector@example.invalid'},
+  }).trim();
+  const put = async (path, body) => { await mkdir(dirname(join(directory, path)), {recursive: true}); await writeFile(join(directory, path), body); };
+  const commit = message => { git(['add', '.']); git(['commit', '-qm', message]); return git(['rev-parse', 'HEAD']); };
+  const at = sha => git(['checkout', '-q', '-f', sha]); // Disposable fixture only.
+  const descriptorPath = 'packages/example/freedom.module.json';
+  const descriptor = moduleDescriptor('example', ['modules/example/**', 'docs/platform-plan/verification/**']);
+  git(['init', '-q', '-b', 'main']);
+  await put(descriptorPath, JSON.stringify(descriptor));
+  await put('governance/README.md', '# Fixture\n');
+  await put('README.md', '# Repository\n');
+  await put(GENERATED_INVENTORY_PATH, '{}\n');
+  await put('scripts/ci/select-affected-jobs.mjs', 'throw new Error("candidate selector must not run");\n');
+  const base = commit('base');
+  await put('README.md', '# Repository\n\n[Handoff](docs/development/community-curation-handoff.md)\n');
+  await put('docs/development/community-curation-handoff.md', '# Dated handoff\n');
+  await put(GENERATED_INVENTORY_PATH, '{"fixture":"candidate"}\n');
+  const head = commit('README docs and inventory');
+  const choose = (base, head) => collectRepositoryDecision({repository: directory, event: 'pull_request', base, head});
+  assert.equal(choose(base, head).mode, 'docs');
+  const output = join(directory, '.git', 'selection-output');
+  const cli = spawnSync(process.execPath, [selector, '--event', 'pull_request', '--repository', directory,
+    '--base', base, '--head', head, '--github-output', output], {encoding: 'utf8'});
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.equal(JSON.parse(cli.stdout).mode, 'docs');
+  assert.equal(await readFile(output, 'utf8'), githubOutput(choose(base, head)));
+  // This is selection evidence only; the unchanged integrity job checks real
+  // inventory bytes. Mutating a working tree cannot substitute for exact SHAs.
+  await put('modules/example/uncommitted.mjs', 'throw new Error("not a committed input");\n');
+  assert.equal(choose(base, head).mode, 'docs');
+  const mixed = commit('mixed runtime change');
+  assert.equal(choose(base, mixed).mode, 'full');
+  at(head);
+  await put(descriptorPath, JSON.stringify({...descriptor, owned_paths: [...descriptor.owned_paths, 'README.md']}));
+  const ownedBase = commit('claim README');
+  assert.equal(choose(base, ownedBase).mode, 'full');
+  await put('README.md', '# Next README prose\n');
+  const ownedHead = commit('owned README');
+  assert.equal(choose(ownedBase, ownedHead).reason, 'baseline_candidate_union');
+  await put(descriptorPath, JSON.stringify(descriptor));
+  const shrunk = commit('remove ownership');
+  assert.equal(choose(ownedBase, shrunk).mode, 'full');
+  for (const invalid of [
+    [descriptor, structuredClone(descriptor)],
+    [{...descriptor, dependencies: ['absent']}],
+    [{...descriptor, dependencies: [descriptor.module_id]}],
+  ]) {
+    at(base);
+    await put(descriptorPath, JSON.stringify(invalid[0]));
+    if (invalid[1]) await put('packages/duplicate/freedom.module.json', JSON.stringify(invalid[1]));
+    const invalidBase = commit('invalid descriptor graph');
+    await put('README.md', '# Only README prose changed\n');
+    const invalidHead = commit('README beneath unchanged invalid graph');
+    assert.equal(choose(invalidBase, invalidHead).reason, 'descriptors_unproven');
+  }
+  at(base);
+  git(['update-index', '--chmod=+x', 'README.md']);
+  git(['commit', '-qm', 'mode only']);
+  assert.equal(choose(base, git(['rev-parse', 'HEAD'])).mode, 'full');
+  at(base);
+  git(['mv', 'README.md', 'docs/README.md']);
+  const renamed = commit('rename README');
+  assert.equal(choose(base, renamed).mode, 'full');
+  assert.equal(choose(renamed, base).mode, 'full'); // Added root README is not M.
+  at(base);
+  git(['rm', '-q', 'README.md']);
+  const deleted = commit('delete README');
+  assert.equal(choose(base, deleted).mode, 'full');
+  const symlinkOid = execFileSync('git', ['-C', directory, 'hash-object', '-w', '--stdin'], {input: 'governance/README.md', encoding: 'utf8'}).trim();
+  git(['update-index', '--add', '--cacheinfo', `120000,${symlinkOid},README.md`]);
+  git(['commit', '-qm', 'symlink README']);
+  assert.equal(choose(base, git(['rev-parse', 'HEAD'])).mode, 'full');
 });

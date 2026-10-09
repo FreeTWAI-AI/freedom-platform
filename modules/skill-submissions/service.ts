@@ -11,6 +11,7 @@ import { importProjectWithinTransaction, projectInput, type GitHubRead } from '.
 import type { NormalizedSubmission } from './payload.js';
 import { lockMemberDrafts, MAX_ACTIVE_DRAFTS } from './limits.js';
 import { catalogBookForRepository, repositoryDisplayName, repositoryKey } from './repository-match.js';
+import { publishedWorkFrom } from './public.js';
 
 export { MAX_ACTIVE_DRAFTS };
 export const GRANT_PREFIX = 'fpg_';
@@ -145,6 +146,57 @@ export async function createManualSubmission(pool: Pool, input: Command) {
     return submissionView(row);
   });
 }
+
+/** Resume a book or prepare a private draft from an already registered work.
+ * Publication remains a separate owner action with explicit public consent. */
+export async function prepareProjectSkillSubmission(pool: Pool, input: Command, projectId: string) {
+  empty.parse(input.body);
+  projectId = uuidOrNotFound(projectId);
+  await authRateLimit(pool, 'skill-submission-issue', input.actor.user_id, 30, 3600);
+  const ownedProject = async (q: PoolClient) => {
+    const row = (await q.query(`SELECT project_id,owner_ref,repository_url,title,description,use_notes,demo_url,relationship,aggregate_version
+      FROM oss_projects WHERE project_id=$1 AND community_id=$2 AND owner_ref=$3 AND NOT official`,
+      [projectId, input.actor.community_id, input.actor.user_id])).rows[0];
+    requireCondition(row, 404, 'not_found', '找不到可由你製作技能書的開源作品。');
+    return row;
+  };
+  return command(pool, input, async q => { await requireReadyMember(q, input.actor); await ownedProject(q); }, async q => {
+    // Serialize new drafts before looking for an existing one, including requests
+    // with different idempotency keys. A retry cannot silently create two books.
+    await lockMemberDrafts(q, input.actor.user_id);
+    let project = await ownedProject(q);
+    // Match canonical repository identity for private drafts, and stable project
+    // identity for published books (a GitHub repository can have been renamed).
+    const candidates = (await q.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions
+      WHERE community_id=$1 AND owner_ref=$2 AND status IN ('published','ready_for_review','awaiting_upload')
+      AND (project_id=$3 OR lower(COALESCE(payload->>'repository_url',seed->>'repository_url'))=lower($4))
+      AND (status<>'published' OR EXISTS (SELECT 1 ${publishedWorkFrom} AND s.submission_id=skill_submissions.submission_id))
+      ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'ready_for_review' THEN 1 ELSE 2 END,published_at DESC NULLS LAST,created_at DESC,submission_id
+      FOR UPDATE`, [input.actor.community_id, input.actor.user_id, projectId, project.repository_url])).rows;
+    // Keep the publication lock order: submission first, project second.
+    await q.query('SELECT project_id FROM oss_projects WHERE project_id=$1 FOR SHARE', [projectId]);
+    project = await ownedProject(q);
+    checkVersion(String(project.aggregate_version), input.expected);
+    const catalog = catalogBookForRepository(repositoryKey(project.repository_url));
+    if (catalog) return { submission: null, created: false, catalog_book: catalog };
+    const existing = candidates.find(row => row.status !== 'published' || row.project_id === projectId);
+    if (existing) return { submission: submissionView(existing), created: false, catalog_book: null };
+    await requireDraftCapacity(q, input.actor);
+    const payload = manualPayload(manualInput.parse({ repository_url: project.repository_url, title: project.title,
+      description: project.description, use_notes: project.use_notes, demo_url: project.demo_url, relationship: project.relationship }));
+    const id = randomUUID();
+    const row = (await q.query(`INSERT INTO skill_submissions(submission_id,community_id,owner_ref,status,payload,payload_sha256,grant_consumed_at)
+      VALUES($1,$2,$3,'ready_for_review',$4,$5,now()) RETURNING ${SUBMISSION_COLUMNS}`,
+      [id, input.actor.community_id, input.actor.user_id, JSON.stringify(payload), digest(payload)])).rows[0];
+    await journal(q, input.actor, 'skill_submission', id, 1, 'prepare_registered_project_book',
+      { project_id: projectId, payload_sha256: digest(payload), source: 'registered_project' });
+    return { submission: submissionView(row), created: true, catalog_book: null };
+  }, async q => {
+    // Receipts must not resurrect a book/draft after the owner loses access.
+    await requireReadyMember(q, input.actor); await ownedProject(q);
+  });
+}
+
 
 export async function listSubmissions(pool: Pool, actor: Actor) {
   return (await pool.query(`SELECT ${SUBMISSION_COLUMNS} FROM skill_submissions WHERE community_id=$1 AND owner_ref=$2
