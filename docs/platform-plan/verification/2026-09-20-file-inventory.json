@@ -12984,8 +12984,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 12359,
-      "sha256": "1d7d3308b9a50637a4eef8be5f37c447e53e073eb9c3ad98f3ae45656fc218d7"
+      "bytes": 12677,
+      "sha256": "b3210d13245a0a7eea937e1fa5b29338cbb0402176cc629b8a76bd7a54a51c98"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
