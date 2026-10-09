@@ -5,6 +5,7 @@ import { createPool } from '../../../packages/db/index.js';
 import { createApp } from './app.js';
 import { assertOriginAllowed, resolveFreedomEnv } from './env.js';
 import { assertPublicDatabase } from './readiness.js';
+import { onBuildAssetFound } from './static-assets.js';
 
 const freedomEnv = resolveFreedomEnv();
 if (process.env.NODE_ENV === 'production' && freedomEnv !== 'public') {
@@ -21,7 +22,7 @@ if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED!==undefined&&!['true','false'].incl
 if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
 const publicGuideAssets=process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'?await createLocalGuideCatalog(freedomEnv):undefined;
 const app = createApp(pool, origin, freedomEnv,{publicGuideAssets,guildLaunchpadEnabled:process.env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true',hostedReservationsEnabled:process.env.FREEDOM_HOSTED_RESERVATIONS_ENABLED==='true',communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',communitySearchEnabled:process.env.FREEDOM_COMMUNITY_SEARCH_ENABLED==='true'});
-app.use('/*', serveStatic({ root: './apps/portal-web/dist' }));
+app.use('/*', serveStatic({ root: './apps/portal-web/dist', onFound: onBuildAssetFound }));
 app.get('*', serveStatic({ path: './apps/portal-web/dist/index.html' }));
 
 const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port });
