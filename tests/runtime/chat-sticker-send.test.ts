@@ -7,7 +7,7 @@ import {transformSync} from 'esbuild';
 import {createChatLeaveGuards} from '../../apps/portal-web/src/modules/chat-leave-guards.js';
 import {ApiError} from '../../apps/portal-web/src/api.js';
 import {findChatSticker} from '../../modules/member-communications/stickers.js';
-import {matchesChannelMessageAck,matchesDirectMessageAck} from '../../apps/portal-web/src/modules/message-image-client.js';
+import {isFirstImageDecoderRejection,matchesChannelMessageAck,matchesDirectMessageAck} from '../../apps/portal-web/src/modules/message-image-client.js';
 
 // Execute the actual source closures with controlled promises, without a browser,
 // database or a copied send implementation. React rendering is a separate E2E tier.
@@ -32,7 +32,7 @@ function harness(mode:'direct'|'channel'){
     selections:{current:new Map([[target,image]])},selectionRef:{current:image},messageImagesEnabled:true,
     receiptRefresh:{current:new Map()},conversations:[],thread:null,stick:{current:false},logs:[],uploads:0,
     setPendingState:()=>{},setDrafts:(update:any)=>{state.drafts=update(state.drafts);},setSendErrors:()=>{},setSelection:()=>{},setThread:()=>{},setHistory:()=>{},setConversations:()=>{},setChannels:()=>{},rereadAfterWrite:()=>{},
-    path:(key:string,rest:string)=>`/me/channels/guild/${key}/${rest}`,crypto:{randomUUID},ApiError,findChatSticker,matchesDirectMessageAck,matchesChannelMessageAck,
+    path:(key:string,rest:string)=>`/me/channels/guild/${key}/${rest}`,crypto:{randomUUID},ApiError,findChatSticker,isFirstImageDecoderRejection,matchesDirectMessageAck,matchesChannelMessageAck,
     chatPayload:runInNewContext(`${sourceFunction('ChatContent.tsx','chatPayload')};chatPayload`),
     consoleChannel:(value:string)=>value,logConsoleEvent:(value:unknown)=>state.logs.push(value),
     fail:(cause:any)=>cause.message,unconfirmed:(cause:unknown)=>!(cause instanceof ApiError)||cause.network||cause.status===0||cause.status>=500,

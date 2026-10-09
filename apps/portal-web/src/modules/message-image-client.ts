@@ -46,6 +46,11 @@ function matchesMessageContentAck(value:Record<string,unknown>,input:DirectMessa
   }else if(value.reply_to!==undefined)return false;
   return true;
 }
+/** Only a first decoder rejection is known to precede upload preparation. A
+ * later rejection cannot disprove an earlier unknown commit, even for this code. */
+export function isFirstImageDecoderRejection(cause:unknown,stage:'upload'|'message'|undefined,hadUnknown:boolean):boolean{
+  return stage==='upload'&&!hadUnknown&&cause instanceof ApiError&&cause.status===422&&cause.code==='invalid_message_image'&&!cause.network&&!cause.timedOut&&!cause.accessExpired;
+}
 export const messageImageUrl=(peerId:string,messageId:string)=>`/api/v1/me/conversations/${encodeURIComponent(peerId)}/messages/${encodeURIComponent(messageId)}/image`;
 export function messageImageFileError(file:File):string|null{
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))return '圖片僅支援 JPEG、PNG 或 WebP。';

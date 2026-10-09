@@ -126,7 +126,7 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 仍清除私有資料。主視窗仍無法詢問另一 popout 的 pending tuple，不承諾跨窗
 登出攔截或 crash durability。
 
-只有 canonical ACK 核對成功才釋放原 key、body 與圖片 bytes：核對 message UUID、
+送出結果為 unknown 後，只有 canonical ACK 核對成功才釋放原 key、body 與圖片 bytes：核對 message UUID、
 目前 sender／精確 recipient、server 正規化後正文、reply ID／sticker 與 image
 有無；圖片 metadata 必須為 WebP、正整數且不超過 1 MiB。Message.image
 沒有 image_id，不要求虛構欄位。2xx 的空物件或錯誤對象仍視為 unknown，
@@ -136,6 +136,11 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 否定前一次可能已提交的操作；保留原 key／body 直到 canonical ACK。首次就
 收到確定拒絕的文字／貼圖仍可修改後重新送出，不把所有失敗一律鎖住。
 
+圖片的唯一可解除例外：首次上傳階段、此前沒有 unknown，且收到非 network／timeout／Access 過期的
+`422 invalid_message_image`。這是解碼器在 upload prepare 前的明確拒絕；清除 pending 後
+仍保留選取圖片、說明與回覆草稿，會員可修改、移除或離開。曾有 unknown 的同 tuple
+重試，或已進入 message 階段的同碼 422，仍保留原 file／upload key／message key 與
+離開保護。這不擴大到其他 4xx，不清理已上傳素材，也不承諾重新整理後恢復記憶體草稿。
 
 ### 貼圖點選即傳送（#303）
 
