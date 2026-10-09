@@ -19919,8 +19919,8 @@
     },
     {
       "path": "tests/integration/tenant-rls-restore-drill.test.ts",
-      "bytes": 47887,
-      "sha256": "24f8e160a7d954a4f487b22194cef8c050d4f790f186950c8d0125a1496056a0"
+      "bytes": 56832,
+      "sha256": "11c4d0dc0d6f385c0d32a442b81b645e74ffb725ab66ffdd4fb485dd4e87abbf"
     },
     {
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
@@ -20489,8 +20489,8 @@
     },
     {
       "path": "tests/runtime/hosted-direct-orders.test.ts",
-      "bytes": 34034,
-      "sha256": "aa38f33f8aedfacafd9c91c8beb2cbc385e7160f4efa6adc3c25e58186c8f67b"
+      "bytes": 42260,
+      "sha256": "7ac6a129013d9657e5c2efb3b3f4735d9dbbf52dca1d3d1f8d481cd4adfeb0f9"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
@@ -20519,8 +20519,8 @@
     },
     {
       "path": "tests/runtime/hosted-seller-orders.test.ts",
-      "bytes": 18486,
-      "sha256": "bc7648a77c84a7113a0e4317f7215e8720a1d783fc86c85714d0626760d91504"
+      "bytes": 18489,
+      "sha256": "e903956b9b11273cc29a9b4d5019eed10424e15450e5e6e1d8630b606d2ad81c"
     },
     {
       "path": "tests/runtime/hosted-store-isolation.test.ts",
@@ -21414,8 +21414,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 38779,
-      "sha256": "8323ac9d1aa600777084d05a858c617da28f7b56f5024c929f573c1f398d610d"
+      "bytes": 47770,
+      "sha256": "8c0bf8405531e115ad548cdf80fb678fcb0508842f1cb042f0c6d4bc16982fff"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",
