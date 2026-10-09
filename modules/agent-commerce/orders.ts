@@ -99,6 +99,8 @@ export async function orderView(q:PoolClient,shop:any,id:string){
 }
 async function orderViews(q:PoolClient,shop:QueryResultRow,ids:string[]){
  if(!ids.length)return [];
+ // PostgreSQL uuid output is lowercase; shop API UUID inputs also accept uppercase.
+ ids=ids.map(id=>id.toLowerCase());
  const orders=(await q.query(`SELECT o.*,s.name AS public_shop_name,s.website_url AS public_website_url,s.contact AS public_shop_contact FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id WHERE s.origin='imported' AND o.order_id=ANY($1::uuid[]) AND
  (o.public_shop_id=$2 OR (o.buyer_payment IN ('reported_paid','reported_refunded') AND EXISTS(SELECT 1 FROM commerce_transfers t WHERE t.order_id=o.order_id AND t.internal_shop_id=$2)))`,[ids,shop.shop_id])).rows;
  const byId=new Map(orders.map(o=>[o.order_id,o]));

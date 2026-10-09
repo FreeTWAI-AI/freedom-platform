@@ -273,7 +273,7 @@ function MemberApp() {
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
     if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
-    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/>;
+    if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
     return (
       <div className="app-frame">

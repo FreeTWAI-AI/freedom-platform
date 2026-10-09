@@ -221,3 +221,27 @@ test('a member who left can rejoin from the launchpad', async ({browser, baseURL
     expect(ifMatch).toBe('"4"');
   } finally { await session.context.close(); await cleanup(e2eAuthPool, userId, undefined); }
 });
+
+test('a failed public launchpad chunk can return home and recover after reload', async ({browser, baseURL}) => {
+  const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  const page = await context.newPage();
+  const chunk = /\/assets\/GuildLaunchpad-[^/]+\.js$/;
+  await page.route(chunk, route => route.abort());
+  try {
+    await page.goto(`/#guilds/${music}`);
+    await expect(page.getByRole('alert')).toContainText('自由工坊暫時無法開啟');
+    await page.getByRole('link', {name: '返回首頁', exact: true}).click();
+    await expect(page).toHaveURL(/\/#home$/);
+    await expect(page.getByLabel('電子郵件', {exact: true})).toBeVisible();
+    await expect(page.getByRole('alert').filter({hasText: '自由工坊暫時無法開啟'})).toHaveCount(0);
+    // React.lazy caches its rejected promise; recovery deliberately offers a
+    // document reload rather than pretending a second route visit retries it.
+    await page.goto(`/#guilds/${music}`);
+    await expect(page.getByRole('alert')).toContainText('自由工坊暫時無法開啟');
+    await page.unroute(chunk);
+    await page.getByRole('button', {name: '重新載入頁面', exact: true}).click();
+    await expect(page.locator('.guild-launchpad')).toBeVisible();
+    await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
+  } finally { await context.close(); }
+});

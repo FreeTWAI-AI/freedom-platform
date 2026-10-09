@@ -46,6 +46,21 @@ async function setup(){
 const paid=(amount=50000,overrides:any={})=>({event_id:randomUUID(),type:'paid',provider:'synthetic',transaction_ref:randomUUID(),amount_minor:amount,currency:'TWD',mode:'test',verification:'provider_verified_by_merchant',...overrides});
 async function order(f:Awaited<ReturnType<typeof setup>>,quantity=1){const body={external_id:randomUUID(),items:[{selection_id:f.selection.selection_id,quantity,delivery_ref:'synthetic_delivery_ref'}]};const r=await req('/shop-api/v1/orders',body,undefined,f.publicKey);assert.equal(r.status,201,JSON.stringify(r.data));return {o:r.data,body};}
 
+test('imported order UUID case preserves reads and payment projections',async()=>{
+ const f=await setup(),{o}=await order(f),upper=o.order_id.toUpperCase();
+ const canonical=await req(`/shop-api/v1/orders/${o.order_id}`,undefined,undefined,f.publicKey);
+ const uppercase=await req(`/shop-api/v1/orders/${upper}`,undefined,undefined,f.publicKey);
+ assert.equal(uppercase.status,200,JSON.stringify(uppercase.data));assert.deepEqual(uppercase.data,canonical.data);
+ assert.equal((await req(`/shop-api/v1/orders/${upper}`,undefined,undefined,f.internalKey)).status,404);
+ const payment=await req(`/shop-api/v1/orders/${upper}/payment`,paid(),undefined,f.publicKey);
+ assert.equal(payment.status,200,JSON.stringify(payment.data));assert.equal(payment.data.order_id,o.order_id);
+ assert.equal(payment.data.buyer_payment,'reported_paid');
+ const internal=await req(`/shop-api/v1/orders/${upper}`,undefined,undefined,f.internalKey);
+ assert.equal(internal.status,200,JSON.stringify(internal.data));
+ assert.deepEqual(internal.data,(await req(`/shop-api/v1/orders/${o.order_id}`,undefined,undefined,f.internalKey)).data);
+ assert.equal(internal.data.margin_projection,undefined);assert.equal(internal.data.total_minor,undefined);
+});
+
 test('manifest preview, atomic import, duplicate import and private/public separation',async()=>{
  const s=await login(),m=internal();const preview=await req('/api/v1/commerce/preview',{content:JSON.stringify(m)},s);assert.equal(preview.status,200);assert.equal(preview.data.count,1);
  assert.equal((await pool.query('SELECT count(*) FROM commerce_shops')).rows[0].count,'0');
