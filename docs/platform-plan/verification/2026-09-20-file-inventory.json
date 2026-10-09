@@ -18199,8 +18199,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 8291,
-      "sha256": "6159cf059b14673a612921d429558dbbe595d19efe6c5faea7b7805975b795cc"
+      "bytes": 8323,
+      "sha256": "7dce16fcaa0d2f105b4d767569d74dd3f723cf4895b45253b7c65624af3b0473"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -18649,8 +18649,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4621,
-      "sha256": "583f962367ca91ea4adea1bbf6bdc28a87786ab28b21cca86146410d39c51e4e"
+      "bytes": 4691,
+      "sha256": "7fd31178383e91054130bcdaee89164b0149254cceb4f27e2a2b6875148b0bf8"
     },
     {
       "path": "packages/media-migration/inventory.ts",
@@ -20084,8 +20084,8 @@
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 30657,
-      "sha256": "1ce823d408c66a3ef721248501fece877f16e224c4bb7830585d526880abda44"
+      "bytes": 33031,
+      "sha256": "e62a180feb05848db2d807e4bff909d22ede8c35cea26093d80cad750fa33ae0"
     },
     {
       "path": "tests/integration/media-recovery-handover-producer.ts",
@@ -20136,6 +20136,11 @@
       "path": "tests/integration/helpers/media-restore-fixtures.ts",
       "bytes": 11576,
       "sha256": "436651a850a09c0fa335f5d1745c7b03d594587af47e1911bd2add1d0610c66c"
+    },
+    {
+      "path": "tests/integration/helpers/storefront-photo-restore-fixtures.ts",
+      "bytes": 15507,
+      "sha256": "7de202824f54bf7b38249a5046e1cf86df13c7cc1c9019de7b939b8cd4f6bab3"
     },
     {
       "path": "tests/media-fixtures/event-video-160x90.mp4",
