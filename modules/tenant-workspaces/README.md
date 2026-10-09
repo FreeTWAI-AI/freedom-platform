@@ -14,6 +14,8 @@ Accept and recovery-accept receipts stay on the recipient's personal scope. Disa
 
 `tenant_memberships.tenant_id` and `principal_id` are immutable. Ownership transfer has to change `role` on the same row or insert a new row. The deferred owner check locks every touched tenant in ascending `tenant_id` order. Private reads of one tenant go through `withTenantRead` (`packages/resource-scopes/index.ts`). The tenant list, invitation inbox, and invite-candidate reads call `assertCurrentSessionClock` after their row locks and before returning, and only when that read succeeded. A database error from the read keeps its SQLSTATE.
 
+Workspace, member, invitation and ownership-transfer pages load their view rows with `ANY(uuid[])` on the existing transaction and assemble in page-ID order. Module-registry instance and installation pages use the same pattern, with installation links fetched once per page. Single-ID views delegate to these assemblers; schema parsing and missing-row errors remain shared. RLS settings, authorization, clock checks, source versions and cursors are unchanged. Regression coverage in `tests/runtime/module-registry.test.ts` checks ordered single-view equivalence and constant query counts for instances, installations, workspaces and members.
+
 `GET /api/v1/tenants/invite-candidates?user_id=` resolves a visible same-community member to a person principal and may insert that person principal if mapping is missing. It never creates a tenant scope and never returns an email address.
 
 ## Ordinary instance grants and locks

@@ -4,6 +4,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { serve } from '@hono/node-server';
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { Pool } from 'pg';
+import type { PoolClient } from 'pg';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { authenticate, type Actor } from '../../modules/identity-membership/service.js';
 import { createDirectQuote } from '../../modules/agent-commerce/hosted/direct-quotes.js';
@@ -112,6 +113,35 @@ test('same reference lists current signed pages without cursor/key digest confli
   assert.equal((await wire('GET',root,s.owner)).status,503);
   assert.equal((await wire('GET',root+'?cursor=bad',s.c.session)).status,404);
   assert.equal((await wire('GET',root+'/'+orders[0].order_id,s.owner)).status,200);
+});
+
+test('seller page batches hydration with identical single-order DTOs and constant live-reservation queries', async () => {
+  const s=await fixture(8);
+  for(let n=0;n<4;n++)await reserved(s);
+  const root=s.root+'/orders';
+  // Warm the existing ID-only receipt before comparing equal replay paths.
+  ok(await wire('GET',root+'?limit=1',s.owner));
+  let count=0;
+  const clients=new Map<PoolClient,PoolClient['query']>();
+  const onConnect=(q:PoolClient)=>{
+    if(clients.has(q))return;
+    const original=q.query;clients.set(q,original);
+    q.query=((...args:unknown[])=>{count++;return Reflect.apply(original,q,args);}) as typeof q.query;
+  };
+  runtime.on('acquire',onConnect);
+  try {
+    count=0;const one=ok(await wire('GET',root+'?limit=1',s.owner)),oneCount=count;
+    count=0;const many=ok(await wire('GET',root+'?limit=4',s.owner)),manyCount=count;
+    assert.equal(one.items.length,1);assert.equal(many.items.length,4);
+    const singles=[];
+    for(const order of many.items)singles.push(ok(await wire('GET',root+'/'+order.order_id,s.owner)));
+    assert.deepEqual(many.items,singles);
+    console.log(`hosted live reservations: N=1 ${oneCount} queries; N=4 ${manyCount} queries`);
+    assert.equal(manyCount,oneCount);
+  } finally {
+    runtime.off('acquire',onConnect);
+    for(const [q,original] of clients)q.query=original;
+  }
 });
 
 test('OFF and archived instance retain current owner cancellation; buyer and seller race release once and replay current state', async () => {

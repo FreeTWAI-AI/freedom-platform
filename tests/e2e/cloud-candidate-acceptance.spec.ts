@@ -872,6 +872,28 @@ test('public candidate leaves guild histories unopened and never writes guild ch
   const observed:BrowserLike={newContext:async options=>{
     const context=await browser.newContext(options);
     context.on('request',request=>{urls.push(request.url());if(request.url().includes('/me/channels/guild/')&&request.method()!=='GET')guildWrites.push(request.url());});
+    // This fixture requires Home's directory metadata, which starts only after
+    // the synthetic member's own card loads. Settings alone is shell readiness.
+    let directoryReady=false;
+    context.on('response',response=>{
+      if(response.url()===loop.origin+'/api/v1/guilds/directory'&&response.request().method()==='GET'&&response.status()===200)directoryReady=true;
+    });
+    const newPage=context.newPage.bind(context);
+    context.newPage=async()=>{
+      const page=await newPage(),getByRole=page.getByRole.bind(page);
+      page.getByRole=(role,options)=>{
+        const locator=getByRole(role,options);
+        if(role==='button'&&options?.name==='設定'&&options.exact===true){
+          const waitFor=locator.waitFor.bind(locator);
+          locator.waitFor=async options=>{
+            await waitFor(options);
+            await expect.poll(()=>directoryReady,{timeout:options?.timeout??20000}).toBe(true);
+          };
+        }
+        return locator;
+      };
+      return page;
+    };
     return context;
   }};
   const report=await runCandidate({target,run:'execute',phases:selectPhases(['registration','messages','messages-mobile']),expectedVersion:packageMetadata.version,contract:metadata,browser:observed,transport});

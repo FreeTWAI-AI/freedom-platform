@@ -13,7 +13,7 @@ import type { Actor } from '../../identity-membership/service.js';
 import { requireStoreInstance, storeCapabilities } from './capabilities.js';
 import { profile, ready, type Profile } from './store.js';
 import { lockCommerceCommunity } from './direct-authority.js';
-import { closeDirectOrder, directOrderProjection, lockDirectOrder } from './direct-effects.js';
+import { closeDirectOrder, directOrderProjection, directOrderProjections, lockDirectOrder, type DirectOrderRow } from './direct-effects.js';
 
 type Operation = 'storefront.seller.order.read' | 'storefront.seller.orders.list' | 'storefront.seller.order.cancel';
 interface SellerContext {
@@ -121,8 +121,21 @@ export async function listSellerOrders(pool: Pool, actor: Actor, tenantId: strin
         await q.query(`SELECT item_id FROM commerce_items WHERE shop_id=$2 AND item_id IN
           (SELECT item_id FROM commerce_order_lines WHERE order_id=ANY($1::uuid[])) ORDER BY item_id FOR UPDATE`, [ids, context.profile.supply_shop_id]);
       }
-      const items = [];
-      for (const row of page) items.push(await orderView(q, context, row.order_id));
+      const loaded = ids.length ? (await q.query<DirectOrderRow>(`SELECT o.*,reservation_version::text AS reservation_version FROM commerce_orders o
+        WHERE order_id=ANY($1::uuid[]) AND public_shop_id=$2 AND order_profile='hosted_direct_reservation'`,
+      [ids, context.profile.storefront_shop_id])).rows : [];
+      const byId = new Map(loaded.map(row => [row.order_id, row]));
+      const decisionTime = loaded.some(row => row.reservation_state === 'reserved')
+        ? (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now : undefined;
+      const hydrated = [];
+      for (const reference of page) {
+        const saved = byId.get(reference.order_id);
+        requireCondition(saved, 404, 'hosted_order_not_found', '找不到這份訂單。');
+        const row = await closeDirectOrder(q, context, saved, false, decisionTime);
+        if (row.reservation_state === 'reserved' && (!context.reservationDeadline || row.expires_at < context.reservationDeadline)) context.reservationDeadline = row.expires_at;
+        hydrated.push(row);
+      }
+      const items = await directOrderProjections(q, context, hydrated);
       return OrderPageSchema.parse({ items, next_cursor: rows.length > limit
         ? cursors.encode({ at: page[page.length - 1].cursor_at, id: page[page.length - 1].order_id }, binding) : null });
     });

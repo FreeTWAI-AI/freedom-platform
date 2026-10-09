@@ -15,8 +15,10 @@ import { createUnavailableImageProcessor, runWithImageProcessor } from '../../..
 import { createCloudflareImageProcessor, type ImagesBinding } from '../../../packages/shared/image-cloudflare.js';
 import { createAdminAccessVerifier, type AdminAccessVerifier } from '../../../modules/platform-admin/access.js';
 import { assertOriginAllowed, resolveFreedomEnv, type FreedomEnv } from './env.js';
-import { createPlatformApp, isMemberCardPage } from './platform-app.js';
+import { createPlatformApp, isMemberCardPage, platformResponseHeaders } from './platform-app.js';
+import { readSessionCookie } from './session-cookie.js';
 import { assertDatabaseReady, ReadinessError } from './readiness.js';
+import { IMMUTABLE_ASSET_CACHE_CONTROL, isFastPathBuildAsset, isHashedBuildAsset } from './static-assets.js';
 import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
@@ -235,11 +237,16 @@ function problem(status: number, code: string, detail: string) {
 }
 // Security headers from the platform middleware win over asset metadata, like the Node static server.
 const ASSET_OVERRIDDEN = new Set(['cache-control', 'content-security-policy', 'x-content-type-options', 'referrer-policy', 'set-cookie']);
-function fromAsset(c: Context, asset: Response) {
+export function assetHeaders(request:Request,asset:Response,directAsset=false) {
   const headers: Record<string, string> = {};
   for (const [name, value] of asset.headers) if (!ASSET_OVERRIDDEN.has(name.toLowerCase())) headers[name] = value;
-  if (isMemberCardPage(new URL(c.req.url).pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
-  return c.body(asset.body as ReadableStream, asset.status as 200, headers);
+  const pathname = new URL(request.url).pathname;
+  if (directAsset && [200, 206, 304].includes(asset.status) && isHashedBuildAsset(pathname) && !/text\/html/i.test(asset.headers.get('content-type') ?? '')) headers['Cache-Control'] = IMMUTABLE_ASSET_CACHE_CONTROL;
+  if (isMemberCardPage(pathname)) headers['X-Robots-Tag'] = 'noindex, nofollow';
+  return headers;
+}
+function fromAsset(c: Context, asset: Response, directAsset = false) {
+  return c.body(asset.body as ReadableStream, asset.status as 200, assetHeaders(c.req.raw,asset,directAsset));
 }
 /** Same order as server.ts: files after every app route, then the browser shell for GET navigation. */
 export function mountAssets(app: Hono<any>, assets: WorkerEnv['ASSETS']) {
@@ -247,7 +254,7 @@ export function mountAssets(app: Hono<any>, assets: WorkerEnv['ASSETS']) {
     if (!['GET', 'HEAD'].includes(c.req.method)) return next();
     const asset = await assets.fetch(c.req.raw);
     if (asset.status === 404) return next();
-    return fromAsset(c, asset);
+    return fromAsset(c, asset, true);
   });
   app.get('*', async c => {
     const shell = await assets.fetch(new Request(new URL('/', c.req.url), { method: c.req.method, headers: { Accept: 'text/html' } }));
@@ -257,6 +264,9 @@ export function mountAssets(app: Hono<any>, assets: WorkerEnv['ASSETS']) {
 
 export type WorkerDependencies = {
   createPool?: (env: WorkerEnv) => Pool;
+  /** Test seams for proving files avoid runtime and route construction. */
+  createRuntime?: typeof workerRuntime;
+  createApp?: typeof createPlatformApp;
   /** Request-scoped wrapper for host services (the image processor attaches here). */
   scope?: (env: WorkerEnv, run: () => Promise<Response>) => Promise<Response>;
   /** Test seam. Production uses syncGitHubRepositories. */
@@ -311,7 +321,21 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           }
           verified.add(env);
         }
-        const runtime=workerRuntime(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
+        // Only build outputs and favicon: no SPA, guide, domain, or machine route
+        // can be shadowed. Genuine private-AI installations keep the full path,
+        // whose browser CSP depends on validated, request-scoped broker ports.
+        if(['GET','HEAD'].includes(request.method)&&env.FREEDOM_PRIVATE_AI_ENABLED!=='true'
+          &&(url.pathname==='/favicon.ico'||isFastPathBuildAsset(url.pathname))){
+          let validCookie=true;
+          try{readSessionCookie(request.headers.get('Cookie')??undefined,config.origin);}catch{validCookie=false;}
+          if(validCookie){
+            const asset=await env.ASSETS.fetch(request);
+            if(asset.status!==404)return new Response(request.method==='HEAD'?null:asset.body,{status:asset.status,headers:{
+              ...platformResponseHeaders(url.pathname),...assetHeaders(request,asset,true),
+            }});
+          }
+        }
+        const runtime=(deps.createRuntime??workerRuntime)(env,config),privateAi=await workerPrivateAiPorts(pool,env,config);
         if(privateAi)Object.assign(runtime,privateAi);
         runtime.publicGuideAssets=await installWorkerGuideAssets(env);
         if(env.FREEDOM_SERVICE_COVER_ENABLED==='true'&&runtime.avatarAssetStore){
@@ -342,7 +366,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
           runtime.eventHighlightAssetStore=runtime.avatarAssetStore;
           runtime.eventHighlightAssets=createEventHighlightAssetService(pool,{store:runtime.avatarAssetStore,resolvePolicy:resolveEventHighlightUploadPolicy});
         }
-        const app = createPlatformApp(pool, config.origin, config.freedomEnv, runtime);
+        const app = (deps.createApp??createPlatformApp)(pool, config.origin, config.freedomEnv, runtime);
         mountAssets(app, env.ASSETS);
         return await scope(env, async () => app.fetch(request, env, ctx as never));
       } catch (error) {

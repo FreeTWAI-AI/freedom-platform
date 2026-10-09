@@ -6,6 +6,8 @@ The launchpad reads published guild configuration and computes a platform defaul
 
 The commerce purpose profile recommends 「線上商店」 first, followed by the existing manual workspace; the production profile keeps manual workspace first.
 
+The portal parses `#guilds/<key>` in the UI-free `guild-launchpad-route.ts` helper. The public launchpad loads through `React.lazy` under App's existing `PageLoadBoundary`; the member launchpad remains inside the lazy guilds panel. `GuildLaunchpad`, `GuildLaunchpadMyWork` and `GuildLaunchpadApplications` are not part of the initial index chunk.
+
 ## 製作專案企劃與版本工作台
 
 `guild_commercial_production` 的既有 My Work 區塊提供結構化 brief、交付規格、鏡位、素材版本引用、固定交付清單與對應回饋。專案沿用唯一 tenant `work_id`；[production-dossier.ts](production-dossier.ts) 定義 `freedom.production-dossier/v1` **Result 內容格式**，不是新增 API、module release 或 project 資料庫。[格式與限制](production-dossier.md) 對應 [SP-03 §2.4](../../docs/platform-plan/execution/guild-launchpad/SP-03-all-guild-launchpad.md#24-非商務製作企劃與版本工作台-v0)。

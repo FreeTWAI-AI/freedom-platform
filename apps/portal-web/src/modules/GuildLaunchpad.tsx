@@ -10,7 +10,6 @@ import {GuildLaunchpadApplications, REASONS, startable, type LaunchRequest} from
 import {MyStoreAction} from './MyStoreAction';
 import './GuildLaunchpad.css';
 
-const GUILD_KEY_PATTERN = /^(guild_[a-z0-9_]+|guild_custom_[0-9A-Fa-f]{32})$/;
 const CONTROL = /[\u0000-\u001F\u007F\u0080-\u009F]/;
 const FIELD_MESSAGE: Record<string, string> = {
   too_short: '不能是空白',
@@ -46,15 +45,6 @@ const INTERN_HINT = '你是這個公會的實習成員：可以閱讀公會內�
 const CAPABILITY_LABEL: Record<string, string> = {
   'guild.content.edit': '編輯內容', 'guild.config.preview': '預覽配置', 'guild.config.publish': '發布配置',
 };
-
-export function guildKeyFromHash(hash = typeof window === 'undefined' ? '' : window.location.hash): string | null {
-  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
-  const match = /^guilds\/([^/?#]+)$/.exec(raw);
-  if (!match) return null;
-  let key = match[1];
-  try { key = decodeURIComponent(key); } catch { return null; }
-  return GUILD_KEY_PATTERN.test(key) ? key : null;
-}
 
 type BookRef = {book_id: string; title: string; introduction_url: string | null; upstream_url: string};
 type AnnouncementRef = {announcement_id: string; title: string; body: string; published_at: string | null};

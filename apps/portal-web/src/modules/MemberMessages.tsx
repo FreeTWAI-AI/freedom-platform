@@ -22,6 +22,7 @@ import {WorkshopIcon} from '../WorkshopIcon';
 import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
 import {isFirstImageDecoderRejection,matchesDirectMessageAck,messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
 import {MessageImagePreview} from './MessageImagePreview';
+import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
@@ -261,6 +262,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   const readAttempts=useRef(new Map<string,{through:string;key:string}>()),readLocks=useRef(new Set<string>()),readIssues=useRef(new Map<string,string>());
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{height:number;top:number}|null>(null),moreState=useRef(threadMore);
   const polling=useRef(false),retryAt=useRef(0),failures=useRef(0),listCheckedAt=useRef(0);
+  const idlePoll=useRef(resetChatPoll());
   const receiptRefresh=useRef(new Map<string,symbol>());
   const receiptCheckedAt=useRef(new Map<string,number>());
   const [liveError,setLiveError]=useState('');
@@ -298,6 +300,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
 
   const loadThread=useCallback(async(id:string,quiet=false)=>{
     const current=++threadGeneration.current;threadInFlight.current={id,quiet};
+    idlePoll.current=resetChatPoll();
     const receiptVersion=receiptRefresh.current.get(id);
     setThreadMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(id)??'');
     if(quiet)setThreadRefresh({loading:true,error:''});else{setThreadStatus('loading');setThreadError('');setThreadRefresh({loading:false,error:''});setThread(null);}
@@ -340,12 +343,15 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     // Other conversations remain discoverable without reloading their previews every second.
     if(convInFlight.current===null&&Date.now()-listCheckedAt.current>=8000)void loadConversations(true);
     if(!shown.readingThread||!id||shown.threadStatus!=='ready'||!shown.thread||shown.reading||shown.sending||threadInFlight.current||moreState.current.loading)return;
-    polling.current=true;const generation=threadGeneration.current;
+    const refreshDue=receiptRefresh.current.has(id)||directMessageReceiptRefreshDue(shown.thread.items,me,receiptCheckedAt.current.get(id)??0,Date.now());
+    if(!refreshDue&&!chatPollDue(idlePoll.current,Date.now(),retryAt.current))return;
+    polling.current=true;const generation=threadGeneration.current,schedule=idlePoll.current,checkedAt=Date.now();
     try{
       const activity=await client.get<ConversationActivity>(`/me/conversations/${encodeURIComponent(id)}/activity`,{background:true});
       if(!alive.current||generation!==threadGeneration.current||currentPeer.current!==id||!snapshot.current.active||snapshot.current.sending)return;
       const receiptsDue=directMessageReceiptRefreshDue(shown.thread.items,me,receiptCheckedAt.current.get(id)??0,Date.now());
-      if(!hasDirectMessageChanges(activity,shown.thread,receiptRefresh.current.has(id)||receiptsDue)){failures.current=0;retryAt.current=0;setLiveError('');return;}
+      if(!hasDirectMessageChanges(activity,shown.thread,receiptRefresh.current.has(id)||receiptsDue)){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
+      idlePoll.current=resetChatPoll();
       const nextGeneration=threadGeneration.current+1,refreshed=await loadThread(id,true);
       if(!alive.current||currentPeer.current!==id||threadGeneration.current!==nextGeneration)return;
       if(!refreshed){retryAt.current=Date.now()+Math.min(60000,2000*2**Math.min(++failures.current,5));setLiveError('新訊息更新暫停，會自動重試。草稿仍保留，也可手動重讀。');return;}
@@ -361,9 +367,10 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   useEffect(()=>{
     if(!active)return;
     const refresh=()=>void live.current.pullLatest();
-    const resume=()=>{retryAt.current=0;refresh();};
-    refresh();const timer=window.setInterval(refresh,LIVE_POLL_MS);document.addEventListener('visibilitychange',refresh);window.addEventListener('focus',resume);window.addEventListener('online',resume);
-    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('focus',resume);window.removeEventListener('online',resume)};
+    const resume=()=>{idlePoll.current=resetChatPoll();retryAt.current=0;refresh();};
+    const visible=()=>{if(document.visibilityState==='visible'){idlePoll.current=resetChatPoll();refresh();}};
+    idlePoll.current=resetChatPoll();refresh();const timer=window.setInterval(refresh,LIVE_POLL_MS);document.addEventListener('visibilitychange',visible);window.addEventListener('focus',resume);window.addEventListener('online',resume);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',resume);window.removeEventListener('online',resume)};
   },[active,client,singlePane,picking]);
   const select=useCallback((id:string,moveFocus:boolean)=>{
     if(id===me)return;
@@ -423,6 +430,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
   async function send(id:string,stickerId?:string){
+    idlePoll.current=resetChatPoll();
     const previous=held.current[id];
     if(previous?.status==='sending'||sendLocks.current.has(id)||(stickerId!==undefined&&previous))return;
     const shown=snapshot.current;
@@ -561,7 +569,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
               <button className="btn btn-ghost" type="button" disabled={Boolean(attempt)} onClick={clearImage}>移除</button>
             </div>}
             <ChatInput id={`${uid}-compose`} label={`寫給 ${thread.participant.display_name} 的訊息`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
-              onSend={()=>void send(peer)} onChange={text=>{if(!held.current[peer])setDrafts(value=>({...value,[peer]:text}));}}/>
+              onSend={()=>void send(peer)} onChange={text=>{idlePoll.current=resetChatPoll();if(!held.current[peer])setDrafts(value=>({...value,[peer]:text}));}}/>
             {attempt?.status==='unknown'&&<p className="messages-meta" role="note">{attempt.payload.sticker_id?'貼圖傳送結果尚未確認。重試只會確認原貼圖，其他草稿保留。':'原訊息與圖片已保留。請先重試確認結果，再修改內容或附件。'}</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
