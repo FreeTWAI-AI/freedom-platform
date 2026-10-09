@@ -60,5 +60,5 @@ media-verify member-service-cursor migration-runner-plan model-step-revocation-r
 operator-banner-social-backfill operator-event-video-backfill operator-media-backfill operator-media-runtime-grants operator-skill-highlight-backfill organization-project-editing platform-json-body private-ai-preflight
 session-cookie-security social-preview-assets social-thumbnail-assets verify-guild-work worker-private-ai-ingest
 hosted-store hosted-store-isolation hosted-order-contracts hosted-order-http hosted-order-http-contracts hosted-seller-orders hosted-seller-order-ui hosted-order-ui hosted-direct-orders hosted-store-offering
-guild-launchpad-profiles production-dossier positioning-action-card
+guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 `.trim().split(/\s+/)).sort());
