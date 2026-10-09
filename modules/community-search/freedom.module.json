@@ -7,10 +7,15 @@
     "apps/portal-web/src/modules/CommunitySearch.tsx",
     "tests/runtime/community-search.test.ts",
     "migrations/137_community_content_topics.sql",
-    "tests/e2e/community-search.spec.ts"
+    "tests/e2e/community-search.spec.ts",
+    "modules/community/content-relations.ts",
+    "apps/portal-web/src/modules/CommunityRelations.tsx",
+    "tests/runtime/community-relations.test.ts",
+    "migrations/140_community_content_relations.sql"
   ],
   "public_exports": [
-    "modules/community/content-search.ts"
+    "modules/community/content-search.ts",
+    "modules/community/content-relations.ts"
   ],
   "dependencies": [
     "command-core",
@@ -54,6 +59,19 @@
         "community.content-search.member-read",
         "community.content-search.mine-read",
         "community.content-topics.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "community-relations.member-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/CommunityRelations.tsx",
+      "operations": [
+        "community.content-bookmarks.read",
+        "community.content-bookmarks.update",
+        "community.content-follows.read",
+        "community.content-follows.update",
+        "community.content-follows.updates-read"
       ],
       "auth_profile": "member-session"
     }
