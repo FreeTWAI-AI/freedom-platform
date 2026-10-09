@@ -21,9 +21,9 @@ export async function lockDirectOrder(q: PoolClient, context: DirectEffectContex
 /** Same commerce_items balance and community writer lock as imported commerce.
  * Caller has instance -> community -> profile -> order locks. This direct-only
  * effect does not weaken imported expiry, payment, acceptance or transfer rules. */
-export async function closeDirectOrder(q: PoolClient, context: DirectEffectContext, row: DirectOrderRow, cancel: false | 'buyer_cancelled' | 'seller_cancelled' = false): Promise<DirectOrderRow> {
+export async function closeDirectOrder(q: PoolClient, context: DirectEffectContext, row: DirectOrderRow, cancel: false | 'buyer_cancelled' | 'seller_cancelled' = false, decisionTime?: Date): Promise<DirectOrderRow> {
   if (row.reservation_state !== 'reserved') return row;
-  let now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
+  let now = decisionTime ?? (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
   if (now.getTime() < row.expires_at.getTime() && !cancel) return row;
   const items = (await q.query<{ item_id: string; quantity: number }>(`SELECT item_id,sum(quantity)::int AS quantity
     FROM commerce_order_lines WHERE order_id=$1 AND order_profile='hosted_direct_reservation' GROUP BY item_id ORDER BY item_id`, [row.order_id])).rows;
@@ -85,12 +85,20 @@ export async function directOrderView(q: PoolClient, context: DirectContext, id:
 /** Caller has already locked/authorized this exact direct row. Both actor paths
  * share the same allowlist; private buyer bindings never enter the DTO. */
 export async function directOrderProjection(q: PoolClient, context: DirectEffectContext, row: DirectOrderRow): Promise<HostedOrder> {
-  const saved = (await q.query(`SELECT terms FROM commerce_order_quotes WHERE quote_id=$1 AND public_shop_id=$2 AND buyer_principal_id=$3
-    AND tenant_id=$4 AND instance_id=$5`,
-    [row.quote_id, context.profile.storefront_shop_id, row.buyer_principal_id, context.profile.tenant_id, context.profile.instance_id])).rows[0];
-  requireCondition(saved, 404, 'hosted_order_not_found', '找不到這份訂單。');
-  const { quote_id, quoted_at: _quoted, expires_at: _expires, reserves_stock: _reserves, ...terms } = QuoteSchema.parse(saved.terms);
-  return OrderSchema.parse({ ...terms, quote_id, order_id: row.order_id, client_order_id: row.client_order_id, version: row.reservation_version,
-    state: row.reservation_state, created_at: row.created_at.toISOString(), reservation_expires_at: row.expires_at.toISOString(),
-    closed_at: row.closed_at?.toISOString() ?? null, close_reason: row.close_reason });
+  return (await directOrderProjections(q, context, [row]))[0];
+}
+export async function directOrderProjections(q: PoolClient, context: DirectEffectContext, rows: DirectOrderRow[]): Promise<HostedOrder[]> {
+  if (!rows.length) return [];
+  const quotes = (await q.query(`SELECT quote_id,buyer_principal_id,terms FROM commerce_order_quotes WHERE quote_id=ANY($1::uuid[]) AND public_shop_id=$2
+    AND tenant_id=$3 AND instance_id=$4`,
+    [rows.map(row => row.quote_id), context.profile.storefront_shop_id, context.profile.tenant_id, context.profile.instance_id])).rows;
+  const byId = new Map(quotes.map(quote => [quote.quote_id, quote]));
+  return rows.map(row => {
+    const saved = byId.get(row.quote_id);
+    requireCondition(saved && saved.buyer_principal_id === row.buyer_principal_id, 404, 'hosted_order_not_found', '找不到這份訂單。');
+    const { quote_id, quoted_at: _quoted, expires_at: _expires, reserves_stock: _reserves, ...terms } = QuoteSchema.parse(saved.terms);
+    return OrderSchema.parse({ ...terms, quote_id, order_id: row.order_id, client_order_id: row.client_order_id, version: row.reservation_version,
+      state: row.reservation_state, created_at: row.created_at.toISOString(), reservation_expires_at: row.expires_at.toISOString(),
+      closed_at: row.closed_at?.toISOString() ?? null, close_reason: row.close_reason });
+  });
 }
