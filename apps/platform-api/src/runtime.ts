@@ -100,4 +100,6 @@ export type PlatformRuntime = {
   personalContentEnabled?: boolean;
   /** Owner notification preference release setting; does not authorize Email digests. */
   notificationPreferencesEnabled?: boolean;
+  /** Calendar, voluntary reminders and FIFO waitlists; absent or false keeps new surfaces unavailable. */
+  eventParticipationEnabled?: boolean;
 };

@@ -154,7 +154,7 @@ test('events, feeds and admin statistics omit verification accounts without dele
   assert.equal((await request('/events/'+seats+'/rsvp',third,{going:true})).data.code,'event_full');
   await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,email_sent_at) VALUES($1,'guest@member.test','來賓',now())`,[guests]);
   assert.equal((await request('/events',real)).data.items.find((item:any)=>item.event_id===guests).attending_count,1);
-  await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name) VALUES($1,'waiting@member.test','未寄出')`,[blocked]);
+  await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state) VALUES($1,'waiting@member.test','未寄出','pending')`,[blocked]);
   assert.equal((await request('/events/'+blocked+'/rsvp',real,{going:true})).data.code,'event_full');
   await pool.query(`INSERT INTO community_event_share_codes(event_id,user_id,code) VALUES($1,$2,'real-share-code-01'),($1,$3,'test-share-code-01')`,[shared,sharer.user.user_id,host]);
   assert.equal((await request('/events/'+shared+'/rsvp',self,{going:true,referral_code:'real-share-code-01'})).status,200);

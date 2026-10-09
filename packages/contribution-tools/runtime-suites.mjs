@@ -64,4 +64,5 @@ storefront-presentation-contracts hosted-store hosted-store-isolation hosted-ord
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
 personal-content community-relations notification-preferences
+event-participation-api event-participation-reminders event-reminders-delivery event-waitlist
 `.trim().split(/\s+/)).sort());

@@ -136,6 +136,93 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Event calendar, reminders and waitlists (#256)
+
+The candidate uses migration `138_event_participation.sql`. Apply it **before
+switching source, even with the feature off**: existing RSVP capacity and guest
+acknowledgement paths also use its columns. The new routes and UI require
+`FREEDOM_EVENT_PARTICIPATION_ENABLED=true` (default off); disabled routes return
+404 before authentication. Worker enablement requires a usable `EMAIL.send`
+binding. This is not deployment, sender authorization or trusted CI evidence.
+
+All routes below use `/api/v1`. Member routes retain session, CSRF,
+Idempotency-Key and quoted If-Match controls:
+
+- `GET /events/:id/participation`: current event version, own RSVP/waitlist and
+  available seats, never other participants' identities or contact details.
+- `POST /events/:id/waitlist`: `{action:join|leave|accept|decline,referral_code?}`.
+- `PATCH /events/:id/waitlist-policy`: organizer-only
+  `{waitlist_enabled,response_window_minutes}`; enabling requires an explicit
+  positive safe-integer number of minutes, with no default window.
+- `PATCH /events/:id/schedule`: organizer-only `{starts_at,ends_at,capacity}`;
+  ISO timestamps, end after start, capacity null or 1–500.
+- `GET /events/:id/calendar`: `{calendar,filename}` for a currently readable
+  event. The browser downloads those bytes as a private `.ics` Blob.
+- `GET|PATCH /events/:id/reminder`: the independent reminder version and choice;
+  mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
+  an explicit positive safe-integer lead time and `in_app` or `email`.
+
+Legal public guests request a mailbox management link with
+`POST /public/events/:id/participation-request` and
+`{name,email,referral_code?}`. Requesting it does not register, join the queue or
+enable a reminder. Existing network/email/global registration budgets apply.
+Its acknowledgement means provider acceptance, not inbox delivery.
+The private link uses `#participation=<opaque-token>`; treat it as a bearer
+credential and do not forward it. The client keeps it in memory and sends only
+`X-Event-Participation-Token` to that event's guest participation, calendar or
+reminder endpoint, never query parameters, storage, telemetry or ICS content.
+
+- `GET /public/events/:id/participation|calendar|reminder` returns the authorized
+  guest's projection. `POST .../participation` accepts member queue actions plus
+  `register|cancel`, and `expected_version` matching the quoted event If-Match.
+- `PATCH /public/events/:id/reminder` accepts the reminder choice plus
+  `command_id` matching Idempotency-Key and numeric `expected_version` matching
+  the reminder If-Match; guests may select only `email`.
+- Guest command keys are 8–128 base64url characters. Exact command replays do
+  not create another action or physical send. A stale version returns 412;
+  the UI retains the draft. An unknown response freezes the submitted command
+  for explicit retry with its original key/body/version, while retaining edits.
+
+All new endpoints use `private, no-store` and `noindex, nofollow`. Reads and
+dispatch recheck source visibility, current guild/account eligibility, referral
+codes and verification-test exclusions. Cancelled history remains accessible
+only with a genuine own RSVP or waitlist history; possession of an unrelated
+link or a bare cancelled reservation does not grant access.
+
+An event lock serializes capacity changes, original RSVP and queue commands.
+Occupancy includes confirmed Going, unexpired ten-minute public guest
+reservations and live offers, without counting an identity's own overlapping
+reservation twice. The agreed deduplication boundary is member ID separately
+from trimmed lowercase guest Email; no inferred member/guest identity linking,
+mailbox-alias equivalence or real-person verification is claimed.
+FIFO uses join time with a stable tie-breaker; leaving and rejoining goes to the
+back. Offers reserve seats, require explicit acceptance and expire no later
+than event start. Decline/expiry advances the queue. Capacity cannot fall below
+confirmed/live pending occupancy; excess newest unaccepted offers return to
+their original queue positions. Genuine transitions retain factual history,
+not invented participant actions or attendance.
+
+The existing Worker ten-minute schedule performs bounded round-robin queue
+reconciliation and reminder dispatch; affected mutations also dispatch queue
+updates. There is no minute-precision SLA or automatic scheduler in Node.
+Cancelled RSVP/event stops unsent reminders; rescheduling fences old attempts
+and uses the current start. Durable attempt identities prevent repeating the
+same start/lead/channel send, including a round-trip reschedule. Ambiguous
+physical sends are not automatically retried. Reminder status `provider_accepted`
+means only sender acceptance, `recorded` means a station notification was
+recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
+respect current notification preferences and quiet hours; essential invitation,
+schedule and cancellation notices retain their transactional classification.
+
+ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
+STATUS and RFC text escaping/octet folding. It does not turn private locations
+or joining links into a public calendar feed. Import is a manual snapshot:
+redownload after changes; no automatic subscription/update is promised.
+Isolated browser download, UTC/time-zone and independent parser checks do not
+claim an actual Apple/Google Calendar import, external Email delivery, Worker
+cron deployment, attendance rate, XP, ticketing or payment completion.
+
+
 ## Member avatars
 
 `GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the

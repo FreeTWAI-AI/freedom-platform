@@ -23,6 +23,8 @@ import { SHARED_NETWORK_KEY, type PlatformRuntime } from './runtime.js';
 import { GITHUB_SYNC_REQUEST_BUDGET, syncGitHubRepositories } from '../../../modules/community/github-sync.js';
 import {refreshGuildDiscoveryReports} from '../../../modules/community/guild-discovery.js';
 import {pruneExpiredAuthRecords} from '../../../modules/identity-membership/auth-pruning.js';
+import {processEventWaitlist} from '../../../modules/community/event-waitlist.js';
+import {processEventReminders} from '../../../modules/community/event-reminders.js';
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
 import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
@@ -78,6 +80,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
   FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
+  FREEDOM_EVENT_PARTICIPATION_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -124,6 +127,8 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (typeof env.ASSETS?.fetch !== 'function') throw new ReadinessError('ASSETS binding is required.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED !== undefined && !['true','false'].includes(env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED)) throw new ReadinessError('FREEDOM_PASSWORD_RESET_EMAIL_ENABLED must be true or false.');
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
+  if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_PARTICIPATION_ENABLED))throw new ReadinessError('FREEDOM_EVENT_PARTICIPATION_ENABLED must be true or false.');
+  if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'&&typeof env.EMAIL?.send!=='function')throw new ReadinessError('EMAIL binding is required when event participation is enabled.');
   for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED,env.FREEDOM_MESSAGE_IMAGE_ENABLED]){
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
@@ -233,6 +238,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',
     personalContentEnabled: env.FREEDOM_PERSONAL_CONTENT_ENABLED === 'true',
     notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
+    eventParticipationEnabled: env.FREEDOM_EVENT_PARTICIPATION_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }
@@ -389,6 +395,14 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
       const work = (async () => {
         try {
           pool = createPool(env);
+          if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'){
+            try{
+              const config=readWorkerConfig(env);
+              const send=async(to:string,subject:string,text:string)=>{await env.EMAIL!.send({to,from:'no-reply@mail.freetwai.com',subject,text});};
+              try{await processEventWaitlist(pool,send,config.origin);}catch{console.error('event_waitlist_failed');}
+              try{await processEventReminders(pool,send,{enabled:true});}catch{console.error('event_reminders_failed');}
+            }catch{console.error('event_participation_not_ready');}
+          }
           try{await syncGitHub(pool, {fetcher: deps.githubFetcher, token, budget: GITHUB_SYNC_REQUEST_BUDGET});}
           catch(error){const name=error instanceof Error&&/^[A-Za-z][A-Za-z0-9_]*$/.test(error.name)?error.name:'unknown';console.error('github_sync_failed',name);}
           if(env.FREEDOM_REGISTRATION_COMMUNITY_ID){

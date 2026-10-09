@@ -171,8 +171,9 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   },[client,userId,feedEnabled,append,preferencesEnabled])
 
   useEffect(() => {
-    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'page_error')}
-    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: consoleChannel('system_background_error'), level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'unhandled_rejection')}
+    const pageAction=()=>`UI /${window.location.hash.startsWith('#participation=')?'#events':window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`;
+    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(pageAction(),'page_error')}
+    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: consoleChannel('system_background_error'), level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(pageAction(),'unhandled_rejection')}
     const online = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'success', kind: 'status', source: '網路', message: '網路連線已恢復。'})
     const offline = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'warning', kind: 'status', source: '網路', message: '目前離線；尚未送出的操作請保留並稍後重試。'})
     window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onRejection)

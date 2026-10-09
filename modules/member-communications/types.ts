@@ -9,6 +9,7 @@ export const NOTIFICATION_KINDS=[
   'guild_master_appointed','guild_master_revoked',
   'guild_member_promoted','guild_member_demoted',
   'event_submitted','event_review_needed','event_approved','event_rejected',
+  'event_waitlist_invited','event_schedule_changed','event_cancelled','event_start_reminder',
 ] as const;
 export type NotificationKind=typeof NOTIFICATION_KINDS[number];
 
@@ -23,7 +24,7 @@ export type NotificationAction=
   |{tab:'squads';resource_id:string|null}
   |{tab:'guilds';resource_id:string|null}
   |{tab:'guild-workspace';resource_id:string|null}
-  |{tab:'events';resource_id:null};
+  |{tab:'events';resource_id:string|null};
 
 export type Notification={
   notification_id:string;kind:NotificationKind;title:string;body:string;
