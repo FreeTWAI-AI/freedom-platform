@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { MyStoresSchema, StoreSetupInputSchema, StoreUpdateInputSchema, StoreViewSchema, type StoreView } from '../../../contracts/guild-launchpad/v1/storefront.js';
+import { StoreSetupInputSchema, StoreUpdateInputSchema, StoreViewSchema, type StoreView } from '../../../contracts/guild-launchpad/v1/storefront.js';
+import { MyStoresPageSchema } from '../../../contracts/guild-launchpad/v1/storefront-pagination.js';
 import type { StoreTemplate } from '../../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import { checkVersion } from '../../../packages/db/index.js';
 import { assertCurrentSessionClock, lockMemberSession } from '../../../packages/db/member-session.js';
@@ -10,6 +11,7 @@ import { scopedJournal, scopedTenantCommand } from '../../../packages/scoped-com
 import { Problem, requireCondition } from '../../../packages/shared/problem.js';
 import type { Actor } from '../../identity-membership/service.js';
 import { effectiveStoreCapabilities, requireStoreInstance, storeCapabilities, STORE_MISSING } from './capabilities.js';
+import { encodeCursor, readCursor } from '../../tenant-workspaces/facts.js';
 
 export const SLUG_PATTERN = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 const reserved = new Set('admin api app apps assets auth billing cart checkout dashboard default freedom freetwai guild guilds help home login logout me new official order orders pay payment platform preview root search services settings shop shops signup static store stores support system test www'.split(' '));
@@ -160,14 +162,16 @@ export async function updateStore(pool: Pool, actor: Actor, tenantId: string, in
     return storeView(q, context, inst);
   });
 }
-export async function listMyStores(pool: Pool, actor: Actor) {
+export async function listMyStores(pool: Pool, actor: Actor, cursor?: string) {
   return isolatedTransaction(pool, async q => {
     await lockMemberSession(q, actor);
     const principal = await mapPersonPrincipal(q, actor.user_id);
     requireCondition(principal.status === 'active', 403, 'principal_disabled', '這個身分目前無法使用。');
     await bindPrincipalContext(q, principal.principal_id);
+    const after = readCursor(cursor, principal.principal_id, 'my_stores', null);
     const tenants = (await q.query<{ tenant_id: string }>(`SELECT t.tenant_id FROM tenant_memberships m JOIN tenants t USING(tenant_id)
-      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 ORDER BY t.tenant_id LIMIT 101`, [principal.principal_id, actor.community_id])).rows;
+      WHERE m.principal_id=$1 AND m.status='active' AND t.community_id=$2 AND ($3::uuid IS NULL OR t.tenant_id>$3)
+      ORDER BY t.tenant_id LIMIT 101`, [principal.principal_id, actor.community_id, after])).rows;
     const items = [];
     for (const t of tenants.slice(0, 100)) {
       try {
@@ -187,6 +191,6 @@ export async function listMyStores(pool: Pool, actor: Actor) {
       await clearTenantContext(q); await bindPrincipalContext(q, principal.principal_id);
     }
     await assertCurrentSessionClock(q, actor);
-    return MyStoresSchema.parse({ items, truncated: tenants.length > 100 });
+    return MyStoresPageSchema.parse({ items, next_cursor: tenants.length > 100 ? encodeCursor(principal.principal_id, 'my_stores', null, tenants[99].tenant_id) : null });
   });
 }

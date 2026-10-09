@@ -50,16 +50,17 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
 function BackLink() { return <div className="actions"><a href="#stores" className="btn btn-ghost">返回我的商店</a></div>; }
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
 function StoreList({client}: {client: PortalClient}) {
-  const {data, error, retry} = useMyStores(client);
+  const {data, error, retry, loadMore, loadingMore, pageError} = useMyStores(client);
   return <div className="hosted-store stack">
     {error ? <><p role="alert">暫時無法讀取你的商店。</p><div className="actions"><button type="button" className="btn btn-ghost" onClick={retry}>重試</button></div></> : !data ? <p role="status">正在確認你的商店…</p> : <>
-      {data.items.length === 0 && <><p>你還沒有商店。</p><div className="actions"><a className="btn btn-ghost" href="#guilds/guild_commerce_sales">前往電商與銷售公會建立</a></div></>}
+      {data.items.length === 0 && !data.next_cursor && <><p>你還沒有商店。</p><div className="actions"><a className="btn btn-ghost" href="#guilds/guild_commerce_sales">前往電商與銷售公會建立</a></div></>}
       {data.items.map(item => <article className="card stack" key={item.instance_id}>
         <h2>{item.name ?? '尚未完成設定的商店'}</h2><p>業務空間：{item.tenant_display_name}</p><p>{stateWord(item)}</p>
         <div className="actions"><a className="btn btn-primary" href={`#stores/${item.tenant_id}/${item.instance_id}`}>進入我的商店</a>
           {item.publication_state === 'published' && item.public_path && <a href={item.public_path} target="_blank" rel="noopener">查看公開頁</a>}</div>
       </article>)}
-      {data.truncated && <p className="field-hint">目前只列出前面的商店，清單尚未包含全部商店。</p>}
+      {pageError && <p role="alert">暫時無法載入其餘商店，請重試。</p>}
+      {data.next_cursor && <div className="actions"><button type="button" className="btn btn-ghost" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? '正在載入…' : pageError ? '重試載入其餘商店' : '載入更多商店'}</button></div>}
     </>}
   </div>;
 }
