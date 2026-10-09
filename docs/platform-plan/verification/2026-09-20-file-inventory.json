@@ -1649,8 +1649,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 52224,
-      "sha256": "1e37c282c904405f91a211664fa34208b109137854b07ae5c64387ccc2bacac8"
+      "bytes": 52123,
+      "sha256": "f160c0a5372877453f31c7a77eb4ac5a0b87165beccc65c308a06f230e0d3270"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2094,8 +2094,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EntryResources.tsx",
-      "bytes": 1510,
-      "sha256": "c8d9c70302f6abefb905613904b39e5a17937bf545aa483486094f478e21cc51"
+      "bytes": 1780,
+      "sha256": "2b06c5a1ab8036948156d17823447d718f96a09cd0842d76a93c707ae2621ee6"
     },
     {
       "path": "apps/portal-web/src/modules/EventCalendar.css",
@@ -19279,8 +19279,8 @@
     },
     {
       "path": "tests/e2e/community-search.spec.ts",
-      "bytes": 11120,
-      "sha256": "f639ba37f90093f80a19a71cc838a734e6e679e57a1c1efa4a5ae2773fd322ec"
+      "bytes": 11960,
+      "sha256": "b246e8f7030b5900e915e129053cd6c47da50ba5cda1e23ccb640fd68917cee9"
     },
     {
       "path": "tests/e2e/connection-feedback-layout.spec.ts",
