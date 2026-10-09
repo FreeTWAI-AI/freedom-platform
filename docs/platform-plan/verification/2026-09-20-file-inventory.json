@@ -17539,8 +17539,8 @@
     },
     {
       "path": "modules/opportunity-project-work/README.md",
-      "bytes": 15027,
-      "sha256": "e947203e2236924962a6e9360b65c3a927e46dd70eb510d341ffefd9bc0d6f9e"
+      "bytes": 16359,
+      "sha256": "3ea05a9d9ae478ffed7d8591b776c1879970dfeec12598414a9198e83b3c0519"
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
@@ -17594,8 +17594,8 @@
     },
     {
       "path": "modules/opportunity-project-work/work.ts",
-      "bytes": 14288,
-      "sha256": "bf45b6ada49447b0dd65032eb4d1fc588c4347a40e5a241e5ad706736e0aaeb4"
+      "bytes": 15226,
+      "sha256": "de67a12f2bb65b8626abc980971207ed5f0a4d3152e4099efa73f84218e81188"
     },
     {
       "path": "modules/platform-admin/access-sync.ts",
@@ -20534,8 +20534,8 @@
     },
     {
       "path": "tests/runtime/flows.test.ts",
-      "bytes": 26680,
-      "sha256": "2f079c3786c0425a0b7377d18b86c9ec97f1b37938dbd5babd5f3add6e471a00"
+      "bytes": 31639,
+      "sha256": "21a1f666ffcc0f4991d182e571198352e1b54aff04c29ccb8ca42a02b922ec43"
     },
     {
       "path": "tests/runtime/freedom_env.test.ts",
