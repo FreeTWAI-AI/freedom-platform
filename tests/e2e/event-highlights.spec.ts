@@ -194,7 +194,9 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
   await login(page);
   await page.goto(`/#highlights/${ONLINE}`);
   await expect(page.getByRole('heading', {name: '線上分享回顧', level: 2})).toBeVisible();
-  await expect(page.getByText('這一頁是公開的，任何拿到連結的人都看得到。')).toBeVisible();
+  const notice = page.locator('.hl-notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText('公開活動的公開內容可供任何人閱讀；私人成果與草稿不會自動公開。');
   const banner = page.locator('.hl-frame img').first();
   await expect(banner).toBeVisible();
   await expect.poll(() => banner.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);

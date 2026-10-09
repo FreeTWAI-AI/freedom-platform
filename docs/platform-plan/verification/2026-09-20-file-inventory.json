@@ -14770,7 +14770,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 22205,
-      "sha256": "4391d7e718e438390921acec8301093f20e107cba4ce9256887f7a921b3e2c21"
+      "sha256": "e3c989f2d309c03a41e2978c64c55dd8acdc2d381bbc2b30b0eaf1996276ff1f"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -19624,8 +19624,8 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 28804,
-      "sha256": "029af7a62a74fb82c2eebe924a8bf53b0b236cd612a2db60dbc2f9fbc5a60585"
+      "bytes": 28906,
+      "sha256": "fd092583316898f2ae246da6c1f9849c78d32600a4dd174c2a2d7f59fb81c485"
     },
     {
       "path": "tests/e2e/event-outcomes.spec.ts",
@@ -21909,8 +21909,8 @@
     },
     {
       "path": "tests/worker/event-highlight-assets.test.ts",
-      "bytes": 16126,
-      "sha256": "0313e4f590dece9a041a99507b42b25039f4f3f1dd6f5a2ac49b26a1bcfc6ebd"
+      "bytes": 16115,
+      "sha256": "c393d2fa9537434c10b858d5030e9ea56db0c54c6f290e583fe7d53a1898e85e"
     },
     {
       "path": "tests/worker/event-video-assets.test.ts",
