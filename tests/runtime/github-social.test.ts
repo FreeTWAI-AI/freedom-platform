@@ -16,6 +16,7 @@ const snapshot={stargazers_count:42,forks_count:7,open_issues_count:11,subscribe
 type Call={url:string;method:string;headers:Headers;body:string};
 class GitHubMock {
   calls:Call[]=[];starred=false;expires=28800;metricsStatus=200;stats={...snapshot};tokenFailure=false;userId=12345;revokeFailure=false;starStatus=204;
+  following=false;followStatus=204;followHeaders:Record<string,string>={};
   fetch:typeof fetch=async(input,init={})=>{
     const url=String(input),method=init.method??'GET',headers=new Headers(init.headers),body=String(init.body??'');this.calls.push({url,method,headers,body});
     assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');assert.ok(init.signal);assert.equal(headers.get('x-github-api-version'),'2026-03-10');
@@ -26,6 +27,12 @@ class GitHubMock {
       return Response.json({access_token:refresh?'ghu_refreshed':'ghu_synthetic',refresh_token:refresh?'ghr_rotated':'ghr_synthetic',token_type:'bearer',scope:'',expires_in:refresh?28800:this.expires,refresh_token_expires_in:15897600});
     }
     if(url==='https://api.github.com/user')return Response.json({id:this.userId,login:'verified-github-user'});
+    if(url==='https://api.github.com/user/following/source-author'){
+      if(this.followStatus!==204)return Response.json({message:'synthetic follow denial'},{status:this.followStatus,headers:this.followHeaders});
+      if(method==='GET')return new Response(null,{status:this.following?204:404});
+      assert.equal(headers.get('content-length'),'0');assert.equal(headers.get('authorization'),'Bearer ghu_synthetic');
+      this.following=method==='PUT';return new Response(null,{status:204});
+    }
     if(url===`https://api.github.com/user/starred/${repository}`){
       if(method==='GET')return new Response(null,{status:this.starred?204:404});
       if(this.starStatus!==204)return Response.json({message:'synthetic denial'},{status:this.starStatus});
@@ -54,6 +61,50 @@ async function connect(service=social,memberActor=actor){
   const start=await service.start(memberActor,'#guilds'),state=new URL(start.authorization_url).searchParams.get('state')!;
   return {start,state,complete:await service.complete(memberActor,state,'synthetic-code')};
 }
+
+test('GitHub author follow and unfollow use member token, confirm state and remain separate from workshop support',async()=>{
+  assert.deepEqual(await social.following(actor,'source-author'),{username:'source-author',connected:false,following:null});
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_connect_required'));
+  const connected=await connect();assert.equal(new URL(connected.start.authorization_url).searchParams.has('scope'),false);
+  assert.equal((await social.following(actor,'source-author')).following,false);
+  assert.equal((await social.follow(actor,'source-author',true)).confirmed,true);
+  assert.equal((await social.following(actor,'source-author')).following,true);
+  await social.follow(actor,'source-author',true);
+  await social.follow(actor,'source-author',false);
+  assert.equal((await social.following(actor,'source-author')).following,false);
+  assert.equal((await pool.query('SELECT count(*) FROM skill_star_support')).rows[0].count,'0');
+  await assert.rejects(()=>social.follow(other,'source-author',true),errorCode('github_connect_required'));
+  const calls=mock.calls.length;
+  await assert.rejects(()=>social.follow(actor,'../user',true));assert.equal(mock.calls.length,calls);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[actor.session_hash]);
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('session_expired'));
+});
+
+test('GitHub follow permission denial requests reauthorization without discarding valid connection',async()=>{
+  await connect();mock.followStatus=403;
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_follow_permission_required'));
+  assert.equal((await social.session(actor)).connected,true);assert.equal(mock.following,false);
+});
+
+test('GitHub follow 401 removes expired credentials; 403 and 429 rate limits retain them',async()=>{
+  await connect();
+  for(const status of [403,429]){
+    mock.followStatus=status;mock.followHeaders=status===403?{'x-ratelimit-remaining':'0'}:{};
+    await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_rate_limited'));
+    assert.equal((await social.session(actor)).connected,true);
+  }
+  mock.followStatus=401;mock.followHeaders={};
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_reconnect_required'));
+  assert.equal((await social.session(actor)).connected,false);
+});
+
+test('GitHub follow member write budget stops requests before reaching provider',async()=>{
+  await connect();
+  for(let index=0;index<30;index++)await social.follow(actor,'source-author',true);
+  const calls=mock.calls.length;
+  await assert.rejects(()=>social.follow(actor,'source-author',false),errorCode('github_rate_limited'));
+  assert.equal(mock.calls.length,calls);
+});
 
 test('only successful member-directed GitHub writes enter workshop rankings; reads and rejected writes do not',async()=>{
   await connect();mock.starred=true;

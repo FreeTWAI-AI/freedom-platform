@@ -17,6 +17,7 @@ const fetcher:typeof fetch=async(input,init)=>{
  if(u.origin==='https://github.com'&&u.pathname==='/login/oauth/access_token')return Response.json({access_token:'ghu_synthetic_route_test',token_type:'bearer',scope:'',expires_in:28800,refresh_token:'ghr_synthetic_route_test',refresh_token_expires_in:15897600});
  assert.equal(u.origin,'https://api.github.com');
  if(u.pathname==='/user')return Response.json({id:901,login:'actual-member'});
+ if(u.pathname==='/user/following/source-author')return new Response(null,{status:init?.method==='PUT'||init?.method==='DELETE'?204:404});
  if(u.pathname.startsWith('/user/starred/')){
   if(init?.method==='PUT')starred=true;else if(init?.method==='DELETE')starred=false;
   return new Response(null,{status:init?.method==='PUT'||init?.method==='DELETE'||starred?204:404});
@@ -57,6 +58,23 @@ after(async()=>{await pool.end();await database.query(`DROP SCHEMA ${schema} CAS
 beforeEach(async()=>{
  await pool.query('TRUNCATE communities,login_attempts,auth_rate_limits,github_repository_metrics CASCADE');await seedLocal(pool);
  calls=[];starred=false;issueWrites=0;issueStatus=201;issueBody='';commentWrites=0;commentStatus=201;commentBody='';app=createApp(pool,origin,'local',{githubSocial:{config,fetcher}});member=await login();
+});
+
+test('author follow routes enforce session, CSRF, origin and explicit confirmed desired state',async()=>{
+ const path='/me/github/authors/source-author/follow',body={following:true,confirmed:true};
+ assert.equal((await app.request(origin+'/api/v1'+path)).status,401);
+ assert.equal((await request(path,body,member,{'X-CSRF-Token':'wrong'})).status,403);
+ assert.equal((await request(path,body,member,{Origin:'https://elsewhere.invalid'})).status,403);
+ assert.equal((await request(path,{following:true})).status,422);
+ assert.equal((await request(path,{...body,username:'another'})).status,422);
+ await connect();
+ assert.equal((await request(path)).status,200);
+ const result=await request(path,body);assert.equal(result.status,200);
+ assert.deepEqual(await result.json(),{username:'source-author',connected:true,following:true,confirmed:true});
+ assert.equal((await request(path,{following:false,confirmed:true})).status,200);
+ assert.ok(calls.some(call=>call.path==='/user/following/source-author'&&call.method==='PUT'&&call.authorization==='Bearer ghu_synthetic_route_test'));
+ assert.ok(calls.some(call=>call.path==='/user/following/source-author'&&call.method==='DELETE'));
+ const other=await login(1);assert.equal((await request(path,body,other)).status,409);
 });
 
 test('member issue submission uses that member’s GitHub token and keeps the page marker without duplicate writes',async()=>{
