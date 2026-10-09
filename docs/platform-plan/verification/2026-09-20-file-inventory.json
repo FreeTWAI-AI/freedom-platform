@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 20983,
-      "sha256": "27920d71f1d5b8396adba0ea302f89d2952fc7f41d4fb97fc1f4eb308e5160b0"
+      "bytes": 21326,
+      "sha256": "879884d432d1445fbdeb9bf2e754b01ccd31c2d3b3f57840e00ac7e77e45a67b"
     },
     {
       "path": "compose.yaml",
@@ -13371,6 +13371,11 @@
       "path": "docs/development/community-author-skills.md",
       "bytes": 8889,
       "sha256": "ebbf399c846712d6d9456754c16966fc63905133fbf2ed3ef4c4d83045f9672a"
+    },
+    {
+      "path": "docs/development/community-curation-handoff.md",
+      "bytes": 8580,
+      "sha256": "4b03b15c347dd6f04049358dd3acb96dc288d9e3603a795d93cca5195a29c645"
     },
     {
       "path": "docs/development/daily-recovery-backup-installation.md",
