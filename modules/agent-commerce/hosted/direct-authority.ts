@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { performance } from 'node:perf_hooks';
 import type { Actor } from '../../identity-membership/service.js';
-import { lockMemberScope, type MemberScopeContext } from '../../../packages/resource-scopes/index.js';
+import { lockMemberScope, type MemberScopeContext, type TenantScopeContext } from '../../../packages/resource-scopes/index.js';
 import { HOSTED_ORDER_PROFILE, ReadinessSchema } from '../../../contracts/guild-launchpad/v1/hosted-order.js';
 import { StoreSlugSchema } from '../../../contracts/guild-launchpad/v1/storefront.js';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../../packages/resource-scopes/tenant-transaction.js';
@@ -12,6 +12,8 @@ import { profile, ready, type Profile } from './store.js';
 
 export type DirectOperation = 'storefront.quote.create' | 'storefront.order.submit' | 'storefront.order.cancel' | 'storefront.order.read';
 export type Target = { slug: string } | { order_id: string };
+export type DirectEffectContext = { profile: Profile; operation: string; reservationDeadline?: Date }
+  & ({ member: MemberScopeContext } | { tenant: TenantScopeContext });
 export interface DirectContext {
   member: MemberScopeContext; profile: Profile; operation: DirectOperation;
   /** Set only for a newly created effect, never a committed outcome replay. */
@@ -71,8 +73,8 @@ async function authorize(q: PoolClient, actor: Actor, member: MemberScopeContext
   return p;
 }
 
-export async function directFact(q: PoolClient, context: DirectContext, id: string, version: string, state: string) {
-  await scopedJournal(q, context.member, { aggregate_type: 'hosted_order', id, version, operation: context.operation,
+export async function directFact(q: PoolClient, context: DirectEffectContext, id: string, version: string, state: string) {
+  await scopedJournal(q, 'tenant' in context ? context.tenant : context.member, { aggregate_type: 'hosted_order', id, version, operation: context.operation,
     data: { order_id: id, state }, eventType: 'freedom.hosted.order.reservation.changed.v1' });
 }
 async function decisionClock(q: PoolClient, context: DirectContext) {

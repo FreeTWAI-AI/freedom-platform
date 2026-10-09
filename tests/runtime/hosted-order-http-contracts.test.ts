@@ -1,3 +1,4 @@
+import { scopedTenantCommand } from '../../packages/scoped-commands/index.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Pool } from 'pg';
@@ -30,4 +31,10 @@ test('buyer recovery routes require the actual member cookie even with admission
     assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
   }
   assert.equal(connections, 0);
+});
+
+test('tenant runner is internal and an invalid runner fails before acquiring any connection', async () => {
+  const pool = { connect: () => { throw new Error('must not connect'); } } as unknown as Pool;
+  await assert.rejects(scopedTenantCommand(pool, {} as never, async () => {}, async () => ({}), undefined, undefined, 'invalid' as never),
+    (error: any) => error.code === 'invalid_scoped_command');
 });

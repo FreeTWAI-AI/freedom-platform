@@ -1,10 +1,14 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {Pool} from 'pg';
+import {serve} from '@hono/node-server';
+import {serveStatic} from '@hono/node-server/serve-static';
+import {migrate} from '../../scripts/database.js';
+import {createApp} from '../../apps/platform-api/src/app.js';
 import {test,expect,type Browser,type Page,type Locator} from './fixtures.js';
 import {LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {e2eSchema} from '../../packages/testing/e2e-auth-isolation.js';
-import {DEMO_COMMUNITY,DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {seedLocal,DEMO_COMMUNITY,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import {reviewGuildApplication} from '../../modules/platform-admin/service.js';
 
@@ -20,9 +24,11 @@ type Account={user_id:string;email:string;display_name:string};
 type Owned={users:string[];admins:string[];applications:string[];guilds:string[];squads:string[]};
 const copy={guild:{tab:'公會閒聊',back:'回到職業公會',hash:'#guilds'},squad:{tab:'小隊閒聊',back:'回到小隊集合',hash:'#squads'}} as const;
 
-function database(){
-  return new Pool({connectionString:process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,options:`-c search_path=${e2eSchema(process.env.FREEDOM_E2E_SCHEMA)}`,max:4});
-}
+// Same isolated schema + real HTTP host pattern as admin.spec.ts. The guild catalog
+// intentionally refuses multi-community approval; hosted reservation fixtures retain
+// their cross-community facts in the shared schema and must not be deleted/rebound.
+let dropChannelSchema:(()=>Promise<void>)|undefined;
+test.afterEach(async()=>{const drop=dropChannelSchema;dropChannelSchema=undefined;if(drop)await drop();});
 /** Finished members (onboarding_required=false) with the documented local demo password and no guild or squad yet. */
 async function accounts(db:Pool,own:Owned,run:string,roles:[slug:string,label:string][]):Promise<Account[]>{
   const result:Account[]=[];
@@ -89,13 +95,42 @@ async function removeOwned(db:Pool,own:Owned){
   }catch(error){await client.query('ROLLBACK').catch(()=>undefined);throw error;}
   finally{client.release();}
 }
-/** Runs a case, then always closes its browsers, removes its rows and ends the pool; no failure hides another. */
-async function owning(body:(db:Pool,own:Owned,opened:Member[])=>Promise<void>){
-  const db=database(),own:Owned={users:[],admins:[],applications:[],guilds:[],squads:[]},opened:Member[]=[],errors:unknown[]=[];
-  try{await body(db,own,opened);}catch(error){errors.push(error);}
-  for(const m of opened)await m.context.close().catch(error=>errors.push(error));
-  await removeOwned(db,own).catch(error=>errors.push(error));
-  await db.end().catch(error=>errors.push(error));
+/** All scenario SQL and browser traffic use this case's schema and real loopback host. */
+async function owning(body:(db:Pool,own:Owned,opened:Member[],origin:string)=>Promise<void>){
+  e2eSchema(process.env.FREEDOM_E2E_SCHEMA); // Preserve the local-only harness guard.
+  const connectionString=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
+  const schema=`fp_channel_browser_${randomUUID().replaceAll('-','')}`;
+  const admin=new Pool({connectionString,max:1});
+  const db=new Pool({connectionString,options:`-c search_path=${schema}`,application_name:schema,max:4});
+  const own:Owned={users:[],admins:[],applications:[],guilds:[],squads:[]},opened:Member[]=[],errors:unknown[]=[];
+  let server:ReturnType<typeof serve>|undefined,dropping:Promise<void>|undefined,created=false,ready=false;
+  const drop=()=>dropping??=(async()=>{
+    const cleanupErrors:unknown[]=[];
+    for(const m of opened)await m.context.close().catch(error=>cleanupErrors.push(error));
+    if(server)await new Promise<void>(resolve=>{server!.close(()=>resolve());if('closeAllConnections' in server!)server!.closeAllConnections();});
+    // Keep existing exact-row cleanup assertions; whole-schema teardown also runs
+    // after setup failure/timeout and never disables immutable identity guards.
+    if(ready)await removeOwned(db,own).catch(error=>cleanupErrors.push(error));
+    await db.end().catch(error=>cleanupErrors.push(error));
+    try{if(created)await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);}
+    finally{await admin.end();}
+    if(cleanupErrors.length)throw new AggregateError(cleanupErrors,'Owned channel fixture cleanup failed');
+  })();
+  dropChannelSchema=drop;
+  try{
+    await admin.query(`CREATE SCHEMA ${schema}`);created=true;
+    await migrate(db);await seedLocal(db);ready=true;
+    expect((await db.query('SELECT count(*)::int AS n FROM communities')).rows[0].n).toBe(1);
+    let app:ReturnType<typeof createApp>|undefined;
+    server=serve({hostname:'127.0.0.1',port:0,fetch:request=>app?app.fetch(request):new Response(null,{status:503})});
+    if(!server.listening)await new Promise<void>((resolve,reject)=>{server!.once('listening',resolve);server!.once('error',reject);});
+    const address=server.address();if(!address||typeof address==='string')throw Error('Owned channel listener unavailable');
+    const origin=`http://127.0.0.1:${address.port}`;
+    app=createApp(db,origin,'local');
+    app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
+    await body(db,own,opened,origin);
+  }catch(error){errors.push(error);}
+  finally{await drop().catch(error=>errors.push(error));}
   if(errors.length===1)throw errors[0];
   if(errors.length)throw new AggregateError(errors,errors.map(String).join('\n'));
 }
@@ -145,16 +180,16 @@ async function noOverflow(page:Page){expect(await page.evaluate(()=>document.doc
 async function tall(locators:Locator[]){for(const locator of locators){const box=await locator.boundingBox();expect(box,String(locator)).not.toBeNull();expect(box!.height,String(locator)).toBeGreaterThanOrEqual(44);}}
 async function shot(page:Page,name:string){await page.evaluate(()=>scrollTo(0,0));const path=`${SHOTS}/${name}.png`;await page.screenshot({path,fullPage:true});return path;}
 
-test('two synthetic members chat in their own guild and squad through the real UI, API and PostgreSQL',async({browser,baseURL})=>{
+test('two synthetic members chat in their own guild and squad through the real UI, API and PostgreSQL',async({browser})=>{
   test.setTimeout(120000);mkdirSync(SHOTS,{recursive:true});
   const run=randomUUID().slice(0,8);
-  await owning(async(db,own,opened)=>{
+  await owning(async(db,own,opened,origin)=>{
     const [senderAccount,receiverAccount,thirdAccount]=await accounts(db,own,run,[['sender','寄件人'],['receiver','收件人'],['third','旁觀者']]);
     const guildName=`E2E頻道公會 ${run}`,squadName=`E2E頻道小隊 ${run}`;
     const guild=await approvedGuild(db,own,senderAccount,guildName);
-    const sender=await member(browser,baseURL!,senderAccount,{width:1280,height:900});opened.push(sender);
-    const receiver=await member(browser,baseURL!,receiverAccount,{width:320,height:844});opened.push(receiver);
-    const third=await member(browser,baseURL!,thirdAccount,{width:1280,height:900});opened.push(third);
+    const sender=await member(browser,origin,senderAccount,{width:1280,height:900});opened.push(sender);
+    const receiver=await member(browser,origin,receiverAccount,{width:320,height:844});opened.push(receiver);
+    const third=await member(browser,origin,thirdAccount,{width:1280,height:900});opened.push(third);
     for(const m of [sender,receiver,third])await joinGuild(m,guild);
     const squad=await newSquad(own,sender,squadName);await joinSquad(db,squad,receiver,sender);await joinSquad(db,squad,third,sender);
     const room={guild:{key:guild,name:guildName},squad:{key:squad,name:squadName}};
@@ -281,15 +316,15 @@ test('two synthetic members chat in their own guild and squad through the real U
   });
 });
 
-test('after leaving a guild and a squad through the real API, the open chat clears its history, closes sending and returns to the entry',async({browser,baseURL})=>{
+test('after leaving a guild and a squad through the real API, the open chat clears its history, closes sending and returns to the entry',async({browser})=>{
   test.setTimeout(120000);mkdirSync(SHOTS,{recursive:true});
   const run=randomUUID().slice(0,8);
-  await owning(async(db,own,opened)=>{
+  await owning(async(db,own,opened,origin)=>{
     const [stayerAccount,leaverAccount]=await accounts(db,own,run,[['stayer','留下者'],['leaver','退出者']]);
     const guildName=`E2E退出公會 ${run}`,squadName=`E2E退出小隊 ${run}`;
     const guild=await approvedGuild(db,own,stayerAccount,guildName);
-    const stayer=await member(browser,baseURL!,stayerAccount,{width:1280,height:900});opened.push(stayer);
-    const leaver=await member(browser,baseURL!,leaverAccount,{width:320,height:844});opened.push(leaver);
+    const stayer=await member(browser,origin,stayerAccount,{width:1280,height:900});opened.push(stayer);
+    const leaver=await member(browser,origin,leaverAccount,{width:320,height:844});opened.push(leaver);
     for(const m of [stayer,leaver])await joinGuild(m,guild);
     // The stayer owns the squad, so the leaver is an ordinary member who may leave; the guild is not the leaver's primary.
     const squad=await newSquad(own,stayer,squadName);await joinSquad(db,squad,leaver,stayer);

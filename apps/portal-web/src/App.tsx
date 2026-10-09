@@ -1,3 +1,5 @@
+import {sellerOrdersRoute} from './modules/hosted-seller-order-state'
+import {buyerRoute} from './modules/hosted-order-state'
 import { client, PortalContext, describeError, isOwnRef, type ActionError, type PortalContextValue } from './portal-session'
 import { ErrorPanel } from './portal-feedback'
 import { Navigation, TAB_TITLES } from './Navigation'
@@ -59,6 +61,7 @@ const PublicEventPage = lazy(() => import('./modules/PublicEventPage').then(m =>
 const TaskBoardPanel = lazy(() => import('./modules/TaskBoardPanel').then(m => ({default: m.TaskBoardPanel})))
 const WelcomePreview = lazy(() => import('./modules/WelcomePreview').then(m => ({default: m.WelcomePreview})))
 const MemberGuildWorkspace = lazy(() => import('./modules/GuildWorkspace').then(m => ({default: m.MemberGuildWorkspace})))
+const HostedOrderPage = lazy(() => import('./modules/HostedOrder').then(m => ({default: m.HostedOrderPage})))
 const HostedStore = lazy(() => import('./modules/HostedStore').then(m => ({default: m.HostedStore})))
 const TenantSettings = lazy(() => import('./modules/TenantSettings').then(m => ({default: m.TenantSettings})))
 const PositioningPanel = lazy(() => import('./modules/PositioningPanels').then(m => ({default: m.PositioningPanel})))
@@ -97,7 +100,8 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   retail: '挑商品、下載 MD，讓 AI 製作公開商店。',
   marketing: '撰寫介紹草稿並記錄分享成果。',
   'guild-workspace': '管理你有權負責的公會資訊與技能書。',
-  stores: '建立與管理你的商店：上架商品、預覽並發布展示頁；交易尚未啟用。',
+  reservations: '查看本人預留；預留不代表付款或出貨。',
+  stores: '管理商店展示與店主預留紀錄；預留不代表付款或履約。',
   business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
   'community-search': '依關鍵字、類型與主題搜尋目前可閱讀的社群內容。',
@@ -296,7 +300,7 @@ function MemberApp() {
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
       ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?t(`intent.${entryIntent}`):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
-      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent)window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash + '/orders'))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
@@ -534,6 +538,14 @@ function Workspace({
   const pageLeaveGuard = useRef<(() => boolean) | null>(null)
   const acceptedHash = useRef(window.location.hash)
   const registerPageLeave = useCallback((guard: (() => boolean) | null) => { pageLeaveGuard.current = guard }, [])
+  const replaceBuyerLocation = useCallback((hash: string) => {
+    if (!buyerRoute(hash)) return
+    // Only the buyer page uses this after holding/confirming its exact attempt.
+    acceptedHash.current = hash
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
+    setLocationHash(hash)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }, [])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationTarget,setNotificationTarget]=useState<(BellAction&{sequence:number})|null>(null)
   const notificationSequence=useRef(0)
@@ -764,6 +776,7 @@ function Workspace({
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
+            {tab === 'reservations' && <HostedOrderPage key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} locationHash={locationHash} registerLeave={registerPageLeave} replaceLocation={replaceBuyerLocation} />}
             {tab === 'stores' && <HostedStore client={client} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
@@ -787,12 +800,13 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
+  if(value === 'reservations' || value.startsWith('reservations/'))return 'reservations'
   if(value.split('?')[0]==='community-search')return 'community-search'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
-  if(value === 'stores' || value.startsWith('stores/'))return launchpadEnabled ? 'stores' : 'home'
+  if(value === 'stores' || value.startsWith('stores/'))return 'stores'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'

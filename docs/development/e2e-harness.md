@@ -59,6 +59,10 @@ pin 更新，才對 pinned PR gate 生效。舊 run 保留真實失敗，不靠�
 
 每一輪的 schema 必須符合 `fp_e2e_` 加 32 個十六進位字元。`playwright.config.ts` 在沒有 `FREEDOM_E2E_SCHEMA` 時用去掉連字號的 UUID 組出這個名字。`e2eSchema()` 拒絕其他名字，也拒絕 `NODE_ENV=production` 或 `FREEDOM_ENV` 已設且不是 `local`。伺服器對這個名字 `CREATE SCHEMA`，連線的 `search_path` 與 `application_name` 都是它。`fixtures.ts` 要求 worker 數為 1；案例之間只 `TRUNCATE` 該 schema 的 `auth_rate_limits` 與 `login_attempts`，而且目前 schema 必須就是這一輪，否則拒絕。
 
+本機 server 在 `seedLocal` 完成後，將自己的 `FREEDOM_REGISTRATION_COMMUNITY_ID` 明確設為同一個合成 `DEMO_COMMUNITY`。這是既有 Node runtime 支援的註冊設定，只作用於該 E2E server 行程；不用操作者環境提供社群 ID。後續案例建立其他社群時，新註冊仍進入 DEMO，跨社群 fixture 與不可變的 principal／scope／receipt／訂單事實保留到整輪 schema 卸下。產品在未設定社群時的單一社群 fallback、Worker 與正式環境設定均不變。
+
+`hosted-seller-order.spec.ts` 的註冊回歸案例自行建立含外社群買家的商店 fixture，再從全新 UI 與另一個獨立 HTTP context 註冊，檢查兩次 201 與資料庫中的 DEMO 歸屬，並確認原外社群及買家仍存在。它不依賴其他測試先執行，不輸出 session／cookie／CSRF，也不透過刪除外社群或放寬資料守衛讓註冊通過。
+
 行程正常結束時，`stop()` 會 `DROP SCHEMA IF EXISTS` 這個 schema，並在有建立時卸下 `${schema}_app` role。SIGTERM／SIGINT／SIGHUP 會先走 `releaseOwnedResources()`。那個緊急路徑在連線字串含 `:54339` 時不另開卸下行程；54339 是本機預設開發庫的埠，避免在行程被 SIGKILL 的競態裡對那個庫多跑一次卸下。非 54339 的緊急路徑只卸下符合 `fp_e2e_[a-f0-9]{32}` 的 schema。若行程在 `stop()` 的 await 之前被 SIGKILL，54339 上的這一輪 schema 可能留下，需事後清掉；這不是寫入 `public`。
 
 ## 程式守住的條件
@@ -273,3 +277,11 @@ node scripts/freedom.mjs prepare --base-ref <base> --paths <path>
 ```
 
 該路徑若沒有 descriptor 擁有，而且不是 `docs/**/*.md`，也不是根說明 `AGENTS.md`、`README.md`、`CONTRIBUTING.md`，這道命令會回報 `surface_unmapped`，並把該路徑列在 `unknown_paths`。
+
+## 站內商品預留 UI fixture
+
+候選 `playwright.config.ts` 的 webServer 明確注入 `FREEDOM_E2E_HOSTED_RESERVATIONS=1`；僅 `scripts/e2e-server.ts` 的 local-only harness 將它映射為 Node admission option。產品 server／Worker 不讀這個 E2E 變數，正式 host admission 仍預設 OFF。每間合成商店先驗 `reservation_enabled=false`，再由功能 spec 的 SQL fixture 只啟用指定 instance；沒有新增 API setter 或正式設定。
+
+`tests/e2e/hosted-order.spec.ts` 在普通輪無條件執行，沒有依開關 skip；漏掉注入必須因正向 readiness 斷言失敗。功能自有 `hosted-order-fixture.ts` 可另開 127.0.0.1 port 0 HTTP listener，使用同一個已核對的 `fp_e2e_` schema，省略 admission option 以驗證 default OFF，再以 GLP 亦 OFF 驗證本人預留恢復／取消。它拒絕 54339、非明示 loopback `fp_*` DB 或不符 schema，測試 finally 關閉 context、connections 和 listener；只由原 harness 擁有與卸下 schema。
+
+此增量不新增第四輪、不修改 `scripts/run-e2e.mjs` 或 trusted runner 的 pinned 計畫。`run-e2e.mjs` 是 candidate 本機編排，不是可信 host CI；候選 webServer 的可受測設定與 installed host pass/timeout/結果驗證權威分開。新 spec 和 fixture 的來源存在不代表已跑瀏覽器，實跑版本與結果另記。
