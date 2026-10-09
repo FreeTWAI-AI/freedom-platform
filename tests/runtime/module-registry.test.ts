@@ -2,11 +2,16 @@ import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { DEMO_COMMUNITY, DEMO_USERS } from '../../packages/testing/seed.js';
+import { DEMO_COMMUNITY, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { WORK_CONTRACT } from '../../modules/module-registry/definitions.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
 
+import type { PoolClient } from 'pg';
+import { instanceView, instanceViews, installationView, installationViews } from '../../modules/module-registry/read.js';
+import { workspaceView, workspaceViews, memberView, memberViews, invitationView, invitationViews } from '../../modules/tenant-workspaces/service.js';
+import { transferView, transferViews } from '../../modules/tenant-workspaces/ownership.js';
+import { bindPrincipalContext, bindTenantContext } from '../../packages/resource-scopes/tenant-transaction.js';
 let h: RegistryHarness;
 
 before(async () => { h = await createRegistryHarness('fp_mr', { synthetic: true }); });
@@ -365,4 +370,131 @@ test('signed registry continuations bind purpose, caller and filters; missing si
   }
   problem(await h.call('GET', pages[0].path + '?cursor=' + pages[1].token, owner), 422, 'invalid_cursor');
   problem(await h.call('GET', pages[1].path + '?cursor=' + pages[0].token, owner), 422, 'invalid_cursor');
+});
+
+test('batched tenant lists match ordered single views with constant page query counts', async () => {
+  const { owner, tenantId, workspaceId } = await ownerOn(['guild_ai_field']);
+  for (let i = 0; i < 3; i++) {
+    const space = i === 0 ? workspaceId : await h.workspace(owner, tenantId, `批次櫃${i}`);
+    const plan = await h.plan(owner, tenantId, h.planBody('guild_ai_field', space, 'manual-workspace', 'manual-workspace@1.0.0', {
+      dependencies: [{ requirement_key: 'work', choice: 'create', configuration: {} }],
+    }));
+    assert.equal(plan.status, 201, JSON.stringify(plan.data));
+    assert.equal((await h.launch(owner, tenantId, plan)).status, 200);
+    const person = await h.person(`批次成員${i}`);
+    const principal = await h.candidate(owner, person.id);
+    const invitation = await h.invite(owner, tenantId, principal, 'operator');
+    assert.equal(invitation.status, 201, JSON.stringify(invitation.data));
+    await h.accept(person.session, tenantId, invitation);
+  }
+  let count = 0;
+  let counting = false;
+  const originals = new Map<PoolClient, PoolClient['query']>();
+  const instrument = (q: PoolClient) => {
+    if (originals.has(q)) return;
+    const original = q.query;
+    originals.set(q, original);
+    q.query = new Proxy(original, {
+      apply(target, client, args) {
+        if (counting) count++;
+        return Reflect.apply(target, client, args);
+      },
+    });
+  };
+  h.pool.on('acquire', instrument);
+  const q = await h.pool.connect();
+  try {
+    const principalId = (await q.query(`SELECT principal_id FROM principals WHERE user_ref=$1`, [owner.user.user_id])).rows[0].principal_id;
+    const scopeId = (await q.query(`SELECT scope_id FROM resource_scopes WHERE tenant_ref=$1`, [tenantId])).rows[0].scope_id;
+    const cases = [
+      { path: 'module-instances', id: 'instance_id', batch: (ids: string[]) => instanceViews(q, tenantId, ids), single: (id: string) => instanceView(q, tenantId, id), queries: 1 },
+      { path: 'application-installations', id: 'installation_id', batch: (ids: string[]) => installationViews(q, tenantId, ids), single: (id: string) => installationView(q, tenantId, id), queries: 2 },
+      { path: 'workspaces', id: 'workspace_id', batch: (ids: string[]) => workspaceViews(q, ids), single: (id: string) => workspaceView(q, id), queries: 1 },
+      { path: 'members', id: 'principal_id', batch: (ids: string[]) => memberViews(q, tenantId, ids), single: (id: string) => memberView(q, tenantId, id), queries: 3 },
+    ];
+    for (const entry of cases) {
+      const counts = [];
+      let items: Record<string, string>[] = [];
+      for (const limit of [1, 3]) {
+        count = 0; counting = true;
+        const reply = await h.call('GET', `/tenants/${tenantId}/${entry.path}?limit=${limit}`, owner);
+        counting = false;
+        assert.equal(reply.status, 200, JSON.stringify(reply.data));
+        assert.equal(reply.data.items.length, limit);
+        counts.push(count); items = reply.data.items;
+      }
+      assert.equal(counts[0], counts[1], `${entry.path}: ${counts}`);
+      await q.query('BEGIN');
+      try {
+        await bindPrincipalContext(q, principalId);
+        await bindTenantContext(q, { tenantId, tenantScopeId: scopeId });
+        const ids = items.map(item => item[entry.id]);
+        const singles = [];
+        for (const id of ids) singles.push(await entry.single(id));
+        assert.deepEqual(items, singles);
+        count = 0; counting = true;
+        assert.deepEqual(await entry.batch(ids.toReversed()), singles.toReversed());
+        counting = false;
+        assert.equal(count, entry.queries);
+        assert.deepEqual(await entry.batch([]), []);
+        await assert.rejects(entry.batch([ids[0], randomUUID()]));
+        console.log(`${entry.path}: page queries ${counts.join('/')} for 1/3 items; assembler ${entry.queries}`);
+      } finally { counting = false; await q.query('ROLLBACK'); }
+    }
+  } finally {
+    counting = false;
+    h.pool.off('acquire', instrument);
+    for (const [client, original] of originals) client.query = original;
+    q.release();
+  }
+});
+
+test('invitation and ownership inbox batches preserve cross-tenant order and missing-row errors', async () => {
+  const owner = await h.signIn(DEMO_USERS[0].email);
+  const recipient = await h.person('移轉收件者');
+  const invitee = await h.person('邀請收件者');
+  const recipientId = await h.candidate(owner, recipient.id);
+  const inviteeId = await h.candidate(owner, invitee.id);
+  await h.pool.query(`UPDATE tenant_authority_policies SET status='retired' WHERE status='active'`);
+  await h.pool.query(`INSERT INTO tenant_authority_policies(revision,status,fresh_auth_ttl_seconds,transfer_ttl_seconds,recovery_approval_ttl_seconds,max_open_recovery_cases_per_tenant)
+    VALUES(1,'active',600,86400,86400,1)`);
+  for (let i = 0; i < 3; i++) {
+    const { tenantId } = await h.createTenant(owner, `收件品牌${i}`);
+    await h.accept(recipient.session, tenantId, await h.invite(owner, tenantId, recipientId, 'admin'));
+    assert.equal((await h.invite(owner, tenantId, inviteeId, 'viewer')).status, 201);
+    const verification = await h.post('/me/high-risk-verifications', owner, {
+      password: DEMO_PASSWORD, purpose: 'tenant.ownership.propose', tenant_id: tenantId,
+    });
+    assert.equal(verification.status, 201, JSON.stringify(verification.data));
+    const transfer = await h.post(`/tenants/${tenantId}/ownership-transfers`, owner, {
+      to_principal_id: recipientId, from_role_after: 'admin', expires_at: new Date(Date.now() + 3600000).toISOString(),
+      reason: '批次移轉', fresh_auth_verification_id: verification.data.verification_id,
+    });
+    assert.equal(transfer.status, 201, JSON.stringify(transfer.data));
+  }
+  const q = await h.pool.connect();
+  try {
+    for (const entry of [
+      { path: '/me/tenant-invitations', session: invitee.session, principalId: inviteeId, id: 'invitation_id',
+        batch: (ids: string[]) => invitationViews(q, ids), single: (id: string) => invitationView(q, id) },
+      { path: '/me/tenant-ownership-transfers', session: recipient.session, principalId: recipientId, id: 'transfer_id',
+        batch: (ids: string[]) => transferViews(q, ids), single: (id: string) => transferView(q, id) },
+    ]) {
+      const reply = await h.call('GET', entry.path, entry.session);
+      assert.equal(reply.status, 200, JSON.stringify(reply.data));
+      const items = reply.data.items as Record<string, string>[];
+      assert.equal(items.length, 3);
+      await q.query('BEGIN');
+      try {
+        await bindPrincipalContext(q, entry.principalId);
+        const ids = items.map(item => item[entry.id]);
+        const singles = [];
+        for (const id of ids) singles.push(await entry.single(id));
+        assert.deepEqual(items, singles);
+        assert.deepEqual(await entry.batch(ids.toReversed()), singles.toReversed());
+        assert.deepEqual(await entry.batch([]), []);
+        await assert.rejects(entry.batch([ids[0], randomUUID()]));
+      } finally { await q.query('ROLLBACK'); }
+    }
+  } finally { q.release(); }
 });

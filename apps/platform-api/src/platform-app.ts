@@ -6,6 +6,7 @@ import {shopServiceHost} from '../../../packages/resource-scopes/shop-service.js
 import { guideAssetResponse, isGuideAssetPath, registerGuideReleaseRoute } from './routes/guide-packs.js';
 import {createAgentCommerceRoutes,createShopMachineRoutes,createPublicShopRoutes} from './routes/agent-commerce.js';
 import { Hono, type MiddlewareHandler } from 'hono';
+import { routePath } from 'hono/route';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
 import type { Pool } from 'pg';
@@ -68,6 +69,8 @@ import {checkServiceCoverHeaders,isServiceCoverUpload,registerMemberServices,reg
 import {publicMemberCard,publicMemberAvatar} from '../../../modules/identity-membership/member-sharing.js';
 import { searchCommunityContent, assignContentTopics, listTaggableContent } from '../../../modules/community/content-search.js';
 
+const SLOW_REQUEST_THRESHOLD_MS=1000;
+
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
@@ -81,18 +84,45 @@ function onboardingAllowed(path:string,method:string) {
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
 }
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
-function wireVersions(value:any):any {
-  if(Array.isArray(value))return value.map(wireVersions);
-  if(value && typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>{
-    if(k==='aggregate_version' && typeof v==='string') {
-      const n=Number(v);requireCondition(Number.isSafeInteger(n)&&n>=0,500,'version_overflow','版本超出此 API 可表示範圍。');return [k,n];
-    }
-    return [k,wireVersions(v)];
-  }));
+function wireVersion(key:string,value:unknown):unknown {
+  if(key==='aggregate_version' && typeof value==='string') {
+    const n=Number(value);requireCondition(Number.isSafeInteger(n)&&n>=0,500,'version_overflow','版本超出此 API 可表示範圍。');return n;
+  }
   return value;
 }
+export const wireVersionResponses:MiddlewareHandler=async(c,next)=>{
+  const api=c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/');
+  if(!api){await next();return;}
+  const json=c.json;
+  const serialized=new WeakSet<ReadableStream>();
+  // Hono can recreate a Response while merging headers; its body identity survives.
+  // Match Hono's c.json header/status handling, but convert bigint strings in its single serialization.
+  c.json=((object,arg,headers)=>{
+    let body:string|undefined;
+    try{body=JSON.stringify(object,wireVersion);}catch(err){
+      // Previously overflow was detected after the route response set its headers.
+      if(err instanceof Problem&&err.code==='version_overflow')c.res=json(object,arg,headers);
+      throw err;
+    }
+    const response=c.newResponse(body,arg,{'Content-Type':'application/json',...headers});
+    if(response.body)serialized.add(response.body);return response;
+  }) as typeof c.json;
+  await next();
+  if(!(c.res.body&&serialized.has(c.res.body))&&c.res.headers.get('Content-Type')?.includes('application/json')){
+    const data=await c.res.json();
+    c.res=new Response(JSON.stringify(data,wireVersion),{status:c.res.status,headers:c.res.headers});
+  }
+};
 /** Browser page for a share token. The JSON and avatar routes set the same tag themselves. */
 export function isMemberCardPage(path:string){return /^\/member-cards\/[A-Za-z0-9_-]{43}\/?$/.test(path);}
+/** Shared by the Worker file fast path; route-specific form destinations stay here. */
+export function platformContentSecurityPolicy(path:string,brokerFormOrigin?:string){
+  const githubSetupForm=path==='/admin'||path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
+  return "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:'');
+}
+export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
+  return {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':platformContentSecurityPolicy(path,brokerFormOrigin)};
+}
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
@@ -127,16 +157,26 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     console.error('request_failed', err instanceof Error ? err.name : 'unknown');
     return c.json({type:'about:blank',title:'Internal error',status:500,code:'internal_error',detail:'操作未完成，請重新整理並查看目前狀態。'},500);
   });
+  // Outermost: Hono resolves downstream onError responses before next() returns.
+  app.use('*',async(c,next)=>{
+    const started=performance.now();
+    await next();
+    const duration_ms=performance.now()-started,status=c.res.status;
+    if(duration_ms<SLOW_REQUEST_THRESHOLD_MS&&status<500)return;
+    // Use the responding handler's pattern, not later host asset middleware.
+    const pattern=routePath(c),route=pattern&&pattern!=='*'&&pattern!=='/*'?pattern:'unmatched';
+    console.warn(JSON.stringify({event:status>=500?'server_error':'slow_request',method:c.req.method,route,status,duration_ms}));
+  });
   app.use('/api/v1/me/onboarding/*',onboardingDiagnostics());
   app.use('*',async(c,next)=>{
-    c.header('Cache-Control','no-store');c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','no-referrer');
+    const headers=platformResponseHeaders(c.req.path,brokerFormOrigin);
+    for(const [name,value] of Object.entries(headers))if(name!=='Content-Security-Policy')c.header(name,value);
     const host=new URL(c.req.url).hostname;
     requireCondition(allowedHosts.has(host),403,'host_rejected',freedomEnv==='local'?'此版本只提供本機使用。':'請從自由工坊網站操作。');
     if(c.req.path==='/api/v1/community-search'||c.req.path.startsWith('/api/v1/community-search/'))c.header('X-Robots-Tag','noindex, nofollow');
     readSessionCookie(c.req.header('Cookie'),origin);
     if(isMemberCardPage(c.req.path))c.header('X-Robots-Tag','noindex, nofollow');
-    const githubSetupForm=c.req.path==='/admin'||c.req.path==='/admin/github/callback'?' https://github.com/organizations/FreeTWAI-AI/settings/apps/new':'';
-    c.header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"+githubSetupForm+(brokerFormOrigin?' '+brokerFormOrigin:''));
+    c.header('Content-Security-Policy',headers['Content-Security-Policy']);
     // Public guide responses are terminal and own their explicit validated cache policy.
     // Return before generic mutation body parsing; unknown paths never reach the SPA.
     if(isGuideAssetPath(c.req.path)){
@@ -205,22 +245,21 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
       requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
     }
-    await next();
-    if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
-      if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
-      if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
-      requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
-    }
-    // A native cross-origin form uses the source document's referrer policy
-    // when deriving Origin. Suppressing all referrers makes that Origin null.
-    // Only installed HTML documents disclose the origin, never path or query;
-    // API replies and hosts without the genuine broker keep no-referrer.
-    if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
-      &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
-    if((c.req.path.startsWith('/api/')||c.req.path.startsWith('/agent-api/')||c.req.path.startsWith('/client-api/')||c.req.path.startsWith('/admin/api/')) && c.res.headers.get('Content-Type')?.includes('application/json')) {
-      const data=wireVersions(await c.res.json());
-      c.res=new Response(JSON.stringify(data),{status:c.res.status,headers:c.res.headers});
-    }
+    // Terminal host transports above retain their own response handling.
+    await wireVersionResponses(c,async()=>{
+      await next();
+      if(runtime.communityDiscoveryEnabled===true&&['GET','HEAD'].includes(c.req.method)){
+        if(/^\/(?:services|highlights|api\/v1\/public\/(?:events|event-highlights|member-services))(?:\/|$)/.test(c.req.path))c.header('Cache-Control','no-store');
+        if(/^\/events\/[0-9a-f-]{36}\/?$/.test(c.req.path)&&c.req.query('ref'))c.header('X-Robots-Tag','noindex, nofollow');
+        requireCondition(await discoveryReadAllowed(pool,c.req.path,runtime.registrationCommunityId()),404,'not_found','找不到公開內容。');
+      }
+      // A native cross-origin form uses the source document's referrer policy
+      // when deriving Origin. Suppressing all referrers makes that Origin null.
+      // Only installed HTML documents disclose the origin, never path or query;
+      // API replies and hosts without the genuine broker keep no-referrer.
+      if(brokerFormOrigin&&['GET','HEAD'].includes(c.req.method)
+        &&/^text\/html(?:;|$)/i.test(c.res.headers.get('Content-Type')??''))c.header('Referrer-Policy','strict-origin');
+    });
   });
   registerGuideReleaseRoute(app,runtime.publicGuideAssets);
   app.route('/admin/api',createAdminRoutes(pool,runtime.adminVerifier,{origin,tokenKey:runtime.githubTokenKey(),fetcher:options.githubSocial?.fetcher,readToken:runtime.githubMetricsToken,guildReviewer:runtime.guildReviewer},runtime.guildLaunchpadEnabled===true));

@@ -65,10 +65,19 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
   const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
   await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
   const page = await context.newPage();
+  let releaseChunk: () => void = () => undefined;
+  const chunkReleased = new Promise<void>(resolve => { releaseChunk = resolve; });
+  await page.route(/\/assets\/GuildLaunchpad-[^/]+\.js$/, async route => {
+    await chunkReleased;
+    await route.continue();
+  });
   try {
     const payload = await (await page.request.get(`/api/v1/public/guilds/${music}/launchpad`)).json() as {guild: {name: string; purpose: string}; config: {body: {mission_override: string | null}}};
     const mission = payload.config.body.mission_override ?? payload.guild.purpose;
-    await page.goto(`/#guilds/${music}`);
+    await page.goto(`/#guilds/${music}`, {waitUntil: 'domcontentloaded'});
+    await expect(page.locator('.page-loading[role="status"]')).toBeVisible();
+    await expect(page.locator('.guild-launchpad')).toHaveCount(0);
+    releaseChunk();
     await expect(page.getByRole('heading', {level: 1, name: payload.guild.name})).toBeVisible();
     await expect(page.getByText(mission, {exact: true}).first()).toBeVisible();
     await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
@@ -77,7 +86,9 @@ test('a visitor can read a guild launchpad without a session', async ({browser, 
     await expect(page.locator('body')).not.toContainText('業務空間尚未在此環境啟用');
     await expect(page.getByRole('button', {name: '儲存草稿', exact: true})).toHaveCount(0);
     await noOverflow(page);
-  } finally { await context.close(); }
+    await page.getByRole('button', {name: '會員登入', exact: true}).click();
+    await expect(page.getByLabel('電子郵件', {exact: true})).toBeVisible();
+  } finally { releaseChunk(); await context.close(); }
 });
 
 test('a late response from guild A never renders inside guild B', async ({browser, baseURL, e2eAuthPool}) => {
@@ -209,4 +220,28 @@ test('a member who left can rejoin from the launchpad', async ({browser, baseURL
     await expect(session.page.getByText('成員身分：實習成員')).toBeVisible();
     expect(ifMatch).toBe('"4"');
   } finally { await session.context.close(); await cleanup(e2eAuthPool, userId, undefined); }
+});
+
+test('a failed public launchpad chunk can return home and recover after reload', async ({browser, baseURL}) => {
+  const context = await browser.newContext({baseURL, viewport: {width: 360, height: 800}});
+  await context.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  const page = await context.newPage();
+  const chunk = /\/assets\/GuildLaunchpad-[^/]+\.js$/;
+  await page.route(chunk, route => route.abort());
+  try {
+    await page.goto(`/#guilds/${music}`);
+    await expect(page.getByRole('alert')).toContainText('自由工坊暫時無法開啟');
+    await page.getByRole('link', {name: '返回首頁', exact: true}).click();
+    await expect(page).toHaveURL(/\/#home$/);
+    await expect(page.getByLabel('電子郵件', {exact: true})).toBeVisible();
+    await expect(page.getByRole('alert').filter({hasText: '自由工坊暫時無法開啟'})).toHaveCount(0);
+    // React.lazy caches its rejected promise; recovery deliberately offers a
+    // document reload rather than pretending a second route visit retries it.
+    await page.goto(`/#guilds/${music}`);
+    await expect(page.getByRole('alert')).toContainText('自由工坊暫時無法開啟');
+    await page.unroute(chunk);
+    await page.getByRole('button', {name: '重新載入頁面', exact: true}).click();
+    await expect(page.locator('.guild-launchpad')).toBeVisible();
+    await expect(page.getByRole('button', {name: '會員登入', exact: true})).toBeVisible();
+  } finally { await context.close(); }
 });
