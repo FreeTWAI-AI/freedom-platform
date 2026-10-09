@@ -16744,8 +16744,8 @@
     },
     {
       "path": "modules/assets/freedom.module.json",
-      "bytes": 1984,
-      "sha256": "b6bafd484e3ac3def61019815a80df09225551135a471c8746b517e94b78d871"
+      "bytes": 2045,
+      "sha256": "98f9b4411eaeb77f751865132e00996aec462b6690a99c4b241f8c73b5ac5af7"
     },
     {
       "path": "modules/assets/index.ts",
@@ -21606,6 +21606,11 @@
       "path": "tests/runtime/storefront-product-photo-core.test.ts",
       "bytes": 8395,
       "sha256": "b891ef3112efb3ab8ea5c993d1a7b9702b28952c04fdac0d83bb4cad1ec0d1e2"
+    },
+    {
+      "path": "tests/runtime/storefront-product-photo-native.test.ts",
+      "bytes": 12689,
+      "sha256": "8147d5db2df67594c36483e6c22777ae2c9b76e0ee8ac6d0e062f08b759e1d87"
     },
     {
       "path": "tests/runtime/storefront-product-photo-sql.test.ts",
