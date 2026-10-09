@@ -426,9 +426,12 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
 
 test('trusted webServer forwards the host fixture and preserves candidate search wiring',async()=>{
   await withFixture(async root=>{
-    await writeFile(join(root,'playwright.config.ts'),`export default {projects:[{name:'chromium'}],webServer:{command:'unused',env:{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'0'}}}`);
     const source=`import config from ${JSON.stringify(join(repoRoot,'scripts/ci/pinned-playwright.config.mjs'))}; console.log(JSON.stringify(config.webServer[0].env));`;
-    const child=spawnSync(process.execPath,['--input-type=module','-e',source],{encoding:'utf8',env:{...process.env,FREEDOM_PINNED_E2E_ROOT:root,FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1'}});
-    assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0'});
+    for (const firstParticipation of ['0', '1']) {
+      const candidateFirstParticipation = firstParticipation === '0' ? '1' : '0';
+      await writeFile(join(root,'playwright.config.ts'),`export default {projects:[{name:'chromium'}],webServer:{command:'unused',env:{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'0',FREEDOM_E2E_FIRST_PARTICIPATION:'${candidateFirstParticipation}'}}}`);
+      const child=spawnSync(process.execPath,['--input-type=module','-e',source],{encoding:'utf8',env:{...process.env,FREEDOM_PINNED_E2E_ROOT:root,FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation}});
+      assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_FIRST_PARTICIPATION:firstParticipation});
+    }
   });
 });
