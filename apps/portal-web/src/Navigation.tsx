@@ -49,13 +49,13 @@ export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEn
       <summary ref={moreTrigger} onClick={event => { event.preventDefault(); setMoreOpen(value => !value); }}>{t('nav.more')}<span aria-hidden="true">⌄</span></summary>
       <div className="nav-more-content">
     <label className="nav-search"><span className="sr-only">{t('nav.search')}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} maxLength={80} placeholder={t('nav.example')}/></label>
-    {query.trim()?<div className="nav-search-results" role="region" aria-label={t('nav.results')}>{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>id!=='community-search'&&(id!=='guild-workspace'||canManageGuild)&&(!['business','stores'].includes(id)||guildLaunchpadEnabled)&&`${t(`nav.${id}`)} ${TAB_TITLES[id]} ${keywords[id]??''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(item)}<p className="field-hint">{t('nav.searchHint')}</p></div>:<>
+    {query.trim()?<div className="nav-search-results" role="region" aria-label={t('nav.results')}>{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>id!=='community-search'&&(id!=='guild-workspace'||canManageGuild)&&(id!=='business'||guildLaunchpadEnabled)&&`${t(`nav.${id}`)} ${TAB_TITLES[id]} ${keywords[id]??''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(item)}<p className="field-hint">{t('nav.searchHint')}</p></div>:<>
     {groups.map(group => <details className="nav-section" key={group.label} open={expanded.includes(group.label)}>
       <summary onClick={event => { event.preventDefault(); setExpanded(value => value.includes(group.label) ? value.filter(label => label !== group.label) : [...value, group.label]); }}>
         {t(groupKeys[group.label])}<span aria-hidden="true">⌄</span>
       </summary>
       <div className="nav-section-items">
-        {group.pages.filter(id => (id !== 'guild-workspace' || canManageGuild) && (!['business', 'stores'].includes(id) || guildLaunchpadEnabled)).map(item)}
+        {group.pages.filter(id => (id !== 'guild-workspace' || canManageGuild) && (id !== 'business' || guildLaunchpadEnabled)).map(item)}
         {group.label === '管理' && <a className="nav-item" href="/admin">{t('nav.admin')} <span aria-hidden="true">↗</span></a>}
       </div>
     </details>)}

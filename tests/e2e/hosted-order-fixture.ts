@@ -1,3 +1,4 @@
+import {TENANT_CURSOR_TEST_KEY} from '../runtime/tenant-cursor-fixture.js';
 import {randomUUID} from 'node:crypto';
 import {serve} from '@hono/node-server';
 import {serveStatic} from '@hono/node-server/serve-static';
@@ -81,7 +82,7 @@ export async function offListener(db: Pool, discovery: boolean) {
     const address = server.address(); if (!address || typeof address === 'string') throw Error('Owned loopback listener unavailable.');
     const origin = `http://127.0.0.1:${address.port}`;
     // Intentionally no hostedReservationsEnabled: proves actual Node default OFF.
-    app = createApp(db, origin, 'local', {guildLaunchpadEnabled: discovery});
+    app = createApp(db, origin, 'local', {guildLaunchpadEnabled: discovery, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY});
     app.use('/*', serveStatic({root: './apps/portal-web/dist'}));
     app.get('*', serveStatic({path: './apps/portal-web/dist/index.html'}));
     return {origin, close: async () => {if ('closeAllConnections' in server) server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));}};

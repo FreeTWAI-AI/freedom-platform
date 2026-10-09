@@ -37,7 +37,11 @@
     "apps/portal-web/src/modules/hosted-order-state.ts",
     "tests/runtime/hosted-order-ui.test.ts",
     "tests/e2e/hosted-order.spec.ts",
-    "tests/e2e/hosted-order-fixture.ts"
+    "tests/e2e/hosted-order-fixture.ts",
+    "apps/portal-web/src/modules/HostedSellerOrders.tsx",
+    "apps/portal-web/src/modules/hosted-seller-order-state.ts",
+    "tests/runtime/hosted-seller-order-ui.test.ts",
+    "tests/e2e/hosted-seller-order.spec.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -199,6 +203,17 @@
         "storefront.order.read",
         "storefront.order.intent.read",
         "storefront.order.cancel"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-order-seller-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/HostedSellerOrders.tsx",
+      "operations": [
+        "storefront.seller.orders.list",
+        "storefront.seller.order.read",
+        "storefront.seller.order.cancel"
       ],
       "auth_profile": "member-session"
     }

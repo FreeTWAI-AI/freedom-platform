@@ -1,3 +1,4 @@
+import {sellerOrdersRoute} from './modules/hosted-seller-order-state'
 import {buyerRoute} from './modules/hosted-order-state'
 import { client, PortalContext, describeError, isOwnRef, type ActionError, type PortalContextValue } from './portal-session'
 import { ErrorPanel } from './portal-feedback'
@@ -100,7 +101,7 @@ const TAB_GUIDANCE: Record<TabId, string> = {
   marketing: '撰寫介紹草稿並記錄分享成果。',
   'guild-workspace': '管理你有權負責的公會資訊與技能書。',
   reservations: '查看本人預留；預留不代表付款或出貨。',
-  stores: '建立與管理你的商店：上架商品、預覽並發布展示頁；交易尚未啟用。',
+  stores: '管理商店展示與店主預留紀錄；預留不代表付款或履約。',
   business: '建立業務空間、切換工作區，並邀請仍在本社群的夥伴。',
   community: '查看自由工坊的社群入口和公開資訊。',
   'community-search': '依關鍵字、類型與主題搜尋目前可閱讀的社群內容。',
@@ -300,7 +301,7 @@ function MemberApp() {
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
       ? <WelcomePreview client={client} name={session.user.display_name} entryLabel={entryIntent?t(`intent.${entryIntent}`):undefined} onCompleted={()=>{rememberOnboarding(session.user.user_id,false);void loadOnboarding()}} onStart={()=>{rememberOnboarding(session.user.user_id,true);setExploring(false)}} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
-      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
+      : <Onboarding client={client} initial={onboarding} profileName={session.user.display_name} onExplore={()=>{rememberOnboarding(session.user.user_id,false);setExploring(true)}} onCompleted={() => { rememberOnboarding(session.user.user_id,false);if(!entryIntent && !buyerRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash) && !sellerOrdersRoute(window.location.hash + '/orders'))window.location.hash = 'home'; void loadOnboarding() }} onLogout={() => void client.logout(crypto.randomUUID()).then(() => leaveCurrentSession()).catch(error => setGateError(describeError(error).message))}/>
     : sharedCardToken ? <PublicMemberPage client={client} token={sharedCardToken} session={session} onLogin={()=>{}} onReturn={returnToWorkshop} onEdit={editOwnCard}/> : <>
     <GitHubSocialProvider client={client} session={session}><AuthorClaimProvider client={client}><DevelopmentAccessProvider client={client} session={session}>
     <Workspace
@@ -806,7 +807,7 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
-  if(value === 'stores' || value.startsWith('stores/'))return launchpadEnabled ? 'stores' : 'home'
+  if(value === 'stores' || value.startsWith('stores/'))return 'stores'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'
   if(!value&&eventIdFromLocation())return 'events'
   return Object.hasOwn(TAB_TITLES, value) ? value as TabId : 'home'
