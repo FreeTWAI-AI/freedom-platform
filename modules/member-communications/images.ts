@@ -8,6 +8,7 @@ import type {DomainMediaSnapshot} from '../../packages/media-migration/domain-br
 import {readDomainMedia} from '../../packages/media-migration/domain-bridge.js';
 import type {Actor} from '../identity-membership/service.js';
 import {MESSAGE_IMAGE_INPUT_BYTES,assertMessageImageSource,lockMessageRecipient,type MessageImageAssetService} from '../assets/message-image.js';
+import {lockInteractionPair} from '../identity-membership/blocks.js';
 import {peerId} from './service.js';
 import type {MessageImage} from './content-types.js';
 
@@ -31,7 +32,7 @@ export async function uploadMessageImage(pool:Pool,raw:Command,rawPeer:string,fi
   const actor=Object.freeze({...raw.actor}),operation=`POST /api/v1/me/conversations/${peer}/images`;
   const input:Command=Object.freeze({...raw,actor,operation,body:{sha256}});
   const imageId=imageIdFor(actor,peer,raw.key);
-  const authorize=async(q:PoolClient)=>{await lockMessageRecipient(q,actor,peer);};
+  const authorize=async(q:PoolClient)=>{await lockInteractionPair(q,actor,peer);await lockMessageRecipient(q,actor,peer);};
   const result=async(q:Pick<PoolClient,'query'>):Promise<MessageImageUpload>=>{
     const row=(await q.query(`SELECT o.byte_size FROM member_message_image_asset_targets t JOIN asset_objects o ON o.asset_id=t.asset_id AND o.purpose='member.message-image'
       WHERE t.image_id=$1 AND t.owner_user_id=$2 AND t.recipient_user_id=$3`,[imageId,actor.user_id,peer])).rows[0];

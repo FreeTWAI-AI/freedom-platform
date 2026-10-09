@@ -300,3 +300,20 @@ test('the same pipeline works against native R2 and stores exactly the verified 
   const journal=(await fixture.query("SELECT aggregate_type,operation FROM scoped_transition_journal WHERE operation='member.message-image.upload'")).rows;assert.deepEqual(journal,[{aggregate_type:'member_message_image',operation:'member.message-image.upload'}]);
   assert.equal((await fixture.query("SELECT count(*)::int n FROM scoped_outbox")).rows[0].n,0,'private images never reach the community outbox');
 });
+
+test('a block in either direction stops new image uploads and sends, while earlier messages keep their history rules',async()=>{
+  const s=setup(),a=await member(community,'Alice'),b=await member(community,'Bob');
+  const old=await sendImage(s,a,b);
+  const draft=await (await s.upload(a,b,png)).json() as {image_id:string};
+  const block=(owner:Member,target:Member)=>fixture.query("INSERT INTO member_interaction_blocks(community_id,owner_ref,target_ref,state) VALUES($1,$2,$3,'active') ON CONFLICT(community_id,owner_ref,target_ref) DO UPDATE SET state='active'",[community,owner.id,target.id]);
+  await block(b,a);                                                        // the recipient blocks the sender
+  await code(await s.upload(a,b,png),409,'recipient_unavailable');
+  await code(await s.send(a,b,{image_id:draft.image_id}),409,'recipient_unavailable');   // a prepared draft cannot be attached
+  await code(await s.upload(b,a,png),409,'recipient_unavailable');         // and the blocker cannot send either
+  assert.equal((await s.read(b,a.id,old.message.message_id)).status,200);  // blocking does not rewrite existing history
+  await fixture.query("UPDATE member_interaction_blocks SET state='removed' WHERE owner_ref=$1",[b.id]);
+  await block(a,b);                                                        // the opposite direction behaves the same
+  await code(await s.upload(a,b,png),409,'recipient_unavailable');
+  await fixture.query("UPDATE member_interaction_blocks SET state='removed' WHERE owner_ref=$1",[a.id]);
+  assert.equal((await s.send(a,b,{image_id:draft.image_id})).status,201);  // lifted blocks restore the prepared draft
+});

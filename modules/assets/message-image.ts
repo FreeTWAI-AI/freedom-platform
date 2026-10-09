@@ -1,3 +1,4 @@
+import {assertCanContact} from '../identity-membership/blocks.js';
 import {z} from 'zod';
 import type {Pool,PoolClient} from 'pg';
 import type {Actor} from '../identity-membership/service.js';
@@ -60,6 +61,8 @@ export async function lockMessageRecipient(q:PoolClient,actor:Actor,recipientId:
   requireCondition(recipientId!==actor.user_id,404,'member_not_found','找不到這位會員。');
   const row=await q.query(`SELECT 1 FROM users u WHERE u.user_id=$1 AND u.community_id=$2 AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) FOR SHARE`,[recipientId,actor.community_id]);
   requireCondition(row.rowCount===1,404,'member_not_found','找不到這位會員。');
+  // A block in either direction ends contact, so no new image can be prepared or attached (#251).
+  await assertCanContact(q,actor,recipientId);
 }
 
 function lifecycle(pool:Pool,dependencies:MessageImageAssetDependencies,recipientId:string){
