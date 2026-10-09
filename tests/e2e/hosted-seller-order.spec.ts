@@ -5,6 +5,7 @@ import {test, expect, type Page} from './fixtures.js';
 import {navigate} from './navigation.js';
 import {apiLogin, buyerLogin, enableStore, fixtureStore, offListener} from './hosted-order-fixture.js';
 import {OrderSchema, QuoteSchema} from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 const surface = (page: Page) => page.locator('.hosted-store');
 async function capture(page: Page, info: TestInfo, state: string) {
   for (const theme of ['light', 'dark']) for (const width of [360, 768, 1440]) {
@@ -122,4 +123,33 @@ test('HO-SUI03 a known 412 refreshes the terminal state without silently resubmi
   await expect(page.getByRole('region', {name: '預留明細'})).toContainText('已取消');
   await expect(surface(page).getByRole('button', {name: '取消這筆預留'})).toHaveCount(0);
   expect(posts).toBe(1); await navigate(page, '會員首頁'); await expect(page).toHaveURL(/#home$/);
+});
+
+test('HO-SUI04 fresh UI and API registrations keep the configured community while a cross-community store fixture remains', async ({page, browser, baseURL, e2eAuthPool}) => {
+  const store = await fixtureStore(e2eAuthPool, browser, baseURL!);
+  const foreign = (await e2eAuthPool.query('SELECT user_id,community_id FROM users WHERE user_id=ANY($1::uuid[]) ORDER BY user_id', [[store.buyer.id, store.stranger.id]])).rows;
+  expect(foreign).toHaveLength(2); expect(foreign[0].community_id).not.toBe(DEMO_COMMUNITY);
+  expect(foreign[1].community_id).toBe(foreign[0].community_id);
+  const uiEmail = `ho-register-ui-${randomUUID()}@example.test`, apiEmail = `ho-register-api-${randomUUID()}@example.test`, nickname = '跨社群註冊測試';
+  await page.route(url => !['127.0.0.1', 'localhost'].includes(url.hostname), route => route.abort());
+  await page.goto('/'); await page.getByRole('button', {name: '建立帳號', exact: true}).click();
+  await page.getByLabel('社群顯示名稱', {exact: true}).fill(nickname);
+  await page.getByLabel('電子郵件', {exact: true}).fill(uiEmail);
+  await page.getByLabel('密碼', {exact: true}).fill(DEMO_PASSWORD);
+  const response = page.waitForResponse(r => r.url().endsWith('/api/v1/auth/register') && r.request().method() === 'POST');
+  await page.getByRole('button', {name: '建立帳號，先逛工坊', exact: true}).click();
+  expect((await response).status()).toBe(201);
+  await expect(page.getByRole('heading', {name: `${nickname}，歡迎來到自由工坊。`, exact: true})).toBeVisible();
+  const independent = await browser.newContext({baseURL});
+  try {
+    const registered = await independent.request.post('/api/v1/auth/register', {data: {email: apiEmail, password: DEMO_PASSWORD, nickname}, headers: {Origin: baseURL!}});
+    expect(registered.status()).toBe(201);
+    // Read membership from SQL without serializing either registration's session response.
+    const users = (await e2eAuthPool.query('SELECT user_id,community_id FROM users WHERE email=ANY($1::text[])', [[uiEmail, apiEmail]])).rows;
+    expect(users).toHaveLength(2); expect(new Set(users.map(row => row.user_id)).size).toBe(2);
+    expect(users.every(row => row.community_id === DEMO_COMMUNITY)).toBe(true);
+    expect((await e2eAuthPool.query('SELECT user_id,community_id FROM users WHERE user_id=ANY($1::uuid[]) ORDER BY user_id', [[store.buyer.id, store.stranger.id]])).rows).toEqual(foreign);
+    expect((await e2eAuthPool.query('SELECT 1 FROM communities WHERE community_id=$1', [foreign[0].community_id])).rowCount).toBe(1);
+    expect((await e2eAuthPool.query('SELECT 1 FROM tenant_memberships m JOIN principals p ON p.principal_id=m.principal_id WHERE m.tenant_id=$1 AND p.user_ref=ANY($2::uuid[])', [store.tenant, [store.buyer.id, store.stranger.id]])).rowCount).toBe(0);
+  } finally {await independent.close();}
 });

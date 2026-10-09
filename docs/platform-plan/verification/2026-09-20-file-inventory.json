@@ -13369,8 +13369,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 18456,
-      "sha256": "a4fcef8ef61acdff655146a0549e0e5722a13737cf9a38684b9069bfb7e8bd86"
+      "bytes": 19375,
+      "sha256": "3123d03ddbcf4025168f2c5847a07edcc33301ed36e62969cdeba2856ab6cb05"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -18919,8 +18919,8 @@
     },
     {
       "path": "scripts/e2e-server.ts",
-      "bytes": 11765,
-      "sha256": "1f46530e2c0f44cbe2527e5b6ab7d54a6bff868f54b3f46084252f504923d03a"
+      "bytes": 12057,
+      "sha256": "d0b70860e48b902f119eefad87b2fbde93f1cdc7f06ac12f8fa4dfa3522c93be"
     },
     {
       "path": "scripts/export-contract-bundle.mjs",
@@ -19529,8 +19529,8 @@
     },
     {
       "path": "tests/e2e/hosted-seller-order.spec.ts",
-      "bytes": 10086,
-      "sha256": "8fc02315fd0c7bb2165ab7a823e52890801185790d12ae5ad09f11be8c767fa6"
+      "bytes": 13023,
+      "sha256": "a6366cffd7793ad460b1214b5ba231aefa23cd3e2d5f9ad70da04a24deb541fb"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
