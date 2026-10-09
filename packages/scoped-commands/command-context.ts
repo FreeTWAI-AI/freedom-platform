@@ -19,7 +19,7 @@ export interface ExecutionFactBinding {
   readonly runtimeDeviceId: string;
   readonly connectionId: string;
 }
-type JournalTarget = { aggregate_type: 'member_avatar'|'member_service'|'community_event'|'social_post'|'community_event_highlight'|'commerce_order_cancellation'; id: string };
+type JournalTarget = { aggregate_type: 'member_avatar'|'member_service'|'member_message_image'|'community_event'|'social_post'|'community_event_highlight'|'commerce_order_cancellation'; id: string };
 interface ActiveCommand {
   readonly q: PoolClient;
   readonly operation: string;

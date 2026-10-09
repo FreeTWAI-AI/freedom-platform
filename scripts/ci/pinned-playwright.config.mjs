@@ -16,7 +16,9 @@ if (chromium.length !== 1) throw Error('invalid_pinned_e2e_chromium');
 const servers = candidate.webServer === undefined ? undefined : Array.isArray(candidate.webServer) ? candidate.webServer : [candidate.webServer];
 const webServer = servers?.map(server => {
   if (!object(server)) throw Error('invalid_pinned_e2e_web_server');
-  return { ...server, cwd: server.cwd === undefined ? root : resolve(root, server.cwd), reuseExistingServer: false };
+  const env={...server.env};
+  for(const flag of ['FREEDOM_E2E_PRIVATE_AI_FIXTURE','FREEDOM_E2E_AVATAR_ASSET_FIXTURE','FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE'])env[flag]=process.env[flag]==='1'?'1':'0';
+  return { ...server, env, cwd: server.cwd === undefined ? root : resolve(root, server.cwd), reuseExistingServer: false };
 });
 
 // Only use, positive safe-integer timeout, webServer and chromium.use come from the candidate; everything else is trusted.

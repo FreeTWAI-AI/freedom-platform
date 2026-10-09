@@ -112,3 +112,39 @@ node --import tsx --test --test-concurrency=1 tests/runtime/member-blocking.test
 整合候選以既有商店 migration 134／135 為父線，新增 136（會員封鎖）與 137（社群搜尋標籤）。001～135 的 SQL 不變，136／137 都是新增社群表，沿用既有 runtime grants 與目前會員命令授權；不新增 tenant 權限或 RLS。兩個功能開關仍預設關閉，合併不代表部署或產品驗收。
 
 回退到不認得封鎖的舊 binary 會忽略已保存的封鎖關係，失去聯絡保護；不能把新增資料表的 schema 相容當成安全回退承諾。本候選即使關閉封鎖管理介面，已保存的封鎖仍保護好友、邀請及私訊。回退應保留這項保護或以修復版前進，不把關閉介面當成刪除設定。
+
+### 私訊圖片的 metadata 歸屬
+
+`member-communications` descriptor 僅登錄這次新增的圖片 reader/client、139 migration
+與圖片 runtime/browser 測試，不以目錄 wildcard 吸收舊 communications、App 或 routes。
+既有未映射 surface 仍回報 unavailable；descriptor 是來源 metadata，不是模組安裝
+或 application release。圖片沿 [既有 Asset adapter](../../modules/assets/message-image.md)。
+
+圖片或訊息送出時，原 tuple 先同步保存於本次 session 的記憶體 ref，再發起請求；
+React state 只負責畫面。頁面離開、Console 自身的 session-end 與 beforeunload
+讀同一 ref，包含首次 send 同一事件內的導覽；不同 principal／已撤銷 session
+仍清除私有資料。主視窗仍無法詢問另一 popout 的 pending tuple，不承諾跨窗
+登出攔截或 crash durability。
+
+送出結果為 unknown 後，只有 canonical ACK 核對成功才釋放原 key、body 與圖片 bytes：核對 message UUID、
+目前 sender／精確 recipient、server 正規化後正文、reply ID／sticker 與 image
+有無；圖片 metadata 必須為 WebP、正整數且不超過 1 MiB。Message.image
+沒有 image_id，不要求虛構欄位。2xx 的空物件或錯誤對象仍視為 unknown，
+沿原 tuple 重試，不以 HTTP status 代替提交確認。上傳 ACK 使用同一 byte bounds。
+
+先前已是 unknown 的文字／貼圖，同 tuple 重試即使收到確定 4xx 也不能據此
+否定前一次可能已提交的操作；保留原 key／body 直到 canonical ACK。首次就
+收到確定拒絕的文字／貼圖仍可修改後重新送出，不把所有失敗一律鎖住。
+
+圖片的唯一可解除例外：首次上傳階段、此前沒有 unknown，且收到非 network／timeout／Access 過期的
+`422 invalid_message_image`。這是解碼器在 upload prepare 前的明確拒絕；清除 pending 後
+仍保留選取圖片、說明與回覆草稿，會員可修改、移除或離開。曾有 unknown 的同 tuple
+重試，或已進入 message 階段的同碼 422，仍保留原 file／upload key／message key 與
+離開保護。這不擴大到其他 4xx，不清理已上傳素材，也不承諾重新整理後恢復記憶體草稿。
+
+本機待送圖片以 `createImageBitmap(originalFile)` 解碼後直接畫入 64px canvas；
+原始檔案不建立供 DOM 使用的 object URL／data URL，也不以預覽像素取代上傳 bytes。
+選取項目換人、移除、改用貼圖或 session 卸載時，layout cleanup 取消舊預覽；晚完成
+的 bitmap 只關閉，不畫回目前項目。預覽失敗只顯示提示，不自動 POST，也不清除
+原 File、upload key、正文或 held unknown。傳送仍由會員明確操作，沿上列 ACK 與首次
+server decoder 422 規則處理。

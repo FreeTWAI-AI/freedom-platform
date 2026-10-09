@@ -17,9 +17,10 @@ export const MEDIA_WORKER_FEATURES = Object.freeze([
   feature('skill.submission-image', 'FREEDOM_SKILL_IMAGE_ENABLED', ['media.skill-image.asset.v1', 'media.server-policy.v1']),
   feature('community.social-thumbnail', 'FREEDOM_SOCIAL_THUMBNAIL_ENABLED', ['media.social-thumbnail.asset.v1', 'media.social-preview-create.v1', 'media.server-policy.v1']),
   feature('community.event-highlight', 'FREEDOM_EVENT_HIGHLIGHT_ENABLED', ['media.event-highlight.asset.v1', 'media.server-policy.v1']),
+  feature('member.message-image', 'FREEDOM_MESSAGE_IMAGE_ENABLED', ['media.message-image.asset.v1', 'media.server-policy.v1']),
 ]);
 const knownFlags = new Set(MEDIA_WORKER_FEATURES.map(feature => feature.flag).filter(Boolean));
-const mediaFlag = /^FREEDOM_.*(?:MEDIA|AVATAR|ASSET|COVER|BANNER|VIDEO|HIGHLIGHT|THUMBNAIL|SKILL_IMAGE).*_ENABLED$/;
+const mediaFlag = /^FREEDOM_.*(?:MEDIA|AVATAR|ASSET|COVER|BANNER|VIDEO|HIGHLIGHT|THUMBNAIL|SKILL_IMAGE|MESSAGE_IMAGE).*_ENABLED$/;
 const environments = ['staging-next', 'next'];
 const remaining = Object.freeze([
   'provider_binding_identity_and_private_bucket', 'hyperdrive_cache_disabled',

@@ -21,7 +21,7 @@ test('placeholder plan uses genuine entries with all mutations/acceptance unavai
  assert.ok(p.blockers.includes('release_sha_placeholder'));assert.ok(p.blockers.includes('broker_candidate_origin_unsupported'));assert.ok(p.remaining_checks.every(c=>c.status==='not_run'));
  assert.equal(p.configs.main.main,'apps/platform-api/src/worker.ts');assert.equal(p.configs.broker.main,'apps/credential-broker/src/worker.ts');assert.equal(p.configs.operator.main,'apps/media-operator/src/worker.ts');
  assert.equal(p.configs.main.vars.FREEDOM_DATABASE_NAME,'freedom_staging_next');assert.equal(p.expected_roles.operator,'freedom_media_migrator');assert.equal(p.configs.broker.vars.FREEDOM_BROKER_ENABLED,'false');
- assert.deepEqual(p.media_mapping.map(f=>f.purpose),MEDIA_WORKER_FEATURES.map(f=>f.purpose));assert.equal(p.media_mapping.length,7);
+ assert.deepEqual(p.media_mapping.map(f=>f.purpose),MEDIA_WORKER_FEATURES.map(f=>f.purpose));assert.equal(p.media_mapping.length,8);
  for(const c of Object.values(p.configs)){assert.deepEqual(c.routes,[]);assert.deepEqual(c.triggers.crons,[]);assert.equal(c.workers_dev,false);assert.equal(c.preview_urls,false);assert.equal(c.r2_buckets[0].bucket_name,r.bucket);}
 });
 test('closed bounded request rejects isolation promises, routes, keys, unknown mode and arbitrary bytes',()=>{

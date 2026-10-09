@@ -130,13 +130,13 @@ html[data-theme="versefolk"] .member-messages .messages-tabs [aria-selected=true
   .messages-hub .messages-thread[data-chat-open=true] .messages-refresh{top:10px;right:10px}
   .messages-hub .messages-thread[data-chat-open=true]>.messages-scroll{flex:1;height:auto;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;padding:16px 12px;background:var(--bg)}
   .messages-hub .messages-thread[data-chat-open=true]>.messages-compose{padding:8px 10px max(12px,env(safe-area-inset-bottom));background:var(--bg-elev)}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker)){grid-template-columns:44px minmax(0,1fr) auto;align-items:end}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker))>.chat-extras{grid-column:1;grid-row:1}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker))>.chat-input{grid-column:2;grid-row:1}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker))>.messages-actions{grid-column:3;grid-row:1}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker))>.chat-extras>.btn{display:grid;place-items:center;width:44px;padding:0}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker)) .chat-sticker-trigger{display:block;width:24px;height:24px}
-  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker))>.chat-extras>.btn>span{display:none}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls)){grid-template-columns:44px minmax(0,1fr) auto;align-items:end}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls))>.chat-extras{grid-column:1;grid-row:1}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls))>.chat-input{grid-column:2;grid-row:1}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls))>.messages-actions{grid-column:3;grid-row:1}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls))>.chat-extras>.btn{display:grid;place-items:center;width:44px;padding:0}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls)) .chat-sticker-trigger{display:block;width:24px;height:24px}
+  .messages-hub .messages-thread[data-chat-open=true]>.messages-compose:not(:has(.chat-reply-draft,.chat-sticker-preview,.chat-sticker-picker,.message-image-controls))>.chat-extras>.btn>span{display:none}
   .messages-hub .messages-thread[data-chat-open=true] .chat-input-help:not([data-near-limit=true]){position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .messages-hub .messages-thread[data-chat-open=true] .chat-sticker-picker{max-height:min(320px,calc(var(--chat-viewport-height,100dvh) / 2));overflow:auto;overscroll-behavior:contain}
   .messages-hub .messages-thread[data-chat-open=true]>.messages-meta{margin:0;padding:4px 12px}

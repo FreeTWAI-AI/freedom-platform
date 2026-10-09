@@ -21,6 +21,7 @@ Exit `0` means declarations are internally consistent; `1` means invalid or reje
 | Skill submission image | `FREEDOM_SKILL_IMAGE_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.skill-image.asset.v1`, `media.server-policy.v1` |
 | Community social thumbnail, including automatic preview creation | `FREEDOM_SOCIAL_THUMBNAIL_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.social-thumbnail.asset.v1`, `media.social-preview-create.v1`, `media.server-policy.v1` |
 | Community event highlight image and thumb | `FREEDOM_EVENT_HIGHLIGHT_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.event-highlight.asset.v1`, `media.server-policy.v1` |
+| Direct-message image attachment | `FREEDOM_MESSAGE_IMAGE_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.message-image.asset.v1`, `media.server-policy.v1` |
 
 Missing flags default off. Only exact strings `"true"` and `"false"` are accepted. Flags and native bindings are checked on each environment block rather than inherited from local/default configuration. The table describes installed dependencies; existing Asset profiles still define formats, limits, variants and ACL. Avatar still uses its existing policy. The other six purposes require current canonical PostgreSQL media policy; a flag or bucket grants no persistence or migration permission.
 

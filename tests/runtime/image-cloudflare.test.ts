@@ -11,10 +11,11 @@ import { seedLocal, DEMO_USERS, DEMO_PASSWORD } from '../../packages/testing/see
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { Problem } from '../../packages/shared/problem.js';
 import { runWithImageProcessor } from '../../packages/shared/image-runtime.js';
-import { containTransform, createCloudflareImageProcessor, type ImagesBinding, type ImagesInfo, type ImagesOutputOptions, type ImagesTransform } from '../../packages/shared/image-cloudflare.js';
+import { containTransform, createCloudflareImageProcessor, insideTransform, type ImagesBinding, type ImagesInfo, type ImagesOutputOptions, type ImagesTransform } from '../../packages/shared/image-cloudflare.js';
 import { assertCompleteRaster } from '../../packages/shared/image-container.js';
 import { inspectCanonicalWebp } from '../../packages/shared/image-webp.js';
 import { normalizeCoverImage } from '../../modules/skill-submissions/payload.js';
+import { normalizeMessageImage } from '../../modules/assets/message-image.js';
 
 // Synthetic binding fixtures only. `sharpRender` stands in for the Images
 // service with real sharp (applying EXIF orientation as the docs describe,
@@ -85,6 +86,22 @@ test('binding receives the documented transform and output options for covers an
   const avatar = await createCloudflareImageProcessor(images).normalize(jpeg, { purpose: 'avatar', format: 'jpeg', maxDimension: 4096, maxPixels: 4096 ** 2, maxOutputBytes: 131072, output: { width: 256, height: 256, fit: 'cover', quality: 82, effort: 3 } });
   assert.deepEqual(inspectCanonicalWebp(avatar), { width: 256, height: 256, chunks: ['VP8 '] });
   assert.deepEqual(calls[3].transform, { width: 256, height: 256, fit: 'cover', gravity: 'center' });
+});
+
+test('inside fit asks the binding for an exact scaled-down squeeze with no border and validates that exact size', async () => {
+  assert.deepEqual(insideTransform(3000, 1500, 1920, 1920), { width: 1920, height: 960, fit: 'squeeze' });
+  assert.deepEqual(insideTransform(600, 2400, 1920, 1920), { width: 480, height: 1920, fit: 'squeeze' });
+  assert.deepEqual(insideTransform(300, 150, 1920, 1920), { width: 300, height: 150, fit: 'squeeze' });
+  assert.deepEqual(insideTransform(1, 4000, 1920, 1920), { width: 1, height: 1920, fit: 'squeeze' });
+  const { images, calls } = binding();
+  const big = await solid(3000, 1500, '#336699').png().toBuffer();
+  const out = await runWithImageProcessor(createCloudflareImageProcessor(images), () => normalizeMessageImage('image/png', big));
+  assert.deepEqual(inspectCanonicalWebp(out), { width: 1920, height: 960, chunks: ['VP8 '] });
+  assert.deepEqual(calls[1].transform, { width: 1920, height: 960, fit: 'squeeze' });
+  assert.deepEqual(calls[1].output, { format: 'image/webp', quality: 80, anim: false });
+  // A service that returns any other size than the one it was asked for is refused, not stored.
+  const wrong = binding({ render: async (bytes, transform, output) => ({ stream: streamOf(await sharp(bytes).resize(transform.width + 1, transform.height, { fit: 'fill' }).webp({ quality: output.quality }).toBuffer()) }) });
+  await assert.rejects(runWithImageProcessor(createCloudflareImageProcessor(wrong.images), () => normalizeMessageImage('image/png', big)), (e: unknown) => e instanceof Problem);
 });
 
 test('sharp-backed fixture: orientation, metadata removal, alpha and padding pass the Node validators', async () => {
