@@ -113,8 +113,12 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   const list = storePage(page).locator('.hosted-store-products');
   await expect(list).toContainText('手工茶杯'); await expect(list).toContainText('亞麻杯墊');
   for (const price of prices) await expect(list).toContainText(price);
-  const preview = page.getByRole('region', {name: '展示頁預覽', exact: true});
-  await expect(preview).toContainText('手工茶杯'); await expect(preview).toContainText('亞麻杯墊');
+  const previewOpened = page.waitForEvent('popup');
+  await page.getByRole('link', {name: '預覽已儲存的展示頁', exact: true}).click();
+  const preview = await previewOpened;
+  await expect(preview.getByRole('heading', {name: '手工茶杯', exact: true})).toBeVisible();
+  await expect(preview.getByRole('heading', {name: '亞麻杯墊', exact: true})).toBeVisible();
+  await preview.close();
   await storePage(page).getByRole('button', {name: '發布展示頁', exact: true}).click();
   await expect(storePage(page).getByRole('status')).toContainText('已發布・第 1 版');
   await expect(storePage(page).getByRole('link', {name: `查看公開頁：/shops/${slug.toLowerCase()}`, exact: true})).toBeVisible();
@@ -374,4 +378,83 @@ for (const width of [1280, 360]) test(`pending and unknown store writes keep the
     await expect(form).toHaveCount(0);
     expect(prompts).toBe(0);
   } finally {releaseResponse();}
+});
+
+test('saved store template survives login and matches private preview and the published page', async ({page, browser, baseURL, e2eAuthPool}, testInfo) => {
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '版型工作室'), slug = slugFor().toLowerCase();
+  await post(page, ready.root + '/setup', {name: '版型商店', slug, currency: 'TWD'}, 201);
+  await post(page, ready.root + '/products', {title: '完整商品甲', price_minor: 100, stock: 3}, 201);
+  await post(page, ready.root + '/products', {title: '完整商品乙', price_minor: 200, stock: 4}, 201);
+  const original = StoreViewSchema.parse(await (await page.request.get('/api/v1' + ready.root)).json());
+  await post(page, ready.root + '/publish', {}, 200, original.version!);
+  await open(page, ready.hash);
+  const choice = page.getByRole('radio', {name: /^直列目錄/});
+  await choice.focus(); await choice.press('Space'); await expect(choice).toBeChecked();
+  await expect(page.getByRole('button', {name: '發布更新', exact: true})).toHaveCount(0);
+  await page.getByRole('button', {name: '儲存版型', exact: true}).click();
+  await expect(storePage(page).getByRole('status')).toContainText('已儲存版型');
+  await expect(page.getByRole('button', {name: '發布更新', exact: true})).toBeEnabled();
+  const popup = page.waitForEvent('popup'); await page.getByRole('link', {name: '預覽已儲存的展示頁', exact: true}).click();
+  const preview = await popup;
+  const anonymous = await browser.newContext({baseURL});
+  try {
+    const pub = await anonymous.newPage(); await pub.goto('/shops/' + slug);
+    await expect(pub.locator('.shop-products-list')).toHaveCount(0);
+    await expect(preview.locator('.shop-products-list article')).toHaveCount(2);
+    expect((await anonymous.request.get('/api/v1' + ready.root + '/preview-page')).status()).not.toBe(200);
+    await page.getByRole('button', {name: '發布更新', exact: true}).click();
+    await expect(storePage(page).getByRole('status')).toContainText('已發布・第 2 版'); await pub.reload();
+    await expect(pub.locator('.shop-products-list article')).toHaveCount(2);
+    expect(await pub.locator('main').innerHTML()).toBe(await preview.locator('main').innerHTML());
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({width, height: 900}); await pub.setViewportSize({width, height: 900});
+      for (const target of [page, pub]) expect(await target.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await choice.locator('..').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      await pub.screenshot({path: testInfo.outputPath(`presentation-public-${width}.png`), fullPage: true});
+    }
+    await signOut(page); await login(page, member.email); await open(page, ready.hash); await expect(choice).toBeChecked();
+    const other = await person(e2eAuthPool), otherContext = await browser.newContext({baseURL});
+    try {const stranger = await otherContext.newPage(); await login(stranger, other.email); await open(stranger, ready.hash); await expect(storePage(stranger)).toContainText('找不到這間商店。');}
+    finally {await otherContext.close();}
+    expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{n: 1}]);
+  } finally {await preview.close(); await anonymous.close();}
+});
+
+test('unknown appearance response retains the original key and selection until canonical retry', async ({page, e2eAuthPool}) => {
+  const member = await person(e2eAuthPool); await login(page, member.email);
+  const ready = await launchStore(page, '版型重試工作室');
+  await post(page, ready.root + '/setup', {name: '重試商店', slug: slugFor().toLowerCase(), currency: 'TWD'}, 201);
+  await open(page, ready.hash);
+  const requests: {key: string | undefined; body: string | null; version: string | undefined}[] = [];
+  await page.route('**/api/v1' + ready.root + '/appearance', async route => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    requests.push({key: route.request().headers()['idempotency-key'], body: route.request().postData(), version: route.request().headers()['if-match']});
+    const response = await route.fetch(); expect(response.status()).toBe(200);
+    if (requests.length === 1) await route.fulfill({response, json: {}}); else await route.fulfill({response});
+  });
+  const list = page.getByRole('radio', {name: /^直列目錄/}); await list.check();
+  await page.getByRole('button', {name: '儲存版型', exact: true}).click();
+  const retry = page.getByRole('button', {name: '重試', exact: true}); await expect(retry).toBeEnabled();
+  await expect(list).toBeChecked(); await expect(list).toBeDisabled();
+  let prompts = 0; page.on('dialog', async d => {prompts++; await d.accept();});
+  await page.evaluate(() => {location.hash = 'home';}); await expect(page).toHaveURL(new RegExp('#' + ready.hash + '$'));
+  expect(prompts).toBe(0); expect(requests).toHaveLength(1);
+  await retry.click(); await expect(storePage(page).getByRole('status')).toContainText('已儲存版型');
+  await expect(list).toBeEnabled(); await expect(list).toBeChecked();
+  expect(requests).toHaveLength(2); expect(requests[0].key).toBeTruthy(); expect(requests[1]).toEqual(requests[0]);
+  expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '2', template_id: 'catalog-list-v1'}]);
+  await page.unroute('**/api/v1' + ready.root + '/appearance');
+  const session = await (await page.request.get('/api/v1/session')).json();
+  const changed = await page.request.patch('/api/v1' + ready.root, {data: {name: '另一視窗更新'}, headers: {Origin: new URL(page.url()).origin, 'X-CSRF-Token': session.csrf_token, 'Idempotency-Key': randomUUID(), 'If-Match': '"2"'}});
+  expect(changed.status()).toBe(200);
+  const grid = page.getByRole('radio', {name: /^格狀目錄/}); await grid.check();
+  await page.getByRole('button', {name: '儲存版型', exact: true}).click();
+  await expect(storePage(page).getByRole('status')).toContainText('你的版型選擇仍保留');
+  await expect(grid).toBeChecked(); await expect(grid).toBeEnabled();
+  expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '3', template_id: 'catalog-list-v1'}]);
+  // Only this explicit second click adopts the refreshed version, never an automatic retry.
+  await page.getByRole('button', {name: '儲存版型', exact: true}).click();
+  await expect(storePage(page).getByRole('status')).toContainText('已儲存版型');
+  expect((await e2eAuthPool.query('SELECT version::text,template_id FROM commerce_storefront_profiles WHERE instance_id=$1', [ready.hash.split('/')[2]])).rows).toEqual([{version: '4', template_id: 'catalog-grid-v1'}]);
 });

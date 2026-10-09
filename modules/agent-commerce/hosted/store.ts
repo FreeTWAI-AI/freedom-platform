@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { MyStoresSchema, StoreSetupInputSchema, StoreUpdateInputSchema, StoreViewSchema, type StoreView } from '../../../contracts/guild-launchpad/v1/storefront.js';
+import type { StoreTemplate } from '../../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import { checkVersion } from '../../../packages/db/index.js';
 import { assertCurrentSessionClock, lockMemberSession } from '../../../packages/db/member-session.js';
 import { mapPersonPrincipal, withTenantRead, lockTenantScope, type TenantScopeContext } from '../../../packages/resource-scopes/index.js';
@@ -20,6 +21,7 @@ export interface Profile {
   name: string; description: string; currency: 'TWD' | 'USD'; revision: string | null; published_at: Date | null;
   projection: unknown; projection_sha256: string | null;
   reservation_enabled: boolean;
+  template_id: StoreTemplate; published_template_id: StoreTemplate | null;
 }
 export async function instance(q: PoolClient, tenantId: string, instanceId: string, write: boolean, allowArchived = false): Promise<Instance> {
   const row = (await q.query<Instance>(`SELECT i.instance_id,i.status,d.state AS deployment_state FROM module_instances i
@@ -40,7 +42,7 @@ export async function instance(q: PoolClient, tenantId: string, instanceId: stri
 /** Every private profile read is anchored to both confirmed RLS mappings. */
 export async function profile(q: PoolClient, tenantId: string, instanceId: string, lock = false): Promise<Profile | null> {
   return (await q.query<Profile>(`SELECT p.*,p.version::text AS version,s.name,s.description,s.currency,
-    pub.revision::text AS revision,pub.published_at,pub.projection,pub.projection_sha256
+    pub.revision::text AS revision,pub.published_at,pub.projection,pub.projection_sha256,pub.template_id AS published_template_id
     FROM commerce_storefront_profiles p
     JOIN commerce_resource_tenants m ON m.resource_kind='shop' AND m.resource_id=p.storefront_shop_id AND m.tenant_id=p.tenant_id AND m.instance_id=p.instance_id AND m.mapping_state='confirmed'
     JOIN commerce_resource_tenants supply ON supply.resource_kind='shop' AND supply.resource_id=p.supply_shop_id AND supply.tenant_id=p.tenant_id AND supply.instance_id=p.instance_id AND supply.mapping_state='confirmed'

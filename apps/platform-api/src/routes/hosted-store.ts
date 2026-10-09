@@ -4,8 +4,10 @@ import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import { EmptyStoreInputSchema, StoreSetupInputSchema, StoreUpdateInputSchema, ProductInputSchema, ProductUpdateInputSchema, SlugQuerySchema, SlugAvailabilitySchema } from '../../../../contracts/guild-launchpad/v1/storefront.js';
 import { listMyStores, setupStore, updateStore, storeRead, storeView, slugAvailability } from '../../../../modules/agent-commerce/hosted/store.js';
 import { listProducts, addProduct, updateProduct, removeProduct } from '../../../../modules/agent-commerce/hosted/products.js';
-import { previewStore, publishStore } from '../../../../modules/agent-commerce/hosted/publish.js';
-import { readPublicStore } from '../../../../modules/agent-commerce/hosted/public.js';
+import { previewStore, previewStorePage, publishStore } from '../../../../modules/agent-commerce/hosted/publish.js';
+import { StoreAppearanceInputSchema } from '../../../../contracts/guild-launchpad/v1/storefront-presentation.js';
+import { readStoreAppearance, updateStoreAppearance } from '../../../../modules/agent-commerce/hosted/presentation.js';
+import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
 import { storeHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
 import { Problem } from '../../../../packages/shared/problem.js';
 import type { PlatformEnv } from '../module-context.js';
@@ -49,6 +51,20 @@ export function createHostedStoreRoutes(pool: Pool) {
     return c.json(await removeProduct(pool, c.get('actor'), t, i, OpaqueId.parse(c.req.param('product_id')), h.key, h.expected!));
   });
   app.get(root + '/preview', async c => { EmptyStoreInputSchema.parse(singleQuery(c)); const [t, i] = ids(c); return c.json(await previewStore(pool, c.get('actor'), t, i)); });
+  app.get(root + '/appearance', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const [t, i] = ids(c);
+    const view = await readStoreAppearance(pool, c.get('actor'), t, i); etag(c, view.version); return c.json(view);
+  });
+  app.patch(root + '/appearance', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const h = commandHeaders(c, true);
+    const body = StoreAppearanceInputSchema.parse(await c.req.json()); const [t, i] = ids(c);
+    const view = await updateStoreAppearance(pool, c.get('actor'), t, i, body, h.key, h.expected!); etag(c, view.version); return c.json(view);
+  });
+  app.get(root + '/preview-page', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const [t, i] = ids(c);
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+    return c.html(await previewStorePage(pool, c.get('actor'), t, i));
+  });
   for (const action of ['publish', 'unpublish'] as const) app.post(root + '/' + action, async c => {
     const h = commandHeaders(c, true); EmptyStoreInputSchema.parse(await c.req.json()); const [t, i] = ids(c);
     const view = await publishStore(pool, c.get('actor'), t, i, h.key, h.expected!, action === 'unpublish'); if (view.version) etag(c, view.version); return c.json(view);
@@ -65,9 +81,9 @@ export function createPublicHostedStoreRoutes(pool: Pool) {
   });
   app.get('/shops/:slug', async c => {
     c.header('Cache-Control', 'no-store'); c.header('X-Robots-Tag', 'noindex');
-    const store = await readPublicStore(pool, c.req.param('slug'));
+    const store = await readPublicStorePage(pool, c.req.param('slug'));
     if (!store) return c.html(storeMissingHtml(), 404);
-    c.header('Cache-Control', 'public, max-age=60'); return c.html(storeHtml(store));
+    c.header('Cache-Control', 'public, max-age=60'); return c.html(storeHtml(store.projection, store.template_id));
   });
   return app;
 }
