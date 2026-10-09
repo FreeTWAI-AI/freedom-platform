@@ -1,3 +1,4 @@
+import type {ChannelKind,ChannelMessage} from '../../../../modules/member-communications/channel-types';
 import type {DirectMessageContentInput} from '../../../../modules/member-communications/content-types';
 import type {Message} from '../../../../modules/member-communications/types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
@@ -18,7 +19,16 @@ export function isMessageImage(value:unknown):value is MessageImage{
  * An unrecognised 2xx is unknown, never permission to discard a keyed tuple. */
 export function matchesDirectMessageAck(value:unknown,expected:{sender:string;recipient:string;payload:DirectMessageContentInput}):value is Message{
   if(!record(value)||!isUuid(value.message_id)||value.sender_ref!==expected.sender||value.recipient_ref!==expected.recipient||!isUuid(value.sender_ref)||!isUuid(value.recipient_ref)||!timestamp(value.created_at)||(value.read_at!==null&&!timestamp(value.read_at)))return false;
-  const input=expected.payload,sticker=findChatSticker(input.sticker_id);
+  return matchesMessageContentAck(value,expected.payload);
+}
+/** A channel acknowledgement must name the original room and a canonical sequence. */
+export function matchesChannelMessageAck(value:unknown,expected:{sender:string;kind:ChannelKind;channelKey:string;payload:DirectMessageContentInput}):value is ChannelMessage{
+  if(!record(value)||!isUuid(value.message_id)||value.sender_ref!==expected.sender||!isUuid(value.sender_ref)||value.kind!==expected.kind||value.channel_key!==expected.channelKey||typeof value.sender_name!=='string'||!timestamp(value.created_at))return false;
+  if(typeof value.sequence!=='string'||!/^\d{1,19}$/.test(value.sequence)||BigInt(value.sequence)<=0n||BigInt(value.sequence)>9223372036854775807n)return false;
+  return expected.payload.image_id===undefined&&matchesMessageContentAck(value,expected.payload);
+}
+function matchesMessageContentAck(value:Record<string,unknown>,input:DirectMessageContentInput):boolean{
+  const sticker=findChatSticker(input.sticker_id);
   const body=input.body!==undefined?input.body.replace(/\r\n?/g,'\n').trim():input.image_id!==undefined?'[圖片]':sticker?`[貼圖] ${sticker.label}`:undefined;
   if(body===undefined||value.body!==body)return false;
   if(input.image_id!==undefined?!isMessageImage(value.image):value.image!==undefined)return false;

@@ -217,6 +217,9 @@ const routeTable: Record<string, string> = {
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/preview': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/appearance': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/appearance': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/preview-page': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/publish': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/unpublish': 'tenant',
 
@@ -504,8 +507,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 59, middleware: 2 });
-  assert.equal(selectedRoutes.length, 89);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 62, middleware: 2 });
+  assert.equal(selectedRoutes.length, 92);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -600,6 +603,9 @@ const routes: Route[] = [
   { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id', body: { title: '更名' }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove', body: {}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/appearance' },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/appearance', body: { template_id: 'catalog-list-v1' }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview-page' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/publish', body: {}, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/unpublish', body: {}, version: '"1"' },
 ];

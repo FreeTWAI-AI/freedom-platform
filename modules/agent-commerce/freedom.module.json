@@ -41,7 +41,11 @@
     "apps/portal-web/src/modules/HostedSellerOrders.tsx",
     "apps/portal-web/src/modules/hosted-seller-order-state.ts",
     "tests/runtime/hosted-seller-order-ui.test.ts",
-    "tests/e2e/hosted-seller-order.spec.ts"
+    "tests/e2e/hosted-seller-order.spec.ts",
+    "contracts/guild-launchpad/v1/storefront-presentation.ts",
+    "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
+    "migrations/140_storefront_presentation.sql",
+    "tests/runtime/storefront-presentation-contracts.test.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",

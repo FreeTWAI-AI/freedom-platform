@@ -4,8 +4,9 @@ import {OpaqueId} from '../../../../contracts/common/v1/identity';
 import {
   StoreViewSchema, StoreSetupInputSchema, StoreUpdateInputSchema, SlugAvailabilitySchema,
   ProductInputSchema, ProductViewSchema, ProductPageSchema, ProductRemovedSchema, StorePreviewSchema,
-  type ProductView, type StoreView, type PublicStoreProjection,
+  type ProductView, type StoreView,
 } from '../../../../contracts/guild-launchpad/v1/storefront';
+import {StoreAppearanceSchema, type StoreAppearance, type StoreTemplate} from '../../../../contracts/guild-launchpad/v1/storefront-presentation';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor, parseMajorToMinor} from '../format';
 import {useMyStores, stateWord} from './MyStoreAction';
@@ -70,6 +71,8 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
   const [view, setView] = useState<StoreView | null>(null);
   const [products, setProducts] = useState<ProductView[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [appearance, setAppearance] = useState<StoreAppearance | null>(null);
+  const [templateChoice, setTemplateChoice] = useState<StoreTemplate | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
@@ -110,19 +113,20 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
     setLoading(true);
     try {
       const next = StoreViewSchema.parse(await client.get(root, {signal}));
-      let items: ProductView[] = [], draft: Preview | null = null;
+      let items: ProductView[] = [], draft: Preview | null = null, presentation: StoreAppearance | null = null;
       if (next.setup_state === 'ready') {
-        const results = await Promise.all([client.get(root + '/products', {signal}), client.get(root + '/preview', {signal})]);
-        items = ProductPageSchema.parse(results[0]).items; draft = StorePreviewSchema.parse(results[1]);
+        const results = await Promise.all([client.get(root + '/products', {signal}), client.get(root + '/preview', {signal}), client.get(root + '/appearance', {signal})]);
+        items = ProductPageSchema.parse(results[0]).items; draft = StorePreviewSchema.parse(results[1]); presentation = StoreAppearanceSchema.parse(results[2]);
       }
       if (!current()) return;
-      setView(next); setProducts(items); setPreview(draft); setError('');
+      setView(next); setProducts(items); setPreview(draft); setAppearance(presentation); setError('');
     } catch (cause) {
       if (!current()) return;
       if (cause instanceof ApiError && cause.status === 404) setMissing(true);
       else setError(errorText(cause));
     } finally {if (current()) setLoading(false);}
   }
+  useEffect(() => {markDirty('appearance', templateChoice !== null && templateChoice !== appearance?.template_id);}, [templateChoice, appearance?.template_id]);
   function markDirty(id: string, value: boolean) {setDirtyForms(old => old[id] === value ? old : {...old, [id]: value});}
   function announce(text: string) {setStatus(text); requestAnimationFrame(() => statusLine.current?.focus());}
   async function send(attempt: Attempt) {
@@ -144,7 +148,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
       if (cause instanceof ApiError && cause.status === 404) {setMissing(true); return;}
       if (cause instanceof ApiError && cause.status === 412) {
         setEditing(null); markDirty('edit', false); await load();
-        announce(attempt.product ? '這件商品剛剛被更新，已重新載入。' : '商店資料剛剛被更新，已重新載入。');
+        announce(attempt.path.endsWith('/appearance') ? '商店資料剛剛被更新，已重新載入。你的版型選擇仍保留，請確認後再儲存。' : attempt.product ? '這件商品剛剛被更新，已重新載入。' : '商店資料剛剛被更新，已重新載入。');
       } else if (cause instanceof ApiError && cause.code === 'storefront_already_set_up') {
         await load(); announce('這間商店已經設定過，已重新載入。');
       } else if (cause instanceof ApiError && ['storefront_slug_taken', 'storefront_slug_reserved', 'validation_failed'].includes(cause.code ?? '') && attempt.fieldError) {
@@ -189,7 +193,16 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
         <section className="stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
           <p>{publication?.state === 'published' ? `目前公開第 ${publication.current_revision} 版。` : publication?.state === 'unpublished' ? '已停止公開。' : '尚未發布。'}</p>
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更。</p>}
-          {preview && <Projection projection={preview.projection}/>}
+          {appearance && <fieldset disabled={locked || !can('store:manage')} className="hosted-store-templates">
+            <legend>商店版型</legend>
+            {([['catalog-grid-v1', '格狀目錄', '商品並排展示，手機改為單欄。'], ['catalog-list-v1', '直列目錄', '商品逐項排列，方便閱讀較長說明。']] as const).map(([id, label, hint]) => <label key={id}>
+              <input type="radio" name="store-template" value={id} checked={(templateChoice ?? appearance.template_id) === id} onChange={() => {setTemplateChoice(id); markDirty('appearance', id !== appearance.template_id);}}/>
+              <span>{label}<small>{hint}</small></span>
+            </label>)}
+          </fieldset>}
+          {appearance && can('store:manage') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked || !templateChoice || templateChoice === appearance.template_id} onClick={() => void command({method: 'patch', path: root + '/appearance', body: {template_id: templateChoice}, version: appearance.version, schema: StoreAppearanceSchema, notice: '已儲存版型。重新發布後，公開頁才會更新。', success: () => {setTemplateChoice(null); markDirty('appearance', false);}})}>儲存版型</button></div>}
+          {preview && <div className="actions"><a href={`/api/v1${root}/preview-page`} target="_blank" rel="noopener">預覽已儲存的展示頁</a></div>}
+          {dirtyForms.appearance && <p className="field-hint">請先儲存版型，再開啟預覽；公開頁會保留目前發布的版本。</p>}
           {can('store:publish') && <div className="actions">
             {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || hasDraft || !products.length || !preview} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
             {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={locked || hasDraft} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
@@ -208,14 +221,7 @@ function StorePage({client, tenantId, instanceId, registerLeave}: {client: Porta
   </div>;
 }
 const currencyLabel = (currency: string) => currency === 'TWD' ? '新臺幣 TWD' : '美元 USD';
-function Projection({projection}: {projection: PublicStoreProjection}) {
-  return <section className="hosted-store-preview stack" aria-label="展示頁預覽">
-    <p className="banner" role="note">{NOTICE}</p><h4>{projection.name}</h4>{projection.brand && <p>{projection.brand}</p>}
-    {projection.description.split(/\n+/).filter(line => line.trim()).map((line, index) => <p key={index}>{line}</p>)}
-    {projection.products.map(product => <article key={product.sku}><h4>{product.title}</h4><p>{formatMinor(product.price_minor, projection.currency)}</p>
-      {product.description.split(/\n+/).filter(line => line.trim()).map((line, index) => <p key={index}>{line}</p>)}</article>)}
-  </section>;
-}
+
 function SettingsForm({client, root, store, busy, onMissing, onDirty, onSave}: {
   client: PortalClient; root: string; store?: NonNullable<StoreView['store']>; busy: boolean; onMissing: () => void; onDirty: (dirty: boolean) => void;
   onSave: (body: unknown, success: (value: unknown) => void, fieldError: (error: ApiError) => void) => Promise<void>;
