@@ -137,9 +137,38 @@ test('search signals keep no query text, count zero-result reads and only the ow
   assert.deepEqual(rows, [{ has: false, opened: false }, { has: true, opened: true }]);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
   const m = (await participationMetrics(pool, { community_id: DEMO_COMMUNITY }, { from: today, to: today })).metrics;
-  assert.deepEqual([m.search_zero_result.numerator, m.search_zero_result.denominator, m.search_open.numerator, m.search_open.denominator], [1, 2, 1, 1]);
+  assert.deepEqual([m.search_zero_result.numerator, m.search_zero_result.denominator, m.search_open.numerator, m.search_open.denominator], [0, 0, 0, 0]); // demo accounts remain recorded but are excluded from the report
   assert.equal(m.search_zero_result.rate, null); // below the minimum sample: no fake percentage
   assert.equal(m.moderation_case_time.status, 'not_available');
+});
+
+test('historical synthetic searches cannot satisfy the sample floor or alter real search rates', async () => {
+  const synthetic = await member({ at: '2026-09-01T00:00:00+08', test: true });
+  const real = await member({ at: '2026-09-01T00:00:00+08' });
+  async function searches(user: { id: string; community: string }, count: number, results: number, opened: boolean) {
+    await pool.query(`INSERT INTO community_search_operations(community_id,user_id,searched_at,first_page,result_count,opened_at,opened_kind)
+      SELECT $1,$2,'2026-10-02T12:00:00+08'::timestamptz,true,$3,
+        CASE WHEN $4 THEN '2026-10-02T12:01:00+08'::timestamptz END,
+        CASE WHEN $4 THEN 'post' END FROM generate_series(1,$5::int)`, [user.community, user.id, results, opened, count]);
+  }
+  // Pre-existing rows must be excluded at report time, not only at collection time.
+  await searches(synthetic, MIN_SAMPLE, 0, false);
+  await searches(synthetic, MIN_SAMPLE, 1, true);
+  const syntheticOnly = await metrics();
+  for (const value of [syntheticOnly.search_zero_result, syntheticOnly.search_open]) {
+    assert.deepEqual([value.numerator, value.denominator, value.rate, value.status], [0, 0, null, 'insufficient_sample']);
+  }
+  await searches(real, 1, 1, false);
+  const small = await metrics();
+  for (const value of [small.search_zero_result, small.search_open]) {
+    assert.deepEqual([value.numerator, value.denominator, value.rate, value.status], [0, 1, null, 'insufficient_sample']);
+  }
+  await searches(real, 9, 1, true);
+  await searches(real, 10, 0, false);
+  const mixed = await metrics();
+  assert.deepEqual([mixed.search_zero_result.numerator, mixed.search_zero_result.denominator, mixed.search_zero_result.rate], [10, 20, 0.5]);
+  assert.deepEqual([mixed.search_open.numerator, mixed.search_open.denominator, mixed.search_open.rate], [9, 10, 0.9]);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_search_operations')).rows[0].n, 40);
 });
 
 test('the report needs a verified platform admin, is flag-gated and only reads the admin own community', async () => {

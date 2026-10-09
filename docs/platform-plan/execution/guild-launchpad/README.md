@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 release.staging=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 flag.production=true flag.staging=true repo_max_migration=140 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-08 release.production=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 release.staging=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 flag.production=true flag.staging=true repo_max_migration=141 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 本節部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 

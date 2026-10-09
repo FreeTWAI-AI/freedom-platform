@@ -105,7 +105,8 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
 
   const search = await q(`SELECT count(*) AS reads, count(*) FILTER (WHERE result_count=0) AS zero,
       count(*) FILTER (WHERE result_count>0) AS with_results, count(*) FILTER (WHERE opened_at IS NOT NULL) AS opened
-    FROM community_search_operations WHERE community_id=$1 AND searched_at >= ${start} AND searched_at < ${end}`, false);
+    FROM community_search_operations WHERE community_id=$1 AND searched_at >= ${start} AND searched_at < ${end}
+      AND NOT is_verification_test_account(user_id)`, false);
 
   return {
     definition: metricsDefinition,

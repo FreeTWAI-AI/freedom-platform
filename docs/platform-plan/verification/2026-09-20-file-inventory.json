@@ -14735,7 +14735,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 22205,
-      "sha256": "4391d7e718e438390921acec8301093f20e107cba4ce9256887f7a921b3e2c21"
+      "sha256": "b962f1871e4b1825ee7e64bc39157e27e68d05266258b38059f8e6326a9abd49"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16929,8 +16929,8 @@
     },
     {
       "path": "modules/community/participation-metrics.ts",
-      "bytes": 11838,
-      "sha256": "f52fb9cba95623747e57687f83c538762c981b3130e6d2f75dbde1caf1c1cbba"
+      "bytes": 11890,
+      "sha256": "95a58bc87903a85428b38a5dc422293ddad726ae3ac8df96b5a2f9312302d2f2"
     },
     {
       "path": "modules/community/promotion.ts",
@@ -21259,8 +21259,8 @@
     },
     {
       "path": "tests/runtime/participation-metrics.test.ts",
-      "bytes": 15044,
-      "sha256": "294991f7fc4d454715030a1f41da255cacf695cc7ffb250c164fe99f44fcf759"
+      "bytes": 17081,
+      "sha256": "97897d42a91ab0fe5484a5a4d0336ab4b82a8151776944a874b290e81ff7bc59"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",
