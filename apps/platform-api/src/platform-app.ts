@@ -56,7 +56,7 @@ import {onboardingDiagnostics} from './onboarding-diagnostics.js';
 import {createSkillSubmissionRoutes,createAgentSkillSubmissionRoutes,isAgentSkillUploadPath} from './routes/skill-submissions.js';
 import {createMaintainerWebhookRoutes,createRepoMaintainerMemberRoutes,isMaintainerWebhookPath} from './routes/repo-maintainer.js';
 import {createPublishedSkillRoutes} from './routes/published-skills.js';
-import {createMemberCommunicationRoutes} from './routes/member-communications.js';
+import {checkMessageImageHeaders,createMemberCommunicationRoutes,isMessageImageUpload,messageImagesInstalled} from './routes/member-communications.js';
 import {PageGitHubReader,PageGitHubEventReader} from '../../../modules/development/page-github.js';
 import {createCommunityEventRoutes,checkEventBannerUploadHeaders,checkEventVideoUploadHeaders,eventVideoResponse,eventAssetVideoResponse,isEventBannerUpload,isEventVideoUpload} from './routes/community-events.js';
 import {checkHighlightPhotoUploadHeaders,checkHighlightPosterUploadHeaders,createEventHighlightMemberRoutes,createEventHighlightPublicRoutes,isHighlightPhotoUpload,isHighlightPosterUpload} from './routes/event-highlights.js';
@@ -170,6 +170,10 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
         checkEventVideoUploadHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isSocialThumbnailUpload(c.req.method,c.req.path)) {
         checkSocialThumbnailHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+      } else if(isMessageImageUpload(c.req.method,c.req.path)) {
+        // Binary body only when the feature is installed; otherwise the route does not exist.
+        requireCondition(messageImagesInstalled(runtime),404,'not_found','找不到這個頁面。');
+        checkMessageImageHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isServiceCoverUpload(c.req.method,c.req.path)) {
         checkServiceCoverHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
       } else if(isHighlightPhotoUpload(c.req.method,c.req.path)) {
@@ -224,7 +228,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,message_images_enabled:messageImagesInstalled(runtime)}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -398,7 +402,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   }
   app.post('/api/v1/engagements/:id/receipts',async c=>respond(c,await changeEngagement(pool,await cmd(c),routeId(c),'receipt'),201));
   app.route('/api/v1',createMemberRoutes(pool));
-  app.route('/api/v1',createMemberCommunicationRoutes(pool,runtime.memberBlockingEnabled===true));
+  app.route('/api/v1',createMemberCommunicationRoutes(pool,runtime,runtime.memberBlockingEnabled===true));
   app.route('/api/v1',createCommunityEventRoutes(pool,runtime.eventEmailSender,origin,runtime));
   registerMemberPromotion(app,pool,runtime);
   registerMemberServices(app,pool,runtime);

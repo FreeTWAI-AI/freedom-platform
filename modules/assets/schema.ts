@@ -6,6 +6,7 @@ export const DOMAIN_MEDIA = Object.freeze({
   'community.event-highlight': Object.freeze({variants:Object.freeze(['image','thumb'] as const),atomicVariants:true}),
   'community.social-thumbnail': Object.freeze({variants:Object.freeze(['thumbnail'] as const)}),
   'member.service-cover': Object.freeze({variants:Object.freeze(['cover'] as const)}),
+  'member.message-image': Object.freeze({variants:Object.freeze(['image'] as const)}),
 });
 export type DomainMediaPurpose = keyof typeof DOMAIN_MEDIA;
 export type DomainMediaVariant = typeof DOMAIN_MEDIA[DomainMediaPurpose]['variants'][number];

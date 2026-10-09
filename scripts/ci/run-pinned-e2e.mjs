@@ -95,9 +95,10 @@ async function main() {
   for (const key of Object.keys(baseEnv)) {
     if (key === 'NODE_OPTIONS' || key === 'ACTIONS_ID_TOKEN_REQUEST_URL' || key.endsWith('_TOKEN') || key.endsWith('_SECRET')) delete baseEnv[key];
   }
-  // The pinned plan owns both fixture flags; inherited flags cannot alter pass 1.
+  // The pinned plan owns all fixture flags; inherited flags cannot alter pass 1.
   delete baseEnv.FREEDOM_E2E_PRIVATE_AI_FIXTURE;
   delete baseEnv.FREEDOM_E2E_AVATAR_ASSET_FIXTURE;
+  delete baseEnv.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE;
   const controller = new AbortController();
   const onSignal = () => controller.abort();
   process.on('SIGINT', onSignal);

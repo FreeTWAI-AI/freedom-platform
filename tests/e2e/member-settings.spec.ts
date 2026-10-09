@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {test,expect,type Page,type Route} from './fixtures.js';
 
 // Synthetic data only. Messages/notifications follow the root-confirmed DTO in
@@ -332,11 +333,12 @@ function thread(peer:string,count:number):Message[]{
 }
 
 // `gate` holds a full-page read *after* its snapshot is taken, like a slow server answer.
-async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'500'|'ok')[];readOutcomes?:('500'|'ok')[];readGate?:()=>Promise<void>;gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
+async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort'|'422'|'500'|'ok')[];readOutcomes?:('500'|'ok')[];readGate?:()=>Promise<void>;gate?:(kind:'list'|'thread')=>Promise<void>|undefined}={}){
   const store:Record<string,Message[]>={[peerA]:thread(peerA,25),[peerB]:[]};
   const sends:{peer:string;key:string;body:string}[]=[],reads:string[]=[],outcomes=[...options.outcomes??[]];
   const readOutcomes=[...options.readOutcomes??[]],readBoundaries:{peer:string;key:string;through:string}[]=[];
   const receipts=new Map<string,{user_id:string;read_at:string;updated_count:number}>();
+  const messageReceipts=new Map<string,Message>();
   const unread=(peer:string)=>store[peer].filter(item=>item.sender_ref===peer&&!item.read_at).length;
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
   await page.route(/\/api\/v1\/me\/conversations(\/.*)?(\?.*)?$/,async(route:Route)=>{
@@ -358,12 +360,15 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
       return route.fulfill({json});
     }
     if(parts[2]==='messages'&&request.method()==='POST'){
-      const body=request.postDataJSON().body as string;sends.push({peer,key:request.headers()['idempotency-key'],body});
+      const body=request.postDataJSON().body as string,key=request.headers()['idempotency-key'];sends.push({peer,key,body});
       const outcome=outcomes.shift()??'ok';
       if(outcome==='abort')return route.abort();
-      const existing=store[peer].find(item=>item.message_id===`sent-${request.headers()['idempotency-key']}`);
-      const message=existing??{message_id:`sent-${request.headers()['idempotency-key']}`,sender_ref:me,recipient_ref:peer,body,created_at:'2026-09-24T10:00:00Z',read_at:null};
-      if(!existing)store[peer].unshift(message);
+      if(outcome==='422')return route.fulfill({status:422,json:{code:'invalid_input',title:'合成訊息明確拒絕'}});
+      const receiptKey=`${peer}/${key}`,normalizedBody=body.replace(/\r\n?/g,'\n').trim();
+      const existing=messageReceipts.get(receiptKey);
+      if(existing)expect(existing.body).toBe(normalizedBody);
+      const message=existing??{message_id:randomUUID(),sender_ref:me,recipient_ref:peer,body:normalizedBody,created_at:'2026-09-24T10:00:00Z',read_at:null};
+      if(!existing){messageReceipts.set(receiptKey,message);store[peer].unshift(message);}
       // '500' commits the message but loses the response, like a proxy failure after the write.
       if(outcome==='500')return route.fulfill({status:500,json:{}});
       return route.fulfill({status:201,json:message});
@@ -381,7 +386,7 @@ async function direct(page:Page,options:{delayA?:Promise<void>;outcomes?:('abort
     }
     return route.fulfill({status:404,json:{}});
   });
-  return {store,sends,reads,readBoundaries};
+  return {store,sends,reads,readBoundaries,messageReceipts};
 }
 
 test('an unknown private auto-read result never replays silently or consumes later mail',async({page})=>{
@@ -476,15 +481,35 @@ test('direct messages auto-read on entry and retain paging plus idempotent send 
   expect(sends[3].key).toBe(sends[2].key);await expect(threadRegion.getByText('第二則',{exact:true})).toHaveCount(1);
 });
 
-test('changing an unconfirmed message makes it a new message with a new key',async({page})=>{
-  const {sends}=await direct(page,{outcomes:['abort','ok']});
+test('an unconfirmed message keeps its body and key until explicit recovery, then a new draft gets a new key',async({page})=>{
+  const {sends,store,messageReceipts}=await direct(page,{outcomes:['500','ok','ok']});
   await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
   const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread');
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('原稿');
   await threadRegion.getByRole('button',{name:'送出',exact:true}).click();await expect(threadRegion.getByRole('alert')).toContainText('傳送結果未確認');
+  await expect(box).toHaveValue('原稿');await expect(box).not.toBeEditable();expect(sends).toHaveLength(1);
+  const original={...store[peerA].find(item=>item.body==='原稿')!};expect(original.message_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  await threadRegion.getByRole('button',{name:'重試送出',exact:true}).click();await expect(box).toHaveValue('');await expect(box).toBeEditable();
+  expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);expect(messageReceipts.size).toBe(1);
+  expect(store[peerA].filter(item=>item.body==='原稿')).toEqual([original]);
+  await box.fill('改稿');await threadRegion.getByRole('button',{name:'送出',exact:true}).click();await expect(box).toHaveValue('');
+  expect(sends.map(item=>item.body)).toEqual(['原稿','原稿','改稿']);expect(sends[2].key).not.toBe(sends[0].key);expect(messageReceipts.size).toBe(2);
+  expect(store[peerA].filter(item=>item.sender_ref===me&&['原稿','改稿'].includes(item.body))).toHaveLength(2);
+});
+
+test('a definite first message rejection keeps an editable draft and an edited send uses a new key',async({page})=>{
+  const {sends,store,messageReceipts}=await direct(page,{outcomes:['422','ok']});
+  await login(page,'#messages');await page.getByRole('tab',{name:/私人訊息/}).click();
+  const panel=page.getByRole('tabpanel',{name:/私人訊息/}),threadRegion=panel.locator('.messages-thread');
+  await panel.getByRole('button',{name:/合成夥伴甲/}).click();
+  const box=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await box.fill('原稿');
+  await threadRegion.getByRole('button',{name:'送出',exact:true}).click();await expect(threadRegion.getByRole('alert')).toContainText('訊息未送出');
+  await expect(box).toHaveValue('原稿');await expect(box).toBeEditable();expect(sends).toHaveLength(1);expect(messageReceipts.size).toBe(0);
+  expect(store[peerA].filter(item=>item.body==='原稿')).toHaveLength(0);
   await box.fill('改稿');await threadRegion.getByRole('button',{name:'送出',exact:true}).click();await expect(box).toHaveValue('');
   expect(sends.map(item=>item.body)).toEqual(['原稿','改稿']);expect(sends[1].key).not.toBe(sends[0].key);
+  expect(messageReceipts.size).toBe(1);expect(store[peerA].filter(item=>item.body==='改稿')).toHaveLength(1);
 });
 
 test('switching conversations ignores late responses and keeps a draft per recipient',async({page})=>{

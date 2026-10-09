@@ -25,7 +25,7 @@ member-channels-real.spec.ts member-channels.spec.ts member-connections-51.spec.
 member-connections.spec.ts member-directory.spec.ts member-ecard.spec.ts
 member-editorial-card.spec.ts member-experience.spec.ts member-home-next-step.spec.ts
 member-services.spec.ts member-session-lifecycle.spec.ts member-settings-real.spec.ts
-member-settings.spec.ts member-todos-real.spec.ts member-todos.spec.ts model-settings.spec.ts
+message-images.spec.ts member-settings.spec.ts member-todos-real.spec.ts member-todos.spec.ts model-settings.spec.ts
 modules-beginners.spec.ts navigation-audit.spec.ts newcomer-guides.spec.ts
 notification-bell-actions.spec.ts onboarding-members.spec.ts onboarding-recovery.spec.ts
 opensource-modules.spec.ts page-issue-recovery.spec.ts page-tools-notification.spec.ts
@@ -42,12 +42,14 @@ export const E2E_PASS_TIMEOUT_MS = Object.freeze({
   default: 40 * 60 * 1000,
   'private-ai': 30 * 60 * 1000,
   'avatar-asset': 30 * 60 * 1000,
+  'message-image': 30 * 60 * 1000,
 });
 
 export const E2E_PLAN = Object.freeze([
   { id: 'default', env: {}, files: [] },
   { id: 'private-ai', env: { FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' }, files: ['tests/e2e/private-work-ai.spec.ts'] },
-  { id: 'avatar-asset', env: { FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' }, files: ['tests/e2e/member-avatar-asset.spec.ts'] }
+  { id: 'avatar-asset', env: { FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' }, files: ['tests/e2e/member-avatar-asset.spec.ts'] },
+  { id: 'message-image', env: { FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' }, files: ['tests/e2e/message-images.spec.ts'] }
 ]);
 
 const SPEC_NAME = /^[a-z0-9][a-z0-9-]*\.spec\.ts$/;

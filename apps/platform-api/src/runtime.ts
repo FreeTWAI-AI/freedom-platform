@@ -11,6 +11,7 @@ import type { PasswordEmailSender } from '../../../modules/identity-membership/p
 import type { EventEmailSender } from '../../../modules/community/events.js';
 import type {GuildReviewer} from '../../../modules/community/guild-discovery.js';
 import type { ServiceCoverAssetService } from '../../../modules/assets/media-domain.js';
+import type { MessageImageAssetService } from '../../../modules/assets/message-image.js';
 import type { ObjectStore } from '../../../packages/asset-storage/index.js';
 import type { ModuleProviderMap } from '../../../modules/module-registry/providers.js';
 
@@ -54,6 +55,9 @@ export type PlatformRuntime = {
   /** Explicit installed cover lifecycle/read store; no ambient activation. */
   serviceCoverAssets?: ServiceCoverAssetService;
   serviceCoverAssetStore?: ObjectStore;
+  /** Direct-message images (#230). Both must be installed; absence keeps every image route 404 and /site false. */
+  messageImageAssets?: MessageImageAssetService;
+  messageImageAssetStore?: ObjectStore;
   eventBannerAssets?:EventBannerAssetService;
   eventBannerAssetStore?:ObjectStore;
   eventVideoAssets?:EventVideoAssetService;
