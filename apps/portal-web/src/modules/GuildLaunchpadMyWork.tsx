@@ -2,11 +2,16 @@ import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } f
 import { hasLoneSurrogate, type Config } from '../../../../contracts/guild-launchpad/v1/config';
 import type { TenantView, WorkspaceView } from '../../../../contracts/guild-launchpad/v1/tenant';
 import type { WorkspaceModuleBindingView } from '../../../../contracts/guild-launchpad/v1/module-registry';
-import type { LaunchpadContext, Operation, ResultView, UploadView, WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
+import { OperationSchema, WorkSchema, type LaunchpadContext, type Operation, type ResultView, type WorkView } from '../../../../contracts/guild-launchpad/v1/tenant-work';
 import { ApiError, type InstanceSelectionCandidate, type PortalClient } from '../api';
 import { formatIsoLocal } from '../format';
 import { TenantSelector } from './TenantSelector';
-import { getWorkResultText, putWorkResultContent, type ResultContentType } from './work-result-client';
+import { getWorkResultText, getWorkResultBytes, type ResultContentType } from './work-result-client';
+import { advanceWorkResultSave, workResultDigest as sha256Hex, type WorkResultSaveAttempt as SaveAttempt } from './work-result-save';
+import { emptyProductionDossier, parseProductionDossier, serializeProductionDossier, PRODUCTION_FILENAME, type ProductionDossier } from '../../../../modules/guild-workspace/production-dossier';
+import { readProductionResult, verifyProductionReferences, type ProductionRead, type ProductionScan } from './production-result-reader';
+import { ProductionProject } from './ProductionProject';
+import { canWriteTenantWork } from './work-ui-capabilities';
 import './GuildLaunchpadMyWork.css';
 
 const LEAVE = '有尚未儲存的內容，確定要離開嗎？';
@@ -27,21 +32,6 @@ const PROGRESS_LABEL = { todo: '待辦', in_progress: '進行中', done: '完成
 type Progress = keyof typeof PROGRESS_LABEL;
 type Page<T> = { items: T[]; next_cursor: string | null; source_version: string };
 type Choice = { kind: 'create_new' } | { kind: 'reuse'; instance_id: string; expected_version: string };
-type SavePhase = 'prepare' | 'put' | 'finalize' | 'confirm';
-type SaveAttempt = {
-  phase: SavePhase;
-  key: string;
-  bytes: Uint8Array;
-  sha256: string;
-  contentType: ResultContentType;
-  displayName: string;
-  expectedWorkVersion: string;
-  sourceText: string | null;
-  uploadId?: string;
-  uploadVersion?: string;
-  putVersion?: string;
-  resultId?: string;
-};
 type Call = { signal?: AbortSignal; live: () => boolean };
 
 // Same sessionStorage key TenantSettings writes. This screen also reads workspace_id.
@@ -87,10 +77,6 @@ function defaultNoteName(now = new Date()) {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `筆記-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.md`;
 }
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
-  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-}
 function flagOff(error: ApiError) {
   return error.status === 404 && `${error.detail ?? ''} ${error.message}`.includes('尚未提供');
 }
@@ -104,13 +90,15 @@ function workUnavailable(error: ApiError) {
   return error.status === 404 || (error.status === 409 && error.code === 'work_archived');
 }
 
-export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }: {
+export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave, canNavigate }: {
   client: PortalClient;
   guildKey: string;
   userId?: string;
   starter: Config['starter'];
   registerLeave: (guard: (() => boolean) | null) => void;
+  canNavigate?: () => boolean;
 }) {
+  const isProduction = guildKey === 'guild_commercial_production';
   const titleLabel = starter.title_label.trim() || '我的第一個工作';
   const objectiveLabel = starter.objective_hint.trim() || '寫下這次工作的目標。';
   const noteLabel = starter.note_hint.trim() || '記下過程、來源與下一步。';
@@ -134,8 +122,9 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     pending: boolean;
     createDirty: boolean;
     editDirty: boolean;
+    productionDirty: boolean;
     editBase: { version: string; title: string; objective: string; progress: Progress } | null;
-  }>({ note: '', saved: '', file: false, pending: false, createDirty: false, editDirty: false, editBase: null });
+  }>({ note: '', saved: '', file: false, pending: false, createDirty: false, editDirty: false, productionDirty: false, editBase: null });
   const [unavailable, setUnavailable] = useState(false);
   const [orphanNote, setOrphanNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,6 +142,10 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [workspaceBinding, setWorkspaceBinding] = useState<WorkspaceModuleBindingView['binding']>(null);
   const bound = workspaceBinding !== null;
   const writable = workspaceBinding?.writable === true;
+  const canCreateWork = !isProduction || canWriteTenantWork(tenant, workspaceBinding?.instance_id, 'work:create');
+  const canEditWork = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:write');
+  const canArchiveWork = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:archive');
+  const canSaveResults = !isProduction || canWriteTenantWork(tenant, work?.instance_id, 'work:result.write');
   const [policyOff, setPolicyOff] = useState(false);
   const [inactive, setInactive] = useState(false);
   const [capabilityDenied, setCapabilityDenied] = useState(false);
@@ -160,18 +153,28 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [quotaHit, setQuotaHit] = useState(false);
   const [storageDown, setStorageDown] = useState(false);
   const [banner, setBanner] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const busyRef = useRef(false);
+  function setBusy(value: boolean) { busyRef.current = value; setBusyState(value); }
   const [candidates, setCandidates] = useState<InstanceSelectionCandidate[] | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftObjective, setDraftObjective] = useState('');
   const [draftProgress, setDraftProgress] = useState<Progress>('todo');
   const [createError, setCreateError] = useState('');
+  const createAttempt = useRef<{ tenantId: string; workspaceId: string; instanceId: string; body: { title: string; objective: string; progress: Progress }; key: string; fingerprint: string; unknown: boolean } | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editObjective, setEditObjective] = useState('');
   const [editProgress, setEditProgress] = useState<Progress>('todo');
   const [editError, setEditError] = useState('');
   const [conflict, setConflict] = useState<WorkView | null>(null);
+  const [production, setProduction] = useState<ProductionDossier | null>(null);
+  const [productionBaseline, setProductionBaseline] = useState('');
+  const [productionRead, setProductionRead] = useState<ProductionRead | null>(null);
+  const [productionLoading, setProductionLoading] = useState(false);
+  const productionReadContinuation = useRef({ keepDraft: false, expectedText: '' });
+  const [productionConflict, setProductionConflict] = useState(false);
+  const [productionComposerDirty, setProductionComposerDirty] = useState(false);
   const [note, setNote] = useState('');
   const [savedNote, setSavedNote] = useState('');
   const [noteName, setNoteName] = useState(defaultNoteName);
@@ -179,14 +182,18 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState('');
   const [stage, setStage] = useState('尚未儲存');
-  const [attempt, setAttempt] = useState<SaveAttempt | null>(null);
-  const [awaitingAck, setAwaitingAck] = useState(false);
+  const [attempt, setAttemptState] = useState<SaveAttempt | null>(null);
+  const attemptRef = useRef<SaveAttempt | null>(null);
+  function setAttempt(value: SaveAttempt | null) { attemptRef.current = value; setAttemptState(value); }
+  const [awaitingAck, setAwaitingAckState] = useState(false);
+  const awaitingAckRef = useRef(false);
+  function setAwaitingAck(value: boolean) { awaitingAckRef.current = value; setAwaitingAckState(value); }
   const [resave, setResave] = useState<SaveAttempt | null>(null);
   const [resultText, setResultText] = useState<{ id: string; text: string } | null>(null);
   const [resultError, setResultError] = useState('');
   const createDirty = draftTitle !== '' || draftObjective !== '' || draftProgress !== 'todo';
   const editDirty = Boolean(editBase && (editTitle !== editBase.title || editObjective !== editBase.objective || editProgress !== editBase.progress));
-  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, createDirty, editDirty, editBase };
+  draft.current = { note, saved: savedNote, file: file !== null, pending: attempt !== null || resave !== null || awaitingAck, createDirty, editDirty, productionDirty: productionComposerDirty || Boolean(production && JSON.stringify(production) !== productionBaseline), editBase };
   const workspace = workspaces.find(item => item.workspace_id === workspaceId) ?? null;
   const writeLocked = (bound && !writable) || policyOff || inactive || capabilityDenied || quotaHit || upgrade;
 
@@ -202,8 +209,14 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     return { signal: abortRef.current?.signal, live: () => generation.current === ticket };
   }
   function leaveOk(includeCreate = true) {
+    // A checkpoint owns the original key/body/bytes until its outcome is known.
+    // Update these refs at mutation time, before React has rendered disabled UI.
+    if (isProduction && (busyRef.current || createAttempt.current || attemptRef.current || awaitingAckRef.current)) {
+      setBanner(busyRef.current ? '正在確認原操作，請等候完成後再離開。' : createAttempt.current ? CREATE_UNCONFIRMED : '尚未確認儲存結果，請按「重試」確認後再離開。');
+      return false;
+    }
     const now = draft.current;
-    if (now.note === now.saved && !now.file && !now.pending && !now.editDirty && (!includeCreate || !now.createDirty)) return true;
+    if (now.note === now.saved && !now.file && !now.pending && !now.editDirty && !now.productionDirty && (!includeCreate || !now.createDirty)) return true;
     return window.confirm(LEAVE);
   }
   const leaveOkRef = useRef(leaveOk);
@@ -216,6 +229,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     return created;
   }
   function clearDraft() {
+    setProduction(null); setProductionBaseline(''); setProductionRead(null); setProductionLoading(false); setProductionConflict(false); setProductionComposerDirty(false);
     setNote(''); setSavedNote(''); setNoteName(defaultNoteName()); setNoteError('');
     setFile(null); setFileError('');
     if (fileRef.current) fileRef.current.value = '';
@@ -224,7 +238,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     setEditBase(null);
   }
   function clearPrivate() {
-    clearDraft();
+    clearDraft(); createAttempt.current = null;
     setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo'); setCreateError('');
     setEditTitle(''); setEditObjective(''); setEditProgress('todo'); setEditBase(null); setEditError('');
     setOrphanNote(null);
@@ -250,6 +264,20 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }, [registerLeave]);
 
   useEffect(() => {
+    if (!isProduction) return;
+    const unloading = (event: BeforeUnloadEvent) => {
+      const now = draft.current;
+      if (busyRef.current || createAttempt.current || attemptRef.current || awaitingAckRef.current || now.note !== now.saved || now.file
+        || now.pending || now.editDirty || now.productionDirty || now.createDirty) {
+        event.preventDefault(); event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', unloading);
+    return () => window.removeEventListener('beforeunload', unloading);
+  }, [isProduction]);
+
+  useEffect(() => {
+    clearPrivate(); keys.current.clear();
     const call = nextGen();
     void loadTenants(call);
     return () => { abortRef.current?.abort(); generation.current += 1; };
@@ -401,24 +429,39 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
   }
   async function createWork(event: FormEvent) {
     event.preventDefault();
-    if (!tenantId || !workspaceId || !bound || busy || writeLocked) return;
-    if (work && !leaveOk(false)) return;
+    if (!tenantId || !workspaceId || !bound || busyRef.current || writeLocked || !canCreateWork) return;
+    if (work && !createAttempt.current && !leaveOk(false)) return;
     const titleError = textProblem(draftTitle, 'title');
     const objectiveError = textProblem(draftObjective, 'objective');
     setCreateError(titleError ?? objectiveError ?? '');
     if (titleError || objectiveError) return;
-    const body = { title: draftTitle, objective: draftObjective, progress: draftProgress };
-    const fingerprint = `create:${tenantId}:${workspaceId}:${JSON.stringify(body)}`;
-    const key = keyFor(fingerprint);
+    const body = createAttempt.current?.body ?? { title: draftTitle, objective: draftObjective, progress: draftProgress };
+    const fingerprint = createAttempt.current?.fingerprint ?? `create:${tenantId}:${workspaceId}:${JSON.stringify(body)}`;
+    const key = createAttempt.current?.key ?? keyFor(fingerprint);
+    if (isProduction && !createAttempt.current) createAttempt.current = { tenantId, workspaceId, instanceId: workspaceBinding!.instance_id, body, fingerprint, key, unknown: false };
+    const held = createAttempt.current;
     const call = currentCall();
     setBusy(true); setBanner('');
     let posted = false;
     try {
-      const operation = await client.post<Operation>(`/tenants/${tenantId}/workspaces/${workspaceId}/works`, body, { idempotencyKey: key, signal: call.signal });
+      const response = await client.post<Operation>(`/tenants/${held?.tenantId ?? tenantId}/workspaces/${held?.workspaceId ?? workspaceId}/works`, body, { idempotencyKey: key, signal: call.signal });
       posted = true;
       if (!call.live()) return;
-      const created = await client.get<WorkView>(`/tenants/${tenantId}/works/${operation.resource_ref.resource_id}`, { signal: call.signal });
+      const operation = held ? OperationSchema.parse(response) : response;
+      if (held && (operation.resource_ref.resource_type !== 'work.work' || operation.resource_ref.tenant_id !== held.tenantId
+        || operation.resource_ref.instance_id !== held.instanceId)) throw new Error('建立工作回應尚未確認。');
+      const created = await client.get<WorkView>(`/tenants/${held?.tenantId ?? tenantId}/works/${operation.resource_ref.resource_id}`, { signal: call.signal });
       if (!call.live()) return;
+      if (held) {
+        // Work's server title validators use Buffer. Validate its metadata with
+        // the same schema and its text through the existing browser validators.
+        const { title, objective, ...metadata } = created;
+        WorkSchema.omit({ title: true, objective: true }).parse(metadata);
+        if (typeof title !== 'string' || typeof objective !== 'string' || textProblem(title, 'title') || textProblem(objective, 'objective')
+          || created.work_id !== operation.resource_ref.resource_id || created.tenant_id !== held.tenantId
+          || created.workspace_id !== held.workspaceId || created.instance_id !== held.instanceId) throw new Error('建立工作回應尚未確認。');
+        createAttempt.current = null;
+      }
       keys.current.delete(fingerprint);
       setDraftTitle(''); setDraftObjective(''); setDraftProgress('todo');
       await loadContext(tenantId, workspaceId, call);
@@ -427,8 +470,14 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       setOrphanNote(null);
       setResults([]); setResultsCursor(null);
       showWork(created, true);
+      if (isProduction) { const initial = emptyProductionDossier(created.work_id); setProduction(initial); setProductionBaseline(JSON.stringify(initial)); setProductionRead({ kind: 'empty' }); }
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
+      if (held) {
+        const definite = !posted && !held.unknown && error instanceof ApiError && !error.network && error.status >= 400 && error.status < 500;
+        if (!definite) { held.unknown = true; setBanner(CREATE_UNCONFIRMED); return; }
+        createAttempt.current = null;
+      }
       if (await reloadUnavailableInstance(error, call)) return;
       if (!posted && (!(error instanceof ApiError) || !error.network)) keys.current.delete(fingerprint);
       if (posted) {
@@ -475,6 +524,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       if (!call.live()) return;
       showWork(value, true);
       setResults(page.items); setResultsCursor(page.next_cursor); setStage('尚未儲存');
+      if (isProduction) await loadProduction(workId, call);
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
       setWork(null); setHeldVersion(''); setResults([]); setResultsCursor(null);
@@ -482,6 +532,63 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       if (error instanceof ApiError) applyAccess(error);
       else setBanner('這份工作暫時無法開啟。');
     } finally { if (call.live()) setBusy(false); }
+  }
+  async function loadProduction(workId: string, call: Call, scan?: ProductionScan, keepDraft = false, expectedText = savedNote) {
+    if (!tenantId) return;
+    setProductionLoading(true);
+    productionReadContinuation.current = { keepDraft, expectedText };
+    try {
+      let snapshotWork = await client.get<WorkView>(`/tenants/${tenantId}/works/${workId}`, { signal: call.signal });
+      if (!call.live()) return;
+      const loaded = await readProductionResult({ workId, scan, expectedWorkVersion: scan?.sourceVersion ?? snapshotWork.version,
+        currentVersion: async () => { snapshotWork = await client.get<WorkView>(`/tenants/${tenantId}/works/${workId}`, { signal: call.signal }); return snapshotWork.version; },
+        page: cursor => client.get<Page<ResultView>>(`/tenants/${tenantId}/works/${workId}/results?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { signal: call.signal }),
+        content: result => getWorkResultBytes(client, `/api/v1/tenants/${tenantId}/works/${workId}/results/${result.result_id}/content`, call.signal),
+      });
+      if (!call.live()) return;
+      setProductionRead(loaded);
+      if (loaded.kind === 'found' || loaded.kind === 'empty') refreshWork(snapshotWork);
+      if (keepDraft && loaded.kind === 'found' && loaded.text !== expectedText) setProductionConflict(true);
+      if (!keepDraft && loaded.kind === 'found') {
+        setProduction(loaded.dossier); setProductionBaseline(JSON.stringify(loaded.dossier));
+        setNote(loaded.text); setSavedNote(loaded.text); setNoteName(PRODUCTION_FILENAME);
+        setStage(`已讀取製作資料・第 ${loaded.result.revision} 版`);
+      } else if (!keepDraft && loaded.kind === 'empty') {
+        const initial = emptyProductionDossier(workId); setProduction(initial); setProductionBaseline(JSON.stringify(initial)); setNoteName(PRODUCTION_FILENAME);
+      }
+      return loaded;
+    } catch (error) {
+      if (!call.live() || isAbort(error)) return;
+      setProductionRead({ kind: 'blocked', reason: error instanceof Error ? error.message : '製作資料暫時無法讀取。' });
+    } finally { if (call.live()) setProductionLoading(false); }
+  }
+  async function saveProduction() {
+    if (!production || !tenantId || !work || busyRef.current || productionLoading || writeLocked || !canSaveResults || attempt || resave || productionConflict
+      || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')) return;
+    const call = currentCall();
+    setNoteError(''); setBusy(true);
+    try {
+      const text = serializeProductionDossier(production);
+      await verifyProductionReferences(work.work_id, [...production.materials.map(row => row.reference), ...production.deliveries.flatMap(row => row.targets.map(target => target.reference))],
+        id => client.get<ResultView>(`/tenants/${tenantId}/works/${work.work_id}/results/${id}`, { signal: call.signal }));
+      const bytes = new TextEncoder().encode(text);
+      const sha256 = await sha256Hex(bytes);
+      if (!call.live()) return;
+      setNote(text); setNoteName(PRODUCTION_FILENAME);
+      await startSave({ phase: 'prepare', key: crypto.randomUUID(), bytes, sha256, contentType: 'text/markdown', displayName: PRODUCTION_FILENAME, expectedWorkVersion: heldVersion, sourceText: text }, call);
+    } catch (error) {
+      if (call.live() && !isAbort(error)) setNoteError(error instanceof Error && 'issues' in error ? '請完成必填欄位、網址與版本引用，並確認內容未超過上限。' : error instanceof Error ? error.message : '製作資料未儲存。');
+    } finally { if (call.live()) setBusy(false); }
+  }
+  function resolveProductionConflict(useServer: boolean) {
+    if (!work || productionLoading || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')) return;
+    if (useServer) {
+      const value = productionRead.kind === 'found' ? productionRead.dossier : emptyProductionDossier(work.work_id);
+      setProduction(value); setProductionBaseline(JSON.stringify(value));
+      const text = productionRead.kind === 'found' ? productionRead.text : '';
+      setNote(text); setSavedNote(text);
+    }
+    setProductionConflict(false); setResave(null); setBanner(''); setNoteError('');
   }
   async function loadMoreWorks() {
     if (!tenantId || !workspaceId || !worksCursor || busy) return;
@@ -512,7 +619,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     } finally { if (call.live()) setBusy(false); }
   }
   async function saveEdits() {
-    if (!tenantId || !work || !editBase || busy || writeLocked || conflict) return;
+    if (!tenantId || !work || !editBase || busy || writeLocked || !canEditWork || conflict) return;
     const titleError = textProblem(editTitle, 'title');
     const objectiveError = textProblem(editObjective, 'objective');
     setEditError(titleError ?? objectiveError ?? '');
@@ -529,6 +636,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       const fresh = await client.get<WorkView>(`/tenants/${tenantId}/works/${work.work_id}`, { signal: call.signal });
       if (!call.live()) return;
       showWork(fresh, true);
+      if (isProduction) await loadProduction(work.work_id, call, undefined, true);
       setWorks(current => current.map(item => item.work_id === fresh.work_id ? fresh : item));
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
@@ -555,13 +663,15 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     setWork(current => current ? { ...current, version: conflict.version } : current);
     setEditBase({ version: conflict.version, title: conflict.title, objective: conflict.objective, progress: conflict.progress });
     setConflict(null); setBanner('');
+    if (isProduction && work) void loadProduction(work.work_id, currentCall(), undefined, true);
   }
   function takeServer() {
     if (!conflict) return;
     showWork(conflict, true); setBanner('');
+    if (isProduction && work) void loadProduction(work.work_id, currentCall(), undefined, true);
   }
   async function archive() {
-    if (!tenantId || !work || busy || writeLocked) return;
+    if (!tenantId || !work || busy || writeLocked || !canArchiveWork) return;
     const fingerprint = `archive:${work.work_id}:${heldVersion}`;
     const key = keyFor(fingerprint);
     const call = currentCall();
@@ -596,24 +706,29 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     }, call);
   }
   async function beginFileSave() {
-    if (!work || !file || busy || writeLocked || attempt) return;
+    if (!work || !file || busyRef.current || writeLocked || !canSaveResults || attempt || (isProduction && (resave || productionConflict || productionLoading))) return;
     const contentType = contentTypeFor(file.name);
     if (!contentType) { setFileError('只接受 .txt 或 .md 檔案。'); return; }
     if (file.size < 1 || file.size > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
     const nameProblem = displayNameProblem(file.name);
     if (nameProblem) { setFileError(nameProblem); return; }
     const call = currentCall();
-    const buffer = await file.arrayBuffer();
-    if (!call.live()) return;
-    const bytes = new Uint8Array(buffer);
-    if (bytes.byteLength < 1 || bytes.byteLength > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
-    const hash = await sha256Hex(bytes);
-    if (!call.live()) return;
-    setFileError('');
-    await startSave({
-      phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType,
-      displayName: file.name, expectedWorkVersion: heldVersion, sourceText: null,
-    }, call);
+    if (isProduction) setBusy(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      if (!call.live()) return;
+      const bytes = new Uint8Array(buffer);
+      if (bytes.byteLength < 1 || bytes.byteLength > 262144) { setFileError('檔案大小必須在 1 到 262144 位元組之間。'); return; }
+      const hash = await sha256Hex(bytes);
+      if (!call.live()) return;
+      setFileError('');
+      await startSave({
+        phase: 'prepare', key: crypto.randomUUID(), bytes, sha256: hash, contentType,
+        displayName: file.name, expectedWorkVersion: heldVersion, sourceText: null,
+      }, call);
+    } catch (error) {
+      if (call.live() && !isAbort(error)) setFileError('附件暫時無法讀取，請重試。');
+    } finally { if (isProduction && call.live()) setBusy(false); }
   }
   async function startSave(next: SaveAttempt, call: Call) {
     setAttempt(next); setResave(null); setAwaitingAck(false); setStorageDown(false); setBanner('');
@@ -625,39 +740,14 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     let current = next;
     setBusy(true);
     try {
-      if (current.phase === 'prepare') {
-        setStage('上傳中…');
-        const operation = await client.post<Operation>(`/tenants/${tenantId}/works/${workId}/results/uploads`, {
-          content_type: current.contentType, byte_size: current.bytes.byteLength, sha256: current.sha256,
-          display_name: current.displayName, expected_work_version: current.expectedWorkVersion,
-        }, { idempotencyKey: current.key, signal: call.signal });
-        if (!call.live()) return;
-        current = { ...current, uploadId: operation.resource_ref.resource_id, phase: 'put' };
-        setAttempt(current);
-      }
-      if (current.phase === 'put') {
-        setStage('上傳中…');
-        if (!current.uploadVersion) {
-          const upload = await client.get<UploadView>(`/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}`, { signal: call.signal });
-          if (!call.live()) return;
-          current = { ...current, uploadVersion: upload.version };
-          setAttempt(current);
-        }
-        const verified = await putWorkResultContent(client, `/api/v1/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}/content`, current.bytes, current.contentType, current.uploadVersion!, current.key, call.signal);
-        if (!call.live()) return;
-        current = { ...current, putVersion: verified.version, phase: 'finalize' };
-        setAttempt(current);
-      }
-      if (current.phase === 'finalize') {
-        setStage('核對中…');
-        const operation = await client.post<Operation>(`/tenants/${tenantId}/works/${workId}/results/uploads/${current.uploadId}/finalize`, { expected_work_version: current.expectedWorkVersion }, { idempotencyKey: current.key, ifMatch: current.putVersion, signal: call.signal });
-        if (!call.live()) return;
-        current = { ...current, resultId: operation.resource_ref.resource_id, phase: 'confirm' };
-        setAttempt(current);
-      }
+      const advanced = await advanceWorkResultSave(client, { tenantId, workId }, current, call,
+        value => { current = value; setAttempt(value); }, setStage);
+      if (!advanced || !call.live()) return;
+      current = advanced;
       if (current.phase === 'confirm' && current.resultId) {
         const result = await client.get<ResultView>(`/tenants/${tenantId}/works/${workId}/results/${current.resultId}`, { signal: call.signal });
         if (!call.live()) return;
+        if (result.work_id !== workId || result.sha256 !== current.sha256 || result.byte_size !== current.bytes.length || result.content_type !== current.contentType) throw new Error('保存結果與原始內容不符，尚未確認。');
         const [fresh, page] = await Promise.all([
           client.get<WorkView>(`/tenants/${tenantId}/works/${workId}`, { signal: call.signal }),
           client.get<Page<ResultView>>(`/tenants/${tenantId}/works/${workId}/results?limit=20`, { signal: call.signal }),
@@ -666,10 +756,25 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         refreshWork(fresh);
         setWorks(items => items.map(item => item.work_id === fresh.work_id ? fresh : item));
         setResults(page.items); setResultsCursor(page.next_cursor);
-        if (current.sourceText !== null) setSavedNote(current.sourceText);
+        if (current.sourceText !== null) {
+          setSavedNote(current.sourceText);
+          if (isProduction) {
+            const parsed = parseProductionDossier(current.sourceText, workId);
+            if (parsed.kind === 'dossier') {
+              setProduction(parsed.value);
+              setProductionBaseline(JSON.stringify(parsed.value));
+              setProductionRead({ kind: 'found', dossier: parsed.value, text: current.sourceText, result });
+            }
+          }
+        }
         else { setFile(null); if (fileRef.current) fileRef.current.value = ''; }
         setStage(`已儲存・第 ${result.revision} 版・${formatIsoLocal(result.created_at)}`);
         setAttempt(null); setAwaitingAck(false); setBanner('');
+        if (isProduction) {
+          const latest = await loadProduction(workId, call, undefined, true, current.sourceText ?? savedNote);
+          if (!call.live()) return;
+          if (latest?.kind === 'found' && latest.text !== (current.sourceText ?? savedNote)) setProductionConflict(true);
+        }
       }
     } catch (error) {
       if (!call.live() || isAbort(error)) return;
@@ -684,11 +789,13 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
         return;
       }
       if (error.status === 412) {
+        if (isProduction) setProductionConflict(true);
         setAttempt(null); setAwaitingAck(false); setResave(current); setStage('尚未儲存'); setBanner('工作版本已改變。');
         try {
           const fresh = await client.get<WorkView>(`/tenants/${tenantId}/works/${workId}`, { signal: call.signal });
           if (!call.live()) return;
           refreshWork(fresh);
+          if (isProduction) { setProductionConflict(true); await loadProduction(workId, call, undefined, true); }
         } catch { /* The resave button stays until a later reload. */ }
         return;
       }
@@ -719,7 +826,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     }
   }
   function goBusiness(event: MouseEvent<HTMLAnchorElement>) {
-    if (!leaveOk()) event.preventDefault();
+    if (!(canNavigate ? canNavigate() : leaveOk())) event.preventDefault();
   }
 
   if (unavailable) return <div className="stack">
@@ -760,17 +867,17 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </li>)}</ul>}
           {worksCursor && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void loadMoreWorks()}>載入更多</button>}
         </section>
-        {writable && <>
-        <h4 id={createHeadingId}>新增工作</h4>
+        {writable && canCreateWork && <>
+        <h4 id={createHeadingId}>{isProduction ? '建立製作專案' : '新增工作'}</h4>
         <form className="stack" aria-labelledby={createHeadingId} onSubmit={event => void createWork(event)}>
           <label className="field" htmlFor="my-work-title">{titleLabel}
-            <input id="my-work-title" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setDraftTitle(event.target.value)}/>
+            <input id="my-work-title" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftTitle} maxLength={120} disabled={busy || writeLocked || (isProduction && createAttempt.current !== null)} onChange={event => setDraftTitle(event.target.value)}/>
           </label>
           <label className="field" htmlFor="my-work-objective">{objectiveLabel}
-            <textarea id="my-work-objective" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftObjective} disabled={busy || writeLocked} onChange={event => setDraftObjective(event.target.value)}/>
+            <textarea id="my-work-objective" aria-describedby={createError ? 'my-work-create-error' : undefined} value={draftObjective} disabled={busy || writeLocked || (isProduction && createAttempt.current !== null)} onChange={event => setDraftObjective(event.target.value)}/>
           </label>
           <label className="field" htmlFor="my-work-progress">進度
-            <select id="my-work-progress" value={draftProgress} disabled={busy || writeLocked} onChange={event => setDraftProgress(event.target.value as Progress)}>
+            <select id="my-work-progress" value={draftProgress} disabled={busy || writeLocked || (isProduction && createAttempt.current !== null)} onChange={event => setDraftProgress(event.target.value as Progress)}>
               <option value="todo">待辦</option>
               <option value="in_progress">進行中</option>
               <option value="done">完成</option>
@@ -783,12 +890,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
       </>}
       {work && <section className="stack my-work-open" aria-labelledby={openHeadingId}>
         <h4 id={openHeadingId}>{work.title}</h4>
-        {!writable && <dl className="detail-list">
+        {(!writable || !canEditWork) && <dl className="detail-list">
           <div><dt>目標</dt><dd>{work.objective}</dd></div>
           <div><dt>進度</dt><dd>{PROGRESS_LABEL[work.progress]}</dd></div>
         </dl>}
         {writable && <>
-        <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
+        {canEditWork && <form className="stack" onSubmit={event => { event.preventDefault(); void saveEdits(); }}>
           <label className="field" htmlFor="my-work-edit-title">標題
             <input id="my-work-edit-title" aria-describedby={editError ? 'my-work-edit-error' : undefined} value={editTitle} maxLength={120} disabled={busy || writeLocked} onChange={event => setEditTitle(event.target.value)}/>
           </label>
@@ -818,10 +925,12 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </div>}
           <div className="my-work-actions">
             <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || Boolean(conflict)}>儲存變更</button>
-            <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
           </div>
-        </form>
-        <form className="stack" aria-label="筆記" onSubmit={event => { event.preventDefault(); void beginNoteSave(); }}>
+        </form>}
+        {canArchiveWork && <div className="my-work-actions">
+          <button type="button" className="btn btn-ghost" disabled={busy || writeLocked} onClick={event => { if (!leaveOk(false)) return; opener.current = event.currentTarget; setArchiveOpen(true); }}>封存</button>
+        </div>}
+        {!isProduction && <form className="stack" aria-label="筆記" onSubmit={event => { event.preventDefault(); void beginNoteSave(); }}>
           <label className="field" htmlFor="my-work-note">{noteLabel}
             <textarea id="my-work-note" aria-describedby={noteError ? 'my-work-note-error' : undefined} value={note} disabled={busy || writeLocked} onChange={event => { setNote(event.target.value); if (!attempt) setStage('尚未儲存'); }}/>
           </label>
@@ -830,17 +939,30 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
           </label>
           {noteError && <p id="my-work-note-error" className="banner banner-error" role="alert">{noteError}</p>}
           <button type="submit" className="btn btn-primary my-work-primary" disabled={busy || writeLocked || Boolean(attempt)}>儲存筆記</button>
-        </form>
-        <form className="stack" aria-label="附上檔案" onSubmit={event => { event.preventDefault(); void beginFileSave(); }}>
+        </form>}
+        {canSaveResults && <form className="stack" aria-label="附上檔案" onSubmit={event => { event.preventDefault(); void beginFileSave(); }}>
           <label className="field" htmlFor="my-work-file">附件
-            <input id="my-work-file" ref={fileRef} type="file" accept=".txt,.md,text/plain,text/markdown" aria-describedby={fileError ? 'my-work-file-error' : undefined} disabled={busy || writeLocked} onChange={event => { setFile(event.target.files?.[0] ?? null); setFileError(''); if (!attempt) setStage('尚未儲存'); }}/>
+            <input id="my-work-file" ref={fileRef} type="file" accept=".txt,.md,text/plain,text/markdown" aria-describedby={fileError ? 'my-work-file-error' : undefined} disabled={busy || writeLocked || (isProduction && (Boolean(attempt) || Boolean(resave) || productionConflict || productionLoading))} onChange={event => { setFile(event.target.files?.[0] ?? null); setFileError(''); if (!attempt) setStage('尚未儲存'); }}/>
           </label>
           {fileError && <p id="my-work-file-error" className="banner banner-error" role="alert">{fileError}</p>}
-          <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || !file || Boolean(attempt)}>儲存附件</button>
-        </form>
+          <button type="submit" className="btn btn-ghost" disabled={busy || writeLocked || !file || Boolean(attempt) || (isProduction && (Boolean(resave) || productionConflict || productionLoading))}>儲存附件</button>
+        </form>}
         <p className="my-work-stage" aria-live="polite">{stage}</p>
         {(awaitingAck || (storageDown && attempt)) && <button type="button" className="btn btn-ghost" disabled={busy || !attempt} onClick={() => { if (attempt) void runSave(attempt, currentCall()); }}>重試</button>}
-        {resave && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveAgain()}>用最新版本再儲存一次</button>}
+        {resave && !isProduction && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void saveAgain()}>用最新版本再儲存一次</button>}
+        </>}
+        {isProduction && <>
+          {!canSaveResults && <p className="field-hint">此專案目前可閱讀；儲存製作版本需要這個工作實例的成果寫入權限。</p>}
+          {productionLoading && <p role="status">正在讀取製作版本…</p>}
+          {productionRead?.kind === 'blocked' && <div className="stack"><p className="banner banner-error" role="alert">{productionRead.reason} 製作欄位已鎖定；原始成果仍可在下方下載。</p><button type="button" className="btn btn-ghost" disabled={busy || productionLoading} onClick={() => void loadProduction(work.work_id, currentCall(), undefined, Boolean(production))}>重新讀取製作版本</button></div>}
+          {productionRead?.kind === 'more' && <div className="stack"><p>較新的成果是一般文字；繼續讀取較早版本後才能編輯製作資料。</p><button type="button" className="btn btn-ghost" disabled={productionLoading || busy} onClick={() => void loadProduction(work.work_id, currentCall(), productionRead.scan, productionReadContinuation.current.keepDraft, productionReadContinuation.current.expectedText)}>繼續尋找製作版本</button></div>}
+          {productionConflict && <div className="my-work-conflict" role="status">
+            <p>工作版本已改變，你的製作草稿仍保留。先比較伺服器版本，再選擇要繼續的內容。</p>
+            {productionRead?.kind === 'found' && <><p>伺服器製作版本：第 {productionRead.result.revision} 版</p><details><summary>查看伺服器製作內容</summary><pre>{productionRead.text}</pre></details></>}
+            {productionRead?.kind === 'empty' && <p>伺服器尚無製作資料。</p>}
+            <div className="my-work-actions"><button type="button" className="btn btn-ghost" disabled={productionLoading || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} onClick={() => resolveProductionConflict(false)}>保留我的製作草稿</button><button type="button" className="btn btn-ghost" disabled={productionLoading || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} onClick={() => resolveProductionConflict(true)}>改用伺服器製作版本</button></div>
+          </div>}
+          {production && <ProductionProject key={work.work_id} value={production} onChange={value => { setProduction(value); setStage('尚未儲存'); }} onSave={() => void saveProduction()} onDraftChange={setProductionComposerDirty} results={results} disabled={busy || writeLocked || productionLoading || Boolean(attempt) || Boolean(resave) || productionConflict || (productionRead?.kind !== 'found' && productionRead?.kind !== 'empty')} readOnly={!writable || !canSaveResults} saved={productionRead?.kind === 'found'} error={noteError} />}
         </>}
         <section aria-label="成果">
           {results.length === 0 ? <p>{writable ? '還沒有成果。寫下筆記或附上檔案後按儲存。' : '還沒有成果。'}</p> : <ul>{results.map(result => <li key={result.result_id} className="my-work-result">
@@ -868,6 +990,7 @@ export function MyWorkPanel({ client, guildKey, userId, starter, registerLeave }
     <dialog ref={archiveDialog} aria-labelledby="my-work-archive-title" onClose={() => { setArchiveOpen(false); opener.current?.focus(); }}>
       <h2 id="my-work-archive-title">封存這份工作</h2>
       <p>封存後不再顯示，但不會刪除已保存的成果</p>
+      {isProduction && <p>若完成後還要重開企劃與版本，請改把進度設為「完成」。封存後一般工作入口無法讀取。</p>}
       <div className="my-work-actions">
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void archive()}>確認封存</button>
         <button type="button" className="btn btn-ghost" onClick={() => setArchiveOpen(false)}>取消</button>
