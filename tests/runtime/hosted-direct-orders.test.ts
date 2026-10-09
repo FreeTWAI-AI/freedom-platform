@@ -241,15 +241,25 @@ test('100 polls use bounded ID receipts and a cached read reference still expire
     FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
   await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
   assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'reserved');
+  // A projection can cross the actual database expiry before the final fence.
+  // Retry only that deliberate conflict once, with the same public read tuple;
+  // other failures and a second conflict still fail this test immediately.
+  const current = async <T>(read: () => Promise<T>) => {
+    try { return await read(); }
+    catch (error) {
+      if ((error as { code?: string }).code !== 'reservation_clock_changed') throw error;
+      return read();
+    }
+  };
   for (let n = 0; n < 100; n++) {
-    await readDirectOrder(runtime, s.buyer, orderId);
-    await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent);
+    await current(() => readDirectOrder(runtime, s.buyer, orderId));
+    await current(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent));
   }
   assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_command_receipts WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])", [[orderId, intent]])).rows[0].n, 2);
   const end = Date.now() + 5000;
   while (Date.now() < end && !(await h.pool.query('SELECT expires_at<=clock_timestamp() AS expired FROM commerce_orders WHERE order_id=$1', [orderId])).rows[0].expired) { /* DB clock, no wall-time sleep */ }
-  assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'expired');
-  assert.equal((await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent)).state, 'expired');
+  assert.equal((await current(() => readDirectOrder(runtime, s.buyer, orderId))).state, 'expired');
+  assert.equal((await current(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent))).state, 'expired');
   assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved, 0);
   assert.equal((await h.pool.query("SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2", [orderId])).rowCount, 1);
   assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_command_receipts WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])", [[orderId, intent]])).rows[0].n, 2);

@@ -20434,8 +20434,8 @@
     },
     {
       "path": "tests/runtime/hosted-direct-orders.test.ts",
-      "bytes": 33529,
-      "sha256": "d85369dafa0ca6931da7cbf0d8234c76bbb63361eaf9396c4c0f3085555bb731"
+      "bytes": 42260,
+      "sha256": "7ac6a129013d9657e5c2efb3b3f4735d9dbbf52dca1d3d1f8d481cd4adfeb0f9"
     },
     {
       "path": "tests/runtime/hosted-order-contracts.test.ts",
