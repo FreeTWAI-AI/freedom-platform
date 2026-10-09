@@ -52,6 +52,10 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 此候選堆疊在 #318，須先合併 #318；其 SQL 原樣改名為 `141_community_content_relations.sql`，本案使用 `142_personal_content.sql`，接續主線 140，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
 
+本分支的 #259「第一次參與」也是預設關閉的 source candidate：`FREEDOM_FIRST_PARTICIPATION_ENABLED=true` 須同時啟用 `FREEDOM_PERSONAL_CONTENT_ENABLED`（與分享入口的旗標互相獨立），並先套用 migration 143。合法快速加入公會後，可選原作品分享或所選公會原聊天室自我介紹；不用補做完整定位、綁 GitHub／AI 或加好友。只承認選擇後的原發布／訊息事實，私人草稿、點開頁面、舊作品及接待認領不算成果；原來源撤下或失去權限後不保留可讀標題／連結。
+
+選擇、略過、停止提示及明確接待意願存於本人版本化中繼資料；原私人草稿仍從「我的內容」找回，不複製內容。接待需求僅供目前有原來源讀取權的同社群會員自願認領／釋放，停止即退出，不會自動私訊或加好友；私人合作需求數不給接待者。教學範例明示虛構。詳見 [會員 API](docs/development/member-api.md#optional-first-participation-259)。本輪僅有隔離合成驗證；公開提問型別與原生貼文計入完成（未實作，也未改動 #193）、正式營運接待認領與經同意的真人新手試用仍未驗，不代表全項 #259 驗收、部署或啟用。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

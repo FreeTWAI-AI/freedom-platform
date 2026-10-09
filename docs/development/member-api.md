@@ -136,6 +136,56 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Optional first participation (#259)
+
+This source candidate adds `143_first_participation.sql` on top of #344's
+personal-content prerequisite. `FREEDOM_FIRST_PARTICIPATION_ENABLED` defaults off
+in Node and Worker; `/site` exposes `first_participation_enabled`. Enabling it
+requires `FREEDOM_PERSONAL_CONTENT_ENABLED`. Disabled routes return 404 before
+authentication; invalid dependency combinations fail closed before pool/static work.
+
+The optional home card follows lawful quick guild entry, not a compulsory
+assessment, GitHub/AI binding or friendship. Its two choices return to original
+consented showcase publishing or the selected primary guild's original chat.
+Teaching examples are fictional and never prefill or publish. Native #193 public
+questions are unavailable; guild chat is not a substitute public post.
+
+`GET /api/v1/me/first-participation` returns versioned choice, selection time,
+state, current completion, own private draft resume and reception preference.
+`POST` accepts `{action:"choose",choice:"work"|"introduction"}` or an action of
+`skip`, `dismiss`, `resume`, `request_reception`, `stop_reception`, with the
+existing If-Match/Idempotency-Key contract. No client completion flag is accepted.
+Selection, suppression and opt-in survive relogin; content is not copied.
+Unknown transport outcomes retry the identical body/version/key. Late results
+cannot navigate a subsequent account. Unsent chat is browser-memory-only.
+
+Only an original first showcase-publication journal fact or actual own selected
+guild message at/after selection completes a chosen path. Old publications,
+private drafts and page opens do not. Projections recheck current ownership,
+community, visibility and guild membership. Withdrawal/revocation produces
+`source_unavailable`, null completion and no cached title/link. Draft resume
+opens original own content. Guild links preserve the selected guild after reload.
+
+`GET /api/v1/first-participation/reception?offset=0&limit=20` lists explicitly
+opted-in currently readable same-community requests, with ACL before pagination
+(limit 1–50, offset 0–10000). `POST .../reception/:userId/claim` and `/release`
+accept `{}` with the target If-Match/key. Eligible volunteers may claim another
+member; concurrent claims have one winner. Disabled/ineligible claimants are
+not presented as active. Stopping removes the request. No email/contact/private
+draft is exposed. Claims do not send messages, add friends or certify identity,
+quality or response. Guild reply counts include other-author replies only;
+own work counts private opportunities and volunteers receive null.
+
+Local verification is synthetic source evidence only. Consented real-human
+newcomer trial, operational receptionist handoff, native #193 paths,
+production activation and formal #261 policy acceptance remain unverified.
+
+Build before the isolated `FREEDOM_E2E_FIRST_PARTICIPATION=1` browser pass.
+After changing worktree dependency links, rebuild the portal: an existing bundle
+can retain duplicate React instances and fail before the home card mounts.
+The browser regression also rejects page runtime errors instead of diagnosing
+an empty application as a missing guidance card.
+
 ## Member avatars
 
 `GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the

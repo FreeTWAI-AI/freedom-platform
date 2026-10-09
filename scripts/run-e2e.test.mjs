@@ -27,7 +27,7 @@ test('flag values are not file filters and path filters are', () => {
 test('default plan runs the baseline, private fixture, avatar asset fixture, then message image fixture', () => {
   const env = { FREEDOM_E2E_PORT: '4311' };
   const steps = planE2e(['--headed', '--workers', '1'], env);
-  assert.equal(steps.length, 4);
+  assert.equal(steps.length, 5);
   assert.deepEqual(steps[0].args, ['--headed', '--workers', '1']);
   assert.equal(steps[0].env, env);
   assert.equal(steps[0].env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
@@ -49,6 +49,8 @@ test('default plan runs the baseline, private fixture, avatar asset fixture, the
   assert.equal(steps[3].env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
   assert.equal(steps[0].env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE, undefined);
   assert.equal(steps[3].env.FREEDOM_E2E_PORT, '4311');
+  assert.deepEqual(steps[4].args, ['--headed', '--workers', '1', 'tests/e2e/first-participation.spec.ts']);
+  assert.equal(steps[4].env.FREEDOM_E2E_FIRST_PARTICIPATION, '1');
   assert.equal(env.FREEDOM_E2E_PRIVATE_AI_FIXTURE, undefined);
   assert.equal(env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE, undefined);
 });
@@ -112,14 +114,14 @@ test('the private fixture failure is returned after a passing baseline', async (
   assert.equal(calls[1].other, 'kept');
 });
 
-test('all four passes run when the earlier passes succeed', async () => {
+test('all five passes run when the earlier passes succeed', async () => {
   const calls = [];
   const result = await runE2e([], { OTHER: 'kept' }, async (args, env) => {
     calls.push({ args, privateAi: env.FREEDOM_E2E_PRIVATE_AI_FIXTURE ?? null, avatar: env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE ?? null, messageImage: env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE ?? null, other: env.OTHER });
     return { code: 0, signal: null };
   });
   assert.equal(result.code, 0);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.equal(calls[0].privateAi, null);
   assert.equal(calls[0].avatar, null);
   assert.equal(calls[1].privateAi, '1');
@@ -135,6 +137,7 @@ test('all four passes run when the earlier passes succeed', async () => {
   assert.equal(calls[3].avatar, null);
   assert.equal(calls[3].other, 'kept');
   assert.equal(calls[0].messageImage, null);
+  assert.deepEqual(calls[4].args, ['tests/e2e/first-participation.spec.ts']);
 });
 
 test('the avatar fixture failure is returned after the earlier passes', async () => {

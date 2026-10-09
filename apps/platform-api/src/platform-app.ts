@@ -18,6 +18,7 @@ import { createPrivateWorkRoutes } from './routes/private-work.js';
 import { createShowcase,listShowcases,createOpportunity,listOpportunities,proposeEngagement,listEngagements,changeEngagement } from '../../../modules/opportunity-project-work/business.js';
 import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,publishOwnShowcase,withdrawOwnShowcase } from '../../../modules/opportunity-project-work/business.js';
 import { listPersonalContent } from '../../../modules/community/personal-content.js';
+import {readFirstParticipation,changeFirstParticipation,listFirstParticipationReception,claimFirstParticipationReception} from '../../../modules/community/first-participation.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
 import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
@@ -128,6 +129,7 @@ export function platformResponseHeaders(path:string,brokerFormOrigin?:string){
 }
 /** Runtime-neutral platform app. Host adapters: app.ts (Node) and worker.ts (Cloudflare). */
 export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,runtime:PlatformRuntime,options:{githubSocial?:GitHubSocialOptions;coCreationGitHub?:CollaborationGitHub}={}) {
+  if(runtime.firstParticipationEnabled===true&&runtime.personalContentEnabled!==true)throw new Error('first_participation_requires_personal_content');
   const allowedOrigins=allowedBrowserOrigins(freedomEnv,origin);
   const shopHost=shopServiceHost(freedomEnv,origin,runtime.shopKeyPolicy);
   const allowedHosts=runtime.allowedHosts,authNetwork=runtime.rateLimitNetwork??runtime.sourceNetwork;
@@ -270,7 +272,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,message_images_enabled:messageImagesInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,message_images_enabled:messageImagesInstalled(runtime),first_participation_enabled:runtime.firstParticipationEnabled===true}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -302,6 +304,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.use('/api/v1/me/content',personalContentEnabled);
   app.use('/api/v1/me/showcases',personalContentEnabled);
   app.use('/api/v1/me/showcases/*',personalContentEnabled);
+  const firstParticipationEnabled:MiddlewareHandler=async(c,next)=>{
+    c.header('Cache-Control','private, no-store');c.header('X-Robots-Tag','noindex, nofollow');
+    requireCondition(runtime.firstParticipationEnabled===true,404,'not_found','找不到這個頁面。');await next();
+  };
+  app.use('/api/v1/me/first-participation',firstParticipationEnabled);
+  app.use('/api/v1/first-participation/*',firstParticipationEnabled);
   if(runtime.communitySearchEnabled===true)app.get('/api/v1/community-search',async c=>{
     let actor:Actor|null=null;
     const session=readSessionCookie(c.req.header('Cookie'),origin);
@@ -441,6 +449,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.patch('/api/v1/me/showcases/:id',async c=>respond(c,await updateOwnShowcase(pool,await cmd(c),routeId(c))));
     app.post('/api/v1/me/showcases/:id/publish',async c=>respond(c,await publishOwnShowcase(pool,await cmd(c),routeId(c))));
     app.post('/api/v1/me/showcases/:id/withdraw',async c=>respond(c,await withdrawOwnShowcase(pool,await cmd(c),routeId(c))));
+  }
+  if(runtime.firstParticipationEnabled===true){
+    app.get('/api/v1/me/first-participation',async c=>respond(c,await readFirstParticipation(pool,c.get('actor'))));
+    app.post('/api/v1/me/first-participation',async c=>respond(c,await changeFirstParticipation(pool,await cmd(c))));
+    app.get('/api/v1/first-participation/reception',async c=>c.json(await listFirstParticipationReception(pool,c.get('actor'),c.req.query())));
+    app.post('/api/v1/first-participation/reception/:userId/claim',async c=>respond(c,await claimFirstParticipationReception(pool,await cmd(c),c.req.param('userId'))));
+    app.post('/api/v1/first-participation/reception/:userId/release',async c=>respond(c,await claimFirstParticipationReception(pool,await cmd(c),c.req.param('userId'),true)));
   }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
   app.post('/api/v1/me/client-errors',async c=>{

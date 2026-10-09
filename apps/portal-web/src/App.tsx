@@ -631,6 +631,11 @@ function Workspace({
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;selectTab('messages');setChatEntry({...value,request:++chatEntrySequence.current})}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
+  useEffect(()=>{
+    if(locationHash.split('?')[0]!=='#messages')return
+    const entry={kind:'guild',key:new URLSearchParams(locationHash.split('?')[1]??'').get('guild')}
+    if(isChatEntry(entry))setChatEntry(current=>({...entry,request:(current?.request??0)+1}))
+  },[locationHash])
   const launchpadEnabled = site?.guild_launchpad_enabled === true
   useEffect(() => {
     setLocationHash(window.location.hash)
@@ -782,7 +787,7 @@ function Workspace({
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
-            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
@@ -814,6 +819,7 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(value.split('?')[0]==='community-search')return 'community-search'
   if(value==='my-content'||value.startsWith('my-content/'))return 'my-content'
   if(value.split('?')[0]==='opensource')return 'opensource'
+  if(value.split('?')[0]==='messages')return 'messages'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'

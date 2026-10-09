@@ -98,4 +98,5 @@ export type PlatformRuntime = {
   communityRelationsEnabled?: boolean;
   /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
   personalContentEnabled?: boolean;
+  firstParticipationEnabled?: boolean;
 };
