@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
 import { EmptyStoreInputSchema, StoreSetupInputSchema, StoreUpdateInputSchema, ProductInputSchema, ProductUpdateInputSchema, SlugQuerySchema, SlugAvailabilitySchema } from '../../../../contracts/guild-launchpad/v1/storefront.js';
-import { MyStoresQuerySchema } from '../../../../contracts/guild-launchpad/v1/storefront-pagination.js';
+import { MyStoresQuerySchema, MyStoresLegacyProjectionSchema } from '../../../../contracts/guild-launchpad/v1/storefront-pagination.js';
 import { listMyStores, setupStore, updateStore, storeRead, storeView, slugAvailability } from '../../../../modules/agent-commerce/hosted/store.js';
 import { listProducts, addProduct, updateProduct, removeProduct } from '../../../../modules/agent-commerce/hosted/products.js';
 import { previewStore, previewStorePage, publishStore } from '../../../../modules/agent-commerce/hosted/publish.js';
@@ -19,7 +19,11 @@ export function createHostedStoreRoutes(pool: Pool) {
   app.use('*', async (c, next) => { try { await next(); } finally { privateCache(c); } });
   const ids = (c: Parameters<typeof singleQuery>[0]) => [OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('instance_id'))] as const;
   const root = '/tenants/:tenant_id/storefronts/:instance_id';
-  app.get('/me/stores', async c => { const query = MyStoresQuerySchema.parse(singleQuery(c)); return c.json(await listMyStores(pool, c.get('actor'), query.cursor)); });
+  app.get('/me/stores', async c => {
+    const query = MyStoresQuerySchema.parse(singleQuery(c));
+    const page = await listMyStores(pool, c.get('actor'), query.cursor);
+    return c.json(query.pagination === 'cursor' ? page : MyStoresLegacyProjectionSchema.parse(page));
+  });
   app.get(root, async c => {
     EmptyStoreInputSchema.parse(singleQuery(c));
     const [t, i] = ids(c); const view = await storeRead(pool, c.get('actor'), t, i, 'store:read', (q, context, inst) => storeView(q, context, inst));

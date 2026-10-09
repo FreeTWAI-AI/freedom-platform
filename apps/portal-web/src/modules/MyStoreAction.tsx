@@ -17,7 +17,7 @@ export function useMyStores(client: PortalClient) {
   useEffect(() => {
     const controller = new AbortController(); request.current = controller; busy.current = false;
     setData(null); setError(false); setPageError(false); setLoadingMore(false);
-    void client.get('/me/stores', {signal: controller.signal}).then(raw => {
+    void client.get('/me/stores?pagination=cursor', {signal: controller.signal}).then(raw => {
       const next = MyStoresPageSchema.parse(raw); if (!controller.signal.aborted) setData(next);
     }).catch(() => {if (!controller.signal.aborted) setError(true);});
     return () => controller.abort();
@@ -27,7 +27,7 @@ export function useMyStores(client: PortalClient) {
     if (!data?.next_cursor || !controller || controller.signal.aborted || busy.current) return;
     busy.current = true; setLoadingMore(true); setPageError(false);
     try {
-      const next = MyStoresPageSchema.parse(await client.get(`/me/stores?cursor=${encodeURIComponent(data.next_cursor)}`, {signal: controller.signal}));
+      const next = MyStoresPageSchema.parse(await client.get(`/me/stores?pagination=cursor&cursor=${encodeURIComponent(data.next_cursor)}`, {signal: controller.signal}));
       if (!controller.signal.aborted) setData(current => {
         if (!current) return current;
         const known = new Set(current.items.map(item => item.instance_id));

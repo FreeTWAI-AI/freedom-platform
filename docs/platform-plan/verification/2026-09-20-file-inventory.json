@@ -509,8 +509,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 6815,
-      "sha256": "36eebc45a4e60cf67c7a412790965ea41eb0907f88425e3b862de4a629b400ff"
+      "bytes": 6957,
+      "sha256": "a21f2d2124d317687b1cf8d8f6e67c8a10e59022489324c489c212c2b1134c37"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -2459,8 +2459,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MyStoreAction.tsx",
-      "bytes": 3863,
-      "sha256": "3ea31fa6f0a72dceeaa4bc1ffdfbf7e6c70e7b4684813844d3dd0bfc7c82bb7f"
+      "bytes": 3899,
+      "sha256": "3b494424600ddf3843ca4d3d1640486a997b861152f7acfef78b00df6165dbff"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
@@ -12584,8 +12584,8 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/storefront-pagination.ts",
-      "bytes": 390,
-      "sha256": "aab14cedfed43a337bb1c7d848d54d9b1c3abdc2defb4e1c58d461eb2c73bca3"
+      "bytes": 773,
+      "sha256": "7652a4611941719d2e15e52713c2603e2a1e8b0dfa65d1548a81a912f64acf05"
     },
     {
       "path": "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
@@ -16184,8 +16184,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 21906,
-      "sha256": "6f30fd594a9203e275f4d4e8eba6a459610b31f2e0faa6a2f9e26fb0f3625399"
+      "bytes": 22070,
+      "sha256": "c100d82e660538751bdb939ea2ff3706b41894301dcd144db3dde11b6e6829dd"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -20723,9 +20723,14 @@
       "sha256": "20dfb968c1825bd290f2eeb0b353ffe23bde178d68cb04d7f998c4f1d3fb5fd2"
     },
     {
+      "path": "tests/runtime/hosted-store-pagination-contracts.test.ts",
+      "bytes": 2526,
+      "sha256": "311fb64d5e787db203c250094463e77c3b1edba789cdeb5db2a379254382b6e8"
+    },
+    {
       "path": "tests/runtime/hosted-store.test.ts",
-      "bytes": 60122,
-      "sha256": "a7acbc0810efa7d3e00bde82fc22b9a7ae732e7c01a9ba7b3c46d34b7cd77cca"
+      "bytes": 60585,
+      "sha256": "81042ca72576fea8b9fc58364e934240b3549c1cfd1de188bd1ce4f1196468b0"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",
