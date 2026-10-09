@@ -16209,8 +16209,8 @@
     },
     {
       "path": "migrations/141_storefront_product_photos.sql",
-      "bytes": 29030,
-      "sha256": "c8e064b2eea02e3c8d0a5044419e5c7f9281253f01d6e2becbd682d177effbff"
+      "bytes": 29032,
+      "sha256": "974f4c812abb4d46eb3d67f7ff993c2e4ccf62e2ec942232134a6d86b8c7aae3"
     },
     {
       "path": "modules/agent-commerce/README.md",

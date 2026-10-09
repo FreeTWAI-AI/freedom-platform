@@ -60,7 +60,7 @@ CREATE TABLE commerce_product_photo_targets (
  asset_state text GENERATED ALWAYS AS ('ready'::text) STORED,
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  PRIMARY KEY(tenant_id,instance_id,product_id), UNIQUE(product_id,tenant_id,instance_id,scope_id),
- FOREIGN KEY(scope_id,scope_kind,tenant_id) REFERENCES resource_scopes(scope_id,kind,tenant_id),
+ FOREIGN KEY(scope_id,scope_kind,tenant_id) REFERENCES resource_scopes(scope_id,kind,tenant_ref),
  FOREIGN KEY(tenant_id,instance_id) REFERENCES module_instances(tenant_id,instance_id),
  FOREIGN KEY(tenant_id,instance_id) REFERENCES commerce_storefront_profiles(tenant_id,instance_id),
  FOREIGN KEY(asset_id,scope_id,tenant_id,purpose,representation_id,asset_state)
@@ -171,7 +171,7 @@ CREATE TABLE commerce_publication_photo_refs (
  PRIMARY KEY(publication_id,sku),
  FOREIGN KEY(publication_id,tenant_id,instance_id)
   REFERENCES commerce_storefront_publications(publication_id,tenant_id,instance_id),
- FOREIGN KEY(scope_id,scope_kind,tenant_id) REFERENCES resource_scopes(scope_id,kind,tenant_id),
+ FOREIGN KEY(scope_id,scope_kind,tenant_id) REFERENCES resource_scopes(scope_id,kind,tenant_ref),
  FOREIGN KEY(asset_id,scope_id,tenant_id,purpose,representation_id,asset_state)
   REFERENCES assets(asset_id,scope_id,tenant_ref,purpose,representation_id,state),
  FOREIGN KEY(asset_id,scope_id,representation_id,policy_revision,purpose)
