@@ -47,7 +47,7 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
-  return valid ? <StorePage key={`${userId}:${path[1]}:${path[2]}`} client={client} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
+  return valid ? <StorePage key={`${userId}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
 }
 function BackLink() { return <div className="actions"><a href="#stores" className="btn btn-ghost">返回我的商店</a></div>; }
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
@@ -68,7 +68,7 @@ function StoreList({client}: {client: PortalClient}) {
 
 type Attempt = {method: 'post' | 'patch'; path: string; body: unknown; version?: string; schema: z.ZodType;
   key: string; success: (value: unknown) => void; notice: string; product?: boolean; fieldError?: (error: ApiError) => void};
-function StorePage({client, tenantId, instanceId, registerLeave,photosEnabled,photoUploadsEnabled}: {photosEnabled:boolean;photoUploadsEnabled:boolean;client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave}) {
+function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEnabled,photoUploadsEnabled}: {userId:string;photosEnabled:boolean;photoUploadsEnabled:boolean;client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave}) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
   const [view, setView] = useState<StoreView | null>(null);
   const [products, setProducts] = useState<ProductView[]>([]);
@@ -199,7 +199,7 @@ function StorePage({client, tenantId, instanceId, registerLeave,photosEnabled,ph
                 {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
                   <button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (window.confirm(`要移除「${product.title}」嗎？已發布的展示頁要重新發布後才會更新。`)) void command({method: 'post', path: root + '/products/' + product.product_id + '/remove', body: {}, version: product.version, schema: ProductRemovedSchema, product: true, notice: '已移除商品。', success: () => {}});}}>移除</button></div>}
               </>}
-            {photosEnabled&&<HostedStorePhoto client={client} tenantId={tenantId} instanceId={instanceId} product={product} media={media.find(item=>item.product_id===product.product_id)}
+            {photosEnabled&&<HostedStorePhoto client={client} userId={userId} tenantId={tenantId} instanceId={instanceId} product={product} media={media.find(item=>item.product_id===product.product_id)}
               writable={can('store:write')} uploadsEnabled={photoUploadsEnabled} locked={busy||retry!==null||(photoBlocking&&!photoBlocks[product.product_id])}
               onState={(dirty,blocking)=>photoState(product.product_id,dirty,blocking)} onSaved={load}/>}
           </article>)}</div>

@@ -2289,13 +2289,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStore.tsx",
-      "bytes": 31050,
-      "sha256": "a71b86cf074e3ee4ef688b882521ded108b6cc933d1f3cb0cdc772644e4ee2f8"
+      "bytes": 31103,
+      "sha256": "dfb0b45e40700fb91c66ce6b386bc24c3a4157f9473a614c3fa1813c004d9e90"
     },
     {
       "path": "apps/portal-web/src/modules/HostedStorePhoto.tsx",
-      "bytes": 5566,
-      "sha256": "365d7290f25abe2b10839c5f6de8f95ee6a575f55247d669c744f8ac4c07189a"
+      "bytes": 6255,
+      "sha256": "c67700233e5d4f798d4ba3d34f0db67245e2fd7692b3a92c4b18b07f9959c7d6"
     },
     {
       "path": "apps/portal-web/src/modules/LegacyCommercePanels.tsx",
@@ -2759,8 +2759,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/hosted-store-photo-state.ts",
-      "bytes": 1533,
-      "sha256": "453040002e7873e70f99b9ded61b502d04dca6f94f0f384ef6e9408832f9009c"
+      "bytes": 4424,
+      "sha256": "9ae832e1a48f7c479061c23e1632f8a3a6353df6c8008d3416efbeb164d33ad2"
     },
     {
       "path": "apps/portal-web/src/modules/member-device-client.ts",
@@ -20739,13 +20739,13 @@
     },
     {
       "path": "tests/runtime/hosted-store-photo-state.test.ts",
-      "bytes": 2396,
-      "sha256": "4ed729417c6a81c7a7cc551ff1af004c4b2431d03c05e4a70305cf9dbe6a8140"
+      "bytes": 5604,
+      "sha256": "ea8ade25cd4a4f88725a9ae35a3ab2b2d0004f83a859f347aef89a808f24674e"
     },
     {
       "path": "tests/runtime/hosted-store-photo.test.ts",
-      "bytes": 11254,
-      "sha256": "c5847fbb65ee7911d61329a14ade980f5fd6a8b1072e08cb8548aaf45352cff3"
+      "bytes": 13093,
+      "sha256": "9ac96adf30c59b66bd8c4ee7cf480a80cef0734372b32d453fb0bdd1973b5140"
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",

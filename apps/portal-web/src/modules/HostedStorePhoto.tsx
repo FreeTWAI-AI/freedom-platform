@@ -3,29 +3,33 @@ import type {ProductView} from '../../../../contracts/guild-launchpad/v1/storefr
 import type {ProductMediaView} from '../../../../contracts/guild-launchpad/v1/hosted-store-media';
 import {ApiError,type PortalClient} from '../api';
 import {sendProductPhoto,productPhotoFileError} from './hosted-store-photo-client';
-import {retainedPhotoFailure,reviewPhotoAttempt,type PhotoAttempt} from './hosted-store-photo-state';
+import {retainedPhotoFailure,reviewPhotoAttempt,holdPhotoAttempt,heldPhotoAttempt,restorePhotoAttempt,releasePhotoAttempt,forgetRefusedPhotoAttempt,photoBlocksLeaving,type PhotoAttempt} from './hosted-store-photo-state';
 
-export function HostedStorePhoto({client,tenantId,instanceId,product,media,writable,uploadsEnabled,locked,onState,onSaved}:{
-  client:PortalClient;tenantId:string;instanceId:string;product:ProductView;media?:ProductMediaView;writable:boolean;uploadsEnabled:boolean;locked:boolean;
+export function HostedStorePhoto({client,userId,tenantId,instanceId,product,media,writable,uploadsEnabled,locked,onState,onSaved}:{
+  client:PortalClient;userId:string;tenantId:string;instanceId:string;product:ProductView;media?:ProductMediaView;writable:boolean;uploadsEnabled:boolean;locked:boolean;
   onState:(dirty:boolean,blocking:boolean)=>void;onSaved:()=>Promise<void>;
 }){
-  const [file,setFile]=useState<File|null>(null),[attempt,setAttempt]=useState<PhotoAttempt|null>(null);
-  const [phase,setPhase]=useState<'idle'|'sending'|'unknown'|'review'|'rejected'>('idle');
-  const [message,setMessage]=useState(''),[failedPath,setFailedPath]=useState('');
-  const id=useId(),input=useRef<HTMLInputElement>(null),busy=useRef(false),held=useRef<PhotoAttempt|null>(null);
+  const [restored]=useState(()=>restorePhotoAttempt(client,userId,{tenantId,instanceId,productId:product.product_id}));
+  const [file,setFile]=useState<File|null>(restored?.file??null),[attempt,setAttempt]=useState<PhotoAttempt|null>(restored);
+  const [phase,setPhase]=useState<'idle'|'sending'|'unknown'|'review'|'rejected'>(restored?'unknown':'idle');
+  const [message,setMessage]=useState(restored?'原照片操作仍待確認。重新登入不會自動重送，請按重試原照片操作。':''),[failedPath,setFailedPath]=useState('');
+  const id=useId(),input=useRef<HTMLInputElement>(null),busy=useRef(false),held=useRef<PhotoAttempt|null>(restored);
   const stateRef=useRef(onState);stateRef.current=onState;
-  useEffect(()=>{stateRef.current(Boolean(file||attempt),phase==='sending'||phase==='unknown');},[file,attempt,phase]);
+  useEffect(()=>{stateRef.current(Boolean(file||attempt),photoBlocksLeaving(attempt,phase==='sending'));},[file,attempt,phase]);
   useEffect(()=>()=>stateRef.current(false,false),[]);
   function clear(){setFile(null);setAttempt(null);held.current=null;setPhase('idle');if(input.current)input.current.value='';}
   async function send(value:PhotoAttempt){
     if(busy.current)return;busy.current=true;held.current=value;setAttempt(value);setPhase('sending');onState(true,true);setMessage('正在儲存商品照片…');
+    holdPhotoAttempt(client,userId,value);
     try{
-      const ack=await sendProductPhoto(client,value);clear();
+      const ack=await sendProductPhoto(client,value);releasePhotoAttempt(client,userId,value);clear();
       setMessage(ack.changed?'已儲存照片變更。重新發布後，公開頁才會更新。':'這項商品已經沒有草稿照片。');
       await onSaved();
     }catch(error){
       const unknown=!(error instanceof ApiError)||error.network||error.timedOut||error.accessExpired;
-      const retained=retainedPhotoFailure(value,unknown);held.current=retained;setAttempt(retained);
+      const retained=retainedPhotoFailure(value,unknown||heldPhotoAttempt(client,userId,value)?.hadUnknown===true);
+      if(retained.hadUnknown)holdPhotoAttempt(client,userId,retained);else forgetRefusedPhotoAttempt(client,userId,value);
+      held.current=retained;setAttempt(retained);
       if(retained.hadUnknown){setPhase('unknown');setMessage('尚未確認原操作結果。照片與原操作仍保留，請重試確認後再離開。');}
       else if(error instanceof ApiError&&error.status===412){setPhase('review');setMessage('商品已更新，照片仍保留。請核對最新商品後，再明確確認套用。');await onSaved();}
       else {setPhase('rejected');setMessage(error instanceof ApiError?error.message:'照片操作未完成。');}
