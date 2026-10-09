@@ -12,7 +12,7 @@ import { createRegistryHarness, type RegistryHarness, type Session, type Reply }
 
 let h: RegistryHarness, runtime: Pool, app: ReturnType<typeof createApp>, wireApp: ReturnType<typeof createApp>;
 let server: ReturnType<typeof serve>, origin: string;
-const installWire = (flags = true, key: string | undefined = TENANT_CURSOR_TEST_KEY) => { wireApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: flags, hostedReservationsEnabled: flags, tenantCursorSigningKey: key }); };
+const installWire = (flags = true, key: string | null = TENANT_CURSOR_TEST_KEY) => { wireApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: flags, hostedReservationsEnabled: flags, tenantCursorSigningKey: key ?? undefined }); };
 async function wire(method: string, path: string, session: Session, body?: unknown, key = randomUUID(), version?: string): Promise<Reply> {
  const response = await fetch(origin + '/api/v1' + path, { method, headers: { Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Idempotency-Key': key, ...(body === undefined ? {} : {'Content-Type':'application/json'}), ...(version ? {'If-Match': `"${version}"`} : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
  return { status: response.status, data: await response.json(), response };
@@ -108,7 +108,7 @@ test('same reference lists current signed pages without cursor/key digest confli
   assert.equal((await wire('GET',root+'?limit=1&limit=2',s.owner)).status,422);
   const other=await fixture();
   assert.equal((await wire('GET',other.root+'/orders?cursor='+encodeURIComponent(first.next_cursor),other.owner)).status,422);
-  installWire(true,undefined);
+  installWire(true,null);
   assert.equal((await wire('GET',root,s.owner)).status,503);
   assert.equal((await wire('GET',root+'?cursor=bad',s.c.session)).status,404);
   assert.equal((await wire('GET',root+'/'+orders[0].order_id,s.owner)).status,200);
