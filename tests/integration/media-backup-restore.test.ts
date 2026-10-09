@@ -8,7 +8,7 @@ import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import {readFile} from 'node:fs/promises';
 import {tokenHash} from '../../modules/identity-membership/service.js';
-import {sevenMediaFixtures,mediaApp,memberHeaders,origin} from './helpers/media-restore-fixtures.js';
+import {sevenMediaFixtures,mediaApp,memberHeaders,origin,restoreMember} from './helpers/media-restore-fixtures.js';
 import sharp from 'sharp';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { migrate } from '../../scripts/database.js';
@@ -63,7 +63,7 @@ before(async()=>{
   backup=createR2ObjectStore(await mf.getR2Bucket('BACKUP') as unknown as AssetR2Binding);
   destination=createR2ObjectStore(await mf.getR2Bucket('RESTORED') as unknown as AssetR2Binding);
   await pool.query(`UPDATE asset_maintenance_policy SET enabled=true,revision='synthetic-backup',orphan_retention_seconds=1,
-    retired_retention_seconds=1,delete_lease_seconds=30,capture_seconds=60,pin_seconds=60,max_capture_objects=10`);
+    retired_retention_seconds=1,delete_lease_seconds=30,capture_seconds=60,pin_seconds=60,max_capture_objects=12`);
 });
 after(async()=>{
   await mf?.dispose();await restoredRuntime?.end();await restored?.end();await runtime.end();await pool.end();await Promise.all(closedClients);
@@ -77,7 +77,7 @@ async function grantRuntime(target:Pool){
  const script=(await readFile('deploy/cloudflare/sql/20-runtime-grants.psql','utf8')).replace(/^\\set .*$/mg,'').replaceAll(':"runtime"','"'+runtimeRole+'"').replaceAll(":'runtime'","'"+runtimeRole+"'").replaceAll('SCHEMA public','SCHEMA '+schema).replaceAll("n.nspname='public'","n.nspname='"+schema+"'");
  const q=await target.connect();try{await q.query(`GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);const parts=script.split('\\gexec');for(let i=0;i<parts.length;i++){const result=await q.query(parts[i]);if(i<parts.length-1){const last=Array.isArray(result)?result.at(-1)!:result;for(const row of last.rows)await q.query(Object.values(row)[0] as string);}}}catch(error){await q.query('ROLLBACK');throw error;}finally{q.release();}
 }
-const pointerTables=['member_avatar_asset_targets','member_service_cover_asset_targets','community_event_banner_asset_targets','community_event_video_asset_targets','skill_submission_image_asset_targets','community_social_thumbnail_asset_targets','community_event_highlight_asset_targets','community_event_highlight_images'];
+const pointerTables=['member_avatar_asset_targets','member_service_cover_asset_targets','community_event_banner_asset_targets','community_event_video_asset_targets','skill_submission_image_asset_targets','community_social_thumbnail_asset_targets','community_event_highlight_asset_targets','community_event_highlight_images','member_message_image_asset_targets'];
 async function pointerSnapshot(target:Pool){const snapshots:Record<string,unknown>={};for(const table of pointerTables)snapshots[table]=(await target.query(`SELECT to_jsonb(t) value FROM ${table} t ORDER BY to_jsonb(t)::text`)).rows;return snapshots;}
 
 async function pgTool(tool:'pg_dump'|'pg_restore',args:string[],input?:Buffer):Promise<Buffer>{
@@ -117,8 +117,29 @@ async function asset(retired=false){
   return {actor,assetId,key,metadata,bytes};
 }
 
+async function messageImageFixtures(){
+  const community=randomUUID(),foreign=randomUUID();
+  for(const id of [community,foreign])await pool.query('INSERT INTO communities VALUES($1,$2)',[id,'Synthetic DM restore']);
+  const sender=await restoreMember(pool,community),recipient=await restoreMember(pool,community),third=await restoreMember(pool,community),outsider=await restoreMember(pool,foreign);
+  await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',persistence_allowed=true,policy_revision='synthetic-dm-restore',retained_byte_limit=10485760 WHERE purpose='member.message-image'");
+  const app=mediaApp(runtime,source,community),png=await sharp({create:{width:12,height:8,channels:3,background:'#259c74'}}).png().toBuffer();
+  const upload=async()=>{
+    const result=await app.request(origin+`/api/v1/me/conversations/${recipient.actor.user_id}/images`,{method:'POST',headers:{...memberHeaders(sender),'Content-Type':'image/png','Idempotency-Key':randomUUID()},body:new Uint8Array(png)});
+    assert.equal(result.status,201,await result.clone().text());return await result.json() as {image_id:string};
+  };
+  const sent=await upload(),draft=await upload();
+  const response=await app.request(origin+`/api/v1/me/conversations/${recipient.actor.user_id}/messages`,{method:'POST',headers:{...memberHeaders(sender),'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({image_id:sent.image_id,body:'Synthetic retained caption'})});
+  assert.equal(response.status,201,await response.clone().text());const message=await response.json() as {message_id:string};
+  const path=`/api/v1/me/conversations/${recipient.actor.user_id}/messages/${message.message_id}/image`;
+  const bytes=Buffer.from(await (await app.request(origin+path,{headers:memberHeaders(sender)})).arrayBuffer());
+  const targets=(await pool.query('SELECT image_id,asset_id,message_id,recipient_user_id FROM member_message_image_asset_targets WHERE community_id=$1 ORDER BY image_id',[community])).rows;
+  assert.equal(targets.length,2);assert.equal(targets.filter(r=>r.message_id===null).length,1);assert(targets.some(r=>r.image_id===draft.image_id&&r.message_id===null));
+  const messages=(await pool.query('SELECT * FROM member_direct_messages WHERE community_id=$1 ORDER BY message_id',[community])).rows;
+  return {community,sender,recipient,third,outsider,sent,draft,message,bytes,targets,messages};
+}
+
 test('Actual consistent PG dump and nativeR2 restore exclude concurrent additions, retain retired objects and fence restored member sessions',async()=>{
-  const first=await asset(),retired=await asset(true),seven=await sevenMediaFixtures(pool,runtime,source),pointers=await pointerSnapshot(pool),snapshotIds=(await pool.query('SELECT asset_id FROM assets ORDER BY asset_id')).rows.map(r=>r.asset_id),maintenance=createAssetMaintenance(pool,{store:source,enabled:true});
+  const first=await asset(),retired=await asset(true),seven=await sevenMediaFixtures(pool,runtime,source),dm=await messageImageFixtures(),pointers=await pointerSnapshot(pool),snapshotIds=(await pool.query('SELECT asset_id FROM assets ORDER BY asset_id')).rows.map(r=>r.asset_id),maintenance=createAssetMaintenance(pool,{store:source,enabled:true});
   const target={database:sourceDatabase,sourceSchema:schema,sourceRelease:'a'.repeat(40)};
   let dump:Buffer|undefined,late:Awaited<ReturnType<typeof asset>>|undefined;
   const manifest=await createConsistentAssetBackup(pool,{enabled:true,target,maintenance,source,destination:backup,databaseSnapshot:{async write(input){
@@ -128,12 +149,12 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
       '--format=custom','--no-owner','--no-privileges']);
     return {sha256:createHash('sha256').update(dump).digest('hex'),byteSize:dump.length};
   }}});
-  assert.equal(manifest.status,'database_snapshot_and_objects_verified');assert.equal(manifest.objects.objects.length,10);
+  assert.equal(manifest.status,'database_snapshot_and_objects_verified');assert.equal(manifest.objects.objects.length,12);
   assert(late&&dump);const lateAsset=late;assert(!manifest.objects.objects.some(o=>o.key===lateAsset.key));
   await assert.rejects(maintenance.claimDelete(retired.assetId),(e:any)=>e.code==='23514','pins block actual GC');
   await pgTool('pg_restore',['--dbname',restoredDatabase,'--single-transaction','--exit-on-error','--no-owner','--no-privileges'],dump);
   const restoredIds=(await restored!.query('SELECT asset_id FROM assets ORDER BY asset_id')).rows.map(r=>r.asset_id);
-  assert.deepEqual(restoredIds,snapshotIds);assert.equal(restoredIds.length,10);assert(!restoredIds.includes(late.assetId));
+  assert.deepEqual(restoredIds,snapshotIds);assert.equal(restoredIds.length,12);assert(!restoredIds.includes(late.assetId));
   assert.equal((await restored!.query('SELECT count(*)::int AS n FROM asset_backup_pins')).rows[0].n,0,'dump imports original pre-pin snapshot');
   assert.deepEqual((await restored!.query('SELECT name,sha256 FROM schema_migrations ORDER BY name')).rows,
     (await pool.query('SELECT name,sha256 FROM schema_migrations ORDER BY name')).rows);
@@ -180,17 +201,29 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
       [entry.key,entry.metadata.sha256,entry.metadata.byteSize,entry.metadata.policyRevision])).rowCount;
     assert.equal(found,1);
   }});
-  assert.equal(recovered.objectCount,10);
+  assert.equal(recovered.objectCount,12);
   for(const f of [first,retired])assert.deepEqual((await readVerifiedObject(destination,f.key,f.metadata)).bytes,f.bytes);
   const restoredApp=mediaApp(restoredRuntime!,destination,seven.community);
+  assert.deepEqual((await restored!.query('SELECT * FROM member_direct_messages WHERE community_id=$1 ORDER BY message_id',[dm.community])).rows,dm.messages);
+  assert.deepEqual((await restored!.query('SELECT image_id,asset_id,message_id,recipient_user_id FROM member_message_image_asset_targets WHERE community_id=$1 ORDER BY image_id',[dm.community])).rows,dm.targets);
+  const dmApp=mediaApp(restoredRuntime!,destination,dm.community);
+  const dmPath=(peer:string,id=dm.message.message_id)=>`/api/v1/me/conversations/${peer}/messages/${id}/image`;
+  for(const [member,peer] of [[dm.sender,dm.recipient],[dm.recipient,dm.sender]])assert.equal((await dmApp.request(origin+dmPath(peer.actor.user_id),{headers:memberHeaders(member)})).status,401,'Imported DM sessions remain fenced');
+
   for(const read of seven.reads){const denied=await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)});if(!read.path.startsWith('/api/v1/public/'))assert.equal(denied.status,401,'Dumped sessions stay fenced.');}
   // New recovery sessions are issued only after fencing the imported sessions.
-  for(const member of [seven.member,seven.other]){const token=randomBytes(32).toString('base64url'),hash=tokenHash(token);await restored!.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'synthetic',clock_timestamp()+interval '1 hour')",[hash,member.actor.user_id]);member.token=token;member.actor={...member.actor,session_hash:hash};}
+  for(const member of [seven.member,seven.other,dm.sender,dm.recipient,dm.third,dm.outsider]){const token=randomBytes(32).toString('base64url'),hash=tokenHash(token);await restored!.query("INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'synthetic',clock_timestamp()+interval '1 hour')",[hash,member.actor.user_id]);member.token=token;member.actor={...member.actor,session_hash:hash};}
   for(const read of seven.reads){
    const result=await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)});assert.equal(result.status,200,await result.clone().text());assert.deepEqual(Buffer.from(await result.arrayBuffer()),read.bytes,read.purpose+' original URL and SHA');
    if(read.publicPath){const publicRead=await restoredApp.request(origin+read.publicPath);assert.equal(publicRead.status,200,await publicRead.clone().text());assert.deepEqual(Buffer.from(await publicRead.arrayBuffer()),read.bytes);if(read.publicPath.includes('/public/'))assert.equal(publicRead.headers.get('cache-control'),'public, max-age=300');}
    if(read.dtoPath){const view=await restoredApp.request(origin+read.dtoPath,{headers:memberHeaders(seven.member)});assert.equal(view.status,200,read.dtoPath+' '+await view.clone().text());assert.deepEqual(await view.json(),read.dto,'Original DTO remains identical after restoring.');}
   }
+  for(const [member,peer] of [[dm.sender,dm.recipient],[dm.recipient,dm.sender]]){
+    const read=await dmApp.request(origin+dmPath(peer.actor.user_id),{headers:memberHeaders(member)});assert.equal(read.status,200);assert.deepEqual(Buffer.from(await read.arrayBuffer()),dm.bytes);assert.equal(read.headers.get('cache-control'),'private, no-store');
+  }
+  for(const member of [dm.third,dm.outsider])assert.equal((await dmApp.request(origin+dmPath(dm.sender.actor.user_id),{headers:memberHeaders(member)})).status,404);
+  for(const member of [dm.sender,dm.recipient])assert.equal((await dmApp.request(origin+dmPath(member===dm.sender?dm.recipient.actor.user_id:dm.sender.actor.user_id,dm.draft.image_id),{headers:memberHeaders(member)})).status,404,'Retained unsent draft cannot be read as a message');
+  assert.equal((await restored!.query("SELECT count(*)::int n FROM assets WHERE owner_user_id=$1 AND purpose='member.message-image' AND state='ready'",[dm.sender.actor.user_id])).rows[0].n,2,'Sent image and unsent retained draft both survive');
   const skill=seven.reads.find(r=>r.purpose==='skill.submission-image')!;assert.equal((await restoredApp.request(origin+skill.path.replace('/api/v1/me/','/api/v1/'))).status,404,'Private draft remains unavailable on public illustration route.');assert.equal((await restoredApp.request(origin+skill.path,{headers:memberHeaders(seven.other)})).status,404);
   await restored!.query('UPDATE users SET active=false WHERE user_id=$1',[seven.member.actor.user_id]);
   for(const read of seven.reads.filter(r=>!r.path.startsWith('/api/v1/public/')))assert.equal((await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)})).status,401,'Inactive caller cannot read restored bytes.');
@@ -204,7 +237,7 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
   const missing=manifest.objects.objects[0];await(await mf!.getR2Bucket('BACKUP')).delete(missing.key);
   const incomplete=createR2ObjectStore(await mf!.getR2Bucket('INCOMPLETE') as unknown as AssetR2Binding);
   await assert.rejects(transferRestore(manifest.objects,backup,incomplete,{async assertAllowed(){}}),'Missing native backup object cannot produce a verified restore.');
-  assert((await(await mf!.getR2Bucket('INCOMPLETE')).list()).objects.length<10);
+  assert((await(await mf!.getR2Bucket('INCOMPLETE')).list()).objects.length<12);
 });
 
 test('Backup default-off, mismatched target and single-connection pool fail before snapshot/dump authority',async()=>{

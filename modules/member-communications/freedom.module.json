@@ -1,0 +1,46 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "member-communications",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/member-communications/images.ts",
+    "apps/portal-web/src/modules/message-image-client.ts",
+    "apps/portal-web/src/modules/MessageImagePreview.tsx",
+    "tests/runtime/message-images.test.ts",
+    "tests/runtime/message-image-upload-reader.test.ts",
+    "tests/runtime/message-image-ack.test.ts",
+    "tests/runtime/message-image-preview.test.ts",
+    "tests/e2e/message-images.spec.ts",
+    "migrations/139_member_message_images.sql",
+    "docs/development/member-communications.md"
+  ],
+  "public_exports": [
+    "modules/member-communications/images.ts",
+    "apps/portal-web/src/modules/message-image-client.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "scoped-commands",
+    "asset-lifecycle",
+    "asset-storage",
+    "shared",
+    "media-migration"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-communications.md",
+    "modules/assets/message-image.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

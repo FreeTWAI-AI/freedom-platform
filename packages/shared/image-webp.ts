@@ -44,3 +44,9 @@ export function assertCanonicalWebp(bytes: Uint8Array, width: number, height: nu
   const shape = inspectCanonicalWebp(bytes);
   if (shape.width !== width || shape.height !== height) throw new Error(`non-canonical WebP: ${shape.width}x${shape.height}`);
 }
+
+// Throws unless the output is canonical and fits inside the requested box.
+export function assertCanonicalWebpWithin(bytes: Uint8Array, maxWidth: number, maxHeight: number): void {
+  const shape = inspectCanonicalWebp(bytes);
+  if (shape.width > maxWidth || shape.height > maxHeight) throw new Error(`non-canonical WebP: ${shape.width}x${shape.height}`);
+}

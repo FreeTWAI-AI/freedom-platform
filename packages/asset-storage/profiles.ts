@@ -12,6 +12,8 @@ export const MEDIA_OBJECT_PROFILES = Object.freeze({
   'community.event-highlight.thumbnail': Object.freeze({maxBytes:200*1024,contentTypes:raster,transformVersion:'community.event-highlight.thumbnail.legacy-bytes.v1',source:'modules/community/event-highlights.ts'}),
   'community.social-thumbnail': Object.freeze({maxBytes:512*1024,contentTypes:raster,transformVersion:'community.social-thumbnail.legacy-bytes.v1',source:'modules/skill-submissions/payload.ts'}),
   'member.service-cover': Object.freeze({maxBytes:512*1024,contentTypes:raster,transformVersion:'member.service-cover.legacy-bytes.v1',source:'modules/skill-submissions/payload.ts'}),
+  /** New uploads only; there is no legacy byte source to preserve. Output is always the canonical WebP written by modules/assets/message-image.ts. */
+  'member.message-image': Object.freeze({maxBytes:1024*1024,contentTypes:Object.freeze(['image/webp'] as const),transformVersion:'member.message-image.webp.v1',source:'modules/assets/message-image.ts'}),
 } as const);
 export type MediaObjectProfileId = keyof typeof MEDIA_OBJECT_PROFILES;
 export type MediaObjectTransform = typeof MEDIA_OBJECT_PROFILES[MediaObjectProfileId]['transformVersion'];

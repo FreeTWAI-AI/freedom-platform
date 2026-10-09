@@ -158,6 +158,45 @@ anonymous callers are401. Migration016 stores normalized bytes in PostgreSQL,
 so existing database backups include avatars. No external image URL fetching,
 SVG, animated upload or anonymous avatar endpoint is enabled.
 
+## Direct-message images (#230)
+
+Optional and **off by default**. The Worker flag
+`FREEDOM_MESSAGE_IMAGE_ENABLED="true"` (with MEDIA/IMAGES), or both injected Node
+ports, installs the image routes. `/site` reports this installation state as
+`message_images_enabled`; absent ports mean false and image routes answer 404.
+New uploads also require the operator's `domain_media_storage_policy` row
+`member.message-image`: non-legacy `mode` (`r2_only` recommended), policy revision,
+at least 1 MiB retained capacity and `persistence_allowed=true`. If that policy
+is unavailable, a new upload answers 503 while the site installation flag stays
+true. Stopping new persistence does not revoke authorized reads of existing
+images or erase an upload whose result is unknown. Apply migration `139_member_message_images.sql` before switching the
+source, even with the feature off.
+
+- `POST /me/conversations/:userId/images`: raw `image/jpeg|png|webp` bytes,
+  session, CSRF and `Idempotency-Key` (no `If-Match`). Input at most 2 MiB, static,
+  at most 4096×4096. Re-encoded to canonical WebP without metadata, longest edge
+  1920 px, never enlarged. Rate limits are 12/member/minute and 120/global/minute.
+  `201 {image_id, content_type:"image/webp", byte_size}`. Errors are Chinese problem
+  documents: `415 message_image_format`, `413 message_image_too_large`,
+  `422 invalid_message_image`, `409 asset_retained_quota`, `429`, `503`. The same key
+  and bytes replay to the same `image_id`; the same key with other bytes is
+  `409 idempotency_conflict`.
+- `POST /me/conversations/:userId/messages` also accepts `{image_id, body?}`: an image
+  alone (stored body `[圖片]`) or with a caption. An image never combines with a
+  sticker and is never a client URL. The draft must be the caller's own upload for
+  that exact recipient and unsent (`404 image_not_available`, `409 image_already_sent`).
+  Channel messages still reject `image_id`.
+- Messages, conversation previews and search results carry
+  `image?: {content_type:"image/webp", byte_size}`; there is no URL field.
+- `GET /me/conversations/:userId/messages/:messageId/image` returns the bytes to the
+  sender or recipient of that message only (`404 media_not_found` otherwise, also
+  when a session is revoked during the read). `Cache-Control: private, no-store`.
+
+Retention, orphan drafts and deletion are documented in
+[`modules/assets/message-image.md`](../../modules/assets/message-image.md); no cleanup
+runs. Existing member blocks deny new upload phases, receipt replay and send;
+current callers retain authorized historical reads. Reporting remains out of scope.
+
 ## Primary, secondary and other joined guilds
 
 These preferences order a member's display; they never grant membership, offices,

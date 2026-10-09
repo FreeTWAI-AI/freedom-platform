@@ -21,7 +21,7 @@ import {FloatingMessages} from './modules/FloatingMessages'
 import './SocialLayout.css'
 import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
-import { GameConsoleProvider, GameConsolePopout } from './GameConsole'
+import { GameConsoleProvider, GameConsolePopout, useGameConsole } from './GameConsole'
 import {PageTools} from './PageTools'
 import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
@@ -535,6 +535,7 @@ function Workspace({
   },[session.user.user_id]);
   const [tab, setTab] = useState<TabId>(() => tabFromHash(site?.guild_launchpad_enabled === true))
   const [locationHash, setLocationHash] = useState(() => window.location.hash)
+  const {canEndSession:canEndConsoleSession}=useGameConsole()
   const pageLeaveGuard = useRef<(() => boolean) | null>(null)
   const acceptedHash = useRef(window.location.hash)
   const registerPageLeave = useCallback((guard: (() => boolean) | null) => { pageLeaveGuard.current = guard }, [])
@@ -701,6 +702,7 @@ function Workspace({
 
   async function logout() {
     if (pageLeaveGuard.current && !pageLeaveGuard.current()) return
+    if (!canEndConsoleSession()) return
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
     })
@@ -754,7 +756,7 @@ function Workspace({
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
             {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
+            {tab === 'messages' && <MemberMessages registerLeave={registerPageLeave} messageImagesEnabled={site?.message_images_enabled===true} client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
             {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}

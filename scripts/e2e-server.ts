@@ -17,6 +17,7 @@ import { e2eOrigin, e2ePort } from '../packages/testing/e2e-origin.js';
 import { e2eAuthorClaimAdminVerifier } from '../packages/testing/e2e-admin.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { FakeObjectStore } from '../packages/asset-storage/fake-store.js';
+import { createMessageImageAssetService } from '../modules/assets/message-image.js';
 
 if(process.env.NODE_ENV==='production'||(process.env.FREEDOM_ENV&&process.env.FREEDOM_ENV!=='local'))throw Error('Browser test server is local-only.');
 if(process.env.FREEDOM_E2E_GITHUB_FIXTURES==='1')globalThis.fetch=async input=>collaborationGitHubFixture(input);
@@ -43,6 +44,8 @@ let productPool:Pool|undefined,productRole:string|undefined;
 let productRoleCreated=false;
 let privateAiFixture:Awaited<ReturnType<typeof import('../packages/testing/private-ai-product-fixture.js')['createPrivateAiBrowserFixture']>>|undefined;
 let avatarAssetFixture:Awaited<ReturnType<typeof import('../packages/testing/e2e-avatar-asset-fixture.js')['createAvatarAssetBrowserFixture']>>|undefined;
+// Direct-message images run in their own pass: an in-memory store and a local-only enabled policy row.
+let messageImageFixture:{store:FakeObjectStore;assets:ReturnType<typeof createMessageImageAssetService>}|undefined;
 // Installed before migrate. Playwright's graceful SIGTERM must drop the schema even if startup is still running.
 // npx/tsx dies on the group SIGTERM and SIGKILLs this process at its first await, so the
 // async DROP never runs. Release the schema and the avatar bucket before yielding.
@@ -138,6 +141,12 @@ try{
     const {createAvatarAssetBrowserFixture}=await import('../packages/testing/e2e-avatar-asset-fixture.js');
     avatarAssetFixture=await createAvatarAssetBrowserFixture(pool,origin);
   }
+  if(process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE==='1'){
+    if(process.env.FREEDOM_E2E_PRIVATE_AI_FIXTURE==='1'||process.env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE==='1')throw Error('Fixture passes are mutually exclusive.');
+    await pool.query("UPDATE domain_media_storage_policy SET mode='r2_only',policy_revision='e2e-message-image-policy',persistence_allowed=true,retained_byte_limit=104857600 WHERE purpose='member.message-image'");
+    const store=new FakeObjectStore();
+    messageImageFixture={store,assets:createMessageImageAssetService(pool,{store})};
+  }
 }catch(error){console.error(error);await stop(1);}
 // Explicit local-only fixtures; per-pack production activation is separate.
 const publicGuideAssets=process.env.FREEDOM_E2E_GUIDE_FIXTURE==='1'
@@ -149,7 +158,8 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
-  ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{})});
+  ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),
+  ...(messageImageFixture?{messageImageAssets:messageImageFixture.assets,messageImageAssetStore:messageImageFixture.store}:{})});
 app.use('/*',serveStatic({root:'./apps/portal-web/dist'}));
 app.get('*',serveStatic({path:'./apps/portal-web/dist/index.html'}));
 server=serve({fetch:app.fetch,hostname:'127.0.0.1',port});
