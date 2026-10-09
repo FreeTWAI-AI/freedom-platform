@@ -18,6 +18,7 @@ import {
 } from '../../contracts/guild-launchpad/v1/tenant-work.js';
 
 import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
+import * as presentation from '../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
@@ -101,6 +102,10 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
+  ['storefront-presentation', 'Additive saved store presentation. Existing storefront/v1 content, releases and capabilities remain unchanged.', [
+    ['appearance-input', presentation.StoreAppearanceInputSchema, 'input', []],
+    ['appearance', presentation.StoreAppearanceSchema, 'output', ['current_same_instance_store_capability', 'profile_version_cas']],
+  ]],
   ['hosted-order', 'HO-0 direct-sale order reservation candidate. No routes or releases enabled; payment/refund/fulfilment disabled.', [
     ['readiness', hostedOrder.ReadinessSchema, 'output', ['current_readiness_authority']],
     ['quote-input', hostedOrder.QuoteInputSchema, 'input', ['unique_skus']],
