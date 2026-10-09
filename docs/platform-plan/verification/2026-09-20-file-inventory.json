@@ -19649,8 +19649,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 39333,
-      "sha256": "11be697d6a89c1d9f890419dc6c25edbb9489178b2b1200def5e425735ee0aa7"
+      "bytes": 39778,
+      "sha256": "abec6fe092347c22f4e4d590a35e0ca3aa4cfd616187f39e25d00d60aa56c63a"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",

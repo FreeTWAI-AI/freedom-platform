@@ -43,7 +43,13 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await page.evaluate(()=>{(window as unknown as {messagePreviewExecuted:boolean}).messagePreviewExecuted=false;});
     await thread.evaluate(node=>{
       // Observe transient raw-file URL sinks as well as the final preview DOM.
-      const state=window as unknown as {messagePreviewSinks:string[]};state.messagePreviewSinks=[];
+      const state=window as unknown as {messagePreviewSinks:string[];messagePreviewFiles:{name:string;type:string}[]};
+      state.messagePreviewSinks=[];state.messagePreviewFiles=[];
+      // React clears the input after selection; capture the real File before that.
+      node.addEventListener('change',event=>{
+        const file=event.target instanceof HTMLInputElement?event.target.files?.[0]:undefined;
+        if(file)state.messagePreviewFiles.push({name:file.name,type:file.type});
+      },true);
       const inspect=(element:Element)=>{for(const name of ['src','href','data','srcdoc','style']){
         const value=element.getAttribute(name);if(value&&(/blob:|data:|<script/i.test(value)))state.messagePreviewSinks.push(`${name}:${value}`);
       }};
@@ -63,7 +69,7 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     ]){
       const name=`${kind}-<svg onload="globalThis.messagePreviewExecuted=true">.png`;
       await thread.locator('input[type=file]').setInputFiles({name,mimeType:'image/png',buffer:Buffer.from(bytes)});
-      expect(await thread.locator('input[type=file]').evaluate((input:HTMLInputElement)=>input.files?.[0]?.type)).toBe('image/png');
+      expect(await page.evaluate(()=>(window as unknown as {messagePreviewFiles:{name:string;type:string}[]}).messagePreviewFiles.at(-1))).toEqual({name,type:'image/png'});
       const preview=thread.getByLabel('待送出的圖片'),canvas=preview.getByRole('img',{name:'待送出的圖片預覽',exact:true});
       await expect(canvas).toHaveJSProperty('tagName','CANVAS');
       expect(await preview.locator('span:has(> small)').evaluate(node=>node.firstChild?.textContent)).toBe(name);
