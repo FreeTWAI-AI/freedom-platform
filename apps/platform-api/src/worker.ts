@@ -66,6 +66,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
+  FREEDOM_MEMBER_BLOCKING_ENABLED?: string;
+  FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -214,6 +216,8 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     guildLaunchpadEnabled: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true',
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
+    memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
+    communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }

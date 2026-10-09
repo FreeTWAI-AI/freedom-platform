@@ -1,3 +1,4 @@
+import {MemberBlockingAction} from './MemberBlocking';
 import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type FormEvent,type KeyboardEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -32,7 +33,7 @@ type ConversationPage={items:Conversation[];unread_count:number;next_offset:numb
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
 type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing?:{message_id:string;read_at:string|null}|null};
 type MemberPage={items:MemberCardData[];total:number;next_offset:number|null};
-type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number}};
+type Props={client:PortalClient;session:SessionPayload;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number};memberBlockingEnabled?:boolean};
 
 const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
 // Actions map to fixed in-app pages only; a notification can never supply a link.
@@ -48,7 +49,7 @@ const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀�
 type View='notifications'|'guild'|'squad'|'direct'|'world';
 const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人訊息','私訊','messages'],['guild','公會閒聊','公會','guilds'],['squad','小隊閒聊','群組','squads'],['world','世界聊天','公開','community'],['notifications','通知','通知','todos']];
 
-export function MemberMessages({client,session,onNavigate,onNotificationPeer,chatEntry,initialView}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
+export function MemberMessages({client,session,onNavigate,onNotificationPeer,chatEntry,initialView,memberBlockingEnabled=false}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
   const all=useReadAllInbox(client);
   const [view,setView]=useState<View>(initialView?.view??'direct');
   const [listRequest,setListRequest]=useState(0);
@@ -88,7 +89,7 @@ export function MemberMessages({client,session,onNavigate,onNotificationPeer,cha
       <MemberChannels client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
     </div>
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
-      <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest}/>
+      <DirectMessages client={client} session={session} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest} memberBlockingEnabled={memberBlockingEnabled}/>
     </div>
     <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
   </section>;
@@ -187,7 +188,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
 
 type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 
-export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false,listRequest=0}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean;listRequest?:number}){
+export function DirectMessages({client,session,onUnread,openPeer,active=true,compact=false,listRequest=0,memberBlockingEnabled=false}:{client:PortalClient;session:SessionPayload;onUnread:(count:InboxUnread)=>void;openPeer:{id:string;request:number}|null;active?:boolean;compact?:boolean;listRequest?:number;memberBlockingEnabled?:boolean}){
   const me=session.user.user_id,uid=useId();
   const mobile=useChatViewport(),singlePane=compact||mobile;
   const richDrafts=useRichChatDraft();
@@ -195,6 +196,8 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
   const [conversations,setConversations]=useState<Conversation[]>([]),[convNext,setConvNext]=useState<number|null>(null);
   const [convStatus,setConvStatus]=useState<'loading'|'ready'|'error'>('loading'),[convError,setConvError]=useState(''),[convMore,setConvMore]=useState({loading:false,error:''});
   const [peer,setPeer]=useState<string|null>(null),[thread,setThread]=useState<Thread|null>(null);
+  const [blockingPeers,setBlockingPeers]=useState<string[]>([]);
+  useEffect(()=>{if(memberBlockingEnabled&&peer)setBlockingPeers(value=>value.includes(peer)?value:[...value,peer]);},[memberBlockingEnabled,peer]);
   const [picking,setPicking]=useState(true);
   useEffect(()=>{if(!listRequest)return;setPicking(true);const frame=requestAnimationFrame(()=>document.getElementById(ids.list)?.focus());return()=>cancelAnimationFrame(frame);},[listRequest]);
   const [threadStatus,setThreadStatus]=useState<'idle'|'loading'|'ready'|'error'>('idle'),[threadError,setThreadError]=useState(''),[threadMore,setThreadMore]=useState({loading:false,error:''});
@@ -440,6 +443,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
           <h2 id={ids.thread} ref={heading} tabIndex={-1}>{participant?<><span className="chat-sr-only">與 </span>{participant.display_name}<span className="chat-sr-only"> 的對話</span></>:'讀取對話中'}</h2>
           {participant&&<MemberPresence online={participant.is_online} lastSeen={participant.last_seen_at}/>}
         </div>{threadStatus==='ready'&&participant&&<ChatSearch key={peer} client={client} resource={`/me/conversations/${encodeURIComponent(peer)}/messages`} title={participant.display_name} me={session.user.user_id} active={active&&(!singlePane||!picking)} onOpenChange={setSearchOpen}/>}</div>
+        {memberBlockingEnabled&&blockingPeers.map(id=><div key={`${me}:${id}`} hidden={peer!==id}><MemberBlockingAction client={client} userId={id} nickname={id===peer?(participant?.display_name??'這位會員'):(conversations.find(item=>item.participant.user_id===id)?.participant.display_name??'這位會員')} onChanged={async()=>{await Promise.all([loadConversations(true),alive.current&&currentPeer.current===id?loadThread(id,true):Promise.resolve()]);}}/></div>)}
         {liveError&&<p className="messages-meta" role="status">{liveError}</p>}
         {threadStatus==='loading'&&<p role="status">正在讀取訊息…</p>}
         {threadStatus==='error'&&<div className="banner banner-error" role="alert">訊息讀取失敗：{threadError}<div className="messages-actions"><button className="btn btn-ghost" type="button" onClick={()=>void loadThread(peer)}>重新讀取訊息</button></div></div>}
@@ -470,7 +474,7 @@ export function DirectMessages({client,session,onUnread,openPeer,active=true,com
             <div className="messages-actions">
               <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&sameChatPayload(attempt.payload,chatPayload(draft,richDraft))?'重試送出':'送出'}</button>
             </div>
-          </form>:<p className="muted" role="note">對方目前無法接收私訊，仍可查看過去的訊息。</p>}
+          </form>:<p className="muted" role="note">{memberBlockingEnabled?'目前無法傳送私訊，仍可查看過去的訊息。草稿保留，不會自動送出。':'對方目前無法接收私訊，仍可查看過去的訊息。'}</p>}
         </>}
       </>}
     </section>

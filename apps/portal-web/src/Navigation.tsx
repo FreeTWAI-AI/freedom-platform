@@ -5,6 +5,7 @@ import {useLanguage} from './language';
 import type {InterfaceMessage} from './interface-messages';
 
 export const TAB_TITLES: Record<TabId, string> = {
+  'community-search': '搜尋社群內容',
   'private-ai': '私人工作與 AI', home: '會員首頁', positioning: '我的定位', guilds: '職業公會', skills: '技能書架',
   friends: '我的好友', members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
@@ -26,8 +27,8 @@ const groups: { label: string; pages: TabId[] }[] = [
   { label: '管理', pages: ['guild-workspace', 'business'] },
 ];
 
-export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEnabled, mobileOpen }: {
-  current: TabId; onSelect: (id: TabId) => void; canManageGuild: boolean; guildLaunchpadEnabled: boolean; mobileOpen: boolean;
+export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEnabled, communitySearchEnabled, mobileOpen }: {
+  current: TabId; onSelect: (id: TabId) => void; canManageGuild: boolean; guildLaunchpadEnabled: boolean; communitySearchEnabled: boolean; mobileOpen: boolean;
 }) {
   const {t}=useLanguage();
   const groupKeys:Record<string,InterfaceMessage>={'社群參與':'nav.participation','認識夥伴':'nav.people','分享推廣':'nav.promotionGroup','創作與合作':'nav.creation','供貨與銷售':'nav.commerce','管理':'nav.management'};
@@ -43,12 +44,12 @@ export function Navigation({ current, onSelect, canManageGuild, guildLaunchpadEn
     <WorkshopIcon name={id}/><span>{t(`nav.${id}`)}</span>
   </button>;
   return <nav ref={nav} id="workspace-navigation" className={`nav workspace-navigation${mobileOpen ? ' is-open' : ''}`} aria-label={t('nav.main')} onKeyDown={event=>{if(event.key==='Escape'&&moreOpen){setMoreOpen(false);moreTrigger.current?.focus()}}}>
-    <div className="nav-primary">{primary.map(item)}</div>
+    <div className="nav-primary">{primary.map(item)}{communitySearchEnabled && item('community-search')}</div>
     <details className="nav-section nav-more" open={moreOpen}>
       <summary ref={moreTrigger} onClick={event => { event.preventDefault(); setMoreOpen(value => !value); }}>{t('nav.more')}<span aria-hidden="true">⌄</span></summary>
       <div className="nav-more-content">
     <label className="nav-search"><span className="sr-only">{t('nav.search')}</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} maxLength={80} placeholder={t('nav.example')}/></label>
-    {query.trim()?<div className="nav-search-results" role="region" aria-label={t('nav.results')}>{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>(id!=='guild-workspace'||canManageGuild)&&(!['business','stores'].includes(id)||guildLaunchpadEnabled)&&`${t(`nav.${id}`)} ${TAB_TITLES[id]} ${keywords[id]??''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(item)}<p className="field-hint">{t('nav.searchHint')}</p></div>:<>
+    {query.trim()?<div className="nav-search-results" role="region" aria-label={t('nav.results')}>{(Object.keys(TAB_TITLES) as TabId[]).filter(id=>id!=='community-search'&&(id!=='guild-workspace'||canManageGuild)&&(!['business','stores'].includes(id)||guildLaunchpadEnabled)&&`${t(`nav.${id}`)} ${TAB_TITLES[id]} ${keywords[id]??''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(item)}<p className="field-hint">{t('nav.searchHint')}</p></div>:<>
     {groups.map(group => <details className="nav-section" key={group.label} open={expanded.includes(group.label)}>
       <summary onClick={event => { event.preventDefault(); setExpanded(value => value.includes(group.label) ? value.filter(label => label !== group.label) : [...value, group.label]); }}>
         {t(groupKeys[group.label])}<span aria-hidden="true">⌄</span>

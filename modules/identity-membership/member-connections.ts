@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {Problem} from '../../packages/shared/problem.js';
 import type {Actor} from './service.js';
 import {memberCard} from './members.js';
+import {contactableIds} from './blocks.js';
 export const FriendsQuery=z.object({
   scope:z.enum(['accepted','incoming','outgoing']).default('accepted'),
   search:z.string().trim().max(100).default(''),
@@ -18,7 +19,8 @@ async function visibleCards(pool:Pool,actor:Actor,ids:string[]){
     try{return await memberCard(pool,actor,id);}
     catch(error){if(error instanceof Problem&&error.status===404)return null;throw error;}
   }));
-  return cards.filter((card):card is NonNullable<typeof card>=>card!==null);
+  const allowed=await contactableIds(pool,actor,ids);
+  return cards.filter((card):card is NonNullable<typeof card>=>card!==null&&allowed.has(card.user_id));
 }
 export async function friendDirectory(pool:Pool,actor:Actor,raw:unknown){
   const query=FriendsQuery.parse(raw);
@@ -28,6 +30,8 @@ export async function friendDirectory(pool:Pool,actor:Actor,raw:unknown){
     WHERE f.community_id=$1 AND (f.low_ref=$2 OR f.high_ref=$2) AND u.community_id=$1
       AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND NOT is_verification_test_account(u.user_id)
+      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+        AND ((b.owner_ref=$2 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$2)))
       AND (($3='accepted' AND f.state='accepted') OR ($3='incoming' AND f.state='pending' AND f.requester_ref<>$2)
         OR ($3='outgoing' AND f.state='pending' AND f.requester_ref=$2))
       AND ($4='' OR strpos(lower(u.display_name),lower($4))>0)
@@ -54,6 +58,8 @@ export async function memberRecommendations(pool:Pool,actor:Actor,raw:unknown){
     WHERE u.community_id=$1 AND u.user_id<>$2 AND u.active
       AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND NOT is_verification_test_account(u.user_id)
+      AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$1 AND b.state='active'
+        AND ((b.owner_ref=$2 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$2)))
       AND NOT EXISTS(SELECT 1 FROM member_friendships f WHERE f.community_id=$1
         AND f.low_ref=least(u.user_id,$2::uuid) AND f.high_ref=greatest(u.user_id,$2::uuid) AND f.state IN ('accepted','pending'))
   ), ranked AS (SELECT *,cardinality(common_guilds)*3+cardinality(common_skills) AS score FROM candidates)

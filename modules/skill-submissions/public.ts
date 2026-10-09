@@ -19,6 +19,8 @@ const PUBLIC_PAYLOAD = `s.payload || CASE WHEN p.public_metadata_revised THEN
   jsonb_build_object('title',p.title,'description',p.description,'use_notes',p.use_notes,'demo_url',p.demo_url) ELSE '{}'::jsonb END`;
 const COLUMNS = `s.submission_id,(${PUBLIC_PAYLOAD}) AS payload,s.project_id,s.published_at,(s.image_bytes IS NOT NULL OR s.storage_source='asset') AS has_image,
   v.repository_full_name,v.repository_url,v.commit_sha,v.license_spdx,v.license_evidence_url,v.is_fork,v.archived`;
+export const publishedWorkFrom = PUBLISHED;
+export const publishedWorkPayload = PUBLIC_PAYLOAD;
 
 // Art the workshop drew for works whose submitters supplied none (docs/design/community-skill-art-manifest.json),
 // keyed by source repository so it follows the work rather than one submission row.
