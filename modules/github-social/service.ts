@@ -234,6 +234,25 @@ export class GitHubSocial {
       return {book_id:bookId,connected:true,starred:desired,confirmed:true};
     });
   }
+  async following(actor:Actor,username:string){
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
+    return this.member(actor,async q=>{
+      const connection=await this.connection(q,actor);
+      if(!this.config||!connection)return {username,connected:false,following:null};
+      await this.rate(q,actor,'follow-read',90);
+      const following=await this.withToken(q,actor,connection,token=>this.provider.following(username,token));
+      return {username,connected:true,following};
+    });
+  }
+  async follow(actor:Actor,username:string,desired:boolean){
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);z.boolean().parse(desired);this.configured();
+    return this.member(actor,async q=>{
+      await this.rate(q,actor,'follow-write',30);
+      const connection=await this.connection(q,actor);requireCondition(connection,409,'github_connect_required','請先連接自己的 GitHub 帳號。');
+      await this.withToken(q,actor,connection,token=>this.provider.follow(username,token,desired));
+      return {username,connected:true,following:desired,confirmed:true};
+    });
+  }
   async createPageIssue(actor:Actor,pageId:string,title:string,description:string,operationKey:string){
     const marker=issuePageMarker(pageId),cleanTitle=title.trim(),cleanDescription=description.trim();
     requireCondition(cleanTitle.length>=3&&cleanTitle.length<=120&&cleanDescription.length>=10&&cleanDescription.length<=2000,422,'github_issue_invalid','請填寫 3–120 字標題及 10–2000 字的想法。');

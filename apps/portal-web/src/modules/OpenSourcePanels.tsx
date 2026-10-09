@@ -6,6 +6,7 @@ import { SkillUpload,type SkillOpenRequest } from './SkillUpload';
 import { SimpleSkillSubmission } from './SimpleSkillSubmission';
 import { WorkSharingEntry } from './WorkSharingEntry';
 import {projectSkillBookPath,projectSkillDraft,type ProjectSkillBook} from './SkillPublication';
+import { GitHubAuthorFollow } from './GitHubAuthorFollow';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion;skill_book?:ProjectSkillBook|null};
@@ -66,6 +67,7 @@ function ProjectCard({project,own,client,reload,onNavigate,onOpenSkill}:ModulePa
     <p className="project-copy">{project.description}</p><div className="help-box"><strong>如何開始</strong><p className="project-copy">{project.use_notes}</p></div>
     <dl className="meta"><div><dt>登錄者</dt><dd>{project.owner_name} · {relationshipLabels[project.relationship]}（自行聲明）</dd></div><div><dt>授權</dt><dd>{project.current_version.license_spdx==='NOASSERTION'?'尚未確認，請先閱讀原始授權':project.current_version.license_spdx}</dd></div><div><dt>固定版本</dt><dd><code>{project.current_version.commit_sha.slice(0,12)}</code> · {project.current_version.is_fork?'衍生儲存庫':'原始儲存庫'}{project.current_version.archived?' · 已封存':''}</dd></div></dl>
     <div className="actions"><SafeLink href={project.current_version.readme_url}>閱讀文件／開始使用</SafeLink><SafeLink href={`${project.repository_url}/issues`}>參與討論</SafeLink>{project.demo_url&&<SafeLink href={project.demo_url}>開啟展示</SafeLink>}{project.current_version.license_evidence_url&&<SafeLink href={project.current_version.license_evidence_url}>查看授權</SafeLink>}</div>
+    <GitHubAuthorFollow key={project.repository_full_name.split('/')[0]} username={project.repository_full_name.split('/')[0]} client={client}/>
     <div className="actions">
       {skillPath?<a className="btn btn-primary" href={skillPath} target="_blank" rel="noopener noreferrer">閱讀已公開技能書 ↗</a>:own&&skillDraft?<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>onOpenSkill(skillDraft.submissionId,skillDraft.mode)}>繼續製作技能書</button>:own&&<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void makeSkill()}>製作技能書</button>}
       {skillPath&&<a className="btn btn-ghost" href="/#skills">前往技能書架</a>}

@@ -22,6 +22,7 @@ export class GitHubProviderError extends Problem {
 function routeTemplate(method:string,url:string):string{
   let path='';try{path=new URL(url).pathname;}catch{}
   const template=/^\/user\/starred\/[^/]+\/[^/]+$/.test(path)?'/user/starred/{repository}':
+    /^\/user\/following\/[^/]+$/.test(path)?'/user/following/{username}':
     /^\/repos\/[^/]+\/[^/]+(\/[^/]+)*$/.test(path)?path.replace(/^\/repos\/[^/]+\/[^/]+/,'/repos/{repository}').replace(/\/\d+(?=\/|$)/g,'/{number}'):
     /^\/applications\/[^/]+\/token$/.test(path)?'/applications/{client_id}/token':
     /^\/user\/installations\/\d+\/repositories$/.test(path)?'/user/installations/{installation_id}/repositories':
@@ -116,6 +117,20 @@ export class GitHubSocialProvider {
   }
   async star(repository:string,token:string,desired:boolean):Promise<void>{
     await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
+  }
+  async following(username:string,token:string):Promise<boolean>{
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
+    const response=await this.request(`${API}/user/following/${username}`,{headers:{Authorization:`Bearer ${token}`}},[204,404]);
+    return response.status===204;
+  }
+  async follow(username:string,token:string,desired:boolean):Promise<void>{
+    z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
+    try{
+      await this.request(`${API}/user/following/${username}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
+    }catch(error){
+      if(error instanceof GitHubProviderError&&error.code==='github_permission_required')throw new Problem(403,'github_follow_permission_required','GitHub Follow 權限不足，請重新授權；GitHub App 需先開放 Followers 寫入權限。');
+      throw error;
+    }
   }
   async createPlatformIssue(token:string,title:string,body:string,pageLabel:string,appId?:string):Promise<{number:number;authorId:string}>{
     let result:{status:number;body:unknown};
