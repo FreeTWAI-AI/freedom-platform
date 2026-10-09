@@ -21545,7 +21545,7 @@
     {
       "path": "tests/runtime/storefront-product-photo-core.test.ts",
       "bytes": 8395,
-      "sha256": "9a3702cc20258f081ba619e2906bb29b23815360fcb9371c13901b624bd961a9"
+      "sha256": "b891ef3112efb3ab8ea5c993d1a7b9702b28952c04fdac0d83bb4cad1ec0d1e2"
     },
     {
       "path": "tests/runtime/tenant-authority-policy-grants.test.ts",

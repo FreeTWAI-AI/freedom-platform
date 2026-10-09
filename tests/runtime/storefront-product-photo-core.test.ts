@@ -18,7 +18,7 @@ function container(width = 1, height = 1): Buffer {
 }
 const stream = (bytes: Uint8Array) => new ReadableStream<Uint8Array>({ start(c) { c.enqueue(bytes); c.close(); } });
 const policy = { revision: 'photo-synthetic-policy', platformPersistenceAllowed: true };
-const sourcePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jIioAAAAASUVORK5CYII=', 'base64');
+const sourcePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
 
 test('PHOTO-CORE-01 storefront profile rejects member, Work and copied authority before any port executes', () => {
   let touched = false; const fail = async () => { touched = true; throw Error('unexpected port'); };
