@@ -53,6 +53,21 @@ mutation body or creating, replacing or revoking sessions.
   proofs are rejected. See [password-recovery.md](password-recovery.md).
 - `GET /me/account`: `{user_id,nickname,identity_label,login_email,email_verified,contacts,
   aggregate_version}`. Each contact additionally has `verified:false`.
+- `POST /me/account/email-change/request`: authenticated, CSRF-protected
+  `{email,password}`; verifies the current password and sends a 30-minute link
+  to the normalized new address. Duplicate/current emails are rejected. Latest
+  request replaces earlier proofs. Requires the existing generic mail sender
+  (`eventEmailSender` / Worker `EMAIL`) and migration 142.
+- `POST /auth/email-change/confirm`: `{token}`; the public `#change-email/<token>`
+  page requires an explicit confirmation action (GET does not consume it).
+  Proofs are one-use, SHA-256-only at rest, bound to the old email and password
+  credential. Switching verifies the new mailbox, invalidates password-reset
+  links, increments account version, audits without addresses/tokens, and
+  revokes every session except the requesting session. An expired requesting
+  session is not renewed. Old-address notification delivery failure rolls back
+  the change and permits retry. Mail-provider acceptance is not an inbox delivery
+  guarantee; a lost database commit after mail acceptance can cause a duplicate
+  notification on retry. No production delivery/deployment is claimed.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
   `verified`); social entries are `{value,audiences}`; email is **only**
   `{audiences}`. Sending `email.value` is rejected. GET still includes the
