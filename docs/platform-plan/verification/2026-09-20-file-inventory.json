@@ -17479,8 +17479,8 @@
     },
     {
       "path": "modules/module-registry/read.ts",
-      "bytes": 13925,
-      "sha256": "2bf276da41a4cf0b43c0ee37f153f337a372b0d3a1450f4e9d69b117422b79a3"
+      "bytes": 14996,
+      "sha256": "ea3aa66e65b9e7726a83e088bbb5b2b870acd679e3697c4d5ff6a6278813a48d"
     },
     {
       "path": "modules/module-registry/service.ts",
@@ -17744,8 +17744,8 @@
     },
     {
       "path": "modules/tenant-workspaces/README.md",
-      "bytes": 6886,
-      "sha256": "50b890f4d4c5dd1355c221028359792a58fda6fea263918fad0aa6bdba793210"
+      "bytes": 7529,
+      "sha256": "87aa627860f74901bac50e0be66680fffdcfd95c1e85356ac2d7df9515b4157a"
     },
     {
       "path": "modules/tenant-workspaces/authorization.ts",
@@ -17774,8 +17774,8 @@
     },
     {
       "path": "modules/tenant-workspaces/ownership.ts",
-      "bytes": 30170,
-      "sha256": "94b9ca4b3f7cb1e60e36c283433ff28bf6454b8e53c533f883008df2e00401eb"
+      "bytes": 30469,
+      "sha256": "636ab6c1caf28a7624587fc99cdeb6429704d3be02ae3164c782688024bc9368"
     },
     {
       "path": "modules/tenant-workspaces/policy.ts",
@@ -17794,8 +17794,8 @@
     },
     {
       "path": "modules/tenant-workspaces/service.ts",
-      "bytes": 48964,
-      "sha256": "2ccc68a5b64b34d099d79bbf40c660d1327ec7eb94b40f8ad0ea9f282b3c54ba"
+      "bytes": 50058,
+      "sha256": "cf025214864207a340367e2ed2b156b23c5f35e6fdb454fa3346a969b9f9b163"
     },
     {
       "path": "packages/asset-storage/README.md",
@@ -21099,8 +21099,8 @@
     },
     {
       "path": "tests/runtime/module-registry.test.ts",
-      "bytes": 25032,
-      "sha256": "26c95c4defa668ffebfec292deca37b894aeadc4b586b811c9e1cfd2405a432f"
+      "bytes": 32660,
+      "sha256": "e18d8bf45faadd1415b78e587ab9823af872628d9b671f82046bbaadba1042e6"
     },
     {
       "path": "tests/runtime/native-text-invocation.test.ts",

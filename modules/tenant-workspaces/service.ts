@@ -64,11 +64,6 @@ function limitOf(raw: string | undefined): number {
 }
 
 
-async function personName(q: PoolClient, principalId: string): Promise<string> {
-  const row = (await q.query<{ display_name: string }>(`SELECT u.display_name FROM principals p JOIN users u ON u.user_id=p.user_ref WHERE p.principal_id=$1 AND p.kind='person'`, [principalId])).rows[0];
-  requireCondition(row?.display_name, 500, 'internal_error', '成員名稱無法讀取。');
-  return row.display_name;
-}
 async function defaultWorkspaceId(q: PoolClient, tenantId: string): Promise<string> {
   const row = (await q.query<{ workspace_id: string }>(`SELECT workspace_id FROM workspaces WHERE tenant_id=$1 AND is_default`, [tenantId])).rows[0];
   requireCondition(row, 500, 'internal_error', '預設工作區無法讀取。');
@@ -93,33 +88,63 @@ async function tenantView(q: PoolClient, tenantId: string, principalId: string):
     default_workspace_id: await defaultWorkspaceId(q, tenantId),
   });
 }
-async function workspaceView(q: PoolClient, workspaceId: string): Promise<WorkspaceView> {
-  const row = (await q.query<{ workspace_id: string; tenant_id: string; name: string; status: 'active' | 'archived'; version: string }>(
-    `SELECT workspace_id,tenant_id,name,status,version::text AS version FROM workspaces WHERE workspace_id=$1`, [workspaceId])).rows[0];
-  requireCondition(row, 500, 'internal_error', '工作區無法讀取。');
-  return WorkspaceViewSchema.parse({ ...row, version: versionOf(row.version) });
-}
-async function memberView(q: PoolClient, tenantId: string, principalId: string, grants?: InstanceCapabilitiesInput): Promise<MemberView> {
-  const row = (await q.query<{ principal_id: string; role: MemberView['role']; status: 'active' | 'revoked'; version: string }>(
-    `SELECT principal_id,role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2`, [tenantId, principalId])).rows[0];
-  requireCondition(row, 404, 'member_not_found', MEMBER_MISSING);
-  return MemberViewSchema.parse({
-    principal_id: row.principal_id, display_name: await personName(q, row.principal_id), role: row.role, status: row.status,
-    instance_capabilities: grants ?? (await activeInstanceGrants(q, tenantId, [principalId])).get(principalId) ?? [], version: versionOf(row.version),
+export async function workspaceViews(q: PoolClient, workspaceIds: string[]): Promise<WorkspaceView[]> {
+  if (!workspaceIds.length) return [];
+  const rows = (await q.query<{ workspace_id: string; tenant_id: string; name: string; status: 'active' | 'archived'; version: string }>(
+    `SELECT workspace_id,tenant_id,name,status,version::text AS version FROM workspaces WHERE workspace_id=ANY($1::uuid[])`, [workspaceIds])).rows;
+  const byId = new Map(rows.map(row => [row.workspace_id, row]));
+  return workspaceIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 500, 'internal_error', '工作區無法讀取。');
+    return WorkspaceViewSchema.parse({ ...row, version: versionOf(row.version) });
   });
 }
-async function invitationView(q: PoolClient, invitationId: string): Promise<InvitationView> {
-  const row = (await q.query<{
+export async function workspaceView(q: PoolClient, workspaceId: string): Promise<WorkspaceView> {
+  return (await workspaceViews(q, [workspaceId]))[0];
+}
+export async function memberViews(q: PoolClient, tenantId: string, principalIds: string[], grants?: Map<string, InstanceCapabilitiesInput>): Promise<MemberView[]> {
+  if (!principalIds.length) return [];
+  const rows = (await q.query<{ principal_id: string; role: MemberView['role']; status: 'active' | 'revoked'; version: string }>(
+    `SELECT principal_id,role,status,version::text AS version FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=ANY($2::uuid[])`, [tenantId, principalIds])).rows;
+  const byId = new Map(rows.map(row => [row.principal_id, row]));
+  const names = (await q.query<{ principal_id: string; display_name: string }>(
+    `SELECT p.principal_id,u.display_name FROM principals p JOIN users u ON u.user_id=p.user_ref WHERE p.principal_id=ANY($1::uuid[]) AND p.kind='person'`, [principalIds])).rows;
+  const byPrincipal = new Map(names.map(row => [row.principal_id, row.display_name]));
+  const capabilities = grants ?? await activeInstanceGrants(q, tenantId, principalIds);
+  return principalIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 404, 'member_not_found', MEMBER_MISSING);
+    const displayName = byPrincipal.get(id);
+    requireCondition(displayName, 500, 'internal_error', '成員名稱無法讀取。');
+    return MemberViewSchema.parse({
+      principal_id: row.principal_id, display_name: displayName, role: row.role, status: row.status,
+      instance_capabilities: capabilities.get(id) ?? [], version: versionOf(row.version),
+    });
+  });
+}
+export async function memberView(q: PoolClient, tenantId: string, principalId: string): Promise<MemberView> {
+  return (await memberViews(q, tenantId, [principalId]))[0];
+}
+export async function invitationViews(q: PoolClient, invitationIds: string[]): Promise<InvitationView[]> {
+  if (!invitationIds.length) return [];
+  const rows = (await q.query<{
     invitation_id: string; tenant_id: string; tenant_display_name: string; invitee_principal_id: string;
     role: InvitationView['role']; state: InvitationView['state']; expires_at: Date; version: string; instance_capabilities: InstanceCapabilitiesInput;
   }>(`SELECT i.invitation_id,i.tenant_id,t.display_name AS tenant_display_name,i.invitee_principal_id,i.role,i.instance_capabilities,i.state,i.expires_at,i.version::text AS version
-    FROM tenant_invitations i JOIN tenants t ON t.tenant_id=i.tenant_id WHERE i.invitation_id=$1`, [invitationId])).rows[0];
-  requireCondition(row, 404, 'invitation_not_found', INVITE_MISSING);
-  return InvitationViewSchema.parse({
-    invitation_id: row.invitation_id, tenant_id: row.tenant_id, tenant_display_name: row.tenant_display_name,
-    invitee_principal_id: row.invitee_principal_id, role: row.role, instance_capabilities: row.instance_capabilities, state: row.state,
-    expires_at: iso(row.expires_at), version: versionOf(row.version),
+    FROM tenant_invitations i JOIN tenants t ON t.tenant_id=i.tenant_id WHERE i.invitation_id=ANY($1::uuid[])`, [invitationIds])).rows;
+  const byId = new Map(rows.map(row => [row.invitation_id, row]));
+  return invitationIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 404, 'invitation_not_found', INVITE_MISSING);
+    return InvitationViewSchema.parse({
+      invitation_id: row.invitation_id, tenant_id: row.tenant_id, tenant_display_name: row.tenant_display_name,
+      invitee_principal_id: row.invitee_principal_id, role: row.role, instance_capabilities: row.instance_capabilities, state: row.state,
+      expires_at: iso(row.expires_at), version: versionOf(row.version),
+    });
   });
+}
+export async function invitationView(q: PoolClient, invitationId: string): Promise<InvitationView> {
+  return (await invitationViews(q, [invitationId]))[0];
 }
 
 async function activeOwnerCount(q: PoolClient, tenantId: string): Promise<number> {
@@ -282,8 +307,7 @@ export async function listWorkspaces(pool: Pool, actor: Actor, tenantId: string,
     const rows = (await q.query<{ workspace_id: string }>(`SELECT workspace_id FROM workspaces WHERE tenant_id=$1 AND ($2::uuid IS NULL OR workspace_id > $2::uuid)
       ORDER BY workspace_id LIMIT $3`, [context.tenant_id, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await workspaceView(q, row.workspace_id));
+    const items = await workspaceViews(q, page.map(row => row.workspace_id));
     const source = (await q.query<{ version: string | null }>(`SELECT max(version)::text AS version FROM workspaces WHERE tenant_id=$1`, [context.tenant_id])).rows[0].version;
     return WorkspacePageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, 'workspaces', context.tenant_id, page[page.length - 1].workspace_id) : null,
@@ -304,9 +328,8 @@ export async function listMembers(pool: Pool, actor: Actor, tenantId: string, qu
       : (await q.query<{ principal_id: string }>(`SELECT principal_id FROM tenant_memberships WHERE tenant_id=$1 AND principal_id=$2
           AND ($3::uuid IS NULL OR principal_id > $3::uuid) ORDER BY principal_id LIMIT $4`, [context.tenant_id, context.principal_id, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
-    const items = [];
     const grants = await activeInstanceGrants(q, context.tenant_id, page.map(row => row.principal_id));
-    for (const row of page) items.push(await memberView(q, context.tenant_id, row.principal_id, grants.get(row.principal_id) ?? []));
+    const items = await memberViews(q, context.tenant_id, page.map(row => row.principal_id), grants);
     return MemberPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(context.principal_id, full ? 'members' : 'my_membership', context.tenant_id, page[page.length - 1].principal_id) : null,
       source_version: versionOf(context.authorization_revision),
@@ -374,8 +397,7 @@ export async function listMyInvitations(pool: Pool, actor: Actor, query: { curso
     const rows = (await q.query<{ invitation_id: string }>(`SELECT invitation_id FROM tenant_invitations WHERE invitee_principal_id=$1
       AND ($2::uuid IS NULL OR invitation_id > $2::uuid) ORDER BY invitation_id LIMIT $3`, [principalId, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await invitationView(q, row.invitation_id));
+    const items = await invitationViews(q, page.map(row => row.invitation_id));
     const source = (await q.query<{ version: string }>(`SELECT COALESCE(max(version)::text, '1') AS version
       FROM tenant_invitations WHERE invitee_principal_id=$1`, [principalId])).rows[0].version;
     const value = InvitationPageSchema.parse({

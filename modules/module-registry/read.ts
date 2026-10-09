@@ -32,12 +32,19 @@ function decodeCursor(cursors: TenantListCursorCodec, raw: string | undefined, c
 const INSTANCE_COLUMNS = `instance_id, tenant_id, module_key, application_release_ref, data_schema_version, contract_ref,
   status, binding_id, authority_epoch::text AS authority_epoch, version::text AS version, configuration_revision::text AS configuration_revision
 `;
-const INSTANCE_SQL = `SELECT ${INSTANCE_COLUMNS} FROM module_instances WHERE tenant_id=$1 AND instance_id=$2`;
+export async function instanceViews(q: PoolClient, tenantId: string, instanceIds: string[]): Promise<InstanceView[]> {
+  if (!instanceIds.length) return [];
+  const rows = (await q.query(`SELECT ${INSTANCE_COLUMNS} FROM module_instances WHERE tenant_id=$1 AND instance_id=ANY($2::uuid[])`, [tenantId, instanceIds])).rows;
+  const byId = new Map(rows.map(row => [row.instance_id, row]));
+  return instanceIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
+    return InstanceViewSchema.parse(row);
+  });
+}
 
 export async function instanceView(q: PoolClient, tenantId: string, instanceId: string): Promise<InstanceView> {
-  const row = (await q.query(INSTANCE_SQL, [tenantId, instanceId])).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到這個模組實例。');
-  return InstanceViewSchema.parse(row);
+  return (await instanceViews(q, tenantId, [instanceId]))[0];
 }
 
 export async function listInstances(pool: Pool, actor: Actor, tenantId: string, query: { module_key?: string; status?: string; cursor?: string; limit?: number }, cursors: TenantListCursorCodec = unavailableTenantListCursor) {
@@ -58,8 +65,7 @@ export async function listInstances(pool: Pool, actor: Actor, tenantId: string, 
       [tenantId, query.module_key ?? null, query.status ?? null, cursor?.at ?? null, cursor?.id ?? null, limit + 1],
     )).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await instanceView(q, tenantId, row.instance_id));
+    const items = await instanceViews(q, tenantId, page.map(row => row.instance_id));
     const version = (await q.query<{ v: string | null }>(`SELECT max(version)::text AS v FROM module_instances WHERE tenant_id=$1`, [tenantId])).rows[0].v;
     await assertCurrentSessionClock(q, actor);
     return InstancePageSchema.parse({
@@ -139,18 +145,34 @@ export async function readInstance(pool: Pool, actor: Actor, tenantId: string, i
   });
 }
 
-async function installationView(q: PoolClient, tenantId: string, installationId: string): Promise<InstallationView> {
-  const row = (await q.query(
+export async function installationViews(q: PoolClient, tenantId: string, installationIds: string[]): Promise<InstallationView[]> {
+  if (!installationIds.length) return [];
+  const rows = (await q.query(
     `SELECT installation_id, tenant_id, workspace_id, application_key, release_ref, status, version::text AS version
-     FROM application_installations WHERE tenant_id=$1 AND installation_id=$2`,
-    [tenantId, installationId],
-  )).rows[0];
-  requireCondition(row, 404, 'not_found', '找不到這個應用安裝。');
-  const modules = (await q.query(
-    `SELECT requirement_key, instance_id FROM application_module_links WHERE tenant_id=$1 AND installation_id=$2 ORDER BY requirement_key`,
-    [tenantId, installationId],
+     FROM application_installations WHERE tenant_id=$1 AND installation_id=ANY($2::uuid[])`,
+    [tenantId, installationIds],
   )).rows;
-  return InstallationViewSchema.parse({ ...row, modules });
+  const byId = new Map(rows.map(row => [row.installation_id, row]));
+  const links = (await q.query(
+    `SELECT installation_id, requirement_key, instance_id FROM application_module_links
+     WHERE tenant_id=$1 AND installation_id=ANY($2::uuid[]) ORDER BY requirement_key`,
+    [tenantId, installationIds],
+  )).rows;
+  const modules = new Map<string, { requirement_key: string; instance_id: string }[]>();
+  for (const { installation_id, requirement_key, instance_id } of links) {
+    const entries = modules.get(installation_id) ?? [];
+    entries.push({ requirement_key, instance_id });
+    modules.set(installation_id, entries);
+  }
+  return installationIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 404, 'not_found', '找不到這個應用安裝。');
+    return InstallationViewSchema.parse({ ...row, modules: modules.get(id) ?? [] });
+  });
+}
+
+export async function installationView(q: PoolClient, tenantId: string, installationId: string): Promise<InstallationView> {
+  return (await installationViews(q, tenantId, [installationId]))[0];
 }
 
 export async function listInstallations(pool: Pool, actor: Actor, tenantId: string, query: { application_key?: string; workspace_id?: string; cursor?: string; limit?: number }, cursors: TenantListCursorCodec = unavailableTenantListCursor) {
@@ -171,8 +193,7 @@ export async function listInstallations(pool: Pool, actor: Actor, tenantId: stri
       [tenantId, query.application_key ?? null, query.workspace_id ?? null, cursor?.at ?? null, cursor?.id ?? null, limit + 1],
     )).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await installationView(q, tenantId, row.installation_id));
+    const items = await installationViews(q, tenantId, page.map(row => row.installation_id));
     const version = (await q.query<{ v: string | null }>(`SELECT max(version)::text AS v FROM application_installations WHERE tenant_id=$1`, [tenantId])).rows[0].v;
     await assertCurrentSessionClock(q, actor);
     return InstallationPageSchema.parse({

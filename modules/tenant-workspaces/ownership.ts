@@ -24,8 +24,9 @@ const MEMBER_PROFILE = 'freedom.scoped-member-command/v1';
 const TENANT_PROFILE = 'freedom.scoped-tenant-command/v1';
 const DENIED = '你目前沒有這項業務空間權限。';
 
-async function transferView(q: PoolClient, transferId: string): Promise<TransferView> {
-  const row = (await q.query<{
+export async function transferViews(q: PoolClient, transferIds: string[]): Promise<TransferView[]> {
+  if (!transferIds.length) return [];
+  const rows = (await q.query<{
     transfer_id: string; tenant_id: string; tenant_display_name: string; from_principal_id: string; to_principal_id: string;
     from_display_name: string; to_display_name: string; from_role_after: TransferView['from_role_after'];
     state: TransferView['state']; expires_at: Date; version: string;
@@ -37,9 +38,17 @@ async function transferView(q: PoolClient, transferId: string): Promise<Transfer
     JOIN users fu ON fu.user_id=fp.user_ref
     JOIN principals tp ON tp.principal_id=tr.to_principal_id
     JOIN users tu ON tu.user_id=tp.user_ref
-    WHERE tr.transfer_id=$1`, [transferId])).rows[0];
-  requireCondition(row, 404, 'transfer_not_found', TRANSFER_MISSING);
-  return TransferViewSchema.parse({ ...row, expires_at: iso(row.expires_at), version: versionOf(row.version) });
+    WHERE tr.transfer_id=ANY($1::uuid[])`, [transferIds])).rows;
+  const byId = new Map(rows.map(row => [row.transfer_id, row]));
+  return transferIds.map(id => {
+    const row = byId.get(id);
+    requireCondition(row, 404, 'transfer_not_found', TRANSFER_MISSING);
+    return TransferViewSchema.parse({ ...row, expires_at: iso(row.expires_at), version: versionOf(row.version) });
+  });
+}
+
+export async function transferView(q: PoolClient, transferId: string): Promise<TransferView> {
+  return (await transferViews(q, [transferId]))[0];
 }
 
 async function callerPrincipal(q: PoolClient, actor: Actor): Promise<string> {
@@ -178,8 +187,7 @@ export async function listMyTransfers(pool: Pool, actor: Actor, query: { cursor?
       WHERE to_principal_id=$1 AND state='pending' AND ($2::uuid IS NULL OR transfer_id > $2::uuid)
       ORDER BY transfer_id LIMIT $3`, [principalId, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await transferView(q, row.transfer_id));
+    const items = await transferViews(q, page.map(row => row.transfer_id));
     const sourceVersion = await countedSourceVersion(q, 'tenant_ownership_transfers', 'to_principal_id=$1', [principalId]);
     return TransferPageSchema.parse({
       items, next_cursor: rows.length > limit ? encodeCursor(principalId, 'my_transfers', null, page[page.length - 1].transfer_id) : null,
@@ -207,8 +215,7 @@ export async function listTenantTransfers(pool: Pool, actor: Actor, tenantId: st
       WHERE tenant_id=$1 AND state='pending' AND ($2::uuid IS NULL OR transfer_id > $2::uuid)
       ORDER BY transfer_id LIMIT $3`, [tenantId, after, limit + 1])).rows;
     const page = rows.slice(0, limit);
-    const items = [];
-    for (const row of page) items.push(await transferView(q, row.transfer_id));
+    const items = await transferViews(q, page.map(row => row.transfer_id));
     const sourceVersion = await countedSourceVersion(q, 'tenant_ownership_transfers', 'tenant_id=$1', [tenantId]);
     return TransferPageSchema.parse({
       items,
