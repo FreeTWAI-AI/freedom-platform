@@ -1824,8 +1824,8 @@
     },
     {
       "path": "apps/portal-web/src/interface-messages.ts",
-      "bytes": 52219,
-      "sha256": "9f8841564bbd7e4b8f50a328fcfec72816af96cf751b7643231e618f70f988f7"
+      "bytes": 52196,
+      "sha256": "1d8d2b9c4512f1c9b5cf0ec9baa42db44f8705489af26f797bce45b99aebc6b5"
     },
     {
       "path": "apps/portal-web/src/language.tsx",
@@ -16179,8 +16179,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 21906,
-      "sha256": "0c314b452c90ca6f5222562e803a384c92b2cea71932cae8918648ec3dc7f683"
+      "bytes": 22056,
+      "sha256": "1ab645447260fa1ad06ec9e53036a8073b8b2fe6a9579b26c14f8458c5962301"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -20691,6 +20691,11 @@
       "path": "tests/runtime/hosted-order-http.test.ts",
       "bytes": 21238,
       "sha256": "f988e91f2c322b32fb5a891f48543854a66dd3ae681af31bba8bbad822361202"
+    },
+    {
+      "path": "tests/runtime/hosted-order-navigation.test.ts",
+      "bytes": 993,
+      "sha256": "cde4c427f17142b7b075fcdccc840a916b2bfa0ad6d2a4a7945285b8e07b2c8a"
     },
     {
       "path": "tests/runtime/hosted-order-ui.test.ts",
