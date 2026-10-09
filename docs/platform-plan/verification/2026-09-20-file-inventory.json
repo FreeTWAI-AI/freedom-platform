@@ -19429,8 +19429,8 @@
     },
     {
       "path": "tests/e2e/guild-launchpad-profiles.spec.ts",
-      "bytes": 18976,
-      "sha256": "da879f725a513871832cbae6fc53f96f906eb6a1bd30775085c903a0f6877cb5"
+      "bytes": 19193,
+      "sha256": "c9cbbcb36f04ea4d75850193128c15d76fc1e456581b2393f9bbe6e34d763257"
     },
     {
       "path": "tests/e2e/guild-launchpad.spec.ts",

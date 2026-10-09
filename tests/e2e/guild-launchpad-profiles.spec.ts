@@ -2,7 +2,6 @@ import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import type {Pool} from 'pg';
 import {test, expect, type Page} from './fixtures.js';
-import {signOut} from './navigation.js';
 import {DEMO_COMMUNITY, DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {hashPassword} from '../../modules/identity-membership/service.js';
 import type {Config} from '../../contracts/guild-launchpad/v1/config.js';
@@ -113,7 +112,10 @@ test('talent entry focuses the existing workspace, then saves and reopens the sa
   expect(rows).toHaveLength(1);
   const results = (await e2eAuthPool.query('SELECT result_id FROM tenant_work_results WHERE work_item_id=$1', [rows[0].work_item_id])).rows;
   expect(results).toHaveLength(1);
-  await signOut(page); await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
+  // A signed-out guild can render its public page; session revocation is the authority.
+  await page.getByRole('button', {name: '設定', exact: true}).click();
+  await page.getByRole('menu', {name: '個人檔案'}).getByRole('menuitem', {name: '登出', exact: true}).click();
+  await expect.poll(async () => (await page.request.get('/api/v1/session')).status()).toBe(401);
   await login(page, member.email); await open(page, talent);
   await primary(page).getByRole('button', {name: '前往方向卡', exact: true}).click(); await expect(work).toBeFocused();
   await work.getByRole('button', {name: title, exact: true}).click();
