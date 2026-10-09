@@ -32,3 +32,10 @@ p { margin: .4rem 0; }
 .shop-price { font-weight: 700; }
 @media (min-width: 700px) { .shop-logo { height: 64px; } }
 @media (max-width: 700px) { .shop-products { grid-template-columns: 1fr; } body { padding: 16px 12px 32px; } }
+
+/* Both approved layouts use the same content and palette. The grid remains the default. */
+.shop-products.shop-products-list { grid-template-columns: 1fr; }
+@media (min-width: 700px) {
+  .shop-products-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: .8rem; }
+  .shop-products-list article > p:not(.shop-price) { grid-column: 1 / -1; }
+}
