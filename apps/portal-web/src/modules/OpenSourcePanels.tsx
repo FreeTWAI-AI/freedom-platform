@@ -5,9 +5,10 @@ import { useModuleMutation,type ModulePanelProps } from './shared';
 import { SkillUpload,type SkillOpenRequest } from './SkillUpload';
 import { SimpleSkillSubmission } from './SimpleSkillSubmission';
 import { WorkSharingEntry } from './WorkSharingEntry';
+import {projectSkillBookPath,projectSkillDraft,type ProjectSkillBook} from './SkillPublication';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
-type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion};
+type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion;skill_book?:ProjectSkillBook|null};
 type Campaign={campaign_id:string;title:string;audience:string;goal:string;draft_text:string;aggregate_version:number;source_snapshot:{kind:string;title?:string;brief?:string;commit_sha?:string;license_spdx?:string;repository_url?:string;source_version?:string;currency?:string;net_price_minor?:string};shares:{share_id:string;channel:string;share_url:string;note:string;verification_status:string}[]};
 type SupplierProduct={product_id:string;title:string;current_offer:{revision:number}};
 const relationshipLabels:Record<string,string>={author:'原作者',maintainer:'維護者',contributor:'貢獻者',curator:'推薦／整理者'};
@@ -23,6 +24,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [projects,setProjects]=useState<Project[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
   const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null);
   const openNonce=useRef(0);
+  const openSkill=(submissionId:string,mode: 'preview'|'complete')=>{openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});};
   const refresh=useCallback(async()=>{
     setLoading(true);setLoadError(null);
     try{setProjects(requireItems<Project>(await client.get('/opensource/projects'),'開源作品'));}
@@ -32,31 +34,44 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   useEffect(()=>{void refresh();},[refresh]);
   return <div className="stack">
     <WorkSharingEntry current="opensource"/>
-    <SimpleSkillSubmission client={client} onPublished={refresh} onOpenDraft={(submissionId,mode)=>{openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});}}/>
+    <SimpleSkillSubmission client={client} onPublished={refresh} onOpenDraft={openSkill}/>
     <details className="card work-sharing-advanced"><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh} openRequest={openRequest}/></div></div></details>
     <LoadError error={loadError} retry={()=>void refresh()}/>
       <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
         {loading&&<p role="status">正在載入作品…</p>}
         {!loading&&!loadError&&projects.length===0&&<div className="card empty"><h3>第一件作品，從你開始</h3><p>登錄後會顯示使用說明、授權與固定版本，方便其他會員試用和參與。</p></div>}
-        {projects.map(project=><ProjectCard key={project.project_id} project={project} own={project.owner_ref===session.user.user_id} client={client} session={session} reload={refresh} onNavigate={onNavigate}/>)}
+        {projects.map(project=><ProjectCard key={project.project_id} project={project} own={project.owner_ref===session.user.user_id} client={client} session={session} reload={refresh} onNavigate={onNavigate} onOpenSkill={openSkill}/>)}
       </section>
-    <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>Fork 是把專案複製到自己的 GitHub，方便練習或改造。請保留原作者、來源與授權；原始作品仍由作者維護。</p><p>準備一頁介紹：用途、畫面、如何開始，以及原始碼連結。可使用下方模板。</p><a href="https://github.com/FreeTWAI-AI/freedom-project-page" target="_blank" rel="noopener noreferrer">使用專案介紹頁模板 ↗</a></div></details>
+    <details className="card"><summary>作品怎麼成為技能書？</summary><div className="stack"><p>在自己的作品卡按「製作技能書」，沿用已登錄的介紹建立私人草稿；檢查內容後按「送出技能」，即可公開為社群技能書。已有草稿會繼續原稿，不覆蓋你修改的內容。</p><p>不必先準備 100 則分享短文或示意圖；這些可在公開後選擇補充。原作者、來源與授權仍會保留，公會指定另有選書流程。</p></div></details>
   </div>;
 }
 
-function ProjectCard({project,own,client,reload,onNavigate}:ModulePanelProps & {project:Project;own:boolean;reload:()=>Promise<void>}) {
+function ProjectCard({project,own,client,reload,onNavigate,onOpenSkill}:ModulePanelProps & {project:Project;own:boolean;reload:()=>Promise<void>;onOpenSkill:(id:string,mode:'preview'|'complete')=>void}) {
   const {mutate,busy,error}=useModuleMutation(client),[editing,setEditing]=useState(false),[notice,setNotice]=useState<string|null>(null);
   const [draft,setDraft]=useState({title:project.title,description:project.description,use_notes:project.use_notes,demo_url:project.demo_url??''});
   const [githubManager,setGitHubManager]=useState(false),canEdit=own||githubManager;
+  const skillPath=projectSkillBookPath(project.skill_book),skillDraft=projectSkillDraft(project.skill_book,own);
+  async function makeSkill(){
+    const result=await mutate<{submission:{submission_id:string;status:string}|null;created:boolean;catalog_book?:{book_id:string;title:string;public_path:string}|null}>(`/opensource/projects/${project.project_id}/skill-submission`,{},project.aggregate_version);
+    if(!result)return;
+    if(result.submission?.status==='ready_for_review'||result.submission?.status==='awaiting_upload')onOpenSkill(result.submission.submission_id,result.submission.status==='ready_for_review'?'preview':'complete');
+    else setNotice('這件作品已有公開技能書，可直接閱讀。');
+    await reload();
+  }
   async function checkManagement(){const result=await mutate(`/opensource/projects/${project.project_id}/edit-access`,{});if(result){setGitHubManager(true);setNotice('已核對 GitHub Repo 管理權；儲存時會再次確認。');}}
   async function refreshVersion(){const result=await mutate(`/opensource/projects/${project.project_id}:refresh`,{},project.aggregate_version);if(result){setNotice('已重新查詢 GitHub；行銷草稿保留建立時的版本。');await reload();}}
   async function revise(event:FormEvent){event.preventDefault();const result=await mutate(`/opensource/projects/${project.project_id}:revise`,{...draft,demo_url:draft.demo_url.trim()||null},project.aggregate_version);if(result){setEditing(false);setNotice('使用說明已更新。');await reload();}}
   return <article className="card stack" aria-label={`開源作品：${project.title}`}>
-    <div className="card-head"><div><p className="module-kicker">{project.repository_full_name}</p><h3>{project.title}</h3></div><span className="pill">社群候選作品</span></div>
+    <div className="card-head"><div><p className="module-kicker">{project.repository_full_name}</p><h3>{project.title}</h3></div><span className="pill">{skillPath?'已公開社群技能書':'已登錄作品'}</span></div>
     <p className="project-copy">{project.description}</p><div className="help-box"><strong>如何開始</strong><p className="project-copy">{project.use_notes}</p></div>
     <dl className="meta"><div><dt>登錄者</dt><dd>{project.owner_name} · {relationshipLabels[project.relationship]}（自行聲明）</dd></div><div><dt>授權</dt><dd>{project.current_version.license_spdx==='NOASSERTION'?'尚未確認，請先閱讀原始授權':project.current_version.license_spdx}</dd></div><div><dt>固定版本</dt><dd><code>{project.current_version.commit_sha.slice(0,12)}</code> · {project.current_version.is_fork?'衍生儲存庫':'原始儲存庫'}{project.current_version.archived?' · 已封存':''}</dd></div></dl>
     <div className="actions"><SafeLink href={project.current_version.readme_url}>閱讀文件／開始使用</SafeLink><SafeLink href={`${project.repository_url}/issues`}>參與討論</SafeLink>{project.demo_url&&<SafeLink href={project.demo_url}>開啟展示</SafeLink>}{project.current_version.license_evidence_url&&<SafeLink href={project.current_version.license_evidence_url}>查看授權</SafeLink>}</div>
-    <p className="hint">來源與版本已讀取；尚未進行作品品質審核。</p>
+    <div className="actions">
+      {skillPath?<a className="btn btn-primary" href={skillPath} target="_blank" rel="noopener noreferrer">閱讀已公開技能書 ↗</a>:own&&skillDraft?<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>onOpenSkill(skillDraft.submissionId,skillDraft.mode)}>繼續製作技能書</button>:own&&<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void makeSkill()}>製作技能書</button>}
+      {skillPath&&<a className="btn btn-ghost" href="/#skills">前往技能書架</a>}
+    </div>
+    {own&&skillDraft&&<p className="field-hint">{skillDraft.mode==='preview'?'草稿已備妥，等你預覽並公開。':'草稿仍在等候上傳內容；可繼續補充，原稿會保留。'}</p>}
+    <p className="hint">來源關係為登錄者自行聲明，請依原始授權使用。</p>
     {error&&<p role="alert" className="banner banner-error">{error}</p>}{notice&&<p role="status" className="status-note">{notice}</p>}
     {!canEdit&&<div className="stack"><p className="hint">組織 Repo 的管理者也可編輯公開介紹。先連結 GitHub，並讓授權涵蓋此 Repo（admin／maintain）。</p><div className="actions"><button className="btn btn-ghost" disabled={busy} onClick={()=>void checkManagement()}>核對 GitHub 管理權</button>{onNavigate&&<button className="btn btn-ghost" onClick={()=>onNavigate('community')}>連結 GitHub</button>}</div></div>}
     {canEdit&&<div className="actions"><button className="btn btn-ghost" disabled={busy} onClick={()=>void refreshVersion()}>更新 GitHub 版本</button><button className="btn btn-ghost" disabled={busy} onClick={()=>{setDraft({title:project.title,description:project.description,use_notes:project.use_notes,demo_url:project.demo_url??''});setEditing(!editing);}}>編輯作品介紹</button>{own&&onNavigate&&<button className="btn btn-ghost" onClick={()=>onNavigate('marketing')}>為作品準備行銷</button>}</div>}
