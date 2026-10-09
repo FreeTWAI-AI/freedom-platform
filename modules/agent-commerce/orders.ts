@@ -1,12 +1,12 @@
 import {randomBytes,randomUUID} from 'node:crypto';
 import {SHOP_KEY_PROFILE,requireShopHost,lockShopService,assertShopServiceClock,forgetShopService,type ShopContext,type ShopServiceHost} from '../../packages/resource-scopes/shop-service.js';
-import type {Pool,PoolClient} from 'pg';
+import type {Pool,PoolClient,QueryResultRow} from 'pg';
 import {command,digest,transaction,journal,type Command} from '../../packages/db/index.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {tokenHash,type Actor} from '../identity-membership/service.js';
 import {ownShop} from './imports.js';
 import {orderInput,paymentInput,shipmentInput,httpsUrl} from './schema.js';
-import {accrueSupplierPayables,marginProjection,payablesForOrder,reverseSupplierPayables} from './distribution.js';
+import {accrueSupplierPayables,marginProjection,payablesForOrders,reverseSupplierPayables,type PayableView} from './distribution.js';
 
 export async function issueKey(pool:Pool,input:Command,id:string,host:ShopServiceHost){
  requireShopHost(host);
@@ -95,14 +95,26 @@ export async function createOrder(q:PoolClient,shop:any,raw:unknown){
 }
 export async function orderView(q:PoolClient,shop:any,id:string){
  await requireImportedShop(q,shop);
- const order=(await q.query(`SELECT o.*,s.name AS public_shop_name,s.website_url AS public_website_url,s.contact AS public_shop_contact FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id WHERE s.origin='imported' AND o.order_id=$1 AND
- (o.public_shop_id=$2 OR (o.buyer_payment IN ('reported_paid','reported_refunded') AND EXISTS(SELECT 1 FROM commerce_transfers t WHERE t.order_id=o.order_id AND t.internal_shop_id=$2)))`,[id,shop.shop_id])).rows[0];
- requireCondition(order,404,'order_not_found','找不到此商店的訂單。');
- const transfers=(await q.query(`SELECT t.*,s.website_url AS internal_website_url,s.name AS internal_shop_name FROM commerce_transfers t
- JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE s.origin='imported' AND t.order_id=$1${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[id,shop.shop_id]:[id])).rows;
- for(const t of transfers)t.lines=(await q.query('SELECT selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=$1',[t.transfer_id])).rows;
- const payables=(await payablesForOrder(q,id)).filter(p=>transfers.some(t=>t.transfer_id===p.transfer_id));
- for(const t of transfers){const mine=payables.filter(p=>p.transfer_id===t.transfer_id);if(mine.length)t.supplier_payables=mine;}
+ return (await orderViews(q,shop,[id]))[0];
+}
+async function orderViews(q:PoolClient,shop:QueryResultRow,ids:string[]){
+ if(!ids.length)return [];
+ const orders=(await q.query(`SELECT o.*,s.name AS public_shop_name,s.website_url AS public_website_url,s.contact AS public_shop_contact FROM commerce_orders o JOIN commerce_shops s ON s.shop_id=o.public_shop_id WHERE s.origin='imported' AND o.order_id=ANY($1::uuid[]) AND
+ (o.public_shop_id=$2 OR (o.buyer_payment IN ('reported_paid','reported_refunded') AND EXISTS(SELECT 1 FROM commerce_transfers t WHERE t.order_id=o.order_id AND t.internal_shop_id=$2)))`,[ids,shop.shop_id])).rows;
+ const byId=new Map(orders.map(o=>[o.order_id,o]));
+ for(const id of ids)requireCondition(byId.has(id),404,'order_not_found','找不到此商店的訂單。');
+ const allTransfers=(await q.query(`SELECT t.*,s.website_url AS internal_website_url,s.name AS internal_shop_name FROM commerce_transfers t
+ JOIN commerce_shops s ON s.shop_id=t.internal_shop_id WHERE s.origin='imported' AND t.order_id=ANY($1::uuid[])${shop.kind==='internal'?' AND t.internal_shop_id=$2':''}`,shop.kind==='internal'?[ids,shop.shop_id]:[ids])).rows;
+ const lines=(await q.query('SELECT transfer_id,selection_id,item_id,quantity,snapshot FROM commerce_order_lines WHERE transfer_id=ANY($1::uuid[])',[allTransfers.map(t=>t.transfer_id)])).rows;
+ const linesByTransfer=new Map<string,QueryResultRow[]>(),payablesByTransfer=new Map<string,PayableView[]>();
+ for(const {transfer_id,...line} of lines){const group=linesByTransfer.get(transfer_id)??[];group.push(line);linesByTransfer.set(transfer_id,group);}
+ for(const payable of await payablesForOrders(q,ids)){const group=payablesByTransfer.get(payable.transfer_id)??[];group.push(payable);payablesByTransfer.set(payable.transfer_id,group);}
+ const transfersByOrder=new Map<string,QueryResultRow[]>();
+ for(const t of allTransfers){t.lines=linesByTransfer.get(t.transfer_id)??[];const mine=payablesByTransfer.get(t.transfer_id);if(mine?.length)t.supplier_payables=mine;const group=transfersByOrder.get(t.order_id)??[];group.push(t);transfersByOrder.set(t.order_id,group);}
+ return ids.map(id=>assembleOrder(shop,byId.get(id)!,transfersByOrder.get(id)??[]));
+}
+function assembleOrder(shop:QueryResultRow,order:QueryResultRow,transfers:QueryResultRow[]){
+ const payables=transfers.flatMap(t=>t.supplier_payables??[]);
  const lineCount=transfers.reduce((n,t)=>n+t.lines.length,0);
  const projection=shop.kind==='public'&&order.buyer_payment==='reported_paid'?marginProjection(Number(order.total_minor),payables,lineCount):null;
  const supplierPlus=transfers.reduce((n,t)=>n+Number(t.total_minor),0);
@@ -115,7 +127,7 @@ export async function shopOrders(q:PoolClient,shop:any,offset=0){
  await requireImportedShop(q,shop);
  const rows=(await q.query(`SELECT DISTINCT o.order_id,o.created_at FROM commerce_orders o LEFT JOIN commerce_transfers t USING(order_id)
  WHERE o.public_shop_id=$1 OR (t.internal_shop_id=$1 AND o.buyer_payment IN ('reported_paid','reported_refunded')) ORDER BY o.created_at DESC,o.order_id DESC LIMIT 100 OFFSET $2`,[shop.shop_id,offset])).rows;
- const result=[];for(const row of rows)result.push(await orderView(q,shop,row.order_id));return result;
+ return orderViews(q,shop,rows.map(row=>row.order_id));
 }
 export async function memberOrders(pool:Pool,actor:Actor,id:string){
  return transaction(pool,async q=>shopOrders(q,await ownShop(q,actor,id)));

@@ -9,6 +9,7 @@ import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
 import {fetchManifest} from '../../modules/agent-commerce/imports.js';
 import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
+import {orderView,shopOrders} from '../../modules/agent-commerce/orders.js';
 
 const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_agent_commerce_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
@@ -133,6 +134,46 @@ test('two internal shops get only their own transfer; source customer data is an
  const inbox=(await req('/shop-api/v1/orders',undefined,undefined,secondKey)).data.items[0];assert.equal(inbox.transfers.length,1);assert.equal(inbox.transfers[0].internal_shop_id,second);
  const foreign=order.transfers.find((t:any)=>t.internal_shop_id!==second);
  assert.equal((await req(`/shop-api/v1/orders/${order.order_id}/transfers/${foreign.transfer_id}/payment`,paid(36000),undefined,secondKey)).status,404);
+});
+
+test('batched pages match single views with multiple lines, transfers and scoped payables at constant query count',async()=>{
+ const f=await setup(),m=internal();
+ await importOne(f.other,{...m,name:'批次供貨店',website_url:'https://batch.example.com',products:[...m.products,{...m.products[0],sku:'COFFEE'}]});
+ const items=(await req('/api/v1/commerce/catalog',undefined,f.seller)).data.items;
+ const sid=await importOne(f.seller,{...f.manifest,name:'批次商城',selections:items.map((i:{item_id:string})=>({item_id:i.item_id,retail_price_minor:50000,sale_terms:'合成'}))});
+ await acceptAll(f.supplier);await acceptAll(f.other);const key=await keyFor(f.seller,sid);
+ const selections=(await req('/shop-api/v1/connection',undefined,undefined,key)).data.selections;
+ async function create(){
+  const result=await req('/shop-api/v1/orders',{external_id:randomUUID(),items:selections.map((s:{selection_id:string})=>({selection_id:s.selection_id,quantity:1,delivery_ref:'synthetic_delivery'}))},undefined,key);
+  assert.equal(result.status,201,JSON.stringify(result.data));
+  assert.equal((await req(`/shop-api/v1/orders/${result.data.order_id}/payment`,paid(150000),undefined,key)).status,200);
+ }
+ const q=await pool.connect(),original=q.query;
+ let count=0;
+ q.query=((...args:unknown[])=>{count++;return Reflect.apply(original,q,args);}) as typeof q.query;
+ try{
+  await create();
+  const shop=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1',[sid])).rows[0];
+  count=0;await shopOrders(q,shop);const one=count;
+  await create();await create();
+  for(const shopId of [sid,f.internalId]){
+   const current=(await q.query('SELECT * FROM commerce_shops WHERE shop_id=$1',[shopId])).rows[0];
+   count=0;const list=await shopOrders(q,current),many=count;
+   const single=[];for(const row of list)single.push(await orderView(q,current,row.order_id));
+   assert.deepEqual(list,single);assert.equal(list.length,3);
+   for(const row of list){
+    assert.equal(row.transfers.length,shopId===sid?2:1);
+    assert.equal(row.transfers.reduce((n,t)=>n+t.lines.length,0),shopId===sid?3:1);
+    for(const transfer of row.transfers){
+     assert.equal(transfer.supplier_payables.length,transfer.lines.length);
+     assert.ok(transfer.supplier_payables.every((p:{transfer_id:string})=>p.transfer_id===transfer.transfer_id));
+     if(shopId!==sid)assert.equal(transfer.internal_shop_id,shopId);
+    }
+   }
+   console.log(`imported ${current.kind}: N=1 ${one} queries; N=3 ${many} queries`);
+   assert.equal(many,one);assert.ok(many<=6);
+  }
+ }finally{q.query=original;q.release();}
 });
 
 test('manifest URL reader rejects unsafe hosts and oversize data without following redirects',async()=>{

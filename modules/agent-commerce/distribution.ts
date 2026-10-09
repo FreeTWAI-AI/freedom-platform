@@ -83,11 +83,11 @@ export async function reverseSupplierPayables(q:PoolClient,shop:{owner_id:string
  }
 }
 
-type PayableView={payable_id:string;selection_id:string;transfer_id:string;supplier_net_minor:number;shipping_minor:number;tax_minor:number;reversed_minor:number;status:'recorded';settlement:{mode:'record_only';state:'recorded';display_label:'已記錄';money_movement_enabled:false;platform_collects:false;auto_debit:false}};
-export async function payablesForOrder(q:PoolClient,orderId:string):Promise<PayableView[]>{
+export type PayableView={payable_id:string;selection_id:string;transfer_id:string;supplier_net_minor:number;shipping_minor:number;tax_minor:number;reversed_minor:number;status:'recorded';settlement:{mode:'record_only';state:'recorded';display_label:'已記錄';money_movement_enabled:false;platform_collects:false;auto_debit:false}};
+export async function payablesForOrders(q:PoolClient,orderIds:string[]):Promise<PayableView[]>{
  const rows=(await q.query(`SELECT p.*,COALESCE((SELECT sum(amount_minor) FROM commerce_obligation_reversals r WHERE r.payable_id=p.payable_id),0) AS reversed_minor,
   s.mode,s.state,s.display_label,s.money_movement_enabled,s.platform_collects,s.auto_debit
-  FROM commerce_supplier_payables p JOIN commerce_settlement_records s USING(payable_id) WHERE p.order_id=$1`,[orderId])).rows;
+  FROM commerce_supplier_payables p JOIN commerce_settlement_records s USING(payable_id) WHERE p.order_id=ANY($1::uuid[])`,[orderIds])).rows;
  return rows.map(p=>({payable_id:p.payable_id,selection_id:p.selection_id,transfer_id:p.transfer_id,supplier_net_minor:Number(p.supplier_net_minor),shipping_minor:Number(p.shipping_minor),tax_minor:Number(p.tax_minor),reversed_minor:Number(p.reversed_minor),status:'recorded',
   settlement:{mode:'record_only',state:'recorded',display_label:'已記錄',money_movement_enabled:false,platform_collects:false,auto_debit:false}}));
 }
