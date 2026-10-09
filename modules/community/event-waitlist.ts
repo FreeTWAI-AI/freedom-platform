@@ -2,6 +2,7 @@ import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {checkVersion,command,digest,journal,transaction,type Command} from '../../packages/db/index.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import {isoTime,text} from '../../packages/shared/validation.js';
 import type {Actor} from '../identity-membership/service.js';
@@ -89,7 +90,15 @@ async function view(q:Query,id:string,identity:EventParticipationIdentity):Promi
     waitlist:entry?{status:entry.status,aggregate_version:Number(entry.aggregate_version),joined_at:entry.joined_at,invited_at:entry.invited_at,expires_at:entry.expires_at,delivery_status:entry.delivery_status}:null,
     available_seats:event.capacity===null?null:Math.max(0,event.capacity-await countEventSeats(q,id))});
 }
-export async function readEventParticipation(pool:Query,actor:Actor,id:string){await memberSource(pool,actor,id);return view(pool,id,{member_ref:actor.user_id});}
+export async function readEventParticipation(pool:Pool,actor:Actor,id:string){
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    await memberSource(q,actor,id);
+    const result=await view(q,id,{member_ref:actor.user_id});
+    await assertCurrentSessionClock(q,actor);
+    return result;
+  });
+}
 export async function readGuestEventParticipation(pool:Query,id:string,token:string){const source=await resolveGuestParticipation(pool,id,token);return view(pool,id,{guest_email:source.email});}
 async function apply(q:PoolClient,event:any,identity:EventParticipationIdentity,action:string,code:string|null|undefined,now:Date){const id=event.event_id;if(action==='leave'||action==='cancel'){if(action==='cancel'&&identity.guest_email)await q.query("UPDATE community_event_guest_rsvps SET state='cancelled' WHERE event_id=$1 AND email=$2",[id,identity.guest_email]);await cancelEventParticipation(q,id,identity,now);return;}requireCondition(event.state==='published'&&instant(event.starts_at)>now.getTime(),409,'event_closed','活動已開始或取消。');if(action==='join')await reconcileEventWaitlist(q,id,now);const entry=await ownEntry(q,id,identity);if(action==='decline'){if(entry?.status==='invited'){await q.query("UPDATE community_event_waitlist SET status='declined',aggregate_version=aggregate_version+1 WHERE entry_id=$1",[entry.entry_id]);await bump(q,id);await cancelEventReminders(q,id,identity);}await reconcileEventWaitlist(q,id,now);return;}
 if(action==='join'){requireCondition(event.waitlist_enabled,409,'waitlist_disabled','主辦者尚未開放候補。');requireCondition((await ownRsvp(q,id,identity))?.state!=='going',409,'already_registered','你已報名這場活動。');const sourceCode=code??entry?.referral_code??null;if(event.visibility==='referral')requireCondition(await referralOwner(q,id,sourceCode),422,'share_code_required','請使用有效分享連結。');if(!entry){await q.query("INSERT INTO community_event_waitlist(entry_id,event_id,member_ref,guest_email,referral_code,status,joined_at) VALUES($1,$2,$3,$4,$5,'queued',$6)",[randomUUID(),id,identity.member_ref??null,identity.guest_email??null,sourceCode,now]);await bump(q,id);}else if(!['queued','invited','accepted'].includes(entry.status)){await q.query("UPDATE community_event_waitlist SET status='queued',joined_at=$2,referral_code=$3,invited_at=NULL,expires_at=NULL,invitation_id=NULL,delivery_status='pending',aggregate_version=aggregate_version+1 WHERE entry_id=$1",[entry.entry_id,now,sourceCode]);await bump(q,id);}await reconcileEventWaitlist(q,id,now);return;}

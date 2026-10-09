@@ -35,7 +35,7 @@
     {
       "path": "README.md",
       "bytes": 29140,
-      "sha256": "c1046cf4280433582c3ca5b08f7076d81789d96d928fc324dc0b74ee04c6ec28"
+      "sha256": "c6c75b0db0e25acfbab7972814f99c9f99ce33414b33a9a91c100a418f3fc229"
     },
     {
       "path": "compose.yaml",
@@ -14764,8 +14764,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 22205,
-      "sha256": "4391d7e718e438390921acec8301093f20e107cba4ce9256887f7a921b3e2c21"
+      "bytes": 22386,
+      "sha256": "f42a26c0eddf5c867c6045e709e3063136e680d3ea96f0f5441cbe873d0685f8"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16919,8 +16919,8 @@
     },
     {
       "path": "modules/community/event-calendar.ts",
-      "bytes": 2755,
-      "sha256": "b1ce2cf250adb689d3f99879979bb52cd4064995f76f7e21d44250f1d1f6cf1a"
+      "bytes": 3059,
+      "sha256": "f33cef501599ed4c1a5e8ca44e0e32a3158841b176783928dc103df9754a1b7b"
     },
     {
       "path": "modules/community/event-highlights-page.ts",
@@ -16934,13 +16934,13 @@
     },
     {
       "path": "modules/community/event-reminders.ts",
-      "bytes": 14565,
-      "sha256": "0659de73484bf3987e1489b951bfb4a4393314e6092f7412f841375083c2b8ac"
+      "bytes": 14819,
+      "sha256": "f7f96164021040f00e5fb5dcd918fb6e474dee000d37d6fc3d03b4b62f1de286"
     },
     {
       "path": "modules/community/event-waitlist.ts",
-      "bytes": 34525,
-      "sha256": "0db973afc33f9e045ca86eaba80cd0d33a1ee39a6bfce5f0ddccdbbf968172fd"
+      "bytes": 34784,
+      "sha256": "b059546349c78cedcf6c5e8c21e8d6586cf6c467ed16a82f4076c28af5878806"
     },
     {
       "path": "modules/community/events.ts",
@@ -20574,8 +20574,8 @@
     },
     {
       "path": "tests/runtime/event-participation-api.test.ts",
-      "bytes": 21831,
-      "sha256": "eb40f8d3fa445231a7f0b8cf2f1bae72fa7dee0f711120fe9b0e67ea75e2dce4"
+      "bytes": 24658,
+      "sha256": "43d835fbc5ae42439a6e18eca47f97cb7b15d526dcbc53473a33e4b23572d4fb"
     },
     {
       "path": "tests/runtime/event-participation-reminders.test.ts",

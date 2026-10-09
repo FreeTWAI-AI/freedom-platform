@@ -4,7 +4,11 @@ import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
 import type {Hono} from 'hono';
 import {z} from 'zod';
-import type {Actor} from '../../modules/identity-membership/service.js';
+import {authenticate,type Actor} from '../../modules/identity-membership/service.js';
+import {Problem} from '../../packages/shared/problem.js';
+import {readEventParticipation} from '../../modules/community/event-waitlist.js';
+import {readEventReminder} from '../../modules/community/event-reminders.js';
+import {readMemberEventCalendar} from '../../modules/community/event-calendar.js';
 import {createPool} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
@@ -243,3 +247,45 @@ test('cancelled actual own participation remains accessible with stable calendar
   const request=await call(path(eventId,'participation-request'),{method:'POST',body:{email:other.email,name:'合成取消列'}});
   assert.equal(request.status,404,'a cancelled row without confirmation is not proof of previous participation');assert.equal(mail.length,mailCount);
 });
+
+
+// Exercise the domain reads directly: HTTP authentication must not be their only fence.
+const memberReads=[
+  ['participation',readEventParticipation],
+  ['reminder',readEventReminder],
+  ['calendar',readMemberEventCalendar],
+] as const;
+for(const [name,read] of memberReads){
+  test(`private member ${name} rejects a previously authenticated but revoked session`,async()=>{
+    const actor=await authenticate(pool,sessions[1].cookie.slice(sessions[1].cookie.indexOf('=')+1));
+    await pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[actor.session_hash]);
+    await assert.rejects(read(pool,actor,eventId),error=>error instanceof Problem&&error.code==='session_expired');
+  });
+  test(`private member ${name} refreshes session expiry after a blocked source query`,async()=>{
+    const actor=await authenticate(pool,sessions[1].cookie.slice(sessions[1].cookie.indexOf('=')+1));
+    const applicationName=`${schema}_${name}_expiry`;
+    const reader=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema} -c statement_timeout=10000`,application_name:applicationName,max:1});
+    const locker=await pool.connect();
+    let pending:Promise<{value:unknown}|{error:unknown}>|undefined;
+    try{
+      await locker.query('BEGIN');
+      await locker.query('LOCK TABLE community_events IN ACCESS EXCLUSIVE MODE');
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+      pending=read(reader,actor,eventId).then(value=>({value}),error=>({error}));
+      let waiting=false;
+      for(let attempt=0;attempt<200;attempt++){
+        waiting=(await admin.query("SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock'",[applicationName])).rowCount===1;
+        if(waiting)break;
+        await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      assert.ok(waiting,'read must reach the held source table after locking its session');
+      await pool.query("SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM (expires_at-clock_timestamp())))+0.05) FROM sessions WHERE token_hash=$1",[actor.session_hash]);
+      await locker.query('COMMIT');
+      const outcome=await pending;
+      assert.ok('error' in outcome&&outcome.error instanceof Problem&&outcome.error.code==='session_expired','expired read must not return private data');
+    }finally{
+      await locker.query('ROLLBACK');locker.release();
+      await pending;await reader.end();
+    }
+  });
+}

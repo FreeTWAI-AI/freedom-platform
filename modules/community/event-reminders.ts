@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {checkVersion,command,digest,transaction,type Command} from '../../packages/db/index.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
 import {readEvent,type EventEmailSender} from './events.js';
@@ -35,7 +36,15 @@ async function save(q:PoolClient,event:any,identity:Identity,body:z.infer<typeof
     [id,event.event_id,identity.member_ref??null,identity.guest_email??null,body.minutes_before_start,body.channel,prior?.status??'pending',event.aggregate_version,event.starts_at,due]);
   return view(await own(q,event.event_id,identity));
 }
-export async function readEventReminder(pool:Pool,actor:Actor,id:string):Promise<EventReminder>{await memberSource(pool,actor,id);return view(await own(pool,id,{member_ref:actor.user_id}));}
+export async function readEventReminder(pool:Pool,actor:Actor,id:string):Promise<EventReminder>{
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    await memberSource(q,actor,id);
+    const result=view(await own(q,id,{member_ref:actor.user_id}));
+    await assertCurrentSessionClock(q,actor);
+    return result;
+  });
+}
 export async function saveEventReminder(pool:Pool,input:Command,id:string){
   const body=options.parse(input.body);
   requireCondition(input.expected,428,'version_required','請提供 If-Match 版本。');

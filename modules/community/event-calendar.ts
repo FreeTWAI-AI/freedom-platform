@@ -1,4 +1,6 @@
 import type {Pool} from 'pg';
+import {transaction} from '../../packages/db/index.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import type {Actor} from '../identity-membership/service.js';
 import {readEvent} from './events.js';
 import {resolveGuestParticipation} from './event-waitlist.js';
@@ -35,7 +37,12 @@ export function generateEventCalendar(event:CalendarEvent):{calendar:string;file
 }
 export async function readMemberEventCalendar(pool:Pool,actor:Actor,id:string){
   // The current domain projection removes referral joining data for non-going members.
-  return generateEventCalendar(await readEvent(pool,actor,id,true));
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+    const result=generateEventCalendar(await readEvent(q,actor,id,true));
+    await assertCurrentSessionClock(q,actor);
+    return result;
+  });
 }
 export async function readGuestEventCalendar(pool:Pool,id:string,token:string){
   const participation=await resolveGuestParticipation(pool,id,token);
