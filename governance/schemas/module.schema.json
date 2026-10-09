@@ -28,7 +28,7 @@
         "pattern": "^[-a-zA-Z0-9_./*]+$"
       },
       "minItems": 1,
-      "maxItems": 64,
+      "maxItems": 128,
       "uniqueItems": true
     },
     "public_exports": {

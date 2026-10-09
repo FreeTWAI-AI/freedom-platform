@@ -14750,7 +14750,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 22205,
-      "sha256": "4391d7e718e438390921acec8301093f20e107cba4ce9256887f7a921b3e2c21"
+      "sha256": "b962f1871e4b1825ee7e64bc39157e27e68d05266258b38059f8e6326a9abd49"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15469,8 +15469,8 @@
     },
     {
       "path": "governance/schemas/module.schema.json",
-      "bytes": 4469,
-      "sha256": "3a3035066267f1ba9be015676350c3239ec4f1971eeb76fe26ae3aa409f7e657"
+      "bytes": 4470,
+      "sha256": "cc9d70236762043ee2bd007770a1b10112aa05065cf284e981d953efd821ea82"
     },
     {
       "path": "governance/schemas/release-proof.schema.json",
@@ -18319,8 +18319,8 @@
     },
     {
       "path": "packages/contribution-tools/test/context.test.mjs",
-      "bytes": 33726,
-      "sha256": "3f1e0f101e2084869165fc93cd858246bcba2b6cd94dc45f7a02b8c487bbd186"
+      "bytes": 34453,
+      "sha256": "fbb0b4d608f1222cf7c6381139ce7028d1e07a628bf8dad2013f1292128a91c8"
     },
     {
       "path": "packages/contribution-tools/test/contracts.test.mjs",

@@ -213,6 +213,14 @@ test('hidden index flags, ref injection and private instruction paths fail close
   await assert.rejects(buildContext(f.options), { code: 'instruction_path_denied' });
 });
 
+test('descriptor ownership accepts 128 bounded paths but rejects overflow, duplicates and invalid patterns', () => {
+  const paths = Array.from({length: 128}, (_, index) => `modules/example/file-${index}.ts`);
+  assert.deepEqual(validateDescriptor(descriptor('example', paths)).owned_paths, paths);
+  assert.throws(() => validateDescriptor(descriptor('example', [...paths, 'modules/example/overflow.ts'])), {code: 'schema_violation'});
+  assert.throws(() => validateDescriptor(descriptor('example', [...paths.slice(0, 127), paths[0]])), {code: 'schema_violation'});
+  assert.throws(() => validateDescriptor(descriptor('example', [...paths.slice(0, 127), 'modules/example/Component.*'])), {code: 'invalid_artifact_path'});
+});
+
 test('descriptor patterns, duplicate module IDs and cycles cannot create exemptions', async t => {
   assert.throws(() => validateDescriptor({ ...descriptor(), owned_paths: ['**'] }), { code: 'invalid_artifact_path' });
   assert.throws(() => validateDescriptor({ ...descriptor(), owned_paths: ['modules/**/nested'] }), { code: 'invalid_artifact_path' });
