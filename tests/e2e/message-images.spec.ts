@@ -35,6 +35,37 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE !== '1') {
   });
 }
 if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
+  test('failed local canvas preview preserves an unknown real upload and its original bytes',async({page,e2eAuthPool})=>{
+    const thread=await openDirect(page),caption=`Canvas unknown ${crypto.randomUUID()}`;
+    await page.evaluate(()=>{
+      const control=window as unknown as {rejectPreview?:()=>void};
+      window.createImageBitmap=()=>new Promise<ImageBitmap>((_resolve,reject)=>{control.rejectPreview=()=>reject(new Error('Controlled preview failure'));});
+    });
+    const uploads:{key:string;bytes:Buffer}[]=[];let imageId='',payload='';
+    await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/images$/,async route=>{
+      uploads.push({key:route.request().headers()['idempotency-key'],bytes:route.request().postDataBuffer()!});
+      const response=await route.fetch();expect(response.status()).toBe(201);const canonical=await response.json();
+      if(uploads.length===1){imageId=canonical.image_id;return route.abort();}
+      expect(canonical.image_id).toBe(imageId);await route.fulfill({response});
+    });
+    page.on('request',request=>{if(request.method()==='POST'&&/\/messages$/.test(request.url()))payload=request.postData()!;});
+    await thread.locator('input[type=file]').setInputFiles(image);
+    await expect(thread.getByRole('img',{name:'待送出的圖片預覽',exact:true})).toHaveJSProperty('tagName','CANVAS');
+    await expect.poll(()=>page.evaluate(()=>typeof (window as unknown as {rejectPreview?:()=>void}).rejectPreview)).toBe('function');
+    expect(uploads).toHaveLength(0);
+    await thread.getByRole('textbox').fill(caption);await thread.getByRole('button',{name:'送出',exact:true}).click();
+    await expect(thread.getByRole('alert')).toContainText('圖片上傳未完成');
+    await page.evaluate(()=>(window as unknown as {rejectPreview:()=>void}).rejectPreview());
+    await expect(thread.getByLabel('待送出的圖片').getByRole('status')).toHaveText('圖片預覽無法載入，原圖仍保留。');
+    await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+    await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();expect(uploads).toHaveLength(1);
+    expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
+    await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByLabel('待送出的圖片')).toHaveCount(0);
+    expect(uploads).toHaveLength(2);expect(uploads[1].key).toBe(uploads[0].key);
+    for(const upload of uploads)expect(upload.bytes.equals(png)).toBe(true);
+    await expect(thread.getByRole('textbox')).toHaveValue('');await assertOneStoredImage(e2eAuthPool,caption,payload);
+  });
+
   for(const mode of ['page','dock'] as const){
     async function openComposer(page:Page){
       const thread=await openDirect(page);

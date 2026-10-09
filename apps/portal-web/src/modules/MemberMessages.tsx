@@ -21,6 +21,7 @@ import {ChatSearch} from './ChatSearch';
 import {WorkshopIcon} from '../WorkshopIcon';
 import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessagePage,readLoadedDirectMessageReceipts} from './direct-message-receipts';
 import {isFirstImageDecoderRejection,matchesDirectMessageAck,messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
+import {MessageImagePreview} from './MessageImagePreview';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
@@ -189,7 +190,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
   </div>;
 }
 
-type ImageSelection={peer:string;user:string;file:File;url:string;key:string;imageId?:string};
+type ImageSelection={peer:string;user:string;file:File;key:string;imageId?:string};
 type ImagePayload=MessageContentInput&{image_id?:string};
 type Pending={key:string;body:string;payload:ImagePayload;status:'sending'|'unknown';stage?:'upload'|'message';selectionKey?:string};
 
@@ -224,14 +225,14 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   const [selection,setSelection]=useState<ImageSelection|null>(null);
   const selectionRef=useRef<ImageSelection|null>(null),selections=useRef(new Map<string,ImageSelection>()),fileInput=useRef<HTMLInputElement>(null),sendLocks=useRef(new Set<string>());
   function clearImage(){
-    const value=selectionRef.current;if(value&&held.current[value.peer])return;if(value)URL.revokeObjectURL(value.url);
+    const value=selectionRef.current;if(value&&held.current[value.peer])return;
     if(value)selections.current.delete(value.peer);
     selectionRef.current=null;setSelection(null);
   }
   // Conversation changes only select a preview. Original bytes and upload keys
   // stay in this session's memory until confirmation or an explicit draft removal.
   useLayoutEffect(()=>{const value=peer?selections.current.get(peer)??null:null;selectionRef.current=value;setSelection(value);},[peer]);
-  useEffect(()=>()=>{for(const value of selections.current.values())URL.revokeObjectURL(value.url);selections.current.clear();selectionRef.current=null;held.current={};},[]);
+  useEffect(()=>()=>{selections.current.clear();selectionRef.current=null;held.current={};},[]);
   useEffect(()=>{
     const leave=(event:BeforeUnloadEvent)=>{if(Object.keys(held.current).length>0){event.preventDefault();event.returnValue='';}};
     window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);
@@ -241,7 +242,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     const error=files.length!==1?'每則訊息只能附加一張圖片。':messageImageFileError(files[0]);
     if(error){setSendErrors(value=>({...value,[peer]:error}));return;}
     clearImage();
-    const value={peer,user:me,file:files[0],url:URL.createObjectURL(files[0]),key:crypto.randomUUID()};
+    const value={peer,user:me,file:files[0],key:crypto.randomUUID()};
     selections.current.set(peer,value);selectionRef.current=value;setSelection(value);richDrafts.change(peer,{sticker_id:undefined});
     setSendErrors(({[peer]:_,...rest})=>rest);
   }
@@ -457,7 +458,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       logConsoleEvent({channel:consoleChannel('chat_sent_direct'),level:'success',kind:'status',source:'私訊',message:`已傳送私人訊息給 ${recipient}。`});
       setPending(({[id]:_,...rest})=>rest);
       if(!payload.sticker_id)setDrafts(value=>{if((value[id]??'').trim()!==(payload.body??''))return value;const {[id]:_,...rest}=value;return rest;});
-      if(image){URL.revokeObjectURL(image.url);selections.current.delete(id);if(selectionRef.current===image){selectionRef.current=null;setSelection(null);}}
+      if(image){selections.current.delete(id);if(selectionRef.current===image){selectionRef.current=null;setSelection(null);}}
       if(!payload.sticker_id)richDrafts.clear(id,extras);
       if(currentPeer.current===id){stick.current=true;setThread(value=>value&&value.participant.user_id===id?{...value,items:newestMessages(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setConversations(value=>{
@@ -556,7 +557,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
               <span className="messages-meta">{selection?'每則限一張圖片；點選貼圖會保留這張圖片草稿。':'JPEG、PNG、WebP · 最多 2 MiB'}</span>
             </div>}
             {messageImagesEnabled===true&&selection?.peer===peer&&selection.user===me&&<div className="message-image-preview" aria-label="待送出的圖片">
-              <img src={selection.url} alt="待送出的圖片預覽"/><span>{selection.file.name||'剪貼簿圖片'}<small>{(selection.file.size/1024).toFixed(1)} KiB</small></span>
+              <MessageImagePreview key={selection.key} file={selection.file}/><span>{selection.file.name||'剪貼簿圖片'}<small>{(selection.file.size/1024).toFixed(1)} KiB</small></span>
               <button className="btn btn-ghost" type="button" disabled={Boolean(attempt)} onClick={clearImage}>移除</button>
             </div>}
             <ChatInput id={`${uid}-compose`} label={`寫給 ${thread.participant.display_name} 的訊息`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}

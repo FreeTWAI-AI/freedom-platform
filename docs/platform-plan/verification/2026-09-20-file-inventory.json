@@ -2354,8 +2354,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 59515,
-      "sha256": "7a0b59a92349f3e393028a5fa0588e54792d21f5e76850bc6b082360ec16040d"
+      "bytes": 59387,
+      "sha256": "7074f37bcc5b47a0402ae564963957243b5d24306f4e80b86e28f260b5ac7595"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2384,8 +2384,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberSettings.css",
-      "bytes": 9216,
-      "sha256": "56a1499490af86a74395b904a268264004e21b3a4724db9bd462cbe6be9291bc"
+      "bytes": 9219,
+      "sha256": "26528f46cc0b345fa56817e79b14809be5f3e84b50a266111eca2a7742037b63"
     },
     {
       "path": "apps/portal-web/src/modules/MemberShare.tsx",
@@ -2411,6 +2411,11 @@
       "path": "apps/portal-web/src/modules/Membership.tsx",
       "bytes": 30317,
       "sha256": "ff32baecedbcbb366bc482305fbbab2341c1037489a521980d8bccb79f5d834a"
+    },
+    {
+      "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
+      "bytes": 1679,
+      "sha256": "2cfec8b8b975c36dd794de095a85a68a378b4aef117166743bca4dd2e63aa125"
     },
     {
       "path": "apps/portal-web/src/modules/ModelSettings.css",
@@ -13469,8 +13474,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 23060,
-      "sha256": "97bb4a6463657d0d9b0b627c7a2cc06120a9b0e3dd476ae0a20dbf58bd4954bf"
+      "bytes": 23602,
+      "sha256": "b1c56ed2b2bd9490d2bf8dd517bed69c36d22e4f49738f22d82a71de555885d6"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -17279,8 +17284,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 1144,
-      "sha256": "43301270d9cd4555a9ed936dd84433d078a57f171c44eb0bc7405cf5e63e55e0"
+      "bytes": 1254,
+      "sha256": "2e99d3cd1f1118ab2bbea881595b09493f51ce133d761b9b313b5e18f0db4ef9"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -18069,8 +18074,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 8016,
-      "sha256": "9c524bbfd9139bef805973c0dc29c1ca33bd5eb717334ae8490c08e5da1274e8"
+      "bytes": 8038,
+      "sha256": "40193250f4800975576009d1d5c5afa569d76fcca52a05d24df0a5adcde1b27c"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -19654,8 +19659,8 @@
     },
     {
       "path": "tests/e2e/message-images.spec.ts",
-      "bytes": 35403,
-      "sha256": "d0b629953dbd98cdcede9b2ab86643ab8f595b36a0fc36405ec892370c9374a5"
+      "bytes": 38220,
+      "sha256": "0d1a51ddf33eedc4450ad4b351df19425fd272c085d47dd2240e243824b9ebda"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20856,6 +20861,11 @@
       "path": "tests/runtime/message-image-ack.test.ts",
       "bytes": 4205,
       "sha256": "be8613f5642546d576f48e287ed4e012da483bdc8ab1c9d72d008c8f474047fe"
+    },
+    {
+      "path": "tests/runtime/message-image-preview.test.ts",
+      "bytes": 5035,
+      "sha256": "01765b9d7dd1e1f3b46b10c604e2ac9dccdafe190f5ddd94693831ee7c367277"
     },
     {
       "path": "tests/runtime/message-image-upload-reader.test.ts",
