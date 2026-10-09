@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { communitySearchKinds, communitySearchTopics, communitySearchKindLabels, communitySearchTopicLabels, communitySearchPageSchema, type CommunitySearchPage } from '../../../../packages/shared/community-search';
 import { ApiError, type PortalClient } from '../api';
-import { CommunityRelationsProvider, CommunityRelations, CommunityBookmarkButton, CommunityAuthorFollowButton } from './CommunityRelations';
 
 type Kind = typeof communitySearchKinds[number];
 type Topic = typeof communitySearchTopics[number];
@@ -9,13 +8,7 @@ type Mine = { kind: Kind; id: string; title: string; topics: Topic[]; aggregate_
 const readQuery = () => new URLSearchParams(window.location.hash.split('?')[1] ?? '');
 const message = (error: unknown) => error instanceof Error ? error.message : '無法載入，請重試。';
 
-export function CommunitySearch({ client, authKey, relationsEnabled = false }: { client: PortalClient; authKey: string | null; relationsEnabled?: boolean }) {
-  return authKey && relationsEnabled
-    ? <CommunityRelationsProvider key={authKey} client={client}><SearchContent client={client} authKey={authKey} relationsEnabled /></CommunityRelationsProvider>
-    : <SearchContent client={client} authKey={authKey} relationsEnabled={false} />;
-}
-
-function SearchContent({ client, authKey, relationsEnabled }: { client: PortalClient; authKey: string | null; relationsEnabled: boolean }) {
+export function CommunitySearch({ client, authKey }: { client: PortalClient; authKey: string | null }) {
   const [query, setQuery] = useState(readQuery);
   const [retry, setRetry] = useState(0);
   const [refresh, setRefresh] = useState(0);
@@ -61,7 +54,6 @@ function SearchContent({ client, authKey, relationsEnabled }: { client: PortalCl
   const page = result?.key === requestKey ? result.page : null;
   const error = failure?.key === requestKey ? failure.message : '';
   return <div className="stack community-content-search">
-    {relationsEnabled && <CommunityRelations client={client} />}
     <section className="card stack" aria-label="社群內容搜尋條件">
       <p className="muted">搜尋貼文、作品、技能書與活動；只顯示目前可閱讀的內容。這不是導覽的「搜尋功能」。</p>
       <label className="field">關鍵字<input type="search" maxLength={80} value={query.get('q') ?? ''} onChange={event => update('q', event.target.value)} placeholder="例如：入門教學、設計" /></label>
@@ -78,7 +70,6 @@ function SearchContent({ client, authKey, relationsEnabled }: { client: PortalCl
         <h2><a href={item.path} rel="noopener noreferrer">{item.title}</a></h2>
         <p>{item.summary}</p>
         {item.topics.length > 0 && <p className="field-hint">{item.topics.map(topic => communitySearchTopicLabels[topic]).join(' · ')}</p>}
-        {relationsEnabled && <div className="actions"><CommunityBookmarkButton client={client} kind={item.kind} id={item.id} />{item.author_id && <CommunityAuthorFollowButton client={client} authorId={item.author_id} />}</div>}
       </article>)}
       {page?.next_cursor && <button className="btn btn-secondary btn-small" onClick={() => update('cursor', page.next_cursor!)}>下一頁</button>}
     </section>

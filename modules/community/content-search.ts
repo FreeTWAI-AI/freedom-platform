@@ -19,19 +19,6 @@ const KIND = communitySearchKinds;
 type Kind = typeof KIND[number];
 type Row = CommunitySearchPage['items'][number] & { sort_key: string };
 type ContentSearchCursor = { sort: string; kind: string; id: string } | null;
-export interface CommunityContentFilter {
-  ids?: Partial<Record<Kind, string[]>>;
-  authorIds?: string[];
-  followedTopics?: string[];
-}
-type SearchDatabase = Pool | PoolClient;
-const relationSql = (kind: Kind, id: string, author: string) => `($10::text[] IS NULL OR ${id}::text = ANY($10::text[]))
-  AND (NOT $13::boolean OR (${author}::text = ANY($11::text[]) AND u.community_id=$14::uuid
-    AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)) OR EXISTS (
-    SELECT 1 FROM community_content_topic_sets followed_tags WHERE followed_tags.content_kind='${kind}'
-      AND followed_tags.content_id=${id}::text AND followed_tags.topics && $12::text[]))`;
-const relationValues = (filter: CommunityContentFilter | undefined, kind: Kind) =>
-  [filter?.ids ? filter.ids[kind] ?? [] : null, filter?.authorIds ?? [], filter?.followedTopics ?? [], Boolean(filter && (filter.authorIds || filter.followedTopics))];
 
 const sortOf = (column: string) => SORT.replace('%s', column);
 const clip = (value: string) => value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180);
@@ -62,7 +49,7 @@ const topicSql = (kind: Kind, id: string) => `(cardinality($6::text[]) = 0 OR EX
 const textSql = (columns: string[]) => `($1 = '' OR ${columns.map(column => `${column} ILIKE $2 ESCAPE '\\'`).join(' OR ')})`;
 
 
-export async function searchCommunityContent(pool: SearchDatabase, actor: Actor | null, raw: Record<string, string | undefined>, filter?: CommunityContentFilter): Promise<CommunitySearchPage> {
+export async function searchCommunityContent(pool: Pool, actor: Actor | null, raw: Record<string, string | undefined>): Promise<CommunitySearchPage> {
   const text = (raw.q ?? '').trim();
   requireCondition(text.length <= 80 && !/[\u0000-\u001f\u007f]/.test(text), 422, 'validation_failed', '搜尋文字請在 80 字以內。');
   const kinds = listed(raw.kinds, KIND, '類型');
@@ -70,13 +57,13 @@ export async function searchCommunityContent(pool: SearchDatabase, actor: Actor 
   const cursor = cursorOf(raw.cursor);
   const limit = raw.limit === undefined ? 20 : Number(raw.limit);
   requireCondition(Number.isInteger(limit) && limit >= 1 && limit <= 20, 422, 'validation_failed', '每頁最多 20 筆。');
-  const selected = kinds.length ? kinds as Kind[] : KIND;
+  const selected = new Set<Kind>(kinds.length ? kinds as Kind[] : [...KIND]);
   const found: Row[] = [];
-  if (selected.includes('event')) found.push(...await eventRows(pool, actor, text, cursor, topics, limit + 1, filter));
-  if (selected.includes('post') && actor) found.push(...await postRows(pool, actor, text, cursor, topics, limit + 1, filter));
-  if (selected.includes('work')) found.push(...await workRows(pool, actor, text, cursor, topics, limit + 1, filter));
-  if (selected.includes('work') && actor) found.push(...await showcaseRows(pool, actor, text, cursor, topics, limit + 1, filter));
-  if (selected.includes('skill_book')) found.push(...await bookRows(pool, text, cursor, topics, limit + 1, filter));
+  if (selected.has('event')) found.push(...await eventRows(pool, actor, text, cursor, topics, limit + 1));
+  if (selected.has('post') && actor) found.push(...await postRows(pool, actor, text, cursor, topics, limit + 1));
+  if (selected.has('work')) found.push(...await workRows(pool, text, cursor, topics, limit + 1));
+  if (selected.has('work') && actor) found.push(...await showcaseRows(pool, actor, text, cursor, topics, limit + 1));
+  if (selected.has('skill_book')) found.push(...await bookRows(pool, text, cursor, topics, limit + 1));
   const page = found.filter(row => after(row, cursor)).sort(compare).slice(0, limit);
   const last = page.at(-1);
   return {
@@ -85,12 +72,11 @@ export async function searchCommunityContent(pool: SearchDatabase, actor: Actor 
   };
 }
 
-async function eventRows(pool: SearchDatabase, actor: Actor | null, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+async function eventRows(pool: Pool, actor: Actor | null, text: string, cursor: ContentSearchCursor, topics: string[], limit: number) {
   const sort = sortOf('e.created_at');
   const sql = `SELECT 'event' AS kind,e.event_id::text AS id,e.title,left(e.description,180) AS summary,
     CASE WHEN e.visibility IN ('open','referral') THEN '/events/' || e.event_id::text ELSE '#events/' || e.event_id::text END AS path,
     u.display_name AS label,
-    CASE WHEN u.community_id=$9::uuid AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) THEN u.user_id::text ELSE NULL END AS author_id,
     CASE WHEN b.event_id IS NULL THEN NULL WHEN e.visibility IN ('open','referral') THEN '/api/v1/public/events/' || e.event_id::text || '/banner' ELSE '/api/v1/events/' || e.event_id::text || '/banner' END AS media_path,
     COALESCE(tags.topics,'{}'::text[]) AS topics,${sort} AS sort_key
     FROM community_events e JOIN users u ON u.user_id=e.organizer_ref
@@ -103,14 +89,13 @@ async function eventRows(pool: SearchDatabase, actor: Actor | null, text: string
           OR (e.community_id=$9::uuid AND e.visibility='guild' AND EXISTS (
             SELECT 1 FROM positioning_profession_memberships m WHERE m.community_id=e.community_id AND m.user_id=$8::uuid AND m.guild_key=e.guild_key AND m.state='active')))))
       AND ${textSql(['e.title', 'e.description'])} AND ${topicSql('event', 'e.event_id::text')} AND ${cursorSql(sort, 'event')}
-      AND ${relationSql('event', 'e.event_id', 'e.organizer_ref')}
     ORDER BY e.created_at DESC,e.event_id LIMIT $7`;
-  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor?.user_id ?? null, actor?.community_id ?? null, ...relationValues(filter, 'event'), actor?.community_id ?? null])).rows as Row[];
+  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor?.user_id ?? null, actor?.community_id ?? null])).rows as Row[];
 }
 
-async function postRows(pool: SearchDatabase, actor: Actor, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+async function postRows(pool: Pool, actor: Actor, text: string, cursor: ContentSearchCursor, topics: string[], limit: number) {
   const sort = sortOf('p.created_at');
-  const sql = `SELECT 'post' AS kind,p.post_id::text AS id,p.title,left(COALESCE(p.note,''),180) AS summary,COALESCE(p.url,'#social') AS path,u.display_name AS label,u.user_id::text AS author_id,
+  const sql = `SELECT 'post' AS kind,p.post_id::text AS id,p.title,left(COALESCE(p.note,''),180) AS summary,COALESCE(p.url,'#social') AS path,u.display_name AS label,
     CASE WHEN t.post_id IS NULL THEN NULL ELSE '/api/v1/social-posts/' || p.post_id::text || '/thumbnail' END AS media_path,
     COALESCE(tags.topics,'{}'::text[]) AS topics,${sort} AS sort_key
     FROM community_social_posts p JOIN users u ON u.user_id=p.author_user_id AND u.community_id=p.community_id
@@ -119,57 +104,52 @@ async function postRows(pool: SearchDatabase, actor: Actor, text: string, cursor
     WHERE p.community_id=$8 AND p.state='active' AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL)
       AND (p.author_user_id=$9 OR NOT is_verification_test_account(u.user_id))
       AND ${textSql(['p.title', 'COALESCE(p.note,\'\')'])} AND ${topicSql('post', 'p.post_id::text')} AND ${cursorSql(sort, 'post')}
-      AND ${relationSql('post', 'p.post_id', 'p.author_user_id')}
     ORDER BY p.created_at DESC,p.post_id LIMIT $7`;
-  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor.community_id, actor.user_id, ...relationValues(filter, 'post'), actor.community_id])).rows as Row[];
+  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor.community_id, actor.user_id])).rows as Row[];
 }
 
-async function workRows(pool: SearchDatabase, actor: Actor | null, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+async function workRows(pool: Pool, text: string, cursor: ContentSearchCursor, topics: string[], limit: number) {
   const sort = sortOf('s.published_at');
   const title = `(${publishedWorkPayload})->>'title'`;
   const description = `(${publishedWorkPayload})->>'description'`;
   const sql = `SELECT 'work' AS kind,s.submission_id::text AS id,${title} AS title,left(${description},180) AS summary,
     '/development/submissions/' || s.submission_id::text AS path,NULL::text AS label,
-    CASE WHEN u.community_id=$9::uuid THEN u.user_id::text ELSE NULL END AS author_id,
     CASE WHEN s.image_bytes IS NOT NULL OR s.storage_source='asset' THEN '/api/v1/skill-submissions/' || s.submission_id::text || '/illustration' ELSE NULL END AS media_path,
     COALESCE((SELECT tags.topics FROM community_content_topic_sets tags WHERE tags.content_kind='work' AND tags.content_id=s.submission_id::text),'{}'::text[]) AS topics,${sort} AS sort_key
     ${publishedWorkFrom}
     AND NOT EXISTS (SELECT 1 FROM skill_submissions d WHERE d.upgrades_submission_id=s.submission_id AND d.status='published')
     AND lower(v.repository_full_name) <> ALL($8::text[])
     AND ${textSql([title, description])} AND ${topicSql('work', 's.submission_id::text')} AND ${cursorSql(sort, 'work')}
-    AND ${relationSql('work', 's.submission_id', 's.owner_ref')}
     ORDER BY s.published_at DESC,s.submission_id LIMIT $7`;
-  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, catalogRepositoryKeys, actor?.community_id ?? null, ...relationValues(filter, 'work'), actor?.community_id ?? null])).rows as Row[];
+  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, catalogRepositoryKeys])).rows as Row[];
 }
-async function showcaseRows(pool: SearchDatabase, actor: Actor, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+
+/** Same audience as listShowcases: community members, with verification fixtures visible only to their owner. */
+async function showcaseRows(pool: Pool, actor: Actor, text: string, cursor: ContentSearchCursor, topics: string[], limit: number) {
   const sort = sortOf('s.created_at');
   const sql = `SELECT 'work' AS kind,s.showcase_id::text AS id,s.title,left(s.description,180) AS summary,
     '#showcase/' || s.showcase_id::text AS path,u.display_name AS label,NULL::text AS media_path,
-    CASE WHEN u.community_id=$8::uuid AND u.active AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) THEN u.user_id::text ELSE NULL END AS author_id,
     COALESCE(tags.topics,'{}'::text[]) AS topics,${sort} AS sort_key
     FROM showcases s JOIN users u ON u.user_id=s.owner_ref
     LEFT JOIN community_content_topic_sets tags ON tags.content_kind='work' AND tags.content_id=s.showcase_id::text
     WHERE s.community_id=$8::uuid AND (s.owner_ref=$9::uuid OR NOT is_verification_test_account(s.owner_ref))
       AND ${textSql(['s.title', 's.description'])} AND ${topicSql('work', 's.showcase_id::text')}
-      AND ${cursorSql(sort, 'work', 's.showcase_id')} AND ${relationSql('work', 's.showcase_id', 's.owner_ref')}
+      AND ${cursorSql(sort, 'work', 's.showcase_id')}
     ORDER BY s.created_at DESC,s.showcase_id LIMIT $7`;
-  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor.community_id, actor.user_id, ...relationValues(filter, 'work'), actor.community_id])).rows as Row[];
+  return (await pool.query(sql, [text, text ? likeOf(text) : '', cursor?.sort ?? null, cursor?.kind ?? null, cursor?.id ?? null, topics, limit, actor.community_id, actor.user_id])).rows as Row[];
 }
 
-
-async function bookRows(pool: SearchDatabase, text: string, cursor: ContentSearchCursor, topics: string[], limit: number, filter?: CommunityContentFilter) {
+async function bookRows(pool: Pool, text: string, cursor: ContentSearchCursor, topics: string[], limit: number) {
   const editorial = new Map((await pool.query('SELECT book_id,summary FROM skill_book_editorial')).rows.map(row => [String(row.book_id), String(row.summary)]));
   const assigned = new Map((await pool.query(`SELECT content_id,topics FROM community_content_topic_sets WHERE content_kind='skill_book'`)).rows.map(row => [String(row.content_id), row.topics as string[]]));
   const needle = text.toLocaleLowerCase('zh-Hant');
   return communityCatalog.skill_books.flatMap(book => {
-    if (filter?.ids && !filter.ids.skill_book?.includes(book.id)) return [];
     if (!getSkillCollaboration(book.id)) return [];
     const summary = editorial.get(book.id) ?? book.description;
     const haystack = `${book.title}\n${summary}\n${book.guide?.summary ?? ''}\n${book.guide?.beginner.purpose ?? ''}`.toLocaleLowerCase('zh-Hant');
     const tags = (assigned.get(book.id) ?? []).filter((topic): topic is typeof TOPIC[number] => TOPIC.includes(topic as typeof TOPIC[number]));
-    const row: Row = { kind: 'skill_book', id: book.id, title: book.title, summary: clip(summary), path: `/development/skills/${book.id}`, label: null, author_id: null, media_path: book.cover_url ?? null, topics: tags, sort_key: '2000-01-01T00:00:00.000000Z' };
+    const row: Row = { kind: 'skill_book', id: book.id, title: book.title, summary: clip(summary), path: `/development/skills/${book.id}`, label: null, media_path: book.cover_url ?? null, topics: tags, sort_key: '2000-01-01T00:00:00.000000Z' };
     if ((needle && !haystack.includes(needle)) || (topics.length && !topics.some(topic => tags.includes(topic as typeof TOPIC[number]))) || !after(row, cursor)) return [];
-    if (filter && (filter.authorIds || filter.followedTopics) && !filter.followedTopics?.some(topic => tags.includes(topic as typeof TOPIC[number]))) return [];
     return [row];
   }).sort(compare).slice(0, limit);
 }
