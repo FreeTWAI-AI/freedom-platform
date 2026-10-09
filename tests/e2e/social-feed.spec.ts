@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import {test, expect, type Page} from './fixtures.js';
 import {navigate, selectSocialFeed} from './navigation.js';
 
@@ -79,7 +80,61 @@ test('write a native post, like, comment, remove and reload without duplicate ef
   await expect(card(page, text).getByRole('button', {name: '已讚 · 1', exact: true})).toBeVisible();
   await card(page, text).getByText('⋯',{exact:true}).click();
   await card(page, text).getByRole('button', {name: '刪除', exact: true}).click();
-  await card(page, text).getByRole('button', {name: '確定刪除', exact: true}).click();
+  await page.getByRole('dialog', {name: '刪除貼文？', exact: true}).getByRole('button', {name: '確定刪除', exact: true}).click();
+  await expect(card(page, text)).toHaveCount(0);
+});
+
+test('a note publishes with its image, unusable files are refused before upload, and deleting confirms in a dialog', async ({page}) => {
+  await login(page);
+  const text = `E2E 附圖貼文 ${Date.now()}`;
+  const composer = page.getByRole('dialog', {name: '建立貼文', exact: true}), picker = composer.getByLabel('貼文圖片（選填，JPEG、PNG、WebP，2 MB 以下）');
+  await composer.getByLabel('貼文內容', {exact: true}).fill(text);
+  await picker.setInputFiles({name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(2 * 1024 * 1024 + 1, 1)});
+  await expect(composer.getByRole('alert')).toContainText('圖片需為 2 MB 以下。');
+  await picker.setInputFiles({name: 'anim.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a')});
+  await expect(composer.getByRole('alert')).toContainText('請選擇 JPEG、PNG 或 WebP 圖片。');
+  await expect(composer.getByRole('img', {name: '待發布圖片預覽'})).toHaveCount(0);
+  await expect(picker).toHaveValue('');
+  const work = {name: 'work.png', mimeType: 'image/png', buffer: await sharp({create: {width: 800, height: 450, channels: 3, background: '#2a6f4b'}}).png().toBuffer()};
+  await picker.setInputFiles(work);
+  await expect(composer.getByRole('img', {name: '待發布圖片預覽'})).toBeVisible();
+  await expect(picker).toHaveValue(/work\.png$/);
+  await composer.getByRole('button', {name: '移除圖片', exact: true}).click();
+  await expect(composer.getByRole('img', {name: '待發布圖片預覽'})).toHaveCount(0);
+  await expect(picker).toHaveValue('');
+  await picker.setInputFiles(work);
+  await expect(composer.getByRole('img', {name: '待發布圖片預覽'})).toBeVisible();
+  await expect(composer.getByRole('alert')).toHaveCount(0);
+  await page.screenshot({path: 'test-results/social-compose-image-desktop.png'});
+  await composer.getByRole('button', {name: '發布貼文', exact: true}).click();
+  const post = card(page, text);
+  await expect(post).toBeVisible();
+  await expect(composer).toBeHidden();
+  await expect(post.locator('img.social-thumb')).toHaveJSProperty('naturalWidth', 640);
+  await post.getByText('⋯', {exact: true}).click();
+  await expect(post.locator('.social-post-menu-actions')).toBeVisible();
+  await expect(post.getByText('加入圖片')).toHaveCount(0);
+  await expect(post.getByText('換圖片')).toHaveCount(0);
+  await post.getByRole('button', {name: '刪除', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: '刪除貼文？', exact: true});
+  await expect(dialog).toContainText('刪除後無法復原');
+  await expect(dialog.getByRole('button', {name: '取消', exact: true})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(post.locator('summary')).toBeFocused();
+  await expect(card(page, text)).toHaveCount(1);
+  await page.setViewportSize({width: 390, height: 844});
+  await post.getByRole('button', {name: '刪除', exact: true}).click();
+  await expect(dialog).toBeVisible();
+  expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({path: 'test-results/social-delete-dialog-390.png'});
+  await dialog.getByRole('button', {name: '取消', exact: true}).click();
+  await expect(dialog).toBeHidden();
+  await post.getByRole('button', {name: '刪除', exact: true}).click();
+  await dialog.getByRole('button', {name: '確定刪除', exact: true}).click();
+  await expect(dialog).toBeHidden();
+  await expect(card(page, text)).toHaveCount(0);
+  await page.reload();
   await expect(card(page, text)).toHaveCount(0);
 });
 

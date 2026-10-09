@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 38747,
-      "sha256": "79985ba202d2398423b46718591195d09ebf4924376d3bafb0998452a660d4ea"
+      "bytes": 39073,
+      "sha256": "6750cf6a09b1d14a0e55c6ee61fcda40631d00d4499afde25d85fa118ae7fd6e"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -579,8 +579,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/promotion.ts",
-      "bytes": 9518,
-      "sha256": "25601c4cec313b2ead8d6a49ec02d39d6c710eda2a221f50e820cbd33fad3fac"
+      "bytes": 9549,
+      "sha256": "735f3ff1a68605cc1f38d3845508ee7a641c0ca0e691ce88622928dc26ed8a47"
     },
     {
       "path": "apps/platform-api/src/routes/published-skills.ts",
@@ -2649,13 +2649,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.css",
-      "bytes": 7043,
-      "sha256": "998c3348b3e3617a875da76b5646093757b87828d6e82280f86383a243905de8"
+      "bytes": 7570,
+      "sha256": "dfac2500c4a718c30f938ab074487f5b2aaf8cece3475840eb7965e481b33075"
     },
     {
       "path": "apps/portal-web/src/modules/SocialZone.tsx",
-      "bytes": 27319,
-      "sha256": "0a4d22726e8a9fd7c4640683a4a16a54f37d5b9ab361c742746a1a6c47d245c9"
+      "bytes": 31511,
+      "sha256": "cb0e9f25a26771a7093de2e91bfa695eebc98c61195290d255177efd529855a8"
     },
     {
       "path": "apps/portal-web/src/modules/SquadInvitations.css",
@@ -12744,8 +12744,8 @@
     },
     {
       "path": "deploy/cloudflare/environments.json",
-      "bytes": 30992,
-      "sha256": "c40e43d2778b174c94e094819bdaae52455d15e5390e3d45185ea43c1a3f86cb"
+      "bytes": 31012,
+      "sha256": "17ec929625c2de8b7e0e7bb94270b042afe092177f4c36971cadd8ce8c28e303"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -12874,8 +12874,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 41778,
-      "sha256": "ac5c7f7056249cd7114df38eb3d0ed02ccd8be7bad4efaa373f3cb398d293d8b"
+      "bytes": 41992,
+      "sha256": "d8b207567dec4cc955f705b4aac11537529e8137ab5034a64660fa046110a06b"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -12954,8 +12954,8 @@
     },
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
-      "bytes": 12359,
-      "sha256": "328eab9180969b514685aed2d537eaf187ecda04c70de9e16fbe7e3a2f4cd5ce"
+      "bytes": 12379,
+      "sha256": "cdaa4a3d872f016d84834e1bf266bc06c7e6a278b997a96327432e92a42ec862"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -12964,8 +12964,8 @@
     },
     {
       "path": "deploy/cloudflare/test/preflight.test.mjs",
-      "bytes": 74721,
-      "sha256": "c400fa3d843d16f23ca0425810c87c6ddb2defc35d9563b2624e89575be8b8d5"
+      "bytes": 74736,
+      "sha256": "229bec2009e4e7bc27f7c7cfb02f48bb1c9b51381fcaf93ff6fdc421893f1463"
     },
     {
       "path": "deploy/cloudflare/test/release-agent-connections.test.mjs",
@@ -12984,8 +12984,8 @@
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility-adversarial.test.mjs",
-      "bytes": 11149,
-      "sha256": "765853b943c9c911d63fe99db8ae7c5a683bf6245bc05b22176b9516b781a9ea"
+      "bytes": 11145,
+      "sha256": "c6988e12e1b491278a23aa4a94adcd4f412cc4531f01df9262954755a9c23ca0"
     },
     {
       "path": "deploy/cloudflare/test/release-compatibility.test.mjs",
@@ -13684,8 +13684,8 @@
     },
     {
       "path": "docs/development/share-promotion.md",
-      "bytes": 21266,
-      "sha256": "a8587b58bd8731fcc56dac0da38e3ae8c956fc7540208ca7a62661d3c0c174eb"
+      "bytes": 22076,
+      "sha256": "19478356bc260a898cfc12dedc17aa1b53b333d777bd818adeb8357a64870654"
     },
     {
       "path": "docs/development/simple-work-sharing.md",
@@ -16178,6 +16178,11 @@
       "sha256": "a996cd1314910774ccfcd5b30c03c5e6db30779dc61cfb38e0651628d9c6237b"
     },
     {
+      "path": "migrations/145_social_note_image_creation.sql",
+      "bytes": 665,
+      "sha256": "b146deac3f2dc3727d73ef56d6ea3e695bbf9d96bf95f76e86e7ee9d185b3e43"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 21265,
       "sha256": "daab413f7d4af0089fc53c70d82a75e8e8d55bfe3478a15bf7a6dc4bffd618fc"
@@ -16789,8 +16794,8 @@
     },
     {
       "path": "modules/assets/social-thumbnail.ts",
-      "bytes": 11928,
-      "sha256": "7881cf84c2485844783dbb3f1834d2e5eef4ba56239dbc017cd8f23c94b893cb"
+      "bytes": 12744,
+      "sha256": "c04e1b6b8586c674eea78c3e57666d95cc5622a67ee14151d50a30eca0c843a8"
     },
     {
       "path": "modules/assets/tenant-lifecycle-authority.ts",
@@ -16959,8 +16964,8 @@
     },
     {
       "path": "modules/community/social-posts.ts",
-      "bytes": 27157,
-      "sha256": "f02d2e5c8a5bcd534cafef45b06ae2f99893f4f06280517ad59f581023960266"
+      "bytes": 30426,
+      "sha256": "efec0ebbbf87a78b6ec2c233fff062e6f031200a5ae2474588f8664e43c03981"
     },
     {
       "path": "modules/community/task-board.ts",
@@ -17749,8 +17754,8 @@
     },
     {
       "path": "modules/skill-submissions/payload.ts",
-      "bytes": 11580,
-      "sha256": "04ee7ec7269f43dc2191a1708a099a805fa296e083f509be3dcb50517800bb62"
+      "bytes": 12064,
+      "sha256": "ab9ca8e582e3c807bf9a1712c9b1df3e57bb7c8de95e9889a2ac3a022837784f"
     },
     {
       "path": "modules/skill-submissions/project-books.ts",
@@ -18754,8 +18759,8 @@
     },
     {
       "path": "packages/scoped-commands/index.ts",
-      "bytes": 48299,
-      "sha256": "4ee76ad7bf0acbb24a0ae9dcf97e3226297445f5d2389743b39a409f2f7a98c7"
+      "bytes": 49286,
+      "sha256": "5a1ba52d45bf8aeb20fa1e50212c9b1c2ba7609d7cb00a468da7b42a5cfce9e9"
     },
     {
       "path": "packages/sdk/client.d.mts",
@@ -19889,8 +19894,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 26491,
-      "sha256": "79fee816797341bfa7eaca8e0ab37597292abc38df49401332ba2719a72c2fb0"
+      "bytes": 26550,
+      "sha256": "3104acf1052b84707e2bba76c33280934187e4ba73cc904c9f1a3af02ba18ebe"
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",
@@ -19954,8 +19959,8 @@
     },
     {
       "path": "tests/e2e/social-feed.spec.ts",
-      "bytes": 18945,
-      "sha256": "2301f42ca291c02b481e4573f89844b33a708eedf0a6506162f94da151f2d732"
+      "bytes": 22609,
+      "sha256": "9f6440d1b282f1f3544998966bc40371e8626a493b7eba304c3d9c8ab66e10d1"
     },
     {
       "path": "tests/e2e/social-links.spec.ts",
@@ -21544,8 +21549,8 @@
     },
     {
       "path": "tests/runtime/social-feed.test.ts",
-      "bytes": 13315,
-      "sha256": "e2623d6ab9d7cc77cd7a513a7d06af920950ca5210d957e07e0fd929857bcb0f"
+      "bytes": 16224,
+      "sha256": "b092e1f83cc5f22a28545835f327fa69514fb2fcb20f6420b2d290f940d47cee"
     },
     {
       "path": "tests/runtime/social-links.test.ts",
@@ -21559,8 +21564,8 @@
     },
     {
       "path": "tests/runtime/social-preview-assets.test.ts",
-      "bytes": 20153,
-      "sha256": "dc8a8b7695e6019f4332720a49d5958e346ac97e0070ff59fdd699a43ed56418"
+      "bytes": 23592,
+      "sha256": "5cdb9156b5291f65b134075e70a9da4a063eaf8bdb33ff86fd74edbecac8da3e"
     },
     {
       "path": "tests/runtime/social-share.test.ts",
