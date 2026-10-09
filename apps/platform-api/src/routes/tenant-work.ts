@@ -1,3 +1,4 @@
+import type { TenantListCursorCodec } from '../../../../packages/shared/tenant-list-cursor.js';
 import { Hono, type Context } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
@@ -98,9 +99,9 @@ async function readCapped(request: Request) {
 }
 
 /** Tenant Work and human Result routes. Mounted only when guild launchpad is enabled. */
-export function createTenantWorkRoutes(pool: Pool, store?: ObjectStore) {
+export function createTenantWorkRoutes(pool: Pool, store?: ObjectStore, cursors?: TenantListCursorCodec) {
   const commands = createTenantWorkCommands(pool);
-  const results = createTenantResultService(pool, store);
+  const results = createTenantResultService(pool, store, cursors);
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     try { await next(); }
@@ -116,7 +117,7 @@ export function createTenantWorkRoutes(pool: Pool, store?: ObjectStore) {
   });
   app.get('/tenants/:tenant_id/workspaces/:workspace_id/works', async c => {
     const query = WorkListQuerySchema.parse(singleQuery(c));
-    return c.json(await listTenantWork(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('workspace_id')), query));
+    return c.json(await listTenantWork(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('workspace_id')), query, cursors));
   });
   app.get('/tenants/:tenant_id/works/:work_id', async c => {
     EmptyObjectSchema.parse(singleQuery(c));

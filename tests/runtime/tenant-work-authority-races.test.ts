@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -51,7 +52,7 @@ class BarrierStore implements ObjectStore {
 }
 
 const store = new BarrierStore();
-const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantWorkAssetStore: store });
+const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, tenantWorkAssetStore: store });
 type Session = { cookie: string; csrf: string; user: { user_id: string; display_name: string; email: string } };
 type Reply = { status: number; data: any; response: Response; bytes: Uint8Array };
 

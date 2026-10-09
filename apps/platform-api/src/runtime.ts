@@ -1,3 +1,4 @@
+import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
 import type {EventHighlightAssetService} from '../../../modules/assets/event-highlight.js';
 import type {SkillImageAssetService} from '../../../modules/assets/skill-image.js';
@@ -80,6 +81,7 @@ export type PlatformRuntime = {
   linkPreviewFetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /** Explicit store for tenant Result bytes. Absent refuses upload and content reads. */
   tenantWorkAssetStore?: ObjectStore;
+  tenantListCursors?: TenantListCursorCodec;
   /** Injected module providers. Hosted work is always registered; tests add synthetic modules. */
   moduleProviders?: ModuleProviderMap;
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */

@@ -1,3 +1,4 @@
+import type { TenantListCursorCodec } from '../../../../packages/shared/tenant-list-cursor.js';
 import { Hono, type Context } from 'hono';
 import type { Pool } from 'pg';
 import { OpaqueId } from '../../../../contracts/common/v1/identity.js';
@@ -114,7 +115,7 @@ export function createPublicModuleRegistryRoutes(pool: Pool, origin: string) {
 }
 
 /** Manual-work enablement, plans, launches, and instance reads. Mounted only when guild launchpad is enabled. */
-export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProviderMap) {
+export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProviderMap, cursors?: TenantListCursorCodec) {
   const app = new Hono<PlatformEnv>();
   app.use('*', async (c, next) => {
     try { await next(); }
@@ -127,7 +128,7 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
   });
   app.get('/tenants/:tenant_id/module-instances', async c => {
     const query = InstanceQuerySchema.parse(singleQuery(c));
-    return c.json(await listInstances(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), query));
+    return c.json(await listInstances(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), query, cursors));
   });
   app.get('/tenants/:tenant_id/module-instances/:instance_id', async c => {
     return c.json(await readInstance(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('instance_id'))));
@@ -161,7 +162,7 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
   });
   app.get('/tenants/:tenant_id/application-installations', async c => {
     const query = InstallationQuerySchema.parse(singleQuery(c));
-    return c.json(await listInstallations(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), query));
+    return c.json(await listInstallations(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), query, cursors));
   });
   app.get('/tenants/:tenant_id/application-installations/by-operation/:operation_id', async c => {
     return c.json(await installationByOperation(pool, c.get('actor'), OpaqueId.parse(c.req.param('tenant_id')), OpaqueId.parse(c.req.param('operation_id'))));
@@ -215,7 +216,7 @@ export function createModuleRegistryRoutes(pool: Pool, providers?: ModuleProvide
     const tenantId = OpaqueId.parse(c.req.param('tenant_id'));
     const workspaceId = OpaqueId.parse(c.req.param('workspace_id'));
     const query = LaunchpadQuerySchema.parse(singleQuery(c));
-    const workPage = await listTenantWork(pool, c.get('actor'), tenantId, workspaceId, { limit: 20 });
+    const workPage = await listTenantWork(pool, c.get('actor'), tenantId, workspaceId, { limit: 20 }, cursors);
     return c.json(await launchpadContext(pool, c.get('actor'), tenantId, workspaceId, query.guild_key, workPage));
   });
   return app;

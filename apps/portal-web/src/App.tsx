@@ -274,7 +274,6 @@ function MemberApp() {
       <div className="app-frame">
         {site?.demo_accounts_enabled && <DemoBanner />}
         {sharedCardToken&&<button type="button" className="btn btn-ghost" onClick={()=>setMemberLoginRequested(false)}>返回邀請名片</button>}
-        {!resetToken&&site?.community_search_enabled===true&&<a className="btn btn-secondary btn-small community-search-action" href="#community-search">搜尋社群內容</a>}
         <LoginView
           site={site}
           notice={loginNotice}
@@ -492,7 +491,7 @@ function LoginView({
         </aside>}
       </section></div>
       <p className="login-language-scope field-hint">{t('language.scope')}</p>
-      <div className="login-public-resources"><EntryResources client={client}/></div>
+      <div className="login-public-resources"><EntryResources client={client} communitySearchEnabled={!resetToken&&site?.community_search_enabled===true}/></div>
       <CommunityLinks/>
     </main>
   )

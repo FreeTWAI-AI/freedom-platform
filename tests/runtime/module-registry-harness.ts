@@ -1,3 +1,4 @@
+import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { createPool, LOCAL_DATABASE_URL } from '../../packages/db/index.js';
@@ -28,7 +29,7 @@ export async function createRegistryHarness(prefix: string, options: { synthetic
   const admin = createPool(databaseUrl);
   const pool = new Pool({ connectionString: databaseUrl, options: `-c search_path=${schema}`, max: options.max ?? 12 });
   const providers = options.providers ?? (options.synthetic ? syntheticModuleProviders(pool) : undefined);
-  const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, moduleProviders: providers });
+  const app = createApp(pool, origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, moduleProviders: providers });
   const closed = createApp(pool, origin, 'local');
   await admin.query(`CREATE SCHEMA ${schema}`);
   await migrate(pool);
