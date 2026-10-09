@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import {
   HOSTED_STORE_MEDIA_PROFILE as profile, ProductMediaViewSchema, ProductPhotoMetadataSchema,
-  PublicStoreMediaSchema, RemoveProductPhotoInputSchema,
+  PublicStoreMediaSchema, RemoveProductPhotoInputSchema, ProductMediaCommandSchema,
 } from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
 import { PublicStoreProjectionSchema } from '../../contracts/guild-launchpad/v1/storefront.js';
 import {
@@ -21,6 +21,16 @@ const manifest = { profile, photos: [ref] };
 const projection = { slug: 'test-store', name: 'Shop', brand: null, description: 'Draft', currency: 'TWD',
   products: [{ sku: 'P0002', title: 'Two', description: '', price_minor: 200 }, { sku: 'P0001', title: 'One', description: '', price_minor: 100 }],
   revision: '7', published_at: '2026-10-09T00:00:00.000Z', transaction_state: 'not_enabled' };
+
+test('photo command acknowledges original completion separately from newer current media', () => {
+  const current = projectPrivateProductMedia(binding, metadata);
+  const ack = { profile, product_id: binding.product_id, completed_version: '11', changed: true, current };
+  assert.ok(ProductMediaCommandSchema.safeParse(ack).success);
+  assert.ok(ProductMediaCommandSchema.safeParse({ ...ack, completed_version: '12', changed: false }).success);
+  assert.equal(ProductMediaCommandSchema.safeParse({ ...ack, completed_version: '13' }).success, false);
+  assert.equal(ProductMediaCommandSchema.safeParse({ ...ack, product_id: id(9) }).success, false);
+  assert.equal(ProductMediaCommandSchema.safeParse({ ...ack, asset_id: id(9) }).success, false);
+});
 
 test('closed metadata and product DTOs never accept borrowed URLs, storage locators or trusted flags', () => {
   assert.equal(PRODUCT_PHOTO_POLICY.uploads_enabled, false);

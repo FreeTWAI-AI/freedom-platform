@@ -12459,13 +12459,13 @@
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
-      "bytes": 6536,
-      "sha256": "4c139b4f3040b6a49c85124950ff5285080d3bc75d71230dd2f661efa5a1ccf6"
+      "bytes": 14523,
+      "sha256": "882acb89c79c2b612f2488cf5618282f03adc819ca92c49f47b084a55d986617"
     },
     {
       "path": "contracts/guild-launchpad/v1/hosted-store-media.ts",
-      "bytes": 2893,
-      "sha256": "a514597aeea9b08ec1f8ac9677c8f73b8b6bedf54d5cd8384cdd7219b54e83b3"
+      "bytes": 3661,
+      "sha256": "fce7f0b29b9e4eaa656cd11ec379a648590576911e3907cf8752ac8c37dbe62a"
     },
     {
       "path": "contracts/guild-launchpad/v1/invitation-accept-result.schema.json",
@@ -16238,6 +16238,16 @@
       "sha256": "b15fde2a7a5767c4d4a779afe2e378c460ff9b85acee82d5c49c00e2c25c305e"
     },
     {
+      "path": "modules/agent-commerce/hosted/photo-authority.ts",
+      "bytes": 1726,
+      "sha256": "3ca7491a66c8c9eb74054fa13225d5bd229dcb2d071812cd62b71d1007980a9f"
+    },
+    {
+      "path": "modules/agent-commerce/hosted/photo-target.ts",
+      "bytes": 4598,
+      "sha256": "9546c29fd7b5c906ba91c6587ffa35a1dabe77dbcb12478f90f991e403d1e915"
+    },
+    {
       "path": "modules/agent-commerce/hosted/presentation.ts",
       "bytes": 1899,
       "sha256": "212c4ea35e79ff8b2ab4bc93760fbed98718f3acad5a19ffb6fec7dca657ede6"
@@ -17209,8 +17219,8 @@
     },
     {
       "path": "modules/guild-workspace/generate-contracts.ts",
-      "bytes": 13090,
-      "sha256": "b2bf22d21c7d25e5d9787ca774cfeca550238687ebbf9b0e2b40e2a4a1bf8575"
+      "bytes": 13443,
+      "sha256": "4e4849dd543969e407adece114e067365b19c11e171146fdc6f9a7e05a804389"
     },
     {
       "path": "modules/guild-workspace/launchpad-config.ts",
@@ -20659,8 +20669,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-media-contracts.test.ts",
-      "bytes": 8407,
-      "sha256": "3d623d0e99b52f812178d343583edb380fd0a8cc46bf1fdf6e2cc96633e1cfc3"
+      "bytes": 9186,
+      "sha256": "b63491d9660a9c5d02a3fe581725a7a0f61851c23f575f95c26606714c8f84ae"
     },
     {
       "path": "tests/runtime/hosted-store-offering.test.ts",
