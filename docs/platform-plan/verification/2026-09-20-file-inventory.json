@@ -649,8 +649,8 @@
     },
     {
       "path": "apps/portal-web/public/shops.css",
-      "bytes": 1883,
-      "sha256": "fba5bf775c744227bd83ea8fc515a2b602777698edf2397a9cf11ea3e872fda6"
+      "bytes": 2087,
+      "sha256": "431cdea1bb2070f25f46955e11ffe84d3eaa55bb6a1a8367d0707fd3a78dfa4d"
     },
     {
       "path": "apps/portal-web/public/art/versefolk-cooperation.webp",
@@ -19609,8 +19609,8 @@
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",
-      "bytes": 35729,
-      "sha256": "737afef8a99c38b38c7d37b7d54f9a613a523e9de4ac1833c0857b4d85f32665"
+      "bytes": 38082,
+      "sha256": "abc27cf94842e0d01ca31d94fb0012cd5e55601eba1f96ba543fb995735a2e15"
     },
     {
       "path": "tests/e2e/instant-feedback.spec.ts",

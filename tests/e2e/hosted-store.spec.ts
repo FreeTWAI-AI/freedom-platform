@@ -204,11 +204,44 @@ test('store pages stay readable in every theme and width', async ({page, browser
     await capture(page, storePage(page), `store-setup-${mode}-${width}`, width, testInfo);
   }}
   const anonymous = await browser.newContext({baseURL});
-  try {const pub = await anonymous.newPage(); for (const width of [360, 1280]) {
+  const orderMutations: string[] = [];
+  anonymous.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() === 'POST' && /^\/api\/v1\/(hosted-stores\/[^/]+\/(quotes|orders)|me\/hosted-orders\/[^/]+\/cancel)$/.test(path)) orderMutations.push(path);
+  });
+  try {const pub = await anonymous.newPage(); for (const width of [360, 768, 1280]) {
     await pub.setViewportSize({width, height: 900}); await pub.goto(`/shops/${slug}`); await expect(pub.getByRole('heading', {level: 1})).toHaveText('小島選物');
     expect(await pub.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(pub.getByRole('note')).toHaveText('商品展示頁不提供付款或出貨；預留狀態請登入查看。');
+    await expect(pub.locator('form,button,script,input')).toHaveCount(0);
+    const links = pub.locator('.shop-actions a');
+    await expect(links).toHaveCount(2);
+    const targets = await links.evaluateAll(elements => elements.map(element => {
+      const {left, right, top, bottom, width, height} = element.getBoundingClientRect();
+      return {left, right, top, bottom, width, height};
+    }));
+    for (const target of targets) {
+      expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44);
+      expect(target.left).toBeGreaterThanOrEqual(0); expect(target.right).toBeLessThanOrEqual(width);
+    }
+    expect(targets[0].right <= targets[1].left || targets[1].right <= targets[0].left || targets[0].bottom <= targets[1].top || targets[1].bottom <= targets[0].top).toBe(true);
+    await pub.locator('.shop-top a').focus(); await pub.keyboard.press('Tab');
+    await expect(links.nth(0)).toBeFocused();
+    await pub.keyboard.press('Tab'); await expect(links.nth(1)).toBeFocused();
     await pub.screenshot({path: testInfo.outputPath(`store-public-${width}.png`), fullPage: true});
+    for (const [name, hash] of [['登入查看預留狀態', `#reservations/${slug}`], ['查詢我的預留', '#reservations']]) {
+      await pub.goto(`/shops/${slug}`);
+      const link = pub.getByRole('link', {name, exact: true});
+      await expect(link).toHaveAttribute('href', '/' + hash); await link.click();
+      await expect(pub).toHaveURL(new URL('/' + hash, baseURL).href);
+      await expect(pub.getByLabel('電子郵件', {exact: true})).toBeVisible();
+      await expect(pub.getByRole('button', {name: '登入', exact: true})).toBeVisible();
+      expect((await pub.request.get('/api/v1/session')).status()).toBe(401);
+    }
   }} finally {await anonymous.close();}
+  expect(orderMutations).toEqual([]);
+  expect((await e2eAuthPool.query(`SELECT count(*)::int AS n FROM commerce_orders o
+    JOIN commerce_storefront_profiles p ON p.storefront_shop_id=o.public_shop_id WHERE p.slug=$1`, [slug])).rows[0].n).toBe(0);
   // A store can disappear after entry; a slug read must also use the uniform missing state.
   await page.route('**/api/v1' + setup.root + '/slug-availability?*', route => route.fulfill({status: 404, contentType: 'application/problem+json', json: {code: 'not_found', detail: '找不到這間商店。'}}));
   await page.getByRole('form', {name: '建立商店', exact: true}).getByLabel('商店網址', {exact: true}).fill('lost-store');
