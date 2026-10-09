@@ -135,3 +135,23 @@ React state 只負責畫面。頁面離開、Console 自身的 session-end 與 b
 先前已是 unknown 的文字／貼圖，同 tuple 重試即使收到確定 4xx 也不能據此
 否定前一次可能已提交的操作；保留原 key／body 直到 canonical ACK。首次就
 收到確定拒絕的文字／貼圖仍可修改後重新送出，不把所有失敗一律鎖住。
+
+
+### 貼圖點選即傳送（#303）
+
+私訊與公會／小隊／世界頻道的貼圖選單顯示「點選即傳送，保留其他草稿」。
+點選直接傳入該貼圖 ID，沿既有 message POST 與 idempotency key 送出，
+不先更新 React sticker state。該次 payload 只有 `sticker_id`；尚未送出的文字、
+圖片 bytes／預覽與回覆目標保留，成功後也不清除。圖片仍需預覽後明確送出。
+
+兩入口都在第一個 await 前同步保存 key、body、payload 與目標；sending／unknown
+期間不允許另一貼圖或文字／圖片送出覆蓋原操作。unknown 的「重試送出」只重播
+原貼圖，畫面顯示待確認貼圖及保留其他草稿的說明。首次確定拒絕可重新選擇；
+unknown 後的拒絕仍保留原 tuple。頻道 ACK 另核對 sender、kind、channel key、
+message UUID、合法 bigint sequence、時間及完整內容；離會不會把未知提交當成未送出，
+目前不可讀的頻道仍沿原撤權流程隱藏。這不新增 API、schema 或 grants。
+
+`tests/runtime/chat-sticker-send.test.ts` 在可控 Promise 下執行實際轉譯的送出 closure，
+涵蓋同步連點、草稿保留、錯誤 ACK、未知後拒絕、精確重試、收件人／session 變更與
+頻道撤權。這是 source／pure tier；`chat-stickers.spec.ts` 與 `message-images.spec.ts`
+保留真實瀏覽器／DB 的驗收入口，不能用 pure 測試取代 browser／HTTP／DB 證據。

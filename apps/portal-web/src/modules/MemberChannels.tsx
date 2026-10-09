@@ -7,9 +7,10 @@ import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
-import {ChatBody,ChatQuote,ChatExtras,chatPayload,sameChatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
+import {ChatBody,ChatQuote,ChatExtras,chatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
 import {ChatInput,ChatTime,useChatViewport,useVisibleChatRead} from './ChatWorkspace';
 import {ChatSearch} from './ChatSearch';
+import {matchesChannelMessageAck} from './message-image-client';
 import './MemberSettings.css';
 
 export type ChannelKind='guild'|'squad'|'world';
@@ -49,7 +50,12 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const [selected,setSelected]=useState<{key:string;name:string}|null>(null),[history,setHistory]=useState<History|null>(null);
   const [status,setStatus]=useState<'idle'|'loading'|'ready'|'error'|'gone'>('idle'),[error,setError]=useState('');
   const [more,setMore]=useState({loading:false,error:''}),[refresh,setRefresh]=useState({loading:false,error:''});
-  const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPending]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
+  const [drafts,setDrafts]=useState<Record<string,string>>({}),[pending,setPendingState]=useState<Record<string,Pending>>({}),[sendErrors,setSendErrors]=useState<Record<string,string>>({});
+  // Keep the original command visible to guards before React renders state.
+  const held=useRef<Record<string,Pending>>({}),sendLocks=useRef(new Set<string>());
+  function setPending(update:(value:Record<string,Pending>)=>Record<string,Pending>){
+    held.current=update(held.current);setPendingState(held.current);
+  }
   const [reading,setReading]=useState(false),[readError,setReadError]=useState(''),[newerUnseen,setNewerUnseen]=useState(false);
   // The read itself was confirmed; only the unread count after it is not known yet.
   const [countUnconfirmed,setCountUnconfirmed]=useState('');
@@ -83,8 +89,8 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       setHistory(null);setStatus('gone');setMore({loading:false,error:''});setRefresh({loading:false,error:''});setReadError('');setNewerUnseen(false);setCountUnconfirmed('');
     }
     setChannels(value=>value.filter(item=>item.channel_key!==key));
-    setPending(({[key]:_,...rest})=>rest);setSendErrors(({[key]:_,...rest})=>rest);
-    richDrafts.clear(key);
+    // Losing access does not disprove a command that may already have committed.
+    if(!held.current[key]){setSendErrors(({[key]:_,...rest})=>rest);richDrafts.clear(key);}
     announceInboxChange();
     // A list read already out may still include the channel; replace it with one taken now.
     if(reread&&alive.current)void loadList(true);
@@ -273,38 +279,46 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   useVisibleChatRead({active:active&&(!singlePane||!picking),identity:selected?.key??null,through:history?.items[0]?.message_id,unread:history?.unread_count??0,
     blocked:status!=='ready'||reading||Boolean(readError)||Boolean(countUnconfirmed)||more.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
-  async function send(key:string){
-    const previous=pending[key];
-    if(previous?.status==='sending')return;
-    const extras=richDrafts.get(key),payload=chatPayload(drafts[key]??'',extras),body=payload.body??`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`;
+  async function send(key:string,stickerId?:string){
+    const previous=held.current[key],shown=snapshot.current;
+    if(previous?.status==='sending'||sendLocks.current.has(key)||(stickerId!==undefined&&previous))return;
+    if(!alive.current||current.current!==key||gone.current.has(key)||shown.status!=='ready'||shown.history?.channel.kind!==kind||shown.history.channel.channel_key!==key)return;
+    if(stickerId!==undefined&&!findChatSticker(stickerId))return;
+    const extras=richDrafts.get(key),same=previous?.status==='unknown';
+    const payload=same?{...previous.payload}:stickerId!==undefined?{sticker_id:stickerId}:chatPayload(drafts[key]??'',extras),body=same?previous.body:payload.body??`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`;
     if(!payload.body&&!payload.sticker_id){setSendErrors(value=>({...value,[key]:'請先輸入訊息內容，或選擇貼圖。'}));return;}
     if(payload.body&&[...payload.body].length>MAX_BODY){setSendErrors(value=>({...value,[key]:`訊息最多 ${MAX_BODY} 字。`}));return;}
-    // Reuse an unconfirmed send only when text, sticker and quoted target all match.
-    const attempt:Pending={key:previous?.status==='unknown'&&sameChatPayload(previous.payload,payload)?previous.key:crypto.randomUUID(),body,payload,status:'sending'};
-    const since=epoch.current;
+    const attempt:Pending={key:same?previous.key:crypto.randomUUID(),body,payload,status:'sending'};
+    const since=epoch.current,sessionGeneration=client.sessionGeneration,recipient=shown.history.channel.name;
+    sendLocks.current.add(key);
     setPending(value=>({...value,[key]:attempt}));setSendErrors(({[key]:_,...rest})=>rest);
     try{
-      const message=await client.post<ChannelMessage>(path(key,'messages'),payload,{idempotencyKey:attempt.key});
-      logConsoleEvent({channel:consoleChannel(kind==='guild'?'chat_sent_guild':kind==='world'?'chat_sent_world':'chat_sent_squad'),level:'success',kind:'status',source:text.unit,message:`已傳送訊息至「${selected?.name??text.unit+'頻道'}」。`});
-      if(!alive.current)return;
+      const message=await client.post<unknown>(path(key,'messages'),payload,{idempotencyKey:attempt.key});
+      if(!alive.current||client.sessionGeneration!==sessionGeneration)return;
+      if(!matchesChannelMessageAck(message,{sender:me,kind,channelKey:key,payload}))throw new ApiError({message:'訊息回應未能核對，請以原內容重試確認。',network:true});
       setPending(({[key]:_,...rest})=>rest);
-      if(!payload.sticker_id)setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});
-      richDrafts.clear(key,extras);
       if(gone.current.has(key))return;
-      if(current.current===key){stick.current=true;setHistory(value=>value&&value.channel.channel_key===key?{...value,items:newestFirst(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
+      logConsoleEvent({channel:consoleChannel(kind==='guild'?'chat_sent_guild':kind==='world'?'chat_sent_world':'chat_sent_squad'),level:'success',kind:'status',source:text.unit,message:`已傳送訊息至「${recipient}」。`});
+      if(!payload.sticker_id){
+        setDrafts(value=>{if((value[key]??'').trim()!==body)return value;const {[key]:_,...rest}=value;return rest;});
+        richDrafts.clear(key,extras);
+      }
+      if(current.current===key){stick.current=true;setHistory(value=>value&&value.channel.kind===kind&&value.channel.channel_key===key?{...value,items:newestFirst(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setChannels(value=>value.map(item=>item.channel_key===key?{...item,last_message_at:message.created_at}:item));
       rereadAfterWrite(key);
     }catch(cause){
-      if(!alive.current)return;
-      if(unconfirmed(cause)){
+      if(!alive.current||client.sessionGeneration!==sessionGeneration)return;
+      // A retry refusal cannot erase the original uncertain result.
+      if(same||unconfirmed(cause)){
         setPending(value=>({...value,[key]:{...attempt,status:'unknown'}}));
         setSendErrors(value=>({...value,[key]:`傳送結果未確認：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
-      }else if(revoked(cause)){revoke(key,since);}
-      else{
+        if(revoked(cause))revoke(key,since);
+      }else{
         setPending(({[key]:_,...rest})=>rest);
+        if(revoked(cause)){revoke(key,since);return;}
         setSendErrors(value=>({...value,[key]:`訊息未送出：${fail(cause,'請修改後重試。')}`}));
       }
-    }
+    }finally{sendLocks.current.delete(key);}
   }
 
   const key=selected?.key,draft=key?drafts[key]??'':'',attempt=key?pending[key]:undefined,sendError=key?sendErrors[key]:undefined;
@@ -363,7 +377,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':message.sender_name} · <ChatTime value={message.created_at}/>{mine?' · 已送出':''}</p>
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
-              <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={attempt?.status==='sending'} onClick={()=>{richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
+              <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[selected.key])return;richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>
             </li>;})}
           </ol>}
           {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
@@ -374,12 +388,13 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           {!countUnconfirmed&&newerUnseen&&history.unread_count>0&&<p className="messages-meta" role="note">還有 {history.unread_count} 則較新的未讀訊息，顯示後會自動已讀。</p>}
           {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead(history.items[0]?.message_id,true)}>重試標為已讀</button></div></div>}
           <form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(selected.key);}}>
-            <ChatExtras target={selected.key} draft={richDraft} disabled={attempt?.status==='sending'} onChange={value=>richDrafts.change(selected.key,value)}/>
-            <ChatInput id={`${uid}-compose`} label={kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`} value={draft} sending={attempt?.status==='sending'} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
-              onSend={()=>void send(selected.key)} onChange={value=>setDrafts(drafts=>({...drafts,[selected.key]:value}))}/>
+            <ChatExtras target={selected.key} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(!held.current[selected.key])richDrafts.change(selected.key,value);}} onSendSticker={id=>void send(selected.key,id)}/>
+            <ChatInput id={`${uid}-compose`} label={kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
+              onSend={()=>void send(selected.key)} onChange={value=>{if(!held.current[selected.key])setDrafts(drafts=>({...drafts,[selected.key]:value}));}}/>
+            {attempt?.status==='unknown'&&<p className="messages-meta" role="note">{attempt.payload.sticker_id?'貼圖傳送結果尚未確認。重試只會確認原貼圖，其他草稿保留。':'原訊息已保留。請先重試確認結果，再修改內容或傳送貼圖。'}</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
-              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'&&sameChatPayload(attempt.payload,chatPayload(draft,richDraft))?'重試送出':kind==='world'?'傳送':'送出'}</button>
+              <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?'正在送出…':attempt?.status==='unknown'?'重試送出':kind==='world'?'傳送':'送出'}</button>
             </div>
           </form>
         </>}

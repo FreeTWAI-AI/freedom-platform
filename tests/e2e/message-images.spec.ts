@@ -70,6 +70,39 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     await expect(bubble.getByAltText('傳送的圖片')).toBeVisible();await expect.poll(()=>bubble.getByAltText('傳送的圖片').evaluate((node:HTMLImageElement)=>node.naturalWidth)).toBeGreaterThan(0);
   });
 
+  for(const outcome of ['success','lost-ack'] as const)test(`one-click sticker ${outcome} preserves the image, caption and reply until their separate send`,async({page,e2eAuthPool})=>{
+    const thread=await openDirect(page),original=`回覆原文 ${crypto.randomUUID()}`,caption=`圖片草稿 ${crypto.randomUUID()}`;
+    await thread.getByRole('textbox').fill(original);await thread.getByRole('button',{name:'送出',exact:true}).click();
+    const quote=thread.locator('.messages-bubbles>li').filter({hasText:original});await expect(quote).toHaveCount(1);
+    const replyId=await quote.getAttribute('data-message-id');await quote.getByRole('button',{name:'回覆你的訊息',exact:true}).click();
+    await thread.locator('input[type=file]').setInputFiles(image);await thread.getByRole('textbox').fill(caption);
+    const preview=thread.getByLabel('待送出的圖片'),previewUrl=await preview.locator('img').getAttribute('src');
+    const sends:{key:string;payload:any}[]=[];let uploads=0,stickerMessage='';
+    page.on('request',request=>{if(request.method()==='POST'&&/\/images$/.test(request.url()))uploads++;});
+    await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
+      if(route.request().method()!=='POST')return route.continue();
+      sends.push({key:route.request().headers()['idempotency-key'],payload:route.request().postDataJSON()});
+      const response=await route.fetch();expect(response.status()).toBe(201);
+      if(sends.length===1){stickerMessage=(await response.json()).message_id;if(outcome==='lost-ack')return route.abort();}
+      await route.fulfill({response});
+    });
+    await thread.getByRole('button',{name:'選擇貼圖',exact:true}).click();await expect(thread.getByText('點選即傳送，保留其他草稿。')).toBeVisible();
+    await thread.getByRole('button',{name:'工坊夥伴',exact:true}).click();await thread.getByRole('button',{name:'傳送貼圖：你好',exact:true}).click();
+    if(outcome==='lost-ack'){
+      await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');await expect(thread.getByRole('note')).toContainText('重試只會確認原貼圖');
+      await expect(thread.getByRole('button',{name:'選擇貼圖',exact:true})).toBeDisabled();await expect(thread.getByRole('button',{name:'移除',exact:true})).toBeDisabled();
+      await thread.getByRole('button',{name:'重試送出',exact:true}).click();
+    }
+    await expect(thread.locator('.messages-pending')).toHaveCount(0);await expect(thread.locator(`[data-message-id="${stickerMessage}"] [data-sticker-id="workshop-v1-hello"]`)).toHaveCount(1);
+    expect(sends).toHaveLength(outcome==='lost-ack'?2:1);for(const send of sends)expect(send).toEqual({key:sends[0].key,payload:{sticker_id:'workshop-v1-hello'}});expect(uploads).toBe(0);
+    await expect(thread.getByRole('textbox')).toHaveValue(caption);await expect(preview.locator('img')).toHaveAttribute('src',previewUrl!);await expect(thread.locator('.chat-reply-draft')).toContainText(original);
+    const stored=(await e2eAuthPool.query('SELECT body,sticker_id,reply_to_message_id FROM member_direct_messages WHERE message_id=$1',[stickerMessage])).rows;
+    expect(stored).toEqual([{body:'[貼圖] 你好',sticker_id:'workshop-v1-hello',reply_to_message_id:null}]);
+    await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(preview).toHaveCount(0);await expect(thread.getByRole('textbox')).toHaveValue('');await expect(thread.locator('.chat-reply-draft')).toHaveCount(0);
+    expect(uploads).toBe(1);const payload=sends.at(-1)!.payload;expect(payload.body).toBe(caption);expect(payload.reply_to_message_id).toBe(replyId);expect(payload.sticker_id).toBeUndefined();
+    await assertOneStoredImage(e2eAuthPool,caption,JSON.stringify(payload));
+  });
+
   test('dock unknown send blocks intentional logout and survives collapse until original retry confirms',async({page})=>{
     await openDirect(page);await page.getByRole('button',{name:'展開訊息控制台'}).click();
     const dock=page.locator('.game-console-expanded');await dock.getByRole('tab',{name:'私人聊天',exact:true}).click();
@@ -121,10 +154,6 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
     const storedCount=async()=>(await e2eAuthPool.query("SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=(SELECT user_id FROM users WHERE email='maker@local.test') AND recipient_ref=(SELECT user_id FROM users WHERE email='reviewer@local.test')")).rows[0].n as number;
     const before=await storedCount();
     await thread.getByRole('textbox').fill(draft);
-    if(kind==='sticker'){
-      await thread.getByRole('button',{name:'選擇貼圖',exact:true}).click();await thread.getByRole('button',{name:'工坊夥伴',exact:true}).click();
-      await thread.getByRole('button',{name:'選用貼圖：你好',exact:true}).click();
-    }
     await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages$/,async route=>{
       if(route.request().method()!=='POST')return route.continue();
       keys.push(route.request().headers()['idempotency-key']);payloads.push(route.request().postData()!);
@@ -133,13 +162,17 @@ if (process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1') {
       if(keys.length===1){messageId=canonical.message_id;return route.fulfill({response,json:{}});}
       expect(canonical.message_id).toBe(messageId);await route.fulfill({response});
     });
-    await thread.getByRole('button',{name:'送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('訊息回應未能核對');
+    if(kind==='sticker'){
+      await thread.getByRole('button',{name:'選擇貼圖',exact:true}).click();await thread.getByRole('button',{name:'工坊夥伴',exact:true}).click();
+      await thread.getByRole('button',{name:'傳送貼圖：你好',exact:true}).click();
+    }else await thread.getByRole('button',{name:'送出',exact:true}).click();
+    await expect(thread.getByRole('alert')).toContainText('訊息回應未能核對');
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('alert')).toContainText('Synthetic definite retry rejection');
     await expect(thread.getByRole('alert')).toContainText('傳送結果未確認');await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();
     await expect(thread.getByRole('button',{name:'選擇貼圖',exact:true})).toBeDisabled();
     await expect(thread.locator('textarea')).toHaveValue(draft);
-    if(kind==='text')await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
-    else {await expect(thread.getByLabel('待送出的貼圖')).toContainText('你好');await expect(thread.getByRole('button',{name:'改寫文字',exact:true})).toBeDisabled();}
+    await expect(thread.getByRole('textbox')).toHaveAttribute('readonly','');
+    if(kind==='sticker')await expect(thread.locator('.messages-pending [data-sticker-id="workshop-v1-hello"]')).toHaveCount(1);
     await thread.getByRole('button',{name:'重試送出',exact:true}).click();await expect(thread.getByRole('button',{name:'重試送出',exact:true})).toHaveCount(0);
     expect(keys).toHaveLength(3);expect(new Set(keys).size).toBe(1);expect(new Set(payloads).size).toBe(1);
     expect(JSON.parse(payloads[0])).toEqual(kind==='text'?{body:draft}:{sticker_id:'workshop-v1-hello'});

@@ -419,12 +419,15 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   useVisibleChatRead({active:active&&(!singlePane||!picking),identity:peer,through:thread?.items[0]?.message_id,unread:thread?.unread_count??0,
     blocked:threadStatus!=='ready'||reading||Boolean(readError)||threadMore.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
-  async function send(id:string){
+  async function send(id:string,stickerId?:string){
     const previous=held.current[id];
-    if(previous?.status==='sending'||sendLocks.current.has(id))return;
+    if(previous?.status==='sending'||sendLocks.current.has(id)||(stickerId!==undefined&&previous))return;
+    const shown=snapshot.current;
+    if(!alive.current||currentPeer.current!==id||shown.threadStatus!=='ready'||shown.thread?.participant.user_id!==id||!shown.thread.can_send)return;
+    if(stickerId!==undefined&&!findChatSticker(stickerId))return;
     const selected=selections.current.get(id);
-    const image=selected?.user===me&&(messageImagesEnabled===true||previous?.selectionKey===selected.key)?selected:null;
-    const extras=richDrafts.get(id),payload:ImagePayload=previous?.status==='unknown'?{...previous.payload}:chatPayload(drafts[id]??'',extras),body=previous?.status==='unknown'?previous.body:payload.body||(image?'[圖片]':`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`);
+    const image=stickerId===undefined&&!previous?.payload.sticker_id&&selected?.user===me&&(messageImagesEnabled===true||previous?.selectionKey===selected.key)?selected:null;
+    const extras=richDrafts.get(id),payload:ImagePayload=previous?.status==='unknown'?{...previous.payload}:stickerId!==undefined?{sticker_id:stickerId}:chatPayload(drafts[id]??'',extras),body=previous?.status==='unknown'?previous.body:payload.body||(image?'[圖片]':`[貼圖] ${findChatSticker(payload.sticker_id)?.label}`);
     if(image&&payload.sticker_id){setSendErrors(value=>({...value,[id]:'圖片與貼圖不能同時傳送，請移除其中一項。'}));return;}
     if(!payload.body&&!payload.sticker_id&&!image){setSendErrors(value=>({...value,[id]:'請先輸入訊息內容，或選擇貼圖。'}));return;}
     if(payload.body&&[...payload.body].length>MAX_BODY){setSendErrors(value=>({...value,[id]:`訊息最多 ${MAX_BODY} 字。`}));return;}
@@ -453,7 +456,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       setPending(({[id]:_,...rest})=>rest);
       if(!payload.sticker_id)setDrafts(value=>{if((value[id]??'').trim()!==(payload.body??''))return value;const {[id]:_,...rest}=value;return rest;});
       if(image){URL.revokeObjectURL(image.url);selections.current.delete(id);if(selectionRef.current===image){selectionRef.current=null;setSelection(null);}}
-      richDrafts.clear(id,extras);
+      if(!payload.sticker_id)richDrafts.clear(id,extras);
       if(currentPeer.current===id){stick.current=true;setThread(value=>value&&value.participant.user_id===id?{...value,items:newestMessages(merge([message],value.items,item=>item.message_id)),next_offset:value.next_offset===null?null:value.next_offset+(value.items.some(item=>item.message_id===message.message_id)?0:1)}:value);}
       setConversations(value=>{
         const existing=value.find(item=>item.participant.user_id===id);
@@ -541,11 +544,11 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
             if(!files.length)for(const item of Array.from(event.clipboardData.items)){if(item.kind==='file'){const file=item.getAsFile();if(file)files.push(file);}}
             if(files.length){event.preventDefault();attachImage(files);}
           }}>
-            <ChatExtras key={selection?.key??peer} target={peer} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(held.current[peer])return;if(value.sticker_id)clearImage();richDrafts.change(peer,value);}}/>
+            <ChatExtras key={selection?.key??peer} target={peer} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(held.current[peer])return;richDrafts.change(peer,value);}} onSendSticker={id=>void send(peer,id)}/>
             {messageImagesEnabled===true&&<div className="message-image-controls">
               <input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const files=Array.from(event.target.files??[]);event.target.value='';if(files.length)attachImage(files);}}/>
               <button className="btn btn-ghost" type="button" disabled={Boolean(attempt)} onClick={()=>fileInput.current?.click()}>附加圖片</button>
-              <span className="messages-meta">{selection?'每則限一張圖片；選用貼圖會移除圖片。':richDraft.sticker_id?'附加圖片會取代貼圖。':'JPEG、PNG、WebP · 最多 2 MiB'}</span>
+              <span className="messages-meta">{selection?'每則限一張圖片；點選貼圖會保留這張圖片草稿。':'JPEG、PNG、WebP · 最多 2 MiB'}</span>
             </div>}
             {messageImagesEnabled===true&&selection?.peer===peer&&selection.user===me&&<div className="message-image-preview" aria-label="待送出的圖片">
               <img src={selection.url} alt="待送出的圖片預覽"/><span>{selection.file.name||'剪貼簿圖片'}<small>{(selection.file.size/1024).toFixed(1)} KiB</small></span>
@@ -553,7 +556,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
             </div>}
             <ChatInput id={`${uid}-compose`} label={`寫給 ${thread.participant.display_name} 的訊息`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
               onSend={()=>void send(peer)} onChange={text=>{if(!held.current[peer])setDrafts(value=>({...value,[peer]:text}));}}/>
-            {attempt?.status==='unknown'&&<p className="messages-meta" role="note">原訊息與圖片已保留。請先重試確認結果，再修改內容或附件。</p>}
+            {attempt?.status==='unknown'&&<p className="messages-meta" role="note">{attempt.payload.sticker_id?'貼圖傳送結果尚未確認。重試只會確認原貼圖，其他草稿保留。':'原訊息與圖片已保留。請先重試確認結果，再修改內容或附件。'}</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">
               <button className="btn btn-primary" type="submit" disabled={attempt?.status==='sending'}>{attempt?.status==='sending'?attempt.stage==='upload'?'上傳圖片中…':attempt.stage==='message'?'傳送訊息中…':'正在送出…':attempt?.status==='unknown'?'重試送出':'送出'}</button>
