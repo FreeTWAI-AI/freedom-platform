@@ -12,6 +12,7 @@ import {ChatInput,ChatTime,useChatViewport,useVisibleChatRead} from './ChatWorks
 import {ChatSearch} from './ChatSearch';
 import {matchesChannelMessageAck} from './message-image-client';
 import './MemberSettings.css';
+import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
 
 export type ChannelKind='guild'|'squad'|'world';
 type ChannelSummary={kind:ChannelKind;channel_key:string;name:string;unread_count:number;last_message_at:string|null};
@@ -85,6 +86,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   const [searchOpen,setSearchOpen]=useState(false);
   const [picking,setPicking]=useState(true);
   const scroll=useRef<HTMLDivElement>(null),stick=useRef(true),anchor=useRef<{top:number;height:number}|null>(null),polling=useRef(false),retryAt=useRef(0),failures=useRef(0);
+  const idlePoll=useRef(resetChatPoll());
   const snapshot=useRef({history,status,more,reading,active,sending:false});snapshot.current={history,status,more,reading,active:active&&(!singlePane||!picking),sending:pending[selected?.key??'']?.status==='sending'};
   const openedRequest=useRef<number|null>(null);
   const searched=useRef('');
@@ -162,19 +164,22 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   useEffect(()=>{
     if(!active||singlePane&&picking)return;
     const update=()=>{if(document.visibilityState==='visible'&&navigator.onLine)void handlers.current.pullLatest();};
-    const resume=()=>{retryAt.current=0;update();};
-    update();const timer=window.setInterval(update,LIVE_POLL_MS);window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',update);
-    return()=>{window.clearInterval(timer);window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',update);};
+    const resume=()=>{idlePoll.current=resetChatPoll();retryAt.current=0;update();};
+    const visible=()=>{if(document.visibilityState==='visible'){idlePoll.current=resetChatPoll();update();}};
+    idlePoll.current=resetChatPoll();update();const timer=window.setInterval(update,LIVE_POLL_MS);window.addEventListener('focus',resume);window.addEventListener('online',resume);document.addEventListener('visibilitychange',visible);
+    return()=>{window.clearInterval(timer);window.removeEventListener('focus',resume);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',visible);};
   },[active,client,singlePane,picking,kind]);
   async function pullLatest(){
     const key=current.current,shown=snapshot.current;
     if(!key||!shown.active||shown.status!=='ready'||!shown.history||shown.more.loading||shown.reading||shown.sending||threadInFlight.current||polling.current||Date.now()<retryAt.current)return;
-    polling.current=true;const generation=threadGeneration.current,since=epoch.current;
+    if(!chatPollDue(idlePoll.current,Date.now(),retryAt.current))return;
+    polling.current=true;const generation=threadGeneration.current,since=epoch.current,schedule=idlePoll.current,checkedAt=Date.now();
     try{
       // Idle checks never download history bodies or refresh every joined room.
       const activity=await client.get<Activity>(path(key,'activity'),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active||snapshot.current.sending)return;
-      if(compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){failures.current=0;retryAt.current=0;setLiveError('');return;}
+      if(compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
+      idlePoll.current=resetChatPoll();
       const value=await client.get<History>(path(key,`messages?limit=50&after_sequence=${shown.history.items[0]?.sequence??'0'}`),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active)return;
       failures.current=0;retryAt.current=0;setLiveError('');
@@ -204,6 +209,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
   }
 
   async function loadThread(key:string,quiet=false){
+    idlePoll.current=resetChatPoll();
     const generation=++threadGeneration.current,since=epoch.current;threadInFlight.current={key,quiet};
     setMore({loading:false,error:''});if(!quiet)setReadError(readIssues.current.get(key)??'');
     if(quiet)setRefresh({loading:true,error:''});else{setStatus('loading');setError('');setRefresh({loading:false,error:''});setHistory(null);setNewerUnseen(false);setCountUnconfirmed('');}
@@ -296,6 +302,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
     blocked:status!=='ready'||reading||Boolean(readError)||Boolean(countUnconfirmed)||more.loading||searchOpen,scroll,onRead:through=>void markRead(through)});
 
   async function send(key:string,stickerId?:string){
+    idlePoll.current=resetChatPoll();
     const previous=held.current[key],shown=snapshot.current;
     if(previous?.status==='sending'||sendLocks.current.has(key)||(stickerId!==undefined&&previous))return;
     if(!alive.current||current.current!==key||gone.current.has(key)||shown.status!=='ready'||shown.history?.channel.kind!==kind||shown.history.channel.channel_key!==key)return;
@@ -410,7 +417,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           <form className="messages-compose" onSubmit={(event:FormEvent)=>{event.preventDefault();void send(selected.key);}}>
             <ChatExtras target={selected.key} draft={richDraft} disabled={Boolean(attempt)} onChange={value=>{if(!held.current[selected.key])richDrafts.change(selected.key,value);}} onSendSticker={id=>void send(selected.key,id)}/>
             <ChatInput id={`${uid}-compose`} label={kind==='world'?'世界聊天訊息':`在 ${history.channel.name} 發言`} value={draft} sending={Boolean(attempt)} hidden={Boolean(richDraft.sticker_id)} errorId={sendError?ids.error:undefined} mobile={mobile}
-              onSend={()=>void send(selected.key)} onChange={value=>{if(!held.current[selected.key])setDrafts(drafts=>({...drafts,[selected.key]:value}));}}/>
+              onSend={()=>void send(selected.key)} onChange={value=>{idlePoll.current=resetChatPoll();if(!held.current[selected.key])setDrafts(drafts=>({...drafts,[selected.key]:value}));}}/>
             {attempt?.status==='unknown'&&<p className="messages-meta" role="note">{attempt.payload.sticker_id?'貼圖傳送結果尚未確認。重試只會確認原貼圖，其他草稿保留。':'原訊息已保留。請先重試確認結果，再修改內容或傳送貼圖。'}</p>}
             {sendError&&<p id={ids.error} className="banner banner-error" role="alert">{sendError}</p>}
             <div className="messages-actions">

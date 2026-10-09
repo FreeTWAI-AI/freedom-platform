@@ -119,6 +119,35 @@ function holder(){
 /** Full history pages of one room. The console feed uses the same limit, so a hold can include that one extra copy. */
 const openPages=(log:{history:Info[]},kind:Kind,key:string)=>log.history.filter(item=>item.kind===kind&&item.key===key&&item.limit>1&&item.offset===0).length;
 
+test('idle activity requests slow down and typing, focus, visibility and manual reload resume promptly',async({page})=>{
+  test.setTimeout(90000);
+  const server=await channelServer(page,{guild:[['idle-room','閒置測試頻道',0]]});
+  await open(page,server);await tab(page,'公會閒聊').click();
+  await page.getByRole('button',{name:/閒置測試頻道/}).click();
+  const room=panel(page,'公會閒聊');
+  await expect(room.getByRole('log')).toBeVisible();
+  let requests=0;
+  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/me/channels/guild/idle-room/activity')requests++;});
+  await page.waitForTimeout(30000);
+  console.log(`idle activity requests over 30s: ${requests}`);
+  expect(requests).toBeGreaterThanOrEqual(5);expect(requests).toBeLessThanOrEqual(12);
+  const resume=async(action:()=>Promise<unknown>)=>{
+    const before=requests;
+    await action();
+    await expect.poll(()=>requests,{timeout:2000}).toBeGreaterThan(before);
+  };
+  await resume(()=>room.getByLabel('在 閒置測試頻道 發言').fill('輸入中'));
+  await resume(()=>page.evaluate(()=>window.dispatchEvent(new Event('focus'))));
+  await visibility(page,'hidden');const hidden=requests;
+  await page.waitForTimeout(2500);expect(requests).toBe(hidden);
+  await resume(()=>visibility(page,'visible'));
+  await room.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await resume(()=>Promise.resolve());
+  const channel=server.get('guild','idle-room');
+  channel.messages.unshift(server.message(channel,'閒置之後的新訊息'));
+  await expect(room.getByText('閒置之後的新訊息',{exact:true})).toBeVisible({timeout:6000});
+});
+
 test('five tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{
   await page.setViewportSize({width:320,height:780});
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['Makers','合成公會乙',0]],squad:[[squadA,'合成小隊甲',2]]});
