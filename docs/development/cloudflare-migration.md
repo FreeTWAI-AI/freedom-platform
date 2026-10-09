@@ -31,6 +31,8 @@ Static assets：binding ASSETS，run_worker_first=true；圖片：binding IMAGES
 R2 private bucket（選配）只經 Worker binding。
 ```
 
+候選效能變更 #323（未部署）：GET／HEAD 的 `/favicon.ico` 與 `/assets/<name>-<至少 8 字元 hash>.<js|css|woff|woff2|png|jpg|jpeg|webp|svg|ico>` 實體檔在 host／protocol 與原 readiness 檢查後直接使用 `ASSETS`，略過 runtime／Hono 路由建構。保留共用安全標頭、asset metadata 過濾與 Cookie 歧義拒絕；404、其他路徑／method 均回原 app。`FREEDOM_PRIVATE_AI_ENABLED=true` 時維持完整 app，以保留真正 broker 安裝後的 CSP／HTML Referrer-Policy；不從未驗證 profile 推定瀏覽器政策。仍建立及關閉 request pool，不改 readiness、快取政策、`run_worker_first` 或任何旗標。
+
 | 資源 | `staging-next` | `next` |
 | --- | --- | --- |
 | 資料 | **只用 synthetic**；不跑 `seedLocal`，不含 `@local.test` | 演練時還原已驗 checksum 的完整 `freedom_public` 備份 |

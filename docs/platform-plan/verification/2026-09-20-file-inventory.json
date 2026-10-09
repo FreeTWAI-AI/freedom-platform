@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 36565,
-      "sha256": "a47249053e67685fdf3dd159e775d748c1decd42c774e59875740bd100f0ec7e"
+      "bytes": 37092,
+      "sha256": "a5b0175b58092fe6f818a22b7a74c8822e2988cee193ecaaf392cf001456127d"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -404,8 +404,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 26791,
-      "sha256": "e45a28f8e4d6daea808235368f7bbb046e9db5adfa392b0d56eb30493abe0d0a"
+      "bytes": 28149,
+      "sha256": "5737dfb5f6930c5a2f136c5adaca99a36fc07a698b0402a5c263403cf039cd08"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -13369,8 +13369,8 @@
     },
     {
       "path": "docs/development/cloudflare-migration.md",
-      "bytes": 29057,
-      "sha256": "646ca1d85b29e48870c403fa0ededc7676512f1d4e635614b8dfaf8617c0ad35"
+      "bytes": 29728,
+      "sha256": "698a28f19c1b08b4f88b40a701f7d19c22f89e38435ec0af3b4b65347f21b2d5"
     },
     {
       "path": "docs/development/co-creation-custom-guild.md",
@@ -21856,6 +21856,11 @@
       "path": "tests/worker/source-network.test.ts",
       "bytes": 5814,
       "sha256": "0443c6f9f44ddc4f4cf49fd4450b2eb9b261c670d49e4852b365dd743c54cd9c"
+    },
+    {
+      "path": "tests/worker/static-fast-path.test.ts",
+      "bytes": 4888,
+      "sha256": "afed13327d9a8dbf4e05bcb623b99b338a4c613fe9b713d416fed577cffbaed4"
     },
     {
       "path": "tests/worker/workerd.test.ts",
