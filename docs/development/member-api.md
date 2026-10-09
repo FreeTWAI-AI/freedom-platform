@@ -41,6 +41,10 @@ permissions are unchanged.
   Handler, reason, action and version are audited. Content moderation, case
   status, audit and command receipt commit together; a failed action does not
   mark a case handled. Stale versions and invalid state transitions return 409.
+  Restoring a hidden asset-thumbnail post whose current asset pointer was retired
+  returns 409 `report_restore_media_unavailable`; content, retained thumbnail
+  evidence, and case state are unchanged. Text-only posts and comments remain
+  restorable. Full asset-image restoration is not implemented by this guard.
 
 Reports are not sent to the reported member. Other members cannot read cases
 or evidence, including private-message evidence they could not originally see.

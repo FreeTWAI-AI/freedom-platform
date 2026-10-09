@@ -2,12 +2,15 @@ import {test,before,after,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
+import sharp from 'sharp';
+import {FakeObjectStore} from '../../packages/asset-storage/fake-store.js';
+import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../modules/assets/social-thumbnail.js';
 import {createPool,type Command} from '../../packages/db/index.js';
 import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {login,type Actor} from '../../modules/identity-membership/service.js';
-import {createNativeSocialPost,createSocialComment,listSocialPosts,listSocialComments} from '../../modules/community/social-posts.js';
+import {createNativeSocialPost,createSocialComment,listSocialPosts,listSocialComments,saveSocialThumbnail,readSocialThumbnail} from '../../modules/community/social-posts.js';
 import {sendDirectMessage} from '../../modules/member-communications/service.js';
 import {sendChannelMessage} from '../../modules/member-communications/channels.js';
 import {createMemberReport,listMyMemberReports,listAdminMemberReports,transitionMemberReport} from '../../modules/community/member-reporting.js';
@@ -108,6 +111,35 @@ test('audit failure rolls back moderation and case status, never displaying a fa
   try{await assert.rejects(move(r.case_id,r.aggregate_version,'in_progress','hide'),/synthetic report audit failure/);}finally{await pool.query('DROP TRIGGER report_audit_failure ON transition_journal');await pool.query('DROP FUNCTION fail_report_audit()');}
   assert.equal((await listMyMemberReports(pool,actors[0])).items[0].state,'received');
   assert.equal((await listSocialPosts(pool,actors[0],{})).items.some(item=>item.post_id===p.post_id),true);
+});
+
+test('retired asset thumbnail restoration returns a clear conflict and preserves the entire case and evidence',async()=>{
+  const p=await post(),r=await report(actors[0],'post',p.post_id),store=new FakeObjectStore();
+  const bytes=await sharp({create:{width:40,height:20,channels:3,background:'green'}}).png().toBuffer();
+  await pool.query("UPDATE domain_media_storage_policy SET mode='bridge',policy_revision='synthetic-report-media',persistence_allowed=true,retained_byte_limit=10485760 WHERE purpose='community.social-thumbnail'");
+  const assets=createSocialThumbnailAssetService(pool,{store,resolvePolicy:resolveSocialThumbnailUploadPolicy});
+  await saveSocialThumbnail(pool,cmd(actors[1],`PUT /api/v1/social-posts/${p.post_id}/thumbnail`,{}),p.post_id,{bytes,mime:'image/png'},new Date(),assets);
+  const asset=(await pool.query('SELECT asset_id FROM community_social_thumbnail_asset_targets WHERE post_id=$1',[p.post_id])).rows[0].asset_id;
+  const hidden=await move(r.case_id,r.aggregate_version,'in_progress','hide');
+  assert.equal((await pool.query('SELECT state FROM assets WHERE asset_id=$1',[asset])).rows[0].state,'retired');
+  assert.equal((await pool.query('SELECT asset_id FROM community_social_thumbnail_asset_targets WHERE post_id=$1',[p.post_id])).rows[0].asset_id,null);
+  const snapshot=async()=>({
+    post:(await pool.query('SELECT * FROM community_social_posts WHERE post_id=$1',[p.post_id])).rows,
+    thumbnail:(await pool.query('SELECT * FROM community_social_post_thumbnails WHERE post_id=$1',[p.post_id])).rows,
+    target:(await pool.query('SELECT * FROM community_social_thumbnail_asset_targets WHERE post_id=$1',[p.post_id])).rows,
+    asset:(await pool.query('SELECT * FROM assets WHERE asset_id=$1',[asset])).rows,
+    objects:(await pool.query('SELECT * FROM asset_objects WHERE asset_id=$1',[asset])).rows,
+    report:(await pool.query('SELECT * FROM member_reports WHERE case_id=$1',[r.case_id])).rows,
+    journals:await count('transition_journal'),receipts:await count('command_receipts'),
+  });
+  const before=await snapshot();
+  await assert.rejects(move(r.case_id,hidden.aggregate_version,'closed','restore'),error=>error instanceof Problem&&error.status===409&&error.code==='report_restore_media_unavailable');
+  assert.deepEqual(await snapshot(),before);
+  // The database guard remains authoritative even if application preflight is bypassed.
+  await assert.rejects(pool.query("UPDATE community_social_posts SET state='active' WHERE post_id=$1",[p.post_id]),error=>(error as {code?:string}).code==='23514');
+  assert.deepEqual(await snapshot(),before);
+  await assert.rejects(readSocialThumbnail(pool,actors[0],p.post_id,store),status(404));
+  assert.equal((await move(r.case_id,hidden.aggregate_version,'closed','none')).state,'closed');
 });
 
 test('comment hiding and restoration preserve parent visibility and audit the actual comment action',async()=>{
