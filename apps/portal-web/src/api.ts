@@ -214,11 +214,11 @@ export class PortalClient {
     return this.get<SessionPayload>('/session', { skipAuthHandler: true })
   }
 
-  async login(email: string, password: string): Promise<SessionPayload> {
+  async login(email: string, password: string, code?: string): Promise<SessionPayload> {
     return this.post<SessionPayload>(
       '/auth/login',
-      { email, password },
-      { skipAuthHandler: true },
+      { email, password, ...(code !== undefined ? { code } : {}) },
+      { skipAuthHandler: true, suppressConsole: true },
     )
   }
 

@@ -30,6 +30,7 @@ import { createMemberRoutes } from './routes/members.js';
 import { checkAvatarUploadHeaders, createAvatarRoutes, isAvatarUpload } from './routes/avatars.js';
 import { authRateLimit,registerMember } from '../../../modules/identity-membership/members.js';
 import { requestPasswordReset,confirmPasswordReset } from '../../../modules/identity-membership/password-recovery.js';
+import { enableTotp, disableTotp, totpStatus } from '../../../modules/identity-membership/totp.js';
 import { communityCatalog } from '../../../modules/community/catalog.js';
 import {publicDiscovery,discoveryReadAllowed} from '../../../modules/community/public-discovery.js';
 import { createOpenSourceRoutes } from './routes/opensource.js';
@@ -73,6 +74,7 @@ const SLOW_REQUEST_THRESHOLD_MS=1000;
 
 function onboardingAllowed(path:string,method:string) {
   if(path==='/api/v1/me/client-errors'&&method==='POST')return true;
+  if(path==='/api/v1/me/totp'||path==='/api/v1/me/totp/enable'||path==='/api/v1/me/totp/disable')return true;
   if(path==='/api/v1/events'&&method==='POST')return true;
   if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/banner$/.test(path))return true;
   if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/video$/.test(path))return true;
@@ -356,8 +358,8 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.post('/api/v1/auth/login',async c=>{
     await authRateLimit(pool,'login-network',authNetwork(c),60);
     await authRateLimit(pool,'login-global','global',240,60);
-    const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200)}).strict().parse(await c.req.json());
-    const result=await login(pool,body.email,body.password);
+    const body=z.object({email:z.email().max(200),password:z.string().min(1).max(200),code:z.string().min(1).max(64).optional()}).strict().parse(await c.req.json());
+    const result=await login(pool,body.email,body.password,body.code,runtime.totpEncryptionKey?.());
     // Replace any old session on login, so changing accounts never keeps an active old cookie.
     const old=readSessionCookie(c.req.header('Cookie'),origin);
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
@@ -381,6 +383,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const body=z.object({token:z.string().max(100),password:z.string().max(128)}).strict().parse(await c.req.json());
     const old=readSessionCookie(c.req.header('Cookie'),origin);
     const result=await confirmPasswordReset(pool,body.token,body.password);
+    if ('totp_required' in result) return c.json(result);
     // Replace any old session on reset, so changing accounts never keeps an active old cookie.
     if(old) { const {tokenHash}=await import('../../../modules/identity-membership/service.js');await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[tokenHash(old)]); }
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
@@ -409,6 +412,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.post('/api/v1/community-search/topics',async c=>respond(c,await assignContentTopics(pool,await cmd(c))));
   }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
+  app.get('/api/v1/me/totp',async c=>c.json(await totpStatus(pool,c.get('actor'))));
+  app.post('/api/v1/me/totp/enable',async c=>c.json(await enableTotp(pool,await cmd(c),runtime.totpEncryptionKey?.())));
+  app.post('/api/v1/me/totp/disable',async c=>c.json(await disableTotp(pool,await cmd(c),runtime.totpEncryptionKey?.())));
   app.post('/api/v1/me/client-errors',async c=>{
     const body=z.object({action:z.string().regex(/^(GET|POST|PUT|PATCH|DELETE|UI) \/[a-zA-Z0-9_/:.#-]*$/).max(120),error_code:z.string().regex(/^[a-zA-Z0-9_:-]{1,80}$/),http_status:z.number().int().min(0).max(599).optional()}).strict().parse(await c.req.json());
     const actor=c.get('actor');

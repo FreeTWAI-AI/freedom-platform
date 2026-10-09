@@ -16,6 +16,7 @@ import type { ModuleProviderMap } from '../../../modules/module-registry/provide
 import { createNodePreviewFetch } from './node-preview-fetch.js';
 
 type NodeAppOptions = {shopKeyPolicy?:PlatformRuntime['shopKeyPolicy'];publicGuideAssets?:PlatformRuntime['publicGuideAssets'];adminVerifier?:AdminAccessVerifier;githubSocial?:GitHubSocialOptions;passwordEmailSender?:PasswordEmailSender;
+  totpEncryptionKey?:string;
   eventEmailSender?:EventEmailSender;maintainerWebhookSecret?:string;now?:()=>Date;avatarAssetStore?:PlatformRuntime['avatarAssetStore'];serviceCoverAssets?:PlatformRuntime['serviceCoverAssets'];serviceCoverAssetStore?:PlatformRuntime['serviceCoverAssetStore'];messageImageAssets?:PlatformRuntime['messageImageAssets'];messageImageAssetStore?:PlatformRuntime['messageImageAssetStore'];eventBannerAssets?:PlatformRuntime['eventBannerAssets'];eventBannerAssetStore?:PlatformRuntime['eventBannerAssetStore'];eventVideoAssets?:PlatformRuntime['eventVideoAssets'];eventVideoAssetStore?:PlatformRuntime['eventVideoAssetStore'];skillImageAssets?:PlatformRuntime['skillImageAssets'];skillImageAssetStore?:PlatformRuntime['skillImageAssetStore'];socialThumbnailAssets?:PlatformRuntime['socialThumbnailAssets'];socialThumbnailAssetStore?:PlatformRuntime['socialThumbnailAssetStore'];eventHighlightAssets?:PlatformRuntime['eventHighlightAssets'];eventHighlightAssetStore?:PlatformRuntime['eventHighlightAssetStore'];
   linkPreviewFetch?:PlatformRuntime['linkPreviewFetch'];privateAiProduct?:PrivateAiProductTransport;moduleProviders?:ModuleProviderMap;guildLaunchpadEnabled?:boolean;hostedReservationsEnabled?:boolean;tenantCursorSigningKey?:string;communityDiscoveryEnabled?:boolean;memberBlockingEnabled?:boolean;communitySearchEnabled?:boolean;unifiedSharingEnabled?:boolean;tenantWorkAssetStore?:PlatformRuntime['tenantWorkAssetStore']};
 
@@ -37,6 +38,7 @@ export function nodeRuntime(freedomEnv:FreedomEnv,origin:string,options:Omit<Nod
     shopKeyPolicy:options.shopKeyPolicy??process.env.FREEDOM_SHOP_KEY_POLICY as PlatformRuntime['shopKeyPolicy'],
     registrationCommunityId:()=>process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,
     githubTokenKey:()=>options.githubSocial?.tokenKey??process.env.GITHUB_SOCIAL_TOKEN_KEY,
+    totpEncryptionKey:()=>options.totpEncryptionKey??process.env.TOTP_ENCRYPTION_KEY,
     githubMetricsToken:()=>options.githubSocial?.metricsToken??(process.env.GITHUB_METRICS_TOKEN||undefined),
     // An explicit option wins even when it is empty, so a test can force 503 while a developer env var is set.
     maintainerWebhookSecret:()=>Object.prototype.hasOwnProperty.call(options,'maintainerWebhookSecret')?(options.maintainerWebhookSecret||undefined):(process.env.GITHUB_MAINTAINER_WEBHOOK_SECRET||undefined),

@@ -47,6 +47,8 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
     await q.query('UPDATE password_reset_tokens SET consumed_at=now() WHERE token_hash=$1',[tokenHash(rawToken)]);
     await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND token_hash<>$2',[token.user_id,tokenHash(rawToken)]);
     await q.query('UPDATE login_attempts SET failures=0,window_start=now() WHERE attempt_key=$1',[attemptKey]);
+    const mfa = (await q.query('SELECT enabled FROM member_totp WHERE user_id=$1',[token.user_id])).rows[0];
+    if (mfa?.enabled) return {reset:true as const,totp_required:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES};
     const session=await createMemberSession(q,token);
     return {reset:true as const,expires_after_minutes:RESET_LIFETIME_MINUTES,...session};
   });

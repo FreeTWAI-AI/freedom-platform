@@ -8,11 +8,14 @@ const codes:Record<string,InterfaceMessage>={
   reset_link_invalid:'error.resetLink',password_length:'error.validation',
   validation_error:'error.validation',email_exists:'error.emailUsed',email_taken:'error.emailUsed',
   account_unavailable:'error.registerUnavailable',
+  totp_required:'error.totpRequired',invalid_totp:'error.totpInvalid',totp_rate_limited:'error.totpLimit',
 };
 /** Presentation only: keep the API error, status and authority decisions intact. */
 export function authErrorMessage(cause:unknown,language:InterfaceLanguage):string{
   const original=cause instanceof Error?cause.message:typeof (cause as {message?:unknown})?.message==='string'?(cause as {message:string}).message:'';
+  if(cause instanceof ApiError&&['totp_required','invalid_totp','totp_rate_limited'].includes(cause.code??''))return interfaceText(language,codes[cause.code!]);
   if(language==='zh-Hant')return original||interfaceText(language,'error.generic');
+  if(original==='密碼已重設。請使用新密碼登入，並輸入驗證器代碼或備用碼。')return interfaceText(language,'auth.totpResetDone');
   let key:InterfaceMessage='error.generic';
   if(original==='兩次輸入的新密碼不一致。')key='error.passwordMismatch';
   else if(original==='登入回應不完整')key='error.sessionIncomplete';
