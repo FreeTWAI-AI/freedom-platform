@@ -25,6 +25,8 @@ import {
 import {consoleChannel} from './game-console-routing'
 
 type ConsoleContextValue = {
+  registerDmSessionEnd: (guard: (() => boolean) | null) => void
+  canEndSession: () => boolean
   events: GameConsoleEvent[]
   expanded: boolean
   activeChannel: GameConsoleChannel
@@ -79,6 +81,9 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const eventsRef = useRef(events); eventsRef.current = events
   const seen = useRef(new Set(events.map(event=>event.id)))
   const [ended,setEnded] = useState(false)
+  const dmSessionEnd=useRef<(()=>boolean)|null>(null)
+  const registerDmSessionEnd=useCallback((guard:(()=>boolean)|null)=>{dmSessionEnd.current=guard},[])
+  const canEndSession=useCallback(()=>dmSessionEnd.current?.()??true,[])
   const [expanded, setExpanded] = useState(variant === 'popout')
   const [activeChannel, setActiveChannel] = useState<GameConsoleChannel>('all')
   const [visibility,setVisibility]=useState<ConsoleVisibility>(()=>loadVisibility(userId))
@@ -181,7 +186,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     setActiveChannel(channel); setUnread(current => ({...current, [channel]: 0}))
   }, [])
   useEffect(()=>{if(expanded)setUnread(current=>current[activeChannel]===0?current:{...current,[activeChannel]:0})},[expanded,activeChannel])
-  const value = useMemo<ConsoleContextValue>(() => ({events, expanded, activeChannel, visibility, toggleVisibility,log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, visibility, toggleVisibility,selectChannel])
+  const value = useMemo<ConsoleContextValue>(() => ({registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, visibility, toggleVisibility,selectChannel,registerDmSessionEnd,canEndSession])
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
     {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
@@ -222,7 +227,7 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
 }
 
 function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean}) {
-  const {events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
+  const {registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
   const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
   const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>setChatUnread(value=>({...value,[channel]:count})),[])
@@ -283,7 +288,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
         <details className="game-console-visibility"><summary>頻道顯示</summary><div>{GAME_CONSOLE_CHANNELS.filter(channel=>channel.id!=='all').map(channel=><label key={channel.id}><input type="checkbox" checked={visibility[channel.id as Exclude<GameConsoleChannel,'all'>]} onChange={()=>toggleVisibility(channel.id as Exclude<GameConsoleChannel,'all'>)}/>{channel.label}</label>)}</div></details>
         {variant === 'dock' && <button type="button" className="game-console-icon-button game-console-popout" onClick={popOut} aria-label="在獨立視窗開啟訊息控制台" title="獨立視窗">↗</button>}
         {variant === 'dock' && <button type="button" className="game-console-icon-button" onClick={collapse} aria-label="收合訊息控制台" title="收合（~）">⌄</button>}
-        {variant === 'popout' && <button type="button" className="game-console-icon-button" onClick={() => window.close()} aria-label="關閉訊息控制台視窗">×</button>}
+        {variant === 'popout' && <button type="button" className="game-console-icon-button" onClick={() => {if(canEndSession())window.close()}} aria-label="關閉訊息控制台視窗">×</button>}
       </div>
     </header>
     <div className="game-console-tabs" role="tablist" aria-label="訊息頻道" onKeyDown={tabKeys}>
@@ -299,7 +304,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

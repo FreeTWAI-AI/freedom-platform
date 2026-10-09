@@ -15,6 +15,7 @@ import unavailableSharp from '../../packages/shared/sharp-unavailable.js';
 import { createUnavailableImageProcessor, currentImageProcessor, runWithImageProcessor, type ImageNormalizeSpec, type ImageProcessor } from '../../packages/shared/image-runtime.js';
 import { normalizeCoverImage, normalizeSubmission } from '../../modules/skill-submissions/payload.js';
 import { inspectCanonicalWebp } from '../../packages/shared/image-webp.js';
+import { normalizeMessageImage } from '../../modules/assets/message-image.js';
 
 // Synthetic fixtures only. Node evidence uses real sharp/libvips; fake
 // processors prove the shared guards, not Cloudflare production transforms.
@@ -49,6 +50,20 @@ test('Node sharp processor rejects truncated and corrupt inputs after the signat
   const webp = await solid(64, 48, '#c86428').webp().toBuffer();
   await rejects(normalizeCoverImage('image/webp', b64(webp.subarray(0, webp.length - 20))), 422, 'invalid_cover_image');
   assert.equal((await normalizeCoverImage('image/png', b64(png))).webp.subarray(8, 12).toString('ascii'), 'WEBP');
+});
+
+test('message images keep their aspect ratio inside the box, never enlarge, and honour EXIF orientation', async () => {
+  const shape = async (bytes: Buffer) => { const { width, height } = inspectCanonicalWebp(await normalizeMessageImage('image/png', bytes)); return [width, height]; };
+  assert.deepEqual(await shape(await solid(3000, 1500, '#336699').png().toBuffer()), [1920, 960]);
+  assert.deepEqual(await shape(await solid(600, 2400, '#336699').png().toBuffer()), [480, 1920]);
+  assert.deepEqual(await shape(await solid(300, 150, '#336699').png().toBuffer()), [300, 150], 'small images are not upscaled');
+  assert.deepEqual(await shape(await solid(1, 1, '#336699').png().toBuffer()), [1, 1]);
+  const sideways = await solid(200, 100, '#336699').jpeg().withMetadata({ orientation: 6 }).toBuffer();
+  const rotated = inspectCanonicalWebp(await normalizeMessageImage('image/jpeg', sideways));
+  assert.deepEqual([rotated.width, rotated.height], [100, 200], 'EXIF orientation is applied, then the tag is dropped');
+  const out = await normalizeMessageImage('image/jpeg', await solid(64, 48, '#336699').jpeg().withExif({ IFD0: { Artist: 'synthetic-artist' } }).toBuffer());
+  assert.equal(out.includes('synthetic-artist'), false);
+  await assert.rejects(normalizeMessageImage('image/png', await solid(4097, 10, '#336699').png().toBuffer()), (e: unknown) => e instanceof Problem && e.code === 'invalid_message_image');
 });
 
 test('Node sharp processor applies EXIF orientation and strips EXIF, GPS, comments and ICC', async () => {

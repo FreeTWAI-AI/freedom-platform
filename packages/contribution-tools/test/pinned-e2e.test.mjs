@@ -10,7 +10,7 @@ import { E2E_BASELINE, E2E_PLAN, E2E_PASS_TIMEOUT_MS, evaluateE2ePasses } from '
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const rootDir = '/fixture/tests/e2e';
 const configFile = '/trusted/scripts/ci/pinned-playwright.config.mjs';
-const expectedFiles = ['tests/e2e/other.spec.ts', 'tests/e2e/private-work-ai.spec.ts', 'tests/e2e/member-avatar-asset.spec.ts'];
+const expectedFiles = ['tests/e2e/other.spec.ts', 'tests/e2e/private-work-ai.spec.ts', 'tests/e2e/member-avatar-asset.spec.ts', 'tests/e2e/message-images.spec.ts'];
 const cliEnv = { ...process.env, TEST_DATABASE_URL: 'postgresql://freedom_local@127.0.0.1:55521/fp_foundation_ci', FREEDOM_E2E_PORT: '4391' };
 const state = status => ({ timeout: 45000, annotations: [], expectedStatus: 'passed', projectId: 'chromium', projectName: 'chromium',
   results: [{ status: status === 'expected' ? 'passed' : status }], status });
@@ -30,7 +30,8 @@ function cleanPasses() {
   const suites = [
     [suite('other.spec.ts', [['ordinary', 'expected']]), suite('private-work-ai.spec.ts', [['off', 'expected'], ['on', 'skipped']])],
     [suite('private-work-ai.spec.ts', [['off', 'skipped'], ['on', 'expected']])],
-    [suite('member-avatar-asset.spec.ts', [['asset', 'expected']])]
+    [suite('member-avatar-asset.spec.ts', [['asset', 'expected']])],
+    [suite('message-images.spec.ts', [['image', 'expected']])]
   ];
   return E2E_PLAN.map((pass, index) => ({ id: pass.id, exit_code: 0, evidence_sha256: 'a'.repeat(64), report: report(suites[index]) }));
 }
@@ -45,7 +46,7 @@ function reject(mutator, reason) {
 }
 
 test('Real baselines are accurate', async () => {
-  assert.equal(E2E_BASELINE.length, 89);
+  assert.equal(E2E_BASELINE.length, 90);
   assert.deepEqual(E2E_BASELINE, [...new Set(E2E_BASELINE)].sort());
   for (const file of E2E_BASELINE) {
     assert.ok(file.startsWith('tests/e2e/'));
@@ -58,10 +59,10 @@ test('Real baselines are accurate', async () => {
   assert.ok(E2E_BASELINE.every(file => actual.includes(file)));
 });
 
-test('Three clean passes matching today shape', () => {
+test('Four clean passes matching today shape', () => {
   const result = evaluate(cleanPasses());
   assert.equal(result.status, 'passed');
-  assert.equal(result.test_count, 4);
+  assert.equal(result.test_count, 5);
   assert.deepEqual(result.test_files.find(f => f.path.endsWith('private-work-ai.spec.ts')).counts, { tests: 2, passed: 2 });
   assert.ok(!JSON.stringify(result).includes('ordinary'));
 });
@@ -111,7 +112,7 @@ test('Two tests in one file exchange skipped and expected across passes', () => 
   const p = cleanPasses();
   const result = evaluate(p);
   assert.equal(result.status, 'passed');
-  assert.equal(result.test_count, 4);
+  assert.equal(result.test_count, 5);
 });
 
 test('One test skipped in both passes fails even when another in the file passes', () => {
@@ -150,7 +151,7 @@ test('A duplicate identity inside one pass fails', () => {
   reject(p => p[0].report.suites.push(structuredClone(p[0].report.suites[0])), 'duplicate_test_identity');
 });
 
-test('Missing pass 3 and incorrect pass ids fail', () => {
+test('Missing pass 4 and incorrect pass ids fail', () => {
   reject(p => p.pop(), 'invalid_pass_plan');
   reject(p => { p[1].id = 'default'; }, 'invalid_pass_plan');
   reject(p => p.push(p[2]), 'invalid_pass_plan');
@@ -183,7 +184,7 @@ async function baseline(root, omit) {
   for (const file of E2E_BASELINE) if (file !== omit) await writeFile(join(root, file), '// baseline fixture\n');
 }
 
-const ordinaryTests = "import { test } from '@playwright/test';\ntest('smoke', () => {});\ntest('required', () => {});\n";
+const ordinaryTests = "import { test } from '@playwright/test';\ntest('smoke', () => { if(['FREEDOM_E2E_PRIVATE_AI_FIXTURE','FREEDOM_E2E_AVATAR_ASSET_FIXTURE','FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE'].filter(k=>process.env[k]==='1').length>1)throw Error('fixture contamination'); });\ntest('required', () => {});\n";
 async function playwrightFixture(root, config) {
   await baseline(root);
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
@@ -205,7 +206,7 @@ test('CLI trusted selection ignores candidate filters and includes a new spec', 
     // A pull_request event whose base commit is not local: Playwright's git info would try to fetch it.
     await writeFile(join(root, 'event.json'), JSON.stringify({ pull_request: { title: 't', number: 1, base: { sha: '0'.repeat(40) } } }));
     const output = join(root, 'result.json');
-    const child = invoke(['--root', root, '--output', output], { GITHUB_ACTIONS: 'true', GITHUB_EVENT_PATH: join(root, 'event.json'), DEBUG_GIT_COMMIT_INFO: '1' });
+    const child = invoke(['--root', root, '--output', output], { GITHUB_ACTIONS: 'true', GITHUB_EVENT_PATH: join(root, 'event.json'), DEBUG_GIT_COMMIT_INFO: '1', FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1', FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'1', FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1' });
     assert.equal(child.status, 0, child.stdout + child.stderr);
     assert.doesNotMatch(child.stdout + child.stderr, /GitCommitInfo: running "git /);
     const result = JSON.parse(await readFile(output, 'utf8'));
@@ -213,7 +214,7 @@ test('CLI trusted selection ignores candidate filters and includes a new spec', 
     assert.equal(result.test_count, 2 * (E2E_BASELINE.length + 1));
     assert.equal(result.test_files.length, E2E_BASELINE.length + 1);
     assert.ok(result.test_files.every(file => file.counts.tests === 2 && file.counts.passed === 2));
-    assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0]);
+    assert.deepEqual(result.passes.map(pass => pass.exit_code), [0, 0, 0, 0]);
   });
 });
 
@@ -358,6 +359,7 @@ test('host pass budgets are finite and only the default capacity increases', asy
     default: 40 * 60 * 1000,
     'private-ai': 30 * 60 * 1000,
     'avatar-asset': 30 * 60 * 1000,
+    'message-image': 30 * 60 * 1000,
   });
   assert.ok(Object.isFrozen(E2E_PASS_TIMEOUT_MS));
   assert.deepEqual(Object.keys(E2E_PASS_TIMEOUT_MS), E2E_PLAN.map(pass => pass.id));
@@ -418,5 +420,15 @@ test('CLI default deadline remains failure after graceful zero exit and stops la
     assert.equal(result.status, 'failed');
     assert.equal(result.reason, 'test_timeout');
     assert.deepEqual(result.passes.map(({ id, exit_code }) => ({ id, exit_code })), [{ id: 'default', exit_code: 0 }]);
+  });
+});
+
+
+test('trusted webServer forwards the host fixture and preserves candidate search wiring',async()=>{
+  await withFixture(async root=>{
+    await writeFile(join(root,'playwright.config.ts'),`export default {projects:[{name:'chromium'}],webServer:{command:'unused',env:{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'1',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'0'}}}`);
+    const source=`import config from ${JSON.stringify(join(repoRoot,'scripts/ci/pinned-playwright.config.mjs'))}; console.log(JSON.stringify(config.webServer[0].env));`;
+    const child=spawnSync(process.execPath,['--input-type=module','-e',source],{encoding:'utf8',env:{...process.env,FREEDOM_PINNED_E2E_ROOT:root,FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1'}});
+    assert.equal(child.status,0,child.stderr);assert.deepEqual(JSON.parse(child.stdout),{FREEDOM_E2E_COMMUNITY_SEARCH:'1',FREEDOM_E2E_PRIVATE_AI_FIXTURE:'0',FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE:'1',FREEDOM_E2E_AVATAR_ASSET_FIXTURE:'0'});
   });
 });

@@ -31,6 +31,16 @@ outside caller JSON, receipt namespace and digest. Existing four-argument
 callers are unchanged. Domain callbacks still check expiring resources after
 their other waits; this does not alter `command()` or the avatar adapter.
 
+## Closed direct-message image receipt adapter
+
+`messageImageMemberCommand<T>(pool, input, imageId, authorize, run)` serves only
+`POST /api/v1/me/conversations/:peer/images` (#230). It is the same personal-scope,
+original-receipt shape as the service-cover adapter: current member session first,
+then the original `command_receipts` lookup, body exactly `{sha256}`, and a journal
+target restricted to aggregate type `member_message_image` with the server-derived
+draft id. The message itself is not a journal target, and the adapter never writes
+the community outbox, so private image content cannot reach a community event.
+
 ## Closed avatar receipt compatibility
 
 `avatarMemberCommand<T>(pool, input: Command, authorize(q, context), run(q, context))`

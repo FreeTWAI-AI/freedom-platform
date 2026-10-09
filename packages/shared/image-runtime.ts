@@ -1,19 +1,21 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Problem } from './problem.js';
 import { nodeImageProcessor } from './image-node.js';
-import { assertCanonicalWebp } from './image-webp.js';
+import { assertCanonicalWebp, assertCanonicalWebpWithin } from './image-webp.js';
 
 export type RasterFormat = 'png' | 'jpeg' | 'webp';
 export interface ImageOutputSpec {
   readonly width: number; readonly height: number;
-  readonly fit: 'cover' | 'contain';
+  // `inside` keeps the source aspect ratio inside the width x height box and never
+  // enlarges; every other fit produces exactly width x height.
+  readonly fit: 'cover' | 'contain' | 'inside';
   readonly background?: string;
   readonly quality: number; readonly effort: number;
 }
 // Callers have already checked byte size, declared MIME, signature and
 // animation chunks; a processor must still fully decode and enforce limits.
 export interface ImageNormalizeSpec {
-  readonly purpose: 'avatar' | 'skill_cover' | 'event_poster' | 'social_thumbnail' | 'service_cover' | 'event_highlight';
+  readonly purpose: 'avatar' | 'skill_cover' | 'event_poster' | 'social_thumbnail' | 'service_cover' | 'event_highlight' | 'message_image';
   readonly format: RasterFormat;
   readonly maxDimension: number;
   readonly maxPixels: number;
@@ -51,6 +53,7 @@ export async function normalizeImage(bytes: Buffer, spec: ImageNormalizeSpec): P
   if (!Buffer.isBuffer(output)) throw new Error('image processor returned non-canonical output');
   // Deliberately no output-equals-input check: re-encoding an already canonical
   // flat image can be byte-identical. The container check is the guarantee.
-  assertCanonicalWebp(output, frozen.output.width, frozen.output.height);
+  if (frozen.output.fit === 'inside') assertCanonicalWebpWithin(output, frozen.output.width, frozen.output.height);
+  else assertCanonicalWebp(output, frozen.output.width, frozen.output.height);
   return output;
 }

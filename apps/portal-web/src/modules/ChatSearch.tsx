@@ -4,12 +4,13 @@ import type {MessageContent} from '../../../../modules/member-communications/con
 import type {MessageSearchPage} from '../../../../modules/member-communications/message-search';
 import {ChatBody,ChatQuote} from './ChatContent';
 import {ChatTime} from './ChatWorkspace';
+import type {MessageImage} from './message-image-client';
 
-type Hit={message_id:string;sender_ref:string;sender_name?:string;body:string;created_at:string}&MessageContent;
+type Hit={message_id:string;sender_ref:string;sender_name?:string;body:string;created_at:string;image?:MessageImage}&MessageContent;
 type Results={query:string;items:Hit[];next_cursor:string|null};
 type Phase='idle'|'loading'|'ready'|'error';
 
-function SearchHit({item,query,me,otherName}:{item:Hit;query:string;me:string;otherName:string}){
+function SearchHit({item,query,me,otherName,messageImagesEnabled}:{item:Hit;query:string;me:string;otherName:string;messageImagesEnabled:boolean}){
   const [expanded,setExpanded]=useState(false),match=item.body.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
   let start=expanded?0:Math.max(0,match-70),end=expanded?item.body.length:Math.min(item.body.length,Math.max(match+query.length+120,200));
   // Keep UTF-16 pairs intact when an excerpt begins or ends inside an emoji.
@@ -19,14 +20,14 @@ function SearchHit({item,query,me,otherName}:{item:Hit;query:string;me:string;ot
   return <li data-search-message-id={item.message_id}>
     <p className="messages-meta"><strong>{item.sender_ref===me?'你':item.sender_name??otherName}</strong> · <ChatTime value={item.created_at}/></p>
     {item.reply_to&&<ChatQuote reply={item.reply_to}/>}
-    {item.sticker?<ChatBody message={item}/>:<p className="messages-body">{start>0?'…':''}{index<0?body:<>{body.slice(0,index)}<mark>{body.slice(index,index+query.length)}</mark>{body.slice(index+query.length)}</>}{end<item.body.length?'…':''}</p>}
+    {messageImagesEnabled&&item.image&&item.body==='[圖片]'?<p className="messages-body">圖片</p>:item.sticker?<ChatBody message={item}/>:<p className="messages-body">{start>0?'…':''}{index<0?body:<>{body.slice(0,index)}<mark>{body.slice(index,index+query.length)}</mark>{body.slice(index+query.length)}</>}{end<item.body.length?'…':''}</p>}
     {(clipped||expanded)&&<button className="btn btn-ghost" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?'收合訊息':'展開完整訊息'}</button>}
   </li>;
 }
 
 /** Query/results stay in this dialog only; closing or hiding it cancels late reads. */
-export function ChatSearch({client,resource,title,me,otherName=title,active,onOpenChange}:{
-  client:PortalClient;resource:string;title:string;me:string;otherName?:string;active:boolean;onOpenChange:(open:boolean)=>void;
+export function ChatSearch({client,resource,title,me,otherName=title,active,messageImagesEnabled=false,onOpenChange}:{
+  client:PortalClient;resource:string;title:string;me:string;otherName?:string;active:boolean;messageImagesEnabled?:boolean;onOpenChange:(open:boolean)=>void;
 }){
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),input=useRef<HTMLInputElement>(null);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[phase,setPhase]=useState<Phase>('idle'),[result,setResult]=useState<Results|null>(null);
@@ -74,7 +75,7 @@ export function ChatSearch({client,resource,title,me,otherName=title,active,onOp
       {error&&<div className="banner banner-error" role="alert">搜尋未完成：{error}<button className="btn btn-ghost" type="button" onClick={()=>{const value=retry.current;if(value)void search(value.query,value.cursor);}}>重試搜尋</button></div>}
       {result&&<div className="chat-search-results">
         <p role="status">{result.items.length===0?'找不到符合的訊息。':`已載入 ${result.items.length} 則訊息`}</p>
-        <ol aria-label="訊息搜尋結果">{result.items.map(item=><SearchHit key={item.message_id} item={item} query={result.query} me={me} otherName={otherName}/>)}</ol>
+        <ol aria-label="訊息搜尋結果">{result.items.map(item=><SearchHit key={item.message_id} item={item} query={result.query} me={me} otherName={otherName} messageImagesEnabled={messageImagesEnabled===true}/>)}</ol>
         {result.next_cursor&&<button className="btn btn-ghost" type="button" disabled={more} onClick={()=>void search(result.query,result.next_cursor!)}>{more?'正在讀取…':'更多搜尋結果'}</button>}
       </div>}
     </dialog>

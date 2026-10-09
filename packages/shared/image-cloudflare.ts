@@ -79,6 +79,13 @@ export function containTransform(width: number, height: number, boxWidth: number
   return Object.keys(border).length ? { width: w, height: h, fit: 'squeeze', border: { color, ...border } } : { width: w, height: h, fit: 'squeeze' };
 }
 
+// sharp `inside` + withoutEnlargement: scale the oriented image down to fit the box,
+// keep its aspect ratio, never upscale, and add no border.
+export function insideTransform(width: number, height: number, boxWidth: number, boxHeight: number): ImagesTransform {
+  const scale = Math.min(1, boxWidth / width, boxHeight / height);
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), fit: 'squeeze' };
+}
+
 const streamOf = (bytes: Uint8Array) => new Blob([new Uint8Array(bytes)]).stream();
 const isImagesError = (error: unknown): error is { code: number } => typeof (error as { code?: unknown } | null)?.code === 'number';
 
@@ -102,13 +109,14 @@ export function createCloudflareImageProcessor(binding: ImagesBinding | undefine
         if (info?.format !== `image/${spec.format}` || !Number.isInteger(w) || !Number.isInteger(h) || w! < 1 || h! < 1
           || w! > spec.maxDimension || h! > spec.maxDimension || w! * h! > spec.maxPixels) throw new ImageRejected('image rejected by info bounds');
         // info reports EXIF-oriented dimensions, the same ones sharp resizes after autoOrient.
-        const transform: ImagesTransform = fit === 'cover' ? { width, height, fit: 'cover', gravity: 'center' } : containTransform(w!, h!, width, height, background ?? '#000000');
+        const transform: ImagesTransform = fit === 'cover' ? { width, height, fit: 'cover', gravity: 'center' }
+          : fit === 'inside' ? insideTransform(w!, h!, width, height) : containTransform(w!, h!, width, height, background ?? '#000000');
         // WebP output is a full decode/re-encode that drops metadata; anim:false
         // is only a backstop because animated input never reaches this call.
         const result = await deadline.race(binding.input(streamOf(bytes)).transform(transform).output({ format: 'image/webp', quality, anim: false }));
         if (result.contentType() !== 'image/webp') throw new ImageRejected('image output is not WebP');
         const output = await readBounded(result.image(), spec.maxOutputBytes, deadline);
-        try { assertCanonicalWebp(output, width, height); } catch (error) { throw new ImageRejected(String(error)); }
+        try { if (fit === 'inside') assertCanonicalWebp(output, transform.width, transform.height); else assertCanonicalWebp(output, width, height); } catch (error) { throw new ImageRejected(String(error)); }
         return Buffer.from(output.buffer, output.byteOffset, output.byteLength);
       } catch (error) {
         if (error instanceof Problem || error instanceof ImageRejected) throw error;

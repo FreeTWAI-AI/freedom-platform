@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import {tokenHash,type Actor} from '../../../modules/identity-membership/service.js';
 import {createPlatformApp} from '../../../apps/platform-api/src/platform-app.js';
 import {nodeRuntime} from '../../../apps/platform-api/src/app.js';
+import {createMessageImageAssetService} from '../../../modules/assets/message-image.js';
 import {createServiceCoverAssetService,resolveServiceCoverUploadPolicy} from '../../../modules/assets/media-domain.js';
 import {createEventBannerAssetService,resolveEventBannerUploadPolicy} from '../../../modules/assets/event-banner.js';
 import {createEventVideoAssetService,resolveEventVideoUploadPolicy} from '../../../modules/assets/event-video.js';
@@ -17,6 +18,7 @@ export const origin='http://127.0.0.1:4310';
 export function mediaApp(pool:Pool,store:ObjectStore,community:string){
  return createPlatformApp(pool,origin,'local',{...nodeRuntime('local',origin),registrationCommunityId:()=>community,
   avatarAssetStore:store,
+  messageImageAssets:createMessageImageAssetService(pool,{store}),messageImageAssetStore:store,
   serviceCoverAssets:createServiceCoverAssetService(pool,{store,resolvePolicy:resolveServiceCoverUploadPolicy}),serviceCoverAssetStore:store,
   eventBannerAssets:createEventBannerAssetService(pool,{store,resolvePolicy:resolveEventBannerUploadPolicy}),eventBannerAssetStore:store,
   eventVideoAssets:createEventVideoAssetService(pool,{store,resolvePolicy:resolveEventVideoUploadPolicy}),eventVideoAssetStore:store,
