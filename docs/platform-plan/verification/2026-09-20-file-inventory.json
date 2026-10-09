@@ -12954,8 +12954,8 @@
     },
     {
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
-      "bytes": 16414,
-      "sha256": "be106c7c7c9c0316289587bc6bf220a7e70cf59f6e766f949886092734f1579f"
+      "bytes": 16494,
+      "sha256": "3a63935963de07363dc1807c44b9f9a88e35129e5f29ebe1f3857f76de0e61c4"
     },
     {
       "path": "deploy/cloudflare/test/media-caller.test.mjs",
@@ -12964,8 +12964,8 @@
     },
     {
       "path": "deploy/cloudflare/test/media-restore-container.test.mjs",
-      "bytes": 2499,
-      "sha256": "75b61b5dd493c94e292252ba7c625264e8fda0cfa714b6ef964b590a31ed4fd9"
+      "bytes": 2921,
+      "sha256": "61b68d8c2f7bd4588f9723d2f120a2c97aa59c28da1405b4925b5b1202d84b7f"
     },
     {
       "path": "deploy/cloudflare/test/media-wrangler.test.mjs",
