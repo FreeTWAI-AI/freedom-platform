@@ -354,8 +354,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 36565,
-      "sha256": "a47249053e67685fdf3dd159e775d748c1decd42c774e59875740bd100f0ec7e"
+      "bytes": 37467,
+      "sha256": "d0593ced70b1c46fdf5e0f2b90227d3eb9bc520e7c934bd4845b36feef96e1c8"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -13594,8 +13594,8 @@
     },
     {
       "path": "docs/development/platform-admin-api.md",
-      "bytes": 27689,
-      "sha256": "0ef8d0dd72f1d4c6c73f964415d30092eb0d515d7878401845ec11da8071a5f8"
+      "bytes": 28099,
+      "sha256": "eb3a1540925f7bbc5f8cd2a7eda0a574da22c3860122bc5d0507f6f6b02f7500"
     },
     {
       "path": "docs/development/post-migration-site-audit-2026-10-04.md",
@@ -18119,8 +18119,8 @@
     },
     {
       "path": "packages/contribution-tools/runtime-suites.mjs",
-      "bytes": 8159,
-      "sha256": "acd9aa98270c2d4869c7116dcfaf8d5976a5239bb718e99bfc49917c207a57b4"
+      "bytes": 8169,
+      "sha256": "ba5bb2ac07b3b9fff5b53cd49186bd9441e1d91c4d9a77052e8f7f2dad29f2a9"
     },
     {
       "path": "packages/contribution-tools/runtime-weights.mjs",
@@ -20676,6 +20676,11 @@
       "path": "tests/runtime/image-runtime.test.ts",
       "bytes": 24540,
       "sha256": "e16e4cfd809e3d8e698ca42bbfa3a7349736e81f1aa1b09cc1a85817a07eaf25"
+    },
+    {
+      "path": "tests/runtime/json-wire.test.ts",
+      "bytes": 5456,
+      "sha256": "071ed8dc9eb8bbb6ea7dbade538e9dd89ed2b808f4a7eb67ac1cb2f23420fb94"
     },
     {
       "path": "tests/runtime/launchpad-profile-defaults.test.ts",
