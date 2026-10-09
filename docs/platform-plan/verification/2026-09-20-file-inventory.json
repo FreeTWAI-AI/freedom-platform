@@ -144,8 +144,8 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "bytes": 24962,
-      "sha256": "6867714842b1eeadbf2e0b6b7f54b193a3690d8980bb47d0de11a5b892436950"
+      "bytes": 25279,
+      "sha256": "c2d9c6b3ef4eed109077aefa063c17bddfd7e70436708b7df1a961d3ecfecbb5"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -13669,8 +13669,8 @@
     },
     {
       "path": "docs/development/runtime-ci-postgres.md",
-      "bytes": 17542,
-      "sha256": "8e5b7de8a07428c09ef52f33e54db5ac8d4546355d49430b39a23ba7747d0970"
+      "bytes": 19628,
+      "sha256": "a74d3948f6bd407c9cfcf680fbfc6b3f2e04ba530c7ec27843772fb6ae079362"
     },
     {
       "path": "docs/development/service-cover-worker.md",
@@ -19309,8 +19309,8 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 55990,
-      "sha256": "de62ef5035ea741622c9e793a4878ecdbf0fb5647d19d4073cc7684f46724350"
+      "bytes": 60251,
+      "sha256": "36dbe1641c9ffcaa264ac139e35dfdeea6fcab3b5ab72c66efb0658a2ee366d0"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -19324,8 +19324,8 @@
     },
     {
       "path": "scripts/ci/verify-runtime-postgres.sh",
-      "bytes": 2264,
-      "sha256": "f0d369c2fd3886bc6c4f5193524f0d3dfc9d275831eb0df6f05553913be2d258"
+      "bytes": 2710,
+      "sha256": "6168a85ee8c9b2a63e802bddf8d7cf6b670fdb825945805414dd4217f3d34b28"
     },
     {
       "path": "scripts/lib/openrouter-acceptance-guard.ts",
@@ -20079,8 +20079,8 @@
     },
     {
       "path": "tests/integration/migration-postgres-fixture.ts",
-      "bytes": 7542,
-      "sha256": "558aa1d81620165c6231b8fdafed080638fe7dee3b45ca64f3cdcf7156b58d83"
+      "bytes": 8068,
+      "sha256": "b19b2baae26952c59bf4fd6749f92e10faef1ad7bad1b68eda44805663f28477"
     },
     {
       "path": "tests/integration/native-consumer-runtime.test.ts",
