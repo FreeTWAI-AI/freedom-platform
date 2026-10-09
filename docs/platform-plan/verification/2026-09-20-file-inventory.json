@@ -14734,8 +14734,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 22205,
-      "sha256": "4391d7e718e438390921acec8301093f20e107cba4ce9256887f7a921b3e2c21"
+      "bytes": 23311,
+      "sha256": "e099642f11bc7fec60a5711e5a22621d17c1be310aa389d53e69cc95cefe44ca"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15164,8 +15164,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 89827,
-      "sha256": "96fbe46d2a828c78a6d63af08b283bc15ffa2e24185a7f34ef38bf4e5101f25a"
+      "bytes": 89906,
+      "sha256": "77016d1eb382159ed275a36ab01c8cbed350468a532e19eda0b5123565713110"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",

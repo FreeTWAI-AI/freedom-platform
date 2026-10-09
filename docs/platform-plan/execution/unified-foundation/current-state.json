@@ -45,6 +45,7 @@
     },
     "staging": {
       "url": "https://staging.freetwai.com/",
+      "last_operator_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
       "observed_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
       "observed_at": "2026-10-09T16:16:20.482Z",
       "health": {

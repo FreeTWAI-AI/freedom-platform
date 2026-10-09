@@ -6,9 +6,13 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 release.staging=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 flag.production=true flag.staging=true repo_max_migration=140 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-09 release.production=8a98bb14d0ba024ac94fb704aa41272a775b0775 release.staging=8a98bb14d0ba024ac94fb704aa41272a775b0775 flag.production=true flag.staging=true repo_max_migration=140 applied_migration.production=140 applied_migration.staging=140 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本節部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+2026-10-09 更新（operator 私有收據的去敏摘要，非本文件獨立 live 查驗）：production 與 staging 都已部署 reviewed runtime `8a98bb14`（#339），同一份 dist；兩邊 ledger 已到 140，共 139 筆（保留 022 歷史缺號）。staging 於 16:16Z、production 於 16:29Z 觀察到該版本。既有 guild launchpad flag 保持開啟，新預設關閉功能維持關閉。staging 為 34 項公開＋61 項 authenticated HTTP 檢查，production 為 34＋19；production 不宣稱四種清單 continuation 或 merchant/payment 流程通過。本輪沒有 live browser automation，完整 Foundation／M1／第二操作者復原均未接受。詳見 [10 月 9 日發布收據](../unified-foundation/rollout-2026-10-09.json)；後續 docs／CI-source merge #340 `bb9f42d5` 不同於 runtime，installed CI pin 未改。
+
+以下 r9 的部署／migration／功能與候選描述保留為 2026-10-08 歷史紀錄；最新部署與已套用 schema 以上述 10 月 9 日摘要及現況快照為準，不把本輪 selected HTTP checks 當成原 T-ID 或完整產品驗收。
+
+本節以下的部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
 
 狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。本機候選最新 migration 是 140（商店版型呈現，尚未部署；139 為私訊圖片 Asset，尚未部署；HO-1/2 候選帶進 138，為自有商品預留的封閉後端，尚未合併或啟用 API；社群搜尋標籤候選新增 137、會員封鎖修復候選新增 136；線上商店會員畫面帶進 135，把線上商店提供給所有公會；線上商店後端帶進 134；#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），r9 時點兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用；134、135 在 r9 收據時點尚未套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
