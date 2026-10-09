@@ -21794,8 +21794,8 @@
     },
     {
       "path": "tests/runtime/tenant-rls-retarget.test.ts",
-      "bytes": 50051,
-      "sha256": "b5968adeb622e384f39f7c7454f7144c857c6c3348699079afc85d2bffef3ccd"
+      "bytes": 50058,
+      "sha256": "9a2746d3e3857fc3886889ec07327c1c66891e2c6e60d76a91e84436c7c191da"
     },
     {
       "path": "tests/runtime/tenant-rls-runtime-role.test.ts",

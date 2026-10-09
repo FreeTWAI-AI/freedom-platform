@@ -537,7 +537,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       await quiet();
       const view = await call('GET', root, data.session);
       assert.equal(view.status, 200, JSON.stringify(view.data));
-      const published = await post(root + '/publish', data.session, {}, view.data.version);
+      const published = await post(root + '/publish', data.session, {}, `"${view.data.version}"`);
       assert.equal(published.status, 200, JSON.stringify(published.data));
     }
   } finally {
