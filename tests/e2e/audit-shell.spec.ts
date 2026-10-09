@@ -291,7 +291,8 @@ test('selecting the current page closes More and leaves the legacy commerce cont
       await expect(page.getByRole('heading', { name: '我可以賣東西', level: 1, exact: true })).toBeVisible();
       const phoneMenu = page.getByRole('button', { name: '開啟選單', exact: true });
       if (await phoneMenu.isVisible()) await phoneMenu.click();
-      const nav = page.getByRole('navigation', { name: '主要工作區' });
+      const nav = page.getByRole('navigation', { name: '主要工作區', includeHidden: true });
+      await expect(nav).toBeVisible();
       const more = nav.locator('.nav-more');
       await more.locator(':scope > summary').click();
       await expect(more).toHaveJSProperty('open', true);
@@ -301,6 +302,7 @@ test('selecting the current page closes More and leaves the legacy commerce cont
         await current.focus();
         await page.keyboard.press('Enter');
       } else await current.click();
+      if (width === 390) await expect(nav).toBeHidden();
       await expect(more).toHaveJSProperty('open', false);
       await expect(page).toHaveURL(/#retail$/);
       await expect(page.locator('#main-content')).toBeFocused();
