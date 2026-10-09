@@ -241,22 +241,25 @@ test('100 polls use bounded ID receipts and a cached read reference still expire
     FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
   await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
   assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'reserved');
-  // A projection started before expiry may correctly reject its stale reserved
-  // view at the final clock fence. Retry only that domain conflict, keeping the
-  // exact read identity; all other errors and a second failure still fail.
-  const readAcrossDeadline = async (read: () => Promise<unknown>) => {
-    try { await read(); }
-    catch (error) { assert.equal((error as { code?: string }).code, 'reservation_clock_changed'); await read(); }
+  // A projection can cross the actual database expiry before the final fence.
+  // Retry only that deliberate conflict once, with the same public read tuple;
+  // other failures and a second conflict still fail this test immediately.
+  const current = async <T>(read: () => Promise<T>) => {
+    try { return await read(); }
+    catch (error) {
+      if ((error as { code?: string }).code !== 'reservation_clock_changed') throw error;
+      return read();
+    }
   };
   for (let n = 0; n < 100; n++) {
-    await readAcrossDeadline(() => readDirectOrder(runtime, s.buyer, orderId));
-    await readAcrossDeadline(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent));
+    await current(() => readDirectOrder(runtime, s.buyer, orderId));
+    await current(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent));
   }
   assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_command_receipts WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])", [[orderId, intent]])).rows[0].n, 2);
   const end = Date.now() + 5000;
   while (Date.now() < end && !(await h.pool.query('SELECT expires_at<=clock_timestamp() AS expired FROM commerce_orders WHERE order_id=$1', [orderId])).rows[0].expired) { /* DB clock, no wall-time sleep */ }
-  assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'expired');
-  assert.equal((await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent)).state, 'expired');
+  assert.equal((await current(() => readDirectOrder(runtime, s.buyer, orderId))).state, 'expired');
+  assert.equal((await current(() => readDirectOrderByIntent(runtime, s.buyer, s.slug, intent))).state, 'expired');
   assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved, 0);
   assert.equal((await h.pool.query("SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2", [orderId])).rowCount, 1);
   assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM scoped_command_receipts WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])", [[orderId, intent]])).rows[0].n, 2);
@@ -348,4 +351,117 @@ test('requested item 101 makes physical expiry progress without cycling an unrel
   assert.equal(reserved.state, 'reserved');
   assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [target.item_id])).rows[0].reserved, 1);
   assert.equal((await h.pool.query('SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2', [targetId])).rowCount, 1);
+});
+
+// Local diagnostic only: original cases above remain byte-identical to 41c.
+// These barriers execute real SQL on the same transaction; no clock, DTO,
+// receipt result or production trigger is mocked/disabled.
+async function diagnosticRetainedOrder() {
+  const s = await fixture(), q = await quote(s), intent = randomUUID();
+  const source = await submitDirectOrder(runtime, s.buyer, s.slug, body(q), randomUUID());
+  await cancelDirectOrder(runtime, s.buyer, source.order_id, randomUUID(), '1');
+  // Historical committed order has three seconds left. No production clock or
+  // immutable trigger is modified. Its actual buyer and quote bindings persist.
+  const retainedQuote = await pastQuote(q.quote_id, 30 + 57 / 60), orderId = randomUUID();
+  const { digest } = await import('../../packages/db/index.js');
+  await h.pool.query(`INSERT INTO commerce_orders(order_id,public_shop_id,external_id,request_sha256,currency,total_minor,created_at,expires_at,
+    order_profile,quote_id,buyer_principal_id,client_order_id,reservation_state,reservation_version)
+    SELECT $2,o.public_shop_id,o.buyer_principal_id::text||':'||$4::text,$5,o.currency,o.total_minor,quote.quoted_at+interval '1 minute',quote.quoted_at+interval '31 minutes',
+      'hosted_direct_reservation',$3,o.buyer_principal_id,$4::uuid,'reserved',1 FROM commerce_orders o JOIN commerce_order_quotes quote ON quote.quote_id=$3 WHERE order_id=$1`,
+  [source.order_id, orderId, retainedQuote, intent, digest({ quote_id: retainedQuote, terms_sha256: q.terms_sha256, client_order_id: intent })]);
+  await h.pool.query(`INSERT INTO commerce_order_lines SELECT $2,selection_id,transfer_id,item_id,quantity,snapshot,acceptance_id,listing_sha256,order_profile
+    FROM commerce_order_lines WHERE order_id=$1`, [source.order_id, orderId]);
+  await h.pool.query('UPDATE commerce_items SET reserved=reserved+1 WHERE item_id=$1', [s.product.product_id]);
+  return { s, orderId, intent };
+}
+async function diagnosticWaitForExpiry(orderId: string, queryMarker: string) {
+  const end = Date.now() + 10000;
+  let blocked = false, expired = false;
+  while (Date.now() < end) {
+    const state = (await h.pool.query(`SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+      WHERE datname=current_database() AND wait_event='advisory' AND query LIKE $2) AS blocked,
+      (SELECT expires_at<=clock_timestamp() FROM commerce_orders WHERE order_id=$1) AS expired`,
+    [orderId, `%${queryMarker}%`])).rows[0];
+    blocked ||= state.blocked; expired = state.expired;
+    if (blocked && expired) break;
+  }
+  assert.equal(blocked, true, 'observed the actual command blocked at the selected SQL barrier');
+  assert.equal(expired, true, 'database clock reached the immutable reservation deadline');
+}
+async function diagnosticAssertTerminal(f: Awaited<ReturnType<typeof diagnosticRetainedOrder>>) {
+  const { s, orderId, intent } = f;
+  for (let n = 0; n < 100; n++) {
+    assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'expired');
+    assert.equal((await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent)).state, 'expired');
+  }
+  assert.deepEqual((await h.pool.query('SELECT reservation_state,reservation_version::text,close_reason FROM commerce_orders WHERE order_id=$1', [orderId])).rows[0],
+    { reservation_state: 'expired', reservation_version: '2', close_reason: 'reservation_expired' });
+  assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved, 0);
+  assert.equal((await h.pool.query("SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2", [orderId])).rowCount, 1);
+  const receipts = (await h.pool.query(`SELECT idempotency_key,response FROM scoped_command_receipts
+    WHERE operation='storefront.order.read' AND target_id=ANY($1::uuid[])`, [[orderId, intent]])).rows;
+  const { digest } = await import('../../packages/db/index.js');
+  assert.deepEqual(receipts.map(r => r.idempotency_key).sort(),
+    [`order-read-${orderId}`, `intent-read-${digest({ slug: s.slug, client_order_id: intent })}`].sort());
+  for (const receipt of receipts) assert.deepEqual(receipt.response, { id: orderId });
+}
+
+test('diagnostic A: actual read receipt INSERT crosses expiry before projection and releases once', async () => {
+  const gate = await h.pool.connect();
+  await gate.query('SELECT pg_advisory_lock(918273646)');
+  let pending: Promise<{ value?: unknown; error?: unknown }> | undefined;
+  try {
+    const f = await diagnosticRetainedOrder();
+    await h.pool.query(`CREATE FUNCTION ho_diag_read_receipt_gate() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.operation='storefront.order.read' AND NEW.idempotency_key='order-read-${f.orderId}'
+        THEN
+          IF NOT EXISTS(SELECT 1 FROM commerce_orders WHERE order_id=NEW.target_id AND expires_at>clock_timestamp())
+            THEN RAISE EXCEPTION 'diagnostic fixture expired before receipt barrier'; END IF;
+          PERFORM pg_advisory_xact_lock(918273646);
+        END IF; RETURN NEW; END $$;
+      CREATE TRIGGER ho_diag_read_receipt_gate AFTER INSERT ON scoped_command_receipts
+      FOR EACH ROW EXECUTE FUNCTION ho_diag_read_receipt_gate()`);
+    pending = readDirectOrder(runtime, f.s.buyer, f.orderId).then(value => ({ value }), error => ({ error }));
+    try { await diagnosticWaitForExpiry(f.orderId, 'INSERT INTO scoped_command_receipts'); }
+    finally { await gate.query('SELECT pg_advisory_unlock(918273646)'); }
+    const result = await pending;
+    assert.ok(!('error' in result), String(result.error));
+    assert.equal((result.value as { state: string }).state, 'expired');
+    await diagnosticAssertTerminal(f);
+  } finally {
+    await gate.query('SELECT pg_advisory_unlock(918273646)'); gate.release();
+    await pending;
+    await h.pool.query('DROP TRIGGER IF EXISTS ho_diag_read_receipt_gate ON scoped_command_receipts; DROP FUNCTION IF EXISTS ho_diag_read_receipt_gate()');
+  }
+});
+
+test('diagnostic B: actual reserved projection crosses expiry, exact error then original read key recovers', async () => {
+  const f = await diagnosticRetainedOrder(), { s, orderId, intent } = f;
+  assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'reserved');
+  assert.equal((await readDirectOrderByIntent(runtime, s.buyer, s.slug, intent)).state, 'reserved');
+  const { directCommand } = await import('../../modules/agent-commerce/hosted/direct-authority.js');
+  const { directOrderView } = await import('../../modules/agent-commerce/hosted/direct-effects.js');
+  const gate = await h.pool.connect();
+  await gate.query('SELECT pg_advisory_lock(918273647)');
+  // Exact public read operation/body/key/target and real projector. Only this
+  // server-owned diagnostic wrapper introduces the inter-statement DB wait.
+  const pending = directCommand(runtime, s.buyer, { order_id: orderId }, 'storefront.order.read', {},
+    `order-read-${orderId}`, orderId, undefined,
+    async () => { assert.fail('already committed ID receipt must replay without running the effect'); },
+    async (q, context, id) => {
+      const view = await directOrderView(q, context, id);
+      assert.equal(view.state, 'reserved', 'barrier must start after a real reserved projection');
+      await q.query('SELECT pg_advisory_xact_lock(918273647) /* ho307-projector-barrier */');
+      return view;
+    }).then(value => ({ value }), error => ({ error }));
+  try {
+    await diagnosticWaitForExpiry(orderId, 'ho307-projector-barrier');
+  } finally { await gate.query('SELECT pg_advisory_unlock(918273647)'); gate.release(); }
+  const result = await pending;
+  assert.ok('error' in result); assert.equal(result.error.code, 'reservation_clock_changed');
+  // Rejected stale projection rolled back: no premature release or terminal fact.
+  assert.equal((await h.pool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved, 1);
+  assert.equal((await h.pool.query('SELECT 1 FROM scoped_transition_journal WHERE aggregate_id=$1 AND aggregate_version=2', [orderId])).rowCount, 0);
+  assert.equal((await readDirectOrder(runtime, s.buyer, orderId)).state, 'expired');
+  await diagnosticAssertTerminal(f);
 });
