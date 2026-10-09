@@ -105,6 +105,8 @@ const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [s
   ['tenant-work', TENANT_WORK_DESCRIPTION, tenantWorkDocuments],
   ['hosted-store-media', 'Independent hosted store media candidate. No upload or read route is installed; Asset identity and current authorization stay server-only.', [
     ['product-media', hostedMedia.ProductMediaViewSchema, 'output', ['exact_product_version_path', 'current_same_instance_store_read', 'authorized_ready_photo_representation']],
+    ['product-media-page', hostedMedia.ProductMediaPageSchema, 'output', ['unique_product_ids', 'current_same_instance_store_read']],
+    ['product-media-command', hostedMedia.ProductMediaCommandSchema, 'output', ['same_product_identity', 'original_completed_version', 'current_version_not_older_than_completion', 'current_same_instance_store_write']],
     ['public-store-media', hostedMedia.PublicStoreMediaSchema, 'output', ['unique_skus', 'exact_publication_revision_sku_path', 'current_publication_liveness', 'immutable_media_digest']],
     ['remove-photo-input', hostedMedia.RemoveProductPhotoInputSchema, 'input', ['current_same_instance_store_write', 'product_selection_version_cas']],
   ]],

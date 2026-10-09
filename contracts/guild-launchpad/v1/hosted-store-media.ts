@@ -40,5 +40,15 @@ export const PublicStoreMediaSchema = z.object({
   .refine(value => value.photos.every(item => item.photo.read_path === `/shops/${value.slug}/media/${value.revision}/${item.sku}`));
 /** Removal is a normal product CAS command; no caller-selected Asset attachment. */
 export const RemoveProductPhotoInputSchema = z.object({}).strict();
+export const ProductMediaPageSchema = z.object({
+  profile: z.literal(HOSTED_STORE_MEDIA_PROFILE), items: z.array(ProductMediaViewSchema).max(200),
+}).strict().refine(value => new Set(value.items.map(item => item.product_id)).size === value.items.length);
+/** completed_version belongs to the original command; current can be newer. */
+export const ProductMediaCommandSchema = z.object({
+  profile: z.literal(HOSTED_STORE_MEDIA_PROFILE), product_id: OpaqueId,
+  completed_version: Version, changed: z.boolean(), current: ProductMediaViewSchema,
+}).strict().refine(value => value.product_id === value.current.product_id
+  && BigInt(value.completed_version) <= BigInt(value.current.version));
 export type ProductMediaView = z.infer<typeof ProductMediaViewSchema>;
 export type PublicStoreMedia = z.infer<typeof PublicStoreMediaSchema>;
+export type ProductMediaCommand = z.infer<typeof ProductMediaCommandSchema>;

@@ -75,6 +75,199 @@
       "additionalProperties": false,
       "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: exact_product_version_path, current_same_instance_store_read, authorized_ready_photo_representation."
     },
+    "product-media-page": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "freedom.hosted-store-media/v1"
+        },
+        "items": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "profile": {
+                "type": "string",
+                "const": "freedom.hosted-store-media/v1"
+              },
+              "product_id": {
+                "type": "string",
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "version": {
+                "type": "string",
+                "maxLength": 19,
+                "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+              },
+              "photo": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "content_type": {
+                        "type": "string",
+                        "const": "image/webp"
+                      },
+                      "byte_size": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1048576
+                      },
+                      "width": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1920
+                      },
+                      "height": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1920
+                      },
+                      "read_path": {
+                        "type": "string",
+                        "maxLength": 220,
+                        "pattern": "^\\/api\\/v1\\/tenants\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/storefronts\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/products\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/photo\\/([1-9][0-9]{0,18})$(?![\\s\\S])"
+                      }
+                    },
+                    "required": [
+                      "content_type",
+                      "byte_size",
+                      "width",
+                      "height",
+                      "read_path"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "profile",
+              "product_id",
+              "version",
+              "photo"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "profile",
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: unique_product_ids, current_same_instance_store_read."
+    },
+    "product-media-command": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "freedom.hosted-store-media/v1"
+        },
+        "product_id": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "completed_version": {
+          "type": "string",
+          "maxLength": 19,
+          "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "current": {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "const": "freedom.hosted-store-media/v1"
+            },
+            "product_id": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 19,
+              "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$(?![\\s\\S])"
+            },
+            "photo": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "content_type": {
+                      "type": "string",
+                      "const": "image/webp"
+                    },
+                    "byte_size": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1048576
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1920
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1920
+                    },
+                    "read_path": {
+                      "type": "string",
+                      "maxLength": 220,
+                      "pattern": "^\\/api\\/v1\\/tenants\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/storefronts\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/products\\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\\/photo\\/([1-9][0-9]{0,18})$(?![\\s\\S])"
+                    }
+                  },
+                  "required": [
+                    "content_type",
+                    "byte_size",
+                    "width",
+                    "height",
+                    "read_path"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "profile",
+            "product_id",
+            "version",
+            "photo"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "profile",
+        "product_id",
+        "completed_version",
+        "changed",
+        "current"
+      ],
+      "additionalProperties": false,
+      "description": "Structural shape only. The server decides identity, membership, capability, current version and quotas. Server-only rules: same_product_identity, original_completed_version, current_version_not_older_than_completion, current_same_instance_store_write."
+    },
     "public-store-media": {
       "type": "object",
       "properties": {
