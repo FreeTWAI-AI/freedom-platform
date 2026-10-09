@@ -60,7 +60,8 @@
     "tests/e2e/guild-launchpad-profiles.spec.ts",
     "apps/portal-web/src/modules/PositioningActionCard.tsx",
     "apps/portal-web/src/modules/work-document-reader.ts",
-    "tests/runtime/positioning-action-card.test.ts"
+    "tests/runtime/positioning-action-card.test.ts",
+    "tests/runtime/launchpad-profile-defaults.test.ts"
   ],
   "public_exports": [
     "modules/guild-workspace/launchpad-config.ts",

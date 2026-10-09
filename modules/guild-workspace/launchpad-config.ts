@@ -12,8 +12,8 @@ import {
 import {assertOfferedApplications, availableReleases} from '../module-registry/catalog.js';
 import {LAUNCHPAD_PROFILES} from './launchpad-profiles.js';
 
-/** Revision 3 recommends the hosted store first for commerce members. */
-export const PLATFORM_DEFAULT_REVISION = '3';
+/** Revision 4 exposes the existing direction card through the talent default. */
+export const PLATFORM_DEFAULT_REVISION = '4';
 /** Initial pointer CAS remains 1 independently of the default content revision. */
 export const DEFAULT_POINTER_VERSION = '1';
 export const PUBLISHED_EVENT = 'freedom.guild.launchpad.config.published.v1';
@@ -45,6 +45,8 @@ const STARTER_CELLS: Record<string, string> = {
   guild_human_design: '共讀來源／限制／反思',
 };
 function starterCopy(guildKey: string): Config['starter'] {
+  // SP-03's original starter cells above remain the historical v0 wording.
+  if (guildKey === 'guild_talent_direction') return {title_label: '我的方向卡', objective_hint: '寫下一至兩個小活動，選一個開始，記錄完成條件與回顧。', note_hint: NOTE_HINT};
   const cell = STARTER_CELLS[guildKey];
   if (!cell) return {title_label: FALLBACK_TITLE, objective_hint: OBJECTIVE_HINT, note_hint: NOTE_HINT};
   const split = cell.indexOf('；');
