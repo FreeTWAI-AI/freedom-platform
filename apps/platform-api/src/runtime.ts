@@ -98,4 +98,8 @@ export type PlatformRuntime = {
   communityRelationsEnabled?: boolean;
   /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
   personalContentEnabled?: boolean;
+  /** Explicit authored squad publication; no private Result or roster publication. */
+  squadOutcomesEnabled?: boolean;
+  /** Event summaries and current-authorized canonical outcome links. */
+  eventOutcomesEnabled?: boolean;
 };

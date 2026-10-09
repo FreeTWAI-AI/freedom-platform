@@ -8,6 +8,8 @@ import {SkillShare,isSkillIllustrationUrl,submissionSharePath} from './SkillShar
 import {GitHubSourceLinks} from './GitHubSocial';
 import {relationshipLabels} from './SkillUpload';
 import {useSkillDiscovery} from './skill-discovery-client';
+import {client as sessionClient} from '../portal-session';
+import {EventOutcomeBacklinks} from './EventOutcomeBacklinks';
 import './SkillBookIntro.css';
 
 type Submission={submission_id:string;title:string;description:string;relationship:keyof typeof relationshipLabels;cover_url:string;illustration_url:string|null;
@@ -88,6 +90,7 @@ function SubmissionIntro({item}:{item:Submission}){
         <div className="actions skill-intro-primary-actions">{repository&&<a className="btn btn-primary" href={repository} target="_blank" rel="noopener noreferrer">開啟原作 ↗</a>}{demo&&<a className="btn btn-ghost" href={demo} target="_blank" rel="noopener noreferrer">開啟展示 ↗</a>}<a className="btn btn-ghost" href={page} target="_blank" rel="noopener noreferrer">開啟介紹頁 ↗</a></div>
         {repository&&<GitHubSourceLinks repositoryUrl={repository}/>}
         <SkillShare submissionId={item.submission_id} title={item.title}/>
+        {open&&<EventOutcomeBacklinks client={sessionClient} kind="skill_book" sourceId={item.submission_id} publicRead={!sessionClient.csrfToken}/>}
         {repository&&<section className="skill-intro-collaboration"><h3>一起開發</h3><p>查看專案任務，認領一項修改並提交 PR。</p><div className="actions"><a className="btn btn-primary" href={`${repository}/issues`} target="_blank" rel="noopener noreferrer">查看專案任務 ↗</a><a className="btn btn-ghost" href={`${page}/SKILL.md`} target="_blank" rel="noopener noreferrer">交給 Agent ↗</a><a className="btn btn-ghost" href={`${repository}/pulls`} target="_blank" rel="noopener noreferrer">查看原作 PR ↗</a><a className="btn btn-ghost" href={`${repository}/fork`} target="_blank" rel="noopener noreferrer">Fork 原作 ↗</a></div><p className="field-hint">修改以 PR 回饋原作，由原作維護者審查；Fork 不會自動回饋原作。</p></section>}
         <details className="skill-intro-details"><summary>開始使用</summary><div className="stack">{current?<pre className="skill-intro-command"><code>{current.useNotes}</code></pre>:detailError?<div role="alert"><p>{detailError}</p><button type="button" className="btn btn-ghost" onClick={()=>setReload(value=>value+1)}>重新載入使用說明</button></div>:<p role="status">正在載入使用說明…</p>}</div></details>
         <details className="skill-intro-details skill-intro-source"><summary>作者、授權與收錄來源</summary><div className="stack"><p>分享者與來源的關係為自行聲明，尚未核實作者身分；收錄不代表公會指定。</p><p>{license==='NOASSERTION'?'來源未明確宣告授權條款；Fork 不代表額外取得作品、素材或程式的使用權。':`來源記錄的程式授權：${license}。素材與引用內容請另外查看專案說明。`}</p>{evidence&&<a href={evidence} target="_blank" rel="noopener noreferrer">閱讀授權 ↗</a>}{item.source.archived&&<p className="field-hint">來源 Repo 已封存。</p>}{/^[0-9a-f]{40}$/.test(item.source.commit_sha)&&<p className="field-hint">收錄版本：<code>{item.source.commit_sha.slice(0,12)}</code></p>}</div></details>

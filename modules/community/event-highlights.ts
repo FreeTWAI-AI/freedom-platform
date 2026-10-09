@@ -13,6 +13,12 @@ import {avatarUrl} from '../identity-membership/avatars.js';
 import {privateHost} from '../identity-membership/social-links.js';
 import {rasterFormat, rejectAnimation} from '../skill-submissions/payload.js';
 import {discoveryEventSql} from './public-discovery.js';
+import {validateAndBindEventOutcomeMedia,readEventOutcomeMediaAuthorization} from './event-outcomes.js';
+type HighlightViewer={communityId:string;userId:string};
+async function readableMedia(q:Pick<Pool,'query'>,mediaId:string,viewer:HighlightViewer|null){
+  const binding=await readEventOutcomeMediaAuthorization(q,mediaId,viewer);
+  return binding?.authorized!==false;
+}
 
 const PAGE_SIZE = 12;
 const IMAGE_MAX = 10 * 1024 * 1024;
@@ -45,8 +51,8 @@ const platformHosts: [HighlightPlatform, string[]][] = [
   ['google_drive', ['drive.google.com']],
   ['google_photos', ['photos.google.com', 'photos.app.goo.gl']],
 ];
-const linkBody = z.object({url: z.string().max(3000), title: z.string().max(400).optional()}).strict();
-const preparedLink = z.object({url: z.string().min(1).max(2048), title: z.string().min(1).max(120), platform: z.enum(highlightPlatforms)}).strict();
+const linkBody = z.object({url: z.string().max(3000), title: z.string().max(400).optional(),outcome_id:z.uuid().optional()}).strict();
+const preparedLink = z.object({url: z.string().min(1).max(2048), title: z.string().min(1).max(120), platform: z.enum(highlightPlatforms),outcome_id:z.uuid().optional()}).strict();
 
 function hostIs(host: string, domain: string) { return host === domain || host.endsWith('.' + domain); }
 export function classifyHighlightPlatform(host: string): HighlightPlatform {
@@ -83,7 +89,7 @@ export function normalizeHighlightLink(raw: unknown) {
   requireCondition(url.length <= 2048 && url.startsWith('https://'), 422, 'highlight_url_invalid', '網址過長。');
   const platform = classifyHighlightPlatform(parsed!.hostname);
   const title = cleanHighlightTitle(input.title) ?? defaultTitles[platform];
-  return preparedLink.parse({url, title, platform});
+  return preparedLink.parse({url, title, platform,...(input.outcome_id?{outcome_id:input.outcome_id.toLowerCase()}:{})});
 }
 
 function animated(bytes: Buffer, format: 'png' | 'jpeg' | 'webp') {
@@ -132,8 +138,14 @@ export async function normalizeHighlightImage(bytes: Buffer, mime: string, orien
   }
 }
 
-const listedSql = `e.state='published' AND e.ends_at<=now()
+const listedSql = `e.state='published' AND e.ends_at<=clock_timestamp()
  AND ($1::uuid IS NULL OR e.community_id=$1)
+ AND (($2::uuid IS NULL AND e.visibility IN ('open','referral')) OR
+   ($2::uuid IS NOT NULL AND EXISTS(SELECT 1 FROM users viewer WHERE viewer.user_id=$2 AND viewer.community_id=e.community_id
+     AND viewer.active AND (NOT viewer.onboarding_required OR viewer.onboarding_completed_at IS NOT NULL))
+    AND (e.visibility<>'guild' OR e.organizer_ref=$2 OR EXISTS(
+      SELECT 1 FROM positioning_profession_memberships gm WHERE gm.community_id=e.community_id
+      AND gm.user_id=$2 AND gm.guild_key=e.guild_key AND gm.state='active'))))
  AND (($2::uuid IS NOT NULL AND e.organizer_ref=$2) OR NOT is_verification_test_account(e.organizer_ref))`;
 const attendanceSql = `((SELECT count(*)::int FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.state='going' AND NOT is_verification_test_account(r.user_id))+
  (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=e.event_id AND g.email_sent_at IS NOT NULL))`;
@@ -166,9 +178,9 @@ export function readHighlightCursor(raw: string | undefined, loose: boolean) {
 }
 
 function iso(value: Date | string) { return new Date(value).toISOString(); }
-function imagePath(mediaId: string) { return `/api/v1/public/event-highlights/media/${mediaId}/image`; }
-function thumbPath(mediaId: string) { return `/api/v1/public/event-highlights/media/${mediaId}/thumb`; }
-function bannerPath(eventId: string) { return `/api/v1/public/event-highlights/${eventId}/banner`; }
+function imagePath(mediaId: string,member=false) { return `/api/v1/${member?'':'public/'}event-highlights/media/${mediaId}/image`; }
+function thumbPath(mediaId: string,member=false) { return `/api/v1/${member?'':'public/'}event-highlights/media/${mediaId}/thumb`; }
+function bannerPath(eventId: string,member=false) { return `/api/v1/${member?'':'public/'}event-highlights/${eventId}/banner`; }
 function uniqueViolation(error: unknown) { return typeof error === 'object' && error !== null && 'code' in error && (error as {code: string}).code === '23505'; }
 function limitProblem(kind: HighlightKind, scope: 'mine' | 'event') {
   const limit = limits[kind];
@@ -177,14 +189,14 @@ function limitProblem(kind: HighlightKind, scope: 'mine' | 'event') {
   return new Problem(409, 'highlight_limit_reached', `${who} ${amount} ${limit.unit}。`);
 }
 type CardRow = {event_id: string; title: string; starts_at: Date; ends_at: Date; ends_cursor: string; mode: string; event_kind: string; organizer_name: string; attending_count: number; banner_orientation: Orientation | null; description?: string; organizer_ref?: string; community_id?: string};
-type ItemRow = {event_id?: string; media_id: string; kind: HighlightKind; title: string | null; url: string | null; platform: HighlightPlatform | null; orientation: Orientation | null; created_at: Date; uploader_user_id?: string; display_name?: string; avatar_version?: string | number | null; avatar_present?: boolean};
+type ItemRow = {event_id?: string; media_id: string; kind: HighlightKind; title: string | null; url: string | null; platform: HighlightPlatform | null; orientation: Orientation | null; created_at: Date; uploader_user_id?: string; display_name?: string; avatar_version?: string | number | null; avatar_present?: boolean;outcome_bound?:boolean};
 
-function coverFor(eventId: string, banner: Orientation | null, items: ItemRow[]) {
-  if (banner) return {kind: 'banner' as const, url: bannerPath(eventId)};
+function coverFor(eventId: string, banner: Orientation | null, items: ItemRow[],member=false) {
+  if (banner) return {kind: 'banner' as const, url: bannerPath(eventId,member)};
   const poster = items.find(item => item.kind === 'poster');
-  if (poster) return {kind: 'poster' as const, url: imagePath(poster.media_id)};
+  if (poster) return {kind: 'poster' as const, url: imagePath(poster.media_id,member)};
   const photo = items.find(item => item.kind === 'photo');
-  if (photo) return {kind: 'photo' as const, url: thumbPath(photo.media_id)};
+  if (photo) return {kind: 'photo' as const, url: thumbPath(photo.media_id,member)};
   const video = items.find(item => item.kind === 'link' && item.url && youtubeThumbnailUrl(item.url));
   if (video?.url) return {kind: 'youtube' as const, url: youtubeThumbnailUrl(video.url)!};
   return null;
@@ -201,21 +213,22 @@ function presentItem(row: ItemRow, organizerId: string, viewerId: string | null,
     const thumbnail = row.url ? youtubeThumbnailUrl(row.url) : null;
     return {...base, url: row.url, platform: row.platform, ...(thumbnail ? {thumbnail_url: thumbnail} : {})};
   }
-  return {...base, image_url: imagePath(row.media_id), thumb_url: thumbPath(row.media_id), orientation: row.orientation};
+  return {...base, image_url: imagePath(row.media_id,Boolean(viewerId)), thumb_url: thumbPath(row.media_id,Boolean(viewerId)), orientation: row.orientation};
 }
-function card(row: CardRow, items: ItemRow[]) {
+function card(row: CardRow, items: ItemRow[],member=false) {
   return {event_id: row.event_id, title: row.title, starts_at: iso(row.starts_at), ends_at: iso(row.ends_at), mode: row.mode, event_kind: row.event_kind,
     organizer_name: row.organizer_name, attending_count: Number(row.attending_count), public_path: `/highlights/${row.event_id}`,
-    cover: coverFor(row.event_id, row.banner_orientation, items), counts: countsFor(items)};
+    cover: coverFor(row.event_id, row.banner_orientation, items,member), counts: countsFor(items)};
 }
 
-async function visibleItems(q: Pick<Pool, 'query'>, eventIds: string[], viewerId: string | null) {
+async function visibleItems(q: Pick<Pool, 'query'>, eventIds: string[], viewerId: string | null,communityId:string|null) {
   if (!eventIds.length) return new Map<string, ItemRow[]>();
-  const rows = (await q.query(`SELECT h.event_id,h.media_id,h.kind,h.title,h.url,h.platform,h.created_at
+  const rows = (await q.query(`SELECT h.event_id,h.media_id,h.kind,h.title,h.url,h.platform,h.created_at,EXISTS(SELECT 1 FROM community_event_outcome_media binding WHERE binding.media_id=h.media_id) AS outcome_bound
     FROM community_event_highlights h WHERE h.event_id = ANY($1::uuid[]) AND h.state='active' AND ${itemVisible}
     ORDER BY h.created_at DESC, h.media_id DESC`, [eventIds, viewerId])).rows as ItemRow[];
   const grouped = new Map<string, ItemRow[]>();
   for (const row of rows) {
+    if(row.outcome_bound&&!await readableMedia(q,row.media_id,viewerId&&communityId?{communityId,userId:viewerId}:null))continue;
     const list = grouped.get(row.event_id!) ?? [];
     list.push(row);
     grouped.set(row.event_id!, list);
@@ -234,9 +247,9 @@ export async function listHighlightEvents(pool: Pool, scope: {communityId: strin
     ORDER BY e.ends_at DESC, e.event_id DESC LIMIT ${PAGE_SIZE + 1}`,
   [scope.communityId, scope.viewerId, scope.mode, scope.cursor?.endsAt ?? null, scope.cursor?.eventId ?? null])).rows as CardRow[];
   const page = rows.slice(0, PAGE_SIZE);
-  const grouped = await visibleItems(pool, page.map(row => row.event_id), scope.viewerId);
+  const grouped = await visibleItems(pool, page.map(row => row.event_id), scope.viewerId,scope.communityId);
   const last = page.at(-1);
-  return {items: page.map(row => card(row, grouped.get(row.event_id) ?? [])), next_cursor: rows.length > PAGE_SIZE && last ? encodeHighlightCursor(last.ends_cursor, last.event_id) : null};
+  return {items: page.map(row => card(row, grouped.get(row.event_id) ?? [],Boolean(scope.viewerId))), next_cursor: rows.length > PAGE_SIZE && last ? encodeHighlightCursor(last.ends_cursor, last.event_id) : null};
 }
 
 async function isPlatformAdmin(q: Pick<Pool, 'query'>, userId: string, communityId: string) {
@@ -273,16 +286,18 @@ function assertRoom(counts: {my_links: number; event_links: number; my_photos: n
 export async function readHighlightEvent(pool: Pool, scope: {communityId: string | null; viewerId: string | null; eventId: string}) {
   const row = await loadListed(pool, scope.eventId, scope.communityId, scope.viewerId);
   const items = (await pool.query(`SELECT h.media_id,h.kind,h.title,h.url,h.platform,h.orientation,h.created_at,h.uploader_user_id,u.display_name,
-    a.aggregate_version AS avatar_version, a.present AS avatar_present
+    a.aggregate_version AS avatar_version, a.present AS avatar_present,EXISTS(SELECT 1 FROM community_event_outcome_media binding WHERE binding.media_id=h.media_id) AS outcome_bound
     FROM community_event_highlights h JOIN users u ON u.user_id=h.uploader_user_id
     LEFT JOIN member_avatar_presence a ON a.user_id=h.uploader_user_id AND a.community_id=h.community_id
     WHERE h.event_id=$1 AND h.state='active' AND ${itemVisible}
     ORDER BY h.created_at DESC, h.media_id DESC`, [scope.eventId, scope.viewerId])).rows as ItemRow[];
+  const visible=[] as ItemRow[];
+  for(const item of items)if(!item.outcome_bound||await readableMedia(pool,item.media_id,scope.viewerId&&scope.communityId?{communityId:scope.communityId,userId:scope.viewerId}:null))visible.push(item);
   const admin = scope.viewerId ? await isPlatformAdmin(pool, scope.viewerId, row.community_id) : false;
   const detail = {event_id: row.event_id, title: row.title, description: row.description, starts_at: iso(row.starts_at), ends_at: iso(row.ends_at),
-    mode: row.mode, event_kind: row.event_kind, organizer_name: row.organizer_name, attending_count: Number(row.attending_count),
-    banner_url: row.banner_orientation ? bannerPath(row.event_id) : null, banner_orientation: row.banner_orientation,
-    public_path: `/highlights/${row.event_id}`, items: items.map(item => presentItem(item, row.organizer_ref, scope.viewerId, admin))};
+    mode: row.mode, event_kind: row.event_kind,visibility:row.visibility, organizer_name: row.organizer_name, attending_count: Number(row.attending_count),
+    banner_url: row.banner_orientation ? bannerPath(row.event_id,Boolean(scope.viewerId)) : null, banner_orientation: row.banner_orientation,
+    public_path: `/highlights/${row.event_id}`, items: visible.map(item => presentItem(item, row.organizer_ref, scope.viewerId, admin))};
   if (!scope.viewerId) return detail;
   return {...detail, can_upload: true, quota: await quota(pool, row.event_id, scope.viewerId)};
 }
@@ -309,6 +324,7 @@ export async function addHighlightLink(pool: Pool, input: Command, eventId: stri
       if (uniqueViolation(error)) throw new Problem(409, 'highlight_link_exists', '這個連結已經在活動集錦裡了。');
       throw error;
     }
+    if(body.outcome_id)await validateAndBindEventOutcomeMedia(q,input.actor,eventId,body.outcome_id,mediaId);
     await journal(q, input.actor, 'community_event_highlight', mediaId, 1, 'create', {kind: 'link', event_id: eventId}, 'freedom.community.event_highlight.created.v1');
     const created = iso((await q.query('SELECT created_at FROM community_event_highlights WHERE media_id=$1', [mediaId])).rows[0].created_at);
     const thumbnail = youtubeThumbnailUrl(body.url);
@@ -327,13 +343,14 @@ export async function authorizeHighlightUpload(q:Pick<Pool,'query'>,actor:Actor,
  return event;
 }
 /** Database-only original metadata/response port, used only after BOTH Assets are ready. */
-export async function publishHighlightAssetPair(q:PoolClient,actor:Actor,eventId:string,mediaId:string,kind:'photo'|'poster',imageByteSize:number,orientation:Orientation,title:string|null){
+export async function publishHighlightAssetPair(q:PoolClient,actor:Actor,eventId:string,mediaId:string,kind:'photo'|'poster',imageByteSize:number,orientation:Orientation,title:string|null,outcomeId?:string){
  const event=await authorizeHighlightUpload(q,actor,eventId,kind,true,true);
  await q.query(`INSERT INTO community_event_highlights(media_id,event_id,community_id,uploader_user_id,kind,title,orientation,byte_size,state,storage_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active','asset')`,[mediaId,eventId,event.community_id,actor.user_id,kind,title,orientation,imageByteSize]);
  await q.query("INSERT INTO community_event_highlight_images(media_id,variant,bytes) VALUES($1,'image',NULL),($1,'thumb',NULL)",[mediaId]);
+ if(outcomeId)await validateAndBindEventOutcomeMedia(q,actor,eventId,outcomeId,mediaId);
  await journal(q,actor,'community_event_highlight',mediaId,1,'create',{kind,event_id:eventId},'freedom.community.event_highlight.created.v1');
  const created=iso((await q.query('SELECT created_at FROM community_event_highlights WHERE media_id=$1',[mediaId])).rows[0].created_at);
- return {media_id:mediaId,kind,title,created_at:created,image_url:imagePath(mediaId),thumb_url:thumbPath(mediaId),orientation,uploader:await uploaderView(q,actor.user_id,event.community_id),uploaded_by_organizer:actor.user_id===event.organizer_ref,can_remove:true};
+ return {media_id:mediaId,kind,title,created_at:created,image_url:imagePath(mediaId,Boolean(outcomeId)),thumb_url:thumbPath(mediaId,Boolean(outcomeId)),orientation,uploader:await uploaderView(q,actor.user_id,event.community_id),uploaded_by_organizer:actor.user_id===event.organizer_ref,can_remove:true};
 }
 export async function addHighlightImage(pool: Pool, input: Command, eventId: string, kind: 'photo' | 'poster', image: Buffer, thumb: Buffer, orientation: Orientation, title: string | null,assets?:EventHighlightAssetService) {
   if(await highlightStorageMode(pool)!=='legacy'){requireCondition(assets,503,'media_upload_unavailable','內容上傳暫時無法使用。');return assets.uploadPair(input,eventId,kind,image,thumb,orientation,title);}
@@ -348,9 +365,11 @@ export async function addHighlightImage(pool: Pool, input: Command, eventId: str
     await q.query(`INSERT INTO community_event_highlights(media_id,event_id,community_id,uploader_user_id,kind,title,orientation,byte_size,state)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active')`, [mediaId, eventId, event.community_id, input.actor.user_id, kind, title, orientation, image.length]);
     await q.query(`INSERT INTO community_event_highlight_images(media_id,variant,bytes) VALUES ($1,'image',$2),($1,'thumb',$3)`, [mediaId, image, thumb]);
+    const outcomeId=z.object({outcome_id:z.uuid().optional()}).passthrough().parse(input.body).outcome_id;
+    if(outcomeId)await validateAndBindEventOutcomeMedia(q,input.actor,eventId,outcomeId,mediaId);
     await journal(q, input.actor, 'community_event_highlight', mediaId, 1, 'create', {kind, event_id: eventId}, 'freedom.community.event_highlight.created.v1');
     const created = iso((await q.query('SELECT created_at FROM community_event_highlights WHERE media_id=$1', [mediaId])).rows[0].created_at);
-    return {media_id: mediaId, kind, title, created_at: created, image_url: imagePath(mediaId), thumb_url: thumbPath(mediaId), orientation,
+    return {media_id: mediaId, kind, title, created_at: created, image_url: imagePath(mediaId,Boolean(outcomeId)), thumb_url: thumbPath(mediaId,Boolean(outcomeId)), orientation,
       uploader: await uploaderView(q, input.actor.user_id, event.community_id), uploaded_by_organizer: input.actor.user_id === event.organizer_ref, can_remove: true};
   });
 }
@@ -379,25 +398,32 @@ async function highlightBannerSnapshot(pool:Pool,eventId:string):Promise<DomainM
  LEFT JOIN community_event_banner_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version
  LEFT JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.purpose='community.event-banner'
  LEFT JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='community.event-banner'
- WHERE e.event_id=$1 AND e.state='published' AND e.ends_at<=clock_timestamp() AND NOT is_verification_test_account(e.organizer_ref)`,[eventId])).rows[0];
+ WHERE e.event_id=$1 AND e.state='published' AND e.ends_at<=clock_timestamp() AND e.visibility IN ('open','referral') AND NOT is_verification_test_account(e.organizer_ref)`,[eventId])).rows[0];
  if(!row)return;return {purpose:'community.event-banner',targetId:eventId,variant:'banner',domainVersion:String(row.aggregate_version),authorizationVersion:JSON.stringify([row.state,row.ends_at,row.organizer_ref,row.orientation]),source:row.storage_source,legacyBytes:row.image_bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
 }
 export async function highlightBannerBytes(pool:Pool,eventId:string,store?:ObjectStore){
  try{return (await readDomainMedia(()=>highlightBannerSnapshot(pool,eventId),{purpose:'community.event-banner',targetId:eventId,variant:'banner'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到活動海報。');throw error;}
 }
-async function highlightImageSnapshot(pool:Pool,mediaId:string,variant:'image'|'thumb'):Promise<DomainMediaSnapshot|undefined>{
- const row=(await pool.query(`SELECT h.storage_source,h.event_id,h.orientation,h.kind,h.state,e.aggregate_version,e.state AS event_state,e.ends_at,h.uploader_user_id,e.organizer_ref,i.bytes,t.scope_id,
+async function highlightImageSnapshot(pool:Pool,mediaId:string,variant:'image'|'thumb',viewer:HighlightViewer|null):Promise<DomainMediaSnapshot|undefined>{
+ const row=(await pool.query(`SELECT h.community_id,h.storage_source,h.event_id,h.orientation,h.kind,h.state,e.visibility,e.guild_key,e.aggregate_version,e.state AS event_state,e.ends_at,h.uploader_user_id,e.organizer_ref,i.bytes,t.scope_id,
  CASE WHEN $2='image' THEN t.image_asset_id ELSE t.thumb_asset_id END AS asset_id,
  o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM community_event_highlight_images i JOIN community_event_highlights h USING(media_id) JOIN community_events e ON e.event_id=h.event_id
  LEFT JOIN community_event_highlight_asset_targets t USING(media_id)
  LEFT JOIN asset_objects o ON o.asset_id=CASE WHEN $2='image' THEN t.image_asset_id ELSE t.thumb_asset_id END
  WHERE i.media_id=$1 AND i.variant=$2 AND h.state='active' AND h.kind IN ('photo','poster') AND e.state='published' AND e.ends_at<=clock_timestamp()
- AND NOT is_verification_test_account(e.organizer_ref) AND NOT is_verification_test_account(h.uploader_user_id)`,[mediaId,variant])).rows[0];
- if(!row)return;return {purpose:'community.event-highlight',targetId:mediaId,variant,domainVersion:row.aggregate_version,authorizationVersion:JSON.stringify([row.state,row.event_state,row.ends_at,row.uploader_user_id,row.organizer_ref,row.kind,row.orientation]),source:row.storage_source,legacyBytes:row.bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
+ AND ($3::uuid IS NOT NULL OR e.visibility IN ('open','referral')) AND (e.organizer_ref=$3 OR NOT is_verification_test_account(e.organizer_ref))
+ AND (h.uploader_user_id=$3 OR NOT is_verification_test_account(h.uploader_user_id))`,[mediaId,variant,viewer?.userId??null])).rows[0];
+ if(!row)return;
+ if(viewer){
+   try{await loadListed(pool,row.event_id,viewer.communityId,viewer.userId);}catch(error){if(error instanceof Problem&&error.status===404)return;throw error;}
+ }
+ const binding=await readEventOutcomeMediaAuthorization(pool,mediaId,viewer);
+ if(binding?.authorized===false)return;
+ return {purpose:'community.event-highlight',targetId:mediaId,variant,domainVersion:row.aggregate_version,authorizationVersion:JSON.stringify([row.state,row.event_state,row.ends_at,row.uploader_user_id,row.organizer_ref,row.kind,row.orientation,row.visibility,row.guild_key,binding?.authorizationVersion??null]),source:row.storage_source,legacyBytes:row.bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
 }
-export async function highlightImageBytes(pool:Pool,mediaId:string,variant:'image'|'thumb',store?:ObjectStore){
- try{return (await readDomainMedia(()=>highlightImageSnapshot(pool,mediaId,variant),{purpose:'community.event-highlight',targetId:mediaId,variant},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
+export async function highlightImageBytes(pool:Pool,mediaId:string,variant:'image'|'thumb',store?:ObjectStore,viewer:HighlightViewer|null=null){
+ try{return (await readDomainMedia(()=>highlightImageSnapshot(pool,mediaId,variant,viewer),{purpose:'community.event-highlight',targetId:mediaId,variant},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
 }
 
 type ShareItem = {kind: string; image_url?: string; orientation?: Orientation | null; thumbnail_url?: string};
@@ -417,7 +443,7 @@ export function highlightShareImage(detail: {title: string; banner_url: string |
   return {url: '/brand/freedom-workshop.webp', alt: '自由工坊', width: 1280, height: 720};
 }
 
-export function highlightImageDigest(bytes: Buffer, orientation: Orientation, title: string | null) {
-  return {sha256: createHash('sha256').update(bytes).digest('hex'), orientation, title};
+export function highlightImageDigest(bytes: Buffer, orientation: Orientation, title: string | null,outcomeId?:string) {
+  return {sha256: createHash('sha256').update(bytes).digest('hex'), orientation, title,...(outcomeId?{outcome_id:z.uuid().parse(outcomeId).toLowerCase()}:{})};
 }
 export {youtubeVideoId};

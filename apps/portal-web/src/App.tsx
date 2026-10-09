@@ -49,6 +49,7 @@ const Onboarding = lazy(() => import('./modules/Onboarding').then(m => ({default
 const AccountPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.AccountPanel})))
 const MembersPanel = lazy(() => import('./modules/Membership').then(m => ({default: m.MembersPanel})))
 const SquadsPanel = lazy(() => import('./modules/Squads').then(m => ({default: m.SquadsPanel})))
+const SquadOutcomeDetail = lazy(() => import('./modules/SquadOutcomes').then(m => ({default: m.SquadOutcomeDetail})))
 const CoCreationPanel = lazy(() => import('./modules/CoCreationPanel').then(m => ({default: m.CoCreationPanel})))
 const AdminPanel = lazy(() => import('./modules/AdminPanel').then(m => ({default: m.AdminPanel})))
 const GitHubCallback = lazy(() => import('./modules/GitHubCallback').then(m => ({default: m.GitHubCallback})))
@@ -771,13 +772,13 @@ function Workspace({
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'my-content' && (site?.personal_content_enabled === true ? <MyContent key={`${session.user.user_id}:${client.sessionGeneration}`}/> : <p>我的內容尚未開放。</p>)}
             {tab === 'events' && <EventsPanel client={client} session={session} />}
-            {tab === 'highlights' && <EventHighlights client={client} />}
+            {tab === 'highlights' && <EventHighlights key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} outcomesEnabled={site?.event_outcomes_enabled===true}/>}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
             {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}}/>}
             {tab === 'services' && <MemberServices client={client} />}
             {tab === 'promotion' && <PromotionBoards client={client} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
-            {tab === 'squads' && <SquadsPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'squads' && (/^#squad-outcomes\/[0-9a-f-]{36}$/i.test(locationHash)&&site?.squad_outcomes_enabled===true ? <SquadOutcomeDetail client={client} id={locationHash.slice('#squad-outcomes/'.length)} eventLinksEnabled={site?.event_outcomes_enabled===true}/> : <SquadsPanel client={client} session={session} onNavigate={selectTab} outcomesEnabled={site?.squad_outcomes_enabled===true} eventLinksEnabled={site?.event_outcomes_enabled===true}/>)}
             {tab === 'workbench' && <WorkbenchPanel />}
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
@@ -817,6 +818,7 @@ function tabFromHash(launchpadEnabled: boolean): TabId {
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'
+  if(value.startsWith('squad-outcomes/'))return 'squads'
   if(launchpadEnabled && value.startsWith('guilds/'))return 'guilds'
   if(value === 'stores' || value.startsWith('stores/'))return 'stores'
   if(value === 'highlights' || value.startsWith('highlights/'))return 'highlights'

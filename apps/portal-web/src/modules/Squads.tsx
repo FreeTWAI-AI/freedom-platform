@@ -3,6 +3,7 @@ import type {PortalClient} from '../api';
 import {useModuleMutation,type ModulePanelProps} from './shared';
 import {Status} from './Membership';
 import {ModuleBanner} from './ModuleBanner';
+import {SquadOutcomePublisher} from './SquadOutcomes';
 import './ModuleDiscovery.css';
 import './SquadInvitations.css';
 type Squad={squad_id:string;name:string;kind:'project'|'mutual_help'|'coaching';purpose:string;communication_channel_name:string;aggregate_version:number;owner_ref:string;owner_name:string;member_count:number;membership:null|{state:string;aggregate_version:number}};
@@ -83,7 +84,7 @@ function OwnerInvitations({client,squad,selfId,mutate,busy,refreshToken,onChange
     {outgoing.nextOffset!==null&&!outgoing.error&&<button className="btn btn-ghost" disabled={outgoing.loading} onClick={()=>void outgoing.load(outgoing.nextOffset!)}>查看更多送出的邀請</button>}
   </section>;
 }
-export function SquadsPanel({client,session}:ModulePanelProps){
+export function SquadsPanel({client,session,outcomesEnabled=false,eventLinksEnabled=false}:ModulePanelProps&{outcomesEnabled?:boolean;eventLinksEnabled?:boolean}){
   const [squads,setSquads]=useState<Squad[]>([]),[detail,setDetail]=useState<SquadDetail|null>(null),[loadError,setLoadError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[nextOffset,setNextOffset]=useState<number|null>(null);
   const [query,setQuery]=useState(''),[kind,setKind]=useState<'all'|Squad['kind']>('all'),[failedOffset,setFailedOffset]=useState(0),[detailError,setDetailError]=useState('');
   const nameInput=useRef<HTMLInputElement>(null),detailHeading=useRef<HTMLHeadingElement>(null),detailTrigger=useRef<HTMLElement|null>(null);
@@ -123,6 +124,7 @@ export function SquadsPanel({client,session}:ModulePanelProps){
       {nextOffset!==null&&<button className="btn btn-ghost" disabled={loading} onClick={()=>void load(nextOffset)}>查看更多小隊</button>}
     </section>
     {detail&&<section className="card stack expedition-squad-detail" aria-label="小隊詳情"><div className="card-head"><h3 ref={detailHeading} tabIndex={-1}>{detail.name}的夥伴</h3><button className="btn btn-ghost" onClick={closeDetail}>收起</button></div>{detail.communication_channel_name&&<p className="muted">溝通頻道：{detail.communication_channel_name}</p>}{detail.owner_ref===session.user.user_id&&<form className="stack" onSubmit={saveChannel}><label className="field">小隊溝通頻道名稱<input key={`${detail.squad_id}-${detail.aggregate_version}`} name="communication_channel_name" defaultValue={detail.communication_channel_name} maxLength={100} placeholder="例如 LINE 頻道名稱"/></label><p className="field-hint">所有會員都看得見；請勿填私人邀請連結。留空可移除。</p><div className="actions"><button className="btn btn-ghost" disabled={busy}>儲存頻道名稱</button></div></form>}{detail.members.map(member=><div className="member-request" key={member.user_id}><span>{member.nickname} · {member.state==='active'?'已加入':'申請中'}</span>{member.state==='pending'&&detail.owner_ref===session.user.user_id&&<button className="btn btn-primary" disabled={busy} onClick={async()=>{const result=await mutate(`/squads/${detail.squad_id}/members/${member.user_id}/accept`,{},member.aggregate_version);if(result)await refreshAll('已接受加入申請。');}}>接受加入</button>}</div>)}{detail.owner_ref===session.user.user_id&&<OwnerInvitations key={detail.squad_id} client={client} squad={detail} selfId={session.user.user_id} mutate={mutate} busy={busy} refreshToken={refreshToken} onChanged={refreshAll}/>}{detail.membership?.state==='active'&&detail.owner_ref!==session.user.user_id&&<button className="btn btn-ghost" disabled={busy} onClick={()=>void change(detail,'leave',detail.membership?.aggregate_version)}>退出這支小隊</button>}</section>}
+    {detail&&outcomesEnabled&&<section className="card stack"><SquadOutcomePublisher key={detail.squad_id} client={client} squadId={detail.squad_id} owner={detail.owner_ref===session.user.user_id} actorId={session.user.user_id} eventLinksEnabled={eventLinksEnabled}/></section>}
     <div className="squad-start">
       <form className="card stack" onSubmit={create}><h3>成立一支小隊</h3><label className="field">小隊名稱<input ref={nameInput} name="name" required maxLength={80}/></label><label className="field">小隊類型<select name="kind"><option value="project">專案小隊</option><option value="mutual_help">共同目標互助小隊</option><option value="coaching">陪跑小隊</option></select></label><label className="field">我們想一起完成什麼<textarea name="purpose" required maxLength={800} placeholder="寫下目標，以及想找哪些夥伴。"/></label><label className="field">小隊溝通頻道名稱（選填）<input name="communication_channel_name" maxLength={100} placeholder="例如 LINE 頻道名稱"/></label><p className="field-hint">所有會員都看得見；請勿填私人邀請連結。</p><button className="btn btn-primary" disabled={busy}>成立小隊</button></form>
     </div>

@@ -158,6 +158,8 @@ const app=createApp(productPool??pool,origin,'local',{shopKeyPolicy:'purpose-bou
   communitySearchEnabled:process.env.FREEDOM_E2E_COMMUNITY_SEARCH==='1',
   communityRelationsEnabled:process.env.FREEDOM_E2E_COMMUNITY_RELATIONS==='1',
   personalContentEnabled:process.env.FREEDOM_E2E_PERSONAL_CONTENT==='1',
+  squadOutcomesEnabled:process.env.FREEDOM_SQUAD_OUTCOMES_ENABLED==='true',
+  eventOutcomesEnabled:process.env.FREEDOM_EVENT_OUTCOMES_ENABLED==='true',
   hostedReservationsEnabled:process.env.FREEDOM_E2E_HOSTED_RESERVATIONS==='1',
   ...(privateAiFixture?{privateAiProduct:privateAiFixture.transport}:{}),
   ...(avatarAssetFixture?{avatarAssetStore:avatarAssetFixture.store}:{}),

@@ -7,6 +7,7 @@ import { looksLikeUrl, opportunityStateLabel, parseMajorToMinor } from '../forma
 import type { Opportunity, Showcase } from '../types'
 import { useAuthoringDraft } from './authoring-drafts'
 import { useModuleMutation } from './shared'
+import {EventOutcomeBacklinks} from './EventOutcomeBacklinks';
 
 export function ShowcasePanel() {
   const { session, pending, mutate, isMe } = usePortal()
@@ -258,6 +259,7 @@ function ShowcaseCard({
       <details><summary>成果紀錄</summary><code>{showcase.artifact_ref}</code></details>
       {authoring.error && <p className="banner banner-error" role="alert">{authoring.error}</p>}
       {submitted && <section className="stack" role="status" aria-label="合作需求已送出"><p>已送出合作需求。這是你與作品作者的合作需求，不是公開貼文。</p><div className="actions"><button type="button" className="btn btn-secondary btn-small" onClick={() => { const card = document.getElementById(`opportunity-${submitted.opportunity_id}`); card?.scrollIntoView({ block: 'center', behavior: 'instant' }); card?.focus(); }}>查看這份合作需求</button></div></section>}
+      <EventOutcomeBacklinks client={client} kind="work" sourceId={showcase.showcase_id}/>
       {mine ? (
         <p className="hint">有人想合作時，需求會出現在下方「與你相關的商機」。</p>
       ) : (

@@ -609,7 +609,7 @@ export async function highlightMemberCommand<T>(pool: Pool, input: Command, medi
     && typeof input.actor.session_hash === 'string' && input.actor.session_hash.length > 0 && input.actor.session_hash.length <= 256,
   401, 'session_expired', '請重新登入。');
   const body = jsonSnapshot(input.body, MAX_JSON_BYTES).value as Record<string, unknown>;
-  requireCondition(body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length === 3 && ['sha256','orientation','title'].every(key=>Object.hasOwn(body,key)) && ['landscape','portrait'].includes(body.orientation as string) && (body.title===null||typeof body.title==='string'&&body.title.length<=120)
+  requireCondition(body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).every(key=>['sha256','orientation','title','outcome_id'].includes(key)) && ['sha256','orientation','title'].every(key=>Object.hasOwn(body,key)) && (!Object.hasOwn(body,'outcome_id')||uuid(body.outcome_id)) && ['landscape','portrait'].includes(body.orientation as string) && (body.title===null||typeof body.title==='string'&&body.title.length<=120)
     && typeof body.sha256 === 'string' && /^[a-f0-9]{64}$/.test(body.sha256) && body.sha256.length === 64,
   400, 'invalid_highlight_command', '集錦操作資料無效。');
   const actor = Object.freeze({ ...input.actor });

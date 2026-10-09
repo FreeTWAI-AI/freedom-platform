@@ -136,6 +136,85 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Event highlights and published squad outcomes (#257)
+
+This source candidate adds `143_squad_outcomes.sql` and
+`144_event_outcomes.sql`. Apply both **before switching source, even with
+features off**: existing highlight media readers always check persisted
+bindings. `FREEDOM_SQUAD_OUTCOMES_ENABLED` and
+`FREEDOM_EVENT_OUTCOMES_ENABLED` default off; event outcomes require squad
+outcomes, and an incomplete combination fails runtime configuration. Disabled
+new API routes return 404 before authentication. Flags off do not erase
+bindings or bypass their ACL. Do not roll back to a reader that ignores them.
+
+The agreed publishing boundary is the current active squad owner publishing
+their own authored outcome, not a formal #261 policy, roster projection,
+private Result or inferred team acceptance. All member routes below use
+`/api/v1`, existing session/CSRF and Idempotency-Key controls; edits, publishing
+and withdrawal require quoted `If-Match` for the outcome's aggregate version.
+Stale commands return 412 without replacing the browser's unsaved input.
+
+| Route | Body / projection |
+| --- | --- |
+| `GET /squads/:id/outcomes?limit=&offset=` | Current readable outcomes; default 20, maximum 50; `next_offset` and offset at most 10000. |
+| `POST /squads/:id/outcomes` | Private draft `{title,summary,artifact_url?}`; title 1–120, summary 1–4000; optional HTTPS public-host source link, no fetching. |
+| `GET /squad-outcomes/:id` | Own management history or current published reader projection. |
+| `POST /squad-outcomes/:id/edit` | Same draft fields; resets scope to squad and clears previous publication consent. |
+| `POST /squad-outcomes/:id/publish` | `{audience:squad|community|public,consent_to_share:true}`; explicit rights, persons and author/squad-name sharing consent. |
+| `POST /squad-outcomes/:id/withdraw` | `{}`; stops current published use without deleting truthful author history. |
+| `GET /me/squad-outcomes` | Own authored history. |
+| `GET /event-highlights/:id/outcomes` | Currently readable published recaps. |
+| `GET /event-highlights/:id/outcomes/own` | Own drafts/published/withdrawn history, not another author's private data. |
+| `GET /event-highlights/:id/outcome-references` | Bounded current, same-community source picker (at most 100). |
+| `POST /event-highlights/:id/outcomes` | Private draft `{title,summary,audience:community|guild|public,refs:[{kind,id}]}`; maximum 8 unique references. |
+| `GET /event-outcomes/:id` | Own management projection. |
+| `GET /event-outcomes/:id/published` | Current published ACL, with no own-history exception. |
+| `POST /event-outcomes/:id/update` | Same draft fields, clears publication consent; event/author cannot be rebound. |
+| `POST /event-outcomes/:id/publish` | `{consent_to_share:true}` for the saved scope and current readable sources. |
+| `POST /event-outcomes/:id/withdraw` | `{}`; hides bound media and backlinks. |
+| `GET /event-outcome-backlinks/:kind/:sourceId` | Current authorized event/detail links, never cached private labels. |
+
+Reference kinds are `work`, `skill_book` and `squad_outcome`; arbitrary,
+foreign-community, withdrawn or unreadable targets are rejected. Work means
+the original published community showcase, never a private Result, so it
+cannot be placed in a public recap. Skill books use original curated or public
+submission readers and retain attribution/self-declared relationship
+boundaries. A squad source must still be published and currently readable;
+own withdrawn history does not grant reuse. Guild scope requires an original
+guild event and current publisher/viewer membership. Any unreadable source
+hides the **whole** dependent recap, bound media and backlinks.
+
+Legal current event members can author recaps for ended events; Going is not
+required or asserted as attendance. Each event has at most 100 recap records.
+The original photo/poster/link upload pipeline remains authoritative.
+JSON link/image metadata may include `outcome_id`; raw photo/poster uploads
+use `X-Event-Outcome-Id`. Binding verifies the same author/event in the
+original atomic media transaction. A draft binding is private to its author;
+it cannot become an anonymous gallery item until explicit eligible publication.
+An invalid later file leaves earlier successes intact; the browser reloads
+them and retains only failed/not-yet-sent files rather than re-uploading
+successful ones. Uploading without a binding uses the original event ACL,
+not an invented private gallery.
+
+Anonymous equivalents use `/api/v1/public` for published squad/outcome,
+event-outcome list and backlink reads. `/squad-outcomes/:id` is the canonical
+public squad detail. Member source navigation uses `#showcase/:id`,
+`#squad-outcomes/:id` and original skill canonical pages. Backlinks return
+`#highlights/:eventId`; canonical skill HTML prefixes member fragments with
+`/` so they actually return to the portal. Its personalized backlink HTML is
+`no-store` with `Vary: Cookie`, without making private recap text OG metadata.
+
+Anonymous original highlight HTML, metadata, banners and gallery bytes admit
+only open/referral events; workshop/guild details return 404. Member media
+routes `/event-highlights/media/:id/image|thumb` and
+`/event-highlights/:id/banner` recheck current event/member and source ACL,
+including a fence after object I/O. Media is `no-store`; disabling features
+does not restore withdrawn bytes or detach bindings. Withdrawal cannot recall
+previously downloaded or third-party-cached copies.
+
+Local isolated database/browser checks are not trusted CI, deployment,
+flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
+
 ## Member avatars
 
 `GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the

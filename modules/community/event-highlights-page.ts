@@ -1,6 +1,7 @@
 import type {Pool} from 'pg';
 import {highlightShareImage, listHighlightEvents, readHighlightCursor, readHighlightEvent, readHighlightMode} from './event-highlights.js';
 import {PUBLIC_REVALIDATION_MARKUP} from '../../packages/shared/public-revalidation.js';
+import {listEventOutcomes} from './event-outcomes.js';
 
 const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const modeLabel: Record<string, string> = {online: '線上', in_person: '實體', hybrid: '線上＋實體'};
@@ -45,7 +46,7 @@ export async function highlightsListHtml(pool: Pool, origin: string, query: {mod
     const label = value === 'all' ? '全部' : value === 'online' ? '線上' : '實體';
     return `<a href="${href}"${mode === value ? ' aria-current="page"' : ''}>${label}</a>`;
   }).join('');
-  const cards = page.items.map(item => `<article class="hl-card"><a class="hl-cover" href="${escape(item.public_path)}">${cover(item)}</a><h2><a href="${escape(item.public_path)}">${escape(item.title)}</a></h2><p>${escape(highlightWhen(item.starts_at, item.ends_at))}</p><p><span class="hl-mode hl-mode-${escape(item.mode)}">${escape(modeLabel[item.mode] ?? item.mode)}</span> ${escape(item.organizer_name)}</p><p>${item.attending_count} 人參加 · 影片 ${item.counts.links}・照片 ${item.counts.photos}・海報 ${item.counts.posters}</p></article>`).join('');
+  const cards = page.items.map(item => `<article class="hl-card"><a class="hl-cover" href="${escape(item.public_path)}">${cover(item)}</a><h2><a href="${escape(item.public_path)}">${escape(item.title)}</a></h2><p>${escape(highlightWhen(item.starts_at, item.ends_at))}</p><p><span class="hl-mode hl-mode-${escape(item.mode)}">${escape(modeLabel[item.mode] ?? item.mode)}</span> ${escape(item.organizer_name)}</p><p>${item.attending_count} 人回覆 Going · 影片 ${item.counts.links}・照片 ${item.counts.photos}・海報 ${item.counts.posters}</p></article>`).join('');
   const href = page.next_cursor ? `/highlights?${mode === 'all' ? '' : `mode=${mode}&`}before=${encodeURIComponent(page.next_cursor)}` : '';
   const more = page.next_cursor ? `<p class="hl-more"><a href="${escape(href)}">較早的活動</a></p>` : '';
   const empty = page.items.length ? '' : '<p class="hl-empty">還沒有已結束的活動。活動結束後會自動出現在這裡。</p>';
@@ -61,8 +62,9 @@ function paragraphs(description: string) {
   return description.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => `<p>${escape(line)}</p>`).join('') || '<p>這場活動沒有留下說明。</p>';
 }
 
-export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string, discoveryEnabled=false) {
+export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: string, discoveryEnabled=false, outcomesEnabled=false) {
   const detail = await readHighlightEvent(pool, {communityId: null, viewerId: null, eventId});
+  const outcomes=outcomesEnabled?(await listEventOutcomes(pool,eventId,null)).items:[];
   const image = highlightShareImage(detail);
   const posters = detail.items.filter(item => item.kind === 'poster');
   const links = detail.items.filter(item => item.kind === 'link');
@@ -79,9 +81,10 @@ export async function highlightsDetailHtml(pool: Pool, origin: string, eventId: 
   const photoHtml = photos.map(item => `<a href="${escape('image_url' in item ? item.image_url : '')}"><img src="${escape('thumb_url' in item ? item.thumb_url : '')}" alt="${escape(item.title || '活動照片')}" loading="lazy"></a>`).join('');
   const linkSection = linkHtml ? `<section><h2>錄影與影片</h2><div class="hl-links">${linkHtml}</div></section>` : '';
   const photoSection = photoHtml ? `<section><h2>活動照片</h2><div class="hl-photos">${photoHtml}</div></section>` : '';
-  const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。</p>';
-  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人參加</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
-  const body = `${summary}${posterSection}${linkSection}${photoSection}${empty}`;
+  const empty = detail.items.length ? '' : '<p class="hl-empty">還沒有人補上內容。有閱讀權限的社群會員可以補上有權分享的照片、海報或影片連結。</p>';
+  const summary = `<h1>${escape(detail.title)}</h1><p>${escape(highlightWhen(detail.starts_at, detail.ends_at))} · ${escape(modeLabel[detail.mode] ?? detail.mode)} · ${escape(kindLabel[detail.event_kind] ?? detail.event_kind)}</p><p>主辦 ${escape(detail.organizer_name)} · ${detail.attending_count} 人回覆 Going（不代表實際出席）</p><div class="hl-copy">${paragraphs(detail.description)}</div>`;
+  const outcomeSection=outcomes.length?`<section><h2>活動精華與成果</h2>${outcomes.map(item=>`<article class="hl-card"><h3>${escape(item.title)}</h3><p>作者：${escape(item.author.display_name)}</p>${paragraphs(item.summary)}${item.refs.length?`<ul>${item.refs.map(ref=>`<li><a href="${escape(ref.path)}">${escape(ref.title)}</a>${ref.author?` · 作者：${escape(ref.author.display_name)}`:''}</li>`).join('')}</ul>`:''}</article>`).join('')}</section>`:'';
+  const body = `${summary}${outcomeSection}${posterSection}${linkSection}${photoSection}${empty}`;
   const footer = `<a href="${discoveryEnabled ? `/?join=1&amp;return_to=${encodeURIComponent(`/highlights/${eventId}`)}` : '/'}">加入自由工坊</a><a href="/#highlights/${escape(eventId)}">會員登入後補上照片或影片連結</a>`;
   return head(origin, `/highlights/${eventId}`, `${detail.title}｜自由工坊活動集錦`, highlightMetaDescription(detail.description), image, 'article') + shell(body, footer, discoveryEnabled);
 }

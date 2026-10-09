@@ -11,6 +11,7 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
   'runtime.personal-content': ['personal-content', 'community-relations', 'community-search', 'work-privacy'],
+  'runtime.event-outcomes': ['event-outcomes', 'squad-outcomes', 'event-highlights', 'event-highlight-assets', 'worker-adapter'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
 
 // Reviewed consumer adapters share the same bounded reporter/process runner.
@@ -64,4 +65,5 @@ storefront-presentation-contracts hosted-store hosted-store-isolation hosted-ord
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
 personal-content community-relations
+event-outcomes squad-outcomes
 `.trim().split(/\s+/)).sort());

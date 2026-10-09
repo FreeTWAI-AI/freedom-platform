@@ -104,7 +104,7 @@ function authorClaimMarkup(claim?:PublicAuthorClaim){
  const people=claim.verified.map(person=>'<li>'+escape(person.role_label)+' · @'+escape(person.github_login)+' · '+escape(person.display_name)+'</li>').join('');
  return '<p class="public-author-claim" data-author-claim-status="'+escape(claim.status)+'" style="margin:8px 0">'+escape(claim.label)+'</p>'+(people?'<ul class="public-author-claim-people">'+people+'</ul>':'');
 }
-export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics?:GitHubMetrics,editorial?:SkillEditorial|null,discovery?:SkillDiscoveryBook,intro?:string,origin=LIVE_SITE_ORIGIN,authorClaim?:PublicAuthorClaim,discoveryEnabled=false){
+export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics?:GitHubMetrics,editorial?:SkillEditorial|null,discovery?:SkillDiscoveryBook,intro?:string,origin=LIVE_SITE_ORIGIN,authorClaim?:PublicAuthorClaim,discoveryEnabled=false,eventBacklinksHtml=''){
  const skillId=/^\/development\/skills\/([a-z0-9-]+)\.md$/.exec(markdownUrl)?.[1];
  const book=skillId?communityCatalog.skill_books.find(value=>value.id===skillId):undefined;
  const agentUrl=markdownUrl.replace(/\.md$/,'/SKILL.md');
@@ -128,7 +128,7 @@ export function pageHtml(title:string,markdown:string,markdownUrl:string,metrics
   const cooperation=getSkillCollaboration(book.id,editorial);
   const content=shareContentFor(book.id),selected=shareIntroNumber(intro,content.introductions.length),selectedText=selected?content.introductions[selected-1]:null;
   const illustration=content.illustration?'<figure class="public-skill-illustration"><img src="'+escape(content.illustration.url)+'" alt="'+escape(content.illustration.alt)+'" width="1200" height="630" loading="lazy" decoding="async"></figure>':'';
-  return developmentHtml(book.title,entry+illustration+publicSkillShareMarkup({title:book.title,path:'/development/skills/'+book.id,introductions:content.introductions,selected,origin})+(cooperation?collaborationHtml(cooperation):'')+'<details class="public-skill-details"><summary>完整指南與來源</summary>'+markdownLink+markdownBody(markdown)+'</details>',{path:'/development/skills/'+book.id,description:selectedText??(editorial?.summary||book.guide.beginner.purpose),image:content.illustration??undefined,share:true,social:true,shareQuery:selected?'intro='+selected:undefined,origin,discoveryEnabled});
+  return developmentHtml(book.title,entry+illustration+publicSkillShareMarkup({title:book.title,path:'/development/skills/'+book.id,introductions:content.introductions,selected,origin})+(cooperation?collaborationHtml(cooperation):'')+eventBacklinksHtml+'<details class="public-skill-details"><summary>完整指南與來源</summary>'+markdownLink+markdownBody(markdown)+'</details>',{path:'/development/skills/'+book.id,description:selectedText??(editorial?.summary||book.guide.beginner.purpose),image:content.illustration??undefined,share:true,social:true,shareQuery:selected?'intro='+selected:undefined,origin,discoveryEnabled});
  }
  return developmentHtml(title,markdownLink+markdownBody(markdown),{path:markdownUrl.replace(/\.md$/,''),description:developmentPage(markdownUrl.split('/').at(-1)!.replace(/\.md$/,''))?.purpose??title,origin});
 }
