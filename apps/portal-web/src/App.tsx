@@ -29,13 +29,14 @@ import { consoleChannel } from './game-console-routing'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { CommunitySearch } from './modules/CommunitySearch'
-import { PublicGuildLaunchpad, guildKeyFromHash } from './modules/GuildLaunchpad'
+import { guildKeyFromHash } from './modules/guild-launchpad-route'
 import {ShareLauncher,SHARE_TARGETS,type ShareTarget} from './ShareLauncher'
 import type { SessionPayload, TabId } from './types'
 import {LanguageProvider,LanguagePicker,useLanguage} from './language'
 import {authErrorMessage} from './auth-messages'
 import {AppInstallProvider,InstallAppButton} from './AppInstall'
 
+const PublicGuildLaunchpad = lazy(() => import('./modules/GuildLaunchpad').then(m => ({default: m.PublicGuildLaunchpad})))
 const WorkbenchPanel = lazy(() => import('./modules/WorkbenchPanel').then(m => ({default: m.WorkbenchPanel})))
 const ShowcasePanel = lazy(() => import('./modules/ShowcasePanel').then(m => ({default: m.ShowcasePanel})))
 const EngagementPanel = lazy(() => import('./modules/EngagementPanel').then(m => ({default: m.EngagementPanel})))
