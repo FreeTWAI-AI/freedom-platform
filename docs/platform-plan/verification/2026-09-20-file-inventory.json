@@ -16184,8 +16184,8 @@
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
-      "bytes": 10611,
-      "sha256": "1d77e63510079347811c71012c1724f7968a00cc94dfa0024b2b69940980c6b1"
+      "bytes": 10633,
+      "sha256": "b9f3c1782919c25acef9aac31299fccd3c8cda16d5ca9ba62dab067acdcb11a9"
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
@@ -16209,8 +16209,8 @@
     },
     {
       "path": "modules/agent-commerce/orders.ts",
-      "bytes": 19801,
-      "sha256": "b74e7288d74670c1063e044de6723d583bcd384c079468cecec18dc187e2ef0b"
+      "bytes": 19846,
+      "sha256": "102090aeb5ad112ee46d0923d641f0f0bc81bd7c3f585573aff9fdb4f5d7df08"
     },
     {
       "path": "modules/agent-commerce/schema.ts",
@@ -20169,8 +20169,8 @@
     },
     {
       "path": "tests/runtime/agent-commerce.test.ts",
-      "bytes": 36507,
-      "sha256": "9034f9509166c7a71a7a0505c59c45bad89685b0c24a74a827b7550669d8d6d9"
+      "bytes": 36828,
+      "sha256": "d746e519ae109a599feae76f611d69ded9ba9dd92004f228d83dd3823a03b23d"
     },
     {
       "path": "tests/runtime/agent-connections-adversarial.test.ts",
