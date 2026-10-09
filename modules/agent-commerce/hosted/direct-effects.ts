@@ -1,18 +1,19 @@
 import type { PoolClient } from 'pg';
 import { OrderSchema, QuoteSchema, type HostedOrder } from '../../../contracts/guild-launchpad/v1/hosted-order.js';
 import { requireCondition } from '../../../packages/shared/problem.js';
-import { directFact, type DirectContext } from './direct-authority.js';
+import { directFact, type DirectContext, type DirectEffectContext } from './direct-authority.js';
 
 export interface DirectOrderRow {
   order_id: string; public_shop_id: string; buyer_principal_id: string; client_order_id: string; quote_id: string;
   request_sha256: string; reservation_state: 'reserved' | 'cancelled' | 'expired'; reservation_version: string;
   created_at: Date; expires_at: Date; closed_at: Date | null; close_reason: string | null;
 }
-export async function lockDirectOrder(q: PoolClient, context: DirectContext, id: string, buyerOnly = true): Promise<DirectOrderRow> {
+export async function lockDirectOrder(q: PoolClient, context: DirectEffectContext, id: string, buyerOnly = true): Promise<DirectOrderRow> {
+  requireCondition(!buyerOnly || 'member' in context, 403, 'buyer_context_required', '需要本人訂單權限。');
   const row = (await q.query<DirectOrderRow>(`SELECT o.*,reservation_version::text AS reservation_version FROM commerce_orders o
     WHERE order_id=$1 AND public_shop_id=$2 AND order_profile='hosted_direct_reservation'
     AND ($3::uuid IS NULL OR buyer_principal_id=$3) FOR UPDATE`,
-  [id, context.profile.storefront_shop_id, buyerOnly ? context.member.subject_principal.principal_id : null])).rows[0];
+  [id, context.profile.storefront_shop_id, buyerOnly && 'member' in context ? context.member.subject_principal.principal_id : null])).rows[0];
   requireCondition(row, 404, 'hosted_order_not_found', '找不到這份訂單。');
   return row;
 }
@@ -20,7 +21,7 @@ export async function lockDirectOrder(q: PoolClient, context: DirectContext, id:
 /** Same commerce_items balance and community writer lock as imported commerce.
  * Caller has instance -> community -> profile -> order locks. This direct-only
  * effect does not weaken imported expiry, payment, acceptance or transfer rules. */
-export async function closeDirectOrder(q: PoolClient, context: DirectContext, row: DirectOrderRow, cancel = false): Promise<DirectOrderRow> {
+export async function closeDirectOrder(q: PoolClient, context: DirectEffectContext, row: DirectOrderRow, cancel: false | 'buyer_cancelled' | 'seller_cancelled' = false): Promise<DirectOrderRow> {
   if (row.reservation_state !== 'reserved') return row;
   let now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
   if (now.getTime() < row.expires_at.getTime() && !cancel) return row;
@@ -39,7 +40,7 @@ export async function closeDirectOrder(q: PoolClient, context: DirectContext, ro
   const next = (await q.query<DirectOrderRow>(`UPDATE commerce_orders SET reservation_state=$2,reservation_version=reservation_version+1,closed_at=$3,close_reason=$4
     WHERE order_id=$1 AND reservation_state='reserved' AND reservation_version=$5
     RETURNING *,reservation_version::text AS reservation_version`,
-  [row.order_id, expired ? 'expired' : 'cancelled', now, expired ? 'reservation_expired' : 'buyer_cancelled', row.reservation_version])).rows[0];
+  [row.order_id, expired ? 'expired' : 'cancelled', now, expired ? 'reservation_expired' : cancel, row.reservation_version])).rows[0];
   requireCondition(next, 409, 'reservation_conflict', '訂單狀態已變更。');
   await directFact(q, context, next.order_id, next.reservation_version, next.reservation_state);
   return next;
@@ -79,11 +80,17 @@ export async function directOrderView(q: PoolClient, context: DirectContext, id:
   // A addressed order is expired independently of the bounded batch cutoff.
   const row = await closeDirectOrder(q, context, await lockDirectOrder(q, context, id));
   if (row.reservation_state === 'reserved') context.reservationDeadline = row.expires_at;
-  const saved = (await q.query(`SELECT terms FROM commerce_order_quotes WHERE quote_id=$1 AND public_shop_id=$2 AND buyer_principal_id=$3`,
-    [row.quote_id, context.profile.storefront_shop_id, context.member.subject_principal.principal_id])).rows[0];
+  return directOrderProjection(q, context, row);
+}
+/** Caller has already locked/authorized this exact direct row. Both actor paths
+ * share the same allowlist; private buyer bindings never enter the DTO. */
+export async function directOrderProjection(q: PoolClient, context: DirectEffectContext, row: DirectOrderRow): Promise<HostedOrder> {
+  const saved = (await q.query(`SELECT terms FROM commerce_order_quotes WHERE quote_id=$1 AND public_shop_id=$2 AND buyer_principal_id=$3
+    AND tenant_id=$4 AND instance_id=$5`,
+    [row.quote_id, context.profile.storefront_shop_id, row.buyer_principal_id, context.profile.tenant_id, context.profile.instance_id])).rows[0];
   requireCondition(saved, 404, 'hosted_order_not_found', '找不到這份訂單。');
   const { quote_id, quoted_at: _quoted, expires_at: _expires, reserves_stock: _reserves, ...terms } = QuoteSchema.parse(saved.terms);
-  return OrderSchema.parse({ ...terms, quote_id, order_id: id, client_order_id: row.client_order_id, version: row.reservation_version,
+  return OrderSchema.parse({ ...terms, quote_id, order_id: row.order_id, client_order_id: row.client_order_id, version: row.reservation_version,
     state: row.reservation_state, created_at: row.created_at.toISOString(), reservation_expires_at: row.expires_at.toISOString(),
     closed_at: row.closed_at?.toISOString() ?? null, close_reason: row.close_reason });
 }

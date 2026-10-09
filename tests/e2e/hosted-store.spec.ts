@@ -122,7 +122,8 @@ test('a commerce member opens, stocks, publishes and re-enters their own store',
   try {
     const pub = await anonymous.newPage(); await pub.goto(`/shops/${slug.toLowerCase()}`);
     await expect(pub.getByRole('heading', {level: 1})).toHaveText('小島選物');
-    await expect(pub.getByRole('note')).toHaveText(notice);
+    await expect(pub.getByRole('note')).toHaveText('商品展示頁不提供付款或出貨；預留狀態請登入查看。');
+    await expect(pub.getByRole('link', {name: '登入查看預留狀態'})).toHaveAttribute('href', `/#reservations/${slug.toLowerCase()}`);
     for (const title of ['手工茶杯', '亞麻杯墊']) await expect(pub.getByRole('heading', {name: title, exact: true})).toBeVisible();
     for (const price of prices) await expect(pub.getByText(price, {exact: true})).toBeVisible();
     for (const selector of ['form', 'button', 'script', 'input']) await expect(pub.locator(selector)).toHaveCount(0);
