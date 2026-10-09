@@ -465,6 +465,7 @@ test('leaving a channel clears its history and composer at once, and a late answ
   expect(server.get('guild','builders').messages.filter(item=>item.sender_ref===server.me.id&&item.body===original.body)).toEqual([canonical]);
   await expect(thread.locator('.messages-pending')).toHaveCount(0);await expect(box).toBeEditable();await expect(box).toHaveValue('');
   expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+  await guild.getByRole('button',{name:'← 返回公會列表',exact:true}).click();
   await tab(page,'小隊閒聊').click();
   await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
   await page.goBack();await tab(page,'公會閒聊').click();
