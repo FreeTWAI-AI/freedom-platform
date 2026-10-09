@@ -7,8 +7,8 @@ import {LOCAL_DATABASE_URL} from '../../packages/db/index.js';
 import {e2eSchema} from '../../packages/testing/e2e-auth-isolation.js';
 import {DEMO_USERS,DEMO_COMMUNITY,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 
-// Real local API/DB and synthetic members. Only the lost-ACK case intercepts a
-// response, after forwarding the request to the real server and committing it.
+// Real local API/DB and synthetic members. Lost-ACK/revocation cases control the
+// response only after the real server commits; they do not claim a native DB race.
 const guild='guild_ai_vibe';
 type Account={id:string;email:string;name:string};
 let db:Pool,accounts:Account[],opened:BrowserContext[];
@@ -312,4 +312,78 @@ test('revoked channel keeps its pending command reachable and read-only access r
   await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();expect(sends).toHaveLength(1);
   await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);
   expect((await db.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE sender_ref=$1 AND sticker_id IS NOT NULL',[accounts[0].id])).rows[0].n).toBe(1);
+});
+
+for(const surface of ['page','dock'] as const)for(const status of [403,404])test(`${surface}: first committed sticker with controlled ${status} keeps its key through real membership revocation`,async({browser,baseURL},testInfo)=>{
+  const page=await member(browser,baseURL!,0,surface==='page'?390:1280);let panel:Locator;
+  if(surface==='page')panel=await group(page);
+  else{
+    await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();const dock=page.locator('.game-console-expanded');
+    await dock.getByRole('tab',{name:'公會聊天',exact:true}).click();panel=dock.locator('[data-channel-kind="guild"]');
+    await panel.locator(`[data-channel-key="${guild}"]`).click();await expect(panel.locator('.messages-compose')).toBeVisible();
+  }
+  const quote=`撤權前的合成歷史 ${randomUUID()}`,draft=`保留的回覆草稿 ${randomUUID()}`;
+  const parent=await post(page,`/me/channels/guild/${guild}/messages`,{body:quote});
+  await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+  await panel.locator(`[data-message-id="${parent.message_id}"]`).getByRole('button',{name:'回覆你的訊息',exact:true}).click();
+  await panel.locator('textarea').fill(draft);
+  const path=`/api/v1/me/channels/guild/${guild}/messages`,sends:{key:string;body:unknown}[]=[],ackIds:string[]=[];
+  await page.route(`**${path}`,async route=>{
+    if(route.request().method()!=='POST')return route.continue();
+    sends.push({key:route.request().headers()['idempotency-key'],body:route.request().postDataJSON()});
+    const response=await route.fetch();expect(response.status()).toBe(201);ackIds.push((await response.json()).message_id);
+    if(sends.length===1){
+      // Deliberately control the post-commit response, not the server's lock race.
+      await db.query("UPDATE positioning_profession_memberships SET state='left' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+      return route.fulfill({status,contentType:'application/problem+json',json:{type:'about:blank',title:'頻道無法使用',status,code:'channel_not_available'}});
+    }
+    return route.fulfill({response});
+  });
+  await choose(panel,'你好');await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+  await expect(panel.getByText('先前的傳送結果仍未確認，原操作保留。恢復頻道存取後才能重試；重新檢查不會送出訊息。')).toBeVisible();
+  await expect(panel.locator('.messages-bubbles,.messages-pending,.chat-reply-draft,textarea')).toHaveCount(0);
+  await expect(panel.getByText(quote,{exact:true})).toHaveCount(0);await expect(panel.getByText(draft,{exact:true})).toHaveCount(0);
+  expect(sends).toHaveLength(1);expect(sends[0].body).toEqual({sticker_id:'workshop-v1-hello'});
+  const saved=async()=>(await db.query(`SELECT message_id,body,sticker_id,reply_to_message_id FROM member_channel_messages
+    WHERE sender_ref=$1 AND kind='guild' AND channel_key=$2 AND sticker_id IS NOT NULL`,[accounts[0].id,guild])).rows;
+  const committed=await saved();expect(committed).toEqual([{message_id:ackIds[0],body:'[貼圖] 你好',sticker_id:'workshop-v1-hello',reply_to_message_id:null}]);
+  const receipt=async()=>(await db.query('SELECT response FROM command_receipts WHERE user_id=$1 AND idempotency_key=$2',[accounts[0].id,sends[0].key])).rows;
+  expect(await receipt()).toEqual([{response:{message_id:ackIds[0]}}]);
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
+  let notices=0,logouts=0;page.on('dialog',async dialog=>{notices++;await dialog.accept();});
+  page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/api/v1/auth/logout'))logouts++;});
+  await page.evaluate(()=>{location.hash='home';});
+  if(surface==='page'){
+    await expect(page).toHaveURL(/#messages$/);expect(notices).toBeGreaterThan(0);
+    await page.getByRole('tab',{name:/^私人訊息/}).click();
+  }else{
+    // Console stays mounted across page navigation; its original command remains reachable.
+    await expect(page).toHaveURL(/#home$/);await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+    await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
+  }
+  const beforeLogout=notices;await page.getByRole('button',{name:'設定',exact:true}).click();
+  await page.getByRole('menu',{name:'個人檔案'}).getByRole('menuitem',{name:'登出',exact:true}).click();
+  expect(notices).toBe(beforeLogout+1);expect(logouts).toBe(0);expect(await page.evaluate(async()=>(await fetch('/api/v1/session')).status)).toBe(200);
+  if(surface==='page'){
+    await page.getByRole('tab',{name:/^公會閒聊/}).click();await panel.getByRole('button',{name:'回到待確認訊息（1）',exact:true}).click();
+  }else await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
+  await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');
+  const denied=page.waitForResponse(response=>new URL(response.url()).pathname===path&&response.request().method()==='GET');
+  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();expect((await denied).status()).toBe(404);
+  await expect(panel.getByRole('alert')).toContainText('目前無法使用此頻道');expect(sends).toHaveLength(1);
+  await expect(panel.locator('.messages-bubbles,.messages-pending,.chat-reply-draft,textarea')).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath('revoked-history-hidden.png'),fullPage:true});
+  await db.query("UPDATE positioning_profession_memberships SET state='active' WHERE user_id=$1 AND guild_key=$2",[accounts[0].id,guild]);
+  const restored=page.waitForResponse(response=>new URL(response.url()).pathname===path&&response.request().method()==='GET');
+  await panel.getByRole('button',{name:'重新檢查頻道存取',exact:true}).click();expect((await restored).status()).toBe(200);
+  await expect(panel.getByRole('button',{name:'重試送出',exact:true})).toBeVisible();expect(sends).toHaveLength(1);
+  await expect(panel.locator('textarea')).toHaveValue(draft);await expect(panel.locator('textarea')).toHaveAttribute('readonly','');
+  await expect(panel.locator('.chat-reply-draft')).toContainText(quote);
+  await panel.getByRole('button',{name:'重試送出',exact:true}).click();await expect(panel.locator('.messages-pending')).toHaveCount(0);
+  expect(sends).toHaveLength(2);expect(sends[1]).toEqual(sends[0]);expect(ackIds).toEqual([committed[0].message_id,committed[0].message_id]);
+  expect(await saved()).toEqual(committed);expect(await receipt()).toEqual([{response:{message_id:committed[0].message_id}}]);
+  await expect(panel.locator('.messages-bubbles [data-sticker-id="workshop-v1-hello"]')).toHaveCount(1);
+  await expect(panel.locator('textarea')).toBeEditable();await expect(panel.locator('textarea')).toHaveValue(draft);await expect(panel.locator('.chat-reply-draft')).toContainText(quote);
+  expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
+  await page.screenshot({path:testInfo.outputPath('canonical-retry-drafts-retained.png'),fullPage:true});
 });

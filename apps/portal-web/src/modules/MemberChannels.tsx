@@ -324,8 +324,9 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       rereadAfterWrite(key);
     }catch(cause){
       if(!alive.current||client.sessionGeneration!==sessionGeneration)return;
-      // A retry refusal cannot erase the original uncertain result.
-      if(same||unconfirmed(cause)){
+      // The write can commit before its fresh membership read returns 403/404.
+      // Retain even the first dispatched attempt before revoke hides its history.
+      if(same||unconfirmed(cause)||revoked(cause)){
         setPending(value=>({...value,[key]:{...attempt,status:'unknown'}}));
         setSendErrors(value=>({...value,[key]:`傳送結果未確認：${fail(cause,'請重試。')} 以相同內容重試不會重複寄出。`}));
         if(revoked(cause))revoke(key,since);

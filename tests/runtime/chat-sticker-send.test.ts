@@ -95,6 +95,39 @@ test('channel revocation during an uncertain send preserves its original key and
   await h.send(h.target,second);assert.equal(h.calls.length,1);
 });
 
+for(const status of [403,404])test(`channel first dispatched ${status} retains the tuple before revocation and only canonical ACK releases it`,async()=>{
+  const h=harness('channel'),revoke=h.state.revoke;let revocations=0;
+  h.state.revoke=(...args:any[])=>{
+    revocations++;
+    assert.equal(h.state.held.current[h.target].status,'unknown');
+    assert.equal(h.state.held.current[h.target].key,h.calls[0].key);
+    revoke(...args);
+  };
+  const canLeave=runInNewContext(`${sourceFunction('MemberChannels.tsx','canLeave')};canLeave`,{...h.state,window:{alert:()=>{}}});
+  const sent=h.send(h.target,first);
+  h.calls[0].reject(new ApiError({message:'revoked after dispatch',status}));await sent;
+  assert.equal(revocations,1);assert.equal(canLeave(),false);assert.equal(h.state.gone.current.has(h.target),true);
+  await h.send(h.target,second);await h.send(h.target);assert.equal(h.calls.length,1);
+  assert.equal(h.state.drafts[h.target],'保留的文字');assert.equal(h.state.cleared,0);assert.equal(h.state.selections.current.get(h.target),h.image);
+  // Model a later authorized history read; recovery itself must not dispatch.
+  h.state.gone.current.delete(h.target);assert.equal(h.calls.length,1);
+  const malformed=h.send(h.target);assert.equal(h.calls[1].key,h.calls[0].key);assert.deepEqual(h.calls[1].payload,h.calls[0].payload);
+  h.calls[1].resolve({...h.ack(1),channel_key:'another-channel'});await malformed;assert.equal(canLeave(),false);
+  const retry=h.send(h.target);assert.equal(h.calls[2].key,h.calls[0].key);assert.deepEqual(h.calls[2].payload,h.calls[0].payload);
+  h.calls[2].resolve(h.ack(2));await retry;
+  assert.equal(h.state.held.current[h.target],undefined);assert.equal(canLeave(),true);
+  assert.equal(h.state.drafts[h.target],'保留的文字');assert.equal(h.state.cleared,0);assert.equal(h.state.uploads,0);
+});
+
+test('channel first non-revocation validation 422 still permits editing and a new sticker key',async()=>{
+  const h=harness('channel'),sent=h.send(h.target,first);
+  h.calls[0].reject(new ApiError({message:'invalid input',status:422,code:'invalid_request'}));await sent;
+  assert.equal(h.state.held.current[h.target],undefined);assert.equal(h.state.gone.current.has(h.target),false);
+  assert.equal(h.state.drafts[h.target],'保留的文字');assert.equal(h.state.cleared,0);
+  const next=h.send(h.target,second);assert.notEqual(h.calls[1].key,h.calls[0].key);assert.deepEqual(h.calls[1].payload,{sticker_id:second});
+  h.calls[1].resolve(h.ack(1));await next;assert.equal(h.state.held.current[h.target],undefined);
+});
+
 test('channel ACK binds sender, room, kind, sequence, sticker and absence of unsent quote/image',()=>{
   const h=harness('channel'),expected={sender,kind:'guild' as const,channelKey:h.target,payload:{sticker_id:first}};
   const value={message_id:randomUUID(),sender_ref:sender,sender_name:'會員',kind:'guild',channel_key:h.target,sequence:'9223372036854775807',created_at:'2026-10-08T12:00:00Z',body:'[貼圖] 你好',sticker:{id:first,label:'你好'}};

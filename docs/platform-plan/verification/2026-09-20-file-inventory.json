@@ -2309,8 +2309,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberChannels.tsx",
-      "bytes": 40802,
-      "sha256": "26703f563102cd35c97e3118f2f82f2454f9f1a871c5f1e0b588ae8ff57f877d"
+      "bytes": 40912,
+      "sha256": "fa3e60577ef1526160283e6e421ddbadbeec5d7bca2cd9d38602635402ff7869"
     },
     {
       "path": "apps/portal-web/src/modules/MemberConnections.css",
@@ -13464,8 +13464,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 22137,
-      "sha256": "0bf738e2e30499ee096603c98c0096b819ed3c9e6bf7fd361446cd0ec4ddc1bd"
+      "bytes": 23060,
+      "sha256": "97bb4a6463657d0d9b0b627c7a2cc06120a9b0e3dd476ae0a20dbf58bd4954bf"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -19379,8 +19379,8 @@
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
-      "bytes": 35073,
-      "sha256": "4a9d4272af044ccf5cb9fbfae035a2f12f97c3e7bd747673f0ee96fddab500bb"
+      "bytes": 42409,
+      "sha256": "b799154bf1870f754591bc41c3782cf63eb03a4d59affb29b4ec3c38410542a6"
     },
     {
       "path": "tests/e2e/client-connections-recovery.spec.ts",
@@ -20194,8 +20194,8 @@
     },
     {
       "path": "tests/runtime/chat-sticker-send.test.ts",
-      "bytes": 15326,
-      "sha256": "6f7ec115e4380e78539548d0b6b62629df8653af88a8b669e092cc0b287406f8"
+      "bytes": 17898,
+      "sha256": "1a34b747b405984363a4d0a8edef2468bad420112ad230737d009472c32d3b5a"
     },
     {
       "path": "tests/runtime/client-connections.test.ts",
