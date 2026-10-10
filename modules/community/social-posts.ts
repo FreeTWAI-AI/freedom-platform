@@ -16,6 +16,7 @@ import type { Actor } from '../identity-membership/service.js';
 import { taipeiDayStart } from './promotion.js';
 import type { LinkPreview } from './link-preview.js';
 import { canHideMemberContent as canHideSocialPosts } from './moderation.js';
+import { notifyMember } from '../member-communications/notifications.js';
 export { canHideSocialPosts };
 
 export class SocialPostExists extends Error {
@@ -187,11 +188,26 @@ function publishNativeNote(pool: Pool, input: Command, draft: NativeSocialDraft,
   });
 }
 
+const clip = (value: string, max: number) => [...value].length > max ? [...value].slice(0, max - 1).join('') + '…' : value;
+/** Same transaction as the like or comment. Never to oneself or across an active block;
+ * a like keys on (post, liker), so unlike and like again never notify twice. */
+async function notifyPostAuthor(q: PoolClient, actor: Actor, postId: string, kind: 'social_post_liked' | 'social_post_commented', sourceKey: string, title: (name: string) => string, excerpt?: string) {
+  const post = (await q.query(`SELECT p.author_user_id,p.kind,p.title,u.display_name AS actor_name FROM community_social_posts p JOIN users u ON u.user_id=$2
+    WHERE p.post_id=$1 AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=p.community_id AND b.state='active'
+      AND ((b.owner_ref=p.author_user_id AND b.target_ref=$2) OR (b.owner_ref=$2 AND b.target_ref=p.author_user_id)))`, [postId, actor.user_id])).rows[0];
+  if (!post || post.author_user_id === actor.user_id) return;
+  const subject = clip(String(post.title), 60);
+  await notifyMember(q, {community_id: actor.community_id, recipient_ref: post.author_user_id, kind, source_key: sourceKey,
+    title: clip(title(String(post.actor_name)), 160), body: excerpt ? `「${subject}」：${clip(excerpt, 200)}` : `「${subject}」`, action: {tab: 'social', resource_id: postId}});
+}
+
 export async function setSocialLike(pool: Pool, inputCommand: Command, id: string) {
   const {liked} = z.object({liked: z.boolean()}).strict().parse(inputCommand.body);
   return command(pool, inputCommand, q => activePost(q, inputCommand.actor, id, true), async q => {
-    if (liked) await q.query('INSERT INTO community_social_likes(post_id,community_id,user_id) VALUES($1,$2,$3) ON CONFLICT(post_id,user_id) DO NOTHING', [id, inputCommand.actor.community_id, inputCommand.actor.user_id]);
-    else await q.query('DELETE FROM community_social_likes WHERE post_id=$1 AND user_id=$2', [id, inputCommand.actor.user_id]);
+    if (liked) {
+      const added = (await q.query('INSERT INTO community_social_likes(post_id,community_id,user_id) VALUES($1,$2,$3) ON CONFLICT(post_id,user_id) DO NOTHING', [id, inputCommand.actor.community_id, inputCommand.actor.user_id])).rowCount;
+      if (added) await notifyPostAuthor(q, inputCommand.actor, id, 'social_post_liked', `social-like:${id}:${inputCommand.actor.user_id}`, name => `${name} 對你的貼文按讚`);
+    } else await q.query('DELETE FROM community_social_likes WHERE post_id=$1 AND user_id=$2', [id, inputCommand.actor.user_id]);
     return {post_id: id, liked, like_count: (await q.query('SELECT count(*)::int AS n FROM community_social_likes WHERE post_id=$1', [id])).rows[0].n as number};
   });
 }
@@ -250,6 +266,7 @@ export async function createSocialComment(pool: Pool, inputCommand: Command, id:
     const row = (await q.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at) VALUES($1,$2,$3,$4,$5) RETURNING comment_id`, [id, inputCommand.actor.community_id, inputCommand.actor.user_id, text, now])).rows[0];
     await q.query('UPDATE community_social_comments SET sticker_id=$2,mentions=$3 WHERE comment_id=$1',[row.comment_id,body.sticker_id??null,JSON.stringify(mentions)]);
     if(body.image_id)await q.query('UPDATE community_comment_image_asset_targets SET comment_id=$2 WHERE image_id=$1',[body.image_id,row.comment_id]);
+    await notifyPostAuthor(q, inputCommand.actor, id, 'social_post_commented', `social-comment:${row.comment_id}`, name => `${name} 在你的貼文留言`, text);
     return shownComment(q,inputCommand.actor,id,row.comment_id);
   });
 }

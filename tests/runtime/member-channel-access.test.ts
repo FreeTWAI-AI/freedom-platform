@@ -281,7 +281,8 @@ test('channels stay out of private conversations and notifications, and private 
   const inbox=await request('/me/conversations',b),thread=await request(`/me/conversations/${a.id}/messages`,b);
   assert.equal(inbox.data.unread_count,1);assert.deepEqual(thread.data.items.map((m:any)=>m.body),['私訊 private-marker']);
   assert.deepEqual((await request('/me/conversations',c)).data.items,[],'a third room member sees no private pair');
-  assert.equal(await count('member_notifications'),0,'channel messages create no notifications');
+  // Joining the squad in setup notifies owner and joiners (#403); channel messages themselves add none.
+  assert.equal(await count("member_notifications WHERE kind NOT IN ('squad_join_requested','squad_join_accepted')"),0,'channel messages create no notifications');
   assert.equal(await count("outbox WHERE payload::text LIKE '%guild-marker%' OR payload::text LIKE '%squad-marker%'"),0,'no channel text is published outward');
   assert.equal(await count("transition_journal WHERE data::text LIKE '%guild-marker%' OR data::text LIKE '%squad-marker%'"),0);
   assert.equal(await count("command_receipts WHERE response::text LIKE '%guild-marker%' OR response::text LIKE '%squad-marker%'"),0,'receipts keep no message text');

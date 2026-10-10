@@ -14,7 +14,15 @@
     "migrations/139_member_message_images.sql",
     "docs/development/member-communications.md",
     "modules/member-communications/channels.ts",
-    "modules/member-communications/types.ts"
+    "modules/member-communications/types.ts",
+    "modules/member-communications/notifications.ts",
+    "apps/portal-web/src/modules/MemberMessages.tsx",
+    "apps/portal-web/src/modules/NotificationBell.tsx",
+    "migrations/149_interaction_notifications.sql",
+    "tests/e2e/interaction-notifications.spec.ts",
+    "tests/runtime/interaction-notifications.test.ts",
+    "tests/runtime/member-channel-access.test.ts",
+    "tests/runtime/social-notification-focus.test.ts"
   ],
   "public_exports": [
     "modules/member-communications/images.ts",

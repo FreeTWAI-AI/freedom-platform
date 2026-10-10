@@ -6,10 +6,10 @@ import {useLanguage} from '../language';
 import {INBOX_UPDATED,announceInboxChange,useReadAllInbox} from './member-inbox';
 import './NotificationBell.css';
 
-export type BellAction={tab:'members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';resource_id:string|null};
+export type BellAction={tab:'members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events'|'social';resource_id:string|null};
 type Notice={notification_id:string;title:string;body:string;created_at:string;read_at:string|null;action:BellAction|null};
 type Page={items:Notice[];unread_count:number};
-const tabs=new Set<TabId>(['members','squads','guilds','guild-workspace','messages','events']);
+const tabs=new Set<TabId>(['members','squads','guilds','guild-workspace','messages','events','social']);
 const validAction=(action:BellAction|null)=>action&&tabs.has(action.tab)&&(!action.resource_id||/^[0-9a-z_-]{1,100}$/i.test(action.resource_id))?action:null;
 
 export function NotificationBell({client,onOpen,onNavigate}:{client:PortalClient;onOpen:()=>void;onNavigate?:(action:BellAction)=>void}){

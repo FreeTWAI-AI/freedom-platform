@@ -88,6 +88,17 @@ number 136 is provisional if another migration lands first.
 
 `squad_invitation` 由小隊邀請（migration 036）呼叫同一個 `notifyMember`。
 
+互動通知（#403，候選 migration 149）也在領域交易內呼叫 `notifyMember`：
+
+| 事件 | 收件者 | kind | source_key | action |
+| --- | --- | --- | --- | --- |
+| 他人在貼文留言 | 貼文作者 | `social_post_commented` | 每則留言一筆 | `social` + 貼文 ID |
+| 他人對貼文按讚 | 貼文作者 | `social_post_liked` | 每篇貼文、每位按讚者一筆；收回再按不重發 | `social` + 貼文 ID |
+| 會員申請加入小隊 | 隊主 | `squad_join_requested` | 每次申請的成員資格版本 | `squads` + 小隊 ID |
+| 隊主接受申請 | 申請者 | `squad_join_accepted` | 同上 | `squads` + 小隊 ID |
+
+本人對自己的貼文留言或按讚不通知；作者與互動者之間有任一方向的有效封鎖時也不通知，但留言／按讚照常成立。留言通知正文含貼文標題與留言摘錄（皆截斷），按讚只含貼文標題。通知寫入失敗會讓留言或按讚一起回滾。`social` action 在前端切到「社群分享」、清除平台與標籤篩選、等待新清單載入後，必要時最多再翻 4 頁找到貼文並聚焦；找不到時提示貼文可能已刪除。離開社群分享時清除已處理的通知目標，一般返回不再重複聚焦舊通知。候選 migration 149 保留 #420 的 `squad_member_removed`；未發布編號依實際整合主線接續，不增加歷史缺號。
+
 ## 測試
 
 ```sh

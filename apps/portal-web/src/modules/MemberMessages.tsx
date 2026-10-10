@@ -24,7 +24,7 @@ import {isFirstImageDecoderRejection,matchesDirectMessageAck,messageImageFileErr
 import {MessageImagePreview} from './MessageImagePreview';
 import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
 
-type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
+type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events'|'social';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
@@ -37,23 +37,23 @@ type ConversationPage={items:Conversation[];unread_count:number;next_offset:numb
 type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
 type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing?:{message_id:string;read_at:string|null}|null};
 type MemberPage={items:MemberCardData[];total:number;next_offset:number|null};
-type Props={client:PortalClient;session:SessionPayload;messageImagesEnabled?:boolean;memberBlockingEnabled?:boolean;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number};registerLeave?:(guard:(()=>boolean)|null)=>void};
+type Props={client:PortalClient;session:SessionPayload;messageImagesEnabled?:boolean;memberBlockingEnabled?:boolean;onNavigate:(id:TabId)=>void;onNotificationAction?:(action:{tab:'social';resource_id:string})=>void;onNotificationPeer?:{id:string;sequence:number};registerLeave?:(guard:(()=>boolean)|null)=>void};
 
 const PAGE=20,MAX_BODY=2000,LIVE_POLL_MS=1000;
 // Actions map to fixed in-app pages only; a notification can never supply a link.
-const actionLabels:Record<ActionTab,string>={members:'前往工坊夥伴',squads:'前往小隊集合',guilds:'前往職業公會','guild-workspace':'前往公會管理',messages:'開啟私訊',events:'前往活動'};
+const actionLabels:Record<ActionTab,string>={members:'前往工坊夥伴',squads:'前往小隊集合',guilds:'前往職業公會','guild-workspace':'前往公會管理',messages:'開啟私訊',events:'前往活動',social:'查看貼文'};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail=(cause:unknown,fallback='暫時無法讀取，請稍後重試。')=>cause instanceof Error&&cause.message?cause.message:fallback;
 /** No response, timeout or 5xx: the server may already have applied the write. */
 const unconfirmed=(cause:unknown)=>!(cause instanceof ApiError)||cause.network||cause.status===0||cause.status>=500;
 const merge=<T,>(current:T[],next:T[],id:(value:T)=>string)=>{const seen=new Set(current.map(id));return [...current,...next.filter(value=>!seen.has(id(value)))];};
-const usableAction=(action:NotificationAction|null)=>!action||!Object.hasOwn(actionLabels,action.tab)||action.tab==='messages'&&!uuid.test(action.resource_id??'')?null:action;
+const usableAction=(action:NotificationAction|null)=>!action||!Object.hasOwn(actionLabels,action.tab)||(action.tab==='messages'||action.tab==='social')&&!uuid.test(action.resource_id??'')?null:action;
 const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀數未確認':count>0?`${count} 則未讀`:'沒有未讀';
 
 type View='notifications'|'guild'|'squad'|'direct'|'world';
 const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人訊息','私訊','messages'],['guild','公會閒聊','公會','guilds'],['squad','小隊閒聊','群組','squads'],['world','世界聊天','公開','community'],['notifications','通知','通知','todos']];
 
-export function MemberMessages({client,session,messageImagesEnabled=false,memberBlockingEnabled=false,onNavigate,onNotificationPeer,chatEntry,initialView,registerLeave}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
+export function MemberMessages({client,session,messageImagesEnabled=false,memberBlockingEnabled=false,onNavigate,onNotificationAction,onNotificationPeer,chatEntry,initialView,registerLeave}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
   const all=useReadAllInbox(client);
   const leaveGuards=useChatLeaveGuards(registerLeave);
   const [view,setView]=useState<View>(initialView?.view??'direct');
@@ -85,7 +85,7 @@ export function MemberMessages({client,session,messageImagesEnabled=false,member
     {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}
     <div id="messages-panel-notifications" role="tabpanel" aria-labelledby="messages-tab-notifications" hidden={view!=='notifications'}>
       <div className="messages-notice-header"><h2>通知</h2><button type="button" className="btn btn-ghost" disabled={all.busy} onClick={()=>void all.markAll()}>{all.busy?'標記中…':'全部標為已讀'}</button>{all.error&&<p role="alert">{all.error}</p>}</div>
-      <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
+      <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onSocial={onNotificationAction} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
     </div>
     <div id="messages-panel-guild" role="tabpanel" aria-labelledby="messages-tab-guild" hidden={view!=='guild'}>
       <MemberChannels registerLeave={leaveGuards.guild} key={session.user.user_id} client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate} active={view==='guild'} openChannel={chatEntry?.kind==='guild'?chatEntry:null}/>
@@ -100,7 +100,7 @@ export function MemberMessages({client,session,messageImagesEnabled=false,member
   </section>;
 }
 
-function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalClient;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;onOpenPeer:(id:string)=>void}){
+function Notifications({client,onUnread,onNavigate,onSocial,onOpenPeer}:{client:PortalClient;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;onSocial?:(action:{tab:'social';resource_id:string})=>void;onOpenPeer:(id:string)=>void}){
   const [items,setItems]=useState<Notice[]>([]),[nextOffset,setNextOffset]=useState<number|null>(null);
   const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading'),[error,setError]=useState('');
   const [more,setMore]=useState<{loading:boolean;error:string}>({loading:false,error:''});
@@ -141,6 +141,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
   }
   function go(action:NotificationAction){
     if(action.tab==='messages'){onOpenPeer(action.resource_id!);return;}
+    if(action.tab==='social'&&onSocial){onSocial({tab:'social',resource_id:action.resource_id!});return;}
     onNavigate(action.tab);
   }
   async function markRead(item:Notice,then?:NotificationAction){
