@@ -1,0 +1,333 @@
+{
+  "format": "freedom.operator-observed-rollout/v1",
+  "recorded_at": "2026-10-10T14:16:00.225005+00:00",
+  "status": "complete",
+  "scope": "Reviewed #427 release, including #390/#420/#422, deployed to staging and production. #425/#426 are not part of this release.",
+  "source": {
+    "release": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+    "reviewedHead": "fccc1739895ec3814b9d49bb4815ad9156951aac",
+    "tree": "55d6cbf04029d862a865d9c78a6c857bf35b1b60",
+    "trustedPin": "fa2fcdefbeda2454db9a10ec13714effc453b702",
+    "verifyRun": 38052439063,
+    "verifyAttempt": 1,
+    "codeqlRun": 38052437017,
+    "reviewId": 5478962694,
+    "mergeMethod": "protected merge commit"
+  },
+  "authorization": "Existing Ted main-session authorization to continue protected merges, staging acceptance and production rollout; no additional CI dispatch.",
+  "source_verification": {
+    "pull_request": 427,
+    "required_jobs_passed": 14,
+    "browser_cases": 799,
+    "browser_files": 122,
+    "browser_passes": 5,
+    "reviewed_tree_equals_merged_tree": true
+  },
+  "environments": {
+    "staging": {
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "observed_at": "2026-10-10T13:35:43.160Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "cache_control_no_store": true
+      },
+      "worker_version": "c99e7ca0-93db-4977-af1a-34f5f27cfa60",
+      "dist_sha256": "3b8a9519141f5fa1b0a7836d7b75067f23191060f11be03a2ff792bfa7f46e35",
+      "migration": {
+        "at": "2026-10-10T13:26:30.851Z",
+        "applied": [],
+        "lastApplied": "148_social_wall_interactions.sql",
+        "ledgerCount": 147,
+        "rlsTables": 33,
+        "rlsPolicies": 45,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "d5b8e858-0614-4557-8a1c-c4c74f6f7fb7"
+      },
+      "comment_image_policy": {
+        "at": "2026-10-10T13:27:19.856Z",
+        "policy": {
+          "purpose": "community.comment-image",
+          "mode": "r2_only",
+          "policy_revision": "community.comment-image.rollout-20261010.v1",
+          "persistence_allowed": true,
+          "retained_byte_limit": "67108864"
+        },
+        "alreadyEnabled": true,
+        "existingPoliciesPreserved": true,
+        "readerFloor": "media.comment-image.asset.v1",
+        "gcEnabled": false
+      },
+      "preserved_configuration": {
+        "otherBindingsAndVarsPreserved": true,
+        "photoReadAndUploadEnabled": true,
+        "photoRetainedByteLimit": 67108864,
+        "reservationsEnabled": false,
+        "messageImagePersistence": false,
+        "gcEnabled": false
+      },
+      "selected_checks": {
+        "public_http": 34,
+        "merchant_browser": 24,
+        "social_browser": 26,
+        "squad_browser": 16
+      },
+      "synthetic_cleanup": {
+        "merchant_browser": {
+          "syntheticInstanceArchived": true,
+          "syntheticTenantArchived": true
+        },
+        "social_browser": {
+          "syntheticPostsDeleted": true
+        },
+        "squad_browser": {
+          "syntheticSquadsDisbanded": true
+        }
+      },
+      "github_deployment": {
+        "at": "2026-10-10T14:12:48.732592+00:00",
+        "environment": "staging-next",
+        "sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "deploymentId": 6982030249,
+        "statusId": 19567932829,
+        "state": "success",
+        "environmentUrl": "https://staging.freetwai.com/"
+      }
+    },
+    "production": {
+      "source": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "observed_at": "2026-10-10T13:58:44.146Z",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "cache_control_no_store": true
+      },
+      "worker_version": "fe7e8089-9624-4924-a818-b2722f3331d0",
+      "dist_sha256": "3b8a9519141f5fa1b0a7836d7b75067f23191060f11be03a2ff792bfa7f46e35",
+      "migration": {
+        "at": "2026-10-10T13:57:03.216Z",
+        "applied": [
+          "142_community_content_relations.sql",
+          "143_personal_content.sql",
+          "144_hosted_distribution_offers.sql",
+          "145_social_note_image_creation.sql",
+          "146_squad_management_and_kinds.sql",
+          "147_social_post_edits.sql",
+          "148_social_wall_interactions.sql"
+        ],
+        "lastApplied": "148_social_wall_interactions.sql",
+        "ledgerCount": 147,
+        "rlsTables": 33,
+        "rlsPolicies": 45,
+        "securityDefinersReferencingRls": 0,
+        "policiesPreserved": true,
+        "probes": {
+          "runtime": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": false
+          },
+          "backup": {
+            "login": true,
+            "expectedTablePrivileges": true,
+            "bypass": true
+          }
+        },
+        "backupSetId": "c2facfa5-2727-4099-a1e1-bf4bdbdaf9be"
+      },
+      "comment_image_policy": {
+        "at": "2026-10-10T13:58:20.529Z",
+        "policy": {
+          "purpose": "community.comment-image",
+          "mode": "r2_only",
+          "policy_revision": "community.comment-image.rollout-20261010.v1",
+          "persistence_allowed": true,
+          "retained_byte_limit": "67108864"
+        },
+        "alreadyEnabled": false,
+        "existingPoliciesPreserved": true,
+        "readerFloor": "media.comment-image.asset.v1",
+        "gcEnabled": false
+      },
+      "preserved_configuration": {
+        "otherBindingsAndVarsPreserved": true,
+        "photoReadAndUploadEnabled": true,
+        "photoRetainedByteLimit": 67108864,
+        "reservationsEnabled": false,
+        "messageImagePersistence": false,
+        "gcEnabled": false
+      },
+      "selected_checks": {
+        "public_http": 34,
+        "authenticated_http": 19
+      },
+      "synthetic_cleanup": {
+        "authenticated_http": {
+          "syntheticAccountDeactivated": true,
+          "syntheticTenantArchived": true,
+          "existingMemberPermissionsChanged": false,
+          "syntheticInternMembershipEnded": true,
+          "passwordOrSessionRecorded": false
+        }
+      },
+      "github_deployment": {
+        "at": "2026-10-10T14:12:49.358954+00:00",
+        "environment": "next",
+        "sha": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+        "deploymentId": 6982030368,
+        "statusId": 19567933073,
+        "state": "success",
+        "environmentUrl": "https://freetwai.com/"
+      }
+    }
+  },
+  "backups": [
+    {
+      "environment": "staging",
+      "label": "before-migration",
+      "sourceRelease": "64f27357760d5c7ce6f400459e103679aa811d67",
+      "operatorSource": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "createdAt": "2026-10-10T13:17:23.956Z",
+      "setId": "d5b8e858-0614-4557-8a1c-c4c74f6f7fb7",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "cef61f583dc78bbae182d96d5a2af8dc7fe39efeadbd0383bbfdc13a3d083167",
+      "dumpSha256": "79ab70d05da993cacc0fe7a18d8cdc48ea1818e7ebedc04be8d3107f735e78a7",
+      "diskRestore": true,
+      "retainedPhotoObjects": 4,
+      "remotePhotoObjects": 4,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0
+    },
+    {
+      "environment": "staging",
+      "label": "after-rollout",
+      "sourceRelease": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "operatorSource": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "createdAt": "2026-10-10T13:36:20.514Z",
+      "setId": "1574e0ad-1d66-4073-bef0-325f31dad7c1",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "bb8e5316a89509dffd03886307ec37f32a4abdc1e68796c1e0589d90a24cc0e6",
+      "dumpSha256": "2c6a88dee052ef63606d63b18fcb538099f0bda61add7b734f72dd75824bc3b4",
+      "diskRestore": true,
+      "retainedPhotoObjects": 6,
+      "remotePhotoObjects": 6,
+      "retainedCommentObjects": 4,
+      "remoteCommentObjects": 4
+    },
+    {
+      "environment": "production",
+      "label": "before-migration",
+      "sourceRelease": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "operatorSource": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "createdAt": "2026-10-10T13:46:28.063Z",
+      "setId": "c2facfa5-2727-4099-a1e1-bf4bdbdaf9be",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "947f7440fcb6beceed7aff613673ac12a52317c8f7f63b719dd434bc5e365942",
+      "dumpSha256": "a4d411e2789b8abd69091732b9dac8714bc06a9ee2300b6db1daf32c0f1a07db",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0
+    },
+    {
+      "environment": "production",
+      "label": "after-rollout",
+      "sourceRelease": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "operatorSource": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "createdAt": "2026-10-10T13:59:43.828Z",
+      "setId": "e598795a-1f13-4c29-add9-4f35b8164665",
+      "restore": "database_and_objects_restored",
+      "remoteReadback": "verified",
+      "cleanupVerified": true,
+      "manifestSha256": "f0af207f4d07719f7053c1f04b70238fd8b7c1dcc668a52256fe733006092fc4",
+      "dumpSha256": "dd074cb1ae2431e15dc5224875ce6c1b770cf2e7c670ed2fef0fdfa6851087ab",
+      "diskRestore": true,
+      "retainedPhotoObjects": 3,
+      "remotePhotoObjects": 3,
+      "retainedCommentObjects": 0,
+      "remoteCommentObjects": 0
+    }
+  ],
+  "limitations": [
+    "Selected environment acceptance, not Foundation/M1 acceptance or all 168 original requirements.",
+    "Staging browser journeys use existing qualified fictional members; production has selected public and authenticated HTTP checks, not a full real-member browser journey.",
+    "Cross-seller reservation concurrency, portable inventory, second-operator recovery and GC/retention remain open.",
+    "No #425/#426 merge/deployment or candidate migrations149–155 claimed."
+  ],
+  "backup_operator": {
+    "completedAt": "2026-10-10T13:57:44.524347+00:00",
+    "afterSha256": "bf34ea66684d7ded02df5cc1e247ed309261830d66dace69a9fe8134d1a5ba64",
+    "pins": {
+      "staging": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+      "production": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa"
+    },
+    "operatorSource": "2d5f158c9885765ed20a9bb5f9f9210e6f2740aa",
+    "backupAdapterSha256": "6d81ce3fcbd4188e3a7a5c22d783f046a29f6365b6e1c0dd53404f44007f97b5",
+    "diskRestore": true,
+    "gcSafety": "disabled",
+    "schedulesUnchanged": true
+  },
+  "temporary_staging_access": {
+    "revoked_at": "2026-10-10T13:59:57.460Z",
+    "policy": "deleted",
+    "token": "deleted",
+    "access_credential": "removed",
+    "curl_headers": "removed"
+  },
+  "retained_failed_acceptance_attempts": [
+    {
+      "attempt": 1,
+      "area": "social image replacement",
+      "finding": "The browser request had no Content-Length header; corrected instrumentation measured the actual 1650-byte WebP body. The existing server size bound remains.",
+      "runtime_unchanged": true
+    },
+    {
+      "attempt": 2,
+      "area": "social comment edit",
+      "finding": "The assertion matched unsaved textarea text; logging out aborted the save. The final helper waits for save acknowledgement and editor closure.",
+      "runtime_unchanged": true
+    },
+    {
+      "attempt": 3,
+      "area": "social comment edit instrumentation",
+      "finding": "The helper waited for PATCH but the existing endpoint is POST /comments/:id/edit. Corrected the observed method.",
+      "runtime_unchanged": true
+    }
+  ],
+  "rollback": {
+    "current_schema": 148,
+    "known_gaps": [
+      22
+    ],
+    "private_content_floor": "Do not redeploy e977 after migration143 private-content writes.",
+    "comment_image_floor": "19c6 is only a rollback candidate before comment-image activation. After activation retain media.comment-image.asset.v1 reader and use forward repair.",
+    "gc_and_retention": "OFF; historical object retention unchanged.",
+    "local_rollback_evidence": "Earlier schema148 local HTTP eleven-case evidence is retained; it is not a live Worker rollback drill."
+  }
+}
