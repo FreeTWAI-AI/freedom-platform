@@ -20,5 +20,5 @@ export function EmailChangeConfirm({client,token}:{client:PortalClient;token:str
     catch(e){setError(e instanceof Error?e.message:'無法確認變更，請稍後再試。');}
     finally{setBusy(false);}
   }
-  return <div className="app-frame"><main className="main stack"><section className="card stack"><h1>確認變更登入 Email</h1>{changed?<p role="status">登入 Email 已變更，舊信箱已收到通知。其他裝置須以新 Email 重新登入。</p>:<><p>確認此連結代表您可以使用新信箱；確認後才會切換登入 Email。</p><button className="btn btn-secondary btn-small" disabled={busy} onClick={()=>void confirm()}>{busy?'確認中…':'確認變更登入 Email'}</button></>}{error&&<p role="alert">{error}</p>}<a className="btn btn-secondary btn-small" href="/">返回工坊</a></section></main></div>;
+  return <div className="app-frame"><main className="main stack"><section className="card stack"><h1>確認變更登入 Email</h1>{changed?<p role="status">登入 Email 已變更，已向舊信箱寄出變更提醒。其他裝置須以新 Email 重新登入。</p>:<><p>確認此連結代表您可以使用新信箱；確認後才會切換登入 Email。</p><button className="btn btn-secondary btn-small" disabled={busy} onClick={()=>void confirm()}>{busy?'確認中…':'確認變更登入 Email'}</button></>}{error&&<p role="alert">{error}</p>}<a className="btn btn-secondary btn-small" href="/">返回工坊</a></section></main></div>;
 }

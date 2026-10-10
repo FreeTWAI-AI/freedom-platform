@@ -7,7 +7,7 @@ import {TENANT_CURSOR_TEST_KEY} from '../runtime/tenant-cursor-fixture.js';
 
 export * from './fixtures.js';
 type Features=Pick<NonNullable<Parameters<typeof createApp>[3]>,
-  'personalContentEnabled'|'firstParticipationEnabled'|'notificationPreferencesEnabled'|'eventParticipationEnabled'|'squadOutcomesEnabled'|'eventOutcomesEnabled'>;
+  'personalContentEnabled'|'firstParticipationEnabled'|'notificationPreferencesEnabled'|'eventParticipationEnabled'|'squadOutcomesEnabled'|'eventOutcomesEnabled'|'eventEmailSender'>;
 
 /** Real per-test Node host on the existing owned schema. Both ON/OFF cases run in
  * the ordinary browser pass; feature coverage does not depend on a new CI pin. */

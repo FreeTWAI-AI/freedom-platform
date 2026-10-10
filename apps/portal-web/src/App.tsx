@@ -298,8 +298,8 @@ function MemberApp() {
   if(!resetToken&&publicEventId&&readEventParticipationToken(locationHash)&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} participationEnabled={site?.event_participation_enabled===true} onLogin={eventLogin}/>;
 
   const emailChangeToken=/^#change-email\/([A-Za-z0-9_-]{43})$/.exec(locationHash)?.[1];
-  if(emailChangeToken)return <EmailChangeConfirm client={client} token={emailChangeToken}/>;
-  if(emailVerificationToken)return <EmailVerificationConfirm client={client} token={emailVerificationToken}/>;
+  if(emailChangeToken)return <EmailChangeConfirm key={emailChangeToken} client={client} token={emailChangeToken}/>;
+  if(emailVerificationToken)return <EmailVerificationConfirm key={emailVerificationToken} client={client} token={emailVerificationToken}/>;
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;

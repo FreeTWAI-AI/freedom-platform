@@ -1689,8 +1689,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 59091,
-      "sha256": "60b925e197c946495bbeb180da4079b978d34d6447ab4d6c3485d3721ae31712"
+      "bytes": 59143,
+      "sha256": "d2866f67386ee432efcc8a8d211f675d550d28cd3fff4c4967f14bb22f1514ba"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2144,8 +2144,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EmailChange.tsx",
-      "bytes": 2893,
-      "sha256": "d40a7e02d906c5502b2da5d590bc723aa7456cb9e121caa0e94222aae80e137b"
+      "bytes": 2902,
+      "sha256": "607e9882b980a284c70c3f8e68b241e356556dcce2f95532586112cc20139bb2"
     },
     {
       "path": "apps/portal-web/src/modules/EmailVerification.tsx",
@@ -2889,8 +2889,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 7119,
-      "sha256": "107121bb5ca7e42b57af8e42735b94fcc646fb167871f3e8b076c349c2c1ac26"
+      "bytes": 7157,
+      "sha256": "897fc22f5f40c18dfe6f7afa28cc11d962101e35c85a6a6cd04a4c9e8fab70ee"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -13739,8 +13739,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 45426,
-      "sha256": "8670d9d4e171e23d5a02f3964f1156b567f7b77bfb7965364a88c24ed3927b6a"
+      "bytes": 45704,
+      "sha256": "0cc4f651d90651f8067f0e7fe14906689c97e1b333a5238cd4f9fb992479217d"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17784,8 +17784,8 @@
     },
     {
       "path": "modules/identity-membership/email-change.ts",
-      "bytes": 5496,
-      "sha256": "04fa5c897ab253526a5022381747b941c812047cb11a93066b364ba1df26cb60"
+      "bytes": 5782,
+      "sha256": "6f493f86bfebe87b27747419a847ec2df3d8f01235ef0ada90201b1fa2417905"
     },
     {
       "path": "modules/identity-membership/email-verification.ts",
@@ -20083,9 +20083,14 @@
       "sha256": "b2f20f748c08365132eafcd8468e085cf6c941104d05929949ca7fbf9cf226c1"
     },
     {
+      "path": "tests/e2e/email-change.spec.ts",
+      "bytes": 4543,
+      "sha256": "3c630d0389725ebad5aa49d6b6a2323d3e5fe21eefd67e09249f04001043be52"
+    },
+    {
       "path": "tests/e2e/email-verification.spec.ts",
-      "bytes": 2454,
-      "sha256": "7ae1212aea046143a2dc1c146feb6f2b144a39a67467aef6670ff44d343fcf0e"
+      "bytes": 2822,
+      "sha256": "f1ccb8f97d391e05fd7d021e5352737aa9d0a1b55ca6a774f49a2e9af044485f"
     },
     {
       "path": "tests/e2e/event-attendees.spec.ts",
@@ -20339,8 +20344,8 @@
     },
     {
       "path": "tests/e2e/member-feature-fixture.ts",
-      "bytes": 1938,
-      "sha256": "f4782bb9083ca11c693b432780e0c8705e6310b50aa84f789aa309e0db3cfa13"
+      "bytes": 1957,
+      "sha256": "183702c2cb1e67c9b68ed559668abef102727908be771ff4ca5c02ea9cd9c265"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -21134,8 +21139,8 @@
     },
     {
       "path": "tests/runtime/email-change.test.ts",
-      "bytes": 5858,
-      "sha256": "f9fe3066682c9651ec444b58f23c06c296cb12583a183fa011f9247de77120f4"
+      "bytes": 9274,
+      "sha256": "eb76a9a5a05d43b88b5194a6e7e3cf777210f6b12a7e8a7051080ed61dcfa6be"
     },
     {
       "path": "tests/runtime/email-verification.test.ts",

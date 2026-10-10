@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { transaction, journal } from '../../packages/db/index.js';
+import { assertCurrentSessionClock } from '../../packages/db/member-session.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { tokenHash, verifyMemberPassword, type Actor } from './service.js';
 import type { EventEmailSender } from '../community/events.js';
@@ -22,6 +23,7 @@ export async function requestEmailChange(pool:Pool,actor:Actor,raw:unknown,origi
     await q.query('DELETE FROM login_email_change_tokens WHERE user_id=$1',[actor.user_id]);
     await q.query(`INSERT INTO login_email_change_tokens(token_hash,user_id,old_email,new_email,requesting_session_hash,credential_hash,expires_at)
       VALUES($1,$2,$3,$4,$5,$6,now()+interval '30 minutes')`,[hash,actor.user_id,user.email,email,actor.session_hash,tokenHash(user.password_hash)]);
+    await assertCurrentSessionClock(q,actor);
   });
   try{await send(email,'自由工坊：確認變更登入 Email',`請在 30 分鐘內開啟連結並確認變更登入 Email：\n${origin}/#change-email/${token}\n若非本人申請，請忽略此信。`);}
   catch{await pool.query('DELETE FROM login_email_change_tokens WHERE token_hash=$1',[hash]);throw new Problem(503,'email_change_send_failed','驗證信未寄送，請稍後重新申請。');}
@@ -45,8 +47,9 @@ export async function confirmEmailChange(pool:Pool,rawToken:string,send:EventEma
     await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1',[user.user_id]);
     const account=(await q.query('UPDATE member_accounts SET aggregate_version=aggregate_version+1 WHERE user_id=$1 RETURNING aggregate_version',[user.user_id])).rows[0];
     await journal(q,{...user,session_hash:proof.requesting_session_hash,csrf_token:''},'member_account',user.user_id,account?.aggregate_version??1,'change_login_email',{});
-    // A failed notification rolls back the switch and proof consumption, allowing retry.
-    try{await send(proof.old_email,'自由工坊：登入 Email 已變更',`您的登入 Email 已變更為 ${proof.new_email}。若非本人操作，請立即聯絡平台管理員。`);}
+    // Delivery precedes the final expiry check and commit. Describe the attempt,
+    // never a completed switch that could still roll back. Failure permits retry.
+    try{await send(proof.old_email,'自由工坊：登入 Email 變更提醒',`有人正嘗試將您的登入 Email 變更為 ${proof.new_email}。此信提醒變更嘗試；實際帳號狀態請回工坊確認。若非本人操作，請立即聯絡平台管理員。`);}
     catch{throw new Problem(503,'email_change_notification_failed','通知信未寄送，Email 尚未變更，請稍後重試。');}
     requireCondition((await q.query('SELECT 1 FROM login_email_change_tokens WHERE token_hash=$1 AND expires_at>clock_timestamp()',[hash])).rowCount===1,422,'email_change_link_invalid','變更連結已過期，請重新申請。');
     return {changed:true};

@@ -73,7 +73,8 @@ mutation body or creating, replacing or revoking sessions.
   `{email,password}`; verifies the current password and sends a 30-minute link
   to the normalized new address. Duplicate/current emails are rejected. Latest
   request replaces earlier proofs. Requires the existing generic mail sender
-  (`eventEmailSender` / Worker `EMAIL`) and migration 142.
+  (`eventEmailSender` / Worker `EMAIL`) and migration 156. The requesting session
+  is checked again after proof replacement, before handing the committed proof to mail.
 - `POST /auth/email-change/confirm`: `{token}`; the public `#change-email/<token>`
   page requires an explicit confirmation action (GET does not consume it).
   Proofs are one-use, SHA-256-only at rest, bound to the old email and password
@@ -83,7 +84,9 @@ mutation body or creating, replacing or revoking sessions.
   session is not renewed. Old-address notification delivery failure rolls back
   the change and permits retry. Mail-provider acceptance is not an inbox delivery
   guarantee; a lost database commit after mail acceptance can cause a duplicate
-  notification on retry. No production delivery/deployment is claimed.
+  notification on retry. The old-address notice describes a change attempt, not
+  committed success: delivery can cross the final proof expiry check, which still
+  rolls the transaction back. No production delivery/deployment is claimed.
 - `POST /me/account`: `{nickname,identity_label?,contacts}` (all four contact entries, **without**
   `verified`); social entries are `{value,audiences}`; email is **only**
   `{audiences}`. Sending `email.value` is rejected. GET still includes the

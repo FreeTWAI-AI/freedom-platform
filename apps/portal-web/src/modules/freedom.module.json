@@ -69,7 +69,8 @@
     "migrations/157_email_verification.sql",
     "tests/runtime/email-verification.test.ts",
     "tests/runtime/portal-email-verification.test.ts",
-    "tests/e2e/email-verification.spec.ts"
+    "tests/e2e/email-verification.spec.ts",
+    "tests/e2e/email-change.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

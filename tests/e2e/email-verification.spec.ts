@@ -18,12 +18,18 @@ test('account send error and one-use confirmation work on desktop and phone',asy
   const token='V'.repeat(43);
   await e2eAuthPool.query("INSERT INTO email_verification_tokens(token_hash,user_id,email,expires_at) VALUES($1,$2,$3,now()+interval '30 minutes')",[tokenHash(token),user.user_id,'maker@local.test']);
   await page.setViewportSize({width:390,height:844});
+  await page.context().clearCookies();
   await page.goto(`/#verify-email/${token}`);
   await expect(page.getByRole('heading',{name:'驗證登入信箱',exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect((await page.request.get('/api/v1/session')).status()).toBe(401);
   await page.getByRole('button',{name:'確認驗證信箱'}).click();
   await expect(page.getByText('登入信箱已完成驗證。',{exact:true})).toBeVisible();
   await page.getByRole('link',{name:'返回帳號頁'}).click();
+  await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
+  await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
+  await page.getByRole('button',{name:'登入',exact:true}).click();
+  await page.goto('/#account');
   await expect(page.getByText('maker@local.test · 已驗證',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'寄送驗證信',exact:true})).toHaveCount(0);
   await page.goto(`/#verify-email/${token}`);
