@@ -21344,8 +21344,8 @@
     },
     {
       "path": "tests/runtime/github-social-routes.test.ts",
-      "bytes": 17881,
-      "sha256": "ee90ddeb0a474611084596385fbee21b1779a0a81bdc6822480abb6be15774e5"
+      "bytes": 18538,
+      "sha256": "687845f79a51688f48aa24bfe619339ae28bd0e5e320d4c540206ca63b8d753f"
     },
     {
       "path": "tests/runtime/github-social-store.test.ts",
