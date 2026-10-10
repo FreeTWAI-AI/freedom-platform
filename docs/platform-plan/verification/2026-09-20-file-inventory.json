@@ -2174,8 +2174,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventHighlights.tsx",
-      "bytes": 19943,
-      "sha256": "2d6f6aa681addc7bfc859d7748ca7a4d7dbbec6fffca163bd82a3f15d65f0252"
+      "bytes": 20119,
+      "sha256": "f9fe7f29d6810232dbe0c1548ac8bd5fac8ae2d0c66947a342b512e6f871429b"
     },
     {
       "path": "apps/portal-web/src/modules/EventOutcomeBacklinks.tsx",
@@ -20049,8 +20049,8 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 29371,
-      "sha256": "b44147f6ea2ac302b35674a53f134dc9f41f41d5c34ea69a496b7c1c00634d40"
+      "bytes": 29829,
+      "sha256": "db71f6b6d80f34ebfa6130c93be0476c3b742a755592ac4efa61fb40b38f902d"
     },
     {
       "path": "tests/e2e/event-outcomes.spec.ts",

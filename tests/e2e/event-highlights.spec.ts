@@ -149,7 +149,10 @@ test.beforeAll(async ({e2eAuthPool}) => {
 test.afterAll(async ({e2eAuthPool}) => {
   await e2eAuthPool.query('DELETE FROM community_events WHERE event_id = ANY($1::uuid[])', [EVENT_IDS]);
   await e2eAuthPool.query('DELETE FROM positioning_profession_memberships WHERE membership_id=$1',[GUILD_MEMBERSHIP]);
-  await e2eAuthPool.query('DELETE FROM users WHERE user_id=ANY($1::uuid[])', [[HOST,GUILD_VIEWER]]);
+  await e2eAuthPool.query('DELETE FROM users WHERE user_id=$1',[HOST]);
+  // Retain immutable command history until the owning schema is dropped.
+  await e2eAuthPool.query('UPDATE sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1',[GUILD_VIEWER]);
+  await e2eAuthPool.query('UPDATE users SET active=false WHERE user_id=$1',[GUILD_VIEWER]);
 });
 
 test.beforeEach(async ({context, page}) => {
@@ -318,8 +321,10 @@ test('another member cannot remove someone else\'s item, and the organizer can',
   await expect(page.getByRole('heading', {name: '海報', level: 2})).toBeVisible();
   await expect(page.getByRole('heading', {name: '錄影與影片', level: 2})).toBeVisible();
   await expect(page.getByRole('heading', {name: '活動照片', level: 2})).toBeVisible();
-  await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
+  await expect(page.getByText('還沒有人補上內容。有閱讀權限的社群會員可以補上有權分享的照片、海報或影片連結。')).toBeVisible();
   await expect(page.getByText(GUILD_COPY)).toBeVisible();
+  await expect(page.getByRole('button',{name:'顯示公開連結',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'分享',exact:true})).toHaveCount(0);
   await expect(page.getByText(MEMBER_COPY)).toHaveCount(0);
   await expect(page.getByRole('button', {name: '展開', exact: true})).toBeVisible();
   await page.goto(`/#highlights/${ONLINE}`);

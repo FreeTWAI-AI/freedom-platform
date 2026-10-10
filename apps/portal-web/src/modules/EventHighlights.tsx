@@ -129,6 +129,7 @@ function HighlightDetail({ client, eventId,outcomesEnabled }: { client: PortalCl
     if (!dialog.open) dialog.showModal();
   }, [photoIndex]);
   async function share() {
+    if(!detail||!['open','referral'].includes(detail.visibility))return;
     const shareUrl = new URL(detail?.public_path ?? `/highlights/${eventId}`, window.location.origin).href;
     setCopied(false); setManual(false);
     if (navigator.share) {
@@ -178,6 +179,7 @@ function HighlightDetail({ client, eventId,outcomesEnabled }: { client: PortalCl
   }
   if (missing) return <p>找不到這場活動集錦。<a className="hl-btn" href="#highlights">返回活動集錦</a></p>;
   if (!detail) return error ? <p role="alert">{error}</p> : <p>正在整理這場活動。</p>;
+  const publiclyReadable=['open','referral'].includes(detail.visibility);
   const shareUrl = new URL(detail.public_path, window.location.origin).href;
   const links = detail.items.filter(item => item.kind === 'link');
   const posters = detail.items.filter(item => item.kind === 'poster');
@@ -187,11 +189,11 @@ function HighlightDetail({ client, eventId,outcomesEnabled }: { client: PortalCl
     <div className="hl-actions">
       <a className="hl-btn" href="#highlights">返回活動集錦</a>
       <a className="hl-btn" href={`#events/${eventId}`}>活動專頁</a>
-      {['open','referral'].includes(detail.visibility)&&<><a className="hl-btn" href={detail.public_path} target="_blank" rel="noopener noreferrer">公開頁 ↗</a>
+      {publiclyReadable&&<><a className="hl-btn" href={detail.public_path} target="_blank" rel="noopener noreferrer">公開頁 ↗</a>
       <button type="button" className="hl-btn" onClick={() => void share()}>分享</button></>}
     </div>
-    {copied && <p role="status">已複製公開連結。</p>}
-    {(manual || openCopy) && <p className="hl-copy"><label>請手動複製公開連結。<input readOnly value={shareUrl} aria-label="公開連結" onFocus={event => event.currentTarget.select()} /></label> <button type="button" className="hl-btn" onClick={() => setOpenCopy(value => !value)} hidden>{openCopy ? '收合' : '顯示'}</button></p>}
+    {publiclyReadable && copied && <p role="status">已複製公開連結。</p>}
+    {publiclyReadable && (manual || openCopy) && <p className="hl-copy"><label>請手動複製公開連結。<input readOnly value={shareUrl} aria-label="公開連結" onFocus={event => event.currentTarget.select()} /></label> <button type="button" className="hl-btn" onClick={() => setOpenCopy(value => !value)} hidden>{openCopy ? '收合' : '顯示'}</button></p>}
     <p className="hl-notice">{['open','referral'].includes(detail.visibility)?'公開活動的公開內容可供任何人閱讀；私人成果與草稿不會自動公開。':'這場活動只對符合目前社群或公會權限的會員開放，不提供匿名公開頁。'}</p>
     {error && <p role="alert">{error}</p>}
     <section className="hl-block">
@@ -267,6 +269,6 @@ function HighlightDetail({ client, eventId,outcomesEnabled }: { client: PortalCl
         </div>
       </>}
     </dialog>
-    <p className="hl-actions"><button type="button" className="hl-btn" onClick={() => setOpenCopy(true)}>顯示公開連結</button></p>
+    {publiclyReadable&&<p className="hl-actions"><button type="button" className="hl-btn" onClick={() => setOpenCopy(true)}>顯示公開連結</button></p>}
   </>;
 }
