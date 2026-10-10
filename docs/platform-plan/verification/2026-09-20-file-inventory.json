@@ -128,6 +128,11 @@
       "sha256": "b8047ef27d9d2642d87c8512acb8f5cb17da5bfd7eb44abec536a49e13439a07"
     },
     {
+      "path": ".github/workflows/reconcile-issue-closures.yml",
+      "bytes": 1066,
+      "sha256": "1b7ae79efd2f8620447b3101638db74fa79b15656714dd435fba5ffce2008eb3"
+    },
+    {
       "path": ".github/workflows/skill-book-upstreams.yml",
       "bytes": 545,
       "sha256": "c2ca5c511bafa00e5d2054786ad46bc97f38f7f1ad6a76598a0bdbe10bbc0fa4"
@@ -13618,6 +13623,11 @@
       "sha256": "56bef3c1279c0409168575e01e271dc420fae4d50e851325833ef8a0aa7cb061"
     },
     {
+      "path": "docs/development/github-issue-automation.md",
+      "bytes": 1118,
+      "sha256": "b8e0e168a12dffa7823ff8fa45d13fa85900eab11f1f1b9f1441c9396d990fed"
+    },
+    {
       "path": "docs/development/github-social.md",
       "bytes": 11515,
       "sha256": "abee44f860d9dbf0db4fbab030353ddcb2f870d8013328de01db2cbafc5b8fe4"
@@ -18394,8 +18404,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 3086,
-      "sha256": "e0966c5e9a212b441482c1691d5614b49ec2d1ff465fb6d83daa4f90e1209765"
+      "bytes": 3233,
+      "sha256": "0c2603e7313eac4b1a4f49721cc8a58210d54738e78c2a3b9c0d92496c705a6a"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -19481,6 +19491,16 @@
       "path": "scripts/migrate-installed.mjs",
       "bytes": 1220,
       "sha256": "f7748c8bb95e886a29707937bdaccae968094cb62f41cd45d83e457788a7f5b0"
+    },
+    {
+      "path": "scripts/reconcile-issue-closures.mjs",
+      "bytes": 4827,
+      "sha256": "994a4d16cfaf9bcd9a452ec4156a6f878cf5522e75354bd6bc3397b400776952"
+    },
+    {
+      "path": "scripts/reconcile-issue-closures.test.mjs",
+      "bytes": 4373,
+      "sha256": "8a86823e0a6f6223c0d0fb3809e1e0ef9ae7f7ff3f44af3b736124a21d3ed5bb"
     },
     {
       "path": "scripts/release-source-archive.py",
