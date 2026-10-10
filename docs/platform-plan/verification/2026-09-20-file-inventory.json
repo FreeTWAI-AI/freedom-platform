@@ -118,11 +118,6 @@
       "sha256": "e087c647400cfc2090251cb60d28303858e764bd1ad7bb0ed042405dec07d775"
     },
     {
-      "path": ".github/workflows/credential-ingest-diagnostic.yml",
-      "bytes": 2949,
-      "sha256": "c69dfa2e73d133e90a706137fee1d28fd7285f95838182084931df3fe5ee3269"
-    },
-    {
       "path": ".github/workflows/directory-runtime-profile.yml",
       "bytes": 2981,
       "sha256": "315f2495e0cb626160c12a3ee82b049daec63591247e64340b7f5419c391f4e4"
