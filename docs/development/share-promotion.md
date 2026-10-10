@@ -89,6 +89,9 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 | `POST /api/v1/social-posts/:id/comments` | 會員 | `{text}`，1–1,000 字；每日最多 100 則 |
 | `DELETE /api/v1/social-posts/:id/comments/:commentId` | 作者／平台管理員 | 軟刪除留言；公會職務不授予此管理權 |
 | `PUT /api/v1/social-posts/:id/thumbnail` | 作者 | 只限外部連結貼文換縮圖，PNG／JPEG／WebP，512 KiB 以下；原生貼文回 422 `social_note_image_fixed` |
+| `POST /api/v1/social-posts/:id/edit` | 作者 | 需 `If-Match` 版本（`revision`）。原生貼文 `{text}` 1–2,000 字；外部連結 `{title, note}`，網址、平台與縮圖不變；讚、留言與推廣點數保留，回應帶 `edited_at` 與新的 `revision`（#399） |
+| `POST /api/v1/social-posts/:id/comments/:commentId/edit` | 留言作者 | `{text}` 1–1,000 字，需 `If-Match`；只有留言作者能改，平台管理員仍只能刪除 |
+| `PUT /api/v1/social-posts/:id/thumbnail` | 作者 | PNG／JPEG／WebP，512 KiB 以下 |
 | `GET /api/v1/social-posts/:id/thumbnail` | 會員 | 有效貼文的縮圖 |
 | `GET /api/v1/public/social-posts/:id/thumbnail` | 公開 | 只開放外部連結貼文；原生、隱藏或刪除為 404 |
 | `DELETE /api/v1/social-posts/:id` | 作者 | 軟刪除 |

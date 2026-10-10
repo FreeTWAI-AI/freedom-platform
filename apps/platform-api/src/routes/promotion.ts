@@ -10,7 +10,7 @@ import { previewLink } from '../../../../modules/community/link-preview.js';
 import { createPromotionLink, creditPromotionClick, listMyPromotionLinks, promotionGo, promotionLeaderboards } from '../../../../modules/community/promotion.js';
 import { SocialPostExists, activeSocialPostId, createSocialPost, deleteSocialPost, hideSocialPost, listSocialPosts, publicSocialThumbnail, readSocialThumbnail, saveSocialThumbnail, socialPostDraft } from '../../../../modules/community/social-posts.js';
 import { moduleCommand, type PlatformEnv } from '../module-context.js';
-import {createNativeSocialPost, setSocialLike, listSocialComments, createSocialComment, removeSocialComment} from '../../../../modules/community/social-posts.js';
+import {createNativeSocialPost, setSocialLike, listSocialComments, createSocialComment, removeSocialComment, editSocialPost, editSocialComment} from '../../../../modules/community/social-posts.js';
 import type { PlatformRuntime } from '../runtime.js';
 
 const THUMB_MAX = 512 * 1024;
@@ -91,6 +91,16 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.post('/api/v1/social-posts/:id/like', async c => c.json(await setSocialLike(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/social-posts/:id/comments', async c => c.json(await listSocialComments(pool, c.get('actor'), z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
   app.post('/api/v1/social-posts/:id/comments', async c => c.json(await createSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime)), 201));
+  app.post('/api/v1/social-posts/:id/comments/:commentId/edit', async c => {
+    const result = await editSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), z.uuid().parse(c.req.param('commentId')), clock(runtime));
+    c.header('ETag', `"${result.revision}"`);
+    return c.json(result);
+  });
+  app.post('/api/v1/social-posts/:id/edit', async c => {
+    const result = await editSocialPost(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime));
+    c.header('ETag', `"${result.revision}"`);
+    return c.json(result);
+  });
   app.delete('/api/v1/social-posts/:id/comments/:commentId', async c => c.json(await removeSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), z.uuid().parse(c.req.param('commentId')))));
   app.post('/api/v1/social-posts', async c => {
     const commandInput = await moduleCommand(c);

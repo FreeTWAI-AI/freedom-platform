@@ -79,3 +79,10 @@
 .social-delete-dialog h2{margin:0;font-size:1.125rem}
 .social-delete-dialog p{margin:0}
 .social-delete-dialog .social-composer-footer{justify-content:flex-end}
+
+/* #399: edited marker and the edit dialog footer. */
+.social-edited { color: var(--muted); font-size: .85rem; font-weight: 400; margin-inline-start: .4rem; }
+.social-byline .social-byline-meta { grid-column: 2; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .4rem; font-size: inherit; min-width: 0; }
+.social-byline .social-edited { margin: 0; font-size: .8125rem; }
+.social-edit-dialog { width: min(560px, calc(100vw - 32px)); }
+.social-edit-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
