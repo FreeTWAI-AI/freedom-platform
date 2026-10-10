@@ -10,6 +10,7 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.member-card': ['member-ecard', 'member-directory', 'social-links', 'member-card-qr'],
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
+  'runtime.personal-content': ['personal-content', 'community-relations', 'community-search', 'work-privacy'],
 }).map(([id, names]) => [id, Object.freeze(paths(names))])));
 
 // Reviewed consumer adapters share the same bounded reporter/process runner.
@@ -62,4 +63,5 @@ session-cookie-security social-preview-assets social-thumbnail-assets verify-gui
 storefront-presentation-contracts hosted-store-media-contracts hosted-store-photo-state hosted-store-photo storefront-product-photo-core storefront-product-photo-sql storefront-product-photo-native hosted-store hosted-store-isolation hosted-order-contracts hosted-order-http hosted-order-http-contracts hosted-seller-orders hosted-seller-order-ui hosted-order-ui hosted-direct-orders hosted-store-offering
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
+personal-content community-relations
 `.trim().split(/\s+/)).sort());
