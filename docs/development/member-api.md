@@ -701,7 +701,9 @@ flag off the report route does not exist and search records nothing.
 the existing verified platform-admin identity, reads only that admin's own
 community, is `no-store`, and is recomputed from current authoritative records
 on every request, so there is no stored report to go stale or leak. The default
-range is the last 28 Asia/Taipei days; the maximum is 366 days. The response
+range is the last 28 Asia/Taipei days; the maximum is 366 days. Invalid calendar
+dates return 422 before any report query. Search rates expose distinct excluded
+test-account counts and excluded read counts for their own denominator. The response
 embeds its own definition (`participation-metrics/v2`): cohort, time zone,
 window, de-duplication and exclusions are part of the data, not tribal
 knowledge.
@@ -721,7 +723,9 @@ workflow, so no number is invented.
 Search outcomes store only an operation id, member, time, whether it was the
 first page, a result count and one opened content kind. Query text, filters,
 titles, messages, email and media are never stored. The open signal is
-accepted only from the member who ran the search. Return uses timestamps of
+accepted only from the member who ran the search. Its small same-origin CSRF
+request uses keepalive across document navigation; this is an outcome signal,
+not evidence that the target was read. Return uses timestamps of
 native posts/comments, showcase consent, skill publication and recorded search
 operations, not mutable session last-seen. It measures participation, not all
 visits; removal/withdrawal of those authoritative facts can change the report.

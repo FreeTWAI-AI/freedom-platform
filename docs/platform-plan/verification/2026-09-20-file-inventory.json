@@ -1809,8 +1809,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 22323,
-      "sha256": "ebca8fc70a573b873bd8d50db93f9af473dab94f8648c6015233a6d443248fbc"
+      "bytes": 22487,
+      "sha256": "54f2fa891198bc0b7b327e9648dc9771b08d363c6dd451f1c9a9ed8c7a2946fd"
     },
     {
       "path": "apps/portal-web/src/auth-messages.ts",
@@ -2114,8 +2114,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySearch.tsx",
-      "bytes": 11749,
-      "sha256": "35b29fc1f0542f2a952d18f4044c3e33abdeed6e506c15ffc6ffe3bf73a6bf80"
+      "bytes": 11784,
+      "sha256": "ae75df74459014cd4512f6e4c1cb1e5b591b56048ced52ca95c2548fd7f597f2"
     },
     {
       "path": "apps/portal-web/src/modules/CommunitySkillBooks.tsx",
@@ -13749,8 +13749,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 50445,
-      "sha256": "1bbf0ba2381d7add492eb0a41548963e61a72a82a0df66025abdc062163b8ab6"
+      "bytes": 50758,
+      "sha256": "156c7541c1ba8a91916e571a50baacfede06f4ac3ae8a417ee23e40afffbaffa"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17384,8 +17384,8 @@
     },
     {
       "path": "modules/community/participation-metrics.ts",
-      "bytes": 11890,
-      "sha256": "95a58bc87903a85428b38a5dc422293ddad726ae3ac8df96b5a2f9312302d2f2"
+      "bytes": 12958,
+      "sha256": "49a6f72d2026354da734a9f9ba3ea1413368457099e5ac4ec7f06872ebf555d7"
     },
     {
       "path": "modules/community/personal-content.ts",
@@ -17669,8 +17669,8 @@
     },
     {
       "path": "modules/community-search/freedom.module.json",
-      "bytes": 1817,
-      "sha256": "b8654a02343c4eb17357e8a61b06e1b833d0a1912c5194547cc7ff1eea23b320"
+      "bytes": 1864,
+      "sha256": "e335bf9ec876c3e61d41968fb03d9f83b77bfbe6362b31d90b6d60b76da9ff00"
     },
     {
       "path": "modules/development/freedom.module.json",
@@ -20374,8 +20374,8 @@
     },
     {
       "path": "tests/e2e/member-feature-fixture.ts",
-      "bytes": 1999,
-      "sha256": "34e2b59f488829b0877f97cba3ca311021ee1a4e19c9c71de0e366deed916dd8"
+      "bytes": 2285,
+      "sha256": "6ff8f9e9f66ddd1f0b2b5aa1748865a57bffcb0d32deba87a4b03d076e24e8d6"
     },
     {
       "path": "tests/e2e/member-home-next-step.spec.ts",
@@ -20501,6 +20501,11 @@
       "path": "tests/e2e/page-tools.spec.ts",
       "bytes": 9423,
       "sha256": "2e7ab5cc35773d115ace4b83dd5825cafe78fd0b996be16c402cc54b81265046"
+    },
+    {
+      "path": "tests/e2e/participation-metrics.spec.ts",
+      "bytes": 3963,
+      "sha256": "7fffd61ee326bc449bb865237bcef78d2c3bdb0ba71308458dd30b2ebce26913"
     },
     {
       "path": "tests/e2e/password-recovery.spec.ts",
@@ -22059,8 +22064,8 @@
     },
     {
       "path": "tests/runtime/participation-metrics.test.ts",
-      "bytes": 17081,
-      "sha256": "97897d42a91ab0fe5484a5a4d0336ab4b82a8151776944a874b290e81ff7bc59"
+      "bytes": 18070,
+      "sha256": "1d9659244aefbcd99fc3e41b2291200d8c221fb38f25e42f9e1af8d80422e16e"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",

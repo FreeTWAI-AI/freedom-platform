@@ -7,16 +7,20 @@ import {TENANT_CURSOR_TEST_KEY} from '../runtime/tenant-cursor-fixture.js';
 
 export * from './fixtures.js';
 type Features=Pick<NonNullable<Parameters<typeof createApp>[3]>,
-  'personalContentEnabled'|'firstParticipationEnabled'|'notificationPreferencesEnabled'|'eventParticipationEnabled'|'squadOutcomesEnabled'|'eventOutcomesEnabled'|'eventEmailSender'|'totpEncryptionKey'|'passwordEmailSender'>;
+  'personalContentEnabled'|'firstParticipationEnabled'|'notificationPreferencesEnabled'|'eventParticipationEnabled'|'squadOutcomesEnabled'|'eventOutcomesEnabled'|'eventEmailSender'|'totpEncryptionKey'|'passwordEmailSender'|'communitySearchEnabled'|'participationMetricsEnabled'>;
 
 /** Real per-test Node host on the existing owned schema. Both ON/OFF cases run in
  * the ordinary browser pass; feature coverage does not depend on a new CI pin. */
-export const test=base.extend<{memberFeatures:Features}>({
+export const test=base.extend<{memberFeatures:Features;memberRequestGate:{before:(request:Request)=>Promise<void>}|undefined}>({
   memberFeatures:[{},{option:true}],
-  baseURL:async({e2eAuthPool,memberFeatures},use)=>{
+  memberRequestGate:[undefined,{option:true}],
+  baseURL:async({e2eAuthPool,memberFeatures,memberRequestGate},use)=>{
     await ownedSchema(e2eAuthPool);
     let app:ReturnType<typeof createApp>|undefined;
-    const server=serve({hostname:'127.0.0.1',port:0,fetch:request=>app?app.fetch(request):new Response(null,{status:503})});
+    const server=serve({hostname:'127.0.0.1',port:0,fetch:async request=>{
+      if(memberRequestGate)await memberRequestGate.before(request);
+      return app?app.fetch(request):new Response(null,{status:503});
+    }});
     try{
       if(!server.listening)await new Promise<void>((resolve,reject)=>{server.once('listening',resolve);server.once('error',reject);});
       const address=server.address();if(!address||typeof address==='string')throw Error('Owned feature listener unavailable.');

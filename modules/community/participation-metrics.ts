@@ -9,7 +9,10 @@ export const PARTICIPATION_METRICS_VERSION = 'participation-metrics/v2';
 export const MIN_SAMPLE = 10;
 const TIME_ZONE = 'Asia/Taipei';
 
-const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => !Number.isNaN(Date.parse(value + 'T00:00:00Z')));
+const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+  const at = Date.parse(value + 'T00:00:00Z');
+  return Number(value.slice(0, 4)) >= 1 && Number.isFinite(at) && new Date(at).toISOString().slice(0, 10) === value;
+}, '日期必須是有效的 YYYY-MM-DD。');
 const rangeInput = z.object({ from: dateText.optional(), to: dateText.optional() }).strict();
 
 export const metricsDefinition = {
@@ -23,8 +26,8 @@ export const metricsDefinition = {
     registration_first_comment_7d: 'Registered members whose first native comment happens within 7 days of registration.',
     post_human_reply_48h: 'Active native posts that received an active comment from a different, active, non-test member of the same community within 48 hours. This is a reproducible proxy, not a quality judgement.',
     first_share_return_7d: 'Participation-return proxy: members whose first share is in range and who subsequently post, comment, publish a showcase/skill or search on a later Taipei calendar day within 7 days. Uses event timestamps, never mutable session last-seen; not all visits. Removing source facts can change recomputation.',
-    search_zero_result: 'Search page reads that returned no readable result, over all recorded search page reads.',
-    search_open: 'Search page reads with at least one result in which a result was opened, over page reads with results.',
+    search_zero_result: 'Search page reads that returned no readable result, over all recorded non-test search page reads; excluded_test_accounts counts distinct excluded actors and excluded_search_reads counts excluded reads.',
+    search_open: 'Search page reads with at least one result in which a result was opened, over non-test page reads with results; exclusion counts are restricted to reads with results.',
     moderation_case_time: 'Not available: this build has no reporting or case workflow to measure.',
   },
 } as const;
@@ -51,7 +54,7 @@ const firstShare = `first_share AS (
 export async function participationMetrics(pool: Pool, admin: Admin, rawRange: unknown, now = new Date()) {
   const range = rangeInput.parse(rawRange ?? {});
   const to = range.to ?? taipeiToday(now);
-  const from = range.from ?? addDays(to, -27);
+  const from = range.from ?? (to < '0001-01-28' ? '0001-01-01' : addDays(to, -27));
   requireCondition(from <= to, 422, 'invalid_range', '起始日不可晚於結束日。');
   requireCondition(Date.parse(to) - Date.parse(from) <= 365 * 86400000, 422, 'invalid_range', '一次最多查詢 366 天。');
   const start = `(($2::date)::timestamp AT TIME ZONE '${TIME_ZONE}')`, end = `((($3::date)+1)::timestamp AT TIME ZONE '${TIME_ZONE}')`;
@@ -103,10 +106,18 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
           AND x.at <= cohort.at + interval '7 days')) AS returned
     FROM cohort`);
 
-  const search = await q(`SELECT count(*) AS reads, count(*) FILTER (WHERE result_count=0) AS zero,
-      count(*) FILTER (WHERE result_count>0) AS with_results, count(*) FILTER (WHERE opened_at IS NOT NULL) AS opened
-    FROM community_search_operations WHERE community_id=$1 AND searched_at >= ${start} AND searched_at < ${end}
-      AND NOT is_verification_test_account(user_id)`, false);
+  const search = await q(`WITH scoped AS (
+      SELECT *, is_verification_test_account(user_id) AS synthetic FROM community_search_operations
+      WHERE community_id=$1 AND searched_at >= ${start} AND searched_at < ${end})
+    SELECT count(*) FILTER (WHERE NOT synthetic) AS reads,
+      count(*) FILTER (WHERE NOT synthetic AND result_count=0) AS zero,
+      count(*) FILTER (WHERE NOT synthetic AND result_count>0) AS with_results,
+      count(*) FILTER (WHERE NOT synthetic AND opened_at IS NOT NULL) AS opened,
+      count(DISTINCT user_id) FILTER (WHERE synthetic) AS excluded_accounts,
+      count(DISTINCT user_id) FILTER (WHERE synthetic AND result_count>0) AS excluded_result_accounts,
+      count(*) FILTER (WHERE synthetic) AS excluded_reads,
+      count(*) FILTER (WHERE synthetic AND result_count>0) AS excluded_result_reads
+    FROM scoped`, false);
 
   return {
     definition: metricsDefinition,
@@ -119,8 +130,8 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       registration_first_comment_7d: { ...rate(n(registered.commented), n(registered.denominator), n(registered.pending)), excluded_test_accounts: n(registered.excluded_test_accounts) },
       post_human_reply_48h: { ...rate(n(posts.replied), n(posts.denominator), n(posts.pending)), excluded_test_accounts: n(posts.excluded_test_accounts) },
       first_share_return_7d: rate(n(returns.returned), n(returns.denominator), n(returns.pending)),
-      search_zero_result: { ...rate(n(search.zero), n(search.reads), 0) },
-      search_open: { ...rate(n(search.opened), n(search.with_results), 0) },
+      search_zero_result: { ...rate(n(search.zero), n(search.reads), 0), excluded_test_accounts: n(search.excluded_accounts), excluded_search_reads: n(search.excluded_reads) },
+      search_open: { ...rate(n(search.opened), n(search.with_results), 0), excluded_test_accounts: n(search.excluded_result_accounts), excluded_search_reads: n(search.excluded_result_reads) },
       moderation_case_time: { status: 'not_available', reason: 'no reporting or case workflow exists in this build' },
     },
   };

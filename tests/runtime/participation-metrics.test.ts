@@ -115,8 +115,10 @@ test('day-2 return survives day-8 activity in the same session when recomputing 
 });
 
 test('search signals keep no query text, count zero-result reads and only the owner can mark a result opened', async () => {
+  const verificationEmail = 'metrics-maker@example.invalid';
+  await pool.query('UPDATE users SET email=$1 WHERE user_id=$2', [verificationEmail, DEMO_USERS[0].user_id]);
   const app = createApp(pool, origin, 'local', { communitySearchEnabled: true, participationMetricsEnabled: true });
-  const login = await app.request(origin + '/api/v1/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: DEMO_USERS[0].email, password: 'freedom-local-demo' }) });
+  const login = await app.request(origin + '/api/v1/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: verificationEmail, password: 'freedom-local-demo' }) });
   const csrf = (await login.json() as { csrf_token: string }).csrf_token, cookie = login.headers.get('set-cookie')!.split(';')[0];
   const get = (q: string) => app.request(origin + '/api/v1/community-search?' + q, { headers: { Cookie: cookie } });
   const empty = await (await get('q=' + encodeURIComponent('絕對不存在的敏感詞彙'))).json() as { items: unknown[]; operation_id: string };
@@ -137,7 +139,10 @@ test('search signals keep no query text, count zero-result reads and only the ow
   assert.deepEqual(rows, [{ has: false, opened: false }, { has: true, opened: true }]);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
   const m = (await participationMetrics(pool, { community_id: DEMO_COMMUNITY }, { from: today, to: today })).metrics;
-  assert.deepEqual([m.search_zero_result.numerator, m.search_zero_result.denominator, m.search_open.numerator, m.search_open.denominator], [0, 0, 0, 0]); // demo accounts remain recorded but are excluded from the report
+  assert.deepEqual([m.search_zero_result.numerator, m.search_zero_result.denominator, m.search_open.numerator, m.search_open.denominator], [0, 0, 0, 0]); // explicit verification accounts remain recorded but are excluded from the report
+  assert.equal(m.search_zero_result.excluded_test_accounts, 1);
+  assert.equal(m.search_zero_result.excluded_search_reads, 2);
+  assert.equal(m.search_open.excluded_search_reads, 1);
   assert.equal(m.search_zero_result.rate, null); // below the minimum sample: no fake percentage
   assert.equal(m.moderation_case_time.status, 'not_available');
 });
@@ -168,6 +173,8 @@ test('historical synthetic searches cannot satisfy the sample floor or alter rea
   const mixed = await metrics();
   assert.deepEqual([mixed.search_zero_result.numerator, mixed.search_zero_result.denominator, mixed.search_zero_result.rate], [10, 20, 0.5]);
   assert.deepEqual([mixed.search_open.numerator, mixed.search_open.denominator, mixed.search_open.rate], [9, 10, 0.9]);
+  assert.deepEqual([mixed.search_zero_result.excluded_test_accounts, mixed.search_zero_result.excluded_search_reads], [1, 20]);
+  assert.deepEqual([mixed.search_open.excluded_test_accounts, mixed.search_open.excluded_search_reads], [1, 10]);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_search_operations')).rows[0].n, 40);
 });
 
@@ -180,13 +187,19 @@ test('the report needs a verified platform admin, is flag-gated and only reads t
   const off = createApp(pool, origin, 'local', { adminVerifier: verifier });
   const email = 'metrics-admin@example.test';
   await pool.query('INSERT INTO platform_admins(admin_id,community_id,email,display_name) VALUES($1,$2,$3,$4)', [randomUUID(), DEMO_COMMUNITY, email, '指標管理員']);
-  const read = async (app: ReturnType<typeof createApp>, who: string | null) => app.request(origin + '/admin/api/participation-metrics?from=2026-10-01&to=2026-10-05', { headers: { Origin: origin, ...(who ? { 'Cf-Access-Jwt-Assertion': await sign(who) } : {}) } });
+  const read = async (app: ReturnType<typeof createApp>, who: string | null, query = 'from=2026-10-01&to=2026-10-05') => app.request(origin + '/admin/api/participation-metrics?' + query, { headers: { Origin: origin, ...(who ? { 'Cf-Access-Jwt-Assertion': await sign(who) } : {}) } });
   assert.equal((await read(on, null)).status === 200, false);
   assert.equal((await read(on, 'stranger@example.test')).status, 403); // verified identity that is not a platform admin
   assert.equal((await read(off, email)).status, 404);                 // flag off: the route does not exist
   assert.equal((await read(off, null)).status, 404); // before authentication
   const offSearch=createApp(pool,origin,'local',{communitySearchEnabled:true});
   assert.equal((await offSearch.request(origin+'/api/v1/community-search/operations/'+randomUUID()+'/open',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:'{"kind":"post"}'})).status,404);
+  for (const day of ['2026-02-30','2025-02-29','1900-02-29','2026-04-31','2026-13-01','0000-01-01']) {
+    assert.equal((await read(on, email, `from=${day}&to=${day}`)).status, 422, day);
+  }
+  for (const day of ['2024-02-29','2000-02-29','2026-04-30','0001-01-01']) {
+    assert.equal((await read(on, email, `from=${day}&to=${day}`)).status, 200, day);
+  }
   const ok = await read(on, email);
   assert.equal(ok.status, 200); assert.equal(ok.headers.get('cache-control'), 'no-store');
   const body = await ok.json() as { community_id: string; definition: { version: string }; metrics: Record<string, { status: string }> };
