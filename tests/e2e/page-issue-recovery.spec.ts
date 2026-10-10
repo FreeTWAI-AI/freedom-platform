@@ -66,24 +66,11 @@ test('member can send a design claim comment from the Issue row',async({page})=>
   await page.screenshot({path:'test-results/page-design-claim-mobile.png'});
 });
 
-test('console detail control follows message text on the same content row',async({page})=>{
-  await login(page);
-  await page.route('**/api/v1/me/github',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
-  await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
-  await page.getByRole('dialog',{name:'會員首頁：提出想法'}).getByRole('button',{name:'關閉'}).click();
-  await page.getByRole('button',{name:'展開訊息控制台'}).click();
-  const entry=page.locator('.game-console-entry').filter({hasText:'服務暫時無法回應（503）'}).first();
-  await expect(entry).toBeVisible();
-  await entry.scrollIntoViewIfNeeded();
-  const message=await entry.locator('.game-console-content p').boundingBox();
-  const summary=await entry.locator('.game-console-detail summary').boundingBox();
-  expect(message&&summary&&Math.abs(message.y-summary.y)<20).toBeTruthy();
-  await page.screenshot({path:'test-results/console-inline-detail-desktop.png'});
-  await entry.locator('.game-console-detail summary').click();
-  await expect(entry.locator('.game-console-detail pre')).toContainText('GET /me/github');
-  await page.setViewportSize({width:390,height:844});
-  await expect(entry.locator('.game-console-detail summary')).toBeVisible();
-  await entry.scrollIntoViewIfNeeded();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:'test-results/console-inline-detail-mobile.png'});
+test('API failures stay visible in the owning page tools without reviving a console',async({page})=>{
+  await login(page);await page.route('**/api/v1/me/github',route=>route.fulfill({status:503,json:{}}));
+  await openPageTools(page);await page.getByRole('button',{name:'提出想法'}).click();
+  const dialog=page.getByRole('dialog',{name:'會員首頁：提出想法'});
+  await expect(dialog.getByText('暫時無法確認 GitHub 連結狀態',{exact:true})).toBeVisible();
+  await expect(page.locator('.game-console')).toHaveCount(0);
+  await dialog.getByRole('button',{name:'關閉'}).click();await expect(page.locator('.floating-messages')).toBeVisible();
 });
