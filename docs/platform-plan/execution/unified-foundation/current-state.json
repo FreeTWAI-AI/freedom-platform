@@ -1,6 +1,6 @@
 {
   "format": "freedom.foundation-current-state/v1",
-  "recorded_at": "2026-10-10T02:25:21.797839+00:00",
+  "recorded_at": "2026-10-10T02:34:31.616221+00:00",
   "scope": "Dated reconciliation; each observation has its own source/time. This file is not a live monitor or a release authorization.",
   "foundation_complete": false,
   "requirements": {
@@ -56,16 +56,17 @@
       },
       "worker_version": "fa0e2b80-2ba8-4b41-9552-695e7a332895",
       "evidence": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
-      "limitation": "Live staging uses two existing fictional qualified members; new-member registration/promotion browser evidence is local, not a production member acceptance."
+      "limitation": "Live staging uses two existing fictional qualified members; new-member registration/promotion browser evidence is local, not a production member acceptance.",
+      "last_operator_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c"
     },
     "last_operator_rollout": {
       "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T02:25:21.797839+00:00",
+      "at": "2026-10-10T02:34:31.616221+00:00",
       "kind": "operator_observed_private_receipts_with_sanitized_public_summary",
       "scope": "Same reviewed source and built dist in staging and production; only new migration 141, photo reader/upload admission and compatible backup operator. Reservations remain OFF.",
       "status": "complete",
       "receipt": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
-      "receipt_sha256": "9e6a95eb8a2fc8423f4d8f2d3f722619ab9cc3137bce550443c5330249db4bfd",
+      "receipt_sha256": "7b1a808e482d337c96955714fa70ce5a75d797c92bc599c8eeea955fb8fa63aa",
       "selected_checks": {
         "staging": {
           "public": 34,
@@ -867,7 +868,7 @@
       },
       "if_enabled": "Each environment has one tenant_capacity_policies row with the same values: default scope, plan_ref interim-default-20261007, revision 1 (10 active instances, 3 per module, 2 concurrent provisions, 1000 work items, 104857600 retained bytes, 2 concurrent jobs, model budget 0). Staging's was written 2026-10-08T05:51Z by the staging migrator under the owner's 2026-10-07 trial approval; production's was written 2026-10-08T06:55Z by the production migrator with scripts/tenant-policy.ts after the owner chose the staging values on 2026-10-08. Neither environment has a tenant_authority_policies row, so ownership transfer and recovery return 403 policy_unconfigured. policy_rows counts the rows in each environment (the same in both).",
       "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "at": "2026-10-10T02:25:21.797839+00:00",
+      "at": "2026-10-10T02:34:31.616221+00:00",
       "evidence": [
         "docs/platform-plan/execution/unified-foundation/closeout.md",
         "docs/platform-plan/execution/guild-launchpad/acceptance-progress.json",
@@ -879,7 +880,7 @@
     "limitation": "Merged or deployed source does not enable default-off features or establish full acceptance; see the release flags and receipt.",
     "release_flags": {
       "source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
-      "observed_at": "2026-10-10T02:25:21.797839+00:00",
+      "observed_at": "2026-10-10T02:34:31.616221+00:00",
       "off": [
         "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
         "FREEDOM_HOSTED_RESERVATIONS_ENABLED",
