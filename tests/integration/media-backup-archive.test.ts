@@ -41,7 +41,8 @@ assert.equal(details.Id,container);
 const runnerOwned=details.Config.Labels?.['freedom.task']==='media-restore-drill'&&details.Config.Labels?.['freedom.owner']==='run-media-restore-test';
 if(runnerOwned){
   assert.equal(details.HostConfig.NetworkMode,'none');assert.equal(Object.keys(details.HostConfig.PortBindings??{}).length,0);
-  assert(details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
+  assert(details.Mounts?.some((mount:{Type:string;Destination:string})=>mount.Type==='volume'&&mount.Destination==='/var/lib/postgresql'));
+  assert(!details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
 }else{
   // An explicitly allocated disposable test server may be reused, but its
   // owner marker AND inspected loopback port must match the explicit inputs.

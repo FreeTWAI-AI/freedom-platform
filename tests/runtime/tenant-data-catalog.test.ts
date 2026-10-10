@@ -205,12 +205,12 @@ test('T-021 PostgreSQL IN scope checks expose an unregistered tenant table', asy
 test('T-021 PostgreSQL IN tenant-purpose checks expose an unregistered asset purpose', async () => {
   assert.deepEqual(await rolled(async q => {
     const definition = (await q.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='assets'::regclass AND conname='asset_scope_purpose'`)).rows[0].definition;
-    const extended = definition.replace("purpose = 'work.tenant-result'::text", "purpose IN ('work.tenant-result', 'tenant.crm-note')");
+    const extended = definition.replace("purpose = ANY (ARRAY['work.tenant-result'::text, 'storefront.product-photo'::text])", "purpose IN ('work.tenant-result', 'storefront.product-photo', 'tenant.crm-note')");
     assert.notEqual(extended, definition);
     await q.query('ALTER TABLE assets DROP CONSTRAINT asset_scope_purpose');
     await q.query(`ALTER TABLE assets ADD CONSTRAINT asset_scope_purpose ${extended}`);
     const snapshot = await liveSnapshot(q);
-    assert.deepEqual(snapshot.asset_purposes, ['tenant.crm-note', 'work.tenant-result']);
+    assert.deepEqual(snapshot.asset_purposes, ['storefront.product-photo', 'tenant.crm-note', 'work.tenant-result']);
     return checkTenantCatalog(snapshot, TENANT_DATA_CATALOG);
   }), [{ code: 'unregistered_asset_purpose', subject: 'tenant.crm-note' }]);
 });

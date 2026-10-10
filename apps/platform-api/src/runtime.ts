@@ -1,3 +1,4 @@
+import type { StorePhotoAssets } from '../../../modules/agent-commerce/hosted/photo-commands.js';
 import type { TenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import type { PublicGuideAssets } from '../../../packages/public-guide-assets/index.js';
 import type {EventHighlightAssetService} from '../../../modules/assets/event-highlight.js';
@@ -87,6 +88,10 @@ export type PlatformRuntime = {
   /** Release setting for guild launchpad and tenant workspaces. Absent or false leaves those routes unregistered. */
   guildLaunchpadEnabled?: boolean;
   hostedReservationsEnabled?: boolean;
+  /** Independent installed read port and new-upload admission; both absent by default. */
+  storePhotoAssetStore?: ObjectStore;
+  storePhotoAssets?: StorePhotoAssets;
+  storePhotoUploadsEnabled?: boolean;
   communityDiscoveryEnabled?: boolean;
   /** Management surface only; saved blocks continue protecting contact when false. */
   memberBlockingEnabled?: boolean;
