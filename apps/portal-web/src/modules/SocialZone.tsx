@@ -75,7 +75,8 @@ async function composeImage(file: File) {
   return {mime_type: file.type, data_base64: data};
 }
 
-export function SocialZone({client, canReview = false, viewer}: {client: PortalClient; canReview?: boolean; viewer?: {name: string; avatarUrl?: string | null}}) {
+const FOCUS_PAGE_LIMIT = 4;
+export function SocialZone({client, canReview = false, viewer, focusPost}: {client: PortalClient; canReview?: boolean; viewer?: {name: string; avatarUrl?: string | null}; focusPost?: {id: string; sequence: number}}) {
   const composerId = useId();
   const composer = useRef<HTMLDialogElement>(null), composerTrigger = useRef<HTMLButtonElement>(null);
   const options = useRef<HTMLDialogElement>(null), optionsTrigger = useRef<HTMLButtonElement>(null), linkComposer = useRef<HTMLDialogElement>(null);
@@ -143,6 +144,22 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
     finally { if (sequence === loadSequence.current) { setLoading(false); setMore(false); } }
   }, [client,tag]);
   useEffect(() => { void load(platform); }, [load, platform]);
+  // A notification opens one post: show every kind, then page a few times until it appears.
+  const focusing = useRef<{id: string; pages: number} | null>(null);
+  useEffect(() => {
+    if (!focusPost) return;
+    focusing.current = {id: focusPost.id, pages: 0};
+    if (platform !== '') selectPlatform('');
+    else void load('');
+  }, [focusPost?.sequence]);
+  useEffect(() => {
+    const target = focusing.current;
+    if (!target || loading || more || platform !== '') return;
+    const card = document.getElementById(`social-post-${target.id}`);
+    if (card) { focusing.current = null; card.scrollIntoView({block: 'center'}); card.focus({preventScroll: true}); return; }
+    if (cursor && target.pages < FOCUS_PAGE_LIMIT) { target.pages += 1; void load('', cursor); return; }
+    focusing.current = null; setNotice('找不到這則貼文，可能已刪除或已不在近期動態中。');
+  }, [items, loading, more, cursor, platform]);
   useEffect(() => () => { ++loadSequence.current; }, []);
   useEffect(() => { if (composerOpen && !composer.current?.open) {composer.current?.showModal(); composer.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus();} }, [composerOpen]);
   useEffect(() => { if (optionsOpen && !options.current?.open) options.current?.showModal(); }, [optionsOpen]);
@@ -378,7 +395,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
     {loading && <p role="status">正在載入貼文…</p>}
     {!loading && items.length === 0 && <p className="empty">{platform ? '這個分類還沒有貼文。' : '還沒有動態。分享第一則近況，和夥伴開始聊聊。'}</p>}
     <div className="social-grid">
-      {items.map(post => <article className="card social-card" key={post.post_id} id={`social-post-${post.post_id}`}>
+      {items.map(post => <article className="card social-card" key={post.post_id} id={`social-post-${post.post_id}`} tabIndex={-1}>
         <div className="social-card-body">
           <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> {post.edited_at ? <small className="social-byline-meta"><time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time><small className="social-edited" title={formatIsoLocal(post.edited_at)}>已編輯</small></small> : <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time>}</p>
             {(post.mine||canHide)&&<details className="social-post-menu" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}>

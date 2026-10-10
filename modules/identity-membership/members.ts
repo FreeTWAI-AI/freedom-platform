@@ -347,6 +347,15 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     if(action==='remove')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_member_removed',
       source_key:`squad-removed:${id}:${targetId}:${saved.aggregate_version}`,title:`你已不在小隊「${String(live.name).slice(0,140)}」`,
       body:'隊主調整了小隊成員。需要時可以再次申請加入。',action:{tab:'squads',resource_id:id}});
+    if(action==='request'||action==='accept'){
+      // Same transaction as the membership change; the version keys a fresh notice per new request.
+      const squad=(await q.query('SELECT s.name,s.owner_ref,u.display_name AS actor_name FROM member_squads s JOIN users u ON u.user_id=$2 WHERE s.squad_id=$1',[id,input.actor.user_id])).rows[0];
+      const name=String(squad.name).slice(0,60);
+      if(action==='request')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:squad.owner_ref,kind:'squad_join_requested',source_key:`squad-request:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`${String(squad.actor_name).slice(0,80)} 申請加入小隊「${name}」`,body:'前往小隊集合查看申請，決定是否接受。',action:{tab:'squads',resource_id:id}});
+      else await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_join_accepted',source_key:`squad-accepted:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`你已加入小隊「${name}」`,body:'隊主接受了你的申請，可以在小隊集合與頻道和夥伴聯絡。',action:{tab:'squads',resource_id:id}});
+    }
     return saved;
   },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
 }

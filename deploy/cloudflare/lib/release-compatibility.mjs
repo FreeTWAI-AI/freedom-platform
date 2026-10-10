@@ -146,6 +146,9 @@ const FOUNDATION_NAMES = [
   '146_squad_management_and_kinds.sql',
   '147_social_post_edits.sql',
   '148_social_wall_interactions.sql',
+  // 149 is reserved by open PR #405; reconcile on merge.
+  null,
+  '150_interaction_notifications.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
@@ -217,7 +220,7 @@ function ledger(value, digest) {
   for (const row of value) {
     exact(row, ['name', 'sha256']); text(row.name, /^[0-9]{3}_[a-z0-9_]+\.sql$/); text(row.sha256, HEX64, 64);
     const number = Number(row.name.slice(0, 3));
-    if (number !== previous + (previous === 21 ? 2 : 1)) reject('schema_ledger_invalid');
+    if (number !== previous + (previous === 21 ? 2 : previous === 148 ? 2 : 1)) reject('schema_ledger_invalid');
     if (number >= 76 && FOUNDATION_NAMES[number - 76] !== row.name) reject('schema_unknown');
     previous = number;
   }
@@ -266,7 +269,7 @@ function validateMixed(value, digest) {
   let previous = 0;
   for (const row of legacy) {
     const number = Number(row.name.slice(0, 3));
-    if (number !== previous + (previous === 21 ? 2 : 1)) reject('schema_ledger_invalid');
+    if (number !== previous + (previous === 21 ? 2 : previous === 148 ? 2 : 1)) reject('schema_ledger_invalid');
     if (number >= 76 && FOUNDATION_NAMES[number - 76] !== row.name) reject('schema_unknown');
     previous = number;
   }

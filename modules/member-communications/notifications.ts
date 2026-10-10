@@ -14,6 +14,7 @@ const action=z.discriminatedUnion('tab',[
   z.object({tab:z.literal('guilds'),resource_id:guildKey.nullable()}).strict(),
   z.object({tab:z.literal('guild-workspace'),resource_id:guildKey.nullable()}).strict(),
   z.object({tab:z.literal('events'),resource_id:z.null()}).strict(),
+  z.object({tab:z.literal('social'),resource_id:uuid}).strict(),
 ]);
 const notifyInput=z.object({
   community_id:uuid,
