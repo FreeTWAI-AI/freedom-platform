@@ -23,8 +23,8 @@
     "tests/e2e/social-wall.spec.ts",
     "tests/runtime/social-post-edit.test.ts",
     "tests/runtime/social-share.test.ts",
-    "migrations/145_social_post_edits.sql",
-    "migrations/146_social_wall_interactions.sql",
+    "migrations/147_social_post_edits.sql",
+    "migrations/148_social_wall_interactions.sql",
     "modules/community/comment-images.ts",
     "modules/community/social-content.ts"
   ],

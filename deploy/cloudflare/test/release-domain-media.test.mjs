@@ -58,7 +58,7 @@ for (const shape of media) test(`${shape} requires domain and policy support in 
 });
 
 test('retained media capabilities cannot replace missing prerequisite migrations or a restored lower schema', () => {
-  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.comment-image.asset.v1', 145], ['media.storefront-product-photo.asset.v1', 140], ['media.social-preview-create.v1', 105]]) {
+  for (const [capability, missing] of [['media.server-policy.v1', 99], ['media.service-cover.asset.v1', 99], ['media.event-banner.asset.v1', 99], ['media.event-video.asset.v1', 100], ['media.social-thumbnail.asset.v1', 101], ['media.skill-image.asset.v1', 102], ['media.event-highlight.asset.v1', 103], ['media.message-image.asset.v1', 138], ['media.comment-image.asset.v1', 147], ['media.storefront-product-photo.asset.v1', 140], ['media.social-preview-create.v1', 105]]) {
     const f = fixture(); prefix(f, missing); f.host.rollback_floor.capabilities = [capability];
     const result = run(f); assert.equal(result.status, 'incompatible');
     assert(result.issues.some(issue => issue.code === 'shape_schema_missing'));

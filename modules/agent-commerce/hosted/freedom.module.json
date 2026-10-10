@@ -1,0 +1,75 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "hosted-distribution",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "modules/agent-commerce/hosted/distribution.ts",
+    "modules/agent-commerce/hosted/distribution.md",
+    "apps/platform-api/src/routes/hosted-distribution.ts",
+    "apps/portal-web/src/modules/HostedDistribution.tsx",
+    "contracts/guild-launchpad/v1/hosted-distribution.ts",
+    "contracts/guild-launchpad/v1/hosted-distribution.schema.json",
+    "migrations/144_hosted_distribution_offers.sql",
+    "tests/runtime/hosted-distribution.test.ts",
+    "tests/e2e/hosted-distribution.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "modules/agent-commerce/hosted/supply-terms.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "service-is-not-owner-person",
+    "purpose-and-environment-bound-key",
+    "single-transaction-effects",
+    "legacy-domain-replay-compatibility",
+    "explicit-readonly-target"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "commerce.hosted-distribution-api",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/hosted-distribution.ts",
+      "operations": [
+        "store.supply-offer.list",
+        "store.supply-offer.publish",
+        "store.supply-offer.withdraw",
+        "store.distribution.list",
+        "store.distribution.propose",
+        "store.distribution.decide",
+        "store.distribution.withdraw"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "commerce.hosted-distribution-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/HostedDistribution.tsx",
+      "operations": [
+        "store.supply-offer.list",
+        "store.supply-offer.publish",
+        "store.supply-offer.withdraw",
+        "store.distribution.list",
+        "store.distribution.propose",
+        "store.distribution.decide",
+        "store.distribution.withdraw"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

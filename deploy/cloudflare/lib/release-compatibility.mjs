@@ -31,7 +31,7 @@ const SHAPES = Object.freeze({
   'media.event-highlight.asset.v1': { migration: 104, capabilities: ['media.event-highlight.asset.v1', 'media.server-policy.v1'] },
   'media.skill-image.asset.v1': { migration: 103, capabilities: ['media.skill-image.asset.v1', 'media.server-policy.v1'] },
   'media.storefront-product-photo.asset.v1': { migration: 141, capabilities: ['media.storefront-product-photo.asset.v1', 'media.server-policy.v1'] },
-  'media.comment-image.asset.v1': { migration: 146, capabilities: ['media.comment-image.asset.v1', 'media.server-policy.v1'] },
+  'media.comment-image.asset.v1': { migration: 148, capabilities: ['media.comment-image.asset.v1', 'media.server-policy.v1'] },
   'media.message-image.asset.v1': { migration: 139, capabilities: ['media.message-image.asset.v1', 'media.server-policy.v1'] },
   'media.service-cover.asset.v1': { migration: 100, capabilities: ['media.service-cover.asset.v1', 'media.server-policy.v1'] },
   'media.event-banner.asset.v1': { migration: 100, capabilities: ['media.event-banner.asset.v1', 'media.server-policy.v1'] },
@@ -140,9 +140,12 @@ const FOUNDATION_NAMES = [
   '141_storefront_product_photos.sql',
   '142_community_content_relations.sql',
   '143_personal_content.sql',
-  '144_social_note_image_creation.sql',
-  '145_social_post_edits.sql',
-  '146_social_wall_interactions.sql',
+  // Recognition grants no release authority.
+  '144_hosted_distribution_offers.sql',
+  '145_social_note_image_creation.sql',
+  '146_squad_management_and_kinds.sql',
+  '147_social_post_edits.sql',
+  '148_social_wall_interactions.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

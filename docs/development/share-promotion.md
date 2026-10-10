@@ -107,7 +107,7 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 
 此整合候選使用 `132_social_feed_interactions.sql`；原 #193 曾順延為 125，現在同步至 main `59cfe68c`（已占用至 131）後暫重編為 132，並同步 manifest、frontier、名稱登錄與 inventory。發布前須再核對當時編號，並非預占。不能改舊 migration 的 bytes。只實作會員 HTTP 路由，沒有擴充固定 preview SDK。詳見 [本輪盤點](social-platform-audit-2026-10-07.md)。
 
-2026-10-10 發文附圖（#387）使用 `144_social_note_image_creation.sql`，只放寬 `community_social_thumbnail_asset_targets.create_source` 接受 `upload`，不改任何舊 bytes。legacy 模式在同一交易寫入貼文與 640×360 WebP；Asset 模式沿用自動預覽的 reservation→上傳→finalize 流程（`create_source='upload'`），物件上傳失敗時不會留下貼文。貼文發布後不再提供「加入圖片／換圖片」，刪除改用站內對話框確認。
+2026-10-10 發文附圖（#387）使用 `145_social_note_image_creation.sql`，只放寬 `community_social_thumbnail_asset_targets.create_source` 接受 `upload`，不改任何舊 bytes。legacy 模式在同一交易寫入貼文與 640×360 WebP；Asset 模式沿用自動預覽的 reservation→上傳→finalize 流程（`create_source='upload'`），物件上傳失敗時不會留下貼文。貼文發布後不再提供「加入圖片／換圖片」，刪除改用站內對話框確認。
 
 資料表在 `migrations/066_share_promotion.sql`：`promotion_links`、`promotion_clicks`、`promotion_click_salts`、`community_social_posts`、`community_social_post_thumbnails`。有效連結以部分唯一索引保證一人一種目標一條；有效貼文的網址同樣唯一。`promotion_links_target` 索引 `(kind, target_key)`，給貼文列表的點擊合計、活動推薦報表，以及之後的服務列表用。
 
@@ -178,7 +178,7 @@ Production runtime 必須提供受限的 preview transport；缺少 transport �
 
 這是會員入口的自動處理；原有伺服器 MIME／完整解碼／大小檢查仍執行，API 的 2 MiB／512 KiB 邊界及 640×360 公開成品 profile 不變。不是原圖保存、多圖、HEIC 或動圖支援。原生附圖與文字仍同一個 command 發布，未知結果重試保留同一組處理後 bytes 與 Idempotency-Key。
 
-整合基準 `e4603892`：尚未發布的新增 SQL 依目前主線改為 144，僅保留歷史缺號 022；001–143 保持原檔。#412／#413 若先進主線，須再依實際順序重編本候選，不能用臨時 gaps 略過。
+整合基準 `0be9aa0d`：承接 #413／#390／#420 的 144–146，#406 編輯與 #418 互動依序排為 147／148；僅保留歷史缺號 022，001–146 保持相依基準原檔。#412 由 main session 接續排序，不能用臨時 gaps 略過。
 
 ## 動態牆與留言工具（#418）
 
