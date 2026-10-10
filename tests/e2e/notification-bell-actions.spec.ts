@@ -17,7 +17,7 @@ async function inviteMaker(page:Page){
 }
 async function logout(page:Page){await signOut(page);await expect(page.getByRole('heading',{name:'登入',exact:true})).toBeVisible();}
 
-test('clicking one notification opens its friend response and keeps the bell open',async({page})=>{
+test('clicking one notification opens its friend response and closes the bell',async({page})=>{
   await login(page,'reviewer@local.test');await inviteMaker(page);await logout(page);
   await login(page,'client@local.test');await inviteMaker(page);await logout(page);
   await login(page,'maker@local.test');
@@ -30,8 +30,8 @@ test('clicking one notification opens its friend response and keeps the bell ope
   await expect(requestNotice).toBeVisible();
   await requestNotice.click();
   await expect(page).toHaveURL(/#members$/);
-  await expect(popover).toBeVisible();
-  await expect(popover.locator('.notification-bell-item.is-unread')).toHaveCount(unreadBefore-1);
+  await expect(popover).toBeHidden();
+  await expect(page.locator('.notification-bell-trigger')).toHaveAccessibleName(`通知，${unreadBefore-1} 則未讀`);
   const request=page.locator('#friend-request-20000000-0000-4000-8000-000000000002');
   await expect(request.getByRole('button',{name:'接受邀請'})).toBeFocused();
   await page.screenshot({path:'test-results/notification-action-desktop.png'});

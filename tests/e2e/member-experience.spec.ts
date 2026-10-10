@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import sharp from 'sharp';
 import { DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { test,expect } from './fixtures.js';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 
 const leaderboardFixtureUsers: string[] = [];
 test.afterEach(async ({ e2eAuthPool }) => {
@@ -96,9 +96,9 @@ test('completed member submits an event and sees accepted-work facts without pro
   await page.locator('.page-tools-menu > summary').click();
   for(const name of ['提出想法','頁面說明','參與編修'])await expect(page.locator('.topbar').getByRole('button',{name,exact:true})).toBeVisible();
   await page.locator('.page-tools-menu > summary').click();
-  await expect(page.locator('.game-console-ticker')).toBeVisible();
+  await expect(page.locator('.game-console')).toHaveCount(0);
   await expect(page.locator('.development-context')).toHaveCount(0);
-  expect(await page.evaluate(()=>getComputedStyle(document.querySelector('.game-console-ticker')!).backgroundColor)).toBe('rgb(255, 255, 255)');
+  expect(await page.evaluate(()=>getComputedStyle(document.querySelector('.floating-messages')!).backgroundColor)).toBe('rgb(255, 255, 255)');
   await page.screenshot({path:'test-results/member-home-light.png',fullPage:true});
   await navigate(page,'社群活動');
   await expect(page.getByRole('heading',{name:'社群活動',level:1})).toBeVisible();
@@ -265,7 +265,7 @@ test('task board explains unavailable and stale GitHub reads without claiming th
   await picker.selectOption('workshop-video-autopilot');
   await expect(page.getByRole('status').filter({hasText:'GitHub 資料同步中'})).toContainText('還無法確認任務清單');
   await expect(page.getByText('這個專案目前沒有符合搜尋的開放 Issue。')).toHaveCount(0);
-  await expect(page.locator('.game-console-ticker')).not.toContainText('服務暫時無法回應');
+  await expect(page.locator('.game-console')).toHaveCount(0);
   const repo=page.getByRole('link',{name:'查看完整 GitHub 專案 ↗'});
   await expect(repo).toHaveAttribute('href','https://github.com/FreeTWAI-AI/video-autopilot-kit');
   await page.screenshot({path:'test-results/task-board-github-rate-limit-desktop.png',fullPage:true});
@@ -291,13 +291,14 @@ test('story theme keeps the workshop controls and cute artwork usable on a narro
   await page.getByRole('button',{name:'設定',exact:true}).click();
   // 頁面說明 uses the theme's soft green, the same tint family as the filled 提出想法.
   await expect.poll(()=>page.evaluate(()=>{const tool=document.querySelector('.page-tool-button--help')!,probe=document.createElement('span');probe.style.background=getComputedStyle(document.documentElement).getPropertyValue('--green-soft').trim();document.body.append(probe);const soft=getComputedStyle(probe).backgroundColor;probe.remove();return getComputedStyle(tool).backgroundColor===soft})).toBe(true);
+  await openHomeGuide(page);
   await page.locator('.home-module-section > summary').click();
   await expect(page.locator('.home-module-supplier .home-module-cover')).toHaveCSS('background-image',/versefolk-market\.webp/);
   await page.locator('.home-module-section > summary').click();
   await page.locator('.page-tools-menu > summary').click();
   for(const name of ['提出想法','頁面說明','參與編修'])await expect(page.locator('.topbar').getByRole('button',{name:new RegExp(name)})).toBeVisible();
   await page.locator('.page-tools-menu > summary').click();
-  await expect(page.locator('.game-console-ticker')).toBeVisible();
+  await expect(page.locator('.game-console')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/member-home-versefolk-320.png',fullPage:true});
 });

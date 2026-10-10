@@ -99,6 +99,8 @@ async function main() {
   delete baseEnv.FREEDOM_E2E_PRIVATE_AI_FIXTURE;
   delete baseEnv.FREEDOM_E2E_AVATAR_ASSET_FIXTURE;
   delete baseEnv.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE;
+  delete baseEnv.FREEDOM_E2E_STORE_PHOTO_FIXTURE;
+  delete baseEnv.FREEDOM_E2E_NOTIFICATION_PREFERENCES;
   const controller = new AbortController();
   const onSignal = () => controller.abort();
   process.on('SIGINT', onSignal);

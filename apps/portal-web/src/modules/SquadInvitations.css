@@ -1,15 +1,53 @@
-.squad-panel .squad-invitations { display: grid; gap: .6rem; padding: 14px; border: 1px solid #3a4254; border-radius: 14px; background: #11151d; }
-.squad-panel .squad-invitations-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
-.squad-panel .squad-invitations-head h3:focus-visible, .squad-panel .squad-invite-manager h4:focus-visible { outline: 2px solid #c4ff20; outline-offset: 3px; }
-.squad-panel .squad-invitations-toggle { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; cursor: pointer; color: #aeb5c2; }
+.squad-panel .squad-invitations { display: grid; gap: .5rem; padding: 0 0 .5rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.squad-panel .squad-invitations h3:focus-visible, .squad-panel .squad-invite-manager h4:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.squad-panel .squad-invitations-toggle { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; cursor: pointer; color: var(--muted); }
 .squad-panel .squad-invitation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
-.squad-panel .squad-invitation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem .75rem; border-top: 1px solid #333943; padding-top: .6rem; }
+.squad-panel .squad-invitation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem .75rem; border-top: 1px solid var(--line); padding-top: .6rem; }
 .squad-panel .squad-invitation > div:first-child { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; }
 .squad-panel .squad-invitation .muted { font-size: .875rem; }
 .squad-panel .squad-invitation .actions { display: flex; gap: .5rem; flex-wrap: wrap; }
-.squad-panel .squad-invite-manager { border-top: 1px solid #333943; padding-top: .8rem; }
+.squad-panel .squad-invite-manager { border-top: 1px solid var(--line); padding-top: .8rem; }
 .squad-panel .squad-invite-search { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; }
 .squad-panel .squad-invite-search .field { flex: 1 1 14rem; }
 @media (max-width: 480px) {
   .squad-panel .squad-invitation .actions, .squad-panel .squad-invitation .actions .btn, .squad-panel .squad-invite-search .btn { flex: 1 1 auto; }
+}
+
+/* #400: owner tools — management drawer and the shared confirmation dialog. */
+.squad-manage { border-top: 1px solid var(--line); padding-top: .75rem; }
+.squad-manage > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.squad-manage[open] > summary { margin-bottom: .5rem; }
+.squad-confirm-dialog { width: min(420px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; background: var(--bg-elev); color: var(--ink); }
+.squad-confirm-dialog::backdrop { background: rgba(0,0,0,.45); }
+.squad-confirm-dialog h3 { margin: 0; }
+.squad-confirm-dialog p { margin: 0; }
+.squad-confirm-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
+
+/* Directory first; a single detail or creation flow occupies the same content area. */
+.squad-panel [hidden] { display: none; }
+.squad-panel .squad-directory-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; }
+.squad-panel .squad-invitations summary { cursor: pointer; min-height: 44px; padding: .5rem 0; }
+.squad-panel .squad-invitations summary h3 { display: inline; margin-right: .75rem; font-size: 1rem; }
+.squad-panel .squad-invitations summary .muted { font-size: .875rem; }
+.squad-panel .discovery-toolbar { padding: 0; border: 0; background: transparent; }
+.squad-panel .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; align-items: stretch; }
+.squad-panel .expedition-squad { display: flex; flex-direction: column; gap: .5rem; padding: 1rem; min-width: 0; }
+.squad-panel .expedition-squad h3, .squad-panel .expedition-squad p { margin: 0; overflow-wrap: anywhere; }
+.squad-panel .expedition-squad .eyebrow { font-size: .875rem; letter-spacing: 0; }
+.squad-panel .squad-purpose { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.squad-panel .squad-channel { font-size: .875rem; }
+.squad-panel .expedition-squad .squad-meta { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin-top: auto; padding-top: .5rem; border: 0; font-size: .875rem; }
+.squad-panel .expedition-squad .squad-meta span:last-child { color: var(--muted); }
+.squad-panel .expedition-squad .actions { margin: 0; padding-top: .25rem; gap: .5rem; }
+.squad-panel .expedition-squad-detail { max-width: 48rem; width: 100%; justify-self: center; }
+.squad-panel .card-head { flex-wrap: wrap; gap: .5rem; }
+.squad-panel .card-head h3 { overflow-wrap: anywhere; min-width: 0; flex: 1 1 14rem; }
+.squad-panel .squad-detail-actions .btn[aria-pressed="true"] { background: var(--green-soft); border-color: var(--focus); color: var(--ink); }
+.squad-panel .squad-start { justify-self: center; }
+.squad-panel .squad-manage > .stack { margin-top: 1rem; }
+.squad-panel h3:focus, .squad-panel h4:focus { outline: 2px solid var(--focus); outline-offset: 4px; }
+.squad-panel :is(input, select, textarea) { min-width: 0; }
+@media (max-width: 700px) {
+  .squad-panel .card-grid { grid-template-columns: minmax(0, 1fr); }
+  .squad-panel :is(input, select, textarea) { font-size: 1rem; }
 }

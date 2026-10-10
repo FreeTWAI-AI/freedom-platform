@@ -8,7 +8,7 @@
 | --- | --- |
 | `playwright.config.ts` | 單一 worker、每輪一個 `fp_e2e_` schema、本機 webServer |
 | `scripts/e2e-server.ts` | 只聽 `127.0.0.1` 的本機測試伺服器，建立並卸下該輪 schema |
-| `scripts/run-e2e.mjs` | `npm run test:e2e` 的編排：普通輪、private-AI 輪、avatar-asset 輪、message-image 輪 |
+| `scripts/run-e2e.mjs` | `npm run test:e2e` 的編排：普通輪、private-AI 輪、avatar-asset 輪、message-image 輪、store-photo 輪 |
 | `scripts/run-e2e.test.mjs` | 編排邏輯的 Node 測試，不開瀏覽器 |
 | `tests/e2e/fixtures.ts` | 規格使用的 `test`／`expect`，並在案例之間重設該 schema 的登入限流 |
 | `tests/e2e/navigation.ts` | 會員看得到的導覽與登出 |
@@ -17,14 +17,15 @@
 
 `public_exports` 是三個 helper：`tests/e2e/fixtures.ts`、`navigation.ts`、`quick-join.ts`。功能規格用 `./fixtures.js` 這類路徑 import 它們。規格檔本身不是 export，也不是這個模組的擁有路徑。
 
-## `npm run test:e2e` 的四輪
+## `npm run test:e2e` 的五輪
 
-`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑四個行程，每一輪都是新的 Playwright 行程與新的 schema：
+`package.json` 的 `test:e2e` 是 `node scripts/run-e2e.mjs`。沒有額外參數時，`planE2e` 依序跑五個行程，每一輪都是新的 Playwright 行程與新的 schema：
 
 1. 普通輪。參數原樣轉交，不設任何 fixture 旗標。
 2. private-AI 輪。加上 `tests/e2e/private-work-ai.spec.ts`，且只設 `FREEDOM_E2E_PRIVATE_AI_FIXTURE=1`。
 3. avatar-asset 輪。加上 `tests/e2e/member-avatar-asset.spec.ts`，且只設 `FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1`。
 4. message-image 輪。加上 `tests/e2e/message-images.spec.ts`，且只設 `FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1`。伺服器這輪用記憶體內物件儲存，並把本機 schema 的 `member.message-image` 政策列設為啟用；普通輪保持功能未安裝，該規格在普通輪只驗證「沒有圖片控制項、路由 404」。
+5. store-photo 輪。加上 `tests/e2e/hosted-store-photo.spec.ts`，且只設 `FREEDOM_E2E_STORE_PHOTO_FIXTURE=1`。使用獨立 schema 與本機照片儲存 fixture，驗證上傳、發布、移除及未知結果重播；不開啟正式照片保存政策。
 
 前一輪非零結束碼或訊號會停下來，不開下一輪。呼叫端已經帶了其中一個 fixture 旗標、帶了檔案篩選，或是 `--help`／`--version` 時，維持單一行程，不再自動加另外幾輪。預設計畫不會在同一輪同時設兩個旗標。若環境已經有兩個以上是 `1`，編排不會拆開它們；`scripts/e2e-server.ts` 在啟動遷移前直接拋錯，fixture 不能一起用。
 
@@ -288,6 +289,21 @@ community-search webServer 設定保留在 default 輪，不新增搜尋 pass。
 此 source／plan 測試不表示 installed required-workflow pin 已更新，也不等同
 真實 browser、部署、遠端媒體或備份驗收。pin 更新仍需獨立授權流程。
 
+## 商店照片 pinned plan 候選（2026-10-09）
+
+只更新本機 `scripts/run-e2e.mjs` 不會讓正式 CI 執行照片案例。本候選把
+`hosted-store-photo.spec.ts` 加入 trusted baseline，並加入固定的第五輪
+`store-photo`。runner 先清掉繼承的四個 fixture 旗標，再由每輪指定唯一旗標；
+trusted webServer config 強制轉交 host 值，candidate 不得自行開啟另一個 fixture。
+照片輪採既有 fixture 的 30 分鐘上限；default 40 分鐘及整個 job 50 分鐘均不變。
+每個曾 skip 的 test identity 仍必須在另一輪真正通過。刪除照片 baseline、缺少
+照片輪、照片永遠 skip 或子行程非零結束碼，都保持失敗。
+
+這份來源同時包含照片功能與案例；不可把要求照片 baseline 的 pin 裝到缺少該
+檔案的舊候選，再聲稱兩者相容。既有已部署資料、照片保存開關及備份操作器均
+不因測試計畫而變動。source review、hosted 完整試跑、installed pin 與 main
+required checks 分別記錄；本機編排測試通過不代表後三者已完成。
+
 ## 站內商品預留 UI fixture
 
 候選 `playwright.config.ts` 的 webServer 明確注入 `FREEDOM_E2E_HOSTED_RESERVATIONS=1`；僅 `scripts/e2e-server.ts` 的 local-only harness 將它映射為 Node admission option。產品 server／Worker 不讀這個 E2E 變數，正式 host admission 仍預設 OFF。每間合成商店先驗 `reservation_enabled=false`，再由功能 spec 的 SQL fixture 只啟用指定 instance；沒有新增 API setter 或正式設定。
@@ -295,3 +311,20 @@ community-search webServer 設定保留在 default 輪，不新增搜尋 pass。
 `tests/e2e/hosted-order.spec.ts` 在普通輪無條件執行，沒有依開關 skip；漏掉注入必須因正向 readiness 斷言失敗。功能自有 `hosted-order-fixture.ts` 可另開 127.0.0.1 port 0 HTTP listener，使用同一個已核對的 `fp_e2e_` schema，省略 admission option 以驗證 default OFF，再以 GLP 亦 OFF 驗證本人預留恢復／取消。它拒絕 54339、非明示 loopback `fp_*` DB 或不符 schema，測試 finally 關閉 context、connections 和 listener；只由原 harness 擁有與卸下 schema。
 
 此增量不新增第四輪、不修改 `scripts/run-e2e.mjs` 或 trusted runner 的 pinned 計畫。`run-e2e.mjs` 是 candidate 本機編排，不是可信 host CI；候選 webServer 的可受測設定與 installed host pass/timeout/結果驗證權威分開。新 spec 和 fixture 的來源存在不代表已跑瀏覽器，實跑版本與結果另記。
+
+## Member feature hosts in the ordinary pass
+
+Notification preferences, first participation, event participation and authored
+outcomes use the
+existing real local HTTP-listener pattern through `member-feature-fixture.ts`.
+Each test selects explicit Node feature options on the current owned `fp_e2e_`
+schema; both ON and OFF cases are registered and run in the ordinary pass. The
+fixture requires the same explicit disposable loopback database check as the
+hosted-order fixture and closes its listener in `finally`. It serves the freshly
+built portal and does not mock `/site` or feature APIs. The original harness
+still owns schema creation, authentication reset and schema removal.
+
+These cases need no new installed workflow pin or additional hosted pass.
+Existing candidate opt-in commands remain usable, but their environment cannot
+silently omit the opposite-mode tests in these four specs. Actual email delivery
+is not enabled by this fixture; event reminder browser coverage uses `in_app`.

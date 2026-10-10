@@ -16,6 +16,7 @@ const snapshot={stargazers_count:42,forks_count:7,open_issues_count:11,subscribe
 type Call={url:string;method:string;headers:Headers;body:string};
 class GitHubMock {
   calls:Call[]=[];starred=false;expires=28800;metricsStatus=200;stats={...snapshot};tokenFailure=false;userId=12345;revokeFailure=false;starStatus=204;
+  following=false;followStatus=204;followHeaders:Record<string,string>={};
   fetch:typeof fetch=async(input,init={})=>{
     const url=String(input),method=init.method??'GET',headers=new Headers(init.headers),body=String(init.body??'');this.calls.push({url,method,headers,body});
     assert.equal(init.redirect,'manual');assert.notEqual(init.redirect,'error');assert.ok(init.signal);assert.equal(headers.get('x-github-api-version'),'2026-03-10');
@@ -26,6 +27,12 @@ class GitHubMock {
       return Response.json({access_token:refresh?'ghu_refreshed':'ghu_synthetic',refresh_token:refresh?'ghr_rotated':'ghr_synthetic',token_type:'bearer',scope:'',expires_in:refresh?28800:this.expires,refresh_token_expires_in:15897600});
     }
     if(url==='https://api.github.com/user')return Response.json({id:this.userId,login:'verified-github-user'});
+    if(url==='https://api.github.com/user/following/source-author'){
+      if(this.followStatus!==204)return Response.json({message:'synthetic follow denial'},{status:this.followStatus,headers:this.followHeaders});
+      if(method==='GET')return new Response(null,{status:this.following?204:404});
+      assert.equal(headers.get('content-length'),'0');assert.equal(headers.get('authorization'),'Bearer ghu_synthetic');
+      this.following=method==='PUT';return new Response(null,{status:204});
+    }
     if(url===`https://api.github.com/user/starred/${repository}`){
       if(method==='GET')return new Response(null,{status:this.starred?204:404});
       if(this.starStatus!==204)return Response.json({message:'synthetic denial'},{status:this.starStatus});
@@ -54,6 +61,50 @@ async function connect(service=social,memberActor=actor){
   const start=await service.start(memberActor,'#guilds'),state=new URL(start.authorization_url).searchParams.get('state')!;
   return {start,state,complete:await service.complete(memberActor,state,'synthetic-code')};
 }
+
+test('GitHub author follow and unfollow use member token, confirm state and remain separate from workshop support',async()=>{
+  assert.deepEqual(await social.following(actor,'source-author'),{username:'source-author',connected:false,following:null});
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_connect_required'));
+  const connected=await connect();assert.equal(new URL(connected.start.authorization_url).searchParams.has('scope'),false);
+  assert.equal((await social.following(actor,'source-author')).following,false);
+  assert.equal((await social.follow(actor,'source-author',true)).confirmed,true);
+  assert.equal((await social.following(actor,'source-author')).following,true);
+  await social.follow(actor,'source-author',true);
+  await social.follow(actor,'source-author',false);
+  assert.equal((await social.following(actor,'source-author')).following,false);
+  assert.equal((await pool.query('SELECT count(*) FROM skill_star_support')).rows[0].count,'0');
+  await assert.rejects(()=>social.follow(other,'source-author',true),errorCode('github_connect_required'));
+  const calls=mock.calls.length;
+  await assert.rejects(()=>social.follow(actor,'../user',true));assert.equal(mock.calls.length,calls);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[actor.session_hash]);
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('session_expired'));
+});
+
+test('GitHub follow permission denial requests reauthorization without discarding valid connection',async()=>{
+  await connect();mock.followStatus=403;
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_follow_permission_required'));
+  assert.equal((await social.session(actor)).connected,true);assert.equal(mock.following,false);
+});
+
+test('GitHub follow 401 removes expired credentials; 403 and 429 rate limits retain them',async()=>{
+  await connect();
+  for(const status of [403,429]){
+    mock.followStatus=status;mock.followHeaders=status===403?{'x-ratelimit-remaining':'0'}:{};
+    await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_rate_limited'));
+    assert.equal((await social.session(actor)).connected,true);
+  }
+  mock.followStatus=401;mock.followHeaders={};
+  await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_reconnect_required'));
+  assert.equal((await social.session(actor)).connected,false);
+});
+
+test('GitHub follow member write budget stops requests before reaching provider',async()=>{
+  await connect();
+  for(let index=0;index<30;index++)await social.follow(actor,'source-author',true);
+  const calls=mock.calls.length;
+  await assert.rejects(()=>social.follow(actor,'source-author',false),errorCode('github_rate_limited'));
+  assert.equal(mock.calls.length,calls);
+});
 
 test('only successful member-directed GitHub writes enter workshop rankings; reads and rejected writes do not',async()=>{
   await connect();mock.starred=true;
@@ -314,3 +365,60 @@ test('OAuth preserves only an exact catalog skill page as a public return destin
   const result=await social.complete(actor,state,'synthetic-code');assert.equal(result.return_to,'/development/skills/social-post');
   assert.equal(mock.calls.some(call=>call.url.includes('/starred/')),false);
 });
+
+test('Follow rejects a session that expires while waiting for the GitHub member lock',async()=>{
+  await connect();mock.calls=[];
+  const blocker=await pool.connect();
+  try{
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+    await blocker.query('BEGIN');
+    await blocker.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-social/${actor.user_id}`]);
+    const pending=social.follow(actor,'source-author',true);
+    const rejected=assert.rejects(pending,errorCode('session_expired'));
+    // Prove the operation reached its advisory wait before crossing expiry.
+    const deadline=Date.now()+1500;let waiting=false;
+    while(Date.now()<deadline){
+      waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted AND objid::bigint=(hashtextextended($1,0)&4294967295) AND classid::bigint=((hashtextextended($1,0)>>32)&4294967295)) AS waiting",[`github-social/${actor.user_id}`])).rows[0].waiting;
+      if(waiting)break;await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    assert.equal(waiting,true,'Follow must reach the member-lock barrier');
+    await blocker.query('SELECT pg_sleep(2.1)');await blocker.query('COMMIT');
+    await rejected;
+    assert.equal(mock.calls.some(call=>call.url.includes('/user/following/')&&call.method!=='GET'),false);
+  }finally{await blocker.query('ROLLBACK');blocker.release();}
+});
+
+for(const operation of ['read','follow','unfollow'] as const){
+  test(`queued GitHub ${operation} rechecks the member session before sending a request`,async()=>{
+    let release!:()=>void,entered!:()=>void,count=0;
+    const held=new Promise<void>(resolve=>{release=resolve;}),full=new Promise<void>(resolve=>{entered=resolve;});
+    const service=new GitHubSocial(pool,config,async(input,init)=>{
+      if(String(input)==='https://api.github.com/repos/queue/blocker'){
+        if(++count===4)entered();await held;
+      }
+      return mock.fetch(input,init);
+    });
+    await connect(service);mock.calls=[];
+    // Observe the real service's transport only to establish a deterministic
+    // queue barrier; the operation under test uses the public service methods.
+    const provider=Reflect.get(service,'provider') as GitHubSocialProvider;
+    const blockers=Array.from({length:4},()=>provider.metrics('queue/blocker'));
+    let rejected:Promise<void>|undefined;
+    try{
+      await full;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+      const pending=operation==='read'?service.following(actor,'source-author'):service.follow(actor,'source-author',operation==='follow');
+      rejected=assert.rejects(pending,errorCode('session_expired'));
+      const deadline=Date.now()+1500;
+      while((Reflect.get(provider,'waiting') as unknown[]).length!==1&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+      assert.equal((Reflect.get(provider,'waiting') as unknown[]).length,1,'operation reached the provider queue before expiry');
+      await pool.query('SELECT pg_sleep(2.1)');release();await Promise.all(blockers);await rejected;
+      assert.equal(mock.calls.filter(call=>call.url.includes('/user/following/')).length,0,'no expired member request reaches GitHub');
+      // The rejected dispatch must release its concurrency slot for later work.
+      assert.equal((Reflect.get(provider,'waiting') as unknown[]).length,0);
+      assert.equal(Reflect.get(provider,'active'),0);
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 hour' WHERE token_hash=$1",[actor.session_hash]);
+      assert.equal((await service.follow(actor,'source-author',true)).confirmed,true);
+    }finally{release();await Promise.allSettled(blockers);if(rejected)await rejected;}
+  });
+}

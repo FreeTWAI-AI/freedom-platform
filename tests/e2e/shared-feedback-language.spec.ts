@@ -1,4 +1,5 @@
 import {test,expect,type Page,type Locator} from './fixtures.js';
+import {openChat,closeChat} from './navigation.js';
 
 // Expected copy is independent of the implementation's interface catalog.
 const languages=[
@@ -106,9 +107,9 @@ test('a held deferred page translates in place and navigation can still leave it
   await login(page);let release=()=>{};const gate=new Promise<void>(resolve=>{release=resolve});let assets=0;
   await page.route(/\/assets\/MemberMessages-[^/]+\.js$/,async route=>{assets++;await gate;await route.continue();});
   try{
-    await page.locator('#workspace-navigation').getByRole('button',{name:'我的訊息',exact:true}).click();
+    await openChat(page);
     for(const language of languages){
-      await selectLanguage(page,language);await expect(page.locator('.page-loading')).toContainText(language.opening);
+      await closeChat(page);await selectLanguage(page,language);await openChat(page);await expect(page.locator('.page-loading')).toContainText(language.opening);
       await expect(page.locator('#workspace-navigation')).toBeVisible();expect(assets).toBe(1);
     }
     await page.setViewportSize({width:320,height:844});await page.emulateMedia({reducedMotion:'reduce'});
@@ -116,20 +117,20 @@ test('a held deferred page translates in place and navigation can still leave it
     expect(await page.locator('.page-loading .request-feedback-progress').evaluate(element=>getComputedStyle(element).animationName)).toBe('none');
     await page.screenshot({path:info.outputPath('loading-es-320.png'),fullPage:true});
     await page.setViewportSize({width:1280,height:844});
-    await page.locator('#workspace-navigation').getByRole('button',{name:'Inicio',exact:true}).click();
+    await closeChat(page);await page.locator('#workspace-navigation').getByRole('button',{name:'Inicio',exact:true}).click();
     await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();
   }finally{release();}
   expect(assets).toBe(1);
-  await page.locator('#workspace-navigation').getByRole('button',{name:'Mensajes',exact:true}).click();
+  await openChat(page);
   await expect(page.getByRole('tab',{name:/^私人訊息/})).toBeVisible();expect(assets).toBe(1);
 });
 
 test('a failed deferred page keeps its failure and translated recovery controls on language changes',async({page},info)=>{
   await login(page);let assets=0;
   await page.route(/\/assets\/MemberMessages-[^/]+\.js$/,route=>{assets++;return route.abort();});
-  await page.locator('#workspace-navigation').getByRole('button',{name:'我的訊息',exact:true}).click();
+  await openChat(page);
   for(const language of languages){
-    await selectLanguage(page,language);const alert=page.getByRole('alert');
+    await closeChat(page);await selectLanguage(page,language);await openChat(page);const alert=page.getByRole('alert');
     await expect(alert).toContainText(language.failed);await expect(alert).toContainText(language.hint);
     await expect(alert.getByRole('button',{name:language.reload,exact:true})).toBeVisible();
     await expect(alert.getByRole('link',{name:language.back,exact:true})).toHaveAttribute('href','/#home');
@@ -144,5 +145,6 @@ test('a failed deferred page keeps its failure and translated recovery controls 
   }
   await page.setViewportSize({width:320,height:844});await page.screenshot({path:info.outputPath('recovery-es-320.png'),fullPage:true});
   await page.getByRole('link',{name:'Volver al inicio',exact:true}).click();
+  await expect(page.locator('.floating-message-panel')).toBeHidden();
   await expect(page.getByRole('button',{name:'建立貼文',exact:true})).toBeVisible();expect(assets).toBe(1);
 });

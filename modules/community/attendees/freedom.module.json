@@ -1,0 +1,42 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "event-attendees",
+  "owned_paths": [
+    "apps/portal-web/src/modules/EventAttendees.tsx",
+    "apps/portal-web/src/modules/MemberExperience.css",
+    "tests/runtime/event-attendees.test.ts",
+    "tests/e2e/event-attendees.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "community"
+  ],
+  "contract_families": [],
+  "surfaces": [
+    {
+      "surface_id": "community.event-attendees-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EventAttendees.tsx",
+      "operations": [
+        "community.event-attendees.list"
+      ],
+      "auth_profile": "member-session-organizer"
+    }
+  ]
+}

@@ -62,6 +62,19 @@ mutation body or creating, replacing or revoking sessions.
   the current value, null clears it. Default null; self-selected, never inferred.
   It is visible with the authenticated same-community card, and does not grant authority.
   Nickname is the editable community display name; use the name familiar to your community.
+- `POST /me/password` (#397): `{current_password,new_password}`; the signed-in
+  member re-proves the current password (same 10-failure/15-minute lockout as
+  login, keyed per member), stores the new 12–128 character password, revokes
+  every other session and keeps the proving session. Returns
+  `{changed:true,revoked_sessions}`; wrong password → 403
+  `current_password_invalid`, unchanged → 422 `password_unchanged`, locked → 429
+  `password_change_rate_limited`. No command receipt: the password never enters
+  a request digest; the journal records only the revoked count and advances the
+  account `aggregate_version`.
+- `GET /me/sessions`: `{items:[{current,created_at,last_seen_at,expires_at}],total}` —
+  the member's live sessions (≤50, current first); no token material is returned.
+- `POST /me/sessions/revoke-others`: `{}` with `Idempotency-Key`; ends every
+  session except the current one and returns `{revoked_sessions,aggregate_version}`.
 - `GET /members?limit=20&offset=0`: `{items,total,next_offset}`. Limit 1–50.
   Optional `search`, `guild_key`, `primary_guild_key`, `capability`, and `sort`
   filters combine before pagination. `capability` accepts a catalog capability ID
@@ -80,16 +93,38 @@ mutation body or creating, replacing or revoking sessions.
 - `GET /squads?limit=20&offset=0`: `{items,next_offset,kinds}`. Items include
   `squad_id,name,kind,purpose,owner_ref,owner_name,member_count,membership`.
   Membership is null or `{state,aggregate_version}` for the current user.
-- `POST /squads`: `{name,kind,purpose}`. `kind=project|mutual_help` (專案小隊／共同
-  目標互助小隊; provisional labels). Creator becomes its first active member.
+- `POST /squads`: `{name,kind,purpose,communication_channel_name?}`. Kinds keep
+  their persisted keys: `project` 開源專案合作團隊, `mutual_help` 生意機會合作團隊,
+  `coaching` 技能學習陪跑小隊, `social` 吃喝玩樂交流小隊. Creator becomes its
+  first active member. The portal opens member search immediately after creation;
+  the owner can also use the directory card's 邀請夥伴 action. Invitations retain
+  recipient consent and grant no membership or contact access before acceptance.
 - `GET /squads/:id`: squad plus `members` with `user_id,nickname,state,
   aggregate_version`. Pending members visible only to themselves and owner.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
 - `POST /squads/:id/members/:userId/accept`: owner accepts an existing pending
   request with that membership's version. Cannot add an unconsenting member.
+- `POST /squads/:id/members/:userId/decline`: owner declines a pending request
+  (membership becomes `left`; they may ask again). `.../remove`: owner removes an
+  active member other than themself and the member receives a
+  `squad_member_removed` notification. Both need the membership version (#400).
 - `POST /squads/:id/leave`: member leaves with current membership version, revoking
-  squad-scoped contact access. Owner transfer/deletion is not implemented; owner
-  cannot leave. No three-person minimum or commercial eligibility is implied.
+  squad-scoped contact access. The owner cannot leave (`409
+  squad_owner_cannot_leave`) until they transfer or disband.
+- Owner-only, all with the squad `aggregate_version` as `If-Match` and the squad
+  row locked before membership or invitation rows: `POST /squads/:id/profile`
+  `{name,purpose}`; `POST /squads/:id/transfer` `{user_id}` to a current active,
+  visible member under the same 10-squad owner limit (pending invitations the old
+  owner sent are withdrawn); `POST /squads/:id/disband` `{}` sets `disbanded_at`,
+  every membership becomes `left`, pending invitations are withdrawn, the squad
+  leaves lists/detail (404) and its channel stops accepting reads/writes. History
+  rows and the journal stay. Disbanded squads do not count toward the owner limit.
+  The classification view excludes them even for the preceding Worker release;
+  SQL triggers reject new pending/active memberships and pending/accepted
+  invitations to disbanded squads, fencing old writers after rollback. Current
+  channel reads also check the marker. A lost disband response is reconciled by
+  detail reload: a 404 closes the stale owner controls and returns to the list.
+  No three-person minimum or commercial eligibility is implied.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.
@@ -138,8 +173,8 @@ Five per hour is a provisional value (#199); it is the named constant
 
 ## Event highlights and published squad outcomes (#257)
 
-This source candidate adds `143_squad_outcomes.sql` and
-`144_event_outcomes.sql`. Apply both **before switching source, even with
+This source candidate adds `154_squad_outcomes.sql` and
+`155_event_outcomes.sql`. Apply both **before switching source, even with
 features off**: existing highlight media readers always check persisted
 bindings. `FREEDOM_SQUAD_OUTCOMES_ENABLED` and
 `FREEDOM_EVENT_OUTCOMES_ENABLED` default off; event outcomes require squad
@@ -214,6 +249,156 @@ previously downloaded or third-party-cached copies.
 
 Local isolated database/browser checks are not trusted CI, deployment,
 flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
+
+## Event calendar, reminders and waitlists (#256)
+
+The candidate uses migration `153_event_participation.sql`. Apply it **before
+switching source, even with the feature off**: existing RSVP capacity and guest
+acknowledgement paths also use its columns. The new routes and UI require
+`FREEDOM_EVENT_PARTICIPATION_ENABLED=true` (default off); disabled routes return
+404 before authentication. Worker enablement requires a usable `EMAIL.send`
+binding. This is not deployment, sender authorization or trusted CI evidence.
+
+All routes below use `/api/v1`. Member routes retain session, CSRF,
+Idempotency-Key and quoted If-Match controls:
+
+- `GET /events/:id/participation`: current event version, own RSVP/waitlist and
+  available seats, never other participants' identities or contact details.
+- `POST /events/:id/waitlist`: `{action:join|leave|accept|decline,referral_code?}`.
+- `PATCH /events/:id/waitlist-policy`: organizer-only
+  `{waitlist_enabled,response_window_minutes}`; enabling requires an explicit
+  positive safe-integer number of minutes, with no default window.
+- `PATCH /events/:id/schedule`: organizer-only `{starts_at,ends_at,capacity}`;
+  ISO timestamps, end after start, capacity null or 1–500.
+- `GET /events/:id/calendar`: `{calendar,filename}` for a currently readable
+  event. The browser downloads those bytes as a private `.ics` Blob.
+- `GET|PATCH /events/:id/reminder`: the independent reminder version and choice;
+  mutation `{enabled,minutes_before_start?,channel?}`. Enabling requires Going,
+  an explicit positive safe-integer lead time and `in_app` or `email`.
+
+Legal public guests request a mailbox management link with
+`POST /public/events/:id/participation-request` and
+`{name,email,referral_code?}`. Requesting it does not register, join the queue or
+enable a reminder. Existing network/email/global registration budgets apply.
+Its acknowledgement means provider acceptance, not inbox delivery.
+The private link uses `#participation=<opaque-token>`; treat it as a bearer
+credential and do not forward it. The client keeps it in memory and sends only
+`X-Event-Participation-Token` to that event's guest participation, calendar or
+reminder endpoint, never query parameters, storage, telemetry or ICS content.
+
+- `GET /public/events/:id/participation|calendar|reminder` returns the authorized
+  guest's projection. `POST .../participation` accepts member queue actions plus
+  `register|cancel`, and `expected_version` matching the quoted event If-Match.
+- `PATCH /public/events/:id/reminder` accepts the reminder choice plus
+  `command_id` matching Idempotency-Key and numeric `expected_version` matching
+  the reminder If-Match; guests may select only `email`.
+- Guest command keys are 8–128 base64url characters. Exact command replays do
+  not create another action or physical send. A stale version returns 412;
+  the UI retains the draft. An unknown response freezes the submitted command
+  for explicit retry with its original key/body/version, while retaining edits.
+
+All new endpoints use `private, no-store` and `noindex, nofollow`. Reads and
+dispatch recheck source visibility, current guild/account eligibility, referral
+codes and verification-test exclusions. Cancelled history remains accessible
+only with a genuine own RSVP or waitlist history; possession of an unrelated
+link or a bare cancelled reservation does not grant access.
+
+An event lock serializes capacity changes, original RSVP and queue commands.
+Occupancy includes confirmed Going, unexpired ten-minute public guest
+reservations and live offers, without counting an identity's own overlapping
+reservation twice. The agreed deduplication boundary is member ID separately
+from trimmed lowercase guest Email; no inferred member/guest identity linking,
+mailbox-alias equivalence or real-person verification is claimed.
+FIFO uses join time with a stable tie-breaker; leaving and rejoining goes to the
+back. Offers reserve seats, require explicit acceptance and expire no later
+than event start. Decline/expiry advances the queue. Capacity cannot fall below
+confirmed/live pending occupancy; excess newest unaccepted offers return to
+their original queue positions. Genuine transitions retain factual history,
+not invented participant actions or attendance.
+
+The existing Worker ten-minute schedule performs bounded round-robin queue
+reconciliation and reminder dispatch; affected mutations also dispatch queue
+updates. There is no minute-precision SLA or automatic scheduler in Node.
+Cancelled RSVP/event stops unsent reminders; rescheduling fences old attempts
+and uses the current start. Durable attempt identities prevent repeating the
+same start/lead/channel send, including a round-trip reschedule. Ambiguous
+physical sends are not automatically retried. Reminder status `provider_accepted`
+means only sender acceptance, `recorded` means a station notification was
+recorded, and `pending|cancelled|failed` are not delivery claims. In-app starts
+respect current notification preferences and quiet hours; essential invitation,
+schedule and cancellation notices retain their transactional classification.
+
+ICS has stable event UID, UTC start/end, aggregate-version SEQUENCE, cancellation
+STATUS and RFC text escaping/octet folding. It does not turn private locations
+or joining links into a public calendar feed. Import is a manual snapshot:
+redownload after changes; no automatic subscription/update is promised.
+Isolated browser download, UTC/time-zone and independent parser checks do not
+claim an actual Apple/Google Calendar import, external Email delivery, Worker
+cron deployment, attendance rate, XP, ticketing or payment completion.
+
+## Optional first participation (#259)
+
+This source candidate adds `152_first_participation.sql` on top of #344's
+personal-content prerequisite. `FREEDOM_FIRST_PARTICIPATION_ENABLED` defaults off
+in Node and Worker; `/site` exposes `first_participation_enabled`. Enabling it
+requires `FREEDOM_PERSONAL_CONTENT_ENABLED`. Disabled routes return 404 before
+authentication; invalid dependency combinations fail closed before pool/static work.
+
+The optional home card follows lawful quick guild entry, not a compulsory
+assessment, GitHub/AI binding or friendship. Its two choices return to original
+consented showcase publishing or the selected primary guild's original chat.
+Teaching examples are fictional and never prefill or publish. Native #193 public
+questions are unavailable; guild chat is not a substitute public post.
+
+`GET /api/v1/me/first-participation` returns versioned choice, selection time,
+state, current completion, own private draft resume and reception preference.
+`POST` accepts `{action:"choose",choice:"work"|"introduction"}` or an action of
+`skip`, `dismiss`, `resume`, `request_reception`, `stop_reception`, with the
+existing If-Match/Idempotency-Key contract. No client completion flag is accepted.
+Selection, suppression and opt-in survive relogin; content is not copied.
+Unknown transport outcomes retry the identical body/version/key. Late results
+cannot navigate a subsequent account. Unsent chat is browser-memory-only.
+
+Only an original first showcase-publication journal fact or actual own selected
+guild message at/after selection completes a chosen path. Old publications,
+private drafts and page opens do not. Projections recheck current ownership,
+community, visibility and guild membership. A retracted introduction is unavailable;
+retracted replies are excluded, and reception filters the original first source
+before pagination. Later messages do not replace it. Withdrawal/revocation produces
+`source_unavailable`, null completion and no cached title/link. Draft resume
+opens original own content. Guild links preserve the selected guild after reload.
+
+`GET /api/v1/first-participation/reception?offset=0&limit=20` lists explicitly
+opted-in currently readable same-community requests, with ACL before pagination
+(limit 1–50, offset 0–10000). `POST .../reception/:userId/claim` and `/release`
+accept `{}` with the target If-Match/key. Eligible volunteers may claim another
+member; concurrent claims have one winner. Disabled/ineligible claimants are
+not presented as active. Stopping removes the request. No email/contact/private
+draft is exposed. Claims do not send messages, add friends or certify identity,
+quality or response. Guild reply counts include other-author replies only;
+own work counts private opportunities and volunteers receive null.
+
+Local verification is synthetic source evidence only. Consented real-human
+newcomer trial, operational receptionist handoff, native #193 paths,
+production activation and formal #261 policy acceptance remain unverified.
+
+Build before the isolated `FREEDOM_E2E_FIRST_PARTICIPATION=1` browser pass.
+After changing worktree dependency links, rebuild the portal: an existing bundle
+can retain duplicate React instances and fail before the home card mounts.
+The browser regression also rejects page runtime errors instead of diagnosing
+an empty application as a missing guidance card.
+
+## Event registration list (#401)
+
+`GET /api/v1/events/:id/attendees?limit=20&offset=0` (limit 1–50) is
+organizer-only (`403 organizer_required` for everyone else, including guild
+reviewers, whose pending events have no registrations yet). It returns
+`{items,total,next_offset}` for the same population as `attending_count`:
+members currently `going` (verification-only test accounts excluded) and public
+guests whose confirmation email was sent, oldest registration first. A member
+item is `{kind:'member',user_id,nickname,avatar_url,registered_at}`; a guest item
+is only `{kind:'guest',registered_at}` — no guest name, email, member email or
+contacts. Cancelled RSVPs leave the list. Responses are `private, no-store`.
 
 ## Member avatars
 

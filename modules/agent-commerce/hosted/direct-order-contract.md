@@ -80,6 +80,26 @@ Pause/unpublish blocks NEW quotes/orders, not buyer history or release of held s
 
 ## Verification and subsequent work
 
+### Local inventory boundary
+
+Hosted quotes, order submission, buyer/seller cancellation and expiry use
+`ReservationInventory` for availability, sorted item locks, reservation and release.
+Its local adapter keeps the existing `commerce_items.stock/reserved` balance and
+the caller's authorized supply shop, scoped transaction and lock order. Both
+mutations check the shop and remaining balance in the SQL update; no guild role,
+extra inventory copy or new ledger grants access. Order state, receipt replay,
+deadline checks and journal effects remain in the same transaction. Metadata and
+selection consent are still the order domain's responsibility.
+
+This is an internal transaction boundary, not a portable HTTP protocol. A future
+remote adapter needs durable reservation identity, reconciliation after an unknown
+response, authority transfer and an explicit distributed commit/release policy;
+substituting a network call for the local SQL operation is not safe. Imported
+commerce retains its existing transaction path. Hosted supplier A to sellers B/C
+consent and publication remain separate work; the ten-unit regression here uses
+two buyers of one store and proves isolation from another store, not cross-seller
+distribution or inventory-module migration.
+
 HO-0 tests strict DTOs, disabled financial assertions, arithmetic/expiry invariants and generated JSON structural parity. They do not prove authorization, stock effects or transactions. HO-1/2 DB/service candidate follows the accepted HO-0 review; HO-3 adds the six buyer handlers as a local candidate requiring review and validation before publication. HO-4 adds only the owner-only seller API revision above; buyer UI is outside this slice.
 
 Required later evidence: seller A and distinct buyer B outside seller tenant; C, guild officer, same-community viewer and cross-instance grant denial; fresh-login same order; exact quote/intent retry after commit-response loss; two buyers race stock=1; all-lines rollback; price/publication/pause/stock-edit races; session expiry during receipt waits; quote expiry versus same-intent committed recovery; cancel/expiry/replay release once; expired read correct without cron; suspended store still releases stock; direct line cannot gain transfer/acceptance/payable; legacy imported two-payment/refund/shipment regression; restricted runtime roles and module-data detector coverage. Use barriers/DB clocks, not sleeps or fake provider events. No live purchase or payment evidence is implied.

@@ -219,7 +219,7 @@ test('member RSVP releases an expired guest email reservation before checking ca
   await pool.query("UPDATE community_event_guest_rsvps SET created_at=now()-interval '11 minutes' WHERE event_id=$1",[id]);
   assert.equal((await request(`/events/${id}/rsvp`,member,{going:true})).status,200);
   assert.equal((await request(`/events/${id}`,owner)).data.attending_count,1);
-  assert.equal((await pool.query('SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1',[id])).rows[0].count,'0');
+  assert.equal((await pool.query("SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1 AND state<>'cancelled'",[id])).rows[0].count,'0');
 });
 
 test('portrait poster stays portrait and a bounded event video supports range reads',async()=>{

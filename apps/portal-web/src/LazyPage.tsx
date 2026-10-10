@@ -9,12 +9,12 @@ class PageErrorBoundary extends Component<{children: ReactNode; fallback: ReactN
     return this.props.fallback;
   }
 }
-export function PageLoadBoundary({children, label, resetKey}: {children: ReactNode; label: string; resetKey?: string}) {
+export function PageLoadBoundary({children, label, resetKey, onHome}: {children: ReactNode; label: string; resetKey?: string; onHome?:()=>void}) {
   const {t} = useLanguage();
   return <PageErrorBoundary key={resetKey ?? label} fallback={<section className="card stack" role="alert">
     <strong>{t('page.unavailable',{label})}</strong>
     <p>{t('page.retryHint')}</p>
-    <div className="messages-actions"><button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>{t('page.reload')}</button><a className="btn btn-ghost" href="/#home">{t('page.home')}</a></div>
+    <div className="messages-actions"><button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>{t('page.reload')}</button><a className="btn btn-ghost" href="/#home" onClick={onHome}>{t('page.home')}</a></div>
   </section>}>
     <Suspense fallback={<div className="page-loading" role="status" aria-live="polite"><p><span className="request-feedback-progress" aria-hidden="true"/>{t('page.opening',{label})}</p><div className="page-loading-placeholder" aria-hidden="true"/><div className="page-loading-placeholder" aria-hidden="true"/></div>}>
       {children}

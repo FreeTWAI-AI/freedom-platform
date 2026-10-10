@@ -6,6 +6,7 @@ import { SkillUpload,type SkillOpenRequest } from './SkillUpload';
 import { SimpleSkillSubmission } from './SimpleSkillSubmission';
 import { WorkSharingEntry } from './WorkSharingEntry';
 import {projectSkillBookPath,projectSkillDraft,type ProjectSkillBook} from './SkillPublication';
+import { GitHubAuthorFollow } from './GitHubAuthorFollow';
 
 type SourceVersion={version_id:string;commit_sha:string;license_spdx:string;license_evidence_url:string|null;is_fork:boolean;archived:boolean;readme_url:string;inspected_at:string};
 type Project={project_id:string;owner_ref:string;owner_name:string;title:string;description:string;use_notes:string;demo_url:string|null;repository_url:string;repository_full_name:string;repository_id:string;relationship:string;aggregate_version:number;current_version:SourceVersion;skill_book?:ProjectSkillBook|null};
@@ -23,9 +24,8 @@ function LoadError({error,retry}:{error:string|null;retry:()=>void}) {
 export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   const [projects,setProjects]=useState<Project[]>([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState<string|null>(null);
   const [openRequest,setOpenRequest]=useState<SkillOpenRequest|null>(null);
-  const [advancedOpen,setAdvancedOpen]=useState(false);
   const openNonce=useRef(0);
-  const openSkill=(submissionId:string,mode: 'preview'|'complete')=>{setAdvancedOpen(true);openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});};
+  const openSkill=(submissionId:string,mode: 'preview'|'complete')=>{openNonce.current+=1;setOpenRequest({submissionId,mode,nonce:openNonce.current});};
   const [resumeId,setResumeId]=useState<string|null>(()=>new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));
   useEffect(()=>{const change=()=>setResumeId(new URLSearchParams(window.location.hash.split('?')[1]??'').get('submission'));window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
   const refresh=useCallback(async()=>{
@@ -38,7 +38,7 @@ export function OpenSourcePanel({client,session,onNavigate}:ModulePanelProps) {
   return <div className="stack">
     <WorkSharingEntry current="opensource"/>
     <SimpleSkillSubmission key={`${session.user.user_id}:${client.sessionGeneration}`} userId={session.user.user_id} resumeId={resumeId} client={client} onPublished={refresh} onOpenDraft={openSkill}/>
-    <details className="card work-sharing-advanced" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh} openRequest={openRequest}/></div></div></details>
+    <details className="card work-sharing-advanced"><summary>使用 Agent 或聊天 AI 協助整理（進階）</summary><div className="stack"><p className="hint">已有 Agent 草稿，或想讓 AI 整理介紹與分享短文，可使用原有上傳工具。</p><div className="actions"><SkillUpload client={client} onPublished={refresh} openRequest={openRequest}/></div></div></details>
     <LoadError error={loadError} retry={()=>void refresh()}/>
       <section className="stack" aria-label="社群開源作品"><div className="section-head"><h2>社群開源作品</h2><p>已登錄 {projects.length} 件 · 自由探索，不必先談商務合作</p></div>
         {loading&&<p role="status">正在載入作品…</p>}
@@ -69,6 +69,7 @@ function ProjectCard({project,own,client,reload,onNavigate,onOpenSkill}:ModulePa
     <p className="project-copy">{project.description}</p><div className="help-box"><strong>如何開始</strong><p className="project-copy">{project.use_notes}</p></div>
     <dl className="meta"><div><dt>登錄者</dt><dd>{project.owner_name} · {relationshipLabels[project.relationship]}（自行聲明）</dd></div><div><dt>授權</dt><dd>{project.current_version.license_spdx==='NOASSERTION'?'尚未確認，請先閱讀原始授權':project.current_version.license_spdx}</dd></div><div><dt>固定版本</dt><dd><code>{project.current_version.commit_sha.slice(0,12)}</code> · {project.current_version.is_fork?'衍生儲存庫':'原始儲存庫'}{project.current_version.archived?' · 已封存':''}</dd></div></dl>
     <div className="actions"><SafeLink href={project.current_version.readme_url}>閱讀文件／開始使用</SafeLink><SafeLink href={`${project.repository_url}/issues`}>參與討論</SafeLink>{project.demo_url&&<SafeLink href={project.demo_url}>開啟展示</SafeLink>}{project.current_version.license_evidence_url&&<SafeLink href={project.current_version.license_evidence_url}>查看授權</SafeLink>}</div>
+    <GitHubAuthorFollow key={project.repository_full_name.split('/')[0]} username={project.repository_full_name.split('/')[0]} client={client}/>
     <div className="actions">
       {skillPath?<a className="btn btn-primary" href={skillPath} target="_blank" rel="noopener noreferrer">閱讀已公開技能書 ↗</a>:own&&skillDraft?<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>onOpenSkill(skillDraft.submissionId,skillDraft.mode)}>繼續製作技能書</button>:own&&<button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void makeSkill()}>製作技能書</button>}
       {skillPath&&<a className="btn btn-ghost" href="/#skills">前往技能書架</a>}

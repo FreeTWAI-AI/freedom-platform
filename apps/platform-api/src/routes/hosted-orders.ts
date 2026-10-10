@@ -5,7 +5,7 @@ import { CancelInputSchema, IntentLookupQuerySchema, QuoteInputSchema, SubmitInp
 import { StoreSlugSchema } from '../../../../contracts/guild-launchpad/v1/storefront.js';
 import { createDirectQuote } from '../../../../modules/agent-commerce/hosted/direct-quotes.js';
 import { readDirectReadiness } from '../../../../modules/agent-commerce/hosted/direct-authority.js';
-import { submitDirectOrderOutcome, readDirectOrder, readDirectOrderByIntent, cancelDirectOrder } from '../../../../modules/agent-commerce/hosted/direct-orders.js';
+import { submitDirectOrderOutcome, readDirectOrder, readDirectOrderByIntent, cancelDirectOrder, listBuyerOrders } from '../../../../modules/agent-commerce/hosted/direct-orders.js';
 import { listSellerOrders, readSellerOrder, cancelSellerOrder } from '../../../../modules/agent-commerce/hosted/seller-orders.js';
 import type { TenantListCursorCodec } from '../../../../packages/shared/tenant-list-cursor.js';
 import { requireCondition } from '../../../../packages/shared/problem.js';
@@ -40,6 +40,12 @@ export function createHostedOrderRoutes(pool: Pool, options: { discoveryInstalle
   }
   // Recovery and release remain available when either admission/discovery flag
   // is OFF; the persisted order and current buyer ACL still decide access.
+  app.get('/me/hosted-orders', async c => {
+    const raw = singleQuery(c);
+    if (raw.limit !== undefined) requireCondition(/^[1-9][0-9]?$/.test(raw.limit), 422, 'validation_failed', '頁面大小無效。');
+    const query = OrderPageQuerySchema.parse({ ...raw, ...(raw.limit === undefined ? {} : { limit: Number(raw.limit) }) });
+    return c.json(await listBuyerOrders(pool, c.get('actor'), query, options.cursors));
+  });
   app.get('/me/hosted-orders/by-intent/:client_order_id', async c => {
     const query = IntentLookupQuerySchema.parse(singleQuery(c));
     const order = await readDirectOrderByIntent(pool, c.get('actor'), query.store_slug, OpaqueId.parse(c.req.param('client_order_id')));

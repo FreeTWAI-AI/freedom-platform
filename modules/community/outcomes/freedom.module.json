@@ -1,0 +1,71 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "authored-outcomes",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/platform-api/src/routes/event-outcomes.ts",
+    "apps/platform-api/src/routes/squad-outcomes.ts",
+    "apps/portal-web/src/modules/EventOutcomeBacklinks.tsx",
+    "apps/portal-web/src/modules/EventOutcomes.tsx",
+    "apps/portal-web/src/modules/SquadOutcomes.tsx",
+    "migrations/154_squad_outcomes.sql",
+    "migrations/155_event_outcomes.sql",
+    "modules/community/event-outcomes-page.ts",
+    "modules/community/event-outcomes.ts",
+    "modules/identity-membership/squad-outcomes-page.ts",
+    "modules/identity-membership/squad-outcomes.ts",
+    "tests/e2e/event-outcomes.spec.ts",
+    "tests/runtime/event-highlight-assets.test.ts",
+    "tests/runtime/event-outcomes.test.ts",
+    "tests/runtime/squad-outcomes.test.ts",
+    "tests/runtime/worker-adapter.test.ts",
+    "tests/worker/event-highlight-assets.test.ts",
+    "apps/portal-web/src/modules/CommunitySkillBooks.tsx",
+    "apps/portal-web/src/modules/SkillBookIntro.tsx"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "command-core",
+    "community",
+    "member-squads",
+    "shared",
+    "work"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-api.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "source-withdrawal-hides-dependent-media"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community.authored-event-outcomes",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/event-outcomes.ts",
+      "operations": [
+        "community.event-outcomes.read",
+        "community.event-outcomes.publish"
+      ],
+      "auth_profile": "member-session-current-source-acl"
+    },
+    {
+      "surface_id": "squads.authored-outcomes",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/squad-outcomes.ts",
+      "operations": [
+        "squads.outcomes.read",
+        "squads.outcomes.publish"
+      ],
+      "auth_profile": "current-owner-command-current-source-read-acl"
+    }
+  ]
+}

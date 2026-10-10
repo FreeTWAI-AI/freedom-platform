@@ -1,10 +1,9 @@
 import {randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import sharp from 'sharp';
-import {test,expect,type Page,type Locator,type APIRequestContext} from './fixtures.js';
+import {test,expect,type Page,type Locator,type APIRequestContext} from './member-feature-fixture.js';
 import {navigate} from './navigation.js';
 
-const enabled=process.env.FREEDOM_EVENT_OUTCOMES_ENABLED==='true'&&process.env.FREEDOM_SQUAD_OUTCOMES_ENABLED==='true';
 const COMMUNITY='10000000-0000-4000-8000-000000000001';
 type Account={id:string;email:string};
 
@@ -79,7 +78,7 @@ async function publicItems(api:APIRequestContext,eventId:string){
 // Every case creates unique rows in the runner-owned schema. Immutable media
 // bindings intentionally cannot be deleted; the server drops this whole schema.
 test.describe('outcome flags off',()=>{
-  test.skip(enabled,'Covered by the ordinary, feature-off pass.');
+  test.use({memberFeatures:{}});
   test('new routes return 404 before authentication',async({request,baseURL})=>{
     const id=randomUUID();
     for(const path of [`squads/${id}/outcomes`,`squad-outcomes/${id}`,`event-highlights/${id}/outcomes`,`event-highlights/${id}/outcomes/own`,`event-highlights/${id}/outcome-references`,`event-outcomes/${id}`,`event-outcome-backlinks/squad_outcome/${id}`,`public/squad-outcomes/${id}`,`public/event-highlights/${id}/outcomes`,`public/event-outcomes/${id}`]){
@@ -91,7 +90,7 @@ test.describe('outcome flags off',()=>{
 });
 
 test.describe('isolated authored outcomes',()=>{
-  test.skip(!enabled,'Requires both outcome flags in the dedicated runner pass.');
+  test.use({memberFeatures:{squadOutcomesEnabled:true,eventOutcomesEnabled:true}});
   test.setTimeout(180000);
 
   test('an author keeps draft photos private, explicitly publishes, then withdraws recap and bytes',async({page,browser,request,e2eAuthPool})=>{

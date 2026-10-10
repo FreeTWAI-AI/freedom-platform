@@ -31,7 +31,7 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
   requireCondition(password.length>=12&&password.length<=128,422,'password_length','新密碼需為 12 到 128 個字元。');
   const passwordHash=await hashPasswordAsync(password);
   return transaction(pool,async q=>{
-    const candidate=(await q.query<{email:string}>(`SELECT u.email FROM password_reset_tokens r JOIN users u ON u.user_id=r.user_id
+    const candidate=(await q.query<{email:string;user_id:string}>(`SELECT u.email,u.user_id FROM password_reset_tokens r JOIN users u ON u.user_id=r.user_id
       WHERE r.token_hash=$1 AND r.consumed_at IS NULL AND r.expires_at>clock_timestamp() AND u.active`,[tokenHash(rawToken)])).rows[0];
     requireCondition(candidate,422,'reset_link_invalid','重設連結無效或已過期，請重新申請。');
     // Match login's attempt → user lock order; serialize all reset links before
@@ -39,8 +39,12 @@ export async function confirmPasswordReset(pool:Pool,rawToken:string,password:st
     const attemptKey=tokenHash(candidate.email);
     await q.query('INSERT INTO login_attempts VALUES($1,0,now()) ON CONFLICT DO NOTHING',[attemptKey]);
     await q.query('SELECT 1 FROM login_attempts WHERE attempt_key=$1 FOR UPDATE',[attemptKey]);
+    // Match authenticated password changes: lock the user before any proof.
+    // A joined FOR UPDATE OF r,u does not specify row-lock acquisition order.
+    const current=await q.query('SELECT user_id FROM users WHERE user_id=$1 AND email=$2 AND active FOR UPDATE',[candidate.user_id,candidate.email]);
+    requireCondition(current.rowCount===1,422,'reset_link_invalid','重設連結無效或已過期，請重新申請。');
     const token=(await q.query<Omit<Actor,'session_hash'|'csrf_token'>>(`SELECT u.* FROM password_reset_tokens r JOIN users u ON u.user_id=r.user_id
-      WHERE r.token_hash=$1 AND r.consumed_at IS NULL AND r.expires_at>clock_timestamp() AND u.active AND u.email=$2 FOR UPDATE OF r,u`,[tokenHash(rawToken),candidate.email])).rows[0];
+      WHERE r.token_hash=$1 AND r.consumed_at IS NULL AND r.expires_at>clock_timestamp() AND u.active AND u.email=$2 FOR UPDATE OF r`,[tokenHash(rawToken),candidate.email])).rows[0];
     requireCondition(token,422,'reset_link_invalid','重設連結無效或已過期，請重新申請。');
     await q.query('UPDATE users SET password_hash=$2,email_verified_at=COALESCE(email_verified_at,now()) WHERE user_id=$1',[token.user_id,passwordHash]);
     await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[token.user_id]);

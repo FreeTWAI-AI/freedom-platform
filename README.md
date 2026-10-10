@@ -48,13 +48,23 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 #260 的[公開內容盤點及營運交接](docs/development/community-curation-handoff.md)保留 2026-10-08 的具日期觀察與原作者來源，不新增 CMS、不搬運私人內容或把合成互動當成真人回饋。正式新精選、作者同意、志工接待及營運更新仍未完成，不由文件或開源軟體授權推定。
 
-本分支的 #254「我的內容」直接聚合本人作品、開源投稿、活動與外部分享動態的原始狀態，不另建發布核心。一般作品可先存私人草稿、重新登入續寫，再本人確認分享給本社群會員；既有直接分享仍保留，外部連結不代表平台作品公開可索引。作品撤下後才可改寫，搜尋／書籤即時遵循原來源；既有合作需求保留當時已分享的作品標題，避免後續私人改稿外洩。投稿與活動沿用原編輯、公開、撤回及審核權限，推薦連結活動頁可公開閱讀、報名才需推薦連結。新入口及分享選單的「我的內容」需 `FREEDOM_PERSONAL_CONTENT_ENABLED=true`（預設關閉）及 migration 142；私人介面以會員及登入世代隔離，登出後的延遲回應不得帶入下一個工作階段。#193 原生草稿不在本案範圍，本機驗證不授予部署或啟用權。
+本分支的 #254「我的內容」直接聚合本人作品、開源投稿、活動與外部分享動態的原始狀態，不另建發布核心。一般作品可先存私人草稿、重新登入續寫，再本人確認分享給本社群會員；既有直接分享仍保留，外部連結不代表平台作品公開可索引。作品撤下後才可改寫，搜尋／書籤即時遵循原來源；既有合作需求保留當時已分享的作品標題，避免後續私人改稿外洩。投稿與活動沿用原編輯、公開、撤回及審核權限，推薦連結活動頁可公開閱讀、報名才需推薦連結。新入口及分享選單的「我的內容」需 `FREEDOM_PERSONAL_CONTENT_ENABLED=true`（預設關閉）及 migration 143；私人介面以會員及登入世代隔離，登出後的延遲回應不得帶入下一個工作階段。#193 原生草稿不在本案範圍，本機驗證不授予部署或啟用權。
 
-此候選堆疊在 #318，須先合併 #318；其 SQL 原樣改名為 `141_community_content_relations.sql`，本案使用 `142_personal_content.sql`，接續主線 140，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
+此候選以普通 merge 整合 #318／#344 與審查修補，接續照片 #359；私人關係 SQL 原樣改名為 `142_community_content_relations.sql`，本案使用 `143_personal_content.sql`，接續照片 141，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
+
+本分支的 #255 在「我的名片」提供本人通知偏好：好友、小隊、活動及已啟用的追蹤更新可選即時提醒、站內摘要或不提醒，另有指定 IANA 時區的安靜時段與目前可存取頻道的靜音。設定以版本比對、同筆 command 重送與帳號隔離保存；只改提醒投影，不刪除原通知／聊天、不改已讀位置，也不授予來源權限。摘要與追蹤每次重查目前來源，活動快訊同樣遵循偏好與活動資格；必要權限、安全及交易提醒不被一般社群偏好停用。新入口需 `FREEDOM_NOTIFICATION_PREFERENCES_ENABLED=true`（預設關閉）及 migration 149；追蹤仍需搜尋與關係兩個 flags。Email 摘要因尚缺獲授權的摘要寄送環境與訂閱／寄送政策，明確顯示未啟用、預設未訂閱，不提供假寄送或訂閱成功；留言或按讚尚不會產生通知（本分支不改動 #193 的寫入路徑），Email 以外的全 Issue 驗收也仍未完成。本機預覽、測試及既有交易郵件能力都不是部署或摘要寄送授權。
+
+本分支的 #259「第一次參與」也是預設關閉的 source candidate：`FREEDOM_FIRST_PARTICIPATION_ENABLED=true` 須同時啟用 `FREEDOM_PERSONAL_CONTENT_ENABLED`（與分享入口的旗標互相獨立），並先套用 migration 152。合法快速加入公會後，可選原作品分享或所選公會原聊天室自我介紹；不用補做完整定位、綁 GitHub／AI 或加好友。只承認選擇後的原發布／訊息事實，私人草稿、點開頁面、舊作品及接待認領不算成果；原來源撤下或失去權限後不保留可讀標題／連結。
+
+選擇、略過、停止提示及明確接待意願存於本人版本化中繼資料；原私人草稿仍從「我的內容」找回，不複製內容。接待需求僅供目前有原來源讀取權的同社群會員自願認領／釋放，停止即退出，不會自動私訊或加好友；私人合作需求數不給接待者。教學範例明示虛構。詳見 [會員 API](docs/development/member-api.md#optional-first-participation-259)。本輪僅有隔離合成驗證；公開提問型別與原生貼文計入完成（未實作，也未改動 #193）、正式營運接待認領與經同意的真人新手試用仍未驗，不代表全項 #259 驗收、部署或啟用。
+
+本分支的 #256 提供依目前活動權限下載的私人 ICS、自願開始提醒與 FIFO 候補。候補不自動報名；主辦者必須逐場明確設定正整數回覆分鐘數，截止不晚於開始時間，邀請仍須本人接受。名額計算包含已確認報名、短期訪客保留與有效邀請，降低容量時把較新的未接受邀請退回原排序。依本次產品決定，會員以 member ID、訪客以正規化 Email 各自去重，不憑自填 Email 推定兩者是同一人，也不宣稱真人身分驗證。只有已報名者可另行訂閱提醒；取消報名／活動停止尚未送出的提醒，寄件服務受理不代表送達，站內紀錄與報名都不代表出席。
+
+`FREEDOM_EVENT_PARTICIPATION_ENABLED=true` 才開放 #256 入口，預設關閉；**即使 flag 關閉，換入本版 source 前仍須套用 migration 153**，既有報名流程也使用新欄位。Worker 啟用時需要可用的 `EMAIL.send`；既有每十分鐘排程做有界輪巡，不保證分鐘級提醒或補位精度，Node 入口不自動排程。ICS 使用固定 UID、UTC 與版本序號，但不是公開訂閱連結，也不自動更新已匯入的副本。私人管理憑證只由 Email 連結 fragment 交給限定 API header，不保存至瀏覽器 storage 或匯出到 ICS。實作、命令與狀態邊界見 [會員 API](./docs/development/member-api.md#event-calendar-reminders-and-waitlists-256)。這是預設關閉的 source candidate；本機隔離資料庫／瀏覽器與獨立 ICS parser 驗證不表示正式寄送、Apple／Google Calendar 實際匯入、部署或啟用已完成。
 
 本分支的 #257 是活動精華／成果連結的 **source candidate**：在原活動集錦儲存自己的摘要草稿，明確選擇閱讀範圍與發布同意後，連結目前可閱讀的社群作品、技能書及真正的小隊成果；三者有詳細入口與返回原活動的連結。小隊成果由目前隊主本人撰寫、儲存私人草稿並明確發布，不把名冊、私人 Result、自填署名或 Going 回覆當成成果、出席、驗收或 XP。來源撤下或權限變更會停止顯示整份相依摘要、媒體與反向連結，不會退回成未綁定的公開照片。
 
-`FREEDOM_SQUAD_OUTCOMES_ENABLED`、`FREEDOM_EVENT_OUTCOMES_ENABLED` 均預設關閉；活動精華必須同時啟用小隊成果，否則 runtime 拒絕不完整設定。**換入本版 source 前，即使 flags 關閉，也須套用 migrations 139、140**：既有媒體讀取仍使用 binding 表核對目前權限。關閉 flags 不會取消已存 binding 的隱私檢查；不可盲退到忽略 binding 的舊 source。匿名集錦只讀公開／推薦活動，不揭露公會或會員限定活動、圖片、封面與 metadata；目前仍有閱讀權限的會員使用受驗證媒體入口。撤下阻止後續讀取，不承諾收回已下載或外站快取的副本。API、限制與命令契約見 [member API](docs/development/member-api.md#event-highlights-and-published-squad-outcomes-257)。這不是部署、flag-on、正式 #261 政策或需求驗收證據。
+`FREEDOM_SQUAD_OUTCOMES_ENABLED`、`FREEDOM_EVENT_OUTCOMES_ENABLED` 均預設關閉；活動精華必須同時啟用小隊成果，否則 runtime 拒絕不完整設定。**換入本版 source 前，即使 flags 關閉，也須套用 migrations 154、155**：既有媒體讀取仍使用 binding 表核對目前權限。關閉 flags 不會取消已存 binding 的隱私檢查；不可盲退到忽略 binding 的舊 source。匿名集錦只讀公開／推薦活動，不揭露公會或會員限定活動、圖片、封面與 metadata；目前仍有閱讀權限的會員使用受驗證媒體入口。撤下阻止後續讀取，不承諾收回已下載或外站快取的副本。API、限制與命令契約見 [member API](docs/development/member-api.md#event-highlights-and-published-squad-outcomes-257)。這不是部署、flag-on、正式 #261 政策或需求驗收證據。
 
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 

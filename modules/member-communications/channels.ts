@@ -95,7 +95,7 @@ async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channe
   }else{
     await advisory(q,squadLock(key,actor.user_id));
     row=(await q.query(`SELECT s.name FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 FOR SHARE OF m`,[key,actor.user_id,actor.community_id])).rows[0];
+      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 AND s.disbanded_at IS NULL FOR SHARE OF m`,[key,actor.user_id,actor.community_id])).rows[0];
   }
   if(!row)throw notAvailable();
   return {kind,channel_key:key,name:row.name};
@@ -113,24 +113,25 @@ async function lockRooms(q:PoolClient,actor:Actor,kind:ChannelKind):Promise<Chan
   // Candidates unlocked in a stable order, then each pair lock before its row
   // lock (the order membership writers use), so no advisory/row inversion.
   const candidates=(await q.query(`SELECT m.squad_id FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-    WHERE m.user_id=$1 AND m.state='active' AND s.community_id=$2 ORDER BY m.squad_id`,[actor.user_id,actor.community_id])).rows.map(row=>row.squad_id as string);
+    WHERE m.user_id=$1 AND m.state='active' AND s.community_id=$2 AND s.disbanded_at IS NULL ORDER BY m.squad_id`,[actor.user_id,actor.community_id])).rows.map(row=>row.squad_id as string);
   const rooms:Channel[]=[];
   for(const squadId of candidates){
     await advisory(q,squadLock(squadId,actor.user_id));
     const row=(await q.query(`SELECT s.name FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 FOR SHARE OF m`,[squadId,actor.user_id,actor.community_id])).rows[0];
+      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 AND s.disbanded_at IS NULL FOR SHARE OF m`,[squadId,actor.user_id,actor.community_id])).rows[0];
     if(row)rooms.push({kind,channel_key:squadId,name:row.name});
   }
   return rooms;
 }
 
 // Unread: others' messages above the viewer's cursor (absent cursor = 0).
-const unreadSql=`(SELECT count(*)::int FROM member_channel_messages x WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key AND x.sender_ref<>$3
+const unreadSql=`(SELECT count(*)::int FROM member_channel_messages x WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=r.channel_key AND x.sender_ref<>$3 AND x.retracted_at IS NULL
   AND ($2<>'world' OR NOT is_verification_test_account(x.sender_ref))
   AND x.sequence>COALESCE((SELECT d.last_read_sequence FROM member_channel_reads d WHERE d.community_id=$1 AND d.kind=$2 AND d.channel_key=r.channel_key AND d.user_id=$3),0))`;
-const messageColumns=`m.message_id,m.kind,m.channel_key,m.sequence::text AS sequence,m.sender_ref,u.display_name AS sender_name,m.body,m.created_at,m.sticker_id,m.reply_to_message_id`;
+const messageColumns=`m.message_id,m.kind,m.channel_key,m.sequence::text AS sequence,m.sender_ref,u.display_name AS sender_name,m.body,m.created_at,m.sticker_id,m.reply_to_message_id,m.retracted_at`;
 function message(row:any):ChannelMessage{
-  return {message_id:row.message_id,kind:row.kind,channel_key:row.channel_key,sequence:row.sequence,sender_ref:row.sender_ref,sender_name:row.sender_name,body:row.body,created_at:iso(row.created_at)};
+  const retracted=row.retracted_at?iso(row.retracted_at):null;
+  return {message_id:row.message_id,kind:row.kind,channel_key:row.channel_key,sequence:row.sequence,sender_ref:row.sender_ref,sender_name:row.sender_name,body:retracted?'':row.body,created_at:iso(row.created_at),retracted_at:retracted};
 }
 
 export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<ChannelList>{
@@ -155,6 +156,11 @@ export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<Ch
   });
 }
 
+async function channelRetractionCount(q:PoolClient,actor:Actor,target:{kind:string;key:string}):Promise<string>{
+  return (await q.query(`SELECT count(*)::text AS n FROM member_channel_messages WHERE community_id=$1 AND kind=$2 AND channel_key=$3
+    AND retracted_at IS NOT NULL AND ($2<>'world' OR sender_ref=$4 OR NOT is_verification_test_account(sender_ref))`,
+    [actor.community_id,target.kind,target.key,actor.user_id])).rows[0].n;
+}
 export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown):Promise<ChannelMessagePage>{
   const target=room(rawKind,rawKey),{limit,offset,after_sequence}=ChannelPageQuery.parse(raw);
   return snapshot(pool,actor,async q=>{
@@ -167,7 +173,7 @@ export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKe
       ORDER BY CASE WHEN $7::bigint IS NOT NULL THEN m.sequence END ASC, m.sequence DESC LIMIT $4 OFFSET $5`,
       [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id,after_sequence??null])).rows;
     const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'channel',actor.user_id);
-    return {channel,items:shown.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,
+    return {channel,items:shown.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,retraction_count:await channelRetractionCount(q,actor,target),
       ...(after_sequence!==undefined?{next_after_sequence:rows.length>limit?String(rows[limit-1].sequence):null}:{})};
   });
 }
@@ -184,7 +190,7 @@ export async function searchChannelMessages(pool:Pool,actor:Actor,rawKind:string
       const rows=(await q.query(`SELECT ${messageColumns} FROM member_channel_messages m JOIN users u ON u.user_id=m.sender_ref
         WHERE m.community_id=$1 AND m.kind=$2 AND m.channel_key=$3
           AND ($2<>'world' OR m.sender_ref=$4 OR NOT is_verification_test_account(m.sender_ref))
-          AND m.body ILIKE $5 AND ($6::uuid IS NULL OR m.sequence<(SELECT sequence FROM member_channel_messages WHERE message_id=$6))
+          AND m.retracted_at IS NULL AND m.body ILIKE $5 AND ($6::uuid IS NULL OR m.sequence<(SELECT sequence FROM member_channel_messages WHERE message_id=$6))
         ORDER BY m.sequence DESC LIMIT $7`,[actor.community_id,target.kind,target.key,actor.user_id,messageSearchPattern(query),cursor??null,limit+1])).rows;
       const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'channel',actor.user_id);
       return {items:shown.map((row,index)=>({...message(row),...contents[index]})),next_cursor:rows.length>limit?shown[shown.length-1].message_id:null};
@@ -203,7 +209,7 @@ export async function channelActivity(pool:Pool,actor:Actor,rawKind:string,rawKe
           AND ($2<>'world' OR x.sender_ref=$3 OR NOT is_verification_test_account(x.sender_ref))
         ORDER BY x.sequence DESC LIMIT 1),0)::text AS latest_sequence
       FROM (SELECT $4::text AS channel_key) r`,[actor.community_id,target.kind,actor.user_id,target.key])).rows[0];
-    return {latest_sequence:row.latest_sequence,unread_count:row.unread_count};
+    return {latest_sequence:row.latest_sequence,unread_count:row.unread_count,retraction_count:await channelRetractionCount(q,actor,target)};
   });
 }
 
@@ -280,5 +286,23 @@ export async function markChannelRead(pool:Pool,input:Command,rawKind:string,raw
         read_at=CASE WHEN EXCLUDED.last_read_sequence>d.last_read_sequence THEN EXCLUDED.read_at ELSE d.read_at END
       RETURNING last_read_sequence::text AS read_sequence,read_at`,[actor.community_id,target.kind,target.key,actor.user_id,seen.sequence])).rows[0];
     return {kind:target.kind,channel_key:target.key,read_sequence:row.read_sequence as string,read_at:iso(row.read_at)};
+  });
+}
+
+/** Only the sender retracts a room message; membership is rechecked like a send. */
+export async function retractChannelMessage(pool:Pool,input:Command,rawKind:string,rawKey:string,rawMessageId:string):Promise<{message_id:string;retracted_at:string}>{
+  z.object({}).strict().parse(input.body);
+  const target=room(rawKind,rawKey),actor=input.actor,messageId=rawMessageId.toLowerCase();
+  requireCondition(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(messageId),404,'channel_message_not_found','找不到這則訊息。');
+  return command(pool,input,async q=>{
+    await currentMember(q,actor,false);await lockRoom(q,actor,target);
+    const row=(await q.query('SELECT sender_ref FROM member_channel_messages WHERE message_id=$1 AND community_id=$2 AND kind=$3 AND channel_key=$4',
+      [messageId,actor.community_id,target.kind,target.key])).rows[0];
+    requireCondition(row,404,'channel_message_not_found','找不到這則訊息。');
+    requireCondition(row.sender_ref===actor.user_id,403,'message_not_own','只能收回自己傳送的訊息。');
+  },async q=>{
+    const row=(await q.query(`UPDATE member_channel_messages SET retracted_at=COALESCE(retracted_at,clock_timestamp())
+      WHERE message_id=$1 AND community_id=$2 AND kind=$3 AND channel_key=$4 AND sender_ref=$5 RETURNING retracted_at`,[messageId,actor.community_id,target.kind,target.key,actor.user_id])).rows[0];
+    return {message_id:messageId,retracted_at:iso(row.retracted_at)};
   });
 }

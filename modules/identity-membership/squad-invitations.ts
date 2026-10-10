@@ -43,8 +43,14 @@ async function eligibleActor(q:Pool|PoolClient,actor:Actor) {
   requireCondition(row?.current_session,401,'session_expired','請重新登入。');
   requireCondition(row.eligible,403,'onboarding_required','請先選擇主要公會，完成加入後即可使用會員功能。');
 }
+/** Waits behind a transfer or disband holding the squad row, then rechecks owner and state. */
+async function liveSquad(q:PoolClient,squadId:string,ownerId:string) {
+  const row=(await q.query('SELECT owner_ref FROM member_squads WHERE squad_id=$1 AND disbanded_at IS NULL FOR SHARE',[squadId])).rows[0];
+  requireCondition(row,404,'squad_not_found','找不到這個小隊。');
+  requireCondition(row.owner_ref===ownerId,403,'squad_owner_required','只有小隊發起人可以邀請夥伴。');
+}
 async function communitySquad(q:Pool|PoolClient,actor:Actor,id:string) {
-  const row=(await q.query('SELECT squad_id,name,owner_ref FROM member_squads WHERE squad_id=$1 AND community_id=$2',[id,actor.community_id])).rows[0];
+  const row=(await q.query('SELECT squad_id,name,owner_ref FROM member_squads WHERE squad_id=$1 AND community_id=$2 AND disbanded_at IS NULL',[id,actor.community_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row as {squad_id:string;name:string;owner_ref:string};
 }
 const shownName=(alias:string)=>`CASE WHEN ${alias}.community_id=i.community_id AND ${eligibleAs(alias)} THEN ${alias}.display_name ELSE '${UNAVAILABLE_MEMBER}' END`;
@@ -83,6 +89,7 @@ export async function inviteToSquad(pool:Pool,input:Command,squadId:string) {
   };
   return command(pool,input,authorize,async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-invitation-budget/${squadId}`]);
+    await liveSquad(q,squadId,input.actor.user_id);
     const membership=await lockPair(q,squadId,recipientId);
     requireCondition(membership?.state!=='active',409,'squad_member_already','這位夥伴已經在小隊裡。');
     const pending=(await q.query(`SELECT invitation_id FROM member_squad_invitations WHERE squad_id=$1 AND recipient_ref=$2 AND state='pending' FOR UPDATE`,[squadId,recipientId])).rows[0];
@@ -118,6 +125,8 @@ export async function resolveSquadInvitation(pool:Pool,input:Command,invitationI
     else otherVisible=await communityMember(q,input.actor.community_id,other);
     target=row;
   },async q=>{
+    // Squad row first, the same order as transfer/disband, so neither can deadlock with this accept.
+    requireCondition((await q.query('SELECT 1 FROM member_squads WHERE squad_id=$1 AND disbanded_at IS NULL FOR SHARE',[target.squad_id])).rowCount===1,404,'squad_not_found','找不到這個小隊。');
     const membership=await lockPair(q,target.squad_id,target.recipient_ref);
     const row=(await q.query('SELECT * FROM member_squad_invitations WHERE invitation_id=$1 FOR UPDATE',[invitationId])).rows[0];
     checkVersion(String(row.aggregate_version),input.expected);

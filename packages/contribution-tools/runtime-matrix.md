@@ -9,15 +9,21 @@ node scripts/runtime-aggregate.mjs --partition-count 6 --input-dir .freedom/repo
 
 Use indexes 0 through 5 on separate hosts. Upload each `runtime-partition-N.json` even on failure, then download the six files into one flat input directory. A fragment has schema `freedom.runtime-partition/v1` and check ID `runtime.partition.N`; it cannot represent a full-suite pass. Both its outer and nested cleanup flags must be true for acceptance. Failed artifacts remain intact and are never overwritten by aggregation.
 
-The producer snapshots the actual Git HEAD and full selected source manifest before execution and again after cleanup, rejecting tracked-tree changes. The manifest contains sorted `{path,source_sha256}` entries for all current full-suite files, including the closed baseline; deterministic partition membership uses the reviewed static scheduling weights in `partitionRuntimeFiles`, assigning estimated longest files first to the least-loaded partition with index tie-breaking. The weights are per-file minimum serial durations across four hosted runs 37555767674, 37557794766, 37559364439 and 37567098443, rounded up to whole seconds (at least 1). Unmeasured files receive the 10 s default. To regenerate weights, download each partition job log of recent green runs, keep the freedom.test-progress lines, and run:
+The producer snapshots the actual Git HEAD and full selected source manifest before execution and again after cleanup, rejecting tracked-tree changes. The manifest contains sorted `{path,source_sha256}` entries for all current full-suite files, including the closed baseline; deterministic partition membership uses the reviewed static scheduling weights in `partitionRuntimeFiles`, assigning estimated longest files first to the least-loaded partition with index tie-breaking. The current weights are per-file minimum serial durations from complete file-progress segments of the October 9 disk rehearsals: all six partitions of run 38000643429 and partitions 0, 2, 3 and 5 of run 38003118152. Both full runs remain unsuccessful: the first failed cleanup; the second timed out partitions 1 and 4. Timing observations never turn those results into passes. The parser still rejects an incomplete final segment; the two timed-out segments are not inputs to the generated weights.
+
+The previous October 7 weights covered 247 files and estimated each current partition at about 545 seconds. On the October 9 candidate, partitions 1 and 4 reached the unchanged deadline with only 51/54 and 52/54 files completed, respectively; all six cleanup proofs succeeded. The new generated fixture covers 320 measured files, rounded up to whole seconds (at least 1). All 323 candidate files remain selected, with the three unmeasured files retaining the 10-second default. Their estimated six loads are 752–753 seconds. Estimates require a fresh coherent hosted run; they are neither throughput guarantees nor acceptance evidence. No runner, case, file, cleanup, partition deadline or aggregate-window requirement changed.
+
+Regenerate from the ten original job logs (retain failure results separately):
 
 ```sh
 node scripts/ci/derive-runtime-weights.mjs --root . \
-  --note "Hosted runs 37555767674, 37557794766, 37559364439 and 37567098443 (2026-10-07), four serial partitions each." \
+  --note "Complete file-progress segments: disk rehearsal38000643429 partitions0-5 and38003118152 partitions0,2,3,5 (2026-10-09); both runs are unsuccessful." \
   --output packages/contribution-tools/runtime-file-weights.mjs \
-  --costs-output packages/contribution-tools/test/fixtures/runtime-hosted-costs-20261007.json \
-  --log <partition log> ...
+  --costs-output packages/contribution-tools/test/fixtures/runtime-hosted-costs-disk-20261009.json \
+  --log <complete partition log> ...
 ```
+
+Historical October 7 cost fixtures remain unchanged; their earlier hotspot and four-partition regression bounds still pass with the new weights. The current disk-fixture test uses the existing 900-second six-partition and 1,200-second legacy four-partition capacity. This does not claim that a local four-process full run has acquired the legacy matrix budget.
 
 Each process retains the original sorted file order. Unknown files receive the same default weight and remain mandatory; file counts need not be equal. Producer, aggregate and local full runner import the same candidate implementation, not a separately installed timing registry. New selections change the manifest and must be rerun together. Untracked build output does not imply a tracked source change.
 

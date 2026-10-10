@@ -1,0 +1,411 @@
+{
+  "format": "freedom.rollout-receipt/v1",
+  "recorded_at": "2026-10-09T16:52:54.243571+00:00",
+  "status": "complete",
+  "source": {
+    "sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "tree": "92d07b6a82fc425908a231ae365713a6e89f3f1a",
+    "ci_reviewed_head": "6257b5c9fa02d5e8486b333d4e3591d50ee228ed",
+    "review_url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/339#pullrequestreview-5472396632",
+    "verify_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37950378372/job/113903300087",
+    "codeql_url": "https://github.com/FreeTWAI-AI/freedom-platform/runs/113887627882",
+    "tree_equals_reviewed_head": true,
+    "build": {
+      "sha256": "a4a3ae6dc9b098875feff67661da409d5ae4ae57fec1fd31ef42b27cc7620fc3",
+      "file_count": 329
+    },
+    "prs_since_previous_production": [
+      299,
+      300,
+      302,
+      306,
+      304,
+      309,
+      305,
+      307,
+      308,
+      313,
+      310,
+      315,
+      311,
+      312,
+      316,
+      321,
+      338,
+      339
+    ],
+    "batch_components": {
+      "338": [
+        330,
+        331,
+        332,
+        333,
+        334,
+        335,
+        336,
+        337
+      ]
+    }
+  },
+  "authorization": {
+    "source": "current user conversation",
+    "instruction": "非常好 請繼續 並且部署正式站",
+    "scope": "Reviewed merged release to staging then production, required migrations and per-environment cursor key, backup/pin transition and deployment verification."
+  },
+  "before": {
+    "production": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+    "staging": "487d66e1b203c4dd3a537547f6069e62a5a8c574"
+  },
+  "targets": {
+    "staging": {
+      "origin": "https://staging.freetwai.com",
+      "worker": "freedom-platform-staging-next",
+      "worker_version": "ef4b4d25-85a7-4ad8-a196-18232bee478c",
+      "deployed_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "cache_control_no_store": true
+      },
+      "observed_at": "2026-10-09T16:16:20.482Z",
+      "migrations_applied": [
+        "135_hosted_store_offering.sql",
+        "136_member_interaction_blocks.sql",
+        "137_community_content_topics.sql",
+        "138_hosted_direct_reservations.sql",
+        "139_member_message_images.sql",
+        "140_storefront_presentation.sql"
+      ],
+      "ledger_rows": 139,
+      "last_applied": "140_storefront_presentation.sql",
+      "migration_verified_at": "2026-10-09T16:15:04.432Z",
+      "source_digest_drift": 0,
+      "rls_tables": 30,
+      "rls_policies": 41,
+      "security_definers_referencing_rls": 0,
+      "privilege_checks": {
+        "runtime": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": false
+        },
+        "backup": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": true
+        }
+      },
+      "cursor_secret": {
+        "required": true,
+        "independently_generated": true,
+        "format": "32 random bytes, canonical base64url",
+        "metadata_verified": true,
+        "secret_value_recorded": false
+      },
+      "checks": {
+        "public": 34,
+        "authenticated": 61,
+        "all_passed": true,
+        "synthetic_fixture_cleanup": true
+      },
+      "backup_before_migration": {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "487d66e1b203c4dd3a537547f6069e62a5a8c574",
+        "operatorSource": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "createdAt": "2026-10-09T16:04:23.339Z",
+        "setId": "32f5b09f-8c01-42f8-8fee-a95211f08506",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "1fc4b0228f414e532d9bb0febb3e4cfa1661ace0f02bb671b7d8edb8208d1768",
+        "label": "before-migration",
+        "dumpSha256": "39eeeba34f0a9f2810b949e67647cb82fcbf1497666c8325f7815affaa356a48",
+        "diskRestore": true
+      },
+      "backup_after_rollout": {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "operatorSource": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "createdAt": "2026-10-09T16:42:57.293Z",
+        "setId": "8d872751-af8e-4eb0-a6c0-b2588cb64ac5",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "8b20714ab86375e9f50e06d43d1cf397a60be15878830184abc70f30be920a96",
+        "label": "after-rollout",
+        "dumpSha256": "fd08f5ba2d1612349ead96ded57bd0b69bfad227395c0398780594bb5d1042fc",
+        "diskRestore": true
+      }
+    },
+    "production": {
+      "origin": "https://freetwai.com",
+      "worker": "freedom-platform-next",
+      "worker_version": "e8df68ff-c914-4cb2-b297-653c7e00707b",
+      "deployed_release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "cache_control_no_store": true
+      },
+      "observed_at": "2026-10-09T16:29:39.740Z",
+      "migrations_applied": [
+        "134_hosted_storefronts.sql",
+        "135_hosted_store_offering.sql",
+        "136_member_interaction_blocks.sql",
+        "137_community_content_topics.sql",
+        "138_hosted_direct_reservations.sql",
+        "139_member_message_images.sql",
+        "140_storefront_presentation.sql"
+      ],
+      "ledger_rows": 139,
+      "last_applied": "140_storefront_presentation.sql",
+      "migration_verified_at": "2026-10-09T16:28:05.284Z",
+      "source_digest_drift": 0,
+      "rls_tables": 30,
+      "rls_policies": 41,
+      "security_definers_referencing_rls": 0,
+      "privilege_checks": {
+        "runtime": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": false
+        },
+        "backup": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": true
+        }
+      },
+      "cursor_secret": {
+        "required": true,
+        "independently_generated": true,
+        "format": "32 random bytes, canonical base64url",
+        "metadata_verified": true,
+        "secret_value_recorded": false
+      },
+      "checks": {
+        "public": 34,
+        "authenticated": 19,
+        "all_passed": true,
+        "synthetic_fixture_cleanup": true
+      },
+      "backup_before_migration": {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "cc72c3fd93cea3b1369923b6bd7b8539b23d91d0",
+        "operatorSource": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "createdAt": "2026-10-09T16:16:21.927Z",
+        "setId": "a13d5e4f-7bad-488d-a019-a5ec33d022a3",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "fd74578233f6499abb857308cbf455ec2f94ba4d096780f16d72aec9b854cc18",
+        "label": "before-migration",
+        "dumpSha256": "37871f5dbce04829b0fd48cab2125612d2d989b132f711ba61534aaf7c605359",
+        "diskRestore": true
+      },
+      "backup_after_rollout": {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "operatorSource": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "createdAt": "2026-10-09T16:32:15.981Z",
+        "setId": "4c5e0257-2423-4dc3-bdc3-9b5bb83e4ae0",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "0da7adf00cdf5778f2f0cc9c1ae0a7b98ff4a1b1f5db0bb03186562e44be9a05",
+        "label": "after-rollout",
+        "dumpSha256": "5b509d74ff176a898571124a3e98e1a8a51af7ac36de96f2e1a30640ed80c893",
+        "diskRestore": true
+      }
+    }
+  },
+  "feature_configuration": {
+    "guild_launchpad": true,
+    "public_guide": true,
+    "private_ai": false,
+    "new_default_off_flags_preserved": [
+      "FREEDOM_COMMUNITY_DISCOVERY_ENABLED",
+      "FREEDOM_HOSTED_RESERVATIONS_ENABLED",
+      "FREEDOM_MEMBER_BLOCKING_ENABLED",
+      "FREEDOM_COMMUNITY_SEARCH_ENABLED",
+      "FREEDOM_UNIFIED_SHARING_ENABLED",
+      "FREEDOM_MESSAGE_IMAGE_ENABLED"
+    ],
+    "message_image_policy": {
+      "mode": "legacy",
+      "persistence_allowed": false
+    },
+    "other_bindings_and_vars_preserved": true,
+    "global_hosted_store_offering": "migration 135; hosted-store@1.0.0 offered"
+  },
+  "recovery": {
+    "daily_operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "previous_operator_source": "c3e5a537a75303c4688e01b7f0d8477c3587a26f",
+    "adapter_sha256": "cf3dbae04d8f3dedd63a4f77ec37f6b76752271bcb48031b509b91fcae4ae861",
+    "wrapper_sha256": "fb1351898d21c50f5bf58b2d4eac1ea3f2e05a3abe27c0edc31ddc61c343123f",
+    "backup_release_pins": {
+      "production": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "staging": "8a98bb14d0ba024ac94fb704aa41272a775b0775"
+    },
+    "timer_schedules_unchanged": true,
+    "restore_storage": "disk-backed Docker volume; owned containers/volumes removed after each run",
+    "gc_safety": "disabled",
+    "retention_deletes_run": false,
+    "rollback": {
+      "source": "8407e8d323f59d88d6e0853e42e2ec3eab1c882d",
+      "artifact": {
+        "sha256": "11f2965fd02bf9f321866d960c5c74670e390e763d78e2ec7daca2cce298b286",
+        "file_count": 324
+      },
+      "schema": "same additive ledger through 140",
+      "preserveCursorSecret": true,
+      "downMigration": false
+    }
+  },
+  "merged_source_ci": {
+    "source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "checks": [
+      {
+        "name": "verify",
+        "conclusion": "success",
+        "appId": 15368,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37955481825/job/113921304591"
+      },
+      {
+        "name": "ui-e2e",
+        "conclusion": "success",
+        "appId": 15368,
+        "url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/37955481825/job/113904964796"
+      }
+    ]
+  },
+  "operator_guard_mock_tests": {
+    "at": "2026-10-09T16:35:43.861Z",
+    "tests": 15,
+    "passed": 15,
+    "providerCalls": 0,
+    "secretValuesLogged": false
+  },
+  "operational_corrections": [
+    {
+      "phase": "staging pre-migration backup attempt 1",
+      "result": "failed 25P03 with the historical operator source",
+      "cleanup": "owned maintenance-policy revision cleared; no schema/deploy had started",
+      "resolution": "Pinned already-reviewed #264 exporter timeout/client-error handling in merged 8a98 source, reran full capture/readback/restore; passed. Failure receipt retained."
+    },
+    {
+      "phase": "staging post-migration operator validation",
+      "result": "auxiliary assertion incorrectly expected runtime SELECT on all tables",
+      "resolution": "Canonical policy intentionally denies six private operator/vault tables; verified exactly those exceptions with no grants expanded, reran read-only checks. Production used corrected validator."
+    },
+    {
+      "phase": "staging public smoke attempt 1",
+      "result": "transient fetch TypeError after 32 passed checks",
+      "resolution": "Read-only endpoint probe and complete rerun passed 34 checks; failed attempt retained."
+    },
+    {
+      "phase": "production synthetic acceptance attempt 1",
+      "result": "operator test attempted tenant creation before required onboarding",
+      "resolution": "Synthetic account disabled and session revoked; corrected test exercised normal intern onboarding before creating an empty private tenant, then passed 19 checks and cleaned its fixtures."
+    }
+  ],
+  "limitations": [
+    "Selected live HTTP checks and isolated backup restore do not accept the full Foundation, M1 or merchant/payment flows.",
+    "Staging verified first-page/continuation and integrity/denial/logout for all four signed lists. Production verified first-page/invalid-cursor/denial/logout for two empty authorized lists; no production Work/Result continuation claim.",
+    "Public/boundary API probes ran without browser automation in this rollout; hosted UI CI evidence is recorded separately.",
+    "Existing source feature flags remain unchanged; buyer reservations, search, unified sharing, member blocking and message-image upload remain off.",
+    "Second authorized operator recovery from another host and full private-AI/client workflows remain outstanding."
+  ],
+  "temporary_staging_access_revoked": true,
+  "github_deployments": {
+    "production": {
+      "at": "2026-10-09T16:42:58.945298+00:00",
+      "environment": "next",
+      "sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "deploymentId": 6966035731,
+      "statusId": 19530796026,
+      "state": "success",
+      "environmentUrl": "https://freetwai.com/"
+    },
+    "staging": {
+      "at": "2026-10-09T16:52:22.439697+00:00",
+      "environment": "staging-next",
+      "sha": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+      "deploymentId": 6966225141,
+      "statusId": 19531228371,
+      "state": "success",
+      "environmentUrl": "https://staging.freetwai.com/"
+    }
+  },
+  "pr_queue": {
+    "original_prs": [
+      330,
+      331,
+      332,
+      333,
+      334,
+      335,
+      336,
+      337,
+      338,
+      272,
+      276,
+      281,
+      283,
+      285,
+      289,
+      290,
+      292,
+      318,
+      319,
+      320
+    ],
+    "original_dispositions": {
+      "merged": 11,
+      "closed_replaced": 2,
+      "changes_requested": 1,
+      "continue": 6
+    },
+    "additional_integrations_merged": [
+      339,
+      340
+    ],
+    "changes_requested": [
+      292
+    ],
+    "continue": [
+      272,
+      276,
+      281,
+      283,
+      289,
+      318
+    ],
+    "superseded": [
+      {
+        "pr": 285,
+        "replacement": 339,
+        "remaining": "Owner-content entry and remaining acceptance stay with #272/#258."
+      },
+      {
+        "pr": 290,
+        "replacement": 340,
+        "remaining": "#260 operational ownership/consent/content supply remain open."
+      }
+    ]
+  }
+}

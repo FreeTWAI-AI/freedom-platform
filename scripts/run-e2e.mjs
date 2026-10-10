@@ -2,10 +2,10 @@
 // runs the ordinary Playwright suite first, then the private-AI spec with
 // FREEDOM_E2E_PRIVATE_AI_FIXTURE=1, then the shared-asset avatar spec with
 // FREEDOM_E2E_AVATAR_ASSET_FIXTURE=1, then the direct-message image spec with
-// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1, then authored outcomes with both outcome
-// feature flags enabled. Each extra pass is a new process and schema. Explicit
-// outcome filters run off/on; other filters and requested fixtures stay one
-// Playwright invocation. Asset fixture flags are never set on the same pass.
+// FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE=1, then hosted-store photos with
+// FREEDOM_E2E_STORE_PHOTO_FIXTURE=1, then notification preferences and first participation enabled. Each extra pass is a new process and
+// schema. Explicit test filters and an already requested fixture stay one
+// Playwright invocation. The fixture flags are never set on the same pass.
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -13,8 +13,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const PRIVATE_AI_SPEC = 'tests/e2e/private-work-ai.spec.ts';
 export const AVATAR_ASSET_SPEC = 'tests/e2e/member-avatar-asset.spec.ts';
+export const STORE_PHOTO_SPEC = 'tests/e2e/hosted-store-photo.spec.ts';
 export const MESSAGE_IMAGE_SPEC = 'tests/e2e/message-images.spec.ts';
-export const EVENT_OUTCOMES_SPEC = 'tests/e2e/event-outcomes.spec.ts';
+export const FIRST_PARTICIPATION_SPEC = 'tests/e2e/first-participation.spec.ts';
+export const NOTIFICATION_PREFERENCES_SPEC = 'tests/e2e/notification-preferences.spec.ts';
+export const EVENT_PARTICIPATION_SPEC = 'tests/e2e/event-participation.spec.ts';
 
 const TAKES_VALUE = new Set([
   '--add-reporter', '--browser', '--config', '-c', '--global-timeout', '--grep', '-g',
@@ -70,20 +73,20 @@ function terminalFlag(argv) {
 
 export function planE2e(argv, env = {}) {
   const args = [...argv];
-  const outcomesEnv = { ...env, FREEDOM_SQUAD_OUTCOMES_ENABLED: 'true', FREEDOM_EVENT_OUTCOMES_ENABLED: 'true' };
-  if (env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_EVENT_OUTCOMES_ENABLED === 'true' || terminalFlag(args)) return [{ args, env }];
-  const files = explicitFileArgs(args);
-  if (files.length > 0) {
-    return files.every(file => /(?:^|[/\\])event-outcomes\.spec\.ts(?::\d+)?$/.test(file))
-      ? [{ args, env }, { args, env: outcomesEnv }]
-      : [{ args, env }];
+  // An explicit opt-in runs only this feature's pass, in its own schema.
+  if (env.FREEDOM_E2E_EVENT_PARTICIPATION === '1' && !terminalFlag(args)) {
+    return [{ args: explicitFileArgs(args).length ? args : [...args, EVENT_PARTICIPATION_SPEC], env }];
   }
+  if (env.FREEDOM_E2E_FIRST_PARTICIPATION === '1' || env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_E2E_STORE_PHOTO_FIXTURE === '1' || env.FREEDOM_E2E_NOTIFICATION_PREFERENCES === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
   return [
     { args, env },
     { args: [...args, PRIVATE_AI_SPEC], env: { ...env, FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' } },
     { args: [...args, AVATAR_ASSET_SPEC], env: { ...env, FREEDOM_E2E_AVATAR_ASSET_FIXTURE: '1' } },
     { args: [...args, MESSAGE_IMAGE_SPEC], env: { ...env, FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE: '1' } },
-    { args: [...args, EVENT_OUTCOMES_SPEC], env: outcomesEnv },
+    { args: [...args, STORE_PHOTO_SPEC], env: { ...env, FREEDOM_E2E_STORE_PHOTO_FIXTURE: '1' } },
+    { args: [...args, NOTIFICATION_PREFERENCES_SPEC], env: { ...env, FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' } },
+    { args: [...args, FIRST_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_FIRST_PARTICIPATION: '1' } },
+    { args: [...args, EVENT_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_EVENT_PARTICIPATION: '1' } },
   ];
 }
 

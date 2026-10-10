@@ -70,6 +70,8 @@ export type RequestOptions = {
   ifMatch?: number | string
   /** Unquoted positive decimal version for leave-v2 when the guild is a category primary. */
   preferenceVersion?: string
+  /** Email-proven event participation only; never a member or general API credential. */
+  eventParticipationToken?: string
   skipAuthHandler?: boolean
   background?: boolean
   suppressConsole?: boolean
@@ -236,8 +238,16 @@ export class PortalClient {
     const requestCsrfToken = this.csrfToken
     const requestAuthGeneration = this.authGeneration
     const headers: Record<string, string> = { Accept: 'application/json' }
-    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/register$/.test(path))
-    const needsCsrf = method !== 'GET' && !publicAuth
+    const guestParticipationPath = /^\/public\/events\/[0-9a-f-]{36}\/(?:participation|reminder|calendar)$/.test(path)
+    const guestParticipation = guestParticipationPath && options.eventParticipationToken !== undefined
+    if (options.eventParticipationToken !== undefined) {
+      if (!guestParticipationPath || !/^[A-Za-z0-9_-]{43}$/.test(options.eventParticipationToken)) {
+        throw new ApiError({message:'活動管理連結格式不正確。',status:400})
+      }
+      headers['X-Event-Participation-Token'] = options.eventParticipationToken
+    }
+    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/(?:register|participation-request)$/.test(path))
+    const needsCsrf = method !== 'GET' && !publicAuth && !guestParticipation
 
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json'
@@ -249,6 +259,9 @@ export class PortalClient {
       headers['X-CSRF-Token'] = this.csrfToken
       const key = options.idempotencyKey ?? crypto.randomUUID()
       headers['Idempotency-Key'] = key
+    }
+    if (!needsCsrf && method !== 'GET' && options.idempotencyKey !== undefined) {
+      headers['Idempotency-Key'] = options.idempotencyKey
     }
     if (options.ifMatch !== undefined) {
       headers['If-Match'] = quoteEtag(options.ifMatch)

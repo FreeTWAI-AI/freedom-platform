@@ -61,13 +61,13 @@ test('measured weights keep hosted run 37567098443 under the four-partition budg
   }
 });
 
-test('measured hosted runs balance the current runtime suite in six partitions', () => {
-  const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-20261007.json', import.meta.url)));
+test('measured disk costs balance six partitions inside the unchanged runtime budget', () => {
+  const observation = JSON.parse(readFileSync(new URL('./fixtures/runtime-hosted-costs-disk-20261009.json', import.meta.url)));
   const files = Object.keys(observation.milliseconds).map(name => 'tests/runtime/' + name).sort();
   const cost = path => observation.milliseconds[path.split('/').at(-1)] ?? 0;
   const total = shard => shard.reduce((sum, path) => sum + cost(path), 0);
 
-  assert.equal(files.length, 247);
+  assert.equal(files.length, 320);
 
   const partitions6 = partitionRuntimeFiles(files, 6);
   assert.deepEqual(partitions6.flat().sort(), files);
@@ -75,12 +75,12 @@ test('measured hosted runs balance the current runtime suite in six partitions',
   assert(partitions6.every(shard => JSON.stringify(shard) === JSON.stringify([...shard].sort())));
 
   const totals6 = partitions6.map(total);
-  assert(Math.max(...totals6) < 410_000);
+  assert(Math.max(...totals6) < 760_000, 'measured estimates leave room inside the existing 900-second six-partition budget');
   assert(Math.max(...totals6) - Math.min(...totals6) < 15_000);
 
   const partitions4 = partitionRuntimeFiles(files, 4);
   const totals4 = partitions4.map(total);
-  assert(Math.max(...totals4) < 610_000);
+  assert(Math.max(...totals4) < 1_150_000, 'four-partition estimates fit the existing 1200-second legacy matrix budget');
 
   for (const extra of ['tests/runtime/aaa-unmeasured.test.ts', 'tests/runtime/zzz-unmeasured.test.ts']) {
     const expanded = [...files, extra].sort();
@@ -88,6 +88,6 @@ test('measured hosted runs balance the current runtime suite in six partitions',
     assert.deepEqual(shards.flat().sort(), expanded);
     assert.equal(new Set(shards.flat()).size, expanded.length);
     const withExtra = shard => shard.reduce((sum, path) => sum + (path === extra ? 15_000 : cost(path)), 0);
-    assert(Math.max(...shards.map(withExtra)) < 420_000);
+    assert(Math.max(...shards.map(withExtra)) < 770_000);
   }
 });

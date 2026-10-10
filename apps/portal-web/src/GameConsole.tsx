@@ -76,7 +76,11 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,memberBlockingEnabled=false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;memberBlockingEnabled?:boolean}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,headless = false,site}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;headless?:boolean;site?:SiteConfig|null}) {
+  const [localSite,setLocalSite]=useState<{client:PortalClient;site:SiteConfig}|null>(null)
+  // Omitted config means an independent console; null means the shell has not loaded it or failed.
+  useEffect(()=>{if(site!==undefined||!client)return;let active=true;void client.get<SiteConfig>('/site').then(value=>{if(active)setLocalSite({client,site:value})}).catch(()=>{if(active)setLocalSite(null)});return()=>{active=false}},[client,site])
+  const config=site===undefined?(localSite&&localSite.client===client?localSite.site:null):site
   const [events, setEvents] = useState<GameConsoleEvent[]>(variant === 'dock' ? seedEvents : [])
   const eventsRef = useRef(events); eventsRef.current = events
   const seen = useRef(new Set(events.map(event=>event.id)))
@@ -84,6 +88,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const dmSessionEnd=useRef<(()=>boolean)|null>(null)
   const registerDmSessionEnd=useCallback((guard:(()=>boolean)|null)=>{dmSessionEnd.current=guard},[])
   const canEndSession=useCallback(()=>dmSessionEnd.current?.()??true,[])
+  const preferencesEnabled = !client ? false : config ? config.notification_preferences_enabled===true : null
   const [expanded, setExpanded] = useState(variant === 'popout')
   const [activeChannel, setActiveChannel] = useState<GameConsoleChannel>('all')
   const [visibility,setVisibility]=useState<ConsoleVisibility>(()=>loadVisibility(userId))
@@ -141,29 +146,31 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   },[variant])
 
   useEffect(()=>{
-    if(!client||!userId||!feedEnabled)return
-    let active=true,loading=false
+    if(!client||!userId||!feedEnabled||preferencesEnabled===null)return
+    let active=true,loading=false,generation=0
     const refresh=async()=>{
       if(!active||loading||document.visibilityState==='hidden')return
-      loading=true
-      try { for(const event of await readConsoleFeed(client,userId,true)) if(active)append(event,true) }
+      loading=true;const request=++generation
+      try { for(const event of await readConsoleFeed(client,userId,true,preferencesEnabled)) if(active&&request===generation)append(event,true) }
       catch { /* PortalClient sends the actionable API error to the system channel. */ }
-      finally {loading=false}
+      finally {if(request===generation)loading=false}
     }
     void refresh()
     const timer=window.setInterval(()=>void refresh(),30000)
     const focus=()=>void refresh()
-    const update=()=>void refresh()
+    const update=()=>{++generation;loading=false;void refresh()}
     window.addEventListener('focus',focus)
     window.addEventListener('visibilitychange',focus)
     window.addEventListener('freedom-world-facts-updated',update)
     window.addEventListener('freedom-profile-updated',focus)
-    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus)}
-  },[client,userId,feedEnabled,append])
+    window.addEventListener('freedom-notification-preferences-updated',update)
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('visibilitychange',focus);window.removeEventListener('freedom-world-facts-updated',update);window.removeEventListener('freedom-profile-updated',focus);window.removeEventListener('freedom-notification-preferences-updated',update)}
+  },[client,userId,feedEnabled,append,preferencesEnabled])
 
   useEffect(() => {
-    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'page_error')}
-    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: consoleChannel('system_background_error'), level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(`UI /${window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`,'unhandled_rejection')}
+    const pageAction=()=>`UI /${window.location.hash.startsWith('#participation=')?'#events':window.location.hash.replace(/[^a-zA-Z0-9#_-]/g,'').slice(0,60)}`;
+    const onError = (event: ErrorEvent) => {logConsoleEvent({channel: consoleChannel('system_page_error'), level: 'error', kind: 'status', source: '頁面錯誤', message: event.message || '頁面發生未預期錯誤。'});client?.reportError(pageAction(),'page_error')}
+    const onRejection = (event: PromiseRejectionEvent) => {logConsoleEvent({channel: consoleChannel('system_background_error'), level: 'error', kind: 'status', source: '背景錯誤', message: event.reason instanceof Error ? event.reason.message : '背景操作未完成。'});client?.reportError(pageAction(),'unhandled_rejection')}
     const online = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'success', kind: 'status', source: '網路', message: '網路連線已恢復。'})
     const offline = () => logConsoleEvent({channel: consoleChannel('system_network'), level: 'warning', kind: 'status', source: '網路', message: '目前離線；尚未送出的操作請保留並稍後重試。'})
     window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onRejection)
@@ -172,7 +179,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   }, [client])
 
   useEffect(() => {
-    if (variant === 'popout') return
+    if (variant === 'popout'||headless) return
     const toggle = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || keyTarget(event.target)) return
       if (event.code !== 'Backquote' && event.key !== '~' && event.key !== '`') return
@@ -180,7 +187,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     }
     window.addEventListener('keydown', toggle)
     return () => window.removeEventListener('keydown', toggle)
-  }, [variant])
+  }, [variant,headless])
 
   const selectChannel = useCallback((channel: GameConsoleChannel) => {
     setActiveChannel(channel); setUnread(current => ({...current, [channel]: 0}))
@@ -189,8 +196,8 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const value = useMemo<ConsoleContextValue>(() => ({registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, visibility, toggleVisibility,selectChannel,registerDmSessionEnd,canEndSession])
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
-    {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={memberBlockingEnabled}/>
+    {variant === 'dock'&&!headless ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
+    {!headless&&<GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={config?.member_blocking_enabled===true} messageImagesEnabled={config?.message_images_enabled===true} preferencesEnabled={preferencesEnabled}/>}
   </ConsoleContext.Provider>
 }
 
@@ -198,8 +205,6 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   const [authorized,setAuthorized]=useState<boolean|null>(null)
   const [currentSession,setCurrentSession]=useState<SessionPayload|undefined>()
   const account=useRef<string|null>(null)
-  const [memberBlockingEnabled,setMemberBlockingEnabled]=useState(false)
-  useEffect(()=>{let active=true;void client.get<SiteConfig>('/site').then(site=>{if(active)setMemberBlockingEnabled(site.member_blocking_enabled===true)}).catch(()=>{});return()=>{active=false}},[client])
   useEffect(()=>{
     let active=true
     const check=async()=>{
@@ -223,14 +228,33 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   },[client])
   if(authorized===null)return <div className="game-console-ended" role="status">正在確認登入狀態…</div>
   if(!authorized)return <div className="game-console-ended" role="status">登入已結束。<a href="/">返回自由工坊</a></div>
-  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession} memberBlockingEnabled={memberBlockingEnabled}/>
+  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession}/>
 }
 
-function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean}) {
+function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled,messageImagesEnabled,preferencesEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean;messageImagesEnabled:boolean;preferencesEnabled:boolean|null}) {
   const {registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
   const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
-  const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>setChatUnread(value=>({...value,[channel]:count})),[])
+  const onChatUnread=useCallback((channel:GameConsoleChannel,count:InboxUnread)=>{if(preferencesEnabled===false||channel==='direct')setChatUnread(value=>({...value,[channel]:count}))},[preferencesEnabled])
+  useEffect(()=>{
+    if(!client||!enabled||preferencesEnabled!==true)return
+    let active=true,loading=false,generation=0
+    const refresh=async()=>{
+      if(!active||loading)return
+      loading=true;const request=++generation
+      try{
+        const counts=await client.get<{guild:number;squad:number;world:number}>('/me/notification-preferences/channel-reminders',{background:true})
+        if(active&&request===generation)setChatUnread(value=>({...value,guild:counts.guild,squad:counts.squad,world_chat:counts.world}))
+      }catch{if(active&&request===generation)setChatUnread(value=>({...value,guild:null,squad:null,world_chat:null}))}
+      finally{if(request===generation)loading=false}
+    }
+    const update=()=>{++generation;loading=false;void refresh()}
+    void refresh();const timer=window.setInterval(()=>void refresh(),30000)
+    window.addEventListener('freedom-notification-preferences-updated',update)
+    window.addEventListener('freedom-inbox-updated',update)
+    window.addEventListener('focus',update)
+    return()=>{active=false;++generation;window.clearInterval(timer);window.removeEventListener('freedom-notification-preferences-updated',update);window.removeEventListener('freedom-inbox-updated',update);window.removeEventListener('focus',update)}
+  },[client,enabled,preferencesEnabled])
   const navigate=useCallback((id:TabId)=>{if(variant==='popout')window.open(`/#${id}`,'_blank','noopener');else window.location.hash=id},[variant])
   const isChat=['guild','squad','direct','world_chat'].includes(activeChannel)
   const availableChannels=GAME_CONSOLE_CHANNELS.filter(channel=>channel.id==='all'||visibility[channel.id])
@@ -258,7 +282,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
   }
 
   function popOut() {
-    const url = new URL(window.location.origin)
+    const url = new URL('/admin',window.location.origin)
     url.searchParams.set('game-console', 'popout')
     url.searchParams.set('scope', syncScope)
     const opened = window.open(url, `freedom-game-console-${syncScope}`, 'popup=yes,width=880,height=620,resizable=yes,scrollbars=yes')
@@ -294,7 +318,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
     <div className="game-console-tabs" role="tablist" aria-label="訊息頻道" onKeyDown={tabKeys}>
       {availableChannels.map(channel => <button type="button" role="tab" id={`game-console-tab-${channel.id}`} key={channel.id} data-channel={channel.id}
         aria-selected={activeChannel === channel.id} aria-controls={['guild','squad','direct','world_chat'].includes(channel.id)?'game-console-chats':'game-console-history'} tabIndex={activeChannel === channel.id ? 0 : -1}
-        onClick={() => setActiveChannel(channel.id)}>{channel.label}{(chatUnread[channel.id]??unread[channel.id])! > 0 && <span className="game-console-unread" aria-label={`${chatUnread[channel.id]??unread[channel.id]} 則新訊息`}>{chatUnread[channel.id]??unread[channel.id]}</span>}</button>)}
+        onClick={() => setActiveChannel(channel.id)}>{channel.label}{preferencesEnabled!==false&&['guild','squad','world_chat'].includes(channel.id)&&chatUnread[channel.id]==null?<span className="game-console-unread" aria-label="提醒數未確認">?</span>:(chatUnread[channel.id]??unread[channel.id])! > 0 && <span className="game-console-unread" aria-label={`${chatUnread[channel.id]??unread[channel.id]} 則新訊息`}>{chatUnread[channel.id]??unread[channel.id]}</span>}</button>)}
     </div>
     <div hidden={isChat} ref={history} id="game-console-history" className="game-console-history" role="log" aria-live="polite" aria-label={`${GAME_CONSOLE_CHANNELS.find(channel => channel.id === activeChannel)?.label} 歷史紀錄`}>
       {filtered.length ? filtered.map(event => <article key={event.id} className={`game-console-entry is-${event.level}${showEventSource(event) ? ' has-source' : ''}`} data-channel={event.channel} data-kind={event.kind} data-next-step={event.action ? 'true' : undefined}>
@@ -304,7 +328,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled} messageImagesEnabled={messageImagesEnabled}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

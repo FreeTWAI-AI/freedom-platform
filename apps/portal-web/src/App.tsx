@@ -20,6 +20,8 @@ import {NotificationBell,type BellAction} from './modules/NotificationBell'
 import {FloatingMessages} from './modules/FloatingMessages'
 import './SocialLayout.css'
 import { PlatformPurpose, entryIntentFromHash, entryIntentLabel, type EntryIntent } from './PlatformPurpose'
+const NotificationPreferencesPanel = lazy(() => import('./modules/NotificationPreferences').then(m => ({default: m.NotificationPreferencesPanel})))
+import {readEventParticipationToken} from './modules/EventParticipation'
 import {DevelopmentAccessProvider} from './modules/DevelopmentAccess'
 import { GameConsoleProvider, GameConsolePopout, useGameConsole } from './GameConsole'
 import {PageTools} from './PageTools'
@@ -121,9 +123,16 @@ const TAB_GUIDANCE: Record<TabId, string> = {
 }
 
 export function App() {
-  const page = new URLSearchParams(window.location.search).get('game-console')==='popout' ? <GameConsolePopout client={client}/>
-    : window.location.pathname==='/github/callback' ? <GitHubCallback/>
-    : window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? <AdminConsoleShell/> : <MemberApp/>
+  // Old pop-out links now enter the same member message panel.
+  const legacyConsole=new URL(window.location.href)
+  const adminRoute=window.location.pathname==='/admin'||window.location.pathname.startsWith('/admin/')
+  const popout=legacyConsole.searchParams.get('game-console')==='popout'
+  if(popout&&!adminRoute){
+    legacyConsole.searchParams.delete('game-console');legacyConsole.searchParams.delete('scope');legacyConsole.hash='messages'
+    window.history.replaceState(null,'',legacyConsole)
+  }
+  const page = popout&&adminRoute ? <GameConsolePopout client={client}/> : window.location.pathname==='/github/callback' ? <GitHubCallback/>
+    : adminRoute ? <AdminConsoleShell/> : <MemberApp/>
   return <LanguageProvider><AppInstallProvider><RequestFeedback/><PageLoadBoundary label="自由工坊" resetKey={window.location.pathname}>{page}</PageLoadBoundary></AppInstallProvider></LanguageProvider>
 }
 
@@ -131,7 +140,7 @@ const resetTokenFromHash=()=>/^#reset-password\/([A-Za-z0-9_-]{43})$/.exec(windo
 const eventIdFromLocation=()=>{
   const inHash=/^#events\/([0-9a-f-]{36})(?:\?.*)?$/.exec(window.location.hash)?.[1];
   if(inHash)return inHash;
-  if(window.location.hash)return null;
+  if(window.location.hash&&!readEventParticipationToken())return null;
   return /^\/events\/([0-9a-f-]{36})\/?$/.exec(window.location.pathname)?.[1]??null;
 }
 const memberCardFromLocation=()=>/^\/member-cards\/([A-Za-z0-9_-]{43})\/?$/.exec(window.location.pathname)?.[1]??null
@@ -261,6 +270,14 @@ function MemberApp() {
   const leaveCurrentSession = (notice?: string) => {
     if (sessionGeneration.current === renderedSessionGeneration) toLogin(notice)
   }
+  const eventLogin=()=>{
+    if(readEventParticipationToken()){
+      window.history.replaceState(null,'',window.location.pathname+window.location.search);
+      setLocationHash('');
+      setPublicEventId(eventIdFromLocation());
+    }
+    setEventLoginRequested(true);
+  };
 
   if (phase === 'boot') {
     return (
@@ -274,11 +291,12 @@ function MemberApp() {
       </div>
     )
   }
+  if(!resetToken&&publicEventId&&readEventParticipationToken(locationHash)&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} participationEnabled={site?.event_participation_enabled===true} onLogin={eventLogin}/>;
 
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;
-    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
+    if(!resetToken&&publicEventId&&!eventLoginRequested)return <PublicEventPage client={client} id={publicEventId} revalidatePublic={site?.community_discovery_enabled===true} participationEnabled={site?.event_participation_enabled===true} onLogin={()=>{if(site?.community_discovery_enabled&&site.registration_enabled)window.location.assign(`/?join=1&return_to=${encodeURIComponent(`/events/${publicEventId}`)}`);else setEventLoginRequested(true)}}/>;
     const launchpadKey=guildKeyFromHash(locationHash);
     if(!resetToken&&launchpadKey&&site?.guild_launchpad_enabled===true&&!launchpadLoginRequested)return <PageLoadBoundary label="自由工坊" resetKey={launchpadKey}><PublicGuildLaunchpad key={launchpadKey} client={client} guildKey={launchpadKey} onLogin={()=>setLaunchpadLoginRequested(true)}/></PageLoadBoundary>;
     if(!resetToken&&launchpadKey&&!siteLoaded)return <div className="app-frame"><div className="centered"><p className="muted" role="status">正在確認公開頁面…</p></div></div>;
@@ -303,7 +321,7 @@ function MemberApp() {
   }
 
   return (
-    <GameConsoleProvider key={session.user.user_id} client={client} userId={session.user.user_id} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} feedEnabled={Boolean(onboarding&&(!onboarding.required||onboarding.completed))} standalone={!onboarding||onboarding.required&&!onboarding.completed}>
+    <GameConsoleProvider key={session.user.user_id+':'+client.sessionGeneration} client={client} userId={session.user.user_id} session={session} site={site} feedEnabled={false} headless>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
     {publicEventId && site?.community_discovery_enabled ? <PublicEventPage client={client} id={publicEventId} revalidatePublic onLogin={()=>window.location.assign('/#home')}/> : !onboarding ? <div className="centered"><div className="card stack"><h1>自由工坊</h1>{gateError ? <><p role="alert">{gateError}</p><button className="btn btn-primary" onClick={() => void loadOnboarding()}>重新載入定位進度</button></> : <p role="status">正在確認你的定位旅程…</p>}</div></div>
     : onboarding.required && !onboarding.completed ? exploring&&!onboardingStarted(session.user.user_id)
@@ -560,7 +578,14 @@ function Workspace({
   const notificationSequence=useRef(0)
   const [chatEntry,setChatEntry]=useState<ChatEntry|null>(null)
   const chatEntrySequence=useRef(0)
-  const [messageView,setMessageView]=useState<{view:'direct'|'notifications';request:number}>({view:'direct',request:0})
+  const [messagesOpen,setMessagesOpen]=useState(()=>window.location.hash==='#messages')
+  const [messagesMounted,setMessagesMounted]=useState(()=>window.location.hash==='#messages')
+  const messageLeaveGuard=useRef<(()=>boolean)|null>(null)
+  const registerMessageLeave=useCallback((guard:(()=>boolean)|null)=>{messageLeaveGuard.current=guard},[])
+  const openMessages=useCallback(()=>{setMessagesMounted(true);setMessagesOpen(true);setMobileOpen(false)},[])
+  const closeMessages=useCallback(()=>{
+    setMessagesOpen(false)
+  },[])
   const [shareEntry,setShareEntry]=useState<{target:ShareTarget;tab:TabId;sequence:number}|null>(null)
   const [shareNotice,setShareNotice]=useState('')
   const shareSequence=useRef(0)
@@ -571,34 +596,26 @@ function Workspace({
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    if(tab!=='messages'){
-      setChatEntry(null)
-      setNotificationTarget(current=>current?.tab==='messages'?null:current)
-      setMessageView(current=>({view:'direct',request:current.request+1}))
-    }
+    if(tab!=='social')setNotificationTarget(current=>current?.tab==='social'?null:current)
     logConsoleEvent({channel:consoleChannel('guide_navigation'),kind:'guide',source:'導覽',message:`已進入「${tabTitle(tab)}」。${TAB_GUIDANCE[tab]}`})
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     workspaceTopbar.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [tab])
   const selectTab = useCallback((next: TabId) => {
+    if(next==='messages'){openMessages();return}
     const nextHash = `#${next}`
     if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) return
     acceptedHash.current = nextHash
     setMobileOpen(false)
     mainContent.current?.focus({ preventScroll: true })
     setTab(next)
-    if(next==='messages'){
-      setChatEntry(null)
-      setNotificationTarget(current=>current?.tab==='messages'?null:current)
-      setMessageView(current=>({view:'direct',request:current.request+1}))
-    }
     if(/^\/events\/[0-9a-f-]{36}\/?$/.test(window.location.pathname)){
       window.history.replaceState(null,'',`/#${next}`)
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     }
     else window.location.hash = next
-  }, [])
+  }, [openMessages])
   function chooseShare(target:ShareTarget){
     const destination=target==='post'&&tab==='home'?'home':SHARE_TARGETS[target].tab
     setShareNotice('');setShareEntry({target,tab:destination,sequence:++shareSequence.current});selectTab(destination)
@@ -632,6 +649,11 @@ function Workspace({
     const open=(event:Event)=>{const value=(event as CustomEvent).detail;if(!isChatEntry(value))return;selectTab('messages');setChatEntry({...value,request:++chatEntrySequence.current})}
     window.addEventListener(CHAT_ENTRY_EVENT,open);return()=>window.removeEventListener(CHAT_ENTRY_EVENT,open)
   },[selectTab])
+  useEffect(()=>{
+    if(locationHash.split('?')[0]!=='#messages')return
+    const entry={kind:'guild',key:new URLSearchParams(locationHash.split('?')[1]??'').get('guild')}
+    if(isChatEntry(entry))setChatEntry(current=>({...entry,request:(current?.request??0)+1}))
+  },[locationHash])
   const launchpadEnabled = site?.guild_launchpad_enabled === true
   useEffect(() => {
     setLocationHash(window.location.hash)
@@ -640,6 +662,7 @@ function Workspace({
   useEffect(() => {
     const changed = () => {
       const nextHash = window.location.hash
+      if(nextHash==='#messages'){openMessages();return}
       if (nextHash !== acceptedHash.current && pageLeaveGuard.current && !pageLeaveGuard.current()) {
         window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${acceptedHash.current}`)
         return
@@ -650,7 +673,7 @@ function Workspace({
     window.addEventListener('hashchange', changed)
     window.addEventListener('popstate', changed)
     return () => { window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed) }
-  }, [launchpadEnabled])
+  }, [launchpadEnabled,openMessages])
   const launchpadOpen = site?.guild_launchpad_enabled === true && tab === 'guilds' && guildKeyFromHash(locationHash) !== null
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<ActionError | null>(null)
@@ -710,7 +733,7 @@ function Workspace({
 
   async function logout() {
     if (pageLeaveGuard.current && !pageLeaveGuard.current()) return
-    if (!canEndConsoleSession()) return
+    if (!canEndConsoleSession() || messageLeaveGuard.current&&!messageLeaveGuard.current()) return
     const ok = await mutate('logout', async (key) => {
       await client.logout(key)
     })
@@ -740,7 +763,7 @@ function Workspace({
             <button ref={menuToggle} type="button" className="btn btn-ghost mobile-menu-toggle" aria-label={t(mobileOpen?'nav.closeMenu':'nav.openMenu')} aria-expanded={mobileOpen} aria-controls="workspace-navigation" onClick={() => setMobileOpen(value => !value)}>{t(mobileOpen?'nav.closeMenu':'nav.openMenu')}</button></div>
             <Navigation current={tab} onSelect={selectTab} canManageGuild={canManageGuild} guildLaunchpadEnabled={site?.guild_launchpad_enabled === true} communitySearchEnabled={site?.community_search_enabled === true} personalContentEnabled={site?.personal_content_enabled === true} mobileOpen={mobileOpen}/>
           </aside>
-          <div className="topbar-actions community-account-tools"><NotificationBell client={client} onOpen={()=>{selectTab('messages');setMessageView(current=>({view:'notifications',request:current.request+1}))}} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current})}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
+          <div className="topbar-actions community-account-tools"><NotificationBell key={session.user.user_id+':'+session.csrf_token} client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} onNavigate={action=>{selectTab(action.tab);setNotificationTarget({...action,sequence:++notificationSequence.current});if(action.tab==='events'&&action.resource_id)window.location.hash=`events/${action.resource_id}`}}/><SettingsMenu current={tab} onSelect={selectTab} name={headerMember?.nickname??session.user.display_name} avatar={<MemberAvatar nickname={headerMember?.nickname??session.user.display_name} avatarUrl={headerMember?.avatar_url} className="topbar-avatar"/>} onLogout={() => void logout()} logoutDisabled={Boolean(pending)}/></div>
           </header>
           <section className="main workspace-main">
             <header ref={workspaceTopbar} className="topbar workspace-topbar">
@@ -762,19 +785,18 @@ function Workspace({
               />
             )}
             <PageLoadBoundary label={t(`nav.${tab}`)} resetKey={tab}>
-            {tab === 'account' && <AccountPanel client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'account' && <><AccountPanel client={client} session={session} onNavigate={selectTab} />{site?.notification_preferences_enabled===true&&<NotificationPreferencesPanel key={session.user.user_id+':'+session.csrf_token} client={client} followingEnabled={site.community_relations_enabled===true}/>}</>}
             {tab === 'todos' && <MemberTasks client={client} onNavigate={selectTab} />}
-            {tab === 'messages' && <MemberMessages registerLeave={registerPageLeave} messageImagesEnabled={site?.message_images_enabled===true} client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} initialView={messageView} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'friends' && <FriendsPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} />}
             {tab === 'members' && <MembersPanel client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} onMessage={id=>{selectTab('messages');setNotificationTarget({tab:'messages',resource_id:id,sequence:++notificationSequence.current});}} focusRequest={notificationTarget?.tab==='members'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined} />}
             {tab === 'cocreation' && <CoCreationPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'community' && <CommunityPanel client={client} onNavigate={selectTab} />}
             {tab === 'community-search' && (site?.community_search_enabled === true ? <CommunitySearch key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} authKey={`${session.user.user_id}:${client.sessionGeneration}`} relationsEnabled={site.community_relations_enabled === true}/> : <p>社群內容搜尋尚未開放。</p>)}
             {tab === 'my-content' && (site?.personal_content_enabled === true ? <MyContent key={`${session.user.user_id}:${client.sessionGeneration}`}/> : <p>我的內容尚未開放。</p>)}
-            {tab === 'events' && <EventsPanel client={client} session={session} />}
+            {tab === 'events' && <EventsPanel key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} session={session} participationEnabled={site?.event_participation_enabled===true}/>}
             {tab === 'highlights' && <EventHighlights key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} outcomesEnabled={site?.event_outcomes_enabled===true}/>}
             {tab === 'tasks' && <TaskBoardPanel client={client} onNavigate={selectTab} />}
-            {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}}/>}
+            {tab === 'social' && <SocialZone client={client} viewer={{name: headerMember?.nickname??session.user.display_name, avatarUrl: headerMember?.avatar_url}} focusPost={notificationTarget?.tab==='social'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>}
             {tab === 'services' && <MemberServices client={client} />}
             {tab === 'promotion' && <PromotionBoards client={client} />}
             {tab === 'skills' && <SkillsPanel client={client} session={session} onNavigate={selectTab} />}
@@ -783,12 +805,12 @@ function Workspace({
             {tab === 'private-ai' && <PrivateWorkAI client={client} key={session.user.user_id}/>}
             {tab === 'showcase' && <ShowcasePanel />}
             {tab === 'engagement' && <EngagementPanel />}
-            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} />}
+            {tab === 'home' && <MemberHome client={client} session={session} onNavigate={selectTab} firstParticipationEnabled={site?.first_participation_enabled===true}/>}
             {tab === 'positioning' && <PositioningPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'guilds' && <GuildsPanel client={client} session={session} onNavigate={selectTab} site={site} locationHash={locationHash} registerPendingLeave={registerPageLeave} />}
             {tab === 'guild-workspace' && <MemberGuildWorkspace client={client}/>}
             {tab === 'reservations' && <HostedOrderPage key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} locationHash={locationHash} registerLeave={registerPageLeave} replaceLocation={replaceBuyerLocation} />}
-            {tab === 'stores' && <HostedStore client={client} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
+            {tab === 'stores' && <HostedStore client={client} photosEnabled={site?.hosted_store_photos_enabled===true} photoUploadsEnabled={site?.hosted_store_photo_uploads_enabled===true} enabled={site?.guild_launchpad_enabled === true} locationHash={locationHash} userId={session.user.user_id} registerLeave={registerPageLeave} />}
             {tab === 'business' && <TenantSettings client={client} session={session} enabled={site ? site.guild_launchpad_enabled === true : null} />}
             {tab === 'supplier' && <SupplierPanel client={client} session={session} onNavigate={selectTab} />}
             {tab === 'retail' && <RetailPanel client={client} session={session} onNavigate={selectTab} />}
@@ -799,8 +821,12 @@ function Workspace({
             </div>
           </section>
         </div>
+        {!error?.accessExpired&&<FloatingMessages client={client} preferencesEnabled={site?site.notification_preferences_enabled===true:null} open={messagesOpen} onToggle={()=>messagesOpen?closeMessages():openMessages()} onClose={closeMessages}>
+          {messagesMounted&&<PageLoadBoundary label={t('nav.messages')} resetKey={session.user.user_id} onHome={closeMessages}>
+            <MemberMessages registerLeave={registerMessageLeave} active={messagesOpen} messageImagesEnabled={site?.message_images_enabled===true} client={client} session={session} memberBlockingEnabled={site?.member_blocking_enabled===true} onNavigate={selectTab} chatEntry={chatEntry} onNotificationPeer={notificationTarget?.tab==='messages'&&notificationTarget.resource_id?{id:notificationTarget.resource_id,sequence:notificationTarget.sequence}:undefined}/>
+          </PageLoadBoundary>}
+        </FloatingMessages>}
       </div>
-      {tab!=='messages'&&!mobileOpen&&!error?.accessExpired&&<FloatingMessages client={client} onOpen={()=>selectTab('messages')}/>}
     </PortalContext.Provider>
   )
 }
@@ -811,10 +837,12 @@ function tabTitle(tab: TabId): string {
 
 function tabFromHash(launchpadEnabled: boolean): TabId {
   const value = window.location.hash.slice(1)
+  if(value==='messages')return 'home'
   if(value === 'reservations' || value.startsWith('reservations/'))return 'reservations'
   if(value.split('?')[0]==='community-search')return 'community-search'
   if(value==='my-content'||value.startsWith('my-content/'))return 'my-content'
   if(value.split('?')[0]==='opensource')return 'opensource'
+  if(value.split('?')[0]==='messages')return 'messages'
   if(!value && window.location.pathname === '/device')return 'private-ai'
   if(value.startsWith('events/'))return 'events'
   if(value.startsWith('showcase/'))return 'showcase'

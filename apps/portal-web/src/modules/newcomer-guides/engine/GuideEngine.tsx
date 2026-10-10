@@ -16,7 +16,7 @@ type CanonicalLine = {text: string; topicId: string | null}
 type GuideState = {definition: GuideDefinition; index: number; found: boolean; identity: string}
 const FRAME_ORDER = [0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0] as const
 const MODAL_SELECTOR = 'dialog[open],[aria-modal="true"],[role="dialog"],.modal-overlay,.modal-backdrop,.world-chat-drawer,.world-chat-overlay'
-const ENVIRONMENT_SELECTOR = `${MODAL_SELECTOR},.game-console`
+const ENVIRONMENT_SELECTOR = `${MODAL_SELECTOR},.game-console,.floating-message-panel`
 
 function visible(element: HTMLElement) {
   if (element.hidden || element.closest('[hidden],[aria-hidden="true"]')) return false
@@ -31,7 +31,7 @@ function editing(element: Element | null) {
 
 function blockingSurface(own: HTMLElement | null) {
   return Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
-    || Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded')).some(visible)
+    || Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded,.floating-message-panel')).some(visible)
 }
 
 export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo, characterChoices, onSelectCharacter, focusCharacterChoice=false, disabled = false}: Props) {
@@ -435,7 +435,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
         || guideIdentity.current !== active.current.identity || !guideState.current) return
       const own = wrapper.current
       const modalOpen = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
-      const consoleOpen = Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded')).some(visible)
+      const consoleOpen = Array.from(document.querySelectorAll<HTMLElement>('.game-console-expanded,.floating-message-panel')).some(visible)
       if (modalOpen || consoleOpen) return
       event.preventDefault(); event.stopPropagation(); close(false)
     }
@@ -456,8 +456,8 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
     const inspect = () => {
       layoutRequest = 0
       const own = wrapper.current
-      const consoles = Array.from(document.querySelectorAll<HTMLElement>('.game-console')).filter(element => !own?.contains(element))
-      const consoleOpen = consoles.some(element => element.classList.contains('game-console-expanded') && visible(element))
+      const consoles = Array.from(document.querySelectorAll<HTMLElement>('.game-console,.floating-message-panel')).filter(element => !own?.contains(element))
+      const consoleOpen = consoles.some(element => element.matches('.game-console-expanded,.floating-message-panel') && visible(element))
       const modalOpen = Array.from(document.querySelectorAll<HTMLElement>(MODAL_SELECTOR)).some(element => !own?.contains(element) && visible(element))
       const guidedFocus = active.current.mode === 'guide' && guideIdentity.current === active.current.identity
         && guideTarget.current?.isConnected && document.activeElement === guideTarget.current
@@ -483,7 +483,7 @@ export function GuideEngine({pageId, scopeKey, page, label, gallery, galleryInfo
         && ((active.current.mode==='guide' && record.target instanceof Element && Boolean(record.target.closest('#main-content')))
           || (record.type === 'attributes' ? relevant(record.target)
           || (record.attributeName === 'open' && record.target instanceof HTMLDialogElement)
-          || (record.target instanceof Element && !!record.target.closest('.game-console'))
+          || (record.target instanceof Element && !!record.target.closest('.game-console,.floating-message-panel'))
           : [...record.addedNodes, ...record.removedNodes].some(relevant))))) schedule()
     })
     observer.observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'open', 'aria-hidden', 'aria-modal', 'aria-disabled', 'aria-busy', 'disabled', 'inert', 'role', 'style', 'data-guide-anchor']})

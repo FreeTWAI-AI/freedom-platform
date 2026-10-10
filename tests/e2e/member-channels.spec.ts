@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {test,expect,type Page} from './fixtures.js';
-import {navigate} from './navigation.js';
+import {navigate,openChat,closeChat,openNotifications} from './navigation.js';
 import {chatPollClock} from './chat-poll-clock.js';
 
 // Synthetic data only, served by route fixtures that follow the backend channel DTO. The real
@@ -172,17 +172,17 @@ test('idle activity requests slow down and typing, focus, visibility and manual 
   await clock.tick(true);
 });
 
-test('five tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{
+test('four chat tabs keep their order and keyboard behaviour without mixing room histories',async({page})=>{
   await page.setViewportSize({width:320,height:780});
   const server=await channelServer(page,{guild:[['builders','合成公會甲',3],['Makers','合成公會乙',0]],squad:[[squadA,'合成小隊甲',2]]});
   await open(page,server);
   const tabs=page.getByRole('tab');
-  await expect(tabs).toHaveCount(5);
-  const labels=['私人訊息','公會閒聊','小隊閒聊','世界聊天','通知'];
+  await expect(tabs).toHaveCount(4);
+  const labels=['私人訊息','公會閒聊','小隊閒聊','世界聊天'];
   for(const [index,label] of labels.entries())await expect(tabs.nth(index)).toHaveAccessibleName(new RegExp(`^${label}`));
-  await expect(tabs).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/,/^通知/]);
+  await expect(tabs).toHaveText([/^私訊/,/^公會/,/^群組/,/^公開/]);
   await expect(tab(page,'公會閒聊')).toContainText('3 則未讀');await expect(tab(page,'小隊閒聊')).toContainText('2 則未讀');
-  await expect(tab(page,'私人訊息')).toContainText('沒有未讀');await expect(tab(page,'通知')).toContainText('沒有未讀');
+  await expect(tab(page,'私人訊息')).toContainText('沒有未讀');
   // Roving tabindex, arrow keys wrap, Home/End jump; each tab controls its own panel.
   await tab(page,'私人訊息').focus();
   const expectSelected=async(label:string)=>{
@@ -191,13 +191,13 @@ test('five tabs keep their order and keyboard behaviour without mixing room hist
     await expect(page.locator('#'+await current.getAttribute('aria-controls'))).toBeVisible();
     for(const name of labels.filter(item=>item!==label)){await expect(tab(page,name)).toHaveAttribute('aria-selected','false');await expect(tab(page,name)).toHaveAttribute('tabindex','-1');}
   };
-  for(const label of ['公會閒聊','小隊閒聊','世界聊天','通知','私人訊息']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
-  await page.keyboard.press('ArrowUp');await expectSelected('通知');
-  await page.keyboard.press('ArrowLeft');await expectSelected('世界聊天');
+  for(const label of ['公會閒聊','小隊閒聊','世界聊天','私人訊息']){await page.keyboard.press('ArrowRight');await expectSelected(label);}
+  await page.keyboard.press('ArrowUp');await expectSelected('世界聊天');
+  await page.keyboard.press('ArrowLeft');await expectSelected('小隊閒聊');
   await page.keyboard.press('Home');await expectSelected('私人訊息');
-  await page.keyboard.press('End');await expectSelected('通知');
+  await page.keyboard.press('End');await expectSelected('世界聊天');
   // The top bar still owns the only h1.
-  await expect(page.getByRole('heading',{level:1})).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');
+  await expect(page.getByRole('heading',{level:1})).toHaveCount(1);await expect(page.getByRole('heading',{level:1})).toHaveText('會員首頁');
   for(const label of labels){
     await tab(page,label).click();await noOverflow(page);
     const box=(await tab(page,label).boundingBox())!;expect(box.height).toBeGreaterThanOrEqual(44);expect(box.x+box.width).toBeLessThanOrEqual(320);
@@ -341,28 +341,19 @@ test('reopening the same group before a lost read ACK exposes its original recov
   }finally{gate.release();}
 });
 
-test('chat navigation defaults to private conversations and the bell explicitly opens notifications',async({page})=>{
+test('chat entry retains the selected channel while the bell owns notifications',async({page})=>{
   const server=await channelServer(page,{});await open(page,server);
   await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
   for(let i=0;i<2;i++){
-    await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息',exact:true}).click();
-    await expect(tab(page,'通知')).toHaveAttribute('aria-selected','true');await tab(page,'私人訊息').click();
+    await openNotifications(page);await expect(page.getByRole('region',{name:'最近通知'})).toBeVisible();
+    await expect(page.getByRole('tab',{name:/^通知/})).toHaveCount(0);await openChat(page);
+    await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
   }
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
-  await expect(panel(page,'世界聊天')).toBeVisible();
-  await navigate(page,'會員首頁');
-  // The navigation helper's message shortcut uses the bell and opens notifications.
-  // Exercise the actual primary chat entry here instead.
-  await page.getByRole('navigation',{name:'主要工作區'}).getByRole('button',{name:'我的訊息',exact:true}).click();
-  await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
-  await expect(panel(page,'世界聊天')).toBeVisible();await navigate(page,'會員首頁');
-  await page.getByRole('button',{name:/^通知/}).click();await page.getByRole('button',{name:'查看所有通知與訊息',exact:true}).click();
-  await expect(tab(page,'通知')).toHaveAttribute('aria-selected','true');await tab(page,'私人訊息').click();
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('freedom-open-channel',{detail:{kind:'world',key:'world'}})));
-  await expect(panel(page,'世界聊天')).toBeVisible();await navigate(page,'會員首頁');
-  await page.evaluate(()=>{window.location.hash='messages'});
-  await expect(tab(page,'私人訊息')).toHaveAttribute('aria-selected','true');
+  await expect(panel(page,'世界聊天')).toBeVisible();await navigate(page,'會員首頁');await openChat(page);
+  await expect(tab(page,'世界聊天')).toHaveAttribute('aria-selected','true');
+  await closeChat(page);await page.evaluate(()=>{window.location.hash='messages'});
+  await expect(tab(page,'世界聊天')).toHaveAttribute('aria-selected','true');
   await page.getByRole('button',{name:'建立群組',exact:true}).click();await expect(page).toHaveURL(/#squads$/);
 });
 
@@ -499,8 +490,8 @@ test('leaving a channel clears its history and composer at once, and a late answ
   expect(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
   const alerts:string[]=[];page.once('dialog',async dialog=>{alerts.push(dialog.message());await dialog.accept();});
   await squad.getByRole('button',{name:'回到小隊集合',exact:true}).click();
-  await expect.poll(()=>alerts.length).toBe(1);expect(alerts[0]).toContain('頻道訊息傳送結果尚未確認');
-  await expect(page).toHaveURL(/#messages$/);expect(server.log.sends).toEqual([original]);
+  await expect(page).toHaveURL(/#squads$/);expect(alerts).toHaveLength(0);await expect(thread).toBeHidden();
+  await expect(page.locator('.floating-message-panel')).toBeVisible();expect(server.log.sends).toEqual([original]);
 
   // Restore only this synthetic membership. A read-only authority recheck must
   // not submit the pending command; confirmation remains an explicit action.
@@ -730,14 +721,13 @@ test('light and versefolk selection uses the workshop green palette',async({page
     ['自由工坊－夜航','dark','rgb(34, 44, 18)','rgb(244, 246, 239)','none','','rgb(208, 255, 83)','','208, 255, 83','196, 255, 32','rgb(39, 53, 21)','rgb(210, 255, 103)'],
     ['自由工坊－敘生','versefolk','rgb(237, 243, 219)','rgb(57, 47, 44)','none','rgb(237, 243, 219)','rgb(56, 76, 37)','rgb(155, 179, 120)','56, 76, 37','56, 76, 37','rgb(237, 243, 219)','rgb(56, 76, 37)'],
   ] as const){
-    const settings=page.getByRole('button',{name:'設定',exact:true});
+    await closeChat(page);const settings=page.getByRole('button',{name:'設定',exact:true});
     if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
     await page.getByRole('menuitemradio',{name:label,exact:true}).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
     if(await settings.getAttribute('aria-expanded')==='true')await settings.click();
-    if(await page.getByRole('button',{name:'收合訊息控制台'}).count())await page.getByRole('button',{name:'收合訊息控制台'}).click();
     for(const width of [1280,390]){
-      await page.setViewportSize({width,height:width===390?844:900});
+      await page.setViewportSize({width,height:width===390?844:900});await openChat(page);
       if(width===390){
         const back=guild.getByRole('button',{name:'← 返回公會列表',exact:true});
         const resume=guild.getByRole('button',{name:'回到目前對話',exact:true});
@@ -746,7 +736,7 @@ test('light and versefolk selection uses the workshop green palette',async({page
         await expect(back.or(resume)).toBeVisible();
         if(await back.isVisible())await back.click();
       }
-      const toggle=page.locator('.mobile-menu-toggle');
+      await closeChat(page);const toggle=page.locator('.mobile-menu-toggle');
       if(width===390){await expect(toggle).toBeVisible();if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();}
       await settle(page);
       const active=await paintOf(page,nav);
@@ -780,33 +770,21 @@ test('light and versefolk selection uses the workshop green palette',async({page
       for(const [name,paint] of [['nav',active],['tab',tabPaint],['channel',channelPaint],['peer',peerPaint],['count',counts[0]]] as const)rejectBlue(paint,`${theme} ${width} ${name}`);
       if(width===1280){
         await page.locator('.sidebar').screenshot({path:`${selectionShots}/sidebar-${theme}-1280.png`});
-        await page.locator('.member-messages').screenshot({path:`${selectionShots}/messages-${theme}-1280.png`});
+        await openChat(page);await page.locator('.member-messages').screenshot({path:`${selectionShots}/messages-${theme}-1280.png`});
       }else{
         await page.locator('.sidebar').screenshot({path:`${selectionShots}/menu-${theme}-390.png`});
         await toggle.click();
         // The phone sidebar is sticky, so an element shot would scroll the tabs underneath it.
         await page.locator('.sidebar').evaluate(node=>{node.style.position='relative';});
-        await page.locator('.member-messages').screenshot({path:`${selectionShots}/messages-${theme}-390.png`});
+        await openChat(page);await page.locator('.member-messages').screenshot({path:`${selectionShots}/messages-${theme}-390.png`});
         await page.locator('.sidebar').evaluate(node=>{node.style.position='';});
       }
     }
-    await page.getByRole('button',{name:'展開訊息控制台'}).click();
-    const dock=page.getByRole('complementary',{name:'訊息控制台',exact:true});
-    await dock.getByRole('tab',{name:/^公會聊天/}).click();
-    await dock.getByRole('button',{name:'合成公會甲',exact:true}).click();
-    await dock.getByRole('button',{name:'切換公會',exact:true}).click();
-    await settle(page);
-    const consoleChannel=await paintOf(page,'.game-console .member-channel-list .messages-peer[aria-current="true"]');
-    expect(consoleChannel.border,`${theme} console channel`).toBe(`rgb(${mark})`);
-    expect(consoleChannel.shadowRatio,`${theme} console indicator`).toBeGreaterThanOrEqual(3);
-    rejectBlue(consoleChannel,`${theme} console`);
-    await expect(dock.locator('.messages-peer[aria-current="true"]')).toHaveAttribute('aria-current','true');
-    await dock.screenshot({path:`${selectionShots}/console-${theme}-390.png`});
-    await page.getByRole('button',{name:'收合訊息控制台'}).click();
+
   }
 });
 
-test('quick start join bar clears the collapsed console ticker at 390px',async({page})=>{
+test('quick start join bar is unobscured without the retired console at 390px',async({page})=>{
   test.setTimeout(60000);
   mkdirSync(selectionShots,{recursive:true});
   await page.setViewportSize({width:390,height:844});
@@ -822,14 +800,14 @@ test('quick start join bar clears the collapsed console ticker at 390px',async({
   await quick.locator('input[value="guild_ai_vibe"]').check();
   await quick.getByRole('button',{name:/下一步：回答 \d+ 個小問題/}).click();
   await expect(quick.getByRole('heading',{name:/關於AI 開發公會的 \d+ 個小問題/})).toBeVisible();
-  await expect(page.locator('.game-console-ticker')).toBeVisible();
+  await expect(page.locator('.game-console')).toHaveCount(0);
   await expect(page.locator('.game-console-expanded')).toBeHidden();
   await quick.locator('.guild-question').first().evaluate(node=>node.scrollIntoView({block:'start'}));
   const gap=await page.evaluate(()=>{
-    const bar=document.querySelector<HTMLElement>('.quick-join-finish')!,ticker=document.querySelector<HTMLElement>('.game-console-ticker')!;
-    const barBox=bar.getBoundingClientRect(),tickerBox=ticker.getBoundingClientRect();
+    const bar=document.querySelector<HTMLElement>('.quick-join-finish')!;
+    const barBox=bar.getBoundingClientRect();
     const point=document.elementFromPoint(barBox.left+barBox.width/2,Math.min(barBox.top+barBox.height/2,innerHeight-1));
-    return {barBottom:barBox.bottom,tickerTop:tickerBox.top,bottom:getComputedStyle(bar).bottom,covered:point? !bar.contains(point):true};
+    return {barBottom:barBox.bottom,tickerTop:innerHeight,bottom:getComputedStyle(bar).bottom,covered:point? !bar.contains(point):true};
   });
   expect(gap.bottom).toBe('60px');
   expect(gap.barBottom).toBeLessThanOrEqual(gap.tickerTop);

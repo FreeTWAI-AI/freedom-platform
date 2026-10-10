@@ -1,0 +1,53 @@
+{
+  "format": "freedom.module/v1",
+  "owner_role": "foundation",
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/platform-plan/execution/unified-foundation/00-baseline-and-decisions.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "event-participation",
+  "owned_paths": [
+    "modules/community/event-calendar.ts",
+    "modules/community/event-reminders.ts",
+    "modules/community/event-waitlist.ts",
+    "apps/portal-web/src/modules/EventParticipation.tsx",
+    "apps/portal-web/src/modules/EventParticipation.css",
+    "tests/runtime/event-participation-api.test.ts",
+    "tests/runtime/event-participation-reminders.test.ts",
+    "tests/runtime/event-reminders-delivery.test.ts",
+    "tests/runtime/event-waitlist.test.ts",
+    "tests/e2e/event-participation.spec.ts",
+    "migrations/153_event_participation.sql",
+    "tests/e2e/event-public.spec.ts",
+    "tests/runtime/member-experience.test.ts",
+    "tests/runtime/verification-test-data.test.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "community",
+    "member-communications"
+  ],
+  "contract_families": [],
+  "surfaces": [
+    {
+      "surface_id": "community.event-participation-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EventParticipation.tsx",
+      "operations": [
+        "community.event-participation.view"
+      ],
+      "auth_profile": "member-session-or-private-guest-capability"
+    }
+  ]
+}
