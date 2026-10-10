@@ -92,3 +92,34 @@ test('the security panel fits a 390px phone',async({page})=>{
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth',390);
   await page.screenshot({path:'test-results/account-security-390.png'});
 });
+
+for(const lateStatus of [200,503])test(`a late ${lateStatus} session reload cannot replace the post-revocation list`,async({page,browser,baseURL})=>{
+  await login(page,ORIGINAL);
+  const other=await browser.newContext({baseURL});
+  let release=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+  let started=()=>{};const held=new Promise<void>(resolve=>{started=resolve;});
+  try{
+    const otherPage=await other.newPage();await login(otherPage,ORIGINAL);
+    const security=page.locator('.account-security');
+    await security.getByRole('button',{name:'重新讀取',exact:true}).click();
+    await expect(security.getByRole('button',{name:'登出其他裝置',exact:true})).toBeEnabled();
+    let requests=0;
+    await page.route('**/api/v1/me/sessions',async route=>{
+      if(++requests!==1)return route.continue();
+      const response=await route.fetch();started();await gate;
+      if(lateStatus===200)await route.fulfill({response});
+      else await route.fulfill({status:503,json:{detail:'Synthetic stale session load failure'}});
+    });
+    await security.getByRole('button',{name:'重新讀取',exact:true}).click();await held;
+    await security.getByRole('button',{name:'登出其他裝置',exact:true}).click();
+    await expect(security.locator('.session-row')).toHaveCount(1);
+    await expect(security.getByRole('button',{name:'登出其他裝置',exact:true})).toBeDisabled();
+    const late=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/me/sessions');
+    release();await late;
+    // A subsequent UI action flushes the delivered response before asserting.
+    await security.getByRole('heading',{name:'登入中的裝置',exact:true}).click();
+    await expect(security.locator('.session-row')).toHaveCount(1);
+    await expect(security.getByRole('alert')).toHaveCount(0);
+    await expect(security.getByRole('button',{name:'登出其他裝置',exact:true})).toBeDisabled();
+  }finally{release();await other.close();}
+});
