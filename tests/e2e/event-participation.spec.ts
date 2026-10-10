@@ -1,10 +1,11 @@
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
-import {test,expect} from './fixtures.js';
+import {test,expect} from './member-feature-fixture.js';
 import {DEMO_COMMUNITY,DEMO_USERS} from '../../packages/testing/seed.js';
 
-// Registered only in the explicit local feature pass, never the default suite.
-if(process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1') test('member privately downloads ICS and opts into and cancels reminders',async({page,request,e2eAuthPool})=>{
+test.describe('enabled event participation',()=>{
+  test.use({memberFeatures:{eventParticipationEnabled:true}});
+test('member privately downloads ICS and opts into and cancels reminders',async({page,request,e2eAuthPool})=>{
   const id=randomUUID(),title=`私人行事曆 ${id}`;
   await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,location,state,visibility,event_kind)
     VALUES($1,$2,$3,$4,'私人活動說明',now()+interval '2 days',now()+interval '2 days 1 hour','in_person','合成活動地點','published','workshop','other')`,[id,DEMO_COMMUNITY,DEMO_USERS[0].user_id,title]);
@@ -56,4 +57,21 @@ if(process.env.FREEDOM_E2E_EVENT_PARTICIPATION==='1') test('member privately dow
   await expect(panel).toContainText('你的報名：已取消');
   const reminder=await page.request.get(`/api/v1/events/${id}/reminder`).then(r=>r.json());
   expect(reminder).toMatchObject({enabled:false,status:'cancelled'});
+});
+
+});
+test.describe('default-off event participation',()=>{
+  test.use({memberFeatures:{}});
+  test('calendar, reminder and participation routes reject requests before authentication',async({page,request})=>{
+    const id=randomUUID();
+    expect((await (await request.get('/api/v1/site')).json()).event_participation_enabled).toBe(false);
+    for(const prefix of ['events','public/events'])for(const suffix of ['participation','calendar','reminder']){
+      const response=await request.get(`/api/v1/${prefix}/${id}/${suffix}`);
+      expect(response.status()).toBe(404);
+      expect(response.headers()['cache-control']).toContain('no-store');
+      expect(response.headers()['x-robots-tag']).toContain('noindex');
+    }
+    await page.goto('/');
+    await expect(page.getByRole('region',{name:'本人活動參與設定',exact:true})).toHaveCount(0);
+  });
 });

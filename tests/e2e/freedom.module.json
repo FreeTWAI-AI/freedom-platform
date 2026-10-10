@@ -37,7 +37,8 @@
     "scripts/ci/run-pinned-e2e.mjs",
     "tests/e2e/sharing-authoring-fixture.ts",
     "scripts/verify-cloud-candidate-members.ts",
-    "tests/e2e/cloud-candidate-acceptance.spec.ts"
+    "tests/e2e/cloud-candidate-acceptance.spec.ts",
+    "tests/e2e/member-feature-fixture.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [

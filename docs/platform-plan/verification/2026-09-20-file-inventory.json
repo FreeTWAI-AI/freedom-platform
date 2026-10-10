@@ -13609,8 +13609,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 21682,
-      "sha256": "b4e838fc8d3c5001e1c2e08fbf11724d4351e7518bc5429b50b19c7ab088b43c"
+      "bytes": 22667,
+      "sha256": "a9c8f8984c5d60f9118a63b41d70399f893c847531522143ff9a4d9b4144386a"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -19994,8 +19994,8 @@
     },
     {
       "path": "tests/e2e/event-participation.spec.ts",
-      "bytes": 4141,
-      "sha256": "80d9842b23fc2cf121af1b540e71db9af8c63bffd50995438e6e7987636c6782"
+      "bytes": 4996,
+      "sha256": "0225a0efa458e70940867f50787e3a08c6a9bc16e2f7aad27985503d65b1a021"
     },
     {
       "path": "tests/e2e/event-public.spec.ts",
@@ -20009,8 +20009,8 @@
     },
     {
       "path": "tests/e2e/first-participation.spec.ts",
-      "bytes": 4226,
-      "sha256": "2fe9fd5f563189a46db1a52646ae10b8878ed9b1a0e9e5c4f711f43f309b87fa"
+      "bytes": 4257,
+      "sha256": "c73853800711190d6684de10ae064df470d9bbbe413cc00620cf6ac4c1d77599"
     },
     {
       "path": "tests/e2e/fixtures.ts",
@@ -20024,8 +20024,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1320,
-      "sha256": "36c1544175d05eeaa39f084af010567ae461ef90b4c5a2e3a18b622e764e973b"
+      "bytes": 1363,
+      "sha256": "5bfc7d67a1ead69affee0dd8c0b9d52990f0233b1ad485ee5caa1343f5c525a5"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -20223,6 +20223,11 @@
       "sha256": "ff81228c9fd9668bbc92a7b0772eb87f66fc110322f0037b7e2a2240c5cd0fa6"
     },
     {
+      "path": "tests/e2e/member-feature-fixture.ts",
+      "bytes": 1892,
+      "sha256": "4a3ce79995fb6a92f11f573a8571301abb6f931344332bfc6a6fa3847ccb38d9"
+    },
+    {
       "path": "tests/e2e/member-home-next-step.spec.ts",
       "bytes": 19697,
       "sha256": "354cdb01d0b232c5f2c216ff48bb3bdc0557a9414f81893b28147db3cfb43a67"
@@ -20314,8 +20319,8 @@
     },
     {
       "path": "tests/e2e/notification-preferences.spec.ts",
-      "bytes": 9005,
-      "sha256": "9f6c073d725c1ea1eeadecbd149c8ed7a379e7ebba5cb348adbaebe512816a79"
+      "bytes": 9173,
+      "sha256": "2fcc697de5e8f11397fa51cf5370ff8fb0a4492ddea0e0aae5b14d7d8989f3b5"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",

@@ -311,3 +311,19 @@ required checks 分別記錄；本機編排測試通過不代表後三者已完�
 `tests/e2e/hosted-order.spec.ts` 在普通輪無條件執行，沒有依開關 skip；漏掉注入必須因正向 readiness 斷言失敗。功能自有 `hosted-order-fixture.ts` 可另開 127.0.0.1 port 0 HTTP listener，使用同一個已核對的 `fp_e2e_` schema，省略 admission option 以驗證 default OFF，再以 GLP 亦 OFF 驗證本人預留恢復／取消。它拒絕 54339、非明示 loopback `fp_*` DB 或不符 schema，測試 finally 關閉 context、connections 和 listener；只由原 harness 擁有與卸下 schema。
 
 此增量不新增第四輪、不修改 `scripts/run-e2e.mjs` 或 trusted runner 的 pinned 計畫。`run-e2e.mjs` 是 candidate 本機編排，不是可信 host CI；候選 webServer 的可受測設定與 installed host pass/timeout/結果驗證權威分開。新 spec 和 fixture 的來源存在不代表已跑瀏覽器，實跑版本與結果另記。
+
+## Member feature hosts in the ordinary pass
+
+Notification preferences, first participation and event participation now use the
+existing real local HTTP-listener pattern through `member-feature-fixture.ts`.
+Each test selects explicit Node feature options on the current owned `fp_e2e_`
+schema; both ON and OFF cases are registered and run in the ordinary pass. The
+fixture requires the same explicit disposable loopback database check as the
+hosted-order fixture and closes its listener in `finally`. It serves the freshly
+built portal and does not mock `/site` or feature APIs. The original harness
+still owns schema creation, authentication reset and schema removal.
+
+These cases need no new installed workflow pin or additional hosted pass.
+Existing candidate opt-in commands remain usable, but their environment cannot
+silently omit the opposite-mode tests in these three specs. Actual email delivery
+is not enabled by this fixture; event reminder browser coverage uses `in_app`.

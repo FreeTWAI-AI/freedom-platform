@@ -1,4 +1,4 @@
-import {test,expect,type Page} from './fixtures.js';
+import {test,expect,type Page} from './member-feature-fixture.js';
 import {DEMO_PASSWORD,DEMO_COMMUNITY,DEMO_USERS} from '../../packages/testing/seed.js';
 import {signOut} from './navigation.js';
 
@@ -7,14 +7,17 @@ async function login(page:Page,email='maker@local.test'){
   await page.getByRole('button',{name:'登入',exact:true}).click();await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
   await page.goto('/#account');
 }
-if(process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES!=='1'){
+test.describe('default-off notification preferences',()=>{
+  test.use({memberFeatures:{}});
   test('default OFF hides preferences and rejects routes before authentication',async({page,request})=>{
     expect((await request.get('/api/v1/me/notification-preferences')).status()).toBe(404);
     expect((await request.get('/api/v1/me/notification-preferences/summary')).status()).toBe(404);
     await login(page);await expect(page.getByRole('heading',{name:'通知偏好',exact:true})).toHaveCount(0);
     expect(await page.evaluate(async()=>(await (await fetch('/api/v1/site')).json()).notification_preferences_enabled)).toBe(false);
   });
-}else{
+});
+test.describe('enabled notification preferences',()=>{
+  test.use({memberFeatures:{notificationPreferencesEnabled:true}});
   test('real preferences persist, mute accessible channels and preview without email or read changes across themes and sizes',async({page,e2eAuthPool},info)=>{
     test.setTimeout(120000);await login(page);
     const panel=page.locator('.notification-preferences');await expect(panel.getByLabel('好友邀請與結果')).toBeVisible();
@@ -88,4 +91,4 @@ if(process.env.FREEDOM_E2E_NOTIFICATION_PREFERENCES!=='1'){
     expect(await page.evaluate(async()=>(await (await fetch('/api/v1/me/channels?kind=world')).json()).unread_count)).toBe(1);
     expect((await e2eAuthPool.query('SELECT * FROM member_channel_reads WHERE user_id=$1 ORDER BY kind,channel_key',[DEMO_USERS[2].user_id])).rows).toEqual(before);
   });
-}
+});

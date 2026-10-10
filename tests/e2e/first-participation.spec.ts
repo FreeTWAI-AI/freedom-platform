@@ -1,10 +1,11 @@
-import {test,expect} from './fixtures.js';
+import {test,expect} from './member-feature-fixture.js';
 import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {closeChat,openHomeGuide,signOut} from './navigation.js';
 
 const password='freedom-workshop-member-2026';
+test.describe('enabled first participation',()=>{
+  test.use({memberFeatures:{personalContentEnabled:true,firstParticipationEnabled:true}});
 test('optional guidance persists suppression, unfinished choice and actual completion across exit and relogin',async({page})=>{
-  test.skip(process.env.FREEDOM_E2E_FIRST_PARTICIPATION!=='1','Runs only in the isolated enabled guidance pass.');
   const pageErrors:string[]=[];
   page.on('pageerror',error=>pageErrors.push(error.message));
   const email=`first-${crypto.randomUUID()}@example.test`,guild='guild_event_space';
@@ -51,11 +52,15 @@ test('optional guidance persists suppression, unfinished choice and actual compl
   expect(pageErrors).toEqual([]);
 });
 
+});
+test.describe('default-off first participation',()=>{
+  test.use({memberFeatures:{}});
 test('default-off guidance stays absent and its API fails closed before authentication',async({page})=>{
-  test.skip(process.env.FREEDOM_E2E_FIRST_PARTICIPATION==='1','Runs in the ordinary default-off pass.');
   await page.goto('/');
   const site=await (await page.request.get('/api/v1/site')).json();
   expect(site.first_participation_enabled).toBe(false);
   expect((await page.request.get('/api/v1/me/first-participation')).status()).toBe(404);
   await expect(page.locator('.first-participation')).toHaveCount(0);
+});
+
 });
