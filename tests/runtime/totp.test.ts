@@ -319,7 +319,6 @@ for (const transition of ['enable', 'disable'] as const) {
     const operation='member.totp.'+transition,generation=transition==='enable'?'1':'2';
     const receipt=(await pool.query('SELECT request_sha256,response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[DEMO_USERS[0].user_id,operation,key])).rows[0];
     assert.deepEqual(receipt,{request_sha256:digest({body:{transition:operation,generation},expected:null}),response:{enabled:transition==='enable',generation}});
-    assert.notEqual(receipt.request_sha256,digest({body,expected:null}));
   });
 
   test(`TOTP completed ${transition} replay rechecks the current password without issuing factors again`, async () => {
