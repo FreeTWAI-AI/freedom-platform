@@ -109,7 +109,7 @@ test('ordinary guild and squad members (no officer row) read and write their own
   const guilds=await list(mate,'guild'),squads=await list(mate,'squad');
   assert.deepEqual(guilds,{items:[{kind:'guild',channel_key:guild,name:'活動與空間公會',unread_count:0,last_message_at:null}],unread_count:0,next_offset:null});
   assert.deepEqual(squads,{items:[{kind:'squad',channel_key:squad,name:'閒聊小隊',unread_count:0,last_message_at:null}],unread_count:0,next_offset:null});
-  const empty=await page(mate,'guild',guild);assert.deepEqual(empty,{channel:{kind:'guild',channel_key:guild,name:'活動與空間公會'},items:[],unread_count:0,next_offset:null});
+  const empty=await page(mate,'guild',guild);assert.deepEqual(empty,{channel:{kind:'guild',channel_key:guild,name:'活動與空間公會'},items:[],unread_count:0,next_offset:null,retraction_count:'0'});
   assert.deepEqual((await page(mate,'squad',squad)).items,[]);
   assert.equal(await count('member_chat_channels'),0,'empty GET creates no channel row');assert.equal(await count('member_channel_reads'),0);
   // Ordinary members write; each message lands only in its own kind/room.

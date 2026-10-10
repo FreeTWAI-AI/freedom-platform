@@ -23,6 +23,7 @@ import {directMessageReceiptRefreshDue,hasDirectMessageChanges,mergeDirectMessag
 import {isFirstImageDecoderRejection,matchesDirectMessageAck,messageImageFileError,messageImageUrl,uploadMessageImage,type MessageImage} from './message-image-client';
 import {MessageImagePreview} from './MessageImagePreview';
 import {chatPollDue,idleChatPoll,resetChatPoll} from './adaptive-chat-poll';
+import {refreshLoadedMessages} from './message-refresh';
 
 type ActionTab='members'|'squads'|'guilds'|'guild-workspace'|'messages'|'events';
 type NotificationAction={tab:ActionTab;resource_id:string|null};
@@ -34,8 +35,8 @@ const messageOrder=(a:Message,b:Message)=>a.created_at.localeCompare(b.created_a
 const newestMessages=(items:Message[])=>[...items].sort((a,b)=>messageOrder(b,a));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
 type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
-type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number};
-type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing?:{message_id:string;read_at:string|null}|null};
+type Thread={participant:Participant;can_send:boolean;items:Message[];next_offset:number|null;unread_count:number;retraction_count?:string};
+type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing?:{message_id:string;read_at:string|null}|null;retraction_count?:string};
 type MemberPage={items:MemberCardData[];total:number;next_offset:number|null};
 type Props={client:PortalClient;session:SessionPayload;messageImagesEnabled?:boolean;memberBlockingEnabled?:boolean;onNavigate:(id:TabId)=>void;onNotificationPeer?:{id:string;sequence:number};registerLeave?:(guard:(()=>boolean)|null)=>void};
 
@@ -321,10 +322,15 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       const value=await client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=0`,{background:quiet});
       // A slower response for a previously selected member must never replace the open conversation.
       if(current!==threadGeneration.current||currentPeer.current!==id)return;
-      const receipts=quiet?await readLoadedDirectMessageReceipts(value,snapshot.current.thread?.items??[],me,
+      const previous=snapshot.current.thread;
+      const changed=quiet&&(value.retraction_count??'0')!==(previous?.retraction_count??'0');
+      const refreshed=changed?await refreshLoadedMessages(value,previous?.items??[],
         offset=>client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${offset}`,{background:true}),
         ()=>alive.current&&current===threadGeneration.current&&currentPeer.current===id):undefined;
-      if(current!==threadGeneration.current||currentPeer.current!==id||receipts===null)return;
+      const receipts=quiet&&!changed?await readLoadedDirectMessageReceipts(value,previous?.items??[],me,
+        offset=>client.get<Thread>(`/me/conversations/${encodeURIComponent(id)}/messages?limit=${PAGE}&offset=${offset}`,{background:true}),
+        ()=>alive.current&&current===threadGeneration.current&&currentPeer.current===id):undefined;
+      if(current!==threadGeneration.current||currentPeer.current!==id||receipts===null||refreshed===null)return;
       threadInFlight.current=null;
       if(receiptRefresh.current.get(id)===receiptVersion)receiptRefresh.current.delete(id);
       receiptCheckedAt.current.set(id,Date.now());
@@ -334,7 +340,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
         if(fresh.length&&!stick.current)setHasNew(true);
         // A recent page cannot tell how many messages arrived while this tab was hidden.
         // Restart older paging behind it when new ids appear, so a gap is never skipped.
-        return {...value,items:mergeDirectMessagePage(value.items,existing.items,receipts),next_offset:fresh.length?value.next_offset:existing.next_offset};
+        return {...value,items:refreshed?newestMessages(refreshed):mergeDirectMessagePage(value.items,existing.items,receipts),next_offset:fresh.length?value.next_offset:existing.next_offset};
       });setThreadStatus('ready');setThreadRefresh({loading:false,error:''});setLiveError('');return true;
     }catch(cause){
       if(current===threadGeneration.current)threadInFlight.current=null;

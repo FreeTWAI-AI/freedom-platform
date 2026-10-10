@@ -42,9 +42,9 @@ export type Conversation={participant:Participant;can_send:boolean;last_message:
 /** unread_count: total unread direct messages for the viewer. */
 export type ConversationPage={items:Conversation[];unread_count:number;next_offset:number|null};
 /** unread_count: unread messages from this participant to the viewer. */
-export type MessagePage={participant:Participant;can_send:boolean;items:Message[];unread_count:number;next_offset:number|null};
+export type MessagePage={participant:Participant;can_send:boolean;items:Message[];unread_count:number;next_offset:number|null;retraction_count?:string};
 /** Body-free update check for one conversation, under the same access rules as its history. */
-export type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing:{message_id:string;read_at:string|null}|null};
+export type ConversationActivity={last_message_id:string|null;unread_count:number;can_send:boolean;last_outgoing:{message_id:string;read_at:string|null}|null;retraction_count?:string};
 /** The portal supplies the latest displayed message of this pair; newer arrivals stay unread. Empty body remains compatible with older clients. */
 export type ConversationReadInput={through_message_id?:string};
 

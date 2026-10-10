@@ -159,6 +159,12 @@ export async function listConversations(pool:Pool,actor:Actor,raw:unknown):Promi
   });
 }
 
+/** Count committed tombstones, never a timestamp/sequence whose commit can be overtaken. */
+async function directRetractionCount(q:PoolClient,actor:Actor,id:string):Promise<string>{
+  return (await q.query(`SELECT count(*)::text AS n FROM member_direct_messages WHERE community_id=$1
+    AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
+    AND retracted_at IS NOT NULL`,[actor.community_id,actor.user_id,id])).rows[0].n;
+}
 export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,raw:unknown):Promise<MessagePage>{
   const {limit,offset}=CommunicationPageQuery.parse(raw),id=peerId(actor,rawPeer);
   return snapshot(pool,actor,async q=>{
@@ -168,7 +174,7 @@ export async function conversationMessages(pool:Pool,actor:Actor,rawPeer:string,
       WHERE community_id=$1 AND least(sender_ref,recipient_ref)=least($2::uuid,$3::uuid) AND greatest(sender_ref,recipient_ref)=greatest($2::uuid,$3::uuid)
       ORDER BY created_at DESC,message_id DESC LIMIT $4 OFFSET $5`,[actor.community_id,actor.user_id,id,limit+1,offset])).rows;
     const page=pageOf(rows,limit,offset),contents=await messageContents(q,page.items,'direct',actor.user_id);
-    return {participant:peer.participant,can_send:peer.ready&&peer.viewer_ready&&!peer.blocked,items:page.items.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:page.next_offset};
+    return {participant:peer.participant,can_send:peer.ready&&peer.viewer_ready&&!peer.blocked,items:page.items.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:page.next_offset,retraction_count:await directRetractionCount(q,actor,id)};
   });
 }
 
@@ -185,7 +191,7 @@ export async function conversationActivity(pool:Pool,actor:Actor,rawPeer:string,
         WHERE community_id=$1 AND sender_ref=$2 AND recipient_ref=$3 AND retracted_at IS NULL
         ORDER BY created_at DESC,message_id DESC LIMIT 1) AS last_outgoing`,
       [actor.community_id,actor.user_id,id])).rows[0];
-    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready&&!peer.blocked,
+    return {last_message_id:row.last_message_id,unread_count:row.unread_count,can_send:peer.ready&&peer.viewer_ready&&!peer.blocked,retraction_count:await directRetractionCount(q,actor,id),
       last_outgoing:row.last_outgoing?{message_id:row.last_outgoing.message_id,read_at:iso(row.last_outgoing.read_at)}:null};
   });
 }

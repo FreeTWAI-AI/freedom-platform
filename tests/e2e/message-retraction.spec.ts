@@ -100,3 +100,29 @@ test('an already-open channel replaces a read message after another member retra
   await expect(other.locator(`[data-message-id="${sent.message_id}"] .chat-retracted`)).toHaveText('這則訊息已收回。',{timeout:15000});
   await expect(other.locator('.messages-bubbles')).not.toContainText(body);
 });
+
+test('an open recipient refreshes a loaded older page and its quote when the latest page does not change',async({browser,baseURL})=>{
+  const original=randomUUID(),reply=randomUUID(),body='合成：較早訊息內的私人聯絡資訊';
+  await db.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,created_at)
+    VALUES($1,$2,$3,$4,$5,now()-interval '2 hours')`,[original,DEMO_COMMUNITY,accounts[0].id,accounts[1].id,body]);
+  await db.query(`INSERT INTO member_direct_messages(message_id,community_id,sender_ref,recipient_ref,body,reply_to_message_id,created_at)
+    VALUES($1,$2,$3,$4,'合成：保留這則回覆',$5,now()-interval '119 minutes')`,[reply,DEMO_COMMUNITY,accounts[1].id,accounts[0].id,original]);
+  await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at)
+    SELECT $1,$2,$3,'合成：後續訊息 '||n,now()-interval '60 minutes'+n*interval '1 second' FROM generate_series(1,25) n`,
+    [DEMO_COMMUNITY,accounts[0].id,accounts[1].id]);
+  const sender=await member(browser,baseURL!,0),own=await openDirect(sender,accounts[1].name);
+  const recipient=await member(browser,baseURL!,1,390),other=await openDirect(recipient,accounts[0].name);
+  for(const panel of [own,other]){
+    await expect(panel.locator('.messages-bubbles')).not.toContainText(body);
+    await panel.getByRole('button',{name:'載入較早訊息',exact:true}).click();
+    await expect(panel.locator(`[data-message-id="${original}"]`)).toContainText(body);
+    await expect(panel.locator(`[data-message-id="${reply}"]`)).toContainText(body);
+  }
+  await own.locator(`[data-message-id="${original}"]`).getByRole('button',{name:'收回你的訊息'}).click();
+  await sender.getByRole('dialog',{name:'收回這則訊息？'}).getByRole('button',{name:'確定收回'}).click();
+  await recipient.bringToFront();
+  await expect(other.locator(`[data-message-id="${original}"] .chat-retracted`)).toHaveText('這則訊息已收回。',{timeout:15000});
+  await expect(other.locator(`[data-message-id="${reply}"]`)).toContainText('合成：保留這則回覆');
+  await expect(other.locator('.messages-bubbles')).not.toContainText(body);
+  await expect(other.locator('.messages-bubbles li')).toHaveCount(27);
+});

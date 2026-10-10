@@ -235,10 +235,10 @@ test('direct messages reject unauthenticated, cross-community, unready and disab
 
 test('body-free private activity detects new messages and read changes without exposing text or writing state',async()=>{
   const [a,b]=await signInAll(),path=`/me/conversations/${B}/activity`;
-  assert.deepEqual((await request(path,a)).data,{last_message_id:null,unread_count:0,can_send:true,last_outgoing:null});
+  assert.deepEqual((await request(path,a)).data,{last_message_id:null,unread_count:0,can_send:true,last_outgoing:null,retraction_count:'0'});
   const sent=await request(`/me/conversations/${A}/messages`,b,{body:'私密正文不傳入更新檢查'});assert.equal(sent.status,201);
   const state=async()=>(await pool.query('SELECT (SELECT count(*) FROM command_receipts)::int AS receipts,(SELECT count(*) FROM member_direct_messages WHERE read_at IS NOT NULL)::int AS read')).rows[0];
-  const before=await state(),activity=await request(path,a);assert.equal(activity.status,200);assert.deepEqual(activity.data,{last_message_id:sent.data.message_id,unread_count:1,can_send:true,last_outgoing:null});noPrivate(activity.data);assert.deepEqual(await state(),before);
+  const before=await state(),activity=await request(path,a);assert.equal(activity.status,200);assert.deepEqual(activity.data,{last_message_id:sent.data.message_id,unread_count:1,can_send:true,last_outgoing:null,retraction_count:'0'});noPrivate(activity.data);assert.deepEqual(await state(),before);
   await request(`/me/conversations/${B}/read`,a,{});assert.equal((await request(path,a)).data.unread_count,0);
   const outgoing=await request(`/me/conversations/${B}/messages`,a,{body:'回覆正文也不進入檢查'});
   assert.deepEqual((await request(path,a)).data.last_outgoing,{message_id:outgoing.data.message_id,read_at:null});

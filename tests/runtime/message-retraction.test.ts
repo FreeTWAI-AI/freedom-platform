@@ -106,3 +106,40 @@ test('a sender retracts a world channel message; members see the placeholder, un
   assert.equal((await request<MessageSearchPage<ChannelMessage>>('/me/channels/world/world/messages/search?q=secret-word',b)).data.items.length,0);
   assert.equal((await request('/me/channels/world/world/messages/'+randomUUID()+'/retract',a,{})).status,404);
 });
+
+
+test('read-message retractions change body-free activity without changing message order or unread counts',async()=>{
+ const a=await signIn(DEMO_USERS[0].email),b=await signIn(DEMO_USERS[1].email);
+ for(const channel of [false,true]){
+  const own=channel?'/me/channels/world/world':`/me/conversations/${B}`;
+  const other=channel?own:`/me/conversations/${A}`;
+  const first=await request<Message&ChannelMessage>(own+'/messages',a,{body:'old private body'});assert.equal(first.status,201);
+  const last=await request<Message&ChannelMessage>(own+'/messages',a,{body:'newer message'});assert.equal(last.status,201);
+  const read=await request(other+'/read',b,channel?{through_message_id:last.data.message_id}:{through_message_id:last.data.message_id});assert.equal(read.status,200,JSON.stringify(read.data));
+  const before=await request<Record<string,unknown>>(other+'/activity',b);assert.equal(before.data.retraction_count,'0');assert.equal(before.data.unread_count,0);
+  assert.equal((await request(own+'/messages/'+first.data.message_id+'/retract',a,{})).status,200);
+  const after=await request<Record<string,unknown>>(other+'/activity',b);
+  assert.deepEqual(after.data,{...before.data,retraction_count:'1'});
+  assert.equal((await request(own+'/messages/'+first.data.message_id+'/retract',a,{})).status,200);
+  assert.deepEqual((await request(other+'/activity',b)).data,after.data,'a repeated retraction cannot invent another change');
+  assert.equal((await request<MessagePage>(other+'/messages',b)).data.retraction_count,'1');
+ }
+});
+
+test('committed reply replay after retraction preserves its exact target acknowledgement but no quote content',async()=>{
+ const {matchesDirectMessageAck,matchesChannelMessageAck}=await import('../../apps/portal-web/src/modules/message-image-client.js');
+ const a=await signIn(DEMO_USERS[0].email),b=await signIn(DEMO_USERS[1].email);
+ for(const channel of [false,true]){
+  const own=channel?'/me/channels/world/world':`/me/conversations/${B}`;
+  const other=channel?own:`/me/conversations/${A}`;
+  const original=await request<Message&ChannelMessage>(own+'/messages',a,{body:'private quote never returns again'});assert.equal(original.status,201);
+  const body={body:'my own reply',reply_to_message_id:original.data.message_id},key=randomUUID();
+  const committed=await request<Message&ChannelMessage>(other+'/messages',b,body,key);assert.equal(committed.status,201);
+  assert.equal((await request(own+'/messages/'+original.data.message_id+'/retract',a,{})).status,200);
+  const replay=await request<Message&ChannelMessage>(other+'/messages',b,body,key);assert.equal(replay.status,201);
+  assert.equal(replay.data.message_id,committed.data.message_id);assert.equal(replay.data.reply_to,undefined);
+  assert.equal(replay.data.reply_to_message_id,original.data.message_id);assert.ok(!JSON.stringify(replay.data).includes('private quote'));
+  assert.equal(channel?matchesChannelMessageAck(replay.data,{sender:B,kind:'world',channelKey:'world',payload:body}):matchesDirectMessageAck(replay.data,{sender:B,recipient:A,payload:body}),true);
+  const fresh=await request<Message&ChannelMessage>(other+'/messages',b,body);assert.equal(fresh.status,201);assert.equal(fresh.data.reply_to_message_id,original.data.message_id,'an already-composed reply has the same explicit ACK');
+ }
+});

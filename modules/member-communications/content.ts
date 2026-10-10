@@ -46,5 +46,5 @@ export async function messageContents(q:Pool|PoolClient,rows:any[],kind:'channel
     JOIN assets a ON a.asset_id=t.asset_id AND a.purpose='member.message-image' AND a.state='ready' AND a.deletion_fence=0
     JOIN asset_objects o ON o.asset_id=a.asset_id AND o.purpose='member.message-image'
     WHERE t.message_id=ANY($1::uuid[])`,[imageIds])).rows.map(row=>[row.message_id as string,{content_type:'image/webp' as const,byte_size:row.byte_size as number}]):[]);
-  return rows.map(row=>{if(row.retracted_at)return {};const quote=byId.get(row.reply_to_message_id);const image=images.get(row.message_id);return {...stickerContent(row.sticker_id),...(image?{image}:{}),...(quote?{reply_to:{message_id:quote.message_id,sender_ref:quote.sender_ref,sender_name:quote.sender_name,body:quote.body,...stickerContent(quote.sticker_id)}}:{})};});
+  return rows.map(row=>{if(row.retracted_at)return {};const quote=byId.get(row.reply_to_message_id);const image=images.get(row.message_id);return {...stickerContent(row.sticker_id),...(image?{image}:{}),...(quote?{reply_to:{message_id:quote.message_id,sender_ref:quote.sender_ref,sender_name:quote.sender_name,body:quote.body,...stickerContent(quote.sticker_id)}}:row.reply_to_message_id?{reply_to_message_id:row.reply_to_message_id}:{})};});
 }

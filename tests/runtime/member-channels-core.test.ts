@@ -121,14 +121,14 @@ test('world chat is community scoped and keeps sender identity and read receipts
 test('body-free channel activity checks preserve bigint cursors, unread facts, room access and read-only behavior',async()=>{
   const [a,b]=await signInAll();await joinGuild(A,'guild_ai_vibe');await joinGuild(B,'guild_ai_vibe');
   const path='/me/channels/guild/guild_ai_vibe/activity',empty=await tableCounts();
-  assert.deepEqual((await request(path,a)).data,{latest_sequence:'0',unread_count:0});assert.deepEqual(await tableCounts(),empty);
+  assert.deepEqual((await request(path,a)).data,{latest_sequence:'0',unread_count:0,retraction_count:'0'});assert.deepEqual(await tableCounts(),empty);
   const first=(await post(b,'guild','guild_ai_vibe','不應出現在更新檢查的正文')).data;
-  const state=await tableCounts(),check=await request(path,a);assert.equal(check.status,200);assert.deepEqual(check.data,{latest_sequence:first.sequence,unread_count:1});
+  const state=await tableCounts(),check=await request(path,a);assert.equal(check.status,200);assert.deepEqual(check.data,{latest_sequence:first.sequence,unread_count:1,retraction_count:'0'});
   assert.ok(!JSON.stringify(check.data).includes('正文'));assert.deepEqual(await tableCounts(),state);noPrivate(check.data);
   await read(a,'guild','guild_ai_vibe',first.message_id);assert.equal((await request(path,a)).data.unread_count,0);
   await pool.query("UPDATE member_chat_channels SET last_sequence=9007199254740993 WHERE kind='guild' AND channel_key='guild_ai_vibe'");
   const newer=(await post(b,'guild','guild_ai_vibe','大游標')).data;assert.equal(newer.sequence,'9007199254740994');assert.equal((await request(path,a)).data.latest_sequence,newer.sequence);
-  const s=await squad(B,[A]);const small=(await post(b,'squad',s,'小隊')).data;assert.deepEqual((await request(`/me/channels/squad/${s.toUpperCase()}/activity`,a)).data,{latest_sequence:small.sequence,unread_count:1});
+  const s=await squad(B,[A]);const small=(await post(b,'squad',s,'小隊')).data;assert.deepEqual((await request(`/me/channels/squad/${s.toUpperCase()}/activity`,a)).data,{latest_sequence:small.sequence,unread_count:1,retraction_count:'0'});
   assert.equal((await request(path)).status,401);assert.equal((await request(path+'?extra=1',a)).status,422);
   for(const query of ['after_sequence=-1','after_sequence=9223372036854775808'])assert.equal((await request(`${path}?${query}`,a)).status,422);
   await joinGuild(A,'guild_ai_vibe',DEMO_COMMUNITY,'left');
@@ -247,7 +247,7 @@ test('messages are strict plain text with stable per-room sequences, identity-on
   assert.deepEqual(page.data.channel,{kind:'guild',channel_key:'guild_marketing',name:'成長與行銷公會'});
   assert.deepEqual(page.data.items.map((m:any)=>m.sequence),['3','2']);assert.deepEqual(rest.data.items.map((m:any)=>m.sequence),['1']);
   assert.equal(page.data.next_offset,2);assert.equal(rest.data.next_offset,null);assert.equal(page.data.unread_count,1);
-  assert.deepEqual(Object.keys(page.data).sort(),['channel','items','next_offset','unread_count']);noPrivate(page.data);
+  assert.deepEqual(Object.keys(page.data).sort(),['channel','items','next_offset','retraction_count','unread_count']);noPrivate(page.data);
   for(const query of ['?limit=0','?limit=51','?offset=10001','?kind=guild'])assert.equal((await messages(a,'guild','guild_marketing',query)).status,422,query);
 });
 

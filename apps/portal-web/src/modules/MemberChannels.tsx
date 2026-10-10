@@ -1,3 +1,4 @@
+import {refreshLoadedMessages} from './message-refresh';
 import {useEffect,useLayoutEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
 import {formatIsoLocal} from '../format';
@@ -18,8 +19,8 @@ export type ChannelKind='guild'|'squad'|'world';
 type ChannelSummary={kind:ChannelKind;channel_key:string;name:string;unread_count:number;last_message_at:string|null};
 type ChannelPage={items:ChannelSummary[];unread_count:number;next_offset:number|null};
 type ChannelMessage={message_id:string;kind:ChannelKind;channel_key:string;sequence:string;sender_ref:string;sender_name:string;body:string;created_at:string;retracted_at:string|null}&MessageContent;
-type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
-type Activity={latest_sequence:string;unread_count:number};
+type History={channel:{kind:ChannelKind;channel_key:string;name:string};items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null;retraction_count?:string};
+type Activity={latest_sequence:string;unread_count:number;retraction_count?:string};
 type Pending={key:string;body:string;payload:MessageContentInput;status:'sending'|'unknown'};
 type Props={client:PortalClient;session:SessionPayload;kind:ChannelKind;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;active?:boolean;compact?:boolean;openChannel?:{key:string;request:number}|null;onReturnToChats?:()=>void;registerLeave?:(guard:(()=>boolean)|null)=>void};
 
@@ -191,8 +192,23 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
       // Idle checks never download history bodies or refresh every joined room.
       const activity=await client.get<Activity>(path(key,'activity'),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active||snapshot.current.sending)return;
-      if(compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
+      const retractionsChanged=(activity.retraction_count??'0')!==(shown.history.retraction_count??'0');
+      if(!retractionsChanged&&compare(activity.latest_sequence,shown.history.items[0]?.sequence??'0')<=0&&activity.unread_count===shown.history.unread_count){if(idlePoll.current===schedule)idlePoll.current=idleChatPoll(schedule,checkedAt);failures.current=0;retryAt.current=0;setLiveError('');return;}
       idlePoll.current=resetChatPoll();
+      if(retractionsChanged){
+        const isCurrent=()=>alive.current&&generation===threadGeneration.current&&since===epoch.current&&current.current===key&&snapshot.current.active&&!snapshot.current.sending;
+        const latest=await client.get<History>(path(key,'messages?limit=50&offset=0'),{background:true});
+        if(!isCurrent())return;
+        const items=await refreshLoadedMessages(latest,shown.history.items,
+          offset=>client.get<History>(path(key,`messages?limit=50&offset=${offset}`),{background:true}),isCurrent);
+        if(!items||!isCurrent())return;
+        const fresh=latest.items.filter(item=>!shown.history!.items.some(known=>known.message_id===item.message_id));
+        if(fresh.length&&!stick.current)setHasNew(true);
+        setHistory({...latest,items:newestFirst(items),next_offset:fresh.length?latest.next_offset:shown.history.next_offset});
+        failures.current=0;retryAt.current=0;setLiveError('');setCountUnconfirmed('');
+        if(kind==='world')onUnread(latest.unread_count);else void loadList(true);
+        announceInboxChange();return;
+      }
       const value=await client.get<History>(path(key,`messages?limit=50&after_sequence=${shown.history.items[0]?.sequence??'0'}`),{background:true});
       if(!alive.current||generation!==threadGeneration.current||since!==epoch.current||current.current!==key||!snapshot.current.active)return;
       failures.current=0;retryAt.current=0;setLiveError('');

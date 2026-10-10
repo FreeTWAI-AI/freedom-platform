@@ -156,6 +156,11 @@ export async function listChannels(pool:Pool,actor:Actor,raw:unknown):Promise<Ch
   });
 }
 
+async function channelRetractionCount(q:PoolClient,actor:Actor,target:{kind:string;key:string}):Promise<string>{
+  return (await q.query(`SELECT count(*)::text AS n FROM member_channel_messages WHERE community_id=$1 AND kind=$2 AND channel_key=$3
+    AND retracted_at IS NOT NULL AND ($2<>'world' OR sender_ref=$4 OR NOT is_verification_test_account(sender_ref))`,
+    [actor.community_id,target.kind,target.key,actor.user_id])).rows[0].n;
+}
 export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKey:string,raw:unknown):Promise<ChannelMessagePage>{
   const target=room(rawKind,rawKey),{limit,offset,after_sequence}=ChannelPageQuery.parse(raw);
   return snapshot(pool,actor,async q=>{
@@ -168,7 +173,7 @@ export async function channelMessages(pool:Pool,actor:Actor,rawKind:string,rawKe
       ORDER BY CASE WHEN $7::bigint IS NOT NULL THEN m.sequence END ASC, m.sequence DESC LIMIT $4 OFFSET $5`,
       [actor.community_id,target.kind,target.key,limit+1,offset,actor.user_id,after_sequence??null])).rows;
     const shown=rows.slice(0,limit),contents=await messageContents(q,shown,'channel',actor.user_id);
-    return {channel,items:shown.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,
+    return {channel,items:shown.map((row,index)=>({...message(row),...contents[index]})),unread_count:unread,next_offset:after_sequence===undefined&&rows.length>limit?offset+limit:null,retraction_count:await channelRetractionCount(q,actor,target),
       ...(after_sequence!==undefined?{next_after_sequence:rows.length>limit?String(rows[limit-1].sequence):null}:{})};
   });
 }
@@ -204,7 +209,7 @@ export async function channelActivity(pool:Pool,actor:Actor,rawKind:string,rawKe
           AND ($2<>'world' OR x.sender_ref=$3 OR NOT is_verification_test_account(x.sender_ref))
         ORDER BY x.sequence DESC LIMIT 1),0)::text AS latest_sequence
       FROM (SELECT $4::text AS channel_key) r`,[actor.community_id,target.kind,actor.user_id,target.key])).rows[0];
-    return {latest_sequence:row.latest_sequence,unread_count:row.unread_count};
+    return {latest_sequence:row.latest_sequence,unread_count:row.unread_count,retraction_count:await channelRetractionCount(q,actor,target)};
   });
 }
 
