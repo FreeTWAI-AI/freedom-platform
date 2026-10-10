@@ -100,3 +100,21 @@ test('an older receipt committed after the send refresh is reconciled without a 
   assert.equal(directMessageReceiptRefreshDue([message(1, 'peer')], 'sender', 0, 9000), false);
   assert.equal(directMessageReceiptRefreshDue([message(1, 'sender', readAt)], 'sender', 0, 9000), false);
 });
+
+
+test('unread tombstones neither schedule receipt polling nor walk older history pages', async () => {
+  const tombstone = {...message(1), body: '', retracted_at: readAt};
+  assert.equal(directMessageReceiptRefreshDue([tombstone], 'sender', 0, 9000), false);
+  const receipts = await readLoadedDirectMessageReceipts(page([], 20), [tombstone], 'sender', async () => {
+    assert.fail('a withdrawn outgoing message has no pending read receipt');
+  }, () => true);
+  assert.equal(receipts!.size, 0);
+  const live = message(2);
+  assert.equal(directMessageReceiptRefreshDue([tombstone, live], 'sender', 0, 9000), true);
+  const offsets: number[] = [];
+  const mixed = await readLoadedDirectMessageReceipts(page([], 20), [tombstone, live], 'sender', async offset => {
+    offsets.push(offset);return page([{...live, read_at: readAt}], 40);
+  }, () => true);
+  assert.deepEqual(offsets, [20], 'stop after the actual pending receipt, before the older tombstone page');
+  assert.deepEqual([...mixed!], [[live.message_id, readAt]]);
+});

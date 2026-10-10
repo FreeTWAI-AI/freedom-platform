@@ -3,7 +3,7 @@ import type { ConversationActivity, Message, MessagePage } from '../../../../mod
 /** The newest outgoing message is not a receipt revision. A delayed read can
  * affect only an older row, so reconcile visible pending receipts periodically. */
 export function directMessageReceiptRefreshDue(items: Message[], sender: string, checkedAt: number, now: number): boolean {
-  return now - checkedAt >= 8000 && items.some(item => item.sender_ref === sender && item.read_at === null);
+  return now - checkedAt >= 8000 && items.some(item => item.sender_ref === sender && item.read_at === null && !item.retracted_at);
 }
 
 export function hasDirectMessageChanges(
@@ -28,7 +28,7 @@ export async function readLoadedDirectMessageReceipts(
   readPage: (offset: number) => Promise<MessagePage>,
   isCurrent: () => boolean,
 ): Promise<Map<string, string | null> | null> {
-  const remaining = new Set(loaded.filter(item => item.sender_ref === sender && item.read_at === null).map(item => item.message_id));
+  const remaining = new Set(loaded.filter(item => item.sender_ref === sender && item.read_at === null && !item.retracted_at).map(item => item.message_id));
   const receipts = new Map<string, string | null>();
   const observe = (page: MessagePage) => {
     for (const item of page.items) if (remaining.delete(item.message_id)) receipts.set(item.message_id, item.read_at);

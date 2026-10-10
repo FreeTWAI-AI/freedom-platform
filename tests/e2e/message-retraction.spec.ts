@@ -47,7 +47,7 @@ async function openDirect(page:Page,peer:string){
 }
 
 test('a sender retracts a private message through the site dialog and the recipient sees only a placeholder',async({browser,baseURL})=>{
-  await db.query('INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body) VALUES($1,$2,$3,$4),($1,$3,$2,$5)',
+  await db.query(`INSERT INTO member_direct_messages(community_id,sender_ref,recipient_ref,body,created_at) VALUES($1,$2,$3,$4,now()),($1,$3,$2,$5,now()-interval '1 minute')`,
     [DEMO_COMMUNITY,accounts[0].id,accounts[1].id,'合成：電話 0912-000-000','合成：對方的訊息']);
   const sender=await member(browser,baseURL!,0),panel=await openDirect(sender,accounts[1].name);
   const mine=panel.locator('.messages-bubbles li.is-mine',{hasText:'0912'});
@@ -59,6 +59,10 @@ test('a sender retracts a private message through the site dialog and the recipi
   const recipient=await member(browser,baseURL!,1,390),other=await openDirect(recipient,accounts[0].name);
   await expect(other.locator('.messages-bubbles')).toContainText('0912');
   await expect.poll(async()=>Number((await db.query('SELECT count(*)::int AS n FROM member_direct_messages WHERE sender_ref=$1 AND recipient_ref=$2 AND read_at IS NULL',[accounts[0].id,accounts[1].id])).rows[0].n)).toBe(0);
+  const preview=panel.getByRole('list',{name:'對話列表'}).locator('.chat-peer-preview');
+  await expect(preview).toContainText('0912');
+  // A local confirmed retraction must clear the cached preview even if list refresh fails.
+  await sender.route(url=>url.pathname==='/api/v1/me/conversations',route=>route.abort());
   const trigger=mine.getByRole('button',{name:'收回你的訊息'});
   await trigger.click();
   const dialog=sender.getByRole('dialog',{name:'收回這則訊息？'});
@@ -69,6 +73,7 @@ test('a sender retracts a private message through the site dialog and the recipi
   await expect(dialog).toBeHidden();
   await expect(panel.locator('.messages-bubbles')).not.toContainText('0912');
   await expect(panel.locator('.messages-bubbles .chat-retracted')).toHaveText('你已收回這則訊息。');
+  await expect(preview).toHaveText('你：訊息已收回');
 
   await recipient.bringToFront();
   // More than two maximum idle polling intervals; no refresh/navigation is allowed.

@@ -2479,8 +2479,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 62610,
-      "sha256": "c7a5b530ac46e2be43adf0749d6c23bbaee354e47e0ab33d2c8e130c59b9447f"
+      "bytes": 63137,
+      "sha256": "8d7c8c252e2824ab14ee953a6abb0d0d5f091d581df25957fbbd773e4b51980c"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2884,8 +2884,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/direct-message-receipts.ts",
-      "bytes": 3190,
-      "sha256": "8dc3a7fe926e26ec8d422a6944d0663fefbee34419783a91ed59e2349fc8242d"
+      "bytes": 3234,
+      "sha256": "152eb0b2554e5b026ddf87bee0f17f9dafb40b47ba5a7ea5e296343196657f65"
     },
     {
       "path": "apps/portal-web/src/modules/event-banner-client.ts",
@@ -14949,8 +14949,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 24466,
-      "sha256": "30ba2d2691d8d379dd594840876ebd95143abb47f9e6150fecd60dc38e80e436"
+      "bytes": 24336,
+      "sha256": "48a5b1a9088eac2a52de5a705d8c069158698136c3a3a9e2cae1a6a3e9b99a60"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -20419,8 +20419,8 @@
     },
     {
       "path": "tests/e2e/message-retraction.spec.ts",
-      "bytes": 10689,
-      "sha256": "dae44fb7f3d4a925997e9ba6ef475f52c4e1b58a5a71c8371f50af1317fda1a2"
+      "bytes": 11116,
+      "sha256": "b383e208d1ae8e065e4cdc1c4224bf897668288d13cce8619b648ed21b003564"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -20744,8 +20744,8 @@
     },
     {
       "path": "tests/integration/media-backup-restore.test.ts",
-      "bytes": 33170,
-      "sha256": "c76c993e055903e748e0807e1e9cbe6404357db7b84c5948738f8c92505257c4"
+      "bytes": 33439,
+      "sha256": "1f1104c65f772185b326e39da37e8bf8bbd19edf4aee7ed03838400cf0849be2"
     },
     {
       "path": "tests/integration/media-recovery-handover-producer.ts",
@@ -21029,8 +21029,8 @@
     },
     {
       "path": "tests/runtime/chat-content.test.ts",
-      "bytes": 15046,
-      "sha256": "3ba295ab7f2c7cea8e6ef72287a7f56a25a11eb35d0483f0b4d78986dbf2cce2"
+      "bytes": 15139,
+      "sha256": "faf23741b1bae833d38c234a691bd3336c0dddad08dbc60cd15420a5d4806a6e"
     },
     {
       "path": "tests/runtime/chat-sticker-send.test.ts",
@@ -21159,8 +21159,8 @@
     },
     {
       "path": "tests/runtime/direct-message-receipts.test.ts",
-      "bytes": 7151,
-      "sha256": "ed02f2b1dea6885a8617e12e90d82a6a93d966ee9d3528b6600ca7048a582c14"
+      "bytes": 8180,
+      "sha256": "acb445864a9a84f7cd2ee9986cb0212559417a059652e718aa74c4e470284277"
     },
     {
       "path": "tests/runtime/domain-media-gc.test.ts",
@@ -21219,8 +21219,8 @@
     },
     {
       "path": "tests/runtime/event-participation-api.test.ts",
-      "bytes": 24658,
-      "sha256": "43d835fbc5ae42439a6e18eca47f97cb7b15d526dcbc53473a33e4b23572d4fb"
+      "bytes": 24920,
+      "sha256": "662a1e59ed2a92d2801e82819e2469c2a5a53ff91f122a076d4163ec4852c362"
     },
     {
       "path": "tests/runtime/event-participation-reminders.test.ts",
