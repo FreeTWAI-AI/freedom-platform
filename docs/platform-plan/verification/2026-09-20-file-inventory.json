@@ -554,8 +554,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/members.ts",
-      "bytes": 5542,
-      "sha256": "2deb51073a926480fac2f08313d4cac4043ae9e3a7efe84fbfed99b2a7485a16"
+      "bytes": 5983,
+      "sha256": "1fe939e07df47a31e3f6fa558719e0d1f7b8feabeff250cdf2da8d1f19070949"
     },
     {
       "path": "apps/platform-api/src/routes/module-registry.ts",
@@ -1928,6 +1928,11 @@
       "sha256": "bed82ae3e5a8b6df4d151d7ab6a0f1cbfc6a6cf36df4c7eef2ea35c7d81467f1"
     },
     {
+      "path": "apps/portal-web/src/modules/AccountSecurity.tsx",
+      "bytes": 5484,
+      "sha256": "8d7baaf3518bffd14e5981edb7aee5f7e1f5e142236505e27a00b671272e4018"
+    },
+    {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
       "bytes": 6932,
       "sha256": "8e33fed2ba30996d344adf007483037f2cb70339153e158f7f8e97d32bc63b29"
@@ -2364,8 +2369,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberDirectory.css",
-      "bytes": 6985,
-      "sha256": "1ee2287353d46a407a39159e11a10debd62cf536d074e57fbcf8970a8dbfa51d"
+      "bytes": 7426,
+      "sha256": "8c70904b83b01357a9937e9567edf3ba9b20301377084caf996da08896f7bc1e"
     },
     {
       "path": "apps/portal-web/src/modules/MemberECard.css",
@@ -2449,8 +2454,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 30317,
-      "sha256": "ff32baecedbcbb366bc482305fbbab2341c1037489a521980d8bccb79f5d834a"
+      "bytes": 30402,
+      "sha256": "fdd4515a3940de4503720d004bab7e9d8cd2686c7805bab3a0202b8c4acd2823"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -13594,8 +13599,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 24956,
-      "sha256": "ac9d71dee0534070c79f137e93f39c8d3ecd84375006ef5732ab729c57044d52"
+      "bytes": 25925,
+      "sha256": "c0b6e7e29d66bad751c6d5bc9e92429c161bb095afe1649dc70727c7142e51d0"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17428,6 +17433,11 @@
       "sha256": "dd0fecdcb5170733bf582733e975290273a4173dd9af0f235b3e67652dae5f38"
     },
     {
+      "path": "modules/identity-membership/account-security.ts",
+      "bytes": 5867,
+      "sha256": "fa069298873f953c20c44f5021cb611904a0d60aaeb7c8044323cf59672a058f"
+    },
+    {
       "path": "modules/identity-membership/auth-pruning.ts",
       "bytes": 4777,
       "sha256": "420fbcf6bcf41da1a44a9ae5862f19dbc9386daf5f958305692b27a032ae8638"
@@ -19548,6 +19558,11 @@
       "sha256": "9b6328857dacefe17e59cf72c2cc3bb6f574de417b352d70dc28849010d8f9f6"
     },
     {
+      "path": "tests/e2e/account-security.spec.ts",
+      "bytes": 5096,
+      "sha256": "923b8c3b1b0bcc3f5b24670fbeac2edcdb4ea6a58d90cb51e602f4c0d39be6a3"
+    },
+    {
       "path": "tests/e2e/admin-credentials.spec.ts",
       "bytes": 7466,
       "sha256": "6c2c6f177c7ccf6f49c395d46196dad42af09e043572fd8aa5944fd2b6d11407"
@@ -20316,6 +20331,11 @@
       "path": "tests/media-fixtures/manifest.json",
       "bytes": 1799,
       "sha256": "55a828af1d623fc413e086ee42cc141bac9bf98a92251f9f00fb8960d20f4700"
+    },
+    {
+      "path": "tests/runtime/account-security.test.ts",
+      "bytes": 8535,
+      "sha256": "bd1e6612ddb3c0b18c8bdf1ed27cc8b5b7921c4d95baa8f135b8f74bdd4a586b"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
