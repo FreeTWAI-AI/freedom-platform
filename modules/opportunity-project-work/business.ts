@@ -15,7 +15,9 @@ export const engagementInput=z.object({scope:text(3000),acceptance_criteria:text
 export const receiptInput=z.object({amount_minor:money,currency,evidence_ref:opaqueRef,received_at:isoTime}).strict();
 const termsInput=z.object({terms_sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 
-const ShowcasePageQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).max(10000).default(0)}).strict();
+// Zod int accepts only safe integers. Bound each response, rather than imposing
+// a 10,000-row cutoff that would make later advertised continuations invalid.
+const ShowcasePageQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).default(0)}).strict();
 /** Published community showcases, newest first, one bounded page at a time (#402). */
 export async function listShowcases(pool:Pool,actor:Actor,raw:unknown={}) {
   const {limit,offset}=ShowcasePageQuery.parse(raw);

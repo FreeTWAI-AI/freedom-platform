@@ -14794,8 +14794,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 23311,
-      "sha256": "8a5843d2bfdde9be81cfb8d76750091ebc67445c5cbdfd615c05d6d6286b07f4"
+      "bytes": 24062,
+      "sha256": "3649b3a400c906793f4893747a935ccc10e0b081dd5f3b289c1ec88629465e60"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15224,8 +15224,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 89906,
-      "sha256": "77016d1eb382159ed275a36ab01c8cbed350468a532e19eda0b5123565713110"
+      "bytes": 87090,
+      "sha256": "1b0ea6f9dab6ed632b3d0416da28617ed272294732ba6f4c80696ffe5a4ead44"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15343,6 +15343,11 @@
       "sha256": "229dd95a38a6994b77818ed7e6c1c67642153e9f6130a28fc3683f0df05c7146"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "bytes": 18858,
+      "sha256": "7b1a808e482d337c96955714fa70ce5a75d797c92bc599c8eeea955fb8fa63aa"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
       "bytes": 5244,
       "sha256": "e569cf2f495ae9dc989fd45212f213208a11069a71720fe9d3bd20e6ac7fd618"
@@ -15446,6 +15451,11 @@
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-08.json",
       "bytes": 32667,
       "sha256": "5277abc810a307c38feef492e5338e5576381566841f67a9f4b6bee0265716f8"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-10.json",
+      "bytes": 3088,
+      "sha256": "fbadd2d16a679ddd439dd24a1942bc26831a92e5dde90aed6d54f56aafc59f86"
     },
     {
       "path": "docs/platform-plan/verification/preflight-aggregate-2026-10-05.json",
@@ -17694,13 +17704,13 @@
     },
     {
       "path": "modules/opportunity-project-work/business.ts",
-      "bytes": 16242,
-      "sha256": "21426603dafed1d508dc3b321998dc260b47892975716e82bd904aa3cd89906b"
+      "bytes": 16391,
+      "sha256": "3ba2dc44ecc5a91670ec8543e65ee6b3e2c6451242b75cd9780566751a26c88b"
     },
     {
       "path": "modules/opportunity-project-work/freedom.module.json",
-      "bytes": 4591,
-      "sha256": "64c480eb41654cf4253c6133371d83582f5164eadddd1672aaccba15a57a6d2a"
+      "bytes": 4761,
+      "sha256": "3424fb65a5eb665416090db5b537a86bce7493831b3c67ad17ea27e8fecd2494"
     },
     {
       "path": "modules/opportunity-project-work/private-commands.ts",
@@ -20084,8 +20094,8 @@
     },
     {
       "path": "tests/e2e/showcase-pages.spec.ts",
-      "bytes": 2149,
-      "sha256": "6aa6708acde994e7434c266194c14a8a8be56106680aa538112e0445b059442d"
+      "bytes": 4774,
+      "sha256": "664e194b0f79679ae85c432b2fee34eae9c35562841781642ffcb0fd4e3ca45b"
     },
     {
       "path": "tests/e2e/sidebar-refine.spec.ts",
@@ -21714,8 +21724,8 @@
     },
     {
       "path": "tests/runtime/showcase-pages.test.ts",
-      "bytes": 4546,
-      "sha256": "b20d1abdcb8584343e08f2e19e091d781765e06b06671fa3b5da96608b22f7a3"
+      "bytes": 5804,
+      "sha256": "e6dc1ba5de41220faf567d0819abd586fdf871eb4a9d56f42d2f99595f47b388"
     },
     {
       "path": "tests/runtime/skill-book-guides.test.ts",

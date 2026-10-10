@@ -54,5 +54,20 @@ test('the community list pages newest first with stable ties and only published 
 
 test('invalid page parameters are refused',async()=>{
   const reader=await signIn(1);
-  for(const query of ['limit=0','limit=51','offset=-1','offset=10001','limit=abc','sort=title'])assert.equal((await get(`/showcases?${query}`,reader)).status,422,query);
+  for(const query of ['limit=0','limit=51','offset=-1','offset=1.5','offset=9007199254740992','limit=abc','sort=title'])assert.equal((await get(`/showcases?${query}`,reader)).status,422,query);
+});
+
+test('an advertised continuation past 10,000 still retrieves the remaining visible rows',async()=>{
+  const reader=await signIn(1);
+  await pool.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,created_at)
+    SELECT gen_random_uuid(),$1,$2,'大量作品 '||n,'合成分頁邊界作品','artifact:page-boundary:'||n,
+      timestamptz '2026-10-01T00:00:00Z'+make_interval(secs=>n)
+    FROM generate_series(1,10025) n`,[DEMO_COMMUNITY,DEMO_USERS[0].user_id]);
+  const expected=(await pool.query(`SELECT showcase_id FROM showcases WHERE community_id=$1 AND status='published'
+    ORDER BY created_at DESC,showcase_id OFFSET 10000`,[DEMO_COMMUNITY])).rows.map(row=>row.showcase_id);
+  const boundary=await get('/showcases?limit=20&offset=10000',reader);
+  assert.equal(boundary.status,200);assert.equal(boundary.data.items.length,20);assert.equal(boundary.data.next_offset,10020);
+  const tail=await get(`/showcases?limit=20&offset=${boundary.data.next_offset}`,reader);
+  assert.equal(tail.status,200);assert.equal(tail.data.items.length,5);assert.equal(tail.data.next_offset,null);
+  assert.deepEqual([...boundary.data.items,...tail.data.items].map(item=>item.showcase_id),expected);
 });

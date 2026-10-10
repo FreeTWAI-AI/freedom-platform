@@ -26,7 +26,11 @@
     "scripts/verify-guild-work.mjs",
     "tests/runtime/verify-guild-work.test.ts",
     "migrations/126_project_public_metadata.sql",
-    "tests/runtime/organization-project-editing.test.ts"
+    "tests/runtime/organization-project-editing.test.ts",
+    "tests/e2e/share-launcher.spec.ts",
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "tests/e2e/showcase-pages.spec.ts",
+    "tests/runtime/showcase-pages.test.ts"
   ],
   "public_exports": [
     "modules/opportunity-project-work/work.ts",

@@ -1,0 +1,560 @@
+{
+  "format": "freedom.rollout-receipt/v1",
+  "recorded_at": "2026-10-10T02:34:31.616221+00:00",
+  "status": "complete",
+  "source": {
+    "sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+    "tree": "c4edc57cc2f895c5124fc6c61cfaf29712f40a4d",
+    "ci_reviewed_head": "1c262c4c693e8aa517ed7ba330047fd8f186033b",
+    "review_url": "https://github.com/FreeTWAI-AI/freedom-platform/pull/391",
+    "verify_url": "https://github.com/FreeTWAI-AI/freedom-platform/actions/runs/38011518824/job/114099202971",
+    "codeql_url": "https://github.com/FreeTWAI-AI/freedom-platform/runs/114092475417",
+    "tree_equals_reviewed_head": true,
+    "build": {
+      "sha256": "84643d1f48df0376ee0c8d705b3bac6a6a4e43e21ac7401ab3352620ee8050ed",
+      "file_count": 329
+    },
+    "integration_pr": 391,
+    "prs_since_previous_production": [
+      340,
+      341,
+      366,
+      391
+    ],
+    "batch_components": {
+      "391": [
+        359,
+        365,
+        385
+      ],
+      "366": [
+        356,
+        357,
+        358,
+        360,
+        361,
+        362,
+        364
+      ]
+    },
+    "runtime_cases": 4170,
+    "browser_cases": 769
+  },
+  "authorization": {
+    "source": "current user conversation",
+    "instruction": "非常好 請繼續 並且部署正式站",
+    "scope": "Reviewed #391 photos/supply preparation and required CI; staging acceptance before production; reservation admission remains OFF"
+  },
+  "before": {
+    "staging": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "production": "8a98bb14d0ba024ac94fb704aa41272a775b0775"
+  },
+  "targets": {
+    "staging": {
+      "origin": "https://staging.freetwai.com",
+      "worker": "freedom-platform-staging-next",
+      "worker_version": "fa0e2b80-2ba8-4b41-9552-695e7a332895",
+      "deployed_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "staging",
+        "runtime": "cloudflare-workers",
+        "release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "cache_control_no_store": true
+      },
+      "observed_at": "2026-10-10T01:48:37.833Z",
+      "migrations_applied": [
+        "141_storefront_product_photos.sql"
+      ],
+      "ledger_rows": 140,
+      "last_applied": "141_storefront_product_photos.sql",
+      "migration_verified_at": "2026-10-10T01:47:46.146Z",
+      "source_digest_drift": 0,
+      "rls_tables": 32,
+      "rls_policies": 43,
+      "security_definers_referencing_rls": 0,
+      "privilege_checks": {
+        "runtime": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": false
+        },
+        "backup": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": true
+        }
+      },
+      "checks": {
+        "public": 34,
+        "authenticated": 24,
+        "all_passed": true,
+        "browser_automation": true,
+        "synthetic_fixture_cleanup": true
+      },
+      "acceptance": {
+        "at": "2026-10-10T01:50:16.599Z",
+        "release": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "status": "passed",
+        "checks": [
+          {
+            "name": "live_release",
+            "passed": true
+          },
+          {
+            "name": "create_tenant_ui_201",
+            "passed": true
+          },
+          {
+            "name": "merchant_entry_existing_guild_application_catalog",
+            "passed": true
+          },
+          {
+            "name": "new_store_in_own_tenant",
+            "passed": true
+          },
+          {
+            "name": "product_create_ui_201",
+            "passed": true
+          },
+          {
+            "name": "independent_supply_cost_and_shared_stock",
+            "passed": true
+          },
+          {
+            "name": "anonymous_supply_terms_401",
+            "passed": true
+          },
+          {
+            "name": "private_photo_authenticated",
+            "passed": true
+          },
+          {
+            "name": "anonymous_private_photo_401",
+            "passed": true
+          },
+          {
+            "name": "public_retail_price_independent",
+            "passed": true
+          },
+          {
+            "name": "private_terms_absent_from_public",
+            "passed": true
+          },
+          {
+            "name": "one_public_photo",
+            "passed": true
+          },
+          {
+            "name": "public_photo_webp",
+            "passed": true
+          },
+          {
+            "name": "public_revision_unchanged_before_publish",
+            "passed": true
+          },
+          {
+            "name": "public_bytes_unchanged_before_publish",
+            "passed": true
+          },
+          {
+            "name": "new_public_revision",
+            "passed": true
+          },
+          {
+            "name": "old_public_path_404",
+            "passed": true
+          },
+          {
+            "name": "no_horizontal_overflow_390",
+            "passed": true
+          },
+          {
+            "name": "no_horizontal_overflow_1280",
+            "passed": true
+          },
+          {
+            "name": "other_member_private_photo_404",
+            "passed": true
+          },
+          {
+            "name": "other_member_supply_terms_404",
+            "passed": true
+          },
+          {
+            "name": "published_removal",
+            "passed": true
+          },
+          {
+            "name": "unpublished_store_404",
+            "passed": true
+          },
+          {
+            "name": "cleanup_command_archive",
+            "passed": true
+          }
+        ],
+        "failure": null,
+        "environment": "staging Workers/PG/R2/Images",
+        "browserAutomation": true,
+        "merchantWritesThroughUI": true,
+        "existingQualifiedDemoMembers": true,
+        "newMemberRegistration": false,
+        "syntheticInstanceArchived": true,
+        "syntheticTenantArchived": true,
+        "photoHistoryRetainedForBackup": true,
+        "productionMemberJourney": false
+      },
+      "backup_before_migration": {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "operatorSource": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "createdAt": "2026-10-10T01:38:41.725Z",
+        "setId": "a2ded56b-5262-4e2e-9b70-d018b63ae6a8",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "01fead905a346b01c660ed1fceb7ab166fceed6f706adb552e98317b0e178d78",
+        "label": "before-migration",
+        "dumpSha256": "c957455299d438d7179b4edf10f6fdf3e6487fbe10de52564fbdef69cac927e7",
+        "diskRestore": true,
+        "retainedPhotoObjects": 0,
+        "remotePhotoObjects": 0
+      },
+      "backup_after_rollout": {
+        "status": "passed",
+        "environment": "staging",
+        "database": "freedom_staging_next",
+        "sourceRelease": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "operatorSource": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "createdAt": "2026-10-10T01:51:09.313Z",
+        "setId": "678d2df3-e913-49a6-ae9b-65f0ea357b6b",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "29408a84184bfbbd55c937c5f6e408494f341f9db1c47bb97a3767587b113ce0",
+        "label": "after-rollout",
+        "dumpSha256": "2d796e6e6331e4917cc45b1f27f6be48fba456d0628cb311b8a3b79841d8ab8c",
+        "diskRestore": true,
+        "retainedPhotoObjects": 2,
+        "remotePhotoObjects": 2
+      }
+    },
+    "production": {
+      "origin": "https://freetwai.com",
+      "worker": "freedom-platform-next",
+      "worker_version": "d2b3d28c-9a84-44d7-a99a-ba5060ba7357",
+      "deployed_release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "health": {
+        "http": 200,
+        "status": "ok",
+        "mode": "public",
+        "runtime": "cloudflare-workers",
+        "release_sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "cache_control_no_store": true
+      },
+      "observed_at": "2026-10-10T02:14:03.078Z",
+      "migrations_applied": [
+        "141_storefront_product_photos.sql"
+      ],
+      "ledger_rows": 140,
+      "last_applied": "141_storefront_product_photos.sql",
+      "migration_verified_at": "2026-10-10T02:13:22.746Z",
+      "source_digest_drift": 0,
+      "rls_tables": 32,
+      "rls_policies": 43,
+      "security_definers_referencing_rls": 0,
+      "privilege_checks": {
+        "runtime": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": false
+        },
+        "backup": {
+          "login": true,
+          "expectedTablePrivileges": true,
+          "bypass": true
+        }
+      },
+      "checks": {
+        "public": 34,
+        "authenticated": 19,
+        "all_passed": true,
+        "browser_automation": false,
+        "synthetic_fixture_cleanup": true
+      },
+      "acceptance": {
+        "at": "2026-10-10T02:14:40.398Z",
+        "release": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "status": "passed",
+        "checks": [
+          {
+            "name": "reviewed_source_deployed",
+            "passed": true
+          },
+          {
+            "name": "register_201",
+            "passed": true
+          },
+          {
+            "name": "new_member_onboarding_required",
+            "passed": true
+          },
+          {
+            "name": "onboarding_directory_200",
+            "passed": true
+          },
+          {
+            "name": "synthetic_onboarding_guild",
+            "passed": true
+          },
+          {
+            "name": "ordinary_onboarding_200",
+            "passed": true
+          },
+          {
+            "name": "private_tenant_201",
+            "passed": true
+          },
+          {
+            "name": "list_0_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_0_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "list_1_first_page_200",
+            "passed": true
+          },
+          {
+            "name": "list_1_invalid_cursor_422",
+            "passed": true
+          },
+          {
+            "name": "list_1_inaccessible_404",
+            "passed": true
+          },
+          {
+            "name": "logout_200",
+            "passed": true
+          },
+          {
+            "name": "list_0_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "list_1_revoked_401",
+            "passed": true
+          },
+          {
+            "name": "owned_account_inactive",
+            "passed": true
+          },
+          {
+            "name": "owned_sessions_revoked",
+            "passed": true
+          },
+          {
+            "name": "owned_tenant_archived",
+            "passed": true
+          }
+        ],
+        "failure": null,
+        "syntheticAccountDeactivated": true,
+        "syntheticTenantArchived": true,
+        "existingMemberPermissionsChanged": false,
+        "syntheticInternMembershipEnded": true,
+        "passwordOrSessionRecorded": false
+      },
+      "backup_before_migration": {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+        "operatorSource": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "createdAt": "2026-10-10T02:00:16.049Z",
+        "setId": "61b03194-297b-4698-9869-251a16007c69",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "6950d9c5298d643acbf6b92d4cd7109a2b04f6660aa4b64d87c6d7a34c6b4248",
+        "label": "before-migration",
+        "dumpSha256": "709028a686d0820149b7321e4b5fd7493092b0f693eb9f511798389aee7b64d1",
+        "diskRestore": true,
+        "retainedPhotoObjects": 0,
+        "remotePhotoObjects": 0
+      },
+      "backup_after_rollout": {
+        "status": "passed",
+        "environment": "production",
+        "database": "freedom_next",
+        "sourceRelease": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "operatorSource": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+        "createdAt": "2026-10-10T02:14:49.407Z",
+        "setId": "ffe68408-c2b7-42bd-b963-d2ab27781fc4",
+        "restore": "database_and_objects_restored",
+        "remoteReadback": "verified",
+        "cleanupVerified": true,
+        "manifestSha256": "d022cca1174712ce3a2b3ab3ee5c95328883518ab9b13580fe2b729f0ed9b8a8",
+        "label": "after-rollout",
+        "dumpSha256": "0e3b9e8e8603a1599823518e0074d1b1d86d1c4fa973609b53111f35e6ae0263",
+        "diskRestore": true,
+        "retainedPhotoObjects": 0,
+        "remotePhotoObjects": 0
+      }
+    }
+  },
+  "live_previous_runtime_merchant_journey": {
+    "at": "2026-10-10T01:25:14.662Z",
+    "release": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "status": "passed",
+    "checks": [
+      {
+        "name": "live_release",
+        "passed": true
+      },
+      {
+        "name": "create_tenant_ui_201",
+        "passed": true
+      },
+      {
+        "name": "merchant_entry_existing_guild_application_catalog",
+        "passed": true
+      },
+      {
+        "name": "new_store_in_own_tenant",
+        "passed": true
+      },
+      {
+        "name": "public_store_ui",
+        "passed": true
+      },
+      {
+        "name": "no_horizontal_overflow_390",
+        "passed": true
+      },
+      {
+        "name": "no_horizontal_overflow_1280",
+        "passed": true
+      },
+      {
+        "name": "other_member_backend_404",
+        "passed": true
+      },
+      {
+        "name": "unpublished_store_404",
+        "passed": true
+      },
+      {
+        "name": "cleanup_command_archive",
+        "passed": true
+      }
+    ],
+    "failure": null,
+    "environment": "staging Workers/PG",
+    "browserAutomation": true,
+    "merchantWritesThroughUI": true,
+    "existingQualifiedDemoMembers": true,
+    "newMemberRegistration": false,
+    "syntheticInstanceArchived": true,
+    "syntheticTenantArchived": true,
+    "photosExercised": false,
+    "productionMemberJourney": false
+  },
+  "feature_configuration": {
+    "guild_launchpad": true,
+    "hosted_store_photos_read": true,
+    "hosted_store_photo_uploads": true,
+    "photo_storage_policy": {
+      "purpose": "storefront.product-photo",
+      "mode": "bridge",
+      "persistence_allowed": true,
+      "retained_byte_limit": 67108864
+    },
+    "buyer_reservations": false,
+    "private_ai": false,
+    "other_bindings_and_vars_preserved": true,
+    "cursor_keys_preserved": true
+  },
+  "recovery": {
+    "daily_operator_source": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+    "previous_operator_source": "8a98bb14d0ba024ac94fb704aa41272a775b0775",
+    "adapter_sha256": "805ada61cd447c0de537669f7a14ac02ddf2788b59761b4a2340d6a68eaf8325",
+    "wrapper_sha256": "d430b0cc3e405562dc61f5cf30a3a7e94e1eff8285ed0d97aa1a7373dbb88440",
+    "backup_release_pins": {
+      "staging": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "production": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c"
+    },
+    "timer_schedules_unchanged": true,
+    "restore_storage": "PG18 disk-backed Docker volume; owned containers and volumes removed after each run",
+    "gc_safety": "disabled",
+    "retention_deletes_run": false,
+    "rollback": "Keep the new compatible reader and media profile; disable photo upload admission. Do not rewind media policy or run 8a98 reader after new photo writes."
+  },
+  "temporary_staging_access_revoked": true,
+  "limitations": [
+    "Live staging uses two existing fictional qualified members; new-member registration/promotion browser evidence is local, not a production member acceptance.",
+    "The staging published guild configuration still recommends manual workspace; merchant starts through the existing online-store application catalog. No guild content or existing member permissions were changed for acceptance.",
+    "Production has selected public/authenticated HTTP checks, not a full merchant browser journey.",
+    "Supplier terms and retail prices are separate, but foreign hosted selections, exact-version bilateral consent, shared A/B/C stock and supplier order visibility are still missing.",
+    "Reservations remain OFF; payment and fulfillment are not enabled.",
+    "No inventory export/authority transfer/remote adapter was delivered by this rollout. M1, Foundation, second-operator recovery and full M3 remain unaccepted."
+  ],
+  "operational_corrections": [
+    {
+      "phase": "pre-migration read-only baseline",
+      "result": "Operator helper used invalid transaction isolation syntax and received 42601 before transaction began.",
+      "resolution": "Corrected to BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY, preserved failed settings snapshot, then verified both ledgers and migration bytes with no environment data writes."
+    },
+    {
+      "phase": "baseline browser initialization",
+      "result": "Sharp package entry path corrected before browser operations; default English locale did not match Chinese selectors, before business writes.",
+      "resolution": "Use installed package entry and explicit zh-TW browser locale."
+    },
+    {
+      "phase": "baseline merchant entry",
+      "result": "Assumed default main action was absent because staging has a published guild-editor configuration.",
+      "resolution": "Owned empty tenant archived. Use the actual online-store application card and normal My stores navigation; full baseline journey passed without changing guild configuration."
+    }
+  ],
+  "github_deployments": {
+    "staging": {
+      "at": "2026-10-10T02:24:18.135843+00:00",
+      "environment": "staging-next",
+      "sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "deploymentId": 6974936386,
+      "statusId": 19551629272,
+      "state": "success",
+      "environmentUrl": "https://staging.freetwai.com/"
+    },
+    "production": {
+      "at": "2026-10-10T02:24:18.802577+00:00",
+      "environment": "next",
+      "sha": "e9770b3a7a0abb1cc58f8ee5700f0a99162c091c",
+      "deploymentId": 6974936491,
+      "statusId": 19551629515,
+      "state": "success",
+      "environmentUrl": "https://freetwai.com/"
+    }
+  },
+  "cleanup_audit": {
+    "at": "2026-10-10T02:24:17.444584+00:00",
+    "backup_sets_without_owned_containers": [
+      "ffe68408-c2b7-42bd-b963-d2ab27781fc4",
+      "a2ded56b-5262-4e2e-9b70-d018b63ae6a8",
+      "678d2df3-e913-49a6-ae9b-65f0ea357b6b",
+      "61b03194-297b-4698-9869-251a16007c69"
+    ],
+    "operator_and_product_worktrees_clean": true,
+    "temporary_access_revoked": true
+  }
+}
