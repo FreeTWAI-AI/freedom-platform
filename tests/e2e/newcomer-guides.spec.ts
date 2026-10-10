@@ -209,6 +209,17 @@ test('joined member loads only the current hero before interaction and each perm
   // A newly joined ordinary member has no guild-management role. Use actual
   // navigation for every permitted tab, including the account/notification menus.
   for (const id of (Object.keys(SPIRIT_CHARACTERS) as TabId[]).filter(id=>id!=='guild-workspace')) {
+    if(id==='messages'){
+      const current=await widget(page).getAttribute('data-page-id');
+      await navigate(page,TAB_TITLES[id]);
+      await expect(page.locator('.floating-message-panel')).toBeVisible();
+      await expect(widget(page)).toHaveAttribute('data-page-id',current!);
+      await expectQuietCompanion(page,true);
+      await closeChat(page);
+      await expect(widget(page)).toHaveAttribute('data-page-id',current!);
+      expect(requests.filter(request=>request.pageId==='messages')).toEqual([]);
+      continue;
+    }
     await navigate(page,TAB_TITLES[id]);
     await expect(widget(page)).toHaveAttribute('data-page-id',id);
     const character = SPIRIT_CHARACTERS[id], launcher = widget(page).locator('.page-spirit-launcher');
@@ -218,7 +229,7 @@ test('joined member loads only the current hero before interaction and each perm
     expect(await launcher.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth>0)).toBe(true);
     observedNames.add(character.name);
   }
-  expect(observedNames.size).toBe(25);
+  expect(observedNames.size).toBe(24);
   expect(requests.filter(request=>!['portrait','hero','frame-0'].includes(request.part)).every(request=>request.pageId==='home')).toBe(true);
   expect(packRequests.every(path=>/\/home-[^/]+\.js$/.test(path)||path.endsWith('/content/home.json'))).toBe(true);
 });
