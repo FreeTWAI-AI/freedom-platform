@@ -7,6 +7,7 @@ import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_WORK,DEMO_USERS,DEMO_PASSWORD } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 import { hashPassword } from '../../modules/identity-membership/service.js';
+import { listWorks } from '../../modules/opportunity-project-work/work.js';
 import { execFileSync } from 'node:child_process';
 const pythonCommand=process.platform==='win32'?'python':'python3';
 
@@ -39,6 +40,62 @@ async function newWork(owner:Session,overrides:any={}) {
   const body={title:'新的有限工作',objective:'解決一個真實問題',acceptance_criteria:'交付可重用說明',gain:'自願留下公共成果，不保證報酬',estimated_minutes:20,maximum_minutes:30,claim_by:new Date(Date.now()+86400000).toISOString(),finish_by:new Date(Date.now()+2*86400000).toISOString(),will_review:true,...overrides};
   const r=await request('/work-items',owner,body);assert.equal(r.status,201,JSON.stringify(r.data));return r.data;
 }
+
+test('listWorks batches claims and latest submissions with legacy DTO equivalence at growing cardinalities',async()=>{
+  const maker=await signIn(),other=await signIn(DEMO_USERS[2].email);
+  const actor=(await pool.query('SELECT * FROM users WHERE user_id=$1',[maker.user.user_id])).rows[0];
+  let queries=0,legacyQueries=0;
+  const counted={query:async(sql:string,values:any[])=>{queries++;return pool.query(sql,values);}} as Pool;
+  const baseline={query:async(sql:string,values:any[])=>{legacyQueries++;return pool.query(sql,values);}};
+  async function legacy() {
+    legacyQueries=0;
+    const rows=(await baseline.query(`SELECT w.*,EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id
+      AND r.revoked_at IS NULL AND r.valid_until>now()) AS review_available FROM work_items w
+      WHERE community_id=$1 AND work_mode='community_collaboration' ORDER BY created_at DESC,work_item_id`,[actor.community_id])).rows;
+    const items=[];
+    for(const row of rows) {
+      const claim=(await baseline.query('SELECT * FROM work_claims WHERE work_item_id=$1 AND claimant_ref=$2',[row.work_item_id,actor.user_id])).rows[0];
+      const latest=claim?(await baseline.query('SELECT submission_id,summary,artifact_ref,sha256,revision FROM submissions WHERE claim_id=$1 ORDER BY revision DESC LIMIT 1',[claim.claim_id])).rows[0]??null:null;
+      const fields=['work_item_id','community_id','owner_ref','title','objective','acceptance_criteria','gain','state','aggregate_version',
+        'participation_terms','participation_terms_revision','participation_terms_sha256','claim_window_expires_at','due_at','created_at'];
+      items.push({...Object.fromEntries(fields.map(key=>[key,row[key]])),terms_status:'declared',
+        review_capacity:row.review_available?'available':'waiting_reviewer_capacity',my_claim:claim?{
+          claim_id:claim.claim_id,work_item_id:claim.work_item_id,claimant_ref:claim.claimant_ref,claimant_type:'user',
+          acting_profession_membership_ref:claim.acting_profession_membership_ref,state:claim.state,aggregate_version:claim.aggregate_version,
+          terms_status:'declared',participation_terms_revision:claim.terms_revision,participation_terms_sha256:claim.terms_sha256,
+          latest_submission:latest,feedback:claim.feedback}:null});
+    }
+    return items;
+  }
+  assert.deepEqual(await listWorks(counted,actor),await legacy());assert.equal(queries,2);
+  await claim(maker);queries=0;
+  assert.deepEqual(await listWorks(counted,actor),await legacy());assert.equal(queries,3);
+  assert.equal((await listWorks(pool,actor))[0].my_claim.latest_submission,null);
+  for(let i=0;i<16;i++) {
+    const id=randomUUID(),claimId=randomUUID(),user=i%3===0?other.user:maker.user;
+    await pool.query(`INSERT INTO work_items(work_item_id,community_id,owner_ref,title,objective,acceptance_criteria,gain,state,participation_terms,
+      participation_terms_sha256,claim_window_expires_at,due_at,created_at)
+      SELECT $1,community_id,owner_ref,$2,objective,acceptance_criteria,gain,'open',participation_terms,participation_terms_sha256,
+      claim_window_expires_at,due_at,'2026-01-01T00:00:00Z' FROM work_items WHERE work_item_id=$3`,[id,`batch-${i}`,DEMO_WORK]);
+    if(i%4===0)await pool.query('INSERT INTO work_review_routes(work_item_id,reviewer_ref,valid_until,revoked_at) VALUES($1,$2,$3,$4)',
+      [id,DEMO_USERS[1].user_id,i<=4?'2099-01-01':'2000-01-01',i===4?new Date():null]);
+    if(i%5===0)continue;
+    await pool.query(`INSERT INTO work_claims(claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,terms_revision,terms_sha256,terms_snapshot,feedback)
+      SELECT $1,work_item_id,$2,$3,'changes_requested',participation_terms_revision,participation_terms_sha256,participation_terms,$4
+      FROM work_items WHERE work_item_id=$5`,[claimId,user.user_id,user.profession_membership_ref,`feedback-${i}`,id]);
+    if(i%2===0)continue;
+    for(let revision=1;revision<=3;revision++)await pool.query('INSERT INTO submissions(submission_id,claim_id,revision,summary,artifact_ref,sha256) VALUES($1,$2,$3,$4,$5,$6)',
+      [randomUUID(),claimId,revision,`revision-${revision}`,`artifact:batch-${i}-${revision}`,'a'.repeat(64)]);
+  }
+  queries=0;const actual=await listWorks(counted,actor);
+  assert.equal(queries,3);assert.equal(actual.length,17);assert.deepEqual(actual,await legacy());
+  assert.equal(legacyQueries,27);
+  assert.ok(actual.some(item=>item.my_claim?.latest_submission?.revision===3));
+  assert.ok(actual.some(item=>item.title.startsWith('batch-')&&item.my_claim===null));
+  const route=(await request('/work-items',maker)).data;
+  assert.deepEqual(route,{items:JSON.parse(JSON.stringify(actual,(key,value)=>key==='aggregate_version'?Number(value):value))});
+  queries=0;assert.deepEqual(await listWorks(counted,{...actor,community_id:randomUUID()}),[]);assert.equal(queries,1);
+});
 
 test('login → claim → submit → request changes → resubmit → independent acceptance → persisted gains',async()=>{
   const maker=await signIn(),reviewer=await signIn(DEMO_USERS[1].email);
