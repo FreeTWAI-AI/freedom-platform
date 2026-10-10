@@ -1,3 +1,4 @@
+import {withBookStarChecks} from '../positioning/onboarding.js';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Pool,PoolClient} from 'pg';
@@ -230,7 +231,7 @@ export async function adminGuildMasterCandidates(pool:Pool,admin:AdminActor,key:
 export async function appointGuildMaster(pool:Pool,input:AdminCommand,key:string){
   const body=z.object({user_id:z.uuid(),reason}).strict().parse(input.body);
   const authorize=(q:PoolClient)=>authorizeGuildAppointee(q,input.admin,body.user_id,key);
-  return adminCommand(pool,input,authorize,async q=>{
+  return withBookStarChecks(pool,run=>adminCommand(pool,input,authorize,run),async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-officer/${input.admin.community_id}/${key}`]);
     const prior=(await q.query('SELECT * FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 FOR UPDATE',[input.admin.community_id,key])).rows[0];
     if(prior)checkVersion(prior.aggregate_version,input.expected);else requireCondition(!input.expected,412,'version_conflict','公會長資料已變更，請重新整理。');

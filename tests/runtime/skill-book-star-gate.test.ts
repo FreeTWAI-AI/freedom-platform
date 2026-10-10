@@ -26,14 +26,14 @@ const config:GitHubSocialConfig={clientId:'Iv1.star-gate-test',clientSecret:'syn
 const guild='guild_marketing',secondGuild='guild_security';
 type Call={url:string;method:string;headers:Headers};
 class GitHubMock {
-  calls:Call[]=[];userId=12345;starred=false;status=200;failure=false;
+  calls:Call[]=[];userId=12345;starred=false;status=200;failure=false;expiresIn=28800;refreshes=0;
   unstarred=new Set<string>();
   fetch:typeof fetch=async(input,init={})=>{
     const url=String(input),method=init.method??'GET',headers=new Headers(init.headers);
     this.calls.push({url,method,headers});
     assert.equal(init.redirect,'manual');assert.ok(init.signal);
     assert.equal(headers.get('x-github-api-version'),'2026-03-10');
-    if(url==='https://github.com/login/oauth/access_token')return Response.json({access_token:'ghu_star_gate_synthetic',refresh_token:'ghr_star_gate_synthetic',token_type:'bearer',scope:'',expires_in:28800,refresh_token_expires_in:15897600});
+    if(url==='https://github.com/login/oauth/access_token'){const refresh=new URLSearchParams(String(init.body)).get('grant_type')==='refresh_token';if(refresh)this.refreshes++;return Response.json({access_token:'ghu_star_gate_synthetic'+this.refreshes,refresh_token:'ghr_star_gate_synthetic'+this.refreshes,token_type:'bearer',scope:'',expires_in:refresh?28800:this.expiresIn,refresh_token_expires_in:15897600});}
     if(url==='https://api.github.com/user')return Response.json({id:this.userId,login:'verified-star-gate-member'});
     if(url.startsWith('https://api.github.com/user/starred/')){
       assert.equal(method,'GET','the prerequisite must never auto-star');
@@ -80,7 +80,12 @@ async function state(){
   return result;
 }
 async function rejectsUnchanged(run:()=>Promise<unknown>,name:string){
-  const previous=await state();await assert.rejects(run,code(name));assert.deepEqual(await state(),previous);
+  const previous=await state();await assert.rejects(run,code(name));const after=await state();
+  if(name==='github_reconnect_required'){
+    assert.equal((await pool.query('SELECT count(*)::int n FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].n,0);
+    delete previous.github_social_connections;delete after.github_social_connections;
+  }
+  assert.deepEqual(after,previous);
 }
 async function membership(who=actor){return (await pool.query('SELECT member_tier,aggregate_version::text,state FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3',[who.community_id,who.user_id,guild])).rows[0];}
 async function establishMaster(){await appointGuildMaster(offPool,adm('setup-master',master.user_id),guild);}
@@ -105,9 +110,9 @@ test('site metadata exposes opt-in policy and default-off grants need neither a 
 
 test('enabled pool cannot be downgraded and repeated enabled initialization retains its original enforcing handler',async()=>{
   assert.throws(()=>createApp(pool,origin,'local',{skillBookStarGateEnabled:false}),/skill_book_star_gate_pool_policy_conflict/);
-  assert.throws(()=>configureBookStarGate(offPool,async()=>{}),/skill_book_star_gate_pool_policy_conflict/);
+  assert.throws(()=>configureBookStarGate(offPool,async()=>async()=>{}),/skill_book_star_gate_pool_policy_conflict/);
   let replacementCalled=false;
-  configureBookStarGate(pool,async()=>{replacementCalled=true;});
+  configureBookStarGate(pool,async()=>{replacementCalled=true;return async()=>{};});
   await rejectsUnchanged(()=>changeGuildMembership(pool,cmd(actor,'immutable-join'),guild,'join'),'github_connect_required');
   assert.equal(replacementCalled,false);assert.equal(mock.calls.length,0);
 });
@@ -209,3 +214,75 @@ for(const path of ['admin-master','admin-expert','master-expert'] as const){
     assert.ok(starCalls().length>0);assert.ok(mock.calls.every(call=>call.method==='GET'));
   });
 }
+
+
+test('rejected live Star checks retain their consumed attempt budget',async()=>{
+  await connect();
+  for(let i=0;i<2;i++)await assert.rejects(changeGuildMembership(pool,cmd(actor,'budget-rejected-'+i),guild,'join'),code('skill_book_star_required'));
+  const row=(await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='skill-book-star-check'",[actor.user_id])).rows[0];
+  assert.equal(row?.attempts,2);
+  await pool.query("UPDATE github_social_rate_limits SET attempts=30 WHERE user_id=$1 AND operation='skill-book-star-check'",[actor.user_id]);mock.calls=[];
+  await assert.rejects(changeGuildMembership(pool,cmd(actor,'budget-exhausted'),guild,'join'),code('github_rate_limited'));
+  assert.equal(mock.calls.length,0);
+  assert.equal((await pool.query("SELECT attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='skill-book-star-check'",[actor.user_id])).rows[0].attempts,31);
+});
+
+test('a refreshed credential survives an unstarred business rollback',async()=>{
+  mock.expiresIn=30;await connect();
+  const before=(await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens;
+  await assert.rejects(changeGuildMembership(pool,cmd(actor,'refresh-denied'),guild,'join'),code('skill_book_star_required'));
+  assert.equal(mock.refreshes,1);
+  assert.notEqual((await pool.query('SELECT encrypted_tokens FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].encrypted_tokens,before);
+  assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE user_id=$1',[actor.user_id])).rows[0].count,'0');
+});
+
+test('invalid credentials remain disconnected after a rejected grant',async()=>{
+  await connect();mock.status=401;
+  await assert.rejects(changeGuildMembership(pool,cmd(actor,'invalid-credential'),guild,'join'),code('github_reconnect_required'));
+  assert.equal((await pool.query('SELECT count(*) FROM github_social_connections WHERE user_id=$1',[actor.user_id])).rows[0].count,'0');
+});
+
+test('a one-connection host loads stored configuration without waiting for its own transaction',async()=>{
+  const one=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:1,connectionTimeoutMillis:300});
+  try{
+    createApp(one,origin,'local',{skillBookStarGateEnabled:true,githubSocial:{tokenKey:config.tokenKey,fetcher}});
+    await assert.rejects(changeGuildMembership(one,cmd(actor,'single-config'),guild,'join'),code('github_not_configured'));
+  }finally{await one.end();}
+});
+
+async function afterPrepared(change:()=>Promise<void>,run:()=>Promise<void>){
+  const original=GitHubSocial.prototype.prepareBookStars;
+  GitHubSocial.prototype.prepareBookStars=async function(...args){const check=await original.apply(this,args);await change();return check;};
+  try{await run();}finally{GitHubSocial.prototype.prepareBookStars=original;}
+}
+test('final grant rechecks the session after provider preparation and leaves no business effects',async()=>{
+  await connect();mock.starred=true;
+  await afterPrepared(async()=>{await pool.query('UPDATE sessions SET revoked_at=now() WHERE token_hash=$1',[actor.session_hash]);},async()=>{
+    await rejectsUnchanged(()=>changeGuildMembership(pool,cmd(actor,'revoked-after-provider'),guild,'join'),'session_expired');
+  });
+});
+test('final grant rejects a connection disconnected after the provider check',async()=>{
+  await connect();mock.starred=true;
+  await afterPrepared(()=>social.disconnect(actor).then(()=>{}),async()=>{
+    await assert.rejects(changeGuildMembership(pool,cmd(actor,'disconnect-after-provider'),guild,'join'),code('skill_book_star_check_changed'));
+  });
+  assert.equal(await membership(),undefined);
+  assert.equal((await pool.query('SELECT count(*) FROM member_skill_book_grants WHERE user_id=$1',[actor.user_id])).rows[0].count,'0');
+});
+test('final grant rejects a later platform Star write even with the same credential',async()=>{
+  await connect();mock.starred=true;
+  await afterPrepared(async()=>{await pool.query("INSERT INTO github_social_rate_limits(user_id,operation,window_start,attempts) VALUES($1,'star-write',now(),1)",[actor.user_id]);},async()=>{
+    await rejectsUnchanged(()=>changeGuildMembership(pool,cmd(actor,'changed-star-write'),guild,'join'),'skill_book_star_check_changed');
+  });
+});
+test('a one-connection configured host grants atomically and receipt replay skips provider I/O',async()=>{
+  const one=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,max:1,connectionTimeoutMillis:300});
+  try{
+    createApp(one,origin,'local',{skillBookStarGateEnabled:true,githubSocial:{config,fetcher}});
+    await connect();mock.starred=true;const input=cmd(actor,'single-success');
+    const first=await changeGuildMembership(one,input,guild,'join');await assertGranted();
+    mock.failure=true;mock.calls=[];
+    assert.deepEqual(await changeGuildMembership(one,input,guild,'join'),JSON.parse(JSON.stringify(first)));
+    assert.equal(mock.calls.length,0);
+  }finally{await one.end();}
+});

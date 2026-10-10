@@ -1,3 +1,4 @@
+import {withBookStarChecks} from './onboarding.js';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
@@ -55,9 +56,9 @@ export async function listGuilds(pool:Pool,actor:Actor) {
 }
 export async function changeGuildMembership(pool:Pool,input:Command,guildKey:string,action:'join'|'leave') {
   z.object({}).strict().parse(input.body);
-  return command(pool,input,async q=>{
+  return withBookStarChecks(pool,run=>command(pool,input,async q=>{
     requireCondition((await q.query('SELECT 1 FROM positioning_guild_catalog WHERE guild_key=$1',[guildKey])).rowCount===1,404,'guild_not_found','找不到這個公會。');
-  },async q=>{
+  },run),async q=>{
     await lockGuildCatalogShared(q);
     await lockMemberGuilds(q,input.actor);
     const switched=await communitySwitched(q,input.actor.community_id);

@@ -204,27 +204,48 @@ export class GitHubSocial {
     try{return await run(await this.access(q,actor,connection));}
     catch(error){if(error instanceof Problem&&error.code==='github_reconnect_required')await q.query('DELETE FROM github_social_connections WHERE user_id=$1',[actor.user_id]);throw error;}
   }
-  /** Same transaction as the grant/promotion; caller holds member-guild locks. */
-  async requireBookStars(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,bookIds:string[]){
-    if(!bookIds.length)return;
+  /** No business transaction is held while loading/refreshing provider credentials. */
+  async prepareBookStars(actor:Pick<Actor,'community_id'|'user_id'>,bookIds:string[]):Promise<(q:PoolClient,books:string[])=>Promise<void>>{
     this.configured();
-    await lockGitHubSocialMember(q,actor.user_id);
-    const connection=await this.connection(q,actor);
-    requireCondition(connection,409,'github_connect_required','領取技能書或晉升前，請先連結本人的 GitHub，再為公會指定的原作 Repo 加星。');
-    await this.rate(q,actor,'skill-book-star-check',30);
-    await this.withToken(q,actor,connection,async token=>{
-      const identity=await this.provider.identity(token);
-      requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
-      const repositories=new Set<string>();
-      for(const bookId of bookIds){
-        const book=upstream(bookId);
-        if(repositories.has(book.repository.toLowerCase()))continue;
-        repositories.add(book.repository.toLowerCase());
-        await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
-        const starred=await this.provider.starred(book.repository,token);
-        requireCondition(starred,409,'skill_book_star_required',`領取技能書或晉升前，請先為 ${book.repository} 加星。可在公會技能書的 Star 按鈕一鍵加星，再重試；不會自動替你加星。`);
+    const books=new Set(bookIds);
+    const starRevision=async(q:PoolClient)=>JSON.stringify((await q.query("SELECT window_start::text,attempts FROM github_social_rate_limits WHERE user_id=$1 AND operation='star-write'",[actor.user_id])).rows[0]??null);
+    const result=await transaction(this.pool,async q=>{
+      requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active FOR SHARE',[actor.user_id,actor.community_id])).rowCount===1,401,'session_expired','請重新登入。');
+      await lockGitHubSocialMember(q,actor.user_id);
+      try{
+        const connection=await this.connection(q,actor);
+        requireCondition(connection,409,'github_connect_required','領取技能書或晉升前，請先連結本人的 GitHub，再為公會指定的原作 Repo 加星。');
+        await this.rate(q,actor,'skill-book-star-check',30);
+        await this.withToken(q,actor,connection,async token=>{
+          const identity=await this.provider.identity(token);
+          requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+          const repositories=new Set<string>();
+          for(const bookId of books){
+            const book=upstream(bookId);
+            if(repositories.has(book.repository.toLowerCase()))continue;
+            repositories.add(book.repository.toLowerCase());
+            await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${book.repository.toLowerCase()}`]);
+            const starred=await this.provider.starred(book.repository,token);
+            requireCondition(starred,409,'skill_book_star_required',`領取技能書或晉升前，請先為 ${book.repository} 加星。可在公會技能書的 Star 按鈕一鍵加星，再重試；不會自動替你加星。`);
+          }
+        });
+        return {connection:await this.connection(q,actor),revision:await starRevision(q)};
+      }catch(error){
+        // Rejected checks still consume attempts. Provider-side token rotation
+        // or invalid-token deletion cannot be undone with a later guild rollback.
+        if(error instanceof Problem)return {error};
+        throw error;
       }
     });
+    if('error' in result)throw result.error;
+    return async(q,currentBooks)=>{
+      await lockGitHubSocialMember(q,actor.user_id);
+      const current=await this.connection(q,actor);
+      requireCondition(current&&current.github_user_id===result.connection?.github_user_id
+        &&current.encrypted_tokens===result.connection?.encrypted_tokens
+        &&await starRevision(q)===result.revision&&currentBooks.every(book=>books.has(book)),
+        409,'skill_book_star_check_changed','公會技能書或 GitHub 連線已變更，請重試。');
+    };
   }
   async starred(actor:Actor,bookId:string){
     const book=upstream(bookId);

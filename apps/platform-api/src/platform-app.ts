@@ -164,9 +164,9 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const secureCookies=freedomEnv!=='local';
   const COOKIE=sessionCookieName(origin);
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
-  configureBookStarGate(pool,runtime.skillBookStarGateEnabled===true?async(q,actor,books)=>{
+  configureBookStarGate(pool,runtime.skillBookStarGateEnabled===true?async(actor,books)=>{
     const social=await loadSocial();
-    await social.requireBookStars(q,actor,books);
+    return social.prepareBookStars(actor,books);
   }:undefined);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const pageGitHub=new PageGitHubReader(pool);

@@ -39,7 +39,10 @@ export async function listGuildSkillBooks(q:Queryable,communityId:string,guildKe
  for(const binding of bound){const book=communityCatalog.skill_books.find(book=>book.id===binding.book_id);if(book)books.set(book.id,book);}
  return [...books.values()];
 }
-type BookStarGate=(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,bookIds:string[])=>Promise<void>;
+type BookStarActor=Pick<Actor,'community_id'|'user_id'>;
+type BookStarProof=(q:PoolClient,bookIds:string[])=>Promise<void>;
+type BookStarGate=(actor:BookStarActor,bookIds:string[])=>Promise<BookStarProof>;
+const bookStarChecks=new WeakMap<PoolClient,(actor:BookStarActor,bookIds:string[])=>Promise<void>>();
 const bookStarGates=new WeakMap<Pool,{gate:BookStarGate|undefined}>();
 /** Host-owned policy; scoped to the pool, never selected by a command body. */
 export function configureBookStarGate(pool:Pool,gate:BookStarGate|undefined){
@@ -50,13 +53,52 @@ export function configureBookStarGate(pool:Pool,gate:BookStarGate|undefined){
  }
  bookStarGates.set(pool,{gate});
 }
-export async function assertGuildBookStars(pool:Pool,q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,guildKey:string){
- const gate=bookStarGates.get(pool)?.gate;
- if(gate)await gate(q,actor,(await listGuildSkillBooks(q,actor.community_id,guildKey)).map(book=>book.id));
+/** The first authorized command gathers every required book and rolls back. After
+ * releasing its connection, provider checks commit only credential/rate state.
+ * The final command repeats authorization, versions and receipt checks, and holds
+ * the credential fence through the atomic membership/grant/receipt commit. */
+export async function withBookStarChecks<T>(pool:Pool,operation:<R>(write:(q:PoolClient)=>Promise<R>)=>Promise<R>,write:(q:PoolClient)=>Promise<T>):Promise<T>{
+ const prepare=bookStarGates.get(pool)?.gate;
+ if(!prepare)return operation(write);
+ const needed=new Error('book_star_preparation_required');
+ const plans=new Map<string,{actor:BookStarActor;books:Set<string>}>();
+ const key=(actor:BookStarActor)=>actor.community_id+'/'+actor.user_id;
+ const execute=(proofs?:Map<string,BookStarProof>)=>operation(async q=>{
+   bookStarChecks.set(q,async(actor,books)=>{
+     if(!books.length)return;
+     if(proofs){
+       const proof=proofs.get(key(actor));
+       requireCondition(proof,409,'skill_book_star_check_changed','公會技能書或 GitHub 連線已變更，請重試。');
+       await proof(q,books);
+     }else{
+       let plan=plans.get(key(actor));
+       if(!plan){plan={actor,books:new Set()};plans.set(key(actor),plan);}
+       for(const book of books)plan.books.add(book);
+     }
+   });
+   try{
+     const result=await write(q);
+     if(!proofs&&plans.size)throw needed;
+     return result;
+   }finally{bookStarChecks.delete(q);}
+ });
+ try{return await execute();}catch(error){if(error!==needed)throw error;}
+ const proofs=new Map<string,BookStarProof>();
+ for(const [id,plan] of plans)proofs.set(id,await prepare(plan.actor,[...plan.books]));
+ return execute(proofs);
 }
-export async function grantGuildBooks(pool:Pool,q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,guildKey:string){
- const books=await listGuildSkillBooks(q,actor.community_id,guildKey),gate=bookStarGates.get(pool)?.gate;
- if(gate)await gate(q,actor,books.map(book=>book.id));
+async function requireBookStars(pool:Pool,q:PoolClient,actor:BookStarActor,books:string[]){
+ if(!bookStarGates.get(pool)?.gate)return;
+ const check=bookStarChecks.get(q);
+ if(!check)throw new Error('book_star_command_scope_required');
+ await check(actor,books);
+}
+export async function assertGuildBookStars(pool:Pool,q:PoolClient,actor:BookStarActor,guildKey:string){
+ await requireBookStars(pool,q,actor,(await listGuildSkillBooks(q,actor.community_id,guildKey)).map(book=>book.id));
+}
+export async function grantGuildBooks(pool:Pool,q:PoolClient,actor:BookStarActor,guildKey:string){
+ const books=await listGuildSkillBooks(q,actor.community_id,guildKey);
+ await requireBookStars(pool,q,actor,books.map(book=>book.id));
  for(const book of books)await q.query(`INSERT INTO member_skill_book_grants(grant_id,community_id,user_id,guild_key,book_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[randomUUID(),actor.community_id,actor.user_id,guildKey,book.id]);
 }
 export async function assertCanLeaveGuild(q:PoolClient,actor:Actor,guildKey:string){
@@ -203,7 +245,7 @@ async function joinInTransaction(pool:Pool,q:PoolClient,actor:Actor,guildKey:str
 export async function completeOnboarding(pool:Pool,input:Command){
  const body=CompleteInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主力公會必須是你這次選擇加入的公會。');
- return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+ return withBookStarChecks(pool,run=>command(pool,{...input,lockUser:true},async()=>{},run),async q=>{
    await lockGuildCatalogShared(q);
    const current=await currentAssessment(q,input);
    requireCondition(current.state==='evaluated'&&current.result,409,'assessment_not_evaluated','請先完成定位並查看公會建議。');
@@ -220,7 +262,7 @@ export async function completeOnboarding(pool:Pool,input:Command){
 export async function quickStartOnboarding(pool:Pool,input:Command){
  const body=QuickStartInput.parse(input.body);
  requireCondition(body.guild_keys.includes(body.primary_guild_key),422,'primary_guild_not_selected','主要公會必須是你選擇加入的公會。');
- return command(pool,{...input,lockUser:true},async()=>{},async q=>{
+ return withBookStarChecks(pool,run=>command(pool,{...input,lockUser:true},async()=>{},run),async q=>{
    await lockGuildCatalogShared(q);
    await lockMemberGuilds(q,input.actor);
    const user=(await q.query('SELECT onboarding_completed_at FROM users WHERE user_id=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0];

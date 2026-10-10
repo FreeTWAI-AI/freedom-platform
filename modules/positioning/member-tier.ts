@@ -1,3 +1,4 @@
+import {withBookStarChecks} from './onboarding.js';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
 import {checkVersion,command,journal,type Command} from '../../packages/db/index.js';
@@ -55,10 +56,10 @@ const TierInput=z.object({member_tier:z.enum(['intern','full'])}).strict();
 export async function setMemberTier(pool:Pool,input:Command,key:string,userId:string){
   guildKey.parse(key);z.uuid().parse(userId);
   const body=TierInput.parse(input.body);
-  return command(pool,input,async q=>{
+  return withBookStarChecks(pool,run=>command(pool,input,async q=>{
     await requireCurrentMaster(q,input.actor.community_id,input.actor.user_id,key);
     requireCondition(userId!==input.actor.user_id,409,'guild_member_tier_self',GUILD_MEMBER_TIER_SELF);
-  },async q=>{
+  },run),async q=>{
     await lockMemberGuilds(q,input.actor);
     const master=(await q.query("SELECT state FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE",[input.actor.community_id,input.actor.user_id,key])).rows[0];
     requireCondition(master?.state==='active',403,'guild_leader_required',GUILD_LEADER_REQUIRED);
@@ -84,11 +85,11 @@ const MasterExpertInput=z.object({user_id:z.uuid(),active:z.boolean(),reason:z.s
 export async function setGuildExpertByMaster(pool:Pool,input:Command,key:string){
   guildKey.parse(key);
   const body=MasterExpertInput.parse(input.body);
-  return command(pool,input,async q=>{
+  return withBookStarChecks(pool,run=>command(pool,input,async q=>{
     await requireCurrentMaster(q,input.actor.community_id,input.actor.user_id,key);
     requireCondition(body.user_id!==input.actor.user_id,409,'guild_expert_self',GUILD_EXPERT_SELF);
     await authorizeGuildAppointee(q,input.actor,body.user_id,key,body.active);
-  },async q=>{
+  },run),async q=>{
     await lockMemberGuilds(q,input.actor);
     const master=(await q.query("SELECT state FROM positioning_profession_memberships WHERE community_id=$1 AND user_id=$2 AND guild_key=$3 FOR UPDATE",[input.actor.community_id,input.actor.user_id,key])).rows[0];
     requireCondition(master?.state==='active',403,'guild_leader_required',GUILD_LEADER_REQUIRED);
