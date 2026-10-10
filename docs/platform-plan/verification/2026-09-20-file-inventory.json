@@ -524,8 +524,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/hosted-store.ts",
-      "bytes": 7834,
-      "sha256": "121dd10cf6d5eb026eb8d3aae787b313224a10fbab880115f901ed4846b3d7c8"
+      "bytes": 8107,
+      "sha256": "c9a384462e9560244b1bd7e64177e4e87064ebe4b8c51d3fbb5ef227d9c0a669"
     },
     {
       "path": "apps/platform-api/src/routes/machine-model-http.ts",
@@ -2319,8 +2319,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/HostedStore.tsx",
-      "bytes": 33393,
-      "sha256": "fb0ccc51053aa560c9a64e06538a2aee87d45fd6297f03685c724548d5bdcf10"
+      "bytes": 33681,
+      "sha256": "cddb3751e2b188188c2fffaaa1dddb698daf4ed070b7f4691b1a4d66f4b39299"
     },
     {
       "path": "apps/portal-web/src/modules/HostedStorePhoto.tsx",
@@ -2499,8 +2499,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MyStoreAction.tsx",
-      "bytes": 2445,
-      "sha256": "c46252698d67efa1670068c32926b31d3f3826a86da3d77672e1d04be1216506"
+      "bytes": 3899,
+      "sha256": "3b494424600ddf3843ca4d3d1640486a997b861152f7acfef78b00df6165dbff"
     },
     {
       "path": "apps/portal-web/src/modules/NotificationBell.css",
@@ -12678,6 +12678,11 @@
       "sha256": "190495cb5e0f6a1cd07d1d8436eb1f02e763c03b5932668528b2b69bedc11c12"
     },
     {
+      "path": "contracts/guild-launchpad/v1/storefront-pagination.ts",
+      "bytes": 773,
+      "sha256": "7652a4611941719d2e15e52713c2603e2a1e8b0dfa65d1548a81a912f64acf05"
+    },
+    {
       "path": "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
       "bytes": 2360,
       "sha256": "9d77626f85dbde565d0d9005e957c2422c7e46096d65ed22be961d9db8973160"
@@ -16314,8 +16319,8 @@
     },
     {
       "path": "modules/agent-commerce/README.md",
-      "bytes": 23075,
-      "sha256": "548c660e5e6c4476c32d4ff8b8024c98eb10c3b57b7b543798a3721cfa08ccc2"
+      "bytes": 23935,
+      "sha256": "a994b3f8a86254a68780455cb1d8991ed82f5f710163314d388895829b255713"
     },
     {
       "path": "modules/agent-commerce/distribution.ts",
@@ -16324,8 +16329,8 @@
     },
     {
       "path": "modules/agent-commerce/freedom.module.json",
-      "bytes": 8421,
-      "sha256": "1e68f56b9dde475519319924c69bb68e0b7512151ba3cae447e37c1f30cca86d"
+      "bytes": 8594,
+      "sha256": "49c5c319721547d7f7155094f856a7bb7d7fc110b43ea1f66467060c17537b28"
     },
     {
       "path": "modules/agent-commerce/imports.ts",
@@ -16479,8 +16484,8 @@
     },
     {
       "path": "modules/agent-commerce/hosted/store.ts",
-      "bytes": 16868,
-      "sha256": "f47d2e03aba8f3452cc6e73b68ffc3ca5f5b951594f5c29523078a9bb6ac15ed"
+      "bytes": 17276,
+      "sha256": "c3ee7194f526fd739a09243405a41ec0524213364e80aa30934fd59a333f58c2"
     },
     {
       "path": "modules/agent-commerce/hosted/supply-terms.md",
@@ -19933,6 +19938,11 @@
       "sha256": "72cba223e90cc95fd0411fdf6644a88481d73d722381b32246eda6c5931ec411"
     },
     {
+      "path": "tests/e2e/hosted-store-pagination.spec.ts",
+      "bytes": 4139,
+      "sha256": "b1a86ca8b3f378fea169c7229f879f026d089d983b4563c10cb145d980a19455"
+    },
+    {
       "path": "tests/e2e/hosted-store-photo.spec.ts",
       "bytes": 15293,
       "sha256": "71e695a02591299151e5edcf79705013916599d4f57a794ad8302ff6e33e0b74"
@@ -21033,6 +21043,11 @@
       "sha256": "20dfb968c1825bd290f2eeb0b353ffe23bde178d68cb04d7f998c4f1d3fb5fd2"
     },
     {
+      "path": "tests/runtime/hosted-store-pagination-contracts.test.ts",
+      "bytes": 2526,
+      "sha256": "311fb64d5e787db203c250094463e77c3b1edba789cdeb5db2a379254382b6e8"
+    },
+    {
       "path": "tests/runtime/hosted-store-photo-state.test.ts",
       "bytes": 7311,
       "sha256": "df65c1108ddad44875013d903a417b2edb245943be2bf8e839b40783c8811571"
@@ -21044,8 +21059,8 @@
     },
     {
       "path": "tests/runtime/hosted-store.test.ts",
-      "bytes": 67562,
-      "sha256": "413e1055107fb60f65611d4a86e50a9d0f4271438a25cb741d2e3cf018fc1d79"
+      "bytes": 70255,
+      "sha256": "153d8dd8771060e5eaf0f6e0580c603da2f66c41c9ceebb76489d74682aa9d4f"
     },
     {
       "path": "tests/runtime/identity-member.test.ts",

@@ -1,7 +1,35 @@
 {
+  "client_profiles": [
+    "member",
+    "shop-api"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands",
+    "development",
+    "module-registry",
+    "shared"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "modules/agent-commerce/hosted/supply-terms.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "service-is-not-owner-person",
+    "purpose-and-environment-bound-key",
+    "single-transaction-effects",
+    "legacy-domain-replay-compatibility",
+    "explicit-readonly-target"
+  ],
   "module_id": "agent-commerce",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/agent-commerce/**",
     "apps/platform-api/src/routes/agent-commerce.ts",
@@ -63,44 +91,16 @@
     "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
     "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
     "tests/e2e/hosted-supply-terms.spec.ts",
-    "tests/runtime/hosted-order-navigation.test.ts"
+    "tests/runtime/hosted-order-navigation.test.ts",
+    "contracts/guild-launchpad/v1/storefront-pagination.ts",
+    "tests/runtime/hosted-store-pagination-contracts.test.ts",
+    "tests/e2e/hosted-store-pagination.spec.ts"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/agent-commerce/orders.ts",
     "modules/agent-commerce/service-command.ts",
     "modules/agent-commerce/key-exit.ts"
-  ],
-  "dependencies": [
-    "command-core",
-    "resource-scopes",
-    "scoped-commands",
-    "development",
-    "module-registry",
-    "shared"
-  ],
-  "contract_families": [
-    "common"
-  ],
-  "client_profiles": [
-    "member",
-    "shop-api"
-  ],
-  "instructions": [
-    "modules/agent-commerce/README.md",
-    "packages/resource-scopes/README.md",
-    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
-    "modules/agent-commerce/hosted/supply-terms.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "service-is-not-owner-person",
-    "purpose-and-environment-bound-key",
-    "single-transaction-effects",
-    "legacy-domain-replay-compatibility",
-    "explicit-readonly-target"
-  ],
-  "tests": [
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -244,5 +244,8 @@
       ],
       "auth_profile": "member-session"
     }
+  ],
+  "tests": [
+    "runtime.full"
   ]
 }
