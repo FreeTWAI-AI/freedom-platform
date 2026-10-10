@@ -193,13 +193,13 @@ export async function eventAttendees(pool:Pool,actor:Actor,id:string,raw:unknown
   const row=await scopedEvent(q,actor,id,true);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看報名名單。');
   const rows=(await q.query(`WITH going AS (
-      SELECT 'member' AS kind,r.user_id,r.updated_at AS registered_at FROM community_event_rsvps r
+      SELECT 'member' AS kind,r.user_id,r.updated_at AS registered_at,r.user_id::text AS registration_key FROM community_event_rsvps r
         WHERE r.event_id=$1 AND r.state='going' AND NOT is_verification_test_account(r.user_id)
       UNION ALL
-      SELECT 'guest',NULL,g.created_at FROM community_event_guest_rsvps g WHERE g.event_id=$1 AND g.email_sent_at IS NOT NULL)
+      SELECT 'guest',NULL,g.created_at,g.email FROM community_event_guest_rsvps g WHERE g.event_id=$1 AND g.email_sent_at IS NOT NULL)
     SELECT g.kind,g.user_id,g.registered_at,u.display_name,a.aggregate_version AS avatar_version,a.present AS avatar_present,count(*) OVER() AS total
     FROM going g LEFT JOIN users u ON u.user_id=g.user_id LEFT JOIN member_avatar_presence a ON a.user_id=g.user_id AND a.community_id=$2
-    ORDER BY g.registered_at,g.user_id NULLS LAST LIMIT $3 OFFSET $4`,[id,actor.community_id,limit+1,offset])).rows;
+    ORDER BY g.registered_at,g.user_id NULLS LAST,g.registration_key LIMIT $3 OFFSET $4`,[id,actor.community_id,limit+1,offset])).rows;
   const total=rows.length?Number(rows[0].total):(await q.query(`SELECT
     (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
     (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NOT NULL) AS total`,[id])).rows[0].total;

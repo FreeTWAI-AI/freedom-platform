@@ -98,6 +98,21 @@ test('pages are stable and verification-only test accounts are excluded like the
   assert.deepEqual(all.map(item=>item.registered_at),[...all.map(item=>item.registered_at)].sort());
 });
 
+test('same-time guest registrations cross page boundaries without exposing their private tie-breaker',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1),id=await publishedEvent(owner,reviewer);
+  await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,email_sent_at,created_at)
+    SELECT $1,email,'private guest',clock_timestamp(),timestamptz '2026-10-01T00:00:00Z'
+    FROM unnest(ARRAY['c-private@example.org','a-private@example.org','b-private@example.org']) AS email`,[id]);
+  const items:Attendee[]=[];
+  for(let offset=0;offset<3;offset++){
+    const page=await request<Page>(`/events/${id}/attendees?limit=1&offset=${offset}`,owner);
+    assert.equal(page.status,200);assert.equal(page.data.total,3);assert.equal(page.data.items.length,1);
+    assert.equal(page.data.next_offset,offset===2?null:offset+1);items.push(...page.data.items);
+  }
+  for(const item of items)assert.deepEqual(Object.keys(item).sort(),['kind','registered_at']);
+  assert.doesNotMatch(JSON.stringify(items),/private|email|registration_key/);
+});
+
 // Private domain reads must fence the session again after a real database wait.
 const sessionExpired=(error:unknown)=>!!error&&typeof error==='object'&&'code' in error&&error.code==='session_expired';
 async function waitForAttendeeLock(application:string){

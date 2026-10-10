@@ -17039,8 +17039,8 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 52214,
-      "sha256": "6b95c728642244e8ab55a09ec5158d2ad5817856497e4c53a742c11f92a96551"
+      "bytes": 52277,
+      "sha256": "cd2fd975ca4a46ba7a041827ed0bec6d393fe4d31da10b1881df5c9234fe3ab7"
     },
     {
       "path": "modules/community/freedom.module.json",
@@ -20679,8 +20679,8 @@
     },
     {
       "path": "tests/runtime/event-attendees.test.ts",
-      "bytes": 11782,
-      "sha256": "1cdcdceffddaa436cbe5a49624203b300381a65a2abc3b65140089a82366cd6d"
+      "bytes": 12847,
+      "sha256": "e0edf259e89ecc11296a7f24eb5c3ab072a33a670208696e07f2ed40d38f5cd5"
     },
     {
       "path": "tests/runtime/event-banner-assets.test.ts",
