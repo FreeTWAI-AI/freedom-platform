@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {closeableIssues, reconcileIssueClosures} from './reconcile-issue-closures.mjs';
+import {readFileSync} from 'node:fs';
+import {issueClosureCandidates, reportIssueClosureCandidates} from './reconcile-issue-closures.mjs';
 
 const repository = 'FreeTWAI-AI/freedom-platform';
 const issues = [
@@ -12,7 +13,7 @@ const issues = [
   {number: 17, state: 'open', updated_at: '2026-10-01T00:00:00Z'},
 ];
 
-test('only closes open issues explicitly completed by a merged PR on the default branch', () => {
+test('reports only open issues referenced by merged default-branch PR closing keywords', () => {
   const pulls = [
     {number: 40, title: 'Fixes #12', body: 'Closes #14', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 41, title: 'Work mentions #13', body: 'Resolves #13', merged_at: null, base: {ref: 'main'}},
@@ -24,15 +25,15 @@ test('only closes open issues explicitly completed by a merged PR on the default
     {number: 47, title: 'Code example', body: '```text\nCloses #17\n```', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
     {number: 48, title: 'Indented code example', body: '    Closes #17', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}},
   ];
-  assert.deepEqual(closeableIssues(issues, pulls, repository, 'main'), [
-    {issueNumber: 12, pullNumber: 40},
-    {issueNumber: 14, pullNumber: 40},
-    {issueNumber: 15, pullNumber: 45},
+  assert.deepEqual(issueClosureCandidates(issues, pulls, repository, 'main'), [
+    {issueNumber: 12, pullNumber: 40, requiresReview: true},
+    {issueNumber: 14, pullNumber: 40, requiresReview: true},
+    {issueNumber: 15, pullNumber: 45, requiresReview: true},
   ]);
 });
 
-test('does not re-close an issue updated after the closing PR merged', () => {
-  const candidate = closeableIssues(
+test('does not list an issue updated after the matching PR merged', () => {
+  const candidate = issueClosureCandidates(
     [{number: 12, state: 'open', updated_at: '2026-10-03T00:00:00Z'}],
     [{number: 40, body: 'Fixes #12', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}],
     repository,
@@ -41,7 +42,7 @@ test('does not re-close an issue updated after the closing PR merged', () => {
   assert.deepEqual(candidate, []);
 });
 
-test('dry-run scans issues and merged PRs without writing state', async () => {
+test('default invocation reports candidates without writing state', async () => {
   const calls = [];
   const fetcher = async (url, init = {}) => {
     calls.push({url: String(url), method: init.method ?? 'GET'});
@@ -52,32 +53,63 @@ test('dry-run scans issues and merged PRs without writing state', async () => {
         : [{number: 40, title: 'Fixes #12', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}];
     return new Response(JSON.stringify(data), {status: 200, headers: {'Content-Type': 'application/json'}});
   };
-  const result = await reconcileIssueClosures({fetcher, token: 'test-token', repository, dryRun: true});
+  const result = await reportIssueClosureCandidates({fetcher, token: 'test-token', repository});
   assert.deepEqual(result, {
     scannedIssues: 1,
     scannedPullRequests: 1,
-    dryRun: true,
-    closed: [{issueNumber: 12, pullNumber: 40}],
+    mode: 'report-only',
+    candidates: [{issueNumber: 12, pullNumber: 40, requiresReview: true}],
   });
   assert.equal(calls.length, 3);
   assert.ok(calls.every((call) => call.method === 'GET'));
 });
 
-test('closes a completed issue with the merged PR evidence', async () => {
-  const writes = [];
+test('post-merge PR text edits remain unverified hints and cannot close an issue', async () => {
+  const calls = [];
   const fetcher = async (url, init = {}) => {
-    if (init.method === 'PATCH') writes.push({url: String(url), body: JSON.parse(init.body)});
+    calls.push({url: String(url), method: init.method ?? 'GET'});
     const data = String(url).endsWith(`/repos/${repository}`)
       ? {default_branch: 'main'}
       : String(url).includes('/issues?')
         ? [{number: 12, state: 'open', updated_at: '2026-10-01T00:00:00Z'}]
-        : [{number: 40, title: 'Fixes #12', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}];
-    return new Response(JSON.stringify(data), {status: 200, headers: {'Content-Type': 'application/json'}});
+        : [{number: 40, title: 'Unrelated implementation', body: 'Fixes #12',
+            merged_at: '2026-10-02T00:00:00Z', updated_at: '2026-10-05T00:00:00Z', base: {ref: 'main'}}];
+    return new Response(JSON.stringify(data), {status: 200});
   };
-  const result = await reconcileIssueClosures({fetcher, token: 'test-token', repository});
-  assert.deepEqual(result.closed, [{issueNumber: 12, pullNumber: 40}]);
-  assert.deepEqual(writes, [{
-    url: `https://api.github.com/repos/${repository}/issues/12`,
-    body: {state: 'closed', state_reason: 'completed'},
-  }]);
+  // Even an old caller explicitly disabling dry-run cannot restore mutation.
+  const result = await reportIssueClosureCandidates({fetcher, token: 'test-token', repository, dryRun: false});
+  assert.equal(result.mode, 'report-only');
+  assert.deepEqual(result.candidates, [{issueNumber: 12, pullNumber: 40, requiresReview: true}]);
+  assert.equal(Object.hasOwn(result, 'closed'), false);
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every((call) => call.method === 'GET'));
+});
+
+test('an issue reopened after the scan is never overwritten', async () => {
+  const currentIssue = {number: 12, state: 'open', updated_at: '2026-10-01T00:00:00Z'};
+  const calls = [];
+  const fetcher = async (url, init = {}) => {
+    calls.push(init.method ?? 'GET');
+    if (String(url).endsWith(`/repos/${repository}`)) return Response.json({default_branch: 'main'});
+    if (String(url).includes('/issues?')) {
+      const response = Response.json([currentIssue]);
+      // The fetched snapshot is now stale: a human reopened the issue.
+      currentIssue.updated_at = '2026-10-05T00:00:00Z';
+      return response;
+    }
+    return Response.json([{number: 40, body: 'Closes #12', merged_at: '2026-10-02T00:00:00Z', base: {ref: 'main'}}]);
+  };
+  const result = await reportIssueClosureCandidates({fetcher, token: 'test-token', repository});
+  assert.deepEqual(result.candidates, [{issueNumber: 12, pullNumber: 40, requiresReview: true}]);
+  assert.deepEqual(calls, ['GET', 'GET', 'GET']);
+  assert.equal(currentIssue.state, 'open');
+  assert.equal(currentIssue.updated_at, '2026-10-05T00:00:00Z');
+});
+
+test('scheduled and manual workflow credentials remain read-only', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/reconcile-issue-closures.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /issues: read/u);
+  assert.match(workflow, /pull-requests: read/u);
+  assert.doesNotMatch(workflow, /:\s*write\b|write-all|DRY_RUN|dry_run/u);
+  assert.match(workflow, /persist-credentials: false/u);
 });

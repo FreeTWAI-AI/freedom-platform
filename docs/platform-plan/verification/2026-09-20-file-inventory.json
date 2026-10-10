@@ -129,8 +129,8 @@
     },
     {
       "path": ".github/workflows/reconcile-issue-closures.yml",
-      "bytes": 1066,
-      "sha256": "1b7ae79efd2f8620447b3101638db74fa79b15656714dd435fba5ffce2008eb3"
+      "bytes": 879,
+      "sha256": "224172458ff0d748895e278a988d83166cc567c64568c3f6f9874da5400874ca"
     },
     {
       "path": ".github/workflows/skill-book-upstreams.yml",
@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/development/github-issue-automation.md",
-      "bytes": 1118,
-      "sha256": "b8e0e168a12dffa7823ff8fa45d13fa85900eab11f1f1b9f1441c9396d990fed"
+      "bytes": 1623,
+      "sha256": "9642433788f8957056a13d4aae90f2d3884ae9742c971429ab66a5b4f5ca63c1"
     },
     {
       "path": "docs/development/github-social.md",
@@ -19494,13 +19494,13 @@
     },
     {
       "path": "scripts/reconcile-issue-closures.mjs",
-      "bytes": 4827,
-      "sha256": "994a4d16cfaf9bcd9a452ec4156a6f878cf5522e75354bd6bc3397b400776952"
+      "bytes": 4586,
+      "sha256": "b9101888beab4ebcdfeb32d2f5d547a4677703983ee474bb6b9c4abdb46c17e9"
     },
     {
       "path": "scripts/reconcile-issue-closures.test.mjs",
-      "bytes": 4373,
-      "sha256": "8a86823e0a6f6223c0d0fb3809e1e0ef9ae7f7ff3f44af3b736124a21d3ed5bb"
+      "bytes": 6245,
+      "sha256": "b99c9cabb53ff04959875b73abf8c61c0b89a187460085e4e200800261ce3a30"
     },
     {
       "path": "scripts/release-source-archive.py",

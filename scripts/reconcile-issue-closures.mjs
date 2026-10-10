@@ -34,7 +34,9 @@ function matchingIssueNumbers(text, repository) {
   return numbers;
 }
 
-export function closeableIssues(issues, pullRequests, repository, defaultBranch) {
+// PR titles/bodies remain editable after merge. These matches are review hints,
+// never evidence that an issue's acceptance criteria have been completed.
+export function issueClosureCandidates(issues, pullRequests, repository, defaultBranch) {
   const mergedClosers = new Map();
   for (const pull of pullRequests) {
     if (!pull.merged_at || pull.base?.ref !== defaultBranch) continue;
@@ -50,11 +52,11 @@ export function closeableIssues(issues, pullRequests, repository, defaultBranch)
     const closer = mergedClosers.get(issue.number);
     const updatedAt = Date.parse(issue.updated_at);
     if (issue.state !== 'open' || !closer || !Number.isFinite(updatedAt) || updatedAt > closer.mergedAt) return [];
-    return [{issueNumber: issue.number, pullNumber: closer.pullNumber}];
+    return [{issueNumber: issue.number, pullNumber: closer.pullNumber, requiresReview: true}];
   });
 }
 
-export async function reconcileIssueClosures({fetcher = fetch, token, repository, dryRun = false}) {
+export async function reportIssueClosureCandidates({fetcher = fetch, token, repository}) {
   token = requireInput(token, 'GitHub token');
   repository = requireInput(repository, 'repository');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) throw new Error('Invalid repository');
@@ -65,8 +67,8 @@ export async function reconcileIssueClosures({fetcher = fetch, token, repository
     'User-Agent': 'Freedom-Platform-issue-reconciler',
     'X-GitHub-Api-Version': '2022-11-28',
   };
-  const request = async (url, init) => {
-    const response = await fetcher(url, { ...init, headers: {...headers, ...init?.headers} });
+  const request = async (url) => {
+    const response = await fetcher(url, {method: 'GET', headers});
     if (!response.ok) throw new Error(`GitHub issue reconciliation failed: ${response.status}`);
     return response;
   };
@@ -92,26 +94,14 @@ export async function reconcileIssueClosures({fetcher = fetch, token, repository
     getAll('/pulls?state=all&per_page=100'),
   ]);
   const issues = allIssues.filter((issue) => !issue.pull_request && issue.state === 'open');
-  const candidates = closeableIssues(issues, pullRequests, repository, repo.default_branch);
-  const closed = [];
-  for (const candidate of candidates) {
-    if (!dryRun) {
-      await request(`${API}/repos/${repository}/issues/${candidate.issueNumber}`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({state: 'closed', state_reason: 'completed'}),
-      });
-    }
-    closed.push(candidate);
-  }
-  return {scannedIssues: issues.length, scannedPullRequests: pullRequests.length, dryRun, closed};
+  const candidates = issueClosureCandidates(issues, pullRequests, repository, repo.default_branch);
+  return {mode: 'report-only', scannedIssues: issues.length, scannedPullRequests: pullRequests.length, candidates};
 }
 
 if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  const result = await reconcileIssueClosures({
+  const result = await reportIssueClosureCandidates({
     token: process.env.GH_TOKEN,
     repository: process.env.GITHUB_REPOSITORY,
-    dryRun: process.env.DRY_RUN === 'true',
   });
   console.log(JSON.stringify(result));
 }
