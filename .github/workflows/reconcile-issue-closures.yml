@@ -1,17 +1,11 @@
-name: Reconcile completed issues
+name: Report issue closure candidates
 on:
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: Report candidates without closing issues
-        type: boolean
-        default: true
-        required: true
 permissions:
   contents: read
-  issues: write
+  issues: read
   pull-requests: read
 jobs:
   reconcile:
@@ -22,12 +16,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
-      - name: Reconcile issues against merged pull requests
+      - name: Report unverified issue references from merged pull requests
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: node scripts/reconcile-issue-closures.mjs

@@ -129,8 +129,8 @@
     },
     {
       "path": ".github/workflows/reconcile-issue-closures.yml",
-      "bytes": 1066,
-      "sha256": "1b7ae79efd2f8620447b3101638db74fa79b15656714dd435fba5ffce2008eb3"
+      "bytes": 881,
+      "sha256": "4b27bc0ff9b89c117ae621b5eaaf621abbeab4a10e25dcdddca4030c701500cd"
     },
     {
       "path": ".github/workflows/skill-book-upstreams.yml",
@@ -13624,8 +13624,8 @@
     },
     {
       "path": "docs/development/github-issue-automation.md",
-      "bytes": 1118,
-      "sha256": "b8e0e168a12dffa7823ff8fa45d13fa85900eab11f1f1b9f1441c9396d990fed"
+      "bytes": 1569,
+      "sha256": "8f9b5a24b243a6a3ac0d8d3bff3f9d558fa27859c0433ae2970a098cfbb6a82a"
     },
     {
       "path": "docs/development/github-social.md",
@@ -18404,8 +18404,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 3233,
-      "sha256": "0c2603e7313eac4b1a4f49721cc8a58210d54738e78c2a3b9c0d92496c705a6a"
+      "bytes": 3184,
+      "sha256": "88cfbbdd906664f114baa6d191e5a13b53ad3efd64ce98989612f7899f140555"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -18716,6 +18716,11 @@
       "path": "packages/contribution-tools/test/pinned-suite.test.mjs",
       "bytes": 23074,
       "sha256": "759473ccbec8d29e9e96429d705d597c547d0b603e9e729417905ccc88b44240"
+    },
+    {
+      "path": "packages/contribution-tools/test/reconcile-issue-closures.test.mjs",
+      "bytes": 7736,
+      "sha256": "115884ab1e0c3eb04493fb556793964144355ef5d25ffbc6107a034b1d3772b0"
     },
     {
       "path": "packages/contribution-tools/test/runtime-matrix.test.mjs",
@@ -19494,13 +19499,8 @@
     },
     {
       "path": "scripts/reconcile-issue-closures.mjs",
-      "bytes": 4827,
-      "sha256": "994a4d16cfaf9bcd9a452ec4156a6f878cf5522e75354bd6bc3397b400776952"
-    },
-    {
-      "path": "scripts/reconcile-issue-closures.test.mjs",
-      "bytes": 4373,
-      "sha256": "8a86823e0a6f6223c0d0fb3809e1e0ef9ae7f7ff3f44af3b736124a21d3ed5bb"
+      "bytes": 5174,
+      "sha256": "0a463842fadd1612344b2d96966049c29855e118dbaf3dc052961200734a1cb1"
     },
     {
       "path": "scripts/release-source-archive.py",

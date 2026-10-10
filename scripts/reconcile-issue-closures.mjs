@@ -1,5 +1,6 @@
 const API = 'https://api.github.com';
-const CLOSING_KEYWORD = /\b(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)\s+(?:([a-z0-9_.-]+\/[a-z0-9_.-]+))?#(\d+)\b/giu;
+// Deliberately conservative: a standalone declaration, never general prose.
+const CLOSING_KEYWORD = /^ {0,3}(?:[-*+] )?(?:close[sd]?|fix(?:es|ed)?|resolve[sd]?)[ \t]+(?:([a-z0-9_.-]+\/[a-z0-9_.-]+))?#([1-9]\d*)[.!]?[ \t]*$/iu;
 
 function requireInput(value, name) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing ${name}`);
@@ -13,33 +14,35 @@ function paginationLinks(value) {
 function markdownProse(text) {
   let fence = null;
   const lines = [];
-  for (const line of text.replace(/<!--[\s\S]*?-->/gu, '').split('\n')) {
+  for (const line of text.replace(/<!--[\s\S]*?-->/gu, comment => '\n'.repeat(comment.split('\n').length - 1)).split('\n')) {
     const marker = line.match(/^ {0,3}(`{3,}|~{3,})/u)?.[1];
     if (marker) {
       if (!fence) fence = {character: marker[0], length: marker.length};
       else if (marker[0] === fence.character && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (!fence && !/^(?: {4}|\t)/u.test(line)) lines.push(line.replace(/(`+)[^`\n]*?\1/gu, ''));
+    if (!fence && !/^(?: {4}|\t| {0,3}>)/u.test(line)) lines.push(line);
   }
   return lines.join('\n');
 }
 
 function matchingIssueNumbers(text, repository) {
   const numbers = new Set();
-  CLOSING_KEYWORD.lastIndex = 0;
-  for (const match of markdownProse(text).matchAll(CLOSING_KEYWORD)) {
-    if (!match[1] || match[1].toLowerCase() === repository.toLowerCase()) numbers.add(Number(match[2]));
+  for (const line of markdownProse(text).split('\n')) {
+    const match = line.match(CLOSING_KEYWORD);
+    if (match && (!match[1] || match[1].toLowerCase() === repository.toLowerCase())
+      && Number.isSafeInteger(Number(match[2]))) numbers.add(Number(match[2]));
   }
   return numbers;
 }
 
-export function closeableIssues(issues, pullRequests, repository, defaultBranch) {
+export function issueClosureCandidates(issues, pullRequests, repository, defaultBranch) {
   const mergedClosers = new Map();
   for (const pull of pullRequests) {
     if (!pull.merged_at || pull.base?.ref !== defaultBranch) continue;
-    const text = `${pull.title ?? ''}\n${pull.body ?? ''}`;
-    for (const number of matchingIssueNumbers(text, repository)) {
+    // Never synthesize a declaration across the title/body boundary.
+    const numbers = new Set([pull.title ?? '', pull.body ?? ''].flatMap(text => [...matchingIssueNumbers(text, repository)]));
+    for (const number of numbers) {
       const mergedAt = Date.parse(pull.merged_at);
       if (!Number.isFinite(mergedAt)) continue;
       const current = mergedClosers.get(number);
@@ -54,7 +57,7 @@ export function closeableIssues(issues, pullRequests, repository, defaultBranch)
   });
 }
 
-export async function reconcileIssueClosures({fetcher = fetch, token, repository, dryRun = false}) {
+export async function reportIssueClosureCandidates({fetcher = fetch, token, repository}) {
   token = requireInput(token, 'GitHub token');
   repository = requireInput(repository, 'repository');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) throw new Error('Invalid repository');
@@ -65,8 +68,12 @@ export async function reconcileIssueClosures({fetcher = fetch, token, repository
     'User-Agent': 'Freedom-Platform-issue-reconciler',
     'X-GitHub-Api-Version': '2022-11-28',
   };
-  const request = async (url, init) => {
-    const response = await fetcher(url, { ...init, headers: {...headers, ...init?.headers} });
+  const request = async (url) => {
+    // Pagination cannot send the read token outside this repository.
+    const target = new URL(url);
+    if (target.origin !== API || (!target.pathname.startsWith(`/repos/${repository}/`)
+      && target.pathname !== `/repos/${repository}`) || target.username || target.password) throw new Error('Invalid GitHub pagination URL');
+    const response = await fetcher(url, {method: 'GET', headers, redirect: 'error'});
     if (!response.ok) throw new Error(`GitHub issue reconciliation failed: ${response.status}`);
     return response;
   };
@@ -92,26 +99,16 @@ export async function reconcileIssueClosures({fetcher = fetch, token, repository
     getAll('/pulls?state=all&per_page=100'),
   ]);
   const issues = allIssues.filter((issue) => !issue.pull_request && issue.state === 'open');
-  const candidates = closeableIssues(issues, pullRequests, repository, repo.default_branch);
-  const closed = [];
-  for (const candidate of candidates) {
-    if (!dryRun) {
-      await request(`${API}/repos/${repository}/issues/${candidate.issueNumber}`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({state: 'closed', state_reason: 'completed'}),
-      });
-    }
-    closed.push(candidate);
-  }
-  return {scannedIssues: issues.length, scannedPullRequests: pullRequests.length, dryRun, closed};
+  const candidates = issueClosureCandidates(issues, pullRequests, repository, repo.default_branch);
+  // Mutable PR wording and timestamps are discovery hints, never completion proof.
+  return {scannedIssues: issues.length, scannedPullRequests: pullRequests.length,
+    mode: 'report-only', criteriaVerified: false, candidates};
 }
 
 if (import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  const result = await reconcileIssueClosures({
+  const result = await reportIssueClosureCandidates({
     token: process.env.GH_TOKEN,
     repository: process.env.GITHUB_REPOSITORY,
-    dryRun: process.env.DRY_RUN === 'true',
   });
   console.log(JSON.stringify(result));
 }
