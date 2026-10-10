@@ -89,6 +89,8 @@ test('phone keeps world chat in an in-page drawer and admin keeps a dock',async(
 
 test('unlinked member gets GitHub guidance and screenshot handoff',async({page})=>{
   await page.setViewportSize({width:390,height:844});
+  // A stale activity notice can coexist with the screenshot handoff status.
+  await page.route('**/api/v1/pages/github-activity?*',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[],checked_at:'2026-10-10T00:00:00Z',truncated:false,stale:true})}));
   await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:async(text:string)=>{(window as typeof window&{copiedInstruction?:string}).copiedInstruction=text}}}));
   await page.route('**/api/v1/me/github',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({configured:true,connected:false})}));
   await page.goto('/');
@@ -98,6 +100,7 @@ test('unlinked member gets GitHub guidance and screenshot handoff',async({page})
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible({timeout:20000});
   await openPageTools(page); await page.getByRole('button',{name:'提出想法'}).click();
   const idea=page.getByRole('dialog',{name:'會員首頁：提出想法'});
+  await expect(idea.getByRole('status')).toHaveText('目前顯示上次同步的資料，請稍後重新同步。');
   await expect(idea.getByText('站內發布前，先連結 GitHub')).toBeVisible();
   await idea.getByRole('button',{name:'複製給 AI 的連結指引'}).click();
   expect(await page.evaluate(()=>(window as typeof window&{copiedInstruction?:string}).copiedInstruction)).toContain('GitHub');
@@ -109,7 +112,7 @@ test('unlinked member gets GitHub guidance and screenshot handoff',async({page})
   await page.evaluate(()=>{(window as typeof window&{issuedGitHubUrl?:string}).open=(url)=>{(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl=String(url);return null}});
   await idea.getByRole('button',{name:'到 GitHub 貼上截圖並送出'}).click();
   expect(await page.evaluate(()=>(window as typeof window&{issuedGitHubUrl?:string}).issuedGitHubUrl)).toContain('/issues/new?');
-  await expect(idea.getByRole('status')).toContainText('再次貼上截圖');
+  await expect(idea.locator('form').getByRole('status')).toContainText('再次貼上截圖');
   await page.screenshot({path:'test-results/page-tools-screenshot-mobile.png'});
   await idea.getByRole('button',{name:'移除截圖'}).click();
   await expect(idea.getByRole('button',{name:'到 GitHub 檢查並送出'})).toBeVisible();

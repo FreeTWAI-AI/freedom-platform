@@ -20554,8 +20554,8 @@
     },
     {
       "path": "tests/e2e/page-tools.spec.ts",
-      "bytes": 9423,
-      "sha256": "2e7ab5cc35773d115ace4b83dd5825cafe78fd0b996be16c402cc54b81265046"
+      "bytes": 9849,
+      "sha256": "f67657facb2aee163005b95971c477dd74231425a640e7feac5dccea21ca6029"
     },
     {
       "path": "tests/e2e/participation-metrics.spec.ts",
