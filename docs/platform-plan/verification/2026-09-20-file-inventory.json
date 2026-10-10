@@ -2959,8 +2959,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/ai-sister-pages.ts",
-      "bytes": 3837,
-      "sha256": "ab2724db74188f40dbbb521d59ac8ef2c59189c2f7f736201aa8f2c6472b257f"
+      "bytes": 3778,
+      "sha256": "bcaee9e1628730131275389a8d00ec45ded996d6234e4d42165f5147d90f9f14"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/ai-sister-release-pin.ts",
@@ -2994,8 +2994,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/page-support.ts",
-      "bytes": 5305,
-      "sha256": "d75b91da0ae51552f338bf9b90b49bc587b0c0695f9a5e212e9951aaf28246ad"
+      "bytes": 5324,
+      "sha256": "711c3fba878d965cfa3440254ef5bcd287e1c6c5035e49ed8b1bec7b9ade2c3f"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/release-pin.ts",
@@ -3039,8 +3039,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/page-guides.ts",
-      "bytes": 13934,
-      "sha256": "ba3aeb858d56c0b8cc916ca944d412d5ab29a0f9389c60adbe0b2f7632cbcbc7"
+      "bytes": 13649,
+      "sha256": "1316bb5a96ba17000ee5355f087848df73d21463737a18617640c7ed37dc0368"
     },
     {
       "path": "apps/portal-web/src/modules/newcomer-guides/packs/ai-sister/characters.json",
@@ -13719,8 +13719,8 @@
     },
     {
       "path": "docs/development/newcomer-guides.md",
-      "bytes": 9809,
-      "sha256": "6b9f3f66393c80d81f4ea2424e5817b7c17b234f0467d9970cf61175f9f1f3d5"
+      "bytes": 9892,
+      "sha256": "33eb7e2b145f5be6601cf59c0285ba15eb13bab1800b0cf4828e9216e55f25c9"
     },
     {
       "path": "docs/development/onboarding-api.md",
@@ -21044,8 +21044,8 @@
     },
     {
       "path": "tests/runtime/guide-anchors.test.ts",
-      "bytes": 5569,
-      "sha256": "3eb480c647e7beaaf67728d354aeced5d33b15b00123aee05a16e0c013d4ed0c"
+      "bytes": 5456,
+      "sha256": "9d79611f353c016c90a877c8e2b89f07a64f09e0226cd3c740e9aae07a6f06b3"
     },
     {
       "path": "tests/runtime/guide-pack-assets.test.ts",
@@ -21634,13 +21634,13 @@
     },
     {
       "path": "tests/runtime/newcomer-guide-dialogue.test.ts",
-      "bytes": 16217,
-      "sha256": "5e610e64e16e92d89f6acd6e9a128da664f1078b2b3212ce1818cec3e7ef0db7"
+      "bytes": 16358,
+      "sha256": "d5297c7c520c269acf8f6dab71495b8caf1305ff6c4fa08b29f576dfee1a22a8"
     },
     {
       "path": "tests/runtime/newcomer-guides.test.ts",
-      "bytes": 5380,
-      "sha256": "7d5f81642b2645f0e23057484bcf0552499f90858ddfce066c1395f4b2e713ce"
+      "bytes": 6063,
+      "sha256": "f40b78766a11817784ee39b0098025762b2866831ae64233b6cfa8be42f79d43"
     },
     {
       "path": "tests/runtime/notification-events.test.ts",

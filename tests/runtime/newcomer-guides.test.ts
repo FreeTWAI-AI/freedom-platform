@@ -9,6 +9,7 @@ import {DRAGON_PAGE_SUPPORT,pageGuideSupport} from '../../apps/portal-web/src/mo
 import {canRequestGuide,acceptsGuideRelease} from '../../apps/portal-web/src/modules/newcomer-guides/gate.js';
 import {DRAGON_RELEASE_PIN} from '../../apps/portal-web/src/modules/newcomer-guides/release-pin.js';
 import {DRAGON_PACK} from '../../apps/portal-web/src/modules/newcomer-guides/packs/dragon/index.js';
+import {AI_SISTER_PACK} from '../../apps/portal-web/src/modules/newcomer-guides/packs/ai-sister/index.js';
 import manifest from '../../contracts/guide-packs/dragon-v1-20261004.json';
 
 const enabled={...DRAGON_RELEASE_PIN,enabled:true};
@@ -35,7 +36,7 @@ test('page support exactly covers both actual development registry and all navig
 });
 test('profile, access and explicit page gates run before any release, character or pack loading',()=>{
   for(const profile of ['light','dark','versefolk','unknown'])assert.equal(canRequestGuide(profile,'home',true,'member-1'),false);
-  for(const page of ['unknown','__proto__','private-ai','registration','onboarding','admin','skillbooks'])assert.equal(canRequestGuide('guide-dragon',page,true,'member-1'),false);
+  for(const page of ['unknown','__proto__','private-ai','messages','registration','onboarding','admin','skillbooks'])assert.equal(canRequestGuide('guide-dragon',page,true,'member-1'),false);
   assert.equal(canRequestGuide('guide-dragon','home',false,'member-1'),false);assert.equal(canRequestGuide('guide-dragon','home',true,''),false);
   assert.equal(canRequestGuide('guide-dragon','home',true,'member-1'),true);
   for(const value of [undefined,null,{},false,{...enabled,enabled:false},{...enabled,version:'old'},{...enabled,manifestSha256:'0'.repeat(64)},{...enabled,pack:'foreign'}])assert.equal(acceptsGuideRelease(value),false);
@@ -58,4 +59,14 @@ test('frontend release pin binds exact manifest bytes and source author commit',
   assert.equal(createHash('sha256').update(bytes).digest('hex'),DRAGON_RELEASE_PIN.manifestSha256);
   assert.equal(manifest.source.repository,'https://github.com/mars-tw/freedom-platform');assert.equal(manifest.source.commit,'46a40342509a9278c3a7b8a940bce27b7f464227');
   assert.equal(manifest.assets.length,364);assert.equal(manifest.assets.reduce((total,asset)=>total+asset.byteLength,0),41016186);
+});
+
+
+test('retired message page rejects both packs before loading guide content',async()=>{
+  const support=pageGuideSupport('messages');
+  assert.equal(support?.status,'disabled');
+  if(support?.status==='disabled')assert.match(support.reason,/常駐聊天室/);
+  for(const profile of ['guide-dragon','guide-ai-sister'])assert.equal(canRequestGuide(profile,'messages',true,'member-1'),false);
+  await assert.rejects(DRAGON_PACK.loadPage('messages'),/Unsupported guide page/);
+  await assert.rejects(AI_SISTER_PACK.loadPage('messages'),/Unsupported guide page/);
 });

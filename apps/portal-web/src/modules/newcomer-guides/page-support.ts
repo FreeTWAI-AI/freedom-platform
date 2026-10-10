@@ -8,7 +8,7 @@ export const DRAGON_PAGE_SUPPORT = {
   'home': {status:'supported',characterId:'home',contentId:'home',guideIds:["home:topic-1", "home:topic-3"],anchorContractVersion:1},
   'guilds': {status:'supported',characterId:'guilds',contentId:'guilds',guideIds:["guilds:topic-1", "guilds:topic-3"],anchorContractVersion:1},
   'skills': {status:'supported',characterId:'skills',contentId:'skills',guideIds:["skills:topic-1", "skills:topic-2"],anchorContractVersion:1},
-  'messages': {status:'supported',characterId:'messages',contentId:'messages',guideIds:["messages:topic-1"],anchorContractVersion:1},
+  'messages': {status:'disabled',reason:'訊息已移至常駐聊天室，舊獨立頁導覽不適用；開啟聊天室時暫停目前頁面的導覽'},
   'events': {status:'supported',characterId:'events',contentId:'events',guideIds:["events:topic-1", "events:topic-2"],anchorContractVersion:1},
   'tasks': {status:'supported',characterId:'tasks',contentId:'tasks',guideIds:["tasks:topic-1", "tasks:topic-2"],anchorContractVersion:1},
   'members': {status:'supported',characterId:'members',contentId:'members',guideIds:["members:topic-1", "members:topic-2"],anchorContractVersion:1},

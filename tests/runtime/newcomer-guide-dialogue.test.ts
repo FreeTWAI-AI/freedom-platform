@@ -256,7 +256,8 @@ test('guide definitions are trusted current-topic metadata and never available t
       count++; pageGuides++; assert(guide.label.trim()); assert(guide.steps.length>0);
       for(const step of guide.steps){assert.match(step.selector,/^\[data-guide-anchor=/);assert(step.instruction.trim());}
     }
-    assert(pageGuides>0,`${pageId} needs at least one reviewed current-page guide`);
+    if(pageId==='messages')assert.equal(pageGuides,0,'retired standalone messages page must not offer unreachable guides');
+    else assert(pageGuides>0,`${pageId} needs at least one reviewed current-page guide`);
   }
-  assert(count>0,'reviewed current-page guide definitions are required');
+  assert.equal(count,44,'all active current-page guide definitions remain required');
 });
