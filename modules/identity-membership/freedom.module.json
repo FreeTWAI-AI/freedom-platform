@@ -3,6 +3,7 @@
   "module_id": "assets",
   "owner_role": "foundation",
   "owned_paths": [
+    "modules/identity-membership/members.ts",
     "modules/identity-membership/avatars.ts",
     "modules/identity-membership/avatar-bridge.md",
     "apps/platform-api/src/routes/avatars.ts",
@@ -18,6 +19,7 @@
     "tests/worker/source-network.test.ts"
   ],
   "public_exports": [
+    "modules/identity-membership/members.ts",
     "modules/identity-membership/avatars.ts",
     "apps/portal-web/src/modules/avatar-client.ts"
   ],

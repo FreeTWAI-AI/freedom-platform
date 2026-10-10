@@ -30,6 +30,7 @@ import {PageTools} from './PageTools'
 import {GuideHost} from './modules/newcomer-guides/GuideHost'
 import { logConsoleEvent } from './game-console-core'
 import { consoleChannel } from './game-console-routing'
+import {AdminReports,MemberReportingProvider} from './modules/MemberReporting'
 import { BrandPoster, CommunityLinks, CommunityPanel, type SiteConfig } from './modules/Community'
 import { PublicDiscovery, publicDiscoveryPath, validatePublicReturn } from './modules/PublicDiscovery'
 import { CommunitySearch } from './modules/CommunitySearch'
@@ -328,6 +329,7 @@ function MemberApp() {
   }
 
   return (
+    <MemberReportingProvider key={`${session.user.user_id}:${client.sessionGeneration}`} client={client} enabled={site?.member_reporting_enabled===true}>
     <GameConsoleProvider key={session.user.user_id+':'+client.sessionGeneration} client={client} userId={session.user.user_id} session={session} site={site} feedEnabled={false} headless>
     <GitHubSocialProvider client={client} session={session} starGateEnabled={site?.skill_book_star_gate_enabled===true}>
     {publicReturnNotice && <p className="banner banner-info" role="status">{publicReturnNotice}</p>}
@@ -343,10 +345,12 @@ function MemberApp() {
       onLoggedOut={() => leaveCurrentSession()}
       onSessionExpired={() => leaveCurrentSession('登入已過期，請重新登入。')}
     />
+    <AdminReports client={client}/>
     </DevelopmentAccessProvider></AuthorClaimProvider>
     </>}
     </GitHubSocialProvider>
     </GameConsoleProvider>
+    </MemberReportingProvider>
   )
 }
 

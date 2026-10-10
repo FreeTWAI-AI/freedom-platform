@@ -8,6 +8,7 @@ export const RUNTIME_SUITES = Object.freeze(Object.fromEntries(Object.entries({
   'runtime.scoped-member-command': ['scoped-member-command'],
   'runtime.avatar': ['avatar', 'image-runtime', 'image-cloudflare'],
   'runtime.member-card': ['member-ecard', 'member-directory', 'social-links', 'member-card-qr'],
+  'runtime.member-reporting': ['member-reporting'],
   'runtime.work': ['flows', 'benefits', 'co-creation'],
   'runtime.work-privacy': ['work-privacy'],
   'runtime.personal-content': ['personal-content', 'community-relations', 'community-search', 'work-privacy'],
@@ -38,7 +39,7 @@ event-highlights events-past execution-authority-adversarial execution-prerequis
 generator-drift github-app-setup github-history github-identity github-repository-read github-social-routes github-social-store
 github-social github-sync guild-category-preferences guild-entry-questions guild-experts guild-member-tiers guild-preferences guild-profile
 guild-workspace guild-launchpad guild-launchpad-contracts guild-launchpad-deadline identity-member image-cloudflare image-runtime link-preview maintainer-worker member-execution-contracts member-execution-http member-execution-http-adversarial member-execution-http-contracts member-channel-access
-member-blocking member-channels-core member-communications member-connections member-directory member-ecard member-experience
+member-blocking member-reporting member-channels-core member-communications member-connections member-directory member-ecard member-experience
 model-broker-authorizations model-broker-bridge model-broker-client model-broker-process model-broker-bridge-adversarial
 model-step-service model-step-contracts model-step-adversarial member-model-http member-model-http-adversarial
 member-model-settings member-model-settings-adversarial member-model-settings-process

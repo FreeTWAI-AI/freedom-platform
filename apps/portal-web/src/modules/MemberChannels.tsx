@@ -1,3 +1,4 @@
+import {ReportButton} from './MemberReporting';
 import {refreshLoadedMessages} from './message-refresh';
 import {useEffect,useLayoutEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {ApiError,type PortalClient} from '../api';
@@ -432,7 +433,7 @@ export function MemberChannels({client,session,kind,onUnread,onNavigate,active=t
           {history.items.length===0?<p className="empty">這個頻道還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="頻道訊息">
             {[...history.items].reverse().map(message=>{const mine=message.sender_ref===me;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
               <p className="messages-meta">{mine?'你':message.sender_name} · <ChatTime value={message.created_at}/>{mine?' · 已送出':''}</p>
-              {message.retracted_at?<ChatRetracted mine={mine}/>:<>{message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/>
+              {message.retracted_at?<ChatRetracted mine={mine}/>:<>{message.reply_to&&<ChatQuote reply={message.reply_to}/>}<ChatBody message={message}/><ReportButton kind="channel_message" id={message.message_id} label="頻道訊息"/>
               <div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':message.sender_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[selected.key])return;richDrafts.change(selected.key,{reply:quoteMessage(message,mine?'你':message.sender_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button>{mine&&<button className="btn btn-ghost chat-retract" type="button" aria-label="收回你的訊息" disabled={retracting} onClick={event=>{retractTrigger.current=event.currentTarget;setRetractError('');setRetractTarget({message_id:message.message_id,label:message.sticker?`[貼圖] ${message.sticker.label}`:[...message.body].slice(0,160).join('')});}}>收回</button>}</div></>}
             </li>;})}
           </ol>}

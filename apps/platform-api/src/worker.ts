@@ -78,6 +78,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
   FREEDOM_MEMBER_BLOCKING_ENABLED?: string;
+  FREEDOM_MEMBER_REPORTING_ENABLED?: string;
   FREEDOM_COMMUNITY_SEARCH_ENABLED?: string;
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
@@ -253,6 +254,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     tenantListCursors: createTenantListCursorCodec(env.FREEDOM_TENANT_CURSOR_SIGNING_KEY, { environment: config.freedomEnv, origin: config.origin }),
     communityDiscoveryEnabled: env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED === 'true',
     memberBlockingEnabled: env.FREEDOM_MEMBER_BLOCKING_ENABLED === 'true',
+    memberReportingEnabled: env.FREEDOM_MEMBER_REPORTING_ENABLED === 'true',
     communitySearchEnabled: env.FREEDOM_COMMUNITY_SEARCH_ENABLED === 'true',
     unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',

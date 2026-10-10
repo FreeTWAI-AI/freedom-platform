@@ -20,7 +20,8 @@
     "tests/runtime/storefront-product-photo-sql.test.ts",
     "tests/runtime/storefront-product-photo-native.test.ts",
     "migrations/145_social_note_image_creation.sql",
-    "tests/runtime/social-preview-assets.test.ts"
+    "tests/runtime/social-preview-assets.test.ts",
+    "tests/runtime/social-thumbnail-assets.test.ts"
   ],
   "public_exports": [
     "modules/assets/index.ts",

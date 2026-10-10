@@ -1,0 +1,12 @@
+.report-dialog{width:min(540px,calc(100vw - 32px));max-height:calc(100dvh - 32px);box-sizing:border-box;overflow:auto;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--panel,var(--bg));color:var(--ink)}
+.report-dialog::backdrop{background:#0008}
+.report-entry{min-height:44px}
+.report-dialog textarea,.report-dialog select,.report-admin textarea,.report-admin select{font-size:16px;max-width:100%;box-sizing:border-box}
+.report-admin{min-width:0;overflow-wrap:anywhere}
+.report-admin pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.report-admin{width:min(960px,calc(100% - 32px));box-sizing:border-box;margin:16px auto}
+.report-admin-case,.report-dialog .field{min-width:0}
+.report-admin .btn,.report-dialog .btn,.report-admin summary{min-height:44px}
+.report-admin textarea,.report-dialog textarea{width:100%}
+.report-admin summary{cursor:pointer;display:flex;align-items:center}
+.report-admin [hidden]{display:none}

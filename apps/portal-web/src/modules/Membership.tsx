@@ -1,3 +1,4 @@
+import {ReportButton,OwnReports} from './MemberReporting';
 import {AccountDeactivation} from './AccountDeactivation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useModuleMutation, type ModulePanelProps } from './shared';
@@ -63,6 +64,7 @@ export function AccountPanel({client,session}:ModulePanelProps){
   return <section className="module-panel account-panel">{member&&<MemberCard member={member} labels={labels} client={client}/>}
     {account&&<AvatarEditor client={client} nickname={account.nickname} initial={account.avatar} onSaved={avatar=>{setAccount(current=>current?{...current,avatar}:current);setMember(current=>current?{...current,avatar_url:avatar.avatar_url}:current);}}/>}
     {account&&<EmailVerificationPanel client={client} email={account.login_email} verified={account.email_verified}/>}
+    <OwnReports client={client}/>
     <MemberShare client={client}/><MemberRecommendations client={client}/><GitHubConnectionPanel/>
     {account&&<TotpSettings key={session.user.user_id} client={client} email={account.login_email}/>}
     {account&&<EmailChangePanel client={client} email={account.login_email}/>}
@@ -88,6 +90,7 @@ export function MemberCard({member,children,labels={},client}:{member:MemberCard
       {client&&<SocialLinksList client={client} memberId={member.user_id} self={member.is_self}/>}
     </div>
     {children}
+    {!member.is_self&&<ReportButton kind="member" id={member.user_id} label={`${member.nickname}的名片`}/>}
   </article>;
 
 }
@@ -107,6 +110,7 @@ export function DirectoryMemberRow({member,labels,children,client}:{member:Membe
   return <article className="directory-member" data-member-id={member.user_id} aria-label={member.nickname}>
     <div className="directory-member-identity"><MemberAvatar nickname={member.nickname} avatarUrl={member.avatar_url}/><div><div className="directory-member-name"><h3>{member.nickname}</h3><IdentityBadge value={member.identity_label}/>{member.is_self&&<span className="badge">你</span>}</div><p className="directory-member-title">{member.positioning_title??'探索自己的方向'}</p><p className="directory-member-guild">{member.category_primaries?member.category_primaries.map(item=>`${SECTION_LABELS[item.category]}：${item.guild?.name??'尚未選擇'}`).join(' · '):(member.primary_guild?.name??'尚未設定主要公會')}</p></div></div>
     <div className="directory-member-skills" aria-label="擅長的能力">{featured.length?featured.map(id=><span className="pill" key={id}>{skillLabel(id)}</span>):<span className="muted">尚未填寫專長</span>}</div>
+    {!member.is_self&&<ReportButton kind="member" id={member.user_id} label={`${member.nickname}的名片`}/>}
     <div className="directory-member-meta"><MemberPresence online={member.is_online} lastSeen={member.last_seen_at}/>{joined?<span><time dateTime={joined} title={member.joined_at_source==='launch_day'?'開站日 · 台北時間':'台北時間'}>{new Date(joined).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'})}</time> 加入</span>:<span>加入日期未記錄</span>}{children}</div>
     <details className="directory-member-details" onToggle={event=>setDetailsOpen(event.currentTarget.open)}><summary>更多資料</summary><div className="directory-member-expanded"><section><h4>公會加入紀錄</h4><ul className="directory-guild-dates">{[...(member.primary_guild?[member.primary_guild]:[]),...member.secondary_guilds,...(member.joined_guilds??[])].map(guild=><li key={guild.guild_key}><strong>{guild.name}</strong><span>{guildRoleLabel(member,guild.guild_key)}{guild.joined_at&&Number.isFinite(Date.parse(guild.joined_at))?<> · <time dateTime={guild.joined_at}>{new Date(guild.joined_at).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'})}</time> 加入</>:null}</span></li>)}</ul>{!member.primary_guild&&!member.secondary_guilds.length&&!member.joined_guilds?.length&&<p>尚未加入公會</p>}</section><section><h4>完整能力</h4><div className="tag-list">{abilities.length?abilities.map(id=><span key={id} className="pill">{skillLabel(id)}</span>):<p>尚未填寫</p>}</div></section><section><h4>裝備</h4><div className="tag-list">{equipment.length?equipment.map(id=><span key={id} className="pill">{skillLabel(id)}</span>):<p>尚未填寫</p>}</div></section><section><h4>聯絡方式</h4>{contacts.length?<dl>{contacts.map(key=><div key={key}><dt>{contactLabels[key]}</dt><dd>{member.contacts[key]}</dd></div>)}</dl>:<p>沒有對你公開的聯絡方式。</p>}</section>{detailsOpen&&<SocialLinksList client={client} memberId={member.user_id}/>}</div></details>
   </article>;

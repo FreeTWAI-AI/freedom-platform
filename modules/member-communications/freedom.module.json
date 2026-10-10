@@ -25,6 +25,8 @@
   ],
   "module_id": "member-communications",
   "owned_paths": [
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/service.ts",
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts",
     "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -35,7 +37,6 @@
     "tests/e2e/message-images.spec.ts",
     "migrations/139_member_message_images.sql",
     "docs/development/member-communications.md",
-    "modules/member-communications/channels.ts",
     "modules/member-communications/types.ts",
     "modules/member-communications/notifications.ts",
     "apps/portal-web/src/modules/MemberMessages.tsx",
@@ -53,7 +54,6 @@
     "migrations/150_message_retraction.sql",
     "modules/member-communications/channel-types.ts",
     "modules/member-communications/content.ts",
-    "modules/member-communications/service.ts",
     "tests/e2e/message-retraction.spec.ts",
     "tests/runtime/direct-message-receipts.test.ts",
     "tests/runtime/member-channels-core.test.ts",
@@ -82,10 +82,13 @@
     "tests/e2e/notification-bell-refresh.spec.ts",
     "docs/development/member-settings-messages.md",
     "tests/e2e/chat-search.spec.ts",
-    "apps/portal-web/src/modules/ChatWorkspace.tsx"
+    "apps/portal-web/src/modules/ChatWorkspace.tsx",
+    "apps/portal-web/src/modules/ChatSearch.tsx"
   ],
   "owner_role": "foundation",
   "public_exports": [
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/service.ts",
     "modules/member-communications/images.ts",
     "apps/portal-web/src/modules/message-image-client.ts"
   ],

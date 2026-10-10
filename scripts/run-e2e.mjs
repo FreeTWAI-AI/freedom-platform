@@ -17,6 +17,7 @@ export const STORE_PHOTO_SPEC = 'tests/e2e/hosted-store-photo.spec.ts';
 export const MESSAGE_IMAGE_SPEC = 'tests/e2e/message-images.spec.ts';
 export const FIRST_PARTICIPATION_SPEC = 'tests/e2e/first-participation.spec.ts';
 export const NOTIFICATION_PREFERENCES_SPEC = 'tests/e2e/notification-preferences.spec.ts';
+export const MEMBER_REPORTING_SPEC = 'tests/e2e/member-reporting.spec.ts';
 export const EVENT_PARTICIPATION_SPEC = 'tests/e2e/event-participation.spec.ts';
 
 const TAKES_VALUE = new Set([
@@ -73,11 +74,12 @@ function terminalFlag(argv) {
 
 export function planE2e(argv, env = {}) {
   const args = [...argv];
+  if (explicitFileArgs(args).some(file => file.includes('member-reporting'))) return [{ args, env: { ...env, FREEDOM_MEMBER_REPORTING_ENABLED: 'true' } }];
   // An explicit opt-in runs only this feature's pass, in its own schema.
   if (env.FREEDOM_E2E_EVENT_PARTICIPATION === '1' && !terminalFlag(args)) {
     return [{ args: explicitFileArgs(args).length ? args : [...args, EVENT_PARTICIPATION_SPEC], env }];
   }
-  if (env.FREEDOM_E2E_FIRST_PARTICIPATION === '1' || env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_E2E_STORE_PHOTO_FIXTURE === '1' || env.FREEDOM_E2E_NOTIFICATION_PREFERENCES === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
+  if (env.FREEDOM_MEMBER_REPORTING_ENABLED === 'true' || env.FREEDOM_E2E_FIRST_PARTICIPATION === '1' || env.FREEDOM_E2E_PRIVATE_AI_FIXTURE === '1' || env.FREEDOM_E2E_AVATAR_ASSET_FIXTURE === '1' || env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE === '1' || env.FREEDOM_E2E_STORE_PHOTO_FIXTURE === '1' || env.FREEDOM_E2E_NOTIFICATION_PREFERENCES === '1' || explicitFileArgs(args).length > 0 || terminalFlag(args)) return [{ args, env }];
   return [
     { args, env },
     { args: [...args, PRIVATE_AI_SPEC], env: { ...env, FREEDOM_E2E_PRIVATE_AI_FIXTURE: '1' } },
@@ -87,6 +89,7 @@ export function planE2e(argv, env = {}) {
     { args: [...args, NOTIFICATION_PREFERENCES_SPEC], env: { ...env, FREEDOM_E2E_NOTIFICATION_PREFERENCES: '1' } },
     { args: [...args, FIRST_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_FIRST_PARTICIPATION: '1' } },
     { args: [...args, EVENT_PARTICIPATION_SPEC], env: { ...env, FREEDOM_E2E_EVENT_PARTICIPATION: '1' } },
+    { args: [...args, MEMBER_REPORTING_SPEC], env: { ...env, FREEDOM_MEMBER_REPORTING_ENABLED: 'true' } },
   ];
 }
 
