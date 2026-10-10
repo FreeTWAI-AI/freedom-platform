@@ -19969,8 +19969,8 @@
     },
     {
       "path": "tests/e2e/first-participation.spec.ts",
-      "bytes": 3892,
-      "sha256": "242999f864ea3ee5b80100fa680462e728384c2c012dd018860b7af942f25db5"
+      "bytes": 4226,
+      "sha256": "2fe9fd5f563189a46db1a52646ae10b8878ed9b1a0e9e5c4f711f43f309b87fa"
     },
     {
       "path": "tests/e2e/fixtures.ts",
