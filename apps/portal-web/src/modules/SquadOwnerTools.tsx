@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState,type FormEvent} from 'react';
+import {useEffect,useId,useRef,useState,type FormEvent,type ReactNode} from 'react';
 import type {useModuleMutation} from './shared';
 
 type Mutate=ReturnType<typeof useModuleMutation>['mutate'];
@@ -13,7 +13,7 @@ const copy={
 };
 
 /** Owner-only controls: member decisions, profile edits, transfer and disband through one site dialog. */
-export function SquadOwnerTools({squad,selfId,mutate,busy,onChanged,onDisbanded}:{squad:OwnedSquad;selfId:string;mutate:Mutate;busy:boolean;onChanged:(notice:string)=>Promise<void>;onDisbanded:(notice:string)=>Promise<void>}){
+export function SquadOwnerTools({squad,selfId,mutate,busy,onChanged,onDisbanded,children}:{squad:OwnedSquad;selfId:string;mutate:Mutate;busy:boolean;onChanged:(notice:string)=>Promise<void>;onDisbanded:(notice:string)=>Promise<void>;children?:ReactNode}){
   const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLElement|null>(null),id=useId();
   const [pending,setPending]=useState<Pending|null>(null),[heir,setHeir]=useState('');
   const others=squad.members.filter(member=>member.state==='active'&&member.user_id!==selfId);
@@ -54,6 +54,7 @@ export function SquadOwnerTools({squad,selfId,mutate,busy,onChanged,onDisbanded}
         <label className="field">我們想一起完成什麼<textarea key={`purpose-${squad.aggregate_version}`} name="purpose" required maxLength={800} defaultValue={squad.purpose}/></label>
         <div className="actions"><button className="btn btn-ghost" disabled={busy}>儲存名稱與目標</button></div>
       </form>
+      {children}
       <div className="stack">
         <label className="field">轉移隊主給<select value={heir} disabled={busy||!others.length} onChange={event=>setHeir(event.target.value)}><option value="">{others.length?'選擇一位成員':'目前沒有其他成員'}</option>{others.map(member=><option key={member.user_id} value={member.user_id}>{member.nickname}</option>)}</select></label>
         <p className="field-hint">隊主要先轉移或解散，才能離開自己建立的小隊。</p>

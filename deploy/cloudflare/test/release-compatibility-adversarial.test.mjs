@@ -1,15 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { checkMigrations } from '../lib/migrations.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-// The manifest pin owns the legacy frontier and its reserved gaps.
-const pinned = JSON.parse(readFileSync(join(root, 'deploy/cloudflare/environments.json'), 'utf8')).database_defaults.migrations;
-const scan = checkMigrations(join(root, 'migrations'), { first: pinned.first, last: pinned.last, known_gaps: pinned.known_gaps });
+const last = Math.max(...readdirSync(join(root, 'migrations')).filter(n => /^\d{3}_.*\.sql$/.test(n)).map(n => Number(n.slice(0, 3))));
+const scan = checkMigrations(join(root, 'migrations'), { first: 1, last, known_gaps: [22] });
 const capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const identity = (character) => ({ source_sha: character.repeat(40), artifact_sha256: character.repeat(64) });
 function fixture() {
@@ -62,8 +61,8 @@ test('RELEASE recognized social-feed migration still needs exact independent sch
 test('RELEASE unknown migration names remain refused even with recomputed host digests', () => {
   for (const mode of ['rename-known', 'append-unknown']) {
     const f = fixture();
-    if (mode === 'rename-known') f.scan.ledger.at(-1).name = `${String(pinned.last).padStart(3, '0')}_unreviewed_stickers.sql`;
-    else f.scan.ledger.push({name: `${String(pinned.last + 1).padStart(3, '0')}_unreviewed_future.sql`, sha256: 'e'.repeat(64)});
+    if (mode === 'rename-known') f.scan.ledger.at(-1).name = `${String(last).padStart(3, '0')}_unreviewed_stickers.sql`;
+    else f.scan.ledger.push({name: `${String(last + 1).padStart(3, '0')}_unreviewed_future.sql`, sha256: 'e'.repeat(64)});
     f.scan.ledger_digest = compatibilityLedgerDigest(f.scan.ledger);
     f.host.observation.schema_ledger = structuredClone(f.scan.ledger);
     f.host.observation.schema_ledger_digest = f.scan.ledger_digest;

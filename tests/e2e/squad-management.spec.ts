@@ -98,3 +98,21 @@ test('an owner accepts, declines, removes, renames, transfers and finally the ne
   await expect(page.getByRole('button', { name: `查看小隊：${renamed}`, exact: true })).toHaveCount(0);
   expect((await e2eAuthPool.query("SELECT count(*)::int AS n FROM member_squad_memberships WHERE squad_id=$1 AND state<>'left'", [squad.squad_id])).rows[0].n).toBe(0);
 });
+
+test('a lost disband response closes stale owner controls after the detail confirms 404',async({page,e2eAuthPool})=>{
+  const owner=await member(e2eAuthPool,'失去回應隊主');
+  await login(page,owner.email);
+  const name=`解散回應 ${owner.id.slice(0,8)}`;
+  const squad=await command(page,'/squads',{name,kind:'social',purpose:'合成失去回應流程'});
+  const detail=await openSquad(page,name);
+  await detail.locator('.squad-manage > summary').click();
+  await page.route(`**/api/v1/squads/${squad.squad_id}/disband`,async route=>{
+    const response=await route.fetch();expect(response.status()).toBe(200);await route.abort('failed');
+  });
+  await detail.getByRole('button',{name:'解散小隊',exact:true}).click();
+  await page.getByRole('dialog',{name:'解散這支小隊？'}).getByRole('button',{name:'確定解散',exact:true}).click();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByRole('status').filter({hasText:'已返回列表'})).toBeVisible();
+  await expect(page.getByRole('button',{name:`查看小隊：${name}`,exact:true})).toHaveCount(0);
+  expect((await e2eAuthPool.query('SELECT disbanded_at IS NOT NULL AS done FROM member_squads WHERE squad_id=$1',[squad.squad_id])).rows[0].done).toBe(true);
+});

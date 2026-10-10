@@ -126,6 +126,13 @@ test('disband ends the squad for everyone: memberships leave, invitations withdr
   assert.equal((await request(`/squads/${id}/request`,b,{},(await member(id,b.id)).aggregate_version)).status,404);
   assert.equal((await request(`/me/channels/squad/${id}/messages`,a,{body:'解散後'})).status,404);
   assert.equal((await request(`/squads/${id}/disband`,owner,{},version)).status,404);
+  // The retained schema also fences the pre-management release: its directory
+  // and owner checks join this view, while its invitation path writes these tables.
+  assert.equal((await pool.query('SELECT * FROM member_squad_classification WHERE squad_id=$1',[id])).rowCount,0);
+  await assert.rejects(pool.query("UPDATE member_squad_memberships SET state='active' WHERE squad_id=$1 AND user_id=$2",[id,b.id]),{code:'23514'});
+  await assert.rejects(pool.query(`INSERT INTO member_squad_invitations(invitation_id,community_id,squad_id,owner_ref,recipient_ref,state)
+    SELECT $1,community_id,squad_id,owner_ref,$2,'pending' FROM member_squads WHERE squad_id=$3`,[randomUUID(),b.id,id]),{code:'23514'});
+  assert.equal((await member(id,b.id)).state,'left');
   // Disbanded squads no longer count toward the owner's limit; the journal keeps the history.
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM transition_journal WHERE aggregate_id=$1 AND command='disband_squad'",[id])).rows[0].n,1);
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_channel_messages WHERE channel_key=$1',[id])).rows[0].n,1);

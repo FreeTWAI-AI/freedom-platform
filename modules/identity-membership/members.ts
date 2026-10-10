@@ -11,6 +11,7 @@ import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 import { notifyFriendshipChange } from '../member-communications/events.js';
 import { notifyMember } from '../member-communications/notifications.js';
+import { SQUAD_KINDS, SQUAD_KIND_LABELS } from '../../packages/shared/squad-kinds.js';
 import {lockInteractionPair,assertCanContact,assertInteractionMember,contactableIds} from './blocks.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
@@ -253,7 +254,7 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
 
 const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
 const SQUAD_OWNER_LIMIT=10;
-const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(['project','mutual_help','coaching']),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
+const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(SQUAD_KINDS),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
 async function squadExists(q:Pool|PoolClient,actor:Actor,id:string) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT s.* FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
@@ -268,7 +269,7 @@ export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:numbe
     FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
     JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
     WHERE s.community_id=$1 AND s.disbanded_at IS NULL AND u.active AND (NOT t.is_test_data OR s.owner_ref=$2) ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
-  return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:[{key:'project',name:'專案小隊（跨職能協作）'},{key:'mutual_help',name:'共同目標互助小隊'},{key:'coaching',name:'陪跑小隊'}]};
+  return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:SQUAD_KINDS.map(key=>({key,name:SQUAD_KIND_LABELS[key]}))};
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
   const squad=await squadExists(pool,actor,id);
