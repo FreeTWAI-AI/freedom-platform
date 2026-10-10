@@ -6,7 +6,7 @@ import { PublicationPhotoRefSchema, publicationMediaSnapshot, projectPrivateProd
 import type { Profile } from './store.js';
 
 export interface StoredProductPhoto { ref: PublicationPhotoRef; scopeId: string; policyRevision: string }
-export interface PhotoProduct { product: ProductView; photo: StoredProductPhoto | null }
+export interface PhotoProduct { product: Omit<ProductView, 'stock'>; photo: StoredProductPhoto | null }
 export function photoMetadata(ref: PublicationPhotoRef) {
   return { content_type: ref.content_type, byte_size: ref.byte_size, width: ref.width, height: ref.height };
 }

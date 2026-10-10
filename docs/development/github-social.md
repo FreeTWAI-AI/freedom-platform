@@ -20,6 +20,8 @@ Fork 連到原作 `/fork`，由本人在 GitHub 選擇擁有者與確認建立�
 
 `GET /api/v1/me/github/authors/:username/follow` 查詢；`POST` 同一路徑接受 `{following:true|false,confirmed:true}`，伺服器以會員自己的 user token 呼叫 GitHub `PUT/DELETE /user/following/{username}`。只在 GitHub 204 後回傳 confirmed；失敗不假設追蹤狀態，應重新查詢。沿用會員／session 鎖、加密憑證、刷新、失效撤銷與限流；設定狀態的 PUT／DELETE 本身可重送，不新增本地 receipt 或 migration。
 
+同一作者的卡片按不分大小寫的帳號共用狀態、busy 與錯誤；切換帳號或重新連結後，舊回應不回填。Follow 查詢及寫入會在會員鎖、token refresh 和 provider 併發佇列等待後重驗 session；期限已過時不送出 GitHub 請求，拒絕後釋放佇列名額。
+
 預設 OAuth URL 與 App manifest 不擴大權限。GitHub App 若未授予 Followers 寫入，回覆 `github_follow_permission_required` 並提示重新授權；App 擁有者須先在 GitHub 設定開放該選擇性權限，會員再重新連結同意。401 移除失效連結並提示重新連結，403 限流／429 保留憑證且提示稍後重試。傳統 OAuth 的 `user:follow` scope 不加進目前 GitHub App 連結流程。官方契約：[Followers REST API](https://docs.github.com/en/rest/users/followers)。
 
 ## 初次啟用

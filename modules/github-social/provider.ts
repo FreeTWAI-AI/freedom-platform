@@ -37,31 +37,38 @@ export class GitHubSocialProvider {
   private active=0;
   private waiting:(()=>void)[]=[];
   constructor(private fetcher:typeof fetch=fetch,private diagnose:(entry:GitHubDenialDiagnostic)=>void=entry=>console.warn(JSON.stringify(entry))){}
-  private async request(url:string,init:RequestInit={},allowed=[200],maxBody=MAX_BODY):Promise<{status:number;body:unknown}>{
+  private async request(url:string,init:RequestInit={},allowed=[200],maxBody=MAX_BODY,beforeDispatch?:()=>Promise<void>):Promise<{status:number;body:unknown}>{
     if(this.active>=4){
       if(this.waiting.length>=32)throw new GitHubProviderError('github_busy',503);
       await new Promise<void>(resolve=>this.waiting.push(resolve));
     }else this.active++;
     // Call the fetcher unbound: workerd throws "Illegal invocation" when the global
     // fetch runs with this provider as `this` (Node does not care).
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000),fetcher=this.fetcher;
+    const controller=new AbortController(),fetcher=this.fetcher;
+    let timer:ReturnType<typeof setTimeout>|undefined;
     try{
-      const response=await fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
-      if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)){await response.body?.cancel();throw new GitHubProviderError();}
-      if(!allowed.includes(response.status)){
-        if(response.status===401){await response.body?.cancel();throw new GitHubProviderError('github_reconnect_required',409);}
-        if(response.status===429||(response.status===403&&(response.headers.get('x-ratelimit-remaining')==='0'||response.headers.has('retry-after')))){await response.body?.cancel();throw new GitHubProviderError('github_rate_limited',429);}
-        if(response.status===403){await this.reportDenial(url,init.method??'GET',response,controller.signal);throw new GitHubProviderError('github_permission_required',403);}
-        await response.body?.cancel();
-        throw new GitHubProviderError(response.status===404?'github_repository_unavailable':'github_unavailable',502);
-      }
-      if(response.status===204||response.status===404){await response.body?.cancel();return {status:response.status,body:null};}
-      if(Number(response.headers.get('content-length'))>maxBody){await response.body?.cancel();throw new GitHubProviderError('github_invalid_response');}
-      const reader=response.body?.getReader();let size=0;const chunks:Uint8Array[]=[];
-      if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>maxBody){await reader.cancel();throw new GitHubProviderError('github_invalid_response');}chunks.push(chunk.value);}
-      let body:unknown;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new GitHubProviderError('github_invalid_response');}
-      return {status:response.status,body};
-    }catch(error){if(error instanceof GitHubProviderError)throw error;console.error('github_provider_failed',error instanceof Error?error.name:'unknown');throw new GitHubProviderError();}
+      // Queue admission can outlive the caller's authority. Check on the held
+      // transaction immediately before dispatch; rejection still releases the slot.
+      if(beforeDispatch)await beforeDispatch();
+      timer=setTimeout(()=>controller.abort(),8000);
+      try{
+        const response=await fetcher(url,{...init,redirect:'manual',signal:controller.signal,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':VERSION,'User-Agent':'Freedom-Workshop-GitHub-Social',...init.headers}});
+        if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400)){await response.body?.cancel();throw new GitHubProviderError();}
+        if(!allowed.includes(response.status)){
+          if(response.status===401){await response.body?.cancel();throw new GitHubProviderError('github_reconnect_required',409);}
+          if(response.status===429||(response.status===403&&(response.headers.get('x-ratelimit-remaining')==='0'||response.headers.has('retry-after')))){await response.body?.cancel();throw new GitHubProviderError('github_rate_limited',429);}
+          if(response.status===403){await this.reportDenial(url,init.method??'GET',response,controller.signal);throw new GitHubProviderError('github_permission_required',403);}
+          await response.body?.cancel();
+          throw new GitHubProviderError(response.status===404?'github_repository_unavailable':'github_unavailable',502);
+        }
+        if(response.status===204||response.status===404){await response.body?.cancel();return {status:response.status,body:null};}
+        if(Number(response.headers.get('content-length'))>maxBody){await response.body?.cancel();throw new GitHubProviderError('github_invalid_response');}
+        const reader=response.body?.getReader();let size=0;const chunks:Uint8Array[]=[];
+        if(reader)while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>maxBody){await reader.cancel();throw new GitHubProviderError('github_invalid_response');}chunks.push(chunk.value);}
+        let body:unknown;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new GitHubProviderError('github_invalid_response');}
+        return {status:response.status,body};
+      }catch(error){if(error instanceof GitHubProviderError)throw error;console.error('github_provider_failed',error instanceof Error?error.name:'unknown');throw new GitHubProviderError();}
+    }
     finally{clearTimeout(timer);const next=this.waiting.shift();if(next)next();else this.active--;}
   }
   /** Allow-listed evidence for a plain 403: never the message text, token, member or repository name. */
@@ -118,15 +125,15 @@ export class GitHubSocialProvider {
   async star(repository:string,token:string,desired:boolean):Promise<void>{
     await this.request(`${API}/user/starred/${repository}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
   }
-  async following(username:string,token:string):Promise<boolean>{
+  async following(username:string,token:string,beforeDispatch?:()=>Promise<void>):Promise<boolean>{
     z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
-    const response=await this.request(`${API}/user/following/${username}`,{headers:{Authorization:`Bearer ${token}`}},[204,404]);
+    const response=await this.request(`${API}/user/following/${username}`,{headers:{Authorization:`Bearer ${token}`}},[204,404],MAX_BODY,beforeDispatch);
     return response.status===204;
   }
-  async follow(username:string,token:string,desired:boolean):Promise<void>{
+  async follow(username:string,token:string,desired:boolean,beforeDispatch?:()=>Promise<void>):Promise<void>{
     z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/).parse(username);
     try{
-      await this.request(`${API}/user/following/${username}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204]);
+      await this.request(`${API}/user/following/${username}`,{method:desired?'PUT':'DELETE',headers:{Authorization:`Bearer ${token}`,'Content-Length':'0'}},[204],MAX_BODY,beforeDispatch);
     }catch(error){
       if(error instanceof GitHubProviderError&&error.code==='github_permission_required')throw new Problem(403,'github_follow_permission_required','GitHub Follow 權限不足，請重新授權；GitHub App 需先開放 Followers 寫入權限。');
       throw error;

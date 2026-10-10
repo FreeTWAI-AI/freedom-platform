@@ -241,7 +241,7 @@ export class GitHubSocial {
       const connection=await this.connection(q,actor);
       if(!this.config||!connection)return {username,connected:false,following:null};
       await this.rate(q,actor,'follow-read',90);
-      const following=await this.withToken(q,actor,connection,async token=>{await assertCurrentSessionClock(q,actor);return this.provider.following(username,token);});
+      const following=await this.withToken(q,actor,connection,async token=>{await assertCurrentSessionClock(q,actor);return this.provider.following(username,token,()=>assertCurrentSessionClock(q,actor));});
       await assertCurrentSessionClock(q,actor);
       return {username,connected:true,following};
     });
@@ -254,7 +254,7 @@ export class GitHubSocial {
       await this.withToken(q,actor,connection,async token=>{
         // Refresh the decision clock after connection-lock/token-refresh waits.
         await assertCurrentSessionClock(q,actor);
-        await this.provider.follow(username,token,desired);
+        await this.provider.follow(username,token,desired,()=>assertCurrentSessionClock(q,actor));
       });
       return {username,connected:true,following:desired,confirmed:true};
     });

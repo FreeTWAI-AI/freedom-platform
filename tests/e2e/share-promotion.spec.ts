@@ -454,6 +454,6 @@ test('the author can delete their social post', async ({ page }) => {
   const youtube = page.locator('article.social-card').filter({ has: page.getByRole('heading', { name: 'E2E 示範影片', level: 3 }) });
   await youtube.getByText('⋯',{exact:true}).click();
   await youtube.getByRole('button', { name: '刪除', exact: true }).click();
-  await youtube.getByRole('button', { name: '確定刪除', exact: true }).click();
+  await page.getByRole('dialog', { name: '刪除貼文？', exact: true }).getByRole('button', { name: '確定刪除', exact: true }).click();
   await expect(youtube).toHaveCount(0);
 });

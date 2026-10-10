@@ -387,3 +387,38 @@ test('Follow rejects a session that expires while waiting for the GitHub member 
     assert.equal(mock.calls.some(call=>call.url.includes('/user/following/')&&call.method!=='GET'),false);
   }finally{await blocker.query('ROLLBACK');blocker.release();}
 });
+
+for(const operation of ['read','follow','unfollow'] as const){
+  test(`queued GitHub ${operation} rechecks the member session before sending a request`,async()=>{
+    let release!:()=>void,entered!:()=>void,count=0;
+    const held=new Promise<void>(resolve=>{release=resolve;}),full=new Promise<void>(resolve=>{entered=resolve;});
+    const service=new GitHubSocial(pool,config,async(input,init)=>{
+      if(String(input)==='https://api.github.com/repos/queue/blocker'){
+        if(++count===4)entered();await held;
+      }
+      return mock.fetch(input,init);
+    });
+    await connect(service);mock.calls=[];
+    // Observe the real service's transport only to establish a deterministic
+    // queue barrier; the operation under test uses the public service methods.
+    const provider=Reflect.get(service,'provider') as GitHubSocialProvider;
+    const blockers=Array.from({length:4},()=>provider.metrics('queue/blocker'));
+    let rejected:Promise<void>|undefined;
+    try{
+      await full;
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1",[actor.session_hash]);
+      const pending=operation==='read'?service.following(actor,'source-author'):service.follow(actor,'source-author',operation==='follow');
+      rejected=assert.rejects(pending,errorCode('session_expired'));
+      const deadline=Date.now()+1500;
+      while((Reflect.get(provider,'waiting') as unknown[]).length!==1&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+      assert.equal((Reflect.get(provider,'waiting') as unknown[]).length,1,'operation reached the provider queue before expiry');
+      await pool.query('SELECT pg_sleep(2.1)');release();await Promise.all(blockers);await rejected;
+      assert.equal(mock.calls.filter(call=>call.url.includes('/user/following/')).length,0,'no expired member request reaches GitHub');
+      // The rejected dispatch must release its concurrency slot for later work.
+      assert.equal((Reflect.get(provider,'waiting') as unknown[]).length,0);
+      assert.equal(Reflect.get(provider,'active'),0);
+      await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '1 hour' WHERE token_hash=$1",[actor.session_hash]);
+      assert.equal((await service.follow(actor,'source-author',true)).confirmed,true);
+    }finally{release();await Promise.allSettled(blockers);if(rejected)await rejected;}
+  });
+}
