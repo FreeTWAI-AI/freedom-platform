@@ -10,7 +10,7 @@ import type {MemberScopeContext} from '../../packages/resource-scopes/index.js';
 import {OpaqueId} from '../../contracts/common/v1/identity.js';
 import {requireCondition} from '../../packages/shared/problem.js';
 import {normalizeSocialThumbnail} from '../skill-submissions/payload.js';
-import {authorizeSocialThumbnailWrite,preparedSocialPost,authorizeSocialCreate,publishSocialCreate,shownSocial} from '../community/social-posts.js';
+import {authorizeNativeSocialReplay,authorizeSocialThumbnailWrite,preparedSocialPost,authorizeSocialCreate,publishSocialCreate,shownSocial,type NativeSocialDraft,type SocialCreationDraft,type SocialPostView} from '../community/social-posts.js';
 import {readBounded,prepareLegacyMediaRepresentation,type ObjectStore} from '../../packages/asset-storage/index.js';
 import {assetCommandKey,assetVersion,createAssetLifecycle,type LifecyclePolicy} from './engine.js';
 const input=z.object({key:assetCommandKey,targetPostId:OpaqueId,expectedVersion:assetVersion,contentType:z.enum(['image/png','image/jpeg','image/webp']),byteSize:z.number().int().min(1).max(524288),sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict();
@@ -22,9 +22,9 @@ export async function resolveSocialThumbnailUploadPolicy(q:PoolClient,context:Me
  requireCondition(row&&row.mode!=='legacy'&&row.persistence_allowed===true&&typeof row.policy_revision==='string'&&typeof row.retained_byte_limit==='string'&&BigInt(row.retained_byte_limit)>=524288n,503,'media_upload_unavailable','內容上傳暫時無法使用。');
  return Object.freeze({revision:row.policy_revision,platformPersistenceAllowed:true,retainedByteLimit:row.retained_byte_limit});
 }
-/** Manual uploads and closed automatic-preview create use the same finite profile. */
+/** Manual uploads, closed automatic-preview create and note-with-image create use the same finite profile. */
 export function createSocialThumbnailAssetService(pool:Pool,dependencies:SocialThumbnailAssetDependencies){
- type Creation={id:string;command:Command;draft:ReturnType<typeof preparedSocialPost>;source:'youtube'|'page';now:Date;sourceDigest:string;key:string};
+ type Creation={id:string;command:Command;draft:SocialCreationDraft;source:'youtube'|'page'|'upload';now:Date;sourceDigest:string;key:string};
  function lifecycle(creation?:Creation){return createAssetLifecycle<z.infer<typeof input>,{intentId:string;assetId:string;postId:string;aggregateVersion:string}>(pool,dependencies,{
   purpose:'community.social-thumbnail',targetKind:'community.social-thumbnail',variant:'thumbnail',inputMaxBytes:524288,outputMaxBytes:524288,retireReplacedAsset:true,
   parsePrepare:raw=>input.parse(raw),targetId:raw=>raw.targetPostId,
@@ -52,20 +52,31 @@ export function createSocialThumbnailAssetService(pool:Pool,dependencies:SocialT
    const saved=(await q.query('UPDATE community_social_posts SET media_version=media_version+1,updated_at=clock_timestamp() WHERE post_id=$1 AND media_version=$2 RETURNING media_version',[target.targetId,row.expected_version])).rows[0];requireCondition(saved,412,'version_conflict','資料已更新，請重新整理後再操作。');
    await q.query('UPDATE community_social_thumbnail_asset_targets SET asset_id=$2,linked_at_version=$3 WHERE post_id=$1',[target.targetId,row.asset_id,saved.media_version]);
    await q.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,storage_source) VALUES($1,NULL,$2,'asset') ON CONFLICT(post_id) DO UPDATE SET source=EXCLUDED.source,storage_source='asset',updated_at=clock_timestamp()",[target.targetId,creation?.source??'upload']);
-   const result={intentId:row.intent_id,assetId:row.asset_id,postId:target.targetId,aggregateVersion:saved.media_version as string};return {aggregateVersion:result.aggregateVersion,result,fact:{aggregateType:'social_post',id:target.targetId,data:{asset_id:row.asset_id,intent_id:row.intent_id},eventType:creation?'freedom.community.social.preview.created.v1':'freedom.community.social.thumbnail.replaced.v1'}};
+   const result={intentId:row.intent_id,assetId:row.asset_id,postId:target.targetId,aggregateVersion:saved.media_version as string};return {aggregateVersion:result.aggregateVersion,result,fact:{aggregateType:'social_post',id:target.targetId,data:{asset_id:row.asset_id,intent_id:row.intent_id},eventType:creation?.source==='upload'?'freedom.community.social.note.created.v1':creation?'freedom.community.social.preview.created.v1':'freedom.community.social.thumbnail.replaced.v1'}};
   },
  });}
  const manual=lifecycle();
- async function createPost(raw:Command,preview:LinkPreview,now:Date,publicOrigin:string){
-  const command=Object.freeze({...raw,actor:Object.freeze({...raw.actor}),body:JSON.parse(JSON.stringify(raw.body))}),draft=preparedSocialPost(command.body,preview,publicOrigin);requireCondition(preview.image&&preview.source,503,'media_upload_unavailable','預覽來源暫時無法取得。');const image=Buffer.from(preview.image),hash=await sha256(image),key=digest({key:command.key,operation:command.operation});
+ /** Reserve a deterministic post id for this command, upload the WebP, then publish post and pointer in one finalize. */
+ async function publishCreation(command:Command,draft:SocialCreationDraft,source:Creation['source'],image:Buffer,now:Date){
+  const hash=await sha256(image),key=digest({key:command.key,operation:command.operation});
   const hex=createHash('sha256').update(digest({owner:command.actor.user_id,key})).digest('hex'),id=`${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-8${hex.slice(17,20)}-${hex.slice(20,32)}`;
-  const probe=async()=>{const miss=new Error('social_create_receipt_miss');try{return await socialPostCreateMemberCommand<Awaited<ReturnType<typeof shownSocial>>>(pool,command,id,async()=>{},async()=>{throw miss;});}catch(e){if(e!==miss)throw e;}};const previous=await probe();if(previous)return previous;
-  const create={id,command,draft,source:preview.source,now,sourceDigest:digest({body:command.body,draft,source:preview.source,hash,size:image.length}),key},api=lifecycle(create);
+  const authorizeReplay=(q:PoolClient)=>source==='upload'?authorizeNativeSocialReplay(q,command):Promise.resolve(false);
+  const probe=async()=>{const miss=new Error('social_create_receipt_miss');try{return await socialPostCreateMemberCommand<SocialPostView>(pool,command,id,authorizeReplay,async()=>{throw miss;});}catch(e){if(e!==miss)throw e;}};const previous=await probe();if(previous)return previous;
+  const create={id,command,draft,source,now,sourceDigest:digest({body:command.body,draft,source,hash,size:image.length}),key},api=lifecycle(create);
   try{const prepared=await api.prepare(command.actor,{key: digest({key,phase:'prepare'}),targetPostId:id,expectedVersion:'1',contentType:'image/webp',byteSize:image.length,sha256:hash}),lease=await api.resumeUpload(command.actor,{key,intentId:prepared.intentId}),bind={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
    if(lease.state==='prepared'||lease.state==='processing')await api.write(command.actor,{...bind,key:digest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(image);c.close();}}));let live:PoolClient;
-   return await api.finalizeVia(command.actor,{...bind,key:digest({key,phase:'finalize'})},{operation:'community.social.post.create',validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===hash,409,'asset_source_mismatch','預覽來源已改變。'),execute:run=>socialPostCreateMemberCommand(pool,command,id,q=>authorizeSocialCreate(q,command.actor,draft,create.now),async(q,context)=>{live=q;return run(q,context);}),result:()=>shownSocial(live!,command.actor,id)});
-  }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','縮圖上傳暫時無法使用。');throw error;}
+   return await api.finalizeVia(command.actor,{...bind,key:digest({key,phase:'finalize'})},{operation:'community.social.post.create',validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===hash,409,'asset_source_mismatch','圖片來源已改變。'),execute:run=>socialPostCreateMemberCommand(pool,command,id,async q=>{if(!await authorizeReplay(q))await authorizeSocialCreate(q,command.actor,draft,create.now);},async(q,context)=>{live=q;return run(q,context);}),result:()=>shownSocial(live!,command.actor,id)});
+  }catch(error){const committed=await probe();if(committed)return committed;if(error instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','圖片上傳暫時無法使用。');throw error;}
  }
- return Object.freeze({...manual,createPost});
+ async function createPost(raw:Command,preview:LinkPreview,now:Date,publicOrigin:string){
+  const command=Object.freeze({...raw,actor:Object.freeze({...raw.actor}),body:JSON.parse(JSON.stringify(raw.body))}),draft=preparedSocialPost(command.body,preview,publicOrigin);requireCondition(preview.image&&preview.source,503,'media_upload_unavailable','預覽來源暫時無法取得。');
+  return publishCreation(command,draft,preview.source,Buffer.from(preview.image),now);
+ }
+ /** `image` is the already-normalized 640×360 WebP; the command body carries only the source digest. */
+ async function createNativePost(raw:Command,draft:NativeSocialDraft,image:Buffer,now:Date){
+  const command=Object.freeze({...raw,actor:Object.freeze({...raw.actor}),body:JSON.parse(JSON.stringify(raw.body))});
+  return publishCreation(command,draft,'upload',Buffer.from(image),now);
+ }
+ return Object.freeze({...manual,createPost,createNativePost});
 }
 export type SocialThumbnailAssetService=ReturnType<typeof createSocialThumbnailAssetService>;

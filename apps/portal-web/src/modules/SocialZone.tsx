@@ -7,6 +7,7 @@ import {MemberAvatar} from './MemberAvatar';
 import {PromotionShare} from './PromotionShare';
 import {SocialInteractions} from './SocialInteractions';
 import './SocialZone.css';
+import {prepareSocialImage} from './social-image';
 import {socialPostJobForSession} from '../social-post-task';
 import {SocialPostOptimizer} from './SocialPostOptimizer';
 import './SocialPostOptimizer.css';
@@ -60,6 +61,16 @@ function Thumb({post}: {post: Post}) {
   return <img className="social-thumb" src={post.thumbnail_url} alt="" width={640} height={360} onError={() => setBroken(true)}/>;
 }
 
+async function composeImage(file: File) {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(new Error('圖片未能讀取，請重新選取。'));
+    reader.readAsDataURL(file);
+  });
+  return {mime_type: file.type, data_base64: data};
+}
+
 export function SocialZone({client, canReview = false, viewer}: {client: PortalClient; canReview?: boolean; viewer?: {name: string; avatarUrl?: string | null}}) {
   const composerId = useId();
   const composer = useRef<HTMLDialogElement>(null), composerTrigger = useRef<HTMLButtonElement>(null);
@@ -81,6 +92,13 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null), deleteTrigger = useRef<HTMLElement | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [composeFile, setComposeFile] = useState<File | null>(null), composeInput = useRef<HTMLInputElement>(null);
+  const [composePreview, setComposePreview] = useState('');
+  const [preparingImage, setPreparingImage] = useState(false), [preparingLinkImage, setPreparingLinkImage] = useState(false);
+  const imageSequence = useRef(0), linkImageSequence = useRef(0);
+  useEffect(() => () => { ++imageSequence.current; ++linkImageSequence.current; }, []);
   const [text, setText] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
@@ -93,7 +111,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   const [optimizationJob]=useState(()=>socialPostJobForSession(client));
   const optimization=useSyncExternalStore(optimizationJob.subscribe,optimizationJob.snapshot,optimizationJob.snapshot);
   const [originalDraft,setOriginalDraft]=useState<{before:string;after:string}|null>(null);
-  const pending = useRef<{text: string; key: string} | null>(null);
+  const pending = useRef<{text: string; key: string; image?: {mime_type: string; data_base64: string}} | null>(null);
   const loadSequence = useRef(0);
   const selection = useRef({platform: 'note', version: 0});
   const composerVersion = useRef(0);
@@ -122,6 +140,50 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   useEffect(() => { if (composerOpen && !composer.current?.open) {composer.current?.showModal(); composer.current?.querySelector<HTMLTextAreaElement>('textarea:not(:disabled)')?.focus();} }, [composerOpen]);
   useEffect(() => { if (optionsOpen && !options.current?.open) options.current?.showModal(); }, [optionsOpen]);
   useEffect(() => { if (linkOpen && !linkComposer.current?.open) {linkComposer.current?.showModal(); linkComposer.current?.querySelector<HTMLInputElement>('input[type=url]')?.focus();} }, [linkOpen]);
+  useEffect(() => {
+    if (confirming && !deleteDialog.current?.open) deleteDialog.current?.showModal();
+  }, [confirming]);
+  useEffect(() => {
+    if (!composeFile) { setComposePreview(''); return; }
+    const preview = URL.createObjectURL(composeFile);
+    setComposePreview(preview);
+    return () => URL.revokeObjectURL(preview);
+  }, [composeFile]);
+  async function selectComposeImage(next: File | null) {
+    const sequence = ++imageSequence.current, generation = client.sessionGeneration;
+    if (!next) {
+      if (composeInput.current) composeInput.current.value = '';
+      setComposeFile(null); setPublishError(''); setPreparingImage(false); return;
+    }
+    setPreparingImage(true); setPublishError('');
+    try {
+      const prepared = await prepareSocialImage(next);
+      if (sequence === imageSequence.current && generation === client.sessionGeneration) setComposeFile(prepared);
+    } catch (cause) {
+      if (sequence !== imageSequence.current || generation !== client.sessionGeneration) return;
+      if (composeInput.current) composeInput.current.value = '';
+      setPublishError(cause instanceof Error ? cause.message : '圖片未能處理，文字草稿仍保留。');
+    } finally { if (sequence === imageSequence.current) setPreparingImage(false); }
+  }
+  async function selectLinkThumb(next: File | null) {
+    const sequence = ++linkImageSequence.current, generation = client.sessionGeneration;
+    if (!next) { setFile(null); setPreparingLinkImage(false); return; }
+    setPreparingLinkImage(true); setError('');
+    try {
+      const prepared = await prepareSocialImage(next);
+      if (sequence === linkImageSequence.current && generation === client.sessionGeneration) setFile(prepared);
+    } catch (cause) {
+      if (sequence === linkImageSequence.current && generation === client.sessionGeneration) setError(cause instanceof Error ? cause.message : '圖片未能處理。');
+    } finally { if (sequence === linkImageSequence.current) setPreparingLinkImage(false); }
+  }
+  function openDelete(post: Post, trigger: HTMLElement) {
+    deleteTrigger.current = trigger; setDeleteError(''); setConfirming(post.post_id);
+  }
+  function closeDelete() {
+    if (saving) return;
+    deleteDialog.current?.close(); setConfirming(null);
+    deleteTrigger.current?.focus({preventScroll: true});
+  }
   function selectPlatform(next: string) {
     if (selection.current.platform === next) return;
     selection.current = {platform: next, version: selection.current.version + 1};
@@ -135,14 +197,16 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   function openLink() { closeOptions(); ++linkVersion.current; setError(''); setNotice(''); setLinkOpen(true); }
   async function publish(event: FormEvent) {
     event.preventDefault();
-    if (publishing) return;
-    const command = pending.current ?? {text: text.trim(), key: crypto.randomUUID()};
+    if (publishing || preparingImage) return;
+    const command: NonNullable<typeof pending.current> = pending.current ?? {text: text.trim(), key: crypto.randomUUID()};
     if (!command.text) return;
-    pending.current = command;
-    const selectedVersion = selection.current.version, interactionVersion = composerVersion.current;
+    const selectedVersion = selection.current.version, interactionVersion = composerVersion.current, generation = client.sessionGeneration;
     setPublishing(true); setPublishError(''); setNotice('');
     try {
-      const created = await client.post<Post>('/social-posts/notes', {text: command.text}, {idempotencyKey: command.key});
+      if (!pending.current && composeFile) command.image = await composeImage(composeFile);
+      if (generation !== client.sessionGeneration) return;
+      pending.current = command;
+      const created = await client.post<Post>('/social-posts/notes', {text: command.text, ...(command.image ? {image: command.image} : {})}, {idempotencyKey: command.key});
       newPosts.current = [created, ...newPosts.current.filter(post => post.post_id !== created.post_id)];
       const currentSelection = selection.current;
       if (currentSelection.platform === '' || currentSelection.platform === 'note') {
@@ -152,7 +216,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
         // while the acknowledgement was in flight.
         setItems([created]); setCursor(null); selectPlatform('note');
       }
-      pending.current = null; setText(''); setOriginalDraft(null);setNotice('貼文已發布。');
+      pending.current = null; setText(''); selectComposeImage(null); setOriginalDraft(null);setNotice('貼文已發布。');
       if (composerVersion.current === interactionVersion) closeComposer();
     } catch (cause) {
       if (cause instanceof ApiError && !cause.network) pending.current = null;
@@ -161,7 +225,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || preparingLinkImage) return;
     if (!client.csrfToken) { setError('登入狀態已變更，請重新整理。'); return; }
     const selectedVersion = selection.current.version, interactionVersion = linkVersion.current;
     setSaving(true); setError(''); setNotice('');
@@ -196,10 +260,14 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
     } catch (cause) { setError(cause instanceof Error ? cause.message : '貼文未能分享。'); }
     finally { setSaving(false); }
   }
-  async function upload(post: Post, next: File) {
+  async function uploadLinkThumb(post: Post, next: File) {
     if (!client.csrfToken) return;
+    if (saving) return;
+    const generation = client.sessionGeneration;
     setSaving(true); setError('');
     try {
+      next = await prepareSocialImage(next);
+      if (generation !== client.sessionGeneration) return;
       const response = await accessAwareFetch(`/api/v1/social-posts/${post.post_id}/thumbnail`, {
         method: 'PUT', credentials: 'same-origin', body: next,
         headers: {Accept: 'application/json', 'Content-Type': next.type, 'X-CSRF-Token': client.csrfToken, 'Idempotency-Key': crypto.randomUUID()},
@@ -213,7 +281,7 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
   }
   async function remove(post: Post) {
     if (!client.csrfToken) return;
-    setSaving(true); setError('');
+    setSaving(true); setDeleteError('');
     try {
       const response = await accessAwareFetch(`/api/v1/social-posts/${post.post_id}`, {
         method: 'DELETE', credentials: 'same-origin', body: '{}',
@@ -222,8 +290,9 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
       if (!response.ok) { const problem = await response.json().catch(() => ({})) as {detail?: string}; throw new ApiError({message: problem.detail || '貼文未能刪除。', status: response.status}); }
       setItems(current => current.filter(item => item.post_id !== post.post_id));
       newPosts.current = newPosts.current.filter(item => item.post_id !== post.post_id);
-      setConfirming(null); setNotice('貼文已刪除。');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '貼文未能刪除。'); }
+      deleteDialog.current?.close(); setConfirming(null); setNotice('貼文已刪除。');
+      composerTrigger.current?.focus({preventScroll: true});
+    } catch (cause) { setDeleteError(cause instanceof Error ? cause.message : '貼文未能刪除。'); }
     finally { setSaving(false); }
   }
   async function hide(post: Post) {
@@ -244,10 +313,14 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
         <p className="social-publish-identity"><MemberAvatar nickname={viewer?.name ?? '我'} avatarUrl={viewer?.avatarUrl}/><span>{viewer?.name ?? '我'}<small>社群會員可見</small></span></p>
         <form className="social-native-composer stack" onSubmit={event => void publish(event)} aria-busy={publishing}>
           <label className="field"><span className="sr-only">貼文內容</span><textarea aria-label="貼文內容" autoFocus required rows={6} maxLength={2000} placeholder="分享近況、作品，或找夥伴一起做點事…" value={text} disabled={publishing || !!pending.current} onChange={event => setText(event.target.value)}/></label>
+          <label className="field">貼文圖片（選填）<input ref={composeInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={publishing || preparingImage || !!pending.current} onChange={event => void selectComposeImage(event.target.files?.[0] ?? null)}/></label>
+          <p className="muted">直接選擇照片，系統會自動調整大小。支援 JPEG、PNG、WebP。</p>
+          {preparingImage && <p role="status">正在處理圖片…</p>}
+          {composeFile && <div className="social-compose-attachment">{composePreview && <img className="social-compose-preview" src={composePreview} alt="待發布圖片預覽"/>}<span className="muted">{composeFile.name}</span><button type="button" className="btn btn-ghost" disabled={publishing || !!pending.current} onClick={() => selectComposeImage(null)}>移除圖片</button></div>}
           <div className="social-composer-tools"><button type="button" className="btn btn-ghost" aria-pressed={optimizerEnabled} aria-expanded={optimizerEnabled} aria-controls={`${composerId}-optimizer`} disabled={publishing||!!pending.current||optimization.phase==='busy'} onClick={()=>setOptimizerEnabled(value=>!value)}>✦ Social Post 優化</button><button ref={shareTrigger} type="button" className="btn btn-ghost" aria-expanded={shareOpen} aria-controls={`${composerId}-share`} disabled={publishing||!!pending.current} onClick={()=>setShareOpen(value=>!value)}>{shareText[0]}</button>{originalDraft&&<button type="button" className="btn btn-ghost" disabled={publishing||!!pending.current||text!==originalDraft.after} onClick={()=>{setText(originalDraft.before);setOriginalDraft(null);}}>復原原稿</button>}</div>
           {optimizerEnabled&&<div id={`${composerId}-optimizer`}><SocialPostOptimizer client={client} job={optimizationJob} draft={text} disabled={publishing||!!pending.current} onRecoverDraft={draft=>{setOriginalDraft({before:text,after:draft});setText(draft);}} onApply={result=>{setOriginalDraft({before:text,after:result});setText(result);optimizationJob.adopt();}}/></div>}
           {shareOpen&&<div id={`${composerId}-share`}><ShareLoadBoundary key={shareLoader.attempt} fallback={cause=>{const retryUrl=shareModuleRetryUrl(cause,location.origin,shareLoader.attempt+1);return <div className="banner banner-error"><p role="alert">{shareText[3]}</p>{retryUrl&&<button type="button" className="btn btn-ghost" disabled={publishing||!!pending.current} onClick={()=>setShareLoader(current=>({component:sharePanelLoader(retryUrl),attempt:current.attempt+1}))}>{shareText[4]}</button>}</div>;}}><Suspense fallback={<p role="status">{shareText[1]}</p>}><CrossPlatformShare client={client} draft={text} disabled={publishing||!!pending.current} onRestore={value=>{setOriginalDraft({before:text,after:value});setText(value);}} onClose={()=>{setShareOpen(false);shareTrigger.current?.focus({preventScroll:true});}}/></Suspense></ShareLoadBoundary></div>}
-          <div className="social-composer-footer"><span className="muted">{text.length}/2000</span><button className="btn btn-primary" disabled={publishing || !text.trim()}>{publishing ? '發布中…' : pending.current ? '重試發布' : shareOpen?shareText[2]:'發布貼文'}</button></div>
+          <div className="social-composer-footer"><span className="muted">{text.length}/2000</span><button className="btn btn-primary" disabled={publishing || preparingImage || !text.trim()}>{publishing ? '發布中…' : pending.current ? '重試發布' : shareOpen?shareText[2]:'發布貼文'}</button></div>
           {publishError && <p className="banner banner-error" role="alert">{publishError}</p>}
         </form>
       </div>}
@@ -266,11 +339,20 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
           <label className="field">連結<input required type="url" inputMode="url" maxLength={2048} value={url} disabled={saving} onChange={event=>setUrl(event.target.value)} placeholder="https://"/></label>
           <label className="field">標題（選填）<input maxLength={120} value={title} disabled={saving} onChange={event=>setTitle(event.target.value)}/></label>
           <label className="field">說明（選填）<textarea maxLength={500} rows={3} value={note} disabled={saving} onChange={event=>setNote(event.target.value)}/></label>
-          <label className="field">縮圖（選填，否則自動抓取）<input type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event=>setFile(event.target.files?.[0]??null)}/></label>
-          <button className="btn btn-primary" type="submit" disabled={saving}>{saving?'正在讀取預覽…':'分享貼文'}</button>
+          <label className="field">縮圖（選填，會自動調整大小）<input type="file" accept="image/jpeg,image/png,image/webp" disabled={saving || preparingLinkImage} onChange={event=>{void selectLinkThumb(event.target.files?.[0]??null); event.target.value = '';}}/></label>
+          {file && <p className="muted">已選擇：{file.name}</p>}
+          <button className="btn btn-primary" type="submit" disabled={saving || preparingLinkImage}>{preparingLinkImage?'正在處理圖片…':saving?'正在讀取預覽…':'分享貼文'}</button>
           {error && <p className="banner banner-error" role="alert">{error}</p>}
           {notice && <p className="social-feedback" role="status">{notice}</p>}
         </form>
+      </div>}
+    </dialog>
+    <dialog ref={deleteDialog} className="social-publish-dialog social-delete-dialog" aria-labelledby={`${composerId}-delete`} aria-describedby={`${composerId}-delete-detail`} onCancel={event => {event.preventDefault(); closeDelete();}} onClose={() => setConfirming(null)}>
+      {confirming && <div className="stack">
+        <h2 id={`${composerId}-delete`}>刪除貼文？</h2>
+        <p id={`${composerId}-delete-detail`}>刪除後無法復原，貼文、圖片與留言都不再顯示。</p>
+        <div className="social-composer-footer"><button type="button" className="btn btn-ghost" disabled={saving} onClick={closeDelete}>取消</button><button type="button" className="btn btn-primary" disabled={saving} onClick={() => {const post = items.find(item => item.post_id === confirming); if (post) void remove(post);}}>{saving ? '刪除中…' : '確定刪除'}</button></div>
+        {deleteError && <p className="banner banner-error" role="alert">{deleteError}</p>}
       </div>}
     </dialog>
     {notice && !linkOpen && <p className="social-feedback" role="status">{notice}</p>}
@@ -287,9 +369,8 @@ export function SocialZone({client, canReview = false, viewer}: {client: PortalC
           <div className="social-post-header"><p className="social-byline"><MemberAvatar nickname={post.author.display_name} avatarUrl={post.author.avatar_url} className="social-avatar"/> <span>{post.author.display_name}</span> <time dateTime={post.created_at}>{formatIsoLocal(post.created_at)}</time></p>
             {(post.mine||canHide)&&<details className="social-post-menu" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}}>
               <summary aria-label="貼文選項">⋯</summary><div className="social-post-menu-actions">
-                {post.mine && <label className="btn btn-ghost social-file">{post.kind==='note'?post.thumbnail_url?'換圖片':'加入圖片':'換縮圖'}<input aria-label={post.kind==='note'?'貼文圖片（JPEG、PNG、WebP，512 KiB 以下）':'更換縮圖'} type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event=>{const next=event.target.files?.[0];if(next)void upload(post,next);event.target.value='';}}/></label>}
-                {post.mine && confirming!==post.post_id && <button type="button" className="btn btn-ghost" disabled={saving} onClick={()=>setConfirming(post.post_id)}>刪除</button>}
-                {post.mine && confirming===post.post_id && <><button type="button" className="btn btn-primary" disabled={saving} onClick={()=>void remove(post)}>確定刪除</button><button type="button" className="btn btn-ghost" onClick={()=>setConfirming(null)}>取消</button></>}
+                {post.mine && post.kind !== 'note' && <label className="btn btn-ghost social-file">換縮圖<input aria-label="更換縮圖" type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} onChange={event=>{const next=event.target.files?.[0];if(next)void uploadLinkThumb(post,next);event.target.value='';}}/></label>}
+                {post.mine && <button type="button" className="btn btn-ghost" disabled={saving} aria-haspopup="dialog" onClick={event=>openDelete(post, event.currentTarget.closest('details')?.querySelector('summary') ?? event.currentTarget)}>刪除</button>}
                 {canHide && !post.mine && <button type="button" className="btn btn-ghost" disabled={saving} onClick={()=>void hide(post)}>隱藏</button>}
               </div>
             </details>}

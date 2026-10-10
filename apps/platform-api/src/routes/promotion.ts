@@ -87,7 +87,7 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.get('/api/v1/promotion/links/mine', async c => c.json(await listMyPromotionLinks(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
   app.get('/api/v1/promotion/leaderboards', async c => c.json(await promotionLeaderboards(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
   app.get('/api/v1/social-posts', async c => c.json(await listSocialPosts(pool, c.get('actor'), { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind') })));
-  app.post('/api/v1/social-posts/notes', async c => c.json(await createNativeSocialPost(pool, await moduleCommand(c), clock(runtime)), 201));
+  app.post('/api/v1/social-posts/notes', async c => c.json(await createNativeSocialPost(pool, await moduleCommand(c), clock(runtime), runtime.socialThumbnailAssets), 201));
   app.post('/api/v1/social-posts/:id/like', async c => c.json(await setSocialLike(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/social-posts/:id/comments', async c => c.json(await listSocialComments(pool, c.get('actor'), z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
   app.post('/api/v1/social-posts/:id/comments', async c => c.json(await createSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime)), 201));

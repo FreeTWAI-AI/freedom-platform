@@ -26,7 +26,13 @@
     "scripts/verify-guild-work.mjs",
     "tests/runtime/verify-guild-work.test.ts",
     "migrations/126_project_public_metadata.sql",
-    "tests/runtime/organization-project-editing.test.ts"
+    "tests/runtime/organization-project-editing.test.ts",
+    "apps/portal-web/src/modules/WorkSharing.css",
+    "apps/portal-web/src/modules/showcase-drafts.ts",
+    "migrations/143_personal_content.sql",
+    "tests/runtime/showcase-drafts.test.ts",
+    "tests/runtime/sharing-authoring.test.ts",
+    "tests/e2e/simple-work-sharing.spec.ts"
   ],
   "public_exports": [
     "modules/opportunity-project-work/work.ts",

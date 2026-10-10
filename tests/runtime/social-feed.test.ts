@@ -125,13 +125,38 @@ test('revoked session denies replay and author daily limits include removed post
   assert.equal((await request('/social-posts/notes', session, body, 'POST', key)).status, 401);
 });
 
-test('native image uses the existing thumbnail pipeline but never the public thumbnail route', async () => {
-  const session = await login(), note = await post(session);
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-  const response = await app.request(origin + `/api/v1/social-posts/${note.post_id}/thumbnail`, {method: 'PUT', headers: {Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Content-Type': 'image/png', 'Idempotency-Key': randomUUID()}, body: new Uint8Array(png)});
-  assert.equal(response.status, 200, await response.text());
-  assert.equal((await app.request(origin + `/api/v1/social-posts/${note.post_id}/thumbnail`, {headers: {Cookie: session.cookie}})).status, 200);
-  assert.equal((await app.request(origin + `/api/v1/public/social-posts/${note.post_id}/thumbnail`)).status, 404);
+const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+test('note publishes with its image in one command, replays by key and never exposes the public thumbnail route', async () => {
+  const session = await login(), key = randomUUID(), body = {text: '附圖貼文', image: {mime_type: 'image/png', data_base64: PNG_1PX}};
+  const first = await request('/social-posts/notes', session, body, 'POST', key);
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  assert.equal(first.data.thumbnail_url, `/api/v1/social-posts/${first.data.post_id}/thumbnail`);
+  assert.deepEqual((await request('/social-posts/notes', session, body, 'POST', key)).data, first.data);
+  assert.equal((await request('/social-posts/notes', session, {...body, image: {mime_type: 'image/png', data_base64: PNG_1PX.slice(0, -4) + 'AAA='}}, 'POST', key)).status, 409);
+  assert.deepEqual((await pool.query('SELECT source,storage_source FROM community_social_post_thumbnails WHERE post_id=$1', [first.data.post_id])).rows[0], {source: 'upload', storage_source: 'legacy'});
+  const image = await app.request(origin + `/api/v1/social-posts/${first.data.post_id}/thumbnail`, {headers: {Cookie: session.cookie}});
+  assert.equal(image.status, 200); assert.equal(image.headers.get('content-type'), 'image/webp');
+  assert.equal((await app.request(origin + `/api/v1/public/social-posts/${first.data.post_id}/thumbnail`)).status, 404);
+  const replace = await app.request(origin + `/api/v1/social-posts/${first.data.post_id}/thumbnail`, {method: 'PUT', headers: {Origin: origin, Cookie: session.cookie, 'X-CSRF-Token': session.csrf, 'Content-Type': 'image/png', 'Idempotency-Key': randomUUID()}, body: new Uint8Array(Buffer.from(PNG_1PX, 'base64'))});
+  assert.equal(replace.status, 422); assert.equal((await replace.json() as {code: string}).code, 'social_note_image_fixed');
+});
+
+test('rejected note images leave no post behind: over 2 MB, oversized body, wrong type and corrupt bytes', async () => {
+  const session = await login();
+  const oversized = await request('/social-posts/notes', session, {text: '太大', image: {mime_type: 'image/png', data_base64: Buffer.alloc(2 * 1024 * 1024 + 1, 1).toString('base64')}});
+  assert.equal(oversized.status, 413); assert.equal(oversized.data.code, 'social_thumbnail_too_large');
+  const flooded = await request('/social-posts/notes', session, {text: '太大', image: {mime_type: 'image/png', data_base64: Buffer.alloc(2 * 1024 * 1024 + 40000, 1).toString('base64')}});
+  assert.equal(flooded.status, 413); assert.equal(flooded.data.code, 'body_too_large');
+  const mismatched = await request('/social-posts/notes', session, {text: '型別不符', image: {mime_type: 'image/webp', data_base64: PNG_1PX}});
+  assert.equal(mismatched.status, 422); assert.equal(mismatched.data.code, 'invalid_social_thumbnail');
+  assert.equal((await request('/social-posts/notes', session, {text: '壞掉的 base64', image: {mime_type: 'image/png', data_base64: 'not*base64!'}})).status, 422);
+  assert.equal((await request('/social-posts/notes', session, {text: '壞掉的圖', image: {mime_type: 'image/png', data_base64: Buffer.from('definitely not a png').toString('base64')}})).status, 422);
+  assert.equal((await request('/social-posts/notes', session, {text: '不支援的型別', image: {mime_type: 'image/gif', data_base64: PNG_1PX}})).status, 422);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM community_social_posts')).rows[0].n, 0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM command_receipts')).rows[0].n, 0);
+  // Every other JSON command keeps the original 32 KiB ceiling.
+  assert.equal((await request('/social-posts', session, {url: 'https://example.org/x', note: 'n'.repeat(40000)})).status, 413);
 });
 
 test('concurrent native and external publications share the same daily budget', async () => {
