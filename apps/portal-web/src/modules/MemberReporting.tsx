@@ -116,7 +116,7 @@ function AdminReportItem({client,item,onSaved,onDenied,onHeld}:{client:PortalCli
 
 /** Only a successful member-session API read grants evidence UI access. */
 export function AdminReports({client}:{client:PortalClient}){
-  const enabled=useContext(ReportingContext),[items,setItems]=useState<AdminReportCase[]|null>(null),[open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[cursor,setCursor]=useState<string|null>(null),[filter,setFilter]=useState(''),[heldCount,setHeldCount]=useState(0),held=useRef(new Set<string>()),sequence=useRef(0),generation=client.sessionGeneration;
+  const enabled=useContext(ReportingContext),[items,setItems]=useState<AdminReportCase[]|null>(null),[open,setOpen]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[cursor,setCursor]=useState<string|null>(null),[filter,setFilter]=useState('all'),[heldCount,setHeldCount]=useState(0),held=useRef(new Set<string>()),sequence=useRef(0),generation=client.sessionGeneration;
   async function load(next?:string,state=filter){
     if(held.current.size)return;
     const ticket=++sequence.current;setLoading(true);setError('');
@@ -130,7 +130,7 @@ export function AdminReports({client}:{client:PortalClient}){
   return <section className="card stack report-admin" aria-label="平台檢舉案件">
     <button type="button" className="btn btn-ghost" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void load();}}>平台檢舉案件</button>
     <div hidden={!open} className="stack"><h2>平台檢舉案件</h2><p className="field-hint">{policy}</p>
-      <label className="field">案件狀態<select aria-label="案件狀態" value={filter} disabled={loading||heldCount>0} onChange={event=>{const state=event.target.value;setFilter(state);setItems([]);setCursor(null);void load(undefined,state);}}><option value="">全部狀態</option>{Object.entries(stateLabel).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+      <label className="field">案件狀態<select aria-label="案件狀態" value={filter} disabled={loading||heldCount>0} onChange={event=>{if(held.current.size)return;const state=event.target.value;setFilter(state);setItems([]);setCursor(null);void load(undefined,state);}}><option value="open">未結案</option><option value="all">全部狀態</option>{Object.entries(stateLabel).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
       {loading&&<p role="status">載入案件…</p>}{error&&<p role="alert">{error}</p>}
       {items.map(item=><AdminReportItem key={item.case_id} client={client} item={item} onHeld={pending=>{if(pending){held.current.add(item.case_id);sequence.current++;setLoading(false);}else held.current.delete(item.case_id);setHeldCount(held.current.size);}} onDenied={()=>{sequence.current++;held.current.clear();setHeldCount(0);setItems(null);setOpen(false);setCursor(null);}} onSaved={value=>{setItems(previous=>previous?.map(current=>current.case_id===value.case_id?{...current,...value}:current)??null);void load();}}/>)}
       {items.length===0&&<p>目前沒有檢舉案件。</p>}

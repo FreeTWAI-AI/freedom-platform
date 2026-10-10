@@ -206,9 +206,11 @@ test('member evidence freezes the reporter-visible card while excluding hidden c
   await pool.query('DELETE FROM member_friendships');
   await pool.query(`INSERT INTO member_accounts(user_id,community_id,contacts) VALUES($1,$2,$3::jsonb)
     ON CONFLICT(user_id) DO UPDATE SET contacts=excluded.contacts`,[B,DEMO_COMMUNITY,JSON.stringify({discord:{value:'visible-before',audiences:['public']},github:{value:'hidden-before',audiences:[]},email:{audiences:[]}})]);
-  const visible=await memberCard(pool,actors[0],B),r=await report(actors[0],'member',B);
+  const card=await memberCard(pool,actors[0],B),r=await report(actors[0],'member',B);
+  const {last_seen_at:_seen,is_online:_online,is_self:_self,friendship:_friendship,...visible}=card;
   const evidence=(await readAdminMemberReport(pool,actors[2],r.case_id)).evidence as {content:unknown};
   assert.deepEqual(evidence.content,visible);
+  for(const field of ['last_seen_at','is_online','is_self','friendship'])assert.equal(field in (evidence.content as object),false);
   assert.ok(JSON.stringify(evidence).includes('visible-before'));assert.equal(JSON.stringify(evidence).includes('hidden-before'),false);assert.equal(JSON.stringify(evidence).includes(DEMO_USERS[1].email),false);
   await pool.query("UPDATE users SET display_name='changed after report' WHERE user_id=$1",[B]);
   await pool.query("UPDATE member_accounts SET contacts='{}'::jsonb WHERE user_id=$1",[B]);
@@ -225,6 +227,24 @@ test('report queues are bounded, state-filtered and cursor-stable across newly a
   const mine=await listMyMemberReports(pool,actors[0]);assert.equal(mine.items.length,20);assert.ok(mine.next_cursor);
   const rest=await listMyMemberReports(pool,actors[0],{cursor:mine.next_cursor});assert.equal(rest.items.length,7);assert.equal(rest.next_cursor,null);
   await assert.rejects(listMyMemberReports(pool,actors[0],{limit:51}));await assert.rejects(listAdminMemberReports(pool,actors[2],{cursor:'9999999999999999999'}));
+});
+
+test('HTTP open and all queue filters preserve bounded cursors and the existing unfiltered contract',async()=>{
+  for(const state of ['received','in_progress','closed','received','in_progress','closed'])await pool.query(`INSERT INTO member_reports(community_id,reporter_user_id,target_kind,target_id,reason,evidence,state)
+    VALUES($1,$2,'post',$3,'spam','{}',$4)`,[DEMO_COMMUNITY,A,randomUUID(),state]);
+  const app=createApp(pool,origin,'local',{memberReportingEnabled:true});
+  const logged=await login(pool,DEMO_USERS[2].email,DEMO_PASSWORD),headers={Cookie:`freedom_local_session=${logged.token}`};
+  const get=async(query:string)=>{
+    const response=await app.request(origin+'/api/v1/admin/reports?'+query,{headers});assert.equal(response.status,200);
+    return await response.json() as {items:{case_id:string;state:string}[];next_cursor:string|null};
+  };
+  const first=await get('state=open&limit=2');assert.equal(first.items.length,2);assert.ok(first.next_cursor);
+  const second=await get('state=open&limit=2&cursor='+first.next_cursor);assert.equal(second.items.length,2);assert.equal(second.next_cursor,null);
+  assert.equal(new Set([...first.items,...second.items].map(item=>item.case_id)).size,4);
+  assert.ok([...first.items,...second.items].every(item=>['received','in_progress'].includes(item.state)));
+  const all=await get('state=all&limit=50');assert.equal(all.items.length,6);assert.equal(all.items.filter(item=>item.state==='closed').length,2);
+  assert.deepEqual(await get('limit=50'),all);
+  assert.equal((await app.request(origin+'/api/v1/admin/reports?state=unknown',{headers})).status,422);
 });
 
 async function imageReport(){
@@ -252,6 +272,18 @@ test('private image evidence survives retraction and preserves immutable origina
   const logged=await login(pool,DEMO_USERS[2].email,DEMO_PASSWORD);
   const response=await app.request(origin+detail.image_url!,{headers:{Cookie:`freedom_local_session=${logged.token}`}});
   assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'private, no-store');assert.equal(response.headers.get('Vary'),'Cookie');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()),original);
+});
+test('admin HTTP image evidence remains readable after the reporter account is deactivated',async()=>{
+  const {store,original,r}=await imageReport();
+  const app=createApp(pool,origin,'local',{memberReportingEnabled:true,messageImageAssetStore:store});
+  const reporter=await login(pool,DEMO_USERS[0].email,DEMO_PASSWORD),admin=await login(pool,DEMO_USERS[2].email,DEMO_PASSWORD);
+  const path=origin+`/api/v1/admin/reports/${r.case_id}/image`;
+  assert.equal((await app.request(path,{headers:{Cookie:`freedom_local_session=${reporter.token}`}})).status,403);
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[A]);
+  assert.equal((await app.request(path,{headers:{Cookie:`freedom_local_session=${reporter.token}`}})).status,401);
+  const response=await app.request(path,{headers:{Cookie:`freedom_local_session=${admin.token}`}});
+  assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'private, no-store');
   assert.deepEqual(Buffer.from(await response.arrayBuffer()),original);
 });
 for(const change of ['session-revoked','session-expired','admin-revoked'] as const)test(`image evidence rejects ${change} committed during object I/O`,async()=>{

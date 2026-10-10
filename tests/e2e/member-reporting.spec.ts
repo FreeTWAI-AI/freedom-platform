@@ -11,6 +11,7 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
     const contexts:BrowserContext[]=[],ids=[randomUUID(),randomUUID(),randomUUID()],emails=ids.map(id=>`reporting-${id}@example.test`),names=ids.map(id=>`合成檢舉 ${id.slice(0,8)}`),adminId=randomUUID();
     let caseId:string|undefined;
     const paginated=width===1440&&theme==='light';
+    const adminList=(url:URL)=>url.pathname==='/api/v1/admin/reports';
     async function login(index:number){
       const context=await browser.newContext({baseURL,viewport:{width,height:900}});contexts.push(context);
       await context.route(url=>!['localhost','127.0.0.1'].includes(url.hostname),route=>route.abort());
@@ -85,7 +86,7 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
       if(paginated){
         const blocked=new Promise<void>(resolve=>{releaseList=resolve;});
         let entered:()=>void=()=>{};const started=new Promise<void>(resolve=>{entered=resolve;});
-        await admin.route('**/api/v1/admin/reports',async route=>{const response=await route.fetch();entered();await blocked;await route.fulfill({response});});
+        await admin.route(adminList,async route=>{const response=await route.fetch();entered();await blocked;await route.fulfill({response});});
         await adminPanel.getByRole('button',{name:'更新平台檢舉案件',exact:true}).click();await started;
       }
       const transitions:{body:string|null;key:string|undefined;version:string|undefined}[]=[];let loseTransition=true;
@@ -94,11 +95,15 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
         const response=await route.fetch();if(loseTransition){loseTransition=false;return route.abort();}await route.fulfill({response});
       });
       await item.getByRole('button',{name:'開始處理',exact:true}).click();await expect(item.getByRole('alert')).toBeVisible();await expect(item.getByRole('heading')).toContainText('已收到');
-      if(releaseList){const stale=admin.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/admin/reports');releaseList();await stale;await admin.unroute('**/api/v1/admin/reports');await expect(item.getByRole('heading')).toContainText('已收到');}
+      if(releaseList){const stale=admin.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/admin/reports');releaseList();await stale;await admin.unroute(adminList);await expect(item.getByRole('heading')).toContainText('已收到');}
       await expect(adminPanel.getByLabel('案件狀態',{exact:true})).toBeDisabled();await expect(adminPanel.getByRole('button',{name:'更新平台檢舉案件',exact:true})).toBeDisabled();
       await item.getByRole('button',{name:'重試同一筆案件操作',exact:true}).click();await expect(item.getByRole('heading')).toContainText('處理中');expect(transitions[1]).toEqual(transitions[0]);expect(transitions[0].version).toMatch(/^"\d+"$/);
       await item.getByLabel('處理理由').fill('核對完成');await item.getByLabel('處理摘要').fill('合成案件已結案，未變更內容');await item.getByRole('button',{name:'結案',exact:true}).click();await expect(item.getByRole('heading')).toContainText('已結案');await expect(item.getByRole('button',{name:'結案',exact:true})).toHaveCount(0);
       if(paginated){
+        await adminPanel.getByLabel('案件狀態',{exact:true}).selectOption('open');await expect(adminPanel.locator('article')).toHaveCount(20);await expect(adminPanel).not.toContainText('合成案件已結案');
+        await adminPanel.getByRole('button',{name:'更多平台檢舉案件',exact:true}).click();await expect(adminPanel.locator('article')).toHaveCount(21);
+        await adminPanel.getByLabel('案件狀態',{exact:true}).selectOption('all');await expect(adminPanel.locator('article')).toHaveCount(20);await expect(adminPanel).toContainText('合成案件已結案');
+        await adminPanel.getByRole('button',{name:'更多平台檢舉案件',exact:true}).click();await expect(adminPanel.locator('article')).toHaveCount(22);
         await adminPanel.getByLabel('案件狀態',{exact:true}).selectOption('closed');await expect(adminPanel.locator('article')).toHaveCount(1);await expect(adminPanel.locator('article')).toContainText('合成案件已結案');
         await adminPanel.getByLabel('案件狀態',{exact:true}).selectOption('received');await expect(adminPanel.locator('article')).toHaveCount(20);await expect(adminPanel).not.toContainText('合成案件已結案');
         await adminPanel.getByRole('button',{name:'更多平台檢舉案件',exact:true}).click();await expect(adminPanel.locator('article')).toHaveCount(21);

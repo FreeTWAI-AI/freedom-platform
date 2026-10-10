@@ -34,16 +34,19 @@ permissions are unchanged.
 - `GET /admin/reports`: case summaries only, restricted to active platform
   administrators with verified email. Guild titles confer no access. Both list
   routes accept `limit` (1–50, default 20), optional `state`, and a descending
-  `case_number` cursor. `next_cursor` is null after the final page; new cases do
+  `case_number` cursor. `state=open` selects received/in-progress cases;
+  `state=all` or omitted state preserves the unfiltered list contract.
+  `next_cursor` is null after the final page; new cases do
   not shift older pages. Lists never select private notes or evidence.
 - `GET /admin/reports/:id`: separately authorized case detail, including private
-  notes and the immutable server snapshot. Member evidence is the complete card
-  visible to the reporter at capture, including only contacts they could see.
+  notes and the immutable server snapshot. Member evidence retains the card
+  content visible to the reporter, including only contacts they could see;
+  transient presence, last-seen, self and friendship fields are not retained.
   Retracted messages are not reportable.
 - `GET /admin/reports/:id/image`: admin-only private-message image evidence.
   Capture pins the existing immutable image target/object identity and digest;
   it does not expose the participant image route or trust a live message after
-  retraction. Existing message-image targets/objects remain permanent and outside
+  retraction or reporter deactivation. Existing message-image targets/objects remain permanent and outside
   domain GC. No bytes are copied into receipts, JSON evidence, or public storage.
   The reader checks session/admin authority before and after object I/O and serves
   `private, no-store`, `Vary: Cookie`, and `nosniff`. The host needs the existing

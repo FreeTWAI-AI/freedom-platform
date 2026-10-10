@@ -62,10 +62,13 @@ async function visibleEvidence(q:PoolClient,actor:Actor,target:Target):Promise<R
         AND retracted_at IS NULL AND (kind<>'world' OR sender_ref=$3 OR NOT is_verification_test_account(sender_ref)) FOR SHARE`,[...args,actor.user_id,room.kind,room.channel_key])).rows[0];
       break;
     }
-    case 'member':
+    case 'member':{
       await visibleMember(q,actor,target.target_id,true);
       await q.query('SELECT user_id FROM member_accounts WHERE user_id=$1 FOR SHARE',[target.target_id]);
-      row=await memberCard(q,actor,target.target_id);break;
+      // Preserve visible card content, not transient presence or this reporter's relationship.
+      const {last_seen_at:_seen,is_online:_online,is_self:_self,friendship:_friendship,...visible}=await memberCard(q,actor,target.target_id);
+      row=visible;break;
+    }
   }
   requireCondition(row,404,'report_target_not_found','找不到可檢舉的內容。');
   return row;
@@ -94,7 +97,8 @@ export async function createMemberReport(pool:Pool,input:Command){
   });
 }
 
-const ListQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),cursor:z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value=>BigInt(value)<=9223372036854775807n,'無效的案件游標。').optional(),state:z.enum(['received','in_progress','closed']).optional()}).strict();
+const ListQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),cursor:z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value=>BigInt(value)<=9223372036854775807n,'無效的案件游標。').optional(),state:z.enum(['open','all','received','in_progress','closed']).optional()}).strict();
+function reportStates(state:z.infer<typeof ListQuery>['state']){return state==='open'?['received','in_progress']:!state||state==='all'?null:[state];}
 const reportColumns='case_id,case_number,target_kind,target_id,reason,state,aggregate_version,summary,created_at,updated_at';
 function pageRows(rows:ReportRow[],limit:number){const more=rows.length>limit,items=rows.slice(0,limit);return {items,next_cursor:more?String(items.at(-1)!.case_number):null};}
 export async function listMyMemberReports(pool:Pool,actor:Actor,raw:unknown={}){
@@ -102,8 +106,8 @@ export async function listMyMemberReports(pool:Pool,actor:Actor,raw:unknown={}){
   return transaction(pool,async q=>{
     await lockMemberSession(q,actor);await currentMember(q,actor,false);
     const rows=(await q.query(`SELECT ${reportColumns} FROM member_reports WHERE community_id=$1 AND reporter_user_id=$2
-      AND ($3::bigint IS NULL OR case_number<$3) AND ($4::text IS NULL OR state=$4) ORDER BY case_number DESC LIMIT $5`,
-      [actor.community_id,actor.user_id,query.cursor??null,query.state??null,query.limit+1])).rows as ReportRow[];
+      AND ($3::bigint IS NULL OR case_number<$3) AND ($4::text[] IS NULL OR state=ANY($4::text[])) ORDER BY case_number DESC LIMIT $5`,
+      [actor.community_id,actor.user_id,query.cursor??null,reportStates(query.state),query.limit+1])).rows as ReportRow[];
     await assertCurrentSessionClock(q,actor);
     const page=pageRows(rows,query.limit);return {...page,items:page.items.map(reporterView)};
   });
@@ -113,8 +117,8 @@ export async function listAdminMemberReports(pool:Pool,actor:Actor,raw:unknown={
   return transaction(pool,async q=>{
     await lockMemberSession(q,actor);await requireMemberContentAdmin(q,actor);
     const rows=(await q.query(`SELECT ${reportColumns},handler_user_id,processing_reason,action FROM member_reports WHERE community_id=$1
-      AND ($2::bigint IS NULL OR case_number<$2) AND ($3::text IS NULL OR state=$3) ORDER BY case_number DESC LIMIT $4`,
-      [actor.community_id,query.cursor??null,query.state??null,query.limit+1])).rows as ReportRow[];
+      AND ($2::bigint IS NULL OR case_number<$2) AND ($3::text[] IS NULL OR state=ANY($3::text[])) ORDER BY case_number DESC LIMIT $4`,
+      [actor.community_id,query.cursor??null,reportStates(query.state),query.limit+1])).rows as ReportRow[];
     await assertCurrentSessionClock(q,actor);
     const page=pageRows(rows,query.limit);return {...page,items:page.items.map(row=>({...reporterView(row),handler_user_id:row.handler_user_id,processing_reason:row.processing_reason,action:row.action}))};
   });
