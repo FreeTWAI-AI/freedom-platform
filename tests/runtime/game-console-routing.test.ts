@@ -14,6 +14,7 @@ const NOTIFICATION_CHANNELS: Record<NotificationKind, 'system'> = {
   guild_master_appointed: 'system', guild_master_revoked: 'system',
   guild_member_promoted: 'system', guild_member_demoted: 'system',
   event_submitted: 'system', event_review_needed: 'system', event_approved: 'system', event_rejected: 'system',
+  squad_member_removed: 'system',
 };
 
 test('every console source maps to the channel a member should read',()=>{
