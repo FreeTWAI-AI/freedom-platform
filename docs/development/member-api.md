@@ -171,6 +171,18 @@ Idempotency-Key replays remain available without consuming another slot.
 Five per hour is a provisional value (#199); it is the named constant
 `eventCreateLimit` in `modules/community/events.ts`.
 
+## Event registration list (#401)
+
+`GET /api/v1/events/:id/attendees?limit=20&offset=0` (limit 1–50) is
+organizer-only (`403 organizer_required` for everyone else, including guild
+reviewers, whose pending events have no registrations yet). It returns
+`{items,total,next_offset}` for the same population as `attending_count`:
+members currently `going` (verification-only test accounts excluded) and public
+guests whose confirmation email was sent, oldest registration first. A member
+item is `{kind:'member',user_id,nickname,avatar_url,registered_at}`; a guest item
+is only `{kind:'guest',registered_at}` — no guest name, email, member email or
+contacts. Cancelled RSVPs leave the list. Responses are `private, no-store`.
+
 ## Member avatars
 
 `GET /me/avatar` returns `{avatar_url:null|string,aggregate_version:number}`; the

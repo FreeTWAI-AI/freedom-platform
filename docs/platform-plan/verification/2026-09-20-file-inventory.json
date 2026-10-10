@@ -469,8 +469,8 @@
     },
     {
       "path": "apps/platform-api/src/routes/community-events.ts",
-      "bytes": 10208,
-      "sha256": "00036bfaacd03267ea6342c423d037f93da3854ae9deecbfca580c040c17b8fb"
+      "bytes": 10410,
+      "sha256": "c821db410ebef4c96d59d5321bd69372ca798cb6433a2050ded26feb83faabd3"
     },
     {
       "path": "apps/platform-api/src/routes/development-access.ts",
@@ -2138,6 +2138,11 @@
       "sha256": "2b06c5a1ab8036948156d17823447d718f96a09cd0842d76a93c707ae2621ee6"
     },
     {
+      "path": "apps/portal-web/src/modules/EventAttendees.tsx",
+      "bytes": 3330,
+      "sha256": "2465f98f7fe13676b068e2d3fff5bc2b862d29cede9c06bd07fb96b8c8f2a12e"
+    },
+    {
       "path": "apps/portal-web/src/modules/EventCalendar.css",
       "bytes": 1725,
       "sha256": "01dcf3a27783fbd9b9d81b7b1d204d6c06f64173ddc33157bb620f19f9904b76"
@@ -2159,8 +2164,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/EventsPanel.tsx",
-      "bytes": 30800,
-      "sha256": "408afbb14541d1dbcee9e3dbedc173050197f57fea3cfabfd723ab5bd3f1aa8f"
+      "bytes": 31541,
+      "sha256": "58d6e59cb8d0794d3871dd23e23e012cb13cb23fcfabb6239ecce924c985bfd2"
     },
     {
       "path": "apps/portal-web/src/modules/ExpeditionDesign.css",
@@ -2404,8 +2409,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberExperience.css",
-      "bytes": 6196,
-      "sha256": "f770ea91646203657968389f6f6cab5c2eb1dc78d9b735b41507c296663eb524"
+      "bytes": 7437,
+      "sha256": "8e590d53e6fe7e77024b75ce03d006cff77d9cbec8e04bd77d34514d86ed87c8"
     },
     {
       "path": "apps/portal-web/src/modules/MemberHome.tsx",
@@ -13639,8 +13644,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 27643,
-      "sha256": "170f123d38a180517ffea7b408fbd71fa0fd86aaa65945f16b60d9fb7b5e1fdd"
+      "bytes": 28369,
+      "sha256": "cc82e9f0306598ef6062368f21627e78ab066d516af2ec47a8a7657ade78706b"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17109,13 +17114,13 @@
     },
     {
       "path": "modules/community/events.ts",
-      "bytes": 49407,
-      "sha256": "7cd403540493a9c69df0aa4975f9edc37adf5e5104fc3b92a66d3adf73fa0783"
+      "bytes": 52424,
+      "sha256": "a8fe371c4e5ab4799c32207ec5f6ee71bd5f1fefca10714e417557e55555c03b"
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 12726,
-      "sha256": "924cee9e841941cf3f9aaa5f686033081009caff2a1bcfaa23eee8d515ac38bc"
+      "bytes": 12768,
+      "sha256": "04c4e9114bca8926cf5e4b1bfab7399a0ec5d898a1a0881cb5042672eb8e8891"
     },
     {
       "path": "modules/community/github-history.ts",
@@ -17201,6 +17206,11 @@
       "path": "modules/community/task-board.ts",
       "bytes": 1934,
       "sha256": "6176e2d27005a58e9720f923ca09ca4bb2a02ebd6f084ef3553164abb5f70583"
+    },
+    {
+      "path": "modules/community/attendees/freedom.module.json",
+      "bytes": 1080,
+      "sha256": "2a603f12757ac2486ac40de8fb804b3b7cd6940c2e5b9721a91dc6a05ff0a814"
     },
     {
       "path": "modules/community/personal-content/freedom.module.json",
@@ -19813,6 +19823,11 @@
       "sha256": "b2f20f748c08365132eafcd8468e085cf6c941104d05929949ca7fbf9cf226c1"
     },
     {
+      "path": "tests/e2e/event-attendees.spec.ts",
+      "bytes": 3950,
+      "sha256": "074108259a0b7bc53d8774415478021c0b4059327a3ce7a95f792a2c9d4f41ef"
+    },
+    {
       "path": "tests/e2e/event-highlights.spec.ts",
       "bytes": 28804,
       "sha256": "029af7a62a74fb82c2eebe924a8bf53b0b236cd612a2db60dbc2f9fbc5a60585"
@@ -20791,6 +20806,11 @@
       "path": "tests/runtime/e2e-auth-isolation.test.ts",
       "bytes": 3769,
       "sha256": "e9bf8d3516d476761c55f7d9676c9927fead92304dff19466027492904835bfe"
+    },
+    {
+      "path": "tests/runtime/event-attendees.test.ts",
+      "bytes": 14198,
+      "sha256": "f7a277cb578cdee1b4817e560074db6f7ff33a8703f8ec3bfe629aa3a78253ed"
     },
     {
       "path": "tests/runtime/event-banner-assets.test.ts",

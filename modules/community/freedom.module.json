@@ -135,7 +135,8 @@
         "community.event.update",
         "community.event.cancel",
         "community.event.review",
-        "community.event-rsvp.update"
+        "community.event-rsvp.update",
+        "community.event-attendees.list"
       ],
       "auth_profile": "member-session"
     },
