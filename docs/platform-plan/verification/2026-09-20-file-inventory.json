@@ -17409,8 +17409,8 @@
     },
     {
       "path": "modules/community/participation-metrics.ts",
-      "bytes": 13306,
-      "sha256": "e40cc2a97ee43d3ad7d6c846ed69612048e3845f586db74a19cb492bd84fef7c"
+      "bytes": 13787,
+      "sha256": "06baf14c421df2edaca14631f399acfe7654ad025a884c8886f16468d83d3983"
     },
     {
       "path": "modules/community/personal-content.ts",
@@ -22104,8 +22104,8 @@
     },
     {
       "path": "tests/runtime/participation-metrics.test.ts",
-      "bytes": 20725,
-      "sha256": "f71efeacd15d4dc32c40b1f4274ae20d2fe8c98940806c77929fc723ddddc8d8"
+      "bytes": 23689,
+      "sha256": "4fb59f8cd27125d11d2bd7d0c1dd698d9cc92fb9f2716649c0988e35af4ff82f"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",

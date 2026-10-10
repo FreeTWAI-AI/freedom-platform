@@ -44,10 +44,19 @@ function taipeiToday(now: Date) { return new Intl.DateTimeFormat('en-CA', { time
 function addDays(day: string, days: number) { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
 
 // One CTE shared by registration and return metrics: the first time a member shared anything.
-const firstShare = `first_share AS (
+// Current visibility remains authoritative; journal times describe publication
+// events, not permission. Legacy rows without a matching event retain their
+// recorded consent time. A later consent must never replace valid history.
+const firstShare = `showcase_publications AS (
+  SELECT s.owner_ref AS user_id, COALESCE(j.created_at,s.consent_recorded_at) AS at
+  FROM showcases s LEFT JOIN transition_journal j ON j.community_id=s.community_id
+    AND j.aggregate_type='showcase' AND j.aggregate_id=s.showcase_id
+    AND j.actor_ref=s.owner_ref AND j.command='share_with_community'
+  WHERE s.community_id=$1 AND s.status='published' AND s.consent_recorded_at IS NOT NULL
+), first_share AS (
   SELECT user_id, min(at) AS at FROM (
     SELECT author_user_id AS user_id, created_at AS at FROM community_social_posts WHERE community_id=$1 AND state='active'
-    UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1 AND status='published' AND consent_recorded_at IS NOT NULL
+    UNION ALL SELECT user_id, at FROM showcase_publications
     UNION ALL SELECT owner_ref, published_at FROM skill_submissions WHERE community_id=$1 AND status='published' AND published_at IS NOT NULL
   ) facts GROUP BY user_id)`;
 
@@ -95,7 +104,7 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       UNION ALL SELECT c.author_user_id, c.created_at FROM community_social_comments c
         JOIN community_social_posts p ON p.post_id=c.post_id AND p.community_id=c.community_id
         WHERE c.community_id=$1 AND c.state='active' AND p.state='active'
-      UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1 AND status='published' AND consent_recorded_at IS NOT NULL
+      UNION ALL SELECT user_id, at FROM showcase_publications
       UNION ALL SELECT owner_ref, published_at FROM skill_submissions WHERE community_id=$1 AND status='published'
       UNION ALL SELECT user_id, searched_at FROM community_search_operations WHERE community_id=$1
     ),
