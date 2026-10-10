@@ -73,6 +73,29 @@ test('joining an expired invitation requeues behind existing candidates before t
   assert.equal((await action(second,'decline')).result.waitlist?.status,'declined');
   assert.equal((await readGuestEventParticipation(pool,eventId,first)).waitlist?.status,'invited');
 });
+for(const kind of ['member','guest'] as const)for(const swept of [false,true])test(`${kind} cannot accept an expired invitation ${swept?'after':'before'} reconciliation or persist a success receipt`,async()=>{
+  const email='expired-accept@local.test',token=kind==='guest'?await capability(email):null;
+  if(token)await action(token,'join');
+  else{
+    const current=await readEventParticipation(pool,actor(1),eventId);
+    await mutateEventWaitlist(pool,memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'join'},current.event_version),eventId);
+  }
+  await pool.query("UPDATE community_event_waitlist SET invited_at=now()-interval '2 seconds',expires_at=now()-interval '1 second' WHERE event_id=$1",[eventId]);
+  if(swept)await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  const current=token?await readGuestEventParticipation(pool,eventId,token):await readEventParticipation(pool,actor(1),eventId);
+  const input=memberCommand(1,`POST /events/${eventId}/waitlist`,{action:'accept'},current.event_version);
+  const run=()=>token?mutateGuestEventParticipation(pool,eventId,token,{action:'accept',expected_version:current.event_version},input.key):mutateEventWaitlist(pool,input,eventId);
+  for(let attempt=0;attempt<2;attempt++)await assert.rejects(run,error=>{
+    assert.ok(error instanceof Problem);assert.equal(error.status,409);assert.equal(error.code,'invitation_unavailable');return true;
+  });
+  assert.equal((await pool.query("SELECT 1 FROM community_event_rsvps WHERE event_id=$1 AND state='going' UNION ALL SELECT 1 FROM community_event_guest_rsvps WHERE event_id=$1 AND state='going'",[eventId])).rowCount,0);
+  assert.equal((await pool.query('SELECT 1 FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[actor(1).user_id,input.operation,input.key])).rowCount,0);
+  assert.equal((await pool.query('SELECT 1 FROM community_event_guest_commands WHERE event_id=$1 AND command_id=$2',[eventId,input.key])).rowCount,0);
+  // A rejected command rolls back its reconciliation; the existing sweep still expires it.
+  await transaction(pool,q=>reconcileEventWaitlist(q,eventId));
+  const final=token?await readGuestEventParticipation(pool,eventId,token):await readEventParticipation(pool,actor(1),eventId);
+  assert.equal(final.waitlist?.status,'expired');assert.equal(final.rsvp_state,null);
+});
 test('email capabilities never autojoin or auto-register; source visibility revocation denies the prior capability',async()=>{
   const token=await capability('capability@local.test');assert.equal(token.length,43);
   assert.equal(await capability('capability@local.test'),token);

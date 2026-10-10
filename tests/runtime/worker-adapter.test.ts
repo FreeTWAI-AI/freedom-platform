@@ -119,6 +119,24 @@ test('worker config fails closed without echoing bindings', () => {
   assert.deepEqual(readWorkerConfig(stagingEnv()), { freedomEnv: 'staging', origin: 'https://staging-next.freetwai.com', release: SHA_A, trustConnectingIp: true });
 });
 
+test('notification preferences binding accepts exact booleans and rejects typos before I/O', async () => {
+  for (const flag of [undefined, 'true', 'false']) {
+    const configuration = env({ FREEDOM_NOTIFICATION_PREFERENCES_ENABLED: flag });
+    assert.equal(workerRuntime(configuration, readWorkerConfig(configuration)).notificationPreferencesEnabled, flag === 'true');
+  }
+  for (const flag of ['treu', 'TRUE', '1', '']) {
+    const configuration = env({ FREEDOM_NOTIFICATION_PREFERENCES_ENABLED: flag });
+    assert.throws(() => readWorkerConfig(configuration), { name: 'ReadinessError', message: 'FREEDOM_NOTIFICATION_PREFERENCES_ENABLED must be true or false.' });
+    const h = harness();
+    for (const path of ['/', '/api/v1/health', '/api/v1/me/notification-preferences']) {
+      const { result } = await quietly(() => h.fetch('http://127.0.0.1:8787' + path, configuration));
+      assert.equal(result.status, 503);
+    }
+    assert.equal(h.pools.length, 0);
+    assert.equal(configuration.ASSETS.seen.length, 0);
+  }
+});
+
 test('invalid configuration answers 503 on every path, including the static shell, without opening a pool', async () => {
   const h = harness();
   for (const path of ['/', '/guilds', '/assets/app.js', '/api/v1/health']) {
