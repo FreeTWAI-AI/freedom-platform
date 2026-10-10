@@ -24,6 +24,7 @@
     "assets",
     "command-core",
     "execution-runs",
+    "local-demo-data",
     "public-guide-assets"
   ],
   "contract_families": [],

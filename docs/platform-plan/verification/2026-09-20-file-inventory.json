@@ -13574,8 +13574,8 @@
     },
     {
       "path": "docs/development/e2e-harness.md",
-      "bytes": 21682,
-      "sha256": "b4e838fc8d3c5001e1c2e08fbf11724d4351e7518bc5429b50b19c7ab088b43c"
+      "bytes": 21704,
+      "sha256": "c6dd660d1f34cb6e979f8e400871e0760fe33265359c872d7f81b275b91efc2f"
     },
     {
       "path": "docs/development/event-banner-worker.md",
@@ -19313,6 +19313,11 @@
       "sha256": "2aa122768b1ba3a49d9b4c1ba3e822bce33b9dd687651d388aa071213670ccda"
     },
     {
+      "path": "packages/testing/freedom.module.json",
+      "bytes": 486,
+      "sha256": "682942783646cc20908d4091ae5ab7794a13152be64b668c5ce7091f06934450"
+    },
+    {
       "path": "packages/testing/github-collaboration.ts",
       "bytes": 7284,
       "sha256": "285e655caf0faf25cfd05235f93db4dbbb46c84eda5fffd922134796d9143a24"
@@ -19324,8 +19329,8 @@
     },
     {
       "path": "packages/testing/seed.ts",
-      "bytes": 4755,
-      "sha256": "d967441b376a4e16ebd448f13a41bccfa994c6c5e2216c59c65edb95f15c48f9"
+      "bytes": 5063,
+      "sha256": "10cac971ca536fb75ba097810103ce4876e9c643e933afe94330c151a8db8a89"
     },
     {
       "path": "packages/testing/synthetic-module-provider.ts",
@@ -19924,8 +19929,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1236,
-      "sha256": "e52508fb2718335025190222b19556d1a5766e1df1925a3bad54bd3928abbd27"
+      "bytes": 1259,
+      "sha256": "50664f41f58aad9b762ae3e6f0ed2e34921c60d274baa282eb4560621369506e"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -21169,8 +21174,8 @@
     },
     {
       "path": "tests/runtime/hosted-store-offering.test.ts",
-      "bytes": 4654,
-      "sha256": "20dfb968c1825bd290f2eeb0b353ffe23bde178d68cb04d7f998c4f1d3fb5fd2"
+      "bytes": 6118,
+      "sha256": "a38ab9a6ce92ef94c29a487447e270da08b8d2772ebfe6a469d530ff598bfd1f"
     },
     {
       "path": "tests/runtime/hosted-store-pagination-contracts.test.ts",

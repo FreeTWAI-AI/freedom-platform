@@ -91,6 +91,7 @@ descriptor 的 invariants 是下面這些 slug。沒有寫進去的，就是這�
 | --- | --- |
 | `command-core` | `packages/db/index.ts`、`scripts/database.ts` |
 | `public-guide-assets` | `packages/public-guide-assets/node.ts`（`FREEDOM_E2E_GUIDE_FIXTURE=1` 時動態載入；webServer 會設） |
+| `local-demo-data` | `packages/testing/seed.ts` |
 | `execution-runs` | `packages/testing/private-ai-product-fixture.ts`（只有 private-AI 那一輪） |
 | `assets` | `packages/testing/e2e-avatar-asset-fixture.ts`（只有 avatar-asset 那一輪） |
 
@@ -100,7 +101,6 @@ private-AI 輪會 `readFile` `deploy/cloudflare/sql/20-runtime-grants.psql`。�
 
 - `packages/testing/e2e-auth-isolation.ts`
 - `packages/testing/e2e-origin.ts`
-- `packages/testing/seed.ts`
 - `packages/testing/github-collaboration.ts`
 - `packages/testing/e2e-admin.ts`
 - `apps/platform-api/src/app.ts`

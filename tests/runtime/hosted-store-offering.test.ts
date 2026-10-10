@@ -1,6 +1,7 @@
 import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {seedLocal} from '../../packages/testing/seed.js';
+import {seedLocal, DEMO_USERS, DEMO_PASSWORD} from '../../packages/testing/seed.js';
+import {hashPassword, verifyMemberPassword} from '../../modules/identity-membership/service.js';
 import {ApplicationPageSchema} from '../../contracts/guild-launchpad/v1/module-registry.js';
 import {createRegistryHarness, type RegistryHarness} from './module-registry-harness.js';
 
@@ -28,6 +29,27 @@ test('seedLocal restores the hosted offering after community truncation and stay
   await seedLocal(h.pool); const first = await platformOffer();
   assert.equal(first.length, 1);
   await seedLocal(h.pool); assert.deepEqual(await platformOffer(), first);
+});
+test('repeated demo seeding preserves independent salts, real password checks and existing password changes', async () => {
+  const q = await h.pool.connect();
+  try {
+    for (let reset = 0; reset < 2; reset++) {
+      await h.reset();
+      const rows = (await q.query('SELECT password_hash FROM users WHERE user_id=ANY($1::uuid[])', [DEMO_USERS.map(user => user.user_id)])).rows;
+      assert.equal(rows.length, 3);
+      assert.equal(new Set(rows.map(row => row.password_hash.split(':')[0])).size, 3);
+      for (const user of DEMO_USERS) {
+        assert.equal(await verifyMemberPassword(q, user.user_id, DEMO_PASSWORD), true);
+        assert.equal(await verifyMemberPassword(q, user.user_id, 'incorrect-demo-password'), false);
+      }
+      const changed = hashPassword('changed-local-demo-password');
+      await q.query('UPDATE users SET password_hash=$1 WHERE user_id=$2', [changed, DEMO_USERS[0].user_id]);
+      await seedLocal(h.pool);
+      assert.equal((await q.query('SELECT password_hash FROM users WHERE user_id=$1', [DEMO_USERS[0].user_id])).rows[0].password_hash, changed);
+      assert.equal(await verifyMemberPassword(q, DEMO_USERS[0].user_id, 'changed-local-demo-password'), true);
+      assert.equal(await verifyMemberPassword(q, DEMO_USERS[0].user_id, DEMO_PASSWORD), false);
+    }
+  } finally { q.release(); }
 });
 test('commerce recommends hosted-store then manual-workspace while production keeps manual-workspace', async () => {
   const session = (await h.person('商店會員')).session;

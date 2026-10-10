@@ -1,0 +1,14 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "local-demo-data",
+  "owner_role": "foundation",
+  "owned_paths": ["packages/testing/seed.ts"],
+  "public_exports": ["packages/testing/seed.ts"],
+  "dependencies": ["command-core", "work"],
+  "contract_families": [],
+  "client_profiles": [],
+  "instructions": ["AGENTS.md", "CONTRIBUTING.md"],
+  "invariants": ["demo-accounts-use-independent-salts", "seed-preserves-existing-passwords"],
+  "tests": ["runtime.full"],
+  "surfaces": []
+}
