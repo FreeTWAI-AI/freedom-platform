@@ -18899,8 +18899,8 @@
     },
     {
       "path": "packages/media-migration/freedom.module.json",
-      "bytes": 4691,
-      "sha256": "7fd31178383e91054130bcdaee89164b0149254cceb4f27e2a2b6875148b0bf8"
+      "bytes": 4784,
+      "sha256": "7089c1111df0b1881fef50e3805ef44c0a97c5c2e7fd27314dce35327774a429"
     },
     {
       "path": "packages/media-migration/inventory.ts",
