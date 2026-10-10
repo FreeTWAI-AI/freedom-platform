@@ -106,8 +106,8 @@ test('full shards cover every file once; one failing shard cannot hide the compl
 
 test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  const ready = partitionRuntimeFiles(names, 4).map((shard,index) => ({path:shard[0],marker:join(root,`.shard-ready-${index}`)}));
-  for (const {path,marker} of ready) await put(root, path, `import {test} from 'node:test';import {writeFileSync} from 'node:fs';test('pending',()=>new Promise(()=>{writeFileSync(${JSON.stringify(marker)},'ready');setInterval(()=>{},1000);}));`);
+  const ready = partitionRuntimeFiles(names, 4).map(shard => ({path:shard[0],marker:join(root,shard[0]+'.ready')}));
+  for (const {path} of ready) await put(root, path, "import {test} from 'node:test';import {writeFileSync} from 'node:fs';import {fileURLToPath} from 'node:url';test('pending',()=>new Promise(()=>{writeFileSync(fileURLToPath(import.meta.url)+'.ready','ready');setInterval(()=>{},1000);}));");
   const controller = new AbortController();
   let settled=false;
   const running=runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal }).finally(()=>{settled=true;});
