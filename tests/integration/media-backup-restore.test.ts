@@ -237,7 +237,11 @@ test('Actual consistent PG dump and nativeR2 restore exclude concurrent addition
   await assertRestoredStorefrontPhotos(restored!,restoredRuntime!,destination,photos);
   for(const read of seven.reads){
    const result=await restoredApp.request(origin+read.path,{headers:memberHeaders(seven.member)});assert.equal(result.status,200,await result.clone().text());assert.deepEqual(Buffer.from(await result.arrayBuffer()),read.bytes,read.purpose+' original URL and SHA');
-   if(read.publicPath){const publicRead=await restoredApp.request(origin+read.publicPath);assert.equal(publicRead.status,200,await publicRead.clone().text());assert.deepEqual(Buffer.from(await publicRead.arrayBuffer()),read.bytes);if(read.publicPath.includes('/public/'))assert.equal(publicRead.headers.get('cache-control'),'public, max-age=300');}
+   if(read.publicPath){const publicRead=await restoredApp.request(origin+read.publicPath);assert.equal(publicRead.status,200,await publicRead.clone().text());assert.deepEqual(Buffer.from(await publicRead.arrayBuffer()),read.bytes);if(read.publicPath.includes('/public/')){
+    // Highlights recheck their current source visibility on every read, including after restore.
+    const sourceChecked=read.purpose==='community.event-highlight'||read.purpose==='community.event-highlight.thumbnail';
+    assert.equal(publicRead.headers.get('cache-control'),sourceChecked?'no-store':'public, max-age=300',read.purpose);
+   }}
    if(read.dtoPath){const view=await restoredApp.request(origin+read.dtoPath,{headers:memberHeaders(seven.member)});assert.equal(view.status,200,read.dtoPath+' '+await view.clone().text());assert.deepEqual(await view.json(),read.dto,'Original DTO remains identical after restoring.');}
   }
   for(const [member,peer] of [[dm.sender,dm.recipient],[dm.recipient,dm.sender]]){

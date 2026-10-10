@@ -61,7 +61,9 @@ test('all original stickers persist in group and direct history with readable le
   assert.equal(channels.items.length,4);assert.equal(direct.items.length,4);assert.equal(channels.unread_count,4);assert.equal(direct.unread_count,4);
   const preview=(await request('/me/conversations',b)).data.items.find((item:any)=>item.participant.user_id===A);
   assert.equal(preview.last_message.sticker.id,CHAT_STICKERS[3].id);
-  assert.deepEqual(Object.keys((await request(room.replace('/messages','/activity'),b)).data).sort(),['latest_sequence','unread_count']);
+  const activity=(await request(room.replace('/messages','/activity'),b)).data;
+  assert.deepEqual(Object.keys(activity).sort(),['latest_sequence','retraction_count','unread_count']);
+  assert.equal(activity.retraction_count,'0');
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM command_receipts WHERE response::text LIKE '%sticker%' OR response::text LIKE '%貼圖%' OR response::text LIKE '%reply%' ")).rows[0].n,0);
 });
 

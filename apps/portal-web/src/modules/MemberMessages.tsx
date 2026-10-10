@@ -273,6 +273,9 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
     try{
       const result=await client.post<{message_id:string;retracted_at:string}>(`/me/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/retract`,{},{idempotencyKey:crypto.randomUUID()});
       setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.message_id===messageId?{message_id:message.message_id,sender_ref:message.sender_ref,recipient_ref:message.recipient_ref,created_at:message.created_at,read_at:message.read_at,body:'',retracted_at:result.retracted_at}:message)}:value);
+      setConversations(items=>items.map(item=>item.participant.user_id===id&&item.last_message.message_id===messageId?{...item,last_message:{message_id:item.last_message.message_id,sender_ref:item.last_message.sender_ref,recipient_ref:item.last_message.recipient_ref,created_at:item.last_message.created_at,read_at:item.last_message.read_at,body:'',retracted_at:result.retracted_at}}:item));
+      // Fence any older list response and reconcile counts without keeping the withdrawn preview.
+      void loadConversations(true);
       setRetractTarget(null);retractTrigger.current?.focus();retractTrigger.current=null;
     }catch(cause){setRetractError(cause instanceof Error?cause.message:'訊息尚未收回，請稍後再試。');}
     finally{setRetracting(false);}

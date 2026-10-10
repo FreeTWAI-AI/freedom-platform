@@ -77,7 +77,7 @@ function SearchContent({ client, authKey, relationsEnabled }: { client: PortalCl
       {page && !page.items.length && <p role="status">沒有符合條件的內容。可更換關鍵字或取消篩選；未標主題的內容仍可用文字搜尋。</p>}
       {page?.items.map(item => <article className="card stack" key={`${item.kind}:${item.id}`}>
         <p className="field-hint">{communitySearchKindLabels[item.kind]}{item.label ? ` · ${item.label}` : ''}</p>
-        <h2><a href={item.path} rel="noopener noreferrer" onClick={() => { if (page.operation_id) void client.post(`/community-search/operations/${encodeURIComponent(page.operation_id)}/open`, { kind: item.kind }, { suppressConsole: true }).catch(() => undefined); }}>{item.title}</a></h2>
+        <h2><a href={item.path} rel="noopener noreferrer" onClick={() => { if (page.operation_id) void client.post(`/community-search/operations/${encodeURIComponent(page.operation_id)}/open`, { kind: item.kind }, { suppressConsole: true, background: true, keepalive: true }).catch(() => undefined); }}>{item.title}</a></h2>
         <p>{item.summary}</p>
         {item.topics.length > 0 && <p className="field-hint">{item.topics.map(topic => communitySearchTopicLabels[topic]).join(' · ')}</p>}
         {relationsEnabled && <div className="actions"><CommunityBookmarkButton client={client} kind={item.kind} id={item.id}/>{item.author_id && <CommunityAuthorFollowButton client={client} authorId={item.author_id}/>}</div>}

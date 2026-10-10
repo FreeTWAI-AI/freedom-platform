@@ -78,6 +78,8 @@ export type RequestOptions = {
   signal?: AbortSignal
   /** Opt in only for reads whose callers permit the same in-flight snapshot. */
   coalesce?: boolean
+  /** Small, explicit signals that may finish after document navigation. */
+  keepalive?: boolean
 }
 
 function quoteEtag(version: number | string): string {
@@ -292,6 +294,7 @@ export class PortalClient {
     const operation = async () => {
       response = await accessAwareFetch(`${API_BASE}${path}`, {
         method, headers, credentials: 'same-origin', signal: controller.signal,
+        ...(options.keepalive === true ? {keepalive: true} : {}),
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
       })
       if (await isExpiredAccessResponse(response)) {
