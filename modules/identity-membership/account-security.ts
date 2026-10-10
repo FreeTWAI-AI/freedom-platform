@@ -23,7 +23,6 @@ const iso = (value: Date | null) => value ? new Date(value).toISOString() : null
 export async function changePassword(pool: Pool, actor: Actor, raw: unknown): Promise<PasswordChangeResult> {
   const body = PasswordChangeInput.parse(raw);
   requireCondition(body.new_password !== body.current_password, 422, 'password_unchanged', '新密碼不能與目前密碼相同。');
-  const passwordHash = await hashPasswordAsync(body.new_password);
   const attemptKey = tokenHash(`password-change:${actor.user_id}`);
   const outcome = await transaction(pool, async q => {
     await lockMemberSession(q, actor, true);
@@ -44,13 +43,15 @@ export async function changePassword(pool: Pool, actor: Actor, raw: unknown): Pr
       await assertCurrentSessionClock(q, actor);
       return { kind: 'invalid' as const };
     }
+    // Derive only after the serialized failure budget and current-password proof.
+    const passwordHash = await hashPasswordAsync(body.new_password);
     await q.query('UPDATE login_attempts SET failures=0 WHERE attempt_key=$1', [attemptKey]);
     await q.query('UPDATE users SET password_hash=$2 WHERE user_id=$1', [actor.user_id, passwordHash]);
     // Old mailbox proofs must not replace a password rotated by its owner.
     // Reset confirmation takes the same user-before-proof lock order.
     await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND consumed_at IS NULL', [actor.user_id]);
     // The session that proved the password stays signed in; every other one ends now.
-    const revoked = (await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND token_hash<>$2', [actor.user_id, actor.session_hash])).rowCount ?? 0;
+    const revoked = (await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp() AND token_hash<>$2', [actor.user_id, actor.session_hash])).rowCount ?? 0;
     const version = await accountVersion(q, actor);
     await journal(q, actor, 'member_account', actor.user_id, version, 'change_password', { revoked_sessions: revoked });
     await assertCurrentSessionClock(q, actor);
@@ -71,7 +72,7 @@ export async function listMemberSessions(pool: Pool, actor: Actor): Promise<Memb
     await lockMemberSession(q, actor);
     const rows = (await q.query<{ current: boolean; created_at: Date | null; last_seen_at: Date | null; expires_at: Date }>(
       `SELECT token_hash=$2 AS current, created_at, last_seen_at, expires_at FROM sessions
-       WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()
+       WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp()
        ORDER BY token_hash=$2 DESC, last_seen_at DESC NULLS LAST, created_at DESC NULLS LAST LIMIT 50`, [actor.user_id, actor.session_hash])).rows;
     await assertCurrentSessionClock(q, actor);
     return { items: rows.map(row => ({ current: row.current, created_at: iso(row.created_at), last_seen_at: iso(row.last_seen_at), expires_at: iso(row.expires_at)! })), total: rows.length };
@@ -81,7 +82,7 @@ export async function listMemberSessions(pool: Pool, actor: Actor): Promise<Memb
 export async function revokeOtherSessions(pool: Pool, input: Command): Promise<SessionRevocationResult> {
   z.object({}).strict().parse(input.body);
   return command(pool, { ...input, lockUser: true }, async () => {}, async q => {
-    const revoked = (await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND token_hash<>$2', [input.actor.user_id, input.actor.session_hash])).rowCount ?? 0;
+    const revoked = (await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp() AND token_hash<>$2', [input.actor.user_id, input.actor.session_hash])).rowCount ?? 0;
     const version = await accountVersion(q, input.actor);
     await journal(q, input.actor, 'member_account', input.actor.user_id, version, 'revoke_other_sessions', { revoked_sessions: revoked });
     return { revoked_sessions: revoked, aggregate_version: version };

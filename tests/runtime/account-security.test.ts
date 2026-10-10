@@ -56,6 +56,8 @@ async function signIn(email = DEMO_USERS[0].email, password = DEMO_PASSWORD): Pr
 }
 
 test('changing the password keeps the proving session, ends the others and retires the old password', async () => {
+  const expired = await signIn();
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()-interval \'1 second\' WHERE token_hash=$1',[expired.hash]);
   const phone = await signIn();
   const laptop = await signIn();
   const before = await request<{ items: SessionItem[]; total: number }>('/me/sessions', laptop);
@@ -123,6 +125,8 @@ test('password change rejects a missing CSRF token and another member cannot be 
 });
 
 test('revoking other sessions keeps the current one, replays by key and lists only live sessions', async () => {
+  const expired = await signIn();
+  await pool.query('UPDATE sessions SET expires_at=clock_timestamp()-interval \'1 second\' WHERE token_hash=$1',[expired.hash]);
   const keep = await signIn();
   const drop = await signIn();
   const stranger = await signIn(DEMO_USERS[1].email);

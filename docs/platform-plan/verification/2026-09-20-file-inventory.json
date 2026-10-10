@@ -2774,8 +2774,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 2861,
-      "sha256": "5f51a42131457b26c9a2fc29df3a6c6b4026cd02d2ce13fe0b182576e90de021"
+      "bytes": 3862,
+      "sha256": "b456f1457c9c2b6b06cd8e6414d73bdad4104e14886d194b71c23ce5d051f8a3"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -14799,8 +14799,8 @@
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
-      "bytes": 23311,
-      "sha256": "8a5843d2bfdde9be81cfb8d76750091ebc67445c5cbdfd615c05d6d6286b07f4"
+      "bytes": 24062,
+      "sha256": "3649b3a400c906793f4893747a935ccc10e0b081dd5f3b289c1ec88629465e60"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -15229,8 +15229,8 @@
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/current-state.json",
-      "bytes": 89906,
-      "sha256": "77016d1eb382159ed275a36ab01c8cbed350468a532e19eda0b5123565713110"
+      "bytes": 87090,
+      "sha256": "1b0ea6f9dab6ed632b3d0416da28617ed272294732ba6f4c80696ffe5a4ead44"
     },
     {
       "path": "docs/platform-plan/execution/unified-foundation/daily-snapshot-pins-evidence-2026-10-05.json",
@@ -15348,6 +15348,11 @@
       "sha256": "229dd95a38a6994b77818ed7e6c1c67642153e9f6130a28fc3683f0df05c7146"
     },
     {
+      "path": "docs/platform-plan/execution/unified-foundation/rollout-2026-10-10.json",
+      "bytes": 18858,
+      "sha256": "7b1a808e482d337c96955714fa70ce5a75d797c92bc599c8eeea955fb8fa63aa"
+    },
+    {
       "path": "docs/platform-plan/execution/unified-foundation/shop-key-expiry-evidence-2026-10-05.json",
       "bytes": 5244,
       "sha256": "e569cf2f495ae9dc989fd45212f213208a11069a71720fe9d3bd20e6ac7fd618"
@@ -15451,6 +15456,11 @@
       "path": "docs/platform-plan/verification/main-ruleset-2026-10-08.json",
       "bytes": 32667,
       "sha256": "5277abc810a307c38feef492e5338e5576381566841f67a9f4b6bee0265716f8"
+    },
+    {
+      "path": "docs/platform-plan/verification/main-ruleset-2026-10-10.json",
+      "bytes": 3088,
+      "sha256": "fbadd2d16a679ddd439dd24a1942bc26831a92e5dde90aed6d54f56aafc59f86"
     },
     {
       "path": "docs/platform-plan/verification/preflight-aggregate-2026-10-05.json",
@@ -17434,8 +17444,8 @@
     },
     {
       "path": "modules/identity-membership/account-security.ts",
-      "bytes": 6453,
-      "sha256": "609fcab79f1d43cd527d3b9423afe7c7805299697ebd86aff4ae4401f21c3312"
+      "bytes": 6616,
+      "sha256": "34768692a9407af02806b4b5ecbd0d7381ed8cd22035b7396d292b99d30676ff"
     },
     {
       "path": "modules/identity-membership/auth-pruning.ts",
@@ -19559,8 +19569,8 @@
     },
     {
       "path": "tests/e2e/account-security.spec.ts",
-      "bytes": 5096,
-      "sha256": "923b8c3b1b0bcc3f5b24670fbeac2edcdb4ea6a58d90cb51e602f4c0d39be6a3"
+      "bytes": 5514,
+      "sha256": "4416334284283c21384002eafefee3ea7a6a19c0cbd42766f884c86f43f155c5"
     },
     {
       "path": "tests/e2e/admin-credentials.spec.ts",
@@ -20334,8 +20344,8 @@
     },
     {
       "path": "tests/runtime/account-security.test.ts",
-      "bytes": 13240,
-      "sha256": "71fef62893fd6a84a3527367308b6419c91f065fd6ac6ecdb3715d007e20e83c"
+      "bytes": 13566,
+      "sha256": "feb00df9a5d91a674892fb7548b4d9a0fb7804ca89408598b47389b759be6e5b"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",

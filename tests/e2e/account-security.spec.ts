@@ -2,9 +2,15 @@ import {test,expect,type Page} from './fixtures.js';
 
 // Synthetic demo account only; the password is restored at the end so later specs keep signing in.
 const EMAIL='client@local.test',ORIGINAL='freedom-local-demo',ROTATED='rotated-demo-password-2026';
+let originalHash:string;
 
-test.beforeEach(async({page})=>{
+test.beforeEach(async({page,e2eAuthPool})=>{
+  originalHash=(await e2eAuthPool.query('SELECT password_hash FROM users WHERE email=$1',[EMAIL])).rows[0].password_hash;
   await page.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
+});
+test.afterEach(async({e2eAuthPool})=>{
+  // A failed assertion after rotation must not poison later cases in this schema.
+  if(originalHash)await e2eAuthPool.query('UPDATE users SET password_hash=$1 WHERE email=$2',[originalHash,EMAIL]);
 });
 
 async function login(page:Page,password:string){
@@ -29,6 +35,7 @@ test('a member rotates the password, sees other devices signed out, and can end 
 
   // A second browser signs in: the list now shows another device.
   const other=await browser.newContext({baseURL:baseURL??undefined});
+  try{
   const otherPage=await other.newPage();
   await otherPage.route(url=>!['127.0.0.1','localhost'].includes(url.hostname),route=>route.abort());
   await login(otherPage,ORIGINAL);
@@ -68,11 +75,11 @@ test('a member rotates the password, sees other devices signed out, and can end 
   await expect(security.getByRole('status').filter({hasText:'已登出其他'})).toContainText('1 個裝置');
   await otherPage.reload();
   await expect(otherPage.getByLabel('電子郵件',{exact:true})).toBeVisible();
-  await other.close();
 
   // Restore the demo password for the rest of the suite.
   await changePassword(page,ROTATED,ORIGINAL);
   await expect(security.getByRole('status').filter({hasText:'密碼已更新'})).toBeVisible();
+  }finally{await other.close();}
 });
 
 test('the security panel fits a 390px phone',async({page})=>{
