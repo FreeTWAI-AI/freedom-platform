@@ -2584,8 +2584,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/ShowcasePanel.tsx",
-      "bytes": 30392,
-      "sha256": "41f68a74e817581023e6af3c7a1abf93819310927729c153307c034b125dd15d"
+      "bytes": 30640,
+      "sha256": "66734eaa77a2cf575fe2bd89ed0e1e1d8366bf86528d916af71b93173554f3cc"
     },
     {
       "path": "apps/portal-web/src/modules/SimpleSkillSubmission.tsx",

@@ -42,6 +42,11 @@ export function ShowcasePanel() {
     const observed = authoringDraftState<Showcase | null>(session.user.user_id, 'showcase:published', null).read()
     setLoading(true)
     setLoadError(null)
+    // A first-page refresh supersedes any pending continuation. Its stale
+    // finally handler cannot clear state owned by this new request generation.
+    setMoreLoading(false)
+    setMoreError(null)
+    setNextOffset(null)
     try {
       const [showcasePayload, opportunityPayload] = await Promise.all([
         client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=0`),
@@ -69,7 +74,7 @@ export function ShowcasePanel() {
     return () => { loadSequence.current++ }
   }, [load, session.user.user_id, latestOpportunity?.opportunity_id])
   const loadMore = useCallback(async () => {
-    if (nextOffset === null || moreLoading) return
+    if (loading || nextOffset === null || moreLoading) return
     const sequence = loadSequence.current
     setMoreLoading(true); setMoreError(null)
     try {
@@ -83,7 +88,7 @@ export function ShowcasePanel() {
     } finally {
       if (current() && sequence === loadSequence.current) setMoreLoading(false)
     }
-  }, [nextOffset, moreLoading])
+  }, [loading, nextOffset, moreLoading])
   useEffect(() => {
     const reveal = () => {
       const id = window.location.hash.slice('#showcase/'.length);
