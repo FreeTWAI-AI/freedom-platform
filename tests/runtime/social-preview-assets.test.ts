@@ -9,7 +9,7 @@ import {createR2ObjectStore,type AssetR2Binding} from '../../packages/asset-stor
 import {migrate} from '../../scripts/database.js';
 import {tokenHash,type Actor} from '../../modules/identity-membership/service.js';
 import {createSocialThumbnailAssetService,resolveSocialThumbnailUploadPolicy} from '../../modules/assets/social-thumbnail.js';
-import {saveSocialThumbnail,readSocialThumbnail,publicSocialThumbnail,deleteSocialPost,createSocialPost,listSocialPosts} from '../../modules/community/social-posts.js';
+import {saveSocialThumbnail,readSocialThumbnail,publicSocialThumbnail,deleteSocialPost,createSocialPost,createNativeSocialPost,listSocialPosts} from '../../modules/community/social-posts.js';
 import {FakeObjectStore} from '../../packages/asset-storage/fake-store.js';
 import {sha256,objectKey} from '../../packages/asset-storage/index.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
@@ -108,3 +108,51 @@ test('bridge still preserves historical preview bytes while publishing a genuine
  assert.ok((await publicSocialThumbnail(pool,post.post_id,s.store)).length>0);
  await assert.rejects(fixture.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.social-thumbnail'"),writerFenced);
 });
+
+function noteCommand(owner:Actor,text='附圖貼文'){return {actor:owner,operation:'POST /api/v1/social-posts/notes',key:randomUUID(),body:{text,image:{mime_type:'image/png',data_base64:png.toString('base64')}}};}
+test('note with image publishes post, pointer and native asset together and replays the original receipt',async()=>{
+ const s=await setup(),command=noteCommand(s.owner),result=await createNativeSocialPost(pool,command,new Date(),s.api);
+ assert.equal(result.kind,'note');assert.equal(result.note,'附圖貼文');assert.equal(result.thumbnail_url,`/api/v1/social-posts/${result.post_id}/thumbnail`);
+ assert.deepEqual(await createNativeSocialPost(pool,command,new Date(),s.api),result);
+ assert.deepEqual((await pool.query('SELECT source,storage_source,image_bytes FROM community_social_post_thumbnails')).rows[0],{source:'upload',storage_source:'asset',image_bytes:null});
+ assert.deepEqual((await pool.query('SELECT create_source,create_draft FROM community_social_thumbnail_asset_targets')).rows[0],{create_source:'upload',create_draft:{text:'附圖貼文'}});
+ assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,1);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,1);
+ assert.equal((await sharp(await readSocialThumbnail(pool,s.owner,result.post_id,s.store)).metadata()).width,640);
+ await assert.rejects(publicSocialThumbnail(pool,result.post_id,s.store),code('not_found'));
+});
+test('note image PUT failure publishes nothing, a changed draft cannot reuse the reservation and the same key resumes to one post',async()=>{
+ const s=await setup(),command=noteCommand(s.owner);
+ (s.store as FakeObjectStore).failNext('put-before');
+ await assert.rejects(createNativeSocialPost(pool,command,new Date(),s.api));
+ assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,0);
+ assert.equal((await listSocialPosts(pool,s.owner,{})).items.length,0);
+ await assert.rejects(createNativeSocialPost(pool,{...command,body:{...command.body,text:'改過的內容'}},new Date(),s.api),code('asset_source_mismatch'));
+ const result=await createNativeSocialPost(pool,command,new Date(),s.api);
+ assert.ok(result.post_id);assert.equal(result.thumbnail_url,`/api/v1/social-posts/${result.post_id}/thumbnail`);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,1);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,1);
+});
+test('text-only note under the installed Asset writer stays a plain post without object effects',async()=>{
+ const s=await setup(),result=await createNativeSocialPost(pool,{actor:s.owner,operation:'POST /api/v1/social-posts/notes',key:randomUUID(),body:{text:'純文字'}},new Date(),s.api);
+ assert.equal(result.thumbnail_url,null);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);
+ assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_thumbnail_asset_targets')).rows[0].n,0);
+});
+test('note image without an installed Asset writer is refused before any post or reservation exists',async()=>{
+ const s=await setup();
+ await assert.rejects(createNativeSocialPost(pool,noteCommand(s.owner),new Date()),code('media_upload_unavailable'));
+ assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n,0);
+});
+
+for (const state of ['hidden', 'deleted'] as const) {
+ test(`note image creation receipt rejects ${state} posts in Asset mode`, async () => {
+  const s = await setup(), command = noteCommand(s.owner);
+  const result = await createNativeSocialPost(pool, command, new Date(), s.api);
+  assert.deepEqual(await createNativeSocialPost(pool, command, new Date(), s.api), result);
+  await fixture.query('UPDATE community_social_posts SET state=$2 WHERE post_id=$1', [result.post_id, state]);
+  await assert.rejects(createNativeSocialPost(pool, command, new Date(), s.api), code('not_found'));
+  assert.equal((await pool.query('SELECT count(*)::int n FROM community_social_posts')).rows[0].n, 1);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n, 1);
+ });
+}

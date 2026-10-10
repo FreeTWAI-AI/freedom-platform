@@ -139,7 +139,8 @@ const FOUNDATION_NAMES = [
   '141_storefront_product_photos.sql',
   '142_community_content_relations.sql',
   '143_personal_content.sql',
-  '144_squad_management_and_kinds.sql',
+  '144_social_note_image_creation.sql',
+  '145_squad_management_and_kinds.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

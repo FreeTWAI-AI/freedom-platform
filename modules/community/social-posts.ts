@@ -7,8 +7,8 @@ import { AssetStorageError,type ObjectStore } from '../../packages/asset-storage
 import { readDomainMedia,type DomainMediaSnapshot } from '../../packages/media-migration/domain-bridge.js';
 import { socialThumbnailStorageMode,type SocialThumbnailAssetService } from '../assets/social-thumbnail.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
-import { isOwnWorkshopHost, normalizeShareUrl, PLATFORM_LABELS, SOCIAL_PLATFORMS, type SocialPlatform } from '../../packages/shared/share-url.js';
-import { normalizeSocialThumbnail } from '../skill-submissions/payload.js';
+import { isOwnWorkshopHost, normalizeShareUrl, PLATFORM_LABELS, SOCIAL_PLATFORMS, type ShareUrl, type SocialPlatform } from '../../packages/shared/share-url.js';
+import { normalizeSocialThumbnail, SOCIAL_NOTE_IMAGE_LIMIT } from '../skill-submissions/payload.js';
 import { avatarUrl } from '../identity-membership/avatars.js';
 import type { Actor } from '../identity-membership/service.js';
 import { taipeiDayStart } from './promotion.js';
@@ -34,7 +34,13 @@ type PostRow = {
   has_thumbnail: boolean; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean;
 };
 
-function view(row: PostRow, viewerId: string) {
+export type SocialPostView = {
+  post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
+  author: { user_id: string; display_name: string; avatar_url: string | null };
+  thumbnail_url: string | null; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean; mine: boolean;
+};
+
+function view(row: PostRow, viewerId: string): SocialPostView {
   const created = new Date(row.created_at).toISOString();
   const showAvatar = row.has_avatar && (!row.test_account || row.author_user_id === viewerId);
   return {
@@ -118,18 +124,54 @@ async function socialPostBudget(q: Pick<Pool, 'query'>, actor: Actor, now: Date)
   requireCondition(used < POST_CAP, 429, 'social_post_limit', '今天分享的貼文已達上限。');
 }
 
-export async function createNativeSocialPost(pool: Pool, inputCommand: Command, now = new Date()) {
-  const body = z.object({text: z.string().trim().min(1).max(2000)}).strict().parse(inputCommand.body);
+const NATIVE_IMAGE_BASE64 = Math.ceil(SOCIAL_NOTE_IMAGE_LIMIT.bytes / 3) * 4;
+/** JSON ceiling for POST /social-posts/notes: one base64 image plus the text and envelope. */
+export const SOCIAL_NOTE_REQUEST_BYTES = NATIVE_IMAGE_BASE64 + 32768;
+const nativeInput = z.object({
+  text: z.string().trim().min(1).max(2000),
+  image: z.object({mime_type: z.enum(['image/png', 'image/jpeg', 'image/webp']), data_base64: z.string().min(4)}).strict().optional(),
+}).strict();
+export type NativeSocialDraft = {text: string};
+export type PreparedSocialPost = {normalized: Extract<ShareUrl, {ok: true}>; title: string; note: string | null};
+export type SocialCreationDraft = PreparedSocialPost | NativeSocialDraft;
+
+function decodeNativeImage(encoded: string) {
+  requireCondition(encoded.length <= NATIVE_IMAGE_BASE64 + 4, 413, 'social_thumbnail_too_large', `圖片需為 ${SOCIAL_NOTE_IMAGE_LIMIT.label} 以下。`);
+  requireCondition(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded), 422, 'invalid_social_thumbnail', '圖片編碼不正確。');
+  return Buffer.from(encoded, 'base64');
+}
+
+/** Text and an optional image publish in one command: the post never exists without its image. */
+export async function createNativeSocialPost(pool: Pool, inputCommand: Command, now = new Date(), assets?: SocialThumbnailAssetService) {
+  const body = nativeInput.parse(inputCommand.body);
   requireCondition(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(body.text), 422, 'validation_failed', '內容含有無法使用的字元。');
-  return command(pool, inputCommand, async q => {
-    const prior = (await q.query('SELECT response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [inputCommand.actor.user_id, inputCommand.operation, inputCommand.key])).rows[0];
-    if (prior) await activePost(q, inputCommand.actor, prior.response.post_id, true);
-  }, async q => {
-    await socialPostBudget(q, inputCommand.actor, now);
-    const title = body.text.split('\n')[0].slice(0, 120);
+  if (!body.image) return publishNativeNote(pool, inputCommand, body.text, now);
+  const source = decodeNativeImage(body.image.data_base64);
+  // Receipts and journals keep only the digest; image bytes never enter command storage.
+  const input: Command = {...inputCommand, body: {text: body.text, image: {mime_type: body.image.mime_type, sha256: createHash('sha256').update(source).digest('hex')}}};
+  const image = await normalizeSocialThumbnail(body.image.mime_type, source, SOCIAL_NOTE_IMAGE_LIMIT);
+  if (await socialThumbnailStorageMode(pool) !== 'legacy') {
+    requireCondition(assets, 503, 'media_upload_unavailable', '圖片上傳暫時無法使用。');
+    return assets.createNativePost(input, {text: body.text}, image, now);
+  }
+  return publishNativeNote(pool, input, body.text, now, image);
+}
+
+/** A native-note receipt never bypasses the current post visibility boundary. */
+export async function authorizeNativeSocialReplay(q: Pick<Pool, 'query'>, input: Command): Promise<boolean> {
+  const prior = (await q.query('SELECT response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3', [input.actor.user_id, input.operation, input.key])).rows[0];
+  if (!prior) return false;
+  await activePost(q, input.actor, prior.response.post_id, true);
+  return true;
+}
+
+function publishNativeNote(pool: Pool, input: Command, text: string, now: Date, image?: Buffer) {
+  return command(pool, input, q => authorizeNativeSocialReplay(q, input), async q => {
+    await socialPostBudget(q, input.actor, now);
     const row = (await q.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at)
-      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [inputCommand.actor.community_id, inputCommand.actor.user_id, title, body.text, now])).rows[0];
-    return shownSocial(q, inputCommand.actor, row.post_id);
+      VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, text.split('\n')[0].slice(0, 120), text, now])).rows[0];
+    if (image) await q.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,updated_at) VALUES($1,$2,'upload',$3)", [row.post_id, image, now]);
+    return shownSocial(q, input.actor, row.post_id);
   });
 }
 
@@ -187,7 +229,7 @@ export async function removeSocialComment(pool: Pool, inputCommand: Command, pos
   });
 }
 
-export function preparedSocialPost(raw: unknown, preview: LinkPreview, publicOrigin: string) {
+export function preparedSocialPost(raw: unknown, preview: LinkPreview, publicOrigin: string): PreparedSocialPost {
   const draft = socialPostDraft(raw, publicOrigin);
   const title = (draft.submitted || preview.title || draft.normalized.host).slice(0, 120);
   requireCondition(title.length >= 1, 422, 'validation_failed', '請填寫標題。');
@@ -223,19 +265,23 @@ export async function createSocialPost(pool: Pool, inputCommand: Command, previe
   }
 }
 
-export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,draft:ReturnType<typeof preparedSocialPost>,now:Date){
- const existing=(await q.query("SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'",[actor.community_id,draft.normalized.url])).rows[0];if(existing)throw new SocialPostExists(existing.post_id);
+export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,draft:SocialCreationDraft,now:Date){
+ if ('normalized' in draft) {
+  const existing=(await q.query("SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'",[actor.community_id,draft.normalized.url])).rows[0];if(existing)throw new SocialPostExists(existing.post_id);
+ }
  await socialPostBudget(q,actor,now);
 }
-export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:ReturnType<typeof preparedSocialPost>,now:Date){
- await authorizeSocialCreate(q,actor,draft,now);await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
+export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:SocialCreationDraft,now:Date){
+ await authorizeSocialCreate(q,actor,draft,now);
+ if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,draft.text.split('\n')[0].slice(0,120),draft.text,now]);
+ else await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
 }
 export {shownSocial};
 async function owned(q: Pick<Pool, 'query'>, actor: Actor, id: string, lock = false) {
-  const row = (await q.query(`SELECT post_id,author_user_id,state,media_version FROM community_social_posts WHERE post_id=$1 AND community_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, actor.community_id])).rows[0];
+  const row = (await q.query(`SELECT post_id,author_user_id,kind,state,media_version FROM community_social_posts WHERE post_id=$1 AND community_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, actor.community_id])).rows[0];
   requireCondition(row, 404, 'not_found', '找不到這則貼文。');
   requireCondition(row.author_user_id === actor.user_id, 403, 'author_required', '只能管理自己分享的貼文。');
-  return row as { post_id: string; state: string;media_version:string };
+  return row as { post_id: string; kind: 'link' | 'note'; state: string; media_version: string };
 }
 
 export async function authorizeSocialThumbnailWrite(q:Pick<Pool,'query'>,actor:Actor,id:string,lock=false){
@@ -263,6 +309,8 @@ export async function hideSocialPost(pool: Pool, inputCommand: Command, id: stri
 }
 
 export async function saveSocialThumbnail(pool: Pool, inputCommand: Command, id: string, file: { bytes: Buffer; mime: string }, now = new Date(),assets?:SocialThumbnailAssetService) {
+  // Note images are fixed at publication (#387); only link previews accept a manual replacement.
+  requireCondition((await owned(pool, inputCommand.actor, id)).kind === 'link', 422, 'social_note_image_fixed', '貼文圖片只能在發文時附加。');
   const bytes=Buffer.from(file.bytes);file={bytes,mime:file.mime};
   const digest = createHash('sha256').update(bytes).digest('hex');
   const commandInput = { ...inputCommand,actor:Object.freeze({...inputCommand.actor}), body: { sha256: digest } };
@@ -289,7 +337,7 @@ async function saveAssetSocialThumbnail(pool:Pool,input:Command,id:string,file:{
   const lease=await assets.resumeUpload(input.actor,{key,intentId:prepared.intentId}),binding={intentId:lease.intentId,fence:lease.fence,leaseToken:lease.leaseToken};
   if(lease.state==='prepared'||lease.state==='processing')await assets.write(input.actor,{...binding,key:commandDigest({key,phase:'write',fence:lease.fence})},new ReadableStream({start(c){c.enqueue(file.bytes);c.close();}}));
   let publicationClient:PoolClient;
-  return await assets.finalizeVia<Awaited<ReturnType<typeof shownSocial>>>(input.actor,{...binding,key:commandDigest({key,phase:'finalize'})},{operation:'community.social.thumbnail.replace',
+  return await assets.finalizeVia<SocialPostView>(input.actor,{...binding,key:commandDigest({key,phase:'finalize'})},{operation:'community.social.thumbnail.replace',
    execute:run=>socialThumbnailMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),
    validateIntent:row=>requireCondition(row.target_post_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_content_type===file.mime,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),
    result:()=>shownSocial(publicationClient,input.actor,id)});

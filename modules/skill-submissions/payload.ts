@@ -132,7 +132,12 @@ export async function normalizeEventPoster(mime:string,bytes:Buffer,orientation:
   }catch(error){if(error instanceof Problem)throw error;throw invalidCover();}
 }
 
-const invalidThumbnail=()=>new Problem(422,'invalid_social_thumbnail','縮圖無法使用。請提供完整的靜態 PNG、JPEG 或 WebP，512 KiB 以下。');
+/** Caller-facing input ceiling; the 640×360 WebP output stays within COVER_MAX_BYTES for every limit. */
+export type ImageInputLimit={bytes:number;label:string};
+export const SOCIAL_THUMBNAIL_LIMIT:ImageInputLimit=Object.freeze({bytes:COVER_MAX_BYTES,label:'512 KiB'});
+export const SOCIAL_NOTE_IMAGE_LIMIT:ImageInputLimit=Object.freeze({bytes:2*1024*1024,label:'2 MB'});
+
+const invalidThumbnail=(limit:ImageInputLimit=SOCIAL_THUMBNAIL_LIMIT)=>new Problem(422,'invalid_social_thumbnail',`圖片無法使用。請提供完整的靜態 PNG、JPEG 或 WebP，${limit.label} 以下。`);
 
 const REMOTE_THUMB_MAX=5*1024*1024;
 
@@ -167,17 +172,17 @@ export async function normalizeServiceCover(mime: string, bytes: Buffer): Promis
   } catch (error) { if (error instanceof Problem) throw error; throw invalidServiceCover(); }
 }
 
-export async function normalizeSocialThumbnail(mime:string,bytes:Buffer):Promise<Buffer>{
-  requireCondition(bytes.length>0&&bytes.length<=COVER_MAX_BYTES,413,'social_thumbnail_too_large','縮圖需為 512 KiB 以下。');
+export async function normalizeSocialThumbnail(mime:string,bytes:Buffer,limit:ImageInputLimit=SOCIAL_THUMBNAIL_LIMIT):Promise<Buffer>{
+  requireCondition(bytes.length>0&&bytes.length<=limit.bytes,413,'social_thumbnail_too_large',`圖片需為 ${limit.label} 以下。`);
   const format=rasterFormat(bytes);
-  if(!format||mime!==`image/${format}`)throw invalidThumbnail();
+  if(!format||mime!==`image/${format}`)throw invalidThumbnail(limit);
   rejectAnimation(bytes,format);
   try{
     const webp=await normalizeImage(bytes,{purpose:'social_thumbnail',format,maxDimension:COVER_MAX_DIMENSION,maxPixels:COVER_MAX_PIXELS,maxOutputBytes:COVER_MAX_BYTES,
       output:{width:640,height:360,fit:'cover',quality:80,effort:4}});
-    requireCondition(webp.length>0&&webp.length<=COVER_MAX_BYTES,422,'social_thumbnail_too_large','這張縮圖壓縮後仍過大，請換一張較簡單的圖片。');
+    requireCondition(webp.length>0&&webp.length<=COVER_MAX_BYTES,422,'social_thumbnail_too_large','這張圖片壓縮後仍過大，請換一張較簡單的圖片。');
     return webp;
-  }catch(error){if(error instanceof Problem)throw error;throw invalidThumbnail();}
+  }catch(error){if(error instanceof Problem)throw error;throw invalidThumbnail(limit);}
 }
 
 export async function normalizeSubmission(raw: unknown): Promise<NormalizedSubmission> {
