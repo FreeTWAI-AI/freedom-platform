@@ -19924,8 +19924,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 6666,
-      "sha256": "e3627fb68440cf6b6da2b94e341dcf227094dc50715904e9842f2fcfbf918062"
+      "bytes": 7838,
+      "sha256": "fbead54c29110aa5e5a59eab15a38422d40e14819c3dec44df816ec62c0abcc2"
     },
     {
       "path": "tests/e2e/freedom.module.json",
