@@ -2469,8 +2469,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 62610,
-      "sha256": "c7a5b530ac46e2be43adf0749d6c23bbaee354e47e0ab33d2c8e130c59b9447f"
+      "bytes": 63137,
+      "sha256": "8d7c8c252e2824ab14ee953a6abb0d0d5f091d581df25957fbbd773e4b51980c"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -2869,8 +2869,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/direct-message-receipts.ts",
-      "bytes": 3190,
-      "sha256": "8dc3a7fe926e26ec8d422a6944d0663fefbee34419783a91ed59e2349fc8242d"
+      "bytes": 3234,
+      "sha256": "152eb0b2554e5b026ddf87bee0f17f9dafb40b47ba5a7ea5e296343196657f65"
     },
     {
       "path": "apps/portal-web/src/modules/event-banner-client.ts",
@@ -20349,8 +20349,8 @@
     },
     {
       "path": "tests/e2e/message-retraction.spec.ts",
-      "bytes": 10689,
-      "sha256": "dae44fb7f3d4a925997e9ba6ef475f52c4e1b58a5a71c8371f50af1317fda1a2"
+      "bytes": 11116,
+      "sha256": "b383e208d1ae8e065e4cdc1c4224bf897668288d13cce8619b648ed21b003564"
     },
     {
       "path": "tests/e2e/mobile-install.spec.ts",
@@ -21079,8 +21079,8 @@
     },
     {
       "path": "tests/runtime/direct-message-receipts.test.ts",
-      "bytes": 7151,
-      "sha256": "ed02f2b1dea6885a8617e12e90d82a6a93d966ee9d3528b6600ca7048a582c14"
+      "bytes": 8180,
+      "sha256": "acb445864a9a84f7cd2ee9986cb0212559417a059652e718aa74c4e470284277"
     },
     {
       "path": "tests/runtime/domain-media-gc.test.ts",
