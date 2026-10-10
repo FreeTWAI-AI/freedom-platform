@@ -123,6 +123,11 @@
       "sha256": "315f2495e0cb626160c12a3ee82b049daec63591247e64340b7f5419c391f4e4"
     },
     {
+      "path": ".github/workflows/notification-preferences-supplemental.yml",
+      "bytes": 2850,
+      "sha256": "ac8156db3a6be7cfb9a9b6d6a1e0c47c2d7fd099086ff62bd9b93effff9bc27b"
+    },
+    {
       "path": ".github/workflows/page-issue-label.yml",
       "bytes": 603,
       "sha256": "b8047ef27d9d2642d87c8512acb8f5cb17da5bfd7eb44abec536a49e13439a07"
