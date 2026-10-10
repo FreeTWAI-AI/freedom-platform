@@ -11,6 +11,10 @@ import {sampleGuildAnswers} from '../../modules/positioning/guild-questions.js';
 import {refreshGuildDiscoveryReports,guildDiscoveryReport,validateAiGuildReport,ruleGuildReport,type GuildEvidence} from '../../modules/community/guild-discovery.js';
 import {guildReviewerFromBindings} from '../../apps/platform-api/src/guild-review.js';
 import {createWorkerHandler} from '../../apps/platform-api/src/worker.js';
+import {memberCards,memberCard} from '../../modules/identity-membership/members.js';
+import {friendDirectory} from '../../modules/identity-membership/member-connections.js';
+import {memberPositioningSummary} from '../../modules/positioning/onboarding.js';
+import type {Actor} from '../../modules/identity-membership/service.js';
 const database=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL,schema=`fp_connections_${process.pid}_${Date.now()}`,admin=createPool(database),pool=new Pool({connectionString:database,options:`-c search_path=${schema}`,max:12});
 const origin='http://127.0.0.1:4310',app=createApp(pool,origin);
 type Session={cookie:string;csrf:string;id:string};
@@ -121,6 +125,41 @@ test('recommendations exclude self, pending friends, accepted friends, inactive,
   const inactive=await member('停用夥伴');await pool.query('UPDATE users SET active=false WHERE user_id=$1',[inactive.id]);
   result=await request('/members/recommendations?limit=3',viewer);assert.ok(!result.data.items.some((item:any)=>item.member.user_id===inactive.id));
   assert.equal((await request('/members/recommendations?limit=4',viewer)).status,422);assert.equal((await request('/members/recommendations')).status,401);
+});
+test('batch cards preserve single-card DTOs and privacy while skipping unavailable members',async()=>{
+  const viewer=await member('批次觀看者'),friend=await member('好友'),stranger=await member('非好友'),unfinished=await member('未完成',false),inactive=await member('停用'),hidden=await member('驗證',true,`${randomUUID()}@example.invalid`);
+  const actor=(await pool.query('SELECT * FROM users WHERE user_id=$1',[viewer.id])).rows[0] as Actor;
+  await pool.query('UPDATE users SET active=false WHERE user_id=$1',[inactive.id]);
+  await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state) VALUES($1,least($2::uuid,$3::uuid),greatest($2::uuid,$3::uuid),$2,'accepted')`,[DEMO_COMMUNITY,viewer.id,friend.id]);
+  const contacts={email:{audiences:['friends']},discord:{value:'公會Discord',audiences:['guild']},github:{value:'public-handle',audiences:['public']},line:{value:'私人LINE',audiences:[]}};
+  await pool.query('UPDATE member_accounts SET contacts=$2 WHERE user_id=ANY($1::uuid[])',[[friend.id,stranger.id],JSON.stringify(contacts)]);
+  for(const switched of [false,true]){
+    if(switched)await pool.query("INSERT INTO guild_preference_switch(community_id,state,aggregate_version) VALUES($1,'switched',1)",[DEMO_COMMUNITY]);
+    const ids=[stranger.id,unfinished.id,friend.id,inactive.id,viewer.id,hidden.id];
+    const cards=await memberCards(pool,actor,ids);
+    assert.deepEqual(cards.map(card=>card.user_id),[stranger.id,friend.id,viewer.id]);
+    assert.deepEqual(cards,await Promise.all([stranger.id,friend.id,viewer.id].map(id=>memberCard(pool,actor,id))));
+    assert.deepEqual(cards[0].contacts,{discord:'公會Discord',github:'public-handle'});
+    assert.deepEqual(cards[1].contacts,{discord:'公會Discord',github:'public-handle',email:(await pool.query('SELECT email FROM users WHERE user_id=$1',[friend.id])).rows[0].email});
+    for(const card of cards){
+      const summary=await memberPositioningSummary(pool,DEMO_COMMUNITY,card.user_id);
+      for(const key of Object.keys(summary))assert.deepEqual(card[key as keyof typeof card],summary[key as keyof typeof summary]);
+    }
+    for(const id of [unfinished.id,inactive.id,hidden.id])await assert.rejects(memberCard(pool,actor,id),{status:404});
+  }
+});
+test('friend card query count stays constant from one to fifty cards',async()=>{
+  const viewer=await member('查詢觀看者'),actor=(await pool.query('SELECT * FROM users WHERE user_id=$1',[viewer.id])).rows[0] as Actor;
+  const ids=Array.from({length:50},()=>randomUUID());
+  await pool.query(`INSERT INTO users(user_id,community_id,email,display_name,profession_membership_ref,password_hash)
+    SELECT id,$1,id::text||'@example.test','批次好友',gen_random_uuid(),'synthetic-unused-hash' FROM unnest($2::uuid[]) AS id`,[DEMO_COMMUNITY,ids]);
+  await pool.query(`INSERT INTO member_friendships(community_id,low_ref,high_ref,requester_ref,state)
+    SELECT $1,least($2::uuid,id),greatest($2::uuid,id),$2,'accepted' FROM unnest($3::uuid[]) AS id`,[DEMO_COMMUNITY,viewer.id,ids]);
+  let queries=0;
+  const counted=new Proxy(pool,{get(target,key){if(key==='query')return (text:string,values:unknown[])=>{queries++;return target.query(text,values);};return Reflect.get(target,key);}});
+  const one=await friendDirectory(counted,actor,{limit:1}),oneCount=queries;queries=0;
+  const fifty=await friendDirectory(counted,actor,{limit:50});
+  assert.equal(one.items.length,1);assert.equal(fifty.items.length,50);assert.equal(queries,oneCount);assert.equal(queries,4);
 });
 test('guild reports run once daily with a lease and use only catalog evidence; provider failure keeps an honest rule report',async()=>{
   let called=0;const reviewer=async(catalog:GuildEvidence[])=>{called++;assert.equal(JSON.stringify(catalog).includes('user_id'),false);return {pairs:[{guild_keys:[catalog[0].guild_key,catalog[1].guild_key],reason:'共同 AI 領域',difference:'目的仍有不同',suggestion:'clarify'}]};};

@@ -3,7 +3,7 @@ import { requireItems, type PortalClient } from '../api';
 import { useModuleMutation } from './shared';
 import { relationshipLabels } from './SkillUpload';
 import './WorkSharing.css';
-import { useAuthoringDraft } from './authoring-drafts';
+import { authoringDraftState, sharingMutationState, useAuthoringDraft } from './authoring-drafts';
 import { PublishedSkillLinks, skillPublicationPath } from './SkillPublication';
 
 type Relationship = keyof typeof relationshipLabels;
@@ -12,7 +12,7 @@ type Submission = { submission_id: string; status: string; can_edit?: boolean; a
 const blank: Draft = { repository_url: '', title: '', description: '', use_notes: '', demo_url: '', relationship: 'curator' };
 const defaultNotes = '請先閱讀原作 README，依其中的安裝步驟開始使用；使用條件與授權以原作文件為準。';
 
-export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft }: { client: PortalClient; userId: string; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void }) {
+export function SimpleSkillSubmission({ client, userId, resumeId = null, onPublished, onOpenDraft }: { client: PortalClient; userId: string; resumeId?: string | null; onPublished: () => Promise<void>; onOpenDraft?: (id: string, mode: 'preview' | 'complete') => void }) {
   const [draft, setDraft, current] = useAuthoringDraft<Draft>(userId, 'skill:draft', { ...blank });
   const [review, setReview] = useAuthoringDraft(userId, 'skill:review', false), [consent, setConsent] = useAuthoringDraft(userId, 'skill:consent', false);
   const [saved, setSaved] = useAuthoringDraft<Submission | null>(userId, 'skill:saved', null), [published, setPublished] = useAuthoringDraft<Submission | null>(userId, 'skill:published', null);
@@ -22,6 +22,41 @@ export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft
   const upgrade = useModuleMutation(client, { userId, type: 'skill:upgrade' });
   const lock = useRef(false), [working, setWorking] = useAuthoringDraft(userId, 'skill:working', false);
   const previewHeading = useRef<HTMLHeadingElement>(null), success = useRef<HTMLElement>(null);
+  const [resumedId, setResumedId] = useState<string | null>(null), [resumeRetry, setResumeRetry] = useState(0);
+  const [resumedAdvanced,setResumedAdvanced] = useState(false);
+  const requestedResume = useRef(resumeId); requestedResume.current = resumeId;
+  const pending = busy || working || upgrade.busy;
+  useEffect(() => {
+    if (!resumeId) { setResumedId(null); return; }
+    // Navigation may arrive while a previous mount is still saving/publishing.
+    // Resume only after it settles; an already consumed URL must not reload on
+    // that draft's own later publish/revoke transitions.
+    if (resumedId === resumeId || pending || lock.current) return;
+    const writing = authoringDraftState(userId, 'skill:working', false);
+    const submission = sharingMutationState({ userId, type: 'skill' });
+    const upgrading = sharingMutationState({ userId, type: 'skill:upgrade' });
+    const controller = new AbortController(), generation = client.sessionGeneration;
+    // Read the existing stores here, rather than a render-time busy snapshot,
+    // so a late response cannot replace the draft between mutation and render.
+    const live = () => !controller.signal.aborted && requestedResume.current === resumeId && generation === client.sessionGeneration && current()
+      && !lock.current && !writing.read() && !submission.snapshot.busy && !upgrading.snapshot.busy;
+    if (!live()) return;
+    setLoadError('');
+    void client.get<Submission>(`/me/skill-submissions/${encodeURIComponent(resumeId)}`, { signal: controller.signal })
+      .then(item => {
+        if (!live()) return;
+        if (item.submission_id !== resumeId) throw new Error('私人投稿回應不符，請重新載入。');
+        if (item.seed || !item.payload || item.status !== 'ready_for_review') { setResumedAdvanced(true); onOpenDraft?.(item.submission_id, item.status === 'ready_for_review' ? 'preview' : 'complete'); }
+        else {
+          const payload = item.payload;
+          setResumedAdvanced(false);
+          setDraft({ ...payload, demo_url: payload.demo_url ?? '' });
+          setSaved(item); setPublished(null); setConsent(false); setReview(true); setError(null);
+        }
+        setResumedId(resumeId);
+      }).catch(cause => { if (live()) setLoadError(cause instanceof Error ? cause.message : '私人投稿暫時無法載入。'); });
+    return () => controller.abort();
+  }, [client, userId, resumeId, resumeRetry, resumedId, pending]);
   async function loadDrafts() {
     setLoadError('');
     try { const items = requireItems<Submission>(await client.get('/me/skill-submissions'), '投稿草稿'); if (current()) setReady(items.filter(item => item.status === 'ready_for_review' && item.payload && !item.seed)); }
@@ -30,7 +65,6 @@ export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft
   useEffect(() => { setReady([]); void loadDrafts(); }, [client, userId]);
   useEffect(() => { if (review) previewHeading.current?.focus(); }, [review]);
   useEffect(() => { if (published) success.current?.focus(); }, [published]);
-  const pending = busy || working || upgrade.busy;
   function preview(event: FormEvent) {
     event.preventDefault(); if (pending || !current()) return; setPublished(null); setError(null); setConsent(false); setReview(true);
   }
@@ -65,12 +99,19 @@ export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft
     const draft = await upgrade.mutate<Submission>(`/me/skill-submissions/${published.submission_id}/upgrade`, {});
     if (draft && current()) onOpenDraft?.(draft.submission_id, 'complete');
   }
+  async function withdraw() {
+    if (!saved) return;
+    const result = await upgrade.mutate<Submission>(`/me/skill-submissions/${encodeURIComponent(saved.submission_id)}/revoke`, {}, Number(saved.aggregate_version));
+    if (result) { setSaved(null); setReview(false); setConsent(false); await loadDrafts(); }
+  }
   async function copyLink() {
     const path = published ? skillPublicationPath(published) : null;
     if (!path) return;
     try { await navigator.clipboard.writeText(`${window.location.origin}${path}`); setCopied('已複製作品連結。'); }
     catch { setCopied('請開啟作品頁，複製瀏覽器網址即可分享。'); }
   }
+  if (resumeId && resumedId !== resumeId) return <section className="card stack" aria-label="載入私人投稿">{loadError ? <><p role="alert">{loadError}</p><button type="button" className="btn btn-secondary btn-small community-search-action" onClick={() => setResumeRetry(value => value + 1)}>重試載入私人投稿</button></> : <p role="status">正在載入這份私人投稿，完成後才可編輯。</p>}</section>;
+  if (resumeId && resumedAdvanced) return <section className="card stack"><p role="status">這份投稿已在下方進階工具開啟，原始內容與狀態會保留。</p></section>;
   return <section className="card stack work-sharing-form" aria-label="投稿開源工具">
     <ol className="work-sharing-progress" data-guide-anchor="opensource:progress" aria-label="投稿進度"><li aria-current={!review && !published ? 'step' : undefined}>1 填寫介紹</li><li aria-current={review ? 'step' : undefined}>2 預覽並公開</li><li aria-current={published ? 'step' : undefined}>3 分享連結</li></ol>
     {published ? <section ref={success} tabIndex={-1} className="work-sharing-success stack" aria-label="投稿完成">
@@ -88,6 +129,7 @@ export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft
       <label className="choice"><input type="checkbox" required checked={consent} disabled={pending} onChange={event => setConsent(event.target.checked)}/>我同意公開這份作品介紹與來源關係</label>
       <div className="actions"><button className="btn btn-primary" disabled={pending || !consent}>{pending ? '正在確認公開來源與授權…' : saved ? '重試公開投稿' : '確認並公開'}</button>{(!saved || saved.can_edit) && <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => { setReview(false); setError(null); }}>修改內容</button>}</div>
       {saved && <p className="hint">已保存私人草稿；公開未完成時，可留在這裡重試，或稍後從下方草稿繼續。</p>}
+      {saved && <div className="actions"><button type="button" className="btn btn-ghost" disabled={pending || upgrade.busy} onClick={() => void withdraw()}>撤銷這份私人投稿</button></div>}
     </form> : <form className="stack" onSubmit={preview}>
       <div className="section-head"><h2>投稿你的開源工具</h2><p>貼網址、寫一句用途，先預覽再公開。</p></div>
       <fieldset disabled={pending} className="stack" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
@@ -100,6 +142,7 @@ export function SimpleSkillSubmission({ client, userId, onPublished, onOpenDraft
       </fieldset>
     </form>}
     {error && <p className="banner banner-error" role="alert">{error}</p>}
+    {upgrade.error && !published && <p className="banner banner-error" role="alert">{upgrade.error}</p>}
     {loadError && <p role="alert">{loadError} <button type="button" className="btn btn-ghost" onClick={() => void loadDrafts()}>重新載入草稿</button></p>}
     {ready.length > 0 && !review && <details className="work-sharing-advanced"><summary>繼續未公開的草稿（{ready.length}）</summary><div className="stack">{ready.map(item => <div className="actions" key={item.submission_id}><span>{item.payload?.title}</span><button className="btn btn-ghost" type="button" disabled={pending} onClick={() => resume(item)}>繼續投稿：{item.payload?.title}</button></div>)}</div></details>}
   </section>;

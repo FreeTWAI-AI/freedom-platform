@@ -2,13 +2,66 @@
   "format": "freedom.module/v1",
   "module_id": "asset-lifecycle",
   "owner_role": "foundation",
-  "owned_paths": ["modules/assets/**", "migrations/079_asset_upload_lifecycle.sql", "migrations/080_avatar_asset_bridge.sql", "migrations/082_asset_maintenance.sql", "migrations/083_avatar_upload_policy.sql", "tests/runtime/asset-lifecycle.test.ts", "tests/runtime/asset-lifecycle-races.test.ts", "tests/runtime/asset-engine.test.ts", "tests/runtime/avatar-bridge.test.ts", "tests/runtime/avatar-upload.test.ts", "tests/runtime/asset-maintenance.test.ts", "tests/runtime/asset-authority-compatibility.test.ts"],
-  "public_exports": ["modules/assets/index.ts", "modules/assets/engine.ts", "modules/assets/avatar-read.ts", "modules/assets/avatar-upload.ts", "modules/assets/avatar-policy.ts", "modules/assets/maintenance.ts"],
-  "dependencies": ["command-core", "resource-scopes", "scoped-commands", "asset-storage", "work"],
-  "contract_families": ["common"],
+  "owned_paths": [
+    "modules/assets/**",
+    "migrations/079_asset_upload_lifecycle.sql",
+    "migrations/080_avatar_asset_bridge.sql",
+    "migrations/082_asset_maintenance.sql",
+    "migrations/083_avatar_upload_policy.sql",
+    "tests/runtime/asset-lifecycle.test.ts",
+    "tests/runtime/asset-lifecycle-races.test.ts",
+    "tests/runtime/asset-engine.test.ts",
+    "tests/runtime/avatar-bridge.test.ts",
+    "tests/runtime/avatar-upload.test.ts",
+    "tests/runtime/asset-maintenance.test.ts",
+    "tests/runtime/asset-authority-compatibility.test.ts",
+    "migrations/141_storefront_product_photos.sql",
+    "tests/runtime/storefront-product-photo-core.test.ts",
+    "tests/runtime/storefront-product-photo-sql.test.ts",
+    "tests/runtime/storefront-product-photo-native.test.ts",
+    "migrations/144_social_note_image_creation.sql",
+    "tests/runtime/social-preview-assets.test.ts"
+  ],
+  "public_exports": [
+    "modules/assets/index.ts",
+    "modules/assets/engine.ts",
+    "modules/assets/avatar-read.ts",
+    "modules/assets/avatar-upload.ts",
+    "modules/assets/avatar-policy.ts",
+    "modules/assets/maintenance.ts",
+    "modules/assets/storefront-product-photo.ts"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands",
+    "asset-storage",
+    "work",
+    "agent-commerce"
+  ],
+  "contract_families": [
+    "common"
+  ],
   "client_profiles": [],
-  "instructions": ["modules/assets/README.md", "modules/assets/engine.md", "modules/assets/avatar-upload.md", "modules/assets/maintenance.md", "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md", "docs/platform-plan/execution/unified-foundation/05-media-migration.md"],
-  "invariants": ["current-authority-before-replay", "single-avatar-version-authority", "immutable-object-content", "external-io-outside-row-locks", "fenced-finalize", "private-scoped-facts"],
-  "tests": ["runtime.full"],
+  "instructions": [
+    "modules/assets/README.md",
+    "modules/assets/engine.md",
+    "modules/assets/avatar-upload.md",
+    "modules/assets/maintenance.md",
+    "docs/platform-plan/execution/unified-foundation/03-assets-private-work.md",
+    "docs/platform-plan/execution/unified-foundation/05-media-migration.md",
+    "modules/assets/storefront-product-photo.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "single-avatar-version-authority",
+    "immutable-object-content",
+    "external-io-outside-row-locks",
+    "fenced-finalize",
+    "private-scoped-facts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
   "surfaces": []
 }

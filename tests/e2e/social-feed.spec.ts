@@ -87,10 +87,10 @@ test('write a native post, like, comment, remove and reload without duplicate ef
 test('a note publishes with its image, unusable files are refused before upload, and deleting confirms in a dialog', async ({page}) => {
   await login(page);
   const text = `E2E 附圖貼文 ${Date.now()}`;
-  const composer = page.getByRole('dialog', {name: '建立貼文', exact: true}), picker = composer.getByLabel('貼文圖片（選填，JPEG、PNG、WebP，2 MB 以下）');
+  const composer = page.getByRole('dialog', {name: '建立貼文', exact: true}), picker = composer.getByLabel('貼文圖片（選填）');
   await composer.getByLabel('貼文內容', {exact: true}).fill(text);
-  await picker.setInputFiles({name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(2 * 1024 * 1024 + 1, 1)});
-  await expect(composer.getByRole('alert')).toContainText('圖片需為 2 MB 以下。');
+  await picker.setInputFiles({name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(20 * 1024 * 1024 + 1, 1)});
+  await expect(composer.getByRole('alert')).toContainText('這張圖片超過 20 MB');
   await picker.setInputFiles({name: 'anim.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a')});
   await expect(composer.getByRole('alert')).toContainText('請選擇 JPEG、PNG 或 WebP 圖片。');
   await expect(composer.getByRole('img', {name: '待發布圖片預覽'})).toHaveCount(0);

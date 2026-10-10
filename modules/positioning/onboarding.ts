@@ -9,7 +9,7 @@ import { avatarUrl } from '../identity-membership/avatars.js';
 import { skillBooksForGuild, officialGuildKeys, communityCatalog, capabilityCategories, equipmentCategories, type SkillBook } from '../community/catalog.js';
 import { ASSESSMENT_VERSION, ASSESSMENT_SHA256, assessmentQuestions, publicAssessmentDefinition, evaluateAssessment, guildTitles } from './assessment.js';
 import { assertGuildAnswers, entryQuestionsForGuild, presentGuildAnswers } from './guild-questions.js';
-import { assertLegacyPreferenceWritable, lockGuildCatalogShared, projectOnboardingGuild, recomputeLegacyProjection, switchedPositioningCard } from './guild-categories.js';
+import { assertLegacyPreferenceWritable, lockGuildCatalogShared, projectOnboardingGuild, recomputeLegacyProjection, switchedPositioningCard, positioningCardFromRows } from './guild-categories.js';
 
 type Queryable=Pick<Pool,'query'>;
 const Empty=z.object({}).strict();
@@ -314,6 +314,31 @@ export async function memberPositioningSummary(pool:Queryable,communityId:string
  const primary=membership.find(g=>g.is_primary),select=(g:any)=>({guild_key:g.guild_key,name:g.name,alias:g.alias??'',joined_at:new Date(g.joined_at).toISOString()}),profile=row?.published_profile;
  const secondary=effectiveSecondary({primary_guild_key:primary?.guild_key??null,secondary_guild_keys:membership[0]?.secondary_guild_keys??null,aggregate_version:null,active_guild_keys:membership.map(g=>g.guild_key)});
  return {positioning_title:primary?memberProfessionTitle(primary):null,primary_guild:primary?select(primary):null,secondary_guilds:secondary.map(key=>select(membership.find(g=>g.guild_key===key))),joined_guilds:membership.filter(g=>!g.is_primary&&!secondary.includes(g.guild_key)).map(select),capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)};
+}
+interface CardMembership {guild_key:string;name:string;alias:string;profession_title:string;joined_at:string;secondary_guild_keys:string[]|null;is_primary:boolean}
+interface CardPositioningRow {
+ user_id:string;switched:boolean;memberships:CardMembership[];chosen:{category:string;guild_key:string}[];
+ published_profile:{capabilities?:string[];equipment?:string[];custom_capabilities?:string[];custom_equipment?:string[];featured_capabilities?:string[]}|null;
+}
+export async function memberPositioningSummaries(pool:Queryable,communityId:string,userIds:string[]){
+ const rows=(await pool.query<CardPositioningRow>(`SELECT ids.user_id,a.published_profile,
+   EXISTS(SELECT 1 FROM guild_preference_switch WHERE community_id=$1 AND state='switched') AS switched,
+   COALESCE((SELECT jsonb_agg(jsonb_build_object('guild_key',g.guild_key,'name',g.name,'alias',g.alias,'profession_title',g.profession_title,
+     'joined_at',m.joined_at,'secondary_guild_keys',p.secondary_guild_keys,'is_primary',COALESCE(p.primary_guild_key=g.guild_key,false)) ORDER BY g.guild_key)
+     FROM positioning_profession_memberships m JOIN positioning_guild_catalog g USING(guild_key)
+     LEFT JOIN guild_member_preferences p ON p.community_id=m.community_id AND p.user_id=m.user_id
+     WHERE m.community_id=$1 AND m.user_id=ids.user_id AND m.state='active'),'[]'::jsonb) AS memberships,
+   COALESCE((SELECT jsonb_agg(jsonb_build_object('category',category::text,'guild_key',guild_key))
+     FROM guild_category_preferences WHERE community_id=$1 AND user_id=ids.user_id),'[]'::jsonb) AS chosen
+   FROM unnest($2::uuid[]) AS ids(user_id)
+   LEFT JOIN onboarding_assessments a ON a.community_id=$1 AND a.user_id=ids.user_id`,[communityId,userIds])).rows;
+ return new Map(rows.map(row=>{
+   const membership=row.memberships,profile=row.published_profile;
+   const primary=membership.find(g=>g.is_primary),select=(g:CardMembership)=>({guild_key:g.guild_key,name:g.name,alias:g.alias??'',joined_at:new Date(g.joined_at).toISOString()});
+   const secondary=effectiveSecondary({primary_guild_key:primary?.guild_key??null,secondary_guild_keys:membership[0]?.secondary_guild_keys??null,aggregate_version:null,active_guild_keys:membership.map(g=>g.guild_key)});
+   const guilds=row.switched?positioningCardFromRows(membership,row.chosen):{positioning_title:primary?memberProfessionTitle(primary):null,primary_guild:primary?select(primary):null,secondary_guilds:secondary.map(key=>select(membership.find(g=>g.guild_key===key)!)),joined_guilds:membership.filter(g=>!g.is_primary&&!secondary.includes(g.guild_key)).map(select)};
+   return [row.user_id,{...guilds,capabilities:profile?.capabilities??[],equipment:profile?.equipment??[],custom_capabilities:profile?.custom_capabilities??[],custom_equipment:profile?.custom_equipment??[],featured_capabilities:featuredChoices(profile)}];
+ }));
 }
 const ApplicationInput=z.object({name:z.string().trim().min(2).max(100),profession:z.string().trim().min(1).max(160),reason:z.string().trim().min(10).max(2000)}).strict();
 const memberApplicationSelect=`SELECT a.application_id,a.name,a.profession,a.reason,a.state,a.aggregate_version,a.created_at,a.reviewed_at,a.review_reason,a.approved_guild_key,g.name AS approved_guild_name

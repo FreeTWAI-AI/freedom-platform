@@ -1,15 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { checkMigrations } from '../lib/migrations.mjs';
 import { evaluateReleaseCompatibility, compatibilityLedgerDigest } from '../lib/release-compatibility.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const expected = JSON.parse(readFileSync(join(root, 'deploy/cloudflare/environments.json'), 'utf8')).database_defaults.migrations;
-const last = expected.last;
-const scan = checkMigrations(join(root, 'migrations'), expected);
+const last = Math.max(...readdirSync(join(root, 'migrations')).filter(n => /^\d{3}_.*\.sql$/.test(n)).map(n => Number(n.slice(0, 3))));
+const scan = checkMigrations(join(root, 'migrations'), { first: 1, last, known_gaps: [22] });
 const capabilities = ['platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1'];
 const identity = (character) => ({ source_sha: character.repeat(40), artifact_sha256: character.repeat(64) });
 function fixture() {

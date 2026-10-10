@@ -1,6 +1,27 @@
 import {test,expect} from './fixtures.js';
 import {navigate,signOut} from './navigation.js';
 import {randomUUID} from 'node:crypto';
+import type {Page} from '@playwright/test';
+
+test('會員與獨立控制台各只讀一次 site，並保留私訊功能旗標',async({page,context})=>{
+  const reads=new Map<Page,number>();
+  context.on('request',request=>{if(new URL(request.url()).pathname==='/api/v1/site'){const owner=request.frame().page();reads.set(owner,(reads.get(owner)??0)+1);}});
+  const images=process.env.FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE==='1',blocking=process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true';
+  const checkDirect=async(owner:Page)=>{
+    const dock=owner.locator('.game-console-expanded');
+    await dock.getByRole('tab',{name:/私人聊天/}).click();
+    await dock.getByLabel('搜尋會員').fill('示範需求者');await dock.getByRole('button',{name:'搜尋會員',exact:true}).click();
+    await dock.getByRole('button',{name:'傳訊給 示範需求者',exact:true}).click();
+    await expect(dock.getByRole('textbox',{name:'寫給 示範需求者 的訊息'})).toBeVisible();
+    await expect(dock.getByRole('button',{name:'附加圖片',exact:true})).toHaveCount(images?1:0);
+    await expect(dock.getByRole('button',{name:'封鎖設定',exact:true})).toHaveCount(blocking?1:0);
+    expect(reads.get(owner)).toBe(1);
+  };
+  await page.goto('/');await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');await page.getByRole('button',{name:'登入',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();await page.getByRole('button',{name:'展開訊息控制台'}).click();await checkDirect(page);
+  const promise=page.waitForEvent('popup');await page.getByRole('button',{name:'在獨立視窗開啟訊息控制台'}).click();const popup=await promise;
+  await expect(popup.getByRole('heading',{name:'自由工坊 - 即時訊息控制台'})).toBeVisible();await page.close();await checkDirect(popup);await popup.close();
+});
 
 test('導覽訊息給出用途、下一步連結，並把時間放在內容後方',async({page})=>{
   await page.goto('/');

@@ -640,6 +640,83 @@ test('verify workflow keeps the required gate, unconditional integrity, and hist
   assert.match(jobBlock(text, 'deploy-preflight'), /--suite ci\.migration-postgres/);
 });
 
+test('deploy preflight caches npm downloads before its clean install', async () => {
+  const preflight = jobBlock(await readFile(workflowPath, 'utf8'), 'deploy-preflight');
+  assert.match(preflight, /- uses: actions\/setup-node@[^\n]+\n {8}with:\n {10}node-version: '24'\n {10}cache: npm\n {6}- run: npm ci --ignore-scripts/u);
+});
+
+test('CI services and migration prefetch retain one immutable PostgreSQL image on disk', async () => {
+  const text = await readFile(workflowPath, 'utf8');
+  const image = 'mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
+  for (const id of ['runtime-full', 'ui-e2e', 'static-worker', 'governance-consumers']) {
+    const job = jobBlock(text, id);
+    assert.ok(job.includes(`image: ${image}\n`), id);
+    assert.ok(job.includes('dynamic_shared_memory_type=mmap'), id);
+    assert.doesNotMatch(job, /--tmpfs|type=tmpfs/u);
+  }
+  assert.match(jobBlock(text, 'runtime-full'), /--memory 4g/u);
+  assert.ok(jobBlock(text, 'deploy-preflight').includes(`run: docker pull ${image}\n`));
+});
+
+test('PostgreSQL prerequisite rejects RAM storage, changed images and weakened durability', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-ci-postgres-readback-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  // Synthetic docker readback only: this test creates no container or database.
+  await writeFile(join(directory, 'docker'), `#!/usr/bin/env python3
+import json,os,sys
+f=json.loads(os.environ['CI_STORAGE_FIXTURE']);a=sys.argv[1:]
+if a[:2]==['inspect','--format']:
+ if a[2]=='{{.Config.Image}}': print(f['image'])
+ elif a[2]=='{{json .}}': print(json.dumps(f['storage']))
+ else: raise Exception('unexpected inspect')
+elif a[0]=='exec' and a[2]=='df':
+ print('Filesystem Type 1024-blocks Used Available Capacity Mounted on')
+ print('/dev/test '+f['filesystem']+' 20000000 1000 19999000 1% /var/lib/postgresql')
+elif a[0]=='exec' and a[2]=='psql': print(json.dumps(f['settings']))
+else: raise Exception('unexpected Docker command')
+`, { mode: 0o755 });
+  const valid = () => ({
+    image: 'mirror.gcr.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd',
+    storage: { HostConfig: { Tmpfs: null, Memory: 4294967296 }, Mounts: [{ Type: 'volume', Destination: '/var/lib/postgresql', RW: true }] },
+    filesystem: 'ext4', settings: { database: 'fp_foundation_ci', data_directory: '/var/lib/postgresql/18/docker',
+      checkpoint_completion_target: '0', max_locks_per_transaction: '256', dynamic_shared_memory_type: 'mmap', fsync: 'on', full_page_writes: 'on' },
+  });
+  const run = (fixture, env = {}) => spawnSync('bash', [join(root, 'scripts/ci/verify-runtime-postgres.sh'), 'a'.repeat(64)], {
+    encoding: 'utf8', timeout: 5000, env: { PATH: `${directory}:${process.env.PATH}`, GITHUB_ACTIONS: 'true',
+      RUNNER_ENVIRONMENT: 'github-hosted', CI_STORAGE_FIXTURE: JSON.stringify(fixture), ...env },
+  });
+  const good = run(valid());
+  assert.equal(good.status, 0, good.stdout + good.stderr);
+  assert.match(good.stdout, /runtime_postgres_storage_readback=pass storage=disk/u);
+  for (const mutate of [
+    f => { f.image = f.image.replace('6c538e72', '00000000'); },
+    f => { f.image = f.image.replace('mirror.gcr.io/library/', ''); },
+    f => { f.storage.HostConfig.Tmpfs = { '/var/lib/postgresql': 'rw,size=4294967296' }; },
+    f => { f.storage.HostConfig.Memory = 0; },
+    f => { f.storage.Mounts[0].Type = 'bind'; },
+    f => { f.storage.Mounts[0].Destination = '/data'; },
+    f => { f.storage.Mounts[0].RW = false; },
+    f => { f.storage.Mounts.push({ Type: 'tmpfs', Destination: '/tmp', RW: true }); },
+    f => { f.filesystem = 'tmpfs'; },
+    f => { f.filesystem = 'ramfs'; },
+    f => { f.filesystem = ''; },
+    f => { f.settings.database = 'other_database'; },
+    f => { f.settings.data_directory = '/tmp/data'; },
+    f => { f.settings.dynamic_shared_memory_type = 'posix'; },
+    f => { f.settings.checkpoint_completion_target = '0.9'; },
+    f => { f.settings.max_locks_per_transaction = '64'; },
+    f => { f.settings.fsync = 'off'; },
+    f => { f.settings.full_page_writes = 'off'; },
+  ]) {
+    const fixture = valid(); mutate(fixture);
+    const result = run(fixture);
+    assert.notEqual(result.status, 0, JSON.stringify(fixture));
+    assert.doesNotMatch(result.stdout, /runtime_postgres_storage_readback=pass/u);
+  }
+  assert.notEqual(run(valid(), { GITHUB_ACTIONS: 'false' }).status, 0);
+  assert.notEqual(run(valid(), { RUNNER_ENVIRONMENT: 'self-hosted' }).status, 0);
+});
+
 function leafDescriptors() {
   return [
     ...FRONTEND_LEAF_PROFILES.map(profile => moduleDescriptor(profile.module, [...profile.paths], { dependencies: [...profile.dependencies], tests: [...profile.tests] })),

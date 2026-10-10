@@ -1,0 +1,46 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "social-feed",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/portal-web/src/modules/SocialZone.tsx",
+    "apps/portal-web/src/modules/SocialZone.css",
+    "apps/portal-web/src/modules/social-image.ts",
+    "tests/e2e/social-feed.spec.ts",
+    "tests/e2e/share-promotion.spec.ts",
+    "tests/e2e/social-image.spec.ts",
+    "tests/runtime/social-feed.test.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "community",
+    "asset-lifecycle",
+    "skill-submissions"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/share-promotion.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "community.social-feed-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/SocialZone.tsx",
+      "operations": [
+        "community.social-feed-page.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

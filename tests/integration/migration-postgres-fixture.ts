@@ -11,7 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 
 const image = 'sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd';
-const imageReference = 'postgres:18-alpine@' + image;
+const imageReference = 'mirror.gcr.io/library/postgres:18-alpine@' + image;
 let imageId = '';
 const label = randomUUID(), password = randomBytes(32).toString('base64url');
 export let container = '', directory = '', socket = '', admin: Pool | undefined;
@@ -25,7 +25,7 @@ before(async () => {
   // image IDs. Bind the immutable repository digest to that store's actual ID.
   const installed = JSON.parse(docker(['image', 'inspect', '--format', '{{json .}}', imageReference]));
   assert.match(installed.Id, /^sha256:[a-f0-9]{64}$/);
-  assert(installed.RepoDigests.some((digest: string) => digest === 'postgres@' + image || digest === 'docker.io/library/postgres@' + image));
+  assert(installed.RepoDigests.includes('mirror.gcr.io/library/postgres@' + image));
   imageId = installed.Id;
   directory = await mkdtemp(join(tmpdir(), 'fp-c5-postgres-')); socket = join(directory, 'socket');
   await mkdir(socket); await chmod(socket, 0o777);
@@ -36,11 +36,12 @@ before(async () => {
   container = lifecycle!.dispatch('database', 'create', () => docker(['create', '--name', containerName, '--pull=never', '--network', 'none', '--read-only', '--user', 'postgres',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', '512m', '--memory-swap', '512m',
     '--pids-limit', '128', '--cpus', '1', '--log-driver', 'none', '--ulimit', 'core=0:0', '--ulimit', 'nofile=256:256',
-    '--label', 'freedom.migration-test=' + label, '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m,mode=1777',
-    '--tmpfs', '/var/lib/postgresql:rw,nosuid,nodev,size=1m', '--mount', `type=bind,src=${socket},dst=/run/postgresql`,
-    '-e', 'PGDATA=/tmp/data', '-e', 'POSTGRES_DB=fp_c5_migrations', '-e', 'POSTGRES_PASSWORD',
+    // The image's anonymous /var/lib/postgresql volume is disk-backed and is
+    // removed with this exact owned container. No database files live in RAM.
+    '--label', 'freedom.migration-test=' + label, '--mount', `type=bind,src=${socket},dst=/run/postgresql`,
+    '-e', 'PGDATA=/var/lib/postgresql/18/docker', '-e', 'POSTGRES_DB=fp_c5_migrations', '-e', 'POSTGRES_PASSWORD',
     '-e', 'POSTGRES_INITDB_ARGS=--auth-local=scram-sha-256 --auth-host=reject', imageReference,
-    'postgres', '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/run/postgresql', '-c', 'max_locks_per_transaction=256'], { POSTGRES_PASSWORD: password }));
+    'postgres', '-c', 'listen_addresses=', '-c', 'unix_socket_directories=/run/postgresql', '-c', 'max_locks_per_transaction=256', '-c', 'dynamic_shared_memory_type=mmap'], { POSTGRES_PASSWORD: password }));
   assert.match(container, /^[a-f0-9]{64}$/);
   await writeFile(join(directory, 'intent.json'), JSON.stringify({ label, name: containerName, state: 'acknowledged', container, socket }), { mode: 0o600 });
   docker(['start', container]);
@@ -49,6 +50,11 @@ before(async () => {
   assert.equal(observed.Config.Labels['freedom.migration-test'], label);
   assert.equal(observed.HostConfig.NetworkMode, 'none'); assert.equal(observed.HostConfig.ReadonlyRootfs, true);
   assert.equal(observed.HostConfig.Memory, 536870912); assert.equal(observed.HostConfig.PidsLimit, 128);
+  assert.deepEqual(observed.HostConfig.Tmpfs ?? {}, {});
+  const dataMount = observed.Mounts.find((mount: any) => mount.Destination === '/var/lib/postgresql');
+  assert.equal(dataMount?.Type, 'volume'); assert.equal(dataMount?.RW, true);
+  const dataFilesystem = docker(['exec', container, 'stat', '-f', '-c', '%T', '/var/lib/postgresql']);
+  assert(dataFilesystem && !['tmpfs', 'ramfs'].includes(dataFilesystem), 'PostgreSQL volume uses a disk filesystem');
   admin = new Pool({ host: socket, user: 'postgres', database: 'fp_c5_migrations', password, max: 2, connectionTimeoutMillis: 1000, statement_timeout: 30000 });
   let ready = false;
   for (let n = 0; n < 100; n++) { try { await admin.query('SELECT 1'); ready = true; break; } catch { await delay(100); } }
@@ -68,7 +74,7 @@ after(async () => {
       for (const id of ids) {
         if (!/^[a-f0-9]{64}$/.test(id)) continue;
         const owned = JSON.parse(docker(['inspect', '--format', '{{json .}}', id]));
-        if (owned.Config.Labels?.['freedom.migration-test'] === label && owned.Name === '/' + containerName && owned.Image === imageId && owned.Config.Image === imageReference) docker(['rm', '-f', id]);
+        if (owned.Config.Labels?.['freedom.migration-test'] === label && owned.Name === '/' + containerName && owned.Image === imageId && owned.Config.Image === imageReference) docker(['rm', '-fv', id]);
       }
       empty = docker(['ps', '-aq', '--no-trunc', '--filter', 'label=freedom.migration-test=' + label]) === '';
       if (empty && lifecycle?.cleanupState(true).cleanup_verified) break;
