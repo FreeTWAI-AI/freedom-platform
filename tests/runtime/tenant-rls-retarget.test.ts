@@ -229,6 +229,10 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
     shipping_minor: 0, shipping_terms: '交易尚未啟用；運送方式尚未設定。', return_terms: '交易尚未啟用；退換貨規則尚未設定。' };
   await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,stock,reserved,shipping_minor,shipping_terms,return_terms)
     VALUES($1,$2,'P0001',$3,'',100,1,0,0,$4,$5)`, [itemId, supplyId, title, product.shipping_terms, product.return_terms]);
+  await q.query(`INSERT INTO commerce_hosted_supply_offers(offer_id,tenant_id,instance_id,item_id,community_id,
+      supplier_name,source_version,terms,terms_sha256)
+    SELECT $1,$2,$3,$4,community_id,$5,1,$6,$7 FROM commerce_shops WHERE shop_id=$8`,
+  [randomUUID(), data.tenantId, instanceId, itemId, name, product, digest(product), supplyId]);
   await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot)
     VALUES($1,$2,$3,100,'交易尚未啟用。',$4)`, [selectionId, shopId, itemId, product]);
   const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
@@ -492,7 +496,7 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+    'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
     'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
@@ -571,6 +575,37 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     if (!aRow || !bRow) {
       assert.ok(DOCUMENTED_UNCOVERED_RLS_TABLES[table], `${table}: missing A/B fixture without documented reason`);
       record.push({ table, mechanism: 'documented_exception', update_covered: false, outcome: 'uncovered', reason: DOCUMENTED_UNCOVERED_RLS_TABLES[table] });
+      continue;
+    }
+    if (table === 'commerce_hosted_supply_offers') {
+      // Offers are deliberately shared with current same-community members;
+      // sharing SELECT must not grant another tenant supplier write authority.
+      const writePolicies = (await owner.query<Policy>(`SELECT policyname,cmd,permissive,qual,with_check FROM pg_policies
+        WHERE schemaname=current_schema() AND tablename=$1 AND cmd IN ('ALL','INSERT','UPDATE','DELETE') ORDER BY policyname`, [table])).rows;
+      assert.deepEqual(writePolicies, [{ policyname: 'commerce_hosted_offer_write', cmd: 'ALL', permissive: 'PERMISSIVE',
+        qual: '(tenant_id = freedom_ctx_tenant())', with_check: '(tenant_id = freedom_ctx_tenant())' }]);
+      await isolatedTransaction(runtime, async q => {
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted}`)).rowCount, 0, 'unbound offer SELECT must be empty');
+        await bindPrincipalContext(q, A.principalId);
+        await bindTenantContext(q, { tenantId: A.tenantId, tenantScopeId: A.scopeId });
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE offer_id=$1`, [aRow.offer_id])).rowCount, 1, 'supplier can read its own offer');
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE offer_id=$1`, [bRow.offer_id])).rowCount, 1,
+          'same-community supply visibility is intentional');
+        assert.equal((await q.query(`UPDATE ${quoted} SET state='withdrawn',version=version+1 WHERE offer_id=$1`, [bRow.offer_id])).rowCount, 0,
+          'same-community visibility must not permit foreign withdrawal');
+        await q.query('SAVEPOINT immutable_offer');
+        await assert.rejects(q.query(`UPDATE ${quoted} SET tenant_id=$1 WHERE offer_id=$2`, [bKey,aRow.offer_id]),
+          (error: unknown) => (error as { code?: string }).code === '23514', 'immutable offer cannot be retargeted');
+        await q.query('ROLLBACK TO SAVEPOINT immutable_offer');
+        assert.equal((await q.query(`UPDATE ${quoted} SET state='withdrawn',version=version+1 WHERE offer_id=$1`, [aRow.offer_id])).rowCount, 1,
+          'supplier withdrawal positive control');
+        await q.query('ROLLBACK TO SAVEPOINT immutable_offer');
+      });
+      assert.deepEqual((await owner.query(`SELECT * FROM ${quoted} WHERE offer_id=$1`, [aRow.offer_id])).rows[0], aRow);
+      assert.deepEqual((await owner.query(`SELECT * FROM ${quoted} WHERE offer_id=$1`, [bRow.offer_id])).rows[0], bRow);
+      record.push({ table, mechanism: 'policy_assertion', update_covered: false,
+        outcome: 'immutable retarget rejected; foreign withdrawal hidden; supplier withdrawal allowed and rolled back',
+        select: 1, own_select: 1, policies: writePolicies.map(row => row.policyname) });
       continue;
     }
     const beforeB = (await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE ${column}=$1${scopeFilter}`, [bKey])).rows[0].n;
