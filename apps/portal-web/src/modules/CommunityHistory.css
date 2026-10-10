@@ -5,9 +5,10 @@
 .community-history-categories span{margin-left:.35rem;opacity:.75}
 .community-leaderboards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}
 .community-leaderboard{min-width:0}.community-leaderboard h3{margin:0 0 .65rem;font-size:1.1rem}
-.community-leaderboard ol{margin:0;padding-left:1.5rem}.community-leaderboard .formula{margin:0 0 .7rem;color:var(--muted);font-size:.85rem;line-height:1.5}
+.community-leaderboard ol{margin:0;padding:0;list-style:none}.community-leaderboard .formula{margin:0 0 .7rem;color:var(--muted);font-size:.85rem;line-height:1.5}
 .community-leaderboard li{display:flex;justify-content:space-between;gap:.5rem;padding:.45rem 0;border-top:1px solid var(--line);font-size:.9rem}
-.community-leaderboard li::marker{color:var(--muted)}.community-leaderboard li a{min-width:0;overflow-wrap:anywhere}
+.community-leaderboard .community-rank{flex:none;min-width:1.5rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.community-leaderboard li a{flex:1;min-width:0;overflow-wrap:anywhere}
 .community-leaderboard li strong{flex:none;font-variant-numeric:tabular-nums}
 .community-history .banner{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
 .community-history .banner .btn{width:auto;min-height:44px}

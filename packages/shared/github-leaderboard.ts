@@ -45,6 +45,13 @@ export function leaderboardFromItems(items: readonly GitHubLeaderboardItem[]): G
   return [...totals.values()];
 }
 
+/** Competition ranks for rows already sorted by count, highest first: ties share a rank (1, 2, 2, 4). */
+export function withRanks<T extends {count: number}>(rows: readonly T[]): (T & {rank: number})[] {
+  const ranked: (T & {rank: number})[] = [];
+  rows.forEach((row, index) => ranked.push({...row, rank: index > 0 && row.count === rows[index - 1].count ? ranked[index - 1].rank : index + 1}));
+  return ranked;
+}
+
 export function rankedLeaderboards(rows: readonly GitHubAuthorTotals[]) {
   const ranked = (value: (row: GitHubAuthorTotals) => number) => rows
     .filter(row => value(row) > 0)

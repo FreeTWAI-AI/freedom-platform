@@ -9,7 +9,7 @@ import {seedLocal, DEMO_USERS, DEMO_PASSWORD, DEMO_COMMUNITY} from '../../packag
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {GITHUB_HISTORY_PAGE_CAP, githubHistoryLeaderboards, githubHistoryPage, historyRepositories} from '../../modules/community/github-history.js';
 import type {Actor} from '../../modules/identity-membership/service.js';
-import {contributionPoints, isGitHubBot, issueResolved, leaderboardFromItems, pullClosedUnmerged, pullUpdated, rankedLeaderboards} from '../../packages/shared/github-leaderboard.js';
+import {contributionPoints, isGitHubBot, issueResolved, leaderboardFromItems, pullClosedUnmerged, pullUpdated, rankedLeaderboards, withRanks} from '../../packages/shared/github-leaderboard.js';
 
 const when = '2026-09-28T12:00:00.000Z';
 const origin = 'http://127.0.0.1:4392';
@@ -117,6 +117,9 @@ test('leaderboard scores stay display-only and skip automation accounts', () => 
   assert.equal(grouped[0].login, 'Member-Demo');
   assert.equal(grouped[0].ideas, 1);
   assert.equal(grouped[0].edits, 1);
+  assert.deepEqual(withRanks([{count: 40}, {count: 30}, {count: 30}, {count: 5}]).map(row => row.rank), [1, 2, 2, 4]);
+  assert.deepEqual(withRanks([{count: 7}, {count: 7}]).map(row => row.rank), [1, 1]);
+  assert.deepEqual(withRanks([]), []);
 });
 
 test('stored history pages keep order, stale and unavailable flags, and never call GitHub', async () => {
