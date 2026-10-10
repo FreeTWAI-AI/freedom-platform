@@ -8,7 +8,7 @@ class ShareBoundary extends Component<{children:ReactNode},{failed:boolean}>{sta
 export function SocialPostShare({client,post}:{client:PortalClient;post:SocialPost}){
  const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null);
  const [open,setOpen]=useState(false),[job]=useState(()=>new SocialShareSession(client)),[error,setError]=useState(''),[busy,setBusy]=useState(false),alive=useRef(true);
- useEffect(()=>()=>{alive.current=false;},[]);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  const caption=[post.note||post.title,post.url].filter(Boolean).join('\n');
  function close(){dialog.current?.close();setOpen(false);trigger.current?.focus();}
  async function attach(){const generation=client.sessionGeneration;setBusy(true);setError('');try{

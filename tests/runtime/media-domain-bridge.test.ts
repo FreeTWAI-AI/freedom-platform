@@ -35,9 +35,9 @@ test('bridge retains historical bytes yet asset reads refuse cross-purpose metad
 test('typed pointer cannot disappear while the asset attachment remains published',async()=>{const s=await setup(),u=await upload(s);await s.api.finalize(s.owner,{key:randomUUID(),...u.lease});await assert.rejects(pool.query('UPDATE member_service_cover_asset_targets SET asset_id=NULL WHERE service_id=$1',[s.id]),(e:any)=>e.code==='23514');assert.equal((await coverSnapshot(s))!.assetId,u.assetId);});
 test('other domain modes default to legacy and unknown purposes cannot enter the finite registry',async()=>{
  const rows=(await pool.query("SELECT purpose,mode FROM domain_media_storage_policy WHERE purpose<>'member.service-cover'")).rows;
- assert.deepEqual(rows.map(r=>r.purpose).sort(),['skill.submission-image','community.event-banner','community.event-video','community.event-highlight','community.social-thumbnail','member.message-image','storefront.product-photo'].sort());
+ assert.deepEqual(rows.map(r=>r.purpose).sort(),['skill.submission-image','community.event-banner','community.event-video','community.event-highlight','community.social-thumbnail','community.comment-image','member.message-image','storefront.product-photo'].sort());
  assert.ok(rows.every(r=>r.mode==='legacy'));
- assert.deepEqual((await pool.query("SELECT persistence_allowed,policy_revision,retained_byte_limit FROM domain_media_storage_policy WHERE purpose='storefront.product-photo'")).rows,[{persistence_allowed:false,policy_revision:null,retained_byte_limit:null}]);
+ for(const purpose of ['storefront.product-photo','community.comment-image'])assert.deepEqual((await pool.query("SELECT persistence_allowed,policy_revision,retained_byte_limit FROM domain_media_storage_policy WHERE purpose=$1",[purpose])).rows,[{persistence_allowed:false,policy_revision:null,retained_byte_limit:null}]);
  await assert.rejects(pool.query("INSERT INTO domain_media_storage_policy(purpose) VALUES('future.unknown')"),(e:any)=>e.code==='23514');
 });
 

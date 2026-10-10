@@ -226,7 +226,9 @@
         "community.social-read.mark",
         "community.social-comment-like.update",
         "community.social-comment-image.upload",
-        "community.social-comment-image.read"
+        "community.social-comment-image.read",
+        "community.social-post.edit",
+        "community.social-comment.edit"
       ],
       "auth_profile": "member-session"
     },

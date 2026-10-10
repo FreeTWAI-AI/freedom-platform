@@ -35,7 +35,7 @@ export function SocialInteractions({client, post, canHide, onUpdate,onTag}: {onT
   type CommentCommand={body:{text?:string;image_id?:string;sticker_id?:string;mention_ids?:string[]};file:File|null;uploadKey:string;key:string};
   const pendingComment = useRef<CommentCommand|null>(null);
   const current=(generation:number)=>mounted.current&&client.sessionGeneration===generation;
-  useEffect(()=>()=>{mounted.current=false;++imageSeq.current;++peopleSeq.current;},[]);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;++imageSeq.current;++peopleSeq.current;};},[]);
   useEffect(()=>{if(!file){setPreview('');return;}const url=URL.createObjectURL(file);setPreview(url);return()=>URL.revokeObjectURL(url);},[file]);
   // A visible post must remain at least half visible for one second. List fetches
   // and background tabs do not record reads. Server uniqueness survives reloads.
