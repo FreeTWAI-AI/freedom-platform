@@ -576,9 +576,8 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await page.getByRole('button', { name: '設定', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   ctx.check('mobile_login', true);
-  await page.getByRole('button', { name: /^通知/ }).click();
-  await page.getByRole('button', { name: '查看所有通知與訊息' }).click();
-  await page.waitForURL(/#messages$/, { timeout: 20000 });
+  await page.getByRole('button', { name: /^開啟聊天室/ }).click({ timeout: 20000 });
+  await page.getByRole('region', { name: '我的訊息', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   const direct = page.getByRole('tab', { name: /私人訊息/ });
   await direct.click();
   const row = page.getByRole('list', { name: '對話列表' }).getByRole('button', { name: new RegExp(peer.nickname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });

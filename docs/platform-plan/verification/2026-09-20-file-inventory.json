@@ -149,8 +149,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 2493,
-      "sha256": "69a792c8ac81e3464554a0882ec683aafe8d5e6a41eddd524256d2e962b36aef"
+      "bytes": 2530,
+      "sha256": "74a92a8c184a06d7d7b564ed5e350ebf4a8fa2dfe08a83e8a669fd18c811dd7f"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -17699,8 +17699,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 2097,
-      "sha256": "51cde5e13f2795dbbec49084bf54daee3fb47c341d4cdd17826beb61f0ed7290"
+      "bytes": 2134,
+      "sha256": "6c6bd0f3f130b3efdb254921e91c943dcaaafc8bed8da710ec2d32a0cf8d51e4"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19539,8 +19539,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
-      "bytes": 45235,
-      "sha256": "f8a1f269ae2a368279ad000c82f92844f1c0b4cdf7107eac2e78dd4659cbe5ba"
+      "bytes": 45239,
+      "sha256": "512eba582bcffbb04374a97c0a89404fc71969de5612d56f564727c81bf6810e"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
@@ -19789,8 +19789,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 20109,
-      "sha256": "8da6da927813bdabd24a0bfbdadbbd8dc2e44c5ce3c0515286898304fb26bbdf"
+      "bytes": 20093,
+      "sha256": "de63d64ffdc5226c3d0d5fbae021acf6d1e273e139cbcee3709939ef13c35bb6"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -19829,8 +19829,8 @@
     },
     {
       "path": "tests/e2e/chat-search.spec.ts",
-      "bytes": 12034,
-      "sha256": "27afc54b16f6f3cbad184bd24058dfe96cb00418e7d07fcd8e1be481ff229f3f"
+      "bytes": 12317,
+      "sha256": "695db0b2bb43dfdc659e6673418994786693f7147364802214f9d7df15785e95"
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
@@ -19924,8 +19924,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1135,
-      "sha256": "21f3f104896933ccd3e365969a0b63bc574ec578e758a662288c3d7589dd9baa"
+      "bytes": 1236,
+      "sha256": "e52508fb2718335025190222b19556d1a5766e1df1925a3bad54bd3928abbd27"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",

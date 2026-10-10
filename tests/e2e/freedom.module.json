@@ -11,7 +11,9 @@
     "tests/e2e/fixtures.ts",
     "tests/e2e/navigation.ts",
     "tests/e2e/quick-join.ts",
-    "tests/e2e/sharing-authoring-fixture.ts"
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "scripts/verify-cloud-candidate-members.ts",
+    "tests/e2e/cloud-candidate-acceptance.spec.ts"
   ],
   "public_exports": [
     "tests/e2e/fixtures.ts",
