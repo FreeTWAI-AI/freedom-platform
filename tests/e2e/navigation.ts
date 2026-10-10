@@ -13,9 +13,18 @@ export async function openPageTools(page:Page){
   }
 }
 
+/** Open the optional home guide through its visible mobile disclosure. */
+export async function openHomeGuide(page:Page){
+  // Lazy home content may mount after the shell title becomes visible.
+  const guide=page.locator('.home-guide-disclosure');
+  await expect(guide).toBeAttached();
+  if(!await guide.evaluate(element=>(element as HTMLDetailsElement).open))await guide.locator(':scope > summary').click();
+  await expect(guide).toHaveJSProperty('open',true);
+}
+
 /** Reach the original profile/recommendation and module cards on the simple home. */
 export async function expandHomeSections(page:Page){
-  // Lazy home content may mount after the shell title becomes visible.
+  await openHomeGuide(page);
   await expect(page.locator('.home-personal')).toBeVisible();
   for(const selector of ['.home-personal','.home-module-section']){
     const section=page.locator(selector);

@@ -16,6 +16,8 @@ export const MEDIA_WORKER_FEATURES = Object.freeze([
   feature('community.event-video', 'FREEDOM_EVENT_VIDEO_ENABLED', ['media.event-video.asset.v1', 'media.server-policy.v1'], false),
   feature('skill.submission-image', 'FREEDOM_SKILL_IMAGE_ENABLED', ['media.skill-image.asset.v1', 'media.server-policy.v1']),
   feature('community.social-thumbnail', 'FREEDOM_SOCIAL_THUMBNAIL_ENABLED', ['media.social-thumbnail.asset.v1', 'media.social-preview-create.v1', 'media.server-policy.v1']),
+  // The installed social MEDIA port also serves post-bound comment images.
+  feature('community.comment-image', 'FREEDOM_SOCIAL_THUMBNAIL_ENABLED', ['media.comment-image.asset.v1', 'media.server-policy.v1']),
   feature('community.event-highlight', 'FREEDOM_EVENT_HIGHLIGHT_ENABLED', ['media.event-highlight.asset.v1', 'media.server-policy.v1']),
   feature('storefront.product-photo', 'FREEDOM_HOSTED_STORE_PHOTOS_ENABLED', ['media.storefront-product-photo.asset.v1', 'media.server-policy.v1'], false),
   feature('member.message-image', 'FREEDOM_MESSAGE_IMAGE_ENABLED', ['media.message-image.asset.v1', 'media.server-policy.v1']),

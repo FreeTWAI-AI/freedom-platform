@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 import { test, expect, type Page } from './fixtures.js';
 
 // 2026-09-24 identity/guild audit. Screenshots go to test-results/audit-identity/.
@@ -211,7 +211,10 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await page.route('**/api/v1/assessment-definition', route => route.fulfill({ status: 503, body: '' }));
   await page.reload();
   const summary = page.getByRole('region', { name: '我的會員摘要', exact: true, includeHidden: true });
+  const guide = page.locator('.home-guide-disclosure');
+  await expect(guide).toHaveJSProperty('open', false);
   const alert = page.getByRole('alert');
+  await expect(alert).toBeVisible();
   await expect(alert).toHaveCount(1);
   await expect(alert).toContainText('名片暫時無法載入');
   await expect(alert).not.toContainText('重新整理');
@@ -219,11 +222,16 @@ test('a failed member card load keeps quick links, claims nothing and recovers i
   await expect(summary).not.toBeVisible();
   await expect(summary).not.toContainText('主要公會');
   await expect(page.locator('.member-featured')).toHaveCount(0);
+  await openHomeGuide(page);
   const shortcuts = page.getByRole('navigation', { name: '常用入口', exact: true });
   await expect(shortcuts.getByRole('button')).toHaveCount(3);
   for (const name of ['看社群動態', '開始聊天', '找夥伴']) await expect(shortcuts.getByRole('button', {name, exact: true})).toBeVisible();
   await pageFits(page, 'phone home error');
   await page.screenshot({ path: `${shots}/phone-home-card-error.png`, fullPage: true });
+  // Recovery stays accessible even when the member closes the optional guide.
+  await guide.locator(':scope > summary').click();
+  await expect(guide).toHaveJSProperty('open', false);
+  await expect(alert).toBeVisible();
   const retry = alert.getByRole('button', { name: '重新載入名片', exact: true });
   await expect(retry).toHaveClass(/btn/);
   // Each explicit retry sends exactly one request (the shell's own avatar read is counted in the base).

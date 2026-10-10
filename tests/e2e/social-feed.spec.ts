@@ -72,6 +72,7 @@ test('write a native post, like, comment, remove and reload without duplicate ef
   await expect(post.locator('.social-comment script')).toHaveCount(0);
   await expect(post.getByRole('button', {name: '留言 · 1', exact: true})).toBeVisible();
   await page.screenshot({path: 'test-results/social-feed-desktop.png', fullPage: true});
+  await post.getByLabel('留言選項',{exact:true}).click();
   await post.getByRole('button', {name: '刪除留言', exact: true}).click();
   await post.getByRole('button', {name: '確定刪除留言', exact: true}).click();
   await expect(post.getByRole('button', {name: '留言 · 0', exact: true})).toBeVisible();
@@ -194,7 +195,7 @@ test('home shows the timeline immediately and the composer keeps a draft when cl
   const trigger=feed.getByRole('button',{name:'建立貼文',exact:true});await expect(trigger).toBeInViewport();
   expect(await feed.locator('xpath=ancestor::details').count()).toBe(0);
   const feedBox=(await feed.boundingBox())!,contextBox=(await page.locator('.home-context').boundingBox())!;
-  expect(contextBox.x).toBeGreaterThanOrEqual(feedBox.x+feedBox.width);
+  expect(contextBox.x+contextBox.width).toBeLessThanOrEqual(feedBox.x);
   await trigger.click();const dialog=page.getByRole('dialog',{name:'建立貼文',exact:true});
   await expect(dialog.getByLabel('貼文內容')).toBeFocused();
   const text=`測試貼文 ${Date.now()}：完成 AI 作品，想找設計與行銷夥伴一起合作。`;
@@ -295,4 +296,47 @@ test('sending during the first comment page keeps its snapshot, cursor and one c
     await expect(post.getByRole('button',{name:'載入更多留言',exact:true})).toHaveCount(0);
     expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM community_social_comments WHERE post_id=$1',[postId])).rows[0].n).toBe(27);
   }finally{release();}
+});
+
+test('an author edits a post and a comment in place; the feed marks both as edited (#399)',async({page})=>{
+  await login(page);
+  const text=`E2E 編輯前 ${Date.now()}`;
+  await page.getByLabel('貼文內容',{exact:true}).fill(text);await page.getByRole('button',{name:'發布貼文',exact:true}).click();
+  const post=card(page,text);await expect(post).toBeVisible();
+  await post.getByRole('button',{name:'讚 · 0',exact:true}).click();
+  await post.getByRole('button',{name:/^留言/}).click();
+  await post.getByLabel('寫留言',{exact:true}).fill('第一版留言');await post.getByRole('button',{name:'送出留言',exact:true}).click();
+  await expect(post.locator('.social-comment')).toContainText('第一版留言');
+
+  const menu=post.getByLabel('貼文選項',{exact:true});await menu.click();
+  await post.getByRole('button',{name:'編輯',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'編輯貼文'});await expect(dialog).toBeVisible();
+  const save=dialog.getByRole('button',{name:'儲存變更',exact:true});await expect(save).toBeDisabled();
+  await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(menu).toBeFocused();
+  await menu.click();await post.getByRole('button',{name:'編輯',exact:true}).click();
+  const edited=`${text} 已修正錯字`;
+  await dialog.getByLabel('貼文內容',{exact:true}).fill(edited);await save.click();
+  await expect(dialog).toBeHidden();
+  const updated=card(page,edited);
+  await expect(updated.locator('.social-note')).toHaveText(edited);
+  await expect(updated.locator('.social-byline .social-edited')).toHaveText('已編輯');
+  await expect(updated.getByRole('button',{name:/^已讚 · 1$/})).toBeVisible();
+  await expect(updated.getByRole('button',{name:/^留言 · 1$/})).toBeVisible();
+
+  await updated.getByLabel('留言選項',{exact:true}).click();
+  await updated.getByRole('button',{name:'編輯留言',exact:true}).click();
+  await updated.getByLabel('編輯留言',{exact:true}).fill('第二版留言');await updated.getByRole('button',{name:'儲存留言',exact:true}).click();
+  const comment=updated.locator('.social-comment');
+  await expect(comment.locator('p')).toHaveText('第二版留言');await expect(comment.locator('.social-edited')).toHaveText('已編輯');
+  await updated.screenshot({path:'test-results/social-post-edit-card.png'});
+
+  await page.reload();await navigate(page,'社群分享');
+  const reloaded=card(page,edited);await expect(reloaded).toBeVisible();await expect(reloaded.locator('.social-byline .social-edited')).toBeVisible();
+
+  await page.setViewportSize({width:390,height:844});
+  await reloaded.getByLabel('貼文選項',{exact:true}).click();await reloaded.getByRole('button',{name:'編輯',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({path:'test-results/social-post-edit-390.png'});
+  await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(dialog).toBeHidden();
 });

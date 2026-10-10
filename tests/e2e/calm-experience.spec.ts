@@ -2,7 +2,7 @@ import {openChat,closeChat} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page} from './fixtures.js';
 import {DEMO_USERS,DEMO_COMMUNITY} from '../../packages/testing/seed.js';
-import {navigate,openFeatureSearch} from './navigation.js';
+import {navigate,openFeatureSearch,openHomeGuide} from './navigation.js';
 import {quickJoin} from './quick-join.js';
 import {chatPollClock} from './chat-poll-clock.js';
 
@@ -40,6 +40,8 @@ test('synthetic entry budget: two required fields and one guild choice reach use
   await page.getByRole('button',{name:'建立帳號，先逛工坊',exact:true}).click();await expect(page.locator('.welcome-optional')).not.toHaveAttribute('open','');
   await page.getByLabel('找感興趣的公會').fill('AI 開發公會');await quickJoin(page);
   await expect(page.getByRole('heading',{name:'會員首頁',level:1})).toBeVisible();
+  await expect(page.locator('.home-guide-disclosure')).toHaveJSProperty('open',false);
+  await openHomeGuide(page);
   const next=page.getByRole('region',{name:'公會與技能書建議',exact:true});
   await expect(next).toHaveCount(1);await expect(page.locator('.guild-next-steps')).toHaveCount(0);
   await expect(next.getByText('到技能書架選一本技能書閱讀，開始練習。',{exact:true})).toBeVisible();
@@ -49,7 +51,7 @@ test('synthetic entry budget: two required fields and one guild choice reach use
   await expect(next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true})).toBeVisible();
   await expect(next.getByRole('button',{name:/^(查看社群任務|分享作品與需求)$/})).toBeVisible();
   await page.screenshot({path:'test-results/calm-home-320.png',fullPage:true});
-  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/calm-home-1440.png',fullPage:true});await page.setViewportSize({width:320,height:720});
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/calm-home-1440.png',fullPage:true});await page.setViewportSize({width:320,height:720});await openHomeGuide(page);
   await next.getByRole('button',{name:'進入AI 開發公會聊天室',exact:true}).click();await expect(page.getByRole('heading',{name:'AI 開發公會・公會閒聊',exact:true})).toBeVisible();await expect(page.getByRole('textbox',{name:'在 AI 開發公會 發言'})).toBeVisible();
 });
 test('feature search finds chat and selling functions, and all themes work at 320 pixels',async({page})=>{
