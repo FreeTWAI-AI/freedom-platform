@@ -241,6 +241,20 @@ test('public skill OAuth returns to the same book and connecting never submits a
   await expect(page.getByRole('button',{name:'Star',exact:true})).toBeEnabled();expect(writes).toBe(0);
 });
 
+for(const target of ['#join/supplier','#join/showcase','#join/tasks'])test(`onboarding OAuth callback returns to ${target} without Star writes`,async({page})=>{
+  let writes=0;
+  await page.route('**/api/v1/me/github',route=>route.fulfill({json:{configured:true,connected:true,github_user:{id:'onboarding-return',login:'onboarding-return'}}}));
+  await page.route('**/api/v1/me/github/books/*/star',route=>{if(route.request().method()==='POST')writes++;return route.fulfill({json:{book_id:'social-post',connected:true,starred:false}});});
+  await page.route('**/api/v1/me/github/complete',route=>{expect(route.request().headers()['x-csrf-token']).toBeTruthy();return route.fulfill({json:{return_to:target}});});
+  await login(page);await page.goto('/github/callback?code=synthetic&state=synthetic');
+  await expect(page).toHaveURL(url=>url.pathname==='/'&&url.hash===target);expect(writes).toBe(0);
+});
+for(const target of ['https://elsewhere.example.invalid/#join/tasks','//elsewhere.example.invalid/#join/tasks','#join/unknown','#join/supplier?next=outside'])test(`onboarding OAuth callback rejects unsafe return ${target}`,async({page})=>{
+  await page.route('**/api/v1/me/github/complete',route=>route.fulfill({json:{return_to:target}}));
+  await login(page);const origin=new URL(page.url()).origin;await page.goto('/github/callback?code=synthetic&state=synthetic');
+  await expect(page).toHaveURL(origin+'/#skills');
+});
+
 test('public Star, Fork, Watch and Follow remain links without login or JavaScript',async({page,browser})=>{
   await page.goto('/development/skills/social-post');
   const social=page.locator('[data-skill-social="social-post"]');

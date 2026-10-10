@@ -2254,8 +2254,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/GitHubCallback.tsx",
-      "bytes": 1816,
-      "sha256": "ad2fca88817a7599537ccbcad39520f5a697fd14c9a92e37f913c235898a77f4"
+      "bytes": 1896,
+      "sha256": "8821ba59a7c8e98716fca9eac33ae7eeea1d8067ab29ae8b08e7aa16c52d922a"
     },
     {
       "path": "apps/portal-web/src/modules/GitHubSocial.css",
@@ -13764,8 +13764,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 55291,
-      "sha256": "14b6ee0dadc9a1091a3aaabf2156ea9bc125ce1eae57c25a84b4ed3668b8e449"
+      "bytes": 55321,
+      "sha256": "16bee01198456f94f564eea4662ae05c1b99c06d04c846a27a165c10bd6f99c5"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -17409,8 +17409,8 @@
     },
     {
       "path": "modules/community/participation-metrics.ts",
-      "bytes": 12958,
-      "sha256": "49a6f72d2026354da734a9f9ba3ea1413368457099e5ac4ec7f06872ebf555d7"
+      "bytes": 13306,
+      "sha256": "e40cc2a97ee43d3ad7d6c846ed69612048e3845f586db74a19cb492bd84fef7c"
     },
     {
       "path": "modules/community/personal-content.ts",
@@ -17744,8 +17744,8 @@
     },
     {
       "path": "modules/github-social/service.ts",
-      "bytes": 36142,
-      "sha256": "5b29259ce83294d2ff011b5332bab0aba4392b5820d4178b1166c61665a346a7"
+      "bytes": 36212,
+      "sha256": "14719591708e6750ce4fd4184c9596af3657055fa9d20182176a52dafcfaca92"
     },
     {
       "path": "modules/github-social/setup.ts",
@@ -17904,8 +17904,8 @@
     },
     {
       "path": "modules/identity-membership/totp.ts",
-      "bytes": 10939,
-      "sha256": "c869147870f868aa129596e8d2650c625ee6713e0fc8bccb18eccc85a078d0f3"
+      "bytes": 12019,
+      "sha256": "eee19255c288cf2cba623ee84bc42ca69e8ec417d0dcbfb7c98493468867804c"
     },
     {
       "path": "modules/identity-membership/squads/freedom.module.json",
@@ -20219,8 +20219,8 @@
     },
     {
       "path": "tests/e2e/github-social.spec.ts",
-      "bytes": 24874,
-      "sha256": "04a4ffaead4cdf76f011d2a6912953b3605a93e40bdebd623bf393164409d47f"
+      "bytes": 26301,
+      "sha256": "98e6133a6addc68f15821f90fb69d72b13fa1a104984fe3179e79d2984d12706"
     },
     {
       "path": "tests/e2e/guild-alias.spec.ts",
@@ -21389,8 +21389,8 @@
     },
     {
       "path": "tests/runtime/github-social.test.ts",
-      "bytes": 37377,
-      "sha256": "f43beff32bc33e8f609a8a348482d3152c38180e4564604a4b4da6d59b559370"
+      "bytes": 38452,
+      "sha256": "f191a691f2674fa3350bdd5f1407e7e465100ce38dc076a8c99adf0c66a77bda"
     },
     {
       "path": "tests/runtime/github-sync.test.ts",
@@ -22104,8 +22104,8 @@
     },
     {
       "path": "tests/runtime/participation-metrics.test.ts",
-      "bytes": 18070,
-      "sha256": "1d9659244aefbcd99fc3e41b2291200d8c221fb38f25e42f9e1af8d80422e16e"
+      "bytes": 20725,
+      "sha256": "f71efeacd15d4dc32c40b1f4274ae20d2fe8c98940806c77929fc723ddddc8d8"
     },
     {
       "path": "tests/runtime/password-hash.test.ts",
@@ -22624,8 +22624,8 @@
     },
     {
       "path": "tests/runtime/totp.test.ts",
-      "bytes": 20006,
-      "sha256": "1e0b7aa08eb3560cc97e79e00954e3fe1b1dee7acf67a92e47cb324ac893d2df"
+      "bytes": 23565,
+      "sha256": "a1de941896041e3abbb1e791438c4f6e2c88e21a632fdb8be46eb7ed78c71a6d"
     },
     {
       "path": "tests/runtime/verification-test-data.test.ts",

@@ -83,18 +83,34 @@ export async function totpStatus(pool: Pool, actor: Actor) {
   });
 }
 
-async function priorTransition(q: PoolClient, input: Command, operation: string, body: unknown): Promise<boolean> {
-  const receipt = (await q.query('SELECT request_sha256 FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[input.actor.user_id,operation,input.key])).rows[0];
+function transitionDigest(operation: string, generation: string) {
+  // Passwords, TOTP secrets/codes and backup codes must not become offline
+  // guessing material, even through a deterministic receipt hash.
+  return digest({body:{transition:operation,generation},expected:null});
+}
+
+async function priorTransition(q: PoolClient, input: Command, operation: string, row: TotpRow): Promise<boolean> {
+  const receipt = (await q.query('SELECT request_sha256,response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[input.actor.user_id,operation,input.key])).rows[0];
   await assertCurrentSessionClock(q,input.actor);
   if (!receipt) return false;
-  requireCondition(receipt.request_sha256 === digest({body,expected:null}),409,'idempotency_conflict','同一操作識別碼不可搭配不同內容。');
+  requireCondition(receipt.request_sha256 === transitionDigest(operation,row.generation)
+    && receipt.response?.generation === row.generation
+    && receipt.response?.enabled === row.enabled,409,'totp_state_changed','兩步驟驗證狀態已改變，請重新操作。');
   return true;
 }
 
-async function recordTransition(q: PoolClient, input: Command, operation: string, body: unknown, enabled: boolean) {
-  // Only the state is replayable: never store provisioning material or backup codes.
-  await q.query('INSERT INTO command_receipts(user_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.actor.user_id,operation,input.key,digest({body,expected:null}),JSON.stringify({enabled})]);
+async function recordTransition(q: PoolClient, input: Command, operation: string, generation: string, enabled: boolean) {
+  // Only the resulting state/generation is retained; the public reply is unchanged.
+  await q.query('INSERT INTO command_receipts(user_id,operation,idempotency_key,request_sha256,response) VALUES($1,$2,$3,$4,$5)',[input.actor.user_id,operation,input.key,transitionDigest(operation,generation),JSON.stringify({enabled,generation})]);
   await assertCurrentSessionClock(q,input.actor);
+}
+
+async function checkTransitionPassword(q: PoolClient, input: Command, row: TotpRow, password: string): Promise<{blocked:true}|{invalid:true}|undefined> {
+  if (row.failures >= 10) { await assertCurrentSessionClock(q,input.actor); return {blocked:true}; }
+  const valid = await verifyMemberPassword(q,input.actor.user_id,password);
+  if (!valid) await q.query('UPDATE member_totp SET failures=failures+1 WHERE user_id=$1',[input.actor.user_id]);
+  await assertCurrentSessionClock(q,input.actor);
+  if (!valid) return {invalid:true};
 }
 
 export async function enableTotp(pool: Pool, input: Command, encryptionKey?: string) {
@@ -103,16 +119,17 @@ export async function enableTotp(pool: Pool, input: Command, encryptionKey?: str
   const result = await transaction(pool,async q => {
     await lockMemberSession(q,input.actor,true);
     const row = await lockTotp(q,input.actor.user_id);
-    const prior = await priorTransition(q,input,'member.totp.enable',body);
+    const passwordFailure = await checkTransitionPassword(q,input,row,body.password);
+    if (passwordFailure) return passwordFailure;
+    const prior = await priorTransition(q,input,'member.totp.enable',row);
     requireCondition(!prior,409,'totp_backup_codes_already_delivered','啟用已完成；備援碼只顯示一次。請重新讀取狀態。');
     requireCondition(!row.enabled,409,'totp_already_enabled','兩步驟驗證已啟用；備援碼只顯示一次。');
-    if (row.failures >= 10) return {blocked:true} as const;
-    const validPassword = await verifyMemberPassword(q,input.actor.user_id,body.password);
     const clock = (await q.query('SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS milliseconds')).rows[0];
     const counter = matchTotp(body.secret,body.code,Number(clock.milliseconds),-1);
     await assertCurrentSessionClock(q,input.actor);
-    if (!validPassword || counter === null) {
+    if (counter === null) {
       await q.query('UPDATE member_totp SET failures=failures+1 WHERE user_id=$1',[input.actor.user_id]);
+      await assertCurrentSessionClock(q,input.actor);
       return {invalid:true} as const;
     }
     const codes = Array.from({length:10},() => randomBytes(12).toString('hex'));
@@ -120,7 +137,7 @@ export async function enableTotp(pool: Pool, input: Command, encryptionKey?: str
     for (const code of codes) await q.query('INSERT INTO member_totp_backup_codes(user_id,code_hash) VALUES($1,$2)',[input.actor.user_id,tokenHash(code)]);
     await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL',[input.actor.user_id,input.actor.session_hash]);
     await journal(q,input.actor,'member_totp',input.actor.user_id,(BigInt(row.generation)+1n).toString(),'member.totp.enable',{});
-    await recordTransition(q,input,'member.totp.enable',body,true);
+    await recordTransition(q,input,'member.totp.enable',(BigInt(row.generation)+1n).toString(),true);
     return {enabled:true as const,backup_codes:codes};
   });
   if ('blocked' in result) throw new Problem(429,'totp_rate_limited','驗證嘗試過多，請稍後再試。');
@@ -134,24 +151,25 @@ export async function disableTotp(pool: Pool, input: Command, encryptionKey?: st
   const result = await transaction(pool,async q => {
     await lockMemberSession(q,input.actor,true);
     const row = await lockTotp(q,input.actor.user_id);
-    if (await priorTransition(q,input,'member.totp.disable',body)) {
+    const passwordFailure = await checkTransitionPassword(q,input,row,body.password);
+    if (passwordFailure) return passwordFailure;
+    if (await priorTransition(q,input,'member.totp.disable',row)) {
       requireCondition(!row.enabled,409,'totp_state_changed','兩步驟驗證狀態已改變，請重新操作。');
       return {enabled:false as const};
     }
     requireCondition(row.enabled,409,'totp_not_enabled','兩步驟驗證尚未啟用。');
-    if (row.failures >= 10) return {blocked:true} as const;
-    const validPassword = await verifyMemberPassword(q,input.actor.user_id,body.password);
-    const validCode = validPassword && await consumeTotp(q,input.actor.user_id,row,body.code,encryptionKey);
+    const validCode = await consumeTotp(q,input.actor.user_id,row,body.code,encryptionKey);
     await assertCurrentSessionClock(q,input.actor);
     if (!validCode) {
       await q.query('UPDATE member_totp SET failures=failures+1 WHERE user_id=$1',[input.actor.user_id]);
+      await assertCurrentSessionClock(q,input.actor);
       return {invalid:true} as const;
     }
     await q.query('DELETE FROM member_totp_backup_codes WHERE user_id=$1',[input.actor.user_id]);
     await q.query('UPDATE member_totp SET enabled=false,secret_ciphertext=NULL,last_counter=-1,failures=0,generation=generation+1 WHERE user_id=$1',[input.actor.user_id]);
     await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL',[input.actor.user_id,input.actor.session_hash]);
     await journal(q,input.actor,'member_totp',input.actor.user_id,(BigInt(row.generation)+1n).toString(),'member.totp.disable',{});
-    await recordTransition(q,input,'member.totp.disable',body,false);
+    await recordTransition(q,input,'member.totp.disable',(BigInt(row.generation)+1n).toString(),false);
     return {enabled:false as const};
   });
   if ('blocked' in result) throw new Problem(429,'totp_rate_limited','驗證嘗試過多，請稍後再試。');

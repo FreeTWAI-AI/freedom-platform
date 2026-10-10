@@ -785,8 +785,8 @@ elapsed; the rest is `pending_window`. Fewer than 10 in a denominator returns
 `rate: null, status: insufficient_sample`. Verification/test accounts, launch-day
 backfilled joiners, authors replying to themselves, inactive or foreign
 responders and removed content are excluded and test-account counts are shown.
-Moderation case time is `not_available`: this build has no reporting or case
-workflow, so no number is invented.
+Moderation case time is `not_available`: reporting cases exist, but their
+processing time has not been instrumented, so no number is invented.
 
 Search outcomes store only an operation id, member, time, whether it was the
 first page, a result count and one opened content kind. Query text, filters,

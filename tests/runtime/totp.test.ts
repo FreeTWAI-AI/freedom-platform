@@ -9,6 +9,7 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { login } from '../../modules/identity-membership/service.js';
 import { matchTotp, totpCode } from '../../modules/identity-membership/totp.js';
 import { Problem } from '../../packages/shared/problem.js';
+import { digest } from '../../packages/db/index.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -307,4 +308,48 @@ test('mailbox password reset keeps MFA enabled and never issues an authenticated
   const signedIn = await request('/auth/login', { email, password: newPassword, code: codes[0] });
   assert.equal(signedIn.status, 200);
   assert.deepEqual((await request('/me/totp', undefined, sessionOf(signedIn))).data, { enabled: true, backup_codes_remaining: codes.length - 1 });
+});
+
+for (const transition of ['enable', 'disable'] as const) {
+  test(`TOTP transition ${transition} receipts bind only the transition and generation`, async () => {
+    const session=await signIn(),key=randomUUID();
+    const codes=transition==='disable'?(await enroll(session)).codes:undefined;
+    const body=transition==='enable'?{password:DEMO_PASSWORD,secret,code:totpCode(secret,await counter())}:{password:DEMO_PASSWORD,code:codes![0]};
+    assert.equal((await request('/me/totp/'+transition,body,session,{'Idempotency-Key':key})).status,200);
+    const operation='member.totp.'+transition,generation=transition==='enable'?'1':'2';
+    const receipt=(await pool.query('SELECT request_sha256,response FROM command_receipts WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3',[DEMO_USERS[0].user_id,operation,key])).rows[0];
+    assert.deepEqual(receipt,{request_sha256:digest({body:{transition:operation,generation},expected:null}),response:{enabled:transition==='enable',generation}});
+    assert.notEqual(receipt.request_sha256,digest({body,expected:null}));
+  });
+
+  test(`TOTP completed ${transition} replay rechecks the current password without issuing factors again`, async () => {
+    const session=await signIn(),key=randomUUID();
+    const codes=transition==='disable'?(await enroll(session)).codes:undefined;
+    const body=transition==='enable'?{password:DEMO_PASSWORD,secret,code:totpCode(secret,await counter())}:{password:DEMO_PASSWORD,code:codes![0]};
+    assert.equal((await request('/me/totp/'+transition,body,session,{'Idempotency-Key':key})).status,200);
+    const nextPassword='synthetic-totp-replay-new-password';
+    const changed=await request('/me/password',{current_password:DEMO_PASSWORD,new_password:nextPassword},session);
+    assert.equal(changed.status,200);
+    const old=await request('/me/totp/'+transition,body,session,{'Idempotency-Key':key});
+    assert.equal(old.status,401);assert.equal(old.data.code,'invalid_totp');
+    const replay=await request('/me/totp/'+transition,{...body,password:nextPassword},session,{'Idempotency-Key':key});
+    assert.equal(replay.status,transition==='enable'?409:200);
+    if(transition==='enable')assert.equal(replay.data.code,'totp_backup_codes_already_delivered');
+    else assert.deepEqual(replay.data,{enabled:false});
+    assert.equal(replay.data.backup_codes,undefined);
+    assert.equal((await pool.query('SELECT failures FROM member_totp WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].failures,1);
+  });
+}
+
+test('TOTP old disable receipt cannot replay after a later enable and disable generation',async()=>{
+  const session=await signIn(),key=randomUUID(),first=await enroll(session);
+  const body={password:DEMO_PASSWORD,code:first.codes[0]};
+  assert.equal((await request('/me/totp/disable',body,session,{'Idempotency-Key':key})).status,200);
+  assert.equal((await request('/me/totp/disable',body,session,{'Idempotency-Key':key})).status,200);
+  const next=await enroll(session);
+  assert.equal((await request('/me/totp/disable',body,session,{'Idempotency-Key':key})).status,409);
+  assert.equal((await request('/me/totp/disable',{password:DEMO_PASSWORD,code:next.codes[0]},session)).status,200);
+  const stale=await request('/me/totp/disable',body,session,{'Idempotency-Key':key});
+  assert.equal(stale.status,409);assert.equal(stale.data.code,'totp_state_changed');
+  assert.equal((await pool.query('SELECT generation FROM member_totp WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0].generation,'4');
 });

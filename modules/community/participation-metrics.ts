@@ -28,7 +28,7 @@ export const metricsDefinition = {
     first_share_return_7d: 'Participation-return proxy: members whose first share is in range and who subsequently post, comment, publish a showcase/skill or search on a later Taipei calendar day within 7 days. Uses event timestamps, never mutable session last-seen; not all visits. Removing source facts can change recomputation.',
     search_zero_result: 'Search page reads that returned no readable result, over all recorded non-test search page reads; excluded_test_accounts counts distinct excluded actors and excluded_search_reads counts excluded reads.',
     search_open: 'Search page reads with at least one result in which a result was opened, over non-test page reads with results; exclusion counts are restricted to reads with results.',
-    moderation_case_time: 'Not available: this build has no reporting or case workflow to measure.',
+    moderation_case_time: 'Not yet measured: reporting case processing time is not instrumented.',
   },
 } as const;
 
@@ -47,7 +47,7 @@ function addDays(day: string, days: number) { const d = new Date(day + 'T00:00:0
 const firstShare = `first_share AS (
   SELECT user_id, min(at) AS at FROM (
     SELECT author_user_id AS user_id, created_at AS at FROM community_social_posts WHERE community_id=$1 AND state='active'
-    UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1 AND consent_recorded_at IS NOT NULL
+    UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1 AND status='published' AND consent_recorded_at IS NOT NULL
     UNION ALL SELECT owner_ref, published_at FROM skill_submissions WHERE community_id=$1 AND status='published' AND published_at IS NOT NULL
   ) facts GROUP BY user_id)`;
 
@@ -63,7 +63,9 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
   const n = (value: unknown) => Number(value ?? 0);
 
   const registered = await q(`WITH ${firstShare},
-    first_comment AS (SELECT author_user_id AS user_id, min(created_at) AS at FROM community_social_comments WHERE community_id=$1 AND state='active' GROUP BY 1),
+    first_comment AS (SELECT c.author_user_id AS user_id, min(c.created_at) AS at FROM community_social_comments c
+      JOIN community_social_posts p ON p.post_id=c.post_id AND p.community_id=c.community_id
+      WHERE c.community_id=$1 AND c.state='active' AND p.state='active' GROUP BY 1),
     cohort AS (SELECT u.user_id, u.created_at FROM users u WHERE u.community_id=$1 AND u.created_at_source='registered'
       AND u.created_at >= ${start} AND u.created_at < ${end} AND NOT is_verification_test_account(u.user_id))
     SELECT
@@ -90,8 +92,10 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
   const returns = await q(`WITH ${firstShare},
     activity AS (
       SELECT author_user_id AS user_id, created_at AS at FROM community_social_posts WHERE community_id=$1 AND state='active'
-      UNION ALL SELECT author_user_id, created_at FROM community_social_comments WHERE community_id=$1 AND state='active'
-      UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1
+      UNION ALL SELECT c.author_user_id, c.created_at FROM community_social_comments c
+        JOIN community_social_posts p ON p.post_id=c.post_id AND p.community_id=c.community_id
+        WHERE c.community_id=$1 AND c.state='active' AND p.state='active'
+      UNION ALL SELECT owner_ref, consent_recorded_at FROM showcases WHERE community_id=$1 AND status='published' AND consent_recorded_at IS NOT NULL
       UNION ALL SELECT owner_ref, published_at FROM skill_submissions WHERE community_id=$1 AND status='published'
       UNION ALL SELECT user_id, searched_at FROM community_search_operations WHERE community_id=$1
     ),
@@ -132,7 +136,7 @@ export async function participationMetrics(pool: Pool, admin: Admin, rawRange: u
       first_share_return_7d: rate(n(returns.returned), n(returns.denominator), n(returns.pending)),
       search_zero_result: { ...rate(n(search.zero), n(search.reads), 0), excluded_test_accounts: n(search.excluded_accounts), excluded_search_reads: n(search.excluded_reads) },
       search_open: { ...rate(n(search.opened), n(search.with_results), 0), excluded_test_accounts: n(search.excluded_result_accounts), excluded_search_reads: n(search.excluded_result_reads) },
-      moderation_case_time: { status: 'not_available', reason: 'no reporting or case workflow exists in this build' },
+      moderation_case_time: { status: 'not_available', reason: 'reporting case processing time is not yet instrumented' },
     },
   };
 }

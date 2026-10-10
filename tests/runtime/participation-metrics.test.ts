@@ -40,6 +40,33 @@ async function comment(postId: string, author: { id: string; community: string }
 const metrics = async (community = DEMO_COMMUNITY, r: object = range) => (await participationMetrics(pool, { community_id: community }, r, NOW)).metrics;
 async function many<T>(count: number, make: (index: number) => Promise<T>) { const out: T[] = []; for (let i = 0; i < count; i++) out.push(await make(i)); return out; }
 
+async function showcase(author:{id:string;community:string},at:string){
+  const id=randomUUID();await pool.query(`INSERT INTO showcases(showcase_id,community_id,owner_ref,title,description,artifact_ref,consent_recorded_at,created_at)
+    VALUES($1,$2,$3,'Published metric source','Source snapshot','synthetic-artifact',$4,$4)`,[id,author.community,author.id,at]);return id;
+}
+async function withdrawShowcase(id:string){
+  await pool.query("UPDATE showcases SET status='withdrawn',visibility='private',aggregate_version=aggregate_version+1 WHERE showcase_id=$1",[id]);
+  assert.ok((await pool.query('SELECT consent_recorded_at FROM showcases WHERE showcase_id=$1',[id])).rows[0].consent_recorded_at,'withdrawal retains historical consent');
+}
+test('withdrawn showcases leave both registration first-share and first-share return cohorts on recomputation',async()=>{
+  const author=await member({at:'2026-10-02T10:00:00+08'}),id=await showcase(author,'2026-10-03T10:00:00+08');
+  const before=await metrics();assert.equal(before.registration_first_share_7d.numerator,1);assert.equal(before.first_share_return_7d.denominator,1);
+  await withdrawShowcase(id);
+  const after=await metrics();assert.equal(after.registration_first_share_7d.numerator,0);assert.equal(after.first_share_return_7d.denominator,0);
+});
+test('withdrawn showcases cannot remain a later participation-return event',async()=>{
+  const author=await member({at:'2026-09-01T10:00:00+08',source:'launch_day'});await post(author,'2026-10-02T10:00:00+08');
+  const id=await showcase(author,'2026-10-03T10:00:00+08');assert.equal((await metrics()).first_share_return_7d.numerator,1);
+  await withdrawShowcase(id);const after=(await metrics()).first_share_return_7d;assert.deepEqual([after.numerator,after.denominator],[0,1]);
+});
+for(const state of ['hidden','deleted'])test(`comments under ${state} parents leave first-comment and return metrics`,async()=>{
+  const author=await member({at:'2026-10-02T08:00:00+08'}),other=await member({at:'2026-09-01T10:00:00+08',source:'launch_day'});
+  await post(author,'2026-10-02T10:00:00+08');const parent=await post(other,'2026-09-29T10:00:00+08');await comment(parent,author,'2026-10-03T10:00:00+08');
+  const before=await metrics();assert.equal(before.registration_first_comment_7d.numerator,1);assert.equal(before.first_share_return_7d.numerator,1);
+  await pool.query('UPDATE community_social_posts SET state=$2 WHERE post_id=$1',[parent,state]);
+  const after=await metrics();assert.equal(after.registration_first_comment_7d.numerator,0);assert.deepEqual([after.first_share_return_7d.numerator,after.first_share_return_7d.denominator],[0,1]);
+});
+
 test('registration cohort counts only registered, non-test members whose 7-day window has elapsed and keeps the Taipei day boundary', async () => {
   // 10 cohort members; the last registers at 2026-10-05T23:59+08 and is inside the range.
   const cohort = await many(MIN_SAMPLE, i => member({ at: i === MIN_SAMPLE - 1 ? '2026-10-05T23:59:00+08' : '2026-10-02T10:00:00+08' }));

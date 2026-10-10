@@ -62,6 +62,18 @@ async function connect(service=social,memberActor=actor){
   return {start,state,complete:await service.complete(memberActor,state,'synthetic-code')};
 }
 
+for(const returnTo of ['#join/supplier','#join/showcase','#join/tasks'])test(`OAuth preserves the existing onboarding return ${returnTo}`,async()=>{
+  const start=await social.start(actor,returnTo),state=new URL(start.authorization_url).searchParams.get('state')!;
+  assert.equal((await social.complete(actor,state,'synthetic-code')).return_to,returnTo);
+  assert.equal(mock.calls.some(call=>call.method==='PUT'),false);
+});
+test('OAuth onboarding returns reject unknown paths, external targets and encoded traversal before provider I/O',async()=>{
+  for(const target of ['#join/unknown','#join/supplier/extra','#join/../admin','#join/%73upplier','#join/supplier?next=https://elsewhere.example.invalid','#join//elsewhere.example.invalid','https://elsewhere.example.invalid/#join/tasks','//elsewhere.example.invalid/#join/tasks']){
+    await assert.rejects(()=>social.start(actor,target),errorCode('github_return_to_invalid'));
+  }
+  assert.equal(mock.calls.length,0);assert.equal((await pool.query('SELECT count(*) FROM github_social_oauth_states')).rows[0].count,'0');
+});
+
 test('GitHub author follow and unfollow use member token, confirm state and remain separate from workshop support',async()=>{
   assert.deepEqual(await social.following(actor,'source-author'),{username:'source-author',connected:false,following:null});
   await assert.rejects(()=>social.follow(actor,'source-author',true),errorCode('github_connect_required'));
