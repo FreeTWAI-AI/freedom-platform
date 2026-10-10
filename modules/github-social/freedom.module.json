@@ -5,6 +5,7 @@
   "owned_paths": [
     "apps/platform-api/src/routes/github-social.ts",
     "apps/portal-web/src/modules/GitHubAuthorFollow.tsx",
+    "apps/portal-web/src/modules/GitHubCallback.tsx",
     "apps/portal-web/src/modules/github-social-client.ts",
     "modules/github-social/provider.ts",
     "modules/github-social/service.ts",

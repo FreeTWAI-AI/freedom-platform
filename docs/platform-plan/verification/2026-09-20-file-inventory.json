@@ -17734,8 +17734,8 @@
     },
     {
       "path": "modules/github-social/freedom.module.json",
-      "bytes": 1531,
-      "sha256": "d24563523d8efc98f1440b3d2df34aaf9a602412cec6b6b42a96b717db9a4e5f"
+      "bytes": 1585,
+      "sha256": "2bdca949b2de257abb23ac51e4f5dc85662001f372c28f6b40429c420db98b3b"
     },
     {
       "path": "modules/github-social/provider.ts",
