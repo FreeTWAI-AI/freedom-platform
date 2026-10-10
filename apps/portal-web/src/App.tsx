@@ -13,6 +13,7 @@ import {CHAT_ENTRY_EVENT,isChatEntry,type ChatEntry} from './modules/chat-entry'
 import type { OnboardingView } from './modules/Onboarding'
 import type { MemberCardData } from './modules/Membership'
 import { EmailChangeConfirm } from './modules/EmailChange'
+import {EmailVerificationConfirm} from './modules/EmailVerification';
 import { MemberAvatar } from './modules/MemberAvatar'
 import { GitHubSocialProvider } from './modules/GitHubSocial'
 import { AuthorClaimProvider } from './modules/AuthorClaim'
@@ -167,6 +168,7 @@ function MemberApp() {
   const [gateError, setGateError] = useState('')
   const [exploring,setExploring]=useState(true)
   const [resetToken,setResetToken]=useState(resetTokenFromHash)
+  const [emailVerificationToken,setEmailVerificationToken]=useState(()=>/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);
   const [publicEventId,setPublicEventId]=useState(eventIdFromLocation)
   const [eventLoginRequested,setEventLoginRequested]=useState(false)
   const [locationHash,setLocationHash]=useState(() => window.location.hash)
@@ -179,6 +181,7 @@ function MemberApp() {
   const editOwnCard=()=>{window.history.replaceState(null,'','/#account');setSharedCardToken(null);setMemberLoginRequested(false);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   useEffect(()=>{const changed=()=>{setSharedCardToken(memberCardFromLocation());setMemberLoginRequested(false)};window.addEventListener('popstate',changed);return()=>window.removeEventListener('popstate',changed)},[])
   useEffect(()=>{const changed=()=>setResetToken(resetTokenFromHash());window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[])
+  useEffect(()=>{const changed=()=>setEmailVerificationToken(/^#verify-email\/([A-Za-z0-9_-]{43})$/.exec(window.location.hash)?.[1]??null);window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[]);
   useEffect(()=>{const changed=()=>{setLocationHash(window.location.hash);setEntryIntent(entryIntentFromHash());setPublicEventId(eventIdFromLocation());setEventLoginRequested(false);setLaunchpadLoginRequested(false)};window.addEventListener('hashchange',changed);window.addEventListener('popstate',changed);return()=>{window.removeEventListener('hashchange',changed);window.removeEventListener('popstate',changed)}},[])
   const sessionGeneration = useRef(0)
   const loadOnboarding = useCallback(async () => {
@@ -296,6 +299,7 @@ function MemberApp() {
 
   const emailChangeToken=/^#change-email\/([A-Za-z0-9_-]{43})$/.exec(locationHash)?.[1];
   if(emailChangeToken)return <EmailChangeConfirm client={client} token={emailChangeToken}/>;
+  if(emailVerificationToken)return <EmailVerificationConfirm client={client} token={emailVerificationToken}/>;
   if (resetToken || phase !== 'ready' || !session) {
     if(!resetToken&&sharedCardToken&&!memberLoginRequested)return <PublicMemberPage client={client} token={sharedCardToken} onLogin={()=>setMemberLoginRequested(true)} onReturn={returnToWorkshop}/>;
     if(!resetToken&&locationHash.split('?')[0]==='#community-search'&&site?.community_search_enabled===true)return <div className="app-frame"><main className="main stack"><BrandPoster compact/><header className="topbar"><h1>搜尋社群內容</h1><PageTools pageId="community-search" client={client}/></header><a className="btn btn-secondary btn-small community-search-action" href="#home">返回登入</a><CommunitySearch client={client} authKey={null}/></main></div>;

@@ -15,6 +15,7 @@ import {MemberPresence} from './MemberPresence';
 import {MemberShare} from './MemberShare';
 import {MemberECard} from './MemberECard';
 import {MemberRecommendations} from './MemberRecommendations';
+import {EmailVerificationPanel} from './EmailVerification';
 import {guildLabel} from './GuildName';
 import {SECTION_LABELS} from '../../../../contracts/guild-launchpad/v1/guild-preferences';
 import {AccountSecurity} from './AccountSecurity';
@@ -60,6 +61,7 @@ export function AccountPanel({client,session}:ModulePanelProps){
   async function submit(event:FormEvent){event.preventDefault();if(!contacts||!account)return;setNotice('');const clean=Object.fromEntries(Object.entries(contacts).map(([key,c])=>[key,key==='email'?{audiences:c.audiences}:{value:c.value,audiences:c.audiences}]));const saved=await mutate<Account>('/me/account',{nickname,identity_label:identityLabel||null,contacts:clean},account.aggregate_version);if(saved){fill(saved);setNotice('個人資料與每一項聯絡方式的可見範圍已保存。');window.dispatchEvent(new Event('freedom-profile-updated'));await load();}}
   return <section className="module-panel account-panel">{member&&<MemberCard member={member} labels={labels} client={client}/>}
     {account&&<AvatarEditor client={client} nickname={account.nickname} initial={account.avatar} onSaved={avatar=>{setAccount(current=>current?{...current,avatar}:current);setMember(current=>current?{...current,avatar_url:avatar.avatar_url}:current);}}/>}
+    {account&&<EmailVerificationPanel client={client} email={account.login_email} verified={account.email_verified}/>}
     <MemberShare client={client}/><MemberRecommendations client={client}/><GitHubConnectionPanel/>
     {account&&<EmailChangePanel client={client} email={account.login_email}/>}
     {account&&<AccountDeactivation client={client} version={account.aggregate_version} disabled={busy}/>}

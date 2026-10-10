@@ -359,8 +359,8 @@
     },
     {
       "path": "apps/platform-api/src/platform-app.ts",
-      "bytes": 56097,
-      "sha256": "4ff8e408adc700ba18103bbb6d690984734d1ebdbff39e50337fa9ef53097c72"
+      "bytes": 57241,
+      "sha256": "297525a49e0fb6bb143a2a773cbd7555c9eb42d1008304aecb96144927640a89"
     },
     {
       "path": "apps/platform-api/src/private-ai-path.ts",
@@ -1689,8 +1689,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 58509,
-      "sha256": "8f0a19fd8894c0849819907ff7e81235e9b22c14fad26d25a433bd6d9a1f2453"
+      "bytes": 59091,
+      "sha256": "60b925e197c946495bbeb180da4079b978d34d6447ab4d6c3485d3721ae31712"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -1809,8 +1809,8 @@
     },
     {
       "path": "apps/portal-web/src/api.ts",
-      "bytes": 21966,
-      "sha256": "816fc4dc3d614378388cec9232ae76e4fd8dba29925d0eb60ee2fbef31d6ef21"
+      "bytes": 22244,
+      "sha256": "03493158cf9f3dfaf7d0cee72bb77990fceb915fdd5c8eb0316c0c565c205d8a"
     },
     {
       "path": "apps/portal-web/src/auth-messages.ts",
@@ -2146,6 +2146,11 @@
       "path": "apps/portal-web/src/modules/EmailChange.tsx",
       "bytes": 2893,
       "sha256": "d40a7e02d906c5502b2da5d590bc723aa7456cb9e121caa0e94222aae80e137b"
+    },
+    {
+      "path": "apps/portal-web/src/modules/EmailVerification.tsx",
+      "bytes": 2609,
+      "sha256": "743d231a975d6a63d7b2d3390b41652e4ffa7af034efb54c55f1fc77a6d59314"
     },
     {
       "path": "apps/portal-web/src/modules/EngagementPanel.tsx",
@@ -2529,8 +2534,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 31814,
-      "sha256": "4ceb79e15faebf02b828f57e8c001f758919d4694385586c8037fd0517e57759"
+      "bytes": 31993,
+      "sha256": "e6b5fbe7bc7d378664bcf19d2c51e5511d414142fa002e1734edf6685911a1e4"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -2884,8 +2889,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 5934,
-      "sha256": "e374cd318ceda4ce8fdca4d06e093e41ddc4aab355652fe6e1295a62005a5a0f"
+      "bytes": 7119,
+      "sha256": "107121bb5ca7e42b57af8e42735b94fcc646fb167871f3e8b076c349c2c1ac26"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -12945,7 +12950,7 @@
     {
       "path": "deploy/cloudflare/environments.json",
       "bytes": 30992,
-      "sha256": "68b371d0e4ac2375a55572fdc80c8bb4d68d92fbc71651b9684719c46da89db9"
+      "sha256": "a49656ba55519fb5d601255834a16ef0c37fed7f589e45aa03e438994792abe2"
     },
     {
       "path": "deploy/cloudflare/media-preflight.md",
@@ -13074,8 +13079,8 @@
     },
     {
       "path": "deploy/cloudflare/lib/release-compatibility.mjs",
-      "bytes": 42999,
-      "sha256": "0025514b38435acf0658ea648249378a5cd0635e051ac61cf037ebd87730bf2d"
+      "bytes": 43031,
+      "sha256": "f24b380a6f765484f9f7537f468b9f42e8efbb68ceeff26928ec9860b89adf98"
     },
     {
       "path": "deploy/cloudflare/lib/wrangler.mjs",
@@ -13155,7 +13160,7 @@
     {
       "path": "deploy/cloudflare/test/migration-plan.test.mjs",
       "bytes": 12677,
-      "sha256": "1b7bd435de85474c7472409aca1c5269835d4d8ae2339c267876f473049b3d9c"
+      "sha256": "19fa3bce7c5d93b6c0157d647626ef5cb12b91803bf6811eee7d1ab2d8100263"
     },
     {
       "path": "deploy/cloudflare/test/migration-reviewed-privileges.test.mjs",
@@ -13734,8 +13739,8 @@
     },
     {
       "path": "docs/development/member-api.md",
-      "bytes": 44180,
-      "sha256": "2e6a58203fe52ee6490da97f190cf5d5d2a9a96dca0649381d9557b31e024a12"
+      "bytes": 45426,
+      "sha256": "8670d9d4e171e23d5a02f3964f1156b567f7b77bfb7965364a88c24ed3927b6a"
     },
     {
       "path": "docs/development/member-communications.md",
@@ -14935,7 +14940,7 @@
     {
       "path": "docs/platform-plan/execution/guild-launchpad/README.md",
       "bytes": 24466,
-      "sha256": "1b5cfb6690fc2c64807677986d527d5c0a4bda295caf854a899180e291653c17"
+      "sha256": "b895f5a7c361216334af980da14440651283be20494a894201e17ec6d65d8d18"
     },
     {
       "path": "docs/platform-plan/execution/guild-launchpad/SP-00-baseline-traceability.md",
@@ -16473,6 +16478,11 @@
       "sha256": "73962a703edd6810f632455c8a9c975f75972f4192d79cb8744cce345db983b0"
     },
     {
+      "path": "migrations/157_email_verification.sql",
+      "bytes": 439,
+      "sha256": "9512718aa3104b0cf7d58ee6b7a9cbbde99e0b41b1113bc77145c863badfcec8"
+    },
+    {
       "path": "modules/agent-commerce/README.md",
       "bytes": 23935,
       "sha256": "a994b3f8a86254a68780455cb1d8991ed82f5f710163314d388895829b255713"
@@ -17776,6 +17786,11 @@
       "path": "modules/identity-membership/email-change.ts",
       "bytes": 5496,
       "sha256": "04fa5c897ab253526a5022381747b941c812047cb11a93066b364ba1df26cb60"
+    },
+    {
+      "path": "modules/identity-membership/email-verification.ts",
+      "bytes": 3538,
+      "sha256": "8198833d53de56b7e3c94f3ce6bef176e449b0f5a1e508fb5d6f6d727d6ee885"
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
@@ -20068,6 +20083,11 @@
       "sha256": "b2f20f748c08365132eafcd8468e085cf6c941104d05929949ca7fbf9cf226c1"
     },
     {
+      "path": "tests/e2e/email-verification.spec.ts",
+      "bytes": 2454,
+      "sha256": "7ae1212aea046143a2dc1c146feb6f2b144a39a67467aef6670ff44d343fcf0e"
+    },
+    {
       "path": "tests/e2e/event-attendees.spec.ts",
       "bytes": 3950,
       "sha256": "074108259a0b7bc53d8774415478021c0b4059327a3ce7a95f792a2c9d4f41ef"
@@ -21118,6 +21138,11 @@
       "sha256": "f9fe3066682c9651ec444b58f23c06c296cb12583a183fa011f9247de77120f4"
     },
     {
+      "path": "tests/runtime/email-verification.test.ts",
+      "bytes": 6638,
+      "sha256": "0949ef0c1bc3367e44606b88637264c7e6562848cddfae4ddb25610bc0aaa7fc"
+    },
+    {
       "path": "tests/runtime/event-attendees.test.ts",
       "bytes": 15867,
       "sha256": "0e9d4a9818c329fb8a38fbb887e180e07699b883ccf08109cd7210008d950a86"
@@ -22036,6 +22061,11 @@
       "path": "tests/runtime/portal-email-change.test.ts",
       "bytes": 1495,
       "sha256": "dd98e502f876c6c78ef0e9ab7ddd20ae8b109821588a340b814bd7384a703381"
+    },
+    {
+      "path": "tests/runtime/portal-email-verification.test.ts",
+      "bytes": 1501,
+      "sha256": "0a06b5b8ca7c1e3ae0a61584b29e38ccc5f8f88ff20d76581672a4194ab147f8"
     },
     {
       "path": "tests/runtime/positioning-action-card.test.ts",
