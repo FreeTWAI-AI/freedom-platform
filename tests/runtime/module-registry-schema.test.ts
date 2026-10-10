@@ -1,7 +1,7 @@
 import { TENANT_CURSOR_TEST_KEY } from './tenant-cursor-fixture.js';
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
 import { DEMO_USERS, seedLocal } from '../../packages/testing/seed.js';
@@ -9,7 +9,9 @@ import { createApp } from '../../apps/platform-api/src/app.js';
 import { mapPersonPrincipal } from '../../packages/resource-scopes/index.js';
 import { bindPrincipalContext, bindTenantContext, isolatedTransaction } from '../../packages/resource-scopes/tenant-transaction.js';
 import { WORK_CONTRACT_ARTIFACT_SHA256, WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
-import { createRegistryHarness, type RegistryHarness } from './module-registry-harness.js';
+import { createRegistryHarness, type RegistryHarness, type Session } from './module-registry-harness.js';
+import { sessionCookieName } from '../../apps/platform-api/src/session-cookie.js';
+import { tokenHash } from '../../modules/identity-membership/service.js';
 
 let h: RegistryHarness;
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
@@ -33,6 +35,18 @@ async function enabled() {
   const turned = await h.enable(owner, made.tenantId, made.workspaceId, 'guild_ai_field');
   assert.equal(turned.status, 200, JSON.stringify(turned.data));
   return { owner, ...made };
+}
+
+async function historicalSession(pool: Pool): Promise<Session> {
+  // Schema 128/129 predates TOTP. Seed its original session contract instead of
+  // running today's login against it; real request auth/CSRF and launch remain.
+  assert.equal((await pool.query("SELECT to_regclass('member_totp') AS relation")).rows[0].relation, null);
+  const users = await pool.query('SELECT user_id,display_name,email FROM users WHERE user_id=$1 AND active', [DEMO_USERS[0].user_id]);
+  assert.equal(users.rowCount, 1);
+  const token = randomBytes(32).toString('base64url'), csrf = randomBytes(32).toString('base64url');
+  await pool.query(`INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at)
+    VALUES($1,$2,$3,clock_timestamp()+interval '1 hour')`, [tokenHash(token), users.rows[0].user_id, csrf]);
+  return { cookie: `${sessionCookieName(h.origin)}=${token}`, csrf, user: users.rows[0] };
 }
 
 test('definition, offering, plan, and ledger rows reject mutation', async () => {
@@ -313,7 +327,7 @@ test('migration 129 preserves a launch row seeded under schema 128', async () =>
       SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
         max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
     const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
-    const owner = await h.signIn(DEMO_USERS[0].email, app);
+    const owner = await historicalSession(pool);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
     // Seed the historical tenant without today's TenantView, which requires
@@ -398,7 +412,7 @@ test('migration 130 preserves pre-seeded launch, suspend and resume rows from sc
       SELECT policy_id,revision,tenant_id,plan_ref,max_active_instances,max_instances_per_module,max_concurrent_provisions,
         max_work_items,max_retained_bytes,max_concurrent_jobs,status FROM ${h.schema}.tenant_capacity_policies`);
     const app = createApp(pool, h.origin, 'local', { guildLaunchpadEnabled: true, tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY });
-    const owner = await h.signIn(DEMO_USERS[0].email, app);
+    const owner = await historicalSession(pool);
     await pool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
       VALUES($1,$2,$3,'guild_ai_field','active','full')`, [randomUUID(), (await pool.query(`SELECT community_id FROM users WHERE user_id=$1`, [owner.user.user_id])).rows[0].community_id, owner.user.user_id]);
     // Seed the historical tenant without today's TenantView, which requires

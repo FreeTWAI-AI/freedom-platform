@@ -21989,8 +21989,8 @@
     },
     {
       "path": "tests/runtime/module-registry-schema.test.ts",
-      "bytes": 35440,
-      "sha256": "86fb9955734c1fb805f954040d3c974de714681b35b85d54353fd7381af54deb"
+      "bytes": 36494,
+      "sha256": "25b028c4bf5e01749b35f5ce6dec1e2103010913c7fd7283e9d55f3390ea34e7"
     },
     {
       "path": "tests/runtime/module-registry.test.ts",
