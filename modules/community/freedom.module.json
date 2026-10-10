@@ -220,7 +220,15 @@
         "community.social-thumbnail.read",
         "community.social-thumbnail.replace",
         "community.social-post.remove",
-        "community.social-post.hide"
+        "community.social-post.hide",
+        "community.social-note.create",
+        "community.social-like.list",
+        "community.social-read.mark",
+        "community.social-comment-like.update",
+        "community.social-comment-image.upload",
+        "community.social-comment-image.read",
+        "community.social-post.edit",
+        "community.social-comment.edit"
       ],
       "auth_profile": "member-session"
     },

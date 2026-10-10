@@ -38,6 +38,8 @@ const taskActions = {
 type HomeOnboarding = { entry_mode?: string; assessment_completed?: boolean };
 
 export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
+  const [wide,setWide]=useState(()=>window.matchMedia('(min-width:861px)').matches);
+  useEffect(()=>{const media=window.matchMedia('(min-width:861px)'),update=()=>setWide(media.matches);media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
   const [member, setMember] = useState<MemberCardData | null>(null);
   const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [onboarding, setOnboarding] = useState<HomeOnboarding | null>(null);
@@ -147,7 +149,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     <div className="home-main">
     <section className="home-timeline" aria-label="首頁社群動態"><SocialZone client={client} viewer={{name: nickname, avatarUrl: member?.avatar_url}}/></section>
     </div>
-    <aside className="home-context" aria-label="我的工坊">
+    <details className="home-context home-guide-disclosure" aria-label="我的工坊" open={wide}><summary>我的工坊 · 合作與學習入口</summary>
     <div className="home-support">
     <PlatformPurpose variant="member" onAction={target=>onNavigate?.(target)}/>
     {loadError && <div ref={alertRef} role="alert" className="banner banner-error home-load-error">
@@ -217,7 +219,7 @@ export function MemberHome({ client, session, onNavigate }: ModulePanelProps) {
     <MemberRecommendations client={client}/>
     </aside>
     </details>
-    </aside>
+    </details>
     </div>
   </div>;
 }

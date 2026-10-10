@@ -1,0 +1,64 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "application-composition",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/platform-api/src/app.ts",
+    "apps/platform-api/src/runtime.ts",
+    "apps/platform-api/src/server.ts",
+    "apps/platform-api/src/worker.ts",
+    "apps/portal-web/src/App.tsx",
+    "apps/portal-web/src/Navigation.tsx",
+    "apps/portal-web/src/ShareLauncher.tsx",
+    "apps/portal-web/src/WorkshopIcon.tsx",
+    "apps/portal-web/src/interface-messages.ts",
+    "apps/portal-web/src/page-help.ts",
+    "apps/portal-web/src/types.ts",
+    "apps/portal-web/src/game-console-routing.ts",
+    "tests/runtime/game-console-routing.test.ts",
+    "tests/e2e/audit-identity.spec.ts",
+    "tests/e2e/modules-beginners.spec.ts",
+    "tests/e2e/typed-line-breaks.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "agent-commerce",
+    "community",
+    "community-search",
+    "personal-content",
+    "development",
+    "execution-runs",
+    "guild-workspace",
+    "member-card",
+    "member-communications",
+    "module-registry",
+    "newcomer-guides",
+    "positioning",
+    "runtime-registration",
+    "skill-submissions",
+    "social-feed",
+    "tenant-workspaces",
+    "work",
+    "member-squads"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "DESIGN.md",
+    "docs/development/member-api.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
+    "packages/contribution-tools/surface-audit.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": []
+}

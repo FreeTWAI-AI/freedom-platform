@@ -14,7 +14,14 @@
     "tests/integration/migration-postgres-fixture.ts",
     "tests/integration/migration-plan-postgres.test.ts",
     "tests/integration/migration-entrypoints-postgres.test.ts",
-    "tests/runtime/migration-runner-plan.test.ts"
+    "tests/runtime/migration-runner-plan.test.ts",
+    "deploy/cloudflare/environments.json",
+    "deploy/cloudflare/lib/release-compatibility.mjs",
+    "deploy/cloudflare/test/migration-plan.test.mjs",
+    "deploy/cloudflare/test/release-domain-media.test.mjs",
+    "deploy/cloudflare/lib/media-wrangler.mjs",
+    "deploy/cloudflare/test/media-wrangler.test.mjs",
+    "deploy/cloudflare/test/release-compatibility.test.mjs"
   ],
   "public_exports": [
     "packages/db/index.ts",

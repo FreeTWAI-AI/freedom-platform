@@ -41,6 +41,16 @@ target restricted to aggregate type `member_message_image` with the server-deriv
 draft id. The message itself is not a journal target, and the adapter never writes
 the community outbox, so private image content cannot reach a community event.
 
+## Closed social-comment image receipt adapter
+
+`commentImageMemberCommand` serves only `POST /api/v1/social-posts/:postId/comment-images`.
+Its body is exactly `{sha256}` and the server derives the draft image identity
+from owner, post and request key. It uses the current personal member scope,
+original member receipt namespace, a `community_comment_image` journal target,
+and current post authorization before both replay and publication. The comment
+text, bytes and storage key never enter a fact or community outbox. Post-specific
+media lifecycle and visibility checks live in `modules/community/comment-images.ts`.
+
 ## Closed avatar receipt compatibility
 
 `avatarMemberCommand<T>(pool, input: Command, authorize(q, context), run(q, context))`

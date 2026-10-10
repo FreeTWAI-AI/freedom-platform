@@ -12,7 +12,9 @@
     "tests/runtime/message-image-preview.test.ts",
     "tests/e2e/message-images.spec.ts",
     "migrations/139_member_message_images.sql",
-    "docs/development/member-communications.md"
+    "docs/development/member-communications.md",
+    "modules/member-communications/channels.ts",
+    "modules/member-communications/types.ts"
   ],
   "public_exports": [
     "modules/member-communications/images.ts",

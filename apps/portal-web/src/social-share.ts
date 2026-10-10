@@ -14,7 +14,7 @@ export type ShareSnapshot={
   active:SharePlatform|null;busy:'files'|'clipboard'|'share'|null;
   feedback:Feedback;fault:ShareFault|null;
 };
-const empty=():ShareSnapshot=>({enabled:false,platforms:[],files:[],prepared:null,progress:{},active:null,busy:null,feedback:null,fault:null});
+const empty=():ShareSnapshot=>({enabled:false,platforms:[...SHARE_PLATFORMS],files:[],prepared:null,progress:{},active:null,busy:null,feedback:null,fault:null});
 
 /** Official user-confirmed composers. FB/IG have no generic web media/caption prefill. */
 export function socialShareUrl(platform:SharePlatform,text:string):string{

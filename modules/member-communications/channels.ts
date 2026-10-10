@@ -95,7 +95,7 @@ async function lockRoom(q:PoolClient,actor:Actor,{kind,key}:Room):Promise<Channe
   }else{
     await advisory(q,squadLock(key,actor.user_id));
     row=(await q.query(`SELECT s.name FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 FOR SHARE OF m`,[key,actor.user_id,actor.community_id])).rows[0];
+      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 AND s.disbanded_at IS NULL FOR SHARE OF m`,[key,actor.user_id,actor.community_id])).rows[0];
   }
   if(!row)throw notAvailable();
   return {kind,channel_key:key,name:row.name};
@@ -113,12 +113,12 @@ async function lockRooms(q:PoolClient,actor:Actor,kind:ChannelKind):Promise<Chan
   // Candidates unlocked in a stable order, then each pair lock before its row
   // lock (the order membership writers use), so no advisory/row inversion.
   const candidates=(await q.query(`SELECT m.squad_id FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-    WHERE m.user_id=$1 AND m.state='active' AND s.community_id=$2 ORDER BY m.squad_id`,[actor.user_id,actor.community_id])).rows.map(row=>row.squad_id as string);
+    WHERE m.user_id=$1 AND m.state='active' AND s.community_id=$2 AND s.disbanded_at IS NULL ORDER BY m.squad_id`,[actor.user_id,actor.community_id])).rows.map(row=>row.squad_id as string);
   const rooms:Channel[]=[];
   for(const squadId of candidates){
     await advisory(q,squadLock(squadId,actor.user_id));
     const row=(await q.query(`SELECT s.name FROM member_squad_memberships m JOIN member_squads s ON s.squad_id=m.squad_id
-      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 FOR SHARE OF m`,[squadId,actor.user_id,actor.community_id])).rows[0];
+      WHERE m.squad_id=$1 AND m.user_id=$2 AND m.state='active' AND s.community_id=$3 AND s.disbanded_at IS NULL FOR SHARE OF m`,[squadId,actor.user_id,actor.community_id])).rows[0];
     if(row)rooms.push({kind,channel_key:squadId,name:row.name});
   }
   return rooms;

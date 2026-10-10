@@ -46,7 +46,7 @@ const membership = async (pool: Pool, squadId: string, userId: string) => (await
 async function openSquad(page: Page, name: string) {
   await navigate(page, '小隊集合');
   await page.getByLabel('搜尋小隊', { exact: true }).fill(name);
-  await page.getByRole('button', { name: `查看小隊：${name}`, exact: true }).click();
+  await page.getByRole('button', { name: `邀請夥伴：${name}`, exact: true }).click();
   const detail = page.getByRole('region', { name: '小隊詳情' });
   await expect(detail.getByRole('heading', { name: `${name}的夥伴`, exact: true })).toBeFocused();
   return detail;
@@ -128,6 +128,7 @@ test('phone layout: owner withdraws one invitation and the recipient declines an
   await login(page, withdrawnFrom.email);
   expect((await get(page, '/me/squad-invitations?state=all')).items.map((item: { state: string }) => item.state)).toEqual(['withdrawn']);
   await navigate(page, '小隊集合');
+  await page.getByRole('region', { name: '收到的小隊邀請' }).locator('summary').click();
   await expect(page.getByRole('region', { name: '收到的小隊邀請' }).getByText('目前沒有待回覆的小隊邀請。')).toBeVisible();
   await expect(page.getByRole('button', { name: `接受邀請：${name}`, exact: true })).toHaveCount(0);
   await logout(page);
