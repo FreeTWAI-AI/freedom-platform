@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { command, journal, transaction, type Command } from '../../packages/db/index.js';
-import { lockMemberSession } from '../../packages/db/member-session.js';
+import { assertCurrentSessionClock, lockMemberSession } from '../../packages/db/member-session.js';
 import { Problem, requireCondition } from '../../packages/shared/problem.js';
 import { hashPasswordAsync, tokenHash, verifyMemberPassword, type Actor } from './service.js';
 
@@ -34,18 +34,26 @@ export async function changePassword(pool: Pool, actor: Actor, raw: unknown): Pr
       await q.query('UPDATE login_attempts SET failures=0, window_start=now() WHERE attempt_key=$1', [attemptKey]);
       attempt.failures = 0;
     }
-    if (attempt.failures >= 10) return { kind: 'blocked' as const };
+    if (attempt.failures >= 10) {
+      await assertCurrentSessionClock(q, actor);
+      return { kind: 'blocked' as const };
+    }
     const valid = await verifyMemberPassword(q, actor.user_id, body.current_password);
     if (!valid) {
       await q.query('UPDATE login_attempts SET failures=failures+1 WHERE attempt_key=$1', [attemptKey]);
+      await assertCurrentSessionClock(q, actor);
       return { kind: 'invalid' as const };
     }
     await q.query('UPDATE login_attempts SET failures=0 WHERE attempt_key=$1', [attemptKey]);
     await q.query('UPDATE users SET password_hash=$2 WHERE user_id=$1', [actor.user_id, passwordHash]);
+    // Old mailbox proofs must not replace a password rotated by its owner.
+    // Reset confirmation takes the same user-before-proof lock order.
+    await q.query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND consumed_at IS NULL', [actor.user_id]);
     // The session that proved the password stays signed in; every other one ends now.
     const revoked = (await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND token_hash<>$2', [actor.user_id, actor.session_hash])).rowCount ?? 0;
     const version = await accountVersion(q, actor);
     await journal(q, actor, 'member_account', actor.user_id, version, 'change_password', { revoked_sessions: revoked });
+    await assertCurrentSessionClock(q, actor);
     return { kind: 'changed' as const, revoked };
   });
   if (outcome.kind === 'blocked') throw new Problem(429, 'password_change_rate_limited', '密碼確認次數過多，請稍後再試。', 900);
@@ -59,11 +67,15 @@ async function accountVersion(q: PoolClient, actor: Actor): Promise<number> {
 }
 
 export async function listMemberSessions(pool: Pool, actor: Actor): Promise<MemberSessionList> {
-  const rows = (await pool.query<{ current: boolean; created_at: Date | null; last_seen_at: Date | null; expires_at: Date }>(
-    `SELECT token_hash=$2 AS current, created_at, last_seen_at, expires_at FROM sessions
-     WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()
-     ORDER BY token_hash=$2 DESC, last_seen_at DESC NULLS LAST, created_at DESC NULLS LAST LIMIT 50`, [actor.user_id, actor.session_hash])).rows;
-  return { items: rows.map(row => ({ current: row.current, created_at: iso(row.created_at), last_seen_at: iso(row.last_seen_at), expires_at: iso(row.expires_at)! })), total: rows.length };
+  return transaction(pool, async q => {
+    await lockMemberSession(q, actor);
+    const rows = (await q.query<{ current: boolean; created_at: Date | null; last_seen_at: Date | null; expires_at: Date }>(
+      `SELECT token_hash=$2 AS current, created_at, last_seen_at, expires_at FROM sessions
+       WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>now()
+       ORDER BY token_hash=$2 DESC, last_seen_at DESC NULLS LAST, created_at DESC NULLS LAST LIMIT 50`, [actor.user_id, actor.session_hash])).rows;
+    await assertCurrentSessionClock(q, actor);
+    return { items: rows.map(row => ({ current: row.current, created_at: iso(row.created_at), last_seen_at: iso(row.last_seen_at), expires_at: iso(row.expires_at)! })), total: rows.length };
+  });
 }
 
 export async function revokeOtherSessions(pool: Pool, input: Command): Promise<SessionRevocationResult> {

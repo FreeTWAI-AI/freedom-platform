@@ -17434,8 +17434,8 @@
     },
     {
       "path": "modules/identity-membership/account-security.ts",
-      "bytes": 5867,
-      "sha256": "fa069298873f953c20c44f5021cb611904a0d60aaeb7c8044323cf59672a058f"
+      "bytes": 6453,
+      "sha256": "609fcab79f1d43cd527d3b9423afe7c7805299697ebd86aff4ae4401f21c3312"
     },
     {
       "path": "modules/identity-membership/auth-pruning.ts",
@@ -17479,8 +17479,8 @@
     },
     {
       "path": "modules/identity-membership/password-recovery.ts",
-      "bytes": 3932,
-      "sha256": "106357a597f99410970a6c9486d3058862322a3b9ab77aea4d04c2af30f614e0"
+      "bytes": 4384,
+      "sha256": "c20123889d5dec3493f3011334da2955d952f63f074cd7b1b131eef95e3bbefb"
     },
     {
       "path": "modules/identity-membership/service.ts",
@@ -20334,8 +20334,8 @@
     },
     {
       "path": "tests/runtime/account-security.test.ts",
-      "bytes": 8535,
-      "sha256": "bd1e6612ddb3c0b18c8bdf1ed27cc8b5b7921c4d95baa8f135b8f74bdd4a586b"
+      "bytes": 13240,
+      "sha256": "71fef62893fd6a84a3527367308b6419c91f065fd6ac6ecdb3715d007e20e83c"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
