@@ -15,7 +15,7 @@ import './MemberSettings.css';
 import type {ChatEntry} from './chat-entry';
 import type {MessageContent,MessageContentInput} from '../../../../modules/member-communications/content-types';
 import {findChatSticker} from '../../../../modules/member-communications/stickers';
-import {ChatBody,ChatQuote,ChatExtras,chatPayload,quoteMessage,useRichChatDraft} from './ChatContent';
+import {ChatBody,ChatQuote,ChatExtras,ChatRetracted,RetractMessageDialog,chatPayload,quoteMessage,useRichChatDraft,type RetractTarget} from './ChatContent';
 import {ChatInput,ChatTime,useChatViewport,usePhoneChatBounds,useVisibleChatRead} from './ChatWorkspace';
 import {ChatSearch} from './ChatSearch';
 import {WorkshopIcon} from '../WorkshopIcon';
@@ -29,7 +29,7 @@ type NotificationAction={tab:ActionTab;resource_id:string|null};
 type Notice={notification_id:string;kind:string;title:string;body:string;created_at:string;read_at:string|null;action:NotificationAction|null};
 type NoticePage={items:Notice[];unread_count:number;next_offset:number|null};
 type Participant={user_id:string;display_name:string;avatar_url:string|null;last_seen_at:string|null;is_online:boolean};
-type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null;image?:MessageImage}&MessageContent;
+type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null;retracted_at:string|null;image?:MessageImage}&MessageContent;
 const messageOrder=(a:Message,b:Message)=>a.created_at.localeCompare(b.created_at)||a.message_id.localeCompare(b.message_id);
 const newestMessages=(items:Message[])=>[...items].sort((a,b)=>messageOrder(b,a));
 type Conversation={participant:Participant;can_send:boolean;last_message:Message;unread_count:number};
@@ -268,6 +268,19 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
   const [liveError,setLiveError]=useState('');
   const snapshot=useRef({thread,threadStatus,reading,active,sending:false,readingThread:true});snapshot.current={thread,threadStatus,reading,active,readingThread:!singlePane||!picking,sending:pending[peer??'']?.status==='sending'};
   const [hasNew,setHasNew]=useState(false);moreState.current=threadMore;
+  const [retractTarget,setRetractTarget]=useState<RetractTarget|null>(null),[retracting,setRetracting]=useState(false),[retractError,setRetractError]=useState('');
+  const retractTrigger=useRef<HTMLButtonElement|null>(null);
+  function closeRetract(){setRetractTarget(null);setRetractError('');retractTrigger.current?.focus();retractTrigger.current=null;}
+  async function retract(){
+    if(!retractTarget||!peer)return;
+    const id=peer,messageId=retractTarget.message_id;setRetracting(true);setRetractError('');
+    try{
+      const result=await client.post<{message_id:string;retracted_at:string}>(`/me/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/retract`,{},{idempotencyKey:crypto.randomUUID()});
+      setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.message_id===messageId?{message_id:message.message_id,sender_ref:message.sender_ref,recipient_ref:message.recipient_ref,created_at:message.created_at,read_at:message.read_at,body:'',retracted_at:result.retracted_at}:message)}:value);
+      setRetractTarget(null);retractTrigger.current?.focus();retractTrigger.current=null;
+    }catch(cause){setRetractError(cause instanceof Error?cause.message:'訊息尚未收回，請稍後再試。');}
+    finally{setRetracting(false);}
+  }
   useLayoutEffect(()=>{const node=scroll.current;if(!node)return;if(anchor.current){node.scrollTop=anchor.current.top+node.scrollHeight-anchor.current.height;anchor.current=null;}else if(stick.current){node.scrollTop=node.scrollHeight;setHasNew(false);}},[thread,peer,pending[peer??''],picking,singlePane]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;convGeneration.current++;threadGeneration.current++;};},[]);
 
@@ -511,7 +524,7 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
           {conversations.map(item=><li key={item.participant.user_id} className={item.unread_count?'is-unread':undefined}>
             <button type="button" className="messages-peer" aria-current={peer===item.participant.user_id?'true':undefined} onClick={()=>select(item.participant.user_id,true)}>
               <MemberAvatar nickname={item.participant.display_name} avatarUrl={item.participant.avatar_url}/>
-              <span className="chat-peer-copy"><strong>{item.participant.display_name}</strong><MemberPresence online={item.participant.is_online} lastSeen={item.participant.last_seen_at}/><span className="chat-peer-preview">{item.last_message.sender_ref===me?'你：':''}{messageImagesEnabled===true&&item.last_message.image&&item.last_message.body==='[圖片]'?'圖片':item.last_message.body.slice(0,40)}</span></span>
+              <span className="chat-peer-copy"><strong>{item.participant.display_name}</strong><MemberPresence online={item.participant.is_online} lastSeen={item.participant.last_seen_at}/><span className="chat-peer-preview">{item.last_message.sender_ref===me?'你：':''}{item.last_message.retracted_at?'訊息已收回':messageImagesEnabled===true&&item.last_message.image&&item.last_message.body==='[圖片]'?'圖片':item.last_message.body.slice(0,40)}</span></span>
               <span className="chat-peer-tail"><ChatTime value={item.last_message.created_at}/>{item.unread_count>0&&<span className="messages-count">{item.unread_count} 則未讀</span>}</span>
             </button>
           </li>)}
@@ -540,16 +553,19 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
           {threadMore.error&&<p className="banner banner-error" role="alert">較早訊息讀取失敗：{threadMore.error}</p>}
           {thread.items.length===0?<p className="empty">還沒有訊息。</p>:<ol className="messages-bubbles" aria-label="訊息">
             {[...thread.items].reverse().map(message=>{const mine=message.sender_ref!==thread.participant.user_id;return <li key={message.message_id} className={mine?'is-mine':undefined} data-message-id={message.message_id}>
-              <p className="messages-meta">{mine?'你':thread.participant.display_name} · <ChatTime value={message.created_at}/>{mine?message.read_at?' · 對方已讀':' · 已送出':!message.read_at?' · 未讀':''}</p>
+              <p className="messages-meta">{mine?'你':thread.participant.display_name} · <ChatTime value={message.created_at}/>{message.retracted_at?'':mine?message.read_at?' · 對方已讀':' · 已送出':!message.read_at?' · 未讀':''}</p>
+              {message.retracted_at?<ChatRetracted mine={mine}/>:<>
               {message.reply_to&&<ChatQuote reply={message.reply_to}/>}
               {messageImagesEnabled===true&&message.image&&<DirectMessageImage peer={peer} messageId={message.message_id}/>}
               {!(messageImagesEnabled===true&&message.image&&message.body==='[圖片]')&&<ChatBody message={message}/>}
-              {thread.can_send&&<div className="chat-message-actions"><button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[peer])return;richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button></div>}
+              {(thread.can_send||mine)&&<div className="chat-message-actions">{thread.can_send&&<button className="btn btn-ghost" type="button" aria-label={`回覆${mine?'你':thread.participant.display_name}的訊息`} disabled={Boolean(attempt)} onClick={()=>{if(held.current[peer])return;richDrafts.change(peer,{reply:quoteMessage(message,mine?'你':thread.participant.display_name)});document.getElementById(`${uid}-compose`)?.focus();}}>回覆</button>}{mine&&<button className="btn btn-ghost chat-retract" type="button" aria-label="收回你的訊息" disabled={retracting} onClick={event=>{retractTrigger.current=event.currentTarget;setRetractError('');setRetractTarget({message_id:message.message_id,label:message.sticker?`[貼圖] ${message.sticker.label}`:message.image&&message.body==='[圖片]'?'[圖片]':[...message.body].slice(0,160).join('')});}}>收回</button>}</div>}
+              </>}
             </li>;})}
           </ol>}
           {attempt&&<div className="messages-pending" role="status" aria-label="傳送狀態"><ChatBody message={{body:attempt.body,...(attempt.payload.sticker_id?{sticker:{id:findChatSticker(attempt.payload.sticker_id)!.id,label:findChatSticker(attempt.payload.sticker_id)!.label}}:{})}}/><p className="messages-meta">{attempt.status==='sending'?attempt.stage==='upload'?'上傳圖片中…':attempt.stage==='message'?'傳送訊息中…':'傳送中…':'尚未確認送出，可用下方按鈕重試'}</p></div>}
           </div>
           {hasNew&&<button className="btn btn-ghost messages-new" type="button" onClick={()=>{stick.current=true;scroll.current?.scrollTo({top:scroll.current.scrollHeight});setHasNew(false);}}>有新訊息 · 回到最新</button>}
+          <RetractMessageDialog target={retractTarget} busy={retracting} error={retractError} onConfirm={()=>void retract()} onClose={closeRetract}/>
           {reading&&<p className="messages-meta" role="status">正在同步已讀…</p>}
           {readError&&<div className="banner banner-error" role="alert">{readError}<div className="messages-actions"><button className="btn btn-ghost" type="button" disabled={reading} onClick={()=>void markRead(thread.items[0]?.message_id,true)}>重試標為已讀</button></div></div>}
           {thread.can_send?<form className={`messages-compose${messageImagesEnabled===true?' has-image-controls':''}`} onSubmit={(event:FormEvent)=>{event.preventDefault();void send(peer);}} onPaste={event=>{
