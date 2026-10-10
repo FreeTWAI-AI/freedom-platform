@@ -48,6 +48,39 @@ async function withdrawShowcase(id:string){
   await pool.query("UPDATE showcases SET status='withdrawn',visibility='private',aggregate_version=aggregate_version+1 WHERE showcase_id=$1",[id]);
   assert.ok((await pool.query('SELECT consent_recorded_at FROM showcases WHERE showcase_id=$1',[id])).rows[0].consent_recorded_at,'withdrawal retains historical consent');
 }
+async function shareEvent(author:{id:string;community:string},id:string,version:number,at:string,command='share_with_community'){
+  await pool.query(`INSERT INTO transition_journal(transition_id,community_id,aggregate_type,aggregate_id,aggregate_version,command,actor_ref,data,created_at)
+    VALUES($1,$2,'showcase',$3,$4,$5,$6,'{}',$7)`,[randomUUID(),author.community,id,version,command,author.id,at]);
+}
+test('republishing preserves the first showcase cohort and earlier return event while current withdrawal excludes both',async()=>{
+  const author=await member({at:'2026-10-02T10:00:00+08'}),id=await showcase(author,'2026-10-03T10:00:00+08');
+  await shareEvent(author,id,1,'2026-10-03T10:00:00+08');
+  assert.equal((await metrics()).registration_first_share_7d.numerator,1);
+  await withdrawShowcase(id);
+  let value=await metrics();assert.equal(value.registration_first_share_7d.numerator,0);assert.equal(value.first_share_return_7d.denominator,0);
+  // Mirror publishOwnShowcase: renewed consent changes, original journal facts do not.
+  await pool.query("UPDATE showcases SET status='published',visibility='community',consent_recorded_at='2026-10-04T10:00:00+08',aggregate_version=3 WHERE showcase_id=$1",[id]);
+  await shareEvent(author,id,3,'2026-10-04T10:00:00+08');
+  await withdrawShowcase(id);
+  await pool.query("UPDATE showcases SET status='published',visibility='community',consent_recorded_at='2026-10-15T10:00:00+08',aggregate_version=5 WHERE showcase_id=$1",[id]);
+  await shareEvent(author,id,5,'2026-10-15T10:00:00+08');
+  value=await metrics();assert.equal(value.registration_first_share_7d.numerator,1);
+  assert.deepEqual([value.first_share_return_7d.numerator,value.first_share_return_7d.denominator],[1,1]);
+  assert.equal((await metrics(DEMO_COMMUNITY,{from:'2026-10-15',to:'2026-10-15'})).first_share_return_7d.pending_window,0,'renewed consent cannot move the first-share cohort');
+  await withdrawShowcase(id);value=await metrics();
+  assert.equal(value.registration_first_share_7d.numerator,0);assert.equal(value.first_share_return_7d.denominator,0);
+});
+test('showcase publication history is scoped to owner and resource, with consent fallback only without a matching event',async()=>{
+  const author=await member({at:'2026-10-02T10:00:00+08'}),other=await member({at:'2026-09-01T10:00:00+08',source:'launch_day'});
+  const id=await showcase(author,'2026-10-03T10:00:00+08');
+  await shareEvent(other,id,1,'2026-10-01T10:00:00+08');
+  await shareEvent(author,id,2,'2026-10-01T10:00:00+08','draft');
+  await shareEvent(author,randomUUID(),1,'2026-10-01T10:00:00+08');
+  assert.equal((await metrics()).registration_first_share_7d.numerator,1,'unrelated journal rows do not defeat legacy consent fallback');
+  await shareEvent(author,id,3,'2026-10-01T10:00:00+08');
+  assert.equal((await metrics()).registration_first_share_7d.numerator,0,'valid earlier history wins over later consent, even outside the registration window');
+});
+
 test('withdrawn showcases leave both registration first-share and first-share return cohorts on recomputation',async()=>{
   const author=await member({at:'2026-10-02T10:00:00+08'}),id=await showcase(author,'2026-10-03T10:00:00+08');
   const before=await metrics();assert.equal(before.registration_first_share_7d.numerator,1);assert.equal(before.first_share_return_7d.denominator,1);
