@@ -52,6 +52,8 @@ API 的 Node／Worker 共用 request middleware 僅在耗時 ≥ 1000 ms 或最�
 
 此候選以普通 merge 整合 #318／#344 與審查修補，接續照片 #359；私人關係 SQL 原樣改名為 `142_community_content_relations.sql`，本案使用 `143_personal_content.sql`，接續照片 141，manifest 僅保留既有缺號 22。書籤／追蹤需同時開啟 `FREEDOM_COMMUNITY_SEARCH_ENABLED` 與 `FREEDOM_COMMUNITY_RELATIONS_ENABLED`，預設均不啟用。本機瀏覽器伺服器對應使用 `FREEDOM_E2E_COMMUNITY_SEARCH=1`、`FREEDOM_E2E_COMMUNITY_RELATIONS=1`、`FREEDOM_E2E_PERSONAL_CONTENT=1`。
 
+#262 參與量測是預設關閉的 source candidate（`FREEDOM_PARTICIPATION_METRICS_ENABLED`、migration 149）：只提供有權平台管理員讀取的唯讀報表，每次由權威資料重新計算，附 v2 指標定義，窗口未滿與樣本不足（少於 10）不顯示百分比；七日回訪限既有發布、留言與搜尋時間的參與代理，不讀會覆寫的 session last-seen，不宣稱涵蓋所有瀏覽。搜尋只記結果數與開啟的內容類型，不存查詢文字。目前沒有正式讀權與保存／退出政策，沒有真實 baseline；檢舉處理時間因尚無檢舉流程標為不可用。詳見 [會員 API](docs/development/member-api.md#participation-metrics-262)。
+
 工坊夥伴名冊支援公開資料搜尋、公會篩選、加入日期／暱稱排序與緊湊列表；詳細技能和聯絡方式可展開。舊會員依開站日 2026/9/23 記錄，新會員保存實際加入時間。
 
 名片可新增多個社群帳號或頻道，同平台也可重複加入；每筆獨立編輯、刪除及設定可見範圍，預設只有本人可見。詳見 [會員社群連結](./docs/development/member-social-links.md)。

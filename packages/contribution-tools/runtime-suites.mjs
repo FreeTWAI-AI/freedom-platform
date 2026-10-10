@@ -64,4 +64,5 @@ storefront-presentation-contracts hosted-store-media-contracts hosted-store-phot
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
 personal-content community-relations social-feed social-post-edit social-share
+participation-metrics
 `.trim().split(/\s+/)).sort());

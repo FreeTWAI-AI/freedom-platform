@@ -409,3 +409,47 @@ Successful receipts point to actual original work/submission/opportunity/
 project readers, not provisional drafts or inferred acceptance. The entry itself
 collects no content. Local verification is not deployment, flag-on or full #258
 acceptance evidence.
+
+## Participation metrics (#262)
+
+This source candidate adds `149_participation_metrics.sql` (number provisional
+until merge order is known) and `FREEDOM_PARTICIPATION_METRICS_ENABLED`
+(default off in Node and Worker; a non-boolean value fails closed). With the
+flag off the report route does not exist and search records nothing.
+
+`GET /admin/api/participation-metrics?from=YYYY-MM-DD&to=YYYY-MM-DD` is behind
+the existing verified platform-admin identity, reads only that admin's own
+community, is `no-store`, and is recomputed from current authoritative records
+on every request, so there is no stored report to go stale or leak. The default
+range is the last 28 Asia/Taipei days; the maximum is 366 days. Dates must be
+real calendar days (`2026-02-30` is a validation error, never rolled over). The response
+embeds its own definition (`participation-metrics/v2`): cohort, time zone,
+window, de-duplication and exclusions are part of the data, not tribal
+knowledge.
+
+Metrics: share and comment within 7 days of registration; a different human
+active member's comment within 48 hours of an active native post (a
+reproducible proxy, not a quality judgement); a later-calendar-day durable
+participation event within 7 days of a first share; and search zero-result and open rates.
+Cohort members and posts only enter a denominator after their window has fully
+elapsed; the rest is `pending_window`. Fewer than 10 in a denominator returns
+`rate: null, status: insufficient_sample`. Verification/test accounts, launch-day
+backfilled joiners, authors replying to themselves, inactive or foreign
+responders and removed content are excluded and test-account counts are shown
+(search rates included: synthetic searches already recorded are excluded at read time).
+Moderation case time is `not_available`: this build has no reporting or case
+workflow, so no number is invented.
+
+Search outcomes store only an operation id, member, time, whether it was the
+first page, a result count and one opened content kind. Query text, filters,
+titles, messages, email and media are never stored. The open signal is sent
+as a `keepalive` request so it survives the result link navigating the page, and is
+accepted only from the member who ran the search. Return uses timestamps of
+native posts/comments, showcase consent, skill publication and recorded search
+operations, not mutable session last-seen. It measures participation, not all
+visits; removal/withdrawal of those authoritative facts can change the report.
+Promotion clicks, RSVPs and reactions are not inputs and never become quality,
+acceptance, XP or reward.
+
+No real baseline was observed: production read access and the retention/opt-out
+policy (#261) are not available, so any number here is synthetic evidence only.

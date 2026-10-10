@@ -15,6 +15,7 @@ const port = Number(process.env.PORT ?? 4310);
 const origin = process.env.APP_ORIGIN ?? `http://127.0.0.1:${port}`;
 assertOriginAllowed(freedomEnv, origin);
 
+if(process.env.FREEDOM_PARTICIPATION_METRICS_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_PARTICIPATION_METRICS_ENABLED))throw new Error('invalid_participation_metrics_flag');
 const pool = createPool();
 await pool.query('SELECT 1');
 if(freedomEnv==='public')await assertPublicDatabase(pool,{registrationCommunityId:process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,databaseName:process.env.FREEDOM_DATABASE_NAME});

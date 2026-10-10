@@ -6,7 +6,7 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=148 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=149 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
 本候選的 repository migration 已到 148（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
 
