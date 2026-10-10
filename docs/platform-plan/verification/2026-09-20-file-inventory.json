@@ -19824,8 +19824,8 @@
     },
     {
       "path": "tests/e2e/hosted-order.spec.ts",
-      "bytes": 17369,
-      "sha256": "67b4d0b039bfcf8e4cc073877dafcfe1ab1a4fb3645553c1b97954825237491c"
+      "bytes": 17363,
+      "sha256": "4860178302a53f78b362e7ae1e01c1ce118ab2f7167cdb0c6d60a53bc361a314"
     },
     {
       "path": "tests/e2e/hosted-seller-order.spec.ts",

@@ -160,7 +160,7 @@ test('HO-UI03 both host flags OFF retain own lookup and cancellation through rea
     offPage.once('dialog', dialog => dialog.accept()); await surface(offPage).getByRole('button', {name: '取消預留', exact: true}).click();
     await expect(offPage.getByRole('region', {name: '我的預留'})).toContainText('已取消');
     await offPage.reload(); await expect(offPage.getByRole('region', {name: '我的預留'})).toContainText('已取消');
-    await navigate(offPage, '會員首頁'); await navigate(offPage, '查詢我的預留');
+    await navigate(offPage, '會員首頁'); await navigate(offPage, '我的訂單');
     await offPage.getByLabel('預留編號', {exact: true}).fill(id); await surface(offPage).getByRole('button', {name: '查詢我的預留', exact: true}).click();
     await expect(offPage.getByRole('region', {name: '我的預留'})).toContainText('已取消');
     expect((await e2eAuthPool.query('SELECT reserved FROM commerce_items WHERE item_id=$1', [s.product.product_id])).rows[0].reserved).toBe(0);
