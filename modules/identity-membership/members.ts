@@ -10,6 +10,7 @@ import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 import { notifyFriendshipChange } from '../member-communications/events.js';
+import { notifyMember } from '../member-communications/notifications.js';
 import {lockInteractionPair,assertCanContact,assertInteractionMember,contactableIds} from './blocks.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
@@ -324,7 +325,17 @@ export async function changeSquadMembership(pool:Pool,input:Command,id:string,ac
     else requireCondition(action==='request'&&!input.expected,404,'squad_membership_not_found','找不到這個小隊申請。');
     if(action==='accept')requireCondition(row?.state==='pending',409,'squad_request_required','必須先由本人申請加入。');
     const state=action==='request'?'pending':action==='accept'?'active':'left';
-    return (await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
+    const saved=(await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
       ON CONFLICT(squad_id,user_id) DO UPDATE SET state=$3,aggregate_version=member_squad_memberships.aggregate_version+1,updated_at=now() RETURNING *`,[id,targetId,state])).rows[0];
+    if(action==='request'||action==='accept'){
+      // Same transaction as the membership change; the version keys a fresh notice per new request.
+      const squad=(await q.query('SELECT s.name,s.owner_ref,u.display_name AS actor_name FROM member_squads s JOIN users u ON u.user_id=$2 WHERE s.squad_id=$1',[id,input.actor.user_id])).rows[0];
+      const name=String(squad.name).slice(0,60);
+      if(action==='request')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:squad.owner_ref,kind:'squad_join_requested',source_key:`squad-request:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`${String(squad.actor_name).slice(0,80)} 申請加入小隊「${name}」`,body:'前往小隊集合查看申請，決定是否接受。',action:{tab:'squads',resource_id:id}});
+      else await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_join_accepted',source_key:`squad-accepted:${id}:${targetId}:${saved.aggregate_version}`,
+        title:`你已加入小隊「${name}」`,body:'隊主接受了你的申請，可以在小隊集合與頻道和夥伴聯絡。',action:{tab:'squads',resource_id:id}});
+    }
+    return saved;
   },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
 }
