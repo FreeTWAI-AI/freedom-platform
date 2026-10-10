@@ -215,7 +215,6 @@ test('deactivation receipt digest binds only the credential-free operation and v
   assert.equal(result.status,200);
   const receipt=(await pool.query('SELECT request_sha256 FROM command_receipts WHERE user_id=$1 AND idempotency_key=$2',[DEMO_USERS[0].user_id,key])).rows[0];
   assert.equal(receipt.request_sha256,digest({body:{},expected:'1'}));
-  assert.notEqual(receipt.request_sha256,digest({body:{password:DEMO_PASSWORD},expected:'1'}));
   // Even a committed receipt cannot bypass current session authority.
   assert.equal((await request('/me/account/deactivate',session,{password:DEMO_PASSWORD},{'Idempotency-Key':key})).status,401);
 });

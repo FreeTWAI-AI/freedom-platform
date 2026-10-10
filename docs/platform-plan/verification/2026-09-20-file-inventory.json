@@ -20394,8 +20394,8 @@
     },
     {
       "path": "tests/runtime/account-deactivation.test.ts",
-      "bytes": 23017,
-      "sha256": "e3697c04565930451fa3c5c66c9588adeb68a690dbc7dbc9484a5be9976b5fe5"
+      "bytes": 22921,
+      "sha256": "a8449896e07eac1f3a02678da897d8ecc4561eae1830bc2c4fae91bc69ae7110"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",
