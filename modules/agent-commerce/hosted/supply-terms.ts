@@ -34,9 +34,9 @@ export async function updateSupplyTerms(pool: Pool, actor: Actor, tenantId: stri
   return storeCommand(pool, actor, tenantId, instanceId, 'store:write', 'storefront.supply-terms.update', input, key, expected, async (q, context) => {
     const p = await profile(q, tenantId, instanceId, true); ready(p);
     const old = await terms(q, p, productId); checkVersion(old.version, expected);
-    // This first slice prepares private terms. Foreign listings need versioned
-    // offer/consent handling before their supplier can edit through this path.
-    const foreign = await q.query('SELECT 1 FROM commerce_selections WHERE item_id=$1 AND shop_id<>$2 LIMIT 1', [productId, p.storefront_shop_id]);
+    // Hosted offers retain immutable consent snapshots. Legacy foreign listings
+    // still need their separate version path before this editor can change them.
+    const foreign = await q.query('SELECT 1 FROM commerce_selections WHERE item_id=$1 AND shop_id<>$2 AND hosted_offer_id IS NULL LIMIT 1', [productId, p.storefront_shop_id]);
     requireCondition(!foreign.rowCount, 409, 'supply_terms_in_use', '這項商品已有其他商店選用，請先處理既有供貨版本。');
     await q.query(`UPDATE commerce_items i SET price_minor=$4,shipping_minor=$5,shipping_terms=$6,return_terms=$7
       FROM commerce_resource_tenants m WHERE m.resource_kind='shop' AND m.resource_id=i.shop_id

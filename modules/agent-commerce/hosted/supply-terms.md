@@ -32,12 +32,13 @@ immutable terms and product-version fences.
 
 This is preparation, not an offer publication or distribution acceptance. The
 UI says so; no supplier qualification, cross-tenant access, payment, automatic
-fulfilment or agreement is created. A foreign selection already referencing this
-item blocks this editor until its offer/version consent path is implemented.
+fulfilment or agreement is created. An unmanaged legacy foreign selection still blocks this editor. Hosted foreign
+selections reference immutable offers, so editing this private draft leaves their
+accepted terms unchanged; explicitly publishing a replacement retires the old offer.
 
-Next integration must support independent many-to-many selections (including
-five suppliers and five sellers), fixed-version supplier decisions, one stock
-authority and per-supplier order visibility. It must reuse existing selections,
+The [hosted distribution increment](distribution.md) implements independent
+many-to-many proposals and fixed-version supplier decisions. Shared reservation
+stock and per-supplier order visibility are still required next. It must reuse existing selections,
 acceptances and transfers while adding explicit cross-party authorization;
 removing the legacy `origin='imported'` filter is insufficient. The current direct
 reservation profile must not be used to accept foreign supply without that work.
