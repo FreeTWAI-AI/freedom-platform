@@ -82,6 +82,20 @@ test('exact current source/artifact, full ledger and synthetic host produce ONLY
   assert.equal(f.host.release_records[0].capabilities.length, 6, 'caller data unchanged');
 });
 
+test('hosted offer schema recognition still requires exact ledger and independent release approval', () => {
+  const filename='144_hosted_distribution_offers.sql', f=fixture();
+  assert.equal(evaluate(f).status,'compatible');
+  assert.equal(evaluate(f).deployment_authority,false);
+  f.host.release_records[0].schema_ledger_digests=[prefix(f.scan,143).ledger_digest];
+  assert(codes(evaluate(f)).includes('release_schema_unsupported'));
+  const changed=fixture(); changed.scan.ledger.find(row=>row.name===filename).sha256='d'.repeat(64);
+  changed.scan.ledger_digest=compatibilityLedgerDigest(changed.scan.ledger);
+  assert(codes(evaluate(changed)).includes('schema_ledger_mismatch'));
+  const renamed=fixture(); renamed.scan.ledger.find(row=>row.name===filename).name='144_unreviewed.sql';
+  renamed.scan.ledger_digest=compatibilityLedgerDigest(renamed.scan.ledger);
+  assert.deepEqual(codes(evaluate(renamed)),['schema_unknown']);
+});
+
 test('077 floor rejects old Work row-spread binary before any private writes', () => {
   const f = fixture();
   f.host.release_records[0].capabilities = ['platform.legacy.v1'];

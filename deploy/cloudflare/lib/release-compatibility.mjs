@@ -139,6 +139,8 @@ const FOUNDATION_NAMES = [
   '141_storefront_product_photos.sql',
   '142_community_content_relations.sql',
   '143_personal_content.sql',
+  // Hosted supply snapshots and consent provenance; recognition grants no release authority.
+  '144_hosted_distribution_offers.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({

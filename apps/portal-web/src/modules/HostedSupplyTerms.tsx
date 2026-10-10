@@ -3,9 +3,10 @@ import {SupplyTermsInputSchema, SupplyTermsSchema, type SupplyTerms, type Supply
 import {ApiError, type PortalClient} from '../api';
 import {formatMinor, parseMajorToMinor} from '../format';
 
-export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel, onSave}: {
+export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel, onSave, onPublish}: {
   client: PortalClient; path: string; title: string; busy: boolean;
   onDirty: (dirty: boolean) => void; onCancel: () => void;
+  onPublish?: (version: string) => Promise<void>;
   onSave: (body: SupplyTermsInput, version: string, success: () => void) => Promise<void>;
 }) {
   const [view, setView] = useState<SupplyTerms | null>(null);
@@ -25,11 +26,12 @@ export function HostedSupplyTerms({client, path, title, busy, onDirty, onCancel,
     <div className="actions">{error && <button type="button" className="btn btn-ghost" onClick={() => setReload(n => n + 1)}>重試讀取供貨條件</button>}
       <button type="button" className="btn btn-ghost" onClick={onCancel}>返回商品</button></div>
   </div>;
-  return <SupplyForm view={view} title={title} busy={busy} onDirty={onDirty} onCancel={onCancel} onSave={onSave}/>;
+  return <SupplyForm view={view} title={title} busy={busy} onDirty={onDirty} onCancel={onCancel} onSave={onSave} onPublish={onPublish}/>;
 }
 
-function SupplyForm({view, title, busy, onDirty, onCancel, onSave}: {
+function SupplyForm({view, title, busy, onDirty, onCancel, onSave, onPublish}: {
   view: SupplyTerms; title: string; busy: boolean; onDirty: (dirty: boolean) => void; onCancel: () => void;
+  onPublish?: (version: string) => Promise<void>;
   onSave: (body: SupplyTermsInput, version: string, success: () => void) => Promise<void>;
 }) {
   const initial = {cost: (view.cost_minor / 100).toFixed(2), shipping: (view.shipping_minor / 100).toFixed(2), shippingTerms: view.shipping_terms, returnTerms: view.return_terms};
@@ -51,7 +53,7 @@ function SupplyForm({view, title, busy, onDirty, onCancel, onSave}: {
   }
   return <form className="hosted-store-form stack" aria-label={`${title}供貨條件`} onSubmit={event => void submit(event)}>
     <h4>{title}・供貨條件</h4>
-    <p className="field-hint">先儲存供貨草稿。其他店主尚不能選用這些商品，儲存不會建立供貨合作。</p>
+    <p className="field-hint">儲存的是私人草稿。按「公開供貨版本」後，同社群店主才能看到這份商品介紹、供貨價與條件，並申請選用。</p>
     <p>庫存 {view.stock}・已預留 {view.reserved}・可供 {view.available}</p>
     <fieldset className="hosted-store-fields stack" disabled={busy}>
       <legend className="sr-only">供貨條件</legend>
@@ -63,6 +65,7 @@ function SupplyForm({view, title, busy, onDirty, onCancel, onSave}: {
       <label className="field">退貨條件<textarea required maxLength={2000} value={fields.returnTerms} onChange={e => change('returnTerms', e.target.value)}/></label>
       {error && <p className="banner banner-error" role="alert">{error}</p>}
       <div className="actions"><button className="btn btn-ghost" disabled={busy}>儲存供貨條件</button>
+        <button type="button" className="btn btn-ghost" disabled={busy || dirty || !onPublish} onClick={() => void onPublish?.(view.version)}>公開供貨版本</button>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>返回商品</button></div>
     </fieldset>
   </form>;

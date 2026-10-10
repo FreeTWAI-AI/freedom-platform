@@ -10,6 +10,8 @@ import {
 } from '../../../../contracts/guild-launchpad/v1/storefront';
 import {StoreAppearanceSchema, type StoreAppearance, type StoreTemplate} from '../../../../contracts/guild-launchpad/v1/storefront-presentation';
 import {SupplyTermsSchema} from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms';
+import {HostedDistribution} from './HostedDistribution';
+import {SupplyOfferSchema} from '../../../../contracts/guild-launchpad/v1/hosted-distribution';
 import {HostedSupplyTerms} from './HostedSupplyTerms';
 import {ApiError, type PortalClient} from '../api';
 import {formatIsoLocal, formatMinor, parseMajorToMinor} from '../format';
@@ -49,7 +51,7 @@ export function HostedStore({client, enabled, locationHash, userId, registerLeav
   const path = locationHash.replace(/^#/, '').split('/');
   if (path.length === 1 && path[0] === 'stores') return <StoreList key={userId} client={client}/>;
   const valid = path.length === 3 && path[0] === 'stores' && OpaqueId.safeParse(path[1]).success && OpaqueId.safeParse(path[2]).success;
-  return valid ? <StorePage key={`${userId}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
+  return valid ? <StorePage key={`${userId}:${client.sessionGeneration}:${path[1]}:${path[2]}`} client={client} userId={userId} tenantId={path[1]} instanceId={path[2]} registerLeave={registerLeave} photosEnabled={photosEnabled} photoUploadsEnabled={photoUploadsEnabled}/> : <MissingStore/>;
 }
 function BackLink() { return <div className="actions"><a href="#stores" className="btn btn-ghost">返回我的商店</a></div>; }
 function MissingStore() { return <div className="hosted-store stack"><BackLink/><p>找不到這間商店。</p></div>; }
@@ -68,10 +70,11 @@ function StoreList({client}: {client: PortalClient}) {
   </div>;
 }
 
-type Attempt = {method: 'post' | 'patch'; path: string; body: unknown; version?: string; schema: z.ZodType;
+type Attempt = {targetMissingIsStore?: boolean; method: 'post' | 'patch'; path: string; body: unknown; version?: string; schema: z.ZodType;
   key: string; success: (value: unknown) => void; notice: string; product?: boolean; fieldError?: (error: ApiError) => void};
 function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEnabled,photoUploadsEnabled}: {userId:string;photosEnabled:boolean;photoUploadsEnabled:boolean;client: PortalClient; tenantId: string; instanceId: string; registerLeave: RegisterLeave}) {
   const root = `/tenants/${tenantId}/storefronts/${instanceId}`;
+  const [distributionRefresh,setDistributionRefresh]=useState(0);
   const [view, setView] = useState<StoreView | null>(null);
   const [products, setProducts] = useState<ProductView[]>([]);
   const [media,setMedia]=useState<ProductMediaView[]>([]);
@@ -135,7 +138,7 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
         if(photosEnabled)photos=ProductMediaPageSchema.parse(results[3]).items;
       }
       if (!current()) return;
-      setView(next); setProducts(items); setMedia(photos); setPreview(draft); setAppearance(presentation); setError('');
+      setView(next); setDistributionRefresh(n=>n+1); setProducts(items); setMedia(photos); setPreview(draft); setAppearance(presentation); setError('');
     } catch (cause) {
       if (!current()) return;
       if (cause instanceof ApiError && cause.status === 404 && !Object.values(photoBlockRef.current).some(Boolean)) setMissing(true);
@@ -161,7 +164,7 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
       if (signal.aborted) return;
       if (cause instanceof ApiError && cause.network) {setRetry(attempt); setError('尚未確認原操作的結果，請按「重試」確認。'); return;}
       held.current = null;
-      if (cause instanceof ApiError && cause.status === 404) {setMissing(true); return;}
+      if (cause instanceof ApiError && cause.status === 404 && attempt.targetMissingIsStore!==false) {setMissing(true); return;}
       if (cause instanceof ApiError && cause.status === 412) {
         setEditing(null); setSupplyEditing(null); markDirty('edit', false); markDirty('supply', false); await load();
         announce(attempt.path.endsWith('/appearance') ? '商店資料剛剛被更新，已重新載入。你的版型選擇仍保留，請確認後再儲存。' : attempt.product ? '這件商品剛剛被更新，已重新載入。' : '商店資料剛剛被更新，已重新載入。');
@@ -195,9 +198,9 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
         <p className="banner" role="note">{NOTICE}</p>
         <section className="stack" aria-labelledby="store-products-title"><h3 id="store-products-title">商品</h3>
           <p>{view.product_count}／{view.product_limit} 件商品</p>
-          {!products.length && <p>還沒有商品。新增第一件商品後就能發布。</p>}
+          {!products.length && <p>{view.product_count ? '這間店目前使用合作選品；下方可管理供貨合作。' : '還沒有商品。新增第一件商品後就能發布。'}</p>}
           <div className="hosted-store-products">{products.map(product => <article className="hosted-store-product stack" key={product.product_id}>
-            {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}/>
+            {supplyEditing === product.product_id && can('store:write') ? <HostedSupplyTerms client={client} path={root + '/products/' + product.product_id + '/supply-terms'} title={product.title} busy={locked} onPublish={can('store:publish') ? version => command({method: 'post', path: root + '/products/' + product.product_id + '/supply-offer', body: {}, version, schema: SupplyOfferSchema, notice: '已公開供貨版本，店主可申請選用。', success: () => {setSupplyEditing(null); markDirty('supply', false);}}) : undefined} onDirty={value => markDirty('supply', value)} onCancel={() => {if (leaveOk()) {setSupplyEditing(null); markDirty('supply', false);}}} onSave={(body, version, success) => command({method: 'patch', path: root + '/products/' + product.product_id + '/supply-terms', body, version, schema: SupplyTermsSchema, product: true, notice: '已儲存供貨條件。', success: () => {success(); setSupplyEditing(null); markDirty('supply', false);}})}/>
               : editing === product.product_id && can('store:write') ? <ProductForm key={product.version} product={product} currency={store.currency} busy={locked} onDirty={value => markDirty('edit', value)} onCancel={() => {if (leaveOk()) {setEditing(null); markDirty('edit', false);}}} onSave={(body, success) => command({method: 'patch', path: root + '/products/' + product.product_id, body, version: product.version, schema: ProductViewSchema, product: true, notice: '已儲存。', success: value => {success(value); setEditing(null); markDirty('edit', false);}})}/>
               : <><h4>{product.title}</h4><p>{formatMinor(product.price_minor, product.currency)}</p><p>庫存 {product.stock}</p><p className="hosted-store-description">{product.description}</p>
                 {can('store:write') && <div className="actions"><button type="button" className="btn btn-ghost" disabled={locked} onClick={() => {if (leaveOk()) {setSupplyEditing(null); setEditing(product.product_id); markDirty('edit', false);}}}>編輯</button>
@@ -208,9 +211,10 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
               writable={can('store:write')} uploadsEnabled={photoUploadsEnabled} locked={busy||retry!==null||(photoBlocking&&!photoBlocks[product.product_id])}
               onState={(dirty,blocking)=>photoState(product.product_id,dirty,blocking)} onSaved={load}/>}
           </article>)}</div>
-          {can('store:write') && (products.length >= view.product_limit ? <p>已達 {view.product_limit} 件商品上限。</p>
+          {can('store:write') && (view.product_count >= view.product_limit ? <p>已達 {view.product_limit} 件商品上限。</p>
             : <ProductForm currency={store.currency} busy={locked} primary={!products.length} onDirty={value => markDirty('add', value)} onSave={(body, success) => command({method: 'post', path: root + '/products', body, schema: ProductViewSchema, notice: '已新增商品。', success})}/>)}
         </section>
+        {view.capabilities.includes('store:write') && <HostedDistribution client={client} root={root} refresh={distributionRefresh} busy={locked} writable={can('store:write')} onDirty={(id,value)=>markDirty('distribution/'+id,value)} onCommand={command} onReload={() => leaveOk() ? load() : Promise.resolve()}/>}
         <section className="stack" aria-labelledby="store-publish-title"><h3 id="store-publish-title">預覽與發布</h3>
           <p>{publication?.state === 'published' ? `目前公開第 ${publication.current_revision} 版。` : publication?.state === 'unpublished' ? '已停止公開。' : '尚未發布。'}</p>
           {publication?.state === 'published' && preview?.dirty && <p>有尚未發布的變更。</p>}
@@ -225,11 +229,11 @@ function StorePage({client, userId,tenantId, instanceId, registerLeave,photosEna
           {preview && <div className="actions"><a href={`/api/v1${root}/preview-page`} target="_blank" rel="noopener">預覽已儲存的展示頁</a></div>}
           {dirtyForms.appearance && <p className="field-hint">請先儲存版型，再開啟預覽；公開頁會保留目前發布的版本。</p>}
           {can('store:publish') && <div className="actions">
-            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || hasDraft || !products.length || !preview} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
+            {(publication?.state !== 'published' || preview?.dirty) && <button type="button" className={preview?.projection.products.length ? 'btn btn-primary' : 'btn btn-ghost'} disabled={locked || hasDraft || !preview?.projection.products.length} onClick={() => void command({method: 'post', path: root + '/publish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已發布展示頁。', success: () => {}})}>{publication?.state === 'published' ? '發布更新' : '發布展示頁'}</button>}
             {publication?.state === 'published' && <button type="button" className="btn btn-ghost" disabled={locked || hasDraft} onClick={() => {if (window.confirm(`停止公開後，/shops/${store.slug} 會顯示找不到這間商店。`)) void command({method: 'post', path: root + '/unpublish', body: {}, version: view.version!, schema: StoreViewSchema, notice: '已停止公開。', success: () => {}});}}>停止公開</button>}
           </div>}
           {can('store:publish') && hasDraft && <p className="field-hint">還有尚未儲存的內容。請先儲存商店資料與商品，再發布或停止公開。</p>}
-          {can('store:publish') && !products.length && <p className="field-hint">至少上架一件商品才能發布。</p>}
+          {can('store:publish') && !preview?.projection.products.length && <p className="field-hint">至少上架一件商品才能發布。</p>}
           {publication?.state === 'published' && publication.public_path && <div className="actions"><a href={publication.public_path} target="_blank" rel="noopener">查看公開頁：{publication.public_path}</a></div>}
           {store.slug_locked && <p className="field-hint">網址已固定。</p>}
         </section>

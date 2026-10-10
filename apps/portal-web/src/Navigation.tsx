@@ -11,7 +11,7 @@ export const TAB_TITLES: Record<TabId, string> = {
   friends: '我的好友', members: '工坊夥伴', account: '我的名片', cocreation: '一起開發', squads: '小隊集合',
   opensource: '開源投稿', workbench: '我的工作', showcase: '作品與需求', engagement: '合作紀錄',
   supplier: '我有東西要賣', retail: '我可以賣東西', marketing: '行銷工作室',
-  'guild-workspace': '公會管理', business: '業務空間', stores: '我的商店', reservations: '查詢我的預留', community: '自由工坊社群',
+  'guild-workspace': '公會管理', business: '業務空間', stores: '我的商店', reservations: '我的訂單', community: '自由工坊社群',
   todos: '待辦清單', messages: '我的訊息', events: '社群活動', tasks: '社群任務',
   social: '社群分享', services: '社員服務', promotion: '推廣排行榜',
   highlights: '活動集錦',
