@@ -110,6 +110,38 @@ after(async () => {
 });
 beforeEach(async () => { await h.reset(); await offering(); });
 
+test('my stores continuation retrieves every store beyond the 100-tenant page with current authorization', {timeout: 120000}, async () => {
+  const owner = (await h.person('續頁商店會員')).session;
+  const stores: Store[] = [];
+  for (let index = 0; index < 105; index++) {
+    const store = await open(owner, `商店空間 ${index}`); stores.push(store);
+    // Synthetic historical membership exceeds today's active-creation quota.
+    await h.pool.query(`UPDATE tenants SET status='suspended' WHERE tenant_id=$1`, [store.tenantId]);
+  }
+  await h.pool.query(`UPDATE tenants SET status='active' WHERE tenant_id=ANY($1::uuid[])`, [stores.map(store => store.tenantId)]);
+  const legacy = expect(await call('GET', '/me/stores', owner));
+  assert.deepEqual(Object.keys(legacy).sort(), ['items', 'truncated']);
+  assert.equal(legacy.items.length, 100); assert.equal(legacy.truncated, true);
+  const first = expect(await call('GET', '/me/stores?pagination=cursor', owner));
+  assert.deepEqual(first.items, legacy.items);
+  assert.equal(first.items.length, 100); assert.ok(first.next_cursor);
+  const second = expect(await call('GET', '/me/stores?pagination=cursor&cursor=' + encodeURIComponent(first.next_cursor), owner));
+  assert.equal(second.items.length, 5); assert.equal(second.next_cursor, null);
+  assert.deepEqual([...first.items, ...second.items].map((item: {tenant_id: string}) => item.tenant_id), stores.map(s => s.tenantId).sort());
+  const outsider = (await h.person('續頁無權會員')).session;
+  assert.equal((await call('GET', '/me/stores?pagination=cursor&cursor=' + encodeURIComponent(first.next_cursor), outsider)).status, 422);
+  assert.deepEqual(expect(await call('GET', '/me/stores', outsider)).items, []);
+  for (const query of ['cursor=bad', 'pagination=cursor&cursor=bad', 'pagination=cursor&cursor=', 'pagination=cursor&cursor=a&cursor=b', 'pagination=cursor&pagination=cursor', 'pagination=other', 'unknown=1']) {
+    assert.equal((await call('GET', '/me/stores?' + query, owner)).status, 422, query);
+  }
+  const last = stores.sort((a, b) => a.tenantId.localeCompare(b.tenantId)).at(-1)!;
+  await h.pool.query(`UPDATE tenants SET status='recovery_required' WHERE tenant_id=$1`, [last.tenantId]);
+  await h.pool.query(`UPDATE tenant_memberships SET status='revoked',revoked_at=clock_timestamp() WHERE tenant_id=$1`, [last.tenantId]);
+  const revoked = expect(await call('GET', '/me/stores?pagination=cursor&cursor=' + encodeURIComponent(first.next_cursor), owner));
+  assert.equal(revoked.items.length, 4); assert.equal(revoked.items.some((item: {tenant_id: string}) => item.tenant_id === last.tenantId), false);
+  assert.equal(revoked.next_cursor, null);
+});
+
 test('T-024 restricted runtime launches, sets up, edits, previews, publishes and resumes a store in a fresh session', async () => {
   const facts = (await runtime.query(`SELECT r.rolsuper,r.rolbypassrls,c.relowner<>r.oid AS non_owner FROM pg_roles r JOIN pg_class c ON c.relname='commerce_resource_tenants'
     JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname=current_schema() WHERE r.rolname=current_user`)).rows[0];

@@ -96,6 +96,25 @@ test('one bulk inbox command clears all pages and incoming DMs while preserving 
   assert.equal(await count('member_notifications'),28);assert.equal(await count('member_direct_messages'),2);noPrivate(first.data);
 });
 
+test('notification-only bulk read preserves chats, member isolation and later arrivals on replay',async()=>{
+  const [a,b]=await signInAll(),key=randomUUID(),path='/me/inbox/read-all';
+  for(let n=0;n<27;n++)await notify(notice(A));await notify(notice(B));
+  await request(`/me/conversations/${A}/messages`,b,{body:'通知已讀不應清除這則私訊'});
+  await request('/me/channels/world/world/messages',b,{body:'通知已讀不應清除世界聊天'});
+  const chatBefore=(await request('/me/channels?kind=world',a)).data.unread_count;
+  const first=await request(path,a,{scope:'notifications'},{key});assert.equal(first.status,200);
+  assert.deepEqual(first.data,{notifications_updated:27,direct_messages_updated:0,channels_updated:0});
+  assert.equal((await request('/me/conversations',a)).data.unread_count,1);
+  assert.equal((await request('/me/channels?kind=world',a)).data.unread_count,chatBefore);assert.ok(chatBefore>0);
+  assert.equal((await request('/me/notifications',b)).data.unread_count,1);
+  await notify(notice(A));assert.deepEqual((await request(path,a,{scope:'notifications'},{key})).data,first.data);
+  assert.equal((await request('/me/notifications',a)).data.unread_count,1);
+  assert.equal((await request(path,a,{},{key})).status,409);
+  assert.equal((await request(path,a,{scope:'everything'})).status,422);
+  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1',[A]);
+  assert.equal((await request(path,a,{scope:'notifications'},{key})).status,401);
+});
+
 test('bulk inbox replay cannot clear new arrivals and revoked sessions cannot replay it',async()=>{
   const [a,b]=await signInAll(),key=randomUUID();
   await notify(notice(A));

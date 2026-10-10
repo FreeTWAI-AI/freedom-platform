@@ -6,7 +6,7 @@ import type {SessionPayload,TabId} from '../types';
 import {MemberAvatar} from './MemberAvatar';
 import {MemberChannels} from './MemberChannels';
 import {useChatLeaveGuards} from './chat-leave-guards';
-import {announceInboxChange,INBOX_ALL_READ,useReadAllInbox,type InboxUnread} from './member-inbox';
+import {announceInboxChange,INBOX_ALL_READ,NOTIFICATIONS_READ,type InboxUnread} from './member-inbox';
 import {logConsoleEvent} from '../game-console-core';
 import {consoleChannel} from '../game-console-routing';
 import type {MemberCardData} from './Membership';
@@ -51,18 +51,16 @@ const merge=<T,>(current:T[],next:T[],id:(value:T)=>string)=>{const seen=new Set
 const usableAction=(action:NotificationAction|null)=>!action||!Object.hasOwn(actionLabels,action.tab)||action.tab==='messages'&&!uuid.test(action.resource_id??'')?null:action;
 const unreadText=(count:InboxUnread)=>count===undefined?'':count===null?'未讀數未確認':count>0?`${count} 則未讀`:'沒有未讀';
 
-type View='notifications'|'guild'|'squad'|'direct'|'world';
-const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人訊息','私訊','messages'],['guild','公會閒聊','公會','guilds'],['squad','小隊閒聊','群組','squads'],['world','世界聊天','公開','community'],['notifications','通知','通知','todos']];
+type View='guild'|'squad'|'direct'|'world';
+const VIEWS:readonly (readonly [View,string,string,TabId])[]=[['direct','私人訊息','私訊','messages'],['guild','公會閒聊','公會','guilds'],['squad','小隊閒聊','群組','squads'],['world','世界聊天','公開','community']];
 
-export function MemberMessages({client,session,messageImagesEnabled=false,memberBlockingEnabled=false,onNavigate,onNotificationPeer,chatEntry,initialView,registerLeave}:Props&{chatEntry?:ChatEntry|null;initialView?:{view:'direct'|'notifications';request:number}}){
-  const all=useReadAllInbox(client);
+export function MemberMessages({client,session,messageImagesEnabled=false,memberBlockingEnabled=false,onNavigate,onNotificationPeer,chatEntry,active=true,registerLeave}:Props&{chatEntry?:ChatEntry|null;active?:boolean}){
   const leaveGuards=useChatLeaveGuards(registerLeave);
-  const [view,setView]=useState<View>(initialView?.view??'direct');
+  const [view,setView]=useState<View>('direct');
   const [listRequest,setListRequest]=useState(0);
   const hub=useRef<HTMLElement>(null);usePhoneChatBounds(hub);
-  const [noticeUnread,setNoticeUnread]=useState<InboxUnread>(),[guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>(),[worldUnread,setWorldUnread]=useState<InboxUnread>();
-  const unread:Record<View,InboxUnread>={notifications:noticeUnread,guild:guildUnread,squad:squadUnread,direct:directUnread,world:worldUnread};
-  useEffect(()=>{if(initialView)setView(initialView.view)},[initialView?.request]);
+  const [guildUnread,setGuildUnread]=useState<InboxUnread>(),[squadUnread,setSquadUnread]=useState<InboxUnread>(),[directUnread,setDirectUnread]=useState<InboxUnread>(),[worldUnread,setWorldUnread]=useState<InboxUnread>();
+  const unread:Record<View,InboxUnread>={guild:guildUnread,squad:squadUnread,direct:directUnread,world:worldUnread};
   useEffect(()=>{if(chatEntry)setView(chatEntry.kind)},[chatEntry?.request]);
   const [openPeer,setOpenPeer]=useState<{id:string;request:number}|null>(null);
   useEffect(()=>{if(onNotificationPeer&&uuid.test(onNotificationPeer.id)){setView('direct');setOpenPeer({id:onNotificationPeer.id,request:onNotificationPeer.sequence});}},[onNotificationPeer?.sequence]);
@@ -78,30 +76,26 @@ export function MemberMessages({client,session,messageImagesEnabled=false,member
   return <section ref={hub} className="member-messages messages-hub">
     <div className="messages-categories">
     <div className="messages-tabs" role="tablist" aria-label="訊息類型" onKeyDown={tabKey}>
-      {VIEWS.map(([id,label,short,icon])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-label={`${label}${unread[id]===undefined?'':`，${unreadText(unread[id])}`}`} data-guide-anchor={id==='notifications'?'messages:notifications':id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
+      {VIEWS.map(([id,label,short,icon])=><button key={id} ref={node=>{tabs.current[id]=node;}} type="button" role="tab" id={`messages-tab-${id}`} aria-label={`${label}${unread[id]===undefined?'':`，${unreadText(unread[id])}`}`} data-guide-anchor={id==='direct'?'messages:direct':undefined} aria-controls={`messages-panel-${id}`}
         aria-selected={view===id} tabIndex={view===id?0:-1} className="btn btn-ghost" onClick={()=>setView(id)}><WorkshopIcon name={icon}/><span>{short}</span>{unread[id]!==undefined&&<><span className="chat-sr-only">{unreadText(unread[id])}</span>{unread[id]!==0&&<span className="messages-count chat-category-count" aria-hidden="true">{unread[id]===null?'?':unread[id]!>99?'99+':unread[id]}</span>}</>}</button>)}
     </div>
     <button type="button" className="btn btn-ghost messages-new-group" onClick={()=>onNavigate('squads')} title="前往小隊建立合作群組"><WorkshopIcon name="members"/><span>建立群組</span></button>
     </div>
     {/* Every panel stays mounted so unsent drafts survive switching tabs; chat history is read only after a channel is chosen. */}
-    <div id="messages-panel-notifications" role="tabpanel" aria-labelledby="messages-tab-notifications" hidden={view!=='notifications'}>
-      <div className="messages-notice-header"><h2>通知</h2><button type="button" className="btn btn-ghost" disabled={all.busy} onClick={()=>void all.markAll()}>{all.busy?'標記中…':'全部標為已讀'}</button>{all.error&&<p role="alert">{all.error}</p>}</div>
-      <Notifications client={client} onUnread={setNoticeUnread} onNavigate={onNavigate} onOpenPeer={id=>{setView('direct');setOpenPeer(current=>({id,request:(current?.request??0)+1}));}}/>
-    </div>
     <div id="messages-panel-guild" role="tabpanel" aria-labelledby="messages-tab-guild" hidden={view!=='guild'}>
-      <MemberChannels registerLeave={leaveGuards.guild} key={session.user.user_id} client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate} active={view==='guild'} openChannel={chatEntry?.kind==='guild'?chatEntry:null}/>
+      <MemberChannels registerLeave={leaveGuards.guild} key={session.user.user_id} client={client} session={session} kind="guild" onUnread={setGuildUnread} onNavigate={onNavigate} active={active&&view==='guild'} openChannel={chatEntry?.kind==='guild'?chatEntry:null}/>
     </div>
     <div id="messages-panel-squad" role="tabpanel" aria-labelledby="messages-tab-squad" hidden={view!=='squad'}>
-      <MemberChannels registerLeave={leaveGuards.squad} key={session.user.user_id} client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
+      <MemberChannels registerLeave={leaveGuards.squad} key={session.user.user_id} client={client} session={session} kind="squad" onUnread={setSquadUnread} onNavigate={onNavigate} active={active&&view==='squad'} openChannel={chatEntry?.kind==='squad'?chatEntry:null}/>
     </div>
     <div id="messages-panel-direct" role="tabpanel" aria-labelledby="messages-tab-direct" hidden={view!=='direct'}>
-      <DirectMessages key={session.user.user_id} client={client} session={session} messageImagesEnabled={messageImagesEnabled} registerLeave={leaveGuards.direct} onUnread={setDirectUnread} openPeer={openPeer} active={view==='direct'} listRequest={listRequest} memberBlockingEnabled={memberBlockingEnabled}/>
+      <DirectMessages key={session.user.user_id} client={client} session={session} messageImagesEnabled={messageImagesEnabled} registerLeave={leaveGuards.direct} onUnread={setDirectUnread} openPeer={openPeer} active={active&&view==='direct'} listRequest={listRequest} memberBlockingEnabled={memberBlockingEnabled}/>
     </div>
-    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels registerLeave={leaveGuards.world} key={session.user.user_id} client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
+    <div id="messages-panel-world" role="tabpanel" aria-labelledby="messages-tab-world" hidden={view!=='world'}><MemberChannels registerLeave={leaveGuards.world} key={session.user.user_id} client={client} session={session} kind="world" onUnread={setWorldUnread} onNavigate={onNavigate} active={active&&view==='world'} openChannel={chatEntry?.kind==='world'?chatEntry:null} onReturnToChats={returnToChats}/></div>
   </section>;
 }
 
-function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalClient;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;onOpenPeer:(id:string)=>void}){
+export function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalClient;onUnread:(count:InboxUnread)=>void;onNavigate:(id:TabId)=>void;onOpenPeer:(id:string)=>void}){
   const [items,setItems]=useState<Notice[]>([]),[nextOffset,setNextOffset]=useState<number|null>(null);
   const [status,setStatus]=useState<'loading'|'ready'|'error'>('loading'),[error,setError]=useState('');
   const [more,setMore]=useState<{loading:boolean;error:string}>({loading:false,error:''});
@@ -126,7 +120,7 @@ function Notifications({client,onUnread,onNavigate,onOpenPeer}:{client:PortalCli
     }
   },[client,onUnread]);
   useEffect(()=>{void load();},[load]);
-  useEffect(()=>{const update=()=>void load(true);window.addEventListener(INBOX_ALL_READ,update);return()=>window.removeEventListener(INBOX_ALL_READ,update)},[load]);
+  useEffect(()=>{const update=()=>void load(true);window.addEventListener(INBOX_ALL_READ,update);window.addEventListener(NOTIFICATIONS_READ,update);return()=>{window.removeEventListener(INBOX_ALL_READ,update);window.removeEventListener(NOTIFICATIONS_READ,update)}},[load]);
   async function loadMore(){
     if(nextOffset===null||more.loading)return;
     const current=generation.current;setMore({loading:true,error:''});

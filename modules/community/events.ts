@@ -10,6 +10,8 @@ import type { Actor } from '../identity-membership/service.js';
 import {authRateLimitInTransaction} from '../identity-membership/members.js';
 import { normalizeEventPoster } from '../skill-submissions/payload.js';
 import {notifyMember} from '../member-communications/notifications.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
+import {avatarUrl} from '../identity-membership/avatars.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {requireFullGuildMember} from '../positioning/member-tier.js';
 import {adminCommand,audit,type AdminActor,type AdminCommand} from '../platform-admin/service.js';
@@ -177,6 +179,38 @@ export async function eventReferralReport(pool:Pool,actor:Actor,id:string){
     (SELECT count(*)::int FROM community_event_guest_rsvps g WHERE g.event_id=c.event_id AND g.referred_by_user_id=c.user_id AND g.email_sent_at IS NOT NULL) AS registrations,
     (SELECT count(*)::int FROM promotion_clicks pc JOIN promotion_links pl ON pl.link_id=pc.link_id WHERE pl.kind='event' AND pl.target_key=c.event_id::text AND pl.user_id=c.user_id) AS clicks
     FROM community_event_share_codes c JOIN users u ON u.user_id=c.user_id WHERE c.event_id=$1 AND (c.user_id=$2 OR NOT is_verification_test_account(c.user_id)) ORDER BY registrations DESC,u.display_name`,[id,actor.user_id])).rows;
+}
+
+// Keep the page bounded while allowing every advertised continuation; Zod int
+// rejects fractional and unsafe numeric offsets before they reach PostgreSQL.
+const AttendeeQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).default(0)}).strict();
+export type EventAttendee={kind:'member';user_id:string;nickname:string;avatar_url:string|null;registered_at:string}|{kind:'guest';registered_at:string};
+/** Organizer-only list of who is currently going, newest registration last (#401).
+ * Same population as attending_count; members show only their card summary and
+ * public guests only their registration time — never email, name or contacts. */
+export async function eventAttendees(pool:Pool,actor:Actor,id:string,raw:unknown):Promise<{items:EventAttendee[];total:number;next_offset:number|null}>{
+  const {limit,offset}=AttendeeQuery.parse(raw);
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+  const row=await scopedEvent(q,actor,id,true);
+  requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看報名名單。');
+  const rows=(await q.query(`WITH going AS (
+      SELECT 'member' AS kind,r.user_id,r.updated_at AS registered_at,r.user_id::text AS registration_key FROM community_event_rsvps r
+        WHERE r.event_id=$1 AND r.state='going' AND NOT is_verification_test_account(r.user_id)
+      UNION ALL
+      SELECT 'guest',NULL,g.created_at,g.email FROM community_event_guest_rsvps g WHERE g.event_id=$1 AND g.email_sent_at IS NOT NULL)
+    SELECT g.kind,g.user_id,g.registered_at,u.display_name,a.aggregate_version AS avatar_version,a.present AS avatar_present,count(*) OVER() AS total
+    FROM going g LEFT JOIN users u ON u.user_id=g.user_id LEFT JOIN member_avatar_presence a ON a.user_id=g.user_id AND a.community_id=$2
+    ORDER BY g.registered_at,g.user_id NULLS LAST,g.registration_key LIMIT $3 OFFSET $4`,[id,actor.community_id,limit+1,offset])).rows;
+  const total=rows.length?Number(rows[0].total):(await q.query(`SELECT
+    (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
+    (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NOT NULL) AS total`,[id])).rows[0].total;
+  const items=rows.slice(0,limit).map((item):EventAttendee=>item.kind==='member'
+    ?{kind:'member',user_id:item.user_id,nickname:item.display_name,avatar_url:item.avatar_present?avatarUrl(item.user_id,item.avatar_version??'1',true):null,registered_at:new Date(item.registered_at).toISOString()}
+    :{kind:'guest',registered_at:new Date(item.registered_at).toISOString()});
+  await assertCurrentSessionClock(q,actor);
+  return {items,total:Number(total),next_offset:rows.length>limit?offset+limit:null};
+  });
 }
 
 export async function publicEvent(pool:Pool,id:string){

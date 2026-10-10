@@ -15,9 +15,16 @@ export const engagementInput=z.object({scope:text(3000),acceptance_criteria:text
 export const receiptInput=z.object({amount_minor:money,currency,evidence_ref:opaqueRef,received_at:isoTime}).strict();
 const termsInput=z.object({terms_sha256:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 
-export async function listShowcases(pool:Pool,actor:Actor) {
-  return (await pool.query(`SELECT s.*,u.display_name AS owner_name FROM showcases s JOIN users u ON u.user_id=s.owner_ref
-    WHERE s.community_id=$1 AND s.status='published' AND (s.owner_ref=$2 OR NOT is_verification_test_account(s.owner_ref)) ORDER BY s.created_at DESC,s.showcase_id`,[actor.community_id,actor.user_id])).rows;
+// Zod int accepts only safe integers. Bound each response, rather than imposing
+// a 10,000-row cutoff that would make later advertised continuations invalid.
+const ShowcasePageQuery=z.object({limit:z.coerce.number().int().min(1).max(50).default(20),offset:z.coerce.number().int().min(0).default(0)}).strict();
+/** Published community showcases, newest first, one bounded page at a time (#402). */
+export async function listShowcases(pool:Pool,actor:Actor,raw:unknown={}) {
+  const {limit,offset}=ShowcasePageQuery.parse(raw);
+  const rows=(await pool.query(`SELECT s.*,u.display_name AS owner_name FROM showcases s JOIN users u ON u.user_id=s.owner_ref
+    WHERE s.community_id=$1 AND s.status='published' AND (s.owner_ref=$2 OR NOT is_verification_test_account(s.owner_ref)) ORDER BY s.created_at DESC,s.showcase_id
+    LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
+  return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
 }
 export async function createShowcase(pool:Pool,input:Command) {
   const body=showcaseInput.parse(input.body);

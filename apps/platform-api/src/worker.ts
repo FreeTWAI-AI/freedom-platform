@@ -80,6 +80,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
+  FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -237,6 +238,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',
     personalContentEnabled: env.FREEDOM_PERSONAL_CONTENT_ENABLED === 'true',
+    notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }

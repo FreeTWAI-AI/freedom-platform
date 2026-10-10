@@ -11,8 +11,8 @@ async function login(page:Page){
 
 test('home and navigation reveal secondary functions on demand and page tools return keyboard focus',async({page})=>{
   await login(page);
-  await expect(page.locator('.nav-primary > button')).toHaveCount(6);
-  await expect(page.locator('.nav-primary > button')).toHaveText(['會員首頁','社群分享','我的訊息','職業公會','技能書架','搜尋社群內容']);
+  await expect(page.locator('.nav-primary > button')).toHaveCount(5);
+  await expect(page.locator('.nav-primary > button')).toHaveText(['會員首頁','社群分享','職業公會','技能書架','搜尋社群內容']);
   await expect(page.locator('.nav-more')).not.toHaveAttribute('open','');
   await expect(page.locator('.home-personal')).not.toHaveAttribute('open','');
   await expect(page.locator('.home-module-section')).not.toHaveAttribute('open','');
@@ -27,7 +27,7 @@ test('home and navigation reveal secondary functions on demand and page tools re
   await openFeatureSearch(page);
   await page.getByLabel('搜尋功能').fill('聊天室');
   await page.getByRole('navigation',{name:'主要工作區'}).getByRole('region',{name:'功能搜尋結果'}).getByRole('button',{name:'我的訊息',exact:true}).click();
-  await expect(page).toHaveURL(/#messages$/);
+  await expect(page.locator('.floating-message-panel')).toBeVisible();
 });
 
 test('simple mobile home fits 320px and keeps every theme and original brand',async({page})=>{
@@ -42,7 +42,7 @@ test('simple mobile home fits 320px and keeps every theme and original brand',as
   }
 });
 
-test('one click clears notification pages and chat badges and persists after reload',async({page,e2eAuthPool})=>{
+test('one click clears notification pages while preserving chat badges and persists after reload',async({page,e2eAuthPool})=>{
   const [a,b]=DEMO_USERS.map(user=>user.user_id),prefix=`bulk-e2e-${Date.now()}`;
   for(let n=0;n<24;n++)await e2eAuthPool.query(`INSERT INTO member_notifications(community_id,recipient_ref,kind,source_key,title,body)
     SELECT community_id,user_id,'friend_request',$2,'批次通知測試','通知內容保留' FROM users WHERE user_id=$1`,[a,`${prefix}/${n}`]);
@@ -53,7 +53,7 @@ test('one click clears notification pages and chat badges and persists after rel
   await notices.getByRole('button',{name:'全部標為已讀',exact:true}).click();
   await expect(page.locator('.notification-bell-count')).toHaveCount(0);
   await expect.poll(async()=>(await e2eAuthPool.query('SELECT count(*)::int AS n FROM member_notifications WHERE recipient_ref=$1 AND read_at IS NULL',[a])).rows[0].n).toBe(0);
-  expect((await e2eAuthPool.query('SELECT read_at FROM member_direct_messages WHERE recipient_ref=$1 AND body=$2',[a,prefix])).rows[0].read_at).not.toBeNull();
+  expect((await e2eAuthPool.query('SELECT read_at FROM member_direct_messages WHERE recipient_ref=$1 AND body=$2',[a,prefix])).rows[0].read_at).toBeNull();
   expect((await e2eAuthPool.query('SELECT count(*)::int AS n FROM member_notifications WHERE source_key LIKE $1',[`${prefix}/%`])).rows[0].n).toBe(24);
   await page.reload();await expect(page.locator('.notification-bell-count')).toHaveCount(0);
 });

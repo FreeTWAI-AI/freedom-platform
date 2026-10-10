@@ -1,3 +1,4 @@
+import {AccountDeactivation} from './AccountDeactivation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useModuleMutation, type ModulePanelProps } from './shared';
 import {MemberBlockingAction} from './MemberBlocking';
@@ -15,6 +16,7 @@ import {MemberECard} from './MemberECard';
 import {MemberRecommendations} from './MemberRecommendations';
 import {guildLabel} from './GuildName';
 import {SECTION_LABELS} from '../../../../contracts/guild-launchpad/v1/guild-preferences';
+import {AccountSecurity} from './AccountSecurity';
 
 type Audience='public'|'friends'|'squad'|'guild';
 type IdentityLabel='male'|'female'|'alien'|'ai';
@@ -37,11 +39,29 @@ export function AccountPanel({client,session}:ModulePanelProps){
   const fill=(value:Account)=>{setAccount(value);setNickname(value.nickname);setIdentityLabel(value.identity_label??'');setContacts(value.contacts);};
   async function load(){setLoadError('');try{const [a,m]=await Promise.all([client.get<Account>('/me/account'),client.get<MemberCardData>(`/members/${session.user.user_id}`)]);fill(a);setMember(m);}catch(e){setLoadError(fail(e));}}
   useEffect(()=>{void load();void loadLabels(client).then(setLabels).catch(()=>{});},[client,session.user.user_id]);
+  function sameAccountProfile(first:Account|null,second:Account){
+    if(!first)return false;
+    const {aggregate_version:_first,...before}=first,{aggregate_version:_second,...after}=second;
+    return JSON.stringify(before)===JSON.stringify(after);
+  }
+  async function refreshSecurityVersion(){
+    const generation=client.sessionGeneration;
+    try{
+      const latest=await client.get<Account>('/me/account');
+      if(generation!==client.sessionGeneration)return;
+      // A security-only increment may advance the loaded baseline, but a
+      // concurrent profile edit must still conflict with our unsaved draft.
+      if(!sameAccountProfile(account,latest)){setLoadError('帳號資料已在其他操作中變更。請先重新載入，再確認尚未保存的內容。');return;}
+      setLoadError('');
+      setAccount(current=>current&&sameAccountProfile(current,latest)?{...current,aggregate_version:Math.max(current.aggregate_version,latest.aggregate_version)}:current);
+    }catch(cause){if(generation===client.sessionGeneration)setLoadError(fail(cause));}
+  }
   async function submit(event:FormEvent){event.preventDefault();if(!contacts||!account)return;setNotice('');const clean=Object.fromEntries(Object.entries(contacts).map(([key,c])=>[key,key==='email'?{audiences:c.audiences}:{value:c.value,audiences:c.audiences}]));const saved=await mutate<Account>('/me/account',{nickname,identity_label:identityLabel||null,contacts:clean},account.aggregate_version);if(saved){fill(saved);setNotice('個人資料與每一項聯絡方式的可見範圍已保存。');window.dispatchEvent(new Event('freedom-profile-updated'));await load();}}
   return <section className="module-panel account-panel">{member&&<MemberCard member={member} labels={labels} client={client}/>}
     {account&&<AvatarEditor client={client} nickname={account.nickname} initial={account.avatar} onSaved={avatar=>{setAccount(current=>current?{...current,avatar}:current);setMember(current=>current?{...current,avatar_url:avatar.avatar_url}:current);}}/>}
     <MemberShare client={client}/><MemberRecommendations client={client}/><GitHubConnectionPanel/>
-    <Status error={loadError||error} notice={notice}/>{loadError&&<button className="btn" onClick={()=>void load()}>重新載入我的資料</button>}{!account&&!loadError&&<p role="status">載入會員資料…</p>}{account&&contacts&&<form className="card stack account-settings" onSubmit={submit}><h3>社群名片與聯絡方式</h3><label className="field">社群顯示名稱<input required minLength={1} maxLength={60} aria-describedby="community-name-hint" data-guide-anchor="account:display-name" value={nickname} onChange={e=>setNickname(e.target.value)}/></label><p id="community-name-hint" className="field-hint">建議使用你在社群最常用的名字，方便夥伴認出你。</p><label className="field">我是（選填）<select value={identityLabel} aria-describedby="member-identity-hint" onChange={e=>setIdentityLabel(e.target.value as IdentityLabel|'')}><option value="">不顯示</option>{Object.entries(identityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><p id="member-identity-hint" className="field-hint">由你自行選擇，會顯示在已登入夥伴可見的名片上；可隨時修改或選擇不顯示。</p><p className="field-hint" id="contact-audience-hint">Email 同時用於登入與聯絡。每項聯絡方式可複選分享對象，符合任一項就能看見；都不勾選就是不公開。「平台公開」涵蓋所有已登入的工坊會員；好友須雙方接受，小隊與公會依目前有效成員關係判斷。社群帳號由本人填寫，尚未驗證身分。開啟分享名片後，設為「平台公開」的項目也會顯示在名片上，拿到連結的人不必登入就看得到（可在名片設定逐項隱藏）。</p><div className="contact-grid">{(Object.keys(contactLabels) as (keyof typeof contactLabels)[]).map(key=><div className="contact-row" key={key} data-guide-anchor={key==='email'?'account:email-visibility':undefined}><label className="field">{contactLabels[key]}<input aria-label={contactLabels[key]} type={key==='email'?'email':'text'} value={key==='email'?account.login_email:contacts[key].value} readOnly={key==='email'} maxLength={key==='github'?39:key==='email'?200:100} autoComplete="off" onChange={key==='email'?undefined:e=>setContacts({...contacts,[key]:{...contacts[key],value:e.target.value}})} placeholder={key==='github'?'你的 GitHub username':key==='discord'?'你的 Discord username':undefined}/>{key==='email'&&<span className="field-hint">與登入信箱相同</span>}</label><AudienceChoices label={contactLabels[key]} audiences={contacts[key].audiences} onChange={audiences=>setContacts({...contacts,[key]:{...contacts[key],audiences}})}/></div>)}</div><button className="btn btn-primary" disabled={busy}>{busy?'保存中…':'保存個人資料與公開範圍'}</button></form>}<MemberSocialLinks client={client} memberId={session.user.user_id}/><ClientConnections client={client}/></section>;
+    {account&&<AccountDeactivation client={client} version={account.aggregate_version} disabled={busy}/>}
+    <Status error={loadError||error} notice={notice}/>{loadError&&<button className="btn" onClick={()=>void load()}>重新載入我的資料</button>}{!account&&!loadError&&<p role="status">載入會員資料…</p>}{account&&contacts&&<form className="card stack account-settings" onSubmit={submit}><h3>社群名片與聯絡方式</h3><label className="field">社群顯示名稱<input required minLength={1} maxLength={60} aria-describedby="community-name-hint" data-guide-anchor="account:display-name" value={nickname} onChange={e=>setNickname(e.target.value)}/></label><p id="community-name-hint" className="field-hint">建議使用你在社群最常用的名字，方便夥伴認出你。</p><label className="field">我是（選填）<select value={identityLabel} aria-describedby="member-identity-hint" onChange={e=>setIdentityLabel(e.target.value as IdentityLabel|'')}><option value="">不顯示</option>{Object.entries(identityLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><p id="member-identity-hint" className="field-hint">由你自行選擇，會顯示在已登入夥伴可見的名片上；可隨時修改或選擇不顯示。</p><p className="field-hint" id="contact-audience-hint">Email 同時用於登入與聯絡。每項聯絡方式可複選分享對象，符合任一項就能看見；都不勾選就是不公開。「平台公開」涵蓋所有已登入的工坊會員；好友須雙方接受，小隊與公會依目前有效成員關係判斷。社群帳號由本人填寫，尚未驗證身分。開啟分享名片後，設為「平台公開」的項目也會顯示在名片上，拿到連結的人不必登入就看得到（可在名片設定逐項隱藏）。</p><div className="contact-grid">{(Object.keys(contactLabels) as (keyof typeof contactLabels)[]).map(key=><div className="contact-row" key={key} data-guide-anchor={key==='email'?'account:email-visibility':undefined}><label className="field">{contactLabels[key]}<input aria-label={contactLabels[key]} type={key==='email'?'email':'text'} value={key==='email'?account.login_email:contacts[key].value} readOnly={key==='email'} maxLength={key==='github'?39:key==='email'?200:100} autoComplete="off" onChange={key==='email'?undefined:e=>setContacts({...contacts,[key]:{...contacts[key],value:e.target.value}})} placeholder={key==='github'?'你的 GitHub username':key==='discord'?'你的 Discord username':undefined}/>{key==='email'&&<span className="field-hint">與登入信箱相同</span>}</label><AudienceChoices label={contactLabels[key]} audiences={contacts[key].audiences} onChange={audiences=>setContacts({...contacts,[key]:{...contacts[key],audiences}})}/></div>)}</div><button className="btn btn-primary" disabled={busy}>{busy?'保存中…':'保存個人資料與公開範圍'}</button></form>}<AccountSecurity client={client} onAccountChanged={refreshSecurityVersion}/><MemberSocialLinks client={client} memberId={session.user.user_id}/><ClientConnections client={client}/></section>;
 }
 function AudienceChoices({label,audiences,onChange}:{label:string;audiences:Audience[];onChange:(value:Audience[])=>void}){
   const isPublic=audiences.includes('public');

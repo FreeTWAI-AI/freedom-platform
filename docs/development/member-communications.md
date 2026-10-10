@@ -1,6 +1,6 @@
 # 會員通知、閒聊頻道與站內私訊
 
-會員在「設定 → 我的訊息」裡的通知、閒聊頻道與私訊，資料存放在中央 PostgreSQL（migration 035、037），由 `modules/member-communications/` 負責。這裡只有站內紀錄：不寄 email、不推播、不連外部服務，也不回填歷史事件。四個分區與完整路徑見 [會員設定、待辦與訊息](member-settings-messages.md)。
+會員右下角訊息泡泡裡的閒聊頻道與私訊，以及右上角鈴鐺裡的通知，資料存放在中央 PostgreSQL（migration 035、037），由 `modules/member-communications/` 負責。這裡只有站內紀錄：不寄 email、不推播、不連外部服務，也不回填歷史事件。四個分區與完整路徑見 [會員設定、待辦與訊息](member-settings-messages.md)。
 
 ## API（全部需要會員登入，並完成目前加入資格）
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `GET /api/v1/me/notifications` | `{items: Notification[], unread_count, next_offset}` |
 | `POST /api/v1/me/notifications/:id/read` `{}` | `{notification_id, read_at}`；只能標自己的通知，已讀再標回原時間 |
-| `POST /api/v1/me/inbox/read-all` `{}` | `{notifications_updated, direct_messages_updated, channels_updated}`；一次標記本人所有頁的通知、收到的私訊及目前可存取的公會／小隊／世界聊天室 |
+| `POST /api/v1/me/inbox/read-all` `{}` 或 `{scope:"notifications"}` | `{notifications_updated, direct_messages_updated, channels_updated}`；省略 scope 保留舊行為；通知鈴傳 `scope:"notifications"` 只標通知，聊天更新數為 0 |
 | `GET /api/v1/me/conversations` | `{items:[{participant, can_send, last_message, unread_count}], unread_count, next_offset}`，依最後一則訊息排序 |
 | `GET /api/v1/me/conversations/:userId/messages` | `{participant, can_send, items: Message[], unread_count, next_offset}`；還沒對話時回空陣列，可直接開始撰寫 |
 | `POST /api/v1/me/conversations/:userId/messages` `{body}` | `201 Message` |
@@ -22,7 +22,7 @@ DTO 定義在 `modules/member-communications/types.ts`。時間是 ISO 字串；
 
 上表通知與私訊 POST 走既有的 Origin、CSRF 與 `Idempotency-Key` 規則，不需要 `If-Match`；封鎖設定另使用版本 CAS（見下節）。同一個 key 搭配不同內容回 `409 idempotency_conflict`；重送會先重新檢查目前資格，再讀取原收據。
 
-「全部標為已讀」在通知鈴與訊息頁都可使用。它是一個明確的 POST 操作；開啟通知、切換頁面和 GET 不會自動消耗未讀。既有內容與歷史不刪除，也不改其他會員的未讀狀態。聊天室只更新本人目前成員資格允許的頻道；沿用既有成員鎖、channel sequence 鎖及單調 cursor。這些寫入與 command receipt 在同一個交易，任一失敗全部回滾。收到 ACK 後重新讀取各分區的真實未讀數；失敗顯示錯誤，同一 key 重試只回第一次結果，之後的新通知和聊天仍是未讀。
+通知鈴的「全部標為已讀」傳 `{scope:"notifications"}`，在同一筆既有會員命令交易中只更新本人通知，不取得聊天室 cursor 或私訊已讀。原 `{}` 呼叫仍保留全部 inbox 行為。scope 納入既有 command body digest，舊 key 不可換 scope。它是一個明確的 POST 操作；開啟通知、切換頁面和 GET 不會自動消耗未讀。既有內容與歷史不刪除，也不改其他會員的未讀狀態。聊天室只更新本人目前成員資格允許的頻道；沿用既有成員鎖、channel sequence 鎖及單調 cursor。這些寫入與 command receipt 在同一個交易，任一失敗全部回滾。收到 ACK 後重新讀取各分區的真實未讀數；失敗顯示錯誤，同一 key 重試只回第一次結果，之後的新通知和聊天仍是未讀。
 
 ## 服務層授權、鎖與快照
 
@@ -67,7 +67,7 @@ number 136 is provisional if another migration lands first.
 
 離開保留歷史和已讀游標，但不保留讀寫權。重新加入後接續游標，離開期間的他人發言仍計未讀。前端先取得可用頻道列表，由本人選擇後才讀取正文，未讀提示不會預先載入頻道內容。
 
-## 收回訊息（#398，候選 migration 149）
+## 收回訊息（#398，候選 migration 150）
 
 私訊與頻道訊息新增 `retracted_at`。傳送者隨時可收回自己的訊息：路由走既有 Origin、CSRF、`Idempotency-Key`，body 只接受 `{}`；UUID 大小寫正規化為同一 receipt 目標。收件者或其他成員收回回 `403 message_not_own`；找不到、非本對話／頻道或格式錯誤回 404，不透露訊息是否存在。重複收回或重播同一 key 回同一個 `retracted_at`。頻道收回前重新鎖定成員資格，離開後就不能再收回。
 
@@ -75,7 +75,7 @@ number 136 is provisional if another migration lands first.
 
 已送出的回覆若引用已收回的訊息，只回 `reply_to_message_id`，不回原文、名稱或媒體。前端 ACK 必須核對這個 UUID 與原送出目標相同；缺少或不同的目標仍不能确认送出。重播收據會重新投影目前可見內容，不復原被收回的引用。
 
-訊息分頁與不帶正文的 activity 在同一授權快照回傳 `retraction_count` 字串。它計算該對話／頻道目前已提交的收回紀錄；重複收回不增加數量，世界頻道仍套用驗證帳號可見性。即使最新訊息與未讀數都沒有變，前端也會依變更重新讀取已載入訊息及其引用，包括較早分頁；已不可見的資料不留在畫面快取。切換對話或資格失效後不套用舊請求的結果。候選 149 尚未發布，整合時依實際主線順序改號，歷史 migration 與 `known_gaps` 不變。
+訊息分頁與不帶正文的 activity 在同一授權快照回傳 `retraction_count` 字串。它計算該對話／頻道目前已提交的收回紀錄；重複收回不增加數量，世界頻道仍套用驗證帳號可見性。即使最新訊息與未讀數都沒有變，前端也會依變更重新讀取已載入訊息及其引用，包括較早分頁；已不可見的資料不留在畫面快取。切換對話或資格失效後不套用舊請求的結果。候選 150 尚未發布，整合時依實際主線順序改號，歷史 migration 與 `known_gaps` 不變。
 
 ## 通知來源
 

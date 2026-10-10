@@ -40,7 +40,7 @@ export async function mountSharingFixture(page:Page, kind='probe') {
       if(path==='/co-creation/projects')return {items:projects,guilds:[]};
       if(path==='/opensource/projects')return {items:[{project_id:'source-1',owner_ref:user,title:'Synthetic source',repository_full_name:'synthetic/repo'}]};
       if(path.includes('/activity'))return {repository_url:'https://github.com/synthetic/repo',issues:[],contributions:[],checked_at:'2026-10-09',truncated:false};
-      if(path==='/showcases')return {items:showcases};
+      if(path==='/showcases'||path.startsWith('/showcases?'))return {items:showcases,next_offset:null};
       if(path==='/opportunities')return {items:opportunities};
       if(path.startsWith('/me/blocks/'))return {user_id:other,blocked_by_me:blocked,aggregate_version:blocked?2:1};
       throw Error('Unexpected fixture read '+path);

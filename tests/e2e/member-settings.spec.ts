@@ -1,3 +1,4 @@
+import {openNotifications,openChat,closeChat} from './navigation.js';
 import {randomUUID} from 'node:crypto';
 import {test,expect,type Page,type Route} from './fixtures.js';
 
@@ -25,8 +26,7 @@ async function visibility(page:Page,state:'visible'|'hidden'){
 const settings=(page:Page)=>page.getByRole('button',{name:'設定',exact:true});
 async function openPage(page:Page,name:string){
   if(name==='我的訊息'){
-    await page.getByRole('button',{name:/^通知/}).click();
-    await page.getByRole('button',{name:'查看所有通知與訊息'}).click();
+    await openChat(page);
     return;
   }
   await settings(page).click();await page.getByRole('menuitem',{name,exact:true}).click();
@@ -57,7 +57,7 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   // Personal pages are not side-navigation entries.
   const nav=page.getByRole('navigation',{name:'主要工作區',includeHidden:true});
   for(const name of ['待辦清單','我的名片'])await expect(nav.getByRole('button',{name,exact:true,includeHidden:true})).toHaveCount(0);
-  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(1);
+  await expect(nav.getByRole('button',{name:'我的訊息',exact:true,includeHidden:true})).toHaveCount(0);await expect(page.locator('.floating-messages')).toBeVisible();
   await expect(page.getByRole('button',{name:'通知，2 則未讀'})).toBeVisible();
 
   await toggle.click();
@@ -105,9 +105,9 @@ test('settings menu replaces the card button with an accessible keyboard menu',a
   await expect(menu.getByRole('menuitem',{name:'我的名片',exact:true})).toBeFocused();await page.keyboard.press('Enter');
   await expect(menu).toHaveCount(0);await expect(page).toHaveURL(/#account$/);await expect(page.locator('#main-content')).toBeFocused();
   await openPage(page,'我的訊息');
-  await expect(page).toHaveURL(/#messages$/);await expect(page.getByRole('heading',{level:1})).toHaveText('我的訊息');await expect(page.locator('#main-content')).toBeFocused();
+  await expect(page).toHaveURL(/#account$/);await expect(page.locator('#floating-message-title')).toHaveText('我的訊息');await expect(page.locator('#floating-message-title')).toBeFocused();await closeChat(page);
   // Browser Back while the menu is open closes it.
-  await toggle.click();await expect(menu).toBeVisible();await page.goBack();await expect(page).toHaveURL(/#account$/);await expect(menu).toHaveCount(0);
+  await toggle.click();await expect(menu).toBeVisible();await page.goBack();await expect(page).toHaveURL(/#todos$/);await expect(menu).toHaveCount(0);
   // A profile re-read still in flight when the case ends must not fail it after the fact.
   await page.unrouteAll({behavior:'ignoreErrors'});
 });
@@ -138,9 +138,9 @@ for(const width of [320,390])test(`settings menu and personal pages fit a ${widt
   await expect(page.getByRole('button',{name:'連結 GitHub',exact:true})).toBeVisible();
   expect((await page.getByRole('button',{name:'連結 GitHub',exact:true}).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await openPage(page,'我的訊息');await expect(page.getByRole('tab',{name:/通知/})).toBeVisible();
+  await openNotifications(page);await expect(page.locator('.notification-bell-trigger')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  for(const selector of ['.messages-meta','.messages-count','.messages-body'])expect(await page.locator(selector).first().evaluate(node=>parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(14);
+  for(const selector of ['.messages-meta','.messages-body'])expect(await page.locator(selector).first().evaluate(node=>parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(14);
   await page.screenshot({path:`/tmp/freedom-member-settings-${width}.png`,fullPage:true});
 });
 
@@ -209,13 +209,13 @@ test('notifications show errors, page without dropping items, and confirm reads 
     return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
-  const panel=page.getByRole('tabpanel',{name:/通知/});
+  await login(page,'#messages');await openNotifications(page);
+  const panel=page.getByRole('region',{name:'最近通知'});
   await expect(panel.getByRole('alert')).toContainText('通知讀取失敗');await expect(panel.getByText('目前沒有通知。')).toHaveCount(0);
   listFails=false;
   await panel.getByRole('button',{name:'重新讀取通知',exact:true}).click();
   await expect(panel.getByRole('heading',{level:3})).toHaveText(['合成通知 1','合成通知 2']);
-  await expect(page.getByRole('tab',{name:/通知/})).toContainText('2 則未讀');
+  await expect(page.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，2 則未讀');
   // Reading the list is not reading the items.
   expect(readKeys).toEqual([]);
   // Unknown action tabs never become links; HTML in the body stays text.
@@ -235,7 +235,7 @@ test('notifications show errors, page without dropping items, and confirm reads 
   await second2.getByRole('button',{name:'重試標為已讀',exact:true}).click();
   await expect(second2.locator('.messages-meta')).toContainText('已讀');await expect(second2.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
   expect(readKeys.length).toBe(2);expect(readKeys[0]).toBe(readKeys[1]);
-  await expect(page.getByRole('tab',{name:/通知/})).toContainText('1 則未讀');
+  await expect(page.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，1 則未讀');
   // The header notification bell re-reads the confirmed total after the read.
   await expect(page.getByRole('button',{name:'通知，1 則未讀'})).toBeVisible();
   // An action button reads first, then goes to the fixed in-app page.
@@ -262,8 +262,8 @@ test('refreshing notifications keeps the list and the focused button, and a late
     return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
-  const panel=page.getByRole('tabpanel',{name:/通知/}),tab=page.getByRole('tab',{name:/通知/}),titles=panel.getByRole('heading',{level:3});
+  await login(page,'#messages');await openNotifications(page);
+  const panel=page.getByRole('region',{name:'最近通知'}),tab=page.locator('.notification-bell-trigger'),titles=panel.getByRole('heading',{level:3});
   const refresh=panel.getByRole('button',{name:/^(重新整理通知|正在整理通知…)$/});
   await expect(titles).toHaveText(['合成通知 1']);
   arm();await refresh.focus();await page.keyboard.press('Enter');
@@ -271,19 +271,19 @@ test('refreshing notifications keeps the list and the focused button, and a late
   items.unshift(notice(2,null));release();
   await expect(titles).toHaveText(['合成通知 1']);// the held answer was taken before 2 arrived
   await expect(refresh).toHaveText('重新整理通知');await expect(refresh).toBeFocused();
-  await page.keyboard.press('Enter');await expect(titles).toHaveText(['合成通知 2','合成通知 1']);await expect(tab).toContainText('2 則未讀');
+  await page.keyboard.press('Enter');await expect(titles).toHaveText(['合成通知 2','合成通知 1']);await expect(tab).toHaveAccessibleName('通知，2 則未讀');
   // A failed refresh keeps what is loaded, makes the total unconfirmed and retries from the same button.
   failNext=true;await page.keyboard.press('Enter');
   await expect(panel.getByRole('alert')).toContainText('通知重新整理失敗');await expect(titles).toHaveCount(2);await expect(refresh).toBeFocused();
-  await expect(tab).toContainText('未讀數未確認');
-  await page.keyboard.press('Enter');await expect(panel.getByRole('alert')).toHaveCount(0);await expect(tab).toContainText('2 則未讀');await expect(refresh).toBeFocused();
+  await expect(tab).toHaveAccessibleName('通知，未讀數未確認');
+  await page.keyboard.press('Enter');await expect(panel.getByRole('alert')).toHaveCount(0);await expect(tab).toHaveAccessibleName('通知，2 則未讀');await expect(refresh).toBeFocused();
   // A confirmed read while an older refresh is still out stays read.
   arm();await refresh.click();await expect(refresh).toHaveText('正在整理通知…');
   const second=panel.locator('li',{hasText:'合成通知 2'});await second.getByRole('button',{name:'標為已讀',exact:true}).click();
   await expect(second.locator('.messages-meta')).toContainText('已讀');
   release();await expect(refresh).toHaveText('重新整理通知');
   await expect(second.locator('.messages-meta')).toContainText('已讀');await expect(second.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
-  await expect(tab).toContainText('1 則未讀');
+  await expect(tab).toHaveAccessibleName('通知，1 則未讀');
 });
 
 test('a failed read before navigating can be retried or skipped explicitly',async({page})=>{
@@ -291,7 +291,7 @@ test('a failed read before navigating can be retried or skipped explicitly',asyn
   await page.route(/\/api\/v1\/me\/notifications(\?.*)?$/,route=>route.fulfill({json:{items,unread_count:1,next_offset:null}}));
   await page.route(/\/api\/v1\/me\/notifications\/[^/]+\/read$/,route=>route.fulfill({status:422,json:{title:'無法標記',detail:'合成錯誤'}}));
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
+  await login(page,'#messages');await openNotifications(page);
   const item=page.locator('li',{hasText:'合成通知 1'});
   await item.getByRole('button',{name:'前往小隊集合',exact:true}).click();
   await expect(item.getByRole('alert')).toContainText('合成錯誤');await expect(page).toHaveURL(/#messages$/);
@@ -310,16 +310,16 @@ test('a late read after leaving the page never navigates, and a failed count ref
     const item=items.find(value=>value.notification_id===id)!;item.read_at='2026-09-24T10:00:00Z';return route.fulfill({json:{notification_id:id,read_at:item.read_at}});
   });
   await page.route(/\/api\/v1\/me\/conversations(\?.*)?$/,route=>route.fulfill({json:{items:[],unread_count:0,next_offset:null}}));
-  await login(page,'#messages');await page.getByRole('tab',{name:/^通知/}).click();
+  await login(page,'#messages');await openNotifications(page);
   await page.locator('li',{hasText:'合成通知 1'}).getByRole('button',{name:'前往小隊集合',exact:true}).click();
   await openPage(page,'待辦清單');await expect(page).toHaveURL(/#todos$/);
   release();await page.waitForTimeout(300);
   await expect(page).toHaveURL(/#todos$/);await expect(page.getByRole('heading',{level:1})).toHaveText('待辦清單');
-  await openPage(page,'我的訊息');
+  await openNotifications(page);
   countFails=true;
   const second=page.locator('li',{hasText:'合成通知 2'});await second.getByRole('button',{name:'標為已讀',exact:true}).click();
   await expect(second.getByRole('button',{name:'標為已讀',exact:true})).toHaveCount(0);
-  await expect(page.getByRole('tab',{name:/通知/})).toContainText('未讀數未確認');
+  await expect(page.locator('.notification-bell-trigger')).toHaveAccessibleName('通知，未讀數未確認');
 });
 
 type Message={message_id:string;sender_ref:string;recipient_ref:string;body:string;created_at:string;read_at:string|null};
@@ -536,7 +536,7 @@ test('switching conversations ignores late responses and keeps a draft per recip
   await panel.getByRole('button',{name:/合成夥伴甲/}).click();
   const boxA=threadRegion.getByLabel('寫給 合成夥伴甲 的訊息');await expect(boxA).toHaveValue('');await boxA.fill('給甲的草稿');
   // Drafts also survive a trip to the notifications tab.
-  await page.getByRole('tab',{name:/通知/}).click();await page.getByRole('tab',{name:/私人訊息/}).click();await expect(boxA).toHaveValue('給甲的草稿');
+  await openNotifications(page);await openChat(page);await page.getByRole('tab',{name:/私人訊息/}).click();await expect(boxA).toHaveValue('給甲的草稿');
   await results.getByRole('button',{name:/示範合作方/}).click();
   await expect(threadRegion.getByLabel('寫給 合成夥伴乙 的訊息')).toHaveValue('給乙的草稿');
   expect(sends).toEqual([]);
