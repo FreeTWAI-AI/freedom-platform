@@ -83,11 +83,8 @@
     "docs/development/member-settings-messages.md",
     "tests/e2e/chat-search.spec.ts",
     "apps/portal-web/src/modules/ChatWorkspace.tsx",
-<<<<<<< HEAD
-    "apps/portal-web/src/modules/ChatSearch.tsx"
-=======
+    "apps/portal-web/src/modules/ChatSearch.tsx",
     "tests/runtime/chat-content.test.ts"
->>>>>>> 33c6309c
   ],
   "owner_role": "foundation",
   "public_exports": [
