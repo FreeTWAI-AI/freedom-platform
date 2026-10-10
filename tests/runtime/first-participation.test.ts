@@ -122,3 +122,28 @@ test('OFF and invalid dependency combinations fail before any feature database/a
  assert.equal((await handler.fetch(new Request(origin+'/'),{...env,FREEDOM_FIRST_PARTICIPATION_ENABLED:'true'},ctx)).status,503);assert.equal(reads,0);
  assert.equal((await handler.fetch(new Request(origin+'/'),{...env,FREEDOM_FIRST_PARTICIPATION_ENABLED:'invalid'},ctx)).status,503);assert.equal(reads,0);
 });
+
+
+test('retracted guild introductions and replies stop counting before reception pagination and claim replay',async()=>{
+ const owner=await member(),volunteer=await member(),nextOwner=await member();const messages=`me/channels/guild/${guild}/messages`;
+ let selection=await choose(owner,'introduction');
+ const sent=await json(await owner.request(messages,{body:'之後收回的介紹'}),201);
+ const reply=await json(await volunteer.request(messages,{body:'之後收回的回覆',reply_to_message_id:sent.message_id}),201);
+ assert.equal((await json(await owner.request(path))).completion!.reply_count,1);
+ await json(await volunteer.request(`${messages}/${reply.message_id}/retract`,{}));
+ assert.equal((await json(await owner.request(path))).completion!.reply_count,0);
+ selection=await json(await owner.request(path,{action:'request_reception'},selection.aggregate_version));
+ const key=randomUUID();await json(await volunteer.request(`${queue}/${owner.id}/claim`,{},selection.aggregate_version,key));
+ const second=await choose(nextOwner,'introduction');
+ const secondMessage=await json(await nextOwner.request(messages,{body:'仍可讀的介紹'}),201);
+ await json(await nextOwner.request(path,{action:'request_reception'},second.aggregate_version));
+ await json(await owner.request(`${messages}/${sent.message_id}/retract`,{}));
+ const hidden=await json(await owner.request(path));assert.equal(hidden.state,'source_unavailable');assert.equal(hidden.completion,null);assert.equal(hidden.reception!.claimant,null);
+ const queueView=await json(await volunteer.request(queue+'?limit=1'));
+ assert.equal(queueView.items!.length,1);assert.equal(queueView.items![0].completion.source_id,secondMessage.message_id);
+ assert.equal((await volunteer.request(`${queue}/${owner.id}/claim`,{},selection.aggregate_version,key)).status,404);
+ // A later message must not silently replace the selected first source.
+ await json(await owner.request(messages,{body:'後續訊息並非原來源'}),201);
+ assert.equal((await json(await owner.request(path))).completion,null);
+ assert.equal((await json(await volunteer.request(queue))).items!.length,1);
+});

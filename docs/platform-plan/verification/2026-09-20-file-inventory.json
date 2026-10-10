@@ -21044,8 +21044,8 @@
     },
     {
       "path": "tests/runtime/first-participation.test.ts",
-      "bytes": 14810,
-      "sha256": "bb6e5b9e63204500c432b6292d890b4482dcadabf0ea296765903fe38f700d95"
+      "bytes": 16954,
+      "sha256": "47632e52ac97b38374890fc1c6445819481ed658dc2282afe067a3264b7a51fd"
     },
     {
       "path": "tests/runtime/fixed-behavior-harness.test.ts",
