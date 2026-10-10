@@ -57,7 +57,11 @@
     "tests/runtime/hosted-store-photo.test.ts",
     "tests/runtime/hosted-store-photo-state.test.ts",
     "tests/e2e/hosted-store-fixture.ts",
-    "tests/e2e/hosted-store-photo.spec.ts"
+    "tests/e2e/hosted-store-photo.spec.ts",
+    "contracts/guild-launchpad/v1/hosted-supply-terms.ts",
+    "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
+    "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
+    "tests/e2e/hosted-supply-terms.spec.ts"
   ],
   "public_exports": [
     "modules/agent-commerce/orders.ts",
@@ -82,7 +86,8 @@
   "instructions": [
     "modules/agent-commerce/README.md",
     "packages/resource-scopes/README.md",
-    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "modules/agent-commerce/hosted/supply-terms.md"
   ],
   "invariants": [
     "current-authority-before-replay",
@@ -157,7 +162,9 @@
         "store.product.remove",
         "store.preview",
         "store.publish",
-        "store.unpublish"
+        "store.unpublish",
+        "store.supply-terms.read",
+        "store.supply-terms.update"
       ],
       "auth_profile": "member-session"
     },
@@ -187,7 +194,9 @@
         "store.product.remove",
         "store.preview",
         "store.publish",
-        "store.unpublish"
+        "store.unpublish",
+        "store.supply-terms.read",
+        "store.supply-terms.update"
       ],
       "auth_profile": "member-session"
     },

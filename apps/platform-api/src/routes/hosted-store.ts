@@ -7,6 +7,8 @@ import { listProducts, addProduct, updateProduct, removeProduct } from '../../..
 import { previewStore, previewStorePage, publishStore } from '../../../../modules/agent-commerce/hosted/publish.js';
 import { StoreAppearanceInputSchema } from '../../../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import { readStoreAppearance, updateStoreAppearance } from '../../../../modules/agent-commerce/hosted/presentation.js';
+import { SupplyTermsInputSchema } from '../../../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
+import { readSupplyTerms, updateSupplyTerms } from '../../../../modules/agent-commerce/hosted/supply-terms.js';
 import { readPublicStore, readPublicStorePage } from '../../../../modules/agent-commerce/hosted/public.js';
 import { storeHtml, storeMissingHtml } from '../../../../modules/agent-commerce/hosted/page.js';
 import { Problem } from '../../../../packages/shared/problem.js';
@@ -49,6 +51,17 @@ export function createHostedStoreRoutes(pool: Pool) {
   app.post(root + '/products/:product_id/remove', async c => {
     const h = commandHeaders(c, true); EmptyStoreInputSchema.parse(await c.req.json()); const [t, i] = ids(c);
     return c.json(await removeProduct(pool, c.get('actor'), t, i, OpaqueId.parse(c.req.param('product_id')), h.key, h.expected!));
+  });
+  app.get(root + '/products/:product_id/supply-terms', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const [t, i] = ids(c);
+    const view = await readSupplyTerms(pool, c.get('actor'), t, i, OpaqueId.parse(c.req.param('product_id')));
+    etag(c, view.version); return c.json(view);
+  });
+  app.patch(root + '/products/:product_id/supply-terms', async c => {
+    EmptyStoreInputSchema.parse(singleQuery(c)); const h = commandHeaders(c, true); const [t, i] = ids(c);
+    const body = SupplyTermsInputSchema.parse(await c.req.json());
+    const view = await updateSupplyTerms(pool, c.get('actor'), t, i, OpaqueId.parse(c.req.param('product_id')), body, h.key, h.expected!);
+    etag(c, view.version); return c.json(view);
   });
   app.get(root + '/preview', async c => { EmptyStoreInputSchema.parse(singleQuery(c)); const [t, i] = ids(c); return c.json(await previewStore(pool, c.get('actor'), t, i)); });
   app.get(root + '/appearance', async c => {
