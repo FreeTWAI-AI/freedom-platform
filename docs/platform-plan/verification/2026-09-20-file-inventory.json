@@ -2574,13 +2574,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.css",
-      "bytes": 2247,
-      "sha256": "d3462192c7a76501c39ca428dfdcaf912b457b4b2c693840c9f4018361e207c3"
+      "bytes": 2543,
+      "sha256": "e8536f51dbc9b3223067d49591ee80c3081f15f2815aaa0acae981a7e490e51a"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionBoards.tsx",
-      "bytes": 5921,
-      "sha256": "affc8a4a1ba26b2c86b73447b659400fdebccc0ef82bcb51c965d330ea30aa30"
+      "bytes": 6944,
+      "sha256": "a8225dce2203f5952639564ec50c50d18cc2f5136c6d5e9f5adf7cf98aaed8bc"
     },
     {
       "path": "apps/portal-web/src/modules/PromotionShare.tsx",
@@ -20279,8 +20279,8 @@
     },
     {
       "path": "tests/e2e/share-promotion.spec.ts",
-      "bytes": 26816,
-      "sha256": "844934c817712d734b9b336f826924d1987bd1df314a009bb5d83bd36861dd39"
+      "bytes": 27856,
+      "sha256": "46465291b557c740a0afd9d9dc45cdb04ab9d81c15e9445727858e3a39b48e8a"
     },
     {
       "path": "tests/e2e/shared-feedback-language.spec.ts",
