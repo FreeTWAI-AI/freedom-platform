@@ -1,3 +1,5 @@
+import {socialMetadataInput, socialTags, socialMentions, type SocialMention} from './social-content.js';
+import {findChatSticker} from '../member-communications/stickers.js';
 import { createHash } from 'node:crypto';
 import type { Pool,PoolClient } from 'pg';
 import { z } from 'zod';
@@ -29,6 +31,7 @@ const input = z.object({
 }).strict();
 
 type PostRow = {
+  topic:string; location_name:string|null; tags:string[]; mentions:SocialMention[]; read_count:number;
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; title: string; note: string | null; created_at: Date | string;
   edited_at: Date | string | null; edit_revision: number;
   author_user_id: string; display_name: string; aggregate_version: string | null; has_avatar: boolean; test_account: boolean;
@@ -36,6 +39,7 @@ type PostRow = {
 };
 
 export type SocialPostView = {
+  edited_at:string|null; revision:number; topic:string; location_name:string|null; tags:string[]; mentions:SocialMention[]; read_count:number;
   post_id: string; url: string | null; kind: 'link' | 'note'; platform: SocialPlatform; platform_label: string; title: string; note: string | null; created_at: string;
   author: { user_id: string; display_name: string; avatar_url: string | null };
   thumbnail_url: string | null; total_points: number; my_points: number; like_count: number; comment_count: number; liked: boolean; mine: boolean;
@@ -45,6 +49,7 @@ function view(row: PostRow, viewerId: string): SocialPostView {
   const created = new Date(row.created_at).toISOString();
   const showAvatar = row.has_avatar && (!row.test_account || row.author_user_id === viewerId);
   return {
+    topic:row.topic, location_name:row.location_name, tags:row.tags, mentions:row.mentions, read_count:Number(row.read_count)||0,
     post_id: row.post_id, url: row.url, kind: row.kind, platform: row.platform, platform_label: row.kind === 'note' ? '工坊貼文' : PLATFORM_LABELS[row.platform] ?? '其他',
     title: row.title, note: row.note, created_at: created,
     edited_at: row.edited_at ? new Date(row.edited_at).toISOString() : null, revision: Number(row.edit_revision),
@@ -56,7 +61,7 @@ function view(row: PostRow, viewerId: string): SocialPostView {
   };
 }
 
-const LIST = `SELECT p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
+const LIST = `SELECT (SELECT count(*)::int FROM community_social_reads r WHERE r.post_id=p.post_id) AS read_count, p.post_id,p.url,p.kind,p.platform,p.title,p.note,p.created_at,p.topic,p.location_name,p.tags,p.mentions,p.edited_at,p.edit_revision,p.author_user_id,u.display_name,
   (SELECT count(*)::int FROM community_social_likes l WHERE l.post_id=p.post_id) AS like_count,
   EXISTS(SELECT 1 FROM community_social_likes l WHERE l.post_id=p.post_id AND l.user_id=$2) AS liked,
   (SELECT count(*)::int FROM community_social_comments c WHERE c.post_id=p.post_id AND c.state='active') AS comment_count,
@@ -78,7 +83,8 @@ function cursorOf(raw: string | undefined) {
   return { createdAt, id };
 }
 
-export async function listSocialPosts(pool: Pool, actor: Actor, query: { platform?: string; cursor?: string; kind?: string }) {
+export async function listSocialPosts(pool: Pool, actor: Actor, query: { platform?: string; cursor?: string; kind?: string; tag?:string }) {
+  const tag=query.tag ? z.string().regex(/^[\p{L}\p{N}_]{1,50}$/u).parse(query.tag).toLocaleLowerCase() : null;
   const platform = query.platform ?? '';
   requireCondition(platform === '' || (SOCIAL_PLATFORMS as readonly string[]).includes(platform), 422, 'validation_failed', '平台篩選不正確。');
   const cursor = cursorOf(query.cursor);
@@ -87,10 +93,10 @@ export async function listSocialPosts(pool: Pool, actor: Actor, query: { platfor
   const rows = (await pool.query(`${LIST}
     WHERE p.community_id=$1 AND p.state='active'
       AND ($3::text[] IS NULL OR p.platform=ANY($3::text[]))
-      AND ($6::text IS NULL OR p.kind=$6)
+      AND ($6::text IS NULL OR p.kind=$6) AND ($7::text IS NULL OR p.tags @> ARRAY[$7::text])
       AND ($3::text[] IS NULL OR p.kind='link')
       AND ($4::timestamptz IS NULL OR (p.created_at,p.post_id)<($4::timestamptz,$5::uuid))
-    ORDER BY p.created_at DESC,p.post_id DESC LIMIT 25`, [actor.community_id, actor.user_id, platforms, cursor?.createdAt ?? null, cursor?.id ?? null, query.kind || null])).rows as PostRow[];
+    ORDER BY p.created_at DESC,p.post_id DESC LIMIT 25`, [actor.community_id, actor.user_id, platforms, cursor?.createdAt ?? null, cursor?.id ?? null, query.kind || null, tag])).rows as PostRow[];
   const page = rows.slice(0, 24).map(row => view(row, actor.user_id));
   const last = page.at(-1);
   return { items: page, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.post_id}`).toString('base64url') : null, can_hide: await canHideSocialPosts(pool, actor) };
@@ -130,10 +136,11 @@ const NATIVE_IMAGE_BASE64 = Math.ceil(SOCIAL_NOTE_IMAGE_LIMIT.bytes / 3) * 4;
 /** JSON ceiling for POST /social-posts/notes: one base64 image plus the text and envelope. */
 export const SOCIAL_NOTE_REQUEST_BYTES = NATIVE_IMAGE_BASE64 + 32768;
 const nativeInput = z.object({
+  ...socialMetadataInput,
   text: z.string().trim().min(1).max(2000),
   image: z.object({mime_type: z.enum(['image/png', 'image/jpeg', 'image/webp']), data_base64: z.string().min(4)}).strict().optional(),
 }).strict();
-export type NativeSocialDraft = {text: string};
+export type NativeSocialDraft = {text: string; topic?:string; location_name?:string; mention_ids?:string[]};
 export type PreparedSocialPost = {normalized: Extract<ShareUrl, {ok: true}>; title: string; note: string | null};
 export type SocialCreationDraft = PreparedSocialPost | NativeSocialDraft;
 
@@ -147,16 +154,17 @@ function decodeNativeImage(encoded: string) {
 export async function createNativeSocialPost(pool: Pool, inputCommand: Command, now = new Date(), assets?: SocialThumbnailAssetService) {
   const body = nativeInput.parse(inputCommand.body);
   requireCondition(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(body.text), 422, 'validation_failed', '內容含有無法使用的字元。');
-  if (!body.image) return publishNativeNote(pool, inputCommand, body.text, now);
+  if (!body.image) return publishNativeNote(pool, inputCommand, body, now);
   const source = decodeNativeImage(body.image.data_base64);
   // Receipts and journals keep only the digest; image bytes never enter command storage.
-  const input: Command = {...inputCommand, body: {text: body.text, image: {mime_type: body.image.mime_type, sha256: createHash('sha256').update(source).digest('hex')}}};
+  const {image: _sourceImage,...originalFields}=inputCommand.body as Record<string,unknown>;
+  const input: Command = {...inputCommand, body: {...originalFields,text: body.text, image: {mime_type: body.image.mime_type, sha256: createHash('sha256').update(source).digest('hex')}}};
   const image = await normalizeSocialThumbnail(body.image.mime_type, source, SOCIAL_NOTE_IMAGE_LIMIT);
   if (await socialThumbnailStorageMode(pool) !== 'legacy') {
     requireCondition(assets, 503, 'media_upload_unavailable', '圖片上傳暫時無法使用。');
-    return assets.createNativePost(input, {text: body.text}, image, now);
+    return assets.createNativePost(input, {text:body.text,...(originalFields.topic===undefined?{}:{topic:body.topic}),...(body.location_name===undefined?{}:{location_name:body.location_name}),...(originalFields.mention_ids===undefined?{}:{mention_ids:body.mention_ids})}, image, now);
   }
-  return publishNativeNote(pool, input, body.text, now, image);
+  return publishNativeNote(pool, input, body, now, image);
 }
 
 /** A native-note receipt never bypasses the current post visibility boundary. */
@@ -167,11 +175,13 @@ export async function authorizeNativeSocialReplay(q: Pick<Pool, 'query'>, input:
   return true;
 }
 
-function publishNativeNote(pool: Pool, input: Command, text: string, now: Date, image?: Buffer) {
+function publishNativeNote(pool: Pool, input: Command, draft: NativeSocialDraft, now: Date, image?: Buffer) {
   return command(pool, input, q => authorizeNativeSocialReplay(q, input), async q => {
+    const text=draft.text;
     await socialPostBudget(q, input.actor, now);
     const row = (await q.query(`INSERT INTO community_social_posts(community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at)
       VALUES($1,$2,'note',NULL,'other',$3,$4,'active',$5,$5) RETURNING post_id`, [input.actor.community_id, input.actor.user_id, text.split('\n')[0].slice(0, 120), text, now])).rows[0];
+    await writeSocialMetadata(q,input.actor,row.post_id,draft);
     if (image) await q.query("INSERT INTO community_social_post_thumbnails(post_id,image_bytes,source,updated_at) VALUES($1,$2,'upload',$3)", [row.post_id, image, now]);
     return shownSocial(q, input.actor, row.post_id);
   });
@@ -186,29 +196,42 @@ export async function setSocialLike(pool: Pool, inputCommand: Command, id: strin
   });
 }
 
-export type SocialCommentView = { comment_id: string; body: string; created_at: string; edited_at: string | null; revision: number; author: { user_id: string; display_name: string }; mine: boolean };
-type CommentRow = { comment_id: string; body: string; created_at: Date | string; edited_at: Date | string | null; edit_revision: number; author_user_id: string; display_name: string };
+export type SocialCommentView = { image_url:string|null; sticker_id:string|null; mentions:SocialMention[]; like_count:number; liked:boolean; comment_id: string; body: string; created_at: string; edited_at: string | null; revision: number; author: { user_id: string; display_name: string }; mine: boolean };
+type CommentRow = { image_id?:string; post_id:string; sticker_id:string|null; mentions:SocialMention[]; like_count:number; liked:boolean; comment_id: string; body: string; created_at: Date | string; edited_at: Date | string | null; edit_revision: number; author_user_id: string; display_name: string };
 function commentView(row: CommentRow, actor: Actor): SocialCommentView {
-  return {comment_id: row.comment_id, body: row.body, created_at: new Date(row.created_at).toISOString(), edited_at: row.edited_at ? new Date(row.edited_at).toISOString() : null,
+  return {image_url:row.image_id?`/api/v1/social-posts/${row.post_id}/comments/${row.comment_id}/image`:null, sticker_id:row.sticker_id, mentions:row.mentions??[], like_count:Number(row.like_count)||0, liked:row.liked===true, comment_id: row.comment_id, body: row.body, created_at: new Date(row.created_at).toISOString(), edited_at: row.edited_at ? new Date(row.edited_at).toISOString() : null,
     revision: Number(row.edit_revision), author: {user_id: row.author_user_id, display_name: row.display_name}, mine: row.author_user_id === actor.user_id};
+}
+
+const COMMENTS=`SELECT c.comment_id,c.post_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,c.sticker_id,c.mentions,u.display_name,
+ t.image_id,(SELECT count(*)::int FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id) AS like_count,
+ EXISTS(SELECT 1 FROM community_social_comment_likes l WHERE l.comment_id=c.comment_id AND l.user_id=$5) AS liked
+ FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id
+ JOIN community_social_posts p ON p.post_id=c.post_id AND p.state='active'
+ LEFT JOIN community_comment_image_asset_targets t ON t.comment_id=c.comment_id`;
+async function shownComment(q:Pick<Pool,'query'>,actor:Actor,postId:string,commentId:string){
+ const row=(await q.query(`${COMMENTS} WHERE c.post_id=$1 AND c.community_id=$2 AND c.comment_id=$3 AND c.state='active' AND $4::text IS NULL`,[postId,actor.community_id,commentId,null,actor.user_id])).rows[0] as CommentRow;
+ return commentView(row,actor);
 }
 
 export async function listSocialComments(pool: Pool, actor: Actor, id: string, rawCursor?: string) {
   await activePost(pool, actor, id);
   const cursor = cursorOf(rawCursor);
-  const rows = (await pool.query(`SELECT c.comment_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,u.display_name
-    FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id
-    JOIN community_social_posts p ON p.post_id=c.post_id AND p.state='active'
+  const rows = (await pool.query(`${COMMENTS}
     WHERE c.post_id=$1 AND c.community_id=$2 AND c.state='active'
       AND ($3::timestamptz IS NULL OR (c.created_at,c.comment_id)>($3::timestamptz,$4::uuid))
-    ORDER BY c.created_at,c.comment_id LIMIT 25`, [id, actor.community_id, cursor?.createdAt ?? null, cursor?.id ?? null])).rows;
+    ORDER BY c.created_at,c.comment_id LIMIT 25`, [id, actor.community_id, cursor?.createdAt ?? null, cursor?.id ?? null, actor.user_id])).rows;
   const items = rows.slice(0, 24).map(row => commentView(row, actor));
   const last = items.at(-1);
   return {items, next_cursor: rows.length > 24 && last ? Buffer.from(`${last.created_at}\n${last.comment_id}`).toString('base64url') : null};
 }
 
 export async function createSocialComment(pool: Pool, inputCommand: Command, id: string, now = new Date()) {
-  const {text} = z.object({text: z.string().trim().min(1).max(1000)}).strict().parse(inputCommand.body);
+  const body=z.object({text:z.string().trim().max(1000).default(''),image_id:z.uuid().optional(),sticker_id:z.string().max(80).optional(),mention_ids:socialMetadataInput.mention_ids}).strict().parse(inputCommand.body);
+  requireCondition(!(body.image_id&&body.sticker_id)&&Boolean(body.text||body.image_id||body.sticker_id),422,'validation_failed','請填寫留言或選擇圖片／貼圖。');
+  const sticker=body.sticker_id?findChatSticker(body.sticker_id):null;
+  requireCondition(!body.sticker_id||sticker,422,'invalid_sticker','找不到這張貼圖。');
+  const text=body.text||(sticker?`[貼圖] ${sticker.label}`:'[圖片]');
   requireCondition(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text), 422, 'validation_failed', '內容含有無法使用的字元。');
   return command(pool, inputCommand, async q => {
     await activePost(q, inputCommand.actor, id, true);
@@ -218,9 +241,16 @@ export async function createSocialComment(pool: Pool, inputCommand: Command, id:
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`social-comments/${inputCommand.actor.user_id}`]);
     const used = (await q.query('SELECT count(*)::int AS n FROM community_social_comments WHERE author_user_id=$1 AND created_at>=$2', [inputCommand.actor.user_id, taipeiDayStart(now)])).rows[0].n;
     requireCondition(used < 100, 429, 'social_comment_limit', '今天的留言已達上限。');
+    const mentions=await socialMentions(q,inputCommand.actor,text,body.mention_ids);
+    if(body.image_id){
+      const image=(await q.query(`SELECT t.comment_id FROM community_comment_image_asset_targets t JOIN assets a ON a.asset_id=t.asset_id AND a.state='ready' AND a.deletion_fence=0 WHERE t.image_id=$1 AND t.post_id=$2 AND t.owner_user_id=$3 AND t.community_id=$4 FOR UPDATE OF t`,[body.image_id,id,inputCommand.actor.user_id,inputCommand.actor.community_id])).rows[0];
+      requireCondition(image,404,'image_not_available','找不到可傳送的圖片，請重新選擇。');
+      requireCondition(image.comment_id===null,409,'image_already_sent','這張圖片已經傳送過。');
+    }
     const row = (await q.query(`INSERT INTO community_social_comments(post_id,community_id,author_user_id,body,created_at) VALUES($1,$2,$3,$4,$5) RETURNING comment_id`, [id, inputCommand.actor.community_id, inputCommand.actor.user_id, text, now])).rows[0];
-    const author = (await q.query('SELECT display_name FROM users WHERE user_id=$1', [inputCommand.actor.user_id])).rows[0];
-    return {comment_id: row.comment_id as string, body: text, created_at: now.toISOString(), edited_at: null, revision: 1, author: {user_id: inputCommand.actor.user_id, display_name: author.display_name as string}, mine: true};
+    await q.query('UPDATE community_social_comments SET sticker_id=$2,mentions=$3 WHERE comment_id=$1',[row.comment_id,body.sticker_id??null,JSON.stringify(mentions)]);
+    if(body.image_id)await q.query('UPDATE community_comment_image_asset_targets SET comment_id=$2 WHERE image_id=$1',[body.image_id,row.comment_id]);
+    return shownComment(q,inputCommand.actor,id,row.comment_id);
   });
 }
 
@@ -277,12 +307,14 @@ export async function authorizeSocialCreate(q:Pick<Pool,'query'>,actor:Actor,dra
  if ('normalized' in draft) {
   const existing=(await q.query("SELECT post_id FROM community_social_posts WHERE community_id=$1 AND url=$2 AND state='active'",[actor.community_id,draft.normalized.url])).rows[0];if(existing)throw new SocialPostExists(existing.post_id);
  }
+ if ('text' in draft) await socialMentions(q,actor,draft.text,draft.mention_ids??[]);
  await socialPostBudget(q,actor,now);
 }
 export async function publishSocialCreate(q:PoolClient,actor:Actor,id:string,draft:SocialCreationDraft,now:Date){
  await authorizeSocialCreate(q,actor,draft,now);
  if ('text' in draft) await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,kind,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,'note',NULL,'other',$4,$5,'active',$6,$6)",[id,actor.community_id,actor.user_id,draft.text.split('\n')[0].slice(0,120),draft.text,now]);
  else await q.query("INSERT INTO community_social_posts(post_id,community_id,author_user_id,url,platform,title,note,state,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)",[id,actor.community_id,actor.user_id,draft.normalized.url,draft.normalized.platform,draft.title,draft.note,now]);
+ if ('text' in draft) await writeSocialMetadata(q,actor,id,draft);
 }
 export {shownSocial};
 async function owned(q: Pick<Pool, 'query'>, actor: Actor, id: string, lock = false) {
@@ -393,6 +425,7 @@ export async function editSocialPost(pool: Pool, inputCommand: Command, id: stri
       requireCondition(!body.note || !CONTROL.test(body.note), 422, 'validation_failed', '說明含有無法使用的字元。');
       await q.query('UPDATE community_social_posts SET title=$2,note=$3,edited_at=$4,updated_at=$4,edit_revision=edit_revision+1 WHERE post_id=$1', [id, body.title, body.note || null, now]);
     }
+    await q.query(`UPDATE community_social_posts SET tags=$2,mentions=(SELECT COALESCE(jsonb_agg(m),'[]'::jsonb) FROM jsonb_array_elements(mentions) m WHERE strpos(note,'@'||(m->>'display_name'))>0) WHERE post_id=$1`,[id,socialTags((inputCommand.body as {text?:string;note?:string}).text??(inputCommand.body as {note?:string}).note??'')]);
     return shownSocial(q, inputCommand.actor, id);
   });
 }
@@ -409,8 +442,44 @@ export async function editSocialComment(pool: Pool, inputCommand: Command, postI
     const current = (await q.query('SELECT edit_revision FROM community_social_comments WHERE comment_id=$1 FOR UPDATE', [commentId])).rows[0];
     checkVersion(String(current.edit_revision), inputCommand.expected);
     await q.query('UPDATE community_social_comments SET body=$2,edited_at=$3,edit_revision=edit_revision+1 WHERE comment_id=$1', [commentId, text, now]);
-    const row = (await q.query(`SELECT c.comment_id,c.body,c.created_at,c.edited_at,c.edit_revision,c.author_user_id,u.display_name
-      FROM community_social_comments c JOIN users u ON u.user_id=c.author_user_id WHERE c.comment_id=$1`, [commentId])).rows[0] as CommentRow;
-    return commentView(row, inputCommand.actor);
+    await q.query(`UPDATE community_social_comments SET mentions=(SELECT COALESCE(jsonb_agg(m),'[]'::jsonb) FROM jsonb_array_elements(mentions) m WHERE strpos(body,'@'||(m->>'display_name'))>0) WHERE comment_id=$1`,[commentId]);
+    return shownComment(q,inputCommand.actor,postId,commentId);
   });
+}
+
+async function writeSocialMetadata(q:Pick<Pool,'query'>,actor:Actor,id:string,draft:NativeSocialDraft){
+ const mentions=await socialMentions(q,actor,draft.text,draft.mention_ids??[]);
+ await q.query('UPDATE community_social_posts SET topic=$2,location_name=$3,tags=$4,mentions=$5 WHERE post_id=$1',
+ [id,draft.topic??'mood',draft.location_name??null,socialTags(draft.text),JSON.stringify(mentions)]);
+}
+
+export async function listSocialLikes(pool:Pool,actor:Actor,id:string,rawCursor?:string){
+ await activePost(pool,actor,id);
+ const cursor=cursorOf(rawCursor);
+ const rows=(await pool.query(`SELECT u.user_id,u.display_name,l.created_at FROM community_social_likes l JOIN users u USING(user_id)
+ JOIN community_social_posts p USING(post_id) WHERE l.post_id=$1 AND p.community_id=$2 AND p.state='active' AND u.community_id=$2 AND u.active
+ AND (NOT u.onboarding_required OR u.onboarding_completed_at IS NOT NULL) AND (NOT is_verification_test_account(u.user_id) OR u.user_id=$3)
+ AND NOT EXISTS(SELECT 1 FROM member_interaction_blocks b WHERE b.community_id=$2 AND b.state='active' AND ((b.owner_ref=$3 AND b.target_ref=u.user_id) OR (b.owner_ref=u.user_id AND b.target_ref=$3)))
+ AND ($4::timestamptz IS NULL OR (l.created_at,l.user_id)>($4::timestamptz,$5::uuid)) ORDER BY l.created_at,l.user_id LIMIT 25`,
+ [id,actor.community_id,actor.user_id,cursor?.createdAt??null,cursor?.id??null])).rows;
+ const last=rows[23];
+ return {items:rows.slice(0,24).map(row=>({user_id:row.user_id,display_name:row.display_name})),next_cursor:rows.length>24?Buffer.from(`${new Date(last.created_at).toISOString()}\n${last.user_id}`).toString('base64url'):null};
+}
+export async function markSocialRead(pool:Pool,input:Command,id:string){
+ z.object({}).strict().parse(input.body??{});
+ return command(pool,input,q=>activePost(q,input.actor,id,true),async q=>{
+  await q.query('INSERT INTO community_social_reads(post_id,community_id,user_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,input.actor.community_id,input.actor.user_id]);
+  return {read_count:Number((await q.query('SELECT count(*)::int AS n FROM community_social_reads WHERE post_id=$1',[id])).rows[0].n)};
+ });
+}
+export async function setSocialCommentLike(pool:Pool,input:Command,postId:string,commentId:string){
+ const {liked}=z.object({liked:z.boolean()}).strict().parse(input.body);
+ return command(pool,input,async q=>{
+  await activePost(q,input.actor,postId,true);
+  requireCondition((await q.query("SELECT 1 FROM community_social_comments WHERE comment_id=$1 AND post_id=$2 AND community_id=$3 AND state='active' FOR UPDATE",[commentId,postId,input.actor.community_id])).rowCount,404,'not_found','找不到這則留言。');
+ },async q=>{
+  if(liked)await q.query('INSERT INTO community_social_comment_likes(comment_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[commentId,input.actor.user_id]);
+  else await q.query('DELETE FROM community_social_comment_likes WHERE comment_id=$1 AND user_id=$2',[commentId,input.actor.user_id]);
+  return {liked,like_count:Number((await q.query('SELECT count(*)::int AS n FROM community_social_comment_likes WHERE comment_id=$1',[commentId])).rows[0].n)};
+ });
 }

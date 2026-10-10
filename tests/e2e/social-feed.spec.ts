@@ -72,6 +72,7 @@ test('write a native post, like, comment, remove and reload without duplicate ef
   await expect(post.locator('.social-comment script')).toHaveCount(0);
   await expect(post.getByRole('button', {name: '留言 · 1', exact: true})).toBeVisible();
   await page.screenshot({path: 'test-results/social-feed-desktop.png', fullPage: true});
+  await post.getByLabel('留言選項',{exact:true}).click();
   await post.getByRole('button', {name: '刪除留言', exact: true}).click();
   await post.getByRole('button', {name: '確定刪除留言', exact: true}).click();
   await expect(post.getByRole('button', {name: '留言 · 0', exact: true})).toBeVisible();
@@ -194,7 +195,7 @@ test('home shows the timeline immediately and the composer keeps a draft when cl
   const trigger=feed.getByRole('button',{name:'建立貼文',exact:true});await expect(trigger).toBeInViewport();
   expect(await feed.locator('xpath=ancestor::details').count()).toBe(0);
   const feedBox=(await feed.boundingBox())!,contextBox=(await page.locator('.home-context').boundingBox())!;
-  expect(contextBox.x).toBeGreaterThanOrEqual(feedBox.x+feedBox.width);
+  expect(contextBox.x+contextBox.width).toBeLessThanOrEqual(feedBox.x);
   await trigger.click();const dialog=page.getByRole('dialog',{name:'建立貼文',exact:true});
   await expect(dialog.getByLabel('貼文內容')).toBeFocused();
   const text=`測試貼文 ${Date.now()}：完成 AI 作品，想找設計與行銷夥伴一起合作。`;
@@ -302,7 +303,7 @@ test('an author edits a post and a comment in place; the feed marks both as edit
   const text=`E2E 編輯前 ${Date.now()}`;
   await page.getByLabel('貼文內容',{exact:true}).fill(text);await page.getByRole('button',{name:'發布貼文',exact:true}).click();
   const post=card(page,text);await expect(post).toBeVisible();
-  await post.getByRole('button',{name:'讚',exact:false}).click();
+  await post.getByRole('button',{name:'讚 · 0',exact:true}).click();
   await post.getByRole('button',{name:/^留言/}).click();
   await post.getByLabel('寫留言',{exact:true}).fill('第一版留言');await post.getByRole('button',{name:'送出留言',exact:true}).click();
   await expect(post.locator('.social-comment')).toContainText('第一版留言');
@@ -322,6 +323,7 @@ test('an author edits a post and a comment in place; the feed marks both as edit
   await expect(updated.getByRole('button',{name:/^已讚 · 1$/})).toBeVisible();
   await expect(updated.getByRole('button',{name:/^留言 · 1$/})).toBeVisible();
 
+  await updated.getByLabel('留言選項',{exact:true}).click();
   await updated.getByRole('button',{name:'編輯留言',exact:true}).click();
   await updated.getByLabel('編輯留言',{exact:true}).fill('第二版留言');await updated.getByRole('button',{name:'儲存留言',exact:true}).click();
   const comment=updated.locator('.social-comment');

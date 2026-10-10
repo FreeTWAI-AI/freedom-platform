@@ -1,3 +1,6 @@
+import {createCommentImageAssetService} from '../../../../modules/assets/comment-image.js';
+import {uploadCommentImage,readCommentImage} from '../../../../modules/community/comment-images.js';
+import {listSocialLikes,markSocialRead,setSocialCommentLike} from '../../../../modules/community/social-posts.js';
 import type { Hono } from 'hono';
 import { readSessionCookie } from '../session-cookie.js';
 import { z } from 'zod';
@@ -17,7 +20,7 @@ const THUMB_MAX = 512 * 1024;
 const THUMB_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export function isSocialThumbnailUpload(method: string, path: string) {
-  return method === 'PUT' && /^\/api\/v1\/social-posts\/[0-9a-f-]{36}\/thumbnail$/.test(path);
+  return (method === 'POST' && /^\/api\/v1\/social-posts\/[0-9a-f-]{36}\/comment-images$/.test(path)) || method === 'PUT' && /^\/api\/v1\/social-posts\/[0-9a-f-]{36}\/thumbnail$/.test(path);
 }
 export function checkSocialThumbnailHeaders(contentType?: string, contentLength?: string) {
   requireCondition(THUMB_TYPES.has(contentType ?? ''), 415, 'social_thumbnail_format', '請選擇 JPEG、PNG 或 WebP 圖片。');
@@ -86,8 +89,22 @@ export function registerMemberPromotion(app: Hono<PlatformEnv>, pool: Pool, runt
   app.post('/api/v1/promotion/links', async c => c.json(await createPromotionLink(pool, c.get('actor'), await c.req.json(), clock(runtime))));
   app.get('/api/v1/promotion/links/mine', async c => c.json(await listMyPromotionLinks(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
   app.get('/api/v1/promotion/leaderboards', async c => c.json(await promotionLeaderboards(pool, c.get('actor'), c.req.query('period'), clock(runtime))));
-  app.get('/api/v1/social-posts', async c => c.json(await listSocialPosts(pool, c.get('actor'), { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind') })));
+  app.get('/api/v1/social-posts', async c => c.json(await listSocialPosts(pool, c.get('actor'), { platform: c.req.query('platform'), cursor: c.req.query('cursor'), kind: c.req.query('kind'), tag:c.req.query('tag') })));
   app.post('/api/v1/social-posts/notes', async c => c.json(await createNativeSocialPost(pool, await moduleCommand(c), clock(runtime), runtime.socialThumbnailAssets), 201));
+  app.get('/api/v1/social-posts/:id/likes',async c=>c.json(await listSocialLikes(pool,c.get('actor'),z.uuid().parse(c.req.param('id')),c.req.query('cursor'))));
+  app.post('/api/v1/social-posts/:id/read',async c=>c.json(await markSocialRead(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')))));
+  app.post('/api/v1/social-posts/:id/comments/:commentId/like',async c=>c.json(await setSocialCommentLike(pool,await moduleCommand(c),z.uuid().parse(c.req.param('id')),z.uuid().parse(c.req.param('commentId')))));
+  app.post('/api/v1/social-posts/:id/comment-images',async c=>{
+    checkSocialThumbnailHeaders(c.req.header('Content-Type'),c.req.header('Content-Length'));
+    await authRateLimit(pool,'social-comment-image',c.get('actor').user_id,30,3600);
+    const bytes=await bounded(c.req.raw), store=runtime.socialThumbnailAssetStore;
+    return c.json(await uploadCommentImage(pool,{actor:c.get('actor'),operation:`POST ${c.req.path}`,key:c.req.header('Idempotency-Key')??'',body:null},z.uuid().parse(c.req.param('id')),{bytes,mime:c.req.header('Content-Type')!},store?createCommentImageAssetService(pool,{store}):undefined),201);
+  });
+  app.get('/api/v1/social-posts/:id/comments/:commentId/image',async c=>{
+    const bytes=await readCommentImage(pool,c.get('actor'),z.uuid().parse(c.req.param('id')),z.uuid().parse(c.req.param('commentId')),runtime.socialThumbnailAssetStore);
+    c.header('Content-Type','image/webp');c.header('Cache-Control','private, no-store');c.header('Cross-Origin-Resource-Policy','same-origin');
+    return c.body(new Uint8Array(bytes));
+  });
   app.post('/api/v1/social-posts/:id/like', async c => c.json(await setSocialLike(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')))));
   app.get('/api/v1/social-posts/:id/comments', async c => c.json(await listSocialComments(pool, c.get('actor'), z.uuid().parse(c.req.param('id')), c.req.query('cursor'))));
   app.post('/api/v1/social-posts/:id/comments', async c => c.json(await createSocialComment(pool, await moduleCommand(c), z.uuid().parse(c.req.param('id')), clock(runtime)), 201));

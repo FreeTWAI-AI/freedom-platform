@@ -86,3 +86,66 @@
 .social-byline .social-edited { margin: 0; font-size: .8125rem; }
 .social-edit-dialog { width: min(560px, calc(100vw - 32px)); }
 .social-edit-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
+/* Wall tools reuse the shared surface, ink, accent and focus tokens. */
+.social-icon{width:20px;height:20px;flex:none;vertical-align:middle}
+.social-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:44px;min-width:44px;height:44px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-weight:600;cursor:pointer;padding:8px}
+.social-icon-button:hover,.social-text-link:hover{background:var(--green-soft);color:var(--ink)}
+.social-icon-button:focus-visible,.social-text-link:focus-visible,.social-mention-choice:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.social-icon-button:disabled{opacity:.45;cursor:default}
+.social-text-link{border:0;background:transparent;color:var(--blue-ink);font:inherit;font-weight:600;padding:0;cursor:pointer;text-align:inherit;overflow-wrap:anywhere}
+.social-interaction-summary{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:.875rem;color:var(--muted)}
+.social-interaction-summary>button,.social-interaction-summary>span{display:inline-flex;align-items:center;gap:6px;min-height:44px}
+.social-interaction-summary>button{font-weight:400}
+.social-interactions>.social-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;border-block:1px solid var(--line);padding:4px 0}
+.social-interactions>.social-actions>.btn{border:0;min-width:0;justify-content:center;gap:6px;font-size:.875rem;min-height:44px;padding:8px}
+.social-interactions>.social-actions>dialog{grid-column:1/-1}
+.social-person,.social-member-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.social-people-dialog{width:min(420px,calc(100vw - 24px))}
+.social-people-dialog .member-avatar{width:36px;height:36px;min-width:36px}
+.social-comments{gap:16px}
+.social-comment{position:relative;padding:0 0 0 44px;min-width:0;border:0}
+.social-comment-meta{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding-right:36px}
+.social-comment-meta>.member-avatar{position:absolute;left:0;top:0;width:32px;height:32px;min-width:32px;box-shadow:none;font-size:.875rem}
+.social-comment-meta>strong{font-size:.875rem}
+.social-comment-meta time{font-size:.75rem}
+.social-comment-bubble{width:fit-content;max-width:100%;background:var(--bg);border-radius:12px;padding:8px 12px;margin-top:4px}
+.social-comment-bubble p{margin:0;font-size:.9375rem;overflow-wrap:anywhere}
+.social-comment-image{display:block;max-width:100%;max-height:280px;width:auto;object-fit:contain;border-radius:8px;margin-top:4px}
+.social-comment-actions{display:flex;gap:12px;font-size:.8125rem}
+.social-comment-actions>button{min-height:44px;padding-inline:4px}
+.social-comment-actions>[aria-pressed=true]{color:var(--blue-ink)}
+.social-comment-menu{position:absolute;right:0;top:0}
+.social-comment-menu>summary{width:36px;min-height:44px}
+.social-comment-composer{display:grid;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:8px}
+.social-comment-composer .field{margin:0}
+.social-comment-composer textarea{border:0;background:transparent;box-shadow:none;font-size:16px;min-height:64px;padding:8px;resize:vertical}
+.social-comment-toolbar,.social-compose-toolbar,.social-tool-buttons{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
+.social-comment-toolbar{position:relative}
+.social-comment-toolbar>.social-comment-send{margin-left:auto;background:var(--green-soft);color:var(--ink)}
+.social-comment-toolbar>.chat-extras{display:contents}
+.social-comment-toolbar .chat-extras>.btn{width:44px;min-width:44px;height:44px;padding:8px;border:0;background:transparent}
+.social-comment-toolbar .chat-extras>.btn>span{display:none}
+.social-comment-toolbar .chat-sticker-picker{flex-basis:100%;width:100%;min-width:0;order:2}
+.social-comment-toolbar .chat-sticker-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.social-comment-toolbar .chat-sticker-grid .chat-sticker{width:72px;height:72px}
+.social-text-tools{position:relative;min-width:0}
+.social-text-picker{position:absolute;z-index:6;bottom:100%;left:0;width:min(280px,calc(100vw - 92px));padding:12px;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);background:var(--bg-elev);color:var(--ink)}
+.social-text-picker input{font-size:16px;min-width:0;width:100%}
+.social-emoji-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.social-emoji-grid button{min-height:44px;border:0;border-radius:8px;background:transparent;cursor:pointer;font-size:1.25rem}
+.social-emoji-grid button:hover{background:var(--green-soft)}
+.social-mention-choice{display:flex;align-items:center;gap:8px;min-height:44px;width:100%;border:0;background:transparent;color:var(--ink);text-align:left;padding:6px;font:inherit;cursor:pointer}
+.social-mention-choice .member-avatar{width:28px;height:28px;min-width:28px;font-size:.875rem;box-shadow:none}
+.social-topic-select{display:flex;gap:8px;align-items:center;font-size:.875rem;flex:1}
+.social-topic-select select{min-height:44px;width:auto;font-size:16px}
+.social-post-context{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.social-post-context:empty{display:none}
+.social-topic-badge{font-size:.75rem;font-weight:600;border-radius:8px;padding:4px 8px;background:var(--bg);color:var(--muted)}
+.social-topic-badge[data-topic=event]{background:var(--green-soft);color:var(--ink)}
+.social-topic-badge[data-topic=work]{background:var(--info-bg);color:var(--blue-ink)}
+.social-location{display:inline-flex;align-items:center;gap:4px;font-size:.8125rem;color:var(--muted);overflow-wrap:anywhere}
+.social-location .social-icon{width:16px;height:16px}
+.social-active-tag{display:flex;align-items:center;gap:12px;margin:0;color:var(--blue-ink)}
+.social-active-tag button{min-height:44px;font-size:.875rem}
+.social-share-dialog{width:min(600px,calc(100vw - 24px))}
+@media(max-width:480px){.social-compose-toolbar{gap:0}.social-topic-select{flex-basis:100%}.social-comment-meta time{flex-basis:100%}.social-text-picker{left:-44px}.social-interactions>.social-actions>.btn{gap:4px;padding:6px 4px}.social-write-trigger strong{padding-inline:10px}.social-composer-prompt{gap:6px}}
