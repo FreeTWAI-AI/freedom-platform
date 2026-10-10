@@ -12,7 +12,7 @@ type Page={items:Notice[];unread_count:number};
 const tabs=new Set<TabId>(['members','squads','guilds','guild-workspace','messages','events']);
 const validAction=(action:BellAction|null)=>action&&tabs.has(action.tab)&&(!action.resource_id||/^[0-9a-z_-]{1,100}$/i.test(action.resource_id))?action:null;
 
-export function NotificationBell({client,onOpen,onNavigate}:{client:PortalClient;onOpen:()=>void;onNavigate?:(action:BellAction)=>void}){
+export function NotificationBell({client,onOpen,onNavigate,preferencesEnabled=false}:{client:PortalClient;onOpen:()=>void;onNavigate?:(action:BellAction)=>void;preferencesEnabled?:boolean|null}){
   const {t}=useLanguage();
   const [page,setPage]=useState<Page|null>(null),[error,setError]=useState(false),[actionError,setActionError]=useState(false),[open,setOpen]=useState(false),[busy,setBusy]=useState<string|null>(null),[loading,setLoading]=useState(false);
   const keys=useRef(new Map<string,string>());
@@ -21,17 +21,19 @@ export function NotificationBell({client,onOpen,onNavigate}:{client:PortalClient
     if(!alive.current)return;
     const current=++generation.current,session=client.sessionGeneration;
     const valid=()=>alive.current&&current===generation.current&&session===client.sessionGeneration;
+    // Until the site flag is known, show neither a stale nor an unfiltered count.
+    if(preferencesEnabled===null){setPage(null);return;}
     setLoading(true);setError(false);
     try{
       // Only overlapping identical reads share transport; settled results are never cached.
-      const next=await client.get<Page>('/me/notifications?limit=6&offset=0',{background:true,coalesce:true});
-      if(valid()){setPage(next);setError(false);}
+      const [history,reminders]=await Promise.all([client.get<Page>('/me/notifications?limit=6&offset=0',{background:true,coalesce:true}),preferencesEnabled?client.get<{unread_count:number}>('/me/notification-preferences/reminders',{background:true,coalesce:true}):Promise.resolve(null)]);
+      if(valid()){setPage({...history,unread_count:reminders?.unread_count??history.unread_count});setError(false);}
     }catch{if(valid()){setPage(null);setError(true);}}
     finally{if(valid())setLoading(false);}
-  },[client]);
+  },[client,preferencesEnabled]);
   useEffect(()=>{
     alive.current=true;void refresh();const update=()=>void refresh();
-    const events=['focus','online',INBOX_UPDATED];
+    const events=['focus','online',INBOX_UPDATED,'freedom-notification-preferences-updated'];
     for(const event of events)window.addEventListener(event,update);
     return()=>{alive.current=false;generation.current++;for(const event of events)window.removeEventListener(event,update);};
   },[refresh]);
@@ -52,7 +54,7 @@ export function NotificationBell({client,onOpen,onNavigate}:{client:PortalClient
         const result=await client.post<{read_at:string}>(`/me/notifications/${item.notification_id}/read`,{},{idempotencyKey:key});
         if(!valid())return;
         keys.current.delete(item.notification_id);
-        setPage(current=>current?{...current,items:current.items.map(value=>value.notification_id===item.notification_id?{...value,read_at:result.read_at}:value),unread_count:Math.max(0,current.unread_count-1)}:current);
+        setPage(current=>current?{...current,items:current.items.map(value=>value.notification_id===item.notification_id?{...value,read_at:result.read_at}:value),unread_count:preferencesEnabled?current.unread_count:Math.max(0,current.unread_count-1)}:current);
         // The single confirmed event refreshes this bell and the other inbox consumers.
         announceInboxChange();
       }catch{if(!valid())return;setActionError(true);}

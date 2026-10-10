@@ -63,5 +63,5 @@ session-cookie-security social-preview-assets social-thumbnail-assets verify-gui
 storefront-presentation-contracts hosted-store-media-contracts hosted-store-photo-state hosted-store-photo storefront-product-photo-core storefront-product-photo-sql storefront-product-photo-native hosted-store hosted-store-isolation hosted-order-contracts hosted-order-http hosted-order-http-contracts hosted-seller-orders hosted-seller-order-ui hosted-order-ui hosted-direct-orders hosted-store-offering
 guild-launchpad-profiles launchpad-profile-defaults production-dossier positioning-action-card
 message-images message-image-ack message-image-upload-reader message-image-preview json-wire
-personal-content community-relations
+personal-content community-relations notification-preferences
 `.trim().split(/\s+/)).sort());

@@ -12,22 +12,27 @@ type EventBulletin={bulletin_id:string;kind?:string;message:string;created_at:st
 type AcceptedWork={contribution_id:string;title:string;member_name:string;accepted_at:string}
 
 /** Activity and public announcements only. Chat bodies are read by an explicitly selected room. */
-export async function readConsoleFeed(client:PortalClient, _userId:string, includeWorld=true):Promise<GameConsoleEvent[]> {
+export async function readConsoleFeed(client:PortalClient, _userId:string, includeWorld=true,preferencesEnabled=false):Promise<GameConsoleEvent[]> {
   const load=async<T,>(path:string):Promise<Page<T>>=>{
     try{return await client.get<Page<T>>(path,{background:true})}catch{return {items:[]}}
   }
-  const [notices,announcements,skills,projects,github,eventBulletins,acceptedWork] = await Promise.all([
-    load<Notice>('/me/notifications?limit=20&offset=0'),
+  const [notices,announcements,skills,projects,github,eventBulletins,acceptedWork,following] = await Promise.all([
+    load<Notice>(preferencesEnabled?'/me/notification-preferences/reminders':'/me/notifications?limit=20&offset=0'),
     includeWorld?load<Announcement>('/me/guild-announcements'):Promise.resolve({items:[] as Announcement[]}),
     includeWorld?load<PublishedSkill>('/skill-submissions/published?limit=10'):Promise.resolve({items:[] as PublishedSkill[]}),
     includeWorld?load<Project>('/co-creation/projects'):Promise.resolve({items:[] as Project[]}),
     includeWorld?load<GitHubEvents['items'][number]>('/pages/github-events'):Promise.resolve({items:[] as GitHubEvents['items']}),
-    includeWorld?load<EventBulletin>('/events/bulletins'):Promise.resolve({items:[] as EventBulletin[]}),
+    includeWorld?load<EventBulletin>(preferencesEnabled?'/me/notification-preferences/event-reminders':'/events/bulletins'):Promise.resolve({items:[] as EventBulletin[]}),
     includeWorld?load<AcceptedWork>('/community/accepted-work'):Promise.resolve({items:[] as AcceptedWork[]}),
+    preferencesEnabled?client.get<{items:{id:string;title:string;path:string}[];generated_at:string}>('/me/notification-preferences/following-reminders',{background:true}).catch(()=>null):Promise.resolve(null),
   ])
   const events = notices.items.filter(item=>item.read_at===null).map(item=>createConsoleEvent({
     id:`notice:${item.notification_id}`,channel:notificationConsoleChannel(item.kind),kind:'status',source:'通知',
     message:item.title,detail:item.body,createdAt:item.created_at,
+  }))
+  for(const item of following?.items??[])events.push(createConsoleEvent({
+    id:`following:${item.id}`,channel:notificationConsoleChannel(undefined),kind:'status',source:'追蹤更新',
+    message:item.title,detail:item.path,createdAt:following!.generated_at,
   }))
   for(const item of announcements.items)events.push(createConsoleEvent({
     id:`guild:${item.announcement_id}:${item.updated_at}`,channel:consoleChannel('guild_announcement'),kind:'broadcast',source:`公會公告 · ${item.guild_name}`,
