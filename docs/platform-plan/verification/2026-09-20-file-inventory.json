@@ -149,8 +149,8 @@
     },
     {
       "path": "apps/freedom.module.json",
-      "bytes": 2493,
-      "sha256": "69a792c8ac81e3464554a0882ec683aafe8d5e6a41eddd524256d2e962b36aef"
+      "bytes": 2530,
+      "sha256": "74a92a8c184a06d7d7b564ed5e350ebf4a8fa2dfe08a83e8a669fd18c811dd7f"
     },
     {
       "path": "apps/credential-broker/README.md",
@@ -17729,8 +17729,8 @@
     },
     {
       "path": "modules/member-communications/freedom.module.json",
-      "bytes": 4046,
-      "sha256": "d2a70500ef263e1cc8cda403f88205d8653f0aac29576247c54cabe3e6081e15"
+      "bytes": 4083,
+      "sha256": "a5c5bb9fa79625dd14c26f7e89980f371772d8c3ba4c6048d1293373890637c2"
     },
     {
       "path": "modules/member-communications/freetwai-stickers.ts",
@@ -19124,8 +19124,8 @@
     },
     {
       "path": "packages/scoped-commands/index.ts",
-      "bytes": 52475,
-      "sha256": "d263ab899f134efbf5f8c805652a421634e15bb9152fd36171c07112cc228c25"
+      "bytes": 53008,
+      "sha256": "74092f509c4bed3e52547ba3dbedade53c240c1f1012381d65fe03c769672269"
     },
     {
       "path": "packages/sdk/client.d.mts",
@@ -19574,8 +19574,8 @@
     },
     {
       "path": "scripts/verify-cloud-candidate-members.ts",
-      "bytes": 45235,
-      "sha256": "f8a1f269ae2a368279ad000c82f92844f1c0b4cdf7107eac2e78dd4659cbe5ba"
+      "bytes": 45512,
+      "sha256": "6c6ce4ab4ef3bcc6477034f0a2bc012cf68a03c94acd12a101aeee69d0e601d9"
     },
     {
       "path": "scripts/verify-cloud-candidate.md",
@@ -19824,8 +19824,8 @@
     },
     {
       "path": "tests/e2e/audit-shell.spec.ts",
-      "bytes": 20109,
-      "sha256": "8da6da927813bdabd24a0bfbdadbbd8dc2e44c5ce3c0515286898304fb26bbdf"
+      "bytes": 20093,
+      "sha256": "de63d64ffdc5226c3d0d5fbae021acf6d1e273e139cbcee3709939ef13c35bb6"
     },
     {
       "path": "tests/e2e/audit-skills.spec.ts",
@@ -19864,8 +19864,8 @@
     },
     {
       "path": "tests/e2e/chat-search.spec.ts",
-      "bytes": 12034,
-      "sha256": "27afc54b16f6f3cbad184bd24058dfe96cb00418e7d07fcd8e1be481ff229f3f"
+      "bytes": 12317,
+      "sha256": "695db0b2bb43dfdc659e6673418994786693f7147364802214f9d7df15785e95"
     },
     {
       "path": "tests/e2e/chat-stickers.spec.ts",
@@ -19959,8 +19959,8 @@
     },
     {
       "path": "tests/e2e/freedom.module.json",
-      "bytes": 1219,
-      "sha256": "201d4f2379448d67ef387a28de94ac2a1ce4cdc9113938c5d8a91ec69183b3ad"
+      "bytes": 1320,
+      "sha256": "36c1544175d05eeaa39f084af010567ae461ef90b4c5a2e3a18b622e764e973b"
     },
     {
       "path": "tests/e2e/game-console.spec.ts",
@@ -22124,8 +22124,8 @@
     },
     {
       "path": "tests/runtime/social-preview-assets.test.ts",
-      "bytes": 24376,
-      "sha256": "30e1385ba7da7278c8e34d61ab71537bd69e51ba5d12a7ec107d1e5d963e2594"
+      "bytes": 27558,
+      "sha256": "c30d6d58c7c38ad570cce1a3d3a38dcb5b042fbc3bd8bd3bf365889cb99963b8"
     },
     {
       "path": "tests/runtime/social-share.test.ts",

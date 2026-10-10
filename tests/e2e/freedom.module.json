@@ -35,7 +35,9 @@
     "tests/e2e/quick-join.ts",
     "scripts/ci/pinned-playwright.config.mjs",
     "scripts/ci/run-pinned-e2e.mjs",
-    "tests/e2e/sharing-authoring-fixture.ts"
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "scripts/verify-cloud-candidate-members.ts",
+    "tests/e2e/cloud-candidate-acceptance.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
