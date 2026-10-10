@@ -19659,8 +19659,8 @@
     },
     {
       "path": "tests/e2e/hosted-store-member-journey.spec.ts",
-      "bytes": 8060,
-      "sha256": "957c2ca17dcd11be282bcab00a4fd451bbe7c8f52a6d03a8f3e8f0067e5127f8"
+      "bytes": 8340,
+      "sha256": "4efdd5c682ee55dce181d642ba398509553812ee653b1ecb0e27dcc64723b0da"
     },
     {
       "path": "tests/e2e/hosted-store.spec.ts",

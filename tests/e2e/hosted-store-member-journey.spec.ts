@@ -45,7 +45,10 @@ test('registered intern obtains guild approval through the UI, opens a store, pu
     const nickname = `新店主 ${randomUUID().slice(0, 8)}`, email = await register(page, nickname);
     await guildHome(page);
     const primary = page.getByRole('region', {name: '主要動作', exact: true});
-    await expect(primary.getByRole('button', {name: '建立我的商店', exact: true})).toBeDisabled();
+    await expect(primary).toContainText('你是這個公會的實習成員');
+    await expect(primary.getByRole('button', {name: '建立我的商店', exact: true})).toHaveCount(0);
+    await expect(page.getByRole('article').filter({has: page.getByRole('heading', {name: '線上商店', exact: true})})
+      .getByRole('button', {name: '啟動應用', exact: true})).toBeDisabled();
     const officerPage = await officer.newPage(); await login(officerPage, officerEmail);
     await navigate(officerPage, '職業公會');
     const card = officerPage.getByRole('article').filter({has: officerPage.getByRole('heading', {name: /電商/})});
