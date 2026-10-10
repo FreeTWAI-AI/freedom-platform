@@ -83,7 +83,7 @@ function onboardingAllowed(path:string,method:string) {
   if(method==='POST'&&/^\/api\/v1\/events\/[0-9a-f-]{36}\/video$/.test(path))return true;
   if(path==='/api/v1/me/notifications'&&method==='GET')return true;
   if(method==='POST'&&/^\/api\/v1\/me\/notifications\/[0-9a-f-]+\/read$/.test(path))return true;
-  if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account')return true;
+  if(path==='/api/v1/session'||path==='/api/v1/auth/logout'||path==='/api/v1/me/account'||path==='/api/v1/me/account/deactivate')return true;
   if(method==='GET'&&['/api/v1/assessment-definition','/api/v1/career-tracks','/api/v1/guilds','/api/v1/me/skill-books','/api/v1/me/guild-preferences','/api/v1/guilds/directory','/api/v1/events','/api/v1/task-board/preview'].includes(path))return true;
   if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete|quick-start))?$/.test(path))return true;
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
@@ -472,7 +472,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.get('/api/v1/task-board/preview',async c=>c.json({items:await previewTasks(pool,c.get('actor'))}));
   app.get('/api/v1/me/contribution-records',async c=>c.json(await contributionRecords(pool,c.get('actor'))));
   app.get('/api/v1/community/accepted-work',async c=>c.json({items:await acceptedWorkFeed(pool,c.get('actor'))}));
-  app.get('/api/v1/showcases',async c=>c.json({items:await listShowcases(pool,c.get('actor'))}));
+  app.get('/api/v1/showcases',async c=>c.json(await listShowcases(pool,c.get('actor'),c.req.query())));
   app.post('/api/v1/showcases',async c=>respond(c,await createShowcase(pool,await cmd(c)),201));
   app.get('/api/v1/opportunities',async c=>c.json({items:await listOpportunities(pool,c.get('actor'))}));
   app.post('/api/v1/opportunities',async c=>respond(c,await createOpportunity(pool,await cmd(c)),201));

@@ -96,11 +96,12 @@ export async function markNotificationRead(pool:Pool,input:Command,rawId:string)
 /** One explicit command clears the viewer's inbox across pages and rooms.
  * Replaying the receipt never consumes messages that arrived afterwards. */
 export async function markAllInboxRead(pool:Pool,input:Command){
-  Empty.parse(input.body);
+  const {scope}=z.object({scope:z.literal('notifications').optional()}).strict().parse(input.body);
   return command(pool,input,q=>currentMember(q,input.actor,false),async q=>{
     const {community_id,user_id}=input.actor;
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`member-inbox-read-all/${community_id}/${user_id}`]);
     const notices=await q.query('UPDATE member_notifications SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
+    if(scope==='notifications')return {notifications_updated:notices.rowCount??0,direct_messages_updated:0,channels_updated:0};
     const messages=await q.query('UPDATE member_direct_messages SET read_at=clock_timestamp() WHERE community_id=$1 AND recipient_ref=$2 AND read_at IS NULL',[community_id,user_id]);
     const channels=await markAllMemberChannelsRead(q,input.actor);
     return {notifications_updated:notices.rowCount??0,direct_messages_updated:messages.rowCount??0,channels_updated:channels};

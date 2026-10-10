@@ -17,7 +17,7 @@ export const TAB_TITLES: Record<TabId, string> = {
   highlights: '活動集錦',
 };
 
-const primary: TabId[] = ['home', 'social', 'messages', 'guilds', 'skills'];
+const primary: TabId[] = ['home', 'social', 'guilds', 'skills'];
 const keywords:Partial<Record<TabId,string>>={messages:'聊天室 對話 私訊',members:'人才 找夥伴 媒合',skills:'學習 資源 免費',tasks:'任務 貢獻 參與','private-ai':'私人 AI 草稿 模型 執行',workbench:'工作 任務',showcase:'作品 分享 展示 需求 找人',opensource:'投稿 提交 上傳 GitHub 開源 工具 技能',supplier:'商品 商店 供應商',retail:'電商 販售 商店',account:'個人資料 設定 暱稱',friends:'朋友 好友 私訊',business:'業務 工作區 邀請',reservations:'預留 訂單 查詢 取消',stores:'商店 開店 店鋪 商品 上架 發布'};
 const groups: { label: string; pages: TabId[] }[] = [
   { label: '社群參與', pages: ['events', 'tasks', 'highlights'] },

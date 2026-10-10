@@ -10,15 +10,25 @@ import { useModuleMutation } from './shared'
 import { useShowcaseEditor, showcaseBody, showcaseInput, performShowcaseRequest, reconcilePublishedShowcase, type PersonalShowcase, type ShowcaseInput, type ShowcaseRequest } from './showcase-drafts'
 export type { PersonalShowcase } from './showcase-drafts'
 
+const SHOWCASE_PAGE = 20
+function nextOffsetOf(payload: unknown): number | null {
+  const value = payload && typeof payload === 'object' && 'next_offset' in payload ? payload.next_offset : null
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
 export function ShowcasePanel() {
   const { session, pending, mutate, isMe } = usePortal()
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<ActionError | null>(null)
   const [showcases, setShowcases] = useState<Showcase[] | null>(null)
+  const [nextOffset, setNextOffset] = useState<number | null>(null)
+  const [moreLoading, setMoreLoading] = useState(false)
+  const [moreError, setMoreError] = useState<ActionError | null>(null)
   const [opportunities, setOpportunities] = useState<Opportunity[] | null>(null)
   const [published, , current] = useAuthoringDraft<Showcase | null>(session.user.user_id, 'showcase:published', null)
   const [latestOpportunity] = useAuthoringDraft<Opportunity | null>(session.user.user_id, 'opportunity:latest', null)
   const loadSequence = useRef(0)
+  const loadedPages = useRef<{items: Showcase[]; observed: Showcase | null}>({items: [], observed: null})
   useEffect(() => {
     if (published) setShowcases(items => !items || items.some(item => item.showcase_id === published.showcase_id) ? items : [published, ...items])
   }, [published, showcases])
@@ -33,15 +43,23 @@ export function ShowcasePanel() {
     const observed = authoringDraftState<Showcase | null>(session.user.user_id, 'showcase:published', null).read()
     setLoading(true)
     setLoadError(null)
+    // A first-page refresh supersedes any pending continuation. Its stale
+    // finally handler cannot clear state owned by this new request generation.
+    setMoreLoading(false)
+    setMoreError(null)
+    setNextOffset(null)
     try {
       const [showcasePayload, opportunityPayload] = await Promise.all([
-        client.get<unknown>('/showcases'),
+        client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=0`),
         client.get<unknown>('/opportunities'),
       ])
       if (!current() || sequence !== loadSequence.current) return
       const items = requireItems<Showcase>(showcasePayload, '作品')
-      reconcilePublishedShowcase(session.user.user_id, items, observed)
+      loadedPages.current = {items, observed}
+      reconcilePublishedShowcase(session.user.user_id, items, observed, nextOffsetOf(showcasePayload) === null)
       setShowcases(items)
+      setNextOffset(nextOffsetOf(showcasePayload))
+      setMoreError(null)
       setOpportunities(requireItems<Opportunity>(opportunityPayload, '商機'))
     } catch (err) {
       if (!current() || sequence !== loadSequence.current) return
@@ -57,10 +75,34 @@ export function ShowcasePanel() {
     void load()
     return () => { loadSequence.current++ }
   }, [load, session.user.user_id, latestOpportunity?.opportunity_id])
+  const loadMore = useCallback(async () => {
+    if (loading || nextOffset === null || moreLoading) return
+    const sequence = loadSequence.current
+    setMoreLoading(true); setMoreError(null)
+    try {
+      const payload = await client.get<unknown>(`/showcases?limit=${SHOWCASE_PAGE}&offset=${nextOffset}`)
+      if (!current() || sequence !== loadSequence.current) return
+      const items = requireItems<Showcase>(payload, '作品')
+      // Keep fetched rows separate from the optimistic publication card. Only
+      // the complete fetched union can establish that a cached row is absent.
+      const loaded = loadedPages.current
+      const merged = [...loaded.items, ...items.filter(item => !loaded.items.some(known => known.showcase_id === item.showcase_id))]
+      loadedPages.current = {...loaded, items: merged}
+      reconcilePublishedShowcase(session.user.user_id, merged, loaded.observed, nextOffsetOf(payload) === null)
+      setShowcases(merged)
+      setNextOffset(nextOffsetOf(payload))
+    } catch (err) {
+      if (current() && sequence === loadSequence.current) setMoreError(describeError(err))
+    } finally {
+      if (current() && sequence === loadSequence.current) setMoreLoading(false)
+    }
+  }, [loading, nextOffset, moreLoading])
   useEffect(() => {
     const reveal = () => {
       const id = window.location.hash.slice('#showcase/'.length);
-      if (!window.location.hash.startsWith('#showcase/') || !showcases?.some(item => item.showcase_id === id)) return;
+      if (!window.location.hash.startsWith('#showcase/') || !showcases) return;
+      // A deep link may point past the first page: keep paging until it appears or the list ends.
+      if (!showcases.some(item => item.showcase_id === id)) { if (nextOffset !== null && !moreError) void loadMore(); return; }
       const card = document.getElementById(`showcase-${id}`);
       card?.scrollIntoView({ block: 'center', behavior: 'instant' });
       card?.focus();
@@ -68,7 +110,7 @@ export function ShowcasePanel() {
     reveal();
     window.addEventListener('hashchange', reveal);
     return () => window.removeEventListener('hashchange', reveal);
-  }, [showcases]);
+  }, [showcases, nextOffset, moreError, loadMore]);
 
   if (loading && !showcases) return <p className="muted" role="status">載入作品與商機…</p>
   if (loadError || !showcases || !opportunities) {
@@ -95,6 +137,8 @@ export function ShowcasePanel() {
             ))}
           </div>
         )}
+        {moreError && <p className="banner banner-error" role="alert">較多作品暫時無法載入：{moreError.message}</p>}
+        {nextOffset !== null && <div className="actions"><button type="button" className="btn btn-secondary btn-small" disabled={moreLoading} onClick={() => void loadMore()}>{moreLoading ? '正在載入…' : moreError ? '重試載入更多作品' : '載入更多作品'}</button></div>}
         </div>
       </Section>
       <Section data-guide-anchor="showcase:opportunities" title="與你相關的商機" description="只顯示你是提出者或作品作者的商機。">

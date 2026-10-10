@@ -1,0 +1,39 @@
+{
+  "client_profiles": [
+    "member",
+    "shop-api"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "modules/agent-commerce/hosted/supply-terms.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "service-is-not-owner-person",
+    "purpose-and-environment-bound-key",
+    "single-transaction-effects",
+    "legacy-domain-replay-compatibility",
+    "explicit-readonly-target"
+  ],
+  "owner_role": "foundation",
+  "tests": [
+    "runtime.full"
+  ],
+  "module_id": "hosted-store-pagination",
+  "owned_paths": [
+    "contracts/guild-launchpad/v1/storefront-pagination.ts",
+    "tests/runtime/hosted-store-pagination-contracts.test.ts",
+    "tests/e2e/hosted-store-pagination.spec.ts"
+  ],
+  "dependencies": [
+    "agent-commerce"
+  ],
+  "public_exports": [],
+  "surfaces": []
+}

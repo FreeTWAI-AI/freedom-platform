@@ -1,3 +1,4 @@
+import {openChat,closeChat} from './navigation.js';
 import {openPageTools} from './navigation.js';
 // Browser regressions adapted from mars-tw PR #106 (46a4034) and inline follow-up 99b9045, plus opt-in/release isolation.
 import {randomUUID} from 'node:crypto';
@@ -208,6 +209,17 @@ test('joined member loads only the current hero before interaction and each perm
   // A newly joined ordinary member has no guild-management role. Use actual
   // navigation for every permitted tab, including the account/notification menus.
   for (const id of (Object.keys(SPIRIT_CHARACTERS) as TabId[]).filter(id=>id!=='guild-workspace')) {
+    if(id==='messages'){
+      const current=await widget(page).getAttribute('data-page-id');
+      await navigate(page,TAB_TITLES[id]);
+      await expect(page.locator('.floating-message-panel')).toBeVisible();
+      await expect(widget(page)).toHaveAttribute('data-page-id',current!);
+      await expectQuietCompanion(page,true);
+      await closeChat(page);
+      await expect(widget(page)).toHaveAttribute('data-page-id',current!);
+      expect(requests.filter(request=>request.pageId==='messages')).toEqual([]);
+      continue;
+    }
     await navigate(page,TAB_TITLES[id]);
     await expect(widget(page)).toHaveAttribute('data-page-id',id);
     const character = SPIRIT_CHARACTERS[id], launcher = widget(page).locator('.page-spirit-launcher');
@@ -217,7 +229,7 @@ test('joined member loads only the current hero before interaction and each perm
     expect(await launcher.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth>0)).toBe(true);
     observedNames.add(character.name);
   }
-  expect(observedNames.size).toBe(25);
+  expect(observedNames.size).toBe(24);
   expect(requests.filter(request=>!['portrait','hero','frame-0'].includes(request.part)).every(request=>request.pageId==='home')).toBe(true);
   expect(packRequests.every(path=>/\/home-[^/]+\.js$/.test(path)||path.endsWith('/content/home.json'))).toBe(true);
 });
@@ -273,7 +285,7 @@ test('page-only FAQ and raw-input privacy survive a delayed old-page pack and cr
   }
 });
 
-test('console drafts, the existing page dialog and outside form focus keep the companion quiet without stealing data', async ({page}) => {
+test('chat drafts, the existing page dialog and outside form focus keep the companion quiet without stealing data', async ({page}) => {
   test.setTimeout(90_000);
   await registerJoined(page);
   const help = page.locator('.topbar').getByRole('button',{name:'頁面說明',exact:true});
@@ -286,22 +298,22 @@ test('console drafts, the existing page dialog and outside form focus keep the c
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await expect(page.locator('.page-tools-menu > summary')).toBeFocused();
   await openSpirit(page);
-  await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
-  const dock = page.getByRole('complementary',{name:'訊息控制台',exact:true});
+  await openChat(page);
+  const dock = page.getByRole('region',{name:'我的訊息',exact:true});
   await expect(dock).toBeVisible(); await expectQuietCompanion(page,true);
-  await dock.getByRole('tab',{name:/^公會聊天/}).click();
+  await dock.getByRole('tab',{name:/^公會閒聊/}).click();
   await dock.getByRole('button',{name:'AI 開發公會',exact:true}).click();
   const draft = `private-unsent-npc-draft-${randomUUID()}`;
   await dock.getByRole('textbox',{name:'在 AI 開發公會 發言',exact:true}).fill(draft);
-  await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
+  await closeChat(page);
   await expect(widget(page).locator('.page-spirit-launcher')).toBeVisible();
   await openSpirit(page); await ask(page,'你是誰');
   await expect(line(page)).not.toContainText(draft); await closeSpirit(page);
-  await page.getByRole('button',{name:'展開訊息控制台',exact:true}).click();
-  await dock.getByRole('tab',{name:/^公會聊天/}).click();
+  await openChat(page);
+  await dock.getByRole('tab',{name:/^公會閒聊/}).click();
   const room = dock.getByRole('button',{name:'AI 開發公會',exact:true}); if (await room.isVisible()) await room.click();
   await expect(dock.getByRole('textbox',{name:'在 AI 開發公會 發言',exact:true})).toHaveValue(draft);
-  await page.getByRole('button',{name:'收合訊息控制台',exact:true}).click();
+  await closeChat(page);
   await openSpirit(page);
   await openPageTools(page); await help.click();
   await expect(original).toBeVisible(); await expectQuietCompanion(page,true);
@@ -360,7 +372,7 @@ test('real six-frame playback finishes, cancels under motion controls and keeps 
     await expectReservedCompanionSpace(page);
     await page.screenshot({path:testInfo.outputPath(`page-spirit-${width}.png`),fullPage:false});
     await closeSpirit(page);
-    await receivesPointer(page,page.getByRole('button',{name:'展開訊息控制台',exact:true}));
+    await receivesPointer(page,page.locator('.floating-messages'));
     await openSpirit(page);
   }
 });
@@ -499,7 +511,7 @@ test('explicit current-topic guide focuses and highlights the real control witho
     await expect(guideRegion).toHaveAttribute('data-guide-found','true');
     await expect(target).toBeFocused(); await expect(target).toHaveAttribute('data-page-spirit-guide-target','true');
     await expect.poll(async()=>{
-      const control=await target.boundingBox(),helper=await guideRegion.boundingBox(),consoleBox=await page.locator('.game-console-ticker').boundingBox();
+      const control=await target.boundingBox(),helper=await guideRegion.boundingBox(),consoleBox=await page.locator('.floating-messages').boundingBox();
       if(!control||!helper||!consoleBox)return false;
       const overlap=(a:typeof control,b:typeof helper)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
       const receivesPointer=await target.evaluate(element=>{
@@ -778,8 +790,8 @@ test('gallery modal owns its shortcut keys and interruption never reopens a stal
   await registerJoined(page);await openSpirit(page);
   await panel(page).getByRole('button',{name:'角色六視圖',exact:true}).click();
   const gallery=page.getByRole('dialog',{name:'龍娘角色六視圖',exact:true});await expect(gallery).toBeVisible();
-  // The existing Console preserves drafts in a mounted, hidden aside.
-  const consoleDock=page.locator('.game-console-expanded');
+  // The floating inbox preserves drafts in a mounted, hidden panel.
+  const consoleDock=page.locator('.floating-message-panel');
   await expect(consoleDock).toHaveCount(1);await expect(consoleDock).toBeHidden();
   for(const key of ['~','`','Backquote']){await page.keyboard.press(key);await expect(gallery).toBeVisible();await expect(consoleDock).toBeHidden();}
   // External UI can change while a modal is open (e.g. a restored console state).

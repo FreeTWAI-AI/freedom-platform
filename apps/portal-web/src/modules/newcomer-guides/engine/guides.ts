@@ -7,7 +7,7 @@ export function findGuideTarget(root: HTMLElement, step: GuideStep): HTMLElement
     if (!/^\[data-guide-anchor="[a-z0-9:-]+"\]$/.test(step.selector)) return null
     const candidates = Array.from(root.querySelectorAll<HTMLElement>(step.selector)).filter(element => {
       if (!(element instanceof HTMLElement)) return false
-      if (element.closest('[hidden],[inert],[aria-hidden="true"],[aria-busy="true"],dialog,[role="dialog"],[aria-modal="true"],.page-spirit-widget,.game-console')) return false
+      if (element.closest('[hidden],[inert],[aria-hidden="true"],[aria-busy="true"],dialog,[role="dialog"],[aria-modal="true"],.page-spirit-widget,.game-console,.floating-message-panel')) return false
       if (element.matches(':disabled,[aria-disabled="true"]')) return false
       const rect = element.getBoundingClientRect(), style = getComputedStyle(element)
       return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'

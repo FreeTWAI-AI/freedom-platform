@@ -377,6 +377,46 @@ test('real checkout descriptors parse without freezing live document ownership',
   // future module claiming an existing doc may legitimately select full CI.
 });
 
+test('descriptor self-ownership respects the path bound and fails closed when no slot remains', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fp-select-bound-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const git = args => execFileSync('git', ['-C', directory, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    env: {...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 'Selector Test', GIT_AUTHOR_EMAIL: 'selector@example.invalid',
+      GIT_COMMITTER_NAME: 'Selector Test', GIT_COMMITTER_EMAIL: 'selector@example.invalid'},
+  }).trim();
+  const path = 'modules/example/freedom.module.json';
+  const extras = Array.from({length: 64}, (_, index) => `modules/other/file-${index}.ts`);
+  await mkdir(dirname(join(directory, path)), {recursive: true});
+  git(['init', '-q', '-b', 'main']);
+  for (const covered of [true, false]) for (const count of [63, 64]) {
+    const paths = covered ? ['modules/example/**', ...extras.slice(0, count - 1)] : extras.slice(0, count);
+    await writeFile(join(directory, path), JSON.stringify(moduleDescriptor('example', paths)));
+    await writeFile(join(directory, 'README.md'), '# Before\n');
+    git(['add', '.']); git(['commit', '-qm', `coverage=${covered} count=${count}`]);
+    const base = git(['rev-parse', 'HEAD']);
+    const loaded = loadModuleDescriptors(directory, base);
+    assert.equal(loaded.ok, covered || count < 64);
+    if (loaded.ok) {
+      const [descriptor] = loaded.descriptors;
+      validateDescriptor(descriptor);
+      assert.equal(descriptor.owned_paths.length, count + (covered ? 0 : 1));
+      assert.deepEqual(selectImpact({baseline: loaded.descriptors, candidate: loaded.descriptors, changedPaths: [path]}).module_ids, ['example']);
+    } else assert.deepEqual(loaded.descriptors, []);
+    await writeFile(join(directory, 'README.md'), '# After\n');
+    git(['add', '.']); git(['commit', '-qm', 'README only']);
+    const result = collectRepositoryDecision({repository: directory, event: 'pull_request', base, head: git(['rev-parse', 'HEAD'])});
+    assert.equal(result.mode, loaded.ok ? 'docs' : 'full');
+    if (!loaded.ok) {
+      assert.equal(result.reason, 'descriptors_unproven');
+      assert(SELECTABLE_JOBS.every(job => result.jobs[job]));
+    }
+    assert.equal(decideAffectedJobs({event: 'pull_request', diffComplete: true, changes: [{path, status: 'M'}],
+      baseline: loaded.descriptors, candidate: loaded.descriptors, descriptorsProven: loaded.ok}).mode, 'full');
+  }
+});
+
 test('repository tree diff narrows a docs edit and refuses a rename or merge_group input', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'fp-select-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

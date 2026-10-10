@@ -1,7 +1,43 @@
 {
+  "client_profiles": [
+    "member"
+  ],
+  "contract_families": [],
+  "dependencies": [
+    "agent-commerce",
+    "community",
+    "community-search",
+    "personal-content",
+    "development",
+    "execution-runs",
+    "guild-workspace",
+    "member-card",
+    "member-communications",
+    "module-registry",
+    "newcomer-guides",
+    "positioning",
+    "runtime-registration",
+    "skill-submissions",
+    "social-feed",
+    "tenant-workspaces",
+    "work",
+    "member-squads",
+    "github-social"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "DESIGN.md",
+    "docs/development/member-api.md",
+    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
+    "packages/contribution-tools/surface-audit.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
   "module_id": "application-composition",
-  "owner_role": "foundation",
   "owned_paths": [
     "apps/platform-api/src/app.ts",
     "apps/platform-api/src/runtime.ts",
@@ -21,47 +57,28 @@
     "tests/e2e/typed-line-breaks.spec.ts",
     "tests/e2e/calm-experience.spec.ts",
     "tests/e2e/member-connections-51.spec.ts",
-    "tests/e2e/member-experience.spec.ts"
-  ],
-  "public_exports": [],
-  "dependencies": [
-    "agent-commerce",
-    "community",
-    "community-search",
-    "personal-content",
-    "development",
-    "execution-runs",
-    "guild-workspace",
-    "member-card",
-    "member-communications",
-    "module-registry",
-    "newcomer-guides",
-    "positioning",
-    "runtime-registration",
-    "skill-submissions",
-    "social-feed",
-    "tenant-workspaces",
-    "work",
-    "member-squads"
-  ],
-  "contract_families": [],
-  "client_profiles": [
-    "member"
-  ],
-  "instructions": [
-    "AGENTS.md",
-    "CONTRIBUTING.md",
+    "tests/e2e/member-experience.spec.ts",
     "DESIGN.md",
-    "docs/development/member-api.md",
-    "docs/platform-plan/execution/unified-foundation/04-execution-adapters-release.md",
-    "packages/contribution-tools/surface-audit.md"
+    "apps/portal-web/src/GameConsole.tsx",
+    "apps/portal-web/src/modules/WelcomePreview.tsx",
+    "tests/e2e/game-console.spec.ts",
+    "tests/e2e/instant-feedback.spec.ts",
+    "tests/e2e/member-directory.spec.ts",
+    "tests/e2e/member-settings-real.spec.ts",
+    "tests/e2e/member-settings.spec.ts",
+    "tests/e2e/member-todos.spec.ts",
+    "tests/e2e/mobile-install.spec.ts",
+    "tests/e2e/page-issue-recovery.spec.ts",
+    "tests/e2e/page-tools.spec.ts",
+    "tests/e2e/simple-social-experience.spec.ts",
+    "apps/portal-web/src/LazyPage.tsx",
+    "tests/e2e/shared-feedback-language.spec.ts",
+    "tests/e2e/audit-shell.spec.ts"
   ],
-  "invariants": [
-    "current-authority-before-replay",
-    "no-secrets-in-artifacts"
-  ],
+  "owner_role": "foundation",
+  "public_exports": [],
+  "surfaces": [],
   "tests": [
     "runtime.full"
-  ],
-  "surfaces": []
+  ]
 }
