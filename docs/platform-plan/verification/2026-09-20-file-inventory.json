@@ -419,8 +419,8 @@
     },
     {
       "path": "apps/platform-api/src/worker.ts",
-      "bytes": 33223,
-      "sha256": "662028d860b84283e50d117ed7e6d58e6ad4770b209184fa5c2622e41027bd3d"
+      "bytes": 33452,
+      "sha256": "2e05aba8ee553aab5ccd6c8bb28c0128d16b83a66fb6438b7f943adba4086b80"
     },
     {
       "path": "apps/platform-api/src/generated/runtime-text.ts",
@@ -17284,8 +17284,8 @@
     },
     {
       "path": "modules/community/event-waitlist.ts",
-      "bytes": 34784,
-      "sha256": "b059546349c78cedcf6c5e8c21e8d6586cf6c467ed16a82f4076c28af5878806"
+      "bytes": 34727,
+      "sha256": "e35c734f30c07aff72c5c59f5c6bcf9b0a7581c92b821a4a4bced9536cc9c4a0"
     },
     {
       "path": "modules/community/events.ts",
@@ -21149,8 +21149,8 @@
     },
     {
       "path": "tests/runtime/event-waitlist.test.ts",
-      "bytes": 16088,
-      "sha256": "a0a8eec9099f21234f99d651aedbb097560c8f1801817640ecd6a9b2167b9e34"
+      "bytes": 18402,
+      "sha256": "fa8916bd6821f74c463c230eb80f0f3cf06296cd7f5b504d781c0766dc7d73f3"
     },
     {
       "path": "tests/runtime/events-past.test.ts",
@@ -22489,8 +22489,8 @@
     },
     {
       "path": "tests/runtime/worker-adapter.test.ts",
-      "bytes": 38461,
-      "sha256": "0d371f56212561f77bc0abac760d0dba8249fe843fd66201d5f8d9590a776594"
+      "bytes": 39495,
+      "sha256": "fcbaa0d6d498503b22db188aa8f1d3264456309a16e75894b6f2aafad1cdbac8"
     },
     {
       "path": "tests/runtime/worker-private-ai-ingest.test.ts",
