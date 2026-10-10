@@ -13034,8 +13034,8 @@
     },
     {
       "path": "deploy/cloudflare/test/isolated-candidate.test.mjs",
-      "bytes": 16494,
-      "sha256": "3a63935963de07363dc1807c44b9f9a88e35129e5f29ebe1f3857f76de0e61c4"
+      "bytes": 16850,
+      "sha256": "9045311f31c99945d174afc7e6dea4f322c7c2b46d2b69071e0b50c6824df6f8"
     },
     {
       "path": "deploy/cloudflare/test/media-caller.test.mjs",
@@ -18739,8 +18739,8 @@
     },
     {
       "path": "packages/db/freedom.module.json",
-      "bytes": 1959,
-      "sha256": "49d4b99167ee094ce1be34b23344fb318a314359ee7c161412c6f9c289b033b4"
+      "bytes": 2017,
+      "sha256": "3748ca0209b8431f5c72d2e9118b1f88ec14463c53dcbedc5f207908fb05c0ca"
     },
     {
       "path": "packages/db/index.ts",
