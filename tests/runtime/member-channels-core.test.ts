@@ -227,9 +227,9 @@ test('messages are strict plain text with stable per-room sequences, identity-on
   const max=await post(a,'guild','guild_marketing','😀'.repeat(2000));assert.equal(max.status,201,JSON.stringify(max.data));
   const key=randomUUID(),sent=await post(a,'guild','guild_marketing','  第一行\r\n第二行<b>x</b>\r  ',{key});
   assert.equal(sent.status,201,JSON.stringify(sent.data));
-  assert.deepEqual(Object.keys(sent.data).sort(),['body','channel_key','created_at','kind','message_id','sender_name','sender_ref','sequence']);
+  assert.deepEqual(Object.keys(sent.data).sort(),['body','channel_key','created_at','kind','message_id','retracted_at','sender_name','sender_ref','sequence']);
   assert.deepEqual({...sent.data,message_id:undefined,created_at:undefined},{message_id:undefined,created_at:undefined,kind:'guild',channel_key:'guild_marketing',sequence:'2',
-    sender_ref:A,sender_name:DEMO_USERS[0].display_name,body:'第一行\n第二行<b>x</b>'});
+    sender_ref:A,sender_name:DEMO_USERS[0].display_name,body:'第一行\n第二行<b>x</b>',retracted_at:null});
   assert.match(sent.data.created_at,/^\d{4}-\d\d-\d\dT.*Z$/);noPrivate(sent.data);
   // Replay returns the same row, needs no new budget and keeps text out of receipts.
   assert.deepEqual((await post(a,'guild','guild_marketing','  第一行\r\n第二行<b>x</b>\r  ',{key})),{status:201,data:sent.data});

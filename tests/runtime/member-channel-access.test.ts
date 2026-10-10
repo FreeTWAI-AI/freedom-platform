@@ -178,7 +178,7 @@ test('messages: idempotent plain-text send, string sequences, newest-first pages
   const a=await member('a'),b=await member('b');await changeGuild(a,guild,'join');await changeGuild(b,guild,'join');
   const key=randomUUID(),text='  <img src=x onerror=alert(1)> **粗體**\r\n第二行  ';
   const first=await send(a,'guild',guild,text,key);
-  assert.deepEqual(Object.keys(first).sort(),['body','channel_key','created_at','kind','message_id','sender_name','sender_ref','sequence']);
+  assert.deepEqual(Object.keys(first).sort(),['body','channel_key','created_at','kind','message_id','retracted_at','sender_name','sender_ref','sequence']);
   assert.equal(first.body,'<img src=x onerror=alert(1)> **粗體**\n第二行');assert.equal(first.sequence,'1');assert.equal(first.sender_ref,a.id);
   assert.deepEqual(await send(a,'guild',guild,text,key),first,'same-key replay returns the one message');
   await assert.rejects(send(a,'guild',guild,'不同內容',key),(e:unknown)=>e instanceof Problem&&e.code==='idempotency_conflict');

@@ -118,6 +118,21 @@ test('image-only messages carry a placeholder body, show up in pages, previews a
   assert.equal((await (await s.call(b,'GET','/api/v1/me/conversations')).json() as {unread_count:number}).unread_count,0);
 });
 
+test('a retracted image message stops serving bytes to both sides and drops its image metadata (#398)',async()=>{
+  const s=setup(),a=await member(community,'Alice'),b=await member(community,'Bob');
+  const {message}=await sendImage(s,a,b,png,{body:'合成截圖'});
+  assert.equal((await s.read(b,a.id,message.message_id)).status,200);
+  await code(await s.call(b,'POST',`/api/v1/me/conversations/${a.id}/messages/${message.message_id}/retract`,{json:{}}),403,'message_not_own');
+  const done=await s.call(a,'POST',`/api/v1/me/conversations/${b.id}/messages/${message.message_id}/retract`,{json:{}});
+  assert.equal(done.status,200,await done.clone().text());
+  for(const [user,peer] of [[a,b],[b,a]] as const){
+    await code(await s.read(user,peer.id,message.message_id),404,'media_not_found');
+    const page=await (await s.call(user,'GET',`/api/v1/me/conversations/${peer.id}/messages`)).json() as {items:{message_id:string;body:string;image?:object;retracted_at:string|null}[]};
+    const row=page.items.find(item=>item.message_id===message.message_id)!;
+    assert.equal(row.body,'');assert.equal(row.image,undefined);assert.ok(row.retracted_at);
+  }
+});
+
 test('third parties, other communities, wrong peers, anonymous callers and forged ids never receive bytes',async()=>{
   const s=setup(),a=await member(community,'Alice'),b=await member(community,'Bob'),c=await member(community,'Carol');
   const foreignCommunity=randomUUID();await fixture.query('INSERT INTO communities VALUES($1,$2)',[foreignCommunity,'Foreign']);
