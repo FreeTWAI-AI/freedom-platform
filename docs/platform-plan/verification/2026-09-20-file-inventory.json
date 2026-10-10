@@ -21014,8 +21014,8 @@
     },
     {
       "path": "tests/runtime/event-attendees.test.ts",
-      "bytes": 14198,
-      "sha256": "f7a277cb578cdee1b4817e560074db6f7ff33a8703f8ec3bfe629aa3a78253ed"
+      "bytes": 15867,
+      "sha256": "0e9d4a9818c329fb8a38fbb887e180e07699b883ccf08109cd7210008d950a86"
     },
     {
       "path": "tests/runtime/event-banner-assets.test.ts",

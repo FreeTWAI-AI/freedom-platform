@@ -66,6 +66,23 @@ test('the organizer sees going members and public guests in registration order, 
   assert.equal(after.data.total,2);assert.equal(after.data.items.some(item=>item.kind==='member'&&item.user_id===a.id),false);
 });
 
+test('guest cancellation and capability confirmation keep the organizer list equal to actual attendance before pagination',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1),id=await publishedEvent(owner,reviewer);
+  await pool.query(`INSERT INTO community_event_guest_rsvps(event_id,email,name,state,email_sent_at,confirmed_at,created_at) VALUES
+    ($1,'cancelled-roster@example.test','私人已取消','cancelled',now(),now(),now()-interval '3 minutes'),
+    ($1,'pending-roster@example.test','私人待確認','pending',NULL,NULL,now()-interval '2 minutes'),
+    ($1,'confirmed-roster@example.test','私人已确认','going',NULL,now(),now()-interval '1 minute')`,[id]);
+  const page=await request<Page>(`/events/${id}/attendees?limit=1`,owner);
+  assert.equal(page.status,200);assert.equal(page.data.total,1);assert.equal(page.data.items.length,1);assert.equal(page.data.next_offset,null);
+  assert.deepEqual(Object.keys(page.data.items[0]).sort(),['kind','registered_at']);
+  assert.equal(page.data.items[0].kind,'guest');
+  assert.equal(page.data.items[0].registered_at,(await pool.query("SELECT created_at FROM community_event_guest_rsvps WHERE event_id=$1 AND email='confirmed-roster@example.test'",[id])).rows[0].created_at.toISOString());
+  assert.equal((await request<{attending_count:number}>(`/events/${id}`,owner)).data.attending_count,page.data.total);
+  assert.doesNotMatch(JSON.stringify(page.data),/example.test|私人|email|name/);
+  const tail=await request<Page>(`/events/${id}/attendees?limit=1&offset=1`,owner);
+  assert.equal(tail.data.total,1);assert.deepEqual(tail.data.items,[]);assert.equal(tail.data.next_offset,null);
+});
+
 test('only the organizer may read the list; others, unknown events and bad queries are refused',async()=>{
   const owner=await signIn(0),a=await signIn(1),b=await signIn(2);
   const id=await publishedEvent(owner,a);
