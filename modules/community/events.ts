@@ -10,6 +10,7 @@ import type { Actor } from '../identity-membership/service.js';
 import {authRateLimitInTransaction} from '../identity-membership/members.js';
 import { normalizeEventPoster } from '../skill-submissions/payload.js';
 import {notifyMember} from '../member-communications/notifications.js';
+import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {requireFullGuildMember} from '../positioning/member-tier.js';
@@ -187,9 +188,11 @@ export type EventAttendee={kind:'member';user_id:string;nickname:string;avatar_u
  * public guests only their registration time — never email, name or contacts. */
 export async function eventAttendees(pool:Pool,actor:Actor,id:string,raw:unknown):Promise<{items:EventAttendee[];total:number;next_offset:number|null}>{
   const {limit,offset}=AttendeeQuery.parse(raw);
-  const row=await scopedEvent(pool,actor,id);
+  return transaction(pool,async q=>{
+    await lockMemberSession(q,actor);
+  const row=await scopedEvent(q,actor,id,true);
   requireCondition(row.organizer_ref===actor.user_id,403,'organizer_required','只有主辦者能查看報名名單。');
-  const rows=(await pool.query(`WITH going AS (
+  const rows=(await q.query(`WITH going AS (
       SELECT 'member' AS kind,r.user_id,r.updated_at AS registered_at FROM community_event_rsvps r
         WHERE r.event_id=$1 AND r.state='going' AND NOT is_verification_test_account(r.user_id)
       UNION ALL
@@ -197,13 +200,15 @@ export async function eventAttendees(pool:Pool,actor:Actor,id:string,raw:unknown
     SELECT g.kind,g.user_id,g.registered_at,u.display_name,a.aggregate_version AS avatar_version,a.present AS avatar_present,count(*) OVER() AS total
     FROM going g LEFT JOIN users u ON u.user_id=g.user_id LEFT JOIN member_avatar_presence a ON a.user_id=g.user_id AND a.community_id=$2
     ORDER BY g.registered_at,g.user_id NULLS LAST LIMIT $3 OFFSET $4`,[id,actor.community_id,limit+1,offset])).rows;
-  const total=rows.length?Number(rows[0].total):(await pool.query(`SELECT
+  const total=rows.length?Number(rows[0].total):(await q.query(`SELECT
     (SELECT count(*) FROM community_event_rsvps WHERE event_id=$1 AND state='going' AND NOT is_verification_test_account(user_id))+
     (SELECT count(*) FROM community_event_guest_rsvps WHERE event_id=$1 AND email_sent_at IS NOT NULL) AS total`,[id])).rows[0].total;
   const items=rows.slice(0,limit).map((item):EventAttendee=>item.kind==='member'
     ?{kind:'member',user_id:item.user_id,nickname:item.display_name,avatar_url:item.avatar_present?avatarUrl(item.user_id,item.avatar_version??'1',true):null,registered_at:new Date(item.registered_at).toISOString()}
     :{kind:'guest',registered_at:new Date(item.registered_at).toISOString()});
+  await assertCurrentSessionClock(q,actor);
   return {items,total:Number(total),next_offset:rows.length>limit?offset+limit:null};
+  });
 }
 
 export async function publicEvent(pool:Pool,id:string){

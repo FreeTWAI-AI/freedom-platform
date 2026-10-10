@@ -5,6 +5,8 @@ import { Pool } from 'pg';
 import { createPool,LOCAL_DATABASE_URL } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
+import {authenticate} from '../../modules/identity-membership/service.js';
+import {eventAttendees} from '../../modules/community/events.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
 
 // #401: organizers read who is going. In-process requests, synthetic members and a disposable schema only.
@@ -94,4 +96,49 @@ test('pages are stable and verification-only test accounts are excluded like the
   assert.equal(all.length,5-hidden);
   assert.deepEqual(all.map(item=>item.kind==='member'?item.user_id:'guest'),ids.filter((_,index)=>index!==2));
   assert.deepEqual(all.map(item=>item.registered_at),[...all.map(item=>item.registered_at)].sort());
+});
+
+// Private domain reads must fence the session again after a real database wait.
+const sessionExpired=(error:unknown)=>!!error&&typeof error==='object'&&'code' in error&&error.code==='session_expired';
+async function waitForAttendeeLock(application:string){
+  for(let attempt=0;attempt<200;attempt++){
+    const waiting=(await pool.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock') AS waiting",[application])).rows[0].waiting;
+    if(waiting)return;
+    await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.fail('attendee read did not reach the database lock barrier');
+}
+test('attendee domain read rejects a previously authenticated revoked session',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1),id=await publishedEvent(owner,reviewer);
+  const actor=await authenticate(pool,owner.cookie.split('=')[1]);
+  await pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1',[actor.session_hash]);
+  await assert.rejects(eventAttendees(pool,actor,id,{}),sessionExpired);
+});
+test('attendee read rejects expiry while blocked on its private roster query',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1),id=await publishedEvent(owner,reviewer);
+  const actor=await authenticate(pool,owner.cookie.split('=')[1]),application=`attendee-expiry-${randomUUID()}`;
+  const reader=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,application_name:application,max:1,statement_timeout:10000}),blocker=await pool.connect();
+  let outcome:Promise<{error?:unknown}>|undefined;
+  try{
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1",[actor.session_hash]);
+    await blocker.query('BEGIN');await blocker.query('LOCK TABLE community_event_rsvps IN ACCESS EXCLUSIVE MODE');
+    outcome=eventAttendees(reader,actor,id,{}).then(()=>({}),error=>({error}));
+    await waitForAttendeeLock(application);
+    await blocker.query('SELECT pg_sleep(GREATEST(0,EXTRACT(EPOCH FROM (expires_at-clock_timestamp())))+0.1) FROM sessions WHERE token_hash=$1',[actor.session_hash]);
+    await blocker.query('COMMIT');
+    assert.ok(sessionExpired((await outcome).error));
+  }finally{await blocker.query('ROLLBACK');blocker.release();await outcome;await reader.end();}
+});
+test('attendee read checks current organizer after waiting for the event row lock',async()=>{
+  const owner=await signIn(0),reviewer=await signIn(1),id=await publishedEvent(owner,reviewer);
+  const actor=await authenticate(pool,owner.cookie.split('=')[1]),application=`attendee-owner-${randomUUID()}`;
+  const reader=new Pool({connectionString:databaseUrl,options:`-c search_path=${schema}`,application_name:application,max:1,statement_timeout:10000}),blocker=await pool.connect();
+  let outcome:Promise<{error?:unknown}>|undefined;
+  try{
+    await blocker.query('BEGIN');await blocker.query('UPDATE community_events SET organizer_ref=$2 WHERE event_id=$1',[id,reviewer.id]);
+    outcome=eventAttendees(reader,actor,id,{}).then(()=>({}),error=>({error}));
+    await waitForAttendeeLock(application);await blocker.query('COMMIT');
+    const error=(await outcome).error;
+    assert.ok(error&&typeof error==='object'&&'code' in error&&error.code==='organizer_required');
+  }finally{await blocker.query('ROLLBACK');blocker.release();await outcome;await reader.end();}
 });
