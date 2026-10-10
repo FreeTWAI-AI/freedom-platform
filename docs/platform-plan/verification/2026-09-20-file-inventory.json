@@ -20434,8 +20434,8 @@
     },
     {
       "path": "tests/e2e/member-reporting.spec.ts",
-      "bytes": 15630,
-      "sha256": "b0d18647f90f427583c2b5cfc723b1ec7026a37b860d49e89ddfa4b41b5ae154"
+      "bytes": 16520,
+      "sha256": "8b86f6c520a688a79f6b838a02e0818980b4c428b5eea1fbeded1905080f5d06"
     },
     {
       "path": "tests/e2e/member-services.spec.ts",
@@ -20449,8 +20449,8 @@
     },
     {
       "path": "tests/e2e/member-settings-real.spec.ts",
-      "bytes": 17516,
-      "sha256": "9cc09d03542c14ba8d4c97e37a2fe87f193150025e1bdd3f86ca33d902867769"
+      "bytes": 18568,
+      "sha256": "17296185ad0cdff00ff960045a2565b1708fc4bbf1f779ecfc70ef84b0713942"
     },
     {
       "path": "tests/e2e/member-settings.spec.ts",

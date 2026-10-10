@@ -9,7 +9,7 @@ const themes=[['自由工坊－明亮','light'],['自由工坊－夜航','dark']
 for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
   test(`member reports preserve unknown commands and restrict evidence at ${width}px ${theme}`,async({browser,baseURL,e2eAuthPool:db},testInfo)=>{
     const contexts:BrowserContext[]=[],ids=[randomUUID(),randomUUID(),randomUUID()],emails=ids.map(id=>`reporting-${id}@example.test`),names=ids.map(id=>`合成檢舉 ${id.slice(0,8)}`),adminId=randomUUID();
-    let caseId:string|undefined;
+    let caseId:string|undefined;let releaseProfile:(()=>void)|undefined;
     const paginated=width===1440&&theme==='light';
     const adminList=(url:URL)=>url.pathname==='/api/v1/admin/reports';
     async function login(index:number){
@@ -67,7 +67,18 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
       const back=panel.getByRole('button',{name:'← 返回對話列表',exact:true});
       if(await back.isVisible())await back.click();
       await page.locator('.floating-message-header button').click();
-      await navigate(page,'我的名片');await page.getByRole('button',{name:'我的檢舉案件',exact:true}).click();
+      // The report entry mounts before the profile cards above it. Delay real
+      // profile responses, then wait for those cards before the single click.
+      const profileGate=new Promise<void>(resolve=>{releaseProfile=resolve;});
+      await page.route(url=>url.pathname==='/api/v1/me/account'||url.pathname===`/api/v1/members/${ids[0]}`,async route=>{
+        const response=await route.fetch();await profileGate;await route.fulfill({response});
+      });
+      await navigate(page,'我的名片');
+      const ownReports=page.getByRole('button',{name:'我的檢舉案件',exact:true});
+      await expect(ownReports).toBeVisible();releaseProfile!();
+      await expect(page.locator('.account-panel > .member-card')).toBeVisible();
+      await expect(page.getByRole('textbox',{name:'社群顯示名稱',exact:true})).toHaveValue(names[0]);
+      await ownReports.click();await expect(ownReports).toHaveAttribute('aria-expanded','true');
       await expect(page.getByRole('heading',{name:'我的檢舉案件',exact:true})).toBeVisible();await expect(page.locator('article').filter({hasText:'已收到'}).first()).toBeVisible();
       await expect(page.locator('body')).not.toContainText('合成私人補充說明');await bounds(page);
       if(paginated){
@@ -111,6 +122,7 @@ for(const width of [1440,768,390,320])for(const [themeName,theme] of themes){
       await page.getByRole('button',{name:'更新檢舉案件',exact:true}).click();await expect(page.locator('article').filter({hasText:'合成案件已結案'})).toContainText('已結案');
       await db.query('UPDATE platform_admins SET active=false WHERE admin_id=$1',[adminId]);await adminPanel.getByRole('button',{name:'更新平台檢舉案件',exact:true}).click();await expect(adminPanel).toHaveCount(0);await expect(admin.locator('body')).not.toContainText('合成私人補充說明');
     }finally{
+      releaseProfile?.();
       await Promise.allSettled(contexts.map(context=>context.close()));
       await db.query('DELETE FROM member_reports WHERE reporter_user_id=ANY($1::uuid[])',[ids]);
       await db.query('DELETE FROM platform_admins WHERE admin_id=$1',[adminId]);

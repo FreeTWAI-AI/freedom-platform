@@ -63,6 +63,7 @@ test('two synthetic members exchange a private message and a friend notification
   const senderSide=await member(browser,baseURL!,sender,{width:1440,height:900});
   const receiverSide=await member(browser,baseURL!,receiver,{width:320,height:844});
   const s=senderSide.page,r=receiverSide.page;
+  let releaseRead:(()=>void)|undefined;
   const githubWrites:string[]=[];r.on('request',request=>{if(request.method()!=='GET'&&request.url().includes('/api/v1/me/github'))githubWrites.push(request.url());});
   try{
     // Fresh accounts: exactly zero, on the API and on screen.
@@ -139,12 +140,26 @@ test('two synthetic members exchange a private message and a friend notification
     const refreshList=rPanel.getByRole('button',{name:'重新整理對話',exact:true});await refreshList.click();
     await expect(fromSender).toContainText(second.slice(0,20));await expect(fromSender).toContainText('1 則未讀');await expect(refreshList).toBeFocused();
     await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('1 則未讀');
+    // Commit the real read, but deliver its ACK after a newer thread refresh.
+    // The conversation total must reconcile even when that refresh already saw read_at.
+    const readPath=`/api/v1/me/conversations/${senderSide.id}/read`;
+    const heldRead=new Promise<void>(resolve=>{releaseRead=resolve;});
+    let readCommitted=false;
+    await r.route(url=>url.pathname===readPath,async route=>{
+      const response=await route.fetch();readCommitted=true;await heldRead;await route.fulfill({response});
+    });
     await rPanel.getByRole('button',{name:'回到目前對話',exact:true}).click();
     await expect(rThread.getByRole('heading',{name:`與 ${sender.display_name} 的對話`})).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
     const refreshThread=rThread.getByRole('button',{name:'重新讀取訊息',exact:true});await refreshThread.click();
     await expect(rThread.locator('.messages-bubbles .messages-body').last()).toHaveText(second);await expect(refreshThread).toBeFocused();
     await expect(rBox).toHaveValue('還沒送出的草稿');
+    await expect.poll(()=>readCommitted).toBe(true);
+    expect(await receiverSide.unread('conversations')).toBe(0);
+    const newerThread=r.waitForResponse(response=>new URL(response.url()).pathname===`/api/v1/me/conversations/${senderSide.id}/messages`);
+    await refreshThread.click();await newerThread;await expect(refreshThread).toBeEnabled();
+    const readAck=r.waitForResponse(response=>new URL(response.url()).pathname===readPath);
+    releaseRead!();await readAck;
     await expect(r.getByRole('tab',{name:/私人訊息/,includeHidden:true})).toContainText('沒有未讀');await expect(rThread.getByRole('button',{name:/標為已讀|正在標記/})).toHaveCount(0);
     expect(await receiverSide.unread('conversations')).toBe(0);
 
@@ -194,6 +209,7 @@ test('two synthetic members exchange a private message and a friend notification
     await expectZero(r);
     expect(githubWrites).toEqual([]);
   }finally{
+    releaseRead?.();
     await senderSide.context.close();await receiverSide.context.close();
     // The schema is dropped by the harness; until then the accounts stop appearing in later cases' directories.
     await db.query('UPDATE users SET active=false WHERE user_id=ANY($1::uuid[])',[[sender.user_id,receiver.user_id]]);
