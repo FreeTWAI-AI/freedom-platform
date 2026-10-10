@@ -13,7 +13,12 @@
     "apps/portal-web/src/WorkshopIcon.tsx",
     "apps/portal-web/src/interface-messages.ts",
     "apps/portal-web/src/page-help.ts",
-    "apps/portal-web/src/types.ts"
+    "apps/portal-web/src/types.ts",
+    "apps/portal-web/src/game-console-routing.ts",
+    "tests/runtime/game-console-routing.test.ts",
+    "tests/e2e/audit-identity.spec.ts",
+    "tests/e2e/modules-beginners.spec.ts",
+    "tests/e2e/typed-line-breaks.spec.ts"
   ],
   "public_exports": [],
   "dependencies": [
@@ -33,7 +38,8 @@
     "skill-submissions",
     "social-feed",
     "tenant-workspaces",
-    "work"
+    "work",
+    "member-squads"
   ],
   "contract_families": [],
   "client_profiles": [

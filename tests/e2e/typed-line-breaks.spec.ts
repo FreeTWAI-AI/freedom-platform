@@ -121,7 +121,8 @@ test('typed multi-line text keeps its line breaks on the pages that show it', as
     await navigate(page, '小隊集合');
     const squad = card(page, squadName);
     await expect(squad).toBeVisible();
-    expect(await rendered(squad.locator('p', { hasText: '可分享的練習' }))).toBe(squadPurpose);
+    await squad.getByRole('button',{name:`查看小隊：${squadName}`}).click();
+    expect(await rendered(page.getByRole('region',{name:'小隊詳情'}).locator('p.multiline-text'))).toBe(squadPurpose);
 
     await navigate(page, '社群活動');
     const event = card(page, eventTitle);

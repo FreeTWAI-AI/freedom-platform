@@ -5,7 +5,7 @@ import { z } from 'zod';
 import {memberShareSettings,saveMemberShare,sharedMemberForViewer} from '../../../../modules/identity-membership/member-sharing.js';
 import {friendDirectory,memberRecommendations} from '../../../../modules/identity-membership/member-connections.js';
 import { moduleCommand,type PlatformEnv } from '../module-context.js';
-import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership } from '../../../../modules/identity-membership/members.js';
+import { accountView,saveAccount,listMembers,memberPresence,MemberDirectoryQuery,memberCard,listFriends,changeFriendship,listSquads,squadView,createSquad,updateSquadChannel,changeSquadMembership,updateSquadProfile,transferSquad,disbandSquad } from '../../../../modules/identity-membership/members.js';
 import {inviteToSquad,resolveSquadInvitation,squadInvitations,receivedSquadInvitations} from '../../../../modules/identity-membership/squad-invitations.js';
 import {ownSocialLinks,visibleSocialLinks,createSocialLink,editSocialLink,deleteSocialLink} from '../../../../modules/identity-membership/social-links.js';
 // One receipt per invitation/squad regardless of the id's letter case.
@@ -39,6 +39,9 @@ export function createMemberRoutes(pool:Pool) {
   app.get('/squads/:id/invitations',async c=>c.json(await squadInvitations(pool,c.get('actor'),c.req.param('id'),c.req.query())));
   app.post('/squads/:id/invitations',async c=>{const result=await inviteToSquad(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   for(const action of ['accept','decline','withdraw'] as const)app.post(`/squad-invitations/:id/${action}`,async c=>{const result=await resolveSquadInvitation(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'),action);c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
-  app.post('/squads/:id/members/:userId/accept',async c=>c.json(await changeSquadMembership(pool,await moduleCommand(c),c.req.param('id'),'accept',c.req.param('userId'))));
+  for(const action of ['accept','decline','remove'] as const)app.post(`/squads/:id/members/:userId/${action}`,async c=>c.json(await changeSquadMembership(pool,await moduleCommand(c),c.req.param('id'),action,c.req.param('userId'))));
+  app.post('/squads/:id/profile',async c=>{const result=await updateSquadProfile(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
+  app.post('/squads/:id/transfer',async c=>{const result=await transferSquad(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
+  app.post('/squads/:id/disband',async c=>{const result=await disbandSquad(pool,lowercaseIds(await moduleCommand(c)),c.req.param('id'));c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);});
   return app;
 }

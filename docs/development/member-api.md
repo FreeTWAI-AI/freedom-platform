@@ -80,16 +80,38 @@ mutation body or creating, replacing or revoking sessions.
 - `GET /squads?limit=20&offset=0`: `{items,next_offset,kinds}`. Items include
   `squad_id,name,kind,purpose,owner_ref,owner_name,member_count,membership`.
   Membership is null or `{state,aggregate_version}` for the current user.
-- `POST /squads`: `{name,kind,purpose}`. `kind=project|mutual_help` (專案小隊／共同
-  目標互助小隊; provisional labels). Creator becomes its first active member.
+- `POST /squads`: `{name,kind,purpose,communication_channel_name?}`. Kinds keep
+  their persisted keys: `project` 開源專案合作團隊, `mutual_help` 生意機會合作團隊,
+  `coaching` 技能學習陪跑小隊, `social` 吃喝玩樂交流小隊. Creator becomes its
+  first active member. The portal opens member search immediately after creation;
+  the owner can also use the directory card's 邀請夥伴 action. Invitations retain
+  recipient consent and grant no membership or contact access before acceptance.
 - `GET /squads/:id`: squad plus `members` with `user_id,nickname,state,
   aggregate_version`. Pending members visible only to themselves and owner.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
 - `POST /squads/:id/members/:userId/accept`: owner accepts an existing pending
   request with that membership's version. Cannot add an unconsenting member.
+- `POST /squads/:id/members/:userId/decline`: owner declines a pending request
+  (membership becomes `left`; they may ask again). `.../remove`: owner removes an
+  active member other than themself and the member receives a
+  `squad_member_removed` notification. Both need the membership version (#400).
 - `POST /squads/:id/leave`: member leaves with current membership version, revoking
-  squad-scoped contact access. Owner transfer/deletion is not implemented; owner
-  cannot leave. No three-person minimum or commercial eligibility is implied.
+  squad-scoped contact access. The owner cannot leave (`409
+  squad_owner_cannot_leave`) until they transfer or disband.
+- Owner-only, all with the squad `aggregate_version` as `If-Match` and the squad
+  row locked before membership or invitation rows: `POST /squads/:id/profile`
+  `{name,purpose}`; `POST /squads/:id/transfer` `{user_id}` to a current active,
+  visible member under the same 10-squad owner limit (pending invitations the old
+  owner sent are withdrawn); `POST /squads/:id/disband` `{}` sets `disbanded_at`,
+  every membership becomes `left`, pending invitations are withdrawn, the squad
+  leaves lists/detail (404) and its channel stops accepting reads/writes. History
+  rows and the journal stay. Disbanded squads do not count toward the owner limit.
+  The classification view excludes them even for the preceding Worker release;
+  SQL triggers reject new pending/active memberships and pending/accepted
+  invitations to disbanded squads, fencing old writers after rollback. Current
+  channel reads also check the marker. A lost disband response is reconciled by
+  detail reload: a 404 closes the stale owner controls and returns to the list.
+  No three-person minimum or commercial eligibility is implied.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.

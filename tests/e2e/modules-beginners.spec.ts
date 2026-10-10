@@ -146,7 +146,9 @@ test('squad search recovers after failure and preserves pending membership until
   await expect(page.locator('.expedition-squad')).toContainText('每週練習');
   await page.getByRole('combobox', { name: '篩選小隊類型', exact: true }).selectOption('project');
   await expect(page.locator('.expedition-squad')).toContainText('工具共創');
-  await expect(page.getByText('申請加入後，需由隊主接受。接受前，看不到只分享給小隊夥伴的聯絡方式。')).toBeVisible();
+  await page.locator('.expedition-squad').getByRole('button',{name:`查看小隊：${prefix} 工具共創`}).click();
+  await expect(page.getByText('隊長接受後，才能查看分享給小隊的聯絡方式。')).toBeVisible();
+  await page.getByRole('button',{name:'返回小隊列表',exact:true}).click();
   await page.locator('.expedition-squad').getByRole('button', { name: '申請加入', exact: true }).click();
   await expect(page.locator('.expedition-squad')).toContainText('等候隊主接受');
   const detail = await (await page.request.get(`/api/v1/squads/${project.squad_id}`)).json();

@@ -6,9 +6,9 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=145 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=146 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本候選的 repository migration 已到 145（144 為 #413 供貨合作，145 為 #390 發文附圖）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
+本候選的 repository migration 已到 146（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
 
 2026-10-10 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 reviewed runtime `e9770b3a`（#391），使用同一份 dist；兩邊 ledger 已到 141，共 140 筆，022 是唯一歷史缺號。staging 於 01:48Z、production 於 02:14Z 讀回新版本。公會啟動台保持啟用，商品照片讀取／上傳已啟用，預留接單仍關閉。私人供貨條件與零售價已分開；跨會員選品、供貨接受／撤回及共同庫存訂單仍缺實作。
 
