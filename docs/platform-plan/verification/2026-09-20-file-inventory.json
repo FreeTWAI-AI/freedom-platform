@@ -1944,8 +1944,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/AccountSecurity.tsx",
-      "bytes": 5484,
-      "sha256": "8d7baaf3518bffd14e5981edb7aee5f7e1f5e142236505e27a00b671272e4018"
+      "bytes": 5605,
+      "sha256": "6737c515c899715ee7328aeaf9c991665f250cb5493349169147bc6ce2afd276"
     },
     {
       "path": "apps/portal-web/src/modules/AdminAuthorClaims.tsx",
@@ -2484,8 +2484,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/Membership.tsx",
-      "bytes": 30567,
-      "sha256": "4d0e695041fb3f5748fbf393e42fe8fd43abcfe36bd10905066a2c8c6af7654c"
+      "bytes": 31685,
+      "sha256": "24d1640f3b80143497d5e33ba3598802f1102ab017019954d9fefc15cb0d6e1e"
     },
     {
       "path": "apps/portal-web/src/modules/MessageImagePreview.tsx",
@@ -19639,13 +19639,13 @@
     },
     {
       "path": "scripts/ci/select-affected-jobs.mjs",
-      "bytes": 27519,
-      "sha256": "b7f38f3efbb88b55144b2cbf650ee85184e55dc639205545e81e613a73fa9c5c"
+      "bytes": 27800,
+      "sha256": "131039bbb326d88d278c805957cb7b9b9f0a368e0072ecc6554078cfaa3659df"
     },
     {
       "path": "scripts/ci/select-affected-jobs.test.mjs",
-      "bytes": 60584,
-      "sha256": "f2447da9bd949262e037a688e746306fb48b9dc9a8f43302d04c1ad463a19a5e"
+      "bytes": 63213,
+      "sha256": "cfbfad425a7b5ad57a48c4cd3e351ef1b23e7f275318f18d2a52d3301577f302"
     },
     {
       "path": "scripts/ci/test_release_source_archive.py",
@@ -19724,8 +19724,8 @@
     },
     {
       "path": "tests/e2e/account-deactivation.spec.ts",
-      "bytes": 4528,
-      "sha256": "4f97c0deb79f55a27f794ff9005ec6fa921104812368bbd531254bb60d353691"
+      "bytes": 8045,
+      "sha256": "6965b5fb9db92fb4d76c8a38d7d7952be93d08c294a95c0cd4b0faa0cae9362c"
     },
     {
       "path": "tests/e2e/account-language.spec.ts",
