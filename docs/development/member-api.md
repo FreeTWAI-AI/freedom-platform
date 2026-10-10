@@ -87,9 +87,22 @@ mutation body or creating, replacing or revoking sessions.
 - `POST /squads/:id/request`: `{}` requests admission; no immediate group access.
 - `POST /squads/:id/members/:userId/accept`: owner accepts an existing pending
   request with that membership's version. Cannot add an unconsenting member.
+- `POST /squads/:id/members/:userId/decline`: owner declines a pending request
+  (membership becomes `left`; they may ask again). `.../remove`: owner removes an
+  active member other than themself and the member receives a
+  `squad_member_removed` notification. Both need the membership version (#400).
 - `POST /squads/:id/leave`: member leaves with current membership version, revoking
-  squad-scoped contact access. Owner transfer/deletion is not implemented; owner
-  cannot leave. No three-person minimum or commercial eligibility is implied.
+  squad-scoped contact access. The owner cannot leave (`409
+  squad_owner_cannot_leave`) until they transfer or disband.
+- Owner-only, all with the squad `aggregate_version` as `If-Match` and the squad
+  row locked before membership or invitation rows: `POST /squads/:id/profile`
+  `{name,purpose}`; `POST /squads/:id/transfer` `{user_id}` to a current active,
+  visible member under the same 10-squad owner limit (pending invitations the old
+  owner sent are withdrawn); `POST /squads/:id/disband` `{}` sets `disbanded_at`,
+  every membership becomes `left`, pending invitations are withdrawn, the squad
+  leaves lists/detail (404) and its channel stops accepting reads/writes. History
+  rows and the journal stay. Disbanded squads do not count toward the owner limit.
+  No three-person minimum or commercial eligibility is implied.
 
 Contact visibility uses `audiences`, an array of unique values from
 `public`, `friends`, `squad`, `guild` (at most four). `[]` means private.

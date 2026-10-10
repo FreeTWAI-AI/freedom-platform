@@ -23,6 +23,7 @@ const NOTIFICATION_CONSOLE_CHANNELS = {
   event_review_needed: 'system',
   event_approved: 'system',
   event_rejected: 'system',
+  squad_member_removed: 'system',
 } as const satisfies Record<NotificationKind, GameConsoleSourceChannel>
 
 export const GITHUB_CONSOLE_KINDS = [

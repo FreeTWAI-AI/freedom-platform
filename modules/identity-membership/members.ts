@@ -10,6 +10,7 @@ import {guildTitles} from '../positioning/assessment.js';
 import {capabilityCategories} from '../community/catalog.js';
 import { avatarMetadata, avatarUrl } from './avatars.js';
 import { notifyFriendshipChange } from '../member-communications/events.js';
+import { notifyMember } from '../member-communications/notifications.js';
 import {lockInteractionPair,assertCanContact,assertInteractionMember,contactableIds} from './blocks.js';
 
 const audienceKeys=['public','friends','squad','guild'] as const;
@@ -251,11 +252,12 @@ export async function changeFriendship(pool:Pool,input:Command,id:string,action:
 }
 
 const channelName=z.string().trim().max(100).refine(value=>!/[\x00-\x1f\x7f]/.test(value),'請輸入頻道名稱，不要加入換行或控制字元。');
+const SQUAD_OWNER_LIMIT=10;
 const SquadInput=z.object({name:z.string().trim().min(1).max(80),kind:z.enum(['project','mutual_help','coaching']),purpose:z.string().trim().min(1).max(800),communication_channel_name:channelName.default('')}).strict();
 async function squadExists(q:Pool|PoolClient,actor:Actor,id:string) {
   z.uuid().parse(id);
   const row=(await q.query(`SELECT s.* FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
-    WHERE s.squad_id=$1 AND s.community_id=$2 AND (NOT t.is_test_data OR s.owner_ref=$3 OR EXISTS(
+    WHERE s.squad_id=$1 AND s.community_id=$2 AND s.disbanded_at IS NULL AND (NOT t.is_test_data OR s.owner_ref=$3 OR EXISTS(
       SELECT 1 FROM member_squad_memberships m WHERE m.squad_id=s.squad_id AND m.user_id=$3 AND m.state IN ('active','pending')))`,[id,actor.community_id,actor.user_id])).rows[0];
   requireCondition(row,404,'squad_not_found','找不到這個小隊。');return row;
 }
@@ -265,7 +267,7 @@ export async function listSquads(pool:Pool,actor:Actor,limit:number,offset:numbe
     CASE WHEN m.user_id IS NULL THEN NULL ELSE jsonb_build_object('state',m.state,'aggregate_version',m.aggregate_version) END AS membership
     FROM member_squads s JOIN member_squad_classification t USING(squad_id,community_id)
     JOIN users u ON u.user_id=s.owner_ref LEFT JOIN member_squad_memberships m ON m.squad_id=s.squad_id AND m.user_id=$2
-    WHERE s.community_id=$1 AND u.active AND (NOT t.is_test_data OR s.owner_ref=$2) ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
+    WHERE s.community_id=$1 AND s.disbanded_at IS NULL AND u.active AND (NOT t.is_test_data OR s.owner_ref=$2) ORDER BY s.created_at,s.squad_id LIMIT $3 OFFSET $4`,[actor.community_id,actor.user_id,limit+1,offset])).rows;
   return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null,kinds:[{key:'project',name:'專案小隊（跨職能協作）'},{key:'mutual_help',name:'共同目標互助小隊'},{key:'coaching',name:'陪跑小隊'}]};
 }
 export async function squadView(pool:Pool,actor:Actor,id:string) {
@@ -280,8 +282,8 @@ export async function createSquad(pool:Pool,input:Command) {
   const body=SquadInput.parse(input.body);
   return command(pool,input,async()=>{},async q=>{
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-create/${input.actor.user_id}`]);
-    const count=(await q.query('SELECT count(*)::int AS n FROM member_squads WHERE owner_ref=$1 AND community_id=$2',[input.actor.user_id,input.actor.community_id])).rows[0].n;
-    requireCondition(count<10,409,'squad_limit','每人最多先建立 10 個小隊。');
+    const count=(await q.query('SELECT count(*)::int AS n FROM member_squads WHERE owner_ref=$1 AND community_id=$2 AND disbanded_at IS NULL',[input.actor.user_id,input.actor.community_id])).rows[0].n;
+    requireCondition(count<SQUAD_OWNER_LIMIT,409,'squad_limit','每人最多先建立 10 個小隊。');
     const squad=(await q.query(`INSERT INTO member_squads(squad_id,community_id,name,kind,purpose,owner_ref,communication_channel_name) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[randomUUID(),input.actor.community_id,body.name,body.kind,body.purpose,input.actor.user_id,body.communication_channel_name])).rows[0];
     await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,'active')`,[squad.squad_id,input.actor.user_id]);
     await journal(q,input.actor,'member_squad',squad.squad_id,1,'create_squad',{kind:body.kind});return squad;
@@ -301,30 +303,104 @@ export async function updateSquadChannel(pool:Pool,input:Command,id:string) {
     return updated;
   });
 }
-export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:'request'|'accept'|'leave',targetId=input.actor.user_id) {
+type SquadMembershipAction='request'|'accept'|'leave'|'decline'|'remove';
+const OWNER_ACTIONS:readonly SquadMembershipAction[]=['accept','decline','remove'];
+export async function changeSquadMembership(pool:Pool,input:Command,id:string,action:SquadMembershipAction,targetId=input.actor.user_id) {
   // Normalized ids keep one advisory lock per (squad,member), shared with squad-invitations.ts.
   z.object({}).strict().parse(input.body);id=z.uuid().parse(id).toLowerCase();targetId=z.uuid().parse(targetId).toLowerCase();
   let peerId:string|undefined;
   return command(pool,input,async q=>{
     const squad=await squadExists(q,input.actor,id);
-    if(action==='accept') {requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以接受加入申請。');await visibleMember(q,input.actor,targetId);}
+    if(OWNER_ACTIONS.includes(action)) requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以處理加入申請與成員。');
     else requireCondition(targetId===input.actor.user_id,403,'squad_self_only','請本人提出加入或退出申請。');
-    if(action!=='leave'){
+    if(action==='accept')await visibleMember(q,input.actor,targetId);
+    if(action==='decline'||action==='remove')requireCondition(targetId!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人請先把小隊轉移給其他成員，或解散小隊。');
+    if(action==='request'||action==='accept'){
       const other=action==='accept'?targetId:String(squad.owner_ref);
       peerId=other;
       await lockInteractionPair(q,input.actor,other);
       await assertCanContact(q,input.actor,other);
     }
-    if(action==='leave')requireCondition(squad.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人目前不能退出自己建立的小隊。');
+    if(action==='leave')requireCondition(squad.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人請先把小隊轉移給其他成員，或解散小隊。');
   },async q=>{
+    // Squad row before membership: a transfer or disband holding it settles first.
+    const live=(await q.query('SELECT owner_ref,name FROM member_squads WHERE squad_id=$1 AND disbanded_at IS NULL FOR SHARE',[id])).rows[0];
+    requireCondition(live,404,'squad_not_found','找不到這個小隊。');
+    if(OWNER_ACTIONS.includes(action))requireCondition(live.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以處理加入申請與成員。');
+    else if(action==='leave')requireCondition(live.owner_ref!==input.actor.user_id,409,'squad_owner_cannot_leave','發起人請先把小隊轉移給其他成員，或解散小隊。');
     await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-membership/${id}/${targetId}`]);
     const row=(await q.query('SELECT * FROM member_squad_memberships WHERE squad_id=$1 AND user_id=$2 FOR UPDATE',[id,targetId])).rows[0];
     if(action==='request'&&row&&row.state!=='left')return row;
     if(row)checkVersion(row.aggregate_version,input.expected);
     else requireCondition(action==='request'&&!input.expected,404,'squad_membership_not_found','找不到這個小隊申請。');
-    if(action==='accept')requireCondition(row?.state==='pending',409,'squad_request_required','必須先由本人申請加入。');
+    if(action==='accept'||action==='decline')requireCondition(row?.state==='pending',409,'squad_request_required','必須先由本人申請加入。');
+    if(action==='remove')requireCondition(row?.state==='active',409,'squad_member_required','這位夥伴目前不在小隊裡。');
     const state=action==='request'?'pending':action==='accept'?'active':'left';
-    return (await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
+    const saved=(await q.query(`INSERT INTO member_squad_memberships(squad_id,user_id,state) VALUES($1,$2,$3)
       ON CONFLICT(squad_id,user_id) DO UPDATE SET state=$3,aggregate_version=member_squad_memberships.aggregate_version+1,updated_at=now() RETURNING *`,[id,targetId,state])).rows[0];
+    if(action==='remove')await notifyMember(q,{community_id:input.actor.community_id,recipient_ref:targetId,kind:'squad_member_removed',
+      source_key:`squad-removed:${id}:${targetId}:${saved.aggregate_version}`,title:`你已不在小隊「${String(live.name).slice(0,140)}」`,
+      body:'隊主調整了小隊成員。需要時可以再次申請加入。',action:{tab:'squads',resource_id:id}});
+    return saved;
   },async q=>{if(peerId){await lockInteractionPair(q,input.actor,peerId);await assertCanContact(q,input.actor,peerId);}});
+}
+
+const SquadProfileInput=z.object({name:z.string().trim().min(1).max(80),purpose:z.string().trim().min(1).max(800)}).strict();
+/** Owner-only; locks the squad row (If-Match) before any membership or invitation row. */
+async function ownedSquadCommand<T>(pool:Pool,input:Command,id:string,run:(q:PoolClient,squad:{owner_ref:string;aggregate_version:string;name:string})=>Promise<T>,authorize:(q:PoolClient)=>Promise<void>=async()=>{}) {
+  return command(pool,input,async q=>{
+    const squad=await squadExists(q,input.actor,id);
+    requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以管理小隊。');
+    await authorize(q);
+  },async q=>{
+    const squad=(await q.query('SELECT owner_ref,aggregate_version,name FROM member_squads WHERE squad_id=$1 AND community_id=$2 AND disbanded_at IS NULL FOR UPDATE',[id,input.actor.community_id])).rows[0];
+    requireCondition(squad,404,'squad_not_found','找不到這個小隊。');
+    requireCondition(squad.owner_ref===input.actor.user_id,403,'squad_owner_required','只有小隊發起人可以管理小隊。');
+    checkVersion(String(squad.aggregate_version),input.expected);
+    return run(q,squad);
+  });
+}
+async function withdrawPendingInvitations(q:PoolClient,id:string) {
+  await q.query(`UPDATE member_squad_invitations SET state='withdrawn',aggregate_version=aggregate_version+1,updated_at=now(),resolved_at=now()
+    WHERE squad_id=$1 AND state='pending'`,[id]);
+}
+export async function updateSquadProfile(pool:Pool,input:Command,id:string) {
+  id=z.uuid().parse(id).toLowerCase();const body=SquadProfileInput.parse(input.body);
+  return ownedSquadCommand(pool,input,id,async q=>{
+    const updated=(await q.query('UPDATE member_squads SET name=$2,purpose=$3,aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING squad_id,name,purpose,aggregate_version',[id,body.name,body.purpose])).rows[0];
+    await journal(q,input.actor,'member_squad',id,updated.aggregate_version,'update_squad_profile',{});
+    return updated;
+  });
+}
+/** The new owner must be an active, visible member under the same owner limit as creating a squad.
+ * Invitations the old owner sent are withdrawn; only the new owner invites from now on. */
+export async function transferSquad(pool:Pool,input:Command,id:string) {
+  id=z.uuid().parse(id).toLowerCase();
+  const target=z.object({user_id:z.uuid()}).strict().parse(input.body).user_id.toLowerCase();
+  requireCondition(target!==input.actor.user_id,422,'squad_transfer_self','請選擇另一位小隊成員。');
+  return ownedSquadCommand(pool,input,id,async q=>{
+    await visibleMember(q,input.actor,target,true);
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-membership/${id}/${target}`]);
+    const member=(await q.query("SELECT 1 FROM member_squad_memberships WHERE squad_id=$1 AND user_id=$2 AND state='active' FOR UPDATE",[id,target])).rows[0];
+    requireCondition(member,409,'squad_member_required','只能轉移給目前在小隊裡的夥伴。');
+    await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`squad-create/${target}`]);
+    const owned=(await q.query('SELECT count(*)::int AS n FROM member_squads WHERE owner_ref=$1 AND community_id=$2 AND disbanded_at IS NULL',[target,input.actor.community_id])).rows[0].n;
+    requireCondition(owned<SQUAD_OWNER_LIMIT,409,'squad_limit','對方帶領的小隊已達 10 個上限。');
+    await withdrawPendingInvitations(q,id);
+    const updated=(await q.query('UPDATE member_squads SET owner_ref=$2,aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING squad_id,owner_ref,aggregate_version',[id,target])).rows[0];
+    await journal(q,input.actor,'member_squad',id,updated.aggregate_version,'transfer_squad',{owner_ref:target});
+    return updated;
+  });
+}
+/** Ends the squad for everyone. Invitations settle before memberships, matching the
+ * accept path's squad → membership → invitation order, so a racing accept cannot remain active. */
+export async function disbandSquad(pool:Pool,input:Command,id:string) {
+  id=z.uuid().parse(id).toLowerCase();z.object({}).strict().parse(input.body);
+  return ownedSquadCommand(pool,input,id,async q=>{
+    await withdrawPendingInvitations(q,id);
+    await q.query(`UPDATE member_squad_memberships SET state='left',aggregate_version=aggregate_version+1,updated_at=now() WHERE squad_id=$1 AND state<>'left'`,[id]);
+    const updated=(await q.query('UPDATE member_squads SET disbanded_at=now(),aggregate_version=aggregate_version+1 WHERE squad_id=$1 RETURNING squad_id,disbanded_at,aggregate_version',[id])).rows[0];
+    await journal(q,input.actor,'member_squad',id,updated.aggregate_version,'disband_squad',{});
+    return {squad_id:updated.squad_id as string,disbanded_at:new Date(updated.disbanded_at).toISOString(),aggregate_version:updated.aggregate_version as string};
+  });
 }

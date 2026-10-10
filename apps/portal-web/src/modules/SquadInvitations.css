@@ -13,3 +13,13 @@
 @media (max-width: 480px) {
   .squad-panel .squad-invitation .actions, .squad-panel .squad-invitation .actions .btn, .squad-panel .squad-invite-search .btn { flex: 1 1 auto; }
 }
+
+/* #400: owner tools — management drawer and the shared confirmation dialog. */
+.squad-manage { border-top: 1px solid var(--line); padding-top: .75rem; }
+.squad-manage > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.squad-manage[open] > summary { margin-bottom: .5rem; }
+.squad-confirm-dialog { width: min(420px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.2rem; background: var(--bg-elev); color: var(--ink); }
+.squad-confirm-dialog::backdrop { background: rgba(0,0,0,.45); }
+.squad-confirm-dialog h3 { margin: 0; }
+.squad-confirm-dialog p { margin: 0; }
+.squad-confirm-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
