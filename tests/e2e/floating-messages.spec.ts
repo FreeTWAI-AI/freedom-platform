@@ -109,3 +109,23 @@ for(const kind of ['world','direct'] as const)test(`a delayed ${kind} read ackno
     expect(fixture.counts().reads).toBe(1);
   }finally{fixture.release();}
 });
+
+test('a direct read ACK refreshes list totals after a newer manual thread read',async({page})=>{
+  const fixture=await readFixture(page,'direct',true);
+  try{
+    await login(page);const panel=page.locator('.floating-message-panel');
+    await page.locator('.floating-messages').click();
+    await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:/合成已讀夥伴/}).click();
+    await expect.poll(()=>fixture.counts().reads).toBe(1);
+    const draft=panel.getByRole('textbox',{name:'寫給 合成已讀夥伴 的訊息'});
+    await draft.fill('讀取競態保留草稿');
+    const before=fixture.counts().histories;
+    await panel.getByRole('button',{name:'重新讀取訊息',exact:true}).click();
+    await expect.poll(()=>fixture.counts().histories).toBeGreaterThan(before);
+    await expect(panel.getByRole('button',{name:'重新讀取訊息',exact:true})).toHaveAttribute('aria-disabled','false');
+    fixture.release();await fixture.ack;
+    await expect(panel.getByRole('tab',{name:/私人訊息/})).toContainText('沒有未讀');
+    await expect(draft).toHaveValue('讀取競態保留草稿');
+    expect(fixture.counts().reads).toBe(1);
+  }finally{fixture.release();}
+});

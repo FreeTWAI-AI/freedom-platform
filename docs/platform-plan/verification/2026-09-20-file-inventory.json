@@ -2489,8 +2489,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/MemberMessages.tsx",
-      "bytes": 63282,
-      "sha256": "4422c0da7686f98d5a9486449431cf0409ca56704e955649a18343fd6e10afa4"
+      "bytes": 63307,
+      "sha256": "28ee3bca34c574e74383ace2d8bf0ec394b607dd7545f5f236b894f37bd79684"
     },
     {
       "path": "apps/portal-web/src/modules/MemberPresence.css",
@@ -20219,8 +20219,8 @@
     },
     {
       "path": "tests/e2e/floating-messages.spec.ts",
-      "bytes": 11773,
-      "sha256": "85dc32701e5222a2c65eb4737447599179843a95d95fc05bf0af4cf508635497"
+      "bytes": 12985,
+      "sha256": "05b10524687191199752434b67632d08e2c769f7cd2acc53379471344f3f8fb6"
     },
     {
       "path": "tests/e2e/freedom.module.json",
