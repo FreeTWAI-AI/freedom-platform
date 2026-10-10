@@ -116,4 +116,6 @@ export type PlatformRuntime = {
   eventParticipationEnabled?: boolean;
   /** Admin-only participation report and search outcome signals. */
   participationMetricsEnabled?: boolean;
+  /** Opt-in linked GitHub Star prerequisite for skill grants and full-tier promotion. */
+  skillBookStarGateEnabled?: boolean;
 };

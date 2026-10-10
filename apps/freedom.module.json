@@ -78,7 +78,11 @@
     "apps/portal-web/vite.config.ts",
     "apps/portal-web/src/styles.css",
     "apps/portal-web/src/auth-messages.ts",
-    "apps/platform-api/src/routes/admin.ts"
+    "apps/platform-api/src/routes/admin.ts",
+    "modules/platform-admin/guild-appointment-membership.ts",
+    "modules/platform-admin/guild-experts.ts",
+    "modules/platform-admin/leadership.ts",
+    "modules/platform-admin/service.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [],

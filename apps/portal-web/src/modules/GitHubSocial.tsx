@@ -4,11 +4,12 @@ import type {SessionPayload} from '../types';
 import {GitHubSocialStore} from './github-social-client';
 
 const SocialContext=createContext<GitHubSocialStore|null>(null);
+export const SkillBookStarGateContext=createContext(false);
 const publicStore=new GitHubSocialStore(new PortalClient(),false);
-export function GitHubSocialProvider({client,session,children}:{client:PortalClient;session:SessionPayload;children:ReactNode}){
+export function GitHubSocialProvider({client,session,children,starGateEnabled=false}:{client:PortalClient;session:SessionPayload;children:ReactNode;starGateEnabled?:boolean}){
   const store=useMemo(()=>new GitHubSocialStore(client,true),[client,session.user.user_id,session.csrf_token]);
   useEffect(()=>{const refresh=()=>void store.refreshConnection();window.addEventListener('freedom-github-updated',refresh);return()=>window.removeEventListener('freedom-github-updated',refresh);},[store]);
-  return <SocialContext.Provider value={store}>{children}</SocialContext.Provider>;
+  return <SocialContext.Provider value={store}><SkillBookStarGateContext.Provider value={starGateEnabled}>{children}</SkillBookStarGateContext.Provider></SocialContext.Provider>;
 }
 /** Member pages read the same connection store; subscribing keeps them in sync with the card. */
 export function useGitHubSocialStore(){

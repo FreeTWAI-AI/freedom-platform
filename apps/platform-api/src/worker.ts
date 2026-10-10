@@ -88,6 +88,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
   FREEDOM_EVENT_PARTICIPATION_ENABLED?: string;
   FREEDOM_PARTICIPATION_METRICS_ENABLED?: string;
+  FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED?: string;
   FREEDOM_ENV?: string;
   APP_ORIGIN?: string;
   /** Git commit deployed, 40 lowercase hex; required outside local. */
@@ -262,6 +263,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
     eventParticipationEnabled: env.FREEDOM_EVENT_PARTICIPATION_ENABLED === 'true',
     participationMetricsEnabled: env.FREEDOM_PARTICIPATION_METRICS_ENABLED === 'true',
+    skillBookStarGateEnabled: env.FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
   };
 }

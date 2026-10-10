@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, type PortalClient } from '../api';
 import { BrandPoster, CommunityLinks } from './Community';
 import { SkillBookCard, type IntroBook } from './SkillBookIntro';
+import {SkillBookStarGate} from './SkillBookCover';
 import {PreviewProfileMenu} from './PreviewProfileMenu';
 import { CapabilityTree, CustomChoices, type ChoiceCategory } from './CapabilityTree';
 import './GuildDesign.css';
@@ -114,6 +115,7 @@ export function Onboarding({ client, initial, onCompleted, onLogout, onExplore, 
       <p>將加入 {selectedGuilds.length} 個公會。</p>
       <div id={guildHintId} role="status" className="onboarding-guild-hint">{guildHint}</div>
       {selectedGuilds.length>0?<label className="field">主要公會（必選）<select required value={primary} aria-describedby={guildHint?guildHintId:undefined} onChange={event=>setPrimary(event.target.value)}><option value="">請選擇主要公會</option>{selectedGuilds.map(key=><option key={key} value={key}>{guildLabel(guilds.find(g=>g.guild_key===key)?.name??view.result?.recommendations.find(g=>g.guild_key===key)?.name??'已選公會',guilds.find(g=>g.guild_key===key)?.alias)}</option>)}</select></label>:<button type="button" className="btn btn-ghost" onClick={focusGuildChoices}>前往選擇公會</button>}
+      <SkillBookStarGate books={guilds.filter(guild=>selectedGuilds.includes(guild.guild_key)).flatMap(guild=>guild.skill_books)}/>
       <p className="muted">加入後，對應的技能書會立即放進你的書架。你會先以實習成員加入。你仍可在之後調整主要公會。</p><div className="actions"><button className="btn btn-ghost" disabled={busy} onClick={()=>setStep(0)}>調整我的答案</button><button className="btn btn-primary" disabled={busy||!primaryReady} aria-describedby={guildHint?guildHintId:undefined} onClick={()=>void finish()}>{busy?'正在加入…':'確認加入公會，領取技能書'}</button></div></div></fieldset>}
     {finished&&<section className="stack"><BrandPoster compact/><header className="section-heading"><p className="eyebrow">WELCOME TO FREEDOM WORKSHOP</p><Heading>你的第一段旅程，現在開始。</Heading><p>已加入公會，你會先以實習成員加入；主要公會是 <strong>{guildLabel(guilds.find(g=>g.guild_key===view.primary_guild_key)?.name??'',guilds.find(g=>g.guild_key===view.primary_guild_key)?.alias)}</strong>。以下技能書已加入你的書架。</p></header><SkillBooks books={view.skill_books} headingLevel={optional?3:2}/><p className="field-hint">先讀技能書介紹。想自己修改時，再點 Fork，複製到自己的 GitHub。</p><button className="btn btn-primary" onClick={onCompleted}>進入自由工坊 →</button></section>}
     {!optional&&<CommunityLinks/>}

@@ -12,7 +12,10 @@
     "tests/e2e/github-social.spec.ts",
     "tests/runtime/github-social-routes.test.ts",
     "tests/runtime/github-social-store.test.ts",
-    "tests/runtime/github-social.test.ts"
+    "tests/runtime/github-social.test.ts",
+    "apps/portal-web/src/modules/GitHubSocial.tsx",
+    "apps/portal-web/src/modules/SkillBookCover.tsx",
+    "tests/runtime/skill-book-star-gate.test.ts"
   ],
   "public_exports": [],
   "dependencies": [

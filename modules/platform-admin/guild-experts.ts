@@ -14,7 +14,7 @@ export async function setGuildExpert(pool:Pool,input:AdminCommand,key:string){
    // Keep the existing user → member-guild lock order, then serialize all
    // expert appointments within this guild, including different appointees.
    // Membership leave only deactivates a role; it never acquires this lock.
-   const {result,prior}=await commitGuildExpert(q,{communityId:input.admin.community_id,guildKey:key,userId:body.user_id,active:body.active,expected:input.expected,appointedBy:input.admin.admin_id,appointedByUserId:null},body.active?()=>ensureGuildAppointeeMembership(q,input.admin,body.user_id,key,body.reason):undefined);
+   const {result,prior}=await commitGuildExpert(pool,q,{communityId:input.admin.community_id,guildKey:key,userId:body.user_id,active:body.active,expected:input.expected,appointedBy:input.admin.admin_id,appointedByUserId:null},body.active?()=>ensureGuildAppointeeMembership(pool, q, input.admin,body.user_id,key,body.reason):undefined);
    await audit(q,input.admin,body.active?'appoint_guild_expert':'remove_guild_expert','guild',key,body.reason,prior,result);
    return result;
   });
