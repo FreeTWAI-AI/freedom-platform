@@ -76,7 +76,11 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,memberBlockingEnabled=false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;memberBlockingEnabled?:boolean}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,site}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;site?:SiteConfig|null}) {
+  const [localSite,setLocalSite]=useState<{client:PortalClient;site:SiteConfig}|null>(null)
+  // Omitted config means an independent console; null means the shell has not loaded it or failed.
+  useEffect(()=>{if(site!==undefined||!client)return;let active=true;void client.get<SiteConfig>('/site').then(value=>{if(active)setLocalSite({client,site:value})}).catch(()=>{if(active)setLocalSite(null)});return()=>{active=false}},[client,site])
+  const config=site===undefined?(localSite&&localSite.client===client?localSite.site:null):site
   const [events, setEvents] = useState<GameConsoleEvent[]>(variant === 'dock' ? seedEvents : [])
   const eventsRef = useRef(events); eventsRef.current = events
   const seen = useRef(new Set(events.map(event=>event.id)))
@@ -190,7 +194,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
     {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={config?.member_blocking_enabled===true} messageImagesEnabled={config?.message_images_enabled===true}/>
   </ConsoleContext.Provider>
 }
 
@@ -198,8 +202,6 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   const [authorized,setAuthorized]=useState<boolean|null>(null)
   const [currentSession,setCurrentSession]=useState<SessionPayload|undefined>()
   const account=useRef<string|null>(null)
-  const [memberBlockingEnabled,setMemberBlockingEnabled]=useState(false)
-  useEffect(()=>{let active=true;void client.get<SiteConfig>('/site').then(site=>{if(active)setMemberBlockingEnabled(site.member_blocking_enabled===true)}).catch(()=>{});return()=>{active=false}},[client])
   useEffect(()=>{
     let active=true
     const check=async()=>{
@@ -223,10 +225,10 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   },[client])
   if(authorized===null)return <div className="game-console-ended" role="status">正在確認登入狀態…</div>
   if(!authorized)return <div className="game-console-ended" role="status">登入已結束。<a href="/">返回自由工坊</a></div>
-  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession} memberBlockingEnabled={memberBlockingEnabled}/>
+  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession}/>
 }
 
-function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean}) {
+function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled,messageImagesEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean;messageImagesEnabled:boolean}) {
   const {registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
   const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
@@ -304,7 +306,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled} messageImagesEnabled={messageImagesEnabled}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

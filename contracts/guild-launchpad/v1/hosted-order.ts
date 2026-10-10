@@ -73,3 +73,4 @@ export const OrderPageQuerySchema = z.object({ cursor: cursor.optional(), limit:
 export const OrderPageSchema = z.object({ items: z.array(OrderSchema).max(50), next_cursor: cursor.nullable() }).strict();
 export type HostedOrderQuote = z.infer<typeof QuoteSchema>;
 export type HostedOrder = z.infer<typeof OrderSchema>;
+export type HostedOrderPage = z.infer<typeof OrderPageSchema>;

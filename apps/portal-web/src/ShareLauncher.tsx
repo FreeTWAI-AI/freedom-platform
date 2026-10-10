@@ -15,7 +15,7 @@ export const SHARE_TARGETS:Record<ShareTarget,{tab:TabId;selector:string;label:s
 
 // With `guided`, the same dialog also says who can see each result and what is only a draft, and adds the
 // collaboration entries. It never collects content: every option still opens the original form.
-export function ShareLauncher({onChoose,disabled=false,guided=false}:{onChoose:(target:ShareTarget)=>void;disabled?:boolean;guided?:boolean}){
+export function ShareLauncher({onChoose,disabled=false,guided=false,onMyContent}:{onChoose:(target:ShareTarget)=>void;disabled?:boolean;guided?:boolean;onMyContent?:()=>void}){
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null);
   const [open,setOpen]=useState(false),[product,setProduct]=useState(false);
   useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();},[open]);
@@ -42,6 +42,7 @@ export function ShareLauncher({onChoose,disabled=false,guided=false}:{onChoose:(
             <p className="share-launcher-note">選擇只會前往原表單，不會代你發布。未送出的輸入只保留在目前登入工作階段，重新整理或登出會清除。</p>
           </>}
         </>}
+        {onMyContent && <button type="button" onClick={()=>{close();onMyContent();}}><strong>我的內容</strong><span>繼續私人草稿，查看發布與審核狀態。</span></button>}
       </div>
     </dialog>
   </>;

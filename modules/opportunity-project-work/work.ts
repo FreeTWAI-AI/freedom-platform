@@ -54,18 +54,27 @@ function workView(row:any,reviewAvailable:boolean,myClaim:any) {
 async function claimView(q: Pick<PoolClient,'query'>, claim:any) {
   if(!claim)return null;
   const submission=(await q.query('SELECT submission_id,summary,artifact_ref,sha256,revision FROM submissions WHERE claim_id=$1 ORDER BY revision DESC LIMIT 1',[claim.claim_id])).rows[0]??null;
+  return claimDto(claim,submission);
+}
+function claimDto(claim:any,submission:any) {
   return {claim_id:claim.claim_id,work_item_id:claim.work_item_id,claimant_ref:claim.claimant_ref,claimant_type:'user',
     acting_profession_membership_ref:claim.acting_profession_membership_ref,state:claim.state,aggregate_version:claim.aggregate_version,
     terms_status:'declared',participation_terms_revision:claim.terms_revision,participation_terms_sha256:claim.terms_sha256,
     latest_submission:submission,feedback:claim.feedback};
 }
 export async function listWorks(pool: Pool, actor: Actor) {
-  const rows=(await pool.query(`SELECT w.*, EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id AND r.revoked_at IS NULL AND r.valid_until>now()) AS review_available
+  const rows=(await pool.query(`SELECT w.work_item_id,w.community_id,w.owner_ref,w.title,w.objective,w.acceptance_criteria,w.gain,w.state,w.aggregate_version,
+    w.participation_terms,w.participation_terms_revision,w.participation_terms_sha256,w.claim_window_expires_at,w.due_at,w.created_at,
+    EXISTS(SELECT 1 FROM work_review_routes r WHERE r.work_item_id=w.work_item_id AND r.revoked_at IS NULL AND r.valid_until>now()) AS review_available
     FROM work_items w WHERE community_id=$1 AND work_mode='community_collaboration' ORDER BY created_at DESC,work_item_id`,[actor.community_id])).rows;
-  return Promise.all(rows.map(async row=>{
-    const own=(await pool.query('SELECT * FROM work_claims WHERE work_item_id=$1 AND claimant_ref=$2',[row.work_item_id,actor.user_id])).rows[0];
-    const {review_available,...work}=row;return workView(work,review_available,await claimView(pool,own));
-  }));
+  if(!rows.length)return [];
+  const claims=(await pool.query(`SELECT claim_id,work_item_id,claimant_ref,acting_profession_membership_ref,state,aggregate_version,terms_revision,terms_sha256,feedback
+    FROM work_claims WHERE work_item_id=ANY($1::uuid[]) AND claimant_ref=$2`,[rows.map(row=>row.work_item_id),actor.user_id])).rows;
+  const submissions=claims.length?(await pool.query(`SELECT DISTINCT ON (claim_id) claim_id,submission_id,summary,artifact_ref,sha256,revision
+    FROM submissions WHERE claim_id=ANY($1::uuid[]) ORDER BY claim_id,revision DESC`,[claims.map(claim=>claim.claim_id)])).rows:[];
+  const latest=new Map(submissions.map(({claim_id,...submission})=>[claim_id,submission]));
+  const own=new Map(claims.map(claim=>[claim.work_item_id,claimDto(claim,latest.get(claim.claim_id)??null)]));
+  return rows.map(row=>workView(row,row.review_available,own.get(row.work_item_id)??null));
 }
 async function scopedWork(q:PoolClient, actor:Actor,id:string,lock=false) {
   const row=(await q.query(`SELECT * FROM work_items WHERE work_item_id=$1 AND community_id=$2 AND work_mode='community_collaboration'${lock?' FOR UPDATE':''}`,[id,actor.community_id])).rows[0];

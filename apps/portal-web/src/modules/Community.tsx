@@ -6,7 +6,7 @@ import {SkillDiscoveryFilters,type SkillDiscoveryView} from './SkillDiscovery';
 import {useSkillDiscovery,type SkillDiscoveryBook} from './skill-discovery-client';
 import {useLanguage} from '../language';
 
-export type SiteConfig = { registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean; community_discovery_enabled?: boolean; message_images_enabled?:boolean; member_blocking_enabled: boolean; community_search_enabled?: boolean; unified_sharing_enabled?: boolean };
+export type SiteConfig = { registration_enabled: boolean; password_recovery_enabled?: boolean; demo_accounts_enabled: boolean; public_mode: boolean; guild_launchpad_enabled?: boolean; hosted_store_photos_enabled?:boolean; hosted_store_photo_uploads_enabled?:boolean; community_discovery_enabled?: boolean; message_images_enabled?:boolean; member_blocking_enabled: boolean; unified_sharing_enabled?: boolean; community_search_enabled?: boolean; community_relations_enabled?: boolean; personal_content_enabled?: boolean };
 export function BrandPoster({ compact = false }: { compact?: boolean }) {
   return <div className={`brand-poster brand-poster-original${compact ? ' brand-poster-compact' : ''}`}><img src="/brand/freedom-workshop.webp" alt="自由工坊 — 自由創作，一起實現" width="1280" height="720" fetchPriority={compact ? 'auto' : 'high'}/></div>;
 }

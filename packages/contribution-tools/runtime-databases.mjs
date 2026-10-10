@@ -98,7 +98,10 @@ export async function createRuntimeDatabases(baseUrl, count, provisionTimeoutMs 
           const live = await boundedQuery(cleaner, 'SELECT 1 FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()', [name]);
           if (live.rowCount) throw Error('database_backend_unsettled');
         }
-        const dropBudget = Math.min(6000, Math.floor((remaining() - 4000) / (names.length - index)));
+        // Share the remaining cleanup budget across registered databases while
+        // reserving four seconds for fresh reconciliation. Disk deletion can
+        // exceed six seconds even when the checkpoint has already completed.
+        const dropBudget = Math.floor((remaining() - 4000) / (names.length - index));
         try { await boundedQuery(cleaner, `DROP DATABASE ${quote(name)}`, [], dropBudget); }
         catch { /* Unknown DROP acknowledgement requires fresh reconciliation. */ }
       }
