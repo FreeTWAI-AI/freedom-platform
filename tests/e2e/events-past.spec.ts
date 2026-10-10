@@ -20,7 +20,13 @@ test('members can open an ended event from the past list and the calendar',async
     await page.getByLabel('電子郵件',{exact:true}).fill('maker@local.test');
     await page.getByLabel('密碼',{exact:true}).fill('freedom-local-demo');
     await page.getByRole('button',{name:'登入',exact:true}).click();
+    const eventsLoaded=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/events'&&response.request().method()==='GET'&&response.status()===200);
     await navigate(page,'社群活動');
+    // The shared harness also contains ended events from other feature specs.
+    // Match this member's actual visible collection while retaining the owned event assertions.
+    const visible=await (await eventsLoaded).json() as {items:{event_id:string;state:string;ends_at:string}[]};
+    const ended=visible.items.filter(item=>item.state==='published'&&Date.parse(item.ends_at)<=Date.now());
+    expect(ended.map(item=>item.event_id)).toContain(id);
     await expect(page.getByRole('heading',{name:'活動行事曆'})).toBeVisible();
     await expect(page.getByRole('grid',{name:new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long'})})).toBeVisible();
     for(const size of widths){
@@ -28,7 +34,7 @@ test('members can open an ended event from the past list and the calendar',async
       const past=page.getByRole('region',{name:'過去的活動'});
       await expect(past).toBeVisible();
       await expect(past.locator('summary')).toHaveCount(0);
-      await expect(past.locator('.experience-heading')).toContainText('1 場');
+      await expect(past.locator('.experience-heading span')).toHaveText(`${ended.length} 場`);
       await expect(past.getByRole('heading',{name:title})).toBeVisible();
       await expect(past.getByText('已結束').first()).toBeVisible();
       await expect(past.getByRole('button',{name:'我要參加',exact:true})).toHaveCount(0);
