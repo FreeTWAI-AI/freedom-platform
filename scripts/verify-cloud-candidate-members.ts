@@ -606,6 +606,9 @@ export async function runMessagesMobile(page: any, context: any, ctx: MemberCtx,
   if (guildSummaryUnreadAllowed) ctx.metric('guild_summary_unread', 'not_cleared');
   ctx.check('unread_consistent', !rowUnread && tabClear && !rowAfter.includes('則未讀') && (guildSummaryUnreadAllowed || dot === 0));
   ctx.check('no_horizontal_overflow', threadFits && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth) === true);
+  // The phone panel covers the shell; use its normal collapse action before logout.
+  await page.locator('.floating-messages').click({ timeout: 20000 });
+  await page.getByRole('region', { name: '我的訊息', exact: true }).waitFor({ state: 'hidden', timeout: 20000 });
   await page.getByRole('button', { name: '設定', exact: true }).click();
   await page.getByRole('menuitem', { name: '登出', exact: true }).click();
   await page.getByRole('button', { name: '登入', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
