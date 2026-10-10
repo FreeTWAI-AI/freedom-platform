@@ -6,7 +6,7 @@ import { DRAGON_GUIDES } from '../../apps/portal-web/src/modules/newcomer-guides
 
 const portal = path.resolve('apps/portal-web/src');
 const moduleRoot = path.join(portal, 'modules');
-const pages = ['home', 'guilds', 'skills', 'messages', 'events', 'tasks', 'members', 'friends', 'highlights', 'positioning', 'squads', 'cocreation', 'social', 'services', 'promotion', 'workbench', 'opensource', 'showcase', 'engagement', 'supplier', 'retail', 'marketing', 'guild-workspace', 'community', 'account', 'todos'];
+const pages = ['home', 'guilds', 'skills', 'events', 'tasks', 'members', 'friends', 'highlights', 'positioning', 'squads', 'cocreation', 'social', 'services', 'promotion', 'workbench', 'opensource', 'showcase', 'engagement', 'supplier', 'retail', 'marketing', 'guild-workspace', 'community', 'account', 'todos'];
 
 // Read the actual JSX declarations, including role/data-conditional anchors.
 // This catches selector drift without requiring a database or accepting a
@@ -31,13 +31,13 @@ function anchorDeclarations() {
   return declarations;
 }
 
-test('dragon guides retain the 26 supported pages and exclude unsupported private AI', () => {
+test('dragon guides retain the 25 supported pages and exclude unsupported private AI', () => {
   assert.deepEqual(Object.keys(DRAGON_GUIDES).sort(), [...pages].sort());
   assert.equal(Object.hasOwn(DRAGON_GUIDES, 'private-ai'), false);
-  assert.equal(Object.values(DRAGON_GUIDES).reduce((count, topics) => count + Object.keys(topics).length, 0), 45);
+  assert.equal(Object.values(DRAGON_GUIDES).reduce((count, topics) => count + Object.keys(topics).length, 0), 44);
 });
 
-test('all 47 guide steps use a unique, declared anchor in their own page namespace', () => {
+test('all 46 guide steps use a unique, declared anchor in their own page namespace', () => {
   const declarations = anchorDeclarations();
   const used = new Set<string>();
   let steps = 0;
@@ -59,7 +59,7 @@ test('all 47 guide steps use a unique, declared anchor in their own page namespa
       }
     }
   }
-  assert.equal(steps, 47);
+  assert.equal(steps, 46);
 });
 
 test('friendship guidance points to the list rather than another member’s contextual action', () => {
@@ -84,9 +84,8 @@ test('permission and data dependent targets remain attached to the existing cond
 });
 
 
-test('message guidance keeps the declared private-chat anchor and directs notifications to the separate bell', () => {
-  const guide=DRAGON_GUIDES.messages['messages:topic-1'];
-  assert.deepEqual(guide.steps.map(step=>step.selector), ['[data-guide-anchor="messages:direct"]']);
+test('retired message page has no guide while its preserved copy describes chat and the separate bell', () => {
+  assert.equal(Object.hasOwn(DRAGON_GUIDES, 'messages'), false);
   const content=JSON.parse(readFileSync(path.join(moduleRoot,'newcomer-guides/packs/dragon/content/messages.json'),'utf8'));
   assert.match(content.entryLine,/右下聊天室/);assert.match(content.topics[0].answer,/四個分頁/);
   assert.match(content.topics[0].answer,/全部標為已讀只處理通知/);
