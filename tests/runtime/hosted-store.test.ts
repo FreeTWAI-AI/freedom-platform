@@ -18,6 +18,7 @@ const role = `hs_runtime_${process.pid}_${Date.now()}`;
 type Store = { owner: Session; tenantId: string; workspaceId: string; instanceId: string; root: string };
 const settings = { name: '同名品牌', brand: '合成品牌', description: '合成商店\n商品展示', slug: 'myshop', currency: 'TWD' };
 const product = { title: '合成商品', description: '商品說明', price_minor: 12345, stock: 17 };
+const supplyTerms = {cost_minor: 7000, shipping_minor: 6000, shipping_terms: '確認供貨後三個工作日出貨。', return_terms: '瑕疵品請聯絡供貨方換貨。'};
 const expect = (r: Reply, status = 200) => { assert.equal(r.status, status, JSON.stringify(r.data)); return r.data; };
 const call = (method: string, path: string, session?: Session, body?: unknown, headers: Record<string, string> = {}, target = app) => h.call(method, path, session, body, headers, target);
 const post = (path: string, session: Session | undefined, body: unknown, version?: string, key = randomUUID()) =>
@@ -77,6 +78,8 @@ function commands(s: Store) {
     ['GET', s.root + '/products', undefined, undefined], ['POST', s.root + '/products', product, undefined],
     ['PATCH', s.root + '/products/' + randomUUID(), { title: '更新商品' }, '1'],
     ['POST', s.root + '/products/' + randomUUID() + '/remove', {}, '1'],
+    ['GET', s.root + '/products/' + randomUUID() + '/supply-terms', undefined, undefined],
+    ['PATCH', s.root + '/products/' + randomUUID() + '/supply-terms', supplyTerms, '1'],
     ['GET', s.root + '/appearance', undefined, undefined], ['PATCH', s.root + '/appearance', {template_id: 'catalog-list-v1'}, '1'],
     ['GET', s.root + '/preview-page', undefined, undefined],
     ['GET', s.root + '/preview', undefined, undefined], ['POST', s.root + '/publish', {}, '1'], ['POST', s.root + '/unpublish', {}, '1'],
@@ -168,6 +171,129 @@ test('T-024 restricted runtime launches, sets up, edits, previews, publishes and
   assert.equal((await view(s, fresh)).store.slug, settings.slug);
   const quiet = (await runtime.query(`SELECT current_setting('freedom.tenant_id',true) AS t,current_setting('freedom.principal_id',true) AS p,(SELECT count(*)::int FROM commerce_resource_tenants) AS n`)).rows[0];
   assert.ok(!quiet.t && !quiet.p); assert.equal(quiet.n, 0);
+});
+
+test('my stores preserves multi-tenant detail projections without redundant name, capability or product-count queries', async () => {
+  const owner = (await h.person('列表店主')).session, reader = (await h.person('列表讀者')).session;
+  const stores: Store[] = [];
+  for (let n = 0; n < 5; n++) {
+    const s = await open(owner, `列表業務${n}`); stores.push(s);
+    await join(s, reader, 'operator', n < 4 ? ['store:read'] : []);
+    if (n > 0) expect(await post(s.root + '/setup', owner, { ...settings, slug: `list-shop-${n}` }), 201);
+    if (n === 2 || n === 3) { await add(s); expect(await publish(s)); }
+    if (n === 3) expect(await publish(s, 'unpublish'));
+  }
+  const expected = [];
+  for (const [n, s] of stores.slice(0, 4).entries()) {
+    const v = await view(s, reader);
+    expected.push({ tenant_id: s.tenantId, tenant_display_name: `列表業務${n}`, instance_id: s.instanceId,
+      setup_state: v.setup_state, name: v.store?.name ?? null, slug: v.store?.slug ?? null,
+      publication_state: v.publication.state, public_path: v.publication.public_path, version: v.version });
+  }
+  expected.sort((a, b) => a.tenant_id.localeCompare(b.tenant_id));
+  const queries: string[] = [], clients = new Map<PoolClient, PoolClient['query']>();
+  const instrument = (q: PoolClient) => {
+    if (clients.has(q)) return;
+    const original = q.query; clients.set(q, original);
+    q.query = ((...args: unknown[]) => { queries.push(String(args[0])); return Reflect.apply(original, q, args); }) as typeof q.query;
+  };
+  runtime.on('acquire', instrument);
+  try {
+    assert.deepEqual(expect(await call('GET', '/me/stores', reader)), { items: expected, truncated: false });
+    const names = queries.filter(sql => /^SELECT display_name FROM tenants/.test(sql)).length;
+    const counts = queries.filter(sql => /count\(\*\)::int AS n FROM commerce_items/.test(sql)).length;
+    const capabilities = queries.filter(sql => /SELECT capabilities FROM tenant_module_permissions/.test(sql)).length;
+    const profiles = queries.filter(sql => /FROM commerce_storefront_profiles p/.test(sql)).length;
+    console.log(`my stores: 5 tenants, 4 readable stores; ${queries.length} queries; names=${names}, counts=${counts}, capabilities=${capabilities}, profiles=${profiles}`);
+    assert.equal(names, 0); assert.equal(counts, 0); assert.equal(capabilities, 5); assert.equal(profiles, 4);
+  } finally {
+    runtime.off('acquire', instrument);
+    for (const [q, original] of clients) q.query = original;
+  }
+});
+
+test('supplier preparation retains item identity, one stock balance and independent retail pricing', async () => {
+  const s = await ready(), item = await add(s), path = s.root + '/products/' + item.product_id + '/supply-terms';
+  await h.pool.query('UPDATE commerce_items SET reserved=3 WHERE item_id=$1', [item.product_id]);
+  expect(await publish(s));
+  const before = await publicPair(settings.slug);
+  const initial = expect(await call('GET', path, s.owner));
+  assert.deepEqual([initial.cost_minor, initial.stock, initial.reserved, initial.available], [12345, 17, 3, 14]);
+  const saved = expect(await patch(path, s.owner, supplyTerms, initial.version));
+  assert.equal(saved.version, '2'); assert.equal(saved.product_id, item.product_id); assert.equal(saved.transaction_state, 'not_enabled');
+  assert.deepEqual([saved.stock, saved.reserved, saved.available], [17, 3, 14]);
+  const own = expect(await call('GET', s.root + '/products', s.owner)).items[0];
+  assert.equal(own.price_minor, item.price_minor); assert.equal(own.version, saved.version);
+  const edited = expect(await patch(s.root + '/products/' + item.product_id, s.owner, {price_minor: 19000}, own.version));
+  assert.equal(edited.price_minor, 19000);
+  assert.equal(expect(await call('GET', path, s.owner)).cost_minor, supplyTerms.cost_minor);
+  const after = await publicPair(settings.slug);
+  assert.equal(after.jsonText, before.jsonText); assert.equal(after.htmlText, before.htmlText);
+  expect(await publish(s));
+  const updated = await publicPair(settings.slug);
+  assert.equal(JSON.parse(updated.jsonText).products[0].price_minor, 19000);
+  for (const text of [updated.jsonText, updated.htmlText, JSON.stringify(expect(await call('GET', s.root + '/preview', s.owner)))]) {
+    assert.ok(!text.includes(supplyTerms.return_terms) && !text.includes(supplyTerms.shipping_terms));
+    assert.ok(!text.includes('cost_minor') && !text.includes('shipping_minor'));
+  }
+  assert.equal(await h.count('commerce_items'), 1); assert.equal(await h.count('commerce_selections'), 1);
+  assert.equal(await h.count('commerce_orders'), 0); assert.equal(await h.count('commerce_distribution_acceptances'), 0);
+});
+
+test('supply terms require current instance write permission, including receipt replay after revocation', async () => {
+  const s = await ready(), item = await add(s), path = s.root + '/products/' + item.product_id + '/supply-terms';
+  const foreign = await ready(undefined, 'another-supply-shop');
+  expect(await call('GET', path, foreign.owner), 404);
+  expect(await patch(path, foreign.owner, supplyTerms, '1'), 404);
+  expect(await call('GET', foreign.root + '/products/' + item.product_id + '/supply-terms', foreign.owner), 404);
+  const operator = (await h.person('供货編輯者')).session;
+  const principal = await join(s, operator, 'operator', ['store:read', 'store:write']);
+  const key = randomUUID(), saved = expect(await patch(path, operator, supplyTerms, '1', key));
+  assert.deepEqual(expect(await patch(path, operator, supplyTerms, '1', key)), saved);
+  expect(await patch(path, operator, {...supplyTerms, cost_minor: 7001}, '1', key), 409);
+  const member = expect(await call('GET', `/tenants/${s.tenantId}/members`, s.owner)).items.find((x: any) => x.principal_id === principal);
+  expect(await post(`/tenants/${s.tenantId}/members/${principal}/change`, s.owner, {role: 'operator', status: 'active', instance_capabilities: [{instance_id: s.instanceId, capabilities: ['store:read']}], reason: '撤回供貨編輯權'}, member.version));
+  expect(await call('GET', path, operator), 403);
+  expect(await patch(path, operator, supplyTerms, '1', key), 403);
+  assert.equal(expect(await call('GET', path, s.owner)).version, '2');
+});
+
+test('concurrent supplier and retail edits use the same product version and require fresh review', async () => {
+  const s = await ready(), item = await add(s), productPath = s.root + '/products/' + item.product_id;
+  const replies = await Promise.all([patch(productPath + '/supply-terms', s.owner, supplyTerms, '1'), patch(productPath, s.owner, {price_minor: 25000}, '1')]);
+  assert.deepEqual(replies.map(r => r.status).sort(), [200, 412]);
+  const current = expect(await call('GET', productPath + '/supply-terms', s.owner));
+  assert.equal(current.version, '2');
+  if (replies[0].status === 200) {
+    assert.equal(current.cost_minor, 7000);
+    assert.equal(expect(await call('GET', s.root + '/products', s.owner)).items[0].price_minor, 12345);
+  } else assert.equal(current.cost_minor, 12345);
+  expect(await patch(productPath + '/supply-terms', s.owner, supplyTerms, current.version));
+  assert.equal(expect(await call('GET', productPath + '/supply-terms', s.owner)).version, '3');
+});
+
+test('supply terms reject stock overrides, invalid money and malformed or missing command headers', async () => {
+  const s = await ready(), item = await add(s), path = s.root + '/products/' + item.product_id + '/supply-terms';
+  for (const body of [{...supplyTerms, stock: 99}, {...supplyTerms, cost_minor: 0}, {...supplyTerms, shipping_minor: -1}, {...supplyTerms, shipping_minor: 1.5}, {...supplyTerms, return_terms: ' '}, {...supplyTerms, shipping_terms: 'bad\u0000text'}, {...supplyTerms, cost_minor: 100000001}]) {
+    expect(await patch(path, s.owner, body, '1'), 422);
+  }
+  expect(await call('PATCH', path, s.owner, supplyTerms, {'Idempotency-Key': randomUUID()}), 428);
+  expect(await call('GET', path + '?tenant_id=' + s.tenantId, s.owner), 422);
+  const r = await call('GET', path, s.owner); expect(r);
+  assert.equal(r.response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(r.data.version, '1');
+  assert.equal(await h.count('commerce_distribution_acceptances'), 0);
+});
+
+test('supply preparation refuses a product already selected by another shop without partial effects', async () => {
+  const s = await ready(), item = await add(s), foreign = await ready(undefined, 'foreign-selection');
+  const shop = (await h.pool.query('SELECT storefront_shop_id FROM commerce_storefront_profiles WHERE instance_id=$1', [foreign.instanceId])).rows[0].storefront_shop_id;
+  await h.pool.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot) VALUES($1,$2,$3,12000,'synthetic','{}')`, [randomUUID(), shop, item.product_id]);
+  const path = s.root + '/products/' + item.product_id + '/supply-terms';
+  const failed = await patch(path, s.owner, supplyTerms, '1'); expect(failed, 409); assert.equal(failed.data.code, 'supply_terms_in_use');
+  const current = expect(await call('GET', path, s.owner));
+  assert.equal(current.cost_minor, product.price_minor); assert.equal(current.version, '1');
+  assert.equal(await h.count('scoped_transition_journal', "WHERE operation='storefront.supply-terms.update'"), 0);
 });
 
 test('T-017 twenty concurrent launches across workspaces leave exactly one live storefront', async () => {

@@ -4,6 +4,7 @@ export type GuidePageId = TabId | 'registration' | 'onboarding' | 'admin' | 'ski
 // Every real page must explicitly opt in or give a reason. CI also checks developmentPages.
 export const DRAGON_PAGE_SUPPORT = {
   'community-search': {status:'disabled',reason:'社群內容搜尋導覽尚未完成審核，沿用頁面說明'},
+  'my-content': {status:'disabled',reason:'私人內容管理導覽尚未完成審核，沿用頁面說明'},
   'home': {status:'supported',characterId:'home',contentId:'home',guideIds:["home:topic-1", "home:topic-3"],anchorContractVersion:1},
   'guilds': {status:'supported',characterId:'guilds',contentId:'guilds',guideIds:["guilds:topic-1", "guilds:topic-3"],anchorContractVersion:1},
   'skills': {status:'supported',characterId:'skills',contentId:'skills',guideIds:["skills:topic-1", "skills:topic-2"],anchorContractVersion:1},

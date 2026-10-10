@@ -7,9 +7,10 @@ import {migrate} from '../../scripts/database.js';
 import {seedLocal,DEMO_USERS,DEMO_PASSWORD} from '../../packages/testing/seed.js';
 import {createApp} from '../../apps/platform-api/src/app.js';
 import {Problem} from '../../packages/shared/problem.js';
-import {fetchManifest} from '../../modules/agent-commerce/imports.js';
+import {fetchManifest,ownShops} from '../../modules/agent-commerce/imports.js';
 import {parseManifestFile} from '../../modules/agent-commerce/schema.js';
 import {orderView,shopOrders} from '../../modules/agent-commerce/orders.js';
+import {authenticate} from '../../modules/identity-membership/service.js';
 
 const origin='http://127.0.0.1:4310',url=process.env.TEST_DATABASE_URL??LOCAL_DATABASE_URL;
 const schema=`fp_agent_commerce_${process.pid}_${Date.now()}`,admin=createPool(url),pool=new Pool({connectionString:url,options:`-c search_path=${schema}`});
@@ -179,6 +180,9 @@ test('batched pages match single views with multiple lines, transfers and scoped
    for(const row of list){
     assert.equal(row.transfers.length,shopId===sid?2:1);
     assert.equal(row.transfers.reduce((n,t)=>n+t.lines.length,0),shopId===sid?3:1);
+    const sorted=(values:string[])=>assert.deepEqual(values,[...values].sort());
+    sorted(row.transfers.map(t=>t.transfer_id));
+    for(const transfer of row.transfers){sorted(transfer.lines.map((l:{selection_id:string})=>l.selection_id));sorted(transfer.supplier_payables.map((p:{payable_id:string})=>p.payable_id));}
     for(const transfer of row.transfers){
      assert.equal(transfer.supplier_payables.length,transfer.lines.length);
      assert.ok(transfer.supplier_payables.every((p:{transfer_id:string})=>p.transfer_id===transfer.transfer_id));
@@ -294,4 +298,48 @@ test('checkout waits for distribution acceptance; margin is a projection and set
  const version=(await req('/api/v1/commerce/distribution-acceptances',undefined,supplier)).data.items.find((i:any)=>i.selection_id===pending.selection_id).aggregate_version;
  assert.equal((await req(`/api/v1/commerce/selections/${pending.selection_id}/distribution-acceptance`,{decision:'revoked',listing_sha256:pending.listing_sha256,note:'停止新單'},supplier,undefined,randomUUID(),{'If-Match':`"${version}"`})).status,200);
  assert.equal((await req('/shop-api/v1/orders',{external_id:randomUUID(),items:[{selection_id:pending.selection_id,quantity:1,delivery_ref:'synthetic_delivery_ref'}]},undefined,sellerKey)).status,409);
+});
+
+test('own shops batches scoped counts once and preserves the complete HTTP projection including empty shops',async()=>{
+ const f=await setup(),actor=await authenticate(pool,f.supplier.cookie.split('=')[1]);
+ await pool.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,created_at)
+ SELECT gen_random_uuid(),community_id,owner_id,kind,'批次商店 '||n,description,website_url,contact,currency,'count-fixture-'||n,
+ '2020-01-01'::timestamptz+n*interval '1 day' FROM commerce_shops CROSS JOIN generate_series(1,240) n WHERE shop_id=$1`,[f.internalId]);
+ await pool.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,shipping_minor,stock,shipping_terms,return_terms)
+ SELECT gen_random_uuid(),s.shop_id,'COUNT-'||n,'合成商品','計數測試',100,0,0,'無','無'
+ FROM commerce_shops s CROSS JOIN LATERAL generate_series(1,substring(s.manifest_sha256 FROM '[0-9]+$')::int%4) n
+ WHERE s.manifest_sha256 LIKE 'count-fixture-%'`);
+ await pool.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot,listing_sha256)
+ SELECT gen_random_uuid(),shop_id,item_id,200,'合成','{}'::jsonb,repeat('a',64) FROM commerce_items WHERE sku LIKE 'COUNT-%'`);
+ await pool.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256,origin,accepting_orders)
+ SELECT gen_random_uuid(),community_id,owner_id,kind,'排除託管店',description,'','',currency,'hosted-count-fixture','hosted',false
+ FROM commerce_shops WHERE shop_id=$1`,[f.internalId]);
+ const foreignCommunity=randomUUID();await pool.query("INSERT INTO communities VALUES($1,'計數測試社群')",[foreignCommunity]);
+ await pool.query(`INSERT INTO commerce_shops(shop_id,community_id,owner_id,kind,name,description,website_url,contact,currency,manifest_sha256)
+ SELECT gen_random_uuid(),$2,owner_id,kind,'排除跨社群店',description,website_url,contact,currency,'foreign-count-fixture'
+ FROM commerce_shops WHERE shop_id=$1`,[f.internalId,foreignCommunity]);
+ const baseline=`SELECT s.*,k.expires_at AS key_expires_at,k.revoked_at AS key_revoked_at,
+ (SELECT count(*)::int FROM commerce_items i WHERE i.shop_id=s.shop_id) AS product_count,
+ (SELECT count(*)::int FROM commerce_selections l WHERE l.shop_id=s.shop_id) AS selection_count
+ FROM commerce_shops s LEFT JOIN commerce_shop_keys k USING(shop_id)
+ WHERE s.origin='imported' AND s.community_id=$1 AND s.owner_id=$2 ORDER BY s.created_at DESC`;
+ const values=[actor.community_id,actor.user_id],expected=(await pool.query(baseline,values)).rows;
+ let sql='',queries=0;
+ const counted={query:(text:string,params:unknown[])=>{sql=text;queries++;return pool.query(text,params);}} as unknown as Pool;
+ const rows=await ownShops(counted,actor);assert.equal(queries,1);assert.equal(rows.length,241);assert.deepEqual(rows,expected);
+ assert.ok(rows.some(s=>s.product_count===0&&s.selection_count===0));
+ assert.ok(rows.some(s=>s.product_count===3&&s.selection_count===3));
+ const response=await req('/api/v1/commerce/shops',undefined,f.supplier);assert.equal(response.status,200);
+ assert.deepEqual(response.data,{items:JSON.parse(JSON.stringify(expected.map(s=>({...s,aggregate_version:Number(s.aggregate_version)}))))});
+ assert.deepEqual((await req('/api/v1/commerce/shops',undefined,f.other)).data,{items:[]});
+ const sellerShops=(await req('/api/v1/commerce/shops',undefined,f.seller)).data.items;
+ assert.equal(sellerShops.length,1);assert.equal(sellerShops[0].product_count,0);assert.equal(sellerShops[0].selection_count,1);
+ await pool.query('ANALYZE commerce_shops;ANALYZE commerce_items;ANALYZE commerce_selections');
+ const measured=(await pool.query(`EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) ${sql}`,values)).rows[0]['QUERY PLAN'][0],plan=measured.Plan;
+ const nodes:any[]=[];function visit(node:any){nodes.push(node);for(const child of node.Plans??[])visit(child);}visit(plan);
+ assert.equal(nodes.filter(n=>n['Parent Relationship']==='SubPlan').length,0,'No per-shop correlated count execution');
+ const aggregates=nodes.filter(n=>n['Node Type']==='Aggregate');assert.equal(aggregates.length,2);
+ for(const aggregate of aggregates)assert.equal(aggregate['Actual Loops'],1,'Each grouped count executes once for the whole owner list');
+ const prior=(await pool.query(`EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) ${baseline}`,values)).rows[0]['QUERY PLAN'][0];
+ console.info(`own shops N=${rows.length}: before ${prior['Execution Time']} ms/${prior.Plan['Shared Hit Blocks']} buffer hits; after ${measured['Execution Time']} ms/${plan['Shared Hit Blocks']} buffer hits`);
 });

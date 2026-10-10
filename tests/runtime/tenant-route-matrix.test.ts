@@ -215,6 +215,8 @@ const routeTable: Record<string, string> = {
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products': 'tenant',
   'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id': 'tenant',
+  'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
+  'PATCH /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms': 'tenant',
   'POST /api/v1/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/preview': 'tenant',
   'GET /api/v1/tenants/:tenant_id/storefronts/:instance_id/appearance': 'tenant',
@@ -507,8 +509,8 @@ test('T-022 1. Route inventory guard', () => {
     all[kind] = (all[kind] ?? 0) + 1;
     return all;
   }, {});
-  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 62, middleware: 2 });
-  assert.equal(selectedRoutes.length, 92);
+  assert.deepEqual(counts, { admin: 7, guild: 9, principal: 8, global: 4, tenant: 64, middleware: 2 });
+  assert.equal(selectedRoutes.length, 94);
   console.log(JSON.stringify({ route_inventory: { selected: selectedRoutes.length, counts } }));
   for (const r of selectedRoutes) {
     const key = `${r.method} ${r.path}`;
@@ -601,6 +603,9 @@ const routes: Route[] = [
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products', body: { title: '商品', price_minor: 100 } },
   { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id', body: { title: '更名' }, version: '"1"' },
+  { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms' },
+  { method: 'PATCH', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/supply-terms',
+    body: { cost_minor: 100, shipping_minor: 0, shipping_terms: '合成出貨條件', return_terms: '合成退貨條件' }, version: '"1"' },
   { method: 'POST', path: '/tenants/:tenant_id/storefronts/:instance_id/products/:product_id/remove', body: {}, version: '"1"' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/preview' },
   { method: 'GET', path: '/tenants/:tenant_id/storefronts/:instance_id/appearance' },

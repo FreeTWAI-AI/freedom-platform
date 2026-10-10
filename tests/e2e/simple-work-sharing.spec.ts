@@ -14,6 +14,29 @@ async function fillTool(page: Page, title: string) {
   await page.getByLabel('一句話介紹', { exact: true }).fill('幫創作者把零散想法整理成合作提案。');
 }
 
+test('My Content saves a real private draft, isolates another member and resumes after re-login', async ({ page }) => {
+  const title = '本人內容重新登入草稿';
+  await login(page); await navigate(page, '我的內容');
+  await page.getByRole('button', { name: '新增私人作品草稿' }).click();
+  await page.getByLabel('作品標題', { exact: true }).fill(title);
+  await page.getByLabel('一句話介紹', { exact: true }).fill('這份未發布的私人作品只供本人續寫。');
+  await page.getByRole('button', { name: '儲存私人草稿', exact: true }).click();
+  await expect(page.getByRole('region', { name: '私人作品編輯' }).getByRole('status')).toContainText('私人草稿已儲存');
+  await page.getByRole('button', { name: '回到內容清單' }).click();
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  await signOut(page); await login(page, 'client@local.test'); await navigate(page, '我的內容');
+  await expect(page.getByText('載入我的內容…', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
+  const otherInventory = await page.request.get('/api/v1/me/content');
+  expect(otherInventory.status()).toBe(200); expect(await otherInventory.text()).not.toContain(title);
+  await signOut(page); await login(page); await navigate(page, '我的內容');
+  const own = page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+  await expect(own).toContainText('僅本人可見');
+  await own.getByRole('link', { name: '編輯', exact: true }).click();
+  await expect(page.getByLabel('作品標題', { exact: true })).toHaveValue(title);
+  await expect(page.getByRole('textbox', { name: '一句話介紹', exact: true })).toHaveValue('這份未發布的私人作品只供本人續寫。');
+});
+
 for (const width of [1280, 320]) test(`${width}px member shares a real work link without an artifact code and another member can request cooperation`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   let galleryReads = 0;

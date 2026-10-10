@@ -44,7 +44,8 @@ const runnerOwned = details.Config.Labels?.['freedom.task'] === 'media-restore-d
   && details.Config.Labels?.['freedom.owner'] === 'run-media-restore-test'
   && details.HostConfig.NetworkMode === 'none'
   && Object.keys(details.HostConfig.PortBindings ?? {}).length === 0
-  && Boolean(details.HostConfig.Tmpfs?.['/var/lib/postgresql']);
+  && Boolean(details.Mounts?.some((mount:{Type:string;Destination:string})=>mount.Type==='volume'&&mount.Destination==='/var/lib/postgresql'))
+  && !details.HostConfig.Tmpfs?.['/var/lib/postgresql'];
 const localServer = /^\/fp-[a-z0-9-]+$/.test(details.Name)
   && JSON.stringify(details.HostConfig.PortBindings?.['5432/tcp']) === JSON.stringify([{ HostIp: '127.0.0.1', HostPort: url.port }])
   && !url.searchParams.has('host') && url.pathname.startsWith('/fp_job_');
@@ -133,7 +134,7 @@ function copyCounts(dump: Buffer): Record<string, number> {
 
 const RLS_TABLES = [
   'tenants', 'tenant_memberships', 'tenant_invitations', 'workspaces', 'tenant_authority_audit', 'module_instances',
-  'commerce_resource_tenants', 'commerce_order_quotes',
+  'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
   'tenant_high_risk_verifications', 'tenant_ownership_transfers', 'tenant_recovery_cases', 'tenant_module_permissions',
   'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
   'tenant_capacity_policies', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
@@ -390,6 +391,9 @@ const EXPECTED: Record<string, number> = {
   tenant_high_risk_verifications: 0, tenant_ownership_transfers: 0, tenant_recovery_cases: 0,
   // This fixture has no explicit instance grants; verify the new table survives empty.
   tenant_module_permissions: 0, commerce_resource_tenants: 4, commerce_order_quotes: 2,
+  // Photo-bearing restore is exercised by media-backup-restore; this fixture
+  // must still preserve both empty tables and their tenant policies.
+  commerce_product_photo_targets: 0, commerce_publication_photo_refs: 0,
   tenant_work_results: 2, tenant_work_result_targets: 2, tenant_capacity_policies: 3,
   work_items: 3, scoped_command_receipts: 3, scoped_transition_journal: 3, scoped_outbox: 3,
   // This fixture inserts existing Work directly; no registry launch is performed.

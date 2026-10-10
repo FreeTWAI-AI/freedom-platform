@@ -44,11 +44,11 @@ export function rejectAtLimit(count: bigint, max: bigint) {
 }
 
 export async function retainedByteUsage(q: PoolClient, scopeId: string, tenantId: string): Promise<bigint> {
-  const row = (await q.query<{ used: string }>(`SELECT COALESCE(sum(COALESCE(o.byte_size, i.reserved_bytes, $3)::bigint), 0)::text AS used
+  const row = (await q.query<{ used: string }>(`SELECT COALESCE(sum(COALESCE(o.byte_size, i.reserved_bytes, CASE a.purpose WHEN 'storefront.product-photo' THEN 1048576 ELSE $3 END)::bigint), 0)::text AS used
     FROM assets a
     LEFT JOIN asset_objects o ON o.asset_id=a.asset_id
     LEFT JOIN asset_upload_intents i ON i.asset_id=a.asset_id
-    WHERE a.scope_id=$1 AND a.tenant_ref=$2 AND a.purpose='work.tenant-result'`,
+    WHERE a.scope_id=$1 AND a.tenant_ref=$2 AND a.purpose IN ('work.tenant-result','storefront.product-photo')`,
   [scopeId, tenantId, PRIVATE_TEXT_MAX_BYTES])).rows[0];
   return BigInt(row.used);
 }
@@ -57,11 +57,11 @@ export async function capacitySummary(q: PoolClient, scopeId: string, tenantId: 
   const policy = await readCapacityPolicy(q, tenantId);
   const row = (await q.query<{ used: string; reserved: string }>(`SELECT
       COALESCE(sum(o.byte_size), 0)::text AS used,
-      COALESCE(sum(CASE WHEN o.asset_id IS NULL THEN COALESCE(i.reserved_bytes, $3) ELSE 0 END), 0)::text AS reserved
+      COALESCE(sum(CASE WHEN o.asset_id IS NULL THEN COALESCE(i.reserved_bytes, CASE a.purpose WHEN 'storefront.product-photo' THEN 1048576 ELSE $3 END) ELSE 0 END), 0)::text AS reserved
     FROM assets a
     LEFT JOIN asset_objects o ON o.asset_id=a.asset_id
     LEFT JOIN asset_upload_intents i ON i.asset_id=a.asset_id
-    WHERE a.scope_id=$1 AND a.tenant_ref=$2 AND a.purpose='work.tenant-result'`,
+    WHERE a.scope_id=$1 AND a.tenant_ref=$2 AND a.purpose IN ('work.tenant-result','storefront.product-photo')`,
   [scopeId, tenantId, PRIVATE_TEXT_MAX_BYTES])).rows[0];
   return {
     policy_revision: policy?.revision ?? null,

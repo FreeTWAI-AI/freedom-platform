@@ -146,7 +146,7 @@ test('CLI tests', (t) => {
 });
 
 test('Committed module and fixture agree', async () => {
-  const fixturePath = fileURLToPath(new URL('./fixtures/runtime-hosted-costs-20261007.json', import.meta.url));
+  const fixturePath = fileURLToPath(new URL('./fixtures/runtime-hosted-costs-disk-20261009.json', import.meta.url));
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   const m = await import('../runtime-file-weights.mjs');
   const generatedWeights = {};
