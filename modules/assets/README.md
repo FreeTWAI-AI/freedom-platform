@@ -58,3 +58,11 @@ Executed local checks belong in the handoff, not inferred from this list. No sta
 ## Tenant text profile
 
 `work.tenant-result` / `work.tenant-result` / `draft` is a closed engine profile: 256 KiB UTF-8 `text/plain` or `text/markdown`, transform `private-text.utf8.v1`, `retireReplacedAsset` false. `tenant-lifecycle-authority.ts` is the only authority that may drive it. The authority locks the URL tenant; the engine still passes the member-shaped scope placeholder. This purpose is excluded from write-effect coverage and from domain-media GC, the same way `work.private-draft` is. It does not set `profile_id`. Tenant prepare takes the capacity-policy lock inside `lockTarget` before the Work row. Other profiles keep their own lock order. The engine still takes the quota advisory before `lockTarget`.
+
+## Storefront photo profile
+
+The separate [closed product-photo profile](storefront-product-photo.md) uses
+current installed-store authority, the existing selection CAS, retained typed
+product routing and immutable publication refs. It shares the tenant byte budget
+with Work results. Migration 141 defaults to OFF; no GC, cloud rollout or restore
+validation is implied by its source registration.

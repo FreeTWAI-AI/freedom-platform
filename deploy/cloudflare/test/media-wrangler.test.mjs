@@ -27,16 +27,17 @@ function declared(config) {
     block.vars.FREEDOM_DATABASE_NAME = manifest.environments[name].database.dbname;
     block.r2_buckets = [{ binding: 'MEDIA', bucket_name: manifest.environments[name].r2_buckets[0].name }];
     for (const flag of flags) block.vars[flag] = 'true';
+    block.vars.FREEDOM_GUILD_LAUNCHPAD_ENABLED='true';
   }
 }
 
-test('actual canonical Wrangler keeps all seven flags OFF and reports unavailable bindings, never remote acceptance', () => {
+test('actual canonical Wrangler keeps all media flags OFF and reports unavailable bindings, never remote acceptance', () => {
   const report = checkMediaWranglerConfig(resolve(root, 'wrangler.jsonc'), manifest);
   assert.equal(report.structural, true); assert.equal(report.status, 'unavailable');
   assert.equal(report.deployment_ready, false); assert.equal(report.provider_mutations, 0);
   assert.equal(report.enabled_by_this_tool, false); assert.equal(report.runtime_acceptance, 'not_run');
   for (const environment of Object.values(report.mapping)) {
-    assert.equal(environment.features.length, 8);
+    assert.equal(environment.features.length, 9);
     assert(environment.features.every(item => item.declared_enabled === false));
     assert(environment.features.filter(item => item.flag).every(item => item.installation === 'default_off'));
     assert.deepEqual(environment.required_capabilities, []);
@@ -48,7 +49,7 @@ test('actual canonical Wrangler keeps all seven flags OFF and reports unavailabl
 
 test('fixed media flag mapping matches the actual installed main Worker and retained full social writer capability', () => {
   const source = readFileSync(resolve(root, 'apps/platform-api/src/worker.ts'), 'utf8');
-  const actual = [...new Set(source.match(/FREEDOM_(?:SERVICE_COVER|EVENT_BANNER|EVENT_VIDEO|SKILL_IMAGE|SOCIAL_THUMBNAIL|EVENT_HIGHLIGHT|MESSAGE_IMAGE)_ENABLED/g))].sort();
+  const actual = [...new Set(source.match(/FREEDOM_(?:SERVICE_COVER|EVENT_BANNER|EVENT_VIDEO|SKILL_IMAGE|SOCIAL_THUMBNAIL|EVENT_HIGHLIGHT|MESSAGE_IMAGE|HOSTED_STORE_PHOTOS)_ENABLED/g))].sort();
   assert.deepEqual([...flags].sort(), actual);
   for (const flag of flags) assert(source.includes(`env.${flag}==='true'`));
   const social = MEDIA_WORKER_FEATURES.find(item => item.purpose === 'community.social-thumbnail');
@@ -67,7 +68,7 @@ test('declared complete profiles map exact staging/production bucket, DB, app ro
     assert.equal(environment.expected_runtime_role, expected.database.roles.runtime);
     assert.equal(environment.expected_bucket, expected.r2_buckets[0].name);
     assert.equal(environment.origin, `https://${expected.hostname}`);
-    assert.equal(environment.features.filter(item => item.declared_enabled).length, 8);
+    assert.equal(environment.features.filter(item => item.declared_enabled).length, 9);
     assert.equal(environment.provider_role_database_readback, 'not_run');
     assert.equal(environment.provider_cache_readback, 'not_run');
     assert(environment.required_capabilities.includes('media.server-policy.v1'));
@@ -137,4 +138,14 @@ test('CLI reports canonical unavailable state and refuses execution/credential a
   const declaredRun = fixture(declared, path => spawnSync(process.execPath, ['--', cli, '--config', path], { encoding: 'utf8' }));
   assert.equal(declaredRun.status, 0, declaredRun.stderr);
   assert.equal(JSON.parse(declaredRun.stdout).deployment_ready, false);
+});
+
+test('photo read installation and new upload admission are separate closed declarations',()=>{
+  const absent=fixture(config=>{config.env.next.vars.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED='true';});
+  assert(absent.blockers.includes('next:storefront.product-photo:read_installation_required'));
+  const reads=fixture(config=>{declared(config);for(const flag of flags)config.env.next.vars[flag]='false';config.env.next.vars.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED='true';delete config.env.next.images;});
+  assert.equal(reads.mapping.next.features.find(item=>item.purpose==='storefront.product-photo').declared_enabled,true);
+  assert(!reads.blockers.includes('next:storefront.product-photo:images_binding_missing'));
+  const writes=fixture(config=>{declared(config);config.env.next.vars.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED='true';delete config.env.next.images;});
+  assert(writes.blockers.includes('next:storefront.product-photo:images_binding_missing'));
 });

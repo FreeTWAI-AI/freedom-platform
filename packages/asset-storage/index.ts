@@ -2,7 +2,7 @@ import { MEDIA_OBJECT_PROFILES, OBJECT_IO_MAX_BYTES, type MediaObjectProfileId, 
 export { MEDIA_OBJECT_PROFILES, OBJECT_IO_MAX_BYTES } from './profiles.js';
 export type { MediaObjectProfileId } from './profiles.js';
 import { assertCompleteRaster } from '../shared/image-container.js';
-import { assertCanonicalWebp } from '../shared/image-webp.js';
+import { assertCanonicalWebp, assertCanonicalWebpWithin } from '../shared/image-webp.js';
 import type { ImageNormalizeSpec } from '../shared/image-runtime.js';
 import { OpaqueId } from '../../contracts/common/v1/identity.js';
 
@@ -213,7 +213,9 @@ export async function writeVerifiedObject(store: ObjectStore, key: AssetObjectKe
   if (metadata.policyRevision !== policy.revision) fail('invalid_policy');
   const bytes = snapshotBoundedBytes(value.bytes, metadata.byteSize);
   if (bytes.byteLength !== metadata.byteSize || await sha256(bytes) !== metadata.sha256) fail('integrity_mismatch');
-  if (metadata.profileId !== undefined) validateLegacyMediaBytes(bytes, metadata.contentType);
+  if (metadata.profileId === 'storefront.product-photo') {
+    try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
+  } else if (metadata.profileId !== undefined) validateLegacyMediaBytes(bytes, metadata.contentType);
   else if (metadata.contentType === 'image/webp') {
     try { assertCanonicalWebp(bytes, 256, 256); } catch { fail('invalid_content'); }
   } else validateText(bytes);
@@ -242,7 +244,9 @@ export async function prepareLegacyMediaRepresentation(body: ReadableStream<Uint
   const profile = MEDIA_OBJECT_PROFILES[profileId];
   if (!(profile.contentTypes as readonly string[]).includes(contentType)) fail('unsupported_content_type');
   const bytes = await readBounded(body, profile.maxBytes);
-  validateLegacyMediaBytes(bytes, contentType);
+  if (profileId === 'storefront.product-photo') {
+    try { assertCanonicalWebpWithin(bytes, 1920, 1920); } catch { fail('invalid_content'); }
+  } else validateLegacyMediaBytes(bytes, contentType);
   return Object.freeze({bytes,metadata:Object.freeze({profileId,contentType:contentType as ObjectMetadata['contentType'],
     byteSize:bytes.byteLength,sha256:await sha256(bytes),transformVersion:profile.transformVersion,policyRevision:policy.revision})});
 }
