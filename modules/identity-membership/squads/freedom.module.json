@@ -1,0 +1,57 @@
+{
+  "format": "freedom.module/v1",
+  "module_id": "member-squads",
+  "owner_role": "foundation",
+  "owned_paths": [
+    "apps/platform-api/src/routes/members.ts",
+    "modules/identity-membership/members.ts",
+    "modules/identity-membership/squad-invitations.ts",
+    "apps/portal-web/src/modules/Squads.tsx",
+    "apps/portal-web/src/modules/SquadOwnerTools.tsx",
+    "apps/portal-web/src/modules/SquadInvitations.tsx",
+    "apps/portal-web/src/modules/SquadInvitations.css",
+    "migrations/146_squad_management_and_kinds.sql",
+    "tests/runtime/identity-member.test.ts",
+    "tests/runtime/squad-management.test.ts",
+    "tests/e2e/squad-invitations.spec.ts",
+    "tests/e2e/squad-management.spec.ts",
+    "tests/e2e/squad-types-channel.spec.ts"
+  ],
+  "public_exports": [],
+  "dependencies": [
+    "command-core",
+    "shared",
+    "assets",
+    "community",
+    "positioning",
+    "member-communications"
+  ],
+  "contract_families": [],
+  "client_profiles": [
+    "member"
+  ],
+  "instructions": [
+    "AGENTS.md",
+    "docs/development/member-api.md",
+    "docs/development/member-communications.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "no-secrets-in-artifacts"
+  ],
+  "tests": [
+    "runtime.full"
+  ],
+  "surfaces": [
+    {
+      "surface_id": "member.squads-page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/Squads.tsx",
+      "operations": [
+        "member.squads-page.view"
+      ],
+      "auth_profile": "member-session"
+    }
+  ]
+}

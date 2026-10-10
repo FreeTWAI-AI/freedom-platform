@@ -7,7 +7,7 @@
 .hosted-store-slug { display: flex; gap: 8px; align-items: center; }
 .hosted-store-slug input { flex: 1; width: 0; }
 .hosted-store-products { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.hosted-store-product { min-width: 0; border-bottom: 1px solid var(--line); padding-block: 16px; }
+.hosted-store-product, .hosted-distribution-item { min-width: 0; border-bottom: 1px solid var(--line); padding-block: 16px; }
 .hosted-store-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-line; }
 .hosted-store-preview { border-block: 1px solid var(--line); padding-block: 16px; }
 .hosted-store [role="status"]:focus { outline: 2px solid var(--focus); outline-offset: 4px; }

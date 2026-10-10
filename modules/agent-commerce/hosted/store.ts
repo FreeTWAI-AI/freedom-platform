@@ -55,10 +55,10 @@ export function ready(p: Profile | null): asserts p is Profile {
   requireCondition(p, 409, 'storefront_not_set_up', '請先設定商店。');
 }
 export async function productCount(q: PoolClient, p: Profile): Promise<number> {
-  return (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM commerce_items i
+  return (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM commerce_selections i
     JOIN commerce_resource_tenants m ON m.resource_kind='shop' AND m.resource_id=i.shop_id
     WHERE m.tenant_id=$1 AND m.instance_id=$2 AND m.resource_id=$3 AND m.mapping_state='confirmed'`,
-  [p.tenant_id, p.instance_id, p.supply_shop_id])).rows[0].n;
+  [p.tenant_id, p.instance_id, p.storefront_shop_id])).rows[0].n;
 }
 export async function storeView(q: PoolClient, context: TenantScopeContext, inst: Instance): Promise<StoreView> {
   const p = await profile(q, context.tenant_id, inst.instance_id);
@@ -84,13 +84,13 @@ export async function storeRead<T>(pool: Pool, actor: Actor, tenantId: string, i
     return run(q, context, inst);
   }); } catch (e) { mapError(e); }
 }
-export async function storeCommand<T>(pool: Pool, actor: Actor, tenantId: string, instanceId: string, capability: string, operation: string, body: unknown, key: string, expected: string | undefined,
+export async function storeCommand<T>(pool: Pool, actor: Actor, tenantId: string, instanceId: string, capability: string | readonly string[], operation: string, body: unknown, key: string, expected: string | undefined,
   run: (q: PoolClient, context: TenantScopeContext, inst: Instance) => Promise<T>, productId?: string): Promise<T> {
   let inst!: Instance;
   const authorize = async (q: PoolClient, context: TenantScopeContext) => {
     // Hide unreadable targets before reporting their lifecycle state.
     const peek = await instance(q, tenantId, instanceId, false, true);
-    await requireStoreInstance(q, context, peek.instance_id, capability, true);
+    for (const key of typeof capability==='string' ? [capability] : capability) await requireStoreInstance(q, context, peek.instance_id, key, true);
     inst = await instance(q, tenantId, instanceId, true);
     // All hosted stock/price/publication writers share the order authority's
     // instance -> community -> profile ordering, including receipt replay.
