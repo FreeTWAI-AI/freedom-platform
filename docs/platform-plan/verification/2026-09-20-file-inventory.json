@@ -1679,8 +1679,8 @@
     },
     {
       "path": "apps/portal-web/src/App.tsx",
-      "bytes": 55980,
-      "sha256": "d8feae8133d5441235f2e40f811a1d4085409d8898647d0dcf0520cd5a93569e"
+      "bytes": 56056,
+      "sha256": "77d0156f7a4a38b8f75256f712ce6d766a31829411ee1a508da16d4534a7aa38"
     },
     {
       "path": "apps/portal-web/src/AppInstall.css",
@@ -2184,8 +2184,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/FloatingMessages.tsx",
-      "bytes": 2598,
-      "sha256": "2b36cbad110503e75339c88a3d0a08ebe20a763e777999816dc479a41ac91593"
+      "bytes": 2675,
+      "sha256": "0aa3e9cbf6a3b8d02191ef52aef219d6b492aa091e6c841ceb671374d50bbabf"
     },
     {
       "path": "apps/portal-web/src/modules/FriendsPanel.tsx",
@@ -2884,8 +2884,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/member-inbox.ts",
-      "bytes": 3777,
-      "sha256": "39e25110e16e2830448575915545b9dde003dbd4124f21489f5ee2a60a9da556"
+      "bytes": 4896,
+      "sha256": "f51a103002e27a81d4db82c1a095ff9c121026901e332aee93fbb4ef38695422"
     },
     {
       "path": "apps/portal-web/src/modules/message-image-client.ts",
@@ -13684,8 +13684,8 @@
     },
     {
       "path": "docs/development/member-communications.md",
-      "bytes": 24114,
-      "sha256": "b1a9c73605ca8352a75b161fa1fab4679526e86f75e9b505e2aa24c1363a3a3b"
+      "bytes": 24449,
+      "sha256": "6a9fefba3515e0202390847a01c7342f6622cd0cc0dcbe40bbe00c403428e0ef"
     },
     {
       "path": "docs/development/member-connections.md",
@@ -20224,8 +20224,8 @@
     },
     {
       "path": "tests/e2e/notification-preferences.spec.ts",
-      "bytes": 6739,
-      "sha256": "2011ead6481def1ff7b5bb43ff459243ea803a42961944b596121d02c3fd239e"
+      "bytes": 8975,
+      "sha256": "d73cdc754d5ddc10f5760ed8ab906393a3f73b7f7fd8f49446268acdfb59a5ce"
     },
     {
       "path": "tests/e2e/onboarding-members.spec.ts",

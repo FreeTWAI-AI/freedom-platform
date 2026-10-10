@@ -40,25 +40,37 @@ export type InboxUnread=number|null|undefined;
 // history is opened here, and one failed source makes the whole total unconfirmed.
 const SOURCES=['/me/notifications?limit=1&offset=0','/me/conversations?limit=1&offset=0','/me/channels?kind=guild&limit=1&offset=0','/me/channels?kind=squad&limit=1&offset=0'];
 const CHAT_SOURCES=[...SOURCES.slice(1),'/me/channels?kind=world&limit=1&offset=0'];
-export function useInboxUnread(client:PortalClient,scope:'inbox'|'messages'='inbox'){
+export function useInboxUnread(client:PortalClient,scope:'inbox'|'messages'='inbox',preferencesEnabled:boolean|null=false){
   const [total,setTotal]=useState<InboxUnread>(undefined);
   const generation=useRef(0);
   const refresh=useCallback(async()=>{
-    const current=++generation.current;
+    const current=++generation.current,session=client.sessionGeneration;
+    const valid=()=>current===generation.current&&session===client.sessionGeneration;
+    if(scope==='messages'&&preferencesEnabled===null){setTotal(undefined);return;}
     try{
+      if(scope==='messages'&&preferencesEnabled){
+        const [direct,channels]=await Promise.all([
+          client.get<{unread_count:number}>(CHAT_SOURCES[0],{skipAuthHandler:true,background:true,coalesce:true}),
+          client.get<{guild:number;squad:number;world:number}>('/me/notification-preferences/channel-reminders',{skipAuthHandler:true,background:true,coalesce:true}),
+        ]);
+        if(!valid())return;
+        const counts=[direct.unread_count,channels.guild,channels.squad,channels.world],sum=counts.reduce((value,count)=>value+count,0);
+        setTotal(counts.every(count=>Number.isSafeInteger(count)&&count>=0)&&Number.isSafeInteger(sum)?sum:null);return;
+      }
       const pages=await Promise.all((scope==='messages'?CHAT_SOURCES:SOURCES).map(path=>client.get<{unread_count:number}>(path,{skipAuthHandler:true,background:true,coalesce:true})));
-      if(current!==generation.current)return;
+      if(!valid())return;
       const sum=pages.reduce((value,page)=>value+page.unread_count,0);
       setTotal(pages.every(page=>Number.isSafeInteger(page.unread_count)&&page.unread_count>=0)&&Number.isSafeInteger(sum)?sum:null);
-    }catch{if(current===generation.current)setTotal(null);}
-  },[client,scope]);
+    }catch{if(valid())setTotal(null);}
+  },[client,scope,preferencesEnabled]);
   useEffect(()=>{
     const update=()=>void refresh();
     update();
-    // No polling: the window regaining focus, a confirmed write or a membership change re-reads.
-    const events=['focus','online',INBOX_UPDATED,'freedom-profile-updated'];
+    // Only enabled reminder policy needs a clock refresh for quiet-hour boundaries; no history is opened.
+    const timer=scope==='messages'&&preferencesEnabled===true?window.setInterval(update,30000):undefined;
+    const events=['focus','online',INBOX_UPDATED,'freedom-profile-updated','freedom-notification-preferences-updated'];
     for(const name of events)window.addEventListener(name,update);
-    return()=>{generation.current++;for(const name of events)window.removeEventListener(name,update);};
-  },[refresh]);
+    return()=>{generation.current++;window.clearInterval(timer);for(const name of events)window.removeEventListener(name,update);};
+  },[refresh,scope,preferencesEnabled]);
   return {total,refresh};
 }
