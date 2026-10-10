@@ -10,7 +10,7 @@ function when(value: string | null) {
   return new Date(value).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
 }
 
-export function AccountSecurity({ client }: { client: PortalClient }) {
+export function AccountSecurity({ client, onAccountChanged }: { client: PortalClient; onAccountChanged: () => Promise<void> }) {
   const [current, setCurrent] = useState(''), [next, setNext] = useState(''), [confirm, setConfirm] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false), [passwordError, setPasswordError] = useState(''), [passwordNotice, setPasswordNotice] = useState('');
   const [sessions, setSessions] = useState<SessionList | null>(null), [sessionError, setSessionError] = useState(''), [sessionNotice, setSessionNotice] = useState(''), [sessionBusy, setSessionBusy] = useState(false);
@@ -31,6 +31,7 @@ export function AccountSecurity({ client }: { client: PortalClient }) {
       const result = await client.post<{ changed: true; revoked_sessions: number }>('/me/password', { current_password: current, new_password: next });
       setCurrent(''); setNext(''); setConfirm('');
       setPasswordNotice(result.revoked_sessions > 0 ? `密碼已更新，其他 ${result.revoked_sessions} 個裝置已登出。` : '密碼已更新。');
+      await onAccountChanged();
       await loadSessions();
     } catch (cause) { setPasswordError(cause instanceof Error ? cause.message : '密碼未更新，請稍後再試。'); }
     finally { setPasswordBusy(false); }
@@ -41,6 +42,7 @@ export function AccountSecurity({ client }: { client: PortalClient }) {
     try {
       const result = await client.post<{ revoked_sessions: number }>('/me/sessions/revoke-others', {}, { idempotencyKey: crypto.randomUUID() });
       setSessionNotice(result.revoked_sessions > 0 ? `已登出其他 ${result.revoked_sessions} 個裝置。` : '沒有其他裝置在登入中。');
+      await onAccountChanged();
       await loadSessions();
     } catch (cause) { setSessionError(cause instanceof Error ? cause.message : '目前無法登出其他裝置。'); }
     finally { setSessionBusy(false); }
