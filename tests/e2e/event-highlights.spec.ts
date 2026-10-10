@@ -12,13 +12,14 @@ const ONLINE = '71000000-0000-4000-8000-000000000001';
 const GUILD = '71000000-0000-4000-8000-000000000002';
 const HIDDEN = '71000000-0000-4000-8000-000000000003';
 const UPCOMING = '71000000-0000-4000-8000-000000000004';
+const PUBLIC_EMPTY = '71000000-0000-4000-8000-000000000005';
 const LOCATION = '地點密語e2e-location';
 const MEETING = 'https://secret-meet.example/e2e-room';
 const YOUTUBE = 'https://www.youtube.com/watch?v=abcdefghijk&utm_source=share';
 const SHOTS = process.env.AUDIT_EVIDENCE_DIR ?? 'test-results/event-highlights';
 const GUILD_COPY = '公會夥伴在現場交流，結束後公開回顧。';
 const MEMBER_COPY = '這是一場會員活動，活動說明只提供給會員。';
-const EVENT_IDS = [ONLINE, GUILD, HIDDEN, UPCOMING];
+const EVENT_IDS = [ONLINE, GUILD, HIDDEN, UPCOMING, PUBLIC_EMPTY];
 
 test.describe.configure({mode: 'serial'});
 test.setTimeout(180000);
@@ -414,7 +415,7 @@ test('signed-out visitors see public pages while guild highlights and private fi
   await guest.close();
 });
 
-test('badges, chips and placeholders stay readable in light, dark and versefolk', async ({page}) => {
+test('badges, chips and placeholders stay readable in light, dark and versefolk', async ({page, e2eAuthPool}) => {
   await page.setViewportSize({width: 1280, height: 900});
   await login(page);
   await openHighlights(page);
@@ -461,6 +462,10 @@ test('badges, chips and placeholders stay readable in light, dark and versefolk'
   await noOverflow(page, 'member detail 820');
   await page.setViewportSize({width: 1280, height: 900});
   await noOverflow(page, 'member detail 1280');
+  // Guild-only cards are correctly absent from the public list. Seed an actual
+  // public event without a banner to measure the public placeholder contrast.
+  await e2eAuthPool.query(`INSERT INTO community_events(event_id,community_id,organizer_ref,title,description,starts_at,ends_at,mode,state,visibility,event_kind)
+    VALUES($1,$2,$3,'公開無封面回顧','公開活動的無封面狀態',now()-interval '4 days',now()-interval '3 days','online','published','open','other')`,[PUBLIC_EMPTY,COMMUNITY,MAKER]);
   const guest = await page.context().browser()!.newContext({colorScheme: 'dark'});
   await allowLocal(guest);
   const publicPage = await guest.newPage();
