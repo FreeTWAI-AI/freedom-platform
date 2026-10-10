@@ -53,6 +53,7 @@
     "tests/runtime/community-discovery.test.ts",
     "tests/runtime/event-create-rate-limit.test.ts",
     "tests/runtime/event-highlights.test.ts",
+    "tests/runtime/github-history.test.ts",
     "tests/runtime/member-service-cursor.test.ts",
     "tests/runtime/member-services.test.ts",
     "tests/runtime/repo-author-claims.test.ts",

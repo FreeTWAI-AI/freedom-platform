@@ -17359,8 +17359,8 @@
     },
     {
       "path": "modules/community/freedom.module.json",
-      "bytes": 12189,
-      "sha256": "ffcd4c0c0dfbc114be91448108ae267937dbc1d9eae0fa59ec099dfe6db2100f"
+      "bytes": 12233,
+      "sha256": "ceda9e97bb623ea8145896b2c4c76ee0cd668c4422b837ebc90b71c8e0833a32"
     },
     {
       "path": "modules/community/github-history.ts",
