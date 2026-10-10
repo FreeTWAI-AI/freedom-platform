@@ -3,6 +3,7 @@ import type {Pool, PoolClient} from 'pg';
 import {z} from 'zod';
 import {command, journal, type Command} from '../../packages/db/index.js';
 import type {Actor} from '../identity-membership/service.js';
+import {readWithMemberSession} from '../../packages/db/member-session.js';
 import {readDomainMedia,type DomainMediaSnapshot} from '../../packages/media-migration/domain-bridge.js';
 import type {ObjectStore} from '../../packages/asset-storage/index.js';
 import {highlightStorageMode,type EventHighlightAssetService} from '../assets/event-highlight.js';
@@ -404,7 +405,7 @@ async function highlightBannerSnapshot(pool:Pool,eventId:string):Promise<DomainM
 export async function highlightBannerBytes(pool:Pool,eventId:string,store?:ObjectStore){
  try{return (await readDomainMedia(()=>highlightBannerSnapshot(pool,eventId),{purpose:'community.event-banner',targetId:eventId,variant:'banner'},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到活動海報。');throw error;}
 }
-async function highlightImageSnapshot(pool:Pool,mediaId:string,variant:'image'|'thumb',viewer:HighlightViewer|null):Promise<DomainMediaSnapshot|undefined>{
+async function highlightImageSnapshot(pool:Pick<Pool,'query'>,mediaId:string,variant:'image'|'thumb',viewer:HighlightViewer|null):Promise<DomainMediaSnapshot|undefined>{
  const row=(await pool.query(`SELECT h.community_id,h.storage_source,h.event_id,h.orientation,h.kind,h.state,e.visibility,e.guild_key,e.aggregate_version,e.state AS event_state,e.ends_at,h.uploader_user_id,e.organizer_ref,i.bytes,t.scope_id,
  CASE WHEN $2='image' THEN t.image_asset_id ELSE t.thumb_asset_id END AS asset_id,
  o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
@@ -422,8 +423,9 @@ async function highlightImageSnapshot(pool:Pool,mediaId:string,variant:'image'|'
  if(binding?.authorized===false)return;
  return {purpose:'community.event-highlight',targetId:mediaId,variant,domainVersion:row.aggregate_version,authorizationVersion:JSON.stringify([row.state,row.event_state,row.ends_at,row.uploader_user_id,row.organizer_ref,row.kind,row.orientation,row.visibility,row.guild_key,binding?.authorizationVersion??null]),source:row.storage_source,legacyBytes:row.bytes,legacyContentType:'image/webp',assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.profile_id?{profileId:row.profile_id,contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision}:null};
 }
-export async function highlightImageBytes(pool:Pool,mediaId:string,variant:'image'|'thumb',store?:ObjectStore,viewer:HighlightViewer|null=null){
- try{return (await readDomainMedia(()=>highlightImageSnapshot(pool,mediaId,variant,viewer),{purpose:'community.event-highlight',targetId:mediaId,variant},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
+export async function highlightImageBytes(pool:Pool,mediaId:string,variant:'image'|'thumb',store?:ObjectStore,actor:Actor|null=null){
+ const snapshot=()=>actor?readWithMemberSession(pool,actor,q=>highlightImageSnapshot(q,mediaId,variant,{communityId:actor.community_id,userId:actor.user_id})):highlightImageSnapshot(pool,mediaId,variant,null);
+ try{return (await readDomainMedia(snapshot,{purpose:'community.event-highlight',targetId:mediaId,variant},store)).bytes;}catch(error){if(error instanceof Problem&&error.status===404&&error.code==='media_not_found')throw new Problem(404,'not_found','找不到這張圖片。');throw error;}
 }
 
 type ShareItem = {kind: string; image_url?: string; orientation?: Orientation | null; thumbnail_url?: string};

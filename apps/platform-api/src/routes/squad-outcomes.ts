@@ -1,3 +1,4 @@
+import {readWithMemberSession} from '../../../../packages/db/member-session.js';
 import {Hono} from 'hono';
 import type {Pool} from 'pg';
 import {moduleCommand,type PlatformEnv} from '../module-context.js';
@@ -7,14 +8,14 @@ import {createSquadOutcomeDraft,updateOwnSquadOutcome,publishOwnSquadOutcome,wit
 export function createSquadOutcomeRoutes(pool:Pool) {
  const app=new Hono<PlatformEnv>();
  app.use('*',async(c,next)=>{c.header('Cache-Control','private, no-store');await next();});
- app.get('/me/squad-outcomes',async c=>c.json(await listOwnSquadOutcomes(pool,c.get('actor'),c.req.query())));
- app.get('/squads/:squadId/outcomes',async c=>c.json(await listSquadOutcomes(pool,c.get('actor'),c.req.param('squadId'),c.req.query())));
+ app.get('/me/squad-outcomes',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>listOwnSquadOutcomes(q,c.get('actor'),c.req.query()))));
+ app.get('/squads/:squadId/outcomes',async c=>c.json(await readWithMemberSession(pool,c.get('actor'),q=>listSquadOutcomes(q,c.get('actor'),c.req.param('squadId'),c.req.query()))));
  app.post('/squads/:squadId/outcomes',async c=>{
   const result=await createSquadOutcomeDraft(pool,await moduleCommand(c),c.req.param('squadId'));
   c.header('ETag',`"${result.aggregate_version}"`);return c.json(result,201);
  });
  app.get('/squad-outcomes/:id',async c=>{
-  const result=await readSquadOutcome(pool,c.get('actor'),c.req.param('id'));
+  const result=await readWithMemberSession(pool,c.get('actor'),q=>readSquadOutcome(q,c.get('actor'),c.req.param('id')));
   c.header('ETag',`"${result.aggregate_version}"`);return c.json(result);
  });
  for(const action of ['edit','publish','withdraw'] as const)app.post(`/squad-outcomes/:id/${action}`,async c=>{

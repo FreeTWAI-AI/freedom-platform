@@ -97,6 +97,16 @@ perform this refresh after their SELECT and INSERT. `withMemberScope` still does
 not add it automatically; other callers must choose their explicit final
 decision point themselves.
 
+`readWithMemberSession(pool, actor, read)` wraps a database-only private
+projection in those user/session locks and checks the current clock after the
+projection finishes. Its callback must use the supplied client for every
+domain query. Outcome JSON and authenticated skill backlink HTML use it;
+member highlight images, thumbnails and banners take separate short snapshots
+before and after object I/O. No transaction remains open while reading object
+bytes, and the second snapshot rejects a session revoked or expired meanwhile.
+This helper authenticates the member; each projection still applies its own
+current domain ACL. Anonymous readers retain their separate public policy.
+
 The new receipt namespace combines principal, `member_session`, resolved scope
 UUID, stable operation and key. The advisory key is a serialized JSON array with a
 separate profile prefix, not delimiter concatenation. The new digest profile is

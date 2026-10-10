@@ -55,8 +55,8 @@ export function createEventHighlightPublicRoutes(pool: Pool, origin: string,runt
 
 export function createEventHighlightMemberRoutes(pool: Pool,runtime:Pick<PlatformRuntime,'eventHighlightAssets'|'eventHighlightAssetStore'|'eventBannerAssetStore'|'eventOutcomesEnabled'>={}) {
   const app = new Hono<PlatformEnv>();
-  app.get('/event-highlights/media/:mediaId/image',async c=>c.body(webp(c,await highlightImageBytes(pool,z.uuid().parse(c.req.param('mediaId')),'image',runtime.eventHighlightAssetStore,{communityId:c.get('actor').community_id,userId:c.get('actor').user_id}))));
-  app.get('/event-highlights/media/:mediaId/thumb',async c=>c.body(webp(c,await highlightImageBytes(pool,z.uuid().parse(c.req.param('mediaId')),'thumb',runtime.eventHighlightAssetStore,{communityId:c.get('actor').community_id,userId:c.get('actor').user_id}))));
+  app.get('/event-highlights/media/:mediaId/image',async c=>c.body(webp(c,await highlightImageBytes(pool,z.uuid().parse(c.req.param('mediaId')),'image',runtime.eventHighlightAssetStore,c.get('actor')))));
+  app.get('/event-highlights/media/:mediaId/thumb',async c=>c.body(webp(c,await highlightImageBytes(pool,z.uuid().parse(c.req.param('mediaId')),'thumb',runtime.eventHighlightAssetStore,c.get('actor')))));
   app.get('/event-highlights/:eventId/banner',async c=>{
     const id=z.uuid().parse(c.req.param('eventId')),actor=c.get('actor');
     await readHighlightEvent(pool,{eventId:id,communityId:actor.community_id,viewerId:actor.user_id});

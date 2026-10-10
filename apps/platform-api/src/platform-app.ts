@@ -1,3 +1,4 @@
+import {readWithMemberSession} from '../../../packages/db/member-session.js';
 import {createHostedStoreMediaRoutes,createPublicHostedStoreMediaRoutes,isStorePhotoUpload,checkStorePhotoHeaders,storePhotosInstalled,storePhotoUploadsInstalled} from './routes/hosted-store-media.js';
 import { createHostedOrderRoutes } from './routes/hosted-orders.js';
 import { privateCache as hostedOrderPrivateCache } from './routes/tenant-http.js';
@@ -295,7 +296,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     const session=readSessionCookie(c.req.header('Cookie'),origin);
     if(session){try{actor=await authenticate(pool,session);}catch(error){if(!(error instanceof Problem&&error.status===401&&['login_required','session_expired'].includes(error.code)))throw error;}}
     if(actor?.onboarding_required&&!actor.onboarding_completed_at)actor=null;
-    return eventOutcomeBacklinksHtml(pool,{kind:'skill_book',id},actor?{communityId:actor.community_id,userId:actor.user_id}:null);
+    return actor?readWithMemberSession(pool,actor,q=>eventOutcomeBacklinksHtml(q,{kind:'skill_book',id},{communityId:actor!.community_id,userId:actor!.user_id})):eventOutcomeBacklinksHtml(pool,{kind:'skill_book',id},null);
   }:undefined;
   app.route('/',createPublishedSkillRoutes(pool,runtime.publicOrigin,runtime.skillImageAssetStore,runtime.communityDiscoveryEnabled===true,skillEventBacklinks));
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true,skillEventBacklinks));

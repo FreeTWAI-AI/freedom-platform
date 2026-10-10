@@ -10,7 +10,7 @@ import type { Actor } from '../identity-membership/service.js';
 import {authRateLimitInTransaction} from '../identity-membership/members.js';
 import { normalizeEventPoster } from '../skill-submissions/payload.js';
 import {notifyMember} from '../member-communications/notifications.js';
-import {lockMemberSession,assertCurrentSessionClock} from '../../packages/db/member-session.js';
+import {lockMemberSession,assertCurrentSessionClock,readWithMemberSession} from '../../packages/db/member-session.js';
 import {avatarUrl} from '../identity-membership/avatars.js';
 import {lockMemberGuilds} from '../positioning/onboarding.js';
 import {requireFullGuildMember} from '../positioning/member-tier.js';
@@ -359,7 +359,7 @@ async function saveAssetVideo(pool:Pool,input:Command,id:string,file:{bytes:Buff
   return await assets!.finalizeVia<Awaited<ReturnType<typeof eventBannerResult>>>(input.actor,{...binding,key:digest({key,phase:'finalize'})},{operation:'community.event.video.replace',execute:run=>eventVideoMemberCommand(pool,input,authorize,async(q,context)=>{publicationClient=q;return run(q,context);}),validateIntent:row=>requireCondition(row.expected_version===input.expected&&row.target_video_event_id===id&&row.source_sha256===(input.body as {sha256:string}).sha256&&row.source_content_type===file.mime,409,'asset_source_mismatch','上傳內容與準備紀錄不同。'),result:()=>eventBannerResult(publicationClient,input.actor,id)});
  }catch(e){const committed=await probe();if(committed)return committed;if(e instanceof AssetStorageError)throw new Problem(503,'media_upload_unavailable','內容上傳暫時無法使用。');throw e;}
 }
-async function bannerSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
+async function bannerSnapshot(pool:Pick<Pool,'query'>,id:string,actor?:Actor):Promise<DomainMediaSnapshot|undefined>{
  const row=(await pool.query(`SELECT e.*,b.storage_source,b.image_bytes,b.orientation,t.asset_id,t.scope_id,o.representation_id,o.content_type,o.byte_size,o.content_sha256,o.transform_version,o.policy_revision,o.profile_id
  FROM community_events e JOIN community_event_banners b USING(event_id)
  LEFT JOIN community_event_banner_asset_targets t ON t.event_id=e.event_id AND t.linked_at_version<=e.aggregate_version
@@ -371,7 +371,7 @@ async function bannerSnapshot(pool:Pool,id:string,actor?:Actor):Promise<DomainMe
  if(actor){member=await canAccessGuildEvent(pool,actor,row);reviewer=row.state==='pending'&&row.review_guild_key&&(await pool.query(`SELECT 1 FROM positioning_guild_officers o JOIN positioning_profession_memberships m ON m.community_id=o.community_id AND m.guild_key=o.guild_key AND m.user_id=o.user_id AND m.state='active' WHERE o.community_id=$1 AND o.guild_key=$2 AND o.user_id=$3`,[actor.community_id,row.review_guild_key,actor.user_id])).rowCount===1;if(!(row.organizer_ref===actor.user_id||reviewer||row.state==='published'&&member))return undefined;}
  return {purpose:'community.event-banner',targetId:id,variant:'banner',domainVersion:String(row.aggregate_version),source:row.storage_source,authorizationVersion:JSON.stringify([row.community_id,row.organizer_ref,row.state,row.visibility,row.guild_key,row.review_guild_key,row.orientation,member,reviewer]),legacyBytes:row.image_bytes,assetId:row.asset_id,scopeId:row.scope_id,representationId:row.representation_id,metadata:row.representation_id?{contentType:row.content_type,byteSize:row.byte_size,sha256:row.content_sha256,transformVersion:row.transform_version,policyRevision:row.policy_revision,profileId:row.profile_id}:null};
 }
-export async function readEventBanner(pool:Pool,actor:Actor,id:string,store?:ObjectStore){return (await readDomainMedia(()=>bannerSnapshot(pool,id,actor),{purpose:'community.event-banner',targetId:id,variant:'banner'},store)).bytes;}
+export async function readEventBanner(pool:Pool,actor:Actor,id:string,store?:ObjectStore){return (await readDomainMedia(()=>readWithMemberSession(pool,actor,q=>bannerSnapshot(q,id,actor)),{purpose:'community.event-banner',targetId:id,variant:'banner'},store)).bytes;}
 
 export async function saveEventVideo(pool:Pool,input:Command,id:string,upload:{bytes:Buffer;mime:'video/mp4'|'video/webm'}|null,assets?:EventVideoAssetService){
   if(upload)upload={...upload,bytes:Buffer.from(snapshotBoundedBytes(upload.bytes,20971520))};
