@@ -21,6 +21,7 @@ import * as storefront from '../../contracts/guild-launchpad/v1/storefront.js';
 import * as presentation from '../../contracts/guild-launchpad/v1/storefront-presentation.js';
 import * as hostedMedia from '../../contracts/guild-launchpad/v1/hosted-store-media.js';
 import * as hostedOrder from '../../contracts/guild-launchpad/v1/hosted-order.js';
+import * as distribution from '../../contracts/guild-launchpad/v1/hosted-distribution.js';
 import * as supplyTerms from '../../contracts/guild-launchpad/v1/hosted-supply-terms.js';
 
 const PREAMBLE = 'Structural shape only. The server decides identity, membership, capability, current version and quotas.';
@@ -103,6 +104,14 @@ const tenantWorkDocuments: ReadonlyArray<readonly [string, z.ZodType, 'input' | 
 ];
 
 const bundles: ReadonlyArray<readonly [string, string, ReadonlyArray<readonly [string, z.ZodType, 'input' | 'output', readonly string[]]>]> = [
+  ['hosted-distribution', 'Explicit supplier offer and exact seller listing consent. One supplier item; no payment authority.', [
+    ['offer', distribution.SupplyOfferSchema, 'output', ['explicit_supplier_publication']],
+    ['offers', distribution.SupplyOffersSchema, 'output', ['bounded_catalog']],
+    ['proposal', distribution.DistributionInputSchema, 'input', ['exact_offer_digest']],
+    ['decision', distribution.DistributionDecisionSchema, 'input', ['exact_listing_digest_and_version']],
+    ['selection', distribution.DistributionSchema, 'output', ['independent_seller_price']],
+    ['selections', distribution.DistributionsSchema, 'output', ['private_participant_projection']],
+  ]],
   ['hosted-supply-terms', 'Private supplier terms on the existing inventory item. No supply offer, acceptance or transaction is enabled.', [
     ['input', supplyTerms.SupplyTermsInputSchema, 'input', ['current_same_instance_store_write_capability', 'product_version_cas']],
     ['view', supplyTerms.SupplyTermsSchema, 'output', ['available_equals_stock_minus_reserved', 'private_cost_and_terms']],
