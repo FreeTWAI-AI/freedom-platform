@@ -27,6 +27,7 @@ import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded }
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
 import type { PlatformRuntime } from './runtime.js';
+import { requestEmailChange, confirmEmailChange } from '../../../modules/identity-membership/email-change.js';
 import {PUBLIC_REVALIDATION_SCRIPT} from '../../../packages/shared/public-revalidation.js';
 import { createPositioningRoutes } from './routes/positioning.js';
 import { listGuildCategories } from '../../../modules/positioning/guild-categories.js';
@@ -503,6 +504,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     setCookie(c,COOKIE,result.token,{httpOnly:true,sameSite:'Strict',secure:secureCookies,path:'/',maxAge:SESSION_LIFETIME_SECONDS});
     return c.json({reset:result.reset,expires_after_minutes:result.expires_after_minutes,...sessionView(result.actor)});
   });
+  app.post('/api/v1/auth/email-change/confirm',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_change_unavailable','Email 變更郵件服務尚未設定。');
+    await authRateLimit(pool,'email-change-confirm-network',authNetwork(c),30,3600);
+    await authRateLimit(pool,'email-change-confirm-global','global',500,3600);
+    const body=z.object({token:z.string().max(100)}).strict().parse(await c.req.json());
+    return c.json(await confirmEmailChange(pool,body.token,runtime.eventEmailSender));
+  });
   app.route('/',createMaintainerWebhookRoutes(pool,runtime.maintainerWebhookSecret));
   if(runtime.guildLaunchpadEnabled===true)app.route('/',createPublicGuildLaunchpadRoutes(pool));
   if(runtime.guildLaunchpadEnabled===true){
@@ -568,6 +576,13 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
     app.get('/api/v1/me/notification-preferences/event-reminders',async c=>c.json(await readEventBulletinReminders(pool,c.get('actor'),runtime.now?.()??new Date())));
   }
   app.get('/api/v1/session',c=>c.json(sessionView(c.get('actor'))));
+  app.post('/api/v1/me/account/email-change/request',async c=>{
+    requireCondition(runtime.eventEmailSender,503,'email_change_unavailable','Email 變更郵件服務尚未設定。');
+    const actor=c.get('actor');
+    await authRateLimit(pool,'email-change-user',actor.user_id,5,3600);
+    await authRateLimit(pool,'email-change-network',authNetwork(c),20,3600);
+    return c.json(await requestEmailChange(pool,actor,await c.req.json(),origin,runtime.eventEmailSender));
+  });
   app.post('/api/v1/me/client-errors',async c=>{
     const body=z.object({action:z.string().regex(/^(GET|POST|PUT|PATCH|DELETE|UI) \/[a-zA-Z0-9_/:.#-]*$/).max(120),error_code:z.string().regex(/^[a-zA-Z0-9_:-]{1,80}$/),http_status:z.number().int().min(0).max(599).optional()}).strict().parse(await c.req.json());
     const actor=c.get('actor');

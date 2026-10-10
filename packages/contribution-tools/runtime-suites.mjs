@@ -48,7 +48,7 @@ machine-model-execution machine-model-http machine-model-revocation machine-mode
 agent-commerce-key-expiry shop-service-command shop-service-identity shop-key-exit
 model-adapter-common model-adapter-independent model-adapter-registry model-byok-adapter model-claude-adapter model-cli-probe model-codex-adapter
 member-services member-skill-registration notification-events onboarding-diagnostics onboarding opensource-marketing
-page-github page-issue-label page-tools-notification password-hash password-recovery platform-admin platform-credentials
+page-github page-issue-label page-tools-notification password-hash password-recovery email-change platform-admin platform-credentials
 portal-client-recovery positioning preview-protocol private-policy-grants private-result-races private-result-schema private-results private-work-commands private-work-http private-work-http-adversarial private-work-policy private-work-policy-adversarial published-skills repo-author-claims repo-maintainer-admin
 repo-maintainer-claims repo-maintainer-guild repo-maintainer-handoff repo-maintainer-policy repo-maintainer-sync
 repo-maintainer-webhook resource-scopes runtime-proof runtime-registration runtime-registration-adversarial runtime-registration-contracts runtime-registration-grants scoped-member-command scoped-member-domain-revalidation scoped-tenant-domain-revalidation share-promotion skill-book-guides skill-book-upstreams

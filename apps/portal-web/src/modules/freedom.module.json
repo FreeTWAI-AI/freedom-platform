@@ -58,7 +58,12 @@
     "modules/identity-membership/deactivation.ts",
     "tests/e2e/account-deactivation.spec.ts",
     "tests/runtime/account-deactivation-ui.test.ts",
-    "tests/runtime/account-deactivation.test.ts"
+    "tests/runtime/account-deactivation.test.ts",
+    "modules/identity-membership/email-change.ts",
+    "apps/portal-web/src/modules/EmailChange.tsx",
+    "migrations/156_login_email_change.sql",
+    "tests/runtime/email-change.test.ts",
+    "tests/runtime/portal-email-change.test.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
@@ -135,6 +140,34 @@
         "member.account.deactivate"
       ],
       "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.email-change.request",
+      "kind": "http",
+      "entry": "apps/platform-api/src/platform-app.ts",
+      "operations": [
+        "member.email-change.request"
+      ],
+      "auth_profile": "member-session-password-csrf"
+    },
+    {
+      "surface_id": "member.email-change.confirm",
+      "kind": "http",
+      "entry": "apps/platform-api/src/platform-app.ts",
+      "operations": [
+        "member.email-change.confirm"
+      ],
+      "auth_profile": "single-use-email-proof"
+    },
+    {
+      "surface_id": "member.email-change.page",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/EmailChange.tsx",
+      "operations": [
+        "member.email-change.request",
+        "member.email-change.confirm"
+      ],
+      "auth_profile": "member-session-or-single-use-email-proof"
     }
   ],
   "tests": [

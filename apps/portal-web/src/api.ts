@@ -246,7 +246,7 @@ export class PortalClient {
       }
       headers['X-Event-Participation-Token'] = options.eventParticipationToken
     }
-    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/(?:register|participation-request)$/.test(path))
+    const publicAuth = method === 'POST' && (['/auth/login','/auth/register','/auth/reset/request','/auth/reset/confirm','/auth/email-change/confirm'].includes(path)||/^\/public\/events\/[0-9a-f-]{36}\/(?:register|participation-request)$/.test(path))
     const needsCsrf = method !== 'GET' && !publicAuth && !guestParticipation
 
     if (options.body !== undefined) {
