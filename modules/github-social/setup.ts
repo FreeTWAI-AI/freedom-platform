@@ -164,7 +164,7 @@ export async function completeGitHubAppSetup(pool: Pool, admin: AdminActor, inpu
 }
 
 /** Server-only: reload on each request so a completed setup works immediately. */
-export async function readSocialConfig(pool: Pool, tokenKey: string): Promise<{ clientId: string; clientSecret: string; tokenKey: string; appId:string; appSlug:string } | null> {
+export async function readSocialConfig(pool: Pool | PoolClient, tokenKey: string): Promise<{ clientId: string; clientSecret: string; tokenKey: string; appId:string; appSlug:string } | null> {
   const rows = (await pool.query('SELECT * FROM github_social_apps LIMIT 2')).rows as AppRow[];
   if (!rows.length) return null;
   requireCondition(rows.length === 1, 503, 'github_setup_unavailable', 'GitHub 連線設定的社群範圍不明確。');

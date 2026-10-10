@@ -31,7 +31,7 @@ export async function linkNominatedMember(pool:Pool,input:AdminCommand,member:Ac
       await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`guild-officer/${member.community_id}/${key}`]);
       const officer=(await q.query('SELECT user_id FROM positioning_guild_officers WHERE community_id=$1 AND guild_key=$2 FOR UPDATE',[member.community_id,key])).rows[0];
       requireCondition(!officer||officer.user_id===member.user_id,409,'appointment_changed','這個公會已有其他會長，請先在管理介面確認任命。');
-      const written=await writeFullMembership(q,member.community_id,member.user_id,key);
+      const written=await writeFullMembership(pool, q, member.community_id,member.user_id,key);
       if(written.membership_joined)await journal(q,member,'profession_membership',written.membership_id,written.membership.aggregate_version,'join_guild',{guild_key:key,state:'active',rank:written.membership.rank},'freedom.organization.profession_membership.updated.v1');
       if(!officer){
         const appointed=(await q.query('INSERT INTO positioning_guild_officers(community_id,guild_key,user_id) VALUES($1,$2,$3) RETURNING guild_key,user_id,aggregate_version',[member.community_id,key,member.user_id])).rows[0];

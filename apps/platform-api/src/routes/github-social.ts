@@ -1,17 +1,18 @@
 import {Hono} from 'hono';
 import {z} from 'zod';
-import type {Pool} from 'pg';
+import type {Pool,PoolClient} from 'pg';
 import type {Actor} from '../../../../modules/identity-membership/service.js';
 import {GitHubSocial} from '../../../../modules/github-social/service.js';
 import {readSocialConfig} from '../../../../modules/github-social/setup.js';
 
 export type GitHubSocialOptions={config?:{clientId:string;clientSecret:string;tokenKey:string;redirectUri:string;appId?:string;appSlug?:string};tokenKey?:string;metricsToken?:string;fetcher?:typeof fetch};
 export function socialLoader(pool:Pool,origin:string,options:GitHubSocialOptions={},readTokenKey:()=>string|undefined=()=>process.env.GITHUB_SOCIAL_TOKEN_KEY,readMetricsToken:()=>string|undefined=()=>options.metricsToken??(process.env.GITHUB_METRICS_TOKEN||undefined)){
-  return async()=>{
+  // Pass the caller's transaction client when one is already held.
+  return async(q?:PoolClient)=>{
     const key=options.tokenKey??readTokenKey();
     let config=options.config;
     if(!config&&key){
-      const stored=await readSocialConfig(pool,key);
+      const stored=await readSocialConfig(q??pool,key);
       if(stored)config={...stored,redirectUri:origin+'/github/callback'};
     }
     return new GitHubSocial(pool,config,options.fetcher??fetch,readMetricsToken());

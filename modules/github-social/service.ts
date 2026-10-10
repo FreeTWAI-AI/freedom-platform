@@ -1,7 +1,7 @@
 import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypto';
 import type {Pool,PoolClient} from 'pg';
 import {z} from 'zod';
-import {transaction} from '../../packages/db/index.js';
+import {afterRollback,transaction} from '../../packages/db/index.js';
 import {assertCurrentSessionClock} from '../../packages/db/member-session.js';
 import {Problem,requireCondition} from '../../packages/shared/problem.js';
 import type {Actor} from '../identity-membership/service.js';
@@ -79,7 +79,7 @@ export class GitHubSocial {
     this.provider=provider;
   }
   private configured(){requireCondition(this.config&&this.key,503,'github_not_configured','GitHub 連線尚未設定。');return this.config;}
-  private context(actor:Actor,purpose:string){return `github-social/v1/${this.config?.clientId}/${actor.community_id}/${actor.user_id}/${purpose}`;}
+  private context(actor:Pick<Actor,'community_id'|'user_id'>,purpose:string){return `github-social/v1/${this.config?.clientId}/${actor.community_id}/${actor.user_id}/${purpose}`;}
   private async actorLock(q:PoolClient,actor:Actor){
     requireCondition((await q.query('SELECT 1 FROM users WHERE user_id=$1 AND community_id=$2 AND active FOR SHARE',[actor.user_id,actor.community_id])).rowCount===1,401,'session_expired','請重新登入。');
     requireCondition((await q.query('SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE',[actor.session_hash,actor.user_id])).rowCount===1,401,'session_expired','請重新登入。');
@@ -94,13 +94,13 @@ export class GitHubSocial {
     });
     if('error' in result)throw result.error;return result.value;
   }
-  private async rate(q:PoolClient,actor:Actor,operation:string,limit:number,seconds=60){
+  private async rate(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,operation:string,limit:number,seconds=60){
     const row=(await q.query(`INSERT INTO github_social_rate_limits(user_id,operation,window_start,attempts) VALUES($1,$2,now(),1)
       ON CONFLICT(user_id,operation) DO UPDATE SET attempts=CASE WHEN github_social_rate_limits.window_start<now()-make_interval(secs=>$3) THEN 1 ELSE github_social_rate_limits.attempts+1 END,
       window_start=CASE WHEN github_social_rate_limits.window_start<now()-make_interval(secs=>$3) THEN now() ELSE github_social_rate_limits.window_start END RETURNING attempts`,[actor.user_id,operation,seconds])).rows[0];
     requireCondition(row.attempts<=limit,429,'github_rate_limited','GitHub 操作過於頻繁，請稍後再試。');
   }
-  private async connection(q:PoolClient,actor:Actor):Promise<Connection|null>{return (await q.query('SELECT * FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]??null;}
+  private async connection(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>):Promise<Connection|null>{return (await q.query('SELECT * FROM github_social_connections WHERE user_id=$1 AND community_id=$2',[actor.user_id,actor.community_id])).rows[0]??null;}
   private view(connection:Connection|null):GitHubSession{return {configured:!!this.config,connected:!!this.config&&!!connection,github_user:this.config&&connection?{id:connection.github_user_id,login:connection.github_login}:null};}
   async session(actor:Actor):Promise<GitHubSession>{return this.member(actor,async q=>this.view(await this.connection(q,actor)));}
   developmentApp(){
@@ -186,7 +186,7 @@ export class GitHubSocial {
       return {...this.view(connected),return_to:row.return_to as string};
     });
   }
-  private async access(q:PoolClient,actor:Actor,connection:Connection):Promise<string>{
+  private async access(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,connection:Connection):Promise<string>{
     const config=this.configured();
     try{
       let tokens=decode<GitHubTokens>(this.key!,this.context(actor,'tokens'),connection.encrypted_tokens);
@@ -200,9 +200,52 @@ export class GitHubSocial {
       return tokens.access_token;
     }catch(error){if(error instanceof Problem&&error.code==='github_reconnect_required')await q.query('DELETE FROM github_social_connections WHERE user_id=$1',[actor.user_id]);throw error;}
   }
-  private async withToken<T>(q:PoolClient,actor:Actor,connection:Connection,run:(token:string)=>Promise<T>){
+  private async withToken<T>(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,connection:Connection,run:(token:string)=>Promise<T>){
     try{return await run(await this.access(q,actor,connection));}
     catch(error){if(error instanceof Problem&&error.code==='github_reconnect_required')await q.query('DELETE FROM github_social_connections WHERE user_id=$1',[actor.user_id]);throw error;}
+  }
+  /**
+   * Runs inside the grant/promotion transaction, after the caller's user ->
+   * member-guild locks, so the business write stays atomic with the check.
+   * The attempt budget, token rotation/removal and observed Star results must
+   * outlive a rejection: they are replayed after that transaction rolls back.
+   */
+  async requireBookStars(q:PoolClient,actor:Pick<Actor,'community_id'|'user_id'>,bookIds:string[]){
+    if(!bookIds.length)return;
+    this.configured();
+    const repositories=[...new Map(bookIds.map(id=>{const book=upstream(id);return [book.repository.toLowerCase(),book.repository] as const;})).values()];
+    await lockGitHubSocialMember(q,actor.user_id);
+    const connection=await this.connection(q,actor);
+    requireCondition(connection,409,'github_connect_required','領取技能書或晉升前，請先連結本人的 GitHub，再為公會指定的原作 Repo 加星。');
+    const observed:{repository:string;starred:boolean}[]=[];
+    let current:Connection|null|undefined;
+    afterRollback(q,async replay=>{
+      await lockGitHubSocialMember(replay,actor.user_id);
+      await this.rate(replay,actor,'skill-book-star-check',Number.MAX_SAFE_INTEGER);
+      // Compare-and-set against the token this check started from, so a
+      // concurrent reconnect is never overwritten or removed.
+      if(current===null)await replay.query('DELETE FROM github_social_connections WHERE user_id=$1 AND encrypted_tokens=$2',[actor.user_id,connection.encrypted_tokens]);
+      else if(current&&current.encrypted_tokens!==connection.encrypted_tokens)await replay.query('UPDATE github_social_connections SET github_login=$3,encrypted_tokens=$4,updated_at=now() WHERE user_id=$1 AND encrypted_tokens=$2',[actor.user_id,connection.encrypted_tokens,current.github_login,current.encrypted_tokens]);
+      for(const item of observed)await reconcileConfirmedStar(replay,connection.github_user_id,item.repository,item.starred);
+    });
+    try{
+      await this.rate(q,actor,'skill-book-star-check',30);
+      await this.withToken(q,actor,connection,async token=>{
+        const identity=await this.provider.identity(token);
+        requireCondition(identity.id===connection.github_user_id,409,'github_reconnect_required','GitHub 身分已變更，請重新連結。');
+        for(const repository of repositories){
+          await q.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`github-star/${connection.github_user_id}/${repository.toLowerCase()}`]);
+          const starred=await this.provider.starred(repository,token);
+          observed.push({repository,starred});
+          await reconcileConfirmedStar(q,connection.github_user_id,repository,starred);
+          requireCondition(starred,409,'skill_book_star_required',`領取技能書或晉升前，請先為 ${repository} 加星。可在公會技能書的 Star 按鈕一鍵加星，再重試；不會自動替你加星。`);
+        }
+      });
+    }finally{
+      // Only Problem paths leave the transaction usable; a database failure
+      // aborts it, and then nothing is replayed beyond the attempt budget.
+      current=await this.connection(q,actor).catch(()=>undefined);
+    }
   }
   async starred(actor:Actor,bookId:string){
     const book=upstream(bookId);

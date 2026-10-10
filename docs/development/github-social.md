@@ -56,7 +56,18 @@ OAuth 採 PKCE 與單次 state，綁定同一工坊 session，回到 `/github/ca
 | `POST /admin/api/github-app/start` | `{}`；建立單次設定 manifest |
 | `POST /admin/api/github-app/complete` | `{state,code}`；完成設定，憑證不回傳瀏覽器 |
 
-所有會員操作須既有 session、同源與 CSRF，且已選擇主要公會、完成加入。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
+所有會員操作須既有 session；寫入另須同源與 CSRF，且已選擇主要公會、完成加入。開啟下方 Star 前置條件時，讀取連結、OAuth 連結／完成／解除及技能書 Star 讀寫另允許尚未完成加入的新會員，讓本人能在領書前完成前置條件；未開啟時維持原本要求。GitHub API 僅使用固定 host／路徑、timeout、回應大小上限與併發限制；公開數據依原作座標共用快取。失敗不推定為未加星或零人氣。
+
+## 領書與晉升的 Star 前置條件
+
+Node 與 Worker 可設定 `FREEDOM_SKILL_BOOK_STAR_GATE_ENABLED=true`，預設未設定／false 維持既有領書與晉升流程，不要求 GitHub 連結。`/api/v1/site` 的 `skill_book_star_gate_enabled` 供入口顯示提示；快速加入、定位測驗選擇與公會技能書提供既有 GitHub 連結及本人一鍵 Star 控制，不自動加星。
+
+開啟時，領取公會指定技能書與正式晉升（大師、專家任命、公會長本人確認）會以已驗證連結的 GitHub user ID 及會員自己的 token 即時核對每個原作 Repo 的 Star；自填 slug、快取星數和過去領書紀錄都不能取代此次核對。未連結回 `github_connect_required`；未 Star 回 `skill_book_star_required`，提示先加星再重試。GitHub 未設定、失效授權、身分不符、限流或 API 失敗均拒絕領書／晉升，不把失敗當成功；業務交易的公會加入、技能書授予、晉升與 journal／receipt 不部分保存。這不撤銷既有技能書，也不把 Star 當成 XP、貢獻或職務資格。#109 的外部 Star 權限修復不在此開關範圍。
+
+Star 核對在業務交易內、取得會員與公會鎖之後執行，與領書／晉升一起提交。若業務交易回滾（包含 Star 被拒絕），交易結束後會在同一條連線、另一個交易重放核對本身必須保存的結果：該次核對計入 `skill-book-star-check` 每分鐘 30 次額度、已輪替的 token 或失效時的連線刪除，以及 `skill_star_support` 既有列的確認結果。重放以核對開始時的 token 做比對，不覆蓋同時間的重新連結；不另占 pool 連線，也不在仍持有業務鎖時等待 GitHub 鎖。GitHub 設定經業務交易既有連線讀取。
+
+同一 DB pool 的開關政策首次設定後不可切换 enabled／disabled；建立另一應用需使用獨立 pool，避免共享 pool 的應用改寫既有政策。
+
 
 ## Star 權限錯誤
 

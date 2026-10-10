@@ -21,6 +21,7 @@ import { listOwnShowcases,readOwnShowcase,createShowcaseDraft,updateOwnShowcase,
 import { listPersonalContent } from '../../../modules/community/personal-content.js';
 import { Problem,requireCondition } from '../../../packages/shared/problem.js';
 import { AssetStorageError } from '../../../packages/asset-storage/index.js';
+import {configureBookStarGate} from '../../../modules/positioning/onboarding.js';
 import { DependencySelectionRequired, InstanceSelectionRequired, QuotaExceeded } from '../../../modules/module-registry/problems.js';
 import type { Command } from '../../../packages/db/index.js';
 import { allowedBrowserOrigins, type FreedomEnv } from './env.js';
@@ -88,6 +89,13 @@ function onboardingAllowed(path:string,method:string) {
   if(/^\/api\/v1\/me\/onboarding(?:\/(answers|evaluate|complete|quick-start))?$/.test(path))return true;
   return method==='POST'&&/^\/api\/v1\/guilds\/[^/]+\/(join|leave|primary)$/.test(path);
 }
+// With the Star gate on, a member must be able to link GitHub and Star before
+// the first guild join grants books; otherwise these stay post-onboarding.
+function starPrerequisiteAllowed(path:string,method:string) {
+  if(path==='/api/v1/me/github'&&method==='GET')return true;
+  if(method==='POST'&&/^\/api\/v1\/me\/github\/(connect|complete|disconnect)$/.test(path))return true;
+  return ['GET','POST'].includes(method)&&/^\/api\/v1\/me\/github\/books\/[a-z0-9-]+\/star$/.test(path);
+}
 // PostgreSQL bigint stays lossless internally; canonical AggregateVersion is a JSON safe integer.
 function wireVersion(key:string,value:unknown):unknown {
   if(key==='aggregate_version' && typeof value==='string') {
@@ -143,6 +151,12 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   const secureCookies=freedomEnv!=='local';
   const COOKIE=sessionCookieName(origin);
   const loadSocial=socialLoader(pool,origin,options.githubSocial,runtime.githubTokenKey,runtime.githubMetricsToken);
+  // Read GitHub config through the command's own client: a second pool
+  // connection here could starve the pool while every slot holds a transaction.
+  configureBookStarGate(pool,runtime.skillBookStarGateEnabled===true?async(q,actor,books)=>{
+    const social=await loadSocial(q);
+    await social.requireBookStars(q,actor,books);
+  }:undefined);
   const publicSocial=new GitHubSocial(pool,undefined,options.githubSocial?.fetcher??fetch,runtime.githubMetricsToken());
   const pageGitHub=new PageGitHubReader(pool);
   const pageGitHubEvents=new PageGitHubEventReader(pool);
@@ -277,7 +291,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   app.route('/',createDevelopmentRoutes(id=>publicSocial.cachedMetrics(id),id=>readSkillEditorial(pool,id),async id=>(await skillDiscovery(pool)).books.find(book=>book.book_id===id),runtime.publicOrigin,id=>publicAuthorClaimForBook(pool,id),runtime.communityDiscoveryEnabled===true));
   app.get('/api/v1/health',c=>c.json({status:'ok',mode:freedomEnv,version:packageMetadata.version,money_movement_enabled:false,official:false,...runtime.health,shop_key_policy:shopHost.policy??'unconfigured',shop_key_issuer_profile:shopHost.policy?'freedom.shop-service-key/v1':null}));
   app.get('/api/v1/protocol',c=>c.json(protocolMetadata));
-  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,message_images_enabled:messageImagesInstalled(runtime),hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
+  app.get('/api/v1/site',c=>c.json({brand:'自由工坊',public_mode:freedomEnv==='public',registration_enabled:freedomEnv==='local'||Boolean(runtime.registrationCommunityId()),password_recovery_enabled:Boolean(runtime.passwordEmailSender),demo_accounts_enabled:freedomEnv!=='public',community:communityCatalog,guild_launchpad_enabled:runtime.guildLaunchpadEnabled===true,community_discovery_enabled:runtime.communityDiscoveryEnabled===true,member_blocking_enabled:runtime.memberBlockingEnabled===true,community_search_enabled:runtime.communitySearchEnabled===true,unified_sharing_enabled:runtime.unifiedSharingEnabled===true,skill_book_star_gate_enabled:runtime.skillBookStarGateEnabled===true,community_relations_enabled:runtime.communitySearchEnabled===true&&runtime.communityRelationsEnabled===true,personal_content_enabled:runtime.personalContentEnabled===true,message_images_enabled:messageImagesInstalled(runtime),hosted_store_photos_enabled:runtime.guildLaunchpadEnabled===true&&storePhotosInstalled(runtime),hosted_store_photo_uploads_enabled:runtime.guildLaunchpadEnabled===true&&storePhotoUploadsInstalled(runtime)}));
   app.get('/api/v1/public/community-discovery',async c=>{
     requireCondition(runtime.communityDiscoveryEnabled===true,404,'not_found','找不到公開內容。');
     return c.json(await publicDiscovery(pool,runtime.registrationCommunityId()));
@@ -421,7 +435,7 @@ export function createPlatformApp(pool:Pool,origin:string,freedomEnv:FreedomEnv,
   for (const path of ['/api/v1/hosted-stores/*', '/api/v1/me/hosted-orders/*', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders', '/api/v1/tenants/:tenant_id/storefronts/:instance_id/orders/*']) app.use(path, async (c, next) => {
     try { await next(); } finally { hostedOrderPrivateCache(c); }
   });
-  app.use('/api/v1/*',memberBoundary(pool,origin,onboardingAllowed));
+  app.use('/api/v1/*',memberBoundary(pool,origin,runtime.skillBookStarGateEnabled===true?(path,method)=>onboardingAllowed(path,method)||starPrerequisiteAllowed(path,method):onboardingAllowed));
   app.route('/api/v1', createHostedOrderRoutes(pool, { discoveryInstalled: runtime.guildLaunchpadEnabled === true, admissionEnabled: runtime.hostedReservationsEnabled === true, cursors: runtime.tenantListCursors }));
   const cmd=async(c:any):Promise<Command>=>{
     const ifMatch=c.req.header('If-Match') as string|undefined;

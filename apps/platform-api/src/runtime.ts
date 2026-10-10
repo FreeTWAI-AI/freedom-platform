@@ -103,4 +103,6 @@ export type PlatformRuntime = {
   communityRelationsEnabled?: boolean;
   /** Owner-only content management release setting; absent or false keeps the new surface unavailable. */
   personalContentEnabled?: boolean;
+  /** Opt-in linked GitHub Star prerequisite for skill grants and full-tier promotion. */
+  skillBookStarGateEnabled?: boolean;
 };
