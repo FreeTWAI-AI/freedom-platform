@@ -176,6 +176,35 @@ test('bounded CREATE budget tolerates DDL work beyond the metadata timeout', asy
   assert.equal(await created.cleanup(),true);
 });
 
+test('one owned disk database can finish DROP beyond six seconds within the existing cleanup reserve', {timeout: 30000}, async () => {
+  const created = await createRuntimeDatabases(database, 1), name = new URL(created.urls[0]).pathname.slice(1);
+  const observer = await connect(database), original = Client.prototype.query;
+  let delayed = false;
+  Client.prototype.query = function(...args) {
+    const q = args[0];
+    if (!delayed && q?.text === `DROP DATABASE "${name}"`) {
+      delayed = true;
+      // Actual server work consumes the configured DROP timeout. The previous
+      // six-second cap cancelled this before DROP despite a 20-second reserve.
+      return original.call(this, {...q, text: 'SELECT pg_sleep(6.5)', values: []})
+        .then(() => original.apply(this, args));
+    }
+    return original.apply(this, args);
+  };
+  const started = performance.now();
+  try {
+    assert.equal(await created.cleanup(), true);
+    assert(delayed);
+    assert(performance.now() - started >= 6500);
+    assert(performance.now() - started < 20000, 'unchanged absolute cleanup deadline');
+    assert.equal((await observer.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 0);
+    assert.equal((await observer.query('SELECT current_database() db')).rows[0].db, new URL(database).pathname.slice(1));
+  } finally {
+    Client.prototype.query = original;
+    try { assert.equal(await created.cleanup(), true); } finally { await observer.end(); }
+  }
+});
+
 test('cleanup reconciles a backend exiting after the termination scan instead of reporting leaked database', async () => {
   const created = await createRuntimeDatabases(database, 1);
   const name = new URL(created.urls[0]).pathname.slice(1);
