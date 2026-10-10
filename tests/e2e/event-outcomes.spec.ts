@@ -135,6 +135,7 @@ test.describe('isolated authored outcomes',()=>{
     const author=await account(e2eAuthPool,'小隊成果作者'),eventId=await event(e2eAuthPool,author);
     const name=`成果小隊 ${randomUUID().slice(0,8)}`,source=`作者成果 ${randomUUID().slice(0,8)}`,title=`引用精華 ${randomUUID().slice(0,8)}`;
     await login(page,author);await navigate(page,'小隊集合');
+    await page.getByRole('button',{name:'成立一支小隊',exact:true}).click();
     const create=page.locator('form').filter({has:page.getByRole('heading',{name:'成立一支小隊'})});
     await create.getByLabel('小隊名稱').fill(name);
     await create.getByLabel('小隊類型').selectOption('coaching');

@@ -20049,13 +20049,13 @@
     },
     {
       "path": "tests/e2e/event-highlights.spec.ts",
-      "bytes": 28906,
-      "sha256": "fd092583316898f2ae246da6c1f9849c78d32600a4dd174c2a2d7f59fb81c485"
+      "bytes": 29371,
+      "sha256": "b44147f6ea2ac302b35674a53f134dc9f41f41d5c34ea69a496b7c1c00634d40"
     },
     {
       "path": "tests/e2e/event-outcomes.spec.ts",
-      "bytes": 12625,
-      "sha256": "29fce83f97d8cf14794c64e07c1893309396ac16753a7709faeb36f1a8d98b77"
+      "bytes": 12708,
+      "sha256": "289bd501c0e51f192694660e07cd887d8dfbe7c3e2a6d1621b9078da698f8d54"
     },
     {
       "path": "tests/e2e/event-participation.spec.ts",

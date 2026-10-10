@@ -5,6 +5,8 @@ import {navigate, signOut} from './navigation.js';
 
 const COMMUNITY = '10000000-0000-4000-8000-000000000001';
 const MAKER = '20000000-0000-4000-8000-000000000001';
+const GUILD_VIEWER = '71000000-0000-4000-8000-0000000000ac';
+const GUILD_MEMBERSHIP = '71000000-0000-4000-8000-0000000000ad';
 const HOST = '71000000-0000-4000-8000-0000000000aa';
 const ONLINE = '71000000-0000-4000-8000-000000000001';
 const GUILD = '71000000-0000-4000-8000-000000000002';
@@ -125,6 +127,11 @@ test.beforeAll(async ({e2eAuthPool}) => {
   await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref)
     SELECT $1,$2,$3,$4,password_hash,$5 FROM users WHERE user_id=$6`,
   [HOST, COMMUNITY, 'highlight-host-e2e@example.invalid', '驗收帳號', '71000000-0000-4000-8000-0000000000ab', MAKER]);
+  await e2eAuthPool.query(`INSERT INTO users(user_id,community_id,email,display_name,password_hash,profession_membership_ref,onboarding_required)
+    SELECT $1,$2,'highlight-guild-viewer@local.test','集錦公會會員',password_hash,$3,false FROM users WHERE user_id=$4`,
+  [GUILD_VIEWER,COMMUNITY,'71000000-0000-4000-8000-0000000000ae',MAKER]);
+  await e2eAuthPool.query(`INSERT INTO positioning_profession_memberships(membership_id,community_id,user_id,guild_key,state,member_tier)
+    VALUES($1,$2,$3,'guild_event_space','active','full')`,[GUILD_MEMBERSHIP,COMMUNITY,GUILD_VIEWER]);
   const rows = [
     [ONLINE, MAKER, '線上分享回顧', '這是一場已經結束的線上分享，歡迎回顧照片與影片。', "now()-interval '3 days'", "now()-interval '2 days'", 'online', 'open', 'other', null, MEETING],
     [GUILD, MAKER, '實體公會聚會', '公會夥伴在現場交流，結束後公開回顧。', "now()-interval '12 days'", "now()-interval '10 days'", 'in_person', 'guild', 'guild_skill_exchange', 'guild_event_space', null],
@@ -141,7 +148,8 @@ test.beforeAll(async ({e2eAuthPool}) => {
 
 test.afterAll(async ({e2eAuthPool}) => {
   await e2eAuthPool.query('DELETE FROM community_events WHERE event_id = ANY($1::uuid[])', [EVENT_IDS]);
-  await e2eAuthPool.query('DELETE FROM users WHERE user_id=$1', [HOST]);
+  await e2eAuthPool.query('DELETE FROM positioning_profession_memberships WHERE membership_id=$1',[GUILD_MEMBERSHIP]);
+  await e2eAuthPool.query('DELETE FROM users WHERE user_id=ANY($1::uuid[])', [[HOST,GUILD_VIEWER]]);
 });
 
 test.beforeEach(async ({context, page}) => {
@@ -304,7 +312,7 @@ test('a member adds a video link, photos and a poster, then uses the lightbox', 
 });
 
 test('another member cannot remove someone else\'s item, and the organizer can', async ({page}) => {
-  await login(page, 'reviewer@local.test');
+  await login(page, 'highlight-guild-viewer@local.test');
   await page.goto(`/#highlights/${GUILD}`);
   await expect(page.getByRole('heading', {name: '實體公會聚會', level: 2})).toBeVisible();
   await expect(page.getByRole('heading', {name: '海報', level: 2})).toBeVisible();
@@ -332,7 +340,7 @@ test('another member cannot remove someone else\'s item, and the organizer can',
   await expect(page.getByText('需求者補上的影片')).toHaveCount(0);
 });
 
-test('signed-out visitors see the same public pages without private fields', async ({browser}) => {
+test('signed-out visitors see public pages while guild highlights and private fields stay unavailable', async ({browser}) => {
   const guest = await browser.newContext();
   await allowLocal(guest);
   const page = await guest.newPage();
@@ -340,7 +348,7 @@ test('signed-out visitors see the same public pages without private fields', asy
   await page.goto('/highlights');
   await expect(page.getByRole('heading', {name: '活動集錦', level: 1})).toBeVisible();
   await expect(page.getByRole('heading', {name: '線上分享回顧'})).toBeVisible();
-  await expect(page.getByRole('heading', {name: '實體公會聚會'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: '實體公會聚會'})).toHaveCount(0);
   await expect(page.getByText('驗收帳號的活動')).toHaveCount(0);
   await expect(page.getByText('即將舉辦')).toHaveCount(0);
   await expect(page.getByText(LOCATION)).toHaveCount(0);
@@ -355,17 +363,13 @@ test('signed-out visitors see the same public pages without private fields', asy
   await page.setViewportSize({width: 820, height: 900});
   await noOverflow(page, 'public list 820');
   await page.setViewportSize({width: 1280, height: 900});
-  await page.goto(`/highlights/${GUILD}`);
-  await expect(page.getByRole('heading', {name: '實體公會聚會', level: 1})).toBeVisible();
-  await expect(page.getByRole('heading', {name: '海報'})).toHaveCount(0);
-  await expect(page.getByRole('heading', {name: '錄影與影片'})).toHaveCount(0);
-  await expect(page.getByRole('heading', {name: '活動照片'})).toHaveCount(0);
-  await expect(page.getByText('還沒有人補上內容。參加過的夥伴可以上傳照片、海報或貼上影片連結。')).toBeVisible();
-  await expect(page.getByText(GUILD_COPY)).toBeVisible();
-  await expect(page.getByText(MEMBER_COPY)).toHaveCount(0);
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', GUILD_COPY);
-  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', GUILD_COPY);
-  await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute('content', GUILD_COPY);
+  const denied = await page.goto(`/highlights/${GUILD}`);
+  expect(denied?.status()).toBe(404);
+  await expect(page.getByRole('heading', {name: '實體公會聚會', level: 1})).toHaveCount(0);
+  await expect(page.getByText(GUILD_COPY)).toHaveCount(0);
+  expect(await page.content()).not.toContain(GUILD_COPY);
+  expect((await page.request.get(`/api/v1/public/event-highlights/${GUILD}`)).status()).toBe(404);
+  expect((await page.request.get(`/api/v1/public/event-highlights/${GUILD}/banner`)).status()).toBe(404);
   await page.screenshot({path: `${SHOTS}/public-guild-light-1280.png`, fullPage: true});
   await page.setViewportSize({width: 390, height: 844});
   await noOverflow(page, 'public guild detail 390');
