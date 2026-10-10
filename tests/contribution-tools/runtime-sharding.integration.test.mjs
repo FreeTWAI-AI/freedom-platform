@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -104,18 +106,27 @@ test('full shards cover every file once; one failing shard cannot hide the compl
 
 test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  for (const path of partitionRuntimeFiles(names, 4).map(shard => shard[0])) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
+  const ready = partitionRuntimeFiles(names, 4).map((shard,index) => ({path:shard[0],marker:join(root,`.shard-ready-${index}`)}));
+  for (const {path,marker} of ready) await put(root, path, `import {test} from 'node:test';import {writeFileSync} from 'node:fs';test('pending',()=>new Promise(()=>{writeFileSync(${JSON.stringify(marker)},'ready');setInterval(()=>{},1000);}));`);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1000);
+  let settled=false;
+  const running=runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal }).finally(()=>{settled=true;});
   try {
-    const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
+    // Provisioning can exceed one second. Abort only after each real shard has
+    // entered its pending test, so this case actually exercises four SIGKILLs.
+    const deadline=Date.now()+30_000;
+    while(!ready.every(({marker})=>existsSync(marker))&&!settled&&Date.now()<deadline) await delay(25);
+    assert(ready.every(({marker})=>existsSync(marker)), 'all four shards must enter their pending test before cancellation');
+    controller.abort();
+    const result = await running;
     validateReport(result);
     assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
     assert.equal(result.database_cleanup_verified, true);
     assert.equal(result.shards.length, 4);
     assert(result.shards.every(shard => shard.reason === 'test_cancelled' && shard.termination_signal === 'SIGKILL'));
     assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
-  } finally { clearTimeout(timer); }
+  } finally { controller.abort(); await running; }
+
 });
 
 test('lost DROP acknowledgement reconciles exact owned names on a fresh verified connection', {}, async () => {
