@@ -18394,8 +18394,8 @@
     },
     {
       "path": "packages/contribution-tools/freedom.module.json",
-      "bytes": 2995,
-      "sha256": "6b1da109644b3ee039fabcc19dc90c3c4c945fb5d94ca0912c068efbba35dc4a"
+      "bytes": 3086,
+      "sha256": "e0966c5e9a212b441482c1691d5614b49ec2d1ff465fb6d83daa4f90e1209765"
     },
     {
       "path": "packages/contribution-tools/github-app-publisher.mjs",
@@ -19730,7 +19730,7 @@
     {
       "path": "tests/e2e/account-deactivation.spec.ts",
       "bytes": 8045,
-      "sha256": "6965b5fb9db92fb4d76c8a38d7d7952be93d08c294a95c0cd4b0faa0cae9362c"
+      "sha256": "40ff8d84a3132e7074964ab466488855663d8d5b281550ab85c90ce637f49c4f"
     },
     {
       "path": "tests/e2e/account-language.spec.ts",

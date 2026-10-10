@@ -96,7 +96,7 @@ for(const [operation,conflict] of [['password',false],['sessions',false],['passw
   await form.getByLabel('目前密碼',{exact:true}).fill(currentPassword);
   const result=page.waitForResponse(response=>response.url().endsWith('/me/account/deactivate'));
   await form.getByRole('button',{name:'確認停用帳號並登出所有裝置',exact:true}).click();
-  expect((await result).status()).toBe(conflict?409:200);
+  expect((await result).status()).toBe(conflict?412:200);
   if(conflict){
     await expect(page.getByRole('alert').filter({hasText:'帳號資料已在其他操作中變更'})).toBeVisible();
     await expect(nickname).toHaveValue('Unsaved profile draft');

@@ -24,7 +24,9 @@
     ".github/workflows/trusted-consumer-runtime.yml",
     "tests/integration/agent-kit-device-runtime.test.mjs",
     "tests/integration/native-consumer-runtime.test.ts",
-    "tests/integration/consumer-supported-transition.test.mjs"
+    "tests/integration/consumer-supported-transition.test.mjs",
+    "scripts/ci/select-affected-jobs.mjs",
+    "scripts/ci/select-affected-jobs.test.mjs"
   ],
   "public_exports": [
     "packages/contribution-tools/contracts.mjs",
