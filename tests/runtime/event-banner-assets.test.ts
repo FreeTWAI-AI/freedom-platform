@@ -33,3 +33,27 @@ test('original active guild intern prohibition and expiry remain binding on ever
 test('bridge replacement retains historical SQL WebP but missing immutable object never falls back',async()=>{const s=await setup(),legacy=await sharp(png).webp().toBuffer();await pool.query('INSERT INTO community_event_banners(event_id,image_bytes,orientation) VALUES($1,$2,$3)',[s.id,legacy,'landscape']);assert.deepEqual(await readEventBanner(pool,s.owner,s.id),legacy);const a=await upload(s);await s.api.finalize(s.owner,{key:randomUUID(),...a.lease});assert.deepEqual((await pool.query('SELECT image_bytes FROM community_event_banners')).rows[0].image_bytes,legacy);await assert.rejects(readEventBanner(pool,s.owner,s.id),code('media_unavailable'));const b=await upload(s,'2');await s.api.finalize(s.owner,{key:randomUUID(),...b.lease});assert.equal((await pool.query('SELECT state FROM assets WHERE asset_id=$1',[a.assetId])).rows[0].state,'retired');assert.ok((await readEventBanner(pool,s.owner,s.id,s.store)).length);await assert.rejects(pool.query("UPDATE domain_media_storage_policy SET mode='r2_only' WHERE purpose='community.event-banner'"),(e:any)=>e.code==='23514');});
 
 test('closed banner manifest rejects oversize and arbitrary scope before object writes',async()=>{const s=await setup(),input={key:randomUUID(),targetEventId:s.id,expectedVersion:'1',contentType:'image/png' as const,byteSize:png.length,sha256:await sha256(png),orientation:'landscape' as const};let puts=0;const put=s.store.putImmutable.bind(s.store);s.store.putImmutable=async(...args)=>{puts++;return put(...args);};await assert.rejects(s.api.prepare(s.owner,{...input,byteSize:524289}));await assert.rejects(s.api.prepare(s.owner,{...input,scopeId:randomUUID()} as any));assert.equal(puts,0);assert.equal((await pool.query('SELECT count(*)::int n FROM assets')).rows[0].n,0);});
+
+for(const phase of ['get','body'] as const)for(const ending of ['revoked','expired'] as const){
+ test(`member highlight banner refuses bytes after session ${ending} during object ${phase}`,async()=>{
+  const s=await setup(),u=await upload(s);await s.api.finalize(s.owner,{key:randomUUID(),...u.lease});
+  await pool.query("UPDATE community_events SET state='published',starts_at=clock_timestamp()-interval '2 days',ends_at=clock_timestamp()-interval '1 day',aggregate_version=3 WHERE event_id=$1",[s.id]);
+  const origin='http://127.0.0.1:4310',app=createApp(pool,origin,'local',{eventBannerAssetStore:s.store});
+  const cookie=`freedom_local_session=${(s.owner as Actor&{synthetic_token:string}).synthetic_token}`;
+  const read=()=>app.request(origin+`/api/v1/event-highlights/${s.id}/banner`,{headers:{Cookie:cookie}});
+  assert.equal((await read()).status,200);
+  const get=s.store.get.bind(s.store);let changed=false;
+  const invalidate=async()=>{
+   if(changed)return;changed=true;
+   await pool.query(ending==='revoked'?'UPDATE sessions SET revoked_at=clock_timestamp() WHERE token_hash=$1':"UPDATE sessions SET expires_at=clock_timestamp()+interval '100 milliseconds' WHERE token_hash=$1",[s.owner.session_hash]);
+   if(ending==='expired')await pool.query('SELECT pg_sleep(0.15)');
+  };
+  s.store.get=async(...args)=>{
+   const object=await get(...args);assert.ok(object);
+   if(phase==='get'){await invalidate();return object;}
+   return {...object,body:new ReadableStream({async start(controller){try{await invalidate();controller.enqueue(new Uint8Array(await new Response(object.body).arrayBuffer()));controller.close();}catch(error){controller.error(error);}}})};
+  };
+  const response=await read();assert.equal(changed,true);assert.equal(response.status,401);assert.equal((await response.json() as any).code,'session_expired');
+  s.store.get=get;assert.ok((await publicEventBanner(pool,s.id,s.store)).length);
+ });
+}

@@ -310,6 +310,13 @@ including a fence after object I/O. Media is `no-store`; disabling features
 does not restore withdrawn bytes or detach bindings. Withdrawal cannot recall
 previously downloaded or third-party-cached copies.
 
+Private outcome JSON and authenticated skill backlink HTML hold current
+user/session locks through their database projection and recheck expiry with
+the database clock after its last query. Member media takes separate short
+session-and-ACL snapshots before and after object I/O; revoked or expired
+sessions return `401 session_expired` even when the underlying event is public.
+The anonymous media endpoint continues to enforce its own public policy.
+
 Local isolated database/browser checks are not trusted CI, deployment,
 flag-on, actual attendance, formal acceptance, XP or external delivery evidence.
 

@@ -1,6 +1,18 @@
-import type { PoolClient } from 'pg';
+import type { Pool, PoolClient } from 'pg';
+import { transaction } from './transaction.js';
 import type { Actor } from '../../modules/identity-membership/service.js';
 import { requireCondition } from '../shared/problem.js';
+
+/** A database-only projection on one locked session. Keep object/provider I/O
+ * outside this short transaction; media callers take separate snapshots around it. */
+export async function readWithMemberSession<T>(pool: Pool, actor: Actor, read: (q: PoolClient) => Promise<T>): Promise<T> {
+  return transaction(pool, async q => {
+    await lockMemberSession(q, actor);
+    const result = await read(q);
+    await assertCurrentSessionClock(q, actor);
+    return result;
+  });
+}
 
 // Same transaction/ordering as legacy memberCommand. Not a serialized auth proof.
 export async function lockMemberSession(q: PoolClient, actor: Actor, lockUser = false): Promise<void> {
