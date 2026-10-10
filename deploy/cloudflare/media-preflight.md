@@ -19,6 +19,7 @@ Exit `0` means declarations are internally consistent; `1` means invalid or reje
 | Community event banner | `FREEDOM_EVENT_BANNER_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.event-banner.asset.v1`, `media.server-policy.v1` |
 | Community event video | `FREEDOM_EVENT_VIDEO_ENABLED="true"` | `MEDIA` | `media.event-video.asset.v1`, `media.server-policy.v1` |
 | Skill submission image | `FREEDOM_SKILL_IMAGE_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.skill-image.asset.v1`, `media.server-policy.v1` |
+| Social comment image | `FREEDOM_SOCIAL_THUMBNAIL_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.comment-image.asset.v1`, `media.server-policy.v1` |
 | Community social thumbnail, including automatic preview creation | `FREEDOM_SOCIAL_THUMBNAIL_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.social-thumbnail.asset.v1`, `media.social-preview-create.v1`, `media.server-policy.v1` |
 | Community event highlight image and thumb | `FREEDOM_EVENT_HIGHLIGHT_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.event-highlight.asset.v1`, `media.server-policy.v1` |
 | Direct-message image attachment | `FREEDOM_MESSAGE_IMAGE_ENABLED="true"` | `MEDIA`, `IMAGES` | `media.message-image.asset.v1`, `media.server-policy.v1` |
