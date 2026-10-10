@@ -117,7 +117,7 @@ export function CommunityHistory({client}:{client:PortalClient}){
         {boards&&<>
           <p className="muted">資料更新於 {formatIsoLocal(boards.oldest_synced_at)}</p>
           <SyncNotes syncing={boards.syncing} unreadable={boards.unreadable} onRetry={retry}/>
-          <div className="community-leaderboards">{leaderboards.map(board=><section className="card community-leaderboard" key={board.title}><h3>{board.title}</h3>{board.formula&&<p className="formula">{board.formula}</p>}<ol>{withRanks(board.rows).map(row=><li key={row.login}><span className="community-rank"><span className="community-rank-label">第 </span>{row.rank}<span className="community-rank-label"> 名</span></span><a href={`https://github.com/${encodeURIComponent(row.login)}`} target="_blank" rel="noopener noreferrer">{row.login}</a><strong>{row.count} {board.unit}</strong></li>)}</ol>{!board.rows.length&&<p className="empty">目前沒有紀錄。</p>}</section>)}</div>
+          <div className="community-leaderboards">{leaderboards.map(board=><section className="card community-leaderboard" key={board.title}><h3>{board.title}</h3>{board.formula&&<p className="formula">{board.formula}</p>}<ol>{withRanks(board.rows).map(row=><li key={row.login}><span className="community-rank"><span className="sr-only">第 </span>{row.rank}<span className="sr-only"> 名</span></span><a href={`https://github.com/${encodeURIComponent(row.login)}`} target="_blank" rel="noopener noreferrer">{row.login}</a><strong>{row.count} {board.unit}</strong></li>)}</ol>{!board.rows.length&&<p className="empty">目前沒有紀錄。</p>}</section>)}</div>
         </>}
       </>:scope.length===0?<p className="empty">此分類目前沒有符合條件的紀錄。</p>:<>
         <SyncNotes syncing={listSyncing} unreadable={listUnreadable} onRetry={retry}/>

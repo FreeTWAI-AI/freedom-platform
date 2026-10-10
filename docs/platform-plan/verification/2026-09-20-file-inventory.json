@@ -2089,13 +2089,13 @@
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.css",
-      "bytes": 2534,
-      "sha256": "7debd0ae5b0a34d58d0f90f1fe3d15182fde8bfcb7fb28a621bb08f47faa4aec"
+      "bytes": 2364,
+      "sha256": "4dc5af1586e469b7dd4b77497c488a8703b380a1ea1d8af98bb77dbfd138c659"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityHistory.tsx",
-      "bytes": 13483,
-      "sha256": "e5e079bad97e6f07e954b99781573d0eefa298985868416023ac81d4dd454c2f"
+      "bytes": 13457,
+      "sha256": "f1e7ba61510f3bf93e58694a8caa4df6fbc66dda28e3849bd1d64ca282ed9797"
     },
     {
       "path": "apps/portal-web/src/modules/CommunityRelations.tsx",

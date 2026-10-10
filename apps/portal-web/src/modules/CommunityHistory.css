@@ -8,7 +8,6 @@
 .community-leaderboard ol{margin:0;padding:0;list-style:none}.community-leaderboard .formula{margin:0 0 .7rem;color:var(--muted);font-size:.85rem;line-height:1.5}
 .community-leaderboard li{display:flex;justify-content:space-between;gap:.5rem;padding:.45rem 0;border-top:1px solid var(--line);font-size:.9rem}
 .community-leaderboard .community-rank{flex:none;min-width:1.5rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.community-leaderboard .community-rank-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .community-leaderboard li a{flex:1;min-width:0;overflow-wrap:anywhere}
 .community-leaderboard li strong{flex:none;font-variant-numeric:tabular-nums}
 .community-history .banner{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
