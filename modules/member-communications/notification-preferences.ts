@@ -154,7 +154,7 @@ export function isNotificationQuietHours(prefs: Pick<NotificationPreferences, 'q
 }
 function category(kind: string): NotificationCategory | null {
   if (kind === 'friend_request' || kind === 'friend_accepted' || kind === 'friend_declined') return 'friends';
-  if (kind === 'squad_invitation') return 'squads';
+  if (kind === 'squad_invitation' || kind === 'squad_join_requested' || kind === 'squad_join_accepted') return 'squads';
   if (kind === 'event_submitted' || kind === 'event_review_needed' || kind === 'event_approved' || kind === 'event_rejected' || kind === 'event_start_reminder') return 'events';
   return null; // Guild authority, security/transaction and unknown future kinds are never muted.
 }
@@ -180,7 +180,7 @@ const eventNoticeAccessSql = `(n.kind NOT IN ('event_submitted','event_review_ne
       AND (EXISTS(SELECT 1 FROM community_event_rsvps r WHERE r.event_id=e.event_id AND r.user_id=$2 AND r.confirmed_at IS NOT NULL)
         OR EXISTS(SELECT 1 FROM community_event_waitlist w WHERE w.event_id=e.event_id AND w.member_ref=$2))
     ))))`;
-const socialNotificationKinds = ['friend_request', 'friend_accepted', 'friend_declined', 'squad_invitation',
+const socialNotificationKinds = ['friend_request', 'friend_accepted', 'friend_declined', 'squad_invitation', 'squad_join_requested', 'squad_join_accepted',
   'event_submitted', 'event_review_needed', 'event_approved', 'event_rejected', 'event_start_reminder'];
 interface EventBulletinReminder { bulletin_id: string; event_id: string; kind: string; message: string; title: string; created_at: string }
 async function readableEventBulletins(q: PoolClient, actor: Actor): Promise<EventBulletinReminder[]> {
@@ -202,13 +202,17 @@ export async function readNotificationReminders(pool: Pool, actor: Actor, follow
       const group = category(kind)!;
       return quiet || prefs.categories[group] !== 'instant';
     });
+    // Post interactions have no separate category yet, but are social reminders, not essential notices.
+    if (quiet) suppressed.push('social_post_commented', 'social_post_liked');
     const unread = (await q.query(`SELECT count(*)::int AS n FROM member_notifications n
       WHERE n.community_id=$1 AND n.recipient_ref=$2 AND n.read_at IS NULL AND NOT(n.kind=ANY($3::text[]))
       AND ${eventNoticeAccessSql}`, [actor.community_id, actor.user_id, suppressed])).rows[0];
     const items: Notification[] = [];
     for (const row of await unreadNotices(q, actor, suppressed, false)) {
       const group = category(row.kind);
-      let action: Notification['action'] = row.action_tab === 'events' ? { tab: 'events', resource_id: row.action_resource_id } : row.action_tab ? { tab: row.action_tab, resource_id: row.action_resource_id } : null;
+      let action: Notification['action'] = row.action_tab === 'events' ? { tab: 'events', resource_id: row.action_resource_id }
+        : row.action_tab === 'social' ? row.action_resource_id ? { tab: 'social', resource_id: row.action_resource_id } : null
+        : row.action_tab ? { tab: row.action_tab, resource_id: row.action_resource_id } : null;
       if (group === 'events' && !row.action_resource_id) action = null;
       items.push({ notification_id: row.notification_id, kind: row.kind, title: group === 'events' ? '活動通知' : row.title,
         body: '', created_at: new Date(row.created_at).toISOString(), read_at: null, action });
@@ -225,7 +229,7 @@ export async function readNotificationSummary(pool: Pool, actor: Actor, followin
       const group = category(row.kind)!;
       let path: string | null = group === 'friends' ? '#members' : group === 'squads' ? '#squads' : null;
       if (group === 'events' && row.action_resource_id) path = `#events/${row.action_resource_id}`;
-      items.push({ id: row.notification_id, source: 'notification', title: group === 'friends' ? '好友通知' : group === 'squads' ? '小隊邀請' : '活動通知', path });
+      items.push({ id: row.notification_id, source: 'notification', title: group === 'friends' ? '好友通知' : group === 'squads' ? '小隊通知' : '活動通知', path });
     }
     if (prefs.categories.events === 'summary') {
       for (const item of await readableEventBulletins(q, actor)) items.push({ id: item.bulletin_id, source: 'event_bulletin', title: item.title, path: `#events/${item.event_id}` });
@@ -257,7 +261,7 @@ export async function readChannelReminderCounts(pool: Pool, actor: Actor, now: D
     for (const kind of ['guild', 'squad', 'world'] as const) {
       const keys = rooms.filter(id => id.startsWith(`${kind}:`)).map(id => id.slice(kind.length + 1));
       const row = (await q.query(`SELECT count(*)::int AS n FROM member_channel_messages x
-        WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=ANY($4::text[]) AND x.sender_ref<>$3
+        WHERE x.community_id=$1 AND x.kind=$2 AND x.channel_key=ANY($4::text[]) AND x.sender_ref<>$3 AND x.retracted_at IS NULL
         AND ($2<>'world' OR NOT is_verification_test_account(x.sender_ref))
         AND x.sequence>COALESCE((SELECT d.last_read_sequence FROM member_channel_reads d
           WHERE d.community_id=$1 AND d.kind=$2 AND d.channel_key=x.channel_key AND d.user_id=$3),0)`, [actor.community_id, kind, actor.user_id, keys])).rows[0];

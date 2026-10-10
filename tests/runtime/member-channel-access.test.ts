@@ -109,7 +109,7 @@ test('ordinary guild and squad members (no officer row) read and write their own
   const guilds=await list(mate,'guild'),squads=await list(mate,'squad');
   assert.deepEqual(guilds,{items:[{kind:'guild',channel_key:guild,name:'活動與空間公會',unread_count:0,last_message_at:null}],unread_count:0,next_offset:null});
   assert.deepEqual(squads,{items:[{kind:'squad',channel_key:squad,name:'閒聊小隊',unread_count:0,last_message_at:null}],unread_count:0,next_offset:null});
-  const empty=await page(mate,'guild',guild);assert.deepEqual(empty,{channel:{kind:'guild',channel_key:guild,name:'活動與空間公會'},items:[],unread_count:0,next_offset:null});
+  const empty=await page(mate,'guild',guild);assert.deepEqual(empty,{channel:{kind:'guild',channel_key:guild,name:'活動與空間公會'},items:[],unread_count:0,next_offset:null,retraction_count:'0'});
   assert.deepEqual((await page(mate,'squad',squad)).items,[]);
   assert.equal(await count('member_chat_channels'),0,'empty GET creates no channel row');assert.equal(await count('member_channel_reads'),0);
   // Ordinary members write; each message lands only in its own kind/room.
@@ -178,7 +178,7 @@ test('messages: idempotent plain-text send, string sequences, newest-first pages
   const a=await member('a'),b=await member('b');await changeGuild(a,guild,'join');await changeGuild(b,guild,'join');
   const key=randomUUID(),text='  <img src=x onerror=alert(1)> **粗體**\r\n第二行  ';
   const first=await send(a,'guild',guild,text,key);
-  assert.deepEqual(Object.keys(first).sort(),['body','channel_key','created_at','kind','message_id','sender_name','sender_ref','sequence']);
+  assert.deepEqual(Object.keys(first).sort(),['body','channel_key','created_at','kind','message_id','retracted_at','sender_name','sender_ref','sequence']);
   assert.equal(first.body,'<img src=x onerror=alert(1)> **粗體**\n第二行');assert.equal(first.sequence,'1');assert.equal(first.sender_ref,a.id);
   assert.deepEqual(await send(a,'guild',guild,text,key),first,'same-key replay returns the one message');
   await assert.rejects(send(a,'guild',guild,'不同內容',key),(e:unknown)=>e instanceof Problem&&e.code==='idempotency_conflict');
@@ -281,7 +281,8 @@ test('channels stay out of private conversations and notifications, and private 
   const inbox=await request('/me/conversations',b),thread=await request(`/me/conversations/${a.id}/messages`,b);
   assert.equal(inbox.data.unread_count,1);assert.deepEqual(thread.data.items.map((m:any)=>m.body),['私訊 private-marker']);
   assert.deepEqual((await request('/me/conversations',c)).data.items,[],'a third room member sees no private pair');
-  assert.equal(await count('member_notifications'),0,'channel messages create no notifications');
+  // Joining the squad in setup notifies owner and joiners (#403); channel messages themselves add none.
+  assert.equal(await count("member_notifications WHERE kind NOT IN ('squad_join_requested','squad_join_accepted')"),0,'channel messages create no notifications');
   assert.equal(await count("outbox WHERE payload::text LIKE '%guild-marker%' OR payload::text LIKE '%squad-marker%'"),0,'no channel text is published outward');
   assert.equal(await count("transition_journal WHERE data::text LIKE '%guild-marker%' OR data::text LIKE '%squad-marker%'"),0);
   assert.equal(await count("command_receipts WHERE response::text LIKE '%guild-marker%' OR response::text LIKE '%squad-marker%'"),0,'receipts keep no message text');

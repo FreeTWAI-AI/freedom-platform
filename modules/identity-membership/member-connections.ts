@@ -1,8 +1,7 @@
 import type {Pool} from 'pg';
 import {z} from 'zod';
-import {Problem} from '../../packages/shared/problem.js';
 import type {Actor} from './service.js';
-import {memberCard} from './members.js';
+import {memberCards} from './members.js';
 import {contactableIds} from './blocks.js';
 export const FriendsQuery=z.object({
   scope:z.enum(['accepted','incoming','outgoing']).default('accepted'),
@@ -15,12 +14,9 @@ export const RecommendationsQuery=z.object({
   offset:z.coerce.number().int().min(0).max(10000).default(0),
 }).strict();
 async function visibleCards(pool:Pool,actor:Actor,ids:string[]){
-  const cards=await Promise.all(ids.map(async id=>{
-    try{return await memberCard(pool,actor,id);}
-    catch(error){if(error instanceof Problem&&error.status===404)return null;throw error;}
-  }));
+  const cards=await memberCards(pool,actor,ids);
   const allowed=await contactableIds(pool,actor,ids);
-  return cards.filter((card):card is NonNullable<typeof card>=>card!==null&&allowed.has(card.user_id));
+  return cards.filter(card=>allowed.has(card.user_id));
 }
 export async function friendDirectory(pool:Pool,actor:Actor,raw:unknown){
   const query=FriendsQuery.parse(raw);

@@ -136,7 +136,7 @@ test('coaching squads expose a named channel to members while only the owner can
   const id=made.data.squad_id;
   const directory=await request('/squads',viewer);
   assert.equal(directory.data.items.find((item:any)=>item.squad_id===id).communication_channel_name,'LINE 陪跑交流');
-  assert.equal(directory.data.kinds.find((item:any)=>item.key==='coaching').name,'陪跑小隊');
+  assert.equal(directory.data.kinds.find((item:any)=>item.key==='coaching').name,'技能學習陪跑小隊');
   assert.equal((await request(`/squads/${id}`,viewer)).data.communication_channel_name,'LINE 陪跑交流');
   assert.equal((await request(`/squads/${id}/channel`,viewer,{communication_channel_name:'冒名頻道'},made.data.aggregate_version)).status,403);
   assert.equal((await request(`/squads/${id}/channel`,owner,{communication_channel_name:'新版頻道'})).status,428);
@@ -332,4 +332,19 @@ test('legacy scalar contact migration preserves social audiences but does not ex
   const stored=(await pool.query('SELECT contacts FROM member_accounts WHERE user_id=$1',[owner.user.user_id])).rows[0].contacts;
   assert.deepEqual(stored.email,{audiences:[]});assert.equal(stored.github.visibility,undefined);
   await pool.query(migration);assert.equal((await request('/me/account',owner)).data.aggregate_version,migrated.data.aggregate_version,'normalizing the same state is idempotent');
+});
+
+
+test('all four squad kinds keep their keys, use current names, and reject unsupported kinds',async()=>{
+  const owner=await signIn(DEMO_USERS[0].email);
+  const expected=[{key:'project',name:'開源專案合作團隊'},{key:'mutual_help',name:'生意機會合作團隊'},
+    {key:'coaching',name:'技能學習陪跑小隊'},{key:'social',name:'吃喝玩樂交流小隊'}];
+  for(const kind of expected){
+    const made=await request('/squads',owner,{name:kind.name,kind:kind.key,purpose:'四種類型驗收'});
+    assert.equal(made.status,201,JSON.stringify(made.data));
+    assert.equal((await request(`/squads/${made.data.squad_id}`,owner)).data.kind,kind.key);
+  }
+  const list=await request('/squads',owner);
+  assert.deepEqual(list.data.kinds,expected);
+  assert.equal((await request('/squads',owner,{name:'不支援',kind:'unknown',purpose:'類型邊界'})).status,422);
 });

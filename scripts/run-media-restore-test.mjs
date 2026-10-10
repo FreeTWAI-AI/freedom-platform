@@ -1,8 +1,8 @@
 // Creates only a marker-owned disposable PostgreSQL server. No inherited DB
 // URL, credentials, ports, production settings or remote migration commands.
 import {execFileSync,spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,chmod,mkdir,readdir,unlink,rmdir,writeFile,open} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
+import {mkdtemp,chmod,mkdir,readdir,unlink,rmdir,writeFile,open,statfs} from 'node:fs/promises';
+import {homedir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -14,7 +14,10 @@ if(args.length>1||(args.length===1&&args[0]!=='--archive-only')){
 }
 const testFiles=args[0]==='--archive-only'?['tests/integration/media-backup-archive.test.ts']:['tests/integration/media-backup-restore.test.ts','tests/integration/tenant-rls-restore-drill.test.ts'];
 const task='media-restore-drill',owner='run-media-restore-test';
-const directory=await mkdtemp(join(tmpdir(),'fp-media-restore-')),socket=join(directory,'socket');
+const diskTemp=join(homedir(),'agent-work','tmp');
+await mkdir(diskTemp,{recursive:true,mode:0o700});
+if([0x01021994,0x858458f6].includes((await statfs(diskTemp)).type))throw Error('restore_fixture_requires_disk');
+const directory=await mkdtemp(join(diskTemp,'fp-media-restore-')),socket=join(directory,'socket');
 await mkdir(socket);await chmod(socket,0o777);
 const containerName='fp-media-restore-'+randomUUID(),intentPath=join(directory,'container-intent.json');
 let container,child,createAttempted=false,cleanupComplete=true,phase='create_container';
@@ -24,7 +27,8 @@ function inspected(reference=container){
   if(!/^[0-9a-f]{64}$/.test(item.Id)||(container&&item.Id!==container)||item.Name!=='/'+containerName
     ||!item.Mounts?.some(m=>m.Type==='bind'&&m.Source===socket&&m.Destination==='/pgsocket')||item.Config.Labels?.['freedom.task']!==task||item.Config.Labels?.['freedom.owner']!==owner
     ||item.HostConfig.NetworkMode!=='none'||Object.keys(item.HostConfig.PortBindings??{}).length
-    ||item.Config.Image!==image||!item.HostConfig.Tmpfs?.['/var/lib/postgresql'])throw Error('restore_fixture_identity_mismatch');
+    ||item.Config.Image!==image||!item.Mounts?.some(m=>m.Type==='volume'&&m.Destination==='/var/lib/postgresql')
+    ||item.HostConfig.Tmpfs?.['/var/lib/postgresql'])throw Error('restore_fixture_identity_mismatch');
   return item;
 }
 const stop=()=>{try{if(child?.pid)process.kill(-child.pid,'SIGTERM');}catch{}};
@@ -33,11 +37,12 @@ try{
   const intent=await open(intentPath,'wx',0o600);try{await intent.writeFile(JSON.stringify({containerName,socket,image,task,owner})+'\n');await intent.sync();}finally{await intent.close();}
   createAttempted=true;cleanupComplete=false;
   container=docker(['create','--name',containerName,'--network','none',
-    '--label','freedom.task='+task,'--label','freedom.owner='+owner,'--tmpfs','/var/lib/postgresql:rw',
+    '--label','freedom.task='+task,'--label','freedom.owner='+owner,'--memory=768m','--cpus=1',
+    '--mount','type=volume,target=/var/lib/postgresql',
     '--mount','type=bind,source='+socket+',target=/pgsocket','-e','PGHOST=/pgsocket','-e','POSTGRES_HOST_AUTH_METHOD=trust',
     // The stock image initializes through /var/run/postgresql even when PGHOST
     // is set. Keep that private container socket alongside the mounted test one.
-    '-e','POSTGRES_DB=fp_media_restore',image,'postgres','-c','listen_addresses=','-c','unix_socket_directories=/pgsocket,/var/run/postgresql']).trim();
+    '-e','POSTGRES_DB=fp_media_restore',image,'postgres','-c','dynamic_shared_memory_type=mmap','-c','listen_addresses=','-c','unix_socket_directories=/pgsocket,/var/run/postgresql']).trim();
   phase='verify_container';if(!/^[0-9a-f]{64}$/.test(container))throw Error('restore_fixture_identity_mismatch');inspected();
   phase='start_container';docker(['start',container]);
   phase='wait_for_database';
@@ -54,7 +59,7 @@ try{
   const db=new URL('postgresql://postgres@localhost/fp_media_restore');db.searchParams.set('host',socket);
   phase='run_restore_tests';child=spawn(process.execPath,['--import','tsx','--test','--test-concurrency=1',...testFiles],
     {cwd:resolve(new URL('..',import.meta.url).pathname),detached:true,env:{...verificationEnvironment(),
-      TEST_DATABASE_URL:db.href,TEST_POSTGRES_CONTAINER_ID:container,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','inherit','inherit']});
+      TMPDIR:diskTemp,TMP:diskTemp,TEMP:diskTemp,TEST_DATABASE_URL:db.href,TEST_POSTGRES_CONTAINER_ID:container,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','inherit','inherit']});
   let timedOut=false;const timer=setTimeout(()=>{timedOut=true;try{process.kill(-child.pid,'SIGKILL');}catch{}},120000);
   try{process.exitCode=await new Promise(done=>{child.once('error',()=>done(1));child.once('close',code=>done(timedOut?1:code??1));});}
   finally{clearTimeout(timer);}
@@ -70,7 +75,7 @@ finally{
         }
         if(!container)throw Error('restore_create_outcome_unknown');
       }
-      inspected();docker(['rm','-f',container]);cleanupComplete=true;
+      inspected();docker(['rm','-fv',container]);cleanupComplete=true;
     }catch{console.error('Owned restore container cleanup requires inspection; retained intent: '+intentPath);process.exitCode=1;}
   }
   if(cleanupComplete){

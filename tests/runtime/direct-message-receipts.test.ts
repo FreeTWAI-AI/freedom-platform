@@ -6,7 +6,7 @@ import { directMessageReceiptRefreshDue, hasDirectMessageChanges, mergeDirectMes
 const readAt = '2026-10-04T06:00:00.000Z';
 const message = (index: number, sender = 'sender', read: string | null = null): Message => ({
   message_id: String(index).padStart(4, '0'), sender_ref: sender, recipient_ref: sender === 'sender' ? 'peer' : 'sender',
-  body: `synthetic ${index}`, created_at: new Date(Date.UTC(2026, 9, 4, 0, index)).toISOString(), read_at: read,
+  body: `synthetic ${index}`, created_at: new Date(Date.UTC(2026, 9, 4, 0, index)).toISOString(), read_at: read, retracted_at: null,
 });
 const page = (items: Message[], next: number | null = null): MessagePage => ({
   items, next_offset: next, unread_count: 0, can_send: true,

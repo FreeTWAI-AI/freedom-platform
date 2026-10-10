@@ -17,6 +17,8 @@ import { ensureSyntheticModuleTables, setSyntheticFault, syntheticModuleProvider
 import { WORK_CONTRACT_SOURCE_COMMIT } from '../../modules/module-registry/definitions.js';
 import { advanceOperation } from '../../modules/module-registry/operations.js';
 import type { ProvisionEffect } from '../../modules/module-registry/providers.js';
+import { createStorefrontProductPhotoLifecycle } from '../../modules/assets/storefront-product-photo.js';
+import { photoSourcePng } from '../helpers/hosted-store-photo.js';
 
 const connectionString = process.env.TEST_DATABASE_URL;
 if (!connectionString || !/^\/fp_[a-z0-9_]+$/.test(new URL(connectionString).pathname)) {
@@ -227,6 +229,10 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
     shipping_minor: 0, shipping_terms: '交易尚未啟用；運送方式尚未設定。', return_terms: '交易尚未啟用；退換貨規則尚未設定。' };
   await q.query(`INSERT INTO commerce_items(item_id,shop_id,sku,title,description,price_minor,stock,reserved,shipping_minor,shipping_terms,return_terms)
     VALUES($1,$2,'P0001',$3,'',100,1,0,0,$4,$5)`, [itemId, supplyId, title, product.shipping_terms, product.return_terms]);
+  await q.query(`INSERT INTO commerce_hosted_supply_offers(offer_id,tenant_id,instance_id,item_id,community_id,
+      supplier_name,source_version,terms,terms_sha256)
+    SELECT $1,$2,$3,$4,community_id,$5,1,$6,$7 FROM commerce_shops WHERE shop_id=$8`,
+  [randomUUID(), data.tenantId, instanceId, itemId, name, product, digest(product), supplyId]);
   await q.query(`INSERT INTO commerce_selections(selection_id,shop_id,item_id,retail_price_minor,sale_terms,snapshot)
     VALUES($1,$2,$3,100,'交易尚未啟用。',$4)`, [selectionId, shopId, itemId, product]);
   const now = (await q.query<{ now: Date }>("SELECT date_trunc('milliseconds',clock_timestamp()) AS now")).rows[0].now;
@@ -248,7 +254,7 @@ async function insertHostedQuote(q: PoolClient, data: { tenantId: string; princi
       terms,bindings,terms_sha256,quoted_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
   [quoteId, data.tenantId, instanceId, shopId, buyerPrincipalId, publicationId, quote, JSON.stringify(bindings), hash, now, quote.expires_at]);
   assert.equal((await q.query('SELECT reservation_enabled FROM commerce_storefront_profiles WHERE instance_id=$1', [instanceId])).rows[0].reservation_enabled, false);
-  return { instanceId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
+  return { instanceId, itemId, bindingId, quoteId, buyerPrincipalId, quote, bindings };
 }
 
 async function buildFixture() {
@@ -490,7 +496,8 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     'deployment_bindings', 'workspace_module_bindings', 'tenant_work_results', 'tenant_work_result_targets',
     'application_installations', 'application_module_links', 'capacity_ledger', 'capacity_reservations',
     'module_dependencies', 'module_launch_plan_consumptions', 'module_launch_plans', 'module_provision_operations', 'module_provision_steps',
-    'commerce_resource_tenants', 'commerce_order_quotes', 'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
+    'commerce_resource_tenants', 'commerce_order_quotes', 'commerce_hosted_supply_offers', 'commerce_product_photo_targets', 'commerce_publication_photo_refs',
+    'tenant_capacity_policies', 'tenant_module_permissions', 'work_items', 'scoped_command_receipts', 'scoped_transition_journal', 'scoped_outbox',
   ].sort(), 'RLS discovery must match the merged schema; new tables need A/B fixture coverage or an explicit uncovered reason');
   for (const table of ['scoped_command_receipts', 'scoped_outbox', 'scoped_transition_journal']) {
     assert.ok(tables.some(row => row.relname === table), `${table}: missing from RLS discovery`);
@@ -504,13 +511,42 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
       ON CONFLICT (transition_id) DO NOTHING`, [randomUUID(), data.scopeId]);
   }
   // Exact A/B hosted quote graphs also provide confirmed shop-mapping rows.
+  const hosted: { tenantId: string; instanceId: string; itemId: string; session: Session }[] = [];
   const fixtureClient = await owner.connect();
   try {
     await fixtureClient.query('BEGIN');
-    for (const data of [A, B]) await insertHostedQuote(fixtureClient, data);
+    for (const [data, session] of [[A, fixture.people.P], [B, fixture.people.N]] as const) {
+      const retained = await insertHostedQuote(fixtureClient, data);
+      hosted.push({ tenantId: data.tenantId, instanceId: retained.instanceId, itemId: retained.itemId, session });
+    }
     await fixtureClient.query('COMMIT');
   } catch (error) { await fixtureClient.query('ROLLBACK'); throw error; }
   finally { fixtureClient.release(); }
+  // Populate both photo RLS tables through the real lifecycle and publication
+  // commands. Keep their triggers/FKs active and add no uncovered-table exception.
+  const photoAssets = createStorefrontProductPhotoLifecycle(runtime, { store });
+  const photoApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: true,
+    tenantCursorSigningKey: TENANT_CURSOR_TEST_KEY, storePhotoAssetStore: store,
+    storePhotoAssets: photoAssets, storePhotoUploadsEnabled: true });
+  await owner.query("UPDATE domain_media_storage_policy SET mode='r2_only',persistence_allowed=true,policy_revision='synthetic-rls-photo-1',retained_byte_limit=16777216 WHERE purpose='storefront.product-photo'");
+  try {
+    for (const data of hosted) {
+      const root = `/tenants/${data.tenantId}/storefronts/${data.instanceId}`;
+      const uploaded = await photoApp.request(origin + '/api/v1' + root + `/products/${data.itemId}/photo`, {
+        method: 'POST', headers: { Origin: origin, Cookie: data.session.cookie,
+          'X-CSRF-Token': data.session.csrf, 'Content-Type': 'image/png',
+          'Idempotency-Key': randomUUID(), 'If-Match': '"1"' }, body: new Uint8Array(photoSourcePng),
+      });
+      assert.equal(uploaded.status, 200, await uploaded.text());
+      await quiet();
+      const view = await call('GET', root, data.session);
+      assert.equal(view.status, 200, JSON.stringify(view.data));
+      const published = await post(root + '/publish', data.session, {}, `"${view.data.version}"`);
+      assert.equal(published.status, 200, JSON.stringify(published.data));
+    }
+  } finally {
+    await owner.query("UPDATE domain_media_storage_policy SET persistence_allowed=false WHERE purpose='storefront.product-photo'");
+  }
   const record: { table: string; mechanism: 'rls_update' | 'rls_insert' | 'policy_assertion' | 'documented_exception';
     update_covered: boolean; outcome: string; select?: number; own_select?: number; policies?: string[]; reason?: string }[] = [];
   for (const { relname: table } of tables) {
@@ -539,6 +575,37 @@ test('T-022 8. Discovered RLS tables reject retarget and cross-tenant select', a
     if (!aRow || !bRow) {
       assert.ok(DOCUMENTED_UNCOVERED_RLS_TABLES[table], `${table}: missing A/B fixture without documented reason`);
       record.push({ table, mechanism: 'documented_exception', update_covered: false, outcome: 'uncovered', reason: DOCUMENTED_UNCOVERED_RLS_TABLES[table] });
+      continue;
+    }
+    if (table === 'commerce_hosted_supply_offers') {
+      // Offers are deliberately shared with current same-community members;
+      // sharing SELECT must not grant another tenant supplier write authority.
+      const writePolicies = (await owner.query<Policy>(`SELECT policyname,cmd,permissive,qual,with_check FROM pg_policies
+        WHERE schemaname=current_schema() AND tablename=$1 AND cmd IN ('ALL','INSERT','UPDATE','DELETE') ORDER BY policyname`, [table])).rows;
+      assert.deepEqual(writePolicies, [{ policyname: 'commerce_hosted_offer_write', cmd: 'ALL', permissive: 'PERMISSIVE',
+        qual: '(tenant_id = freedom_ctx_tenant())', with_check: '(tenant_id = freedom_ctx_tenant())' }]);
+      await isolatedTransaction(runtime, async q => {
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted}`)).rowCount, 0, 'unbound offer SELECT must be empty');
+        await bindPrincipalContext(q, A.principalId);
+        await bindTenantContext(q, { tenantId: A.tenantId, tenantScopeId: A.scopeId });
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE offer_id=$1`, [aRow.offer_id])).rowCount, 1, 'supplier can read its own offer');
+        assert.equal((await q.query(`SELECT 1 FROM ${quoted} WHERE offer_id=$1`, [bRow.offer_id])).rowCount, 1,
+          'same-community supply visibility is intentional');
+        assert.equal((await q.query(`UPDATE ${quoted} SET state='withdrawn',version=version+1 WHERE offer_id=$1`, [bRow.offer_id])).rowCount, 0,
+          'same-community visibility must not permit foreign withdrawal');
+        await q.query('SAVEPOINT immutable_offer');
+        await assert.rejects(q.query(`UPDATE ${quoted} SET tenant_id=$1 WHERE offer_id=$2`, [bKey,aRow.offer_id]),
+          (error: unknown) => (error as { code?: string }).code === '23514', 'immutable offer cannot be retargeted');
+        await q.query('ROLLBACK TO SAVEPOINT immutable_offer');
+        assert.equal((await q.query(`UPDATE ${quoted} SET state='withdrawn',version=version+1 WHERE offer_id=$1`, [aRow.offer_id])).rowCount, 1,
+          'supplier withdrawal positive control');
+        await q.query('ROLLBACK TO SAVEPOINT immutable_offer');
+      });
+      assert.deepEqual((await owner.query(`SELECT * FROM ${quoted} WHERE offer_id=$1`, [aRow.offer_id])).rows[0], aRow);
+      assert.deepEqual((await owner.query(`SELECT * FROM ${quoted} WHERE offer_id=$1`, [bRow.offer_id])).rows[0], bRow);
+      record.push({ table, mechanism: 'policy_assertion', update_covered: false,
+        outcome: 'immutable retarget rejected; foreign withdrawal hidden; supplier withdrawal allowed and rolled back',
+        select: 1, own_select: 1, policies: writePolicies.map(row => row.policyname) });
       continue;
     }
     const beforeB = (await owner.query(`SELECT count(*)::int AS n FROM ${quoted} WHERE ${column}=$1${scopeFilter}`, [bKey])).rows[0].n;

@@ -20,7 +20,7 @@ type Channel = { kind: ChannelKind; channel_key: string; name: string };
 type ChannelPage = { items: Channel[]; next_offset: number | null };
 type Summary = { items: { id: string; source: 'notification' | 'following' | 'event_bulletin'; title: string; path: string | null }[]; generated_at: string; email_status: 'not_enabled' };
 type Pending = { body: PreferenceBody; version: number; key: string; revision: number };
-const categories: Record<Category, string> = { friends: '好友邀請與結果', squads: '小隊邀請', events: '活動更新', following: '追蹤更新' };
+const categories: Record<Category, string> = { friends: '好友邀請與結果', squads: '小隊邀請與加入結果', events: '活動更新', following: '追蹤更新' };
 const modes: Record<Mode, string> = { instant: '即時提醒', summary: '站內摘要', off: '不提醒' };
 const channelKinds: Record<ChannelKind, string> = { guild: '公會', squad: '小隊', world: '世界' };
 const channelId = (channel: Channel) => `${channel.kind}:${channel.channel_key}`;

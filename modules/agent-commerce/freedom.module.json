@@ -1,7 +1,35 @@
 {
+  "client_profiles": [
+    "member",
+    "shop-api"
+  ],
+  "contract_families": [
+    "common"
+  ],
+  "dependencies": [
+    "command-core",
+    "resource-scopes",
+    "scoped-commands",
+    "development",
+    "module-registry",
+    "shared"
+  ],
   "format": "freedom.module/v1",
+  "instructions": [
+    "modules/agent-commerce/README.md",
+    "packages/resource-scopes/README.md",
+    "docs/platform-plan/execution/unified-foundation/02-principal-command.md",
+    "modules/agent-commerce/hosted/supply-terms.md"
+  ],
+  "invariants": [
+    "current-authority-before-replay",
+    "service-is-not-owner-person",
+    "purpose-and-environment-bound-key",
+    "single-transaction-effects",
+    "legacy-domain-replay-compatibility",
+    "explicit-readonly-target"
+  ],
   "module_id": "agent-commerce",
-  "owner_role": "foundation",
   "owned_paths": [
     "modules/agent-commerce/**",
     "apps/platform-api/src/routes/agent-commerce.ts",
@@ -23,6 +51,7 @@
     "apps/portal-web/src/modules/MyStoreAction.tsx",
     "migrations/135_hosted_store_offering.sql",
     "tests/e2e/hosted-store.spec.ts",
+    "tests/e2e/hosted-store-member-journey.spec.ts",
     "tests/runtime/hosted-store-offering.test.ts",
     "contracts/guild-launchpad/v1/hosted-order.ts",
     "contracts/guild-launchpad/v1/hosted-order.schema.json",
@@ -45,43 +74,30 @@
     "contracts/guild-launchpad/v1/storefront-presentation.ts",
     "contracts/guild-launchpad/v1/storefront-presentation.schema.json",
     "migrations/140_storefront_presentation.sql",
-    "tests/runtime/storefront-presentation-contracts.test.ts"
+    "tests/runtime/storefront-presentation-contracts.test.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.ts",
+    "contracts/guild-launchpad/v1/hosted-store-media.schema.json",
+    "tests/runtime/hosted-store-media-contracts.test.ts",
+    "apps/platform-api/src/routes/hosted-store-media.ts",
+    "apps/portal-web/src/modules/HostedStorePhoto.tsx",
+    "apps/portal-web/src/modules/hosted-store-photo-client.ts",
+    "apps/portal-web/src/modules/hosted-store-photo-state.ts",
+    "tests/helpers/hosted-store-photo.ts",
+    "tests/runtime/hosted-store-photo.test.ts",
+    "tests/runtime/hosted-store-photo-state.test.ts",
+    "tests/e2e/hosted-store-fixture.ts",
+    "tests/e2e/hosted-store-photo.spec.ts",
+    "contracts/guild-launchpad/v1/hosted-supply-terms.ts",
+    "contracts/guild-launchpad/v1/hosted-supply-terms.schema.json",
+    "apps/portal-web/src/modules/HostedSupplyTerms.tsx",
+    "tests/e2e/hosted-supply-terms.spec.ts",
+    "tests/runtime/hosted-order-navigation.test.ts"
   ],
+  "owner_role": "foundation",
   "public_exports": [
     "modules/agent-commerce/orders.ts",
     "modules/agent-commerce/service-command.ts",
     "modules/agent-commerce/key-exit.ts"
-  ],
-  "dependencies": [
-    "command-core",
-    "resource-scopes",
-    "scoped-commands",
-    "development",
-    "module-registry",
-    "shared"
-  ],
-  "contract_families": [
-    "common"
-  ],
-  "client_profiles": [
-    "member",
-    "shop-api"
-  ],
-  "instructions": [
-    "modules/agent-commerce/README.md",
-    "packages/resource-scopes/README.md",
-    "docs/platform-plan/execution/unified-foundation/02-principal-command.md"
-  ],
-  "invariants": [
-    "current-authority-before-replay",
-    "service-is-not-owner-person",
-    "purpose-and-environment-bound-key",
-    "single-transaction-effects",
-    "legacy-domain-replay-compatibility",
-    "explicit-readonly-target"
-  ],
-  "tests": [
-    "runtime.full"
   ],
   "surfaces": [
     {
@@ -145,7 +161,9 @@
         "store.product.remove",
         "store.preview",
         "store.publish",
-        "store.unpublish"
+        "store.unpublish",
+        "store.supply-terms.read",
+        "store.supply-terms.update"
       ],
       "auth_profile": "member-session"
     },
@@ -175,7 +193,9 @@
         "store.product.remove",
         "store.preview",
         "store.publish",
-        "store.unpublish"
+        "store.unpublish",
+        "store.supply-terms.read",
+        "store.supply-terms.update"
       ],
       "auth_profile": "member-session"
     },
@@ -221,5 +241,8 @@
       ],
       "auth_profile": "member-session"
     }
+  ],
+  "tests": [
+    "runtime.full"
   ]
 }

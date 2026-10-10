@@ -12,7 +12,7 @@ let server: ReturnType<typeof serve>, origin: string;
 let damageNextSubmit = false, damagedCommittedResponses = 0;
 const role = `ho_http_${process.pid}_${Date.now()}`;
 const ok = (reply: Reply, status = 200) => { assert.equal(reply.status, status, JSON.stringify(reply.data)); return reply.data; };
-const install = (admission = true, discovery = true) => { buyerApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: discovery, hostedReservationsEnabled: admission }); };
+const install = (admission = true, discovery = true) => { buyerApp = createApp(runtime, origin, 'local', { guildLaunchpadEnabled: discovery, hostedReservationsEnabled: admission, tenantCursorSigningKey: Buffer.alloc(32, 69).toString('base64url') }); };
 async function http(method: string, path: string, session?: Session, body?: unknown, headers: Record<string, string> = {}): Promise<Reply> {
   const response = await fetch(origin + '/api/v1' + path, { method, headers: {
     Origin: origin, ...(session ? { Cookie: session.cookie, 'X-CSRF-Token': session.csrf } : {}),
@@ -218,4 +218,33 @@ test('current buyer ACL and pause precede HTTP replay while retained own history
   await h.pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE user_id=$1', [s.buyer.user.user_id]);
   const revoked = await http('GET', get, s.buyer); ok(revoked, 401); privateReply(revoked);
   ok(await post(root + '/orders', s.buyer, input, key), 401);
+});
+
+test('buyer list is session-only, principal-isolated and cursor-paginated with retained DTOs', async () => {
+  const s = await fixture(); await enableFixture(s);
+  const root = `/hosted-stores/${s.slug}`, own: string[] = [];
+  for (let i = 0; i < 2; i++) {
+    const quote = ok(await post(root + '/quotes', s.buyer, quoteInput(s)), 201);
+    own.push(ok(await post(root + '/orders', s.buyer, submitInput(quote)), 201).order_id);
+  }
+  const otherQuote = ok(await post(root + '/quotes', s.stranger, quoteInput(s)), 201);
+  const other = ok(await post(root + '/orders', s.stranger, submitInput(otherQuote)), 201);
+  install(false, false);
+  const path = '/me/hosted-orders', firstReply = await http('GET', path + '?limit=1', s.buyer);
+  privateReply(firstReply); const first = ok(firstReply);
+  assert.equal(first.items.length, 1); assert.ok(first.next_cursor);
+  const second = ok(await http('GET', path + '?limit=1&cursor=' + encodeURIComponent(first.next_cursor), s.buyer));
+  assert.equal(second.items.length, 1); assert.equal(second.next_cursor, null);
+  assert.deepEqual([first.items[0].order_id, second.items[0].order_id], [...own].reverse());
+  assert.equal(first.items[0].state, 'reserved');
+  const stranger = ok(await http('GET', path, s.stranger));
+  assert.deepEqual(stranger.items.map((o: {order_id: string}) => o.order_id), [other.order_id]);
+  ok(await http('GET', path + '?cursor=' + encodeURIComponent(first.next_cursor), s.stranger), 422);
+  for (const query of ['?limit=0', '?limit=51', '?limit=1&limit=2', '?unknown=1', '?cursor=bad']) {
+    const reply = await http('GET', path + query, s.buyer); ok(reply, 422); privateReply(reply);
+  }
+  const anonymous = await http('GET', path); ok(anonymous, 401); privateReply(anonymous);
+  ok(await http('GET', path, undefined, undefined, {Authorization: 'Bearer fw_shop_synthetic'}), 401);
+  await h.pool.query('UPDATE sessions SET revoked_at=clock_timestamp() WHERE user_id=$1', [s.buyer.user.user_id]);
+  const revoked = await http('GET', path, s.buyer); ok(revoked, 401); privateReply(revoked);
 });

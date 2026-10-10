@@ -27,7 +27,8 @@
     "packages/shared/member-blocking.ts",
     "packages/shared/tenant-list-cursor.ts",
     "tests/runtime/tenant-list-cursor.test.ts",
-    "tests/runtime/tenant-cursor-fixture.ts"
+    "tests/runtime/tenant-cursor-fixture.ts",
+    "packages/shared/squad-kinds.ts"
   ],
   "public_exports": [
     "packages/shared/community-discovery.ts",

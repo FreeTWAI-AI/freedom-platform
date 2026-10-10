@@ -1,3 +1,4 @@
+import {createStorefrontProductPhotoLifecycle} from '../../../modules/assets/storefront-product-photo.js';
 import { createTenantListCursorCodec } from '../../../packages/shared/tenant-list-cursor.js';
 import { installWorkerGuideAssets } from '../../../packages/public-guide-assets/worker.js';
 import type { GuideR2Binding } from '../../../packages/public-guide-assets/r2.js';
@@ -71,6 +72,8 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_SHOP_KEY_POLICY?: 'legacy-compatible'|'purpose-bound-only';
   FREEDOM_GUILD_LAUNCHPAD_ENABLED?: string;
   FREEDOM_HOSTED_RESERVATIONS_ENABLED?: string;
+  FREEDOM_HOSTED_STORE_PHOTOS_ENABLED?: string;
+  FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED?: string;
   /** Dedicated secret: canonical base64url encoding of 32 random bytes, unique per environment. */
   FREEDOM_TENANT_CURSOR_SIGNING_KEY?: string;
   FREEDOM_COMMUNITY_DISCOVERY_ENABLED?: string;
@@ -79,6 +82,7 @@ export interface WorkerEnv extends GuildReviewBindings,WorkerPrivateAiBindings {
   FREEDOM_UNIFIED_SHARING_ENABLED?: string;
   FREEDOM_COMMUNITY_RELATIONS_ENABLED?: string;
   FREEDOM_PERSONAL_CONTENT_ENABLED?: string;
+  FREEDOM_FIRST_PARTICIPATION_ENABLED?: string;
   FREEDOM_NOTIFICATION_PREFERENCES_ENABLED?: string;
   FREEDOM_EVENT_PARTICIPATION_ENABLED?: string;
   FREEDOM_ENV?: string;
@@ -129,10 +133,15 @@ export function readWorkerConfig(env: WorkerEnv): WorkerConfig {
   if (env.FREEDOM_PASSWORD_RESET_EMAIL_ENABLED === 'true' && typeof env.EMAIL?.send !== 'function') throw new ReadinessError('EMAIL binding is required when password recovery is enabled.');
   if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_PARTICIPATION_ENABLED))throw new ReadinessError('FREEDOM_EVENT_PARTICIPATION_ENABLED must be true or false.');
   if(env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true'&&typeof env.EMAIL?.send!=='function')throw new ReadinessError('EMAIL binding is required when event participation is enabled.');
+  if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new ReadinessError('First participation flag must be true or false.');
+  if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new ReadinessError('First participation requires personal content.');
   for(const flag of [env.FREEDOM_SERVICE_COVER_ENABLED,env.FREEDOM_EVENT_BANNER_ENABLED,env.FREEDOM_SKILL_IMAGE_ENABLED,env.FREEDOM_SOCIAL_THUMBNAIL_ENABLED,env.FREEDOM_EVENT_HIGHLIGHT_ENABLED,env.FREEDOM_MESSAGE_IMAGE_ENABLED]){
     if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Media installation flag must be true or false.');
     if(flag==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('MEDIA and IMAGES are required for enabled image lifecycle.');
   }
+  for(const flag of [env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED,env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED])if(flag!==undefined&&!['true','false'].includes(flag))throw new ReadinessError('Store photo flags must be true or false.');
+  if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&(env.FREEDOM_GUILD_LAUNCHPAD_ENABLED!=='true'||['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('Hosted store photos require guild launchpad and MEDIA.');
+  if(env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true'&&(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED!=='true'||typeof env.IMAGES?.info!=='function'||typeof env.IMAGES?.input!=='function'))throw new ReadinessError('Store photo uploads require installed photos and IMAGES.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_EVENT_VIDEO_ENABLED))throw new ReadinessError('Video installation flag must be true or false.');
   if(env.FREEDOM_EVENT_VIDEO_ENABLED==='true'&&(['get','put','head','delete'].some(method=>typeof (env.MEDIA as unknown as Record<string,unknown>|undefined)?.[method]!=='function')))throw new ReadinessError('MEDIA is required for enabled video lifecycle.');
   if(env.FREEDOM_PUBLIC_GUIDE_ENABLED!==undefined&&!['true','false'].includes(env.FREEDOM_PUBLIC_GUIDE_ENABLED))throw new ReadinessError('Guide release flag must be true or false.');
@@ -237,6 +246,7 @@ export function workerRuntime(env: WorkerEnv, config: WorkerConfig): PlatformRun
     unifiedSharingEnabled: env.FREEDOM_UNIFIED_SHARING_ENABLED === 'true',
     communityRelationsEnabled: env.FREEDOM_COMMUNITY_RELATIONS_ENABLED === 'true',
     personalContentEnabled: env.FREEDOM_PERSONAL_CONTENT_ENABLED === 'true',
+    firstParticipationEnabled: env.FREEDOM_FIRST_PARTICIPATION_ENABLED === 'true',
     notificationPreferencesEnabled: env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED === 'true',
     eventParticipationEnabled: env.FREEDOM_EVENT_PARTICIPATION_ENABLED === 'true',
     tenantWorkAssetStore: env.FREEDOM_GUILD_LAUNCHPAD_ENABLED === 'true' && avatarAssetStore ? avatarAssetStore : undefined,
@@ -318,6 +328,7 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if (request.method === 'GET' || request.method === 'HEAD') return new Response(null, { status: 308, headers: { ...SAFE_HEADERS, Location: config.origin + url.pathname + url.search } });
         return problem(403, 'host_rejected', '請從自由工坊網站操作。');
       }
+      if(env.FREEDOM_FIRST_PARTICIPATION_ENABLED!=='true'&&(url.pathname==='/api/v1/me/first-participation'||url.pathname.startsWith('/api/v1/first-participation/')))return problem(404,'not_found','找不到這個頁面。');
       let pool: Pool;
       // A throwing factory must not escape with its raw error or leave anything to end.
       try { pool = createPool(env); } catch (error) {
@@ -365,6 +376,12 @@ export function createWorkerHandler(deps: WorkerDependencies = {}) {
         if(env.FREEDOM_SKILL_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.skillImageAssetStore=runtime.avatarAssetStore;
           runtime.skillImageAssets=createSkillImageAssetService(pool,{store:runtime.avatarAssetStore});
+        }
+        if(env.FREEDOM_HOSTED_STORE_PHOTOS_ENABLED==='true'&&runtime.avatarAssetStore){
+          runtime.storePhotoAssetStore=runtime.avatarAssetStore;
+          runtime.storePhotoUploadsEnabled=env.FREEDOM_HOSTED_STORE_PHOTO_UPLOADS_ENABLED==='true';
+          // Keep the closed service installed for retained original receipts; admission remains separate.
+          runtime.storePhotoAssets=createStorefrontProductPhotoLifecycle(pool,{store:runtime.avatarAssetStore});
         }
         if(env.FREEDOM_MESSAGE_IMAGE_ENABLED==='true'&&runtime.avatarAssetStore){
           runtime.messageImageAssetStore=runtime.avatarAssetStore;

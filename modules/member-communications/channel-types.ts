@@ -17,12 +17,12 @@ export type ChannelList={items:ChannelSummary[];unread_count:number;next_offset:
 /** sender_ref is users.user_id. */
 export type ChannelMessage={
   message_id:string;kind:ChannelKind;channel_key:string;sequence:string;
-  sender_ref:string;sender_name:string;body:string;created_at:string;
+  sender_ref:string;sender_name:string;body:string;created_at:string;retracted_at:string|null;
 }&MessageContent;
 /** Newest sequence first; unread_count is this channel's unread for the viewer. */
-export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null};
+export type ChannelMessagePage={channel:Channel;items:ChannelMessage[];unread_count:number;next_offset:number|null;next_after_sequence?:string|null;retraction_count?:string};
 /** Body-free update check for one currently authorized room. GET never marks read. */
-export type ChannelActivity={latest_sequence:string;unread_count:number};
+export type ChannelActivity={latest_sequence:string;unread_count:number;retraction_count?:string};
 
 export type ChannelMessageInput=MessageContentInput;
 /** through_message_id must be a message of this channel the viewer has seen. */

@@ -76,7 +76,11 @@ function keyTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
-export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,memberBlockingEnabled=false}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;memberBlockingEnabled?:boolean}) {
+export function GameConsoleProvider({children, variant = 'dock', client, userId, session,feedEnabled = true, standalone = false,headless = false,site}: {children?: ReactNode; variant?: 'dock' | 'popout'; client?: PortalClient; userId?: string;session?:SessionPayload; feedEnabled?: boolean; standalone?: boolean;headless?:boolean;site?:SiteConfig|null}) {
+  const [localSite,setLocalSite]=useState<{client:PortalClient;site:SiteConfig}|null>(null)
+  // Omitted config means an independent console; null means the shell has not loaded it or failed.
+  useEffect(()=>{if(site!==undefined||!client)return;let active=true;void client.get<SiteConfig>('/site').then(value=>{if(active)setLocalSite({client,site:value})}).catch(()=>{if(active)setLocalSite(null)});return()=>{active=false}},[client,site])
+  const config=site===undefined?(localSite&&localSite.client===client?localSite.site:null):site
   const [events, setEvents] = useState<GameConsoleEvent[]>(variant === 'dock' ? seedEvents : [])
   const eventsRef = useRef(events); eventsRef.current = events
   const seen = useRef(new Set(events.map(event=>event.id)))
@@ -84,14 +88,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const dmSessionEnd=useRef<(()=>boolean)|null>(null)
   const registerDmSessionEnd=useCallback((guard:(()=>boolean)|null)=>{dmSessionEnd.current=guard},[])
   const canEndSession=useCallback(()=>dmSessionEnd.current?.()??true,[])
-  const [preferencesEnabled,setPreferencesEnabled]=useState<boolean|null>(client?null:false)
-  useEffect(()=>{
-    let active=true
-    if(!client){setPreferencesEnabled(false);return}
-    const load=()=>void client.get<{notification_preferences_enabled?:boolean}>('/site',{background:true}).then(site=>{if(active)setPreferencesEnabled(site.notification_preferences_enabled===true)}).catch(()=>{/* Retry on focus; do not emit unchecked reminders. */})
-    load();window.addEventListener('focus',load)
-    return()=>{active=false;window.removeEventListener('focus',load)}
-  },[client,userId])
+  const preferencesEnabled = !client ? false : config ? config.notification_preferences_enabled===true : null
   const [expanded, setExpanded] = useState(variant === 'popout')
   const [activeChannel, setActiveChannel] = useState<GameConsoleChannel>('all')
   const [visibility,setVisibility]=useState<ConsoleVisibility>(()=>loadVisibility(userId))
@@ -182,7 +179,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   }, [client])
 
   useEffect(() => {
-    if (variant === 'popout') return
+    if (variant === 'popout'||headless) return
     const toggle = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || keyTarget(event.target)) return
       if (event.code !== 'Backquote' && event.key !== '~' && event.key !== '`') return
@@ -190,7 +187,7 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
     }
     window.addEventListener('keydown', toggle)
     return () => window.removeEventListener('keydown', toggle)
-  }, [variant])
+  }, [variant,headless])
 
   const selectChannel = useCallback((channel: GameConsoleChannel) => {
     setActiveChannel(channel); setUnread(current => ({...current, [channel]: 0}))
@@ -199,8 +196,8 @@ export function GameConsoleProvider({children, variant = 'dock', client, userId,
   const value = useMemo<ConsoleContextValue>(() => ({registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log: logConsoleEvent, setExpanded, setActiveChannel: selectChannel}), [events, expanded, activeChannel, visibility, toggleVisibility,selectChannel,registerDmSessionEnd,canEndSession])
   if(ended)return <div className="game-console-ended" role="status">登入已結束，請關閉此視窗或重新登入。</div>
   return <ConsoleContext.Provider value={value}>
-    {variant === 'dock' ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
-    <GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={memberBlockingEnabled} preferencesEnabled={preferencesEnabled}/>
+    {variant === 'dock'&&!headless ? <div className={`game-console-page${standalone?' is-standalone':''}`}>{children}</div> : children}
+    {!headless&&<GameConsole variant={variant} unread={unread} syncScope={syncScope.current} client={client} session={session} enabled={feedEnabled} memberBlockingEnabled={config?.member_blocking_enabled===true} messageImagesEnabled={config?.message_images_enabled===true} preferencesEnabled={preferencesEnabled}/>}
   </ConsoleContext.Provider>
 }
 
@@ -208,8 +205,6 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   const [authorized,setAuthorized]=useState<boolean|null>(null)
   const [currentSession,setCurrentSession]=useState<SessionPayload|undefined>()
   const account=useRef<string|null>(null)
-  const [memberBlockingEnabled,setMemberBlockingEnabled]=useState(false)
-  useEffect(()=>{let active=true;void client.get<SiteConfig>('/site').then(site=>{if(active)setMemberBlockingEnabled(site.member_blocking_enabled===true)}).catch(()=>{});return()=>{active=false}},[client])
   useEffect(()=>{
     let active=true
     const check=async()=>{
@@ -233,10 +228,10 @@ export function GameConsolePopout({client}:{client:PortalClient}) {
   },[client])
   if(authorized===null)return <div className="game-console-ended" role="status">正在確認登入狀態…</div>
   if(!authorized)return <div className="game-console-ended" role="status">登入已結束。<a href="/">返回自由工坊</a></div>
-  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession} memberBlockingEnabled={memberBlockingEnabled}/>
+  return <GameConsoleProvider variant="popout" client={client} userId={account.current??undefined} session={currentSession}/>
 }
 
-function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled,preferencesEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean;preferencesEnabled:boolean|null}) {
+function GameConsole({variant, unread, syncScope,client,session,enabled,memberBlockingEnabled,messageImagesEnabled,preferencesEnabled}: {variant: 'dock' | 'popout'; unread: Record<GameConsoleChannel, number>; syncScope: string;client?:PortalClient;session?:SessionPayload;enabled:boolean;memberBlockingEnabled:boolean;messageImagesEnabled:boolean;preferencesEnabled:boolean|null}) {
   const {registerDmSessionEnd,canEndSession,events, expanded, activeChannel, visibility, toggleVisibility,log, setExpanded, setActiveChannel} = useGameConsole()
   const history = useRef<HTMLDivElement>(null)
   const [chatUnread,setChatUnread]=useState<Partial<Record<GameConsoleChannel,InboxUnread>>>({})
@@ -287,7 +282,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
   }
 
   function popOut() {
-    const url = new URL(window.location.origin)
+    const url = new URL('/admin',window.location.origin)
     url.searchParams.set('game-console', 'popout')
     url.searchParams.set('scope', syncScope)
     const opened = window.open(url, `freedom-game-console-${syncScope}`, 'popup=yes,width=880,height=620,resizable=yes,scrollbars=yes')
@@ -333,7 +328,7 @@ function GameConsole({variant, unread, syncScope,client,session,enabled,memberBl
         <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})}</time>
       </article>) : <p className="game-console-empty">此頻道尚無訊息。</p>}
     </div>
-    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled}/>
+    <GameConsoleComposer registerSessionEnd={registerDmSessionEnd} client={client} session={session} enabled={enabled} channel={activeChannel} active={expanded} onUnread={onChatUnread} onNavigate={navigate} memberBlockingEnabled={memberBlockingEnabled} messageImagesEnabled={messageImagesEnabled}/>
     <footer className="game-console-footer"><span>本次登入訊息 {events.length}/{GAME_CONSOLE_EVENT_LIMIT}</span><span>{typeof BroadcastChannel === 'undefined' ? '僅此視窗' : '視窗同步中'}</span></footer>
   </aside></>
 }

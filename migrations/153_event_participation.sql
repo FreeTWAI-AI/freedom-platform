@@ -151,4 +151,5 @@ ALTER TABLE member_notifications ADD CONSTRAINT member_notifications_kind_check 
   'guild_expert_appointed','guild_expert_revoked','guild_master_appointed','guild_master_revoked',
   'guild_member_promoted','guild_member_demoted',
   'event_submitted','event_review_needed','event_approved','event_rejected',
+  'squad_member_removed','social_post_commented','social_post_liked','squad_join_requested','squad_join_accepted',
   'event_waitlist_invited','event_schedule_changed','event_cancelled','event_start_reminder'));

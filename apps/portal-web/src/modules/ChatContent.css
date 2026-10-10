@@ -24,3 +24,10 @@
 .chat-message-actions{display:flex;justify-content:flex-end;margin-top:.2rem}
 .chat-message-actions .btn{min-height:44px;padding:.2rem .6rem;font-size:14px}
 @media(max-width:480px){.chat-sticker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.chat-picker-heading{align-items:flex-start}.chat-sticker{width:112px}}
+.chat-retracted{color:var(--muted);font-style:italic}
+.chat-message-actions{gap:.25rem}
+.chat-retract-dialog{width:min(420px,calc(100vw - 32px));border:1px solid var(--line);border-radius:14px;padding:1.1rem 1.2rem;background:var(--bg-elev);color:var(--ink)}
+.chat-retract-dialog::backdrop{background:rgba(0,0,0,.45)}
+.chat-retract-dialog h3{margin:0 0 .5rem}
+.chat-retract-dialog>p{margin:0 0 .6rem;overflow-wrap:anywhere;white-space:pre-wrap}
+.chat-retract-dialog .actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.8rem}

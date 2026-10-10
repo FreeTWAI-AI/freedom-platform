@@ -11,10 +11,18 @@ export async function catalog(pool:Pool,actor:Actor){
  JOIN users u ON u.user_id=s.owner_id WHERE s.origin='imported' AND s.community_id=$1 AND s.accepting_orders AND u.active ORDER BY i.title,i.item_id`,[actor.community_id])).rows;
 }
 export async function ownShops(pool:Pool,actor:Actor){
- return (await pool.query(`SELECT s.*,k.expires_at AS key_expires_at,k.revoked_at AS key_revoked_at,
- (SELECT count(*)::int FROM commerce_items i WHERE i.shop_id=s.shop_id) AS product_count,
- (SELECT count(*)::int FROM commerce_selections l WHERE l.shop_id=s.shop_id) AS selection_count
- FROM commerce_shops s LEFT JOIN commerce_shop_keys k USING(shop_id) WHERE s.origin='imported' AND s.community_id=$1 AND s.owner_id=$2 ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows;
+ // Materialize grouped counts so nested-loop plans cannot repeat aggregation for each shop.
+ return (await pool.query(`WITH owned AS MATERIALIZED (
+ SELECT * FROM commerce_shops WHERE origin='imported' AND community_id=$1 AND owner_id=$2
+ ), products AS MATERIALIZED (
+ SELECT i.shop_id,count(*)::int AS product_count FROM commerce_items i JOIN owned s USING(shop_id) GROUP BY i.shop_id
+ ), selections AS MATERIALIZED (
+ SELECT l.shop_id,count(*)::int AS selection_count FROM commerce_selections l JOIN owned s USING(shop_id) GROUP BY l.shop_id
+ )
+ SELECT s.*,k.expires_at AS key_expires_at,k.revoked_at AS key_revoked_at,
+ COALESCE(p.product_count,0) AS product_count,COALESCE(l.selection_count,0) AS selection_count
+ FROM owned s LEFT JOIN commerce_shop_keys k USING(shop_id)
+ LEFT JOIN products p USING(shop_id) LEFT JOIN selections l USING(shop_id) ORDER BY s.created_at DESC`,[actor.community_id,actor.user_id])).rows;
 }
 export async function ownShop(q:Pool|PoolClient,actor:Pick<Actor,'user_id'|'community_id'>,id:string){
  const shop=(await q.query("SELECT * FROM commerce_shops WHERE origin='imported' AND shop_id=$1 AND community_id=$2 AND owner_id=$3",[id,actor.community_id,actor.user_id])).rows[0];

@@ -1,30 +1,13 @@
 {
-  "format": "freedom.module/v1",
-  "module_id": "e2e-harness",
-  "owner_role": "foundation",
-  "owned_paths": [
-    "docs/development/e2e-harness.md",
-    "playwright.config.ts",
-    "scripts/e2e-server.ts",
-    "scripts/run-e2e.mjs",
-    "scripts/run-e2e.test.mjs",
-    "tests/e2e/fixtures.ts",
-    "tests/e2e/navigation.ts",
-    "tests/e2e/quick-join.ts"
-  ],
-  "public_exports": [
-    "tests/e2e/fixtures.ts",
-    "tests/e2e/navigation.ts",
-    "tests/e2e/quick-join.ts"
-  ],
+  "client_profiles": [],
+  "contract_families": [],
   "dependencies": [
     "assets",
     "command-core",
     "execution-runs",
     "public-guide-assets"
   ],
-  "contract_families": [],
-  "client_profiles": [],
+  "format": "freedom.module/v1",
   "instructions": [
     "AGENTS.md",
     "CONTRIBUTING.md",
@@ -40,8 +23,30 @@
     "port-from-freedom-e2e-port",
     "single-playwright-worker"
   ],
+  "module_id": "e2e-harness",
+  "owned_paths": [
+    "docs/development/e2e-harness.md",
+    "playwright.config.ts",
+    "scripts/e2e-server.ts",
+    "scripts/run-e2e.mjs",
+    "scripts/run-e2e.test.mjs",
+    "tests/e2e/fixtures.ts",
+    "tests/e2e/navigation.ts",
+    "tests/e2e/quick-join.ts",
+    "scripts/ci/pinned-playwright.config.mjs",
+    "scripts/ci/run-pinned-e2e.mjs",
+    "tests/e2e/sharing-authoring-fixture.ts",
+    "scripts/verify-cloud-candidate-members.ts",
+    "tests/e2e/cloud-candidate-acceptance.spec.ts"
+  ],
+  "owner_role": "foundation",
+  "public_exports": [
+    "tests/e2e/fixtures.ts",
+    "tests/e2e/navigation.ts",
+    "tests/e2e/quick-join.ts"
+  ],
+  "surfaces": [],
   "tests": [
     "e2e.harness"
-  ],
-  "surfaces": []
+  ]
 }

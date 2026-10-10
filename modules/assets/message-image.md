@@ -74,7 +74,10 @@ message, which is what previews and search see.
 This change defines the rules; it does **not** run any cleanup.
 
 - A sent image is kept as long as its message exists. Messages are not deleted by
-  any product path today, so a sent image is retained indefinitely.
+  any product path today, so a sent image is retained indefinitely. Retracting a
+  message (#398) only hides it: the bytes route answers 404 and DTOs omit the
+  image, but the Asset, object and sidecar stay in place; deleting them still
+  needs the separately reviewed maintenance profile below.
 - A draft that is never sent (upload succeeded, message not sent) stays a `ready`
   Asset owned by the sender and counts against `retained_byte_limit`. Nothing
   expires it automatically.

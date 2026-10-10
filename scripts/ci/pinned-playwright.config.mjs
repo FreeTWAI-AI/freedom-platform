@@ -17,7 +17,7 @@ const servers = candidate.webServer === undefined ? undefined : Array.isArray(ca
 const webServer = servers?.map(server => {
   if (!object(server)) throw Error('invalid_pinned_e2e_web_server');
   const env={...server.env};
-  for(const flag of ['FREEDOM_E2E_PRIVATE_AI_FIXTURE','FREEDOM_E2E_AVATAR_ASSET_FIXTURE','FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE','FREEDOM_E2E_NOTIFICATION_PREFERENCES'])env[flag]=process.env[flag]==='1'?'1':'0';
+  for(const flag of ['FREEDOM_E2E_PRIVATE_AI_FIXTURE','FREEDOM_E2E_AVATAR_ASSET_FIXTURE','FREEDOM_E2E_MESSAGE_IMAGE_FIXTURE','FREEDOM_E2E_STORE_PHOTO_FIXTURE','FREEDOM_E2E_NOTIFICATION_PREFERENCES','FREEDOM_E2E_FIRST_PARTICIPATION'])env[flag]=process.env[flag]==='1'?'1':'0';
   return { ...server, env, cwd: server.cwd === undefined ? root : resolve(root, server.cwd), reuseExistingServer: false };
 });
 

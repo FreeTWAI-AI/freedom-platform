@@ -37,7 +37,7 @@ test('member row opens a private conversation with the selected person',async({p
   await page.route(/\/api\/v1\/me\/conversations\/[^/]+\/messages\?/,route=>{reads.push(route.request().url());return route.fulfill({json:{participant:{user_id:peer,display_name:'私訊目標',avatar_url:null},can_send:true,items:[],next_offset:null,unread_count:0}});});
   const panel=await openDirectory(page);
   await panel.getByRole('button',{name:'私訊使用者',exact:true}).click();
-  await expect(page).toHaveURL(/#messages$/);
+  await expect(page).toHaveURL(/#members$/);await expect(page.locator('.floating-message-panel')).toBeVisible();
   await expect(page.getByRole('tab',{name:/私人訊息/})).toHaveAttribute('aria-selected','true');
   await expect(page.getByRole('heading',{name:'與 私訊目標 的對話'})).toBeVisible();
   expect(reads).toHaveLength(1);expect(reads[0]).toContain(peer);

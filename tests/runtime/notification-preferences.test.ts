@@ -94,6 +94,13 @@ test('channel mute and quiet suppress badges without changing original history o
   value.quiet_hours={enabled:true,time_zone:'Asia/Taipei',start:'11:00',end:'13:00'};await save(owner,value);
   assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,0);
   assert.equal((await (await owner.request('me/channels?kind=world')).json() as {unread_count:number}).unread_count,1);
+  value.quiet_hours.enabled=false;await save(owner,value);
+  assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,1);
+  const message=await sent.json() as {message_id:string};
+  assert.equal((await sender.request(`me/channels/world/world/messages/${message.message_id}/retract`,{},undefined,randomUUID(),'POST')).status,200);
+  assert.equal((await (await owner.request(endpoint+'/channel-reminders')).json() as {world:number}).world,0);
+  assert.equal((await (await owner.request('me/channels?kind=world')).json() as {unread_count:number}).unread_count,0);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_channel_reads WHERE user_id=$1',[DEMO_USERS[2].user_id])).rows[0].n,0);
 });
 
 test('follow reminder and summary recheck original published content and opt-out at each read',async()=>{
@@ -136,4 +143,23 @@ test('preference release flag fails closed and does not authorize outbound Email
   for(const path of [endpoint,endpoint+'/summary',endpoint+'/reminders',endpoint+'/channel-reminders',endpoint+'/following-reminders',endpoint+'/event-reminders'])assert.equal((await off.request(origin+'/api/v1/'+path)).status,404);
   assert.equal((await app.request(origin+'/api/v1/'+endpoint)).status,401);
   assert.equal((await preferences(await member(0))).email_digest.enabled,false);
+});
+
+
+test('new squad interactions follow squad modes and post interactions obey quiet hours while essential notices remain',async()=>{
+  const owner=await member(0),ids=new Set<string>();
+  for(const kind of ['squad_join_requested','squad_join_accepted','social_post_commented','social_post_liked','guild_expert_revoked'])
+    for(const id of await notices(0,kind,1,'2026-10-08T03:00:00Z'))ids.add(id);
+  const value=body(await preferences(owner));value.categories.squads='off';value.quiet_hours.enabled=false;await save(owner,value);
+  const kinds=async()=>{
+    const page=await (await owner.request(endpoint+'/reminders')).json() as {items:{notification_id:string;kind:string}[]};
+    return page.items.filter(item=>ids.has(item.notification_id)).map(item=>item.kind).sort();
+  };
+  assert.deepEqual(await kinds(),['guild_expert_revoked','social_post_commented','social_post_liked']);
+  value.quiet_hours={enabled:true,time_zone:'Asia/Taipei',start:'11:00',end:'13:00'};await save(owner,value);
+  assert.deepEqual(await kinds(),['guild_expert_revoked']);
+  value.categories.squads='summary';await save(owner,value);
+  const summary=await (await owner.request(endpoint+'/summary')).json() as {items:{id:string;title:string}[]};
+  assert.equal(summary.items.filter(item=>ids.has(item.id)).length,2);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM member_notifications WHERE notification_id=ANY($1::uuid[]) AND read_at IS NULL',[[...ids]])).rows[0].n,5);
 });

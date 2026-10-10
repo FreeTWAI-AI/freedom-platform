@@ -70,21 +70,6 @@ export const PAGE_GUIDES: Record<string, Record<string, GuideDefinition>> = {
       ]
     }
   },
-  "messages": {
-    "messages:topic-1": {
-      "label": "找到訊息分頁",
-      "steps": [
-        {
-          "selector": "[data-guide-anchor=\"messages:notifications\"]",
-          "instruction": "這是通知分頁，想看通知時請自行點選。"
-        },
-        {
-          "selector": "[data-guide-anchor=\"messages:direct\"]",
-          "instruction": "這是私人訊息分頁，請自行選對象後閱讀。"
-        }
-      ]
-    }
-  },
   "events": {
     "events:topic-1": {
       "label": "找到提交活動入口",

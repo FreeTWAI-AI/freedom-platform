@@ -17,6 +17,35 @@ async function book(page:Page){
   const card=library.locator('article[data-book-id="social-post"]');await card.scrollIntoViewIfNeeded();return card;
 }
 
+test('project author Follow is explicit, confirmed and offers reauthorization on permission denial',async({page})=>{
+  let following=false,denied=false;const writes:unknown[]=[];
+  const repo='https://github.com/source-author/tool';
+  await page.route('**/api/v1/opensource/projects',route=>route.fulfill({json:{items:[{project_id:'follow-project',owner_ref:'another-member',owner_name:'登錄者',title:'Follow 範例',description:'作者追蹤測試',use_notes:'閱讀文件',demo_url:null,repository_url:repo,repository_full_name:'source-author/tool',repository_id:'42',relationship:'curator',aggregate_version:1,current_version:{commit_sha:'a'.repeat(40),license_spdx:'MIT',is_fork:false,archived:false,readme_url:repo}}]}}));
+  await page.route('**/api/v1/me/github/authors/source-author/follow',route=>{
+    if(route.request().method()==='POST'){
+      writes.push(route.request().postDataJSON());expect(route.request().headers()['x-csrf-token']).toBeTruthy();
+      if(denied)return route.fulfill({status:403,json:{code:'github_follow_permission_required',detail:'GitHub Follow 權限不足，請重新授權。'}});
+      following=route.request().postDataJSON().following;
+    }
+    return route.fulfill({json:{username:'source-author',connected:true,following,confirmed:true}});
+  });
+  await login(page);await navigate(page,'開源投稿');
+  const card=page.getByRole('article',{name:'開源作品：Follow 範例',exact:true});
+  await expect(card.getByText('操作的是 GitHub 帳號追蹤，不是工坊站內追蹤；組織帳號不能 Follow。')).toBeVisible();
+  expect(writes).toEqual([]);
+  await card.getByRole('button',{name:'查詢 GitHub Follow',exact:true}).click();
+  await card.getByRole('button',{name:'Follow GitHub 作者',exact:true}).click();
+  await expect(card.getByRole('button',{name:'Unfollow GitHub 作者',exact:true})).toHaveAttribute('aria-pressed','true');
+  await card.getByRole('button',{name:'Unfollow GitHub 作者',exact:true}).click();
+  await expect(card.getByRole('button',{name:'Follow GitHub 作者',exact:true})).toHaveAttribute('aria-pressed','false');
+  expect(writes).toEqual([{following:true,confirmed:true},{following:false,confirmed:true}]);
+  denied=true;await card.getByRole('button',{name:'Follow GitHub 作者',exact:true}).click();
+  await expect(card.getByRole('alert')).toContainText('請重新授權');
+  await expect(card.getByRole('button',{name:'連結／重新授權 GitHub',exact:true})).toBeVisible();
+  await page.setViewportSize({width:320,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
 test('visible book widgets share actual metrics and confirmed Star state across cards and dialogs',async({page})=>{
   let accounts=0,starReads=0,starred=false;const reads=new Map<string,number>(),writes:{starred:boolean;confirmed:boolean}[]=[];
   await page.route('**/api/v1/me/github',route=>{accounts++;return route.fulfill({json:{configured:true,connected:true,github_user:{id:'synthetic-owner',login:'synthetic-owner'}}});});

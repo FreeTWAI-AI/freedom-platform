@@ -82,24 +82,22 @@ test('a slow preview shows immediate local feedback, closes by Escape and recove
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('a same-login bulk-read acknowledgement refreshes the bell after leaving Messages',async({page})=>{
+test('a same-login bulk-read acknowledgement refreshes the bell after closing the notification bell',async({page})=>{
   let held:Route|undefined,read=false,previewReads=0;
   await page.route(preview,async route=>{previewReads++;await route.fulfill({json:payload(read)});});
   await page.route('**/api/v1/me/inbox/read-all',route=>{held=route;});
   await login(page);
   const bell=page.locator('.notification-bell-trigger');
   await expect(bell).toHaveAccessibleName('通知，1 則未讀');
-  await navigate(page,'我的訊息');
-  const messages=page.locator('.member-messages');
-  await messages.getByRole('tab',{name:/^通知/}).click();
-  await messages.getByRole('button',{name:'全部標為已讀',exact:true}).click();
+  await page.locator('.notification-bell-trigger').click();
+  await page.getByRole('button',{name:'全部標為已讀',exact:true}).click();
   await expect.poll(()=>held!==undefined).toBe(true);
-  await navigate(page,'會員首頁');await expect(messages).toHaveCount(0);
+  await page.keyboard.press('Escape');await navigate(page,'技能書架');
   await page.evaluate(()=>{
     const state=window as typeof window&{noticeEvents:number;allReadEvents:number};
     state.noticeEvents=0;state.allReadEvents=0;
     window.addEventListener('freedom-inbox-updated',()=>state.noticeEvents++);
-    window.addEventListener('freedom-inbox-all-read',()=>state.allReadEvents++);
+    window.addEventListener('freedom-notifications-read',()=>state.allReadEvents++);
   });
   const before=previewReads,currentUrl=page.url();
   const acknowledgement=page.waitForResponse(response=>response.url().endsWith('/me/inbox/read-all'));

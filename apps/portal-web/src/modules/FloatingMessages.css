@@ -1,6 +1,36 @@
-.floating-messages{position:fixed;z-index:80;inset-inline-end:max(16px,var(--app-safe-right,env(safe-area-inset-right,0px)));bottom:calc(68px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:60px;height:60px;min-height:44px;padding:6px;border:1px solid var(--line);border-radius:50%;background:var(--bg-elev);color:var(--text);box-shadow:0 4px 16px #0002;cursor:pointer;font:inherit}
+.floating-messages{position:fixed;z-index:80;inset-inline-end:max(16px,var(--app-safe-right,env(safe-area-inset-right,0px)));bottom:calc(16px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:60px;height:60px;min-height:44px;padding:6px;border:1px solid var(--line);border-radius:50%;background:var(--bg-elev);color:var(--text);box-shadow:var(--shadow);cursor:pointer;font:inherit}
 .floating-messages:hover{border-color:var(--focus);background:var(--green-soft)}
 .floating-messages:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
-.floating-messages-label{font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.floating-messages-label{font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .floating-messages-badge{position:absolute;top:-3px;inset-inline-end:-3px;min-width:22px;min-height:22px;display:grid;place-items:center;padding:2px 4px;border-radius:99px;background:var(--green);color:#10140a;font-size:12px;font-weight:800;border:2px solid var(--bg-elev)}
-body:has(.game-console-expanded:not([hidden])) .floating-messages,body:has(dialog[open]) .floating-messages{display:none}
+
+.floating-message-panel{position:fixed;z-index:79;inset-inline-end:16px;bottom:calc(88px + var(--app-safe-bottom,env(safe-area-inset-bottom,0px)));width:min(1000px,calc(100vw - 32px));height:min(640px,calc(100dvh - 248px));display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-elev);color:var(--ink);box-shadow:var(--shadow);overflow:hidden}
+.floating-message-panel[hidden]{display:none}
+.floating-message-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);flex:none}
+.floating-message-header h2{margin:0;font-size:18px}
+.floating-message-header h2:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.floating-message-header .btn{width:44px;height:44px;padding:0;font-size:24px}
+.floating-message-content{padding:12px;overflow:auto;min-height:0;flex:1;overscroll-behavior:contain}
+.floating-message-panel .messages-hub{grid-template-columns:minmax(0,1fr);height:100%;grid-template-rows:auto minmax(0,1fr);align-items:stretch}
+.floating-message-panel .messages-categories{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 0 8px;border:0;border-bottom:1px solid var(--line);border-radius:0}
+.floating-message-panel .messages-tabs{display:flex;flex-wrap:nowrap;flex:1;gap:4px}
+.floating-message-panel .messages-tabs [role=tab]{display:flex;gap:6px;min-height:44px;padding:8px 12px}
+.floating-message-panel .messages-new-group{display:flex;align-items:center;gap:6px;min-height:44px;padding:8px;border:0}
+.floating-message-panel .messages-hub>[role=tabpanel]{min-height:0;overflow:auto}
+.floating-message-panel .chat-workspace{height:100%;min-height:0}
+.floating-message-panel .messages-side{overflow:auto}
+.floating-message-panel .messages-thread{display:flex;flex-direction:column;min-height:0;overflow:auto}
+.floating-message-panel .messages-thread[hidden]{display:none}
+.floating-message-panel .messages-thread>:not(.messages-scroll){flex-shrink:0}
+.floating-message-panel .messages-scroll{flex:1;height:auto;min-height:80px;overflow:auto;overscroll-behavior:contain}
+@media(max-width:760px){
+  .floating-message-panel{inset-inline:8px;width:auto;top:calc(var(--chat-viewport-offset,0px) + 8px);bottom:auto;height:calc(var(--chat-viewport-height,100dvh) - 96px - env(safe-area-inset-bottom,0px))}
+  .floating-message-content{padding:8px}
+  .floating-message-panel .messages-categories{flex-wrap:wrap;gap:4px}
+  .floating-message-panel .messages-tabs{justify-content:space-between}
+  .floating-message-panel .messages-tabs [role=tab]{padding:8px;flex:1}
+  .floating-message-panel .messages-new-group{margin-inline-start:auto}
+  .floating-message-panel .messages-tabs svg{width:18px;height:18px}
+}
+
+@media(max-width:760px){.floating-messages{top:calc(var(--chat-viewport-offset,0px) + var(--chat-viewport-height,100dvh) - 76px - env(safe-area-inset-bottom,0px));bottom:auto}}

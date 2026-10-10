@@ -27,6 +27,11 @@ const NOTIFICATION_CONSOLE_CHANNELS = {
   event_schedule_changed: 'system',
   event_cancelled: 'system',
   event_start_reminder: 'system',
+  squad_member_removed: 'system',
+  social_post_commented: 'system',
+  social_post_liked: 'system',
+  squad_join_requested: 'system',
+  squad_join_accepted: 'system',
 } as const satisfies Record<NotificationKind, GameConsoleSourceChannel>
 
 export const GITHUB_CONSOLE_KINDS = [

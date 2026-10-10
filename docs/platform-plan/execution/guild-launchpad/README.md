@@ -6,11 +6,21 @@
 
 ## 目前狀態
 
-<!-- glp-status: as_of=2026-10-08 release.production=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 release.staging=cc72c3fd93cea3b1369923b6bd7b8539b23d91d0 flag.production=true flag.staging=true repo_max_migration=144 applied_migration.production=133 applied_migration.staging=133 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
+<!-- glp-status: as_of=2026-10-10 release.production=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c release.staging=e9770b3a7a0abb1cc58f8ee5700f0a99162c091c flag.production=true flag.staging=true repo_max_migration=153 applied_migration.production=141 applied_migration.staging=141 capacity_policy_rows=1 authority_policy_rows=0 accepted_m1=false accepted_full=false -->
 
-本節部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+本候選的 repository migration 已到 153（144 為 #413 供貨合作，145 為 #390 發文附圖，146 為 #420 小隊管理，147／148 為 #418 整合的編輯與社群互動，149 為 #412 通知偏好、150 為 #405 訊息收回、151 為 #410 互動通知、152 為 #347 第一次參與、153 為 #348 活動參與）；這是程式整合狀態，兩環境已套用的版本仍為下述 141。
 
-狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。本機候選最新 migration 是 144（活動參與、提醒與候補，尚未部署；143 為通知偏好，尚未部署；142 為私人作品草稿，尚未部署；141 為私人收藏與追蹤，尚未部署；140 為商店版型呈現，尚未部署；139 為私訊圖片 Asset，尚未部署；HO-1/2 候選帶進 138，為自有商品預留的封閉後端，尚未合併或啟用 API；社群搜尋標籤候選新增 137、會員封鎖修復候選新增 136；線上商店會員畫面帶進 135，把線上商店提供給所有公會；線上商店後端帶進 134；#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），r9 時點兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用；134、135 在 r9 收據時點尚未套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
+2026-10-10 更新（operator 私有收據的去敏摘要）：production 與 staging 都已部署 reviewed runtime `e9770b3a`（#391），使用同一份 dist；兩邊 ledger 已到 141，共 140 筆，022 是唯一歷史缺號。staging 於 01:48Z、production 於 02:14Z 讀回新版本。公會啟動台保持啟用，商品照片讀取／上傳已啟用，預留接單仍關閉。私人供貨條件與零售價已分開；跨會員選品、供貨接受／撤回及共同庫存訂單仍缺實作。
+
+Staging 真實 Workers／PostgreSQL／R2／Images 店主瀏覽器旅程通過，包含建立商店、商品與版型、照片新增／替換／移除、私人預覽、明確發布、重新登入及另一會員無權讀取。這次使用兩位既有合格示範會員；正式站則完成 34 個公開與 19 個登入 HTTP 檢查，未宣稱正式完整店主瀏覽器驗收。兩環境發布前後四份備份的資料庫與物件還原、遠端讀回及清理皆通過，其中 staging 更新後備份涵蓋兩個實際照片版本。相容照片的備份 operator 已先安裝，臨時 staging Access 已撤銷。
+
+詳見 [10 月 10 日發布收據](../unified-foundation/rollout-2026-10-10.json)。main 另已合併 #394 `0cb14739` 的本地庫存介面與連續新會員開店測試，但它尚未部署；不能把同店兩位買家的庫存競態當成跨賣方供貨或庫存外移。installed CI source 已更新為 `fa2fcdef`，實際正反例見[固定 workflow 收據](../../verification/main-ruleset-2026-10-10.json)。完整 Foundation／M1／第二操作者復原仍未接受。
+
+以下 r9 的部署／migration／功能與候選描述保留為 2026-10-08 歷史紀錄；最新部署與已套用 schema 以上述 10 月 10 日摘要及現況快照為準，不把本輪 selected HTTP checks 當成原 T-ID 或完整產品驗收。
+
+本節以下的部署與已套用 migration 是 r9 歷史收據，觀察截至 2026-10-08 19:46Z，不是即時狀態；repository 最大編號則反映本候選原始碼。權威來源是 [unified-foundation 現況快照](../unified-foundation/current-state.json)的 `deployment`、`features.guild_launchpad` 與 `schema`；文字紀錄見 [Foundation 收尾](../unified-foundation/closeout.md)的 10 月 8 日第五輪 rollout、staging 試開、production 開啟，以及第六～第九輪 rollout。上面的 `glp-status` 註解由 `validate-spec-pack.py` 對照來源檢查，CI 的 contracts pytest 也會執行這項檢查，不一致就失敗；更新現況快照的這些欄位時，要同時更新這一節。
+
+狀態行由 `validate-spec-pack.py --write-status` 從 `migrations/`（repository 最大編號）、`current-state.json`（operator 觀察：部署、flag、已套用 migration、政策列）與 `acceptance-progress.json`（各里程碑驗收進度：M1 的 28 案全部有證據通過才接受 M1，60 案全部通過才接受完整計畫）產生。本機候選最新 migration 是 140（商店版型呈現，尚未部署；139 為私訊圖片 Asset，尚未部署；HO-1/2 候選帶進 138，為自有商品預留的封閉後端，尚未合併或啟用 API；社群搜尋標籤候選新增 137、會員封鎖修復候選新增 136；線上商店會員畫面帶進 135，把線上商店提供給所有公會；線上商店後端帶進 134；#193 的整合 #284 新增 132／133；#244 於 2026-10-08 合併，帶進 126、127；P-D1（#239）帶進 128；P-D2a（#269）帶進 129；P-D2b 帶進 130；P-B2b（#279）帶進 131），r9 時點兩個環境都已套用到 133（128～130 於 2026-10-08 第六輪、131 於第七輪、132／133 於第八輪套用；134、135 在 r9 收據時點尚未套用）。local 執行可以記錄，但不算驗收證據：passed 至少要有一筆 ci、staging 或 production 的通過紀錄。
 
 2026-10-08 電商分類決策：`guild_commerce_sales` 歸 `external`（社群業務推廣）。這是已確認的目標；各環境須由真實有權管理員依 [SP-01 執行步驟](SP-01-guild-preferences.md#2026-10-08-電商分類的執行步驟) 送既有分類命令，保留分類事件與管理稽核。migration 135 不直接更新分類，此處不宣稱已套用。
 

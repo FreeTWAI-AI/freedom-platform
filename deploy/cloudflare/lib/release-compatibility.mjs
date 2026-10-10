@@ -12,7 +12,7 @@ const LEGACY_FILE = /^[0-9]{3}_[a-z0-9_]+\.sql$/;
 const DAG_NAME = /^v2_(\d{8}T\d{9}Z)_([0-9a-f]{16})_([a-z][a-z0-9_]{0,63})\.sql$/;
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/;
 const ENVIRONMENTS = ['next', 'staging-next'];
-const CAPABILITIES = ['commerce.shop-service-authority.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
+const CAPABILITIES = ['commerce.shop-service-authority.v1', 'execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'platform.legacy.v1', 'work.explicit-wire.v1', 'avatar.asset-bridge.v1', 'avatar.legacy-bytes.v1', 'work.personal-owner-acl.v1', 'work.private-human-result.v1', 'work.server-policy.v1', 'execution.member-run-record.v1', 'execution.runtime-enrollment.v1', 'execution.agent-connection-record.v1', 'execution.bootstrap-status.v1', 'execution.device-authorization.v1', 'execution.bootstrap-session.v1', 'execution.member-prerequisites.v1', 'execution.model-text-step.v1', 'work.private-model-result.v1', 'execution.model-credential-custody.v1', 'execution.model-broker-bridge.v1', 'execution.model-credential-ingest.v1', 'execution.member-model-settings.v1', 'execution.member-device-management.v1', 'media.server-policy.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.write-effects.v1', 'media.domain-gc.v1'];
 const SHAPES = Object.freeze({
   // Durable service/site identity, bound keys and site command facts. This
   // reader floor never chooses legacy policy, rotates keys or grants access.
@@ -30,6 +30,8 @@ const SHAPES = Object.freeze({
   'media.social-thumbnail.asset.v1': { migration: 102, capabilities: ['media.social-thumbnail.asset.v1', 'media.server-policy.v1'] },
   'media.event-highlight.asset.v1': { migration: 104, capabilities: ['media.event-highlight.asset.v1', 'media.server-policy.v1'] },
   'media.skill-image.asset.v1': { migration: 103, capabilities: ['media.skill-image.asset.v1', 'media.server-policy.v1'] },
+  'media.storefront-product-photo.asset.v1': { migration: 141, capabilities: ['media.storefront-product-photo.asset.v1', 'media.server-policy.v1'] },
+  'media.comment-image.asset.v1': { migration: 148, capabilities: ['media.comment-image.asset.v1', 'media.server-policy.v1'] },
   'media.message-image.asset.v1': { migration: 139, capabilities: ['media.message-image.asset.v1', 'media.server-policy.v1'] },
   'media.service-cover.asset.v1': { migration: 100, capabilities: ['media.service-cover.asset.v1', 'media.server-policy.v1'] },
   'media.event-banner.asset.v1': { migration: 100, capabilities: ['media.event-banner.asset.v1', 'media.server-policy.v1'] },
@@ -135,12 +137,22 @@ const FOUNDATION_NAMES = [
   '138_hosted_direct_reservations.sql',
   '139_member_message_images.sql',
   '140_storefront_presentation.sql',
-  '141_community_content_relations.sql',
-  '142_personal_content.sql',
+  '141_storefront_product_photos.sql',
+  '142_community_content_relations.sql',
+  '143_personal_content.sql',
+  // Recognition grants no release authority.
+  '144_hosted_distribution_offers.sql',
+  '145_social_note_image_creation.sql',
+  '146_squad_management_and_kinds.sql',
+  '147_social_post_edits.sql',
+  '148_social_wall_interactions.sql',
   // Personal reminder policy only; no inbox, read cursor, subscription or delivery writes.
-  '143_notification_preferences.sql',
+  '149_notification_preferences.sql',
+  '150_message_retraction.sql',
+  '151_interaction_notifications.sql',
+  '152_first_participation.sql',
   // Participation is opt-in. Existing event publication and review authority do not change.
-  '144_event_participation.sql',
+  '153_event_participation.sql',
 ];
 // Not in SHAPES or CAPABILITIES: candidate enablement and host arrays cannot name it.
 export const INTERNAL_V2_SHAPE = Object.freeze({
@@ -500,7 +512,7 @@ export function evaluateReleaseCompatibility(input, { scan, host } = {}) {
   // 114 requires a persisted preparation before every new ingest submission;
   // generic pre-114 ingest support cannot satisfy the changed writer contract.
   if (Math.max(plannedLast, floorLast) >= 114 && required.has('execution.model-credential-ingest.v1')) required.add('execution.model-credential-preparation.v1');
-  for (const shape of ['execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
+  for (const shape of ['execution.model-credential-preparation.v1', 'execution.openrouter-selection.v1', 'avatar.legacy-bytes.v1', 'media.service-cover.asset.v1', 'media.event-banner.asset.v1', 'media.event-video.asset.v1', 'media.social-thumbnail.asset.v1', 'media.skill-image.asset.v1', 'media.event-highlight.asset.v1', 'media.message-image.asset.v1', 'media.comment-image.asset.v1', 'media.storefront-product-photo.asset.v1', 'media.social-preview-create.v1', 'media.domain-gc.v1']) {
     if (!required.has(shape)) continue;
     for (const capability of SHAPES[shape].capabilities) required.add(capability);
     if (floor.capabilities.includes(shape)) {

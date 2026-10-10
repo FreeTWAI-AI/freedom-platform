@@ -15,13 +15,15 @@ const port = Number(process.env.PORT ?? 4310);
 const origin = process.env.APP_ORIGIN ?? `http://127.0.0.1:${port}`;
 assertOriginAllowed(freedomEnv, origin);
 
+if(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED))throw new Error('invalid_first_participation_flag');
+if(process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'&&process.env.FREEDOM_PERSONAL_CONTENT_ENABLED!=='true')throw new Error('first_participation_requires_personal_content');
 const pool = createPool();
 await pool.query('SELECT 1');
 if(freedomEnv==='public')await assertPublicDatabase(pool,{registrationCommunityId:process.env.FREEDOM_REGISTRATION_COMMUNITY_ID,databaseName:process.env.FREEDOM_DATABASE_NAME});
 if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED!==undefined&&!['true','false'].includes(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED))throw new Error('invalid_guide_fixture_flag');
 if(process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'&&freedomEnv!=='local')throw new Error('guide_fixture_requires_local');
 const publicGuideAssets=process.env.FREEDOM_GUIDE_FIXTURE_ENABLED==='true'?await createLocalGuideCatalog(freedomEnv):undefined;
-const app = createApp(pool, origin, freedomEnv,{publicGuideAssets,guildLaunchpadEnabled:process.env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true',hostedReservationsEnabled:process.env.FREEDOM_HOSTED_RESERVATIONS_ENABLED==='true',communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',communitySearchEnabled:process.env.FREEDOM_COMMUNITY_SEARCH_ENABLED==='true',unifiedSharingEnabled:process.env.FREEDOM_UNIFIED_SHARING_ENABLED==='true',communityRelationsEnabled:process.env.FREEDOM_COMMUNITY_RELATIONS_ENABLED==='true',personalContentEnabled:process.env.FREEDOM_PERSONAL_CONTENT_ENABLED==='true',eventParticipationEnabled:process.env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true',notificationPreferencesEnabled:process.env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED==='true'});
+const app = createApp(pool, origin, freedomEnv,{publicGuideAssets,guildLaunchpadEnabled:process.env.FREEDOM_GUILD_LAUNCHPAD_ENABLED==='true',hostedReservationsEnabled:process.env.FREEDOM_HOSTED_RESERVATIONS_ENABLED==='true',communityDiscoveryEnabled:process.env.FREEDOM_COMMUNITY_DISCOVERY_ENABLED==='true',memberBlockingEnabled:process.env.FREEDOM_MEMBER_BLOCKING_ENABLED==='true',communitySearchEnabled:process.env.FREEDOM_COMMUNITY_SEARCH_ENABLED==='true',unifiedSharingEnabled:process.env.FREEDOM_UNIFIED_SHARING_ENABLED==='true',communityRelationsEnabled:process.env.FREEDOM_COMMUNITY_RELATIONS_ENABLED==='true',personalContentEnabled:process.env.FREEDOM_PERSONAL_CONTENT_ENABLED==='true',eventParticipationEnabled:process.env.FREEDOM_EVENT_PARTICIPATION_ENABLED==='true',notificationPreferencesEnabled:process.env.FREEDOM_NOTIFICATION_PREFERENCES_ENABLED==='true',firstParticipationEnabled:process.env.FREEDOM_FIRST_PARTICIPATION_ENABLED==='true'});
 app.use('/*', serveBuildAssets('./apps/portal-web/dist'));
 app.get('*', serveStatic({ path: './apps/portal-web/dist/index.html' }));
 

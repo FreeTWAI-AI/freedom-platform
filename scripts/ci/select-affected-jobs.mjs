@@ -378,7 +378,11 @@ export function loadModuleDescriptors(repository, sha) {
     if (bytes.length > 128_000) return { ok: false, descriptors: [] };
     try {
       const value = validateDescriptor(parseJson(bytes));
-      descriptors.push({ ...value, owned_paths: [...value.owned_paths, path] });
+      // A broad owned path may already include this descriptor. Do not spend
+      // another schema slot on redundant synthetic ownership; if adding an
+      // uncovered path exceeds the bound, keep the graph fail-closed.
+      descriptors.push(owns(value, path) ? value
+        : validateDescriptor({ ...value, owned_paths: [...value.owned_paths, path] }));
     } catch { return { ok: false, descriptors: [] }; }
   }
   return { ok: descriptors.length > 0, descriptors };
