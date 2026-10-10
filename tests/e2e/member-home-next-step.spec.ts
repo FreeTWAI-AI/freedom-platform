@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import type { MemberCardData } from '../../apps/portal-web/src/modules/Membership.js';
 import { test, expect, type Page } from './fixtures.js';
-import { navigate } from './navigation.js';
+import { navigate, openHomeGuide } from './navigation.js';
 
 const shots = 'test-results/home-next-step';
 mkdirSync(shots, { recursive: true });
@@ -39,6 +39,7 @@ async function login(page: Page) {
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('heading', { name: '會員首頁', level: 1, exact: true })).toBeVisible();
   // These cases inspect the optional member summary, reached through its visible disclosure.
+  await openHomeGuide(page);
   await page.locator('.home-personal > summary').click();
 }
 
@@ -295,6 +296,7 @@ test('the home action stays compact, readable and reachable in all themes on des
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     for (const width of [1440, 820, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
+      await openHomeGuide(page);
       await expect(prompt.getByText(skillsMessage, { exact: true })).toBeVisible();
       const region = await prompt.boundingBox();
       for (const name of names) {

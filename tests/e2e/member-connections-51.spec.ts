@@ -231,6 +231,7 @@ test('welcome keeps one primary action and selected filters stay distinct in eve
     await shellTheme(page,label,theme);
     for(const width of widths){
       await page.setViewportSize({width,height:width===390?844:900});
+      await expandHomeSections(page);
       await noOverflow(page,`${theme} ${width} home hint`);
       const paint=await hintContrast(page);
       expect(paint.ratio,`${theme} ${width}`).toBeGreaterThanOrEqual(4.5);
