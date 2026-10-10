@@ -430,11 +430,12 @@ export function DirectMessages({client,session,messageImagesEnabled=false,member
       const boundary=thread.items.find(item=>item.message_id===attempt.through);
       const result=await client.post<{user_id:string;read_at:string;updated_count:number}>(`/me/conversations/${encodeURIComponent(id)}/read`,{through_message_id:attempt.through},{idempotencyKey:attempt.key});
       readAttempts.current.delete(id);announceInboxChange();
-      if(!alive.current||!snapshot.current.active||!snapshot.current.readingThread||generation!==threadGeneration.current||currentPeer.current!==id)return;
-      if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&messageOrder(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
-      // Replay counts describe the original command, not the current UI snapshot.
-      // Re-read after ACK instead of subtracting that count from possibly newer mail.
+      if(!alive.current||!snapshot.current.active||!snapshot.current.readingThread||currentPeer.current!==id)return;
+      // A newer thread GET does not invalidate this confirmed read's list totals.
+      // Keep all lifecycle/visibility fences, but reconcile metadata before the history fence.
       void loadConversations(true);
+      if(generation!==threadGeneration.current)return;
+      if(currentPeer.current===id&&boundary)setThread(value=>value&&value.participant.user_id===id?{...value,items:value.items.map(message=>message.sender_ref===id&&!message.read_at&&messageOrder(message,boundary)<=0?{...message,read_at:result.read_at}:message)}:value);
       if(currentPeer.current===id)await loadThread(id,true);
     }catch(cause){
       if(!unconfirmed(cause))readAttempts.current.delete(id);
