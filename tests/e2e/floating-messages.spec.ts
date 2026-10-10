@@ -38,12 +38,55 @@ test('one bubble toggles the persistent inbox across pages and themes at phone, 
   await bubble.click();await expect(panel).toBeHidden();await expect(page.locator('.community-header')).toBeVisible();
 });
 
+async function readFixture(page:Page,kind:'world'|'direct',hold=false){
+  const peer='20000000-0000-4000-8000-000000000099',id='30000000-0000-4000-8000-000000000099';
+  const participant={user_id:peer,display_name:'合成已讀夥伴',avatar_url:null,last_seen_at:null,is_online:false};
+  const message={message_id:id,sender_ref:peer,recipient_ref:'20000000-0000-4000-8000-000000000001',sender_name:participant.display_name,body:'合成已讀邊界',sequence:'1',kind:'world',channel_key:'world',created_at:'2026-10-01T00:00:00Z',read_at:null};
+  let release!:()=>void,acknowledged!:()=>void,unread=1,reads=0,histories=0;
+  const gate=new Promise<void>(resolve=>{release=resolve}),ack=new Promise<void>(resolve=>{acknowledged=resolve});
+  if(!hold)release();
+  const root=kind==='world'?'/api/v1/me/channels/world/world':`/api/v1/me/conversations/${peer}`;
+  await page.route(url=>url.pathname===root+'/messages',async route=>{
+    histories++;
+    await route.fulfill({json:kind==='world'?{channel:{kind:'world',channel_key:'world',name:'世界聊天'},items:[message],unread_count:unread,next_offset:null}:{participant,can_send:true,items:[message],unread_count:unread,next_offset:null}});
+  });
+  await page.route(url=>url.pathname===root+'/activity',route=>route.fulfill({json:kind==='world'?{latest_sequence:'1',unread_count:unread}:{last_message_id:id,unread_count:unread,can_send:true}}));
+  if(kind==='direct')await page.route(url=>url.pathname==='/api/v1/me/conversations',route=>route.fulfill({json:{items:[{participant,can_send:true,last_message:message,unread_count:unread}],unread_count:unread,next_offset:null}}));
+  await page.route(url=>url.pathname===root+'/read',async route=>{
+    reads++;await gate;unread=0;
+    await route.fulfill({json:kind==='world'?{read_sequence:'1',read_at:'2026-10-01T00:00:01Z'}:{user_id:peer,read_at:'2026-10-01T00:00:01Z',updated_count:1}});acknowledged();
+  });
+  return {release,ack,counts:()=>({reads,histories})};
+}
+
 test('closed history stays idle and legacy inbox/popout links open the same panel',async({page})=>{
+  const fixture=await readFixture(page,'world');
   let history=0,reads=0;
   page.on('request',request=>{const url=new URL(request.url());if(/channels\/world\/world\/messages$/.test(url.pathname))history++;if(request.method()==='POST'&&url.pathname.endsWith('/read'))reads++;});
   await login(page);const bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
   await bubble.click();await panel.getByRole('tab',{name:/世界聊天/}).click();await expect(panel.getByRole('textbox',{name:'世界聊天訊息'})).toBeVisible();
-  await bubble.click();const before={history,reads};await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(1300);expect({history,reads}).toEqual(before);
+  // Settle the visible automatic read and its confirmed-history refresh first.
+  await expect.poll(()=>fixture.counts().reads).toBe(1);await fixture.ack;
+  await expect.poll(()=>fixture.counts().histories).toBeGreaterThanOrEqual(2);
+  await bubble.click();await expect(panel).toBeHidden();const before={history,reads};await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(1300);expect({history,reads}).toEqual(before);
   await page.goto('/#messages');await expect(panel).toBeVisible();await expect(bubble).toBeVisible();await expect(page.locator('.member-messages')).toHaveCount(1);
   await page.goto('/?game-console=popout&scope=legacy-fixture');await expect(panel).toBeVisible();await expect(page).toHaveURL(/\/#messages$/);await expect(page.locator('.game-console')).toHaveCount(0);
+});
+
+for(const kind of ['world','direct'] as const)test(`a delayed ${kind} read acknowledgement after collapse starts no hidden history refresh`,async({page})=>{
+  const fixture=await readFixture(page,kind,true);
+  try{
+    await login(page);const bubble=page.locator('.floating-messages'),panel=page.locator('.floating-message-panel');
+    await bubble.click();
+    if(kind==='world')await panel.getByRole('tab',{name:/世界聊天/}).click();
+    else await panel.getByRole('list',{name:'對話列表'}).getByRole('button',{name:/合成已讀夥伴/}).click();
+    await expect.poll(()=>fixture.counts().reads).toBe(1);
+    await bubble.click();await expect(panel).toBeHidden();const before=fixture.counts();
+    fixture.release();await fixture.ack;
+    await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));document.dispatchEvent(new Event('visibilitychange'));});
+    await page.waitForTimeout(1300);expect(fixture.counts()).toEqual(before);
+    await bubble.click();await expect(panel).toBeVisible();
+    await expect.poll(()=>fixture.counts().histories).toBeGreaterThan(before.histories);
+    expect(fixture.counts().reads).toBe(1);
+  }finally{fixture.release();}
 });
