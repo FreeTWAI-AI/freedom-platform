@@ -2784,8 +2784,8 @@
     },
     {
       "path": "apps/portal-web/src/modules/freedom.module.json",
-      "bytes": 2861,
-      "sha256": "5f51a42131457b26c9a2fc29df3a6c6b4026cd02d2ce13fe0b182576e90de021"
+      "bytes": 3902,
+      "sha256": "4f621bf72eefd40ad72474195484db7c56e2ae2b3513dea119e59809fc336b56"
     },
     {
       "path": "apps/portal-web/src/modules/github-connect-help.ts",
@@ -17504,8 +17504,8 @@
     },
     {
       "path": "modules/identity-membership/deactivation.ts",
-      "bytes": 2904,
-      "sha256": "a153fe7048940db01669c392fa92fc082188cf4cad08dc1006655b643a27d4ca"
+      "bytes": 3505,
+      "sha256": "221161588b1ea9353c382b696e3627fc76bc137e142415a43ad2eb3f1df13f93"
     },
     {
       "path": "modules/identity-membership/freedom.module.json",
@@ -20394,8 +20394,8 @@
     },
     {
       "path": "tests/runtime/account-deactivation.test.ts",
-      "bytes": 18682,
-      "sha256": "301c89264b235e2c89ce3d497de16d717798dfc5e8f8fbf69aedae914b08da65"
+      "bytes": 23017,
+      "sha256": "e3697c04565930451fa3c5c66c9588adeb68a690dbc7dbc9484a5be9976b5fe5"
     },
     {
       "path": "tests/runtime/admin-access-session.test.ts",

@@ -14,18 +14,25 @@ export async function deactivateAccount(pool: Pool, input: Command) {
   const body=z.object({password:z.string().min(1).max(200)}).strict().parse(input.body);
   requireCondition(/^[A-Za-z0-9_-]{8,128}$/.test(input.key),400,'idempotency_required','請提供有效的 Idempotency-Key。');
   await authRateLimit(pool,'account-deactivation',input.actor.user_id,10);
-  const ports=legacyMemberReceiptPorts<{deactivated:boolean}>(input);
+  // The password is authorization-only, never material for a fast receipt digest.
+  const ports=legacyMemberReceiptPorts<{deactivated:boolean}>({...input,body:{}});
   return runCommandCore(pool,{
     ...ports,
     async authenticateAndLock(q) { await lockMemberSession(q,input.actor,true); },
     async writeReceipt(q,hash,response) {
-      // The command adapter checks the session after receipt waits. Revoke only
-      // after that final check, on the same transaction, including our session.
+      // The adapter checks current authority after receipt waits. Revocation
+      // and the final deadline-only check below stay in this same transaction.
       await ports.writeReceipt(q,hash,response);
       await q.query('UPDATE users SET active=false WHERE user_id=$1',[input.actor.user_id]);
       await q.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[input.actor.user_id]);
       await q.query('UPDATE member_client_connections SET revoked_at=COALESCE(revoked_at,now()),aggregate_version=aggregate_version+1 WHERE user_id=$1 AND revoked_at IS NULL',[input.actor.user_id]);
       await applyOwnerAccountStatus(q,input.actor.user_id,false);
+      // User/session locks remain held. This transaction deliberately revoked
+      // this session, so only its deadline is rechecked after the final wait.
+      // Concurrent revocation was excluded by the original session row lock.
+      const current=await q.query(`SELECT 1 FROM sessions WHERE token_hash=$1 AND user_id=$2
+        AND expires_at>clock_timestamp()`,[input.actor.session_hash,input.actor.user_id]);
+      requireCondition(current.rowCount===1,401,'session_expired','請重新登入。');
     },
   },async q=>{
     requireCondition(await verifyMemberPassword(q,input.actor.user_id,body.password),422,'password_incorrect','密碼不正確，帳號尚未停用。');

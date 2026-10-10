@@ -25,14 +25,24 @@
     "modules/identity-membership/blocks.ts",
     "apps/portal-web/src/modules/MemberBlocking.tsx",
     "tests/runtime/member-blocking.test.ts",
-    "migrations/136_member_interaction_blocks.sql"
+    "migrations/136_member_interaction_blocks.sql",
+    "apps/platform-api/src/routes/members.ts",
+    "apps/portal-web/src/modules/AccountDeactivation.tsx",
+    "apps/portal-web/src/modules/Onboarding.tsx",
+    "apps/portal-web/src/modules/PreviewProfileMenu.tsx",
+    "apps/portal-web/src/modules/WelcomePreview.tsx",
+    "modules/identity-membership/deactivation.ts",
+    "tests/e2e/account-deactivation.spec.ts",
+    "tests/runtime/account-deactivation-ui.test.ts",
+    "tests/runtime/account-deactivation.test.ts"
   ],
   "public_exports": [
     "modules/identity-membership/member-sharing.ts",
     "modules/identity-membership/blocks.ts"
   ],
   "dependencies": [
-    "command-core"
+    "command-core",
+    "tenant-workspaces"
   ],
   "contract_families": [
     "preview"
@@ -80,6 +90,25 @@
       "operations": [
         "member.block.list",
         "member.block.update"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.account-deactivation",
+      "kind": "http",
+      "entry": "apps/platform-api/src/routes/members.ts",
+      "operations": [
+        "member.account.deactivate"
+      ],
+      "auth_profile": "member-session"
+    },
+    {
+      "surface_id": "member.account-deactivation-form",
+      "kind": "page",
+      "entry": "apps/portal-web/src/modules/AccountDeactivation.tsx",
+      "operations": [
+        "member.account.read",
+        "member.account.deactivate"
       ],
       "auth_profile": "member-session"
     }

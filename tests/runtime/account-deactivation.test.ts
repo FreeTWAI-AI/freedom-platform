@@ -4,10 +4,11 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { createLocalJWKSet,exportJWK,generateKeyPair,SignJWT } from 'jose';
 import { z } from 'zod';
-import { createPool } from '../../packages/db/index.js';
+import { createPool, digest } from '../../packages/db/index.js';
 import { migrate } from '../../scripts/database.js';
 import { seedLocal,DEMO_USERS,DEMO_PASSWORD,DEMO_COMMUNITY } from '../../packages/testing/seed.js';
 import { createApp } from '../../apps/platform-api/src/app.js';
+import { tokenHash } from '../../modules/identity-membership/service.js';
 import { createAdminAccessVerifier } from '../../modules/platform-admin/access.js';
 
 const databaseUrl=process.env.TEST_DATABASE_URL;
@@ -205,4 +206,62 @@ test('new member can deactivate before completing onboarding',async()=>{
   const session={cookie:registration.response.headers.get('set-cookie')!.split(';')[0],csrf:registration.data.csrf_token};
   assert.equal((await request('/me/account/deactivate',session,{password:DEMO_PASSWORD})).status,200);
   assert.equal((await request('/session',session)).status,401);
+});
+
+
+test('deactivation receipt digest binds only the credential-free operation and version',async()=>{
+  const session=await login(),key=randomUUID();
+  const result=await request('/me/account/deactivate',session,{password:DEMO_PASSWORD},{'Idempotency-Key':key});
+  assert.equal(result.status,200);
+  const receipt=(await pool.query('SELECT request_sha256 FROM command_receipts WHERE user_id=$1 AND idempotency_key=$2',[DEMO_USERS[0].user_id,key])).rows[0];
+  assert.equal(receipt.request_sha256,digest({body:{},expected:'1'}));
+  assert.notEqual(receipt.request_sha256,digest({body:{password:DEMO_PASSWORD},expected:'1'}));
+  // Even a committed receipt cannot bypass current session authority.
+  assert.equal((await request('/me/account/deactivate',session,{password:DEMO_PASSWORD},{'Idempotency-Key':key})).status,401);
+});
+
+test('expiry while waiting for the tenant ownership lock rolls back every deactivation fact',async()=>{
+  const session=await login(),otherSession=await login();
+  const tenant=await createTenant(session,'Expiry at ownership lock');
+  await pool.query('UPDATE users SET onboarding_completed_at=now() WHERE user_id=$1',[DEMO_USERS[0].user_id]);
+  const connection=await approveSupplierConnection(session);
+  const hash=tokenHash(session.cookie.split('=')[1]),key=randomUUID();
+  const before=(await pool.query('SELECT active FROM users WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0];
+  const blocker=await pool.connect();let pending:ReturnType<typeof request>|undefined;
+  try{
+    await blocker.query('BEGIN');
+    const pid=(await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    // This is the same actual tenant row lock used by ownership operations.
+    await blocker.query('SELECT tenant_id FROM tenants WHERE tenant_id=$1 FOR UPDATE',[tenant.tenant_id]);
+    await pool.query("UPDATE sessions SET expires_at=clock_timestamp()+interval '3 seconds' WHERE token_hash=$1",[hash]);
+    pending=request('/me/account/deactivate',session,{password:DEMO_PASSWORD},{'Idempotency-Key':key});
+    const deadline=Date.now()+10000;let blocked=false;
+    while(Date.now()<deadline){
+      blocked=(await pool.query('SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1::int=ANY(pg_blocking_pids(pid))) AS waiting',[pid])).rows[0].waiting;
+      if(blocked)break;
+      await new Promise(resolve=>setTimeout(resolve,20));
+    }
+    assert.equal(blocked,true,'the real HTTP command must reach the tenant row-lock wait');
+    while((await pool.query('SELECT expires_at>clock_timestamp() AS live FROM sessions WHERE token_hash=$1',[hash])).rows[0].live){
+      assert.ok(Date.now()<deadline,'database clock should pass the session deadline');
+      await new Promise(resolve=>setTimeout(resolve,20));
+    }
+    await blocker.query('ROLLBACK');
+    const result=await pending;
+    assert.equal(result.status,401);assert.equal(result.data.code,'session_expired');
+  }finally{
+    await blocker.query('ROLLBACK');blocker.release();
+    if(pending)await pending;
+  }
+  assert.deepEqual((await pool.query('SELECT active FROM users WHERE user_id=$1',[DEMO_USERS[0].user_id])).rows[0],before);
+  assert.equal((await request('/session',otherSession)).status,200);
+  assert.equal((await pool.query('SELECT revoked_at FROM sessions WHERE token_hash=$1',[hash])).rows[0].revoked_at,null);
+  assert.deepEqual((await pool.query('SELECT revoked_at,aggregate_version::text AS version FROM member_client_connections WHERE connection_id=$1',[connection.connection_id])).rows[0],{revoked_at:null,version:'1'});
+  assert.deepEqual((await pool.query('SELECT status,authorization_revision::text AS revision FROM tenants WHERE tenant_id=$1',[tenant.tenant_id])).rows[0],{status:'active',revision:tenant.authorization_revision});
+  for(const [table,where,args] of [
+    ['command_receipts','idempotency_key=$1',[key]],
+    ['transition_journal',"aggregate_id=$1 AND command='deactivate_account'",[DEMO_USERS[0].user_id]],
+    ['tenant_authority_audit',"tenant_id=$1 AND action='tenant.security.owner_disabled'",[tenant.tenant_id]],
+    ['scoped_outbox',"event_type='freedom.tenant.recovery.required.v1'",[]],
+  ] as const)assert.equal((await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${where}`,[...args])).rows[0].n,0);
 });
