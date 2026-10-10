@@ -19509,13 +19509,13 @@
     },
     {
       "path": "scripts/reconcile-issue-closures.mjs",
-      "bytes": 10439,
-      "sha256": "6270bab62cdc7fd720aa8159e5c9c18ea16fa1d9ab24d2a664fc2f19bd542f40"
+      "bytes": 10538,
+      "sha256": "47bc6fea59d6cf034ec323a832f83b74eb69b6b4bcf504a3f3f8f93e0117d201"
     },
     {
       "path": "scripts/reconcile-issue-closures.test.mjs",
-      "bytes": 7252,
-      "sha256": "4a8a932869fbc63183f5989c2d7ff49d30d18be349c524e6ad91f511d3376c23"
+      "bytes": 7756,
+      "sha256": "469eba9fb28bab6766db001e2847b8db3a4f6af4676c52cb4ad4adf9039d718f"
     },
     {
       "path": "scripts/release-source-archive.py",

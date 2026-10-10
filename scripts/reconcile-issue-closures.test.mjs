@@ -81,6 +81,16 @@ test('captures only merge-time closure references from a merged default-branch P
     pull_request: {...event.pull_request, title: 'Maintenance fixes', body: '#13 unrelated reference'},
   }, repository, {runId: 100, runAttempt: 1});
   assert.equal(splitClosingReference, null);
+  const invalidReferences = captureMergeEvidence({
+    ...event,
+    pull_request: {...event.pull_request, title: 'Closes #0', body: 'Fixes #9007199254740993'},
+  }, repository, {runId: 100, runAttempt: 1});
+  assert.equal(invalidReferences, null);
+  const mixedReferences = captureMergeEvidence({
+    ...event,
+    pull_request: {...event.pull_request, title: '', body: 'Closes #14 and Closes #0'},
+  }, repository, {runId: 100, runAttempt: 1});
+  assert.deepEqual(mixedReferences.issue_numbers, [14]);
 });
 
 test('only closes issues recorded at merge for a PR merged to the default branch', () => {

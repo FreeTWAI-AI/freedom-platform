@@ -31,7 +31,12 @@ function matchingIssueNumbers(text, repository) {
   const numbers = new Set();
   CLOSING_KEYWORD.lastIndex = 0;
   for (const match of markdownProse(text).matchAll(CLOSING_KEYWORD)) {
-    if (!match[1] || match[1].toLowerCase() === repository.toLowerCase()) numbers.add(Number(match[2]));
+    const number = Number(match[2]);
+    if (
+      (!match[1] || match[1].toLowerCase() === repository.toLowerCase())
+      && Number.isSafeInteger(number)
+      && number > 0
+    ) numbers.add(number);
   }
   return numbers;
 }
