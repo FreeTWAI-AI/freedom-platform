@@ -39,7 +39,8 @@
     "tests/e2e/sharing-authoring-fixture.ts",
     "scripts/verify-cloud-candidate-members.ts",
     "tests/e2e/cloud-candidate-acceptance.spec.ts",
-    "tests/e2e/member-feature-fixture.ts"
+    "tests/e2e/member-feature-fixture.ts",
+    "tests/e2e/event-banner.spec.ts"
   ],
   "owner_role": "foundation",
   "public_exports": [
