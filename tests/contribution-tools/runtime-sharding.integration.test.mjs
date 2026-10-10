@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { FULL_RUNTIME_BASELINE } from '../../packages/contribution-tools/runtime-suites.mjs';
 import { runLocalSuite, partitionRuntimeFiles, isDisposableDatabaseUrl } from '../../packages/contribution-tools/suite-runner.mjs';
 import { validateFormat } from '../../packages/contribution-tools/formats.mjs';
@@ -104,18 +106,74 @@ test('full shards cover every file once; one failing shard cannot hide the compl
 
 test('global cancellation kills all four active shards and cleans only invocation-owned databases', {}, async t => {
   const root = await fullFixture(t);
-  for (const path of partitionRuntimeFiles(names, 4).map(shard => shard[0])) await put(root, path, "import {test} from 'node:test';test('pending',()=>new Promise(()=>setInterval(()=>{},1000))); ");
+  const markers = partitionRuntimeFiles(names, 4).map((_, index) => join(root, `started-${index}`));
+  for (const [index, path] of partitionRuntimeFiles(names, 4).map(shard => shard[0]).entries()) {
+    await put(root, path, `import {test} from 'node:test';import {writeFile} from 'node:fs/promises';test('pending',async()=>{await writeFile(${JSON.stringify(markers[index])},String(process.pid));await new Promise(()=>setInterval(()=>{},1000));});`);
+  }
+  // Disk provisioning can outlast the old one-second cancellation timer. Keep
+  // that condition deterministic, then cancel only once all four children run.
+  const original = Client.prototype.query;
+  let delayed = false;
+  Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    if (!delayed && text?.startsWith('CREATE DATABASE "fp_suite_')) {
+      delayed = true;
+      return original.call(this, {text:'SELECT pg_sleep(1.2)', query_timeout:3000})
+        .then(() => original.apply(this, args));
+    }
+    return original.apply(this, args);
+  };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1000);
+  const running = runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
   try {
-    const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
+    const deadline = performance.now() + 20_000;
+    let started = [];
+    while (performance.now() < deadline) {
+      started = await Promise.all(markers.map(path => readFile(path, 'utf8').catch(error => {
+        if (error.code === 'ENOENT') return ''; throw error;
+      })));
+      if (started.every(pid => /^[1-9]\d*$/.test(pid))) break;
+      await delay(50);
+    }
+    assert(delayed);
+    assert(started.every(pid => /^[1-9]\d*$/.test(pid)), 'all four fixture children must start before cancellation');
+    assert.equal(new Set(started).size, 4);
+    controller.abort();
+    const result = await running;
     validateReport(result);
     assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
     assert.equal(result.database_cleanup_verified, true);
     assert.equal(result.shards.length, 4);
     assert(result.shards.every(shard => shard.reason === 'test_cancelled' && shard.termination_signal === 'SIGKILL'));
     assert.deepEqual(result.shards.flatMap(shard => shard.selected_files).sort(), names);
-  } finally { clearTimeout(timer); }
+  } finally {
+    controller.abort();
+    await running;
+    Client.prototype.query = original;
+  }
+});
+
+test('cancellation during database provisioning starts no shards and cleans owned databases', {}, async t => {
+  const root = await fullFixture(t), controller = new AbortController();
+  const original = Client.prototype.query;
+  let cancelled = false;
+  Client.prototype.query = function(...args) {
+    const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+    const result = original.apply(this, args);
+    if (!cancelled && text?.startsWith('CREATE DATABASE "fp_suite_')) {
+      cancelled = true;
+      controller.abort();
+    }
+    return result;
+  };
+  try {
+    const result = await runLocalSuite(root, 'runtime.full', { testDatabaseUrl: database, signal: controller.signal });
+    validateReport(result);
+    assert(cancelled);
+    assert.equal(result.status, 'failed'); assert.equal(result.reason, 'test_cancelled');
+    assert.deepEqual(result.shards, []); assert.equal(result.test_count, 0);
+    assert.equal(result.database_cleanup_verified, true);
+  } finally { Client.prototype.query = original; }
 });
 
 test('lost DROP acknowledgement reconciles exact owned names on a fresh verified connection', {}, async () => {
